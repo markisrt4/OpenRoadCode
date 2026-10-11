@@ -25,10 +25,40 @@ MODE_LABELS = {
 }
 
 
+class NativeSceneGeometry:
+    """Cache immutable cymbal meshes so detailed grooves do not rebuild each frame."""
+
+    def __init__(self, gl):
+        self._gl = gl
+        self._lists = {}
+
+    def draw(self, key, build):
+        identifier = self._lists.get(key)
+        if identifier is None:
+            identifier = self._gl.glGenLists(1)
+            if not identifier:
+                raise RuntimeError('OpenGL geometry allocation failed')
+            self._gl.glNewList(identifier, self._gl.GL_COMPILE)
+            try:
+                build()
+            except Exception:
+                self._gl.glEndList()
+                self._gl.glDeleteLists(identifier, 1)
+                raise
+            self._gl.glEndList()
+            self._lists[key] = identifier
+        self._gl.glCallList(identifier)
+
+    def close(self):
+        for identifier in self._lists.values():
+            self._gl.glDeleteLists(identifier, 1)
+        self._lists.clear()
+
+
 def draw_scene(gl, glu, quadric, options: MusicVisualizerOptions, frame: VisualizerFrame,
-               pulse: float, decay: float, elapsed: float, aspect: float) -> None:
+               pulse: float, decay: float, elapsed: float, aspect: float, geometry=None) -> None:
     if options.view is MusicVisualizerView.DRUM_KIT:
-        _drums(gl, glu, quadric, options, frame, pulse, decay, elapsed, aspect)
+        _drums(gl, glu, quadric, options, frame, pulse, decay, elapsed, aspect, geometry)
         return
     gl.glDisable(gl.GL_LIGHTING)
     gl.glLineWidth(2)
@@ -191,8 +221,11 @@ def _lighting(gl):
     gl.glEnable(gl.GL_LIGHT0)
     gl.glEnable(gl.GL_COLOR_MATERIAL)
     gl.glLightfv(gl.GL_LIGHT0, gl.GL_POSITION, (2, 7, 6, 1))
-    gl.glLightfv(gl.GL_LIGHT0, gl.GL_DIFFUSE, (.9, .95, 1, 1))
-    gl.glLightModelfv(gl.GL_LIGHT_MODEL_AMBIENT, (.18, .22, .3, 1))
+    gl.glLightfv(gl.GL_LIGHT0, gl.GL_DIFFUSE, (1, .91, .8, 1))
+    gl.glEnable(gl.GL_LIGHT1)
+    gl.glLightfv(gl.GL_LIGHT1, gl.GL_POSITION, (-4, 3, -3, 1))
+    gl.glLightfv(gl.GL_LIGHT1, gl.GL_DIFFUSE, (.3, .42, .65, 1))
+    gl.glLightModelfv(gl.GL_LIGHT_MODEL_AMBIENT, (.15, .17, .2, 1))
     gl.glMaterialfv(gl.GL_FRONT_AND_BACK, gl.GL_SPECULAR, (.7, .7, .7, 1))
     gl.glMaterialf(gl.GL_FRONT_AND_BACK, gl.GL_SHININESS, 48)
 
@@ -204,7 +237,7 @@ def drum_camera_distance(zoom: float, aspect: float) -> float:
     return max(10.5 / max(.8, zoom), fit)
 
 
-def _drums(gl, glu, q, options, frame, pulse, decay, elapsed, aspect):
+def _drums(gl, glu, q, options, frame, pulse, decay, elapsed, aspect, geometry):
     distance = drum_camera_distance(options.drum_zoom, aspect)
     glu.gluLookAt(0, 1.1 + distance * .4, distance * .9 - pulse * .08,
                   0, 1.1, .1, 0, 1, 0)
@@ -220,60 +253,111 @@ def _drums(gl, glu, q, options, frame, pulse, decay, elapsed, aspect):
     gl.glEnd()
     gl.glEnable(gl.GL_LIGHTING)
     def activity(value):
-        return min(1, value * options.beat_gain) * decay
+        return drum_activity(value, options.drum_gain) * decay
     drums = [(-1.15, 1.35, -.6, .6, .48, (.55, .12, .72), frame.tom_high),
              (0, 1.5, -.9, .67, .55, (.05, .65, .48), frame.tom_mid),
              (1.4, .65, -.1, .88, .9, (.08, .4, .78), frame.tom_low),
              (-1.3, .3, 1.15, .72, .32, (.75, .38, .05), frame.snare)]
     kicks = [-.65, .65] if options.kick_mode is KickMode.DOUBLE else [0]
     for x in kicks:
-        _drum(gl, glu, q, x, .2, .6, .85, .85, (.65, .08, .12), activity(frame.kick), kick=True)
+        _drum(gl, glu, q, x, .5, .6, .85, .85, (.65, .08, .12), activity(frame.kick), kick=True)
     for x, y, z, r, h, color, hit in drums:
         _drum(gl, glu, q, x, y, z, r, h, color, activity(hit))
     cymbals = [(-2.4, 2.05, -.2, .95), (2.45, 2.5, -1, .98), (-2.2, 1.1, 1.2, .55)]
     for x, y, z, r in cymbals:
         hit = activity(frame.cymbal)
-        gl.glPushMatrix()
-        gl.glTranslatef(x, -.3, z)
-        gl.glRotatef(-90, 1, 0, 0)
-        gl.glColor3f(.65, .68, .74)
-        glu.gluCylinder(q, .025, .025, y + .3, 12, 1)
-        gl.glPopMatrix()
+        _stand(gl, glu, q, x, y, z)
         gl.glPushMatrix()
         gl.glTranslatef(x, y, z)
-        gl.glRotatef(-90 + math.sin(elapsed * 32) * hit * 12, 1, 0, 0)
-        gl.glColor3f(.78 + hit * .2, .55 + hit * .25, .12)
-        glu.gluCylinder(q, r, .15, .12, 48, 4)
-        glu.gluDisk(q, .025, r, 48, 4)
+        gl.glRotatef(-90 + math.sin(elapsed * 24) * hit * 6, 1, 0, 0)
+        if geometry is None:
+            _cymbal(gl, glu, q, r)
+        else:
+            geometry.draw(('cymbal', r), lambda radius=r: _cymbal(gl, glu, q, radius))
         gl.glPopMatrix()
-    if options.show_sticks:
-        # Two virtual hands choose the most active reachable instrument, rather
-        # than placing a separate floating stick over every piece of the kit.
-        targets = [(x, y, z, r, h, -65, activity(hit)) for x, y, z, r, h, _, hit in drums]
-        targets += [(x, y, z, r, 0, -90, activity(frame.cymbal)) for x, y, z, r in cymbals]
-        for side in [-1, 1]:
-            reachable = [target for target in targets if side * target[0] >= -.1]
-            target = max(reachable, key=lambda item: item[-1])
-            x, y, z, r, h, tilt, hit = target
-            gl.glPushMatrix()
-            gl.glTranslatef(x, y, z)
-            gl.glRotatef(tilt, 1, 0, 0)
-            gl.glTranslatef(side * .08, 0, h)
-            _stick(gl, glu, q, r, hit)
-            gl.glPopMatrix()
+    for x, y, z, _, _, _, _ in drums:
+        _stand(gl, glu, q, x, y, z)
+    for x in kicks:
+        _chrome(gl)
+        _rod(gl, glu, q, (x - .65, -.25, 1.05), (x - .7, .35, .95), .035)
+        _rod(gl, glu, q, (x + .65, -.25, 1.05), (x + .7, .35, .95), .035)
+        gl.glPushMatrix()
+        gl.glTranslatef(x, -.25, 1.9)
+        gl.glRotatef(-100, 1, 0, 0)
+        glu.gluCylinder(q, .11, .07, .42, 16, 1)
+        gl.glPopMatrix()
     gl.glDisable(gl.GL_LIGHTING)
 
 
-def _stick(gl, glu, q, radius, hit):
-    # A visible resting stick pivots down on attack. No unsupported drum claims.
-    gl.glColor3f(.9, .72, .46)
+def drum_activity(value: float, gain: float) -> float:
+    """Reject steady percussion baselines; soften hits independently of visualizer gain."""
+    onset = max(0.0, min(1.0, value) - .22) / .78
+    return min(1.0, onset ** 1.6 * max(0.0, gain))
+
+
+def _chrome(gl):
+    gl.glColor3f(.62, .67, .72)
+    gl.glMaterialfv(gl.GL_FRONT_AND_BACK, gl.GL_SPECULAR, (.95, .95, .95, 1))
+    gl.glMaterialf(gl.GL_FRONT_AND_BACK, gl.GL_SHININESS, 96)
+
+
+def _rod(gl, glu, q, start, end, radius):
+    dx, dy, dz = (b - a for a, b in zip(start, end))
+    length = math.sqrt(dx * dx + dy * dy + dz * dz)
+    if length < 1e-6:
+        return
     gl.glPushMatrix()
-    gl.glTranslatef(-radius * .6, 0, .18 + (1 - hit) * .25)
-    gl.glRotatef(58 + hit * 28, 0, 1, 0)
-    glu.gluCylinder(q, .035, .023, radius * 1.5, 12, 1)
-    gl.glTranslatef(0, 0, radius * 1.5)
-    glu.gluSphere(q, .045, 12, 8)
+    gl.glTranslatef(*start)
+    if abs(dx) + abs(dy) > 1e-6:
+        gl.glRotatef(math.degrees(math.acos(max(-1, min(1, dz / length)))), -dy, dx, 0)
+    elif dz < 0:
+        gl.glRotatef(180, 1, 0, 0)
+    glu.gluCylinder(q, radius, radius, length, 12, 1)
     gl.glPopMatrix()
+
+
+def _stand(gl, glu, q, x, height, z):
+    _chrome(gl)
+    _rod(gl, glu, q, (x, -.28, z), (x, height, z), .025)
+    for i in range(3):
+        angle = i * math.tau / 3
+        _rod(gl, glu, q, (x, -.1, z),
+             (x + math.cos(angle) * .38, -.32, z + math.sin(angle) * .38), .02)
+
+
+def _cymbal(gl, glu, q, radius):
+    gl.glMaterialfv(gl.GL_FRONT_AND_BACK, gl.GL_SPECULAR, (.9, .75, .4, 1))
+    gl.glMaterialf(gl.GL_FRONT_AND_BACK, gl.GL_SHININESS, 72)
+    gl.glColor3f(.74, .52, .14)
+    def profile(r):
+        return .16 * math.exp(-((r / radius) / .21) ** 2) + .025 * (r / radius) ** 2
+    for ring in range(20):
+        inner, outer = radius * ring / 20, radius * (ring + 1) / 20
+        gl.glBegin(gl.GL_QUAD_STRIP)
+        for i in range(65):
+            a = i * math.tau / 64
+            for r in (inner, outer):
+                slope = (profile(r + .001) - profile(max(0, r - .001))) / .002
+                gl.glNormal3f(-slope * math.cos(a), -slope * math.sin(a), 1)
+                gl.glVertex3f(r * math.cos(a), r * math.sin(a), profile(r))
+        gl.glEnd()
+    gl.glDisable(gl.GL_LIGHTING)
+    gl.glLineWidth(1)
+    gl.glColor3f(.43, .32, .1)
+    for ring in range(4, 30):
+        r = radius * ring / 30
+        gl.glBegin(gl.GL_LINE_LOOP)
+        for i in range(64):
+            a = i * math.tau / 64
+            gl.glVertex3f(r * math.cos(a), r * math.sin(a), profile(r) + .001)
+        gl.glEnd()
+    gl.glEnable(gl.GL_LIGHTING)
+    gl.glColor3f(.08, .07, .05)
+    gl.glTranslatef(0, 0, .16)
+    glu.gluCylinder(q, .055, .045, .05, 16, 1)
+    _chrome(gl)
+    gl.glTranslatef(0, 0, .05)
+    glu.gluSphere(q, .035, 16, 10)
 
 
 def _drum(gl, glu, q, x, y, z, r, h, color, hit, *, kick=False):
@@ -281,18 +365,42 @@ def _drum(gl, glu, q, x, y, z, r, h, color, hit, *, kick=False):
     gl.glTranslatef(x, y, z)
     if not kick:
         gl.glRotatef(-65, 1, 0, 0)
-    gl.glScalef(1 + hit * .06, 1 + hit * .06, 1)
-    gl.glColor3f(*color)
-    glu.gluCylinder(q, r, r, h, 40, 1)
-    gl.glTranslatef(0, 0, h)
-    gl.glColor3f(.18 + hit * .65, .22 + hit * .6, .28 + hit * .55)
-    glu.gluDisk(q, 0, r, 40, 4)
-    gl.glColor3f(.7, .76, .82)
-    glu.gluDisk(q, r * .94, r * 1.025, 40, 1)
-    for i in range(8):
-        a = i * math.tau / 8
+    # Subtle lacquer variation reads as grain; shell and hardware stay rigid.
+    gl.glMaterialfv(gl.GL_FRONT_AND_BACK, gl.GL_SPECULAR, (.55, .55, .55, 1))
+    gl.glMaterialf(gl.GL_FRONT_AND_BACK, gl.GL_SHININESS, 42)
+    for band in range(12):
+        shade = .68 + .1 * math.sin(band * 1.7)
+        gl.glColor3f(*(c * shade for c in color))
         gl.glPushMatrix()
-        gl.glTranslatef(r * math.cos(a), r * math.sin(a), -.2)
-        glu.gluCylinder(q, .035, .035, .25, 8, 1)
+        gl.glTranslatef(0, 0, h * band / 12)
+        glu.gluCylinder(q, r, r, h / 12, 64, 1)
         gl.glPopMatrix()
+    _chrome(gl)
+    for end in (0, h - .025):
+        gl.glPushMatrix()
+        gl.glTranslatef(0, 0, end)
+        glu.gluCylinder(q, r * 1.025, r * 1.025, .04, 64, 1)
+        glu.gluDisk(q, r * .95, r * 1.025, 64, 1)
+        gl.glPopMatrix()
+    for i in range(10):
+        a = i * math.tau / 10
+        lx, ly = r * 1.01 * math.cos(a), r * 1.01 * math.sin(a)
+        _rod(gl, glu, q, (lx, ly, .04), (lx, ly, h - .02), .018)
+        gl.glPushMatrix()
+        gl.glTranslatef(lx, ly, h - .01)
+        glu.gluSphere(q, .03, 12, 8)
+        gl.glPopMatrix()
+    gl.glTranslatef(0, 0, h - hit * .008)
+    gl.glMaterialfv(gl.GL_FRONT_AND_BACK, gl.GL_SPECULAR, (.12, .12, .12, 1))
+    gl.glMaterialf(gl.GL_FRONT_AND_BACK, gl.GL_SHININESS, 10)
+    head = .23 if kick else .64
+    gl.glColor3f(head + hit * .15, head + hit * .13, head + hit * .1)
+    glu.gluDisk(q, 0, r * .965, 64, 8)
+    gl.glTranslatef(0, 0, .003)
+    gl.glColor3f(.25, .27, .29)
+    glu.gluDisk(q, r * .87, r * .88, 64, 1)
+    if kick:
+        gl.glTranslatef(r * .4, -r * .35, .003)
+        gl.glColor3f(.025, .025, .025)
+        glu.gluDisk(q, 0, r * .14, 32, 1)
     gl.glPopMatrix()

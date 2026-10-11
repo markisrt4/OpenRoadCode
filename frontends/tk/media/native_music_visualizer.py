@@ -12,7 +12,7 @@ from ui.music_visualizer import VisualizerFrame
 from ui.ui_widget import UiWidget
 from ui.music_visualizer.music_visualizer_presentation_if import MusicVisualizerPresentationIf
 from ui.music_visualizer.music_visualizer_types import MusicVisualizerOptions, MusicVisualizerView
-from .music_gl_scene import MODE_LABELS, draw_scene
+from .music_gl_scene import MODE_LABELS, NativeSceneGeometry, draw_scene
 
 
 class NativeMusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
@@ -38,6 +38,7 @@ class NativeMusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
             class Surface(Frame, UiWidget):
                 def __init__(self):
                     self.quadric = None
+                    self.geometry = None
                     super().__init__(panel, width=1, height=1)
                     self.animate = 0
 
@@ -61,6 +62,7 @@ class NativeMusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
                     if not self.quadric:
                         raise RuntimeError('GLU geometry allocation failed')
                     glu.gluQuadricNormals(self.quadric, glu.GLU_SMOOTH)
+                    self.geometry = NativeSceneGeometry(gl)
 
                 def redraw(self):
                     if not panel._closed and not panel._failed:
@@ -132,7 +134,7 @@ class NativeMusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
         decay = math.exp(-max(0, now - self._received - .15) / .15)
         draw_scene(gl, glu, surface.quadric, self._render_settings, self._frame,
                    min(1.5, self._pulse * self._render_settings.beat_gain), decay,
-                   now - self._started, width / height)
+                   now - self._started, width / height, surface.geometry)
 
     def close(self) -> None:
         if self._closed:
@@ -143,6 +145,8 @@ class NativeMusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
             self._job = None
         if self._surface is not None and self._surface.context_created and self._surface.quadric:
             self._surface.tkMakeCurrent()
+            if self._surface.geometry is not None:
+                self._surface.geometry.close()
             self._glu.gluDeleteQuadric(self._surface.quadric)
             self._surface.quadric = None
 

@@ -51,3 +51,51 @@ def test_start_failure_releases_backend_and_reports_error():
         assert 'bridge consent required' in controller.presentation()[1]
     finally:
         controller.close()
+
+
+def test_home_and_full_visualizer_share_one_capture_and_preferences():
+    from ui.music_visualizer import VisualizerFrame
+    from ui.music_visualizer.music_visualizer_types import MusicVisualizerOptions, MusicVisualizationMode
+    released = Event()
+    session = Mock()
+    session.is_running = True
+    session.close.side_effect = released.set
+    factory = Mock(return_value=session)
+    controller = MusicVisualizerController(factory)
+    try:
+        controller.attach_view('full')
+        controller.start(MusicVisualizerSource.ANDROID_PLAYBACK)
+        controller._executor.submit(lambda: None).result(timeout=2)
+        controller.start(MusicVisualizerSource.ANDROID_PLAYBACK)
+        controller._executor.submit(lambda: None).result(timeout=2)
+        assert factory.call_count == 1
+        frame = VisualizerFrame(.3, .2, .1, .1, (.2,)*24)
+        controller._offer_frame(controller._generation, frame)
+        assert controller.latest_frame() is frame
+        assert controller.latest_frame() is frame
+        assert controller.presentation()[0] is frame
+        assert controller.latest_frame() is frame
+        options = MusicVisualizerOptions(mode=MusicVisualizationMode.NEON_RIBBON, drum_gain=.4)
+        controller.configure_visualizer(options)
+        controller.set_home_visualizer_enabled(True)
+        controller.detach_view('full')
+        controller.attach_view('home')
+        assert not released.wait(.35)
+        assert controller.visualizer_options() is options
+        assert controller.home_visualizer_enabled()
+        assert controller.selected_source() is MusicVisualizerSource.ANDROID_PLAYBACK
+        controller.detach_view('home')
+        assert released.wait(2)
+        assert controller.latest_frame() is None
+    finally:
+        controller.close()
+
+
+def test_close_cancels_navigation_handoff_and_ignores_late_audio():
+    controller = MusicVisualizerController(Mock())
+    controller.attach_view('home')
+    controller.detach_view('home')
+    controller.close()
+    controller._offer_frame(controller._generation - 1, Mock())
+    assert controller.latest_frame() is None
+    assert controller._detach_timer is None

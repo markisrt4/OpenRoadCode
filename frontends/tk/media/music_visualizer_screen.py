@@ -25,10 +25,13 @@ class MusicVisualizerScreen(TkScreen):
                  theme_bundle: Callable[[], ThemeBundle],
                  controller: MusicVisualizerControlIf,
                  initial_source: MusicVisualizerSource,
-                 panel_factory=MusicVisualizerPanel, native_controls: bool = False) -> None:
+                 panel_factory=MusicVisualizerPanel, native_controls: bool = False,
+                 share_session: bool = False) -> None:
         super().__init__(ScreenId('music-visualizer'))
         self._panel_factory = panel_factory
         self._native_controls = native_controls
+        self._share_session = share_session
+        self._view_owner = f"full-visualizer-{id(self)}"
         self._host = host
         self._on_back = on_back
         self._theme_bundle = theme_bundle
@@ -54,24 +57,20 @@ class MusicVisualizerScreen(TkScreen):
         self._host.set_screen_title('MUSIC VISUALIZER')
         self._ui = self._theme_bundle().ui
         ui = self._ui
+        if self._share_session:
+            self._controller.attach_view(self._view_owner)
+            self._options = self._controller.visualizer_options()
+            self._source = self._controller.selected_source() or self._source
         self._container = tk.Frame(self._host.screen_parent, bg=ui.background)
         self._container.pack(fill=tk.BOTH, expand=True)
         self._container.grid_columnconfigure(1, weight=1)
         self._container.grid_rowconfigure(0, weight=1)
-        rail = tk.Frame(self._container, bg=ui.surface, highlightbackground=ui.border, highlightthickness=1)
+        rail = tk.Frame(self._container, width=180, bg=ui.surface,
+                        highlightbackground=ui.border, highlightthickness=1)
         rail.grid(row=0, column=0, sticky='ns', padx=(0, 6))
-        canvas = tk.Canvas(rail, width=164, bg=ui.surface, highlightthickness=0)
-        scrollbar = tk.Scrollbar(rail, orient=tk.VERTICAL, command=canvas.yview,
-                                 bg=ui.control_background, troughcolor=ui.surface,
-                                 activebackground=ui.control_active, width=10)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        canvas.configure(yscrollcommand=scrollbar.set)
-        controls = tk.Frame(canvas, bg=ui.surface, padx=6, pady=6)
-        window = canvas.create_window(0, 0, window=controls, anchor='nw')
-        controls.bind('<Configure>', lambda _e: canvas.configure(scrollregion=canvas.bbox('all')))
-        canvas.bind('<Configure>', lambda e: canvas.itemconfigure(window, width=e.width))
-        self._controls = controls
+        rail.pack_propagate(False)
+        self._controls = tk.Frame(rail, bg=ui.surface, padx=5, pady=2)
+        self._controls.pack(fill=tk.BOTH, expand=True)
         self._render_parent = tk.Frame(self._container, bg=ui.background)
         self._render_parent.grid(row=0, column=1, sticky='nsew')
         self._build_controls()
@@ -80,7 +79,7 @@ class MusicVisualizerScreen(TkScreen):
 
     def _label(self, text):
         tk.Label(self._controls, text=text, anchor='w', bg=self._ui.surface,
-                 fg=self._ui.text_muted, font=('Sans', 8, 'bold')).pack(fill=tk.X, pady=(7, 3))
+                 fg=self._ui.text_muted, font=('Sans', 8, 'bold')).pack(fill=tk.X, pady=(3, 1))
 
     def _button(self, text, action, *, active=False):
         ui = self._ui
@@ -88,8 +87,8 @@ class MusicVisualizerScreen(TkScreen):
                            bg=ui.accent_primary if active else ui.control_background,
                            fg=ui.control_text, activebackground=ui.control_active,
                            activeforeground=ui.control_text, font=('Sans', 9, 'bold'),
-                           padx=5, pady=5, highlightthickness=1, highlightbackground=ui.border)
-        button.pack(fill=tk.X, pady=2)
+                           padx=3, pady=3, highlightthickness=1, highlightbackground=ui.border)
+        button.pack(fill=tk.X, pady=1)
         return button
 
     def _picker(self, variable, labels, action):
@@ -101,61 +100,132 @@ class MusicVisualizerScreen(TkScreen):
                          anchor='w')
         picker['menu'].configure(bg=ui.surface, fg=ui.text, activebackground=ui.control_active,
                                  activeforeground=ui.control_text, font=('Sans', 10))
-        picker.pack(fill=tk.X, pady=2)
+        picker.pack(fill=tk.X, pady=1)
         return picker
 
     def _scale(self, variable, low, high, action):
         ui = self._ui
-        tk.Scale(self._controls, variable=variable, from_=low, to=high, resolution=.1,
-                 orient=tk.HORIZONTAL, command=action, length=140,
+        row = tk.Frame(self._controls, bg=ui.surface)
+        row.pack(fill=tk.X)
+        tk.Label(row, textvariable=variable, width=4, bg=ui.surface, fg=ui.text,
+                 font=('Sans', 8)).pack(side=tk.RIGHT)
+        tk.Scale(row, variable=variable, from_=low, to=high, resolution=.1,
+                 orient=tk.HORIZONTAL, command=action, length=110, showvalue=False,
                  bg=ui.surface, fg=ui.text, troughcolor=ui.control_background,
                  activebackground=ui.accent_primary, highlightthickness=0,
-                 font=('Sans', 8), sliderlength=20, bd=0).pack(fill=tk.X)
+                 font=('Sans', 8), sliderlength=20, bd=0).pack(side=tk.LEFT, fill=tk.X, expand=True)
 
     def _build_controls(self):
-        self._label('AUDIO SOURCE')
+        self._rail_body = self._controls
+        self._view_buttons = {}
+        if self._native_controls:
+            views = tk.Frame(self._controls, bg=self._ui.surface)
+            views.pack(fill=tk.X, pady=(0, 3))
+            for label, view in [('VISUALS', MusicVisualizerView.VISUALIZER),
+                                ('DRUMS', MusicVisualizerView.DRUM_KIT)]:
+                button = tk.Button(views, text=label,
+                                   command=lambda v=view: self._select_view(v),
+                                   relief=tk.FLAT, font=('Sans', 9, 'bold'), pady=4,
+                                   fg=self._ui.control_text,
+                                   activebackground=self._ui.control_active)
+                button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
+                self._view_buttons[view] = button
+        tabs = tk.Frame(self._controls, bg=self._ui.surface)
+        tabs.pack(fill=tk.X)
+        for name in ['AUDIO', 'SCENE']:
+            tk.Button(tabs, text=name, command=lambda n=name: self._show_page(n),
+                      relief=tk.FLAT, bg=self._ui.control_background, fg=self._ui.text_muted,
+                      activebackground=self._ui.control_active, font=('Sans', 8, 'bold'),
+                      pady=3).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
+        self._page_host = tk.Frame(self._controls, bg=self._ui.surface)
+        self._page_host.pack(fill=tk.BOTH, expand=True, pady=3)
+        self._audio_page = tk.Frame(self._page_host, bg=self._ui.surface)
+        self._scene_page = tk.Frame(self._page_host, bg=self._ui.surface)
+        self._controls = self._audio_page
+        self._label('SOURCE')
         self._source_name = tk.StringVar(value=self._source.value)
         self._picker(self._source_name, [s.value for s in MusicVisualizerSource],
                      lambda value: self._select_source(value, start=False))
-        self._button('START AUDIO', lambda: self._select_source(self._source_name.get()), active=True)
-        self._button('STOP', self._stop_capture)
+        self._label('NOISE CALIBRATION')
+        calibration = tk.Frame(self._controls, bg=self._ui.surface)
+        calibration.pack(fill=tk.X, pady=2)
+        for text, operation in [('CAL', 'start_zeroize'), ('SAVE', 'finish_zeroize'), ('CLEAR', 'clear_zeroize')]:
+            tk.Button(calibration, text=text, command=lambda op=operation: self._calibrate(op),
+                      relief=tk.FLAT, bg=self._ui.control_background, fg=self._ui.control_text,
+                      activebackground=self._ui.control_active, font=('Sans', 8, 'bold'),
+                      pady=4).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
+        tk.Label(self._controls, text='Pause music: CAL → SAVE', bg=self._ui.surface,
+                 fg=self._ui.text_muted, font=('Sans', 7)).pack(fill=tk.X)
+        self._build_scene_page()
+        self._controls = self._rail_body
+        footer = tk.Frame(self._controls, bg=self._ui.surface)
+        footer.pack(side=tk.BOTTOM, fill=tk.X)
+        start_stop = tk.Frame(footer, bg=self._ui.surface)
+        start_stop.pack(fill=tk.X)
+        for text, action, color in [('START', lambda: self._select_source(self._source_name.get()), self._ui.accent_primary),
+                                   ('STOP', self._stop_capture, self._ui.control_background)]:
+            tk.Button(start_stop, text=text, command=action, bg=color, fg=self._ui.control_text,
+                      activebackground=self._ui.control_active, relief=tk.FLAT,
+                      font=('Sans', 9, 'bold'), pady=4).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
         self._status = tk.StringVar()
-        tk.Label(self._controls, textvariable=self._status, wraplength=140, anchor='w', justify=tk.LEFT,
-                 bg=self._ui.surface, fg=self._ui.text_muted, font=('Sans', 8)).pack(fill=tk.X, pady=4)
-        self._label('VISUALIZER')
+        self._renderer_status = tk.StringVar()
+        tk.Label(footer, textvariable=self._status, height=2, wraplength=165,
+                 anchor='w', justify=tk.LEFT, bg=self._ui.surface, fg=self._ui.text_muted,
+                 font=('Sans', 8)).pack(fill=tk.X, pady=1)
+        self._show_page('SCENE')
+        self._update_view_buttons()
+
+    def _build_scene_page(self):
+        for child in self._scene_page.winfo_children():
+            child.destroy()
+        previous = self._controls
+        self._controls = self._scene_page
         self._mode_name = tk.StringVar(value=MODE_LABELS[self._options.mode])
-        labels = [label for mode, label in MODE_LABELS.items()
-                  if self._native_controls or mode is not MusicVisualizationMode.FREQUENCY_TUNNEL]
-        self._mode_picker = self._picker(self._mode_name, labels, self._select_visualizer)
-        if self._native_controls:
-            self._button('VISUALIZATION', lambda: self._set_options(view=MusicVisualizerView.VISUALIZER))
-            self._button('DRUM KIT', lambda: self._set_options(view=MusicVisualizerView.DRUM_KIT))
-            self._label('BEAT RESPONSE')
-            self._gain = tk.DoubleVar(value=self._options.beat_gain)
-            self._scale(self._gain, .5, 3, lambda value: self._set_options(beat_gain=float(value)))
-            self._label('DRUM KIT')
+        if self._options.view is MusicVisualizerView.DRUM_KIT:
             self._kick_name = tk.StringVar(value=self._options.kick_mode.value)
             self._picker(self._kick_name, ['single', 'double'],
                          lambda value: self._set_options(kick_mode=KickMode(value)))
+            self._label('DRUM RESPONSE')
+            self._drum_gain = tk.DoubleVar(value=self._options.drum_gain)
+            self._scale(self._drum_gain, .2, 1.2,
+                        lambda value: self._set_options(drum_gain=float(value)))
             self._label('DRUM ZOOM')
             self._zoom = tk.DoubleVar(value=self._options.drum_zoom)
             self._scale(self._zoom, .8, 2.8, lambda value: self._set_options(drum_zoom=float(value)))
-            self._sticks = tk.BooleanVar(value=self._options.show_sticks)
-            tk.Checkbutton(self._controls, text='Animated sticks', variable=self._sticks,
-                           command=lambda: self._set_options(show_sticks=self._sticks.get()),
-                           bg=self._ui.surface, fg=self._ui.text, selectcolor=self._ui.control_background,
-                           activebackground=self._ui.surface, activeforeground=self._ui.text,
-                           font=('Sans', 9), anchor='w').pack(fill=tk.X, pady=3)
-        self._label('CALIBRATION')
-        for text, action in [('CALIBRATE', 'start_zeroize'), ('FINISH', 'finish_zeroize'), ('CLEAR', 'clear_zeroize')]:
-            self._button(text, lambda operation=action: self._calibrate(operation))
-        self._renderer_status = tk.StringVar()
-        tk.Label(self._controls, textvariable=self._renderer_status, wraplength=140, justify=tk.LEFT,
-                 bg=self._ui.surface, fg=self._ui.text_muted, font=('Sans', 8)).pack(fill=tk.X, pady=6)
-        self._button('BACK TO MEDIA', self._on_back)
+        else:
+            labels = [label for mode, label in MODE_LABELS.items()
+                      if self._native_controls or mode is not MusicVisualizationMode.FREQUENCY_TUNNEL]
+            self._mode_picker = self._picker(self._mode_name, labels, self._select_visualizer)
+            if self._native_controls:
+                self._label('BEAT RESPONSE')
+                self._gain = tk.DoubleVar(value=self._options.beat_gain)
+                self._scale(self._gain, .5, 3, lambda value: self._set_options(beat_gain=float(value)))
+        self._controls = previous
+
+    def _show_page(self, page):
+        self._audio_page.pack_forget()
+        self._scene_page.pack_forget()
+        (self._audio_page if page == 'AUDIO' else self._scene_page).pack(fill=tk.BOTH, expand=True)
+
+    def _update_view_buttons(self):
+        for view, button in getattr(self, '_view_buttons', {}).items():
+            selected = view is self._options.view
+            color = (self._ui.accent_warning if view is MusicVisualizerView.DRUM_KIT
+                     else self._ui.accent_primary)
+            button.configure(bg=color if selected else self._ui.control_background)
+
+    def _select_view(self, view):
+        self._set_options(view=view)
+        self._show_page('SCENE')
 
     def _set_options(self, **changes):
+        previous_view = self._options.view
         self._options = replace(self._options, **changes)
+        if self._share_session:
+            self._controller.configure_visualizer(self._options)
+        if previous_view is not self._options.view and hasattr(self, '_scene_page'):
+            self._build_scene_page()
+        self._update_view_buttons()
         if self._panel is not None:
             self._panel.configure_visualizer(self._options)
 
@@ -205,7 +275,10 @@ class MusicVisualizerScreen(TkScreen):
         if message is not None and self._status is not None:
             self._status.set(message)
         if self._renderer_status is not None:
-            self._renderer_status.set(self._panel.presentation_status())
+            rendering = self._panel.presentation_status()
+            self._renderer_status.set(rendering)
+            if rendering.startswith('OpenGL unavailable') and self._status is not None:
+                self._status.set(rendering)
         self._poll_job = self._host.schedule_ui_callback(16, self._poll)
 
     def hide(self) -> None:
@@ -217,7 +290,10 @@ class MusicVisualizerScreen(TkScreen):
             self._panel.destroy()
             self._panel = None
         if not self._closed:
-            self._controller.stop()
+            if self._share_session:
+                self._controller.detach_view(self._view_owner)
+            else:
+                self._controller.stop()
 
     def close(self) -> None:
         if self._closed:

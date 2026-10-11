@@ -74,4 +74,4 @@ class MusicVisualizerOptions:
     kick_mode: KickMode = KickMode.SINGLE
     beat_gain: float = 1.5
     drum_zoom: float = 1.6
-    show_sticks: bool = True
+    drum_gain: float = 0.6

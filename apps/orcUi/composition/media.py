@@ -21,7 +21,7 @@ from apps.orcUi.adapters.managed_browser_media_player import ManagedBrowserMedia
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from frontends.tk.media.music_visualizer_screen import MusicVisualizerScreen
 from ui.music_visualizer import MusicVisualizerSource
-from apps.orcUi.composition.music_visualizer import create_browser_visualizer, create_music_visualizer_session, selected_music_visualizer_source
+from apps.orcUi.composition.music_visualizer import create_browser_visualizer, create_music_visualizer_session, selected_native_visualizer_source
 from apps.orcUi.adapters.music_visualizer_browser import MusicVisualizerBrowser, WINDOW_CLASS
 from controllers.audio.music_analysis.music_visualizer_controller import MusicVisualizerController
 from apps.orcUi.theme_runtime import theme_bundle
@@ -272,12 +272,9 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         cleanup.callback(visualizer_runtime.close)
         visualizer = MusicVisualizerScreen(
             app, on_back=lambda: media_screen.show(), controller=visualizer_runtime,
-            initial_source=(MusicVisualizerSource.ANDROID_PLAYBACK
-                            if "OPENROAD_MUSIC_VISUALIZER_SOURCE" not in os.environ
-                            and (os.getenv("TERMUX_VERSION") or os.getenv("ANDROID_ROOT")
-                                 or os.getenv("PREFIX", "").startswith("/data/data/com.termux/"))
-                            else selected_music_visualizer_source()),
+            initial_source=selected_native_visualizer_source(),
             native_controls=renderer == "opengl",
+            share_session=renderer == "opengl",
             **panel_options,
             theme_bundle=lambda: theme_bundle(app.theme_mode),
         )
@@ -306,7 +303,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
     )
     app.register_screen("MEDIA", media_screen)
 
-    def home_media_factory(parent: tk.Misc) -> tk.Widget:
+    def home_now_playing_factory(parent: tk.Misc) -> tk.Widget:
         view = SpotifyNowPlaying(
             parent,
             online_allowed=network_allowed,
@@ -322,6 +319,28 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         view.bind("<Destroy>", retire, add="+")
         session.activate(view)
         return view
+
+    def home_media_factory(parent: tk.Misc) -> tk.Widget:
+        if renderer != 'opengl':
+            return home_now_playing_factory(parent)
+        from frontends.tk.media.home_media_visualizer import HomeMediaVisualizer
+        view = HomeMediaVisualizer(
+            parent, controller=visualizer_runtime,
+            theme_bundle=lambda: theme_bundle(app.theme_mode),
+            now_playing_factory=home_now_playing_factory,
+            visualizer_factory=lambda owner: panel_options['panel_factory'](
+                owner, theme_bundle=theme_bundle(app.theme_mode),
+                simulate=selected_native_visualizer_source() is MusicVisualizerSource.SIMULATED,
+            ),
+            source=selected_native_visualizer_source(), on_open=visualizer.show,
+        )
+        retire_views.append(view.close)
+        def retire_home(event: tk.Event) -> None:
+            if event.widget is view and view.close in retire_views:
+                retire_views.remove(view.close)
+        view.bind('<Destroy>', retire_home, add='+')
+        return view
+
 
     def mode_changed(online: bool) -> None:
         account_controller.network_changed()

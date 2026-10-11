@@ -15,12 +15,18 @@ The native picker offers nine distinct scenes: Frequency Tunnel, Spectrum Field,
 Orbiting Planets, Electric Freeway, Explosion Field, Star Dance, Electric Rings,
 Neon Ribbon, and Kaleidoscope. Frequency Tunnel sends spectrum-shaped rings
 through a 3D tunnel, expanding and brightening on musical onsets. **Drum Kit**
-switches the same GL surface to shaded drum shells, chrome rims, drumhead pulses,
-two optional animated sticks, and wobbling cymbals. The camera starts much closer;
+switches the same GL surface to lacquered, layered drum shells, chrome hoops and
+tension rods, subtly moving drumheads, tripod stands, bass pedals, and curved
+cymbals with machined grooves and restrained wobble. Drum sticks are removed.
+The camera starts much closer;
 DRUM ZOOM adjusts the framing while preserving the kit on narrow surfaces.
 Single/double kick layouts share the same capture and calibration. The **Beat response** slider changes visual pulse strength.
-All capture, calibration, scene, kick, beat, zoom, and stick controls live in a
-scrollable ORC-themed rail on the left; the GL surface fills the right side.
+The prominent **VISUALS / DRUMS** buttons select the view and highlight the active
+choice. All controls live in a compact ORC-themed rail on the left; the GL surface
+fills the right side. **AUDIO** contains source and calibration controls; **SCENE**
+contains the selected view's options. START/STOP remain available in both tabs.
+No scrolling is required. CAL collects paused ambient sound, SAVE applies it, and
+CLEAR removes calibration.
 Selecting a scene immediately shows it without restarting capture. These native
 scenes use their own GL geometry rather than copying the browser shaders.
 
@@ -28,12 +34,18 @@ Audio analysis supplies an onset envelope based on positive spectral flux, with
 fast attack, 140 ms decay, and a 120 ms retrigger guard. Sustained tones do not
 produce a continuous full-strength beat pulse. Percussion estimates drive the
 individual drums; they are estimates from mixed audio, not isolated drum tracks.
+Drum response is independent of visualizer beat gain. Its lower default (0.6)
+and nonlinear gate suppress sustained activity below 0.22 and soften intermediate
+values; distinct hits still produce a clear response. **DRUM RESPONSE** adjusts
+that gain without changing capture, calibration, or visualizer pulse strength.
+Detailed cymbal meshes are cached in GL display lists and released on close.
 
 Select **android-playback** on Termux and press **START AUDIO** after granting playback
 capture consent in Android Bridge. The native renderer never opens a microphone.
 **pipewire** captures the configured Linux input and **simulated** demonstrates
-the graphics without real capture. Source selection waits for START. STOP and
-leaving the screen stop capture and animation. Switching visualizer scenes or Drum Kit leaves
+the graphics without real capture. Source selection waits for START. STOP stops capture and animation. Navigating between the full visualizer and
+an enabled HOME preview preserves capture; leaving both releases it after a short
+navigation handoff. Switching visualizer scenes or Drum Kit leaves
 the audio session alive.
 
 The browser renderer remains available via
@@ -47,10 +59,9 @@ Termux/Android defaults to Android Playback. Start **Android Bridge → Android
 Playback Audio → START PLAYBACK CAPTURE**, grant audio permission, and approve
 Android's capture prompt, then press **START AUDIO** in ORC.
 `OPENROAD_MUSIC_VISUALIZER_SOURCE=pipewire` or `android-playback` overrides the
-initial input. Capture begins only when START AUDIO is pressed. STOP and leaving
-the screen release capture. Native shutdown releases the renderer; the browser
+initial input. Capture begins only when START AUDIO is pressed. STOP releases capture; leaving all visualizer presentations also releases it. Native shutdown releases the renderer; the browser
 override closes Chromium and its local server.
-CALIBRATE, FINISH, and CLEAR manage the shared ambient-noise profile.
+CAL, SAVE, and CLEAR manage the shared ambient-noise profile.
 
 In the browser override, input and preset menus render inside the browser page, avoiding native
 Chromium popup windows that can fail when reparented into Termux/X11. Silence is
@@ -68,6 +79,27 @@ with the normal desktop/browser setup.
 
 The eight-mode Tk renderer remains an explicit fallback via
 `OPENROAD_MUSIC_VISUALIZER_RENDERER=tk`; its default input is simulation.
+
+## HOME Media card
+
+The existing Media card keeps its placement beside Radio, below the map. Choose
+**VISUALIZER** to mount a compact native preview or **PLAYING** for the existing
+now-playing presentation. Tap the preview or OPEN to open the full visualizer.
+START explicitly connects the last selected audio source; mounting a preview
+never requests microphone access or starts capture automatically.
+
+HOME and the full view share one controller, capture connection, calibration,
+and preset/view preferences. The card remembers the selected presentation while
+navigating. Each mounted visualizer retains a presentation lease; a short 250 ms
+handoff allows navigation without disconnecting the bridge's sole stream client.
+Switching to Playing or leaving both views stops capture and rendering. Shutdown
+cancels handoff timers and closes the shared controller.
+
+A native handoff component check uses synthetic PCM, with no microphone:
+
+```bash
+python -m apps.orcUi.component_test.home_music_visualizer_cli
+```
 
 ## WebUi
 
@@ -102,7 +134,7 @@ python scripts/run_tests.py all
 
 A native GL component check creates an X11 context and the actual themed
 left/right screen, renders all nine scenes, checks nonempty and distinct frames,
-verifies kick/stick changes and small-window resize, and releases resources:
+verifies kick changes and a 250-pixel-high control layout, and releases resources:
 
 ```bash
 python -m apps.orcUi.component_test.native_music_visualizer_cli

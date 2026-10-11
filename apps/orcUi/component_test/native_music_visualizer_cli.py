@@ -47,21 +47,20 @@ def main():
             from OpenGL import GL
             panel = screen._panel
             assert panel._surface is not None and panel._surface.context_created, panel.presentation_status()
-            assert screen._render_parent.winfo_x() >= 164
+            assert screen._render_parent.winfo_x() >= 180
             assert screen._controls.winfo_rootx() < screen._render_parent.winfo_rootx()
             assert panel._surface.winfo_height() >= parent.winfo_height() - 4
             captures = []
-            configurations = [(mode, MusicVisualizerView.VISUALIZER, KickMode.SINGLE, True)
+            configurations = [(mode, MusicVisualizerView.VISUALIZER, KickMode.SINGLE)
                               for mode in MODE_LABELS]
-            configurations += [(screen._options.mode, MusicVisualizerView.DRUM_KIT, KickMode.SINGLE, True),
-                               (screen._options.mode, MusicVisualizerView.DRUM_KIT, KickMode.DOUBLE, True),
-                               (screen._options.mode, MusicVisualizerView.DRUM_KIT, KickMode.DOUBLE, False)]
-            for mode, view, kick_mode, sticks in configurations:
+            configurations += [(screen._options.mode, MusicVisualizerView.DRUM_KIT, KickMode.SINGLE),
+                               (screen._options.mode, MusicVisualizerView.DRUM_KIT, KickMode.DOUBLE)]
+            for mode, view, kick_mode in configurations:
                 if view is MusicVisualizerView.VISUALIZER:
                     screen._mode_picker['menu'].invoke(list(MODE_LABELS).index(mode))
                     assert screen._options.mode is mode
                     assert screen._mode_name.get() == MODE_LABELS[mode]
-                screen._set_options(mode=mode, view=view, kick_mode=kick_mode, show_sticks=sticks)
+                screen._set_options(mode=mode, view=view, kick_mode=kick_mode)
                 panel.set_analysis_frame(VisualizerFrame(.7, .6, .4, .2, (.4,)*24,
                                                        beat=1, kick=1, snare=.8, cymbal=.7))
                 panel._surface.tkMakeCurrent()
@@ -78,12 +77,25 @@ def main():
             controller.start.assert_not_called()
             assert not errors, errors
             # Resize and zoom must preserve a valid GL context on small ORC windows.
-            root.geometry('580x360')
+            root.geometry('580x250')
             root.update_idletasks()
             panel.configure_visualizer(replace(screen._options, drum_zoom=2.8))
             panel._surface._display()
             assert GL.glGetError() == GL.GL_NO_ERROR
-            print('PASS: themed left controls, nine distinct native scenes, drum zoom, sticks, double kick, resize, cleanup')
+            # All control pages fit without a scrollbar even on a short viewport.
+            for view in [MusicVisualizerView.VISUALIZER, MusicVisualizerView.DRUM_KIT]:
+                screen._select_view(view)
+                for page in ['AUDIO', 'SCENE']:
+                    screen._show_page(page)
+                    root.update_idletasks()
+                    assert screen._controls.winfo_reqheight() <= parent.winfo_height(), (view, page, screen._controls.winfo_reqheight())
+                    def assert_controls_fit(widget):
+                        if widget.winfo_ismapped():
+                            assert widget.winfo_height() >= widget.winfo_reqheight(), (widget.winfo_class(), widget.winfo_height(), widget.winfo_reqheight())
+                            for child in widget.winfo_children():
+                                assert_controls_fit(child)
+                    assert_controls_fit(screen._controls)
+            print('PASS: compact controls, nine native scenes, detailed drums, softer response, double kick, 250px viewport, cleanup')
             print('Renderer:', GL.glGetString(GL.GL_RENDERER).decode())
         except Exception as exc:
             errors.append(exc)
