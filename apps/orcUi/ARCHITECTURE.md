@@ -181,11 +181,14 @@ Structural orcUi widgets that are meaningful only inside that shell stay under `
 
 ## Screen hosting and navigation
 
-Persistent bottom controls meet edge to edge, with a fixed compact volume area
+Persistent bottom controls begin to the right of the side rail and meet edge to
+edge, with a fixed compact volume area
 and equal action sections ending beside the standalone Settings gear. The
 44-pixel row uses code-drawn gradients with mouse, Return/Space activation and
-theme-colored keyboard focus outlines. The side rail shows eight destinations
-before scrolling; no new destination or navigation contract is introduced.
+theme-colored keyboard focus outlines and a highlight fading upward from the
+bottom edge. Settings is centered in its dedicated dark area. The side rail
+extends beside the bottom controls, shows eight destinations, and retains both
+scroll arrows; no new destination or navigation contract is introduced.
 
 The Radio landing chooser uses theme-aware, code-drawn antenna/signal and
 globe/station diagrams to distinguish local RF reception from internet audio.

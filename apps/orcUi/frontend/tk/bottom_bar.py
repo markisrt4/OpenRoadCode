@@ -61,7 +61,7 @@ class OrcUiBottomBar(tk.Frame):
 
         self.grid_propagate(False)
         self.grid_rowconfigure(0, weight=1)
-        self.grid_columnconfigure(0, weight=0, minsize=144)
+        self.grid_columnconfigure(0, weight=0, minsize=120)
         for column in range(1, 4):
             self.grid_columnconfigure(column, weight=1, uniform="bottom-actions")
 

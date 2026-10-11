@@ -61,8 +61,8 @@ class GradientControl(tk.Canvas):
         width, height = self.winfo_width(), self.winfo_height()
         rgb = self.winfo_rgb(self._active if self._hover else self._base)
         for index in range(16):
-            # A restrained top highlight fading into the original theme surface.
-            amount = 0.09 * (1 - index / 15)
+            # A restrained bottom highlight fading upward into the theme surface.
+            amount = 0.09 * index / 15
             color = "#" + "".join(f"{round(value / 257 + (255 - value / 257) * amount):02x}"
                                   for value in rgb)
             self.create_rectangle(0, height * index / 16, width,

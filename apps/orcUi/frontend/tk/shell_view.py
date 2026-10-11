@@ -293,6 +293,7 @@ class OrcUiShellView:
         )
         self._side_nav.grid(
             row=1,
+            rowspan=2,
             column=0,
             sticky="ns",
             padx=(SHELL_PAD_X, 0),
@@ -312,8 +313,7 @@ class OrcUiShellView:
         )
         self._bottom_bar.grid(
             row=2,
-            column=0,
-            columnspan=2,
+            column=1,
             sticky="ew",
             padx=(SHELL_PAD_X, SHELL_PAD_X + 78),
         )
@@ -322,8 +322,11 @@ class OrcUiShellView:
             self._adsb_enabled, self._aircraft_count,
         ))
         self._breadcrumb_label, self._status_label = build_footer(self._root, theme=self._theme)
+        settings_space = tk.Frame(self._root, bg=self._theme.ui.background)
+        settings_space.place(relx=1.0, rely=1.0, x=-SHELL_PAD_X,
+                             anchor="se", width=78, height=74)
         self._settings_button = tk.Button(
-            self._root,
+            settings_space,
             text="⚙",
             command=self._on_settings,
             bg=self._theme.ui.background,
@@ -338,13 +341,13 @@ class OrcUiShellView:
             takefocus=True,
         )
         self._settings_button.place(
-            relx=1.0,
-            rely=1.0,
-            x=-SHELL_PAD_X,
-            anchor="se",
-            width=78,
-            height=74,
+            relx=0.5,
+            rely=0.5,
+            anchor="center",
+            width=64,
+            height=64,
         )
+        settings_space.lift()
         self._settings_button.lift()
         self.set_performance_status(self._performance_status)
         self._breadcrumb_label.configure(text=self._breadcrumb)

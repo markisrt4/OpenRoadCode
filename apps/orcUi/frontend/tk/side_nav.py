@@ -288,7 +288,7 @@ class OrcUiSideNav(tk.Frame):
             child.destroy()
         self._tiles.clear()
 
-        if len(self._items) > self.VISIBLE_ITEMS:
+        if self._items:
             self._up_button = self._make_scroll_button("▲", lambda: self._scroll(-1))
             self._up_button.pack(fill=tk.X, padx=8, pady=(0, 2))
         else:
@@ -307,7 +307,7 @@ class OrcUiSideNav(tk.Frame):
             tile.set_state(selected=item == self._active, theme=theme)
             self._tiles[item] = tile
 
-        if len(self._items) > self.VISIBLE_ITEMS:
+        if self._items:
             self._down_button = self._make_scroll_button("▼", lambda: self._scroll(1))
             self._down_button.pack(fill=tk.X, padx=8, pady=(2, 0))
         else:
