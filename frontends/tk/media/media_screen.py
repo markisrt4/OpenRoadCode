@@ -78,37 +78,39 @@ class MediaScreen(TkScreen):
         self._host.activate_screen(self)
         self._host.clear_screen_content()
         self._host.set_screen_title("Media")
-        self._host.set_screen_status("Choose a media source" if self._online_allowed() else "Offline mode: streaming media unavailable")
+        self._host.set_screen_status("" if self._online_allowed() else "Offline mode: streaming media unavailable")
 
         theme = self._theme_bundle().ui
         root = tk.Frame(self._host.screen_parent, bg=theme.background)
         root.pack(fill=tk.BOTH, expand=True)
 
         heading = tk.Frame(root, bg=theme.background)
-        heading.pack(fill=tk.X, padx=14, pady=(10, 4))
+        heading.pack(fill=tk.X, padx=12, pady=(8, 6))
+        identity = tk.Frame(heading, bg=theme.background)
+        identity.pack(side=tk.LEFT, fill=tk.X, expand=True)
         tk.Label(
-            heading,
+            identity,
             text="MEDIA",
             bg=theme.background,
             fg=theme.text,
-            font=("Sans", 22, "bold"),
+            font=("Sans", 18, "bold"),
         ).pack(anchor="w")
         tk.Label(
-            heading,
+            identity,
             text="Music, video, and streaming",
             bg=theme.background,
             fg=theme.text_muted,
-            font=("Sans", 15),
+            font=("Sans", 10),
         ).pack(anchor="w")
 
         if self._show_visualizer is not None:
             tk.Button(
-                root, text="MUSIC VISUALIZER", command=self._show_visualizer,
+                heading, text="♫  Visualizer", command=self._show_visualizer,
                 bg=theme.control_background, fg=theme.text,
                 activebackground=theme.control_active, relief=tk.FLAT,
-                font=("Sans", 11, "bold"), padx=14, pady=6,
-                                                    highlightthickness=0, bd=0,
-            ).pack(anchor="e", padx=12, pady=(0, 4))
+                font=("Sans", 10, "bold"), padx=10, pady=7,
+                highlightthickness=0, bd=0,
+            ).pack(side=tk.RIGHT, padx=(8, 0), before=identity)
 
         grid = tk.Frame(root, bg=theme.background)
         grid.pack(fill=tk.BOTH, expand=True, padx=6, pady=(2, 8))
@@ -122,8 +124,8 @@ class MediaScreen(TkScreen):
             glyph="spotify",
             title="SPOTIFY",
             category="MUSIC",
-            subtitle="Now playing",
-            detail="Artwork, lyrics, library, playlists and music video.",
+            subtitle="Your music, your device",
+            detail="Remote controls your Connect device. Play here uses ORC.",
             accent=SPOTIFY_GREEN,
             command=self._show_spotify,
         )
@@ -140,7 +142,7 @@ class MediaScreen(TkScreen):
             title="YOUTUBE",
             category="VIDEO",
             subtitle="Creators, clips & live",
-            detail="Open straight into YouTube with your retained profile.",
+            detail="Videos and live streams with your saved profile.",
             accent=YOUTUBE_RED,
             command=self._show_youtube,
             action="WATCH YOUTUBE",
@@ -154,7 +156,7 @@ class MediaScreen(TkScreen):
             title="YOUTUBE MUSIC",
             category="MUSIC",
             subtitle="Your music, mixes & library",
-            detail="Open YouTube Music with your retained Google profile.",
+            detail="YouTube Music integration is coming soon.",
             accent=YOUTUBE_MUSIC_RED,
             command=self._show_youtube_music,
             action="OPEN YOUTUBE MUSIC",
@@ -168,7 +170,7 @@ class MediaScreen(TkScreen):
             title="NETFLIX",
             category="MOVIES + SERIES",
             subtitle="Continue watching",
-            detail="Open your Netflix profile directly in the ORC kiosk.",
+            detail="Movies and series with your saved profile.",
             accent=NETFLIX_RED,
             command=self._show_netflix,
             action="OPEN NETFLIX",
@@ -203,7 +205,7 @@ class MediaScreen(TkScreen):
             cursor="hand2",
         )
         body = tk.Frame(card, bg=theme.surface)
-        body.pack(fill=tk.BOTH, expand=True, padx=16, pady=14)
+        body.pack(fill=tk.BOTH, expand=True, padx=10, pady=9)
 
         # Give dark-mode cards some depth without turning them into black slabs.
         # Light mode already gets this separation naturally from its borders.
@@ -215,8 +217,8 @@ class MediaScreen(TkScreen):
         glyph_box = tk.Frame(
             top,
             bg=theme.surface_alt,
-            width=58,
-            height=58,
+            width=44,
+            height=44,
             highlightthickness=1,
             highlightbackground=theme.border,
         )
@@ -225,46 +227,42 @@ class MediaScreen(TkScreen):
         self._provider_logo(glyph_box, glyph)
 
         identity = tk.Frame(top, bg=theme.surface)
-        identity.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(12, 0))
+        identity.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(9, 0))
         title_fg = NETFLIX_RED if feature == "netflix" else theme.text
         tk.Label(
             identity,
             text=title,
             bg=theme.surface,
             fg=title_fg,
-            font=("Sans", 18, "bold"),
+            font=("Sans", 14, "bold"),
         ).pack(anchor="w")
         tk.Label(
             identity,
             text=category,
             bg=theme.surface,
             fg=accent,
-            font=("Sans", 12, "bold"),
+            font=("Sans", 8, "bold"),
         ).pack(anchor="w", pady=(1, 0))
-
-        if feature == "youtube":
-            self._youtube_feature(body)
-        elif feature == "youtube_music":
-            self._youtube_music_feature(body)
-        elif feature == "netflix":
-            self._netflix_feature(body)
 
         tk.Label(
             body,
             text=subtitle,
             bg=theme.surface,
             fg=theme.text,
-            font=("Sans", 13, "bold"),
-        ).pack(anchor="w", pady=(9, 3))
-        tk.Label(
+            font=("Sans", 11, "bold"),
+        ).pack(anchor="w", pady=(6, 2))
+        detail_label = tk.Label(
             body,
             text=detail,
             bg=theme.surface,
             fg=theme.text_muted,
-            font=("Sans", 11),
+            font=("Sans", 9),
             justify=tk.LEFT,
             wraplength=360,
-        ).pack(anchor="w")
+        )
+        detail_label.pack(anchor="w", fill=tk.X)
+        body.bind("<Configure>", lambda event: detail_label.configure(
+            wraplength=max(1, event.width)))
 
         if action is not None:
             button = tk.Button(
@@ -279,13 +277,13 @@ class MediaScreen(TkScreen):
                 activeforeground="#FFFFFF",
                 relief=tk.FLAT,
                 bd=0,
-                font=("Sans", 12, "bold"),
+                font=("Sans", 10, "bold"),
                 padx=10,
                 pady=6,
                 cursor="hand2",
                 highlightthickness=0,
             )
-            button.pack(fill=tk.X, side=tk.BOTTOM, pady=(14, 0))
+            button.pack(fill=tk.X, side=tk.BOTTOM, pady=(8, 0))
 
         self._bind_card(card, command)
         return card
@@ -375,21 +373,12 @@ class MediaScreen(TkScreen):
     def _spotify_account_actions(self, card: tk.Frame) -> None:
         """Show Spotify account authorization state and browser OAuth action."""
         theme = self._theme_bundle().ui
-        body = card.winfo_children()[-1]
         connected = self._spotify_account_connected()
-        row = tk.Frame(body, bg=theme.surface)
-        row.pack(fill=tk.X, side=tk.BOTTOM, pady=(8, 0))
-        tk.Label(
-            row,
-            text="ACCOUNT CONNECTED" if connected else "ACCOUNT NOT CONNECTED",
-            bg=theme.surface,
-            fg=SPOTIFY_GREEN if connected else theme.text_muted,
-            font=("Sans", 8, "bold"),
-        ).pack(side=tk.LEFT)
+        row = self._spotify_settings_row(card)
 
         tk.Button(
             row,
-            text="DISCONNECT" if connected else "CONNECT SPOTIFY",
+            text="Disconnect" if connected else "Connect account",
             state=tk.NORMAL if connected or self._online_allowed() else tk.DISABLED,
             disabledforeground=theme.text_muted,
             command=lambda: self.run_spotify_account_action(connected),
@@ -403,7 +392,7 @@ class MediaScreen(TkScreen):
             padx=9,
             pady=5,
             highlightthickness=0,
-        ).pack(side=tk.RIGHT)
+        ).pack(side=tk.LEFT)
 
     def _spotify_action_complete(self, message: str) -> None:
         self._host.set_screen_status(message)
@@ -412,20 +401,11 @@ class MediaScreen(TkScreen):
     def _spotify_configuration(self, card: tk.Frame) -> None:
         """Expose Spotify application configuration without requiring a shell."""
         theme = self._theme_bundle().ui
-        body = card.winfo_children()[-1]
         configured = self._spotify_client_id()
-        row = tk.Frame(body, bg=theme.surface)
-        row.pack(fill=tk.X, side=tk.BOTTOM, pady=(8, 0))
-        tk.Label(
-            row,
-            text="APP CONFIGURED" if configured else "APP NOT CONFIGURED",
-            bg=theme.surface,
-            fg=SPOTIFY_GREEN if configured else theme.text_muted,
-            font=("Sans", 8, "bold"),
-        ).pack(side=tk.LEFT)
+        row = self._spotify_settings_row(card)
         tk.Button(
             row,
-            text="CONFIGURE",
+            text="Setup ✓" if configured else "Set up app",
             command=self._show_spotify_configuration_dialog,
             bg=theme.control_background,
             fg=theme.control_text,
@@ -438,6 +418,16 @@ class MediaScreen(TkScreen):
             pady=5,
             highlightthickness=0,
         ).pack(side=tk.RIGHT)
+
+    def _spotify_settings_row(self, card: tk.Frame) -> tk.Frame:
+        """Keep secondary account controls together inside the card body."""
+        body = next(child for child in card.winfo_children()
+                    if child.winfo_manager() == "pack")
+        row = body.children.get("spotify_settings")
+        if row is None:
+            row = tk.Frame(body, name="spotify_settings", bg=self._theme_bundle().ui.surface)
+            row.pack(fill=tk.X, side=tk.BOTTOM, pady=(5, 0))
+        return row
 
     def _show_spotify_configuration_dialog(self) -> None:
         theme = self._theme_bundle().ui
@@ -502,10 +492,10 @@ class MediaScreen(TkScreen):
         body = next(
             child
             for child in card.winfo_children()
-            if child.pack_info()
+            if child.winfo_manager() == "pack"
         )
         actions = tk.Frame(body, bg=theme.surface)
-        actions.pack(fill=tk.X, side=tk.BOTTOM, pady=(14, 0))
+        actions.pack(fill=tk.X, side=tk.BOTTOM, pady=(8, 0))
         actions.grid_columnconfigure(0, weight=1)
         actions.grid_columnconfigure(1, weight=1)
         tk.Button(
@@ -520,8 +510,8 @@ class MediaScreen(TkScreen):
             activeforeground="#FFFFFF",
             relief=tk.FLAT,
             bd=0,
-            font=("Sans", 15, "bold"),
-            pady=9,
+            font=("Sans", 10, "bold"),
+            pady=7,
             highlightthickness=0,
         ).grid(row=0, column=0, sticky="ew", padx=(0, 3))
         tk.Button(
@@ -529,14 +519,14 @@ class MediaScreen(TkScreen):
             text="PLAY HERE",
             command=self._show_spotify_local,
             bg=SPOTIFY_GREEN,
-            fg="#FFFFFF",
+            fg="#000000",
             activebackground=SPOTIFY_GREEN,
-            activeforeground="#FFFFFF",
-            disabledforeground="#FFFFFF",
+            activeforeground="#000000",
+            disabledforeground=theme.text_muted,
             relief=tk.FLAT,
             bd=0,
-            font=("Sans", 15, "bold"),
-            pady=9,
+            font=("Sans", 10, "bold"),
+            pady=7,
             state=tk.NORMAL if self._spotify_local_available() and self._online_allowed() else tk.DISABLED,
             highlightthickness=0,
         ).grid(row=0, column=1, sticky="ew", padx=(3, 0))
@@ -566,6 +556,7 @@ class MediaScreen(TkScreen):
                     outline="#000000",
                     width=width,
                 )
+            canvas.scale("all", 0, 0, 44 / 58, 44 / 58)
             return
         if glyph == "youtube_music":
             canvas = tk.Canvas(parent, width=58, height=58, bg="#111111", highlightthickness=0, bd=0)
@@ -573,6 +564,7 @@ class MediaScreen(TkScreen):
             canvas.create_oval(7, 7, 51, 51, fill=YOUTUBE_MUSIC_RED, outline=YOUTUBE_MUSIC_RED)
             canvas.create_oval(14, 14, 44, 44, fill="#111111", outline="#FFFFFF", width=2)
             canvas.create_polygon(25, 20, 25, 38, 39, 29, fill="#FFFFFF", outline="#FFFFFF")
+            canvas.scale("all", 0, 0, 44 / 58, 44 / 58)
             return
         if glyph == "youtube":
             canvas = tk.Canvas(
@@ -586,13 +578,14 @@ class MediaScreen(TkScreen):
             canvas.pack(fill=tk.BOTH, expand=True)
             canvas.create_rectangle(8, 16, 50, 42, fill=YOUTUBE_RED, outline=YOUTUBE_RED)
             canvas.create_polygon(24, 21, 24, 37, 37, 29, fill="#FFFFFF", outline="#FFFFFF")
+            canvas.scale("all", 0, 0, 44 / 58, 44 / 58)
             return
         tk.Label(
             parent,
             text="N",
             bg="#000000",
             fg=NETFLIX_RED,
-            font=("Sans", 31, "bold"),
+            font=("Sans", 24, "bold"),
         ).pack(fill=tk.BOTH, expand=True)
 
     @staticmethod
