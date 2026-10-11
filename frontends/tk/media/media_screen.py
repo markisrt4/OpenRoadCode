@@ -185,15 +185,56 @@ class MediaScreen(TkScreen):
         """Share the music column with an offline-capable visualizer shortcut."""
         theme = self._theme_bundle().ui
         card = tk.Frame(parent, bg=theme.surface)
+        canvas = tk.Canvas(
+            card, height=60, bg=theme.surface, highlightthickness=0, bd=0,
+            cursor="hand2",
+        )
+        canvas.pack(fill=tk.BOTH, expand=True)
+        canvas.bind("<Configure>", lambda event: self._paint_visualizer(
+            canvas, event.width, event.height))
+        canvas.bind("<Button-1>", lambda _event: self._show_visualizer())
         tk.Button(
-            card, text="▂ ▅ ▃ ▇ ▄   Music visualizer   ›",
+            card, text="Music visualizer   ›",
             command=self._show_visualizer,
-            bg=theme.surface, fg=theme.accent_primary,
+            bg=theme.surface, fg=theme.text,
             activebackground=theme.control_active, activeforeground=theme.text,
             relief=tk.FLAT, bd=0, highlightthickness=0,
             font=("Sans", 10, "bold"), padx=8, pady=10,
-        ).pack(fill=tk.BOTH, expand=True)
+        ).place(x=10, rely=0.5, anchor="w")
         return card
+
+    def _paint_visualizer(self, canvas: tk.Canvas, width: int, height: int) -> None:
+        """Draw a responsive spectrum illustration, rather than live audio data."""
+        canvas.delete("all")
+        if width < 2 or height < 2:
+            return
+        base = tuple(value // 256 for value in canvas.winfo_rgb(canvas.cget("bg")))
+
+        def mix(left, right, amount):
+            return "#" + "".join(f"{round(a + (b - a) * amount):02x}"
+                                 for a, b in zip(left, right))
+
+        palette = ((35, 210, 186), (66, 145, 245), (165, 104, 238))
+        profile = (0.24, 0.40, 0.32, 0.62, 0.85, 0.56, 0.96, 0.72,
+                   0.48, 0.68, 0.38, 0.54)
+        count = 36
+        step = width / count
+        for index in range(count):
+            position = index / (count - 1) * 2
+            segment = min(1, int(position))
+            color = mix(palette[segment], palette[segment + 1], position - segment)
+            rgb = tuple(int(color[offset:offset + 2], 16) for offset in (1, 3, 5))
+            x = index * step
+            canvas.create_rectangle(x, 0, x + step + 1, height,
+                                    fill=mix(base, rgb, 0.10), outline="")
+            bar_height = height * 0.72 * profile[index % len(profile)]
+            # The title occupies the left side; the spectrum shines on the right.
+            strength = 0.22 if index < count * 0.48 else 0.85
+            canvas.create_rectangle(
+                x + step * 0.2, (height - bar_height) / 2,
+                x + step * 0.8, (height + bar_height) / 2,
+                fill=mix(base, rgb, strength), outline="",
+            )
 
     def _media_card(
         self,

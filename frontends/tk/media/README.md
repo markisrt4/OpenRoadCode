@@ -39,7 +39,10 @@ The Media landing page is a four-card hub for Spotify, YouTube, YouTube Music, a
 
 The left column groups music services and a compact Music Visualizer tile below
 YouTube Music; video services occupy the right column. The visualizer tile uses
-a static equalizer glyph and remains available offline. Provider brand colors
+a responsive teal, blue, and violet spectrum illustration and remains available
+offline. The illustration is decorative; live visualization opens through the
+existing visualizer action. It redraws on allocation changes without animation
+timers or audio subscriptions. Provider brand colors
 stay in their logos, with neutral action buttons and muted Coming Soon text for
 YouTube Music. Provider
 cards use consistent compact logos, titles, descriptions that wrap to their

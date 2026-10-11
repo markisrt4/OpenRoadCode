@@ -16,11 +16,27 @@ class MediaScreenTest(unittest.TestCase):
         screen._online_allowed = lambda: False
         screen._show_visualizer = Mock()
         with patch("frontends.tk.media.media_screen.tk.Frame"), patch(
+            "frontends.tk.media.media_screen.tk.Canvas"
+        ), patch(
             "frontends.tk.media.media_screen.tk.Button"
         ) as button:
             screen._visualizer_card(Mock())
             button.call_args.kwargs["command"]()
         screen._show_visualizer.assert_called_once_with()
+
+    def test_spectrum_replaces_previous_drawing_and_fits_allocation(self):
+        screen = object.__new__(MediaScreen)
+        canvas = Mock()
+        canvas.winfo_rgb.return_value = (4096, 4096, 4096)
+        screen._paint_visualizer(canvas, 240, 60)
+        canvas.delete.assert_called_once_with("all")
+        self.assertEqual(canvas.create_rectangle.call_count, 72)
+        for call in canvas.create_rectangle.call_args_list:
+            x1, y1, x2, y2 = call.args
+            self.assertGreaterEqual(x1, 0)
+            self.assertGreaterEqual(y1, 0)
+            self.assertLessEqual(x2, 241)
+            self.assertLessEqual(y2, 60)
 
     def test_spotify_secondary_actions_use_body_and_share_row(self):
         screen = object.__new__(MediaScreen)
