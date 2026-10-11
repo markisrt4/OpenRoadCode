@@ -26,6 +26,8 @@ def native(tmp_path,monkeypatch):
     monkeypatch.setattr(module,'CesiumViewerServer',servers)
     def make_browser(**kwargs):
         assert kwargs['url']=='about:blank'
+        assert '--no-first-run' in kwargs['extra_arguments']
+        assert '--no-default-browser-check' in kwargs['extra_arguments']
         (Path(kwargs['profile_path'])/'DevToolsActivePort').write_text('54321\n/path\n')
         events.append('browser.blank')
         return browser
@@ -94,3 +96,11 @@ def test_missing_embedding_tool_fails_before_browser_launch(native):
     with pytest.raises(RuntimeError,match='xdotool'):
         native.viewer.open(state(),100,(640,320))
     native.browsers.assert_not_called()
+
+
+def test_loading_has_its_own_deadline_after_slow_x11_attachment(native,monkeypatch):
+    # Window attachment consumes the original startup budget. Navigation must
+    # still get its own budget rather than timing out before consulting DevTools.
+    monkeypatch.setattr(module.time,'monotonic',Mock(side_effect=[0,0,20,20]))
+    native.viewer.open(state(),100,(640,320))
+    native.devtools.command.assert_called_once()

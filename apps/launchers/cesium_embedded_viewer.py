@@ -57,7 +57,8 @@ class CesiumEmbeddedViewer:
                 process_pattern=re.escape(profile), kiosk=False, app_mode=True,
                 window_position=(-20000,-20000), window_size=size,
                 window_class=window_class, startup_grace_seconds=.2,
-                extra_arguments=('--remote-debugging-port=0','--remote-debugging-address=127.0.0.1'),
+                extra_arguments=('--no-first-run','--no-default-browser-check',
+                    '--remote-debugging-port=0','--remote-debugging-address=127.0.0.1'),
                 log_file=logging_file_path('openroadcode','cesium-embedded.log'))
             resources.callback(browser.stop, display, None)
             server.start()
@@ -81,10 +82,13 @@ class CesiumEmbeddedViewer:
                 self._embedder.clear()
                 return
             # Navigate only after attachment: no live WebGL surface is reparented.
+            deadline = time.monotonic()+10
+            last_status = 'waiting for Chromium DevToolsActivePort'
             port_file = Path(profile)/'DevToolsActivePort'
             while current() and time.monotonic()<deadline:
                 try:
                     port = int(port_file.read_text().splitlines()[0])
+                    last_status = 'waiting for the blank Chromium page'
                     devtools = ChromiumDevToolsClient(port=port)
                     target = next((item for item in devtools.targets() if item.url == 'about:blank'), None)
                     if target is not None:
@@ -92,12 +96,12 @@ class CesiumEmbeddedViewer:
                         if result.get('errorText'):
                             raise RuntimeError(result['errorText'])
                         break
-                except (OSError, ValueError, IndexError):
-                    pass
+                except (OSError, ValueError, IndexError) as error:
+                    last_status = str(error)
                 time.sleep(.05)
             else:
                 if current():
-                    raise RuntimeError('Timed out loading the embedded 3D map')
+                    raise RuntimeError(f'Timed out loading the embedded 3D map: {last_status}')
                 resources.close()
                 self._embedder.clear()
                 return

@@ -504,3 +504,9 @@ gate remains user-run:
 git switch navigation-cesium
 python scripts/quality_gate.py
 ```
+
+Embedded Chromium launches with `--no-first-run` and `--no-default-browser-check`
+to avoid first-use dialogs for its temporary profile. Blank-window attachment
+and local-page loading have separate bounded startup deadlines; a page-load
+timeout reports the last DevTools startup stage or error. Actual Termux startup
+still requires device validation.
