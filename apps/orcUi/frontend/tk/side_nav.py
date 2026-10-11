@@ -119,8 +119,7 @@ class _NavTile(tk.Canvas):
         if self._selected:
             self.create_rectangle(0, 0, 4, height, fill=ui.accent_primary, outline="")
 
-        # Preserve the compact 132 px rail while leaving long labels, notably
-        # WEATHER, enough room under font substitution and display scaling.
+        # Keep the rail narrow; the longest label gets a slightly smaller font.
         badge_x = 18
         badge_y = height / 2
         badge_radius = 12
@@ -134,7 +133,7 @@ class _NavTile(tk.Canvas):
             35, height / 2,
             text=_NAV_LABELS.get(self._nav_name, self._nav_name),
             fill=label_color,
-            font=("Sans", FONT_CONTROL - 1, "bold"),
+            font=("Sans", FONT_CONTROL - (2 if self._nav_name == "WEATHER" else 1), "bold"),
             anchor="w",
         )
 

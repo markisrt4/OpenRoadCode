@@ -137,7 +137,8 @@ restores ordinary window-manager decorations without closing ORC. For example,
 `ORCUI_GEOMETRY=1280x720 ORCUI_FULLSCREEN=0 ORCUI_BORDERLESS=1 ./runOrcUi`
 matches the landscape Pi Touch Display 2 layout inside a VM.
 
-The reference shell keeps the side rail at 132 pixels so map and feature
+The reference shell keeps the side rail at 120 pixels, with Weather's label
+one point smaller than the other navigation labels, so map and feature
 content retain the available width. Shell labels and icon spacing must adapt
 inside that allocation. On dark themes, ordinary controls use filled surfaces
 without bright outlines; visible accent borders are reserved for selected,
