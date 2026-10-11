@@ -10,6 +10,19 @@ from frontends.tk.media.media_screen import MediaScreen
 
 
 class MediaScreenTest(unittest.TestCase):
+    def test_provider_glow_preserves_identity_and_fades_to_theme(self):
+        screen = object.__new__(MediaScreen)
+        canvas = Mock()
+        canvas.cget.return_value = "#101010"
+        canvas.winfo_rgb.side_effect = lambda color: tuple(
+            int(color[i:i + 2], 16) * 257 for i in (1, 3, 5)
+        )
+        screen._paint_provider_glow(canvas, 320, 54, "#ed4768")
+        canvas.delete.assert_called_once_with("glow")
+        self.assertEqual(canvas.create_rectangle.call_count, 32)
+        self.assertEqual(canvas.create_rectangle.call_args.kwargs["fill"], "#101010")
+        canvas.tag_raise.assert_called_once_with("identity")
+
     def test_visualizer_uses_existing_action_without_online_gate(self):
         screen = object.__new__(MediaScreen)
         screen._theme_bundle = Mock()

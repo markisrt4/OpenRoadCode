@@ -45,6 +45,9 @@ existing visualizer action. It redraws on allocation changes without animation
 timers or audio subscriptions. Provider brand colors
 stay in their logos, with neutral action buttons and muted Coming Soon text for
 YouTube Music. Provider
+headers add a soft green, crimson, coral, or burgundy wash that fades from the
+larger logo into the theme surface. Hover highlights the card edge subtly;
+neither treatment changes provider actions or loads bitmap assets. Provider
 cards use consistent compact logos, titles, descriptions that wrap to their
 allocated width, and action buttons. Spotify groups app setup and account access
 in one secondary row inside the card body, separate from Remote and Play Here.

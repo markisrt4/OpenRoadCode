@@ -261,32 +261,26 @@ class MediaScreen(TkScreen):
         body = tk.Frame(card, bg=theme.surface)
         body.pack(fill=tk.BOTH, expand=True, padx=10, pady=9)
 
-        # Give dark-mode cards some depth without turning them into black slabs.
-        # Light mode already gets this separation naturally from its borders.
-        top = tk.Frame(body, bg=theme.surface)
+        glow_accent = {
+            "spotify": "#29c875", "youtube": "#ed4768",
+            "youtube_music": "#f27876", "netflix": "#b73565",
+        }[glyph]
+        top = tk.Canvas(body, height=54, bg=theme.surface,
+                        highlightthickness=0, bd=0, cursor="hand2")
         top.pack(fill=tk.X)
-        glyph_box = tk.Frame(
-            top,
-            bg=theme.surface_alt,
-            width=44,
-            height=44,
-            highlightthickness=1,
-            highlightbackground=theme.border,
-        )
-        glyph_box.pack(side=tk.LEFT)
+        glyph_box = tk.Frame(top, bg=theme.surface_alt, width=50, height=50,
+                             highlightthickness=0)
         glyph_box.pack_propagate(False)
         self._provider_logo(glyph_box, glyph)
-
-        identity = tk.Frame(top, bg=theme.surface)
-        identity.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(9, 0))
-        title_fg = theme.text
-        tk.Label(
-            identity,
-            text=title,
-            bg=theme.surface,
-            fg=title_fg,
-            font=("Sans", 14, "bold"),
-        ).pack(anchor="w")
+        top.create_window(4, 27, window=glyph_box, anchor="w", tags="identity")
+        top.create_text(64, 27, text=title, anchor="w", fill=theme.text,
+                        font=("Sans", 14, "bold"), tags="identity")
+        top.bind("<Configure>", lambda event: self._paint_provider_glow(
+            top, event.width, event.height, glow_accent))
+        card.bind("<Enter>", lambda _event: card.configure(
+            highlightbackground=self._tint_color(card, theme.border, glow_accent, 0.45)))
+        card.bind("<Leave>", lambda _event: card.configure(
+            highlightbackground=theme.border))
         detail_label = tk.Label(
             body,
             text="Coming soon" if feature == "youtube_music" else detail,
@@ -324,6 +318,33 @@ class MediaScreen(TkScreen):
 
         self._bind_card(card, command)
         return card
+
+    @staticmethod
+    def _tint_color(widget: tk.Misc, base: str, accent: str, amount: float) -> str:
+        """Blend a brand accent into the current theme instead of replacing it."""
+        left = widget.winfo_rgb(base)
+        right = widget.winfo_rgb(accent)
+        return "#" + "".join(
+            f"{round((a + (b - a) * amount) / 257):02x}"
+            for a, b in zip(left, right)
+        )
+
+    def _paint_provider_glow(self, canvas: tk.Canvas, width: int, height: int,
+                             accent: str) -> None:
+        """Draw a soft brand wash near the logo, fading across the header."""
+        canvas.delete("glow")
+        if width < 2 or height < 2:
+            return
+        base = canvas.cget("bg")
+        for index in range(32):
+            amount = 0.28 * (1 - index / 31) ** 2
+            canvas.create_rectangle(
+                width * index / 32, 0, width * (index + 1) / 32 + 1, height,
+                fill=self._tint_color(canvas, base, accent, amount),
+                outline="", tags="glow",
+            )
+        canvas.tag_lower("glow")
+        canvas.tag_raise("identity")
 
     def _youtube_feature(self, parent: tk.Widget) -> None:
         theme = self._theme_bundle().ui
@@ -591,7 +612,7 @@ class MediaScreen(TkScreen):
                     outline="#000000",
                     width=width,
                 )
-            canvas.scale("all", 0, 0, 44 / 58, 44 / 58)
+            canvas.scale("all", 0, 0, 50 / 58, 50 / 58)
             return
         if glyph == "youtube_music":
             canvas = tk.Canvas(parent, width=58, height=58, bg="#111111", highlightthickness=0, bd=0)
@@ -599,7 +620,7 @@ class MediaScreen(TkScreen):
             canvas.create_oval(7, 7, 51, 51, fill=YOUTUBE_MUSIC_RED, outline=YOUTUBE_MUSIC_RED)
             canvas.create_oval(14, 14, 44, 44, fill="#111111", outline="#FFFFFF", width=2)
             canvas.create_polygon(25, 20, 25, 38, 39, 29, fill="#FFFFFF", outline="#FFFFFF")
-            canvas.scale("all", 0, 0, 44 / 58, 44 / 58)
+            canvas.scale("all", 0, 0, 50 / 58, 50 / 58)
             return
         if glyph == "youtube":
             canvas = tk.Canvas(
@@ -613,14 +634,14 @@ class MediaScreen(TkScreen):
             canvas.pack(fill=tk.BOTH, expand=True)
             canvas.create_rectangle(8, 16, 50, 42, fill=YOUTUBE_RED, outline=YOUTUBE_RED)
             canvas.create_polygon(24, 21, 24, 37, 37, 29, fill="#FFFFFF", outline="#FFFFFF")
-            canvas.scale("all", 0, 0, 44 / 58, 44 / 58)
+            canvas.scale("all", 0, 0, 50 / 58, 50 / 58)
             return
         tk.Label(
             parent,
             text="N",
             bg="#000000",
             fg=NETFLIX_RED,
-            font=("Sans", 24, "bold"),
+            font=("Sans", 28, "bold"),
         ).pack(fill=tk.BOTH, expand=True)
 
     @staticmethod
