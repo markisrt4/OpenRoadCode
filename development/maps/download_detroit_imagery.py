@@ -56,8 +56,59 @@ def source_catalog(bounds):
     features = []
     for offset in range(0, len(identifiers), 100):
         features.extend(fetch(identifiers[offset:offset+100]))
+        print(f'Catalog: {len(features):,}/{len(identifiers):,} records · '
+              f'{len(features)*100/len(identifiers):.0f}%', flush=True)
     return {'features': features, 'exceededTransferLimit': False,
             'retrieval': 'bounded object-ID batches', 'source_index': index}
+
+
+def read_image(response):
+    """Bounded streaming read with honest progress when total size is unknown."""
+    headers = getattr(response, 'headers', {})
+    raw_length = headers.get('Content-Length', '')
+    try:
+        total = int(raw_length)
+    except (TypeError, ValueError):
+        total = 0
+    if total < 0:
+        total = 0
+    if total > MAX_BYTES:
+        raise RuntimeError('USGS export exceeds the 20 MiB image limit')
+    content = bytearray()
+    last_report = 0.0
+
+    def report(done=False):
+        size = len(content)/1024/1024
+        if total:
+            # Completion requires EOF and length validation, not just a header.
+            percentage = 100 if done else min(99, len(content)*100/total)
+            label = f'{size:.2f} / {total/1024/1024:.2f} MiB · {percentage:.0f}%'
+        else:
+            label = f'{size:.2f} MiB · total size unknown'
+            if done:
+                label += ' · complete'
+        print(f'\rImagery download: {label}', end='\n' if done else '', flush=True)
+
+    report()
+    try:
+        while True:
+            chunk = response.read(min(64*1024, MAX_BYTES+1-len(content)))
+            if not chunk:
+                break
+            content.extend(chunk)
+            if len(content) > MAX_BYTES:
+                raise RuntimeError('USGS export exceeds the 20 MiB image limit')
+            now = time.monotonic()
+            if now-last_report >= .2:
+                report()
+                last_report = now
+        if total and len(content) != total:
+            raise RuntimeError('USGS image download size differs from Content-Length; retry download')
+    except BaseException:
+        print(flush=True)
+        raise
+    report(done=True)
+    return bytes(content)
 
 
 def open_source(url, *, timeout):
@@ -128,7 +179,7 @@ def download(destination, *, bounds=BOUNDS, title="Detroit"):
         print('USGS imagery: downloading exported JPEG…', flush=True)
         try:
             with open_source(href, timeout=90) as response:
-                image = response.read(MAX_BYTES+1)
+                image = read_image(response)
         except (URLError, TimeoutError) as error:
             raise RuntimeError(f'exported JPEG download failed after retries: {error} · endpoint {href}') from error
         if len(image) > MAX_BYTES or not image.startswith(b"\xff\xd8"):

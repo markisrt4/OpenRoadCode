@@ -566,3 +566,9 @@ Large imagery catalog responses are fetched using the complete ArcGIS object-ID
 index, then checked batches of at most 100 records (subdivided if the service
 still truncates them). Missing records stop installation before image export;
 source IDs and the assembled catalog remain in pack provenance.
+
+During imagery transfer, the terminal displays downloaded MiB, total MiB and
+percentage when USGS provides a Content-Length header. Without that header it
+shows downloaded MiB and “total size unknown”; it does not guess a percentage.
+Catalog batches show records fetched and percentage separately. These indicators
+measure download progress, not final validation or installation completion.

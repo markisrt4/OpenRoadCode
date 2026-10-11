@@ -113,3 +113,33 @@ def test_catalog_missing_id_fails_before_export_or_install(tmp_path, monkeypatch
         downloader.download(tmp_path/'pack')
     assert not (tmp_path/'pack').exists()
     assert all(call.args[0] != '/exportImage' for call in service.call_args_list)
+
+
+def test_image_progress_reports_size_and_percentage(capsys):
+    response = io.BytesIO(b'\xff\xd8'+b'x'*131070)
+    response.headers = {'Content-Length': '131072'}
+    assert len(downloader.read_image(response)) == 131072
+    output = capsys.readouterr().out
+    assert '0.00 / 0.12 MiB · 0%' in output
+    assert '0.12 / 0.12 MiB · 100%' in output
+
+
+def test_image_progress_does_not_invent_total(capsys):
+    assert downloader.read_image(io.BytesIO(b'fixture')) == b'fixture'
+    output = capsys.readouterr().out
+    assert 'total size unknown · complete' in output
+    assert '100%' not in output
+
+
+def test_truncated_image_never_reports_completion(capsys):
+    response = io.BytesIO(b'short')
+    response.headers = {'Content-Length': '100'}
+    with pytest.raises(RuntimeError, match='Content-Length'):
+        downloader.read_image(response)
+    assert '100%' not in capsys.readouterr().out
+
+
+def test_oversized_image_stops_at_payload_cap(monkeypatch):
+    monkeypatch.setattr(downloader, 'MAX_BYTES', 8)
+    with pytest.raises(RuntimeError, match='20 MiB'):
+        downloader.read_image(io.BytesIO(b'0123456789'))
