@@ -1,7 +1,11 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Offline address setup orchestration, independent of terminal presentation."""
+"""Offline address setup orchestration, independent of terminal presentation.
+
+Saved Home/Work candidates require address-level geocoding. Street and place
+centroids remain available to general search but never become installer matches.
+"""
 
 import sqlite3
 from config.saved_destinations import SavedDestinationsConfig, normalize_destination
@@ -32,7 +36,7 @@ class DestinationSetupController(DestinationSetupRequestHandlerIf):
             raise RuntimeError("Local address database unavailable; enter coordinates instead") from error
         return tuple(normalize_destination(SavedDestination(
             key, key.title(), result.display_name, result.position,
-        )) for result in results)
+        )) for result in results if result.source == "address")
 
     def save(self, destination: SavedDestination) -> None:
         self._config.save(destination)

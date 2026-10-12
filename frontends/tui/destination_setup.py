@@ -43,7 +43,10 @@ def _edit_destination(handler, dialog, key) -> None:
     choices = tuple((str(i), f"{item.address} ({math.degrees(item.position.latitude_rad):.5f}, "
                      f"{math.degrees(item.position.longitude_rad):.5f})")
                     for i, item in enumerate(candidates))
-    selection = dialog.choose(key.title(), "Select the correct match, or enter coordinates:",
+    prompt = ("Select the correct address match, or enter coordinates:" if candidates else
+              "No exact building match in the local database. Street/place locations "
+              "are not used for Home/Work. Enter verified coordinates, or cancel:")
+    selection = dialog.choose(key.title(), prompt,
                                choices + (("manual", "Enter coordinates in degrees"),))
     if selection is None:
         return

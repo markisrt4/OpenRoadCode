@@ -110,6 +110,14 @@ class SqliteGeocoder:
         postcode_center = self._postcode_center(query.postcode)
         ranked: list[tuple[int, float, sqlite3.Row]] = []
         for row in rows:
+            # An explicitly requested locality must not silently resolve to a
+            # different city/state/postcode with the same house and road name.
+            if query.city and row["city"] and _normalize_words(str(row["city"])) != _normalize_words(query.city):
+                continue
+            if query.state and row["state"] and str(row["state"]).casefold() != query.state.casefold():
+                continue
+            if query.postcode and row["postcode"] and str(row["postcode"]).casefold() != query.postcode.casefold():
+                continue
             candidate_street = _normalize_street(str(row["street"] or ""))
             if not candidate_street:
                 continue

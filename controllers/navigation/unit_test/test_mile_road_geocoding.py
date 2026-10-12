@@ -37,6 +37,7 @@ class MileRoadGeocodingTest(unittest.TestCase):
             connection = sqlite3.connect(path)
             connection.execute("CREATE TABLE address(id TEXT, house_number TEXT, street TEXT, unit TEXT, city TEXT, state TEXT, postcode TEXT, country TEXT, latitude REAL, longitude REAL)")
             connection.execute("INSERT INTO address VALUES('a1','123','East Eleven Mile Road',NULL,'Warren','MI',NULL,'US',42.5,-83.0)")
+            connection.execute("INSERT INTO address VALUES('a2','123','East Eleven Mile Road',NULL,'Roseville','MI',NULL,'US',42.5,-82.9)")
             connection.commit()
             connection.close()
             geocoder = SqliteGeocoder(path)

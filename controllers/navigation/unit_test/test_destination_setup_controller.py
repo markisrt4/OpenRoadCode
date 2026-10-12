@@ -22,7 +22,7 @@ class DestinationSetupControllerTest(unittest.TestCase):
     def test_search_returns_immutable_candidates_without_saving(self):
         geocoder = Mock()
         geocoder.geocode.return_value = (
-            GeocodeResult(" 123 Main Street ", GeoPoint(0.7, -1.4), 1, "local"),
+            GeocodeResult(" 123 Main Street ", GeoPoint(0.7, -1.4), 1, "address"),
         )
         controller = DestinationSetupController(self.config, geocoder)
         candidates = controller.search("home", "  123  Main St ")
@@ -40,6 +40,16 @@ class DestinationSetupControllerTest(unittest.TestCase):
             controller.search("home", " ")
         with self.assertRaises(ValueError):
             controller.current("unknown")
+
+    def test_street_and_place_fallbacks_cannot_be_saved_as_address_matches(self):
+        geocoder = Mock()
+        geocoder.geocode.return_value = (
+            GeocodeResult("Eleven Mile Road", GeoPoint(0.7, -1.4), 0.6, "street"),
+            GeocodeResult("Roseville", GeoPoint(0.7, -1.4), 0.5, "place"),
+        )
+        controller = DestinationSetupController(self.config, geocoder)
+        self.assertEqual(controller.search("work", "123 E 11 Mile Rd, Warren, MI"), ())
+        self.assertFalse(self.config.path.exists())
 
     def test_incompatible_database_reports_recoverable_error(self):
         geocoder = Mock()
