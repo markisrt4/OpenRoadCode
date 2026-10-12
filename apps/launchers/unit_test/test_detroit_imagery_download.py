@@ -73,15 +73,16 @@ def test_imagery_retries_server_errors_without_leaving_a_partial_pack(monkeypatc
     monkeypatch.setattr(downloader.urllib.request, 'urlopen', call)
     monkeypatch.setattr(downloader.time, 'sleep', lambda seconds: None)
     with pytest.raises(HTTPError):
-        downloader.open_source(downloader.SERVICE, timeout=60)
+        downloader.open_source(downloader.SERVICE, timeout=60, attempts=3)
     assert call.call_count == 3
 
 
 def test_catalog_network_failure_identifies_stage_and_endpoint(monkeypatch):
     from urllib.error import HTTPError
+    monkeypatch.setattr(downloader, 'wait_to_retry', lambda *args: None)
     monkeypatch.setattr(downloader, 'open_source', Mock(side_effect=HTTPError(downloader.SERVICE,502,'Bad Gateway',{},None)))
     with pytest.raises(RuntimeError, match='NAIP source catalog failed after retries') as error:
-        downloader.get_json('/query', where="State='MI'")
+        downloader.get_json('/query', attempts=3, where="State='MI'")
     assert downloader.SERVICE+'/query' in str(error.value)
 
 
@@ -196,3 +197,51 @@ def test_catalog_batches_are_bounded_and_non_retryable_failure_stops(monkeypatch
     with pytest.raises(downloader.SourceRequestError, match='forbidden'):
         downloader.source_catalog(downloader.BOUNDS)
     assert calls.call_count == 3
+
+
+def test_default_retries_beyond_old_limit_until_success(monkeypatch):
+    operation = Mock(side_effect=[TimeoutError('slow')]*5 + ['ready'])
+    waits = Mock()
+    monkeypatch.setattr(downloader, 'wait_to_retry', waits)
+    assert downloader.retry_request(operation, stage='test') == 'ready'
+    assert operation.call_count == 6
+    assert waits.call_count == 5
+
+
+def test_retry_after_and_backoff_countdown_are_interruptible(monkeypatch, capsys):
+    from urllib.error import HTTPError
+    sleeps = []
+    monkeypatch.setattr(downloader.time, 'sleep', sleeps.append)
+    error = HTTPError(downloader.SERVICE,429,'busy',{'Retry-After':'125'},None)
+    downloader.wait_to_retry(error, 8, 'export')
+    assert len(sleeps) == 125
+    assert all(value == 1 for value in sleeps)
+    assert 'Ctrl+C stops safely' in capsys.readouterr().out
+    monkeypatch.setattr(downloader.time, 'sleep', Mock(side_effect=KeyboardInterrupt))
+    operation = Mock(side_effect=TimeoutError('slow'))
+    with pytest.raises(KeyboardInterrupt):
+        downloader.retry_request(operation, stage='export')
+    assert operation.call_count == 1
+
+
+def test_fatal_http_error_does_not_retry(monkeypatch):
+    from urllib.error import HTTPError
+    operation = Mock(side_effect=HTTPError(downloader.SERVICE,403,'forbidden',{},None))
+    waits = Mock()
+    monkeypatch.setattr(downloader, 'wait_to_retry', waits)
+    with pytest.raises(HTTPError):
+        downloader.retry_request(operation, stage='export')
+    waits.assert_not_called()
+
+
+def test_jpeg_body_timeout_retries_whole_response(monkeypatch):
+    first = Mock()
+    first.__enter__ = Mock(return_value=first)
+    first.__exit__ = Mock(return_value=False)
+    first.headers = {}
+    first.read.side_effect = TimeoutError('body timeout')
+    second = io.BytesIO(b'\xff\xd8fixture')
+    monkeypatch.setattr(downloader, 'open_source', Mock(side_effect=[first, second]))
+    monkeypatch.setattr(downloader, 'wait_to_retry', lambda *args: None)
+    assert downloader.download_image_bytes('https://host/image.jpg', 1024) == b'\xff\xd8fixture'
+    first.__exit__.assert_called_once()

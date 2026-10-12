@@ -2,6 +2,7 @@
 
 import argparse
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 import hashlib
 from http.client import IncompleteRead
 import json
@@ -54,7 +55,7 @@ def source_catalog(bounds):
         try:
             document = get_json('/query', objectIds=','.join(map(str, ids)),
                                 outFields=CATALOG_FIELDS, returnGeometry='false',
-                                timeout=30, attempts=2)
+                                timeout=30, attempts=2 if len(ids) > 1 else None)
         except SourceRequestError as error:
             if len(ids) == 1 or not retryable(error.__cause__):
                 raise
@@ -130,36 +131,69 @@ def read_image(response, *, max_bytes=MAX_BYTES):
     return bytes(content)
 
 
-def open_source(url, *, timeout, attempts=3):
-    for attempt in range(attempts):
+def wait_to_retry(error, attempt, stage):
+    delay = min(120, 10*2**min(attempt-1, 4))
+    header = getattr(error, 'headers', None)
+    value = header.get('Retry-After') if header else None
+    if value:
         try:
-            return urllib.request.urlopen(url, timeout=timeout)
-        except (URLError, TimeoutError) as error:
-            if not retryable(error) or attempt == attempts-1:
+            requested = int(value)
+        except ValueError:
+            try:
+                requested = int((parsedate_to_datetime(value)-datetime.now(timezone.utc)).total_seconds())
+            except (TypeError, ValueError, OverflowError):
+                requested = 0
+        delay = max(delay, requested)
+    print(f'USGS {stage} failed: {error}. Retry {attempt}; Ctrl+C stops safely.', flush=True)
+    for remaining in range(delay, 0, -1):
+        print(f'\rRetry {attempt} in {remaining}s… ', end='', flush=True)
+        time.sleep(1)
+    print(flush=True)
+
+
+def retry_request(operation, *, stage, attempts=None):
+    attempt = 0
+    while True:
+        try:
+            return operation()
+        except (URLError, TimeoutError, IncompleteRead) as error:
+            attempt += 1
+            if not retryable(error) or (attempts is not None and attempt >= attempts):
                 raise
-            print(f'USGS imagery request failed; retry {attempt+1}/{attempts-1}: {error}', flush=True)
-            time.sleep(attempt+1)
+            wait_to_retry(error, attempt, stage)
 
 
-def get_json(endpoint, *, timeout=60, attempts=3, **parameters):
+def open_source(url, *, timeout, attempts=None):
+    return retry_request(lambda: urllib.request.urlopen(url, timeout=timeout),
+                         stage='imagery connection', attempts=attempts)
+
+
+def get_json(endpoint, *, timeout=60, attempts=None, **parameters):
     stage = {"":"service metadata", "/query":"NAIP source catalog", "/exportImage":"bounded image export"}.get(endpoint, endpoint)
     print(f'USGS imagery: requesting {stage}…', flush=True)
     url = SERVICE + endpoint + "?" + urllib.parse.urlencode({"f":"json", **parameters})
-    for attempt in range(attempts):
-        try:
-            # Retry the whole response, including body reads. Do not nest the
-            # connection retry loop: each attempt gets one fresh connection.
-            with open_source(url, timeout=timeout, attempts=1) as response:
-                document = json.load(response)
-            break
-        except (URLError, TimeoutError, IncompleteRead) as error:
-            if not retryable(error) or attempt == attempts-1:
-                raise SourceRequestError(f'{stage} failed after retries: {error} · endpoint {SERVICE+endpoint}') from error
-            print(f'USGS {stage} response failed; retry {attempt+1}/{attempts-1}: {error}', flush=True)
-            time.sleep(attempt+1)
-    if "error" in document:
-        raise RuntimeError(f"USGS service error: {document['error']}")
-    return document
+
+    def read():
+        with open_source(url, timeout=timeout, attempts=1) as response:
+            document = json.load(response)
+        if 'error' in document:
+            error = document['error']
+            if error.get('code') in (429, 500, 502, 503, 504):
+                raise HTTPError(url, error['code'], error.get('message', 'Service unavailable'), {}, None)
+            raise RuntimeError(f'USGS service error: {error}')
+        return document
+
+    try:
+        return retry_request(read, stage=stage, attempts=attempts)
+    except (URLError, TimeoutError, IncompleteRead) as error:
+        raise SourceRequestError(f'{stage} failed after retries: {error} · endpoint {SERVICE+endpoint}') from error
+
+
+def download_image_bytes(href, max_bytes):
+    def read():
+        with open_source(href, timeout=90, attempts=1) as response:
+            return read_image(response, max_bytes=max_bytes)
+    return retry_request(read, stage='exported JPEG download')
 
 
 def download(destination, *, bounds=BOUNDS, title="Detroit", image_size=(2048,1536), max_bytes=MAX_BYTES):
@@ -206,8 +240,7 @@ def download(destination, *, bounds=BOUNDS, title="Detroit", image_size=(2048,15
         root = Path(temporary)
         print('USGS imagery: downloading exported JPEG…', flush=True)
         try:
-            with open_source(href, timeout=90) as response:
-                image = read_image(response, max_bytes=max_bytes)
+            image = download_image_bytes(href, max_bytes)
         except (URLError, TimeoutError) as error:
             raise RuntimeError(f'exported JPEG download failed after retries: {error} · endpoint {href}') from error
         if len(image) > MAX_BYTES or not image.startswith(b"\xff\xd8"):

@@ -575,8 +575,8 @@ measure download progress, not final validation or installation completion.
 
 Catalog record batches use a 30-second network timeout and two complete-response
 attempts before splitting into smaller requests. Retries include reading the
-response body, not only opening the connection. A failing single-record request
-stops the download and leaves any installed imagery active.
+response body, not only opening the connection. Single-record requests keep retrying temporary failures until successful or
+cancelled. Installed imagery stays active throughout.
 
 The Metro Detroit overview uses 16 smaller 512×384 exports, combined locally
 into one north-first 2048×1536 JPEG using the already installed Pillow library.
@@ -627,3 +627,11 @@ an existing installation with a newly published artifact. Completed archives are
 retained in the device's `.artifacts` cache for reuse; this consumes extra space.
 The pack descriptor and archive must come from a trusted publisher: checksums
 verify transfer consistency, not publisher authenticity.
+
+USGS source downloads now retry temporary network failures, timeouts, incomplete
+response reads, HTTP 429 and HTTP 500/502/503/504 until success or Ctrl+C. Backoff
+is 10, 20, 40, 80, then 120 seconds; a longer server Retry-After takes precedence.
+A visible one-second countdown remains interruptible. Catalog batches still split
+after two failed attempts; the smallest requests keep retrying. Fatal HTTP errors,
+invalid source rights and failed data validation still stop. Completed overview
+tiles remain cached on cancellation; the current unfinished JPEG restarts.
