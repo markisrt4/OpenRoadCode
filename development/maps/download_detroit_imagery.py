@@ -28,6 +28,15 @@ class SourceRequestError(RuntimeError):
     """A failed network response, distinct from invalid catalog/source data."""
 
 
+class NoImageryCoverage(RuntimeError):
+    """A complete catalog contains no approved NAIP source for this footprint."""
+
+    def __init__(self, metadata, catalog):
+        super().__init__('No NAIP/USDA coverage in this footprint')
+        self.metadata = metadata
+        self.catalog = catalog
+
+
 def retryable(error):
     return not isinstance(error, HTTPError) or error.code in (429, 500, 502, 503, 504)
 
@@ -212,7 +221,10 @@ def download(destination, *, bounds=BOUNDS, title="Detroit", image_size=(2048,15
         names = (record.get("Name") or "", record.get("raster_name") or "")
         text = " ".join(str(record.get(key) or "") for key in ("Name","raster_name","agency","download_url")).lower()
         return "naip" in text or "usda" in text or any(re.match(r"m_\d{7}_[ns][ew]_", name.lower()) for name in names)
-    candidates = [record for record in records if naip(record) and isinstance(record.get("Year"), int)]
+    approved = [record for record in records if naip(record)]
+    if not approved:
+        raise NoImageryCoverage(metadata, catalog)
+    candidates = [record for record in approved if isinstance(record.get("Year"), int)]
     if not candidates:
         raise RuntimeError("No identifiable dated NAIP/USDA source found for selected coverage; source review required")
     year = max(record["Year"] for record in candidates)

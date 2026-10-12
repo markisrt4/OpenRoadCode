@@ -65,3 +65,27 @@ def test_overview_rejects_cache_for_other_coverage(tmp_path, monkeypatch):
         regional_imagery.download(tmp_path/'pack', bounds=(-84,42,-82,44), title='Metro', cache_directory=cache)
     download.assert_not_called()
     assert not (tmp_path/'pack').exists()
+
+
+def test_unsupported_area_is_transparent_and_evidence_is_preserved(tmp_path, monkeypatch):
+    bounds = (-84.,42.,-82.,44.)
+    def tile_download(tile, **parameters):
+        if tile.name == 'r3-c3':
+            raise regional_imagery.NoImageryCoverage({'serviceDescription':'public domain'}, {'features':[]})
+        tile.mkdir()
+        with Image.new('RGB', (512,384), 'red') as image:
+            image.save(tile/'imagery.jpg')
+        (tile/'manifest.json').write_text(json.dumps({
+            'schema':1,'image':'imagery.jpg','bounds_deg':parameters['bounds'],
+            'width':512,'height':384,'title':'fixture','attribution':'USGS fixture',
+            'sha256':hashlib.sha256((tile/'imagery.jpg').read_bytes()).hexdigest(), 'source_records':[],
+        }))
+    monkeypatch.setattr(regional_imagery, 'download_image', tile_download)
+    regional_imagery.download(tmp_path/'pack', bounds=bounds, title='Metro', cache_directory=tmp_path/'cache')
+    pack = LocalImageryPack.load(tmp_path/'pack')
+    with Image.open(pack.image) as image:
+        assert image.getpixel((1792,1344))[3] == 0
+        assert image.getpixel((256,192))[3] == 255
+    manifest = json.loads((tmp_path/'pack'/'manifest.json').read_text())
+    assert len(manifest['missing_coverage']) == 1
+    assert (tmp_path/'pack'/'sources'/'r3-c3'/'source-catalog.json').exists()

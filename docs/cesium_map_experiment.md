@@ -635,3 +635,13 @@ A visible one-second countdown remains interruptible. Catalog batches still spli
 after two failed attempts; the smallest requests keep retrying. Fatal HTTP errors,
 invalid source rights and failed data validation still stop. Completed overview
 tiles remain cached on cancellation; the current unfinished JPEG restarts.
+
+Regional envelopes can include areas with no approved US NAIP sources (for
+example, across the border or over water). If a complete catalog contains no
+NAIP/USDA source for an overview piece, the builder leaves that piece transparent
+and records its bounds and source evidence in `missing_coverage`. Such overviews
+use PNG, with a coverage-gap count in the title. It does not substitute partner
+imagery or invent ground detail. Undated identifiable NAIP, invalid rights,
+incomplete catalogs and network failures are not treated as coverage gaps. A
+region with no supported imagery at all still fails. Re-running reuses completed
+pieces, including checked gap records, until the pack is successfully assembled.

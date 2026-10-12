@@ -39,7 +39,7 @@ def test_missing_naip_does_not_silently_substitute_partner_imagery(tmp_path, mon
         {"serviceDescription":"public domain imagery"},
         {"features":[{"attributes":{"Name":"other","Year":2024}}]},
     ]))
-    with pytest.raises(RuntimeError,match="No identifiable"):
+    with pytest.raises(downloader.NoImageryCoverage,match="No NAIP"):
         downloader.download(tmp_path / "pack")
     assert not (tmp_path / "pack").exists()
 
@@ -245,3 +245,13 @@ def test_jpeg_body_timeout_retries_whole_response(monkeypatch):
     monkeypatch.setattr(downloader, 'wait_to_retry', lambda *args: None)
     assert downloader.download_image_bytes('https://host/image.jpg', 1024) == b'\xff\xd8fixture'
     first.__exit__.assert_called_once()
+
+
+def test_undated_naip_still_requires_review(tmp_path, monkeypatch):
+    monkeypatch.setattr(downloader, 'get_json', Mock(side_effect=[
+        {'serviceDescription':'public domain'},
+        {'features':[{'attributes':{'OBJECTID':1,'Name':'USDA NAIP', 'Year':None}}]},
+    ]))
+    with pytest.raises(RuntimeError, match='source review required') as error:
+        downloader.download(tmp_path/'pack')
+    assert not isinstance(error.value, downloader.NoImageryCoverage)

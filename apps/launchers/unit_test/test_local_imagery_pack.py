@@ -69,3 +69,13 @@ def test_server_mounts_only_selected_image_and_exposes_coverage(server, pack):
     with pytest.raises(HTTPError) as error:
         urllib.request.urlopen(server.url+"data/manifest.json")
     assert error.value.code == 404
+
+
+def test_transparent_overview_is_served_as_png(server, pack):
+    (pack/'imagery.jpg').rename(pack/'imagery.png')
+    manifest = json.loads((pack/'manifest.json').read_text())
+    manifest['image'] = 'imagery.png'
+    (pack/'manifest.json').write_text(json.dumps(manifest))
+    server._imagery = LocalImageryPack.load(pack)
+    with urllib.request.urlopen(server.url+'data/imagery.jpg') as response:
+        assert response.headers['Content-Type'] == 'image/png'

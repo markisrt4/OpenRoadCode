@@ -85,7 +85,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._send(json.dumps(document).encode(), "application/json")
             return
         if path == "/data/imagery.jpg" and self.owner._imagery is not None:
-            self._send(self.owner._imagery.image.read_bytes(), "image/jpeg")
+            content_type = 'image/png' if self.owner._imagery.image.suffix == '.png' else 'image/jpeg'
+            self._send(self.owner._imagery.image.read_bytes(), content_type)
             return
         if path.startswith('/data/tiles/') and self.owner._tiles is not None:
             parts = path.removeprefix('/data/tiles/').split('/')
