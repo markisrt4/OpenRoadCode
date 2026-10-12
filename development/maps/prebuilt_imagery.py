@@ -20,6 +20,11 @@ def read_descriptor(url, coverage):
         raw = response.read(65537)
     if len(raw) > 65536:
         raise ValueError('Pack descriptor exceeds 64 KiB')
+    descriptor = validate_descriptor(raw, coverage)
+    return descriptor, urllib.parse.urljoin(url, descriptor['archive'])
+
+
+def validate_descriptor(raw, coverage):
     descriptor = json.loads(raw)
     name = descriptor.get('archive', '')
     if (descriptor.get('schema') != 1 or descriptor.get('coverage') != coverage
@@ -28,7 +33,29 @@ def read_descriptor(url, coverage):
             or not 0 < descriptor['bytes'] <= MAX_ARCHIVE_BYTES
             or not re.fullmatch(r'[a-f0-9]{64}', descriptor.get('sha256', ''))):
         raise ValueError('Invalid imagery artifact descriptor or coverage')
-    return descriptor, urllib.parse.urljoin(url, name)
+    return descriptor
+
+
+def read_local_archive(path, coverage):
+    archive = Path(path).resolve()
+    with archive.with_suffix(archive.suffix+'.json').open('rb') as source:
+        raw = source.read(65537)
+    if len(raw) > 65536:
+        raise ValueError('Pack descriptor exceeds 64 KiB')
+    descriptor = validate_descriptor(raw, coverage)
+    if descriptor['archive'] != archive.name:
+        raise ValueError('Descriptor names a different local archive')
+    verify_archive(archive, descriptor)
+    return descriptor, archive
+
+
+def verify_archive(archive, descriptor):
+    if archive.stat().st_size != descriptor['bytes']:
+        raise ValueError('Local archive size differs from its descriptor')
+    with archive.open('rb') as source:
+        digest = hashlib.file_digest(source, 'sha256').hexdigest()
+    if digest != descriptor['sha256']:
+        raise ValueError('Local archive checksum mismatch; active imagery unchanged')
 
 
 def fetch_archive(url, descriptor, cache):

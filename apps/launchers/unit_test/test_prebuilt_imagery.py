@@ -79,3 +79,33 @@ def test_descriptor_rejects_wrong_region_before_download(monkeypatch):
     monkeypatch.setattr(prebuilt_imagery.urllib.request, 'urlopen', Mock(return_value=response))
     with pytest.raises(ValueError, match='coverage'):
         prebuilt_imagery.read_descriptor('https://host/pack.zip.json', 'metro-detroit')
+
+
+def test_local_archive_cli_activates_without_network(tmp_path, monkeypatch, capsys):
+    root = tmp_path/'built'
+    write_pack(root, title='Metro local', bounds=install_region.COVERAGES['metro-detroit'][1])
+    archive = tmp_path/'metro.zip'
+    package(root, archive, 'metro-detroit')
+    active = tmp_path/'active'
+    monkeypatch.setattr(install_region, 'imagery_directory', lambda _: active)
+    monkeypatch.setattr('sys.argv', ['install_region', '--coverage', 'metro-detroit', '--pack-file', str(archive), '--yes'])
+    with patch.object(prebuilt_imagery.urllib.request, 'urlopen', side_effect=AssertionError('network called')):
+        assert install_region.main() == 0
+    assert LocalImageryPack.load(active).state.title == 'Metro local'
+    assert 'No internet needed' in capsys.readouterr().out
+
+
+def test_tampered_local_archive_keeps_previous_active_pack(tmp_path, monkeypatch):
+    root = tmp_path/'built'
+    write_pack(root, title='Old', bounds=install_region.COVERAGES['metro-detroit'][1])
+    active = tmp_path/'active'
+    active.symlink_to(root)
+    archive = tmp_path/'metro.zip'
+    package(root, archive, 'metro-detroit')
+    content = bytearray(archive.read_bytes())
+    content[0] ^= 1
+    archive.write_bytes(content)
+    monkeypatch.setattr(install_region, 'imagery_directory', lambda _: active)
+    monkeypatch.setattr('sys.argv', ['install_region', '--coverage', 'metro-detroit', '--pack-file', str(archive), '--update', '--yes'])
+    assert install_region.main() == 1
+    assert active.resolve() == root

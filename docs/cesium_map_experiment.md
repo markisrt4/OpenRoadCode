@@ -645,3 +645,20 @@ imagery or invent ground detail. Undated identifiable NAIP, invalid rights,
 incomplete catalogs and network failures are not treated as coverage gaps. A
 region with no supported imagery at all still fails. Re-running reuses completed
 pieces, including checked gap records, until the pack is successfully assembled.
+
+### Inspect a locally built archive without hosting
+
+Keep the archive and its adjacent `.zip.json` descriptor together. Install it
+without contacting USGS or any other network service:
+
+```bash
+git switch navigation-cesium
+python -m development.maps.install_region --coverage metro-detroit --pack-file build-output/artifacts/metro-detroit-imagery.zip --update
+./runOrcUi
+```
+
+The installer shows size and asks for confirmation, checks the descriptor's
+region, filename, size and SHA256, then extracts and validates the imagery before
+activation. `--update` allows replacing an existing managed imagery revision;
+the previous revision remains available. Reopen Terrain if ORC is already running.
+`--pack-file`, `--pack-manifest` and `--build-only` are mutually exclusive.

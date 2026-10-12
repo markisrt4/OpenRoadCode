@@ -10,7 +10,7 @@ from apps.launchers.local_imagery_pack import LocalImageryPack
 from common.xdg_paths import openroadcode_data_dir
 from development.maps.download_detroit_imagery import download
 from development.maps.regional_imagery import download as download_overview
-from development.maps.prebuilt_imagery import read_descriptor, fetch_archive, unpack
+from development.maps.prebuilt_imagery import read_descriptor, read_local_archive, verify_archive, fetch_archive, unpack
 
 # Rectangular planning envelopes, not county boundaries. No Canadian imagery promised.
 COVERAGES = {
@@ -36,8 +36,12 @@ def install(coverage, *, update=False, artifact=None):
     revision = active.parent / ('.'+coverage+'-imagery-'+uuid.uuid4().hex)
     title, bounds = COVERAGES[coverage]
     if artifact is not None:
-        descriptor, url = artifact
-        archive = fetch_archive(url, descriptor, active.with_name(active.name+'.artifacts'))
+        descriptor, source = artifact
+        if isinstance(source, Path):
+            verify_archive(source, descriptor)
+            archive = source
+        else:
+            archive = fetch_archive(source, descriptor, active.with_name(active.name+'.artifacts'))
         unpack(archive, revision, bounds)
     elif coverage == 'metro-detroit':
         download_overview(revision, bounds=bounds, title=title,
@@ -60,12 +64,13 @@ def main():
     parser.add_argument('--update', action='store_true', help='Fetch and validate a fresh imagery revision')
     parser.add_argument('--yes', action='store_true', help='Confirm the printed plan; requires --coverage')
     parser.add_argument('--pack-manifest', help='HTTPS URL of a published .zip.json; downloads a prebuilt pack instead of contacting USGS')
+    parser.add_argument('--pack-file', type=Path, help='Install a local .zip and its adjacent .zip.json without network access')
     parser.add_argument('--build-only', type=Path, help='Build imagery into this directory for packaging; do not activate it on this host')
     args = parser.parse_args()
     if args.yes and not args.coverage:
         parser.error('--yes requires --coverage')
-    if args.pack_manifest and args.build_only:
-        parser.error('--pack-manifest and --build-only cannot be combined')
+    if sum(bool(value) for value in (args.pack_manifest, args.pack_file, args.build_only)) > 1:
+        parser.error('--pack-manifest, --pack-file and --build-only cannot be combined')
     try:
         coverage = args.coverage
         if coverage is None:
@@ -80,9 +85,12 @@ def main():
         title, bounds = COVERAGES[coverage]
         print(f'{title}: rectangular bounds {bounds}; not exact county boundaries.')
         artifact = read_descriptor(args.pack_manifest, coverage) if args.pack_manifest else None
+        if args.pack_file:
+            artifact = read_local_archive(args.pack_file, coverage)
         if artifact:
             print(f"Prebuilt imagery: {artifact[0]['title']} · {artifact[0]['bytes']/1048576:.2f} MiB archive")
-            print('Download supports resume; archive SHA256 and image checksum are checked before activation.')
+            print('Local file: no download needed.' if args.pack_file else 'Download supports resume.')
+            print('Archive SHA256 and image checksum are checked before activation.')
         else:
             print('Source-build mode: USGS custom exports may fail. For device installs, use --pack-manifest with a published artifact.')
             print('Layer: public-domain NAIP imagery, 2048×1536 pixels; 20 MiB maximum image payload plus source metadata.')
@@ -90,9 +98,11 @@ def main():
             print('16 smaller exports, combined locally. Completed tiles resume after interruption.')
             print('Transfer cap: 20 MiB across tiles; cache and final image temporarily use up to 40 MiB plus metadata.')
         print('Overview is coarse, not street-level detail. Inspect coverage for source gaps after installation.')
-        print('Internet required to download; viewing is offline. Updates retain the previous revision (extra disk space).')
+        print('No internet needed for local installation.' if args.pack_file else 'Internet required to download; viewing is offline.')
+        print('Updates retain the previous revision (extra disk space).')
         print('Base map, search, routing and buildings continue through existing map-builder tools; this installs imagery only.')
-        if not args.yes and input('Download this imagery pack now? [y/N] ').strip().lower() != 'y':
+        question = 'Install this local imagery pack now? [y/N] ' if args.pack_file else 'Download this imagery pack now? [y/N] '
+        if not args.yes and input(question).strip().lower() != 'y':
             print('Cancelled')
             return 0
         if args.build_only:
