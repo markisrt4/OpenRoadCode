@@ -22,6 +22,7 @@ echo "[*] Starting SDR++ in Debian proot on DISPLAY=$DISPLAY_NUMBER"
 exec proot-distro login debian --shared-tmp -- \
   env \
     DISPLAY="$DISPLAY_NUMBER" \
+    PULSE_SERVER="${PULSE_SERVER:-tcp:127.0.0.1:4713}" \
     XDG_RUNTIME_DIR=/tmp/runtime-root \
     XDG_SESSION_TYPE=x11 \
     GDK_BACKEND=x11 \

@@ -379,6 +379,12 @@ executable is replaced. No map-data download is needed.
 
 ### Existing SDR++ build compatibility
 
+The launcher forwards `PULSE_SERVER` into Debian, defaulting to
+`tcp:127.0.0.1:4713`. The Termux PulseAudio bridge must be running and listening
+on that endpoint before RF playback. ORC does not start or install that service
+automatically. An audio connection refusal must be resolved before treating a
+native audio-sink crash as a RigCTL or embedding failure.
+
 New SDR++ installations use Debian's
 `/root/.local/state/openroadcode/build/SDRPlusPlus`. The ORC launcher, its theme
 configuration writer, and `development/termux/run_sdrpp.sh` also support older

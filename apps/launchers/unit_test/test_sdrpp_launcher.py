@@ -91,6 +91,7 @@ class SDRPPLauncherTest(unittest.TestCase):
         self.assertIn("GDK_BACKEND=x11", command)
         self.assertIn("LIBGL_ALWAYS_SOFTWARE=1", command)
         self.assertIn("mkdir -p /tmp/runtime-root", command[-1])
+        self.assertTrue(any(item.startswith("PULSE_SERVER=") for item in command))
         self.assertIn("chmod 700 /tmp/runtime-root", command[-1])
         self.assertIn(
             "sdrpp_source=/root/.local/state/openroadcode/build/SDRPlusPlus",
