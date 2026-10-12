@@ -32,6 +32,7 @@ class DestinationMapTest(unittest.TestCase):
                 headers={"Content-Type": "application/json"}, method="POST")
             with urlopen(request) as response:
                 self.assertEqual(response.status, 200)
+                self.assertEqual(json.loads(response.read()), {"confirmed": True})
         result = self.confirm(self.destination(), open_url=browser, timeout=1)
         self.assertAlmostEqual(result.position.latitude_rad, math.radians(42.5))
 

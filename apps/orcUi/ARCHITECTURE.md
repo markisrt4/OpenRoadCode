@@ -196,7 +196,9 @@ Toolkit-independent setup contracts expose online search and map confirmation.
 The dialog adapter opens a temporary loopback browser map with OpenStreetMap
 tiles, receives a confirmed or adjusted pin, then asks before writing TOML.
 Coordinates remain internal in the normal flow. The page reports approximate
-address matches, and requires the center map tile to load before confirmation.
+locations and gives immediate confirmation progress, success, and network-error
+feedback. The server flushes its acknowledgment before ending the session.
+It requires the center map tile to load before confirmation.
 `--offline` disables provider requests and map tiles, retaining local address
 confirmation and the advanced coordinate option. Browser cancellation, timeout,
 and lookup failure do not replace saved destinations. No additional Python or

@@ -56,9 +56,17 @@ def confirm_on_map(destination, *, timeout=600, open_url=None):
                 return
             if not done.is_set():
                 result.append(None if position is None else replace(destination, position=position))
-                done.set()
+            body = b'{"confirmed":true}'
             self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Connection", "close")
             self.end_headers()
+            self.wfile.write(body)
+            self.wfile.flush()
+            # The waiting terminal may shut down the server after this event.
+            # Finish sending the browser acknowledgment first.
+            done.set()
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     worker = threading.Thread(target=server.serve_forever, daemon=True)
