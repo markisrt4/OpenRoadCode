@@ -7,7 +7,7 @@ import math
 from ui.navigation.map_ui_if import GeoPoint
 
 
-HTML = r'''<!doctype html><html><meta name="viewport" content="width=device-width,initial-scale=1">
+HTML = """<!doctype html><html><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Confirm destination</title><style>
 body{margin:0;background:#101820;color:#edf5fb;font:16px sans-serif}header,footer{padding:14px}
 h2{margin:0 0 8px;font-size:20px}p{margin:6px 0;color:#b8c8d4}#map{height:58vh;position:relative;overflow:hidden;touch-action:none;background:#263540}
@@ -43,7 +43,7 @@ if(!r.ok)throw new Error('Server returned '+r.status);
 await r.json();finished=true;use.textContent=cancel?'Cancelled':'Location confirmed ✓';status.textContent='Return to Termux/the terminal to finish setup.';
 }catch(error){status.textContent='Confirmation could not reach the installer. Return to the terminal and check setup is still running, then retry. ('+error.message+')';use.disabled=!mapReady;cancelButton.disabled=false;}
 finally{clearTimeout(timer);pending=false;}}
-document.querySelector('#use').onclick=()=>finish(false);document.querySelector('#cancel').onclick=()=>finish(true);draw();</script></html>'''
+document.querySelector('#use').onclick=()=>finish(false);document.querySelector('#cancel').onclick=()=>finish(true);draw();</script></html>"""
 
 
 def validate_position(payload):
