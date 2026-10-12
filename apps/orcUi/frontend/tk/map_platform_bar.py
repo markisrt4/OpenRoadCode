@@ -40,7 +40,8 @@ class MapPlatformBar(tk.Frame):
 class MapPlatformToggle(tk.Button):
     """One user-facing Map/Terrain control for the existing navigation toolbar."""
 
-    def __init__(self, parent, *, handler: MapPlatformControlIf, theme: ThemeBundle):
+    def __init__(self, parent, *, handler: MapPlatformControlIf, theme: ThemeBundle, on_state=None):
+        self._on_state = on_state
         self._handler = handler
         self._state = MapPlatformState()
         ui = theme.ui
@@ -55,10 +56,14 @@ class MapPlatformToggle(tk.Button):
             target = MapPlatform.MAPLIBRE if self._state.active is MapPlatform.CESIUM else MapPlatform.CESIUM
             previous = self._state
             self.set_state(replace(previous,requested=target,busy=True))
+            if self._on_state is not None:
+                self._on_state(self._state)
             try:
                 self._handler.request_platform(target)
             except Exception:
                 self.set_state(previous)
+                if self._on_state is not None:
+                    self._on_state(previous)
                 raise
 
     def set_state(self, state: MapPlatformState):

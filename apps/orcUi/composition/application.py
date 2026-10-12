@@ -230,6 +230,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
         navigation_maps = CesiumMapRuntime(core.map_runtime, CesiumEmbeddedViewer(),
             initial_view=lambda: CesiumViewerState(get_current_position() or
                 GeoPoint(math.radians(42.3314),math.radians(-83.0458)), label="Map exploration"))
+        core.map_camera.observe_position(navigation_maps.update_position)
         navigation_places = NavigationPlacesFactory(
             online_allowed=lambda: app.online_mode.online,
             camera_observer=core.map_camera.request_handler.observe_camera,

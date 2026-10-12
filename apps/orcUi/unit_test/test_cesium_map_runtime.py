@@ -147,3 +147,64 @@ def test_camera_requests_only_reach_current_exploration(mounted):
     flush(runtime)
     runtime._camera(ExplorationCameraAction.PAN_UP, old_generation)
     assert viewer.request_camera.call_count == 1
+
+
+def test_vehicle_follow_preserves_zoom_and_pauses_for_manual_camera(mounted):
+    from ui.navigation.map_platform_if import ExplorationCameraAction
+    runtime,native,viewer = mounted
+    explore(runtime)
+    point = GeoPoint(.7,-1.4)
+    runtime.update_position(point)
+    runtime.request_follow(True)
+    runtime._worker.submit(runtime._tick,runtime._generation).result(timeout=3)
+    viewer.update_position.assert_called_with(point,True)
+    assert runtime.state.follow_enabled and runtime.state.position_available
+    runtime.request_camera(ExplorationCameraAction.ZOOM_IN)
+    flush(runtime)
+    assert runtime.state.follow_enabled
+    runtime.request_camera(ExplorationCameraAction.PAN_UP)
+    flush(runtime)
+    assert not runtime.state.follow_enabled
+    runtime.request_camera(ExplorationCameraAction.RECENTER)
+    flush(runtime)
+    assert runtime.state.follow_enabled
+    viewer.consume_manual_camera.return_value = True
+    runtime._worker.submit(runtime._tick,runtime._generation).result(timeout=3)
+    viewer.update_position.assert_called_with(point,False)
+    assert not runtime.state.follow_enabled
+
+
+def test_stale_fix_hides_vehicle_and_waits_without_using_cached_origin(mounted,monkeypatch):
+    from apps.orcUi import cesium_map_runtime as module
+    runtime,native,viewer = mounted
+    explore(runtime)
+    point = GeoPoint(.7,-1.4)
+    now = [100.0]
+    monkeypatch.setattr(module.time,'monotonic',lambda:now[0])
+    runtime.update_position(point)
+    runtime.request_follow(True)
+    runtime._send_position(runtime._generation)
+    viewer.update_position.assert_called_with(point,True)
+    now[0] = 111.0
+    runtime._send_position(runtime._generation)
+    viewer.update_position.assert_called_with(None,True)
+    assert not runtime.state.position_available
+    assert 'Waiting' in runtime.state.status
+    runtime.update_position(point)
+    runtime._send_position(runtime._generation)
+    viewer.update_position.assert_called_with(point,True)
+
+
+def test_position_updates_are_coalesced_and_old_generation_cannot_follow(mounted):
+    runtime,native,viewer = mounted
+    explore(runtime)
+    old_generation = runtime._generation
+    for index in range(100):
+        runtime.update_position(GeoPoint(.7,-1.4+index/10000))
+    viewer.update_position.assert_not_called()
+    runtime._send_position(old_generation)
+    assert viewer.update_position.call_count == 1
+    runtime.request_platform(MapPlatform.MAPLIBRE)
+    flush(runtime)
+    runtime._send_position(old_generation)
+    assert viewer.update_position.call_count == 1

@@ -22,7 +22,7 @@ def test_right_side_controls_have_action_descriptions():
     for text in ("Toggle following the vehicle", "Zoom in", "Zoom out",
                  "Current map zoom level", "Switch between overhead 2D and tilted 3D view",
                  "Rotate north to the top (turns follow off)",
-                 "Center on the vehicle in Map or selected place in Terrain"):
+                 "Center on the vehicle and enable following"):
         assert text in descriptions
     for direction in ("up", "down", "left", "right"):
         assert f"Pan the map {direction} on screen (turns follow off)" in descriptions

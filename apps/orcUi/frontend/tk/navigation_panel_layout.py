@@ -49,7 +49,8 @@ def build_navigation_panel(panel) -> None:
     places.configure(menu=places_menu)
     places.pack(side=tk.LEFT, padx=(0, 4))
     if panel._map_platform is not None:
-        panel._platform_toggle = MapPlatformToggle(shortcuts, handler=panel._map_platform, theme=panel._theme_bundle)
+        panel._platform_toggle = MapPlatformToggle(shortcuts, handler=panel._map_platform, theme=panel._theme_bundle,
+                                                   on_state=panel.apply_map_platform_state)
         panel._platform_toggle.pack(side=tk.LEFT, padx=(0,4))
         panel._add_tooltip(panel._platform_toggle, "Switch between the street map and 3D terrain")
     tk.Label(
@@ -126,6 +127,10 @@ def build_navigation_panel(panel) -> None:
         body, bg=ui.background, highlightthickness=1, highlightbackground=ui.border
     )
     panel._map_host.grid(row=0, column=0, sticky="nsew")
+    panel._loading_cover = tk.Label(body, text='Loading Terrain…',
+                                    bg=ui.background, fg=ui.text)
+    panel._loading_cover.grid(row=0, column=0, sticky='nsew')
+    panel._loading_cover.grid_remove()
     controls = tk.Frame(
         body, bg=ui.surface_alt, width=62, highlightthickness=1, highlightbackground=ui.border
     )
@@ -148,7 +153,7 @@ def build_navigation_panel(panel) -> None:
     panel._add_tooltip(panel._follow_button, "Toggle following the vehicle")
     for column, label, command, accent, description in (
         (1, "N", panel._north_up, ui.text, "Rotate north to the top (turns follow off)"),
-        (2, "◎", panel._recenter, ui.accent_success, "Center on the vehicle in Map or selected place in Terrain"),
+        (2, "◎", panel._recenter, ui.accent_success, "Center on the vehicle and enable following"),
     ):
         button = panel._control(orientation, label, command, accent)
         button.grid(row=0, column=column, sticky="nsew", padx=1)

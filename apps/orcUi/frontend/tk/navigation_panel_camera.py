@@ -33,6 +33,7 @@ class NavigationCameraControls:
 
     def _toggle_follow(self) -> None:
         if self._terrain_camera(None):
+            self._map_platform.request_follow(not self._map_platform.state.follow_enabled)
             return
         enabled = not self._follow_enabled
         self.set_follow_enabled(enabled)

@@ -21,6 +21,7 @@ from common.logging.logging_paths import logging_file_path
 from frontends.x11.x11_window_embedder import X11WindowEmbedder
 from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
 from ui.navigation.map_platform_if import ExplorationCameraAction
+from ui.navigation import GeoPoint
 
 
 class CesiumEmbeddedViewer:
@@ -33,6 +34,8 @@ class CesiumEmbeddedViewer:
         self._server = None
         self._size = None
         self._devtools = self._target = None
+        self._manual_revision = 0
+        self._manual_pending = False
 
     def open(self, state, parent_window_id, size, current=lambda: True):
         self.close()
@@ -163,12 +166,37 @@ class CesiumEmbeddedViewer:
         if size != self._size:
             self._embedder.resize(*size)
             self._size = size
+        result = self._devtools.command(self._target, 'Runtime.evaluate', {
+            'expression':'window.ORCManualCameraRevision || 0', 'returnByValue':True})
+        revision = result.get('result', {}).get('value', 0)
+        if type(revision) is int and revision != self._manual_revision:
+            self._manual_pending = True
+            self._manual_revision = revision
         return True
+
+    def consume_manual_camera(self):
+        pending, self._manual_pending = self._manual_pending, False
+        return pending
+
+    def update_position(self, position, follow_enabled):
+        if self._devtools is None:
+            raise RuntimeError('3D vehicle tracking is not ready')
+        if position is not None and not isinstance(position, GeoPoint):
+            raise TypeError('Vehicle tracking requires an SI GeoPoint')
+        document = None if position is None else {
+            'latitude_rad':position.latitude_rad, 'longitude_rad':position.longitude_rad}
+        result = self._devtools.command(self._target, 'Runtime.evaluate', {
+            'expression':f'window.ORCUpdateVehicle({json.dumps(document)}, {json.dumps(follow_enabled)})',
+            'returnByValue':True})
+        if result.get('exceptionDetails') or result.get('result', {}).get('value') is not True:
+            raise RuntimeError('3D vehicle tracking rejected the update')
 
     def close(self):
         resources, self._resources = self._resources, None
         self._browser = self._server = self._size = None
         self._devtools = self._target = None
+        self._manual_revision = 0
+        self._manual_pending = False
         try:
             if resources is not None:
                 # Close the browser while attached, before the Tk host is destroyed.

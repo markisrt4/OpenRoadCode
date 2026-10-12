@@ -158,3 +158,21 @@ def test_cancellation_while_waiting_for_frame_closes_surface(native, monkeypatch
     native.viewer.open(state(),100,(640,320),lambda:not cancelled)
     native.browser.stop.assert_called_once()
     assert native.viewer._server is None
+
+
+def test_vehicle_fix_and_manual_camera_observation_use_owned_browser(native):
+    native.viewer.open(state(),100,(640,320))
+    native.devtools.command.side_effect = None
+    native.devtools.command.return_value = {'result':{'value':True}}
+    native.viewer.update_position(GeoPoint(.7,-1.4),True)
+    expression = native.devtools.command.call_args.args[2]['expression']
+    assert 'latitude_rad' in expression and ', true)' in expression
+    native.devtools.command.return_value = {'result':{'value':2}}
+    native.viewer.tick((640,320))
+    assert native.viewer.consume_manual_camera()
+    assert not native.viewer.consume_manual_camera()
+    native.viewer.tick((640,320))
+    assert not native.viewer.consume_manual_camera()
+    native.viewer.close()
+    with pytest.raises(RuntimeError, match='not ready'):
+        native.viewer.update_position(None,True)

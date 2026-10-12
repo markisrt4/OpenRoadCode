@@ -34,6 +34,8 @@ class MapPlatformState:
     busy: bool = False
     status: str = "MapLibre"
     available_platforms: tuple[MapPlatform, ...] = (MapPlatform.MAPLIBRE, MapPlatform.EARTH)
+    follow_enabled: bool = False
+    position_available: bool = False
 
 
 class MapPlatformControlIf(Protocol):
@@ -60,6 +62,10 @@ class MapPlatformControlIf(Protocol):
 
     def request_camera(self, action: ExplorationCameraAction) -> None:
         """Apply a relative camera action to the active exploration surface."""
+        ...
+
+    def request_follow(self, enabled: bool) -> None:
+        """Enable vehicle following on the exploration surface; await a live fix if needed."""
         ...
 
     def resize(self, width: int, height: int, owner_window_id: int) -> None:

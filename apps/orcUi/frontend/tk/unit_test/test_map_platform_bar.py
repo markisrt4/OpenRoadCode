@@ -61,6 +61,7 @@ class MapPlatformPollTest(unittest.TestCase):
 def test_inline_map_terrain_toggle_emits_semantic_requests_and_blocks_busy_clicks():
     from apps.orcUi.frontend.tk.map_platform_bar import MapPlatformToggle
     button = object.__new__(MapPlatformToggle)
+    button._on_state = None
     button.configure = Mock()
     button._handler = Mock()
     button.set_state(MapPlatformState())
@@ -75,3 +76,16 @@ def test_inline_map_terrain_toggle_emits_semantic_requests_and_blocks_busy_click
     button.set_state(MapPlatformState(busy=True))
     button._toggle()
     button._handler.request_platform.assert_not_called()
+
+
+def test_loading_cover_notification_precedes_browser_launch():
+    from apps.orcUi.frontend.tk.map_platform_bar import MapPlatformToggle
+    button = object.__new__(MapPlatformToggle)
+    events=[]
+    button.configure=Mock()
+    button._on_state=lambda state:events.append(('cover',state.busy))
+    button._handler=Mock()
+    button._handler.request_platform.side_effect=lambda _:events.append(('launch',True))
+    button.set_state(MapPlatformState())
+    button._toggle()
+    assert events == [('cover',True),('launch',True)]

@@ -666,9 +666,8 @@ the previous revision remains available. Reopen Terrain if ORC is already runnin
 ### Shared ORC camera rail and detail imagery
 
 The existing ORC camera rail now operates Terrain through semantic exploration
-camera actions: pan, relative zoom, north, recenter and tilt/2D–3D. Recenter goes
-to the selected exploration place. The vehicle-follow button is disabled in
-Terrain; live following and route guidance remain a later integration step.
+camera actions: pan, relative zoom, north, recenter and tilt/2D–3D. Recenter resumes following the vehicle when a live fix is available. The vehicle-follow button now operates Terrain; route guidance remains a later
+integration step.
 Changing tilt/2D–3D keeps the current panned ground centre. The native zoom number
 is replaced by a dash in Terrain, since its camera uses viewing distance instead.
 Standalone browser exploration retains its own camera buttons; the embedded
@@ -698,3 +697,43 @@ imagery coverage containing that place is selected; outside it the metro overvie
 remains available. Existing still-smaller legacy downtown coverage takes priority
 if installed. Source acquisitions and gaps determine actual visual quality; more
 output pixels do not create detail absent from NAIP itself.
+
+### Terrain startup cover and live vehicle following
+
+ORC places a native sibling loading cover above the browser host before starting
+Terrain, keeps host geometry stable, and removes the cover after initialization,
+globe tile readiness, a rendered frame, and a 750 ms settling interval. Errors or
+cancellation release the browser and restore the normal map. This must still be
+checked on Termux/X11; it hides startup transitions rather than repairing driver
+faults that occur during use.
+
+Terrain receives SI positions from the existing navigation camera runtime. Only
+uncached fixes with fix mode 2 or 3 are forwarded as live positions. No cached
+startup coordinates are labelled as a live vehicle. The latest position is
+coalesced on the existing worker at up to two updates per second; a visible
+vehicle marker remains available with Follow off. After ten seconds without a
+valid received fix, the marker hides and follow waits without moving the camera.
+
+Press **F** to toggle vehicle follow; **◎** resumes it. Toolbar pan, north and
+tilt/2D–3D, and direct mouse/touch camera interaction pause following. Toolbar
+zoom preserves following. Camera distance, tilt and bearing are preserved as the
+vehicle moves; this first version follows position, not a changing course-up
+heading. Opening a selected POI starts exploration with follow off. If no live
+position is available, recenter returns to the exploration destination while
+waiting. Switching back to Map restores its previous follow-button state.
+
+Follow uses the imagery/terrain loaded when the viewer opens. It does not
+hot-swap packs while moving beyond their coverage or download additional data.
+Route guidance and radar still use the regular map.
+
+```bash
+git switch navigation-cesium
+git pull --ff-only
+python scripts/quality_gate.py
+./runOrcUi
+```
+
+Check the startup cover, then test with the existing sensor bridge/position
+source connected: vehicle marker and following, pan to pause, F/◎ to resume,
+zoom while following, and switching back to Map. With no live fix, expect
+“Waiting for live vehicle position,” not a moving cached marker.

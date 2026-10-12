@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 import math
 import threading
+import time
 
 from ui.navigation import GeoPoint
 from ui.navigation.cesium_viewer_state import CesiumViewerState
@@ -19,6 +20,11 @@ class CesiumMapRuntime:
         self._native, self._viewer = native, viewer
         self._initial_view = initial_view or (lambda: CesiumViewerState(GeoPoint(math.radians(42.3314),math.radians(-83.0458))))
         self._view = None
+        self._position = None
+        self._position_received = 0.0
+        self._position_revision = 0
+        self._sent_position = None
+        self._follow_enabled = True
         self._lock = threading.RLock()
         self._state = MapPlatformState(available_platforms=_PLATFORMS)
         self._host = None
@@ -60,6 +66,7 @@ class CesiumMapRuntime:
             if self._closed or self._host is None:
                 raise RuntimeError('Open Navigation before exploring the 3D map')
             self._view = state
+            self._follow_enabled = False
             self.request_platform(MapPlatform.CESIUM)
 
     def request_platform(self, platform):
@@ -84,12 +91,61 @@ class CesiumMapRuntime:
         with self._lock:
             if self._closed or self._state.busy or self._state.active is not MapPlatform.CESIUM:
                 return
+            if action is ExplorationCameraAction.RECENTER:
+                self._follow_enabled = True
+            elif action not in (ExplorationCameraAction.ZOOM_IN, ExplorationCameraAction.ZOOM_OUT):
+                self._follow_enabled = False
+            self._state = replace(self._state, follow_enabled=self._follow_enabled)
             self._worker.submit(self._camera, action, self._generation)
+
+    def update_position(self, position):
+        """Receive a live SI fix from composition without transport or GUI access."""
+        if position is not None and (not isinstance(position, GeoPoint)
+                or not math.isfinite(position.latitude_rad) or not math.isfinite(position.longitude_rad)
+                or abs(position.latitude_rad) > math.pi/2 or abs(position.longitude_rad) > math.pi):
+            raise ValueError('Invalid vehicle position')
+        with self._lock:
+            if self._closed:
+                return
+            self._position = position
+            self._position_received = time.monotonic()
+            self._position_revision += 1
+
+    def request_follow(self, enabled):
+        if type(enabled) is not bool:
+            raise TypeError('Follow enabled must be a boolean')
+        with self._lock:
+            if self._closed:
+                return
+            self._follow_enabled = enabled
+            self._state = replace(self._state, follow_enabled=enabled)
+
+    def _send_position(self, generation):
+        with self._lock:
+            if not self._current(generation):
+                return
+            point = self._position if time.monotonic()-self._position_received <= 10 else None
+            follow = self._follow_enabled
+            key = (self._position_revision if point is not None else None, follow)
+        if key != self._sent_position:
+            self._viewer.update_position(point, follow)
+            self._sent_position = key
+        with self._lock:
+            if not self._current(generation) or self._follow_enabled != follow:
+                return
+            self._state = replace(self._state, follow_enabled=follow, position_available=point is not None,
+                status='Waiting for live vehicle position' if follow and point is None else
+                    'Terrain · vehicle follow' if follow else 'Terrain · exploration')
 
     def _camera(self, action, generation):
         if not self._current(generation):
             return
         try:
+            if action is ExplorationCameraAction.RECENTER:
+                self._sent_position = None
+                self._send_position(generation)
+                if self._state.position_available:
+                    return
             self._viewer.request_camera(action)
         except Exception as error:
             with self._lock:
@@ -108,13 +164,14 @@ class CesiumMapRuntime:
             if platform is MapPlatform.CESIUM:
                 self._native.stop()
                 self._viewer.open(self._view,self._host,self._size,lambda:self._current(generation))
+                self._sent_position = None
             elif self._current(generation):
                 self._native.launch(self._host)
             with self._lock:
                 if self._current(generation):
                     self._state = MapPlatformState(platform,platform,False,
                         '3D exploration · routes and radar use MapLibre' if platform is MapPlatform.CESIUM else 'MapLibre',
-                        available_platforms=_PLATFORMS)
+                        available_platforms=_PLATFORMS, follow_enabled=self._follow_enabled)
         except Exception as error:
             try:
                 self._viewer.close()
@@ -150,6 +207,10 @@ class CesiumMapRuntime:
             if not self._viewer.tick(self._size):
                 self._viewer.close()
                 self._fallback(generation,'MapLibre')
+            else:
+                if self._viewer.consume_manual_camera() is True:
+                    self.request_follow(False)
+                self._send_position(generation)
         except Exception as error:
             try:
                 self._viewer.close()

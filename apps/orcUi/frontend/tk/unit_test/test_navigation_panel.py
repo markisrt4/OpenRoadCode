@@ -344,19 +344,23 @@ def test_close_places_cancels_poll_and_debounce_and_rejects_late_callbacks():
     panel._shortcut_status.set.assert_not_called()
 
 
-def test_embedded_platform_keeps_host_geometry_and_disables_follow():
+def test_embedded_platform_keeps_host_geometry_and_enables_follow():
     from ui.navigation.map_platform_if import MapPlatform, MapPlatformState
     panel = object.__new__(NavigationPanel)
     panel._platform_toggle = None
+    panel._terrain_active = False
+    panel._follow_enabled = True
     panel._native_camera_controls = Mock()
     panel._follow_button = Mock()
+    panel._loading_cover = Mock()
+    panel.set_follow_enabled = Mock()
     panel._zoom_text = Mock()
     panel._dimension_text = Mock()
     panel._zoom_level = 16.5
     panel._pitch_rad = .7
     panel.apply_map_platform_state(MapPlatformState(active=MapPlatform.CESIUM, requested=MapPlatform.CESIUM))
     panel._native_camera_controls.grid_remove.assert_not_called()
-    panel._follow_button.configure.assert_called_with(state='disabled')
+    panel._follow_button.configure.assert_called_with(state='normal')
     panel.apply_map_platform_state(MapPlatformState())
     panel._follow_button.configure.assert_called_with(state='normal')
 
@@ -377,3 +381,23 @@ def test_terrain_toolbar_routes_camera_actions_without_native_requests():
         ExplorationCameraAction.PITCH_DOWN, ExplorationCameraAction.NORTH,
         ExplorationCameraAction.RECENTER, ExplorationCameraAction.DIMENSION]
     assert not panel._request_handler.mock_calls
+
+
+def test_loading_cover_stays_above_map_until_ready():
+    from ui.navigation.map_platform_if import MapPlatform, MapPlatformState
+    panel = object.__new__(NavigationPanel)
+    panel._platform_toggle = None
+    panel._terrain_active = False
+    panel._follow_enabled = True
+    panel._follow_button = Mock()
+    panel._loading_cover = Mock()
+    panel._zoom_text = Mock()
+    panel._dimension_text = Mock()
+    panel.set_follow_enabled = Mock()
+    panel.apply_map_platform_state(MapPlatformState(requested=MapPlatform.CESIUM,busy=True))
+    panel._loading_cover.grid.assert_called_once()
+    panel._loading_cover.lift.assert_called_once()
+    panel._loading_cover.grid_remove.assert_not_called()
+    panel.apply_map_platform_state(MapPlatformState(active=MapPlatform.CESIUM,requested=MapPlatform.CESIUM,follow_enabled=True))
+    panel._loading_cover.grid_remove.assert_called_once()
+    panel.set_follow_enabled.assert_called_with(True)

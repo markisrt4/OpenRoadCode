@@ -73,6 +73,8 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         del on_back
         self._request_handler = map_request_handler
         self._map_platform = map_platform
+        self._terrain_active = False
+        self._map_follow_enabled = True
         self._platform_toggle = None
         self._tooltip_factory = tooltip_factory
         self._tooltips = []
@@ -136,8 +138,20 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
             self._platform_toggle.set_state(state)
         # Keep host geometry stable while the embedded WebGL surface starts.
         terrain = state.requested is MapPlatform.CESIUM
-        self._follow_button.configure(state='disabled' if terrain else 'normal')
+        if terrain and not self._terrain_active:
+            self._map_follow_enabled = self._follow_enabled
+        elif self._terrain_active and not terrain:
+            self.set_follow_enabled(self._map_follow_enabled)
+        self._terrain_active = terrain
+        self._follow_button.configure(state='disabled' if state.busy else 'normal')
+        if state.busy:
+            self._loading_cover.configure(text='Loading Terrain…' if terrain else 'Loading map…')
+            self._loading_cover.grid()
+            self._loading_cover.lift()
+        else:
+            self._loading_cover.grid_remove()
         if terrain:
+            self.set_follow_enabled(state.follow_enabled)
             self._zoom_text.set('—')
             self._dimension_text.set('2D/3D')
         else:

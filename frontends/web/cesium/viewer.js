@@ -3,6 +3,7 @@
 (async function () {
   window.ORCViewerReady = false;
   window.ORCViewerError = null;
+  window.ORCManualCameraRevision = 0;
   const status = document.getElementById('status');
   let viewer;
   let snapshot;
@@ -118,6 +119,10 @@
       if (readout.textContent !== text) readout.textContent = text;
     });
     const cameraControls = window.ORCCameraControls(viewer, snapshot, C, terrain?.heightAt);
+    for (const event of ['pointerdown','wheel']) {
+      viewer.scene.canvas.addEventListener(event, () => { window.ORCManualCameraRevision++; }, {passive:true});
+    }
+    window.ORCUpdateVehicle = window.ORCVehicleFollow(viewer, snapshot, C, terrain?.heightAt);
     document.getElementById('pitch-up').onclick = () => { cameraControls.pitch(1); tilted=true; };
     document.getElementById('pitch-down').onclick = () => { cameraControls.pitch(-1); tilted=true; };
     for (const [id,right,up] of [['pan-up',0,1],['pan-down',0,-1],['pan-left',-1,0],['pan-right',1,0]]) {
@@ -131,6 +136,7 @@
       viewer.scene.requestRender();
     }
     document.getElementById('reset').onclick = () => {
+      window.ORCManualCameraRevision++;
       tilted=true;
       if (terrain) {terrainScale=1; updateTerrain();}
       reset();
@@ -257,8 +263,11 @@
   }
   if (viewer && !window.ORCViewerError) {
     const remove = viewer.scene.postRender.addEventListener(() => {
-      window.ORCViewerReady = true;
+      if (!viewer.scene.globe.tilesLoaded) return;
       remove();
+      setTimeout(() => {
+        if (!viewer.isDestroyed() && !window.ORCViewerError) window.ORCViewerReady = true;
+      }, 750);
     });
     viewer.scene.requestRender();
   }
