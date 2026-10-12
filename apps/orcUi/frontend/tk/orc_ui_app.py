@@ -58,6 +58,7 @@ class OrcUiApp(VolumeUiIf):
         self._root.configure(bg=ui.background)
         self._shell: OrcUiShellView | None = None
         self._adsb_enabled = False
+        self._adsb_simulation = False
         self._aircraft_count = 0
         self._aircraft_handler: AircraftMenuRequestHandlerIf | None = None
         self._active_nav = ""
@@ -300,12 +301,13 @@ class OrcUiApp(VolumeUiIf):
         if self._shell is not None:
             self._shell.set_aircraft_request_handler(handler)
 
-    def set_adsb_state(self, *, enabled: bool, aircraft_count: int = 0) -> None:
+    def set_adsb_state(self, *, enabled: bool, aircraft_count: int = 0, simulation: bool = False) -> None:
         self._adsb_enabled = bool(enabled)
+        self._adsb_simulation = simulation
         self._aircraft_count = max(0, int(aircraft_count))
         if self._shell is not None:
             self._shell.set_aircraft_state(AircraftMenuUiState(
-                self._adsb_enabled, self._aircraft_count,
+                self._adsb_enabled, self._aircraft_count, self._adsb_simulation,
             ))
 
     def _rebuild_shell_theme(self) -> None:

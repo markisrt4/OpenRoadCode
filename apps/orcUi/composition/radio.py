@@ -188,7 +188,7 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
         open_tracker=lambda: show_radio_source("adsb"),
         open_airband=lambda: show_radio_source("airband"),
     ))
-    app.set_adsb_state(enabled=False, aircraft_count=0)
+    app.set_adsb_state(enabled=False, aircraft_count=0, simulation=adsb.simulation)
 
     def observe_adsb_status() -> None:
         if not adsb_io_lock.acquire(blocking=False):
@@ -208,7 +208,7 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
                 enabled, count, error = adsb_results.get_nowait()
             except Empty:
                 break
-            app.set_adsb_state(enabled=enabled, aircraft_count=count)
+            app.set_adsb_state(enabled=enabled, aircraft_count=count, simulation=adsb.simulation)
             if error is not None:
                 app.set_screen_status(error)
         observe_adsb_status()

@@ -71,6 +71,10 @@ class OrcUiAdsbControl:
         return self._launcher.is_running()
 
     @property
+    def simulation(self) -> bool:
+        return self._launcher.data_source == "simulation"
+
+    @property
     def tracking(self) -> bool:
         """Return whether the ADS-B receiver service is actively tracking."""
         if self._launcher.data_source != "rtlsdr":

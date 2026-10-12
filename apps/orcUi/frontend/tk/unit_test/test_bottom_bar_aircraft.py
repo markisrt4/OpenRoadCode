@@ -16,14 +16,19 @@ from ui.radio import AircraftMenuUiState
 
 
 class BottomBarAircraftTest(unittest.TestCase):
+    def test_simulated_feed_is_not_presented_as_a_real_receiver(self):
+        receiver, tracker, _ = aircraft_menu_labels(enabled=False, aircraft_count=0, simulation=True)
+        self.assertEqual(receiver, "Simulated data · no live receiver")
+        self.assertEqual(tracker, "↗  Open simulated aircraft map")
+
     def test_enabled_status_shows_aircraft_count(self) -> None:
         self.assertEqual("✈  AIRCRAFT ▾", aircraft_button_text(enabled=True, aircraft_count=7))
 
     def test_disabled_status_and_menu_are_explicit(self) -> None:
         self.assertEqual("✈  AIRCRAFT ▾", aircraft_button_text(enabled=False, aircraft_count=9))
         receiver, tracker, airband = aircraft_menu_labels(enabled=False, aircraft_count=9)
-        self.assertIn("receiver off", receiver)
-        self.assertEqual("↗  Open 1090 aircraft map", tracker)
+        self.assertEqual("Start ADS-B receiver", receiver)
+        self.assertEqual("↗  Start tracking & open map", tracker)
         self.assertEqual("♫  Open AM / pilot radio", airband)
 
     def test_toggle_emits_nonblocking_semantic_request(self) -> None:
@@ -43,7 +48,7 @@ class BottomBarAircraftTest(unittest.TestCase):
 
     def test_nonzero_active_count_is_available_inside_menu(self) -> None:
         _receiver, tracker, _airband = aircraft_menu_labels(enabled=True, aircraft_count=7)
-        self.assertEqual("↗  Open 1090 aircraft map · 7 nearby", tracker)
+        self.assertEqual("↗  Open aircraft map · 7 nearby", tracker)
 
     def test_expanded_aircraft_button_collapses_existing_popup(self) -> None:
         panel = SimpleNamespace(_aircraft_popup=Mock(), _close_aircraft_menu=Mock())

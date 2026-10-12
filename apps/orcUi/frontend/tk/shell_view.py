@@ -60,6 +60,7 @@ class OrcUiShellView:
         self._on_volume_up = on_volume_up
         self._volume_text = volume_text
         self._adsb_enabled = False
+        self._adsb_simulation = False
         self._aircraft_count = 0
         self._aircraft_handler: AircraftMenuRequestHandlerIf | None = None
         self._side_nav: OrcUiSideNav | None = None
@@ -263,6 +264,7 @@ class OrcUiShellView:
 
     def set_aircraft_state(self, state: AircraftMenuUiState) -> None:
         self._adsb_enabled = bool(state.adsb_enabled)
+        self._adsb_simulation = state.simulation
         self._aircraft_count = max(0, int(state.aircraft_count))
         if self._bottom_bar is not None and self._bottom_bar.winfo_exists():
             self._bottom_bar.set_aircraft_state(state)
@@ -320,7 +322,7 @@ class OrcUiShellView:
         )
         self._bottom_bar.set_aircraft_request_handler(self._aircraft_handler)
         self._bottom_bar.set_aircraft_state(AircraftMenuUiState(
-            self._adsb_enabled, self._aircraft_count,
+            self._adsb_enabled, self._aircraft_count, self._adsb_simulation,
         ))
         self._breadcrumb_label, self._status_label = build_footer(self._root, theme=self._theme)
         settings_space = tk.Frame(self._root, bg=self._theme.ui.background)

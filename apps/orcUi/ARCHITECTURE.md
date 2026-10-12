@@ -154,7 +154,11 @@ The persistent Aircraft control presents `AircraftMenuUiState` and emits
 that toggles ADS-B, opens the 1090 tracker, or selects AM aviation radio; the
 bottom-bar widget does not launch processes or depend on Radio controllers.
 ADS-B service transitions and status probes run outside the Tk event thread;
-dashboard browser/service teardown also runs outside Tk. The adapter rejects
+Opening the aircraft map starts its configured receiver or simulation; the menu
+presents that as the primary action, with a secondary Start/Stop control for real
+receivers. The state contract carries simulation mode so the menu labels
+simulated data clearly and omits the meaningless receiver toggle in that mode.
+Dashboard browser/service teardown also runs outside Tk. The adapter rejects
 reopening until its cleanup worker finishes, and the non-daemon worker completes
 cleanup on process exit. Embedded tar1090 defaults to a 25% sidebar unless its
 configured URL specifies a width; Termux uses ANGLE/SwiftShader software WebGL

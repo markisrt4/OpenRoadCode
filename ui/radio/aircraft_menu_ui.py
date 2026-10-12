@@ -11,9 +11,11 @@ from dataclasses import dataclass
 class AircraftMenuUiState:
     adsb_enabled: bool = False
     aircraft_count: int = 0
+    simulation: bool = False
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "adsb_enabled", bool(self.adsb_enabled))
+        object.__setattr__(self, "simulation", bool(self.simulation))
         object.__setattr__(self, "aircraft_count", max(0, int(self.aircraft_count)))
 
 
@@ -24,7 +26,7 @@ class AircraftMenuRequestHandlerIf(ABC):
 
     @abstractmethod
     def request_open_tracker(self) -> None:
-        """Open the 1090 aircraft tracker."""
+        """Open the tracker and start its configured receiver or simulation."""
 
     @abstractmethod
     def request_open_airband(self) -> None:

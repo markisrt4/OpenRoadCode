@@ -25,14 +25,15 @@ def aircraft_button_text(*, enabled: bool, aircraft_count: int) -> str:
     return "✈  AIRCRAFT ▾"
 
 
-def aircraft_menu_labels(*, enabled: bool, aircraft_count: int) -> tuple[str, str, str]:
+def aircraft_menu_labels(*, enabled: bool, aircraft_count: int, simulation: bool = False) -> tuple[str, str, str]:
     """Describe Aircraft actions without coupling their behavior to Tk."""
-    marker = "✓" if enabled else "○"
-    receiver = f"{marker}  ADS-B receiver {'on' if enabled else 'off'}"
+    receiver = "Simulated data · no live receiver" if simulation else (
+        "Stop ADS-B receiver" if enabled else "Start ADS-B receiver")
     count = max(0, aircraft_count)
-    tracker = "↗  Open 1090 aircraft map"
+    tracker = "↗  Open simulated aircraft map" if simulation else (
+        "↗  Open aircraft map" if enabled else "↗  Start tracking & open map")
     if enabled and count:
-        tracker += f" · {count} nearby"
+        tracker += f" · {count} {'simulated' if simulation else 'nearby'}"
     return receiver, tracker, "♫  Open AM / pilot radio"
 
 
@@ -55,6 +56,7 @@ class OrcUiBottomBar(tk.Frame):
         super().__init__(parent, bg=ui.background, height=BOTTOM_BAR_HEIGHT)
         self._theme = theme
         self._adsb_enabled = False
+        self._adsb_simulation = False
         self._aircraft_count = 0
         self._aircraft_handler: AircraftMenuRequestHandlerIf | None = None
         self._aircraft_popup: tk.Frame | None = None
@@ -132,6 +134,7 @@ class OrcUiBottomBar(tk.Frame):
 
     def set_aircraft_state(self, state: AircraftMenuUiState) -> None:
         self._adsb_enabled = bool(state.adsb_enabled)
+        self._adsb_simulation = state.simulation
         self._aircraft_count = max(0, int(state.aircraft_count))
         self._paint_adsb()
 
@@ -153,15 +156,20 @@ class OrcUiBottomBar(tk.Frame):
         receiver, tracker, airband = aircraft_menu_labels(
             enabled=self._adsb_enabled,
             aircraft_count=self._aircraft_count,
+            simulation=self._adsb_simulation,
         )
         root = self.winfo_toplevel()
         popup = tk.Frame(root, bg=ui.surface, bd=0, highlightthickness=0)
         self._aircraft_popup = popup
-        for label, action in (
-            (receiver, self._toggle_adsb),
-            (tracker, self._show_aircraft),
-            (airband, self._show_airband),
-        ):
+        tk.Label(popup, text="SIMULATED DATA" if self._adsb_simulation else (
+            "RECEIVER ON" if self._adsb_enabled else "RECEIVER OFF · MAP STARTS TRACKING"),
+            bg=ui.surface, fg=ui.text_muted, font=("Sans", 8, "bold"),
+            anchor="w").pack(fill=tk.X, padx=12, pady=(8, 4))
+        actions = [(tracker, self._show_aircraft)]
+        if not self._adsb_simulation:
+            actions.append((receiver, self._toggle_adsb))
+        actions.append((airband, self._show_airband))
+        for label, action in actions:
             tk.Button(
                 popup,
                 text=label,
