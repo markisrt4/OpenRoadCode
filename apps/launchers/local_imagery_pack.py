@@ -18,11 +18,22 @@ def pine_knob_imagery_directory():
     return openroadcode_data_dir("map-packs", "pine-knob-imagery-v1")
 
 
+def installed_imagery_directories():
+    return (pine_knob_imagery_directory(), detroit_pack_directory(),
+            openroadcode_data_dir('map-packs', 'detroit-midtown-imagery-active'),
+            openroadcode_data_dir('map-packs', 'metro-detroit-imagery-active'))
+
+
+def load_imagery_stack():
+    packs = [LocalImageryPack.load(directory) for directory in installed_imagery_directories()
+             if (directory/'manifest.json').is_file()]
+    return tuple(sorted(packs, key=lambda pack: (pack.state.east_rad-pack.state.west_rad)*
+                        (pack.state.north_rad-pack.state.south_rad), reverse=True))
+
+
 def preferred_imagery_directory(destination):
     candidates = []
-    for directory in (pine_knob_imagery_directory(), detroit_pack_directory(),
-                      openroadcode_data_dir('map-packs', 'detroit-midtown-imagery-active'),
-                      openroadcode_data_dir('map-packs', 'metro-detroit-imagery-active')):
+    for directory in installed_imagery_directories():
         if not (directory/'manifest.json').is_file():
             continue
         coverage = LocalImageryPack.load(directory).state

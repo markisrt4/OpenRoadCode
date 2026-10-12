@@ -14,6 +14,7 @@ def native(tmp_path,monkeypatch):
     absent=tmp_path/'absent'
     for name in ('preferred_imagery_directory','preferred_terrain_directory','detroit_building_directory','preferred_tiles_directory'):
         monkeypatch.setattr(module,name,lambda *args:absent)
+    monkeypatch.setattr(module,'load_imagery_stack',lambda:())
     monkeypatch.setattr(module,'sdk_directory',lambda:tmp_path/'sdk')
     monkeypatch.setattr(module,'logging_file_path',lambda *args:tmp_path/'embedded.log')
     browser=Mock()

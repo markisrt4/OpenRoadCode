@@ -11,6 +11,7 @@ from urllib.parse import unquote, urlsplit
 
 from apps.launchers.cesium_sdk import require_sdk
 from ui.navigation.cesium_viewer_state import CesiumViewerState
+from ui.navigation.local_imagery_state import LocalImageryStackState
 
 _WEB = Path(__file__).resolve().parents[2] / "frontends/web/cesium"
 
@@ -18,10 +19,12 @@ _WEB = Path(__file__).resolve().parents[2] / "frontends/web/cesium"
 class CesiumViewerServer:
     """Own the local origin, immutable view state, and bounded serving lifecycle."""
 
-    def __init__(self, sdk: Path, state: CesiumViewerState, *, imagery=None, terrain=None, buildings=None, tiles=None):
+    def __init__(self, sdk: Path, state: CesiumViewerState, *, imagery=None, imagery_layers=(), terrain=None, buildings=None, tiles=None):
         self._sdk = require_sdk(sdk)
         self._state = state
         self._imagery = imagery
+        self._imagery_layers = tuple(imagery_layers)
+        self._imagery_stack = LocalImageryStackState(tuple(pack.state for pack in self._imagery_layers))
         self._terrain = terrain
         self._buildings = buildings
         self._tiles = tiles
@@ -73,6 +76,10 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/config.json":
             document = self.owner._state.document()
             document["close_token"] = self.owner._token
+            if self.owner._imagery_layers:
+                document['imagery_layers'] = self.owner._imagery_stack.document()
+                for index, layer in enumerate(document['imagery_layers']):
+                    layer['url'] = f'/data/imagery/{index}'
             if self.owner._imagery is not None:
                 document["imagery"] = self.owner._imagery.state.document()
                 document["imagery"]["url"] = "/data/imagery.jpg"
@@ -83,6 +90,14 @@ class _Handler(BaseHTTPRequestHandler):
             if self.owner._tiles is not None:
                 document["map_tiles"] = self.owner._tiles.state.document()
             self._send(json.dumps(document).encode(), "application/json")
+            return
+        if path.startswith('/data/imagery/'):
+            index = path.removeprefix('/data/imagery/')
+            if not index.isascii() or not index.isdigit() or len(index) > 1 or int(index) >= len(self.owner._imagery_layers):
+                self.send_error(404)
+                return
+            image = self.owner._imagery_layers[int(index)].image
+            self._send(image.read_bytes(), 'image/png' if image.suffix == '.png' else 'image/jpeg')
             return
         if path == "/data/imagery.jpg" and self.owner._imagery is not None:
             content_type = 'image/png' if self.owner._imagery.image.suffix == '.png' else 'image/jpeg'

@@ -722,8 +722,10 @@ heading. Opening a selected POI starts exploration with follow off. If no live
 position is available, recenter returns to the exploration destination while
 waiting. Switching back to Map restores its previous follow-button state.
 
-Follow uses the imagery/terrain loaded when the viewer opens. It does not
-hot-swap packs while moving beyond their coverage or download additional data.
+Follow now keeps installed regional imagery underneath installed detail layers.
+Detail textures are attached for intersecting views and released outside them;
+this uses only packs mounted when the viewer opens. Terrain packs still do not
+hot-swap, and no additional data is downloaded.
 Route guidance and radar still use the regular map.
 
 ```bash
@@ -741,3 +743,36 @@ zoom while following, and switching back to Map. With no live fix, expect
 The default Terrain view omits the generic exploration marker and label. The
 camera still has an initial/reset centre; selected POI destination markers and
 the live vehicle marker remain visible through their respective state contracts.
+
+### Regional background with detail overlays
+
+Embedded Terrain, selected-place exploration and the default standalone viewer
+now mount the known installed imagery packs as an immutable, bounded layer stack
+(maximum four). The broadest coverage forms the background; smaller footprints
+sit above it. The metro overview stays available when the view leaves a detail
+area. Transparent coverage gaps in detail reveal the background. A transparent
+global base prevents Cesium stretching bounded imagery across the globe.
+
+Detail textures load only when their bounds intersect the camera view, checked
+at most twice per second, and are released when the view leaves. Pending loads
+cannot attach after close. Each image is checksum-checked before browser startup;
+source attribution and paths stay in their existing adapter boundaries. Reopen
+Terrain after installing another pack. Going outside all installed imagery still
+shows the reference globe; this does not invent coverage or use hosted layers.
+
+Build and activate the higher-resolution Downtown–Midtown pack on Termux:
+
+```bash
+git switch navigation-cesium
+git pull --ff-only
+python -m development.maps.install_region --coverage detroit-midtown --build-only build-output/detroit-midtown-detail-v2
+python -m tools.map_builder.builder.imagery_artifact --coverage detroit-midtown --pack build-output/detroit-midtown-detail-v2 --output build-output/artifacts/detroit-midtown-detail-v2.zip
+python -m development.maps.install_region --coverage detroit-midtown --pack-file build-output/artifacts/detroit-midtown-detail-v2.zip --update
+./runOrcUi
+```
+
+The detail output is 4096×4096 over the smaller downtown/Midtown footprint,
+compared with 2048×1536 across Metro Detroit. USGS source availability and native
+resolution still limit detail. Download retries and completed-piece resume remain
+in effect. Review quality and Termux GPU memory/performance before expanding
+high-resolution coverage. Route display/guidance is a subsequent integration step.

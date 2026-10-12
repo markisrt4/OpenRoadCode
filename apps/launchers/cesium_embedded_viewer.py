@@ -13,7 +13,7 @@ import uuid
 from apps.launchers.browser_launcher import BrowserKioskLauncher
 from apps.launchers.cesium_sdk import sdk_directory
 from apps.launchers.cesium_viewer_server import CesiumViewerServer
-from apps.launchers.local_imagery_pack import LocalImageryPack, detroit_pack_directory, preferred_imagery_directory
+from apps.launchers.local_imagery_pack import LocalImageryPack, detroit_pack_directory, preferred_imagery_directory, load_imagery_stack
 from apps.launchers.local_terrain_pack import load_terrain, preferred_terrain_directory
 from apps.launchers.local_building_pack import load_buildings, detroit_building_directory
 from apps.launchers.local_map_tiles_pack import load_viewer_tiles, preferred_tiles_directory
@@ -43,19 +43,20 @@ class CesiumEmbeddedViewer:
             raise RuntimeError('xdotool is required for the embedded 3D map')
         if not current():
             return
-        imagery_dir = preferred_imagery_directory(state.destination)
+        imagery_layers = load_imagery_stack()
+        imagery_dir = detroit_pack_directory() if imagery_layers else preferred_imagery_directory(state.destination)
         terrain_dir = preferred_terrain_directory(state.destination)
         building_dir = detroit_building_directory()
         tile_dir = preferred_tiles_directory()
         tiles = load_viewer_tiles(tile_dir) if tile_dir.exists() and imagery_dir == detroit_pack_directory() else None
-        imagery = LocalImageryPack.load(imagery_dir) if imagery_dir.exists() and (tiles is None or not any(t.imagery_available for t in tiles.state.tiles)) else None
+        imagery = LocalImageryPack.load(imagery_dir) if not imagery_layers and imagery_dir.exists() and (tiles is None or not any(t.imagery_available for t in tiles.state.tiles)) else None
         terrain = load_terrain(terrain_dir) if terrain_dir.exists() else None
         buildings = load_buildings(building_dir) if tiles is None and building_dir.exists() else None
         display = os.environ.get('DISPLAY', ':1')
         resources = ExitStack()
         try:
             server = CesiumViewerServer(sdk_directory(), replace(state, embedded=True),
-                                       imagery=imagery, terrain=terrain, buildings=buildings, tiles=tiles)
+                                       imagery=imagery, imagery_layers=imagery_layers, terrain=terrain, buildings=buildings, tiles=tiles)
             resources.callback(server.close)
             profile = resources.enter_context(TemporaryDirectory(prefix='orc-cesium-embedded-'))
             window_class = 'orc-cesium-'+uuid.uuid4().hex

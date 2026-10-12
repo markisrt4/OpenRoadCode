@@ -30,3 +30,18 @@ class LocalImageryState:
         return {"title": self.title, "attribution": self.attribution,
                 "west_rad": self.west_rad, "south_rad": self.south_rad,
                 "east_rad": self.east_rad, "north_rad": self.north_rad}
+
+
+@dataclass(frozen=True, slots=True)
+class LocalImageryStackState:
+    """Bounded offline layers ordered from regional background to finer detail."""
+
+    layers: tuple[LocalImageryState, ...] = ()
+
+    def __post_init__(self):
+        if not isinstance(self.layers, tuple) or len(self.layers) > 4 or any(
+                not isinstance(layer, LocalImageryState) for layer in self.layers):
+            raise ValueError('Imagery stack must contain at most four immutable layers')
+
+    def document(self):
+        return [layer.document() for layer in self.layers]

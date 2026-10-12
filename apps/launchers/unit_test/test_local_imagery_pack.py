@@ -79,3 +79,29 @@ def test_transparent_overview_is_served_as_png(server, pack):
     server._imagery = LocalImageryPack.load(pack)
     with urllib.request.urlopen(server.url+'data/imagery.jpg') as response:
         assert response.headers['Content-Type'] == 'image/png'
+
+
+def test_installed_overview_and_detail_are_ordered_broad_to_fine(tmp_path,monkeypatch):
+    from apps.launchers import local_imagery_pack as packs
+    from apps.launchers.unit_test.test_region_install import write_pack
+    overview=tmp_path/'overview'
+    detail=tmp_path/'detail'
+    write_pack(overview,title='Metro',bounds=(-84,42,-82,44))
+    write_pack(detail,title='Detail',bounds=(-83.1,42.3,-83,42.4))
+    monkeypatch.setattr(packs,'installed_imagery_directories',lambda:(detail,overview))
+    stack=packs.load_imagery_stack()
+    assert [pack.state.title for pack in stack] == ['Metro','Detail']
+
+
+def test_server_mounts_checked_stack_layers_without_exposing_paths(server,pack):
+    from ui.navigation.local_imagery_state import LocalImageryStackState
+    loaded=LocalImageryPack.load(pack)
+    server._imagery_layers=(loaded,loaded)
+    server._imagery_stack=LocalImageryStackState((loaded.state,loaded.state))
+    with urllib.request.urlopen(server.url+'config.json') as response:
+        layers=json.load(response)['imagery_layers']
+    assert [layer['url'] for layer in layers] == ['/data/imagery/0','/data/imagery/1']
+    with urllib.request.urlopen(server.url+'data/imagery/1') as response:
+        assert response.read() == loaded.image.read_bytes()
+    with pytest.raises(HTTPError):
+        urllib.request.urlopen(server.url+'data/imagery/2')

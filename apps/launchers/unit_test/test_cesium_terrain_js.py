@@ -41,3 +41,12 @@ def test_vehicle_follow_and_fix_loss():
     test = Path(__file__).resolve().parents[3] / 'frontends/web/cesium/unit_test/test_vehicle_follow.js'
     result = subprocess.run([node,'--test',str(test)],capture_output=True,text=True,timeout=20)
     assert result.returncode == 0, result.stdout+result.stderr
+
+
+def test_imagery_background_detail_and_late_load_cleanup():
+    node = shutil.which('node')
+    if not node:
+        pytest.skip('Node is optional; imagery stack check requires node')
+    test = Path(__file__).resolve().parents[3] / 'frontends/web/cesium/unit_test/test_local_imagery_layers.js'
+    result = subprocess.run([node,'--test',str(test)],capture_output=True,text=True,timeout=20)
+    assert result.returncode == 0, result.stdout+result.stderr

@@ -9,7 +9,7 @@ from tempfile import TemporaryDirectory
 
 from apps.launchers.browser_launcher import BrowserKioskLauncher
 from apps.launchers.cesium_sdk import sdk_directory
-from apps.launchers.local_imagery_pack import LocalImageryPack, preferred_imagery_directory
+from apps.launchers.local_imagery_pack import LocalImageryPack, preferred_imagery_directory, load_imagery_stack
 from apps.launchers.cesium_viewer_server import CesiumViewerServer
 from apps.launchers.local_terrain_pack import load_terrain, preferred_terrain_directory
 from apps.launchers.local_building_pack import load_buildings, detroit_building_directory
@@ -19,9 +19,9 @@ from ui.navigation import GeoPoint
 from ui.navigation.cesium_viewer_state import CesiumViewerState
 
 
-def run(state, sdk, display, *, imagery=None, terrain=None, buildings=None, tiles=None):
+def run(state, sdk, display, *, imagery=None, imagery_layers=(), terrain=None, buildings=None, tiles=None):
     with ExitStack() as resources:
-        server = CesiumViewerServer(sdk, state, imagery=imagery, terrain=terrain, buildings=buildings, tiles=tiles)
+        server = CesiumViewerServer(sdk, state, imagery=imagery, imagery_layers=imagery_layers, terrain=terrain, buildings=buildings, tiles=tiles)
         resources.callback(server.close)
         profile = resources.enter_context(TemporaryDirectory(prefix="orc-cesium-"))
         browser = BrowserKioskLauncher(
@@ -65,13 +65,14 @@ def main():
         tile_dir = args.tiles or preferred_tiles_directory()
         legacy_requested = args.no_imagery or args.no_buildings or args.imagery is not None or args.buildings is not None
         tiles = None if args.no_tiles or (args.tiles is None and (legacy_requested or not tile_dir.exists())) else load_viewer_tiles(tile_dir)
+        imagery_layers = () if args.no_imagery or args.imagery is not None else load_imagery_stack()
         directory = args.imagery or preferred_imagery_directory(state.destination)
-        imagery = None if (tiles is not None and any(t.imagery_available for t in tiles.state.tiles)) or args.no_imagery or (args.imagery is None and not directory.exists()) else LocalImageryPack.load(directory)
+        imagery = None if imagery_layers or (tiles is not None and any(t.imagery_available for t in tiles.state.tiles)) or args.no_imagery or (args.imagery is None and not directory.exists()) else LocalImageryPack.load(directory)
         terrain_dir = args.terrain or preferred_terrain_directory(state.destination)
         terrain = None if args.no_terrain or (args.terrain is None and not terrain_dir.exists()) else load_terrain(terrain_dir)
         building_dir = args.buildings or detroit_building_directory()
         buildings = None if tiles is not None or args.no_buildings or (args.buildings is None and not building_dir.exists()) else load_buildings(building_dir)
-        return run(state, args.sdk, args.display, imagery=imagery, terrain=terrain, buildings=buildings, tiles=tiles)
+        return run(state, args.sdk, args.display, imagery=imagery, imagery_layers=imagery_layers, terrain=terrain, buildings=buildings, tiles=tiles)
     except (ValueError, RuntimeError, OSError, KeyError, TypeError) as error:
         parser.exit(1, f"Cesium viewer: {error}\n")
 

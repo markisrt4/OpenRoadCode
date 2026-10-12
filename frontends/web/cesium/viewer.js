@@ -8,6 +8,7 @@
   let viewer;
   let snapshot;
   let tiledMap;
+  let imageryStack;
   let closing = false;
   const close = document.getElementById('close');
   document.querySelectorAll('nav button').forEach(button => { button.disabled = true; });
@@ -181,7 +182,7 @@
     let terrainScale = snapshot.terrain_scale;
     const scaleButton = document.getElementById('terrain-scale');
     scaleButton.disabled = !terrain || !terrainVisible;
-    const hasImagery = snapshot.imagery || snapshot.map_tiles?.tiles.some(t=>t.imagery_url);
+    const hasImagery = snapshot.imagery_layers?.length || snapshot.imagery || snapshot.map_tiles?.tiles.some(t=>t.imagery_url);
     const contours = terrain && !hasImagery ? C.Material.fromType('ElevationContour', {
       color:C.Color.fromCssColorString('#e6d59a'), spacing:10, width:1.5
     }) : undefined;
@@ -220,7 +221,7 @@
     bindVisibility('buildings', tiledMap || buildings?.source);
     bindVisibility('references', references);
     reset();
-    const imageCoverage = snapshot.imagery || (snapshot.map_tiles?.tiles.some(t=>t.imagery_url) ? snapshot.map_tiles.coverage : null);
+    const imageCoverage = snapshot.imagery_layers?.[0] || snapshot.imagery || (snapshot.map_tiles?.tiles.some(t=>t.imagery_url) ? snapshot.map_tiles.coverage : null);
     const insideImagery = imageCoverage && snapshot.longitude_rad >= imageCoverage.west_rad
       && snapshot.longitude_rad <= imageCoverage.east_rad && snapshot.latitude_rad >= imageCoverage.south_rad
       && snapshot.latitude_rad <= imageCoverage.north_rad;
@@ -236,7 +237,13 @@
       status.textContent = `Offline · ${coverageLabel}${snapshot.map_tiles.coverage.title} · ${terrainLabel} · ${buildingLabel}`;
       tiledMap.update();
     }
-    if (snapshot.imagery) {
+    if (snapshot.imagery_layers?.length) {
+      imageryStack = await window.ORCLocalImageryLayers(viewer,snapshot.imagery_layers,C,(error,layer)=>{
+        status.hidden=false;
+        status.textContent='Imagery layer unavailable: '+layer.title+' · '+error.message;
+      });
+      if (!/unavailable/i.test(status.textContent)) status.textContent = `Offline · ${snapshot.imagery_layers[0].title} + ${snapshot.imagery_layers.length-1} detail packs · ${terrainLabel} · ${buildingLabel}`;
+    } else if (snapshot.imagery) {
       const layer = snapshot.imagery;
       try {
         const provider = await C.SingleTileImageryProvider.fromUrl(layer.url, {
@@ -278,5 +285,5 @@
     if (!/unavailable|Unable|stopped/i.test(statusText.textContent)) statusText.hidden = true;
     document.getElementById('tiles-status').hidden = true;
   }
-  window.addEventListener('pagehide', () => { tiledMap?.destroy(); if (viewer && !viewer.isDestroyed()) viewer.destroy(); });
+  window.addEventListener('pagehide', () => { imageryStack?.destroy(); tiledMap?.destroy(); if (viewer && !viewer.isDestroyed()) viewer.destroy(); });
 })();
