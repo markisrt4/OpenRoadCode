@@ -127,6 +127,7 @@ class RadioPanel(tk.Frame, RadioUiIf, UiWidget):
             activeforeground=colors["bank_button_active_fg"],
             relief=tk.FLAT,
             bd=0,
+            highlightthickness=0,
         )
 
     def start(self) -> None:

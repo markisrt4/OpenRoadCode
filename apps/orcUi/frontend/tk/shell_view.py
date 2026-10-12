@@ -6,12 +6,14 @@
 from __future__ import annotations
 
 import tkinter as tk
+import math
 from collections.abc import Callable
 from datetime import datetime
 
 from apps.orcUi.performance_status import PerformanceStatus
 from apps.orcUi.orc_theme import ThemeMode, toggle_label
 from ui.theme import ThemeBundle
+from ui.radio import AircraftMenuRequestHandlerIf, AircraftMenuUiState
 from ui.weather import WeatherAlertUiEvent
 
 from .weather_alert_banner import WeatherAlertBanner
@@ -59,9 +61,9 @@ class OrcUiShellView(UiWidget):
         self._on_volume_up = on_volume_up
         self._volume_text = volume_text
         self._adsb_enabled = False
+        self._adsb_simulation = False
         self._aircraft_count = 0
-        self._adsb_toggle_handler: Callable[[bool], bool] | None = None
-        self._adsb_view_handler: Callable[[], None] | None = None
+        self._aircraft_handler: AircraftMenuRequestHandlerIf | None = None
         self._side_nav: OrcUiSideNav | None = None
         self._bottom_bar: OrcUiBottomBar | None = None
         self._clock_label: tk.Label | None = None
@@ -249,7 +251,7 @@ class OrcUiShellView(UiWidget):
         tk.Button(detail, text="CLOSE", command=detail.destroy,
                   bg=ui.control_background, fg=ui.control_text,
                   activebackground=ui.control_active, activeforeground=ui.text,
-                  relief=tk.FLAT, bd=0, font=("Sans", 10, "bold")).pack(pady=(0, 16))
+                  relief=tk.FLAT, bd=0, font=("Sans", 10, "bold"), highlightthickness=0).pack(pady=(0, 16))
 
     def set_weather_status(self, text: str) -> None:
         self._weather_status_text = text
@@ -272,25 +274,17 @@ class OrcUiShellView(UiWidget):
         if self._bottom_bar is not None and self._bottom_bar.winfo_exists():
             self._bottom_bar.set_volume_text(text)
 
-    def set_adsb_handlers(
-        self,
-        *,
-        on_toggle: Callable[[bool], bool],
-        on_view: Callable[[], None],
-    ) -> None:
-        self._adsb_toggle_handler = on_toggle
-        self._adsb_view_handler = on_view
+    def set_aircraft_request_handler(self, handler: AircraftMenuRequestHandlerIf | None) -> None:
+        self._aircraft_handler = handler
         if self._bottom_bar is not None and self._bottom_bar.winfo_exists():
-            self._bottom_bar.set_adsb_handlers(on_toggle=on_toggle, on_view=on_view)
+            self._bottom_bar.set_aircraft_request_handler(handler)
 
-    def set_adsb_state(self, *, enabled: bool, aircraft_count: int) -> None:
-        self._adsb_enabled = bool(enabled)
-        self._aircraft_count = max(0, int(aircraft_count))
+    def set_aircraft_state(self, state: AircraftMenuUiState) -> None:
+        self._adsb_enabled = bool(state.adsb_enabled)
+        self._adsb_simulation = state.simulation
+        self._aircraft_count = max(0, int(state.aircraft_count))
         if self._bottom_bar is not None and self._bottom_bar.winfo_exists():
-            self._bottom_bar.set_adsb_state(
-                enabled=self._adsb_enabled,
-                aircraft_count=self._aircraft_count,
-            )
+            self._bottom_bar.set_aircraft_state(state)
 
     def _update_clock(self) -> None:
         if not self._root.winfo_exists():
@@ -319,6 +313,7 @@ class OrcUiShellView(UiWidget):
         )
         self._side_nav.grid(
             row=1,
+            rowspan=2,
             column=0,
             sticky="ns",
             padx=(SHELL_PAD_X, 0),
@@ -333,27 +328,61 @@ class OrcUiShellView(UiWidget):
             theme_label=toggle_label(self._theme_mode),
             on_volume_down=self._on_volume_down,
             on_volume_up=self._on_volume_up,
-            on_settings=self._on_settings,
             on_theme_toggle=self._on_theme_toggle,
             on_diagnostics=lambda: self._on_navigate("DIAGNOSTICS"),
         )
         self._bottom_bar.grid(
             row=2,
-            column=0,
-            columnspan=2,
+            column=1,
             sticky="ew",
-            padx=SHELL_PAD_X,
+            padx=(SHELL_PAD_X, SHELL_PAD_X + 78),
         )
-        if self._adsb_toggle_handler is not None and self._adsb_view_handler is not None:
-            self._bottom_bar.set_adsb_handlers(
-                on_toggle=self._adsb_toggle_handler,
-                on_view=self._adsb_view_handler,
-            )
-        self._bottom_bar.set_adsb_state(
-            enabled=self._adsb_enabled,
-            aircraft_count=self._aircraft_count,
-        )
+        self._bottom_bar.set_aircraft_request_handler(self._aircraft_handler)
+        self._bottom_bar.set_aircraft_state(AircraftMenuUiState(
+            self._adsb_enabled, self._aircraft_count, self._adsb_simulation,
+        ))
         self._breadcrumb_label, self._status_label = build_footer(self._root, theme=self._theme)
+        settings_space = tk.Frame(self._root, bg=self._theme.ui.background)
+        settings_space.place(relx=1.0, rely=1.0, x=-SHELL_PAD_X,
+                             anchor="se", width=78, height=74)
+        self._settings_button = tk.Canvas(
+            settings_space,
+            bg=self._theme.ui.background,
+            bd=0,
+            highlightthickness=0,
+            cursor="hand2",
+            takefocus=True,
+        )
+        self._settings_button.place(
+            relx=0.5,
+            rely=0.5,
+            anchor="center",
+            width=64,
+            height=64,
+        )
+        # Draw the gear around its geometric center; font glyphs carry uneven
+        # baseline padding even when their button is centered.
+        points = []
+        for tooth in range(12):
+            for fraction, radius in ((0.0, 15), (0.2, 19), (0.6, 19), (0.8, 15)):
+                angle = (tooth + fraction) * math.tau / 12
+                points.extend((32 + radius * math.cos(angle),
+                               32 + radius * math.sin(angle)))
+        self._settings_button.create_polygon(
+            *points, fill=self._theme.ui.text_muted, outline="", tags="gear",
+        )
+        self._settings_button.create_oval(
+            23, 23, 41, 41, fill=self._theme.ui.background, outline="",
+        )
+        self._settings_button.bind("<Enter>", lambda _event:
+            self._settings_button.itemconfigure("gear", fill=self._theme.ui.accent_primary))
+        self._settings_button.bind("<Leave>", lambda _event:
+            self._settings_button.itemconfigure("gear", fill=self._theme.ui.text_muted))
+        self._settings_button.bind("<Button-1>", lambda _event: self._on_settings())
+        self._settings_button.bind("<Return>", lambda _event: self._on_settings())
+        self._settings_button.bind("<space>", lambda _event: self._on_settings())
+        settings_space.lift()
+        tk.Misc.lift(self._settings_button)
         ui = self._theme.ui
         self._back_button = tk.Button(
             self._breadcrumb_label.master, text="‹ BACK", command=self._request_back,

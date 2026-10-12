@@ -96,6 +96,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             bd=0,
             padx=12,
             pady=7,
+            highlightthickness=0,
         ).grid(row=0, column=0, rowspan=3, sticky="ns")
         tk.Button(
             self._controls,
@@ -109,6 +110,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             bd=0,
             padx=10,
             pady=7,
+            highlightthickness=0,
         ).grid(row=0, column=1, rowspan=3, sticky="ns")
         center = tk.Frame(self._controls, bg=ui.surface)
         center.grid(row=0, column=2, rowspan=3, sticky="ew")
@@ -136,6 +138,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             bd=0,
             padx=10,
             pady=7,
+            highlightthickness=0,
         ).grid(row=0, column=3, rowspan=3, sticky="ns")
         tk.Button(
             self._controls,
@@ -149,6 +152,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             bd=0,
             padx=12,
             pady=7,
+            highlightthickness=0,
         ).grid(row=0, column=4, rowspan=3, sticky="ns")
 
         self._launch_status = tk.Label(self._host, text="Loading SDR++…", bg=ui.background,

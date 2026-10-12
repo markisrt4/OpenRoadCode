@@ -304,6 +304,7 @@ class LightingControlsPanel(tk.Frame, UiWidget):
                 command=lambda c=rgb: self._request(
                     lambda handler: handler.request_color(c),
                 ),
+                highlightthickness=0,
             ).grid(
                 row=row,
                 column=column,
@@ -475,6 +476,7 @@ class LightingControlsPanel(tk.Frame, UiWidget):
             bd=self._layout["zero"],
             font=self._style["button_font"],
             cursor=self._layout["cursor"],
+            highlightthickness=0,
         )
 
     def _on_brightness_changed(self, value: str) -> None:

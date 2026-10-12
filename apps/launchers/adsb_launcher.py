@@ -114,7 +114,13 @@ class ADSBLauncher(AppLauncherIf):
                     raise RuntimeError(
                         f"SDR is in use by {owner or 'another application'}; RF radio has priority"
                     )
-            _set_systemd_service_state(self.readsb_service, "start")
+            if not _set_systemd_service_state(self.readsb_service, "start"):
+                if self.resource_manager is not None:
+                    self.resource_manager.release(self.owner_name, set_status=set_status)
+                raise RuntimeError(
+                    f"systemd unit {self.readsb_service}.service is unavailable "
+                    "or cannot be started without interactive authorization"
+                )
             receiver_ready = self._readsb_is_running()
 
         dashboard_ready = self._dashboard_is_reachable()
@@ -169,15 +175,27 @@ def _set_systemd_service_state(service: str, action: str) -> bool:
     systemctl = shutil.which("systemctl")
     if systemctl is None:
         return False
-    command = [systemctl, action, service]
-    sudo = shutil.which("sudo")
-    if sudo is not None:
-        command.insert(0, sudo)
     try:
-        subprocess.run(command, check=False)
-    except OSError:
+        unit = service if service.endswith(".service") else f"{service}.service"
+        state = subprocess.run(
+            [systemctl, "show", "--property=LoadState", "--value", unit],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=2.0,
+        )
+        if state.returncode != 0 or state.stdout.strip() != "loaded":
+            return False
+        result = subprocess.run(
+            [systemctl, action, unit],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=5.0,
+        )
+    except (OSError, subprocess.TimeoutExpired):
         return False
-    return True
+    return result.returncode == 0
 
 
 def _status(callback: StatusCallback, message: str) -> None:

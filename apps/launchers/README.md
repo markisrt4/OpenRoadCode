@@ -107,7 +107,10 @@ worker after their primary startup path completes. `close_browser()` hides the
 dashboard without discarding that warmed server; `stop()` releases both.
 
 ADS-B launch requires a systemd-managed `readsb` service and a reachable
-tar1090 installation.
+tar1090 installation. ORC never opens an interactive privilege prompt: the
+unit must be controllable by the running user through systemd policy. A missing
+unit or unavailable non-interactive authorization fails immediately and is
+reported in the ORC status surface.
 
 On hardware-free development hosts, ADS-B may still open a reachable tar1090
 dashboard without live receiver data. Reopening a dashboard tile raises its

@@ -1,5 +1,11 @@
 # Navigation Controller
 
+Home/Work installer setup and TOML compatibility are described in
+[saved destinations](../../docs/saved_destinations.md). DestinationSetupController
+resolves local address candidates through a supplied geocoder and saves only
+confirmed SI positions. The default MapFavorites store overlays user TOML while
+retaining existing JSON favorites.
+
 The `controllers.navigation` package converts motion-sensor measurements into
 a higher-level vehicle motion state. `NavigationController` provides:
 

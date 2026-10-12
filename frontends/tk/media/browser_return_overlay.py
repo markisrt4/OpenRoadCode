@@ -61,6 +61,7 @@ class BrowserReturnOverlay(UiWidget):
             cursor="hand2",
             padx=14,
             pady=8,
+            highlightthickness=0,
         ).pack()
         window.lift()
         self._window = window

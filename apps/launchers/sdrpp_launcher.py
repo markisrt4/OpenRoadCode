@@ -192,7 +192,7 @@ class SDRPPLauncher(AppLauncherIf):
         source = str(self.termux_sdrpp_source)
         runtime_dir = DEFAULT_TERMUX_XDG_RUNTIME_DIR
         shell_command = f"mkdir -p {shlex.quote(runtime_dir)} && chmod 700 {shlex.quote(runtime_dir)} && " + _termux_source_selection(Path(source)) + ' && cd "$sdrpp_source" && exec ./build/sdrpp -r root_dev --autostart'
-        return [proot_distro, "login", self.termux_proot_distribution, "--shared-tmp", "--", "env", f"DISPLAY={display}", f"XDG_RUNTIME_DIR={runtime_dir}", "XDG_SESSION_TYPE=x11", "GDK_BACKEND=x11", "LIBGL_ALWAYS_SOFTWARE=1", "bash", "-lc", shell_command]
+        return [proot_distro, "login", self.termux_proot_distribution, "--shared-tmp", "--", "env", f"DISPLAY={display}", f"XDG_RUNTIME_DIR={runtime_dir}", f"PULSE_SERVER={os.environ.get('PULSE_SERVER', 'tcp:127.0.0.1:4713')}", "XDG_SESSION_TYPE=x11", "GDK_BACKEND=x11", "LIBGL_ALWAYS_SOFTWARE=1", "bash", "-lc", shell_command]
 
     def _request_fullscreen(self, display: str, environment: dict[str, str]) -> None:
         subprocess.Popen(["bash", "-lc", f'sleep 3; DISPLAY="{display}" wmctrl -r "SDR++" -b add,fullscreen'], env=environment, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True, text=True)
