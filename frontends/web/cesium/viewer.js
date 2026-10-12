@@ -64,7 +64,7 @@
     const groundHeight = terrain ? terrain.heightAt(snapshot.longitude_rad,snapshot.latitude_rad) : 0;
     let target = C.Cartesian3.fromRadians(snapshot.longitude_rad, snapshot.latitude_rad,groundHeight+3);
     document.getElementById('destination').textContent = snapshot.label;
-    const destinationMarker = viewer.entities.add({position:target,
+    const destinationMarker = viewer.entities.add({position:target, show:snapshot.destination_marker_visible !== false,
       // The selected POI is an overlay at its real location: building geometry
       // must not hide the destination while the camera remains tilted.
       point:{pixelSize:14,color:C.Color.CYAN,outlineColor:C.Color.WHITE,outlineWidth:2,

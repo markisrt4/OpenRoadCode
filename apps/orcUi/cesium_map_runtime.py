@@ -18,7 +18,7 @@ class CesiumMapRuntime:
 
     def __init__(self, native, viewer, *, initial_view=None):
         self._native, self._viewer = native, viewer
-        self._initial_view = initial_view or (lambda: CesiumViewerState(GeoPoint(math.radians(42.3314),math.radians(-83.0458))))
+        self._initial_view = initial_view or (lambda: CesiumViewerState(GeoPoint(math.radians(42.3314),math.radians(-83.0458)), label="Terrain", destination_marker_visible=False))
         self._view = None
         self._position = None
         self._position_received = 0.0

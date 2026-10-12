@@ -737,3 +737,7 @@ Check the startup cover, then test with the existing sensor bridge/position
 source connected: vehicle marker and following, pan to pause, F/◎ to resume,
 zoom while following, and switching back to Map. With no live fix, expect
 “Waiting for live vehicle position,” not a moving cached marker.
+
+The default Terrain view omits the generic exploration marker and label. The
+camera still has an initial/reset centre; selected POI destination markers and
+the live vehicle marker remain visible through their respective state contracts.

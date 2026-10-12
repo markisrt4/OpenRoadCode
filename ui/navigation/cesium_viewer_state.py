@@ -22,10 +22,12 @@ class CesiumViewerState:
     pan_step_fraction: float = 0.15
     pitch_step_rad: float = math.pi / 18
     maximum_tilt_rad: float = math.radians(80)
+    destination_marker_visible: bool = True
 
     def __post_init__(self):
         if any(type(value) is not bool for value in
-               (self.buildings_visible, self.references_visible, self.terrain_visible, self.embedded)):
+               (self.buildings_visible, self.references_visible, self.terrain_visible, self.embedded,
+                self.destination_marker_visible)):
             raise ValueError("Layer visibility must be boolean")
         if not (math.isfinite(self.pitch_step_rad) and math.isfinite(self.maximum_tilt_rad)
                 and 0 < self.pitch_step_rad <= self.maximum_tilt_rad < math.pi/2):
@@ -58,4 +60,5 @@ class CesiumViewerState:
                 "terrain_scale": self.terrain_scale,
                 "pan_step_fraction": self.pan_step_fraction,
                 "pitch_step_rad": self.pitch_step_rad,
-                "maximum_tilt_rad": self.maximum_tilt_rad}
+                "maximum_tilt_rad": self.maximum_tilt_rad,
+                "destination_marker_visible": self.destination_marker_visible}
