@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import tkinter as tk
+import math
 from collections.abc import Callable
 from datetime import datetime
 
@@ -325,18 +326,11 @@ class OrcUiShellView:
         settings_space = tk.Frame(self._root, bg=self._theme.ui.background)
         settings_space.place(relx=1.0, rely=1.0, x=-SHELL_PAD_X,
                              anchor="se", width=78, height=74)
-        self._settings_button = tk.Button(
+        self._settings_button = tk.Canvas(
             settings_space,
-            text="⚙",
-            command=self._on_settings,
             bg=self._theme.ui.background,
-            fg=self._theme.ui.control_text,
-            activebackground=self._theme.ui.surface_alt,
-            activeforeground="#ffffff",
-            relief=tk.FLAT,
             bd=0,
             highlightthickness=0,
-            font=("Sans", 34, "bold"),
             cursor="hand2",
             takefocus=True,
         )
@@ -347,6 +341,23 @@ class OrcUiShellView:
             width=64,
             height=64,
         )
+        # Draw the gear around its geometric center; font glyphs carry uneven
+        # baseline padding even when their button is centered.
+        points = []
+        for tooth in range(12):
+            for fraction, radius in ((0.0, 20), (0.2, 25), (0.6, 25), (0.8, 20)):
+                angle = (tooth + fraction) * math.tau / 12
+                points.extend((32 + radius * math.cos(angle),
+                               32 + radius * math.sin(angle)))
+        self._settings_button.create_polygon(
+            *points, fill=self._theme.ui.control_text, outline="",
+        )
+        self._settings_button.create_oval(
+            20, 20, 44, 44, fill=self._theme.ui.background, outline="",
+        )
+        self._settings_button.bind("<Button-1>", lambda _event: self._on_settings())
+        self._settings_button.bind("<Return>", lambda _event: self._on_settings())
+        self._settings_button.bind("<space>", lambda _event: self._on_settings())
         settings_space.lift()
         self._settings_button.lift()
         self.set_performance_status(self._performance_status)
