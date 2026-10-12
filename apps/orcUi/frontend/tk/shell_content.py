@@ -11,7 +11,8 @@ from ui.theme import ThemeBundle
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
 
 
-def panel(parent: tk.Misc, title: str, accent: str, *, theme: ThemeBundle) -> tk.Frame:
+def panel(parent: tk.Misc, title: str, accent: str, *, theme: ThemeBundle,
+          compact: bool = False) -> tk.Frame:
     ui = theme.ui
     frame = tk.Frame(
         parent,
@@ -25,7 +26,7 @@ def panel(parent: tk.Misc, title: str, accent: str, *, theme: ThemeBundle) -> tk
         fg=accent,
         bg=ui.surface,
         font=("Sans", FONT_CONTROL + 1, "bold"),
-    ).pack(anchor="nw", padx=14, pady=(11, 4))
+    ).pack(anchor="nw", padx=10 if compact else 14, pady=(4, 2) if compact else (11, 4))
     return frame
 
 

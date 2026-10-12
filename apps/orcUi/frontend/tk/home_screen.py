@@ -49,8 +49,8 @@ def build_home_screen(
     ui = theme.ui
     parent.grid_columnconfigure(0, weight=1)
     parent.grid_columnconfigure(1, weight=0, minsize=ContextRail.WIDTH)
-    parent.grid_rowconfigure(0, weight=3)
-    parent.grid_rowconfigure(1, weight=2, minsize=210)
+    parent.grid_rowconfigure(0, weight=1)
+    parent.grid_rowconfigure(1, weight=0)
 
     map_panel = HomeMapPanel(
         parent,
@@ -69,13 +69,15 @@ def build_home_screen(
     context.update_attitude_state(attitude_state)
     context.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(5, 0))
 
-    lower = tk.Frame(parent, bg=ui.background)
+    lower = tk.Frame(parent, bg=ui.background, height=168)
+    # Keep audio compact; give all spare height to navigation.
+    lower.grid_propagate(False)
     lower.grid(row=1, column=0, sticky="nsew", padx=(0, 5), pady=(5, 0))
     lower.grid_columnconfigure(0, weight=1, uniform="home-audio")
     lower.grid_columnconfigure(1, weight=1, uniform="home-audio")
     lower.grid_rowconfigure(0, weight=1)
 
-    radio = panel(lower, "RADIO", ui.accent_warning, theme=theme)
+    radio = panel(lower, "RADIO", ui.accent_warning, theme=theme, compact=True)
     radio.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
     if radio_factory is None:
         add_summary(
@@ -87,7 +89,7 @@ def build_home_screen(
     else:
         radio_factory(radio).pack(fill=tk.BOTH, expand=True)
 
-    media = panel(lower, "MEDIA", ui.accent_primary, theme=theme)
+    media = panel(lower, "MEDIA", ui.accent_primary, theme=theme, compact=True)
     media.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
     if media_factory is None:
         add_summary(media, "No media", "Playback service", theme=theme)

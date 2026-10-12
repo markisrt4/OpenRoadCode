@@ -619,13 +619,13 @@ Preview cleanup errors do not prevent other owned resources from closing.
 
 ### Home cockpit presentation
 
-Home gives Radio and Media equal columns and reserves a 210-pixel minimum audio
-row for vehicle touch use. Radio exposes large RF and Streaming shortcuts;
+Home gives Radio and Media equal columns and bounds the audio row to 168 pixels
+while giving spare vertical space to the map. Radio exposes large RF and Streaming shortcuts;
 Aircraft remains in persistent shell chrome. The vehicle context page emphasizes
 a digital speed readout and gear, with an RPM dial, numeric boost (retaining high
 pressure warnings), and a fuel bar. Coolant remains on the Vehicle screen.
 
-Home Spotify keeps its lightweight 64-pixel artwork session, with playback
+Home Spotify keeps its lightweight artwork session (48-pixel display), with playback
 requests explicitly enabled through the existing `SpotifyRequestHandler`.
 Previous, Play/Pause, and Next are disabled for unavailable/offline state or a
 retired handler. Composition owns the session and closes it with the destroyed
@@ -662,3 +662,8 @@ limits; confirm the badge shows an em dash before a usable trail/match and after
 loss of GPS. Check the amber comparison and return to normal when the limit is
 unknown or speed falls below it. Static/mocked tests do not verify local tile
 coverage or road matching on a particular device.
+
+Home audio cards use compact headings, bounded track-title height, and a smaller
+artwork footprint. Audio row geometry does not grow with metadata or window height;
+transport buttons retain their touch padding. The idle Radio card omits its
+duplicate inner heading.

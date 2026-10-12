@@ -45,7 +45,6 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
             font=("Sans", 9, "bold"),
             anchor="w",
         )
-        self._status.grid(row=0, column=0, sticky="ew", padx=12, pady=(9, 0))
 
         source_shortcuts = tk.Frame(self, bg=ui.surface)
         source_shortcuts.grid(row=2, column=0, columnspan=2, sticky="ew", padx=10, pady=(4, 8))
@@ -96,7 +95,7 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
             justify=tk.LEFT,
             wraplength=260,
         )
-        self._station.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=12, pady=(2, 4))
+        self._station.grid(row=1, column=0, columnspan=2, sticky="new", padx=12, pady=(6, 4))
 
         self._detail = tk.Label(
             self,
@@ -106,7 +105,7 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
             font=("Sans", 9),
             anchor="w",
         )
-        self._detail.grid(row=3, column=0, columnspan=2, sticky="ew", padx=12, pady=(0, 9))
+        self._detail.grid(row=3, column=0, columnspan=2, sticky="ew", padx=12, pady=(0, 4))
 
         self.bind("<Configure>", lambda event: self._station.configure(wraplength=max(1, event.width - 24)))
         self._refresh()
@@ -130,6 +129,7 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
         current = state.station
         playing = current is not None and state.is_playing
         if playing and current is not None:
+            self._status.grid(row=0, column=0, sticky="ew", padx=12, pady=(3, 0))
             self._status.configure(text="● STREAMING RADIO", fg=self._ui.accent_success)
             self._station.configure(text=current.name)
             details: list[str] = []
@@ -142,6 +142,7 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
             self._detail.configure(text=" • ".join(details) or "Streaming radio")
             self._stream_button.configure(fg=self._ui.accent_success)
         else:
+            self._status.grid_remove()
             self._status.configure(text="RADIO", fg=self._ui.accent_primary)
             self._station.configure(text="No radio active")
             self._detail.configure(text="Choose RF or streaming" if online else "Offline mode • RF available")

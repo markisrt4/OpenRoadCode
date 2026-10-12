@@ -18,7 +18,7 @@ from ui.theme import ThemeBundle
 from ui.ui_widget import UiWidget
 
 GREEN = "#1DB954"
-ART_SIZE = 64
+ART_SIZE = 48
 
 
 class SpotifyNowPlaying(tk.Frame, UiWidget):
@@ -43,8 +43,8 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._handler: SpotifyRequestHandler | None = None
         self._playing = False
         self._can_control = False
-        self._title = tk.StringVar(value="Spotify • YouTube • Netflix")
-        self._artist = tk.StringVar(value="Media hub")
+        self._title = tk.StringVar(value="Music & video")
+        self._artist = tk.StringVar(value="Open Media to browse")
         self._status = tk.StringVar(value="")
         self._artwork_uri: str | None = None
         self._artwork_photo: ImageTk.PhotoImage | None = None
@@ -57,7 +57,7 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._art_host.grid(row=0, column=0, sticky="nw", padx=(0, 9))
         self._art_label = tk.Label(
             self._art_host, text="♫", fg=GREEN, bg=ui.control_active,
-            font=("Sans", 20, "bold"), width=4, height=2, anchor="center",
+            font=("Sans", 20, "bold"), width=3, height=1, anchor="center",
         )
         self._art_label.pack()
         self._art_loading = tk.Label(
@@ -76,7 +76,7 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._title_label.grid(row=0, column=0, sticky="ew", pady=(0, 2))
         self._artist_label = tk.Label(
             self._text, textvariable=self._artist, fg=ui.text_muted, bg=ui.surface,
-            font=("Sans", 11), anchor="w", justify=tk.LEFT,
+            font=("Sans", 9), anchor="w", justify=tk.LEFT,
         )
         self._artist_label.grid(row=1, column=0, sticky="ew")
         self._status_label = tk.Label(
@@ -89,7 +89,7 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._text.bind("<Configure>", lambda event: self._title_label.configure(
             wraplength=max(1, event.width)))
         controls = self._controls = tk.Frame(self, bg=ui.surface)
-        controls.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=(0, 8))
+        controls.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=(0, 6))
         self._transport: list[tk.Button] = []
         for column, (label, action) in enumerate((("◀◀", "previous"), ("▶", "play"), ("▶▶", "next"))):
             controls.grid_columnconfigure(column, weight=1, uniform="home-playback")
@@ -106,7 +106,7 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
             relief=tk.FLAT, bd=0, highlightthickness=0)
         self._media_button.grid(row=0, column=3, sticky="nsew", padx=(4, 0))
         # Reserve the transport row before filling the remaining space with metadata.
-        self._body.pack(fill=tk.BOTH, expand=True, padx=10, pady=(7, 8))
+        self._body.pack(fill=tk.BOTH, expand=True, padx=10, pady=(4, 4))
 
     def destroy(self) -> None:
         self._closed = True
@@ -186,6 +186,7 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
             self._status.set("")
             self._show_artwork_placeholder()
         elif state.title:
+            self._title_label.configure(height=2, anchor="nw")
             self._title.set(state.title)
             self._artist.set(state.artist or "")
             self._status.set("Spotify • Playing" if self._playing else "Spotify • Paused"
@@ -194,7 +195,7 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
             if presentation.artwork != self._artwork_payload:
                 self._artwork_payload = presentation.artwork
                 self._artwork_photo = None
-                self._art_label.configure(image="", text="♫", width=4, height=2)
+                self._art_label.configure(image="", text="♫", width=3, height=1)
                 if presentation.artwork:
                     try:
                         with Image.open(io.BytesIO(presentation.artwork)) as source:
@@ -207,8 +208,9 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
                     except (OSError, ValueError):
                         pass
         else:
-            self._title.set("Spotify • YouTube • Netflix")
-            self._artist.set("Media hub")
+            self._title_label.configure(height=1, anchor="w")
+            self._title.set("Music & video")
+            self._artist.set("Open Media to browse")
             self._status.set("")
             self._show_artwork_placeholder()
 
@@ -216,5 +218,5 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._artwork_payload = None
         self._artwork_photo = None
         self._art_loading.configure(text="")
-        self._art_label.configure(image="", text="♫", width=4, height=2)
+        self._art_label.configure(image="", text="♫", width=3, height=1)
         self._art_label.configure(bg=self._theme.ui.control_active, fg=GREEN)
