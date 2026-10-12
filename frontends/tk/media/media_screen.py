@@ -14,6 +14,8 @@ from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from ui.screen_ui_if import ScreenId
 from ui.theme import ThemeBundle, ThemeMode
+from ui.media.media_preview_if import MediaPreviewIf
+from .media_preview import MediaPreview
 
 SPOTIFY_GREEN = "#1DB954"
 YOUTUBE_RED = "#FF0033"
@@ -43,9 +45,12 @@ class MediaScreen(TkScreen):
         connect_spotify: Callable[[], str] | None = None,
         disconnect_spotify: Callable[[], str] | None = None,
         online_allowed: Callable[[], bool] = lambda: True,
+        preview: MediaPreviewIf | None = None,
     ) -> None:
         super().__init__(ScreenId("media"))
         self._host = host
+        self._preview_handler = preview
+        self._preview_widget = None
         self._online_allowed = online_allowed
         self._theme_bundle = theme_bundle
         self._show_spotify = self._online_action(show_spotify)
@@ -75,6 +80,7 @@ class MediaScreen(TkScreen):
         self.show()
 
     def show(self) -> None:
+        self.hide()
         self._host.activate_screen(self)
         self._host.clear_screen_content()
         self._host.set_screen_title("Media")
@@ -181,6 +187,12 @@ class MediaScreen(TkScreen):
             for card in (spotify, youtube, youtube_music, netflix):
                 OfflineCardAppearance(card).set_online(False)
 
+    def hide(self) -> None:
+        """Release polling before the hub is hidden or rebuilt."""
+        if self._preview_widget is not None:
+            self._preview_widget.stop()
+            self._preview_widget = None
+
     def _visualizer_card(self, parent: tk.Misc) -> tk.Frame:
         """Share the music column with an offline-capable visualizer shortcut."""
         theme = self._theme_bundle().ui
@@ -261,39 +273,46 @@ class MediaScreen(TkScreen):
         body = tk.Frame(card, bg=theme.surface)
         body.pack(fill=tk.BOTH, expand=True, padx=10, pady=9)
 
-        glow_accent = {
-            "spotify": "#29c875", "youtube": "#ed4768",
-            "youtube_music": "#f27876", "netflix": "#b73565",
-        }[glyph]
-        top = tk.Canvas(body, height=54, bg=theme.surface,
-                        highlightthickness=0, bd=0, cursor="hand2")
-        top.pack(fill=tk.X)
-        glyph_box = tk.Frame(top, bg=theme.surface_alt, width=50, height=50,
-                             highlightthickness=0)
-        glyph_box.pack_propagate(False)
-        self._provider_logo(glyph_box, glyph)
-        top.create_window(4, 27, window=glyph_box, anchor="w", tags="identity")
-        top.create_text(64, 27, text=title, anchor="w", fill=theme.text,
-                        font=("Sans", 14, "bold"), tags="identity")
-        top.bind("<Configure>", lambda event: self._paint_provider_glow(
-            top, event.width, event.height, glow_accent))
-        card.bind("<Enter>", lambda _event: card.configure(
-            highlightbackground=self._tint_color(card, theme.border, glow_accent, 0.45)))
-        card.bind("<Leave>", lambda _event: card.configure(
-            highlightbackground=theme.border))
-        detail_label = tk.Label(
-            body,
-            text="Coming soon" if feature == "youtube_music" else detail,
-            bg=theme.surface,
-            fg=theme.text_muted,
-            font=("Sans", 9),
-            justify=tk.LEFT,
-            anchor="w",
-            wraplength=360,
-        )
-        detail_label.pack(anchor="w", fill=tk.X, pady=(6, 0))
-        body.bind("<Configure>", lambda event: detail_label.configure(
-            wraplength=max(1, event.width)))
+        if glyph == "spotify" and self._preview_handler is not None:
+            self._preview_widget = MediaPreview(
+                body, handler=self._preview_handler, ui=theme,
+                on_open=command,
+            )
+            self._preview_widget.pack(fill=tk.X)
+        else:
+            glow_accent = {
+                "spotify": "#29c875", "youtube": "#ed4768",
+                "youtube_music": "#f27876", "netflix": "#b73565",
+            }[glyph]
+            top = tk.Canvas(body, height=54, bg=theme.surface,
+                            highlightthickness=0, bd=0, cursor="hand2")
+            top.pack(fill=tk.X)
+            glyph_box = tk.Frame(top, bg=theme.surface_alt, width=50, height=50,
+                                 highlightthickness=0)
+            glyph_box.pack_propagate(False)
+            self._provider_logo(glyph_box, glyph)
+            top.create_window(4, 27, window=glyph_box, anchor="w", tags="identity")
+            top.create_text(64, 27, text=title, anchor="w", fill=theme.text,
+                            font=("Sans", 14, "bold"), tags="identity")
+            top.bind("<Configure>", lambda event: self._paint_provider_glow(
+                top, event.width, event.height, glow_accent))
+            card.bind("<Enter>", lambda _event: card.configure(
+                highlightbackground=self._tint_color(card, theme.border, glow_accent, 0.45)))
+            card.bind("<Leave>", lambda _event: card.configure(
+                highlightbackground=theme.border))
+            detail_label = tk.Label(
+                body,
+                text="Coming soon" if feature == "youtube_music" else detail,
+                bg=theme.surface,
+                fg=theme.text_muted,
+                font=("Sans", 9),
+                justify=tk.LEFT,
+                anchor="w",
+                wraplength=360,
+            )
+            detail_label.pack(anchor="w", fill=tk.X, pady=(6, 0))
+            body.bind("<Configure>", lambda event: detail_label.configure(
+                wraplength=max(1, event.width)))
 
         if action is not None:
             button = tk.Button(

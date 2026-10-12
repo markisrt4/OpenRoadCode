@@ -10,6 +10,15 @@ The media navigation bar provides navigation between the hub, Spotify, YouTube, 
 
 ## Spotify
 
+The hub's Spotify header presents cached now-playing title, artist, and 56-pixel
+album artwork through `ui/media/media_preview_if.py`. With no track, it shows a
+Spotify placeholder. `MediaPreviewController` shares the existing service and
+image cache through composition, loads PNG artwork on its own worker, suppresses
+obsolete requests and shutdown completions, and honors offline policy. Tk only
+decodes returned bytes and renders them; it ignores stale artwork, cancels polling
+on hide/destroy, and rebuilds from the active theme. Existing Remote, Play Here,
+account, and setup actions remain available. No extra card row is introduced.
+
 `SpotifyStateService` owns the shared background controller used by Home and Media. It serializes Web API access, caches now-playing state, and keeps network/control operations off the Tk event thread.
 
 The Media landing card offers two entry paths:

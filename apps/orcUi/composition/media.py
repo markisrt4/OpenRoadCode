@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import copy
+import io
 import os
 import tkinter as tk
 from collections.abc import Callable
@@ -23,6 +24,7 @@ from apps.orcUi.theme_runtime import theme_bundle
 from common.xdg_paths import openroadcode_cache_dir
 from config.runtime_target import RuntimeTarget, detect_runtime_target
 from controllers.image import ImageCache
+from controllers.spotify.media_preview_controller import MediaPreviewController
 from controllers.lyrics import LrclibLyricsClient
 from controllers.video import MusicVideoController, NetflixPlayer, YouTubeMusicVideo, YouTubePlayer
 from frontends.tk.media import BrowserMediaScreen, MediaNavigationBar, MediaScreen, SpotifyNowPlaying, SpotifyScreen
@@ -51,9 +53,12 @@ class MediaComposition:
     visualizer: MusicVisualizerScreen | BrowserMediaScreen
     visualizer_runtime: MusicVisualizerController | MusicVisualizerBrowser
     unsubscribe_online: Callable[[], None] = lambda: None
+    preview: MediaPreviewController | None = None
 
     def close(self) -> None:
         self.unsubscribe_online()
+        if self.preview is not None:
+            self.preview.close()
         try:
             try:
                 self.visualizer.hide()
@@ -101,6 +106,17 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
 
     software_rendering = detect_runtime_target() is RuntimeTarget.LINUX_DEV
     image_cache = ImageCache(max_entries=128, cache_directory=openroadcode_cache_dir("media-art"))
+    def preview_artwork(url):
+        image = image_cache.get(url, width=56, height=56)
+        try:
+            output = io.BytesIO()
+            image.save(output, format="PNG")
+            return output.getvalue()
+        finally:
+            image.close()
+
+    preview = MediaPreviewController(media.spotify.latest_state, preview_artwork,
+                                     online_allowed=network_allowed)
     lyrics = LrclibLyricsClient()
     music_video = YouTubeMusicVideo(
         port=MUSIC_VIDEO_PORT, fullscreen=False, software_rendering=software_rendering,
@@ -223,6 +239,7 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
     app.register_screen("VISUALIZER", visualizer, show_in_navigation=False)
     media_screen = MediaScreen(
         app, theme_bundle=lambda: theme_bundle(app.theme_mode),
+        preview=preview,
         online_allowed=network_allowed,
         show_spotify=spotify_screen.show, show_youtube=youtube_screen.show,
         show_youtube_music=youtube_music_screen.show, show_netflix=netflix_screen.show,
@@ -264,6 +281,7 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
     mode_changed(app.online_mode.online)
 
     return MediaComposition(
+        preview=preview,
         music_video_controller=music_video_controller,
         home_factory=home_media_factory,
         visualizer=visualizer,
