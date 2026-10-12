@@ -17,6 +17,8 @@ class RouteGuidanceStateData:
     distance_to_maneuver_m: float | None
     off_route: bool
     route_complete: bool
+    turn: str = "unknown"
+    road_name: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

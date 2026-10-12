@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: MIT
 
 import pytest
+from dataclasses import replace
+from ui.navigation.route_types import RouteTurn
 
 from controllers.route_guidance import RouteGuidanceState
 from controllers.route_planning.route_planning_types import RouteManeuver
@@ -51,6 +53,27 @@ def test_decode_returns_typed_message() -> None:
     assert message.data.instruction == "Turn left"
     assert not message.data.off_route
     assert not message.data.route_complete
+
+
+def test_turn_and_road_name_round_trip_and_old_messages_still_decode():
+    original = _state()
+    state = replace(original, current_maneuver=replace(original.current_maneuver,
+                                                     turn=RouteTurn.LEFT, road_name="Main Street"))
+    payload = encode_route_guidance_state(state)
+    decoded = decode_route_guidance_state(payload)
+    assert decoded.data.turn == "left" and decoded.data.road_name == "Main Street"
+    del payload["data"]["turn"]
+    del payload["data"]["road_name"]
+    old = decode_route_guidance_state(payload)
+    assert old.data.turn == "unknown" and old.data.road_name is None
+
+
+@pytest.mark.parametrize("turn", ["unsupported", [], None, True])
+def test_invalid_turn_metadata_is_rejected(turn):
+    payload = encode_route_guidance_state(_state())
+    payload["data"]["turn"] = turn
+    with pytest.raises(ValueError):
+        validate_route_guidance_state(payload)
 
 
 def test_no_maneuver_encodes_nullable_fields() -> None:

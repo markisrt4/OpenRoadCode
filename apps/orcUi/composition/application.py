@@ -81,6 +81,8 @@ class OrcUiComposition:
                 self.performance_status.start()
             self.app.schedule_ui_callback(1500, self.runtime.start_background_apps)
             self.core.start()
+            if self.vision is not None:
+                self.vision.start()
             _report(self.startup_progress, "ready", "OpenRoadCode UI ready")
             self.app.run()
 
@@ -150,6 +152,8 @@ def create_orc_ui_composition(
 
         def unit_system():
             return app_settings.unit_system
+
+        vision.screen.set_unit_system_supplier(unit_system)
 
         def set_unit_system(value):
             nonlocal app_settings

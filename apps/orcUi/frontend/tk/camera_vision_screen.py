@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import tkinter as tk
 from collections.abc import Callable
+from common.units import UnitSystem
 
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
@@ -21,9 +22,13 @@ from ui.vision.vision_ui_state import (
     VisionPixelFormat,
     VisionUiState,
 )
+from ui.vision.navigation_overlay import (
+    NavigationOverlayRequestHandlerIf, NavigationOverlayState, NavigationOverlayUiIf,
+)
+from apps.orcUi.frontend.tk.vision_navigation_overlay import draw_navigation_overlay
 
 
-class CameraVisionScreen(TkScreen, VisionUiIf):
+class CameraVisionScreen(TkScreen, VisionUiIf, NavigationOverlayUiIf):
     """Render immutable vision state and emit semantic user requests."""
 
     def __init__(self, host: TkScreenHostIf, *, theme_bundle: Callable[[], ThemeBundle]) -> None:
@@ -38,6 +43,24 @@ class CameraVisionScreen(TkScreen, VisionUiIf):
         self._mode_label: tk.Label | None = None
         self._ai_button: tk.Button | None = None
         self._photo: object | None = None
+        self._navigation = NavigationOverlayState()
+        self._navigation_handler: NavigationOverlayRequestHandlerIf | None = None
+        self._navigation_button: tk.Button | None = None
+        self._image_bounds: tuple[int, int, int, int] | None = None
+        self._unit_system: Callable[[], UnitSystem] = lambda: UnitSystem.IMPERIAL
+
+    def set_unit_system_supplier(self, supplier: Callable[[], UnitSystem]) -> None:
+        """Use the application's display preference without changing SI state."""
+        self._unit_system = supplier
+
+    def set_navigation_overlay_handler(self, handler: NavigationOverlayRequestHandlerIf | None) -> None:
+        self._navigation_handler = handler
+
+    def set_navigation_overlay(self, state: NavigationOverlayState) -> None:
+        self._navigation = state
+        if self._navigation_button is not None:
+            self._navigation_button.configure(text=f"NAV OVERLAY: {'ON' if state.enabled else 'OFF'}")
+        self._draw_navigation()
 
     def set_vision_request_handler(self, handler: VisionRequestHandlerIf | None) -> None:
         """Connect semantic controls to their request receiver.
@@ -62,10 +85,14 @@ class CameraVisionScreen(TkScreen, VisionUiIf):
         self._host.set_screen_title("VISION")
         self._build_panel()
         self._render_state()
+        if self._navigation_handler is not None:
+            self._navigation_handler.request_activate()
         if self._request_handler is not None:
             self._request_handler.request_activate()
 
     def hide(self) -> None:
+        if self._navigation_handler is not None:
+            self._navigation_handler.request_deactivate()
         if self._request_handler is not None:
             self._request_handler.request_deactivate()
         self._panel = None
@@ -74,6 +101,8 @@ class CameraVisionScreen(TkScreen, VisionUiIf):
         self._mode_label = None
         self._ai_button = None
         self._photo = None
+        self._navigation_button = None
+        self._image_bounds = None
 
     def set_theme_mode(self, mode: ThemeMode) -> None:
         """Rebuild the active screen after a theme change.
@@ -136,6 +165,14 @@ class CameraVisionScreen(TkScreen, VisionUiIf):
             pady=7,
         )
         self._ai_button.pack(fill=tk.X, padx=8, pady=(12, 2))
+        self._navigation_button = tk.Button(
+            controls, text=f"NAV OVERLAY: {'ON' if self._navigation.enabled else 'OFF'}",
+            command=self._request_navigation_change,
+            bg=theme.control_background, fg=theme.control_text,
+            activebackground=theme.control_active, activeforeground="#ffffff",
+            relief=tk.FLAT, bd=0, highlightthickness=0, pady=7,
+        )
+        self._navigation_button.pack(fill=tk.X, padx=8, pady=(8, 2))
         self._status_label = tk.Label(
             controls, text="", justify=tk.LEFT, anchor="nw",
             bg=theme.surface, fg=theme.text_muted, font=("Monospace", 9),
@@ -152,6 +189,17 @@ class CameraVisionScreen(TkScreen, VisionUiIf):
         handler = self._request_handler
         if handler is not None:
             handler.request_ai_enabled(not self._state.ai_enabled)
+
+    def _request_navigation_change(self) -> None:
+        if self._navigation_handler is not None:
+            self._navigation_handler.request_enabled(not self._navigation.enabled)
+
+    def _draw_navigation(self) -> None:
+        if self._canvas is None or self._image_bounds is None:
+            return
+        x, y, width, height = self._image_bounds
+        draw_navigation_overlay(self._canvas, self._navigation, x=x, y=y, width=width, height=height,
+                                unit_system=self._unit_system())
 
     def _render_state(self) -> None:
         state = self._state
@@ -185,6 +233,7 @@ class CameraVisionScreen(TkScreen, VisionUiIf):
         canvas = self._canvas
         image = self._state.image
         if canvas is None or image is None:
+            self._image_bounds = None
             if canvas is not None:
                 canvas.delete("all")
                 canvas.update_idletasks()
@@ -215,6 +264,7 @@ class CameraVisionScreen(TkScreen, VisionUiIf):
         draw_height = max(1, int(image.height * scale))
         offset_x = (width - draw_width) // 2
         offset_y = (height - draw_height) // 2
+        self._image_bounds = (offset_x, offset_y, draw_width, draw_height)
         source = Image.frombytes(
             "RGB", (image.width, image.height), image.data,
             "raw", "RGB", image.stride_bytes,
@@ -227,6 +277,7 @@ class CameraVisionScreen(TkScreen, VisionUiIf):
         self._draw_objects(
             canvas, self._state.objects, offset_x, offset_y, draw_width, draw_height
         )
+        self._draw_navigation()
 
     @staticmethod
     def _empty_image_message(state: VisionUiState) -> str:

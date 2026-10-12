@@ -5,6 +5,7 @@
 
 from collections.abc import Mapping
 from typing import Any
+from ui.navigation.route_types import RouteTurn
 
 SCHEMA_VERSION = 1
 
@@ -29,8 +30,13 @@ def validate_route_guidance_state(payload: Mapping[str, Any]) -> None:
         "off_route",
         "route_complete",
     }
-    if set(data) != required:
+    if not required <= set(data) or set(data) - required - {"turn", "road_name"}:
         raise ValueError("route guidance data fields do not match schema")
+    if "turn" in data and (not isinstance(data["turn"], str)
+                           or data["turn"] not in {turn.value for turn in RouteTurn}):
+        raise ValueError("turn must be a supported maneuver direction")
+    if data.get("road_name") is not None and not isinstance(data["road_name"], str):
+        raise ValueError("road_name must be null or a string")
 
     for name in (
         "distance_along_route_m",

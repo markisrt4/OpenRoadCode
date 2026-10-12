@@ -6,6 +6,18 @@
 from enum import Enum, auto
 
 
+class RouteTurn(str, Enum):
+    """Provider-neutral maneuver direction for visual guidance."""
+
+    UNKNOWN = "unknown"
+    STRAIGHT = "straight"
+    LEFT = "left"
+    RIGHT = "right"
+    U_TURN = "u_turn"
+    ROUNDABOUT = "roundabout"
+    ARRIVE = "arrive"
+
+
 class TravelMode(Enum):
     """Identify the route costing mode requested by the user."""
 

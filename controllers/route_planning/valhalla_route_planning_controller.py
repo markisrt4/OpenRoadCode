@@ -9,6 +9,7 @@ import logging
 from dataclasses import replace
 from common.logging.structured import event, operation
 from typing import Any
+from ui.navigation.route_types import RouteTurn
 
 from controllers.route_planning.route_planning_controller_if import (
     RoutePlanningControllerIf,
@@ -251,7 +252,25 @@ class ValhallaRoutePlanningController(RoutePlanningControllerIf):
         ):
             verbal_instruction = None
 
+        # Valhalla's numeric maneuver types are confined to this provider adapter.
+        turn_type = maneuver.get("type")
+        directions = {
+            **dict.fromkeys((1, 2, 3, 7, 8, 17, 22, 25), RouteTurn.STRAIGHT),
+            **dict.fromkeys((9, 10, 11, 18, 20, 23), RouteTurn.RIGHT),
+            **dict.fromkeys((14, 15, 16, 19, 21, 24), RouteTurn.LEFT),
+            **dict.fromkeys((12, 13), RouteTurn.U_TURN),
+            **dict.fromkeys((26, 27), RouteTurn.ROUNDABOUT),
+            **dict.fromkeys((4, 5, 6), RouteTurn.ARRIVE),
+        }
+        turn = (directions.get(turn_type, RouteTurn.UNKNOWN)
+                if isinstance(turn_type, int) and not isinstance(turn_type, bool)
+                else RouteTurn.UNKNOWN)
+        names = maneuver.get("street_names", [])
+        road_name = next((name for name in names if isinstance(name, str) and name.strip()), None) \
+            if isinstance(names, list) else None
         return RouteManeuver(
+            turn=turn,
+            road_name=road_name,
             instruction=instruction,
             verbal_instruction=verbal_instruction,
             distance_miles=float(maneuver.get("length", 0.0)),

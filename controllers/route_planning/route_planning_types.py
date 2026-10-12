@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from ui.navigation.route_types import RouteTurn
 from enum import Enum, auto
 
 
@@ -58,6 +59,8 @@ class RouteManeuver:
 
     begin_shape_index: int
     end_shape_index: int
+    turn: RouteTurn = RouteTurn.UNKNOWN
+    road_name: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

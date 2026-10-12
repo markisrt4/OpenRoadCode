@@ -45,6 +45,8 @@ def encode_route_guidance_state(
             ),
             "off_route": state.off_route,
             "route_complete": state.route_complete,
+            "turn": "unknown" if maneuver is None else maneuver.turn.value,
+            "road_name": None if maneuver is None else maneuver.road_name,
         },
     }
     validate_route_guidance_state(payload)
@@ -63,6 +65,7 @@ def decode_route_guidance_state(
             **{
                 name: data[name]
                 for name in RouteGuidanceStateData.__dataclass_fields__
+                if name in data
             }
         ),
     )

@@ -58,6 +58,7 @@ class OrcUiCompositionTest(unittest.TestCase):
 
         app.schedule_ui_callback.assert_called_once_with(1500, runtime.start_background_apps)
         core.start.assert_called_once_with()
+        vision.start.assert_called_once_with()
         app.run.assert_called_once_with()
         self.assertEqual(
             progress.call_args_list,

@@ -4,6 +4,11 @@ The computer-vision layer consumes `CameraFrame` objects and publishes
 presentation-neutral object detections. Camera ownership remains in
 `hardware_io.camera`; perception does not open video devices directly.
 
+The integrated Vision screen also supports a switchable navigation overlay with
+typed maneuver direction, turn distance, road name, speed and GPS status. See
+[navigation over live video](../../docs/vision_navigation_overlay.md) for timestamp
+alignment, lifecycle behavior and device validation.
+
 ## Debian/Ubuntu setup
 
 Use the project setup script rather than installing dependencies by hand:

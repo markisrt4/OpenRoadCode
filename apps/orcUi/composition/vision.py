@@ -7,6 +7,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import logging
+from common.resource_cleanup import close_resources
+from apps.orcUi.adapters.vision_navigation import VisionNavigationIngress, VisionNavigationUiAdapter
+from controllers.computer_vision.navigation_overlay_controller import NavigationOverlayController
 
 from apps.orcUi.frontend.tk.camera_vision_screen import CameraVisionScreen
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
@@ -31,15 +34,23 @@ class VisionComposition:
     screen: CameraVisionScreen
     controller: VisionController | None
     model_readiness: YoloModelReadiness
+    navigation: NavigationOverlayController | None = None
+    ingress: VisionNavigationIngress | None = None
+
+    def start(self) -> None:
+        """Start navigation ingress without opening the camera or loading AI models."""
+        if self.ingress is not None:
+            self.ingress.start()
 
     def prepare(self) -> None:
         """Prepare model assets before the Tk event loop starts."""
+        self.start()
         self.model_readiness.prepare()
 
     def close(self) -> None:
         """Release camera and inference resources if the screen is active."""
-        if self.controller is not None:
-            self.controller.close()
+        close_resources(*(resource.close for resource in
+                          (self.ingress, self.navigation, self.controller) if resource is not None))
 
 
 def configure_vision(app: OrcUiApp) -> VisionComposition:
@@ -49,6 +60,8 @@ def configure_vision(app: OrcUiApp) -> VisionComposition:
         app,
         theme_bundle=lambda: theme_bundle(app.theme_mode),
     )
+    navigation = NavigationOverlayController(app, screen)
+    ingress = VisionNavigationIngress(navigation)
     try:
         detector = LazyYoloObjectDetector(
             readiness,
@@ -65,10 +78,11 @@ def configure_vision(app: OrcUiApp) -> VisionComposition:
             status_message=f"VISION unavailable: {exc}",
         ))
         app.register_screen("VISION", screen, before="CONTROLS")
-        return VisionComposition(screen=screen, controller=None, model_readiness=readiness)
+        return VisionComposition(screen=screen, controller=None, model_readiness=readiness,
+                                 navigation=navigation, ingress=ingress)
     controller = VisionController(
         app,
-        screen,
+        VisionNavigationUiAdapter(screen, navigation),
         V4L2Camera("/dev/video0", width=1920, height=1080, fps=30.0, pixel_format="MJPG"),
         V4L2CameraProfileController("/dev/video0"),
         CameraFrameProcessor(),
@@ -81,4 +95,6 @@ def configure_vision(app: OrcUiApp) -> VisionComposition:
         screen=screen,
         controller=controller,
         model_readiness=readiness,
+        navigation=navigation,
+        ingress=ingress,
     )
