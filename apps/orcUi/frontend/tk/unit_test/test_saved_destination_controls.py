@@ -46,7 +46,7 @@ class SavedDestinationControlsTest(unittest.TestCase):
                 self.assertEqual(poi.name, key.title())
                 panel._navigate_to_poi(poi)
                 panel._route_request_handler.request_start_route.assert_called_once_with(
-                    position, (), TravelMode.AUTO,
+                    position, TravelMode.AUTO,
                 )
 
     def test_unconfigured_destination_clears_old_popup_without_routing(self):
