@@ -4,7 +4,7 @@
 from dataclasses import replace
 import tkinter as tk
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import numpy as np
 
@@ -13,7 +13,7 @@ from frontends.tk.media.native_music_visualizer import NativeMusicVisualizerPane
 from frontends.tk.media.music_visualizer_screen import MusicVisualizerScreen
 from frontends.tk.media.music_gl_scene import MODE_LABELS
 from ui.music_visualizer import KickMode, MusicVisualizerSource, VisualizerFrame
-from ui.music_visualizer.music_visualizer_types import MusicVisualizerView
+from ui.music_visualizer.music_visualizer_types import AnalyzerAppearance, AnalyzerPalette, MusicVisualizerView
 from ui.theme import ThemeMode
 from apps.orcUi.theme_runtime import theme_bundle
 
@@ -90,7 +90,7 @@ def main():
             # All control pages fit without a scrollbar even on a short viewport.
             for view in [MusicVisualizerView.VISUALIZER, MusicVisualizerView.DRUM_KIT]:
                 screen._select_view(view)
-                for page in ['AUDIO', 'SCENE']:
+                for page in ['AUDIO', 'SCENE', 'STYLE']:
                     screen._show_page(page)
                     root.update_idletasks()
                     assert screen._controls.winfo_reqheight() <= parent.winfo_height(), (view, page, screen._controls.winfo_reqheight())
@@ -100,6 +100,46 @@ def main():
                             for child in widget.winfo_children():
                                 assert_controls_fit(child)
                     assert_controls_fit(screen._controls)
+                    if page == 'STYLE':
+                        for tab in ('LOOK', 'COLOR', 'MOTION', 'LABELS'):
+                            screen._style_page._buttons[tab].invoke()
+                            root.update_idletasks()
+                            assert screen._controls.winfo_reqheight() <= parent.winfo_height(), (tab, screen._controls.winfo_reqheight())
+                            assert_controls_fit(screen._controls)
+                            for button in screen._style_page._buttons.values():
+                                assert button.winfo_ismapped()
+                                assert button.winfo_width() >= button.winfo_reqwidth()
+                                assert button.winfo_x() + button.winfo_width() <= button.master.winfo_width()
+                        appearance_controls = screen._style_page
+                        before = screen._options.analyzer
+                        with patch('frontends.tk.media.analyzer_appearance_controls.colorchooser.askcolor',
+                                   return_value=(None, None)):
+                            appearance_controls._choose_color('low_color')
+                        assert screen._options.analyzer == before
+                        with patch('frontends.tk.media.analyzer_appearance_controls.colorchooser.askcolor',
+                                   return_value=((255, 128, 0), '#ff8000')):
+                            appearance_controls._choose_color('low_color')
+                        assert screen._options.analyzer.palette is AnalyzerPalette.CUSTOM
+                        assert screen._options.analyzer.low_color == (1, 128/255, 0)
+                        assert panel._render_settings.analyzer == screen._options.analyzer
+                        appearance_controls._show('LOOK')
+                        toggles = [child for child in appearance_controls._body.winfo_children()
+                                   if isinstance(child, tk.Checkbutton)]
+                        toggles[0].invoke()
+                        assert screen._options.analyzer.segmented
+                        toggles[1].invoke()
+                        assert not screen._options.analyzer.peak_markers
+                        appearance_controls._show('LABELS')
+                        for child in appearance_controls._body.winfo_children():
+                            if isinstance(child, tk.Checkbutton):
+                                child.invoke()
+                        assert not screen._options.analyzer.frequency_labels
+                        assert not screen._options.analyzer.range_guides
+                        panel._surface._display()
+                        assert GL.glGetError() == GL.GL_NO_ERROR
+                        appearance_controls._reset()
+                        assert screen._options.analyzer == AnalyzerAppearance()
+                        controller.start.assert_not_called()
                     if view is MusicVisualizerView.DRUM_KIT and page == 'SCENE':
                         buttons = [child for row in screen._scene_page.winfo_children()
                                    for child in row.winfo_children()
@@ -114,7 +154,7 @@ def main():
                             minus.invoke()
                         assert screen._options.drum_gain == .2
                         controller.start.assert_not_called()
-            print('PASS: compact controls, ten native scenes, detailed drums, softer response, double kick, 250px viewport, cleanup')
+            print('PASS: compact controls, ten native scenes, detailed drums, softer response, double kick, custom appearance, 250px viewport, cleanup')
             print('Renderer:', GL.glGetString(GL.GL_RENDERER).decode())
         except Exception as exc:
             errors.append(exc)

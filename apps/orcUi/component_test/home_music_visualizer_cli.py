@@ -71,7 +71,8 @@ def main():
             assert len(captures) == 1 and controller.latest_frame().level > 0
             assert card._preview._surface.context_created
             screen.show()
-            screen._select_visualizer('Neon Ribbon')
+            screen._select_visualizer('Frequency Analyzer')
+            screen._style_page._change(segmented=True, spacing=.4, decay_s=.8)
             root.after(400, inspect_full)
         except Exception as exc:
             fail(exc)
@@ -79,7 +80,7 @@ def main():
         try:
             assert len(captures) == 1 and captures[0].is_running
             assert screen._panel._surface.context_created
-            assert controller.visualizer_options().mode is MusicVisualizationMode.NEON_RIBBON
+            assert controller.visualizer_options().mode is MusicVisualizationMode.BOOMBOX
             screen.hide()
             for widget in parent.winfo_children():
                 widget.destroy()
@@ -92,8 +93,12 @@ def main():
     def inspect_returned(returned):
         try:
             assert len(captures) == 1 and captures[0].is_running
-            assert controller.visualizer_options().mode is MusicVisualizationMode.NEON_RIBBON
+            assert controller.visualizer_options().mode is MusicVisualizationMode.BOOMBOX
             assert returned._preview._surface.context_created
+            assert returned._preview._render_settings.analyzer == controller.visualizer_options().analyzer
+            assert returned._preview._render_settings.analyzer.segmented
+            assert returned._preview._render_settings.analyzer.spacing == .4
+            assert returned._preview._render_settings.analyzer.decay_s == .8
             returned._select(False)
             root.after(400, inspect_released)
         except Exception as exc:
@@ -103,7 +108,7 @@ def main():
             assert not captures[0].is_running
             assert controller.latest_frame() is None
             assert not errors, errors
-            print('PASS: HOME preview → full visualizer → HOME uses one PCM capture and preset; now-playing releases it')
+            print('PASS: HOME preview → full visualizer → HOME uses one PCM capture, preset and custom appearance; now-playing releases it')
         except Exception as exc:
             errors.append(exc)
         finally:

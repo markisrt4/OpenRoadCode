@@ -11,9 +11,9 @@ native OpenGL in its Tk Media screen, using the existing GLX backend shared with
 the ECU renderer (including Termux/X11 compatibility). No browser process or local
 HTTP server is created for this renderer.
 
-The native picker offers nine distinct scenes: Frequency Tunnel, Spectrum Field,
+The native icon grid offers ten distinct scenes: Frequency Tunnel, Spectrum Field,
 Orbiting Planets, Electric Freeway, Explosion Field, Star Dance, Electric Rings,
-Neon Ribbon, and Kaleidoscope. Frequency Tunnel sends spectrum-shaped rings
+Neon Ribbon, Kaleidoscope, and Frequency Analyzer. Frequency Tunnel sends spectrum-shaped rings
 through a 3D tunnel, expanding and brightening on musical onsets. **Drum Kit**
 switches the same GL surface to lacquered, layered drum shells, chrome hoops and
 tension rods, subtly moving drumheads, tripod stands, bass pedals, and curved
@@ -133,7 +133,7 @@ python scripts/run_tests.py all
 ```
 
 A native GL component check creates an X11 context and the actual themed
-left/right screen, renders all nine scenes, checks nonempty and distinct frames,
+left/right screen, renders all ten scenes, checks nonempty and distinct frames,
 verifies kick changes and a 250-pixel-high control layout, and releases resources:
 
 ```bash
@@ -185,9 +185,9 @@ its local host and browser lifecycle. `MusicAnalysisSession` owns audio capture
 and analysis in both paths. WebUi retains the existing shared WebGL assets.
 
 
-### Boombox analyzer and drum controls
+### Customizable frequency analyzer and drum controls
 
-The native **Boombox Analyzer** adds green-to-red segmented bars on a fixed
+The native **Frequency Analyzer** defaults to smooth ORC-blue bars on a fixed
 31.25 Hz–16 kHz logarithmic axis. Frequency labels and bass (below 250 Hz), mid
 (250 Hz–4 kHz), and treble ranges sit below the plot. Grid lines represent
 −60, −40, −20, and 0 dBFS from bottom to top. Bars report the strongest
@@ -208,3 +208,21 @@ The SCENE page uses a five-column icon grid for visualizer selection. Each tile
 has a vector preview of its effect; the selected tile is highlighted and its full
 name appears below the grid. Tiles support touch, mouse, and keyboard activation.
 Selection preserves the current audio session and is shared with the HOME preview.
+
+
+Open **STYLE** to select the Frequency Analyzer and customize it. This keeps the
+current capture running. Four compact appearance pages fit the 250-pixel viewport:
+
+- **LOOK:** smooth/segmented bars, peak markers, and adjustable bar spacing.
+- **COLOR:** ORC blue, Retro green-to-red, Monochrome, Fire, or a custom gradient.
+  BASE COLOR and TIP COLOR open native color pickers. Cancel leaves settings intact.
+  For the original boombox look, choose Retro colors and enable segmented bars.
+- **MOVE:** rise time (0–0.3 seconds; zero gives immediate attack) and decay time
+  (0.1–1.5 seconds). These are display envelopes, not analysis normalization.
+  Peak markers hold for half a second before falling. Stale capture decays to zero.
+- **TEXT:** independently show frequency labels and bass/mid/treble guides.
+
+RESET APPEARANCE restores modern defaults. Settings are shared between the full
+screen and HOME preview for the current ORC session; they are not saved to disk.
+The fixed 31.25 Hz–16 kHz frequency axis and −60–0 dBFS scale remain unchanged.
+All appearance sliders include larger minus/plus buttons with clamped limits.

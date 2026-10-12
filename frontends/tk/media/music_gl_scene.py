@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import math
 
+from .frequency_analyzer_scene import draw_analyzer
+
 from ui.music_visualizer.music_visualizer_types import (
     KickMode, MusicVisualizationMode, MusicVisualizerOptions, MusicVisualizerView,
     VisualizerFrame,
@@ -20,7 +22,7 @@ DOUBLE_KICK_X = (-.65, .65)
 MODE_LABELS = {
     MusicVisualizationMode.FREQUENCY_TUNNEL: 'Frequency Tunnel',
     MusicVisualizationMode.SPECTRUM: 'Spectrum Field',
-    MusicVisualizationMode.BOOMBOX: 'Boombox Analyzer',
+    MusicVisualizationMode.BOOMBOX: 'Frequency Analyzer',
     MusicVisualizationMode.ORBITING_PLANETS: 'Orbiting Planets',
     MusicVisualizationMode.ELECTRIC_FREEWAY: 'Electric Freeway',
     MusicVisualizationMode.EXPLOSION_FIELD: 'Explosion Field',
@@ -62,7 +64,7 @@ class NativeSceneGeometry:
 
 
 def draw_scene(gl, glu, quadric, options: MusicVisualizerOptions, frame: VisualizerFrame,
-               pulse: float, decay: float, elapsed: float, aspect: float, geometry=None) -> None:
+               pulse: float, decay: float, elapsed: float, aspect: float, geometry=None, analyzer_display=None) -> None:
     if options.view is MusicVisualizerView.DRUM_KIT:
         _drums(gl, glu, quadric, options, frame, pulse, decay, elapsed, aspect, geometry)
         return
@@ -71,7 +73,7 @@ def draw_scene(gl, glu, quadric, options: MusicVisualizerOptions, frame: Visuali
     spectrum = tuple(value * decay for value in frame.spectrum) or (0,) * 24
     mode = options.mode
     if mode is MusicVisualizationMode.BOOMBOX:
-        _boombox(gl, frame, decay)
+        draw_analyzer(gl, frame, decay, options.analyzer, analyzer_display)
     elif mode is MusicVisualizationMode.FREQUENCY_TUNNEL:
         _tunnel(gl, spectrum, pulse, elapsed)
     elif mode is MusicVisualizationMode.SPECTRUM:
@@ -415,37 +417,3 @@ def _drum(gl, glu, q, x, y, z, r, h, color, hit, *, kick=False):
         gl.glColor3f(.025, .025, .025)
         glu.gluDisk(q, 0, r * .14, 32, 1)
     gl.glPopMatrix()
-
-
-def _boombox(gl, frame, decay):
-    # Fixed log frequency axis, fixed -60..0 dBFS amplitude axis; never auto-normalize.
-    gl.glMatrixMode(gl.GL_PROJECTION)
-    gl.glLoadIdentity()
-    gl.glOrtho(0, 1, 0, 1, -1, 1)
-    gl.glMatrixMode(gl.GL_MODELVIEW)
-    gl.glLoadIdentity()
-    gl.glDisable(gl.GL_DEPTH_TEST)
-    for db in (-60, -40, -20, 0):
-        gl.glColor3f(.12, .18, .22)
-        gl.glBegin(gl.GL_LINES)
-        gl.glVertex2f(.04, .08 + (db + 60) / 60 * .86)
-        gl.glVertex2f(.96, .08 + (db + 60) / 60 * .86)
-        gl.glEnd()
-    for i in range(64):
-        low = 31.25 * 512 ** (i / 64)
-        high = 31.25 * 512 ** ((i + 1) / 64)
-        values = [db for hz, db in zip(frame.spectrum_hz, frame.spectrum_dbfs)
-                  if low <= hz < high]
-        value = max(values, default=-60)
-        height = max(0, min(1, (value + 60) / 60)) * decay
-        x = .04 + .92 * i / 64
-        for segment in range(int(height * 30)):
-            t = segment / max(1, height * 30 - 1)
-            gl.glColor3f(min(1, t * 2), min(1, (1 - t) * 2), .04)
-            y = .08 + segment / 30 * .86
-            gl.glBegin(gl.GL_QUADS)
-            for px, py in ((x, y), (x + .92 / 64 * .8, y),
-                           (x + .92 / 64 * .8, y + .022), (x, y + .022)):
-                gl.glVertex2f(px, py)
-            gl.glEnd()
-    gl.glEnable(gl.GL_DEPTH_TEST)

@@ -69,6 +69,32 @@ class MusicVisualizerView(Enum):
     DRUM_KIT = "drum_kit"
 
 
+class AnalyzerPalette(str, Enum):
+    """Analyzer color presets; custom colors are normalized RGB triples."""
+
+    ORC = 'ORC blue'
+    RETRO = 'Retro'
+    MONO = 'Monochrome'
+    FIRE = 'Fire'
+    CUSTOM = 'Custom'
+
+
+@dataclass(frozen=True, slots=True)
+class AnalyzerAppearance:
+    """Appearance and display timing; never changes FFT measurement or capture."""
+
+    palette: AnalyzerPalette = AnalyzerPalette.ORC
+    segmented: bool = False
+    spacing: float = .2
+    response_s: float = .05
+    decay_s: float = .3
+    peak_markers: bool = True
+    frequency_labels: bool = True
+    range_guides: bool = True
+    low_color: tuple[float, float, float] = (.02, .35, .65)
+    high_color: tuple[float, float, float] = (.15, .85, 1.0)
+
+
 @dataclass(frozen=True, slots=True)
 class MusicVisualizerOptions:
     """Presentation-only settings, independent of audio capture and calibration."""
@@ -79,3 +105,4 @@ class MusicVisualizerOptions:
     beat_gain: float = 1.5
     drum_zoom: float = 1.6
     drum_gain: float = 0.6
+    analyzer: AnalyzerAppearance = AnalyzerAppearance()

@@ -14,6 +14,7 @@ from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from ui.screen_ui_if import ScreenId
 from ui.theme import ThemeBundle, ThemeMode
+from .analyzer_appearance_controls import AnalyzerAppearanceControls
 from .music_gl_scene import MODE_LABELS
 from .music_visualizer_icons import visualizer_icon
 from .music_visualizer_panel import MusicVisualizerPanel
@@ -149,7 +150,7 @@ class MusicVisualizerScreen(TkScreen):
                 self._view_buttons[view] = button
         tabs = tk.Frame(self._controls, bg=self._ui.surface)
         tabs.pack(fill=tk.X)
-        for name in ['AUDIO', 'SCENE']:
+        for name in (['AUDIO', 'SCENE', 'STYLE'] if self._native_controls else ['AUDIO', 'SCENE']):
             tk.Button(tabs, text=name, command=lambda n=name: self._show_page(n),
                       relief=tk.FLAT, bg=self._ui.control_background, fg=self._ui.text_muted,
                       activebackground=self._ui.control_active, font=('Sans', 8, 'bold'),
@@ -158,6 +159,9 @@ class MusicVisualizerScreen(TkScreen):
         self._page_host.pack(fill=tk.BOTH, expand=True, pady=3)
         self._audio_page = tk.Frame(self._page_host, bg=self._ui.surface)
         self._scene_page = tk.Frame(self._page_host, bg=self._ui.surface)
+        self._style_page = AnalyzerAppearanceControls(
+            self._page_host, ui=self._ui, appearance=self._options.analyzer,
+            on_change=lambda appearance: self._set_options(analyzer=appearance))
         self._controls = self._audio_page
         self._label('SOURCE')
         self._source_name = tk.StringVar(value=self._source.value)
@@ -238,7 +242,11 @@ class MusicVisualizerScreen(TkScreen):
     def _show_page(self, page):
         self._audio_page.pack_forget()
         self._scene_page.pack_forget()
-        (self._audio_page if page == 'AUDIO' else self._scene_page).pack(fill=tk.BOTH, expand=True)
+        self._style_page.pack_forget()
+        if page == 'STYLE':
+            self._set_options(mode=MusicVisualizationMode.BOOMBOX, view=MusicVisualizerView.VISUALIZER)
+        {'AUDIO': self._audio_page, 'SCENE': self._scene_page,
+         'STYLE': self._style_page}[page].pack(fill=tk.BOTH, expand=True)
 
     def _update_view_buttons(self):
         for view, button in getattr(self, '_view_buttons', {}).items():

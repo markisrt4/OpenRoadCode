@@ -14,6 +14,7 @@ from ui.ui_widget import UiWidget
 from ui.music_visualizer.music_visualizer_presentation_if import MusicVisualizerPresentationIf
 from ui.music_visualizer.music_visualizer_types import MusicVisualizationMode, MusicVisualizerOptions, MusicVisualizerView
 from .music_gl_scene import MODE_LABELS, NativeSceneGeometry, draw_scene
+from .frequency_analyzer_scene import AnalyzerDisplay
 
 
 class NativeMusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
@@ -29,6 +30,7 @@ class NativeMusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
         self._render_settings = MusicVisualizerOptions()
         self._received = 0.0
         self._hits = {}
+        self._analyzer_display = AnalyzerDisplay()
         self._started = self._last_tick = time.monotonic()
         self._pulse = 0.0
         self._status = 'Native OpenGL · Frequency Tunnel'
@@ -81,10 +83,13 @@ class NativeMusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
             self._fail(exc)
 
     def configure_visualizer(self, options: MusicVisualizerOptions) -> None:
+        changed_axis = self._render_settings.analyzer != options.analyzer
         self._render_settings = options
-        if options.mode is MusicVisualizationMode.BOOMBOX and options.view is MusicVisualizerView.VISUALIZER:
+        if (options.mode is MusicVisualizationMode.BOOMBOX
+                and options.view is MusicVisualizerView.VISUALIZER and self._surface is not None):
             self._axis.pack(side=tk.BOTTOM, fill=tk.X, before=self._surface)
-            self._draw_axis()
+            if changed_axis or not self._axis.winfo_ismapped():
+                self._draw_axis()
         else:
             self._axis.pack_forget()
         if not self._failed:
@@ -95,14 +100,19 @@ class NativeMusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
         canvas = self._axis
         canvas.delete('all')
         width = max(1, canvas.winfo_width())
+        appearance = self._render_settings.analyzer
         for hz, label in ((31.25, '31'), (125, '125'), (500, '500'),
-                          (2000, '2k'), (8000, '8k'), (16000, '16k Hz')):
+                          (2000, '2k'), (4000, '4k'), (16000, '16k Hz')):
+            if not appearance.frequency_labels:
+                continue
             x = width * (.04 + .92 * math.log(hz / 31.25, 512))
             canvas.create_text(x, 7, text=label, fill='#d9e7ef', font=('Sans', 7),
                                anchor='e' if hz == 16000 else 'center')
         for lo, hi, label, color in ((31.25, 250, 'BASS', '#48d97c'),
                                      (250, 4000, 'MID', '#e6cf54'),
                                      (4000, 16000, 'TREBLE', '#fa7657')):
+            if not appearance.range_guides:
+                continue
             x1 = width * (.04 + .92 * math.log(lo / 31.25, 512))
             x2 = width * (.04 + .92 * math.log(hi / 31.25, 512))
             canvas.create_line(x1, 18, x2, 18, fill=color, width=3)
@@ -170,9 +180,13 @@ class NativeMusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
         if self._render_settings.view is MusicVisualizerView.DRUM_KIT:
             frame = replace(frame, **{name: value * math.exp(-(now - stamp) / .12)
                                      for name, (value, stamp) in self._hits.items()})
+        if (self._render_settings.mode is MusicVisualizationMode.BOOMBOX
+                and self._render_settings.view is MusicVisualizerView.VISUALIZER):
+            self._analyzer_display.update(self._frame, self._render_settings.analyzer, now,
+                                          now - self._received <= .15)
         draw_scene(gl, glu, surface.quadric, self._render_settings, frame,
                    min(1.5, self._pulse * self._render_settings.beat_gain), decay,
-                   now - self._started, width / height, surface.geometry)
+                   now - self._started, width / height, surface.geometry, self._analyzer_display)
 
     def close(self) -> None:
         if self._closed:
