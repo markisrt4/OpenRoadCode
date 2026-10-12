@@ -424,16 +424,18 @@ class SpotifyPlaybackPanel(tk.Frame):
 
         bottom = tk.Frame(card, bg=self._colors["card_background"])
         self._bottom = bottom
+        bottom.grid_columnconfigure(0, weight=1, uniform="utility-sides")
+        bottom.grid_columnconfigure(2, weight=1, uniform="utility-sides")
         for label, action in (("♫ Visualizer", self._show_visualizer),):
             if action is not None:
-                self._button(bottom, label, action, width=0, vertical_padding=4).pack(
-                    side=tk.LEFT, padx=3,
+                self._button(bottom, label, action, width=0, vertical_padding=4).grid(
+                    row=0, column=0, sticky="w", padx=3,
                 )
         self._video_button = self._button(
             bottom, _WATCH_VIDEO_TEXT, self._toggle_video, width=0, vertical_padding=4,
         )
-        self._video_button.pack(side=tk.LEFT, padx=(10, 3))
-        self._video_button.configure(state=tk.DISABLED, font=("Sans", 12, "bold"))
+        self._video_button.grid(row=0, column=1, padx=6)
+        self._video_button.configure(state=tk.DISABLED, font=("Sans", 13, "bold"))
         self._youtube_icon = tk.PhotoImage(master=self, width=18, height=12)
         self._youtube_icon.put("#ff0033", to=(0, 0, 18, 12))
         for row in range(3, 10):
@@ -447,8 +449,8 @@ class SpotifyPlaybackPanel(tk.Frame):
             foreground=self._colors["subtitle"],
             font=self._style["status_font"],
             anchor=self._layout["left_anchor"],
-        ).pack(
-            side=self._layout["right_side"],
+        ).grid(
+            row=0, column=2, sticky="e",
             padx=(10, 0),
         )
 
