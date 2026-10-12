@@ -619,7 +619,7 @@ Preview cleanup errors do not prevent other owned resources from closing.
 
 ### Home cockpit presentation
 
-Home gives Radio and Media equal columns and bounds the audio row to 168 pixels
+Home gives Radio and Media equal columns and bounds the audio row to 196 pixels
 while giving spare vertical space to the map. Radio exposes large RF and Streaming shortcuts;
 Aircraft remains in persistent shell chrome. The vehicle context page emphasizes
 a digital speed readout and gear, with an RPM dial, numeric boost (retaining high
@@ -667,3 +667,8 @@ Home audio cards use compact headings, bounded track-title height, and a smaller
 artwork footprint. Audio row geometry does not grow with metadata or window height;
 transport buttons retain their touch padding. The idle Radio card omits its
 duplicate inner heading.
+
+Home now leaves an additional 28 pixels for metadata above the transport row.
+Song titles wrap to two measured lines; artist text uses a measured single line.
+Overflow receives an ellipsis instead of being cut off by the widget. The bounds
+are recomputed on allocation changes, keeping playback controls visible.

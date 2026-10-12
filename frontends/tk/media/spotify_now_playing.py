@@ -8,6 +8,7 @@ from __future__ import annotations
 import io
 from functools import partial
 import tkinter as tk
+import tkinter.font as tkfont
 from collections.abc import Callable
 
 from PIL import Image, ImageOps, ImageTk
@@ -16,6 +17,7 @@ from ui.media.spotify_presentation_if import SpotifyPresentationState, SpotifyVi
 from ui.media import PlaybackState, MediaAvailability
 from ui.theme import ThemeBundle
 from ui.ui_widget import UiWidget
+from .metadata_text import fit_metadata_text
 
 GREEN = "#1DB954"
 ART_SIZE = 48
@@ -46,6 +48,10 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._title = tk.StringVar(value="Music & video")
         self._artist = tk.StringVar(value="Open Media to browse")
         self._status = tk.StringVar(value="")
+        self._title_text = "Music & video"
+        self._artist_text = "Open Media to browse"
+        self._title_font = tkfont.Font(root=self, family="Sans", size=14, weight="bold")
+        self._artist_font = tkfont.Font(root=self, family="Sans", size=10)
         self._artwork_uri: str | None = None
         self._artwork_photo: ImageTk.PhotoImage | None = None
         self._artwork_payload: bytes | None = None
@@ -71,12 +77,12 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._text.grid_columnconfigure(0, weight=1)
         self._title_label = tk.Label(
             self._text, textvariable=self._title, fg=ui.text, bg=ui.surface,
-            font=("Sans", 14, "bold"), anchor="w", justify=tk.LEFT,
+            font=self._title_font, width=1, height=2, anchor="nw", justify=tk.LEFT,
         )
         self._title_label.grid(row=0, column=0, sticky="ew", pady=(0, 2))
         self._artist_label = tk.Label(
             self._text, textvariable=self._artist, fg=ui.text_muted, bg=ui.surface,
-            font=("Sans", 9), anchor="w", justify=tk.LEFT,
+            font=self._artist_font, width=1, height=1, anchor="w", justify=tk.LEFT,
         )
         self._artist_label.grid(row=1, column=0, sticky="ew")
         self._status_label = tk.Label(
@@ -86,8 +92,7 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._status_label.grid(row=2, column=0, sticky="ew", pady=(3, 0))
 
         self._bind_open(self)
-        self._text.bind("<Configure>", lambda event: self._title_label.configure(
-            wraplength=max(1, event.width)))
+        self._text.bind("<Configure>", lambda _event: self._render_metadata())
         controls = self._controls = tk.Frame(self, bg=ui.surface)
         controls.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=(0, 6))
         self._transport: list[tk.Button] = []
@@ -181,14 +186,13 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._paint_transport()
         self.configure(cursor="hand2" if presentation.online else "arrow")
         if not presentation.online:
-            self._title.set("Streaming media unavailable")
-            self._artist.set("Offline mode")
+            self._title_label.configure(height=2, anchor="nw")
+            self._set_metadata("Streaming media unavailable", "Offline mode")
             self._status.set("")
             self._show_artwork_placeholder()
         elif state.title:
             self._title_label.configure(height=2, anchor="nw")
-            self._title.set(state.title)
-            self._artist.set(state.artist or "")
+            self._set_metadata(state.title, state.artist or "")
             self._status.set("Spotify • Playing" if self._playing else "Spotify • Paused"
                              if state.playback is PlaybackState.PAUSED else "Spotify • Ready")
             self._art_loading.configure(text="LOADING" if presentation.artwork_loading else "")
@@ -209,10 +213,21 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
                         pass
         else:
             self._title_label.configure(height=1, anchor="w")
-            self._title.set("Music & video")
-            self._artist.set("Open Media to browse")
+            self._set_metadata("Music & video", "Open Media to browse")
             self._status.set("")
             self._show_artwork_placeholder()
+
+    def _set_metadata(self, title: str, artist: str) -> None:
+        self._title_text, self._artist_text = title, artist
+        self._render_metadata()
+
+    def _render_metadata(self) -> None:
+        width = max(1, self._text.winfo_width() - 4)
+        if width <= 4:
+            return
+        self._title.set(fit_metadata_text(self._title_text, width, self._title_font.measure,
+                                        lines=int(self._title_label.cget("height"))))
+        self._artist.set(fit_metadata_text(self._artist_text, width, self._artist_font.measure, lines=1))
 
     def _show_artwork_placeholder(self) -> None:
         self._artwork_payload = None
