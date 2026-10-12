@@ -157,7 +157,8 @@ ADS-B service transitions and status probes run outside the Tk event thread;
 dashboard browser/service teardown also runs outside Tk. The adapter rejects
 reopening until its cleanup worker finishes, and the non-daemon worker completes
 cleanup on process exit. Embedded tar1090 defaults to a 25% sidebar unless its
-configured URL specifies a width; Termux uses software browser compositing to
+configured URL specifies a width; Termux uses ANGLE/SwiftShader software WebGL
+with GPU compositing disabled to
 avoid corruption of reparented GPU surfaces.
 the composition drains their results on its scheduled UI callback and
 serializes transitions with polling so stale observations cannot win.

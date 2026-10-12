@@ -58,7 +58,9 @@ class OrcUiAdsbControl:
         if _is_termux():
             # Reparented GPU surfaces have rendered corrupt blocks on Termux:X11.
             self._launcher.browser.extra_arguments += (
-                "--disable-gpu", "--disable-gpu-compositing", "--ozone-platform=x11",
+                "--use-gl=angle", "--use-angle=swiftshader",
+                "--enable-unsafe-swiftshader", "--disable-gpu-compositing",
+                "--ozone-platform=x11",
             )
 
     @property
