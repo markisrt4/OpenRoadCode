@@ -159,7 +159,10 @@ serializes transitions with polling so stale observations cannot win.
 
 Navigation's right-side map controls use `MapControlsDrawerState` and
 `MapControlsDrawerRequestHandlerIf`. A small controller owns expanded/collapsed
-state; the Tk panel renders a compact edge handle or the wider touch drawer and
+state; application composition injects its drawer handler. The Tk panel renders
+a compact edge handle or the wider touch drawer. The navigation screen
+binds and releases the transient view through the toolkit-independent contract,
+without importing or constructing the concrete drawer controller. The panel
 continues to emit camera actions through the existing map request contract. In
 both states, the map host occupies the full body width. The expanded drawer is
 a 140-pixel overlay at the right edge and covers part of the map without resizing

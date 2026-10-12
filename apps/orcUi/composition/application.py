@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from controllers.navigation.map_controls_drawer_controller import MapControlsDrawerController
+
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -244,6 +246,7 @@ def create_orc_ui_composition(
             camera_observer=core.map_camera.request_handler.observe_camera)
         navigation = NavigationScreen(
             app,
+            drawer_handler=MapControlsDrawerController(),
             online_mode=app.online_mode,
             map_runtime=core.map_runtime,
             places_factory=navigation_places,

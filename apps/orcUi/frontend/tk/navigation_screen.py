@@ -30,7 +30,7 @@ from ui.theme import ThemeBundle
 from .navigation_panel import NavigationPanel
 from .map_platform_bar import MapPlatformBar
 from .screen_builders import build_navigation_screen
-from controllers.navigation.map_controls_drawer_controller import MapControlsDrawerController
+from ui.navigation.map_controls_drawer_ui import MapControlsDrawerRequestHandlerIf
 
 
 class NavigationScreen(TkScreen, RadarControlsIf):
@@ -53,6 +53,7 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         ),
         on_back: Callable[[], None],
         route_weather=None,
+        drawer_handler: MapControlsDrawerRequestHandlerIf | None = None,
         online_mode: OnlineModeIf | None = None,
         tooltip_factory: TooltipFactoryIf | None = None,
         map_platform: MapPlatformControlIf | None = None,
@@ -79,7 +80,8 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         self._radar_handler: RadarRequestHandlerIf | None = None
         self._radar_state = RadarUiState()
         self._panel: NavigationPanel | None = None
-        self._drawer_controller: MapControlsDrawerController | None = None
+        self._drawer_handler = drawer_handler
+        self._drawer_controller: MapControlsDrawerRequestHandlerIf | None = None
 
     def _close_places_session(self) -> None:
         session = self._places_session
@@ -119,7 +121,9 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         if not isinstance(session, NavigationPlacesRequestHandlerIf):
             raise TypeError("Navigation places require NavigationPlacesRequestHandlerIf")
         self._places_session = session
-        drawer_controller = MapControlsDrawerController()
+        drawer_controller = self._drawer_handler
+        if drawer_controller is not None:
+            drawer_controller.request_map_controls_expanded(False)
         self._drawer_controller = drawer_controller
         try:
             self._panel = build_navigation_screen(
@@ -150,7 +154,8 @@ class NavigationScreen(TkScreen, RadarControlsIf):
             self._drawer_controller = None
             self._close_places_session()
             raise
-        drawer_controller.set_ui(self._panel)
+        if drawer_controller is not None:
+            drawer_controller.set_ui(self._panel)
         self.set_radar_state(self._radar_state)
         if self._radar_handler is not None:
             self._radar_handler.request_navigation_visible(True)

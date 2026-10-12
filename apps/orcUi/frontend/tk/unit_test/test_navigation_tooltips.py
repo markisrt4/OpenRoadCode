@@ -83,5 +83,5 @@ def test_camera_controls_start_as_compact_collapsible_drawer():
         build_navigation_panel(Mock())
     controls = next(widget for widget, _args, kwargs in frames if kwargs.get("width") == 54)
     rail = next(widget for widget, args, _kwargs in frames if args and args[0] is controls)
-    assert controls.grid_propagate.call_args.args == (False,)
+    assert controls.pack_propagate.call_args.args == (False,)
     assert not rail.place.called

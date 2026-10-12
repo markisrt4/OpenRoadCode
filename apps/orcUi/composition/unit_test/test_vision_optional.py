@@ -13,7 +13,8 @@ def test_model_loading_is_deferred_until_vision_activation():
     with patch('apps.orcUi.composition.vision.YoloModelReadiness') as readiness, \
             patch('apps.orcUi.composition.vision.CameraVisionScreen') as screen, \
             patch('apps.orcUi.composition.vision.VisionController') as controller, \
-            patch('apps.orcUi.composition.vision.LazyYoloObjectDetector') as detector:
+            patch('apps.orcUi.composition.vision.LazyYoloObjectDetector') as detector, \
+            patch('apps.orcUi.composition.vision.ByteTrackObjectTracker'):
         composition = configure_vision(app)
 
         readiness.return_value.prepare.assert_not_called()

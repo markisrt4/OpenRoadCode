@@ -20,5 +20,9 @@ class MapControlsDrawerUiIf(ABC):
 
 class MapControlsDrawerRequestHandlerIf(ABC):
     @abstractmethod
+    def set_ui(self, ui: MapControlsDrawerUiIf | None) -> None:
+        """Bind or release the transient drawer presentation."""
+
+    @abstractmethod
     def request_map_controls_expanded(self, expanded: bool) -> None:
         """Request the expanded or collapsed drawer state."""
