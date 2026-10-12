@@ -359,7 +359,7 @@ class OrcUiShellView:
         self._settings_button.bind("<Return>", lambda _event: self._on_settings())
         self._settings_button.bind("<space>", lambda _event: self._on_settings())
         settings_space.lift()
-        self._settings_button.lift()
+        tk.Misc.lift(self._settings_button)
         self.set_performance_status(self._performance_status)
         self._breadcrumb_label.configure(text=self._breadcrumb)
         self._status_label.configure(text=self._status_text)
