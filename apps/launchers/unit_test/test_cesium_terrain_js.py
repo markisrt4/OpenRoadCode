@@ -50,3 +50,12 @@ def test_imagery_background_detail_and_late_load_cleanup():
     test = Path(__file__).resolve().parents[3] / 'frontends/web/cesium/unit_test/test_local_imagery_layers.js'
     result = subprocess.run([node,'--test',str(test)],capture_output=True,text=True,timeout=20)
     assert result.returncode == 0, result.stdout+result.stderr
+
+
+def test_road_overlay_labels_and_late_load_cleanup():
+    node=shutil.which('node')
+    if not node:
+        pytest.skip('Node is optional; road overlay check requires node')
+    test=Path(__file__).resolve().parents[3]/'frontends/web/cesium/unit_test/test_road_overlay.js'
+    result=subprocess.run([node,'--test',str(test)],capture_output=True,text=True,timeout=20)
+    assert result.returncode==0,result.stdout+result.stderr

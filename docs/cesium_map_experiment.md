@@ -840,3 +840,47 @@ If mypy is absent on Termux, the quality gate explicitly skips the strict type
 checker and its subprocess-dependent tests. Other checks continue. If mypy is
 installed, Termux runs it normally. Missing mypy still fails Linux/CI, and a
 regression test enforces that distinction; this is not a global optional gate.
+
+### Offline roads and place-name overlay
+
+Terrain now reads the installed `maps/vector/openroadcode.mbtiles` for major road
+geometry, freeway references and city/town names. It reuses the builder's MVT
+parser with SI overlay contracts; no new provider, key, package, or download is
+needed. **Roads & places** in Controls toggles the overlay. If the offline vector
+map is absent/unreadable, the control is disabled and the globe remains usable.
+
+Freeways use gold lines; other major roads use light lines. Freeway references
+and road/place names have outlined labels to remain readable above imagery and
+buildings. This is an orientation overlay, not route guidance. Residential/service
+roads and address labels are not included in this initial version.
+
+The viewer requests at most nine tiles around the ground view centre, adapts
+zoom up to the installed dataset's maximum (capped at 14), and releases sources
+when moving away. Each tile is bounded to 500 road segments, 12,000 points and
+60 place labels; road-name display is further limited. Reads use short-lived,
+read-only SQLite connections with a bounded 32-tile cache. Compressed tile size,
+coordinates and serving URLs are checked. Late responses cannot attach after
+close. Outside installed vector coverage, no road data is invented or fetched.
+
+### Embedded shutdown
+
+The dedicated embedded Chromium process group now uses a one-second termination
+grace period, followed by the existing forced-termination fallback. It skips the
+interactive-window grace period and global matching-process scan for a live
+owned process. If a launcher wrapper has already exited, the existing profile-
+scoped cleanup remains as a fallback. Normal standalone browsers retain their
+previous shutdown behavior. Browser cleanup still precedes profile/server and
+native-host release; this is shorter bounded cleanup, not a guaranteed instant
+shutdown when a GPU/OS operation is stalled.
+
+```bash
+git switch navigation-cesium
+git pull --ff-only
+python scripts/quality_gate.py
+./runOrcUi
+```
+
+On Termux, check road/freeway lines, place labels, the Roads & places toggle,
+panning/following across tile boundaries, and closing ORC with Terrain active.
+Actual WebGL appearance, road-overlay performance and shutdown latency still need
+device validation; cloud checks use synthetic MVT/SQLite fixtures.

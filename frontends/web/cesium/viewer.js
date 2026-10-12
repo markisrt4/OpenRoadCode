@@ -9,6 +9,7 @@
   let snapshot;
   let tiledMap;
   let imageryStack;
+  let roadOverlay;
   let closing = false;
   const close = document.getElementById('close');
   document.querySelectorAll('nav button').forEach(button => { button.disabled = true; });
@@ -176,6 +177,16 @@
       status.textContent = 'Rendering stopped: '+error.message+' — return and retry';
     });
     document.querySelectorAll('nav button').forEach(button => { button.disabled = false; });
+    const roadsButton=document.getElementById('roads');
+    roadsButton.disabled=!snapshot.roads_available;
+    roadsButton.title=snapshot.roads_available?'Major roads, freeway references and place names':'Offline vector map is not installed';
+    if(snapshot.roads_available) {
+      roadOverlay=window.ORCRoadOverlay(viewer,C,terrain?.heightAt,error=>{
+        status.hidden=false;status.textContent='Road overlay unavailable: '+error.message;
+      },snapshot.roads_max_zoom);
+      roadsButton.onclick=()=>{roadOverlay.show=!roadOverlay.show;roadsButton.setAttribute('aria-pressed',String(roadOverlay.show));};
+    }
+
     const terrainButton = document.getElementById('terrain');
     terrainButton.disabled = !terrain;
     let terrainVisible = snapshot.terrain_visible;
@@ -198,6 +209,7 @@
       rebuildReferences();
       buildings?.refreshGround();
       tiledMap?.refreshGround();
+      roadOverlay?.refreshGround();
       viewer.scene.globe.material = terrainVisible ? contours : undefined;
       terrainButton.setAttribute('aria-pressed', String(terrainVisible));
       terrainButton.textContent = terrainVisible ? 'Terrain ON' : 'Terrain OFF';
@@ -285,5 +297,5 @@
     if (!/unavailable|Unable|stopped/i.test(statusText.textContent)) statusText.hidden = true;
     document.getElementById('tiles-status').hidden = true;
   }
-  window.addEventListener('pagehide', () => { imageryStack?.destroy(); tiledMap?.destroy(); if (viewer && !viewer.isDestroyed()) viewer.destroy(); });
+  window.addEventListener('pagehide', () => { roadOverlay?.destroy(); imageryStack?.destroy(); tiledMap?.destroy(); if (viewer && !viewer.isDestroyed()) viewer.destroy(); });
 })();

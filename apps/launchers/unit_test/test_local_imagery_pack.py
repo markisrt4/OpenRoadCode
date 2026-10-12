@@ -105,3 +105,15 @@ def test_server_mounts_checked_stack_layers_without_exposing_paths(server,pack):
         assert response.read() == loaded.image.read_bytes()
     with pytest.raises(HTTPError):
         urllib.request.urlopen(server.url+'data/imagery/2')
+
+
+def test_server_exposes_only_bounded_offline_road_tiles(server):
+    from unittest.mock import Mock
+    from ui.navigation.road_overlay_state import RoadOverlayState
+    server._roads=Mock(max_zoom=14)
+    server._roads.tile.return_value=RoadOverlayState()
+    with urllib.request.urlopen(server.url+'data/roads/12/1234/1500') as response:
+        assert json.load(response)['attribution'].startswith('© OpenStreetMap')
+    server._roads.tile.assert_called_once_with(12,1234,1500)
+    with pytest.raises(HTTPError):
+        urllib.request.urlopen(server.url+'data/roads/not-a-tile')

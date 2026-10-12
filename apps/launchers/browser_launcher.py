@@ -269,7 +269,21 @@ class BrowserKioskLauncher(AppLauncherIf):
         return hidden
 
     @logged_action("runtime.browser", "browser.action", "stop")
-    def stop(self, remote_display: str, set_status: StatusCallback = None) -> None:
+    def stop(self, remote_display: str, set_status: StatusCallback = None, *, owned_process_only: bool = False) -> None:
+        if owned_process_only:
+            # Dedicated embedded profiles are launched in their own session.
+            # Avoid the interactive-window grace period and global /proc scan.
+            if self._process is not None:
+                if self._process.poll() is None:
+                    terminate_process(self._process, timeout_seconds=1.0)
+                else:
+                    # A wrapper may have exited while its browser survives.
+                    close_matching_display_apps(display=remote_display, patterns=(self.process_pattern,))
+            self._process = None
+            self._window_id = None
+            self._hidden = False
+            _status(set_status, 'Browser stopped')
+            return
         process = self._process
         closed_normally = False
         if process is not None:

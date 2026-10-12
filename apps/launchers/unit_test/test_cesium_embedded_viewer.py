@@ -22,7 +22,7 @@ def native(tmp_path,monkeypatch):
     server=Mock(url='http://127.0.0.1:12345/')
     server.close_requested.is_set.return_value=False
     server.close.side_effect=lambda:events.append('server.close')
-    browser.stop.side_effect=lambda *args:events.append('browser.stop')
+    browser.stop.side_effect=lambda *args,**kwargs:events.append('browser.stop')
     servers=Mock(return_value=server)
     monkeypatch.setattr(module,'CesiumViewerServer',servers)
     def make_browser(**kwargs):

@@ -68,7 +68,7 @@ class CesiumEmbeddedViewer:
                 extra_arguments=('--no-first-run','--no-default-browser-check',
                     '--remote-debugging-port=0','--remote-debugging-address=127.0.0.1'),
                 log_file=logging_file_path('openroadcode','cesium-embedded.log'))
-            resources.callback(browser.stop, display, None)
+            resources.callback(browser.stop, display, None, owned_process_only=True)
             server.start()
             if not current():
                 resources.close()

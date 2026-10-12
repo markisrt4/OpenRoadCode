@@ -12,6 +12,9 @@ from urllib.parse import unquote, urlsplit
 from apps.launchers.cesium_sdk import require_sdk
 from ui.navigation.cesium_viewer_state import CesiumViewerState
 from ui.navigation.local_imagery_state import LocalImageryStackState
+from apps.launchers.local_road_overlay import LocalRoadOverlay
+import sqlite3
+from tools.map_builder.builder.validate import ValidationError
 
 _WEB = Path(__file__).resolve().parents[2] / "frontends/web/cesium"
 
@@ -28,6 +31,7 @@ class CesiumViewerServer:
         self._terrain = terrain
         self._buildings = buildings
         self._tiles = tiles
+        self._roads = LocalRoadOverlay.installed()
         self._token = secrets.token_urlsafe(32)
         self.close_requested = threading.Event()
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), partial(_Handler, owner=self))
@@ -76,6 +80,8 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/config.json":
             document = self.owner._state.document()
             document["close_token"] = self.owner._token
+            document['roads_available'] = self.owner._roads is not None
+            document['roads_max_zoom'] = self.owner._roads.max_zoom if self.owner._roads is not None else 14
             if self.owner._imagery_layers:
                 document['imagery_layers'] = self.owner._imagery_stack.document()
                 for index, layer in enumerate(document['imagery_layers']):
@@ -90,6 +96,16 @@ class _Handler(BaseHTTPRequestHandler):
             if self.owner._tiles is not None:
                 document["map_tiles"] = self.owner._tiles.state.document()
             self._send(json.dumps(document).encode(), "application/json")
+            return
+        if path.startswith('/data/roads/') and self.owner._roads is not None:
+            try:
+                parts=path.removeprefix('/data/roads/').split('/')
+                if len(parts)!=3 or any(not part.isascii() or not part.isdigit() or len(part)>6 for part in parts):
+                    raise ValueError('Invalid road tile URL')
+                state=self.owner._roads.tile(*(int(part) for part in parts))
+                self._send(json.dumps(state.document()).encode(),'application/json')
+            except (ValueError,ValidationError,sqlite3.Error,OSError):
+                self.send_error(404,'Offline road tile unavailable')
             return
         if path.startswith('/data/imagery/'):
             index = path.removeprefix('/data/imagery/')
