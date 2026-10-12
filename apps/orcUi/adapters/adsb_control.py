@@ -51,6 +51,9 @@ class OrcUiAdsbControl:
         parts = urlsplit(url)
         query = dict(parse_qsl(parts.query))
         query.setdefault("sidebarWidth", "25%")
+        if _is_termux():
+            query.setdefault("baseMap", "osm")
+            query.setdefault("nowebgl", "1")
         self._launcher = ADSBLauncher(
             url=urlunsplit(parts._replace(query=urlencode(query))),
             data_source=config.adsb_data_source.value if config.adsb_data_source is not None else "rtlsdr",

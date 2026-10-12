@@ -4,6 +4,7 @@
 import unittest
 from threading import Event
 from unittest.mock import Mock, patch
+from urllib.parse import urlsplit, parse_qs
 from apps.orcUi.adapters.adsb_control import OrcUiAdsbControl
 
 
@@ -16,9 +17,12 @@ class AdsbCleanupTest(unittest.TestCase):
             launcher.return_value.browser.extra_arguments = ()
             OrcUiAdsbControl()
             flags = launcher.return_value.browser.extra_arguments
+            query = parse_qs(urlsplit(launcher.call_args.kwargs["url"]).query)
         self.assertIn("--use-angle=swiftshader", flags)
         self.assertIn("--disable-gpu-compositing", flags)
         self.assertNotIn("--disable-gpu", flags)
+        self.assertEqual(query["baseMap"], ["osm"])
+        self.assertEqual(query["nowebgl"], ["1"])
 
     def test_exit_does_not_wait_and_prevents_relaunch_during_cleanup(self):
         entered, release = Event(), Event()
