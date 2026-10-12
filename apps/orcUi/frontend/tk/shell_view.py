@@ -345,16 +345,20 @@ class OrcUiShellView:
         # baseline padding even when their button is centered.
         points = []
         for tooth in range(12):
-            for fraction, radius in ((0.0, 20), (0.2, 25), (0.6, 25), (0.8, 20)):
+            for fraction, radius in ((0.0, 15), (0.2, 19), (0.6, 19), (0.8, 15)):
                 angle = (tooth + fraction) * math.tau / 12
                 points.extend((32 + radius * math.cos(angle),
                                32 + radius * math.sin(angle)))
         self._settings_button.create_polygon(
-            *points, fill=self._theme.ui.control_text, outline="",
+            *points, fill=self._theme.ui.text_muted, outline="", tags="gear",
         )
         self._settings_button.create_oval(
-            20, 20, 44, 44, fill=self._theme.ui.background, outline="",
+            23, 23, 41, 41, fill=self._theme.ui.background, outline="",
         )
+        self._settings_button.bind("<Enter>", lambda _event:
+            self._settings_button.itemconfigure("gear", fill=self._theme.ui.accent_primary))
+        self._settings_button.bind("<Leave>", lambda _event:
+            self._settings_button.itemconfigure("gear", fill=self._theme.ui.text_muted))
         self._settings_button.bind("<Button-1>", lambda _event: self._on_settings())
         self._settings_button.bind("<Return>", lambda _event: self._on_settings())
         self._settings_button.bind("<space>", lambda _event: self._on_settings())
