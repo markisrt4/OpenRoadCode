@@ -28,6 +28,7 @@ class SpotifyPresentation(SpotifyRequestHandler):
         read_video_process_id: Callable[[], int | None] = lambda: None,
         playback: PlaybackRequestHandlerIf | None = None,
         tracks: TrackRequestHandlerIf | None = None, seek: SeekRequestHandlerIf | None = None,
+        playback_controls: bool = False,
         rich: bool = True, set_volume: Callable[[int], None] = lambda _volume: None,
     ) -> None:
         self._playback = playback
@@ -45,6 +46,7 @@ class SpotifyPresentation(SpotifyRequestHandler):
         self._dispatcher = dispatcher
         self._read_video_process_id = read_video_process_id
         self._rich = rich
+        self._playback_controls = playback_controls
         self._set_volume = set_volume
         self._pending_volume: int | None = None
         self._volume_until = 0.0
@@ -63,7 +65,7 @@ class SpotifyPresentation(SpotifyRequestHandler):
             raise RuntimeError("Spotify presentation is closed")
         self.deactivate()
         self._view = view
-        view.set_spotify_request_handler(self if self._rich else None)
+        view.set_spotify_request_handler(self if self._rich or self._playback_controls else None)
         view.set_video_request_handler(self if self._rich else None)
         self._tick()
 

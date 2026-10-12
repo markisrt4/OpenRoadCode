@@ -616,3 +616,17 @@ Tk owns encoded artwork decoding and native host rendering. See
 The media hub retains its compact account row through `SpotifyAccountSession`,
 and its shared now-playing preview is closed alongside the presentation sessions.
 Preview cleanup errors do not prevent other owned resources from closing.
+
+### Home cockpit presentation
+
+Home gives Radio and Media equal columns and reserves a 210-pixel minimum audio
+row for vehicle touch use. Radio exposes large RF and Streaming shortcuts;
+Aircraft remains in persistent shell chrome. The vehicle context page emphasizes
+a digital speed readout and gear, with an RPM dial, numeric boost (retaining high
+pressure warnings), and a fuel bar. Coolant remains on the Vehicle screen.
+
+Home Spotify keeps its lightweight 64-pixel artwork session, with playback
+requests explicitly enabled through the existing `SpotifyRequestHandler`.
+Previous, Play/Pause, and Next are disabled for unavailable/offline state or a
+retired handler. Composition owns the session and closes it with the destroyed
+view. Long metadata wraps inside the space left above the reserved transport row.

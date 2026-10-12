@@ -241,7 +241,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
     def create_presentation(*, rich: bool) -> SpotifyPresentation:
         session = create_spotify_presentation(
             media.spotify, image_cache, lyrics, music_video_controller, app,
-            presentation_workers, online=network_allowed, rich=rich,
+            presentation_workers, online=network_allowed, rich=rich, playback_controls=not rich,
             process_id=lambda: music_video.browser_process_id,
         )
         presentations.append(session)
@@ -314,6 +314,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
             parent,
             online_allowed=network_allowed,
             on_open=online_action(spotify_screen.show),
+            on_open_media=media_screen.show,
             theme_bundle=lambda: theme_bundle(app.theme_mode),
         )
         session = create_presentation(rich=False)

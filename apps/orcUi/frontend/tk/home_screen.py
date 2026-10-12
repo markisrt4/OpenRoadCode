@@ -48,7 +48,7 @@ def build_home_screen(
     parent.grid_columnconfigure(0, weight=1)
     parent.grid_columnconfigure(1, weight=0, minsize=ContextRail.WIDTH)
     parent.grid_rowconfigure(0, weight=3)
-    parent.grid_rowconfigure(1, weight=2)
+    parent.grid_rowconfigure(1, weight=2, minsize=210)
 
     map_panel = HomeMapPanel(
         parent,
@@ -68,8 +68,8 @@ def build_home_screen(
 
     lower = tk.Frame(parent, bg=ui.background)
     lower.grid(row=1, column=0, sticky="nsew", padx=(0, 5), pady=(5, 0))
-    lower.grid_columnconfigure(0, weight=4)
-    lower.grid_columnconfigure(1, weight=1)
+    lower.grid_columnconfigure(0, weight=1, uniform="home-audio")
+    lower.grid_columnconfigure(1, weight=1, uniform="home-audio")
     lower.grid_rowconfigure(0, weight=1)
 
     radio = panel(lower, "RADIO", ui.accent_warning, theme=theme)

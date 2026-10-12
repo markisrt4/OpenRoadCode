@@ -11,14 +11,14 @@ from apps.orcUi.vehicle_presenter import VehiclePresentationState
 
 def _rail_with_gauges() -> ContextRail:
     rail = ContextRail.__new__(ContextRail)
+    rail._theme = Mock()
     rail._vehicle_state = VehiclePresentationState()
     rail._vehicle_gauges = {
         "rpm": Mock(),
-        "speed": Mock(),
-        "boost": Mock(),
         "fuel": Mock(),
-        "coolant": Mock(),
     }
+    rail._speed_value_label = Mock()
+    rail._boost_value_label = Mock()
     rail._gear_value_label = Mock()
     return rail
 
@@ -37,10 +37,10 @@ def test_vehicle_values_feed_compact_home_gauges() -> None:
     rail._paint_vehicle_values()
 
     rail._vehicle_gauges["rpm"].set_value.assert_called_once_with(3.25)
-    rail._vehicle_gauges["speed"].set_value.assert_called_once_with(47.0)
-    rail._vehicle_gauges["boost"].set_value.assert_called_once_with(11.7)
+    rail._speed_value_label.configure.assert_called_once_with(text="47")
+    rail._boost_value_label.configure.assert_called_once_with(text="11.7", fg=rail._theme.ui.accent_success)
     rail._vehicle_gauges["fuel"].set_value.assert_called_once_with(63.0)
-    rail._vehicle_gauges["coolant"].set_value.assert_called_once_with(194.0)
+    assert "coolant" not in rail._vehicle_gauges
     rail._gear_value_label.configure.assert_called_once_with(text="3")
 
 
@@ -52,4 +52,13 @@ def test_missing_vehicle_values_leave_gauges_unset() -> None:
     for gauge in rail._vehicle_gauges.values():
         gauge.set_value.assert_called_once_with(None)
 
+    rail._speed_value_label.configure.assert_called_once_with(text="—")
+    rail._boost_value_label.configure.assert_called_once_with(text="—", fg=rail._theme.ui.accent_success)
     rail._gear_value_label.configure.assert_called_once_with(text="—")
+
+
+def test_home_boost_readout_retains_high_pressure_warning():
+    rail = _rail_with_gauges()
+    rail._vehicle_state = VehiclePresentationState(boost_psi=23.0)
+    rail._paint_vehicle_values()
+    rail._boost_value_label.configure.assert_called_once_with(text="23.0", fg=rail._theme.ui.accent_danger)

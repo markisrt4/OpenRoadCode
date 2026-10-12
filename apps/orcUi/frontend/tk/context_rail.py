@@ -10,6 +10,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from .context_offroad_panel import ContextOffroadPanel
+from .home_fuel_bar import HomeFuelBar
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from apps.orcUi.trip_presenter import TripPresentationState
@@ -56,8 +57,10 @@ class ContextRail(tk.Frame, UiWidget):
         self._trip_state = TripPresentationState()
         self._position_state = PositionPresentationState()
         self._attitude_state = AttitudePresentationState()
-        self._vehicle_gauges: dict[str, RoundGauge | LinearGauge | FuelLevelGauge] = {}
+        self._vehicle_gauges: dict[str, RoundGauge | LinearGauge | FuelLevelGauge | HomeFuelBar] = {}
         self._trip_value_labels: dict[str, tk.Label] = {}
+        self._speed_value_label: tk.Label | None = None
+        self._boost_value_label: tk.Label | None = None
         self._gear_value_label: tk.Label | None = None
         self._offroad_panel: ContextOffroadPanel | None = None
         self._page_index = 0
@@ -110,6 +113,8 @@ class ContextRail(tk.Frame, UiWidget):
             child.destroy()
         self._vehicle_gauges.clear()
         self._trip_value_labels.clear()
+        self._speed_value_label = None
+        self._boost_value_label = None
         self._gear_value_label = None
         self._offroad_panel = None
         self._build_header()
@@ -189,6 +194,8 @@ class ContextRail(tk.Frame, UiWidget):
             child.destroy()
         self._vehicle_gauges.clear()
         self._trip_value_labels.clear()
+        self._speed_value_label = None
+        self._boost_value_label = None
         self._gear_value_label = None
         self._offroad_panel = None
         pages = self._pages()
@@ -211,94 +218,47 @@ class ContextRail(tk.Frame, UiWidget):
         gauge_style = vehicle_gauge_theme_from_style_sheet(self._theme.style_sheet)
         cluster = tk.Frame(parent, bg=ui.surface)
         cluster.pack(fill=tk.BOTH, expand=True)
-        cluster.grid_columnconfigure(0, weight=1)
-        cluster.grid_columnconfigure(1, weight=1)
+        cluster.grid_columnconfigure(0, weight=3)
+        cluster.grid_columnconfigure(1, weight=2)
         cluster.grid_rowconfigure(0, weight=3)
         cluster.grid_rowconfigure(1, weight=3)
         cluster.grid_rowconfigure(2, weight=1)
 
-        rpm_cell = self._compact_gauge_cell(cluster, "RPM", "×1000", 0, 0, (0, 2), (0, 2))
-        rpm = RoundGauge(
-            rpm_cell,
-            title="",
-            unit="",
-            minimum=0.0,
-            maximum=8.0,
-            major_step=1.0,
-            caution_start=6.0,
-            danger_start=6.8,
-            precision=1,
-            style=gauge_style,
-            size=112,
-        )
+        hero = tk.Frame(cluster, bg=ui.surface_alt)
+        hero.grid(row=0, column=0, columnspan=2, sticky="nsew", pady=(0, 6))
+        hero.grid_columnconfigure(0, weight=1)
+        hero.grid_rowconfigure(1, weight=1)
+        tk.Frame(hero, bg=ui.accent_primary, height=2).grid(row=0, column=0, columnspan=2, sticky="ew")
+        self._speed_value_label = tk.Label(hero, text="—", bg=ui.surface_alt,
+            fg=ui.text, font=("Sans", 46, "bold"))
+        self._speed_value_label.grid(row=1, column=0, sticky="nsew")
+        tk.Label(hero, text="SPEED · MPH", bg=ui.surface_alt, fg=ui.text_muted,
+            font=("Sans", 10, "bold")).grid(row=2, column=0, pady=(0, 8))
+        gear = tk.Frame(hero, bg=ui.control_background)
+        gear.grid(row=1, column=1, rowspan=2, padx=(0, 12), pady=12, sticky="ns")
+        tk.Label(gear, text="GEAR", bg=ui.control_background, fg=ui.text_muted,
+            font=("Sans", 9, "bold")).pack(padx=10, pady=(10, 0))
+        self._gear_value_label = tk.Label(gear, text="—", bg=ui.control_background,
+            fg=ui.accent_primary, font=("Sans", 26, "bold"))
+        self._gear_value_label.pack(expand=True, padx=10, pady=(0, 8))
+
+        rpm_cell = self._compact_gauge_cell(cluster, "RPM", "×1000", 1, 0, (0, 3), (0, 4))
+        rpm = RoundGauge(rpm_cell, title="", unit="", minimum=0.0, maximum=8.0,
+            major_step=1.0, caution_start=6.0, danger_start=6.8, precision=1,
+            style=gauge_style, size=112)
         rpm.pack(fill=tk.BOTH, expand=True)
-
-        speed_cell = self._compact_gauge_cell(cluster, "SPEED", "MPH", 0, 1, (2, 0), (0, 2))
-        speed = RoundGauge(
-            speed_cell,
-            title="",
-            unit="",
-            minimum=0.0,
-            maximum=160.0,
-            major_step=40.0,
-            precision=0,
-            style=gauge_style,
-            size=112,
-        )
-        speed.pack(fill=tk.BOTH, expand=True)
-
-        boost_cell = self._compact_gauge_cell(cluster, "BOOST", "PSI", 1, 0, (0, 2), 2)
-        boost = RoundGauge(
-            boost_cell,
-            title="",
-            unit="",
-            minimum=-15.0,
-            maximum=25.0,
-            major_step=5.0,
-            caution_start=18.0,
-            danger_start=22.0,
-            precision=1,
-            style=gauge_style,
-            size=112,
-        )
-        boost.pack(fill=tk.BOTH, expand=True)
-
-        fuel_cell = self._compact_gauge_cell(cluster, "FUEL", "%", 1, 1, (2, 0), 2)
-        fuel = FuelLevelGauge(fuel_cell, style=gauge_style, size=112, show_title=False)
-        fuel.pack(fill=tk.BOTH, expand=True)
-
-        status = tk.Frame(cluster, bg=ui.surface)
-        status.grid(row=2, column=0, columnspan=2, sticky="nsew", pady=(2, 0))
-        status.grid_columnconfigure(0, weight=1)
-        coolant = LinearGauge(
-            status,
-            title="Coolant",
-            unit="°F",
-            minimum=100.0,
-            maximum=260.0,
-            caution_high=225.0,
-            danger_high=240.0,
-            icon="coolant",
-            precision=0,
-            style=gauge_style,
-            width=190,
-            height=58,
-        )
-        coolant.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
-        gear = self._card(status)
-        gear.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
-        tk.Label(gear, text="GEAR", fg=ui.text_muted, bg=ui.surface, font=("Sans", FONT_SMALL, "bold")).pack(
-            padx=10, pady=(4, 0)
-        )
-        self._gear_value_label = tk.Label(
-            gear,
-            text="—",
-            fg=ui.accent_danger,
-            bg=ui.surface,
-            font=("Sans", 22, "bold"),
-        )
-        self._gear_value_label.pack(padx=10, pady=(0, 3))
-        self._vehicle_gauges.update(rpm=rpm, speed=speed, boost=boost, fuel=fuel, coolant=coolant)
+        boost = tk.Frame(cluster, bg=ui.surface_alt)
+        boost.grid(row=1, column=1, sticky="nsew", padx=(3, 0), pady=(0, 4))
+        tk.Label(boost, text="BOOST", bg=ui.surface_alt, fg=ui.text_muted,
+            font=("Sans", 10, "bold")).pack(pady=(12, 0))
+        self._boost_value_label = tk.Label(boost, text="—", bg=ui.surface_alt,
+            fg=ui.accent_success, font=("Sans", 22, "bold"))
+        self._boost_value_label.pack(expand=True)
+        tk.Label(boost, text="PSI", bg=ui.surface_alt, fg=ui.text_muted,
+            font=("Sans", 9)).pack(pady=(0, 10))
+        fuel = HomeFuelBar(cluster, theme=ui)
+        fuel.grid(row=2, column=0, columnspan=2, sticky="nsew")
+        self._vehicle_gauges.update(rpm=rpm, fuel=fuel)
         self._paint_vehicle_values()
 
     def _compact_gauge_cell(
@@ -328,15 +288,19 @@ class ContextRail(tk.Frame, UiWidget):
         state = self._vehicle_state
         values = {
             "rpm": None if state.engine_speed_rpm is None else state.engine_speed_rpm / 1000.0,
-            "speed": state.speed_mph,
-            "boost": state.boost_psi,
             "fuel": state.fuel_percent,
-            "coolant": state.coolant_temperature_f,
         }
         for key, value in values.items():
             gauge = self._vehicle_gauges.get(key)
             if gauge is not None:
                 gauge.set_value(value)
+        if self._speed_value_label is not None:
+            self._speed_value_label.configure(text="—" if state.speed_mph is None else f"{state.speed_mph:.0f}")
+        if self._boost_value_label is not None:
+            ui = self._theme.ui
+            color = ui.accent_danger if state.boost_psi is not None and state.boost_psi >= 22 else (
+                ui.accent_warning if state.boost_psi is not None and state.boost_psi >= 18 else ui.accent_success)
+            self._boost_value_label.configure(text="—" if state.boost_psi is None else f"{state.boost_psi:.1f}", fg=color)
         if self._gear_value_label is not None:
             self._gear_value_label.configure(text=state.gear or "—")
 

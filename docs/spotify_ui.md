@@ -20,6 +20,10 @@ and native adapters. Hiding a screen retires request bindings and timers before
 its Tk hosts are destroyed, without stopping shared Spotify playback. Closing
 composition retires the screen and sessions before stopping workers and music
 video playback. A destroyed home summary closes and releases its session.
+Home explicitly enables Previous, Play/Pause, and Next through the existing
+request contract while keeping small artwork and disabling lyric/video loading.
+The transport row is reserved before allocating metadata space, and unavailable,
+offline, retired, or destroyed views cannot emit playback requests.
 Workers enqueue Python-only frontend callbacks; view and collection/track
 checks reject deliveries after hide, close, offline transitions, and replacement.
 In-flight video launches receive a cancellation predicate and stop/restore

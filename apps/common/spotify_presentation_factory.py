@@ -31,6 +31,7 @@ def create_spotify_presentation(
     service: SpotifyStateService, cache: ImageCache, lyrics: LrclibLyricsClient,
     video: MusicVideoController, dispatcher: UiDispatcherIf,
     workers: ThreadPoolExecutor, *, online: Callable[[], bool] = lambda: True,
+    playback_controls: bool = False,
     rich: bool = True, process_id: Callable[[], int | None] = lambda: None,
 ) -> SpotifyPresentation:
     def run_work(callback: Callable[[], None]) -> None:
@@ -47,5 +48,5 @@ def create_spotify_presentation(
         watch_video=lambda current, restore: video.watch_current_track(is_current=current, restore_allowed=restore),
         return_to_spotify=lambda current: video.return_to_spotify(is_current=current),
         read_video_process_id=process_id, set_volume=service.request_volume,
-        run_work=run_work, dispatcher=dispatcher, rich=rich,
+        run_work=run_work, dispatcher=dispatcher, rich=rich, playback_controls=playback_controls,
     )

@@ -160,3 +160,28 @@ def test_returning_to_spotify_keeps_overlay_inactive_until_worker_finishes(sessi
     assert not view.set_spotify_state.call_args.args[0].video_active
     drain(work, ui)
     assert not view.set_spotify_state.call_args.args[0].video_busy
+
+
+def test_home_controls_keep_lightweight_work_and_retire_requests():
+    playback, tracks, view, worker, dispatcher = (Mock() for _ in range(5))
+    load_lyrics, video_available = Mock(), Mock()
+    session = SpotifyPresentation(
+        read_state=lambda: MediaState(availability=MediaAvailability.AVAILABLE, title="song", artist="artist"),
+        online=lambda: True, load_artwork=Mock(), load_lyrics=load_lyrics,
+        video_available=video_available, video_active=Mock(), watch_video=Mock(),
+        return_to_spotify=Mock(), run_work=worker, dispatcher=dispatcher,
+        playback=playback, tracks=tracks, rich=False, playback_controls=True,
+    )
+    session.activate(view)
+    view.set_spotify_request_handler.assert_called_with(session)
+    view.set_video_request_handler.assert_called_with(None)
+    load_lyrics.assert_not_called()
+    video_available.assert_not_called()
+    session.request_play()
+    session.request_next_track()
+    playback.request_play.assert_called_once()
+    tracks.request_next_track.assert_called_once()
+    session.deactivate()
+    view.set_spotify_request_handler.assert_called_with(None)
+    session.request_play()
+    playback.request_play.assert_called_once()
