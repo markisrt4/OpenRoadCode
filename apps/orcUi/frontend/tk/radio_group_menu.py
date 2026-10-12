@@ -153,6 +153,7 @@ class RadioGroupMenuMixin:
                 profile.key, label=label, frequency_hz=state.frequency_hz
             )
 
+    @staticmethod
     def _popup_menu(menu: tk.Menu, button: tk.Button) -> None:
         x = button.winfo_rootx()
         y = button.winfo_rooty() + button.winfo_height()
