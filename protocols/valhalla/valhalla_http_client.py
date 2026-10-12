@@ -56,6 +56,16 @@ class ValhallaHttpClient:
 
         return result
 
+    def trace_attributes(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Submit a map-matching attributes request to the configured service."""
+        response = requests.post(f"{self._base_url}/trace_attributes", json=request,
+                                 timeout=self._timeout_seconds)
+        response.raise_for_status()
+        result = response.json()
+        if not isinstance(result, dict):
+            raise ValueError("Valhalla trace response was not a JSON object")
+        return result
+
     def route(
         self,
         request: dict[str, Any],

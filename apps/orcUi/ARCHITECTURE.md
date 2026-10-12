@@ -630,3 +630,35 @@ requests explicitly enabled through the existing `SpotifyRequestHandler`.
 Previous, Play/Pause, and Next are disabled for unavailable/offline state or a
 retired handler. Composition owns the session and closes it with the destroyed
 view. Long metadata wraps inside the space left above the reserved transport row.
+
+### Mapped road speed limits
+
+`ui/navigation/road_speed_limit_ui_if.py` defines immutable SI limit state and its
+presentation interface. Home renders a small MPH map-limit badge alongside speed,
+and uses amber above the mapped limit plus a one-MPH margin to avoid small-value
+jitter. The vehicle-card header reuses beveled gradient controls with hover and
+keyboard focus feedback.
+
+Application composition owns a single road-limit worker, its controller, timer,
+and startup rollback. Fresh navigation observations feed the controller; cached
+positions, lost fixes, and accuracy worse than 25 metres clear the limit. A short
+position trail is matched through `/trace_attributes` on the routing service
+already configured under `navigation.route_planning`, with a two-second timeout.
+Requests use kilometres; the provider converts `edge.speed_limit` to metres per
+second. Estimated edge driving speeds are never substituted for missing limits.
+
+Lookups are throttled to at most one every two seconds, with one in flight. Weak,
+distant, discontinuous, or ambiguous matches and missing/unlimited values are
+unknown. Signs expire after eight seconds without fresh position/match results;
+movement beyond the matched vicinity clears them. Retired generations cannot
+restore a stale limit, and closing cancels timers and queued jobs. Widgets perform
+no HTTP or process operations. Existing Valhalla road tiles must contain speed
+limits; road data coverage and age affect what appears. No new service, dependency,
+or map-tile rebuild is introduced by this UI feature.
+
+Device acceptance: check the header in Vehicle, Trip, and Off-road contexts; drive
+with fresh GPS and the configured routing service available to observe mapped
+limits; confirm the badge shows an em dash before a usable trail/match and after
+loss of GPS. Check the amber comparison and return to normal when the limit is
+unknown or speed falls below it. Static/mocked tests do not verify local tile
+coverage or road matching on a particular device.

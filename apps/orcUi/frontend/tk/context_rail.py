@@ -11,6 +11,8 @@ from dataclasses import dataclass
 
 from .context_offroad_panel import ContextOffroadPanel
 from .home_fuel_bar import HomeFuelBar
+from .gradient_control import GradientControl
+from ui.navigation.road_speed_limit_ui_if import RoadSpeedLimitState, RoadSpeedLimitUiIf
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from apps.orcUi.trip_presenter import TripPresentationState
@@ -30,7 +32,7 @@ class ContextPage:
     builder: Callable[[tk.Frame], None]
 
 
-class ContextRail(tk.Frame, UiWidget):
+class ContextRail(tk.Frame, UiWidget, RoadSpeedLimitUiIf):
     """Compact, user-switchable secondary information panel."""
 
     WIDTH = CONTEXT_RAIL_WIDTH
@@ -53,6 +55,9 @@ class ContextRail(tk.Frame, UiWidget):
         )
         self.pack_propagate(False)
         self._on_expand = on_expand
+        self._road_speed_limit = RoadSpeedLimitState()
+        self._limit_value_label: tk.Label | None = None
+        self._limit_sign: tk.Frame | None = None
         self._vehicle_state = VehiclePresentationState()
         self._trip_state = TripPresentationState()
         self._position_state = PositionPresentationState()
@@ -113,6 +118,8 @@ class ContextRail(tk.Frame, UiWidget):
             child.destroy()
         self._vehicle_gauges.clear()
         self._trip_value_labels.clear()
+        self._limit_value_label = None
+        self._limit_sign = None
         self._speed_value_label = None
         self._boost_value_label = None
         self._gear_value_label = None
@@ -133,21 +140,10 @@ class ContextRail(tk.Frame, UiWidget):
         controls = tk.Frame(header, bg=ui.surface)
         controls.grid(row=0, column=2, sticky="e")
         if self._on_expand is not None:
-            tk.Button(
-                controls,
-                text="↗",
-                command=self._expand_page,
-                bg=ui.control_background,
-                fg=ui.control_text,
-                activebackground=ui.control_active,
-                activeforeground="#ffffff",
-                relief=tk.FLAT,
-                bd=0,
-                highlightthickness=0,
-                width=3,
-                font=("Sans", 15, "bold"),
-                cursor="hand2",
-            ).pack(side=tk.LEFT)
+            GradientControl(controls, text="↗", command=self._expand_page,
+                bg=ui.control_background, fg=ui.accent_primary,
+                activebackground=ui.control_active, activeforeground=ui.text,
+                font=("Sans", 17, "bold"), bevel=True).pack(side=tk.LEFT, padx=(0, 3))
         self._nav_button(controls, "›", self._next_page).pack(side=tk.LEFT)
 
     def _nav_button(
@@ -158,23 +154,12 @@ class ContextRail(tk.Frame, UiWidget):
         *,
         width: int = 3,
         font_size: int = 16,
-    ) -> tk.Button:
+    ) -> GradientControl:
         ui = self._theme.ui
-        return tk.Button(
-            parent,
-            text=text,
-            command=command,
-            bg=ui.control_background,
-            fg=ui.control_text,
-            activebackground=ui.control_active,
-            activeforeground="#ffffff",
-            relief=tk.FLAT,
-            bd=0,
-            highlightthickness=0,
-            width=width,
-            font=("Sans", font_size, "bold"),
-            cursor="hand2",
-        )
+        return GradientControl(parent, text=text, command=command,
+            bg=ui.control_background, fg=ui.control_text,
+            activebackground=ui.control_active, activeforeground=ui.accent_primary,
+            font=("Sans", font_size, "bold"), bevel=True)
 
     def _expand_page(self) -> None:
         if self._on_expand is not None:
@@ -194,6 +179,8 @@ class ContextRail(tk.Frame, UiWidget):
             child.destroy()
         self._vehicle_gauges.clear()
         self._trip_value_labels.clear()
+        self._limit_value_label = None
+        self._limit_sign = None
         self._speed_value_label = None
         self._boost_value_label = None
         self._gear_value_label = None
@@ -228,14 +215,25 @@ class ContextRail(tk.Frame, UiWidget):
         hero.grid(row=0, column=0, columnspan=2, sticky="nsew", pady=(0, 6))
         hero.grid_columnconfigure(0, weight=1)
         hero.grid_rowconfigure(1, weight=1)
-        tk.Frame(hero, bg=ui.accent_primary, height=2).grid(row=0, column=0, columnspan=2, sticky="ew")
+        tk.Frame(hero, bg=ui.accent_primary, height=2).grid(row=0, column=0, columnspan=3, sticky="ew")
         self._speed_value_label = tk.Label(hero, text="—", bg=ui.surface_alt,
             fg=ui.text, font=("Sans", 46, "bold"))
         self._speed_value_label.grid(row=1, column=0, sticky="nsew")
         tk.Label(hero, text="SPEED · MPH", bg=ui.surface_alt, fg=ui.text_muted,
             font=("Sans", 10, "bold")).grid(row=2, column=0, pady=(0, 8))
+        self._limit_sign = tk.Frame(hero, bg=ui.control_background, width=54, height=68,
+            highlightthickness=1, highlightbackground=ui.border)
+        self._limit_sign.grid(row=1, column=1, rowspan=2, padx=6, pady=10)
+        self._limit_sign.pack_propagate(False)
+        tk.Label(self._limit_sign, text="LIMIT", bg=ui.control_background,
+            fg=ui.text_muted, font=("Sans", 8, "bold")).pack(pady=(4, 0))
+        self._limit_value_label = tk.Label(self._limit_sign, text="—", bg=ui.control_background,
+            fg=ui.text, font=("Sans", 20, "bold"))
+        self._limit_value_label.pack(expand=True)
+        tk.Label(self._limit_sign, text="MPH · MAP", bg=ui.control_background,
+            fg=ui.text_muted, font=("Sans", 6)).pack(pady=(0, 4))
         gear = tk.Frame(hero, bg=ui.control_background)
-        gear.grid(row=1, column=1, rowspan=2, padx=(0, 12), pady=12, sticky="ns")
+        gear.grid(row=1, column=2, rowspan=2, padx=(0, 12), pady=12, sticky="ns")
         tk.Label(gear, text="GEAR", bg=ui.control_background, fg=ui.text_muted,
             font=("Sans", 9, "bold")).pack(padx=10, pady=(10, 0))
         self._gear_value_label = tk.Label(gear, text="—", bg=ui.control_background,
@@ -303,6 +301,25 @@ class ContextRail(tk.Frame, UiWidget):
             self._boost_value_label.configure(text="—" if state.boost_psi is None else f"{state.boost_psi:.1f}", fg=color)
         if self._gear_value_label is not None:
             self._gear_value_label.configure(text=state.gear or "—")
+        self._paint_speed_limit()
+
+    def set_road_speed_limit(self, state: RoadSpeedLimitState) -> None:
+        """Render supplied SI road limits in Home display units."""
+        self._road_speed_limit = state
+        self._paint_speed_limit()
+
+    def _paint_speed_limit(self) -> None:
+        if self._limit_value_label is None or self._speed_value_label is None:
+            return
+        ui = self._theme.ui
+        limit = self._road_speed_limit.limit_mps
+        speed = self._vehicle_state.speed_mph
+        exceeded = limit is not None and speed is not None and speed * 0.44704 > limit + 0.44704
+        color = ui.accent_warning if exceeded else ui.text
+        self._limit_value_label.configure(text="—" if limit is None else f"{limit / 0.44704:.0f}", fg=color)
+        self._speed_value_label.configure(fg=color)
+        if self._limit_sign is not None:
+            self._limit_sign.configure(highlightbackground=ui.accent_warning if exceeded else ui.border)
 
     def _build_trip(self, parent: tk.Frame) -> None:
         self._metric_table(

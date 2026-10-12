@@ -11,7 +11,8 @@ class GradientControl(tk.Canvas, UiWidget):
     """Present an injected action with mouse and keyboard activation."""
 
     def __init__(self, parent, *, command, bg, fg, activebackground,
-                 activeforeground, font, text=""):
+                 activeforeground, font, text="", bevel=False):
+        self._bevel = bevel
         self._command = command
         self._text, self._foreground = text, fg
         self._base, self._active = bg, activebackground
@@ -68,6 +69,9 @@ class GradientControl(tk.Canvas, UiWidget):
                                   for value in rgb)
             self.create_rectangle(0, height * index / 16, width,
                                   height * (index + 1) / 16 + 1, fill=color, outline="")
+        if self._bevel:
+            self.create_line(1, 1, width - 2, 1, fill=self._base, width=2)
+            self.create_line(1, height - 2, width - 2, height - 2, fill=self._foreground, stipple="gray25")
         self.create_text(width / 2, height / 2, text=self._text, font=self._font,
                          fill=self._active_foreground if self._hover else self._foreground)
         if self.focus_get() is self:

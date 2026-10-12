@@ -21,6 +21,7 @@ from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
 from apps.orcUi.composition.tooltips import TooltipFactory
 from apps.orcUi.composition.media import MediaComposition, configure_media
 from apps.orcUi.composition.radio import RadioComposition, configure_radio
+from apps.orcUi.composition.road_speed_limit import RoadSpeedLimitComposition, configure_road_speed_limit
 from apps.orcUi.composition.weather import WeatherComposition, configure_weather
 from apps.orcUi.composition.weather_overlays import configure_weather_overlays
 from apps.orcUi.composition.vision import VisionComposition, configure_vision
@@ -63,6 +64,7 @@ class OrcUiComposition:
     diagnostics: DiagnosticsScreen | None = None
     performance_status: PerformanceStatusPresenter | None = None
     startup_progress: Callable[[str, str], None] | None = None
+    road_speed_limit: RoadSpeedLimitComposition | None = None
 
     _closed: bool = field(default=False, init=False)
 
@@ -94,7 +96,7 @@ class OrcUiComposition:
         close_resources(
             self.app.shutdown,
             *(resource.close for resource in (
-                self.performance_status, self.performance, self.vision, self.navigation,
+                self.road_speed_limit, self.performance_status, self.performance, self.vision, self.navigation,
                 self.navigation_places, self.radar_replay, self.weather_overlays,
             ) if resource is not None),
             self.radio.close,
@@ -207,6 +209,8 @@ def create_orc_ui_composition(
             on_radar_toggle=lambda enabled: navigation.set_radar_enabled(enabled),
             refresh_radar=refresh_radar_map_state,
         )
+        road_speed_limit = configure_road_speed_limit(app, core.presentation, home)
+        cleanup.callback(road_speed_limit.close)
         weather_view = NavigationRouteWeather(app, lambda: theme_bundle(app.theme_mode), unit_system)
         overlays = configure_weather_overlays(app, weather_view, core.map_camera.renderer_client,
                                              weather.radar_tiles, unit_system, core.route_request_handler,
@@ -314,6 +318,7 @@ def create_orc_ui_composition(
             diagnostics=diagnostics,
             performance_status=performance_status,
             startup_progress=progress,
+            road_speed_limit=road_speed_limit,
         )
         cleanup.release()
         return composition

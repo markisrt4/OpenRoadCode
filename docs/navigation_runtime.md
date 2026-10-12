@@ -219,3 +219,15 @@ A reboot test is required before treating startup changes as deployment-ready.
 - Startup dependencies must be explicit in systemd rather than relying on timing delays.
 - Service endpoints remain stable and configuration-driven.
 - Runtime services must be independently restartable and observable through journald.
+
+## Home road-limit display
+
+ORC Home can read mapped road limits through the configured Valhalla
+`/trace_attributes` API without starting a route. It uses fresh GPS trail matching
+on a worker and exposes normalized SI state to the frontend. The display identifies
+these as map limits and shows `—` for missing tile attributes, unlimited values,
+uncertain matching, cached/lost GPS, and expired results. It does not infer a limit
+from Valhalla's routing-speed estimate. A short trail is needed before the first
+limit appears; installed road-data coverage and age determine availability.
+
+Valhalla API reference: https://valhalla.github.io/valhalla/api/map-matching/

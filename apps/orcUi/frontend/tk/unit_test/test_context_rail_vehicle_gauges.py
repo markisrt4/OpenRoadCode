@@ -11,6 +11,8 @@ from apps.orcUi.vehicle_presenter import VehiclePresentationState
 
 def _rail_with_gauges() -> ContextRail:
     rail = ContextRail.__new__(ContextRail)
+    rail._limit_value_label = None
+    rail._limit_sign = None
     rail._theme = Mock()
     rail._vehicle_state = VehiclePresentationState()
     rail._vehicle_gauges = {
@@ -62,3 +64,17 @@ def test_home_boost_readout_retains_high_pressure_warning():
     rail._vehicle_state = VehiclePresentationState(boost_psi=23.0)
     rail._paint_vehicle_values()
     rail._boost_value_label.configure.assert_called_once_with(text="23.0", fg=rail._theme.ui.accent_danger)
+
+
+def test_speed_limit_uses_si_and_warns_only_with_known_limit():
+    from ui.navigation.road_speed_limit_ui_if import RoadSpeedLimitState
+    rail = _rail_with_gauges()
+    rail._limit_value_label = Mock()
+    rail._limit_sign = Mock()
+    rail._vehicle_state = VehiclePresentationState(speed_mph=50)
+    rail.set_road_speed_limit(RoadSpeedLimitState(45 * 0.44704))
+    rail._limit_value_label.configure.assert_called_with(text="45", fg=rail._theme.ui.accent_warning)
+    rail._speed_value_label.configure.assert_called_with(fg=rail._theme.ui.accent_warning)
+    rail.set_road_speed_limit(RoadSpeedLimitState())
+    rail._limit_value_label.configure.assert_called_with(text="—", fg=rail._theme.ui.text)
+    rail._speed_value_label.configure.assert_called_with(fg=rail._theme.ui.text)

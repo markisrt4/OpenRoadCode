@@ -22,6 +22,7 @@ from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from ui.navigation import MapRequestHandlerIf
 from ui.screen_ui_if import ScreenId
 from ui.theme import ThemeBundle
+from ui.navigation.road_speed_limit_ui_if import RoadSpeedLimitState, RoadSpeedLimitUiIf
 
 from .context_rail import ContextRail
 from .home_map_panel import HomeMapPanel
@@ -42,6 +43,7 @@ def build_home_screen(
     media_factory: Callable[[tk.Misc], tk.Widget] | None,
     radar_enabled: Callable[[], bool] = lambda: False,
     on_radar_toggle: Callable[[bool], None] | None = None,
+    road_speed_limit: RoadSpeedLimitState = RoadSpeedLimitState(),
 ) -> tuple[HomeMapPanel, ContextRail]:
     """Build HOME content and return the stateful child widgets."""
     ui = theme.ui
@@ -61,6 +63,7 @@ def build_home_screen(
 
     context = ContextRail(parent, on_expand=on_expand_context, theme=theme)
     context.update_vehicle_state(vehicle_state)
+    context.set_road_speed_limit(road_speed_limit)
     context.update_trip_state(trip_state)
     context.update_position_state(position_state)
     context.update_attitude_state(attitude_state)
@@ -94,7 +97,7 @@ def build_home_screen(
     return map_panel, context
 
 
-class HomeScreen(TkScreen):
+class HomeScreen(TkScreen, RoadSpeedLimitUiIf):
     """Own the HOME destination and its transient Tk presentation."""
 
     SCREEN_ID = ScreenId("HOME")
@@ -131,6 +134,13 @@ class HomeScreen(TkScreen):
         self._media_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._map_panel: HomeMapPanel | None = None
         self._context_rail: ContextRail | None = None
+        self._road_speed_limit = RoadSpeedLimitState()
+
+    def set_road_speed_limit(self, state: RoadSpeedLimitState) -> None:
+        """Render supplied road state without transport access in Home."""
+        self._road_speed_limit = state
+        if self._context_rail is not None and self._context_rail.winfo_exists():
+            self._context_rail.set_road_speed_limit(state)
 
     @property
     def context_rail(self) -> ContextRail | None:
@@ -194,6 +204,7 @@ class HomeScreen(TkScreen):
             media_factory=self._media_factory,
             radar_enabled=self._radar_enabled,
             on_radar_toggle=self._on_radar_toggle,
+            road_speed_limit=self._road_speed_limit,
         )
 
         if self._telemetry_profile_request is not None:
