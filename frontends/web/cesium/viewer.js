@@ -1,6 +1,8 @@
 /* Presentation only: immutable destination snapshot, local SDK, no hosted layers. */
 'use strict';
 (async function () {
+  window.ORCViewerReady = false;
+  window.ORCViewerError = null;
   const status = document.getElementById('status');
   let viewer;
   let snapshot;
@@ -146,7 +148,23 @@
       viewer.camera.zoomOut(Math.max(50,viewer.camera.positionCartographic.height*.25));
       viewer.scene.requestRender();
     };
+    window.ORCExplorationCamera = action => {
+      if (action === 'recenter') { reset(); return true; }
+      if (action === 'dimension') {
+        const tilt = viewer.camera.pitch+Math.PI/2;
+        tilted = tilt < .001;
+        cameraControls.pitch(0, tilted ? snapshot.tilt_rad : 0);
+        return true;
+      }
+      const allowed = ['pan-up','pan-down','pan-left','pan-right','zoom-in','zoom-out','pitch-up','pitch-down','north'];
+      if (!allowed.includes(action)) return false;
+      document.getElementById(action).onclick();
+      return true;
+    };
+    document.getElementById('tilt').onclick = () => window.ORCExplorationCamera('dimension');
     viewer.scene.renderError.addEventListener((_scene,error) => {
+      window.ORCViewerError = error.message;
+      window.ORCViewerReady = false;
       status.hidden = false;
       status.textContent = 'Rendering stopped: '+error.message+' — return and retry';
     });
@@ -234,7 +252,15 @@
       }
     }
   } catch (error) {
+    window.ORCViewerError = error.message;
     status.textContent = 'Unable to render: '+error.message+' — use Return to ORC or the window close button';
+  }
+  if (viewer && !window.ORCViewerError) {
+    const remove = viewer.scene.postRender.addEventListener(() => {
+      window.ORCViewerReady = true;
+      remove();
+    });
+    viewer.scene.requestRender();
   }
   if (snapshot?.embedded) {
     const statusText = document.getElementById('status');

@@ -27,3 +27,8 @@ body.embedded .pan-controls {display:contents}
 body.embedded .pan-controls button {grid-column:auto;grid-row:auto}
 body.embedded nav button {min-width:0;min-height:36px;padding:4px}
 body.embedded footer {bottom:18px;left:4px;right:auto;max-width:calc(100% - 16px);padding:3px 6px;font-size:11px}
+
+/* Embedded exploration uses ORC's persistent camera rail. Keep layer controls here. */
+body.embedded #zoom-in, body.embedded #zoom-out,
+body.embedded .pan-controls, body.embedded #pitch-up, body.embedded #pitch-down,
+body.embedded #north, body.embedded #tilt { display: none; }

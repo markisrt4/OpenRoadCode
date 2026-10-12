@@ -7,7 +7,7 @@ import threading
 
 from ui.navigation import GeoPoint
 from ui.navigation.cesium_viewer_state import CesiumViewerState
-from ui.navigation.map_platform_if import MapPlatform, MapPlatformState
+from ui.navigation.map_platform_if import MapPlatform, MapPlatformState, ExplorationCameraAction
 
 _PLATFORMS = (MapPlatform.MAPLIBRE, MapPlatform.CESIUM)
 
@@ -78,6 +78,23 @@ class CesiumMapRuntime:
 
     def request_chase(self):
         """Live vehicle-follow is outside this destination-exploration prototype."""
+
+    def request_camera(self, action):
+        action = ExplorationCameraAction(action)
+        with self._lock:
+            if self._closed or self._state.busy or self._state.active is not MapPlatform.CESIUM:
+                return
+            self._worker.submit(self._camera, action, self._generation)
+
+    def _camera(self, action, generation):
+        if not self._current(generation):
+            return
+        try:
+            self._viewer.request_camera(action)
+        except Exception as error:
+            with self._lock:
+                if self._current(generation):
+                    self._state = replace(self._state, status=f'3D camera unavailable: {error}')
 
     def _current(self, generation):
         with self._lock:

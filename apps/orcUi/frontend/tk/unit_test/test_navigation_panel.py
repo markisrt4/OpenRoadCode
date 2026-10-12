@@ -19,6 +19,7 @@ class NavigationPanelControlTest(unittest.TestCase):
 
     def _panel(self) -> NavigationPanel:
         panel = object.__new__(NavigationPanel)
+        panel._map_platform = None
         panel._request_handler = Mock()
         panel._zoom_level = 16.5
         panel._zoom_text = Mock()
@@ -343,12 +344,36 @@ def test_close_places_cancels_poll_and_debounce_and_rejects_late_callbacks():
     panel._shortcut_status.set.assert_not_called()
 
 
-def test_embedded_platform_hides_native_camera_rail_and_restores_it():
+def test_embedded_platform_keeps_host_geometry_and_disables_follow():
     from ui.navigation.map_platform_if import MapPlatform, MapPlatformState
     panel = object.__new__(NavigationPanel)
     panel._platform_toggle = None
     panel._native_camera_controls = Mock()
-    panel.apply_map_platform_state(MapPlatformState(active=MapPlatform.CESIUM))
-    panel._native_camera_controls.grid_remove.assert_called_once()
+    panel._follow_button = Mock()
+    panel._zoom_text = Mock()
+    panel._dimension_text = Mock()
+    panel._zoom_level = 16.5
+    panel._pitch_rad = .7
+    panel.apply_map_platform_state(MapPlatformState(active=MapPlatform.CESIUM, requested=MapPlatform.CESIUM))
+    panel._native_camera_controls.grid_remove.assert_not_called()
+    panel._follow_button.configure.assert_called_with(state='disabled')
     panel.apply_map_platform_state(MapPlatformState())
-    panel._native_camera_controls.grid.assert_called_once()
+    panel._follow_button.configure.assert_called_with(state='normal')
+
+
+def test_terrain_toolbar_routes_camera_actions_without_native_requests():
+    from ui.navigation.map_platform_if import MapPlatform, MapPlatformState, ExplorationCameraAction
+    panel = object.__new__(NavigationPanel)
+    panel._map_platform = Mock(state=MapPlatformState(active=MapPlatform.CESIUM, requested=MapPlatform.CESIUM))
+    panel._request_handler = Mock()
+    panel._pan(1,0)
+    panel._change_zoom(1)
+    panel._change_pitch(-5)
+    panel._north_up()
+    panel._recenter()
+    panel._toggle_map_dimension()
+    assert [call.args[0] for call in panel._map_platform.request_camera.call_args_list] == [
+        ExplorationCameraAction.PAN_UP, ExplorationCameraAction.ZOOM_IN,
+        ExplorationCameraAction.PITCH_DOWN, ExplorationCameraAction.NORTH,
+        ExplorationCameraAction.RECENTER, ExplorationCameraAction.DIMENSION]
+    assert not panel._request_handler.mock_calls

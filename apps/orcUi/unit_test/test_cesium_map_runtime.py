@@ -130,3 +130,20 @@ def test_x11_resize_failure_returns_to_native_with_visible_error(mounted):
     assert runtime.state.active is MapPlatform.MAPLIBRE
     assert 'xdotool' in runtime.state.status
     native.launch.assert_called_with(100)
+
+
+def test_camera_requests_only_reach_current_exploration(mounted):
+    from ui.navigation.map_platform_if import ExplorationCameraAction
+    runtime,native,viewer = mounted
+    runtime.request_camera(ExplorationCameraAction.PAN_UP)
+    flush(runtime)
+    viewer.request_camera.assert_not_called()
+    explore(runtime)
+    runtime.request_camera(ExplorationCameraAction.ZOOM_IN)
+    flush(runtime)
+    viewer.request_camera.assert_called_once_with(ExplorationCameraAction.ZOOM_IN)
+    old_generation = runtime._generation
+    runtime.request_platform(MapPlatform.MAPLIBRE)
+    flush(runtime)
+    runtime._camera(ExplorationCameraAction.PAN_UP, old_generation)
+    assert viewer.request_camera.call_count == 1

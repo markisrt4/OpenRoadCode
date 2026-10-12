@@ -148,7 +148,7 @@ def build_navigation_panel(panel) -> None:
     panel._add_tooltip(panel._follow_button, "Toggle following the vehicle")
     for column, label, command, accent, description in (
         (1, "N", panel._north_up, ui.text, "Rotate north to the top (turns follow off)"),
-        (2, "◎", panel._recenter, ui.accent_success, "Center on the vehicle and resume following"),
+        (2, "◎", panel._recenter, ui.accent_success, "Center on the vehicle in Map or selected place in Terrain"),
     ):
         button = panel._control(orientation, label, command, accent)
         button.grid(row=0, column=column, sticky="nsew", padx=1)

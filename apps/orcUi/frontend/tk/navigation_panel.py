@@ -134,10 +134,15 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         """Use the embedded viewer's camera controls for local 3D exploration."""
         if self._platform_toggle is not None:
             self._platform_toggle.set_state(state)
-        if state.active is MapPlatform.CESIUM:
-            self._native_camera_controls.grid_remove()
+        # Keep host geometry stable while the embedded WebGL surface starts.
+        terrain = state.requested is MapPlatform.CESIUM
+        self._follow_button.configure(state='disabled' if terrain else 'normal')
+        if terrain:
+            self._zoom_text.set('—')
+            self._dimension_text.set('2D/3D')
         else:
-            self._native_camera_controls.grid()
+            self._zoom_text.set(f'{self._zoom_level:.1f}')
+            self._dimension_text.set('2D' if self._pitch_rad > 0 else '3D')
 
     @property
     def map_host_window_id(self) -> int:

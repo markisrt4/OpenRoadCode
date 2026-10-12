@@ -24,6 +24,12 @@ test('pitch orbits the panned view centre without losing heading or viewing dist
   for(let i=0;i<20;i++) controls.pitch(-1);
   assert.equal(camera.pitch,-Math.PI/2);
   assert.equal(renders,41); assert.equal(transforms,41);
+  const originalTarget = target;
+  controls.pitch(0, Math.PI/4);
+  assert.equal(target,originalTarget);
+  assert.equal(camera.pitch,-Math.PI/4);
+  controls.pitch(0,0);
+  assert.equal(camera.pitch,-Math.PI/2);
 });
 
 test('sky-centred tilt changes orientation in place without recentering',()=>{

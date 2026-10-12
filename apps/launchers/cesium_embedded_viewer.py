@@ -3,6 +3,7 @@
 from contextlib import ExitStack
 from dataclasses import replace
 import os
+import json
 from pathlib import Path
 import re
 from tempfile import TemporaryDirectory
@@ -19,6 +20,7 @@ from apps.launchers.local_map_tiles_pack import load_viewer_tiles, preferred_til
 from common.logging.logging_paths import logging_file_path
 from frontends.x11.x11_window_embedder import X11WindowEmbedder
 from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
+from ui.navigation.map_platform_if import ExplorationCameraAction
 
 
 class CesiumEmbeddedViewer:
@@ -30,6 +32,7 @@ class CesiumEmbeddedViewer:
         self._browser = None
         self._server = None
         self._size = None
+        self._devtools = self._target = None
 
     def open(self, state, parent_window_id, size, current=lambda: True):
         self.close()
@@ -106,18 +109,49 @@ class CesiumEmbeddedViewer:
                 resources.close()
                 self._embedder.clear()
                 return
+            deadline = time.monotonic()+45
+            while current() and time.monotonic()<deadline:
+                if not browser.is_running():
+                    raise RuntimeError('Embedded Chromium exited while rendering the map')
+                try:
+                    result = devtools.command(target, 'Runtime.evaluate', {
+                        'expression':'({ready: window.ORCViewerReady === true, error: window.ORCViewerError || null})',
+                        'returnByValue':True})
+                except (OSError, RuntimeError):
+                    # Navigation can briefly destroy the execution context.
+                    time.sleep(.1)
+                    continue
+                observed = result.get('result', {}).get('value', {})
+                if observed.get('error'):
+                    raise RuntimeError(f"3D rendering failed: {observed['error']}")
+                if observed.get('ready'):
+                    break
+                time.sleep(.1)
+            else:
+                if current():
+                    raise RuntimeError('Timed out waiting for the first 3D map frame')
             if not current():
                 resources.close()
                 self._embedder.clear()
                 return
             self._resources, self._server, self._browser = resources, server, browser
             self._size = size
+            self._devtools, self._target = devtools, target
         except Exception:
             try:
                 resources.close()
             finally:
                 self._embedder.clear()
             raise
+
+    def request_camera(self, action):
+        action = ExplorationCameraAction(action)
+        if self._devtools is None:
+            raise RuntimeError('3D camera is not ready')
+        result = self._devtools.command(self._target, 'Runtime.evaluate', {
+            'expression':f'window.ORCExplorationCamera({json.dumps(action.value)})', 'returnByValue':True})
+        if result.get('exceptionDetails') or result.get('result', {}).get('value') is not True:
+            raise RuntimeError('3D camera rejected the requested action')
 
     def tick(self, size):
         if self._server is None or self._browser is None:
@@ -134,6 +168,7 @@ class CesiumEmbeddedViewer:
     def close(self):
         resources, self._resources = self._resources, None
         self._browser = self._server = self._size = None
+        self._devtools = self._target = None
         try:
             if resources is not None:
                 # Close the browser while attached, before the Tk host is destroyed.

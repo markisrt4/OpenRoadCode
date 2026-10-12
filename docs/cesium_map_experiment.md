@@ -662,3 +662,39 @@ region, filename, size and SHA256, then extracts and validates the imagery befor
 activation. `--update` allows replacing an existing managed imagery revision;
 the previous revision remains available. Reopen Terrain if ORC is already running.
 `--pack-file`, `--pack-manifest` and `--build-only` are mutually exclusive.
+
+### Shared ORC camera rail and detail imagery
+
+The existing ORC camera rail now operates Terrain through semantic exploration
+camera actions: pan, relative zoom, north, recenter and tilt/2D–3D. Recenter goes
+to the selected exploration place. The vehicle-follow button is disabled in
+Terrain; live following and route guidance remain a later integration step.
+Changing tilt/2D–3D keeps the current panned ground centre. The native zoom number
+is replaced by a dash in Terrain, since its camera uses viewing distance instead.
+Standalone browser exploration retains its own camera buttons; the embedded
+Controls menu keeps dataset/layer controls rather than duplicating the ORC rail.
+
+The rail stays in place across map switching, preserving embedded surface size.
+Startup waits for the initialized viewer's first rendered frame (up to 45 seconds)
+before reporting ready. This targets startup/layout flashing; it does not prove
+that every Termux/X11 GPU issue is fixed. Camera work runs on the existing runtime
+worker, ignores stale generations, and owns no browser transport in widgets.
+
+Downtown–Midtown detail imagery is now a **4096×4096** composite built from 16
+1024×1024 exports. It uses the same image payload cap and resumable tiles, with
+more decoding/GPU memory than the coarse Metro Detroit overview. Build into a
+new directory so older lower-resolution data is not mistaken for this revision:
+
+```bash
+git switch navigation-cesium
+python -m development.maps.install_region --coverage detroit-midtown --build-only build-output/detroit-midtown-detail-v2
+python -m tools.map_builder.builder.imagery_artifact --coverage detroit-midtown --pack build-output/detroit-midtown-detail-v2 --output build-output/artifacts/detroit-midtown-detail-v2.zip
+python -m development.maps.install_region --coverage detroit-midtown --pack-file build-output/artifacts/detroit-midtown-detail-v2.zip --update
+./runOrcUi
+```
+
+Open a place within Downtown–Midtown to inspect detail. The smallest installed
+imagery coverage containing that place is selected; outside it the metro overview
+remains available. Existing still-smaller legacy downtown coverage takes priority
+if installed. Source acquisitions and gaps determine actual visual quality; more
+output pixels do not create detail absent from NAIP itself.

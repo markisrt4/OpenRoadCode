@@ -8,7 +8,6 @@ import uuid
 
 from apps.launchers.local_imagery_pack import LocalImageryPack
 from common.xdg_paths import openroadcode_data_dir
-from development.maps.download_detroit_imagery import download
 from development.maps.regional_imagery import download as download_overview
 from development.maps.prebuilt_imagery import read_descriptor, read_local_archive, verify_archive, fetch_archive, unpack
 
@@ -43,11 +42,10 @@ def install(coverage, *, update=False, artifact=None):
         else:
             archive = fetch_archive(source, descriptor, active.with_name(active.name+'.artifacts'))
         unpack(archive, revision, bounds)
-    elif coverage == 'metro-detroit':
-        download_overview(revision, bounds=bounds, title=title,
-                          cache_directory=active.with_name(active.name+'.download'))
     else:
-        download(revision, bounds=bounds, title=title)
+        download_overview(revision, bounds=bounds, title=title,
+                          cache_directory=active.with_name(active.name+'.download'),
+                          image_size=(4096,4096) if coverage == 'detroit-midtown' else (2048,1536))
     LocalImageryPack.load(revision)
     pending = active.parent / ('.active-'+uuid.uuid4().hex)
     try:
@@ -93,8 +91,10 @@ def main():
             print('Archive SHA256 and image checksum are checked before activation.')
         else:
             print('Source-build mode: USGS custom exports may fail. For device installs, use --pack-manifest with a published artifact.')
-            print('Layer: public-domain NAIP imagery, 2048×1536 pixels; 20 MiB maximum image payload plus source metadata.')
-        if coverage == 'metro-detroit' and not artifact:
+            print('Layer: public-domain NAIP imagery; 20 MiB maximum image payload plus source metadata.')
+        if not artifact:
+            if coverage == 'detroit-midtown':
+                print('Detail quality: 4096×4096 final pixels over Downtown–Midtown; more GPU memory than the overview.')
             print('16 smaller exports, combined locally. Completed tiles resume after interruption.')
             print('Transfer cap: 20 MiB across tiles; cache and final image temporarily use up to 40 MiB plus metadata.')
         print('Overview is coarse, not street-level detail. Inspect coverage for source gaps after installation.')
@@ -106,11 +106,9 @@ def main():
             print('Cancelled')
             return 0
         if args.build_only:
-            if coverage == 'metro-detroit':
-                download_overview(args.build_only, bounds=bounds, title=title,
-                                  cache_directory=args.build_only.with_name(args.build_only.name+'.download'))
-            else:
-                download(args.build_only, bounds=bounds, title=title)
+            download_overview(args.build_only, bounds=bounds, title=title,
+                              cache_directory=args.build_only.with_name(args.build_only.name+'.download'),
+                              image_size=(4096,4096) if coverage == 'detroit-midtown' else (2048,1536))
             LocalImageryPack.load(args.build_only)
             print(f'Validated build output: {args.build_only}. Ready for imagery_artifact packaging.')
         else:

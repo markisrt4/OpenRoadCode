@@ -11,7 +11,8 @@ from development.maps import regional_imagery
 from apps.launchers.local_imagery_pack import LocalImageryPack
 
 
-def test_overview_resumes_checked_tiles_and_preserves_north_first_placement(tmp_path, monkeypatch):
+@pytest.mark.parametrize('image_size', [(2048,1536),(4096,4096)])
+def test_overview_resumes_checked_tiles_and_preserves_north_first_placement(tmp_path, monkeypatch, image_size):
     bounds = (-84., 42., -82., 44.)
     cache = tmp_path/'cache'
     destination = tmp_path/'pack'
@@ -29,7 +30,7 @@ def test_overview_resumes_checked_tiles_and_preserves_north_first_placement(tmp_
         with Image.new('RGB', parameters['image_size'], (row*70, col*70, 0)) as image:
             image.save(tile/'imagery.jpg')
         document = {'schema':1, 'image':'imagery.jpg', 'bounds_deg':parameters['bounds'],
-                    'width':512, 'height':384, 'title':'fixture', 'attribution':'USGS fixture',
+                    'width':parameters['image_size'][0], 'height':parameters['image_size'][1], 'title':'fixture', 'attribution':'USGS fixture',
                     'sha256':hashlib.sha256((tile/'imagery.jpg').read_bytes()).hexdigest(),
                     'source_records':[{'OBJECTID': row*4+col}]}
         (tile/'manifest.json').write_text(json.dumps(document))
@@ -37,18 +38,19 @@ def test_overview_resumes_checked_tiles_and_preserves_north_first_placement(tmp_
     allow_completion = [False]
     monkeypatch.setattr(regional_imagery, 'download_image', tile_download)
     with pytest.raises(RuntimeError, match='timed out'):
-        regional_imagery.download(destination, bounds=bounds, title='Metro', cache_directory=cache)
+        regional_imagery.download(destination, bounds=bounds, title='Metro', cache_directory=cache, image_size=image_size)
     assert not destination.exists()
     assert (cache/'r0-c0'/'imagery.jpg').exists()
     allow_completion[0] = True
-    regional_imagery.download(destination, bounds=bounds, title='Metro', cache_directory=cache)
+    regional_imagery.download(destination, bounds=bounds, title='Metro', cache_directory=cache, image_size=image_size)
     assert len(downloaded) == 16  # First two pieces were reused, not downloaded twice.
     pack = LocalImageryPack.load(destination)
     with Image.open(pack.image) as image:
-        assert image.size == (2048,1536)
-        assert image.getpixel((256,192))[0] < 5
-        assert image.getpixel((256,1344))[0] > 200
-        assert image.getpixel((1792,192))[1] > 200
+        assert image.size == image_size
+        width,height = image_size
+        assert image.getpixel((width//8,height//8))[0] < 5
+        assert image.getpixel((width//8,height*7//8))[0] > 200
+        assert image.getpixel((width*7//8,height//8))[1] > 200
     assert len(json.loads((destination/'manifest.json').read_text())['source_records']) == 16
     assert (destination/'sources'/'r0-c0'/'manifest.json').exists()
     assert not cache.exists()

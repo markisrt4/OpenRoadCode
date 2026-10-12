@@ -11,6 +11,22 @@ class MapPlatform(str, Enum):
     EARTH = "Google Earth"
 
 
+class ExplorationCameraAction(str, Enum):
+    """Renderer-neutral, relative camera actions for destination exploration."""
+
+    PAN_UP = 'pan-up'
+    PAN_DOWN = 'pan-down'
+    PAN_LEFT = 'pan-left'
+    PAN_RIGHT = 'pan-right'
+    ZOOM_IN = 'zoom-in'
+    ZOOM_OUT = 'zoom-out'
+    PITCH_UP = 'pitch-up'
+    PITCH_DOWN = 'pitch-down'
+    NORTH = 'north'
+    RECENTER = 'recenter'
+    DIMENSION = 'dimension'
+
+
 @dataclass(frozen=True, slots=True)
 class MapPlatformState:
     active: MapPlatform = MapPlatform.MAPLIBRE
@@ -40,6 +56,10 @@ class MapPlatformControlIf(Protocol):
 
     def request_chase(self) -> None:
         """Select Earth's close oblique follow view."""
+        ...
+
+    def request_camera(self, action: ExplorationCameraAction) -> None:
+        """Apply a relative camera action to the active exploration surface."""
         ...
 
     def resize(self, width: int, height: int, owner_window_id: int) -> None:
