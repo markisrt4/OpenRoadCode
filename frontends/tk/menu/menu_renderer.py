@@ -10,9 +10,10 @@ from typing import Any
 from frontends.tk.menu.menu_icons import create_icon
 from ui.menu import MenuPage, MenuTile
 from ui.menu.menu_icons import menu_icon_for_key
+from ui.ui_widget import UiWidget
 
 
-class MenuRenderer:
+class MenuRenderer(UiWidget):
     """Render themed menu pages and reusable menu-style tiles."""
 
     def __init__(

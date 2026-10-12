@@ -19,6 +19,7 @@ from frontends.tk.automotive.vehicle_gauge_theme import vehicle_gauge_theme_from
 from frontends.tk.automotive.vehicle_gauge_widgets import LinearGauge, RoundGauge
 from ui.theme import ThemeBundle, ThemeMode
 from .shell_metrics import CONTEXT_RAIL_WIDTH, FONT_BODY, FONT_CONTROL, FONT_SMALL
+from ui.ui_widget import UiWidget
 
 
 @dataclass(frozen=True)
@@ -28,7 +29,7 @@ class ContextPage:
     builder: Callable[[tk.Frame], None]
 
 
-class ContextRail(tk.Frame):
+class ContextRail(tk.Frame, UiWidget):
     """Compact, user-switchable secondary information panel."""
 
     WIDTH = CONTEXT_RAIL_WIDTH
@@ -47,7 +48,7 @@ class ContextRail(tk.Frame):
             bg=ui.surface,
             width=self.WIDTH,
             highlightthickness=1,
-            highlightbackground=ui.border,
+            highlightcolor=ui.border, highlightbackground=ui.border,
         )
         self.pack_propagate(False)
         self._on_expand = on_expand
@@ -71,7 +72,7 @@ class ContextRail(tk.Frame):
     def set_theme_bundle(self, theme: ThemeBundle) -> None:
         """Apply a CSS-derived theme while preserving page and telemetry state."""
         self._theme = theme
-        self.configure(bg=theme.ui.surface, highlightbackground=theme.ui.border)
+        self.configure(bg=theme.ui.surface, highlightcolor=theme.ui.border, highlightbackground=theme.ui.border)
         self._rebuild()
 
     def update_vehicle_state(self, state: VehiclePresentationState) -> None:
@@ -137,6 +138,7 @@ class ContextRail(tk.Frame):
                 activeforeground="#ffffff",
                 relief=tk.FLAT,
                 bd=0,
+                highlightthickness=0,
                 width=3,
                 font=("Sans", 15, "bold"),
                 cursor="hand2",
@@ -163,6 +165,7 @@ class ContextRail(tk.Frame):
             activeforeground="#ffffff",
             relief=tk.FLAT,
             bd=0,
+            highlightthickness=0,
             width=width,
             font=("Sans", font_size, "bold"),
             cursor="hand2",
@@ -391,7 +394,7 @@ class ContextRail(tk.Frame):
             parent,
             bg=ui.surface,
             highlightthickness=1,
-            highlightbackground=ui.border,
+            highlightcolor=ui.border, highlightbackground=ui.border,
         )
 
     def _metric_table(

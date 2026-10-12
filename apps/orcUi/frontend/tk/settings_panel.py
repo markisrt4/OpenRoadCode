@@ -12,9 +12,10 @@ from ui.automotive.vehicle_configuration import (EngineInductionType, VehicleCon
 from ui.theme import ThemeBundle, ThemeMode
 from ui.navigation.host_location_ui_if import HostLocationRequestHandlerIf, HostLocationState
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
+from ui.ui_widget import UiWidget
 
 
-class SettingsPanel(tk.Frame):
+class SettingsPanel(tk.Frame, UiWidget):
     """Top-level OpenRoadCode settings surface."""
 
     def __init__(
@@ -71,6 +72,7 @@ class SettingsPanel(tk.Frame):
             font=("Sans", FONT_CONTROL, "bold"),
             padx=14,
             pady=6,
+            highlightthickness=0,
         ).pack(side=tk.RIGHT, padx=10, pady=8)
 
         body = tk.Frame(self, bg=ui.background)
@@ -127,6 +129,7 @@ class SettingsPanel(tk.Frame):
                 selectcolor=ui.control_background,
                 font=("Sans", FONT_CONTROL),
                 anchor="w",
+                highlightthickness=0, bd=0, relief=tk.FLAT,
             ).grid(row=row, column=0, sticky="w", pady=2)
 
         vehicle = tk.Frame(
@@ -178,6 +181,7 @@ class SettingsPanel(tk.Frame):
                 selectcolor=ui.control_background,
                 font=("Sans", FONT_CONTROL),
                 anchor="w",
+                highlightthickness=0, bd=0, relief=tk.FLAT,
             ).grid(row=row, column=0, sticky="w", pady=2)
 
         location = tk.Frame(body, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)

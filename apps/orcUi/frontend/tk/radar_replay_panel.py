@@ -7,9 +7,10 @@ from datetime import datetime
 import tkinter as tk
 
 from .shell_metrics import FONT_CONTROL
+from ui.ui_widget import UiWidget
 
 
-class RadarReplayPanel(tk.Toplevel):
+class RadarReplayPanel(tk.Toplevel, UiWidget):
     """Keep replay controls together in a collapsible floating panel."""
 
     def __init__(self, owner, anchor, *, on_play, on_seek, on_live, on_close,
@@ -54,7 +55,7 @@ class RadarReplayPanel(tk.Toplevel):
         self._live.pack(side=tk.RIGHT, pady=6)
         options = tk.Menubutton(actions, text="Options", bg=ui.control_background,
                                 fg=ui.control_text, relief=tk.FLAT, padx=8,
-                                font=("Sans", FONT_CONTROL))
+                                font=("Sans", FONT_CONTROL), highlightthickness=0, bd=0)
         menu = tk.Menu(options, tearoff=False)
         speed = tk.StringVar(self, value=f"{speed_value:g}×")
         for text, factor in (("0.5×", 0.5), ("1×", 1.0), ("2×", 2.0)):
@@ -105,7 +106,7 @@ class RadarReplayPanel(tk.Toplevel):
     def _button(self, parent, text, command):
         return tk.Button(parent, text=text, command=command, relief=tk.FLAT,
                          bg=self._ui.control_active, fg=self._ui.control_text,
-                         font=("Sans", FONT_CONTROL, "bold"), padx=10, pady=5)
+                         font=("Sans", FONT_CONTROL, "bold"), padx=10, pady=5, highlightthickness=0, bd=0)
 
     def reposition(self):
         """Keep the popup below the radar menu and inside the screen."""

@@ -5,31 +5,12 @@
 
 from __future__ import annotations
 
-from typing import Protocol
+from threading import Lock, RLock
+
+from ui.radio.rf_radio_if import RadioApplication as RadioApplicationServiceIf
 
 from apps.launchers.managed_sdrpp_launcher import ManagedSDRPPLauncher
 from controllers.application_runtime import AppRuntimeManager
-
-
-class RadioApplicationServiceIf(Protocol):
-    """Presentation-facing operations for the managed RF radio application."""
-
-    def present(self) -> None:
-        """Ensure the managed radio application is running and presentable."""
-
-    def window_process_id(self, *, timeout_seconds: float) -> int:
-        """Return the X11 client process id used for embedding."""
-
-    @property
-    def presented(self) -> bool:
-        """Return whether RF radio is currently presented to the user."""
-
-    @property
-    def fullscreen(self) -> bool:
-        """Return whether RF is configured for native fullscreen presentation."""
-
-    def relinquish_for_adsb(self) -> None:
-        """Stop RF presentation so an explicit ADS-B request can use the SDR."""
 
 
 class ManagedRadioApplicationService:
@@ -47,8 +28,19 @@ class ManagedRadioApplicationService:
         self._manager = manager
         self._launcher = launcher
         self._fullscreen = fullscreen
+        self._closed = False
+        self._state_lock = Lock()
+        self._operation_lock = RLock()
 
     def present(self) -> None:
+        """Serialize launch with terminal runtime shutdown."""
+        with self._operation_lock:
+            with self._state_lock:
+                if self._closed:
+                    raise RuntimeError("Radio application service is closed")
+            self._present()
+
+    def _present(self) -> None:
         # Embedded SDR++ must never be presented as a normal top-level window.
         # Start it directly and let RadioPanel reparent the X11 client once it
         # appears. AppRuntimeManager.show() intentionally marks/maps windowed
@@ -71,4 +63,14 @@ class ManagedRadioApplicationService:
         return self._fullscreen
 
     def relinquish_for_adsb(self) -> None:
-        self._manager.stop(self.APP_KEY)
+        with self._operation_lock:
+            self._manager.stop(self.APP_KEY)
+
+    def close(self) -> None:
+        """Reject new launches, then stop any launch already in progress."""
+        with self._state_lock:
+            if self._closed:
+                return
+            self._closed = True
+        with self._operation_lock:
+            self._manager.stop(self.APP_KEY)

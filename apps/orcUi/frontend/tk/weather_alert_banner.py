@@ -7,6 +7,7 @@ from collections.abc import Callable
 from datetime import datetime
 from ui.theme import ThemeBundle
 from ui.weather import WeatherAlertUiEvent
+from ui.ui_widget import UiWidget
 
 def weather_alert_expiration_text(alert: WeatherAlertUiEvent, now: datetime) -> str:
     if alert.expires_at is None:
@@ -20,7 +21,7 @@ def weather_alert_expiration_text(alert: WeatherAlertUiEvent, now: datetime) -> 
     hours,remaining=divmod(minutes,60)
     return f"Expires in {hours}h {remaining}m" if remaining else f"Expires in {hours}h"
 
-class WeatherAlertBanner(tk.Frame):
+class WeatherAlertBanner(tk.Frame, UiWidget):
     def __init__(self,parent:tk.Misc,*,theme:ThemeBundle,on_details:Callable[[],None],on_dismiss:Callable[[],None])->None:
         self._online=True;self._theme=theme;self._alert=None;self._on_details=on_details;self._on_dismiss=on_dismiss
         super().__init__(parent,bd=0,highlightthickness=1);self.grid_columnconfigure(1,weight=1)
@@ -28,8 +29,8 @@ class WeatherAlertBanner(tk.Frame):
         self._event=tk.Label(self,anchor="w",font=("Sans",12,"bold"),padx=8);self._event.grid(row=0,column=1,sticky="ew",pady=(4,0))
         self._headline=tk.Label(self,anchor="w",font=("Sans",9),padx=8);self._headline.grid(row=1,column=1,sticky="ew",pady=(0,4))
         self._expiration=tk.Label(self,anchor="e",font=("Sans",9,"bold"),padx=6);self._expiration.grid(row=0,column=2,rowspan=2,sticky="e")
-        self._details=tk.Button(self,text="DETAILS",command=self._on_details,relief=tk.FLAT,bd=0,cursor="hand2",font=("Sans",9,"bold"));self._details.grid(row=0,column=3,rowspan=2,padx=(4,2),pady=5)
-        self._dismiss=tk.Button(self,text="✕",command=self._on_dismiss,relief=tk.FLAT,bd=0,cursor="hand2",width=3,font=("Sans",11,"bold"));self._dismiss.grid(row=0,column=4,rowspan=2,padx=(2,6),pady=5)
+        self._details=tk.Button(self,text="DETAILS",command=self._on_details,relief=tk.FLAT,bd=0,cursor="hand2",font=("Sans",9,"bold"), highlightthickness=0);self._details.grid(row=0,column=3,rowspan=2,padx=(4,2),pady=5)
+        self._dismiss=tk.Button(self,text="✕",command=self._on_dismiss,relief=tk.FLAT,bd=0,cursor="hand2",width=3,font=("Sans",11,"bold"), highlightthickness=0);self._dismiss.grid(row=0,column=4,rowspan=2,padx=(2,6),pady=5)
         self.set_theme_bundle(theme)
     def set_online(self, online: bool) -> None:
         self._online = online
@@ -45,7 +46,7 @@ class WeatherAlertBanner(tk.Frame):
     def update_expiration(self,now:datetime)->None:
         if self._alert is not None:self._expiration.configure(text=weather_alert_expiration_text(self._alert,now))
     def set_theme_bundle(self,theme):
-        self._theme=theme;ui=theme.ui;accent=self._severity_color();self.configure(bg=ui.surface_alt,highlightbackground=accent)
+        self._theme=theme;ui=theme.ui;accent=self._severity_color();self.configure(bg=ui.surface_alt,highlightcolor=accent, highlightbackground=accent)
         self._severity.configure(bg=accent,fg=ui.control_text);self._event.configure(bg=ui.surface_alt,fg=ui.text);self._headline.configure(bg=ui.surface_alt,fg=ui.text_muted);self._expiration.configure(bg=ui.surface_alt,fg=ui.text_muted)
         for button in (self._details,self._dismiss):button.configure(bg=ui.control_background,fg=ui.control_text,activebackground=ui.control_active,activeforeground=ui.text)
     def _severity_color(self):

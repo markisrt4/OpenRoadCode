@@ -17,9 +17,7 @@ def build_navigation_panel(panel) -> None:
     panel.grid_rowconfigure(1, weight=1)
     panel.grid_rowconfigure(2, weight=0)
     panel.grid_columnconfigure(0, weight=1)
-    bar = tk.Frame(
-        panel, bg=ui.surface_alt, height=38, highlightthickness=1, highlightbackground=ui.border
-    )
+    bar = tk.Frame(panel, bg=ui.surface_alt, height=38, highlightthickness=0)
     bar.grid(row=0, column=0, sticky="ew", pady=(0, 4))
     bar.grid_propagate(False)
     shortcuts = tk.Frame(bar, bg=ui.surface_alt)
@@ -32,9 +30,11 @@ def build_navigation_panel(panel) -> None:
                   command=lambda selected=key: panel._destination_shortcut(selected),
                   bg=ui.control_background, fg=accent, activebackground=ui.control_active,
                   activeforeground=ui.control_text, relief=tk.FLAT,
+                  bd=0, highlightthickness=0,
                   font=("Sans", 9, "bold"), padx=7, pady=3).pack(side=tk.LEFT, padx=(0, 4))
     places = tk.Menubutton(shortcuts, text="Places ▾", bg=ui.control_background,
-                           fg=ui.text, relief=tk.FLAT, font=("Sans", 9, "bold"), padx=7, pady=3)
+                           fg=ui.text, relief=tk.FLAT, bd=0, highlightthickness=0,
+                           font=("Sans", 9, "bold"), padx=7, pady=3)
     places_menu = tk.Menu(places, tearoff=False, bg=ui.control_background, fg=ui.control_text)
     for label, key in (("Gas stations", "gas"), ("Groceries", "grocery"), ("Food", "food")):
         places_menu.add_command(label=label, command=lambda selected=key: panel._destination_shortcut(selected))
@@ -131,32 +131,63 @@ def build_navigation_panel(panel) -> None:
                                     bg=ui.background, fg=ui.text)
     panel._loading_cover.grid(row=0, column=0, sticky='nsew')
     panel._loading_cover.grid_remove()
-    controls = tk.Frame(
-        body, bg=ui.surface_alt, width=62, highlightthickness=1, highlightbackground=ui.border
+    panel._map_host.bind("<Configure>", panel._log_map_allocation, add="+")
+    panel._map_controls_handle = tk.Button(
+        body,
+        text="☰",
+        command=panel._toggle_map_controls_drawer,
+        bg=ui.control_background,
+        fg=ui.accent_primary,
+        activebackground=ui.control_active,
+        activeforeground="#ffffff",
+        relief=tk.FLAT,
+        bd=0,
+        highlightthickness=0,
+        font=("Sans", 17, "bold"),
+        cursor="hand2",
     )
+    controls = tk.Frame(body, bg=ui.surface_alt, width=54, highlightthickness=0)
+    controls.pack_propagate(False)
+    panel._map_controls = controls
+    panel._map_controls_toggle = tk.Button(
+        controls,
+        text="Hide controls  ›",
+        command=panel._toggle_map_controls_drawer,
+        bg=ui.control_background,
+        fg=ui.accent_primary,
+        activebackground=ui.control_active,
+        activeforeground="#ffffff",
+        relief=tk.FLAT,
+        bd=0,
+        highlightthickness=0,
+        font=("Sans", 10, "bold"),
+        padx=5,
+        pady=10,
+    )
+    panel._map_controls_toggle.pack(fill=tk.X)
     panel._native_camera_controls = controls
-    controls.grid(row=0, column=1, sticky="ns", padx=(4, 0))
-    controls.grid_propagate(False)
     rail = tk.Frame(controls, bg=ui.surface_alt)
-    rail.grid_propagate(False)
+    panel._map_controls_rail = rail
     rail.grid_columnconfigure(0, weight=1)
-    for row, weight in ((0, 1), (1, 3), (2, 1), (4, 1), (5, 1)):
+    for row, weight in ((0, 3), (1, 3), (2, 1), (3, 1), (4, 1)):
         rail.grid_rowconfigure(row, weight=weight, uniform="camera")
     orientation = tk.Frame(rail, bg=ui.surface_alt)
     orientation.grid(row=0, column=0, sticky="nsew", padx=3, pady=2)
     orientation.grid_propagate(False)
-    orientation.grid_rowconfigure(0, weight=1)
-    for column in range(3):
-        orientation.grid_columnconfigure(column, weight=1, uniform="orientation")
-    panel._follow_button = panel._control(orientation, "F", panel._toggle_follow, ui.accent_success)
-    panel._follow_button.grid(row=0, column=0, sticky="nsew", padx=1)
+    orientation.grid_columnconfigure(0, weight=1)
+    for row in range(3):
+        orientation.grid_rowconfigure(row, weight=1, uniform="orientation")
+    panel._follow_button = panel._control(
+        orientation, "◉  Follow", panel._toggle_follow, ui.accent_success
+    )
+    panel._follow_button.grid(row=0, column=0, sticky="nsew", pady=1)
     panel._add_tooltip(panel._follow_button, "Toggle following the vehicle")
-    for column, label, command, accent, description in (
-        (1, "N", panel._north_up, ui.text, "Rotate north to the top (turns follow off)"),
-        (2, "◎", panel._recenter, ui.accent_success, "Center on the vehicle and enable following"),
+    for row, label, command, accent, description in (
+        (1, "↑  North up", panel._north_up, ui.text, "Rotate north to the top (turns follow off)"),
+        (2, "⌖  Recenter", panel._recenter, ui.accent_success, "Center on the vehicle and enable following"),
     ):
         button = panel._control(orientation, label, command, accent)
-        button.grid(row=0, column=column, sticky="nsew", padx=1)
+        button.grid(row=row, column=0, sticky="nsew", pady=1)
         panel._add_tooltip(button, description)
     panel.set_follow_enabled(panel._follow_enabled)
     pan = tk.Frame(rail, bg=ui.surface_alt)
@@ -180,8 +211,7 @@ def build_navigation_panel(panel) -> None:
             activebackground=ui.control_active,
             activeforeground="#ffffff",
             relief=tk.FLAT,
-            highlightthickness=1,
-            highlightbackground=ui.border,
+            highlightthickness=0,
             font=("Sans", 11, "bold"),
             borderwidth=0,
             width=1,
@@ -199,22 +229,25 @@ def build_navigation_panel(panel) -> None:
     for column in range(2):
         zoom.grid_columnconfigure(column, weight=1, uniform="zoom")
     zoom_in = panel._control(zoom, "+", lambda: panel._change_zoom(1), ui.accent_primary)
+    zoom_in.configure(font=("Sans", 19, "bold"), pady=8)
     panel._add_tooltip(zoom_in, "Zoom in")
     zoom_in.grid(row=0, column=0, sticky="nsew", padx=1)
     zoom_out = panel._control(zoom, "−", lambda: panel._change_zoom(-1), ui.accent_primary)
+    zoom_out.configure(font=("Sans", 19, "bold"), pady=8)
     panel._add_tooltip(zoom_out, "Zoom out")
     zoom_out.grid(row=0, column=1, sticky="nsew", padx=1)
     zoom_label = tk.Label(
-        rail,
+        zoom,
         textvariable=panel._zoom_text,
-        bg=ui.surface_alt,
+        bg=ui.control_background,
         fg=ui.text,
         font=("Sans", 8, "bold"),
     )
-    zoom_label.grid(row=3, column=0, sticky="ew", padx=5)
+    zoom_label.place(relx=0.5, y=2, anchor="n")
+    zoom_label.lift()
     panel._add_tooltip(zoom_label, "Current map zoom level")
     dimension = tk.Frame(rail, bg=ui.surface_alt)
-    dimension.grid(row=4, column=0, sticky="nsew", padx=4, pady=2)
+    dimension.grid(row=3, column=0, sticky="nsew", padx=4, pady=2)
     dimension.grid_propagate(False)
     dimension.grid_rowconfigure(0, weight=1)
     dimension.grid_columnconfigure(0, weight=1)
@@ -223,7 +256,7 @@ def build_navigation_panel(panel) -> None:
     dimension_button.grid(row=0, column=0, sticky="nsew")
     panel._add_tooltip(dimension_button, "Switch between overhead 2D and tilted 3D view")
     tilt = tk.Frame(rail, bg=ui.surface_alt)
-    tilt.grid(row=5, column=0, sticky="nsew", padx=3, pady=2)
+    tilt.grid(row=4, column=0, sticky="nsew", padx=3, pady=2)
     tilt.grid_propagate(False)
     tilt.grid_rowconfigure(0, weight=1)
     for column in range(2):
@@ -236,13 +269,7 @@ def build_navigation_panel(panel) -> None:
         panel._add_tooltip(button, description)
         button.grid(row=0, column=column, sticky="nsew", padx=1)
 
-    # Seven button rows (including three pan rows), plus readout and group gaps.
-    # Let grid divide a shorter viewport instead of packing controls off-screen.
-    preferred_height = 7 * 44 + zoom_label.winfo_reqheight() + 20
-    rail.place(x=1, y=1, relwidth=1, width=-2, height=preferred_height)
-    controls.bind("<Configure>", lambda event: rail.place_configure(
-        height=max(1, min(preferred_height, event.height - 2))
-    ), add="+")
+    panel.set_map_controls_drawer_state(panel._drawer_state)
 
 
 def show_poi_card(panel, poi) -> None:
@@ -295,7 +322,12 @@ def show_poi_card(panel, poi) -> None:
     details: list[str] = []
     if poi.brand and poi.brand.casefold() != poi.name.casefold():
         details.append(poi.brand)
-    details.append(poi.category.name.replace("_", " ").title())
+    if poi.address:
+        details.append(poi.address)
+    elif poi.source_class == "saved-destination":
+        details.append("Saved destination")
+    else:
+        details.append(poi.category.name.replace("_", " ").title())
 
     tk.Label(
         frame,
@@ -303,6 +335,7 @@ def show_poi_card(panel, poi) -> None:
         bg=ui.surface_alt,
         fg=ui.text_muted,
         font=("Sans", 9),
+        wraplength=440,
     ).pack(pady=(0, 10))
 
     buttons = tk.Frame(frame, bg=ui.surface_alt)

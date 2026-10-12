@@ -180,3 +180,18 @@ class X11WindowEmbedderTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_cancelled_host_stops_native_discovery_without_reparenting():
+    from threading import Event
+    cancelled = Event()
+    embedder = X11WindowEmbedder(timeout_seconds=8)
+    with patch.object(embedder, "supported", return_value=True), \
+         patch.object(embedder, "_find_by_process", return_value=None) as find, \
+         patch("frontends.x11.x11_window_embedder.time.sleep", side_effect=lambda _: cancelled.set()), \
+         patch("frontends.x11.x11_window_embedder.subprocess.run") as run:
+        import pytest
+        with pytest.raises(RuntimeError, match="cancelled"):
+            embedder.embed(123, 456, 800, 400, cancelled=cancelled.is_set)
+    find.assert_called_once()
+    run.assert_not_called()

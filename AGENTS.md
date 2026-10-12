@@ -8,6 +8,12 @@
 - Widgets implement presentation contracts and emit requests through handler
   contracts. Do not call concrete controllers, providers, service clients, or
   transports from widgets. Do not inspect their private state.
+- New presentation widgets inherit `ui.UiWidget`, directly or through
+  `ScreenUiIf`/`TkScreen`. This toolkit-independent marker signals the same policy;
+  it adds no lifecycle or dependency injection machinery. Widgets consume supplied
+  contracts; composition constructs and wires concrete dependencies. Concrete
+  rendering may use its frontend toolkit, while shared state and request contracts
+  remain toolkit-independent.
 - Controllers own business logic, workers, caching, retry, playback, and stale
   callback handling. Controllers must not import GUI frameworks or frontends.
 - Composition roots construct dependencies, bind contracts, and own cleanup.
@@ -16,11 +22,14 @@
 - Add meaningful contract and behavior tests alongside the feature, including
   hide/close and stale completion behavior when asynchronous work is involved.
   Update the affected documentation in the same change.
-- The user runs the full quality gate locally: `python scripts/quality_gate.py`.
-  It includes automatic project-wide dependency checks and stricter weather
-  checks; new frontend files are discovered automatically. Do not run the full
-  gate or broad test suites unless the user explicitly asks. Report changes as
-  awaiting user validation until the user supplies passing results.
+- During branch development, run tests and static checks relevant to the changed
+  code and affected contracts. Do not rerun the full quality gate for every fix
+  or feature batch. The user runs `python scripts/quality_gate.py` locally at the
+  end of branch development, before the branch is declared ready to merge. Do not
+  run the full gate or broad test suites unless the user explicitly asks. The
+  gate includes automatic project-wide dependency checks and stricter weather
+  checks; new frontend files are discovered automatically. Report focused checks
+  separately and mark full validation pending until the user supplies results.
 - `scripts/ui_boundary_exceptions.json` records exact pre-existing dependencies,
   not permission for new ones. Do not regenerate, expand, or add exceptions merely
   to make CI pass. Fix new violations. When removing old dependencies, shrink the
@@ -57,6 +66,15 @@ When providing instructions to launch ORC UI, use `./runOrcUi` rather than
   error excerpt rather than the entire log.
 - Resolve material UI and workflow choices before substantial implementation.
   Apply routine fixes autonomously within the agreed scope.
+
+## Termux device commands
+
+- Begin user-facing command blocks with `git switch <branch_name>`, using the actual intended branch.
+- Use Termux's `$TMPDIR` for temporary files; do not assume `/tmp` exists.
+- When asking the user to paste diagnostic output, provide a command that copies
+  the relevant output with `termux-clipboard-set`. Keep clipboard output focused
+  on the requested evidence. Use `termux-clipboard-get` when reading clipboard
+  content is needed.
 
 ## Discuss major changes before implementation
 

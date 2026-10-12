@@ -13,9 +13,10 @@ from frontends.tk.system.volume_indicator import (
     VolumeIndicatorStyle,
 )
 from ui.system import VolumeRequestHandlerIf, VolumeUiIf
+from ui.ui_widget import UiWidget
 
 
-class VolumePanel(tk.Frame, VolumeUiIf):
+class VolumePanel(tk.Frame, VolumeUiIf, UiWidget):
     """Display normalized system volume and emit semantic volume requests."""
 
     def __init__(
@@ -128,4 +129,5 @@ class VolumePanel(tk.Frame, VolumeUiIf):
             height=self._layout["button_height"],
             cursor=self._layout["cursor"],
             command=command,
+            highlightthickness=0, relief=tk.FLAT,
         )

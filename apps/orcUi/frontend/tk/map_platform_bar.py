@@ -2,11 +2,12 @@
 
 from dataclasses import replace
 import tkinter as tk
+from ui import UiWidget
 from ui.navigation.map_platform_if import MapPlatform, MapPlatformControlIf, MapPlatformState
 from ui.theme import ThemeBundle
 
 
-class MapPlatformBar(tk.Frame):
+class MapPlatformBar(tk.Frame, UiWidget):
     def __init__(self, parent, *, handler: MapPlatformControlIf, theme: ThemeBundle, platforms=(MapPlatform.MAPLIBRE, MapPlatform.EARTH)):
         ui = theme.ui
         super().__init__(parent, bg=ui.surface_alt)
@@ -15,12 +16,12 @@ class MapPlatformBar(tk.Frame):
             button = tk.Button(self, text=platform.value, relief=tk.FLAT,
                                font=("Sans", 9, "bold"), bg=ui.control_background,
                                fg=ui.control_text, activebackground=ui.control_active,
-                               command=lambda selected=platform: handler.request_platform(selected))
+                               command=lambda selected=platform: handler.request_platform(selected), highlightthickness=0, bd=0)
             button.pack(side=tk.LEFT, padx=3, pady=2)
             self._buttons[platform] = button
         self._chase = tk.Button(self, text="Chase view", relief=tk.FLAT,
             font=("Sans", 9, "bold"), bg=ui.control_background, fg=ui.control_text,
-            command=handler.request_chase)
+            command=handler.request_chase, highlightthickness=0, bd=0)
         if MapPlatform.EARTH in platforms:
             self._chase.pack(side=tk.LEFT, padx=3, pady=2)
         self._status = tk.Label(self, bg=ui.surface_alt, fg=ui.text_muted,
@@ -37,7 +38,7 @@ class MapPlatformBar(tk.Frame):
         self._status.configure(text=state.status)
 
 
-class MapPlatformToggle(tk.Button):
+class MapPlatformToggle(tk.Button, UiWidget):
     """One user-facing Map/Terrain control for the existing navigation toolbar."""
 
     def __init__(self, parent, *, handler: MapPlatformControlIf, theme: ThemeBundle, on_state=None):

@@ -3,6 +3,11 @@
 
 from __future__ import annotations
 
+import logging
+
+from common.logging.lifecycle import logged_action
+from common.logging.structured import current_operation, event
+
 import shutil
 import subprocess
 import time
@@ -11,14 +16,38 @@ from pathlib import Path
 from ui.system.app_launcher_if import (AppLauncherIf, StatusCallback)
 from apps.launchers.external_window_manager import ExternalWindowManager, x11_environment
 from apps.launchers.graphics_environment import graphics_environment
-from apps.launchers.process_manager import close_matching_display_apps, is_process_running, terminate_process
+from apps.launchers.process_manager import (
+    close_matching_display_apps,
+    is_process_running,
+    terminate_process,
+)
 from common.logging.logging_paths import logging_file_path
+
+
+LOGGER = logging.getLogger("runtime.browser")
 
 
 class BrowserKioskLauncher(AppLauncherIf):
     """Launch and orchestrate one browser window on a selected X display."""
 
-    def __init__(self, *, url: str, process_pattern: str | None = None, log_file: str | Path | None = None, browser_candidates: tuple[str, ...] = ("chromium-browser", "chromium", "google-chrome"), kiosk: bool = True, app_mode: bool = False, profile_path: str | Path | None = None, window_position: tuple[int, int] | None = None, window_size: tuple[int, int] | None = None, startup_grace_seconds: float = 0.0, extra_arguments: tuple[str, ...] = (), window_class: str | None = None, exclusive_group: str | None = None, window_manager: ExternalWindowManager | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        url: str,
+        process_pattern: str | None = None,
+        log_file: str | Path | None = None,
+        browser_candidates: tuple[str, ...] = ("chromium-browser", "chromium", "google-chrome"),
+        kiosk: bool = True,
+        app_mode: bool = False,
+        profile_path: str | Path | None = None,
+        window_position: tuple[int, int] | None = None,
+        window_size: tuple[int, int] | None = None,
+        startup_grace_seconds: float = 0.0,
+        extra_arguments: tuple[str, ...] = (),
+        window_class: str | None = None,
+        exclusive_group: str | None = None,
+        window_manager: ExternalWindowManager | None = None,
+    ) -> None:
         if kiosk and app_mode:
             raise ValueError("kiosk and app_mode cannot both be enabled")
         if startup_grace_seconds < 0:
@@ -40,6 +69,7 @@ class BrowserKioskLauncher(AppLauncherIf):
         self._process: subprocess.Popen[str] | None = None
         self._window_id: str | None = None
         self._hidden = False
+        self._launch_operation_id: str | None = None
         self._color_scheme: str | None = None
 
     def set_url(self, url: str) -> None:
@@ -83,8 +113,22 @@ class BrowserKioskLauncher(AppLauncherIf):
 
     def is_running(self) -> bool:
         if self._process is not None:
-            if self._process.poll() is None:
+            return_code = self._process.poll()
+            if return_code is None:
                 return True
+            fields = {
+                "child_pid": self._process.pid if type(self._process.pid) is int else None,
+                "exit_code": return_code if type(return_code) is int else None,
+            }
+            if self._launch_operation_id:
+                fields["operation_id"] = self._launch_operation_id
+            event(
+                LOGGER,
+                logging.INFO if return_code == 0 else logging.WARNING,
+                "browser.exited",
+                "Owned browser process exit observed",
+                **fields,
+            )
             self._process = None
             self._window_id = None
             self._hidden = False
@@ -123,6 +167,7 @@ class BrowserKioskLauncher(AppLauncherIf):
             window_class=self.window_class,
         )
 
+    @logged_action("runtime.browser", "browser.action", "launch")
     def launch(self, remote_display: str, set_status: StatusCallback = None) -> None:
         if self.is_running():
             self.show(remote_display, set_status)
@@ -168,15 +213,40 @@ class BrowserKioskLauncher(AppLauncherIf):
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
         log_handle = self.log_file.open("a", encoding="utf-8")
         try:
-            self._process = subprocess.Popen(command, env=environment, stdout=log_handle, stderr=subprocess.STDOUT, start_new_session=True, text=True)
+            self._launch_operation_id = current_operation()
+            self._process = subprocess.Popen(
+                command,
+                env=environment,
+                stdout=log_handle,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+                text=True,
+            )
+            event(
+                LOGGER,
+                logging.INFO,
+                "browser.spawned",
+                "Owned browser process spawned",
+                child_pid=self._process.pid if type(self._process.pid) is int else None,
+            )
         finally:
             log_handle.close()
         if self.startup_grace_seconds:
             time.sleep(self.startup_grace_seconds)
             return_code = self._process.poll()
             if return_code is not None:
+                event(
+                    LOGGER,
+                    logging.ERROR,
+                    "browser.startup_exited",
+                    "Browser exited during startup",
+                    child_pid=self._process.pid if type(self._process.pid) is int else None,
+                    exit_code=return_code if type(return_code) is int else None,
+                )
                 self._process = None
-                raise RuntimeError(f"Browser exited during startup (status {return_code}); see {self.log_file}")
+                raise RuntimeError(
+                    f"Browser exited during startup (status {return_code}); see {self.log_file}"
+                )
         self._fit_app_window(remote_display)
         _status(set_status, f"Browser launched on {remote_display}")
 
@@ -198,6 +268,7 @@ class BrowserKioskLauncher(AppLauncherIf):
             _status(set_status, "Browser hidden")
         return hidden
 
+    @logged_action("runtime.browser", "browser.action", "stop")
     def stop(self, remote_display: str, set_status: StatusCallback = None) -> None:
         process = self._process
         closed_normally = False
@@ -230,7 +301,9 @@ class BrowserKioskLauncher(AppLauncherIf):
         return self._window_manager.close(display=display, window_id=self._window_id)
 
     @staticmethod
-    def _wait_for_process_exit(process: subprocess.Popen[str], timeout_seconds: float = 3.0) -> None:
+    def _wait_for_process_exit(
+        process: subprocess.Popen[str], timeout_seconds: float = 3.0
+    ) -> None:
         try:
             process.wait(timeout=timeout_seconds)
         except subprocess.TimeoutExpired:
@@ -257,18 +330,32 @@ class BrowserKioskLauncher(AppLauncherIf):
         raise RuntimeError(f"No supported browser found in PATH. Tried: {names}")
 
     def _fit_app_window(self, display: str) -> None:
-        if not (self.app_mode or self.kiosk) or self.window_class is None or self.window_position is None or self.window_size is None:
+        if (
+            not (self.app_mode or self.kiosk)
+            or self.window_class is None
+            or self.window_position is None
+            or self.window_size is None
+        ):
             return
-        self._window_id = self._window_manager.fit(display=display, window_class=self.window_class, position=self.window_position, size=self.window_size)
+        self._window_id = self._window_manager.fit(
+            display=display,
+            window_class=self.window_class,
+            position=self.window_position,
+            size=self.window_size,
+        )
 
     def _ensure_window_id(self, display: str) -> None:
         if self._window_id is None and self.window_class is not None:
-            self._window_id = self._window_manager.wait_for_window_id(display=display, window_class=self.window_class)
+            self._window_id = self._window_manager.wait_for_window_id(
+                display=display, window_class=self.window_class
+            )
 
     def _activate_existing_window(self, display: str) -> None:
         if self.window_class is None:
             return
-        self._window_id = self._window_manager.activate(display=display, window_class=self.window_class)
+        self._window_id = self._window_manager.activate(
+            display=display, window_class=self.window_class
+        )
 
 
 def _status(callback: StatusCallback, message: str) -> None:

@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from common.logging.diagnostics import ComponentLog, diagnostic_action
+
 from typing import Any
 
 from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
@@ -41,6 +43,7 @@ class EarthInputCameraController(EarthCameraControllerIf):
     )
 
     def __init__(self, client: ChromiumDevToolsClient | None = None) -> None:
+        self._diagnostics = ComponentLog("navigation.earth.camera", "earth")
         self._client = client or ChromiumDevToolsClient(port=9223)
         self._zoom_bias = 0
 
@@ -58,18 +61,21 @@ class EarthInputCameraController(EarthCameraControllerIf):
         del view
         return False
 
+    @diagnostic_action("zoom_in", false_is_failure=True)
     def zoom_in(self) -> bool:
         ok = self._wheel(-480.0)
         if ok:
             self._zoom_bias = min(8, self._zoom_bias + 1)
         return ok
 
+    @diagnostic_action("zoom_out", false_is_failure=True)
     def zoom_out(self) -> bool:
         ok = self._wheel(480.0)
         if ok:
             self._zoom_bias = max(-8, self._zoom_bias - 1)
         return ok
 
+    @diagnostic_action("zoom_closest", false_is_failure=True)
     def zoom_closest(self) -> bool:
         """Drive Earth toward its closest useful zoom level."""
         ok = all(
@@ -80,17 +86,21 @@ class EarthInputCameraController(EarthCameraControllerIf):
             self._zoom_bias = 8
         return ok
 
+    @diagnostic_action("north_up", false_is_failure=True)
     def north_up(self) -> bool:
         return self._key("n", "KeyN", 78)
 
+    @diagnostic_action("top_down", false_is_failure=True)
     def top_down(self) -> bool:
         """Reset Earth to a zero-pitch top-down view."""
         return self._key("u", "KeyU", 85)
 
+    @diagnostic_action("toggle_menu_bar", false_is_failure=True)
     def toggle_menu_bar(self) -> bool:
         """Toggle Google Earth's menu bar using its Ctrl+Shift+B shortcut."""
         return self._key("B", "KeyB", 66, printable=False, modifiers=10)
 
+    @diagnostic_action("activate_location_tracking", false_is_failure=True)
     def activate_location_tracking(self) -> bool:
         """Activate Earth's location tool, preferring semantic discovery over coordinates."""
         try:
@@ -132,6 +142,7 @@ class EarthInputCameraController(EarthCameraControllerIf):
                 candidates.append(f"{role or '?'}: {name}")
         return tuple(candidates[:12])
 
+    @diagnostic_action("pan", false_is_failure=True)
     def pan(self, *, up: float = 0.0, right: float = 0.0) -> bool:
         """Pan using Earth arrow controls with zoom-relative travel."""
         key = None
@@ -146,6 +157,7 @@ class EarthInputCameraController(EarthCameraControllerIf):
         repeats = max(self._PAN_MIN_REPEATS, min(self._PAN_MAX_REPEATS, repeats))
         return all(self._key(*key, printable=False) for _ in range(repeats))
 
+    @diagnostic_action("tilt", false_is_failure=True)
     def tilt(self, delta_deg: float) -> bool:
         """Tilt with a small Shift+left-drag step."""
         if delta_deg == 0.0:
@@ -160,6 +172,7 @@ class EarthInputCameraController(EarthCameraControllerIf):
         except (OSError, RuntimeError, TypeError, ValueError):
             return False
 
+    @diagnostic_action("rotate", false_is_failure=True)
     def rotate(self, delta_deg: float) -> bool:
         """Rotate Earth heading with a horizontal Shift+left-drag."""
         if abs(delta_deg) < 0.1:
@@ -172,6 +185,7 @@ class EarthInputCameraController(EarthCameraControllerIf):
         except (OSError, RuntimeError, TypeError, ValueError):
             return False
 
+    @diagnostic_action("apply_preset", false_is_failure=True)
     def apply_preset(self, name: str) -> bool:
         """Apply a coarse driving-scale view preset relative to the current view."""
         steps = self._PRESET_WHEEL_STEPS.get(name.casefold())

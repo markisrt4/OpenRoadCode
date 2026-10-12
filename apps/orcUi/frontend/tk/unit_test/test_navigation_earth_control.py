@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import Mock
 
 from apps.orcUi.frontend.tk.navigation_panel import NavigationPanel
+from controllers.navigation.map_controls_drawer_controller import MapControlsDrawerController
 from apps.orcUi.frontend.tk.navigation_poi_actions import poll_poi_launch_results
 from ui.navigation import GeoPoint
 from ui.navigation.navigation_places_request_handler_if import NavigationPlacesRequestHandlerIf, PlaceActionResult
@@ -27,7 +28,12 @@ class EarthPoiControlTest(unittest.TestCase):
         self.places.poll_camera_state.return_value = None
         self.places.request_action.return_value = 7
         handler = Mock(zoom_level=16.5, pitch_rad=0.0)
-        self.panel = NavigationPanel(self.root, map_request_handler=handler, places_handler=self.places)
+        self.panel = NavigationPanel(
+            self.root,
+            map_request_handler=handler,
+            places_handler=self.places,
+            drawer_handler=MapControlsDrawerController(),
+        )
         self.panel.pack(fill=tk.BOTH, expand=True)
         self.root.update()
         self.action = PoiAction(PoiActionKind.OPEN_WEBSITE, "Explore in Google Earth",

@@ -5,6 +5,7 @@
 
 import tempfile
 import unittest
+import subprocess
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -72,33 +73,39 @@ class AdsbLauncherTest(unittest.TestCase):
         which: Mock,
         subprocess_run: Mock,
     ) -> None:
-        which.side_effect = lambda command: {
-            "systemctl": "/usr/bin/systemctl",
-            "sudo": None,
-        }[command]
+        which.return_value = "/usr/bin/systemctl"
+        subprocess_run.side_effect = [
+            Mock(returncode=0, stdout="loaded\n"),
+            Mock(returncode=0),
+        ]
 
         self.assertTrue(_set_systemd_service_state("readsb", "start"))
-        subprocess_run.assert_called_once_with(
-            ["/usr/bin/systemctl", "start", "readsb"],
+        self.assertEqual(subprocess_run.call_count, 2)
+        subprocess_run.assert_any_call(
+            ["/usr/bin/systemctl", "start", "readsb.service"],
             check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=5.0,
         )
 
     @patch("apps.launchers.adsb_launcher.subprocess.run")
     @patch("apps.launchers.adsb_launcher.shutil.which")
-    def test_service_control_uses_sudo_when_available(
+    def test_service_control_rejects_missing_unit_without_sudo(
         self,
         which: Mock,
         subprocess_run: Mock,
     ) -> None:
-        which.side_effect = lambda command: {
-            "systemctl": "/usr/bin/systemctl",
-            "sudo": "/usr/bin/sudo",
-        }[command]
+        which.return_value = "/usr/bin/systemctl"
+        subprocess_run.return_value = Mock(returncode=0, stdout="not-found\n")
 
-        self.assertTrue(_set_systemd_service_state("readsb", "stop"))
+        self.assertFalse(_set_systemd_service_state("readsb", "stop"))
         subprocess_run.assert_called_once_with(
-            ["/usr/bin/sudo", "/usr/bin/systemctl", "stop", "readsb"],
+            ["/usr/bin/systemctl", "show", "--property=LoadState", "--value", "readsb.service"],
             check=False,
+            capture_output=True,
+            text=True,
+            timeout=2.0,
         )
 
 

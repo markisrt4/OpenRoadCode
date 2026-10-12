@@ -6,9 +6,10 @@ import tkinter as tk
 from tkinter import ttk
 
 from frontends.common.weather_overlay_format import city_time_label, weather_value
+from ui.ui_widget import UiWidget
 
 
-class CityWeatherDetailsPopup(tk.Toplevel):
+class CityWeatherDetailsPopup(tk.Toplevel, UiWidget):
     """Show a selected city's model estimates and cached hourly values."""
 
     def __init__(self, owner, state, *, ui, imperial, on_close):
@@ -24,7 +25,7 @@ class CityWeatherDetailsPopup(tk.Toplevel):
         self._title = tk.Label(header, bg=ui.control_background, fg=ui.text, font=('Sans', 12, 'bold'))
         self._title.pack(side=tk.LEFT)
         tk.Button(header, text='× Close', command=on_close, bg=ui.control_background,
-                  fg=ui.text, relief=tk.FLAT, padx=8, pady=4).pack(side=tk.RIGHT)
+                  fg=ui.text, relief=tk.FLAT, padx=8, pady=4, highlightthickness=0, bd=0).pack(side=tk.RIGHT)
         self._time = tk.Label(body, bg=ui.control_background, fg=ui.text_muted, anchor='w', justify=tk.LEFT, wraplength=440)
         self._time.pack(fill=tk.X, pady=3)
         self._summary = tk.Label(body, bg=ui.control_background, fg=ui.text, anchor='w', justify=tk.LEFT, wraplength=440)
@@ -35,16 +36,29 @@ class CityWeatherDetailsPopup(tk.Toplevel):
         table_host.pack(fill=tk.BOTH, expand=True)
         style = ttk.Style(self)
         style.configure('CityWeather.Treeview', background=ui.control_background,
-                        fieldbackground=ui.control_background, foreground=ui.text, rowheight=24)
+                        fieldbackground=ui.control_background, foreground=ui.text, rowheight=24,
+                        borderwidth=0, relief=tk.FLAT, bordercolor=ui.border,
+                        lightcolor=ui.border, darkcolor=ui.border)
+        style.layout('CityWeather.Treeview', [('Treeview.treearea', {'sticky': 'nswe'})])
+        style.map('CityWeather.Treeview', background=[('selected', ui.control_active)],
+                  foreground=[('selected', ui.text)])
         style.configure('CityWeather.Treeview.Heading', background=ui.control_background,
-                        foreground=ui.text)
+                        foreground=ui.text, relief=tk.FLAT, borderwidth=0,
+                        bordercolor=ui.border, lightcolor=ui.border, darkcolor=ui.border)
+        style.map('CityWeather.Treeview.Heading',
+                  background=[('active', ui.control_active)], foreground=[('active', ui.text)])
         self._table = ttk.Treeview(table_host, style='CityWeather.Treeview', columns=('time', 'temp', 'wind', 'rain'), show='headings', height=6)
         for name, label, width in (('time', 'Local time', 145), ('temp', 'Temp', 75),
                                    ('wind', 'Wind', 90), ('rain', 'Rain / hour', 95)):
             self._table.heading(name, text=label)
             self._table.column(name, width=width, minwidth=55, anchor='w')
         self._table.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scroll = ttk.Scrollbar(table_host, orient=tk.VERTICAL, command=self._table.yview)
+        scroll = tk.Scrollbar(
+            table_host, orient=tk.VERTICAL, command=self._table.yview,
+            bg=ui.control_background, activebackground=ui.control_active,
+            troughcolor=ui.surface, highlightthickness=0, bd=0,
+            relief=tk.FLAT, elementborderwidth=0,
+        )
         scroll.pack(side=tk.RIGHT, fill=tk.Y)
         self._table.configure(yscrollcommand=scroll.set)
         self.bind('<Escape>', lambda _event: on_close())

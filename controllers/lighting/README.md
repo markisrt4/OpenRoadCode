@@ -154,3 +154,14 @@ python3 -m unittest     controllers.lighting.component_test.test_dummy_lighting_
 
 The protocol and configuration parser should also have independent tests as
 the package grows.
+
+## Structured logging
+
+`lighting.bluetooth` records command execution, connection transitions, write
+retry and recovery; `lighting.ui` retains request IDs through futures and UI
+completion callbacks. `lighting.reactive` records enable changes and output
+failures/recovery while routine music-driven commands stay DEBUG. An unconfigured
+backend reports a fixed availability state. Records exclude discovery names, BLE
+addresses/UUIDs, packets, RGB/brightness values and exception messages. Existing
+BLE retry timing is preserved. See the
+[device validation guide](../../common/logging/DEVICE_VALIDATION.md).

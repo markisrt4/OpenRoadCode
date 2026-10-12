@@ -1,5 +1,7 @@
 """Feed navigation telemetry and semantic camera requests to Google Earth."""
 
+
+from common.logging.diagnostics import ComponentLog, diagnostic_action
 import math
 import threading
 import time
@@ -19,6 +21,7 @@ class EarthNavigationController:
     """Own Earth GPS injection; browser operations run on the runtime worker."""
 
     def __init__(self, *, bridge=None, camera=None, dispatcher=None) -> None:
+        self._diagnostics = ComponentLog("navigation.earth", "earth")
         self._bridge = bridge or EarthGeolocationBridge()
         self._camera = camera or EarthInputCameraController()
         self._chase = EarthChaseCameraController(self._camera)
@@ -37,11 +40,15 @@ class EarthNavigationController:
         self._pitch = 0.0
         self._bearing = 0.0
 
+    @diagnostic_action("start")
     def start(self) -> None:
         self._dispatcher.start()
+        self._diagnostics.changed("lifecycle", "started")
 
+    @diagnostic_action("close")
     def close(self) -> None:
         self._dispatcher.close()
+        self._diagnostics.changed("lifecycle", "closed")
 
     def reset(self) -> None:
         self._tracking = False
@@ -59,17 +66,21 @@ class EarthNavigationController:
         with self._lock:
             self._motion = message.data
 
+    @diagnostic_action("tick")
     def tick(self) -> bool:
         """Install the bridge after page load and deliver the latest valid fix."""
         if not self._bridge.install():
+            self._diagnostics.changed("availability", "waiting_for_bridge")
             self.status = "Earth — waiting for page and GPS bridge"
             return False
         with self._lock:
             position, motion = self._position, self._motion
         if position is None:
+            self._diagnostics.changed("availability", "waiting_for_fix")
             self.status = "Earth — waiting for ORC GPS coordinates"
             return False
         if not self._follow:
+            self._diagnostics.changed("follow", False)
             self.status = "Earth — location follow paused; use recenter"
             return True
         ok = self._bridge.push_position(
@@ -81,9 +92,12 @@ class EarthNavigationController:
             speed_m_s=motion.ground_speed_m_s if motion is not None else None,
         )
         if not ok:
+            self._diagnostics.failed("delivery", reason="unavailable")
             self._tracking = False
             self.status = "Earth — GPS bridge delivery failed; retrying"
             return False
+        self._diagnostics.succeeded("delivery")
+        self._diagnostics.changed("availability", "ready")
         registrations = self._bridge.registration_count()
         self._tracking = self._location_requested and registrations is not None and registrations > 0
         now = time.monotonic()
@@ -92,10 +106,13 @@ class EarthNavigationController:
             self._next_tracking_attempt = now + 5.0
         self.status = ("Earth — ORC GPS delivered" if self._tracking else
                        "Earth — GPS delivered; waiting for Earth's location control")
+        self._diagnostics.changed("tracking", self._tracking)
         return self._tracking
 
+    @diagnostic_action("follow")
     def request_follow(self, enabled: bool) -> None:
         self._follow = enabled
+        self._diagnostics.changed("follow", bool(enabled))
         self._tracking = False
         self._next_tracking_attempt = 0.0
         self._location_requested = False
@@ -105,6 +122,7 @@ class EarthNavigationController:
     def request_recenter(self) -> None:
         self.request_follow(True)
 
+    @diagnostic_action("center")
     def request_center_on(self, position) -> None:
         self._follow = False
         self._bridge.install()
@@ -112,6 +130,7 @@ class EarthNavigationController:
                                    math.degrees(position.longitude_rad), altitude_m=position.altitude_m)
         self._camera.activate_location_tracking()
 
+    @diagnostic_action("pan")
     def request_pan_screen(self, right_px: float, up_px: float) -> None:
         self._follow = False
         self._camera.pan(right=right_px / 160.0, up=up_px / 160.0)
@@ -119,12 +138,14 @@ class EarthNavigationController:
     def request_pan(self, north_m: float, east_m: float) -> None:
         self.request_pan_screen(east_m, north_m)
 
+    @diagnostic_action("zoom")
     def request_zoom(self, zoom_level: float) -> None:
         delta = zoom_level - self._zoom
         self._zoom = zoom_level
         if delta:
             (self._camera.zoom_in if delta > 0 else self._camera.zoom_out)()
 
+    @diagnostic_action("pitch")
     def request_pitch(self, pitch_rad: float) -> None:
         self._follow = False
         if pitch_rad == 0:
@@ -133,6 +154,7 @@ class EarthNavigationController:
             self._camera.tilt(math.degrees(pitch_rad - self._pitch))
         self._pitch = pitch_rad
 
+    @diagnostic_action("bearing")
     def request_bearing(self, bearing_rad: float) -> None:
         if bearing_rad == 0:
             self._camera.north_up()
@@ -140,6 +162,7 @@ class EarthNavigationController:
             self._camera.rotate(math.degrees(bearing_rad - self._bearing))
         self._bearing = bearing_rad
 
+    @diagnostic_action("chase")
     def request_chase(self, enabled: bool) -> None:
         """Select the branch's tested close oblique follow perspective."""
         self._chase.set_enabled(enabled)

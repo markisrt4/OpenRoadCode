@@ -16,7 +16,7 @@ from controllers.computer_vision.camera_frame_processor import CameraFrameProces
 from controllers.computer_vision.model_readiness import YoloModelReadiness
 from controllers.computer_vision.perception_worker import PerceptionWorker
 from controllers.computer_vision.vision_controller import VisionController
-from controllers.computer_vision.yolo_object_detector import YoloObjectDetector
+from controllers.computer_vision.yolo_object_detector import LazyYoloObjectDetector
 from hardware_io.camera.v4l2_camera import V4L2Camera
 from hardware_io.camera.v4l2_camera_controls import V4L2CameraProfileController
 from ui.vision.vision_ui_state import VisionLifecycle, VisionUiState
@@ -50,12 +50,10 @@ def configure_vision(app: OrcUiApp) -> VisionComposition:
         theme_bundle=lambda: theme_bundle(app.theme_mode),
     )
     try:
-        model = readiness.prepare()
-        detector = YoloObjectDetector(
-            readiness.model_name,
+        detector = LazyYoloObjectDetector(
+            readiness,
             confidence=0.10,
             image_size=640,
-            model=model,
         )
         tracker = ByteTrackObjectTracker(frame_rate=30)
     except (RuntimeError, ImportError, OSError) as exc:
@@ -76,6 +74,7 @@ def configure_vision(app: OrcUiApp) -> VisionComposition:
         CameraFrameProcessor(),
         PerceptionWorker(detector, tracker),
         source_label="/dev/video0",
+        prepare_model=detector.prepare,
     )
     app.register_screen("VISION", screen, before="CONTROLS")
     return VisionComposition(
