@@ -70,7 +70,8 @@ neither treatment changes provider actions or loads bitmap assets. Provider
 cards use consistent compact logos, titles, descriptions that wrap to their
 allocated width, and action buttons. Spotify groups app setup and account access
 in one secondary row inside the card body, separate from Remote and Play Here.
-These controls retain their existing injected actions and offline restrictions.
+These controls emit `SpotifyAccountSession` requests and retain offline restrictions;
+composition owns account workers and the configuration dialog.
 The online hub clears its footer status on entry; the offline explanation remains.
 
 YouTube Music is intentionally advertised ahead of its runtime integration. Selecting it opens a dedicated **Coming Soon** screen. It must not construct a managed browser player or reference an `youtube_music` application-runtime key until that launcher is actually registered. This keeps the planned feature visible without creating a false runtime dependency.

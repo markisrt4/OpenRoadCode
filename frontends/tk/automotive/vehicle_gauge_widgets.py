@@ -7,15 +7,16 @@ from __future__ import annotations
 
 import math
 import tkinter as tk
-from apps.common.uiTheme import (
+from ui.theme.vehicle_gauges import (
     VEHICLE_GAUGE_REDLINE_THEME,
     VEHICLE_GAUGE_THEME,
     VehicleGaugeRedlineTheme,
     VehicleGaugeTheme,
 )
+from ui.ui_widget import UiWidget
 
 
-class _ValueGauge(tk.Canvas):
+class _ValueGauge(tk.Canvas, UiWidget):
     """Common value and connection handling for canvas gauges."""
 
     def __init__(

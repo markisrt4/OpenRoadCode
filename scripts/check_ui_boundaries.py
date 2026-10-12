@@ -9,6 +9,12 @@ import json
 from pathlib import Path
 import sys
 
+# Support both `python scripts/check_ui_boundaries.py` and package imports in tests.
+if __package__:
+    from scripts.widget_policy_discovery import discover_widgets
+else:
+    from widget_policy_discovery import discover_widgets
+
 ROOT = Path(__file__).resolve().parents[1]
 BASELINE = ROOT / 'scripts/ui_boundary_exceptions.json'
 UI_BACKENDS = ('controllers', 'services', 'protocols', 'hardware_io', 'requests',
@@ -30,6 +36,7 @@ def discover(root):
         paths.update(path for path in (root / 'apps').rglob('*.py') if directory in path.parts)
     paths.update((root / 'controllers').rglob('*.py'))
     paths.update((root / 'ui').rglob('*.py'))
+    paths.update(discover_widgets(root))
     return sorted(path for path in paths if production(path.relative_to(root)))
 
 
@@ -39,6 +46,14 @@ def violations(path, source):
     contract = parts[0] == 'ui'
     domain = parts[0] == 'controllers'
     forbidden = GUI if domain else UI_BACKENDS + GUI if contract else UI_BACKENDS
+    # Automotive presentation now owns no application-package dependencies.
+    # Lock in the completed migration while other frontend areas are migrated.
+    if parts[:3] == ('frontends', 'tk', 'automotive'):
+        forbidden += ('apps',)
+    if parts[:3] == ('frontends', 'tk', 'radio'):
+        forbidden += ('apps',)
+    if parts[:3] == ('frontends', 'tk', 'games'):
+        forbidden += ('apps', 'frontends.x11')
     results = []
     for node in ast.walk(ast.parse(source, filename=str(path))):
         if isinstance(node, ast.Import):

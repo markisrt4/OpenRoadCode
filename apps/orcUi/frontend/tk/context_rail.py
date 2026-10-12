@@ -19,6 +19,7 @@ from frontends.tk.automotive.vehicle_gauge_theme import vehicle_gauge_theme_from
 from frontends.tk.automotive.vehicle_gauge_widgets import LinearGauge, RoundGauge
 from ui.theme import ThemeBundle, ThemeMode
 from .shell_metrics import CONTEXT_RAIL_WIDTH, FONT_BODY, FONT_CONTROL, FONT_SMALL
+from ui.ui_widget import UiWidget
 
 
 @dataclass(frozen=True)
@@ -28,7 +29,7 @@ class ContextPage:
     builder: Callable[[tk.Frame], None]
 
 
-class ContextRail(tk.Frame):
+class ContextRail(tk.Frame, UiWidget):
     """Compact, user-switchable secondary information panel."""
 
     WIDTH = CONTEXT_RAIL_WIDTH

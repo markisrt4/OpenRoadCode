@@ -6,12 +6,13 @@
 import io
 import queue
 import tkinter as tk
+from ui.ui_widget import UiWidget
 from PIL import Image, ImageTk
 from ui.media.media_preview_if import MediaPreviewIf
 from ui.media import PlaybackState
 
 
-class MediaPreview(tk.Frame):
+class MediaPreview(tk.Frame, UiWidget):
     def __init__(self, parent, *, handler: MediaPreviewIf, ui, on_open):
         super().__init__(parent, bg=ui.surface)
         self._handler = handler
@@ -73,7 +74,7 @@ class MediaPreview(tk.Frame):
         if event.widget is self:
             self.stop()
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop preview polling on hide or destruction."""
         self._closed = True
         if self._after is not None:

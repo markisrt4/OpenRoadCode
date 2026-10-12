@@ -146,6 +146,7 @@ class SpotifyStateService(
         controller: SpotifyControllerIf,
         *,
         refresh_seconds: float = DEFAULT_REFRESH_SECONDS,
+        fallback_volume_handler: VolumeRequestHandlerIf | None = None,
     ) -> None:
         if refresh_seconds < self.MIN_REFRESH_SECONDS:
             raise ValueError(
@@ -153,7 +154,7 @@ class SpotifyStateService(
             )
         self._network_allowed: Callable[[], bool] = lambda: True
         self._controller = _SynchronizedSpotifyController(controller)
-        self._presenter = SpotifyMediaPresenter(self._controller, MediaUiStub())
+        self._presenter = SpotifyMediaPresenter(self._controller, MediaUiStub(), fallback_volume_handler)
         self._refresh_seconds = refresh_seconds
         self._state = MediaState()
         self._state_lock = threading.Lock()
@@ -249,7 +250,7 @@ class SpotifyStateService(
 
     def request_volume(self, volume_percent: int) -> None:
         clamped = max(0, min(100, volume_percent))
-        self._enqueue(lambda: self._controller.set_volume_percent(clamped), "volume")
+        self._enqueue(lambda: self._presenter.request_volume(clamped), "volume")
 
     def request_transfer_playback(self, device_id: str, *, play: bool = True) -> None:
         self._enqueue(lambda: self._controller.transfer_playback(device_id, play=play), "transfer")

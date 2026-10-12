@@ -13,6 +13,13 @@ from controllers.route_planning.route_planning_types import (
 )
 from ui.navigation import GeoPoint
 from ui.navigation.route_types import TravelMode
+from ui.navigation import (
+    RouteAlternativeRequestHandlerIf, RouteRecalculationRequestHandlerIf,
+    RouteRequestHandlerIf, RouteSimulationRequestHandlerIf,
+    RouteTravelModeRequestHandlerIf, RouteVoiceGuidanceRequestHandlerIf,
+    RouteWaypointRequestHandlerIf,
+)
+from services.navigation.navigation_command_client import NavigationCommandClient
 
 
 def test_start_route_converts_ui_point_and_presents_route() -> None:
@@ -31,7 +38,7 @@ def test_start_route_converts_ui_point_and_presents_route() -> None:
     with patch(
         "controllers.navigation.navigation_route_request_handler.present_route"
     ) as present:
-        handler.request_start_route(destination, (), TravelMode.AUTO)
+        handler.request_start_route(destination, TravelMode.AUTO)
 
     args, kwargs = client.start_route.call_args
     assert math.isclose(args[0].latitude, 42.7)
@@ -81,9 +88,66 @@ def test_route_observers_follow_successful_start_and_cancel():
     handler = NavigationRouteRequestHandler(client, renderer)
     handler.observe_route(observer)
     assert handler.active_route is None
-    handler.request_start_route(GeoPoint(math.radians(43), math.radians(-83)), (), TravelMode.AUTO)
+    handler.request_start_route(GeoPoint(math.radians(43), math.radians(-83)), TravelMode.AUTO)
     assert handler.active_route == route
     observer.assert_called_once_with(route)
     handler.request_cancel_route()
     assert handler.active_route is None
     assert observer.call_args.args == (None,)
+
+
+def test_service_adapter_advertises_only_supported_capabilities():
+    handler = NavigationRouteRequestHandler(Mock(spec=NavigationCommandClient), Mock())
+    assert isinstance(handler, RouteRequestHandlerIf)
+    assert isinstance(handler, RouteSimulationRequestHandlerIf)
+    for capability in (
+        RouteWaypointRequestHandlerIf, RouteAlternativeRequestHandlerIf,
+        RouteRecalculationRequestHandlerIf, RouteTravelModeRequestHandlerIf,
+        RouteVoiceGuidanceRequestHandlerIf,
+    ):
+        assert not isinstance(handler, capability)
+        for method in capability.__abstractmethods__:
+            assert not hasattr(handler, method)
+
+
+def test_start_route_forwards_selected_costing_mode_without_local_settings():
+    client, renderer = Mock(spec=NavigationCommandClient), Mock()
+    handler = NavigationRouteRequestHandler(client, renderer)
+    destination = GeoPoint(math.radians(42), math.radians(-83))
+    with patch("controllers.navigation.navigation_route_request_handler.present_route"):
+        for mode in handler.supported_travel_modes:
+            handler.request_start_route(destination, mode)
+            assert client.start_route.call_args.kwargs["travel_mode"].name == mode.name
+
+
+def test_unsupported_transit_is_discoverable_and_rejected_before_service_call():
+    import pytest
+
+    client, renderer = Mock(spec=NavigationCommandClient), Mock()
+    handler = NavigationRouteRequestHandler(client, renderer)
+    assert handler.supported_travel_modes == frozenset((
+        TravelMode.AUTO, TravelMode.BICYCLE, TravelMode.PEDESTRIAN,
+    ))
+    with pytest.raises(ValueError, match="Unsupported route travel mode: TRANSIT"):
+        handler.request_start_route(GeoPoint(0, 0), TravelMode.TRANSIT)
+    client.start_route.assert_not_called()
+    renderer.set_route.assert_not_called()
+
+
+def test_failed_route_start_preserves_active_route_and_does_not_notify():
+    client, renderer, observer = Mock(spec=NavigationCommandClient), Mock(), Mock()
+    handler = NavigationRouteRequestHandler(client, renderer)
+    route = RouteResult(1, 60, (RouteGeoPoint(42, -83), RouteGeoPoint(43, -83)), ())
+    client.start_route.return_value = route
+    destination = GeoPoint(math.radians(43), math.radians(-83))
+    handler.observe_route(observer)
+    with patch("controllers.navigation.navigation_route_request_handler.present_route"):
+        handler.request_start_route(destination, TravelMode.AUTO)
+    observer.reset_mock()
+    client.start_route.side_effect = RuntimeError("service unavailable")
+    import pytest
+
+    with pytest.raises(RuntimeError, match="service unavailable"):
+        handler.request_start_route(destination, TravelMode.AUTO)
+    assert handler.active_route is route
+    observer.assert_not_called()

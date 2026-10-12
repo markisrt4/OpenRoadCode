@@ -18,6 +18,7 @@ from .ecu_card_layout import fit_ecu_card
 from .ecu_animation import EcuAnimationMixin, visual_engine_running
 from .ecu_update_rate import RateCounter, EcuRateLabel
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
+from ui.ui_widget import UiWidget
 
 
 def bounded_marker_x(
@@ -37,7 +38,7 @@ def bounded_marker_x(
     return start + ((clamped - minimum) / (maximum - minimum)) * (end - start)
 
 
-class EcuPanel(EcuAnimationMixin, tk.Frame):
+class EcuPanel(EcuAnimationMixin, tk.Frame, UiWidget):
     """Dense driver-facing ECU interpretation dashboard."""
 
     def __init__(

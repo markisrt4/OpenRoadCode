@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import datetime
 import tkinter as tk
+import logging
 
 from common.units import (
     UnitSystem,
@@ -19,6 +20,7 @@ from common.units import (
 )
 from ui.theme import ThemeBundle
 from ui.weather import WeatherRequestHandlerIf, WeatherUiIf, WeatherUiState
+from ui.ui_widget import UiWidget
 
 
 def weather_symbol(condition: str, *, nighttime: bool = False) -> str:
@@ -62,7 +64,7 @@ def weather_accent(condition: str, theme: ThemeBundle) -> str:
     return ui.text_muted
 
 
-class OrcWeatherPanel(tk.Frame, WeatherUiIf):
+class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
     """Render weather as a glanceable, touch-friendly automotive dashboard."""
 
     def __init__(
@@ -262,8 +264,12 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
             self._on_radar_map()
 
     def _request_weather_radio(self) -> None:
+        logger = logging.getLogger("orc.radio.noaa")
+        logger.info("NOAA button pressed")
         if self._on_weather_radio is not None:
             self._on_weather_radio()
+        else:
+            logger.warning("NOAA button has no action binding")
 
     def _render(self) -> None:
         state = self._state

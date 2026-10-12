@@ -9,9 +9,10 @@ import tkinter as tk
 from collections.abc import Callable
 
 from ui.theme import ThemeBundle
+from ui.ui_widget import UiWidget
 
 
-class CanvasIconButton(tk.Canvas):
+class CanvasIconButton(tk.Canvas, UiWidget):
     """Small icon-only control that does not depend on Unicode glyph support."""
 
     def __init__(

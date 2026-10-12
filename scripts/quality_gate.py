@@ -46,6 +46,7 @@ def _run_ruff() -> bool:
 def main() -> int:
     checks = (
         _run_ruff(),
+        _run("Strict UI contract types", [sys.executable, "scripts/check_ui_types.py"]),
         _run(
             "orcUi module-size architecture check",
             [sys.executable, "scripts/check_python_module_size.py"],

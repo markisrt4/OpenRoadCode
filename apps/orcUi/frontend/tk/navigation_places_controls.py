@@ -159,7 +159,6 @@ class NavigationPlacesControls:
         try:
             self._route_request_handler.request_start_route(
                 poi.position,
-                (),
                 TravelMode.AUTO,
             )
             self._route_active = True

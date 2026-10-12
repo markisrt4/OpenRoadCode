@@ -3,6 +3,7 @@
 
 """Own forecast refresh workers independently of frontend widgets."""
 import logging
+from common.resource_cleanup import close_resources
 
 from collections.abc import Callable
 import threading
@@ -98,7 +99,7 @@ class WeatherScreenController(WeatherScreenRequestHandlerIf):
             except Exception as error:
                 self._log.failed(error)
                 state, detail = None, str(error)
-        self._dispatcher.schedule_ui_callback(0, lambda: self._complete(generation, state, detail, operation_id))
+        self._dispatcher.dispatch_ui(lambda: self._complete(generation, state, detail, operation_id))
 
     def _complete(self, generation, state, detail, operation_id=None):
         if self._closed or not self._visible or generation != self._generation:
@@ -134,7 +135,8 @@ class WeatherScreenController(WeatherScreenRequestHandlerIf):
 
     def close(self):
         """Invalidate pending refresh callbacks and disconnect the view."""
+        if self._closed:
+            return
         self._closed = True
-        self._unsubscribe_mode()
-        self.set_visible(False)
-        self._ui.set_weather_request_handler(None)
+        close_resources(self._unsubscribe_mode, lambda: self.set_visible(False),
+                        lambda: self._ui.set_weather_request_handler(None))

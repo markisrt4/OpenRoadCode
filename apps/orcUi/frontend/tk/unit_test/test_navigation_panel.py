@@ -230,7 +230,7 @@ class NavigationPanelControlTest(unittest.TestCase):
         self.assertEqual(poi.name, "Home")
         self.assertEqual(poi.address, "123 Main St")
         panel._navigate_to_poi(poi)
-        panel._route_request_handler.request_start_route.assert_called_once_with(position, (), TravelMode.AUTO)
+        panel._route_request_handler.request_start_route.assert_called_once_with(position, TravelMode.AUTO)
 
     def test_work_shortcut_reports_unconfigured_location(self) -> None:
         panel = self._panel()
@@ -336,7 +336,6 @@ class NavigationPanelControlTest(unittest.TestCase):
 
         panel._route_request_handler.request_start_route.assert_called_once_with(
             poi.position,
-            (),
             TravelMode.AUTO,
         )
         panel._shortcut_status.set.assert_called_with("Routing to Panera Bread")

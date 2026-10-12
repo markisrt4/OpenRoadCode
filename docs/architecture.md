@@ -229,3 +229,10 @@ Not every feature belongs on the message bus. Commands and synchronous operation
 - **"This is the current state"** is a candidate for telemetry.
 
 Use the simplest boundary that preserves testability and implementation independence. Architecture is supposed to remove problems, not breed them for sport.
+
+Spotify account setup follows the same immutable presentation boundary as playback
+and browsing. Composition owns account services, a bounded worker pool, and the
+configuration dialog. Per-view bindings cancel hidden requests; the controller
+serializes token persistence against cancellation and disconnect. OAuth listeners
+support optional cancellation without changing existing no-argument callers.
+See [Spotify UI ownership](spotify_ui.md) for lifecycle and device acceptance.

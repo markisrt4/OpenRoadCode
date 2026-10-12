@@ -50,6 +50,17 @@ else
 fi
 
 if [[ -x "$VENV_DIR/bin/python" ]]; then
+  if [[ " ${FEATURES[*]} " == *" development "* ]]; then
+    echo "[*] Ruff is optional on Termux; the quality gate skips it when unavailable."
+    for quality_tool in pytest mypy; do
+      if "$VENV_DIR/bin/python" -m "$quality_tool" --version; then
+        echo "[+] $quality_tool available in $VENV_DIR"
+      else
+        echo "[!] $quality_tool missing from $VENV_DIR" >&2
+        fail=1
+      fi
+    done
+  fi
   if [[ " ${FEATURES[*]} " == *" web-ui "* ]] && ! "$VENV_DIR/bin/python" -m pip show Flask >/dev/null 2>&1; then
     echo "[!] Flask           missing from $VENV_DIR" >&2
     fail=1

@@ -5,9 +5,10 @@
 
 import tkinter as tk
 from ui.theme import ThemeBundle
+from ui.ui_widget import UiWidget
 
 
-class DiagnosticsTabs(tk.Frame):
+class DiagnosticsTabs(tk.Frame, UiWidget):
     """Keep Diagnostics navigation consistent with ORC shell controls."""
 
     def __init__(self, parent, *, theme: ThemeBundle):

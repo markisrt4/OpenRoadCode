@@ -17,6 +17,7 @@ from .shell_metrics import (
     FONT_CONTROL,
     FONT_STATUS,
 )
+from ui.ui_widget import UiWidget
 
 
 def aircraft_button_text(*, enabled: bool, aircraft_count: int) -> str:
@@ -37,7 +38,7 @@ def aircraft_menu_labels(*, enabled: bool, aircraft_count: int, simulation: bool
     return receiver, tracker, "♫  Open AM / pilot radio"
 
 
-class OrcUiBottomBar(tk.Frame):
+class OrcUiBottomBar(tk.Frame, UiWidget):
     """Own persistent volume, Aircraft, diagnostics, and theme controls."""
 
     def __init__(

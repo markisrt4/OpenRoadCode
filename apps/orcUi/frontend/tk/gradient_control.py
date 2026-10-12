@@ -4,9 +4,10 @@
 """Small theme-colored gradient controls for persistent shell chrome."""
 
 import tkinter as tk
+from ui.ui_widget import UiWidget
 
 
-class GradientControl(tk.Canvas):
+class GradientControl(tk.Canvas, UiWidget):
     """Present an injected action with mouse and keyboard activation."""
 
     def __init__(self, parent, *, command, bg, fg, activebackground,

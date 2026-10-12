@@ -34,13 +34,14 @@ from .navigation_radar_controls import NavigationRadarControls
 from .navigation_panel_layout import build_navigation_panel
 from .navigation_places_controls import NavigationPlacesControls
 from .navigation_panel_camera import NavigationCameraControls
+from ui.ui_widget import UiWidget
 
 
 _LOG = logging.getLogger("navigation.poi.ui")
 
 
 class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, NavigationCameraControls,
-                      MapControlsDrawerUiIf, tk.Frame):
+                      MapControlsDrawerUiIf, tk.Frame, UiWidget):
     """Map host, navigation controls, and nearby POI discovery."""
 
     def __init__(
