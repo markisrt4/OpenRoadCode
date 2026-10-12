@@ -22,12 +22,13 @@ class SpotifyScreenTest(unittest.TestCase):
     @patch("frontends.tk.media.spotify_screen.tk.Frame")
     @patch("frontends.tk.media.spotify_screen.SpotifyPlaybackPanel")
     def test_show_binds_painted_view_and_hide_retires_session(self, panel_type, frame_type, overlay_type):
-        host, session = Mock(), Mock()
+        host, session, visualizer = Mock(), Mock(), Mock()
         screen = SpotifyScreen(
             host, theme=_theme(), back_action=Mock(),
-            playback_session=session, native_surface=Mock(),
+            playback_session=session, native_surface=Mock(), show_visualizer=visualizer,
         )
         screen.show()
+        self.assertIs(panel_type.call_args.kwargs["show_visualizer"], visualizer)
         panel = panel_type.return_value
         panel.pack.assert_called_once_with(fill="both", expand=True)
         session.activate.assert_called_once_with(screen)

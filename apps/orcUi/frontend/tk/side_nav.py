@@ -120,9 +120,10 @@ class _NavTile(tk.Canvas, UiWidget):
         if self._selected:
             self.create_rectangle(0, 0, 4, height, fill=ui.accent_primary, outline="")
 
-        badge_x = 20
+        # Keep the rail narrow; the longest label gets a slightly smaller font.
+        badge_x = 18
         badge_y = height / 2
-        badge_radius = 13
+        badge_radius = 12
         self.create_oval(
             badge_x - badge_radius, badge_y - badge_radius,
             badge_x + badge_radius, badge_y + badge_radius,
@@ -130,10 +131,10 @@ class _NavTile(tk.Canvas, UiWidget):
         )
         self._draw_icon(self._nav_name, badge_x, badge_y, icon_color)
         self.create_text(
-            38, height / 2,
+            35, height / 2,
             text=_NAV_LABELS.get(self._nav_name, self._nav_name),
             fill=label_color,
-            font=("Sans", FONT_CONTROL - 1, "bold"),
+            font=("Sans", FONT_CONTROL - (2 if self._nav_name == "WEATHER" else 1), "bold"),
             anchor="w",
         )
 
@@ -209,7 +210,7 @@ class OrcUiSideNav(tk.Frame, UiWidget):
     """Render a fixed-size viewport over the shell's navigation destinations."""
 
     WIDTH = SIDE_NAV_WIDTH
-    VISIBLE_ITEMS = 7
+    VISIBLE_ITEMS = 8
     SCROLL_HEIGHT = 22
 
     def __init__(
@@ -288,7 +289,7 @@ class OrcUiSideNav(tk.Frame, UiWidget):
             child.destroy()
         self._tiles.clear()
 
-        if len(self._items) > self.VISIBLE_ITEMS:
+        if self._items:
             self._up_button = self._make_scroll_button("▲", lambda: self._scroll(-1))
             self._up_button.pack(fill=tk.X, padx=8, pady=(0, 2))
         else:
@@ -307,7 +308,7 @@ class OrcUiSideNav(tk.Frame, UiWidget):
             tile.set_state(selected=item == self._active, theme=theme)
             self._tiles[item] = tile
 
-        if len(self._items) > self.VISIBLE_ITEMS:
+        if self._items:
             self._down_button = self._make_scroll_button("▼", lambda: self._scroll(1))
             self._down_button.pack(fill=tk.X, padx=8, pady=(2, 0))
         else:

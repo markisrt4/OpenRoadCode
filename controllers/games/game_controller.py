@@ -160,7 +160,7 @@ class GameController(GamesRequestHandlerIf):
         if error is not None:
             self._publish_status(f"Stop failed: {error}")
         else:
-            self._publish_status("Choose a game")
+            self._publish_status("")
         self._publish()
 
     def _scan_inventory(self, verify_cached: bool) -> None:
@@ -173,7 +173,7 @@ class GameController(GamesRequestHandlerIf):
         )
         if not unresolved:
             self._inventory_loading = False
-            self._publish_status("Choose a game")
+            self._publish_status("")
             return
         for game in unresolved:
             if self._status.get(game.name) != GameStatus.INSTALLING:
@@ -220,7 +220,7 @@ class GameController(GamesRequestHandlerIf):
                     self._status[game_id] = GameStatus.UNAVAILABLE
         self._inventory_loading = False
         self._save_cache()
-        self._publish_status("Choose a game")
+        self._publish_status("")
         self._publish()
 
     def _install_worker(self, game: GameDefinition, backend: GameInstallerIf) -> None:

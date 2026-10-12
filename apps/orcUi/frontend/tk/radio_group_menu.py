@@ -41,6 +41,7 @@ class RadioGroupMenuMixin(RadioPresentationFrame):
                 font=("Sans", FONT_CONTROL, "bold"),
                 padx=9,
                 pady=7,
+                highlightthickness=0,
             )
             button.pack(side=tk.LEFT, fill=tk.X, expand=True)
             self._group_buttons[name] = button
@@ -57,6 +58,7 @@ class RadioGroupMenuMixin(RadioPresentationFrame):
             font=("Sans", FONT_CONTROL, "bold"),
             padx=12,
             pady=7,
+            highlightthickness=0,
         )
         self._controls_button.pack(side=tk.RIGHT)
         self._paint_groups()
@@ -73,7 +75,7 @@ class RadioGroupMenuMixin(RadioPresentationFrame):
             fg=ui.text,
             activebackground=ui.control_background,
             activeforeground=ui.accent_success,
-            bd=1,
+            bd=0,
             relief=tk.FLAT,
             font=("Sans", 11),
         )
@@ -89,6 +91,8 @@ class RadioGroupMenuMixin(RadioPresentationFrame):
                     fg=ui.text,
                     activebackground=ui.control_background,
                     activeforeground=ui.accent_success,
+                    bd=0,
+                    relief=tk.FLAT,
                     font=("Sans", 11),
                 )
                 self._add_profile_presets(submenu, profile)

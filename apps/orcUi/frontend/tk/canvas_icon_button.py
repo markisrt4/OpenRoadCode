@@ -36,8 +36,7 @@ class CanvasIconButton(tk.Canvas, UiWidget):
             width=width,
             height=height,
             bg=ui.control_background,
-            highlightthickness=1,
-            highlightbackground=ui.border,
+            highlightthickness=0,
             bd=0,
             cursor="hand2",
         )
@@ -81,8 +80,7 @@ class CanvasIconButton(tk.Canvas, UiWidget):
             else ui.surface_alt if self._hovered
             else ui.control_background
         )
-        border = ui.accent_danger if self._icon == "power" and self._hovered else ui.border
-        self.configure(bg=background, highlightbackground=border)
+        self.configure(bg=background)
         self.delete("all")
         if self._icon == "power":
             self._draw_power(

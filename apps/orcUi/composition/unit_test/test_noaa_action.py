@@ -21,8 +21,12 @@ def action():
     with patch("apps.orcUi.composition.radio.StreamingRadioResources", return_value=resources), patch(
         "apps.orcUi.composition.radio.RadioScreen"), patch(
         "apps.orcUi.composition.radio.RadioBrowserDirectory"), patch(
-        "apps.orcUi.composition.radio.StreamingRadioFavorites"):
+        "apps.orcUi.composition.radio.StreamingRadioFavorites"), patch(
+        "apps.orcUi.composition.radio.OrcUiAdsbControl"):
         composition = configure_radio(app, runtime)
+        # Complete the composition-owned initial ADS-B observation separately.
+        while work:
+            work.pop(0)()
     return composition.open_weather_radio, app, runtime, resources, work, deliveries
 
 

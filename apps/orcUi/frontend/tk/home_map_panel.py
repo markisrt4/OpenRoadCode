@@ -32,7 +32,7 @@ class HomeMapPanel(tk.Frame, UiWidget):
             parent,
             bg=ui.surface,
             highlightthickness=1,
-            highlightbackground=ui.border,
+            highlightcolor=ui.border, highlightbackground=ui.border,
         )
         self._request_handler = map_request_handler
         self._radar_enabled = radar_enabled
@@ -50,7 +50,7 @@ class HomeMapPanel(tk.Frame, UiWidget):
         """Apply the active CSS-derived theme to the map host chrome."""
         self._theme = theme
         ui = theme.ui
-        self.configure(bg=ui.surface, highlightbackground=ui.border)
+        self.configure(bg=ui.surface, highlightcolor=ui.border, highlightbackground=ui.border)
         self._map_host.configure(bg=ui.background)
         self._radar_button.configure(bg=ui.control_background)
         self._render_radar_state()
@@ -61,6 +61,7 @@ class HomeMapPanel(tk.Frame, UiWidget):
             self, text="RADAR", command=self._toggle_radar,
             bg=self._theme.ui.control_background, fg=self._theme.ui.text,
             relief=tk.FLAT, font=("Sans", 10, "bold"), padx=10, pady=5,
+            bd=0, highlightthickness=0,
             state=tk.NORMAL if self._on_radar_toggle is not None else tk.DISABLED,
         )
         self._radar_button.place(relx=1.0, x=-8, y=8, anchor="ne")

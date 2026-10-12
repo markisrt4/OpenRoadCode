@@ -50,11 +50,13 @@ add_executable(openroadcode-vehicle-commands-test vehicle_commands_cli.cpp ../sr
 target_include_directories(openroadcode-vehicle-commands-test PRIVATE
     ${CPPZMQ_INCLUDE_DIR} ${RAPIDJSON_INCLUDE_DIR} ../src)
 target_link_libraries(openroadcode-vehicle-commands-test PRIVATE PkgConfig::ZMQ spdlog::spdlog)
+add_executable(openroadcode-embedded-resize-test embedded_resize_cli.cpp)
 if(BUILD_TESTING)
     add_test(NAME vehicle-motion COMMAND openroadcode-vehicle-motion-test)
     add_test(NAME vehicle-style COMMAND openroadcode-vehicle-style-test
         ${CMAKE_CURRENT_SOURCE_DIR}/../../../tools/map_builder/templates/openroadcode-style.json)
     add_test(NAME vehicle-commands COMMAND openroadcode-vehicle-commands-test)
+    add_test(NAME embedded-resize COMMAND openroadcode-embedded-resize-test)
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
     add_test(NAME logging-contract
         COMMAND ${Python3_EXECUTABLE}

@@ -95,4 +95,5 @@ class YouTubeMusicComingSoonScreen(TkScreen):
             font=("Sans", 13, "bold"),
             padx=18,
             pady=9,
+            highlightthickness=0,
         ).pack(side=tk.BOTTOM, pady=18)

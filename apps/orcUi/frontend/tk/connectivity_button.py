@@ -11,6 +11,7 @@ class ConnectivityButton(tk.Button, UiWidget):
         self._last_status = None
         super().__init__(parent, command=command, bg=background,
                          activebackground=active_background, relief=tk.FLAT,
+                         bd=0, highlightthickness=0,
                          font=('Sans', 10, 'bold'), cursor='hand2', compound=tk.RIGHT,
                          padx=8, pady=5)
         self.set_status('ONLINE · CHECKING', muted, False)

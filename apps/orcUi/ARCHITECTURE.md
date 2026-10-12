@@ -1,10 +1,35 @@
 # orcUi Architecture
 
+## Saved destinations
+
+Home and Work use the existing places request contract and POI popup. A shortcut
+opens the destination card; its Navigate action emits the route request. Address
+text is carried in immutable MapFavorite and PointOfInterest values. Widgets do
+not read configuration or call geocoders. The navigation composition's default
+favorites store overlays user-owned TOML while preserving legacy JSON favorites.
+The separate installer TUI binds destination setup request/presentation contracts;
+its composition root owns the local geocoder and whiptail adapter. See
+[saved destinations](../../docs/saved_destinations.md) for storage and validation.
+
 ## Purpose
 
 `apps/orcUi` is the application assembly and runtime layer for the integrated OpenRoadCode UI. It also owns presentation that is specific to the orcUi application itself.
 
 OpenRoadCode deliberately separates semantic UI contracts, reusable behavior, reusable frontend rendering, application-specific presentation, host/platform adapters, and application composition so that a feature can be presented by Tk, web, Android, or another frontend without moving its controller logic into the application shell.
+
+## Tk control chrome
+
+ORC action buttons and classic check/radio/menu controls explicitly suppress Tk's
+platform-default highlight ring and beveled border. These native defaults can
+remain white under Termux:X11 even when the widget background and `bd` are set.
+Shared Tk helpers follow the same policy. Editable media fields instead use themed
+backgrounds and an explicit accent focus edge. Theme-colored card boundaries and
+their focus colors must both be explicit, including Home/context panels, Weather
+cards, and Vision's canvas. City-weather tables use a scoped flat ttk layout and
+a themed Tk scrollbar so desktop-theme edges do not introduce bright borders.
+Selected-state accents remain deliberate presentation; no UI requests or lifecycle
+behavior change with this styling policy. The desktop window-manager frame is
+owned by the X11 desktop rather than ORC widget styling.
 
 ## Dependency boundaries
 
@@ -115,11 +140,89 @@ restores ordinary window-manager decorations without closing ORC. For example,
 `ORCUI_GEOMETRY=1280x720 ORCUI_FULLSCREEN=0 ORCUI_BORDERLESS=1 ./runOrcUi`
 matches the landscape Pi Touch Display 2 layout inside a VM.
 
+The reference shell keeps the side rail at 120 pixels, with Weather's label
+one point smaller than the other navigation labels, so map and feature
+content retain the available width. Shell labels and icon spacing must adapt
+inside that allocation. On dark themes, ordinary controls use filled surfaces
+without bright outlines; visible accent borders are reserved for selected,
+focused, or elevated controls such as the raised Settings gear. The Games
+catalog remains two cards wide at the reference display size and collapses to
+one column only for narrow windows.
+
+The persistent Aircraft control presents `AircraftMenuUiState` and emits
+`AircraftMenuRequestHandlerIf` requests. Radio composition owns the handler
+that toggles ADS-B, opens the 1090 tracker, or selects AM aviation radio; the
+bottom-bar widget does not launch processes or depend on Radio controllers.
+ADS-B service transitions and status probes run outside the Tk event thread;
+Opening the aircraft map starts its configured receiver or simulation; the menu
+presents that as the primary action, with a secondary Start/Stop control for real
+receivers. The state contract carries simulation mode so the menu labels
+simulated data clearly and omits the meaningless receiver toggle in that mode.
+Dashboard browser/service teardown also runs outside Tk. The adapter rejects
+reopening until its cleanup worker finishes, and the non-daemon worker completes
+cleanup on process exit. Embedded tar1090 defaults to a 25% sidebar unless its
+configured URL specifies a width; Termux uses ANGLE/SwiftShader software WebGL
+with GPU compositing disabled to
+avoid corruption of reparented GPU surfaces.
+the composition drains their results on its scheduled UI callback and
+serializes transitions with polling so stale observations cannot win.
+
+Navigation's right-side map controls use `MapControlsDrawerState` and
+`MapControlsDrawerRequestHandlerIf`. A small controller owns expanded/collapsed
+state; application composition injects its drawer handler. The Tk panel renders
+a compact edge handle or the wider touch drawer. The navigation screen
+binds and releases the transient view through the toolkit-independent contract,
+without importing or constructing the concrete drawer controller. The panel
+continues to emit camera actions through the existing map request contract. In
+both states, the map host occupies the full body width. The expanded drawer is
+a 140-pixel overlay at the right edge and covers part of the map without resizing
+its host. When hidden, its vertically centered reopen handle floats over the map. The
+native renderer polls its exact X11 parent allocation every 100 ms, resizes the
+actual X11 child, and reconciles both MapLibre's map size and backend framebuffer
+size directly. This also repairs stale sizes when GLFW resize callbacks are
+missing. The embedded-resize component check covers repeated drawer cycles and
+independent stale sizes. Native changes require rebuilding and installing the
+renderer, followed by a complete ORC restart.
+For device diagnosis, `navigation.map.layout=DEBUG` records drawer state, body
+and map-host allocation, and the host X11 ID on toggles and host size changes.
+Compare these with `map_renderer.view=DEBUG` resize events to distinguish Tk
+allocation from native viewport failures.
+
 It must not create ZeroMQ subscribers, message decoders, audio backends, Spotify synchronization workers, browser lifecycle managers, external map renderer launchers, or host restart/poweroff implementations. Those dependencies are injected through application/runtime or UI contracts.
 
 Structural orcUi widgets that are meaningful only inside that shell stay under `apps/orcUi/frontend/tk`. A widget that could reasonably be reused by another Tk application belongs in an appropriate feature package under `frontends/tk` instead.
 
 ## Screen hosting and navigation
+
+Home/Work installer setup searches local building-level data first, then uses
+the US Census geocoder for online US-address fallback. Explicitly entered
+addresses are sent to that provider; there is no background address upload.
+Toolkit-independent setup contracts expose online search and map confirmation.
+The dialog adapter opens a temporary loopback browser map with OpenStreetMap
+tiles, receives a confirmed or adjusted pin, then asks before writing TOML.
+Coordinates remain internal in the normal flow. The page reports approximate
+locations and gives immediate confirmation progress, success, and network-error
+feedback. The server flushes its acknowledgment before ending the session.
+It requires the center map tile to load before confirmation.
+`--offline` disables provider requests and map tiles, retaining local address
+confirmation and the advanced coordinate option. Browser cancellation, timeout,
+and lookup failure do not replace saved destinations. No additional Python or
+JavaScript package is required.
+
+Persistent bottom controls begin to the right of the side rail and meet edge to
+edge, with a fixed compact volume area
+and equal action sections ending beside the standalone Settings gear. The
+44-pixel row uses code-drawn gradients with mouse, Return/Space activation and
+theme-colored keyboard focus outlines and a highlight fading upward from the
+bottom edge. Settings is centered in its dedicated dark area. The side rail
+extends beside the bottom controls, shows eight destinations, and retains both
+scroll arrows; no new destination or navigation contract is introduced.
+
+The Radio landing chooser uses theme-aware, code-drawn antenna/signal and
+globe/station diagrams to distinguish local RF reception from internet audio.
+They are static illustrations, redrawn on allocation changes, with no timers,
+device probes, or new service dependencies. Existing source actions and offline
+streaming restrictions remain in effect; descriptions wrap to the card width.
 
 The screen boundary follows one rule: **composition owns dependencies, screens own feature behavior, and `OrcUiApp` owns the shell**. `OrcUiApp` maintains a generic screen registry and navigation list but contains no built-in feature catalog. A new feature should be addable by composition without editing `OrcUiApp`.
 
@@ -487,15 +590,19 @@ supplies a consistent immutable playback snapshot. Reading that snapshot never
 waits for a native operation. Runtime shutdown uses terminal `close()`: it retires
 new playback before waiting for native cleanup, preventing delayed workers from
 restarting audio after shutdown. Radio composition closes browser sessions,
-unsubscribes its online listener, cancels its ADS-B status timer, and retires both
+unsubscribes its online listener, cancels its ADS-B status timer, and retires its
 worker pools; application composition owns that cleanup and startup rollback.
 
 Strict mypy includes the streaming contracts, controller, browser, transport,
 Tk browser/theme/Home widgets, radio screen, and composition. Structural witnesses
 check actual implementations against their contracts. The migrated streaming
 frontends have no backend import exceptions; thirteen prior exceptions are removed.
-RF profile/telemetry orchestration and the chooser's SDR launch worker remain a
-separate migration and keep their existing exact legacy exceptions.
+`ReceiverSession` now owns RF profile/telemetry and native SDR++/ADS-B operations
+on the composition-owned serial RF worker. `RadioEntryPanel` receives factories
+and `RadioPanel` emits immutable `RadioRequest` values; neither owns launch workers.
+Persistent Aircraft menu requests and receiver-status inspection use the same
+worker, with a composition-owned timer applying queued state on the UI thread.
+Closing composition retires requests and cancels that timer.
 
 ### Spotify presentation and browsing
 
@@ -505,3 +612,7 @@ video/lyrics behavior, destination selection, and stale completion guards.
 Composition constructs and closes sessions, worker pools, and native adapters;
 Tk owns encoded artwork decoding and native host rendering. See
 [Spotify UI ownership](../../docs/spotify_ui.md) for lifecycle and device acceptance.
+
+The media hub retains its compact account row through `SpotifyAccountSession`,
+and its shared now-playing preview is closed alongside the presentation sessions.
+Preview cleanup errors do not prevent other owned resources from closing.

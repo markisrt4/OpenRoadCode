@@ -30,6 +30,7 @@ class SpotifyScreen(TkScreen, MediaUiIf):
 
     def __init__(
         self, host: TkScreenHostIf, *, theme: dict[str, Any] | Callable[[], dict[str, Any]],
+        show_visualizer: Callable[[], None] | None = None,
         back_action: Callable[[], None],
         media_navigation_factory: MediaNavigationFactory | None = None,
         account_session: SpotifyAccountSession | None = None,
@@ -47,6 +48,7 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         self._theme_provider = theme if callable(theme) else lambda: theme
         self._theme = self._theme_provider()
         self._back_action = back_action
+        self._show_visualizer = show_visualizer
         self._media_navigation_factory = media_navigation_factory
         self._account_session = account_session
         self._show_account_configuration = show_account_configuration
@@ -181,6 +183,14 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         if self._account_session is not None:
             self.set_spotify_account_state(self._account)
 
+        tk.Button(
+            row, text="‹ MEDIA", command=self._back_action,
+            bg=button_bg, fg=button_fg, activebackground=colors.get("button_active_background", button_bg),
+            activeforeground=colors.get("button_active_foreground", button_fg),
+            relief=tk.FLAT, bd=0, highlightthickness=0,
+            font=("Sans", 9, "bold"), padx=10, pady=5,
+        ).pack(side=tk.RIGHT, padx=4, pady=5)
+
     def _browse_panel(self, parent: tk.Misc) -> SpotifyBrowsePanel:
         if self._browse_session is None:
             raise RuntimeError("Spotify browsing is unavailable")
@@ -195,7 +205,6 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         self._browse_action = None
         root = tk.Frame(self._host.screen_parent, bg=self._theme["colors"]["background"])
         root.pack(fill=tk.BOTH, expand=True)
-        self._build_media_navigation(root)
         self._build_setup_banner(root)
         if self._account_session is not None:
             self._account_session.activate(self)
@@ -205,7 +214,8 @@ class SpotifyScreen(TkScreen, MediaUiIf):
             controls.show_now_playing_header()
         content = tk.Frame(root, bg=self._theme["colors"]["background"])
         content.pack(fill=tk.BOTH, expand=True)
-        panel = SpotifyPlaybackPanel(parent=content, theme=self._theme)
+        panel = SpotifyPlaybackPanel(parent=content, theme=self._theme,
+                                     show_visualizer=self._show_visualizer)
         panel.set_playback_request_handler(self._playback_handler)
         panel.set_track_request_handler(self._track_handler)
         panel.set_seek_request_handler(self._seek_handler)
