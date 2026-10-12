@@ -17,14 +17,38 @@ def setup_flow(choices, texts, *, confirmed=True):
     handler = Mock(spec=DestinationSetupRequestHandlerIf)
     handler.current.return_value = None
     handler.search.return_value = ()
+    handler.search_online.return_value = ()
     dialog = Mock(spec=DestinationSetupUiIf)
     dialog.choose.side_effect = choices
     dialog.text.side_effect = texts
     dialog.confirm.return_value = confirmed
+    dialog.confirm_location.side_effect = lambda destination: destination
     return handler, dialog
 
 
 class DestinationSetupPresentationTest(unittest.TestCase):
+    def test_online_fallback_requires_confirmed_map_before_save(self):
+        handler, dialog = setup_flow(["work", "0", "done"], ["123 Main St"])
+        candidate = SavedDestination("work", "Work", "123 Main Street", GeoPoint(0.7, -1.4))
+        adjusted = SavedDestination("work", "Work", candidate.address, GeoPoint(0.71, -1.41))
+        handler.search_online.return_value = (candidate,)
+        dialog.confirm_location.side_effect = None
+        dialog.confirm_location.return_value = adjusted
+        run_destination_setup(handler, dialog)
+        handler.search_online.assert_called_once_with("work", "123 Main St")
+        dialog.confirm_location.assert_called_once_with(candidate)
+        handler.save.assert_called_once_with(adjusted)
+
+    def test_cancelled_map_does_not_save(self):
+        handler, dialog = setup_flow(["work", "0", "done"], ["123 Main St"])
+        handler.search_online.return_value = (
+            SavedDestination("work", "Work", "123 Main Street", GeoPoint(0.7, -1.4)),
+        )
+        dialog.confirm_location.side_effect = None
+        dialog.confirm_location.return_value = None
+        run_destination_setup(handler, dialog)
+        handler.save.assert_not_called()
+
     def test_cancelled_drafts_never_save(self):
         for choices, texts in [([None], []), (["home", "done"], [None]),
                 (["home", None, "done"], ["123 Main St"]),

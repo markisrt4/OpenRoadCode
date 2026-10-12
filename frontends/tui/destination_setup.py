@@ -29,7 +29,8 @@ def run_destination_setup(handler: DestinationSetupRequestHandlerIf,
 
 def _edit_destination(handler, dialog, key) -> None:
     current = handler.current(key)
-    address = dialog.text(key.title(), "Enter the full address:",
+    address = dialog.text(key.title(), "Enter the full US address. Local search runs first; "
+                          "online search, when enabled, sends this address to the US Census geocoder:",
                           current.address if current else "")
     if address is None:
         return
@@ -40,14 +41,18 @@ def _edit_destination(handler, dialog, key) -> None:
     except (OSError, ValueError, RuntimeError) as error:
         dialog.notify("Address search unavailable", str(error))
         candidates = ()
-    choices = tuple((str(i), f"{item.address} ({math.degrees(item.position.latitude_rad):.5f}, "
-                     f"{math.degrees(item.position.longitude_rad):.5f})")
+    if not candidates:
+        try:
+            candidates = handler.search_online(key, address)
+        except (OSError, ValueError, RuntimeError) as error:
+            dialog.notify("Online search unavailable", str(error))
+    choices = tuple((str(i), item.address)
                     for i, item in enumerate(candidates))
-    prompt = ("Select the correct address match, or enter coordinates:" if candidates else
-              "No exact building match in the local database. Street/place locations "
-              "are not used for Home/Work. Enter verified coordinates, or cancel:")
+    prompt = ("Select your address, then check its location on the map:" if candidates else
+              "No address match. Cancel and try a more complete address, "
+              "or use the advanced option below:")
     selection = dialog.choose(key.title(), prompt,
-                               choices + (("manual", "Enter coordinates in degrees"),))
+                               choices + (("manual", "Advanced: enter coordinates"),))
     if selection is None:
         return
     if selection == "manual":
@@ -61,14 +66,15 @@ def _edit_destination(handler, dialog, key) -> None:
             GeoPoint(math.radians(float(latitude)), math.radians(float(longitude))))
     else:
         destination = candidates[int(selection)]
+        destination = dialog.confirm_location(destination)
+        if destination is None:
+            return
     position = destination.position
     if (not math.isfinite(position.latitude_rad) or not math.isfinite(position.longitude_rad)
             or not -math.pi / 2 <= position.latitude_rad <= math.pi / 2
             or not -math.pi <= position.longitude_rad <= math.pi):
         raise ValueError("Coordinates are out of range")
     summary = (f"{destination.address}\n\n"
-               f"Latitude: {math.degrees(position.latitude_rad):.6f}°\n"
-               f"Longitude: {math.degrees(position.longitude_rad):.6f}°\n\n"
                "Save this destination? Navigation starts only when you choose Navigate in ORC.")
     if dialog.confirm(key.title(), summary):
         handler.save(destination)

@@ -8,6 +8,7 @@ centroids remain available to general search but never become installer matches.
 """
 
 import sqlite3
+import math
 from config.saved_destinations import SavedDestinationsConfig, normalize_destination
 from ui.navigation.destination_setup_request_handler_if import (
     DestinationSetupRequestHandlerIf, SavedDestination,
@@ -15,9 +16,24 @@ from ui.navigation.destination_setup_request_handler_if import (
 
 
 class DestinationSetupController(DestinationSetupRequestHandlerIf):
-    def __init__(self, config: SavedDestinationsConfig, geocoder=None) -> None:
+    def __init__(self, config: SavedDestinationsConfig, geocoder=None, *, online_geocoder=None) -> None:
         self._config = config
         self._geocoder = geocoder
+        self._online_geocoder = online_geocoder
+
+    def search_online(self, key, address):
+        self._validate_key(key)
+        address = " ".join(address.split())
+        if not address:
+            raise ValueError("Enter an address")
+        if self._online_geocoder is None:
+            return ()
+        matches = self._online_geocoder.geocode(address)
+        from ui.navigation.map_ui_if import GeoPoint
+        return tuple(normalize_destination(SavedDestination(
+            key, key.title(), item.address,
+            GeoPoint(math.radians(item.latitude_deg), math.radians(item.longitude_deg)),
+        )) for item in matches)
 
     def current(self, key: str) -> SavedDestination | None:
         self._validate_key(key)

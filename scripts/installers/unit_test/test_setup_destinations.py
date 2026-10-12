@@ -13,6 +13,13 @@ from scripts.installers.setup_destinations import WhiptailDestinationDialog, mai
 
 
 class SetupDestinationsInstallerTest(unittest.TestCase):
+    def test_offline_map_confirmation_does_not_open_browser(self):
+        adapter = WhiptailDestinationDialog("dialog", maps_enabled=False)
+        destination = Mock()
+        with patch("scripts.installers.setup_destinations.confirm_on_map") as browser:
+            self.assertIs(adapter.confirm_location(destination), destination)
+            browser.assert_not_called()
+
     def test_dialog_adapter_uses_output_fd_and_preserves_input(self):
         dialog = WhiptailDestinationDialog("/termux/bin/dialog")
         with patch("scripts.installers.setup_destinations.subprocess.run") as run:
@@ -27,7 +34,7 @@ class SetupDestinationsInstallerTest(unittest.TestCase):
              patch("scripts.installers.setup_destinations.run_destination_setup"), \
              patch("scripts.installers.setup_destinations.WhiptailDestinationDialog") as adapter:
             self.assertEqual(main([]), 0)
-            adapter.assert_called_once_with("/termux/bin/dialog")
+            adapter.assert_called_once_with("/termux/bin/dialog", maps_enabled=True)
             geocoder.return_value.close.assert_called_once()
 
     def test_missing_termux_dialog_has_correct_install_hint(self):

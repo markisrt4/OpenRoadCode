@@ -48,3 +48,11 @@ class DestinationSetupRequestHandlerIf(ABC):
         @param destination Confirmed address and normalized position.
         """
         ...
+
+    @abstractmethod
+    def search_online(self, key: str, address: str) -> tuple[SavedDestination, ...]:
+        """! @brief Resolve a US address online without saving it.
+        @param key Home or work.
+        @param address Address explicitly submitted for setup.
+        @return Candidates requiring map confirmation, or an empty tuple.
+        """

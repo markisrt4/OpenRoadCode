@@ -4,9 +4,17 @@
 """Presentation operations used by the installer destination flow."""
 
 from abc import ABC, abstractmethod
+from ui.navigation.destination_setup_request_handler_if import SavedDestination
 
 
 class DestinationSetupUiIf(ABC):
+    @abstractmethod
+    def confirm_location(self, destination: SavedDestination) -> SavedDestination | None:
+        """! @brief Show a map and return the confirmed or adjusted pin.
+        @param destination Selected address and provisional position.
+        @return Confirmed location, or None on cancellation. This does not save.
+        """
+
     @abstractmethod
     def choose(self, title: str, prompt: str, choices: tuple[tuple[str, str], ...]) -> str | None:
         """Present choices.

@@ -189,6 +189,19 @@ Structural orcUi widgets that are meaningful only inside that shell stay under `
 
 ## Screen hosting and navigation
 
+Home/Work installer setup searches local building-level data first, then uses
+the US Census geocoder for online US-address fallback. Explicitly entered
+addresses are sent to that provider; there is no background address upload.
+Toolkit-independent setup contracts expose online search and map confirmation.
+The dialog adapter opens a temporary loopback browser map with OpenStreetMap
+tiles, receives a confirmed or adjusted pin, then asks before writing TOML.
+Coordinates remain internal in the normal flow. The page reports approximate
+address matches, and requires the center map tile to load before confirmation.
+`--offline` disables provider requests and map tiles, retaining local address
+confirmation and the advanced coordinate option. Browser cancellation, timeout,
+and lookup failure do not replace saved destinations. No additional Python or
+JavaScript package is required.
+
 Persistent bottom controls begin to the right of the side rail and meet edge to
 edge, with a fixed compact volume area
 and equal action sections ending beside the standalone Settings gear. The
