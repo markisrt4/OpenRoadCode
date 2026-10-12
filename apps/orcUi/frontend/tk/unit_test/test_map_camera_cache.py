@@ -27,6 +27,7 @@ class FakeRenderer:
         zoom: float,
         bearing: float = 0.0,
         pitch: float = 0.0,
+        *, follow_position: bool = False,
     ) -> None:
         self.cameras.append((latitude, longitude, zoom, bearing, pitch))
 

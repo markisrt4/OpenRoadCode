@@ -12,6 +12,18 @@ from tools.map_builder.builder.validate import validate_style
 TEMPLATE = Path(__file__).parents[1] / "templates/openroadcode-style.json"
 
 class StyleTests(unittest.TestCase):
+    def test_vehicle_chevron_rotates_with_the_map_and_does_not_hide_behind_labels(self):
+        document = json.loads(TEMPLATE.read_text(encoding="utf-8"))
+        layers = {layer["id"]: layer for layer in document["layers"]}
+        chevron = layers["vehicle-orc-chevron"]["layout"]
+        self.assertEqual(chevron["icon-rotate"], ["get", "heading"])
+        self.assertEqual(chevron["icon-rotation-alignment"], "map")
+        self.assertEqual(chevron["icon-pitch-alignment"], "viewport")
+        self.assertTrue(chevron["icon-allow-overlap"])
+        self.assertIn("vehicle-position-unknown", layers)
+        self.assertIn("vehicle-blue-dot", layers)
+        self.assertNotIn("vehicle-veloster", layers)
+
     def test_style_round_trip_and_required_sources(self):
         with tempfile.TemporaryDirectory() as tmp:
             destination = Path(tmp) / "style.json"

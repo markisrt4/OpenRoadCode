@@ -32,6 +32,11 @@ struct MapCommand {
     long long requestId = 0;
     int maxZoom = 22;
     bool enabled = false;
+    bool followPosition = false;
+    bool smoothPosition = false;
+    std::optional<double> heading;
+    std::optional<double> course;
+    std::optional<double> speedMps;
 };
 
 class MapCommandServer {

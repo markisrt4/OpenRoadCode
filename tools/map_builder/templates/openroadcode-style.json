@@ -1612,55 +1612,74 @@
       }
     },
     {
-      "id": "vehicle-heading",
+      "id": "vehicle-position-unknown",
       "type": "circle",
       "source": "vehicle",
       "filter": [
-        "==",
+        "all",
         [
-          "get",
-          "marker_mode"
+          "!=",
+          [
+            "get",
+            "marker_mode"
+          ],
+          "blue_dot"
         ],
-        "heading"
+        [
+          "!",
+          [
+            "get",
+            "heading_known"
+          ]
+        ]
       ],
       "paint": {
         "circle-radius": [
           "*",
-          8,
+          7,
           [
             "get",
             "marker_scale"
           ]
         ],
-        "circle-color": "#0066ff",
-        "circle-stroke-color": "#fff",
+        "circle-color": "#168bd1",
+        "circle-stroke-color": "#ffffff",
         "circle-stroke-width": 2
       }
     },
     {
-      "id": "vehicle-veloster",
-      "type": "circle",
+      "id": "vehicle-orc-chevron",
+      "type": "symbol",
       "source": "vehicle",
       "filter": [
-        "==",
+        "all",
         [
-          "get",
-          "marker_mode"
-        ],
-        "vehicle"
-      ],
-      "paint": {
-        "circle-radius": [
-          "*",
-          10,
+          "!=",
           [
             "get",
-            "marker_scale"
-          ]
+            "marker_mode"
+          ],
+          "blue_dot"
         ],
-        "circle-color": "#d71920",
-        "circle-stroke-color": "#fff",
-        "circle-stroke-width": 3
+        [
+          "get",
+          "heading_known"
+        ]
+      ],
+      "layout": {
+        "icon-image": "orc-vehicle-chevron",
+        "icon-size": [
+          "get",
+          "marker_scale"
+        ],
+        "icon-rotate": [
+          "get",
+          "heading"
+        ],
+        "icon-rotation-alignment": "map",
+        "icon-pitch-alignment": "viewport",
+        "icon-allow-overlap": true,
+        "icon-ignore-placement": true
       }
     }
   ],

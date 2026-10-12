@@ -14,6 +14,7 @@ class MapRendererCommand(StrEnum):
 
     SET_CENTER = "set_center"
     SET_CAMERA = "set_camera"
+    SET_FOLLOW = "set_follow"
     SET_ZOOM = "set_zoom"
     SET_BEARING = "set_bearing"
     SET_PITCH = "set_pitch"

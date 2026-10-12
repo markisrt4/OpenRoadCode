@@ -23,19 +23,34 @@ class FakeRenderer:
         self.camera: tuple[float, float, float, float, float] | None = None
         self.position: tuple[float, float] | None = None
         self.route: dict[str, object] | None = None
+        self.heading: float | None = None
 
     def set_camera(self, latitude: float, longitude: float, zoom: float,
                    bearing: float = 0.0, pitch: float = 0.0) -> None:
         self.camera = (latitude, longitude, zoom, bearing, pitch)
 
-    def set_position(self, latitude: float, longitude: float) -> None:
+    def set_position(self, latitude: float, longitude: float, *,
+                     heading_deg: float | None = None) -> None:
         self.position = (latitude, longitude)
+        self.heading = heading_deg
 
     def set_route(self, geojson: dict[str, object]) -> None:
         self.route = geojson
 
 
 class MapRendererUiTest(unittest.TestCase):
+    def test_heading_is_converted_from_si_without_changing_manual_camera(self) -> None:
+        renderer = FakeRenderer()
+        ui = MapRendererUi(renderer)
+        position = GeoPoint(0.0, 0.0)
+        ui.set_map_state(MapState(
+            MapViewport(position, 16), follow_enabled=False,
+            markers=(MapMarker("vehicle", position, MapMarkerKind.CURRENT_POSITION,
+                               heading_rad=math.pi / 2),),
+        ))
+        self.assertEqual(renderer.heading, 90.0)
+        self.assertIsNone(renderer.camera)
+
     def test_translates_map_snapshot_to_renderer_commands(self) -> None:
         renderer = FakeRenderer()
         ui = MapRendererUi(renderer)

@@ -43,7 +43,18 @@ target_include_directories(openroadcode-logging-contract-test PRIVATE
 target_link_libraries(openroadcode-logging-contract-test PRIVATE spdlog::spdlog)
 
 include(CTest)
+add_executable(openroadcode-vehicle-motion-test vehicle_motion_cli.cpp)
+add_executable(openroadcode-vehicle-style-test vehicle_style_cli.cpp)
+target_include_directories(openroadcode-vehicle-style-test PRIVATE ${RAPIDJSON_INCLUDE_DIR})
+add_executable(openroadcode-vehicle-commands-test vehicle_commands_cli.cpp ../src/map_command_server.cpp)
+target_include_directories(openroadcode-vehicle-commands-test PRIVATE
+    ${CPPZMQ_INCLUDE_DIR} ${RAPIDJSON_INCLUDE_DIR} ../src)
+target_link_libraries(openroadcode-vehicle-commands-test PRIVATE PkgConfig::ZMQ spdlog::spdlog)
 if(BUILD_TESTING)
+    add_test(NAME vehicle-motion COMMAND openroadcode-vehicle-motion-test)
+    add_test(NAME vehicle-style COMMAND openroadcode-vehicle-style-test
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../../tools/map_builder/templates/openroadcode-style.json)
+    add_test(NAME vehicle-commands COMMAND openroadcode-vehicle-commands-test)
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
     add_test(NAME logging-contract
         COMMAND ${Python3_EXECUTABLE}

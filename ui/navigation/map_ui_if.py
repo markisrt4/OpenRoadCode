@@ -60,12 +60,14 @@ class MapMarker:
     @param position Geographic marker position.
     @param kind Semantic marker category.
     @param label Optional user-visible marker label.
+    @param heading_rad Clockwise direction from true north, or None if unknown.
     """
 
     marker_id: str
     position: GeoPoint
     kind: MapMarkerKind
     label: str | None = None
+    heading_rad: float | None = None
 
 
 @dataclass(frozen=True, slots=True)

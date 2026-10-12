@@ -9,6 +9,7 @@ from collections.abc import Mapping
 from typing import Any
 from threading import Lock
 import logging
+import math
 from common.logging.structured import current_operation, event
 
 LOGGER = logging.getLogger("map_renderer.client")
@@ -67,20 +68,27 @@ class MapRendererClient:
         zoom: float,
         bearing: float = 0.0,
         pitch: float = 0.0,
+        *,
+        follow_position: bool = False,
     ) -> None:
-        self._send_command(
-            {
-                "command": MapRendererCommand.SET_CAMERA,
-                "latitude": latitude,
-                "longitude": longitude,
-                "zoom": zoom,
-                "bearing": bearing,
-                "pitch": pitch,
-            }
-        )
+        command = {
+            "command": MapRendererCommand.SET_CAMERA,
+            "latitude": latitude,
+            "longitude": longitude,
+            "zoom": zoom,
+            "bearing": bearing,
+            "pitch": pitch,
+        }
+        if follow_position:
+            command["follow_position"] = True
+        self._send_command(command)
 
     def set_zoom(self, zoom: float) -> None:
         self._send_command({"command": MapRendererCommand.SET_ZOOM, "zoom": zoom})
+
+    def set_follow(self, enabled: bool) -> None:
+        """Suspend/resume frame-driven follow without moving a manual camera."""
+        self._send_command({"command": MapRendererCommand.SET_FOLLOW, "enabled": enabled})
 
     def set_bearing(self, bearing: float) -> None:
         self._send_command({"command": MapRendererCommand.SET_BEARING, "bearing": bearing})
@@ -117,14 +125,28 @@ class MapRendererClient:
             {"command": MapRendererCommand.SET_CENTER, "latitude": latitude, "longitude": longitude}
         )
 
-    def set_position(self, latitude: float, longitude: float) -> None:
-        self._send_command(
-            {
-                "command": MapRendererCommand.SET_POSITION,
-                "latitude": latitude,
-                "longitude": longitude,
-            }
-        )
+    def set_position(
+        self, latitude: float, longitude: float, *,
+        heading_deg: float | None = None,
+        course_deg: float | None = None,
+        speed_m_s: float | None = None,
+        smooth: bool = False,
+    ) -> None:
+        """Set a fix with optional true-north direction and bounded visual prediction."""
+        for value in (heading_deg, course_deg, speed_m_s):
+            if value is not None and not math.isfinite(value):
+                raise ValueError("vehicle motion must be finite")
+        if speed_m_s is not None and speed_m_s < 0.0:
+            raise ValueError("vehicle speed must not be negative")
+        command = {
+            "command": MapRendererCommand.SET_POSITION,
+            "latitude": latitude,
+            "longitude": longitude,
+        }
+        if smooth or any(value is not None for value in (heading_deg, course_deg, speed_m_s)):
+            command.update(heading=heading_deg, course=course_deg,
+                           speed_m_s=speed_m_s, smooth=smooth)
+        self._send_command(command)
 
     def set_poi_focus(self, category: str | None, enabled: bool = True) -> None:
         self._send_command(

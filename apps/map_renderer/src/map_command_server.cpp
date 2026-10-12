@@ -9,6 +9,7 @@
 #include <rapidjson/writer.h>
 
 #include <iostream>
+#include <cmath>
 #include <utility>
 
 namespace { constexpr const char* kMapCommandTopic = "map.command"; }
@@ -109,6 +110,29 @@ std::optional<MapCommand> MapCommandServer::parseCommand(const std::string& payl
             !document.HasMember("longitude") || !document["longitude"].IsNumber()) return std::nullopt;
         command.latitude = document["latitude"].GetDouble();
         command.longitude = document["longitude"].GetDouble();
+        if (!std::isfinite(command.latitude) || !std::isfinite(command.longitude) ||
+            command.latitude < -90 || command.latitude > 90 ||
+            command.longitude < -180 || command.longitude > 180) return std::nullopt;
+        if (command.command == "set_position") {
+            for (const auto& entry : {std::pair<const char*, std::optional<double>*>{"heading", &command.heading},
+                                     {"course", &command.course}, {"speed_m_s", &command.speedMps}}) {
+                if (!document.HasMember(entry.first) || document[entry.first].IsNull()) continue;
+                if (!document[entry.first].IsNumber()) return std::nullopt;
+                const double value = document[entry.first].GetDouble();
+                if (!std::isfinite(value)) return std::nullopt;
+                *entry.second = value;
+            }
+            if (command.speedMps && *command.speedMps < 0) return std::nullopt;
+            if (document.HasMember("smooth")) {
+                if (!document["smooth"].IsBool()) return std::nullopt;
+                command.smoothPosition = document["smooth"].GetBool();
+            }
+        }
+        return command;
+    }
+    if (command.command == "set_follow") {
+        if (!document.HasMember("enabled") || !document["enabled"].IsBool()) return std::nullopt;
+        command.enabled = document["enabled"].GetBool();
         return command;
     }
     if (command.command == "set_camera") {
@@ -119,7 +143,12 @@ std::optional<MapCommand> MapCommandServer::parseCommand(const std::string& payl
             !document.HasMember("pitch") || !document["pitch"].IsNumber()) return std::nullopt;
         command.latitude = document["latitude"].GetDouble(); command.longitude = document["longitude"].GetDouble();
         command.zoom = document["zoom"].GetDouble(); command.bearing = document["bearing"].GetDouble();
-        command.pitch = document["pitch"].GetDouble(); return command;
+        command.pitch = document["pitch"].GetDouble();
+        if (document.HasMember("follow_position")) {
+            if (!document["follow_position"].IsBool()) return std::nullopt;
+            command.followPosition = document["follow_position"].GetBool();
+        }
+        return command;
     }
     if (command.command == "set_zoom" || command.command == "set_bearing" ||
         command.command == "set_pitch") {

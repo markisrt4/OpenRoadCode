@@ -19,6 +19,7 @@ class FakeRenderer:
         self.bearings: list[float] = []
         self.pitches: list[float] = []
         self.screen_pans: list[tuple[float, float]] = []
+        self.follow_states: list[bool] = []
 
     def set_camera(
         self,
@@ -27,8 +28,12 @@ class FakeRenderer:
         zoom: float,
         bearing: float = 0.0,
         pitch: float = 0.0,
+        *, follow_position: bool = False,
     ) -> None:
         self.cameras.append((latitude, longitude, zoom, bearing, pitch))
+
+    def set_follow(self, enabled: bool) -> None:
+        self.follow_states.append(enabled)
 
     def set_zoom(self, zoom: float) -> None:
         self.zooms.append(zoom)
@@ -58,6 +63,23 @@ class MapRequestHandlerTest(unittest.TestCase):
             center=GeoPoint(math.radians(42.8), math.radians(-83.0)),
             on_follow_changed=self.follow_changes.append,
         )
+
+    def test_manual_mode_stops_renderer_follow_and_recenter_resumes_it(self) -> None:
+        self.handler.request_follow(False)
+        self.handler.update_follow_center(GeoPoint(math.radians(42.81), math.radians(-83.02)))
+        self.assertEqual(self.renderer.follow_states, [False])
+        self.assertEqual(self.renderer.cameras, [])
+        self.handler.request_recenter()
+        self.assertEqual(self.renderer.follow_states, [False, True])
+        self.assertAlmostEqual(self.renderer.cameras[-1][0], 42.81)
+
+    def test_enabling_follow_immediately_replays_current_camera_controls(self) -> None:
+        self.handler.request_bearing(math.radians(45))
+        self.handler.request_pitch(math.radians(30))
+        self.handler.request_zoom(18)
+        self.handler.request_follow(True)
+        for actual, expected in zip(self.renderer.cameras[-1][2:], (18, 45, 30)):
+            self.assertAlmostEqual(actual, expected)
 
     def test_renderer_camera_is_retained_for_screen_reentry_without_feedback_commands(self) -> None:
         self.handler.request_follow(False)

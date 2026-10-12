@@ -29,7 +29,8 @@ class MapRendererIf(Protocol):
     ) -> None:
         ...
 
-    def set_position(self, latitude: float, longitude: float) -> None:
+    def set_position(self, latitude: float, longitude: float, *,
+                     heading_deg: float | None = None) -> None:
         ...
 
     def set_route(self, geojson: dict[str, object]) -> None:
@@ -61,16 +62,19 @@ class MapRendererUi(MapUiIf):
 
         current_position = next(
             (
-                marker.position
+                marker
                 for marker in state.markers
                 if marker.kind is MapMarkerKind.CURRENT_POSITION
             ),
             None,
         )
         if current_position is not None:
+            heading = current_position.heading_rad
+            kwargs = {} if heading is None else {"heading_deg": math.degrees(heading)}
             self._renderer.set_position(
-                math.degrees(current_position.latitude_rad),
-                math.degrees(current_position.longitude_rad),
+                math.degrees(current_position.position.latitude_rad),
+                math.degrees(current_position.position.longitude_rad),
+                **kwargs,
             )
 
         if state.route_geometry is not None:

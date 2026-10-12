@@ -67,14 +67,14 @@ class MapRequestHandler(MapRequestHandlerIf):
         self._camera_initialized = True
 
     def request_recenter(self) -> None:
-        self._center = self._follow_center
         self.request_follow(True)
-        self._send_camera()
 
     def request_follow(self, enabled: bool) -> None:
         self._follow_enabled = enabled
+        self._renderer.set_follow(enabled)
         if enabled:
             self._center = self._follow_center
+            self._send_camera(follow_position=True)
         if self._on_follow_changed is not None:
             self._on_follow_changed(enabled)
 
@@ -166,6 +166,7 @@ class MapRequestHandler(MapRequestHandlerIf):
             zoom_level=zoom_level,
             bearing_rad=bearing_rad,
             pitch_rad=pitch_rad,
+            follow_position=self._follow_enabled,
         )
         self._renderer.set_poi_results(self._poi_results_geojson)
         for category in self._poi_focus:
@@ -178,7 +179,7 @@ class MapRequestHandler(MapRequestHandlerIf):
         if not self._follow_enabled:
             return
         self._bearing_rad = bearing_rad
-        self._send_camera()
+        self._send_camera(follow_position=True)
 
     def update_follow_camera(
         self,
@@ -192,7 +193,7 @@ class MapRequestHandler(MapRequestHandlerIf):
         self._center = position
         if bearing_rad is not None:
             self._bearing_rad = bearing_rad
-        self._send_camera()
+        self._send_camera(follow_position=True)
 
     def _pan_geographic(self, *, north_m: float, east_m: float) -> None:
         if not self._camera_initialized:
@@ -214,13 +215,16 @@ class MapRequestHandler(MapRequestHandlerIf):
         zoom_level: float | None = None,
         bearing_rad: float | None = None,
         pitch_rad: float | None = None,
+        follow_position: bool = False,
     ) -> None:
         if not self._camera_initialized:
             return
+        kwargs = {"follow_position": True} if follow_position else {}
         self._renderer.set_camera(
             latitude=math.degrees(self._center.latitude_rad),
             longitude=math.degrees(self._center.longitude_rad),
             zoom=self._zoom_level if zoom_level is None else zoom_level,
             bearing=math.degrees(self._bearing_rad if bearing_rad is None else bearing_rad),
             pitch=math.degrees(self._pitch_rad if pitch_rad is None else pitch_rad),
+            **kwargs,
         )

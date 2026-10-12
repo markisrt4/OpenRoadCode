@@ -28,6 +28,25 @@ vehicle marker. See [the renderer documentation](../../apps/map_renderer/README.
 for the native process and style requirements, and [ORC logging](../../common/logging/README.md)
 for structured logs and live viewing.
 
+`set_position(latitude, longitude, heading_deg=None, course_deg=None,
+speed_m_s=None, smooth=False)` can also supply vehicle motion. Heading and course
+are clockwise degrees from true north at this native boundary; speed is in
+metres per second. Heading controls the icon; course and speed control prediction.
+The UI marker contract keeps heading in radians. Unknown direction renders a
+neutral dot. Explicit `blue_dot` configuration still uses the round marker.
+
+With `smooth=True`, the native frame loop eases corrections and briefly predicts
+movement between fixes. Prediction stops after 1.5 seconds without a new fix,
+and discontinuities of 75 metres or more snap immediately. Cached/replayed fixes
+use `smooth=False` and never predict. Legacy position commands stay immediate.
+This affects visual presentation only, not authoritative positions or routing.
+
+`set_camera(..., follow_position=True)` makes the followed camera share the
+marker's animated position. `set_follow(False)` suspends this without moving the
+camera; direct gestures also suspend follow locally. Ordinary camera commands
+remain immediate. Zoom controls preserve follow. Rebuild the native renderer
+before using these optional motion/follow fields with the Python UI.
+
 `set_route_weather(geojson)` updates a separate `route-weather` GeoJSON source
 without changing route geometry, POI results, radar visibility, or the camera.
 Point features use a `label` string for forecast text; an empty FeatureCollection

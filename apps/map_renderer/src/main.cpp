@@ -9,11 +9,17 @@
 #include "city_weather_style.hpp"
 #include "poi_hover_style.hpp"
 #include "orc_logging.hpp"
+#include "vehicle_motion.hpp"
+#include "vehicle_follow.hpp"
+#include "vehicle_marker.hpp"
+#include "vehicle_style.hpp"
 #include <mbgl/map/map.hpp>
 #include <mbgl/renderer/renderer.hpp>
 #include <mbgl/style/layer.hpp>
 #include <mbgl/style/layers/raster_layer.hpp>
 #include <mbgl/style/style.hpp>
+#include <mbgl/style/image.hpp>
+#include <mbgl/util/image.hpp>
 #include <mbgl/style/sources/geojson_source.hpp>
 #include <mbgl/style/sources/raster_source.hpp>
 #include <mbgl/style/sources/tile_source.hpp>
@@ -64,7 +70,7 @@ std::string loadStyleJson(const NavigationConfig& config) {
     std::string style{std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
     replaceAll(style, kDataRootToken, config.dataRoot);
     if (config.dataRoot != kLegacyDataRoot) replaceAll(style, kLegacyDataRoot, config.dataRoot);
-    return withCityWeatherStyle(withPoiHoverStyle(withRouteWeatherStyle(style)));
+    return withVehicleStyle(withCityWeatherStyle(withPoiHoverStyle(withRouteWeatherStyle(style))));
 }
 void setWeatherRaster(
     mbgl::style::Style& style,
@@ -243,8 +249,17 @@ int runRenderer() {
     std::string currentWeatherFieldUrl;
     MapCommandServer commandServer(subscriberEndpoint);
     MapEventPublisher eventPublisher(publisherEndpoint);
+    orc::VehicleMotion vehicleMotion;
+    std::optional<orc::VehicleFrame> lastVehicleFrame;
+    orc::VehicleFollow vehicleFollow;
+    std::optional<std::array<double, 3>> followCamera;
+    double cameraFrameTime = 0.0;
+    const auto secondsNow = []() {
+        return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    };
     view.setManualCameraCallback(
-        [&eventPublisher]() {
+        [&eventPublisher, &vehicleFollow]() {
+            vehicleFollow.suspend();
             eventPublisher.publishManualCameraInteraction();
         });
 
@@ -282,14 +297,22 @@ int runRenderer() {
             const auto command = commandServer.poll();
             if (!command) break;
 
+            if (command->command == "set_follow") {
+                if (command->enabled) view.finishCameraGesture();
+                vehicleFollow.setEnabled(command->enabled);
+                continue;
+            }
+
             // A toolbar camera command ends direct manipulation. Telemetry and
             // POI updates must not interrupt an active mouse gesture.
-            if (command->command == "set_center" || command->command == "set_camera" ||
+            if (command->command == "set_center" ||
+                (command->command == "set_camera" && !command->followPosition) ||
                 command->command == "fit_bounds" || command->command == "fit_dataset" ||
                 command->command == "set_zoom" || command->command == "set_bearing" ||
                 command->command == "set_pitch" || command->command == "pan_screen") {
                 view.finishCameraGesture();
                 cameraOwnedByUi = true;
+                if (command->command != "set_zoom") vehicleFollow.suspend();
             }
 
             if (command->command == "set_center") {
@@ -318,18 +341,19 @@ int runRenderer() {
                 continue;
             }
             if (command->command == "set_position") {
-                auto* source = map.getStyle().getSource("vehicle");
-                if (!source) continue;
-                auto* vehicleSource = static_cast<mbgl::style::GeoJSONSource*>(source);
-                mapbox::geojson::feature feature{
-                    mapbox::geojson::geometry{
-                        mapbox::geometry::point<double>{command->longitude, command->latitude}}};
-                feature.properties["marker_mode"] = config.markerMode;
-                feature.properties["marker_scale"] = config.markerScale;
-                vehicleSource->setGeoJSON(feature);
+                vehicleMotion.update(command->latitude, command->longitude, command->heading,
+                    command->course, command->speedMps, command->smoothPosition, secondsNow());
                 continue;
             }
             if (command->command == "set_camera") {
+                vehicleFollow.cameraUpdate(command->followPosition);
+                if (command->followPosition && !vehicleFollow.enabled()) continue;
+                cameraOwnedByUi = true;
+                followCamera = std::array<double, 3>{command->zoom, command->bearing, command->pitch};
+                if (vehicleFollow.enabled() && vehicleMotion.sample(secondsNow())) {
+                    view.showWindow();
+                    continue;
+                }
                 // UI camera commands are state changes, not cinematic transitions.
                 // Jump immediately so repeated GPS/camera updates cannot pile up
                 // overlapping 450 ms animations.
@@ -346,6 +370,7 @@ int runRenderer() {
             }
             if (command->command == "set_zoom") {
                 map.jumpTo(mbgl::CameraOptions().withZoom(command->zoom));
+                if (followCamera) (*followCamera)[0] = command->zoom;
                 continue;
             }
             if (command->command == "set_bearing") {
@@ -457,6 +482,42 @@ int runRenderer() {
                 }
             }
         }
+        const double frameTime = secondsNow();
+        const auto vehicle = vehicleMotion.sample(frameTime);
+        if (vehicle) {
+            const bool changed = !lastVehicleFrame || vehicle->latitude != lastVehicleFrame->latitude ||
+                vehicle->longitude != lastVehicleFrame->longitude || vehicle->heading != lastVehicleFrame->heading;
+            if (changed) {
+                if (auto* source = map.getStyle().getSource("vehicle")) {
+                    auto* vehicleSource = static_cast<mbgl::style::GeoJSONSource*>(source);
+                    mapbox::geojson::feature feature{mapbox::geojson::geometry{
+                        mapbox::geometry::point<double>{vehicle->longitude, vehicle->latitude}}};
+                    feature.properties["marker_mode"] = config.markerMode;
+                    feature.properties["marker_scale"] = config.markerScale;
+                    feature.properties["heading_known"] = vehicle->heading.has_value();
+                    feature.properties["heading"] = vehicle->heading.value_or(0.0);
+                    vehicleSource->setGeoJSON(feature);
+                    lastVehicleFrame = vehicle;
+                }
+            }
+            if (vehicleFollow.enabled() && followCamera) {
+                const auto currentCamera = map.getCameraOptions();
+                const double bearing = currentCamera.bearing.value_or((*followCamera)[1]);
+                const double dt = cameraFrameTime == 0.0 ? 1.0 / 60.0 : std::max(0.0, frameTime - cameraFrameTime);
+                const double delta = orc::angleDelta(bearing, (*followCamera)[1]);
+                const double nextBearing = std::abs(delta) < 0.02 ? (*followCamera)[1] :
+                    bearing + (1.0 - std::exp(-dt / 0.25)) * delta;
+                if (!currentCamera.center || currentCamera.center->latitude() != vehicle->latitude ||
+                    currentCamera.center->longitude() != vehicle->longitude ||
+                    currentCamera.zoom != (*followCamera)[0] || currentCamera.pitch != (*followCamera)[2] ||
+                    std::abs(orc::angleDelta(bearing, nextBearing)) > 0.000001) {
+                    map.jumpTo(mbgl::CameraOptions()
+                        .withCenter(mbgl::LatLng{vehicle->latitude, vehicle->longitude})
+                        .withZoom((*followCamera)[0]).withBearing(nextBearing).withPitch((*followCamera)[2]));
+                }
+            }
+        }
+        cameraFrameTime = frameTime;
         // Match building geometry to the actual camera, including gesture and
         // follow updates. Flat mode must not keep extruded roofs underneath.
         const bool tilted = map.getCameraOptions().pitch.value_or(0.0) > 0.01;
@@ -479,6 +540,11 @@ int runRenderer() {
     });
 
     map.getStyle().loadJSON(styleJson);
+    mbgl::PremultipliedImage vehicleImage({orc::vehicleIconSize, orc::vehicleIconSize});
+    const auto pixels = orc::vehicleIconPixels();
+    std::copy(pixels.begin(), pixels.end(), vehicleImage.data.get());
+    map.getStyle().addImage(std::make_unique<mbgl::style::Image>(
+        "orc-vehicle-chevron", std::move(vehicleImage), 2.0f));
     view.run();
     orc::log("INFO", "map_renderer.lifecycle", "process.stopped", "Map renderer stopped");
     return 0;

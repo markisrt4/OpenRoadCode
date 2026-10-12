@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import math
+import time
 from pathlib import Path
 
 from controllers.cache import PersistentCache
@@ -81,6 +82,12 @@ class MapCameraRuntime:
         self._motion_course_available = False
         self._moving = False
         self._filtered_bearing_rad: float | None = None
+        self._marker_heading_rad: float | None = None
+        self._motion_course_rad: float | None = None
+        self._motion_speed_m_s: float | None = None
+        self._motion_received_at = 0.0
+        self._position_timestamp: tuple[int, int] | None = None
+        self._motion_timestamp: tuple[int, int] | None = None
         self._closed = False
 
     @property
@@ -103,9 +110,12 @@ class MapCameraRuntime:
         """Replay the real live/cached vehicle marker after renderer replacement."""
         position = self._current_position
         if position is not None:
+            heading = self._marker_heading_rad
+            kwargs = {} if heading is None else {"heading_deg": math.degrees(heading)}
             self._renderer_client.set_position(
                 latitude=math.degrees(position.latitude_rad),
                 longitude=math.degrees(position.longitude_rad),
+                **kwargs,
             )
 
     def start(self) -> None:
@@ -139,9 +149,22 @@ class MapCameraRuntime:
         )
 
     def _on_position_message(self, message: PositionStateMessage) -> None:
+        if self._closed:
+            return
         data = message.data
         if data.latitude_rad is None or data.longitude_rad is None:
             return
+        if not (math.isfinite(data.latitude_rad) and math.isfinite(data.longitude_rad)):
+            return
+        stamp = (message.timestamp.seconds, message.timestamp.nanoseconds)
+        if self._position_timestamp is not None and stamp <= self._position_timestamp:
+            return
+        self._position_timestamp = stamp
+        if time.monotonic() - self._motion_received_at > 1.5:
+            self._moving = False
+            self._motion_course_available = False
+            self._motion_course_rad = None
+            self._motion_speed_m_s = None
 
         point = GeoPoint(
             latitude_rad=data.latitude_rad,
@@ -162,26 +185,42 @@ class MapCameraRuntime:
             distance_m = self._distance_m(reference, point)
             if distance_m >= _MIN_COURSE_POSITION_DELTA_M:
                 if self._moving and not self._motion_course_available:
-                    bearing_rad = self._filter_bearing(self._bearing_rad(reference, point))
+                    course = self._bearing_rad(reference, point)
+                    self._marker_heading_rad = course % (2.0 * math.pi)
+                    bearing_rad = self._filter_bearing(course)
                 self._course_reference = point
 
-        self._handler.update_follow_camera(point, bearing_rad)
-
         # Position and camera are deliberately separate renderer commands. The
-        # marker remains at the vehicle's true location while the user pans or
-        # disables follow mode.
+        # renderer can animate the marker while the user pans or disables follow;
+        # current_position and route guidance retain the authoritative GPS fix.
         self._renderer_client.set_position(
             latitude=math.degrees(data.latitude_rad),
             longitude=math.degrees(data.longitude_rad),
+            heading_deg=(None if self._marker_heading_rad is None
+                         else math.degrees(self._marker_heading_rad)),
+            course_deg=(None if self._motion_course_rad is None
+                        else math.degrees(self._motion_course_rad)),
+            speed_m_s=self._motion_speed_m_s,
+            smooth=not data.is_cached,
         )
+        self._handler.update_follow_camera(point, bearing_rad)
 
     def _on_manual_camera_interaction(self, _payload) -> None:
         """Suspend follow when the user directly manipulates the native map."""
+        if self._closed:
+            return
         self._handler.request_follow(False)
 
     def _on_motion_message(self, message: MotionStateMessage) -> None:
         """Keep a followed map course-up while the vehicle is moving."""
+        if self._closed:
+            return
         data = message.data
+        stamp = (message.timestamp.seconds, message.timestamp.nanoseconds)
+        if self._motion_timestamp is not None and stamp <= self._motion_timestamp:
+            return
+        self._motion_timestamp = stamp
+        self._motion_received_at = time.monotonic()
         speed_m_s = data.ground_speed_m_s
         self._moving = (
             speed_m_s is not None
@@ -190,6 +229,8 @@ class MapCameraRuntime:
             and speed_m_s >= _MIN_COURSE_UP_SPEED_M_S
         )
         if not self._moving:
+            self._motion_speed_m_s = None
+            self._motion_course_rad = None
             self._motion_course_available = False
             # GPS drift is not a usable heading while stopped. Start the next
             # position-derived course at the latest fix rather than across a stop.
@@ -197,13 +238,18 @@ class MapCameraRuntime:
             return
 
         bearing_rad = data.course_rad
-        if bearing_rad is None:
-            bearing_rad = data.heading_rad
+        # The published IMU heading is resettable/relative, not true north.
+        # Only ground course is safe to use on a geographic map.
         if bearing_rad is None or not math.isfinite(bearing_rad):
+            self._motion_course_rad = None
+            self._motion_speed_m_s = None
             self._motion_course_available = False
             return
 
         self._motion_course_available = True
+        self._motion_course_rad = bearing_rad % (2.0 * math.pi)
+        self._motion_speed_m_s = speed_m_s
+        self._marker_heading_rad = self._motion_course_rad
         filtered_bearing = self._filter_bearing(bearing_rad)
         if filtered_bearing is not None:
             self._handler.update_follow_bearing(filtered_bearing)
