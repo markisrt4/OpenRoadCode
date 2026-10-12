@@ -1,7 +1,12 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Offline geocoding using the OpenRoadCode search SQLite database."""
+"""Offline geocoding using the OpenRoadCode search SQLite database.
+
+Numbered Mile roads normalize digit and spelled-out forms (1 through 20), while
+other street names remain distinct. A street fallback is not a verified house
+location; installers must continue presenting results for user selection.
+"""
 
 from __future__ import annotations
 
@@ -45,6 +50,11 @@ _STREET_SUFFIXES = {
     "pl": "place",
     "hwy": "highway",
 }
+
+_MILE_NUMBERS = dict(zip(
+    "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty".split(),
+    map(str, range(1, 21)),
+))
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,6 +172,10 @@ class SqliteGeocoder:
             ),
             search_tokens[0],
         )
+        # Numbered Mile roads can be stored as "Eleven Mile" while entered as
+        # "11 Mile". Fetch by their shared word, then rank normalized names.
+        if any(token.casefold().rstrip(".") == "mile" for token in search_tokens):
+            search_token = "mile"
         rows = self._connection.execute(
             """
             SELECT name, city, state, postcode, latitude, longitude
@@ -260,6 +274,9 @@ def _normalize_street(value: str) -> str:
     if not words:
         return ""
     words = [_DIRECTIONALS.get(word, word) for word in words]
+    for index in range(1, len(words)):
+        if words[index] == "mile":
+            words[index - 1] = _MILE_NUMBERS.get(words[index - 1], words[index - 1])
     words[-1] = _STREET_SUFFIXES.get(words[-1], words[-1])
     return " ".join(words)
 
