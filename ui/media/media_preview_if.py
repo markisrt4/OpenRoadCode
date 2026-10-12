@@ -11,7 +11,9 @@ from ui.media.media_ui_if import MediaState
 class MediaPreviewIf(ABC):
     @abstractmethod
     def read_state(self) -> MediaState:
-        """! @brief Return cached state without network access or refresh work."""
+        """! @brief Return cached state without network access or refresh work.
+        @return Current cached now-playing snapshot.
+        """
 
     @abstractmethod
     def request_artwork(self, url: str, result: Callable[[bytes | None], None]) -> None:
