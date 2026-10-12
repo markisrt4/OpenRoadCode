@@ -11,7 +11,7 @@ from apps.launchers.local_map_tiles_pack import LocalMapTilesPack
 from development.maps import download_detroit_map_tiles as downloader
 
 
-def fixture_image(destination, *, bounds):
+def fixture_image(destination, *, bounds, title=None):
     destination.mkdir()
     image = b'\xff\xd8fixture'
     (destination/'imagery.jpg').write_bytes(image)
@@ -77,7 +77,7 @@ from apps.launchers.unit_test.test_cesium_viewer import server, state  # noqa: E
 def test_interrupted_pack_resumes_completed_requests(tmp_path,monkeypatch):
     image_calls, osm_calls = [], []
 
-    def image(destination, *, bounds):
+    def image(destination, *, bounds, title=None):
         if destination.exists():
             return
         image_calls.append(bounds)

@@ -7,6 +7,7 @@ from pathlib import Path
 import uuid
 
 from apps.launchers.local_imagery_pack import LocalImageryPack
+from tools.map_builder.builder.map_3d import PRESETS
 from common.xdg_paths import openroadcode_data_dir
 from development.maps.regional_imagery import download as download_overview
 from development.maps.prebuilt_imagery import read_descriptor, read_local_archive, verify_archive, fetch_archive, unpack
@@ -15,6 +16,8 @@ from development.maps.prebuilt_imagery import read_descriptor, read_local_archiv
 COVERAGES = {
     'metro-detroit': ('Metro Detroit overview', (-83.75, 42.0, -82.55, 42.9)),
     'detroit-midtown': ('Detroit Downtown–Midtown detail', (-83.085, 42.315, -83.025, 42.375)),
+    'rochester': PRESETS['rochester'],
+    'southfield': PRESETS['southfield'],
 }
 
 
@@ -45,7 +48,7 @@ def install(coverage, *, update=False, artifact=None):
     else:
         download_overview(revision, bounds=bounds, title=title,
                           cache_directory=active.with_name(active.name+'.download'),
-                          image_size=(4096,4096) if coverage == 'detroit-midtown' else (2048,1536))
+                          image_size=(4096,4096) if coverage != 'metro-detroit' else (2048,1536))
     LocalImageryPack.load(revision)
     pending = active.parent / ('.active-'+uuid.uuid4().hex)
     try:
@@ -74,11 +77,11 @@ def main():
         if coverage is None:
             for index, (_, (title, _)) in enumerate(COVERAGES.items(), 1):
                 print(f'{index}. {title}')
-            choice = input('Choose coverage [1/2, Enter cancels]: ').strip()
+            choice = input(f'Choose coverage [1–{len(COVERAGES)}, Enter cancels]: ').strip()
             if not choice:
                 return 0
-            if choice not in ('1', '2'):
-                raise ValueError('Choose 1 or 2')
+            if not choice.isdigit() or not 1 <= int(choice) <= len(COVERAGES):
+                raise ValueError(f'Choose 1–{len(COVERAGES)}')
             coverage = tuple(COVERAGES)[int(choice)-1]
         title, bounds = COVERAGES[coverage]
         print(f'{title}: rectangular bounds {bounds}; not exact county boundaries.')
@@ -93,8 +96,8 @@ def main():
             print('Source-build mode: USGS custom exports may fail. For device installs, use --pack-manifest with a published artifact.')
             print('Layer: public-domain NAIP imagery; 20 MiB maximum image payload plus source metadata.')
         if not artifact:
-            if coverage == 'detroit-midtown':
-                print('Detail quality: 4096×4096 final pixels over Downtown–Midtown; more GPU memory than the overview.')
+            if coverage != 'metro-detroit':
+                print('Detail quality: 4096×4096 final pixels over selected coverage; more GPU memory than the overview.')
             print('16 smaller exports, combined locally. Completed tiles resume after interruption.')
             print('Transfer cap: 20 MiB across tiles; cache and final image temporarily use up to 40 MiB plus metadata.')
         print('Overview is coarse, not street-level detail. Inspect coverage for source gaps after installation.')
@@ -108,7 +111,7 @@ def main():
         if args.build_only:
             download_overview(args.build_only, bounds=bounds, title=title,
                               cache_directory=args.build_only.with_name(args.build_only.name+'.download'),
-                              image_size=(4096,4096) if coverage == 'detroit-midtown' else (2048,1536))
+                              image_size=(4096,4096) if coverage != 'metro-detroit' else (2048,1536))
             LocalImageryPack.load(args.build_only)
             print(f'Validated build output: {args.build_only}. Ready for imagery_artifact packaging.')
         else:

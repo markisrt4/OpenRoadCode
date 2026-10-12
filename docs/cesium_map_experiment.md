@@ -748,7 +748,7 @@ the live vehicle marker remain visible through their respective state contracts.
 
 Embedded Terrain, selected-place exploration and the default standalone viewer
 now mount the known installed imagery packs as an immutable, bounded layer stack
-(maximum four). The broadest coverage forms the background; smaller footprints
+(maximum six). The broadest coverage forms the background; smaller footprints
 sit above it. The metro overview stays available when the view leaves a detail
 area. Transparent coverage gaps in detail reveal the background. A transparent
 global base prevents Cesium stretching bounded imagery across the globe.
@@ -776,3 +776,67 @@ compared with 2048×1536 across Metro Detroit. USGS source availability and nati
 resolution still limit detail. Download retries and completed-piece resume remain
 in effect. Review quality and Termux GPU memory/performance before expanding
 high-resolution coverage. Route display/guidance is a subsequent integration step.
+
+### Rochester and Southfield test packs
+
+Coverage presets now include **Rochester test area** (−83.175, 42.650 to −83.110,
+42.705) and **Central Southfield test area** (−83.290, 42.440 to −83.220, 42.505).
+These are rectangular test envelopes, not full municipal boundaries. Imagery,
+terrain, and buildings remain separate optional layers.
+
+On Termux, download buildings without requesting imagery again, then terrain:
+
+```bash
+git switch navigation-cesium
+git pull --ff-only
+python -m development.maps.download_detroit_map_tiles --coverage rochester --layer buildings --download
+python -m development.maps.install_terrain --coverage rochester
+python -m development.maps.download_detroit_map_tiles --coverage southfield --layer buildings --download
+python -m development.maps.install_terrain --coverage southfield
+./runOrcUi
+```
+
+The building adapter reuses the existing bounded eight-tile Overpass downloader:
+simple OSM ways only, with tagged heights, floor estimates, or placeholders.
+It retains source records and validates complete packs before installation.
+Per-pack caps are 160 MiB source plus 80 MiB geometry; staging duplicates cached
+data. Actual sizes depend on replies. Completed source tiles resume after failure;
+Overpass failures still have bounded retries. This is a device-side option; on a
+build host, the existing builder can instead extract either preset from Michigan
+PBF sources without live Overpass queries:
+
+```bash
+git switch navigation-cesium
+bash tools/map_builder/scripts/run-builder.sh 3d --coverage rochester --layer buildings
+bash tools/map_builder/scripts/run-builder.sh 3d --coverage southfield --layer buildings
+```
+
+Terrain uses the existing 65×65 USGS sample grid, with a 33×33 EPQS fallback;
+source datum is retained and the scene uses relative relief. Sampling does not
+capture every small hill, and incomplete terrain sampling may restart on retry.
+Real USGS/OSM responses still need testing on the device.
+
+Select a place inside the desired area and open Terrain, or reopen Terrain while
+located there. Building and terrain packs are selected at viewer startup; they
+do not hot-swap during a drive between Rochester and Southfield.
+
+Optional sharper imagery uses the same 4096×4096 build/package/install workflow.
+For example:
+
+```bash
+git switch navigation-cesium
+python -m development.maps.install_region --coverage rochester --build-only build-output/rochester-detail-v1
+python -m tools.map_builder.builder.imagery_artifact --coverage rochester --pack build-output/rochester-detail-v1 --output build-output/artifacts/rochester-detail-v1.zip
+python -m development.maps.install_region --coverage rochester --pack-file build-output/artifacts/rochester-detail-v1.zip --update
+```
+
+Repeat with `southfield` replacing `rochester`. The six known imagery slots now
+include both suburban packs; lazy detail texture loading keeps the regional
+background available. Reopen Terrain after installing imagery.
+
+### Termux type-checker policy
+
+If mypy is absent on Termux, the quality gate explicitly skips the strict type
+checker and its subprocess-dependent tests. Other checks continue. If mypy is
+installed, Termux runs it normally. Missing mypy still fails Linux/CI, and a
+regression test enforces that distinction; this is not a global optional gate.

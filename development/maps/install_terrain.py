@@ -7,6 +7,7 @@ import argparse
 from pathlib import Path
 
 from apps.launchers.local_terrain_pack import detroit_terrain_directory, midtown_terrain_directory, pine_knob_terrain_directory, load_terrain
+from common.xdg_paths import openroadcode_data_dir
 from tools.map_builder.builder.map_3d import PRESETS
 from tools.map_builder.builder.map_3d_menu import choose_coverage
 from tools.map_builder.builder.terrain import download
@@ -29,7 +30,7 @@ def main():
         directories = {'detroit-downtown': detroit_terrain_directory,
                        'detroit-midtown': midtown_terrain_directory,
                        'pine-knob': pine_knob_terrain_directory}
-        destination = args.output or directories[coverage]()
+        destination = args.output or (directories[coverage]() if coverage in directories else openroadcode_data_dir('map-packs',coverage+'-terrain-v1'))
         print(f'Coverage: {title} · {bounds}')
         print('USGS 3DEP: 65×65 ground samples; 33×33 public EPQS fallback if the image service requires a token.')
         print('Internet needed for downloading; viewing works offline.')

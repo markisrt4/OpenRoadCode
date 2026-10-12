@@ -28,7 +28,9 @@ def preferred_terrain_directory(destination=None):
     packs = navigation_data_root()/'maps/3d/packs'
     candidates = (packs/'detroit-midtown-terrain', midtown_terrain_directory(),
                   packs/'detroit-downtown-terrain', detroit_terrain_directory(),
-                  packs/'pine-knob-terrain', pine_knob_terrain_directory())
+                  packs/'pine-knob-terrain', pine_knob_terrain_directory(),
+                  packs/'rochester-terrain',openroadcode_data_dir('map-packs','rochester-terrain-v1'),
+                  packs/'southfield-terrain',openroadcode_data_dir('map-packs','southfield-terrain-v1'))
     if destination is not None:
         longitude = math.degrees(destination.longitude_rad)
         latitude = math.degrees(destination.latitude_rad)

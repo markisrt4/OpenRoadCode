@@ -12,6 +12,8 @@ PRESETS = {
     'detroit-downtown': ('Detroit Downtown',(-83.065,42.315,-83.025,42.345)),
     'detroit-midtown': ('Detroit Downtown–Midtown',(-83.085,42.315,-83.025,42.375)),
     'pine-knob': ('Pine Knob · Clarkston',(-83.39,42.74,-83.365,42.765)),
+    'rochester': ('Rochester test area',(-83.175,42.650,-83.110,42.705)),
+    'southfield': ('Central Southfield test area',(-83.290,42.440,-83.220,42.505)),
 }
 CREDIT = '© OpenStreetMap contributors · ODbL 1.0'
 

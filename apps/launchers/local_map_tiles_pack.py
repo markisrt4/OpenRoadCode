@@ -16,8 +16,19 @@ def detroit_tiles_directory():
     return openroadcode_data_dir('map-packs','detroit-midtown-tiles-v1')
 
 
-def preferred_tiles_directory():
+def preferred_tiles_directory(destination=None):
     directory = navigation_data_root()/'maps/3d/packs'
+    if destination is not None:
+        for key in ('rochester','southfield'):
+            for candidate in (directory/key,openroadcode_data_dir('map-packs',key+'-buildings-v1'),
+                              openroadcode_data_dir('map-packs',key+'-tiles-v1')):
+                if not (candidate/'manifest.json').is_file():
+                    continue
+                pack = LocalMapTilesPack.load(candidate)
+                state = pack.state.coverage
+                if (state.west_rad <= destination.longitude_rad <= state.east_rad
+                        and state.south_rad <= destination.latitude_rad <= state.north_rad):
+                    return candidate
     if directory.exists():
         packs = sorted(p for p in directory.iterdir() if p.is_dir() and not p.name.startswith('.')
                        and not p.name.endswith('-terrain'))

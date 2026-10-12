@@ -21,7 +21,9 @@ def pine_knob_imagery_directory():
 def installed_imagery_directories():
     return (pine_knob_imagery_directory(), detroit_pack_directory(),
             openroadcode_data_dir('map-packs', 'detroit-midtown-imagery-active'),
-            openroadcode_data_dir('map-packs', 'metro-detroit-imagery-active'))
+            openroadcode_data_dir('map-packs', 'metro-detroit-imagery-active'),
+            openroadcode_data_dir('map-packs', 'rochester-imagery-active'),
+            openroadcode_data_dir('map-packs', 'southfield-imagery-active'))
 
 
 def load_imagery_stack():

@@ -62,7 +62,7 @@ def main():
     try:
         state = CesiumViewerState(GeoPoint(math.radians(args.latitude), math.radians(args.longitude)),
                                   label=args.label, distance_m=args.distance_m)
-        tile_dir = args.tiles or preferred_tiles_directory()
+        tile_dir = args.tiles or preferred_tiles_directory(state.destination)
         legacy_requested = args.no_imagery or args.no_buildings or args.imagery is not None or args.buildings is not None
         tiles = None if args.no_tiles or (args.tiles is None and (legacy_requested or not tile_dir.exists())) else load_viewer_tiles(tile_dir)
         imagery_layers = () if args.no_imagery or args.imagery is not None else load_imagery_stack()
