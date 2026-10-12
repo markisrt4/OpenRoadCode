@@ -28,6 +28,13 @@ The Media landing card offers two entry paths:
 
 The Spotify screen also exposes **Liked Songs** and **Recently Played**. Collection retrieval runs on a worker thread and selecting a returned track queues playback through the shared Spotify service.
 
+Now Playing reserves the available height for album art, metadata, and lyrics:
+Media return, Watch Video (with a code-drawn YouTube icon), and Visualizer share
+the lower utility row rather than separate navigation/video rows. Previous,
+Pause/Play, and Next have taller raised controls. Compact ±10-second controls use
+the existing relative seek contract; the same service supports 30-second seeks
+without a new API. The library view retains its existing navigation bar.
+
 Because library/history permissions were added after the original playback integration, existing users must reauthorize Spotify once so the cached token includes the new scopes.
 
 ### Theme behavior

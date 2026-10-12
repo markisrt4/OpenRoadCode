@@ -11,6 +11,23 @@ from frontends.tk.media.spotify_playback_panel import SpotifyPlaybackPanel
 
 
 class SpotifyPlaybackPanelTest(unittest.TestCase):
+    def test_skip_emits_relative_seconds_through_seek_contract(self):
+        panel = object.__new__(SpotifyPlaybackPanel)
+        panel._state = Mock()
+        panel._seek_handler = Mock()
+        panel._run_action = lambda action, **_kwargs: action()
+        panel._skip(-10)
+        panel._skip(30)
+        panel._seek_handler.request_rewind.assert_called_once_with(10)
+        panel._seek_handler.request_forward.assert_called_once_with(30)
+
+    def test_skip_without_state_does_not_seek(self):
+        panel = object.__new__(SpotifyPlaybackPanel)
+        panel._state = None
+        panel._seek_handler = Mock()
+        panel._skip(10)
+        panel._seek_handler.request_forward.assert_not_called()
+
     def test_long_title_shrinks_within_fixed_width(self) -> None:
         label = Mock()
         label.winfo_width.return_value = 300

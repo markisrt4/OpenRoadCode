@@ -206,6 +206,7 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
 
     spotify_screen = SpotifyScreen(
         app, theme=lambda: spotify_theme(app), back_action=lambda: media_screen.show(),
+        show_visualizer=lambda: visualizer.show(),
         image_cache=image_cache, lyrics_client=lyrics, music_video_controller=music_video_controller,
         music_video_presentation=music_video, service=media.spotify,
         local_player=media.spotify_local_player, media_navigation_factory=media_navigation,

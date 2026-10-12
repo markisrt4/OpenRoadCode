@@ -116,7 +116,10 @@ class SpotifyPlaybackPanel(tk.Frame):
         image_cache: ArtworkProviderIf,
         lyrics_client: LyricsProviderIf,
         theme: dict[str, Any],
+        show_media=None,
+        show_visualizer=None,
     ) -> None:
+        self._show_media, self._show_visualizer = show_media, show_visualizer
         self._music_video_controller = music_video_controller
         self._image_cache = image_cache
         self._lyrics_client = lyrics_client
@@ -384,7 +387,9 @@ class SpotifyPlaybackPanel(tk.Frame):
             pady=self._style["controls_pady"],
         )
 
-        self._button(
+        self._button(controls, "−10s", lambda: self._skip(-10), width=4,
+                     vertical_padding=6).pack(side=tk.LEFT, padx=4)
+        self._transport_button(
             controls,
             self._layout["previous_text"],
             self._previous,
@@ -394,7 +399,7 @@ class SpotifyPlaybackPanel(tk.Frame):
             padx=self._style["transport_button_gap"],
         )
 
-        self._play_button = self._button(
+        self._play_button = self._transport_button(
             controls,
             self._layout["play_pause_text"],
             self._play_pause,
@@ -405,7 +410,7 @@ class SpotifyPlaybackPanel(tk.Frame):
             padx=self._style["transport_button_gap"],
         )
 
-        self._button(
+        self._transport_button(
             controls,
             self._layout["next_text"],
             self._next,
@@ -415,29 +420,28 @@ class SpotifyPlaybackPanel(tk.Frame):
             padx=self._style["transport_button_gap"],
         )
 
-        self._video_button = self._button(
-            card,
-            _WATCH_VIDEO_TEXT,
-            self._toggle_video,
-            width=max(
-                self._style["transport_button_width"],
-                len(_RETURN_TO_SPOTIFY_TEXT),
-            ),
-        )
-        self._video_button.pack(
-            side="top",
-            pady=self._style["controls_pady"],
-        )
-        self._video_button.configure(state=tk.DISABLED)
+        self._button(controls, "+10s", lambda: self._skip(10), width=4,
+                     vertical_padding=6).pack(side=tk.LEFT, padx=4)
 
         bottom = tk.Frame(card, bg=self._colors["card_background"])
         self._bottom = bottom
-        bottom.pack(
-            side="bottom",
-            fill=self._layout["fill_horizontal"],
-            padx=self._style["bottom_padx"],
-            pady=self._style["bottom_pady"],
+        for label, action in (("‹ Media", self._show_media),
+                              ("♫ Visualizer", self._show_visualizer)):
+            if action is not None:
+                self._button(bottom, label, action, width=0, vertical_padding=4).pack(
+                    side=tk.LEFT, padx=3,
+                )
+        self._video_button = self._button(
+            bottom, _WATCH_VIDEO_TEXT, self._toggle_video, width=0, vertical_padding=4,
         )
+        self._video_button.pack(side=tk.LEFT, padx=3)
+        self._video_button.configure(state=tk.DISABLED, font=("Sans", 9, "bold"))
+        self._youtube_icon = tk.PhotoImage(master=self, width=18, height=12)
+        self._youtube_icon.put("#ff0033", to=(0, 0, 18, 12))
+        for row in range(3, 10):
+            reach = max(1, 5 - abs(row - 6))
+            self._youtube_icon.put("#ffffff", to=(6, row, 6 + reach, row + 1))
+        self._video_button.configure(image=self._youtube_icon, compound=tk.LEFT)
 
         self._label(
             bottom,
@@ -499,7 +503,6 @@ class SpotifyPlaybackPanel(tk.Frame):
             self._progress_canvas,
             self._progress_label,
             self._controls,
-            self._video_button,
             self._bottom,
         )
         for section in sections:
@@ -510,10 +513,6 @@ class SpotifyPlaybackPanel(tk.Frame):
             fill=self._layout["fill_horizontal"],
             padx=self._style["bottom_padx"],
             pady=self._style["bottom_pady"],
-        )
-        self._video_button.pack(
-            side="bottom",
-            pady=self._style["controls_pady"],
         )
         self._controls.pack(
             side="bottom",
@@ -564,6 +563,20 @@ class SpotifyPlaybackPanel(tk.Frame):
             options["width"] = width
 
         return tk.Label(parent, **options)
+
+    def _transport_button(self, parent, text, command, *, width):
+        button = self._button(parent, text, command, width=width, vertical_padding=10)
+        button.configure(relief=tk.RAISED, bd=2)
+        return button
+
+    def _skip(self, seconds):
+        """Emit a relative seek through the existing seconds-based contract."""
+        if self._seek_handler is None or self._state is None:
+            return
+        handler = self._seek_handler
+        action = (lambda: handler.request_rewind(-seconds)) if seconds < 0 else (
+            lambda: handler.request_forward(seconds))
+        self._run_action(action, failure_message="Seek failed")
 
     def _button(
         self,

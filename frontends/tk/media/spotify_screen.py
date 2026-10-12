@@ -58,12 +58,14 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         configure_spotify: Callable[[], None] | None = None,
         connect_spotify: Callable[[], None] | None = None,
         disconnect_spotify: Callable[[], None] | None = None,
+        show_visualizer: Callable[[], None] | None = None,
     ) -> None:
         super().__init__(ScreenId("spotify"))
         self._host = host
         self._theme_provider = theme if callable(theme) else lambda: theme
         self._theme = self._theme_provider()
         self._back_action = back_action
+        self._show_visualizer = show_visualizer
         self._image_cache = image_cache
         self._lyrics_client = lyrics_client
         self._music_video_controller = music_video_controller
@@ -245,7 +247,6 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         self._browse_action = None
         root = tk.Frame(self._host.screen_parent, bg=self._theme["colors"]["background"])
         root.pack(fill=tk.BOTH, expand=True)
-        self._build_media_navigation(root)
         self._build_setup_banner(root)
         if self._service is not None and self._local_player is not None:
             controls = self._browse_panel(root)
@@ -257,6 +258,7 @@ class SpotifyScreen(TkScreen, MediaUiIf):
             parent=content, theme=self._theme, image_cache=self._image_cache,
             lyrics_client=self._lyrics_client, music_video_controller=self._music_video_controller,
             ui_dispatch=self._dispatch_ui,
+            show_media=self._back_action, show_visualizer=self._show_visualizer,
         )
         panel.set_playback_request_handler(self._playback_handler)
         panel.set_track_request_handler(self._track_handler)
