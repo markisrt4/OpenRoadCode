@@ -211,7 +211,7 @@ class SpotifyScreen(TkScreen, MediaUiIf):
             row, text=status.upper(), bg=surface,
             fg=SPOTIFY_GREEN if configured and connected else muted,
             font=("Sans", 9, "bold"),
-        ).pack(side=tk.LEFT, padx=10, pady=8)
+        ).pack(side=tk.LEFT, padx=10, pady=4)
 
         if self._configure_spotify is not None:
             tk.Button(
@@ -231,6 +231,14 @@ class SpotifyScreen(TkScreen, MediaUiIf):
                 relief=tk.FLAT, bd=0, font=("Sans", 8, "bold"), padx=10, pady=5,
                                                                          highlightthickness=0,
             ).pack(side=tk.RIGHT, padx=4, pady=5)
+
+        tk.Button(
+            row, text="‹ MEDIA", command=self._back_action,
+            bg=button_bg, fg=button_fg, activebackground=colors.get("button_active_background", button_bg),
+            activeforeground=colors.get("button_active_foreground", button_fg),
+            relief=tk.FLAT, bd=0, highlightthickness=0,
+            font=("Sans", 9, "bold"), padx=10, pady=5,
+        ).pack(side=tk.RIGHT, padx=4, pady=5)
 
     def _browse_panel(self, parent: tk.Misc) -> SpotifyBrowsePanel:
         if self._service is None or self._local_player is None:

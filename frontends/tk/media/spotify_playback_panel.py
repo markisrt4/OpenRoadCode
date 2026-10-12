@@ -126,7 +126,8 @@ class SpotifyPlaybackPanel(tk.Frame):
         self._theme = theme
         self._colors = theme["colors"]
         self._layout = theme["layout"]
-        self._style = theme["profiles"]["default"]
+        self._style = dict(theme["profiles"]["default"])
+        self._style["hero_pady"] = (8, 4)
 
         super().__init__(parent, bg=self._colors["background"])
 
@@ -387,8 +388,7 @@ class SpotifyPlaybackPanel(tk.Frame):
             pady=self._style["controls_pady"],
         )
 
-        self._button(controls, "−10s", lambda: self._skip(-10), width=4,
-                     vertical_padding=6).pack(side=tk.LEFT, padx=4)
+        self._transport_button(controls, "−10s", lambda: self._skip(-10), width=4).pack(side=tk.LEFT, padx=4)
         self._transport_button(
             controls,
             self._layout["previous_text"],
@@ -420,13 +420,11 @@ class SpotifyPlaybackPanel(tk.Frame):
             padx=self._style["transport_button_gap"],
         )
 
-        self._button(controls, "+10s", lambda: self._skip(10), width=4,
-                     vertical_padding=6).pack(side=tk.LEFT, padx=4)
+        self._transport_button(controls, "+10s", lambda: self._skip(10), width=4).pack(side=tk.LEFT, padx=4)
 
         bottom = tk.Frame(card, bg=self._colors["card_background"])
         self._bottom = bottom
-        for label, action in (("‹ Media", self._show_media),
-                              ("♫ Visualizer", self._show_visualizer)):
+        for label, action in (("♫ Visualizer", self._show_visualizer),):
             if action is not None:
                 self._button(bottom, label, action, width=0, vertical_padding=4).pack(
                     side=tk.LEFT, padx=3,
@@ -434,8 +432,8 @@ class SpotifyPlaybackPanel(tk.Frame):
         self._video_button = self._button(
             bottom, _WATCH_VIDEO_TEXT, self._toggle_video, width=0, vertical_padding=4,
         )
-        self._video_button.pack(side=tk.LEFT, padx=3)
-        self._video_button.configure(state=tk.DISABLED, font=("Sans", 9, "bold"))
+        self._video_button.pack(side=tk.LEFT, padx=(10, 3))
+        self._video_button.configure(state=tk.DISABLED, font=("Sans", 12, "bold"))
         self._youtube_icon = tk.PhotoImage(master=self, width=18, height=12)
         self._youtube_icon.put("#ff0033", to=(0, 0, 18, 12))
         for row in range(3, 10):
@@ -450,48 +448,8 @@ class SpotifyPlaybackPanel(tk.Frame):
             font=self._style["status_font"],
             anchor=self._layout["left_anchor"],
         ).pack(
-            side=self._layout["left_side"],
-            fill=self._layout["fill_horizontal"],
-            expand=True,
-        )
-
-        volume_frame = tk.Frame(
-            bottom,
-            bg=self._colors["card_background"],
-        )
-        volume_frame.pack(side=self._layout["right_side"])
-
-        self._button(
-            volume_frame,
-            self._layout["volume_down_text"],
-            self._volume_down,
-            width=self._style["volume_button_width"],
-            vertical_padding=self._style["volume_button_pady"],
-        ).pack(
-            side=self._layout["left_side"],
-            padx=self._style["volume_button_gap"],
-        )
-
-        self._label(
-            volume_frame,
-            variable=self._volume_var,
-            foreground=self._colors["subtitle"],
-            font=self._style["status_font"],
-            width=self._style["volume_text_width"],
-        ).pack(
-            side=self._layout["left_side"],
-            padx=self._style["volume_button_gap"],
-        )
-
-        self._button(
-            volume_frame,
-            self._layout["volume_up_text"],
-            self._volume_up,
-            width=self._style["volume_button_width"],
-            vertical_padding=self._style["volume_button_pady"],
-        ).pack(
-            side=self._layout["left_side"],
-            padx=self._style["volume_button_gap"],
+            side=self._layout["right_side"],
+            padx=(10, 0),
         )
 
         self._pack_priority_sections()
