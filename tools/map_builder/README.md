@@ -287,3 +287,18 @@ bash tools/map_builder/scripts/run-builder.sh validate --write-manifest --instal
 New optional-build failures restore the prior certificate only when revalidation
 proves the original dataset remains unchanged. Single-part Osmium MultiPolygons
 are supported as ordinary outlines; holes and multi-part geometry remain omitted.
+
+### Optional prebuilt regional imagery
+
+Validated local imagery can be packaged for HTTPS distribution without changing
+or rebuilding the base navigation dataset:
+
+```bash
+git switch navigation-cesium
+python -m tools.map_builder.builder.imagery_artifact --coverage metro-detroit --pack build-output/metro-detroit-imagery --output build-output/artifacts/metro-detroit-imagery.zip
+```
+
+This produces an archive and a size/checksum descriptor; it does not publish them.
+See `docs/cesium_map_experiment.md` for source building, device installation,
+resume, and activation. A finished imagery pack is required; this command does
+not turn a failed USGS export into an artifact.

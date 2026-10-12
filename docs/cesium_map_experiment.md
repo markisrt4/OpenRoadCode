@@ -586,3 +586,44 @@ during assembly, plus source metadata. Individual pieces may use different NAIP
 acquisition years; per-piece catalog/export evidence is retained. Completed
 pieces remain in the `.download` cache if another export fails. A successful
 assembly removes that cache so later updates fetch fresh acquisitions.
+
+### Build once, distribute a checked imagery artifact
+
+For regular device installation, prefer a prebuilt archive over on-demand USGS
+exports. This path exists now, but **no Metro Detroit artifact or public hosting
+URL is bundled**. A build machine must first finish and inspect the imagery;
+packaging does not repair USGS outages or certify that exported imagery has no
+gaps. The existing navigation dataset still uses its SSH/rsync deployment.
+
+On the build machine (repository environment with Pillow, already supplied by
+ORC installers), build without activating the result on that machine:
+
+```bash
+git switch navigation-cesium
+python -m development.maps.install_region --coverage metro-detroit --build-only build-output/metro-detroit-imagery
+python -m tools.map_builder.builder.imagery_artifact --coverage metro-detroit --pack build-output/metro-detroit-imagery --output build-output/artifacts/metro-detroit-imagery.zip
+```
+
+Inspect the imagery before distributing it. Upload both
+`metro-detroit-imagery.zip` and `metro-detroit-imagery.zip.json` beside each other
+on an HTTPS server or as release assets. Packaging preserves the source records
+and evidence files. The descriptor includes the exact archive size and SHA256.
+These commands do not upload or publish anything automatically.
+
+On Termux, substitute the actual published descriptor URL below:
+
+```bash
+git switch navigation-cesium
+python -m development.maps.install_region --coverage metro-detroit --pack-manifest https://YOUR-HOST/metro-detroit-imagery.zip.json
+./runOrcUi
+```
+
+The installer shows size before confirmation, saves partial transfers for HTTP
+Range resume, and restarts safely if the server ignores Range. It caps archives
+and extraction at 64 MiB, checks SHA256, rejects unsafe archive entries, validates
+imagery checksum and regional bounds, then switches the active revision. Existing
+imagery stays usable if transfer or validation fails. Add `--update` to replace
+an existing installation with a newly published artifact. Completed archives are
+retained in the device's `.artifacts` cache for reuse; this consumes extra space.
+The pack descriptor and archive must come from a trusted publisher: checksums
+verify transfer consistency, not publisher authenticity.

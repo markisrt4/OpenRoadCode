@@ -1,6 +1,8 @@
 """Interactive device-side imagery packs; base navigation stays in the map builder."""
 
 import argparse
+from http.client import IncompleteRead
+from zipfile import BadZipFile
 from pathlib import Path
 import uuid
 
@@ -8,6 +10,7 @@ from apps.launchers.local_imagery_pack import LocalImageryPack
 from common.xdg_paths import openroadcode_data_dir
 from development.maps.download_detroit_imagery import download
 from development.maps.regional_imagery import download as download_overview
+from development.maps.prebuilt_imagery import read_descriptor, fetch_archive, unpack
 
 # Rectangular planning envelopes, not county boundaries. No Canadian imagery promised.
 COVERAGES = {
@@ -20,7 +23,7 @@ def imagery_directory(coverage):
     return openroadcode_data_dir('map-packs', coverage+'-imagery-active')
 
 
-def install(coverage, *, update=False):
+def install(coverage, *, update=False, artifact=None):
     """Validate a new revision before atomically switching the active symlink."""
     active = imagery_directory(coverage)
     if active.exists() and not update:
@@ -32,7 +35,11 @@ def install(coverage, *, update=False):
     active.parent.mkdir(parents=True, exist_ok=True)
     revision = active.parent / ('.'+coverage+'-imagery-'+uuid.uuid4().hex)
     title, bounds = COVERAGES[coverage]
-    if coverage == 'metro-detroit':
+    if artifact is not None:
+        descriptor, url = artifact
+        archive = fetch_archive(url, descriptor, active.with_name(active.name+'.artifacts'))
+        unpack(archive, revision, bounds)
+    elif coverage == 'metro-detroit':
         download_overview(revision, bounds=bounds, title=title,
                           cache_directory=active.with_name(active.name+'.download'))
     else:
@@ -52,9 +59,13 @@ def main():
     parser.add_argument('--coverage', choices=COVERAGES)
     parser.add_argument('--update', action='store_true', help='Fetch and validate a fresh imagery revision')
     parser.add_argument('--yes', action='store_true', help='Confirm the printed plan; requires --coverage')
+    parser.add_argument('--pack-manifest', help='HTTPS URL of a published .zip.json; downloads a prebuilt pack instead of contacting USGS')
+    parser.add_argument('--build-only', type=Path, help='Build imagery into this directory for packaging; do not activate it on this host')
     args = parser.parse_args()
     if args.yes and not args.coverage:
         parser.error('--yes requires --coverage')
+    if args.pack_manifest and args.build_only:
+        parser.error('--pack-manifest and --build-only cannot be combined')
     try:
         coverage = args.coverage
         if coverage is None:
@@ -68,8 +79,14 @@ def main():
             coverage = tuple(COVERAGES)[int(choice)-1]
         title, bounds = COVERAGES[coverage]
         print(f'{title}: rectangular bounds {bounds}; not exact county boundaries.')
-        print('Layer: public-domain NAIP imagery, 2048×1536 pixels; 20 MiB maximum image payload plus source metadata.')
-        if coverage == 'metro-detroit':
+        artifact = read_descriptor(args.pack_manifest, coverage) if args.pack_manifest else None
+        if artifact:
+            print(f"Prebuilt imagery: {artifact[0]['title']} · {artifact[0]['bytes']/1048576:.2f} MiB archive")
+            print('Download supports resume; archive SHA256 and image checksum are checked before activation.')
+        else:
+            print('Source-build mode: USGS custom exports may fail. For device installs, use --pack-manifest with a published artifact.')
+            print('Layer: public-domain NAIP imagery, 2048×1536 pixels; 20 MiB maximum image payload plus source metadata.')
+        if coverage == 'metro-detroit' and not artifact:
             print('16 smaller exports, combined locally. Completed tiles resume after interruption.')
             print('Transfer cap: 20 MiB across tiles; cache and final image temporarily use up to 40 MiB plus metadata.')
         print('Overview is coarse, not street-level detail. Inspect coverage for source gaps after installation.')
@@ -78,12 +95,21 @@ def main():
         if not args.yes and input('Download this imagery pack now? [y/N] ').strip().lower() != 'y':
             print('Cancelled')
             return 0
-        install(coverage, update=args.update)
+        if args.build_only:
+            if coverage == 'metro-detroit':
+                download_overview(args.build_only, bounds=bounds, title=title,
+                                  cache_directory=args.build_only.with_name(args.build_only.name+'.download'))
+            else:
+                download(args.build_only, bounds=bounds, title=title)
+            LocalImageryPack.load(args.build_only)
+            print(f'Validated build output: {args.build_only}. Ready for imagery_artifact packaging.')
+        else:
+            install(coverage, update=args.update, artifact=artifact)
         return 0
     except (EOFError, KeyboardInterrupt):
         print('\nCancelled; active pack unchanged unless installation already completed.')
         return 0
-    except (OSError, ValueError, RuntimeError, KeyError, TypeError) as error:
+    except (OSError, ValueError, RuntimeError, KeyError, TypeError, IncompleteRead, BadZipFile) as error:
         print(f'Region imagery install failed: {error}')
         return 1
 
