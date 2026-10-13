@@ -25,7 +25,10 @@ def test_cancellation_after_callback_prevents_exchange():
     with patch("protocols.spotify.spotify_auth.OAuthRedirectServer") as server, patch.object(auth, "complete_authorization") as complete:
         with pytest.raises(SpotifyAuthError, match="cancelled"):
             auth.login(is_current=current)
-        server.return_value.wait_for_callback.assert_called_once_with(is_current=current)
+        server.return_value.wait_for_callback.assert_called_once_with(
+            is_current=current,
+            on_ready=ANY,
+        )
     complete.assert_not_called()
     store.save.assert_not_called()
 
@@ -63,6 +66,9 @@ def test_login_uses_injected_authorization_url_opener():
     with patch("protocols.spotify.spotify_auth.OAuthRedirectServer") as server, patch.object(
         auth, "complete_authorization"
     ):
+        server.return_value.wait_for_callback.side_effect = (
+            lambda *, is_current, on_ready: (on_ready(), Mock())[1]
+        )
         auth.login()
 
     opener.assert_called_once()

@@ -44,6 +44,27 @@ def test_timeout_closes_listener_without_callback():
     assert result.code is None
 
 
+def test_ready_callback_runs_after_listener_is_created_and_listener_closes_on_failure():
+    fake_server = Mock()
+    ready = Mock(side_effect=RuntimeError("browser failed"))
+    with patch(
+        "protocols.oauth.oauth_redirect_server.HTTPServer",
+        return_value=fake_server,
+    ) as server_factory:
+        try:
+            OAuthRedirectServer(
+                "http://127.0.0.1:12345/callback"
+            ).wait_for_callback(on_ready=ready)
+        except RuntimeError as exc:
+            assert str(exc) == "browser failed"
+        else:
+            raise AssertionError("ready callback failure was not propagated")
+
+    server_factory.assert_called_once()
+    ready.assert_called_once_with()
+    fake_server.server_close.assert_called_once_with()
+
+
 def test_live_callback_preserves_fields():
     from urllib.request import urlopen
     with socket.socket() as reservation:

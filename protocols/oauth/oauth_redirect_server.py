@@ -45,7 +45,12 @@ class OAuthRedirectServer:
         self._path = parsed.path or "/"
         self._timeout_seconds = timeout_seconds
 
-    def wait_for_callback(self, *, is_current: Callable[[], bool] = lambda: True) -> OAuthCallbackResult:
+    def wait_for_callback(
+        self,
+        *,
+        is_current: Callable[[], bool] = lambda: True,
+        on_ready: Callable[[], None] | None = None,
+    ) -> OAuthCallbackResult:
         """
         Block until a callback, timeout, or cancellation.
 
@@ -65,6 +70,8 @@ class OAuthRedirectServer:
         deadline = time.monotonic() + self._timeout_seconds
 
         try:
+            if on_ready is not None:
+                on_ready()
             while is_current() and time.monotonic() < deadline and not callback_parameters:
                 server.timeout = min(0.2, max(0.0, deadline - time.monotonic()))
                 server.handle_request()

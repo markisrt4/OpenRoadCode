@@ -136,17 +136,23 @@ class SpotifyAuth:
 
         print("Opening Spotify authorization URL...")
         print(authorization.authorization_url)
-        if self._open_browser:
+        callback_server = OAuthRedirectServer(
+            self._config.redirect_uri,
+            timeout_seconds=self._callback_timeout_seconds,
+        )
+
+        def open_authorization_page() -> None:
+            if not self._open_browser:
+                return
             if self._open_authorization_url is not None:
                 self._open_authorization_url(authorization.authorization_url)
             else:
                 webbrowser.open(authorization.authorization_url)
 
-        callback_server = OAuthRedirectServer(
-            self._config.redirect_uri,
-            timeout_seconds=self._callback_timeout_seconds,
+        callback = callback_server.wait_for_callback(
+            is_current=is_current,
+            on_ready=open_authorization_page,
         )
-        callback = callback_server.wait_for_callback(is_current=is_current)
         if not is_current():
             raise SpotifyAuthError("Spotify authorization cancelled")
 
