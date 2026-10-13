@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from controllers.navigation.map_controls_drawer_controller import MapControlsDrawerController
 from dataclasses import dataclass, field
 
 from common.resource_cleanup import ResourceCleanup, close_resources
@@ -60,6 +62,7 @@ class OrcUiComposition:
     performance: SystemPerformanceMonitor | None = None
     diagnostics: DiagnosticsScreen | None = None
     performance_status: PerformanceStatusPresenter | None = None
+    startup_progress: Callable[[str, str], None] | None = None
 
     _closed: bool = field(default=False, init=False)
 
@@ -71,12 +74,14 @@ class OrcUiComposition:
         """Run Tk, close every owned resource, then honor host lifecycle intent."""
         with ResourceCleanup() as cleanup:
             cleanup.callback(self.close)
+            _report(self.startup_progress, "runtime_start", "Starting background runtimes…")
             if self.performance is not None:
                 self.performance.start()
             if self.performance_status is not None:
                 self.performance_status.start()
             self.app.schedule_ui_callback(1500, self.runtime.start_background_apps)
             self.core.start()
+            _report(self.startup_progress, "ready", "OpenRoadCode UI ready")
             self.app.run()
 
         self.core.lifecycle.execute_requested_action()
@@ -101,13 +106,27 @@ class OrcUiComposition:
         )
 
 
-def create_orc_ui_composition() -> OrcUiComposition:
+def _report(
+    progress: Callable[[str, str], None] | None,
+    stage: str,
+    message: str,
+) -> None:
+    if progress is not None:
+        progress(stage, message)
+
+
+def create_orc_ui_composition(
+    *,
+    progress: Callable[[str, str], None] | None = None,
+) -> OrcUiComposition:
     """Create all shell, runtime, and feature dependencies in one place."""
     with ResourceCleanup() as cleanup:
         runtime = create_orc_ui_application_runtime()
         cleanup.callback(runtime.close)
+        _report(progress, "application_runtime", "Application runtime loaded")
         core = create_core_composition()
         cleanup.callback(core.close)
+        _report(progress, "core", "Core UI and telemetry loaded")
         app = core.app
         app.set_theme_change_handler(core.map_runtime.set_theme)
         core.map_runtime.set_theme(app.theme_mode)
@@ -116,12 +135,16 @@ def create_orc_ui_composition() -> OrcUiComposition:
             app.register_navigation_destination(destination)
         radio = configure_radio(app, runtime)
         cleanup.callback(radio.close)
+        _report(progress, "radio", "Radio subsystem loaded")
         games = configure_games(app)
         cleanup.callback(games.shutdown)
+        _report(progress, "games", "Games subsystem loaded")
         vision = configure_vision(app)
         cleanup.callback(vision.close)
+        _report(progress, "vision", "Vision subsystem loaded")
         media = configure_media(app, runtime)
         cleanup.callback(media.close)
+        _report(progress, "media", "Media subsystem loaded")
         settings_store = AppSettingsStore()
         app_settings = settings_store.load()
 
@@ -149,6 +172,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
             map_renderer=core.map_camera.renderer_client,
         )
         cleanup.callback(weather.close)
+        _report(progress, "weather", "Weather subsystem loaded")
         def set_radar_palette(value: RadarPalette) -> None:
             nonlocal app_settings
             app_settings = AppSettings(
@@ -194,6 +218,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
         cleanup.callback(navigation_places.close)
         navigation = NavigationScreen(
             app,
+            drawer_handler=MapControlsDrawerController(),
             online_mode=app.online_mode,
             map_runtime=core.map_runtime,
             places_factory=navigation_places,
@@ -268,6 +293,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
         app.register_screen("DIAGNOSTICS", diagnostics, show_in_navigation=False)
         app.set_initial_destination("HOME")
         app.set_settings_action(lambda: app.navigate_to("SETTINGS"))
+        _report(progress, "screens", "Application screens loaded")
         composition = OrcUiComposition(
             core=core,
             runtime=runtime,
@@ -287,6 +313,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
             performance=performance,
             diagnostics=diagnostics,
             performance_status=performance_status,
+            startup_progress=progress,
         )
         cleanup.release()
         return composition

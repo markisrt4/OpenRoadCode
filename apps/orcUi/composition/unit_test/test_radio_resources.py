@@ -83,3 +83,33 @@ def test_artwork_scheduler_is_separate_from_playback_workers():
     artwork.submit.assert_called_once_with(image_work)
     resources.close()
     artwork.shutdown.assert_called_once_with(wait=False, cancel_futures=True)
+
+
+def test_aircraft_requests_and_polling_retire_with_composition(monkeypatch):
+    executor = Mock(spec=ThreadPoolExecutor)
+    monkeypatch.setattr("apps.orcUi.composition.radio.ThreadPoolExecutor", lambda **k: executor)
+    for name in ("RadioBrowserDirectory", "StreamingRadioFavorites", "RadioScreen"):
+        monkeypatch.setattr(f"apps.orcUi.composition.radio.{name}", Mock())
+    adsb = Mock()
+    adsb.simulation = False
+    adsb.aircraft_count = 2
+    adsb.tracking = True
+    monkeypatch.setattr("apps.orcUi.composition.radio.OrcUiAdsbControl", lambda: adsb)
+    app = Mock()
+    app.theme_mode = ThemeMode.DARK
+    composition = configure_radio(app, Mock())
+    # Receiver inspection is queued on the owned worker, never performed by Tk.
+    observe = executor.submit.call_args.args[0]
+    observe()
+    poll = app.schedule_ui_callback.call_args.args[1]
+    poll()
+    app.set_adsb_state.assert_called_with(enabled=True, aircraft_count=2, simulation=False)
+    handler = app.set_aircraft_request_handler.call_args.args[0]
+    composition.close()
+    executor.submit.reset_mock()
+    app.schedule_ui_callback.reset_mock()
+    handler.request_adsb_enabled(False)
+    poll()
+    executor.submit.assert_not_called()
+    app.schedule_ui_callback.assert_not_called()
+    adsb.set_tracking.assert_not_called()

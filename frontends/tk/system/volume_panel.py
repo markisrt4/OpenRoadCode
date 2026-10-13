@@ -129,4 +129,5 @@ class VolumePanel(tk.Frame, VolumeUiIf, UiWidget):
             height=self._layout["button_height"],
             cursor=self._layout["cursor"],
             command=command,
+            highlightthickness=0, relief=tk.FLAT,
         )

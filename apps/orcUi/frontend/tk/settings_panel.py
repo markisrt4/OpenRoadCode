@@ -69,6 +69,7 @@ class SettingsPanel(tk.Frame, UiWidget):
             font=("Sans", FONT_CONTROL, "bold"),
             padx=14,
             pady=6,
+            highlightthickness=0,
         ).pack(side=tk.RIGHT, padx=10, pady=8)
 
         body = tk.Frame(self, bg=ui.background)
@@ -125,6 +126,7 @@ class SettingsPanel(tk.Frame, UiWidget):
                 selectcolor=ui.control_background,
                 font=("Sans", FONT_CONTROL),
                 anchor="w",
+                highlightthickness=0, bd=0, relief=tk.FLAT,
             ).grid(row=row, column=0, sticky="w", pady=2)
 
         vehicle = tk.Frame(
@@ -176,6 +178,7 @@ class SettingsPanel(tk.Frame, UiWidget):
                 selectcolor=ui.control_background,
                 font=("Sans", FONT_CONTROL),
                 anchor="w",
+                highlightthickness=0, bd=0, relief=tk.FLAT,
             ).grid(row=row, column=0, sticky="w", pady=2)
 
     @property

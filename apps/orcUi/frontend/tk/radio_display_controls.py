@@ -60,6 +60,7 @@ class RadioDisplayControlsMixin(RadioPresentationFrame):
             bd=0,
             padx=12,
             pady=10,
+            highlightthickness=0,
         ).pack(side=tk.RIGHT)
         for key, label, action in (
             ("waterfall", "WATERFALL", self._toggle_waterfall),
@@ -80,6 +81,7 @@ class RadioDisplayControlsMixin(RadioPresentationFrame):
                 font=("Sans", FONT_CONTROL, "bold"),
                 padx=16,
                 pady=11,
+                highlightthickness=0,
             )
             button.pack(fill=tk.X)
             self._display_buttons[key] = button
@@ -97,6 +99,7 @@ class RadioDisplayControlsMixin(RadioPresentationFrame):
             bd=0,
             padx=16,
             pady=11,
+            highlightthickness=0,
         ).pack(fill=tk.X)
         tk.Button(
             self._drawer,
@@ -111,6 +114,7 @@ class RadioDisplayControlsMixin(RadioPresentationFrame):
             bd=0,
             padx=16,
             pady=11,
+            highlightthickness=0,
         ).pack(fill=tk.X)
 
     def _choose_theme(self) -> None:
@@ -125,6 +129,8 @@ class RadioDisplayControlsMixin(RadioPresentationFrame):
             fg=ui.text,
             activebackground=ui.control_background,
             activeforeground=ui.text,
+            bd=0,
+            relief=tk.FLAT,
         )
         for theme in themes:
             menu.add_command(label=theme, command=partial(self._session.request, RadioRequest(RadioAction.THEME, key=theme)))
