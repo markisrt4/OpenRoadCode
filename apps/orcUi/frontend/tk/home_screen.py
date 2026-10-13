@@ -70,8 +70,8 @@ def build_home_screen(
     context.update_attitude_state(attitude_state)
     context.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(5, 0))
 
-    lower = tk.Frame(parent, bg=ui.background, height=196)
-    # Keep audio compact; give all spare height to navigation.
+    lower = tk.Frame(parent, bg=ui.background, height=250)
+    # Reserve enough room for useful audio controls and the shared analyzer.
     lower.grid_propagate(False)
     lower.grid(row=1, column=0, sticky="nsew", padx=(0, 5), pady=(5, 0))
     lower.grid_columnconfigure(0, weight=1, uniform="home-audio")

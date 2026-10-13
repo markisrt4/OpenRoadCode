@@ -3,6 +3,7 @@
 """Hand POI web destinations to the Linux desktop's configured browser."""
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 
@@ -24,7 +25,8 @@ class DesktopBrowserLauncher:
             raise DesktopBrowserLauncherError("Install gio or xdg-utils and configure a default browser")
         command = [opener, "open", uri] if gio else [opener, uri]
         try:
-            result = subprocess.run(command, capture_output=True, text=True,
+            result = subprocess.run(command, env=_desktop_environment(),
+                                    capture_output=True, text=True,
                                     check=False, timeout=5)
         except subprocess.TimeoutExpired as exc:
             raise DesktopBrowserLauncherError(
@@ -35,3 +37,11 @@ class DesktopBrowserLauncher:
         if result.returncode:
             detail = result.stderr.strip() or result.stdout.strip() or "unknown error"
             raise DesktopBrowserLauncherError(f"Desktop browser handoff failed: {detail}")
+
+
+def _desktop_environment() -> dict[str, str]:
+    """Keep in-process GUI toolkit settings out of desktop URL handlers."""
+    environment = os.environ.copy()
+    for name in ("QT_PLUGIN_PATH", "QT_QPA_PLATFORM_PLUGIN_PATH", "QT_QPA_FONTDIR"):
+        environment.pop(name, None)
+    return environment

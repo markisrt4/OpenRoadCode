@@ -152,7 +152,7 @@ class SpotifyAccountController:
                 if action is SpotifyAccountAction.CONFIGURE:
                     if not commit(lambda: self._save(client_id.strip())):
                         return
-                    message = "Spotify application saved. Restart ORC to activate it."
+                    message = "Spotify application saved. You can connect now."
                 elif action is SpotifyAccountAction.CONNECT:
                     self._connect(current, commit)
                     message = "Spotify account connected"

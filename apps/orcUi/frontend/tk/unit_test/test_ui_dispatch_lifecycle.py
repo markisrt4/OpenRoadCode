@@ -73,3 +73,18 @@ def test_inert_or_foreign_timer_tokens_never_reach_tk():
     for token in (None, object(), 42, []):
         app.cancel_ui_callback(token)
     app._root.after_cancel.assert_not_called()
+
+
+def test_immediately_invoked_timer_does_not_capture_unassigned_token():
+    app = shell()
+    callback = Mock()
+
+    def invoke_immediately(_delay, invoke):
+        invoke()
+        return "timer"
+
+    app._root.after.side_effect = invoke_immediately
+
+    assert app.schedule_ui_callback(0, callback) == "timer"
+    callback.assert_called_once_with()
+    assert app._ui_callbacks == set()

@@ -42,6 +42,8 @@ class SpotifyAuth:
         *,
         callback_timeout_seconds: float = 120.0,
         open_browser: bool = True,
+        open_authorization_url: Callable[[str], None] | None = None,
+        allow_interactive_login: bool = True,
     ) -> None:
         if callback_timeout_seconds <= 0:
             raise ValueError("callback_timeout_seconds must be greater than zero")
@@ -50,6 +52,8 @@ class SpotifyAuth:
         self._token_store = token_store
         self._callback_timeout_seconds = callback_timeout_seconds
         self._open_browser = open_browser
+        self._open_authorization_url = open_authorization_url
+        self._allow_interactive_login = allow_interactive_login
         self._oauth_client = OAuthClient(config.create_oauth_config())
 
     @property
@@ -61,9 +65,13 @@ class SpotifyAuth:
         """Return a valid Spotify access token, authorizing when needed."""
         tokens = self._token_store.load()
         if tokens is None:
+            if not self._allow_interactive_login:
+                raise SpotifyAuthError("Spotify account is not connected")
             tokens = self.login()
         elif tokens.is_expired():
             if tokens.refresh_token is None:
+                if not self._allow_interactive_login:
+                    raise SpotifyAuthError("Spotify account must be reconnected")
                 tokens = self.login()
             else:
                 tokens = self.refresh(tokens.refresh_token)
@@ -129,7 +137,10 @@ class SpotifyAuth:
         print("Opening Spotify authorization URL...")
         print(authorization.authorization_url)
         if self._open_browser:
-            webbrowser.open(authorization.authorization_url)
+            if self._open_authorization_url is not None:
+                self._open_authorization_url(authorization.authorization_url)
+            else:
+                webbrowser.open(authorization.authorization_url)
 
         callback_server = OAuthRedirectServer(
             self._config.redirect_uri,

@@ -7,6 +7,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from frontends.tk.media.spotify_screen import SpotifyScreen
+from ui.media.spotify_account_if import SpotifyAccountState
 
 
 def _theme() -> dict:
@@ -60,6 +61,25 @@ class SpotifyScreenTest(unittest.TestCase):
             screen.set_theme_mode(object())
 
         show_now_playing.assert_not_called()
+
+    def test_configuration_change_rebuilds_visible_now_playing_layout(self) -> None:
+        host = Mock()
+        screen = SpotifyScreen(
+            host, theme=_theme(), back_action=Mock(),
+            playback_session=Mock(), native_surface=Mock(),
+        )
+        screen._visible = True
+        screen._view = "now"
+        screen._account_layout_configured = False
+
+        with patch.object(screen, "_show_now_playing") as show_now_playing:
+            screen.set_spotify_account_state(SpotifyAccountState(
+                client_id="public-client", loading=False,
+            ))
+            callback = host.schedule_ui_callback.call_args.args[1]
+            callback()
+
+        show_now_playing.assert_called_once_with()
 
 
 if __name__ == "__main__":

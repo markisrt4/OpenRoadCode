@@ -6,6 +6,7 @@ import tkinter as tk
 
 from ui.music_visualizer.home_spectrum_ui_if import HomeSpectrumFeedIf
 from ui.ui_widget import UiWidget
+from .spectrum_illustration import paint_spectrum_illustration
 
 
 class HomeSpectrumStrip(tk.Canvas, UiWidget):
@@ -13,7 +14,7 @@ class HomeSpectrumStrip(tk.Canvas, UiWidget):
 
     def __init__(self, parent: tk.Misc, *, feed: HomeSpectrumFeedIf,
                  background: str, on_open: Callable[[], None]) -> None:
-        super().__init__(parent, width=1, height=32, bg=background,
+        super().__init__(parent, width=1, height=68, bg=background,
                          highlightthickness=0, bd=0, cursor="hand2")
         self._feed = feed
         self._attached = False
@@ -25,7 +26,7 @@ class HomeSpectrumStrip(tk.Canvas, UiWidget):
             font=("Sans", 9, "bold"), bg=background, fg="#28b6c6",
             activebackground=background, activeforeground="#7293e8",
             relief=tk.FLAT, bd=0, highlightthickness=0, padx=3)
-        self._button.place(relx=1.0, rely=0.5, anchor="e", width=100, height=32)
+        self._button.place(relx=1.0, rely=0.5, anchor="e", width=108, height=68)
         self._running = False
         self._tick_id = self.after(66, self._paint)
 
@@ -62,22 +63,23 @@ class HomeSpectrumStrip(tk.Canvas, UiWidget):
         self._button.configure(text="Starting…" if state and state.busy and not self._running
             else "Stopping…" if state and state.busy else "■ Spectrum" if self._running
             else "▶ Spectrum", state=tk.DISABLED if state and state.busy else tk.NORMAL)
-        width = max(1, self.winfo_width() - 104)
+        canvas_height = max(2, self.winfo_height())
+        width = max(1, self.winfo_width() - 112)
         if state and state.active and state.bands:
             count = len(state.bands)
             colors = ("#21b8a6", "#28b6c6", "#37a7e0", "#7293e8")
             bars = min(24, max(1, width // 5))
             for index in range(bars):
                 values = state.bands[index * count // bars:max(index * count // bars + 1, (index + 1) * count // bars)]
-                height = max(1, round(max(values, default=0.0) * 28))
+                height = max(1, round(max(values, default=0.0) * (canvas_height - 4)))
                 x = index * width / bars
-                self.create_rectangle(x, 30 - height, x + max(1, width / bars - 2), 30,
+                self.create_rectangle(x, canvas_height - 2 - height,
+                                      x + max(1, width / bars - 2), canvas_height - 2,
                                       fill=colors[min(3, index * 4 // bars)], outline="")
         else:
-            text = "Audio setup · tap here" if state and state.message else (
-                "Waiting for audio" if self._running else "Live audio spectrum")
-            self.create_text(4, 16, text=text, anchor="w", width=width,
-                             fill="#8297a3", font=("Sans", 8))
+            paint_spectrum_illustration(
+                self, width, canvas_height, muted_fraction=0.0,
+            )
         self._tick_id = self.after(66, self._paint)
 
     def destroy(self) -> None:

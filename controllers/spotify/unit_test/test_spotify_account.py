@@ -56,7 +56,7 @@ def test_configuration_runs_off_frontend_and_normalizes_input(account):
     assert state(view).busy
     ui.pop(0)()
     assert not state(view).busy
-    assert "Restart" in state(view).message
+    assert "connect now" in state(view).message
     refresh.assert_called_once()
 
 

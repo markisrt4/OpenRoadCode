@@ -63,6 +63,21 @@ class SpotifyStateServiceTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "at least 5.0 seconds"):
             SpotifyStateService(self.backend, refresh_seconds=1.0)
 
+    def test_replacing_backend_invalidates_state_and_library_caches(self) -> None:
+        replacement = Mock()
+        self.service._state = Mock()
+        self.service._saved_tracks = (Mock(),)
+        self.service._saved_tracks_loaded = True
+        self.service._last_refresh_at = 50.0
+
+        self.service.replace_controller(replacement)
+        self.service._controller.current_state()
+
+        replacement.current_state.assert_called_once_with()
+        self.assertEqual(0.0, self.service._last_refresh_at)
+        self.assertFalse(self.service._saved_tracks_loaded)
+        self.assertEqual("Refreshing Spotify…", self.service.latest_state().status_message)
+
 
 if __name__ == "__main__":
     unittest.main()

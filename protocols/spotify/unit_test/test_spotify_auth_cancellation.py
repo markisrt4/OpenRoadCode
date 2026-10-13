@@ -37,3 +37,33 @@ def test_default_login_still_completes_authorization():
         assert auth.login() is complete.return_value
         complete.assert_called_once_with(ANY,
             code=callback.code, state=callback.state, error=callback.error, error_description=callback.error_description)
+
+
+def test_background_token_request_never_starts_interactive_login():
+    store = Mock()
+    store.load.return_value = None
+    auth = SpotifyAuth(
+        SpotifyConfig("public-client"),
+        store,
+        allow_interactive_login=False,
+    )
+    with patch.object(auth, "login") as login:
+        with pytest.raises(SpotifyAuthError, match="not connected"):
+            auth.get_access_token()
+    login.assert_not_called()
+
+
+def test_login_uses_injected_authorization_url_opener():
+    opener = Mock()
+    auth = SpotifyAuth(
+        SpotifyConfig("public-client"),
+        Mock(),
+        open_authorization_url=opener,
+    )
+    with patch("protocols.spotify.spotify_auth.OAuthRedirectServer") as server, patch.object(
+        auth, "complete_authorization"
+    ):
+        auth.login()
+
+    opener.assert_called_once()
+    assert opener.call_args.args[0].startswith("https://accounts.spotify.com/authorize?")

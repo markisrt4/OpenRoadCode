@@ -77,7 +77,7 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._text.grid_columnconfigure(0, weight=1)
         self._title_label = tk.Label(
             self._text, textvariable=self._title, fg=ui.text, bg=ui.surface,
-            font=self._title_font, width=1, height=2, anchor="nw", justify=tk.LEFT,
+            font=self._title_font, width=1, height=1, anchor="w", justify=tk.LEFT,
         )
         self._title_label.grid(row=0, column=0, sticky="ew", pady=(0, 2))
         self._artist_label = tk.Label(
@@ -95,20 +95,20 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._bind_open(self)
         self._text.bind("<Configure>", lambda _event: self._render_metadata())
         controls = self._controls = tk.Frame(self, bg=ui.surface)
-        controls.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=(0, 6))
+        controls.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=(0, 4))
         self._transport: list[tk.Button] = []
         for column, (label, action) in enumerate((("◀◀", "previous"), ("▶", "play"), ("▶▶", "next"))):
             controls.grid_columnconfigure(column, weight=1, uniform="home-playback")
             button = tk.Button(controls, text=label, command=partial(self._request_transport, action),
                 bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active,
                 activeforeground=ui.text, disabledforeground=ui.text_muted,
-                font=("Sans", 16, "bold"), pady=10, relief=tk.RAISED, bd=2,
+                font=("Sans", 14, "bold"), pady=5, relief=tk.RAISED, bd=2,
                 highlightthickness=0, state=tk.DISABLED)
             button.grid(row=0, column=column, sticky="ew", padx=2)
             self._transport.append(button)
         self._media_button = tk.Button(controls, text="MEDIA  ›", command=on_open_media or on_open,
             bg=ui.surface, fg=ui.accent_primary, activebackground=ui.control_active,
-            activeforeground=ui.text, font=("Sans", 10, "bold"), pady=7,
+            activeforeground=ui.text, font=("Sans", 9, "bold"), pady=4,
             relief=tk.FLAT, bd=0, highlightthickness=0)
         self._media_button.grid(row=0, column=3, sticky="nsew", padx=(4, 0))
         # Reserve the transport row before filling the remaining space with metadata.

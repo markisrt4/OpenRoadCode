@@ -12,6 +12,7 @@ from common.resource_cleanup import ResourceCleanup, close_resources
 from pathlib import Path
 
 from apps.common.spotify_controller_factory import create_spotify_controller
+from apps.orcUi.adapters.spotify_application_settings import create_spotify_secret_manager
 from apps.launchers.browser_app_factory import BrowserApplicationFactory
 from apps.launchers.google_earth_launcher import GoogleEarthLauncher
 from apps.launchers.managed_sdrpp_launcher import ManagedSDRPPLauncher
@@ -88,7 +89,9 @@ def create_orc_ui_application_runtime() -> OrcUiApplicationRuntime:
         cleanup.callback(radio.close)
         streaming_radio = StreamingRadioController(MpvStreamingAudioPlayer())
         cleanup.callback(streaming_radio.close)
-        media = MediaApplicationService(create_spotify_controller())
+        media = MediaApplicationService(
+            create_spotify_controller(create_spotify_secret_manager())
+        )
         cleanup.callback(media.close)
         runtime = OrcUiApplicationRuntime(
             manager=manager,

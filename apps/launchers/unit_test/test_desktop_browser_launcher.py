@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Desktop browser handoffs use argument lists and report actionable failures."""
+import os
 import subprocess
 from unittest.mock import patch
 
@@ -19,7 +20,32 @@ def test_desktop_opener_preserves_url_and_has_timeout(gio, command):
                    "apps.launchers.desktop_browser_launcher.subprocess.run") as run:
         run.return_value = subprocess.CompletedProcess([], 0, "", "")
         DesktopBrowserLauncher().open_uri(command[-1])
-        run.assert_called_once_with(command, capture_output=True, text=True, check=False, timeout=5)
+        assert run.call_args.args == (command,)
+        launch_options = dict(run.call_args.kwargs)
+        assert isinstance(launch_options.pop("env"), dict)
+        assert launch_options == {
+            "capture_output": True,
+            "text": True,
+            "check": False,
+            "timeout": 5,
+        }
+
+
+def test_desktop_opener_does_not_inherit_opencv_qt_plugin_paths():
+    contaminated = {
+        "PATH": os.environ.get("PATH", ""),
+        "QT_PLUGIN_PATH": "/tmp/cv2/plugins",
+        "QT_QPA_PLATFORM_PLUGIN_PATH": "/tmp/cv2/qt/platforms",
+        "QT_QPA_FONTDIR": "/tmp/cv2/qt/fonts",
+    }
+    with patch.dict(os.environ, contaminated, clear=True), patch(
+        "apps.launchers.desktop_browser_launcher.shutil.which", return_value="/usr/bin/gio"
+    ), patch("apps.launchers.desktop_browser_launcher.subprocess.run") as run:
+        run.return_value = subprocess.CompletedProcess([], 0, "", "")
+        DesktopBrowserLauncher().open_uri("https://example.com")
+
+    launched_environment = run.call_args.kwargs["env"]
+    assert launched_environment == {"PATH": contaminated["PATH"]}
 
 
 @pytest.mark.parametrize("uri", ["javascript:alert(1)", "file:///etc/passwd", "https://user:pass@example.com", "--help"])

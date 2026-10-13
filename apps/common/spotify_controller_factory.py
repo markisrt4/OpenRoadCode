@@ -21,6 +21,12 @@ def create_spotify_controller(
         return UnconfiguredController()
 
     token_store = SpotifyTokenStore()
-    auth = SpotifyAuth(config=config, token_store=token_store)
+    # Playback refresh is background work. Authorization must only begin from
+    # an explicit account-connect request in the owning frontend.
+    auth = SpotifyAuth(
+        config=config,
+        token_store=token_store,
+        allow_interactive_login=False,
+    )
     client = SpotifyWebApiClient(auth)
     return SpotifyWebApiController(client)

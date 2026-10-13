@@ -17,8 +17,14 @@ from dataclasses import dataclass, field
 from common.resource_cleanup import ResourceCleanup, close_resources
 
 from apps.common.uiTheme.spotify import SPOTIFY_PANEL_THEME
+from apps.common.spotify_controller_factory import create_spotify_controller
 from apps.common.spotify_presentation_factory import create_spotify_presentation, cached_artwork_loader
+from apps.launchers.desktop_browser_launcher import DesktopBrowserLauncher
 from apps.orcUi.adapters.managed_browser_media_player import ManagedBrowserMediaPlayer
+from apps.orcUi.adapters.spotify_application_settings import (
+    SpotifyApplicationSettingsStore,
+    create_spotify_secret_manager,
+)
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from frontends.tk.media.music_visualizer_screen import MusicVisualizerScreen
 from apps.orcUi.composition.music_visualizer import create_browser_visualizer, create_music_visualizer_session, selected_music_visualizer_source
@@ -47,7 +53,6 @@ from protocols.spotify import (
     SpotifyTokenStore,
     load_spotify_config_from_secrets,
 )
-from security.environment_variable_secret_manager import EnvironmentVariableSecretManager
 
 MUSIC_VIDEO_PORT = 8770
 MUSIC_VIDEO_WINDOW_CLASS = "OpenRoadCodeMusicVideo"
@@ -195,24 +200,41 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         media.spotify_local_player.request_player()
         spotify_screen.show()
 
-    spotify_secrets = EnvironmentVariableSecretManager()
+    spotify_application_settings = SpotifyApplicationSettingsStore()
+
+    def spotify_secrets():
+        return create_spotify_secret_manager(spotify_application_settings)
 
     def spotify_client_id() -> str | None:
-        return EnvironmentVariableSecretManager().get_secret(SPOTIFY_CLIENT_ID_SECRET_NAME)
+        return spotify_secrets().get_secret(SPOTIFY_CLIENT_ID_SECRET_NAME)
 
     spotify_tokens = SpotifyTokenStore()
+    spotify_browser_launcher = DesktopBrowserLauncher()
     account_workers = ThreadPoolExecutor(max_workers=2, thread_name_prefix="spotify-account")
     cleanup.callback(lambda: account_workers.shutdown(wait=False, cancel_futures=True))
 
     def connect_spotify(current: Current, commit: Commit) -> None:
-        config = load_spotify_config_from_secrets(EnvironmentVariableSecretManager())
+        config = load_spotify_config_from_secrets(spotify_secrets())
         if config is None:
             raise RuntimeError("Configure the Spotify Client ID first")
-        SpotifyAuth(config=config, token_store=GuardedTokenStore(spotify_tokens, commit)).login(is_current=current)
+        SpotifyAuth(
+            config=config,
+            token_store=GuardedTokenStore(spotify_tokens, commit),
+            open_authorization_url=spotify_browser_launcher.open_uri,
+        ).login(is_current=current)
+
+    def save_spotify_client_id(client_id: str) -> None:
+        previous_client_id = spotify_client_id()
+        spotify_application_settings.save_client_id(client_id)
+        if previous_client_id != client_id.strip():
+            spotify_tokens.clear()
+        media.spotify.replace_controller(
+            create_spotify_controller(spotify_secrets())
+        )
 
     account_controller = SpotifyAccountController(
         read_account=lambda: (spotify_client_id() or "", spotify_tokens.load() is not None),
-        save_client_id=lambda client_id: spotify_secrets.set_secret(SPOTIFY_CLIENT_ID_SECRET_NAME, client_id),
+        save_client_id=save_spotify_client_id,
         connect=connect_spotify, disconnect=spotify_tokens.clear, online=network_allowed,
         run_work=lambda callback: account_workers.submit(callback), dispatcher=app,
         refresh_playback=media.spotify.request_refresh,

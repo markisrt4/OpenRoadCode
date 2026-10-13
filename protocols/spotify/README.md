@@ -4,7 +4,11 @@
 
 ## Configuration
 
-OpenRoadCode uses Spotify OAuth Authorization Code with PKCE. Runtime configuration is read through the project secret-manager abstraction.
+OpenRoadCode uses Spotify OAuth Authorization Code with PKCE. The public Client
+ID configured through the desktop UI is stored in the user's XDG configuration
+at `~/.config/openroadcode/spotify/application.json`. Process environment takes
+precedence over that user setting, which in turn takes precedence over the
+administrator-managed system secrets file.
 
 Required value:
 
@@ -18,7 +22,14 @@ Optional redirect override:
 SPOTIFY_REDIRECT_URI=http://127.0.0.1:8888/callback
 ```
 
-No client secret is required or expected. Credentials and OAuth tokens must never be committed.
+No client secret is required or expected. The optional redirect override remains
+administrator-controlled through the environment or system secrets file.
+Credentials and OAuth tokens must never be committed.
+
+The configuration dialog expects the 32-character Client ID shown by the
+Spotify Developer Dashboard, not an access token, API token, or client secret.
+Changing the Client ID clears cached OAuth tokens because they belong to the
+previous Spotify application.
 
 The canonical OAuth scopes are declared in `spotify_config.py`. They currently cover playback state/control, Web Playback SDK streaming, profile access, saved tracks, recently played tracks, and private playlists. When scopes change, an existing token cache may not contain the new permissions. Re-authorize the cached Spotify token before testing features that depend on newly added scopes.
 
@@ -44,6 +55,12 @@ Stored access tokens are reused and refreshed when possible. To force authorizat
 ```bash
 python3 -m protocols.spotify.component_test.spotify_auth_cli --clear-tokens
 ```
+
+Playback controllers use token access non-interactively: a missing or
+non-refreshable token is reported as disconnected and never opens a browser from
+a background refresh worker. Desktop authorization begins only from the
+explicit Connect action. The desktop composition hands the authorization URL to
+the system browser with in-process GUI toolkit plugin overrides removed.
 
 ## Platform setup
 

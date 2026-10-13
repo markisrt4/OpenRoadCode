@@ -55,6 +55,7 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         self._close_account_configuration = close_account_configuration
         self._account_handler: SpotifyAccountRequests | None = None
         self._account = SpotifyAccountState()
+        self._account_layout_configured: bool | None = None
         self._account_label: tk.Label | None = None
         self._account_button: tk.Button | None = None
         self._configuration_button: tk.Button | None = None
@@ -141,9 +142,13 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         self._account_handler = handler
 
     def set_spotify_account_state(self, state: SpotifyAccountState) -> None:
+        previous_layout = self._account_layout_configured
         self._account = state
         if self._account_label is not None:
-            text = "Spotify setup required" if not state.configured else "Spotify connected" if state.connected else "Spotify account not connected"
+            text = ("Spotify configuration error" if state.error
+                    else "Spotify setup required" if not state.configured
+                    else "Spotify connected" if state.connected
+                    else "Spotify account not connected")
             self._account_label.configure(text=text.upper())
         if self._account_button is not None:
             self._account_button.configure(text="DISCONNECT" if state.connected else "CONNECT SPOTIFY",
@@ -152,6 +157,19 @@ class SpotifyScreen(TkScreen, MediaUiIf):
             self._configuration_button.configure(state=tk.DISABLED if state.busy else tk.NORMAL)
         if state.message:
             self._host.set_screen_status(state.message)
+        desired_layout = None if state.loading else state.configured
+        if desired_layout is not None:
+            self._account_layout_configured = desired_layout
+        if (self._visible and self._view == "now" and desired_layout is not None
+                and desired_layout != previous_layout):
+            self._host.schedule_ui_callback(
+                0, lambda expected=desired_layout: self._refresh_account_layout(expected)
+            )
+
+    def _refresh_account_layout(self, expected: bool) -> None:
+        if (self._visible and self._view == "now"
+                and self._account_layout_configured is expected):
+            self._show_now_playing()
 
     def _request_account_action(self) -> None:
         handler = self._account_handler
@@ -208,6 +226,10 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         self._build_setup_banner(root)
         if self._account_session is not None:
             self._account_session.activate(self)
+        if not self._account.loading and not self._account.configured:
+            self._build_unconfigured_state(root)
+            self._host.set_screen_status("Configure a Spotify application to continue")
+            return
         if self._browse_session is not None:
             controls = self._browse_panel(root)
             controls.pack(fill=tk.X)
@@ -230,6 +252,40 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         )
         self._host.set_screen_status("Loading Spotify…")
         self._playback_session.activate(self)
+
+    def _build_unconfigured_state(self, parent: tk.Misc) -> None:
+        """Show one focused setup action instead of inactive playback chrome."""
+        colors = self._theme["colors"]
+        background = colors["background"]
+        surface = colors.get("card_background", background)
+        text = colors.get("title", "#FFFFFF")
+        muted = colors.get("subtitle", "#93A1AA")
+        card = tk.Frame(parent, bg=surface)
+        card.pack(fill=tk.BOTH, expand=True, padx=18, pady=18)
+        tk.Label(
+            card, text="♫", bg=surface, fg=SPOTIFY_GREEN,
+            font=("Sans", 42, "bold"),
+        ).pack(pady=(42, 8))
+        tk.Label(
+            card, text="SET UP SPOTIFY", bg=surface, fg=text,
+            font=("Sans", 22, "bold"),
+        ).pack()
+        tk.Label(
+            card,
+            text="Add the public Client ID from your Spotify developer application.\n"
+                 "OpenRoadCode uses secure OAuth PKCE—no client secret is needed.",
+            bg=surface, fg=muted, justify=tk.CENTER,
+            font=("Sans", 11),
+        ).pack(pady=(8, 20))
+        if self._show_account_configuration is not None:
+            tk.Button(
+                card, text="CONFIGURE SPOTIFY",
+                command=self._show_account_configuration,
+                bg=SPOTIFY_GREEN, fg="#07140c",
+                activebackground="#1ED760", activeforeground="#07140c",
+                relief=tk.FLAT, bd=0, highlightthickness=0,
+                font=("Sans", 11, "bold"), padx=24, pady=10,
+            ).pack()
 
     def _show_browse(self, action: Callable[[SpotifyBrowsePanel], None]) -> None:
         self._begin_screen()

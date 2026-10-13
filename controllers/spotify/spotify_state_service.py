@@ -39,6 +39,11 @@ class _SynchronizedSpotifyController(SpotifyControllerIf):
         self.network_allowed: Callable[[], bool] = lambda: True
         self._lock = threading.RLock()
 
+    def replace_backend(self, backend: SpotifyControllerIf) -> None:
+        """Replace the backend after in-app configuration without breaking callers."""
+        with self._lock:
+            self._backend = backend
+
     def current_state(self) -> SpotifyState:
         with self._lock:
             if not self.network_allowed():
@@ -222,6 +227,24 @@ class SpotifyStateService(
 
     def request_refresh(self) -> None:
         """Request a refresh subject to rate limiting and request coalescing."""
+        self._wake.set()
+
+    def replace_controller(self, controller: SpotifyControllerIf) -> None:
+        """Install a newly configured backend and invalidate cached presentation state."""
+        self._controller.replace_backend(controller)
+        with self._state_lock:
+            self._state = MediaState(status_message="Refreshing Spotify…")
+        with self._library_lock:
+            self._saved_tracks = ()
+            self._recent_tracks = ()
+            self._playlists = ()
+            self._saved_tracks_loaded = False
+            self._recent_tracks_loaded = False
+            self._playlists_loaded = False
+        self._observed_state = None
+        self._observed_track_uri = None
+        self._last_refresh_at = 0.0
+        self._backoff_until = 0.0
         self._wake.set()
 
     def request_play(self) -> None:
