@@ -12,7 +12,7 @@ from tools.map_builder.builder.validate import _decode_packed_varints, _decode_z
 from ui.navigation import GeoPoint
 from ui.navigation.road_overlay_state import RoadOverlayLine, PlaceOverlayLabel, RoadOverlayState
 
-KINDS = {'motorway','trunk','primary','secondary','tertiary'}
+KINDS = {'motorway','trunk','primary','secondary','tertiary','minor','residential','unclassified','service'}
 
 
 def geometry_paths(raw):
@@ -53,7 +53,8 @@ def decode_overlay(blob,z,x,y):
             continue
         if layer=='place' and kind not in ('city','town','village','suburb'):
             continue
-        if layer!='place' and (kind not in KINDS or feature['geometry_type']!=2):
+        if layer!='place' and (kind not in KINDS or feature['geometry_type']!=2
+                               or (kind in {'minor','residential','unclassified','service'} and z<13)):
             continue
         extent=feature['extent']
         if not 256<=extent<=8192:
@@ -62,7 +63,7 @@ def decode_overlay(blob,z,x,y):
             n=2**z
             return GeoPoint(math.atan(math.sinh(math.pi*(1-2*(y+py/extent)/n))),
                             (((x+px/extent)/n*2*math.pi)%(2*math.pi))-math.pi)
-        name=str(attrs.get('name:en') or attrs.get('name') or '')[:80]
+        name=str(attrs.get('name:en') or attrs.get('name:latin') or attrs.get('name') or '')[:80]
         for path in geometry_paths(feature['geometry']):
             if layer=='place' and path and len(places)<60:
                 px,py=path[0]
@@ -70,7 +71,7 @@ def decode_overlay(blob,z,x,y):
                     places.append(PlaceOverlayLabel(name,point(px,py)))
             elif feature['geometry_type']==2 and 1<len(path)<=point_budget and len(roads)<500:
                 point_budget-=len(path)
-                label=str(attrs.get('ref') or name)[:80] if layer=='transportation_name' else ''
+                label=str((attrs.get('ref') or name) if kind in {'motorway','trunk'} else (name or attrs.get('ref') or ''))[:80] if layer=='transportation_name' else ''
                 roads.append(RoadOverlayLine(kind,tuple(point(px,py) for px,py in path),label))
     return RoadOverlayState(tuple(roads),tuple(places))
 
@@ -107,7 +108,23 @@ class LocalRoadOverlay:
         with closing(sqlite3.connect(self.path.as_uri()+'?mode=ro&immutable=1',uri=True,timeout=.5)) as db:
             row=db.execute('SELECT tile_data FROM tiles WHERE zoom_level=? AND tile_column=? AND tile_row=?',
                            (z,x,2**z-1-y)).fetchone()
+            # City labels can disappear from detailed tiles. Read their overview
+            # parent too, retaining only labels owned by this requested tile.
+            overview = min(z, 10)
+            scale = 2**(z-overview)
+            parent = db.execute('SELECT tile_data FROM tiles WHERE zoom_level=? AND tile_column=? AND tile_row=?',
+                                (overview,x//scale,2**overview-1-y//scale)).fetchone() if overview<z else None
         state=decode_overlay(row[0],z,x,y) if row else RoadOverlayState()
+        if parent:
+            places=list(state.places)
+            seen={(place.name,place.point) for place in places}
+            for place in decode_overlay(parent[0],overview,x//scale,y//scale).places:
+                point=place.point
+                px=int((point.longitude_rad+math.pi)/(2*math.pi)*2**z)
+                py=int((1-math.asinh(math.tan(point.latitude_rad))/math.pi)/2*2**z)
+                if (px,py)==(x,y) and (place.name,point) not in seen and len(places)<60:
+                    places.append(place);seen.add((place.name,point))
+            state=RoadOverlayState(state.roads,tuple(places))
         with self._lock:
             self._cache[key]=state
             while len(self._cache)>32:

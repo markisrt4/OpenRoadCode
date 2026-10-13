@@ -69,6 +69,6 @@ class MapPlatformToggle(tk.Button, UiWidget):
 
     def set_state(self, state: MapPlatformState):
         self._state = state
-        self.configure(text='Loading…' if state.busy else 'Terrain ⇄' if state.active is MapPlatform.CESIUM else 'Map ⇄',
+        self.configure(text='Loading…' if state.busy else 'Map ⇄' if state.active is MapPlatform.CESIUM else 'Terrain ⇄',
                        state=tk.DISABLED if state.busy else tk.NORMAL,
                        relief=tk.SUNKEN if state.active is MapPlatform.CESIUM else tk.FLAT)

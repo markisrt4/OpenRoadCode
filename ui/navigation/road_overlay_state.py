@@ -16,7 +16,7 @@ class RoadOverlayLine:
     label: str = ''
 
     def __post_init__(self):
-        if self.kind not in {'motorway','trunk','primary','secondary','tertiary'} or not isinstance(self.points,tuple) or not 2<=len(self.points)<=12000 or len(self.label)>80 or not all(_valid_point(point) for point in self.points):
+        if self.kind not in {'motorway','trunk','primary','secondary','tertiary','minor','residential','unclassified','service'} or not isinstance(self.points,tuple) or not 2<=len(self.points)<=12000 or len(self.label)>80 or not all(_valid_point(point) for point in self.points):
             raise ValueError('Invalid SI road segment')
 
     def document(self):

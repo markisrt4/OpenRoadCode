@@ -20,9 +20,9 @@ def field(number,value):
     return varint(number*8+2)+varint(len(value))+value
 
 
-def layer(name,kind,label,geometry_type,geometry):
+def layer(name,kind,label,geometry_type,geometry,name_key=None):
     feature=field(2,b'\x00\x00\x01\x01')+varint(3*8)+varint(geometry_type)+field(4,geometry)
-    content=field(1,name.encode())+field(2,feature)+field(3,b'class')+field(3,b'ref' if name=='transportation_name' else b'name')
+    content=field(1,name.encode())+field(2,feature)+field(3,b'class')+field(3,name_key or (b'ref' if name=='transportation_name' else b'name'))
     content+=field(4,field(1,kind.encode()))+field(4,field(1,label.encode()))+varint(5*8)+varint(4096)
     return field(3,content)
 
@@ -65,3 +65,28 @@ def test_metadata_limits_zoom_to_installed_dataset(tmp_path):
         db.execute('CREATE TABLE metadata (name TEXT,value TEXT)')
         db.execute("INSERT INTO metadata VALUES ('maxzoom','12')")
     assert LocalRoadOverlay(path).max_zoom == 12
+
+
+def test_local_street_and_city_latin_names_are_read():
+    move=b''.join(varint(value) for value in (9,4000,4000))
+    line=move+b''.join(varint(value) for value in (10,100,100))
+    # Rebuild field lengths when changing the attribute key.
+    tile=layer('transportation_name','minor','Main Street',2,line,name_key=b'name:latin')
+    city=layer('place','city','Rochester',1,move,name_key=b'name:latin')
+    state=decode_overlay(tile+city,14,4000,5000)
+    assert state.roads[0].label=='Main Street'
+    assert state.places[0].name=='Rochester'
+    assert not decode_overlay(tile,12,400,500).roads
+
+
+def test_overview_city_label_survives_detail_tile_without_places(tmp_path):
+    path=tmp_path/'places.mbtiles'
+    move=b''.join(varint(value) for value in (9,4000,4000))
+    city=layer('place','city','Rochester',1,move,name_key=b'name:latin')
+    with sqlite3.connect(path) as db:
+        db.execute('CREATE TABLE tiles (zoom_level INTEGER,tile_column INTEGER,tile_row INTEGER,tile_data BLOB)')
+        db.execute('INSERT INTO tiles VALUES (?,?,?,?)',(10,250,1023-312,city))
+    # The parent point lies 7 detailed tiles into this zoom-10 tile.
+    state=LocalRoadOverlay(path).tile(14,250*16+7,312*16+7)
+    assert [place.name for place in state.places]==['Rochester']
+    assert not LocalRoadOverlay(path).tile(14,250*16+6,312*16+7).places

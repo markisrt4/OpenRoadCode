@@ -18,13 +18,15 @@ window.ORCRoadOverlay = function(viewer,C,heightAt=()=>0,onError=()=>{},maxZoom=
             disableDepthTestDistance:Infinity,showBackground:true,backgroundColor:C.Color.BLACK.withAlpha(.65)}});
         entry.labels.push({entity,point});
       }
-      let names=0;
+      let names=0;const labeled=new Set();
       for(const road of state.roads) {
         const coordinates=road.points.flatMap(point=>[point[0],point[1]]);
         const freeway=road.kind==='motorway'||road.kind==='trunk';
         source.entities.add({polyline:{positions:C.Cartesian3.fromRadiansArray(coordinates),clampToGround:true,
           width:freeway?3:1.5,material:C.Color.fromCssColorString(freeway?'#ffd166':'#e7eff6').withAlpha(.8)}});
-        if(road.label && names++<40)label(road.label,road.points[Math.floor(road.points.length/2)],false);
+        if(road.label && !labeled.has(road.label) && names<80) {
+          labeled.add(road.label);names++;label(road.label,road.points[Math.floor(road.points.length/2)],false);
+        }
       }
       for(const place of state.places)label(place.name,place.position,true);
       source.show=show;

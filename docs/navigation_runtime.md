@@ -219,3 +219,5 @@ A reboot test is required before treating startup changes as deployment-ready.
 - Startup dependencies must be explicit in systemd rather than relying on timing delays.
 - Service endpoints remain stable and configuration-driven.
 - Runtime services must be independently restartable and observable through journald.
+
+Terrain orientation labels use the installed offline vector map, including local streets at zoom 13 and above. Names accept the same `name:latin` field as the regular map. City labels also read zoom-10 parent tiles when detailed tiles omit them. The toolbar toggle names the view it opens (Terrain from Map, Map from Terrain). Terrain/building packs are selected when the viewer opens; camera movement does not yet switch those packs.

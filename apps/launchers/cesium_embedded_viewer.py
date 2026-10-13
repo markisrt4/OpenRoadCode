@@ -48,7 +48,7 @@ class CesiumEmbeddedViewer:
         terrain_dir = preferred_terrain_directory(state.destination)
         building_dir = detroit_building_directory()
         tile_dir = preferred_tiles_directory(state.destination)
-        tiles = load_viewer_tiles(tile_dir) if tile_dir.exists() and imagery_dir == detroit_pack_directory() else None
+        tiles = load_viewer_tiles(tile_dir) if tile_dir.exists() else None
         imagery = LocalImageryPack.load(imagery_dir) if not imagery_layers and imagery_dir.exists() and (tiles is None or not any(t.imagery_available for t in tiles.state.tiles)) else None
         terrain = load_terrain(terrain_dir) if terrain_dir.exists() else None
         buildings = load_buildings(building_dir) if tiles is None and building_dir.exists() else None
