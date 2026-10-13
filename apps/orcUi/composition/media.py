@@ -40,6 +40,7 @@ from frontends.x11 import X11WindowEmbedder
 from frontends.tk.media import BrowserMediaScreen, MediaNavigationBar, MediaScreen, SpotifyNowPlaying, SpotifyScreen
 from frontends.tk.media.youtube_music_coming_soon_screen import YouTubeMusicComingSoonScreen
 from ui.theme import ThemeMode
+from ui.music_visualizer.home_spectrum_ui_if import HomeSpectrumFeedIf
 from protocols.spotify import (
     SPOTIFY_CLIENT_ID_SECRET_NAME,
     SpotifyAuth,
@@ -66,6 +67,7 @@ class MediaComposition:
     preview: MediaPreviewController | None = None
     close_spotify_presentations: Callable[[], None] = lambda: None
     close_spotify_accounts: Callable[[], None] = lambda: None
+    home_spectrum: HomeSpectrumFeedIf | None = None
 
     _closed: bool = field(default=False, init=False)
 
@@ -317,8 +319,6 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
             online_allowed=network_allowed,
             on_open=online_action(spotify_screen.show),
             on_open_media=media_screen.show,
-            spectrum_feed=home_spectrum,
-            on_open_visualizer=visualizer.show,
             theme_bundle=lambda: theme_bundle(app.theme_mode),
         )
         session = create_presentation(rich=False)
@@ -354,6 +354,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         preview=preview,
         music_video_controller=music_video_controller,
         home_factory=home_media_factory,
+        home_spectrum=home_spectrum,
         visualizer=visualizer,
         visualizer_runtime=visualizer_runtime,
         unsubscribe_online=unsubscribe_online,

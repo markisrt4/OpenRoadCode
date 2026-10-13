@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+import tkinter as tk
 from controllers.navigation.map_controls_drawer_controller import MapControlsDrawerController
 from dataclasses import dataclass, field
 
@@ -275,7 +276,13 @@ def create_orc_ui_composition(
         )
         performance_status = PerformanceStatusPresenter(app, performance, app.set_performance_status)
         cleanup.callback(performance_status.close)
-        home.set_radio_factory(radio.home_factory)
+        def home_radio_factory(parent: tk.Misc) -> tk.Widget:
+            view = radio.home_factory(parent)
+            if media.home_spectrum is not None:
+                view.set_spectrum(media.home_spectrum, on_open=media.visualizer.show)
+            return view
+
+        home.set_radio_factory(home_radio_factory)
         home.set_media_factory(media.home_factory)
         core.presentation.observe_vehicle(home.apply_vehicle_state)
         core.presentation.observe_trip(home.apply_trip_state)

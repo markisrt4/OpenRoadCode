@@ -117,7 +117,7 @@ class RadioComposition:
     screen: RadioScreen
     directory: RadioBrowserDirectory
     favorites: StreamingRadioFavorites
-    home_factory: Callable[[tk.Misc], tk.Widget]
+    home_factory: Callable[[tk.Misc], StreamingRadioNowPlaying]
     open_weather_radio: Callable[[], None]
     streaming_resources: StreamingRadioResources
 
@@ -259,7 +259,7 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
                 app.dispatch_ui(lambda: app.set_screen_status(message) if not resources.closed else None)
             resources.run_rf(work)
 
-        def home_radio_factory(parent: tk.Misc) -> tk.Widget:
+        def home_radio_factory(parent: tk.Misc) -> StreamingRadioNowPlaying:
             return StreamingRadioNowPlaying(
                 parent,
                 state_source=runtime.streaming_radio,

@@ -233,6 +233,16 @@ class OrcUiCompositionTest(unittest.TestCase):
         self.assertIs(composition.vision, vision)
         self.assertIs(composition.media, media)
         self.assertIs(composition.weather, weather)
+        parent = Mock()
+        home_radio = composition.home._radio_factory(parent)
+        radio.home_factory.assert_called_once_with(parent)
+        home_radio.set_spectrum.assert_called_once_with(
+            media.home_spectrum, on_open=media.visualizer.show)
+        # Optional native Tk visualizer leaves Radio's Home layout alone.
+        media.home_spectrum = None
+        home_radio.set_spectrum.reset_mock()
+        composition.home._radio_factory(parent)
+        home_radio.set_spectrum.assert_not_called()
         app.set_theme_change_handler.assert_called_once_with(core.map_runtime.set_theme)
         core.map_runtime.set_theme.assert_called_once_with(app.theme_mode)
         core.presentation.observe_weather_alert.assert_called_once_with(app.present_weather_alert)

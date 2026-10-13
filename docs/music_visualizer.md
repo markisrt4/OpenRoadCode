@@ -112,7 +112,8 @@ serve the same semantic analyzer used by WebUi. The Tk fallback still consumes
 Screens choose no backends and composition closes their resources.
 
 ORC's default WebGL runtime uses `SharedMusicAnalysisSession` for the same analyzer
-and capture used by Home's card-wide, 32-pixel spectrum beneath song information.
+and capture used by Home's card-wide, 32-pixel spectrum in the Radio card's
+spare middle row. Media retains its full metadata and playback area.
 Home's separate Spectrum button starts/stops platform capture on a worker;
 opening Home never starts or resumes audio. Android playback still requires
 Android Bridge capture consent, and browser microphone setup uses the full
