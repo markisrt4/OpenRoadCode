@@ -179,7 +179,7 @@
     document.querySelectorAll('nav button').forEach(button => { button.disabled = false; });
     const roadsButton=document.getElementById('roads');
     roadsButton.disabled=!snapshot.roads_available;
-    roadsButton.title=snapshot.roads_available?'Major roads, freeway references and place names':'Offline vector map is not installed';
+    roadsButton.title=snapshot.roads_available?'Major roads, freeway references and place names':'Road overlay temporarily disabled while investigating rendering crashes';
     if(snapshot.roads_available) {
       roadOverlay=window.ORCRoadOverlay(viewer,C,terrain?.heightAt,error=>{
         status.hidden=false;status.textContent='Road overlay unavailable: '+error.message;

@@ -12,7 +12,6 @@ from urllib.parse import unquote, urlsplit
 from apps.launchers.cesium_sdk import require_sdk
 from ui.navigation.cesium_viewer_state import CesiumViewerState
 from ui.navigation.local_imagery_state import LocalImageryStackState
-from apps.launchers.local_road_overlay import LocalRoadOverlay
 import sqlite3
 from tools.map_builder.builder.validate import ValidationError
 
@@ -31,7 +30,9 @@ class CesiumViewerServer:
         self._terrain = terrain
         self._buildings = buildings
         self._tiles = tiles
-        self._roads = LocalRoadOverlay.installed()
+        # Disabled while isolating Termux:X11 crashes introduced by the overlay.
+        # Keep the base terrain/imagery/building viewer available.
+        self._roads = None
         self._token = secrets.token_urlsafe(32)
         self.close_requested = threading.Event()
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), partial(_Handler, owner=self))

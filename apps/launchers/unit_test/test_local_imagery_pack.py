@@ -117,3 +117,10 @@ def test_server_exposes_only_bounded_offline_road_tiles(server):
     server._roads.tile.assert_called_once_with(12,1234,1500)
     with pytest.raises(HTTPError):
         urllib.request.urlopen(server.url+'data/roads/not-a-tile')
+
+
+def test_road_overlay_is_disabled_in_viewer_configuration(server):
+    with urllib.request.urlopen(server.url+'config.json') as response:
+        document=json.load(response)
+    assert document['roads_available'] is False
+    assert server._roads is None
