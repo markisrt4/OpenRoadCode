@@ -12,6 +12,42 @@ import zipfile
 from apps.launchers.local_imagery_pack import LocalImageryPack
 from tools.map_builder.builder.imagery_artifact import MAX_ARCHIVE_BYTES
 
+GITHUB_REPOSITORY = 'markisrt4/OpenRoadCode'
+IMAGERY_TAG_PREFIX = 'metro-detroit-imagery-'
+IMAGERY_DESCRIPTOR = 'metro-detroit-imagery.zip.json'
+
+
+def github_release_descriptor(version='latest'):
+    """Return the trusted descriptor URL from a published imagery release."""
+    if version == 'latest':
+        endpoint = f'https://api.github.com/repos/{GITHUB_REPOSITORY}/releases?per_page=100'
+    else:
+        if not re.fullmatch(r'metro-detroit-imagery-[A-Za-z0-9._-]+', version):
+            raise ValueError('Invalid Metro Detroit imagery release tag')
+        endpoint = (f'https://api.github.com/repos/{GITHUB_REPOSITORY}/releases/tags/'
+                    f'{urllib.parse.quote(version, safe="")}')
+    request = urllib.request.Request(endpoint, headers={
+        'Accept': 'application/vnd.github+json',
+        'User-Agent': 'OpenRoadCode-imagery-installer',
+        'X-GitHub-Api-Version': '2022-11-28',
+    })
+    with urllib.request.urlopen(request, timeout=30) as response:
+        payload = json.load(response)
+    releases = payload if isinstance(payload, list) else [payload]
+    release = next((item for item in releases
+                    if isinstance(item, dict)
+                    and str(item.get('tag_name', '')).startswith(IMAGERY_TAG_PREFIX)
+                    and not item.get('draft') and not item.get('prerelease')), None)
+    if release is None:
+        raise ValueError('No published Metro Detroit imagery release found')
+    asset = next((item for item in release.get('assets', [])
+                  if item.get('name') == IMAGERY_DESCRIPTOR), None)
+    url = asset.get('browser_download_url', '') if asset else ''
+    expected = f'https://github.com/{GITHUB_REPOSITORY}/releases/download/'
+    if not url.startswith(expected) or not url.endswith('/'+IMAGERY_DESCRIPTOR):
+        raise ValueError('Published imagery release has no trusted descriptor asset')
+    return url
+
 
 def read_descriptor(url, coverage):
     if urllib.parse.urlsplit(url).scheme != 'https':

@@ -81,6 +81,31 @@ def test_descriptor_rejects_wrong_region_before_download(monkeypatch):
         prebuilt_imagery.read_descriptor('https://host/pack.zip.json', 'metro-detroit')
 
 
+def test_latest_published_github_imagery_release_is_selected(monkeypatch):
+    descriptor = ('https://github.com/markisrt4/OpenRoadCode/releases/download/'
+                  'metro-detroit-imagery-20261013-run1/metro-detroit-imagery.zip.json')
+    response = io.BytesIO(json.dumps([
+        {'tag_name':'unrelated-v2', 'draft':False, 'prerelease':False, 'assets':[]},
+        {'tag_name':'metro-detroit-imagery-draft', 'draft':True, 'prerelease':False,
+         'assets':[{'name':'metro-detroit-imagery.zip.json', 'browser_download_url':descriptor}]},
+        {'tag_name':'metro-detroit-imagery-20261013-run1', 'draft':False, 'prerelease':False,
+         'assets':[{'name':'metro-detroit-imagery.zip.json', 'browser_download_url':descriptor}]},
+    ]).encode())
+    monkeypatch.setattr(prebuilt_imagery.urllib.request, 'urlopen', Mock(return_value=response))
+    assert prebuilt_imagery.github_release_descriptor() == descriptor
+
+
+def test_github_imagery_release_requires_trusted_asset_url(monkeypatch):
+    response = io.BytesIO(json.dumps({
+        'tag_name':'metro-detroit-imagery-v1', 'draft':False, 'prerelease':False,
+        'assets':[{'name':'metro-detroit-imagery.zip.json',
+                   'browser_download_url':'https://example.com/pack.zip.json'}],
+    }).encode())
+    monkeypatch.setattr(prebuilt_imagery.urllib.request, 'urlopen', Mock(return_value=response))
+    with pytest.raises(ValueError, match='trusted descriptor'):
+        prebuilt_imagery.github_release_descriptor('metro-detroit-imagery-v1')
+
+
 def test_local_archive_cli_activates_without_network(tmp_path, monkeypatch, capsys):
     root = tmp_path/'built'
     write_pack(root, title='Metro local', bounds=install_region.COVERAGES['metro-detroit'][1])

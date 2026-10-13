@@ -10,7 +10,9 @@ from apps.launchers.local_imagery_pack import LocalImageryPack
 from tools.map_builder.builder.map_3d import PRESETS
 from common.xdg_paths import openroadcode_data_dir
 from development.maps.regional_imagery import download as download_overview
-from development.maps.prebuilt_imagery import read_descriptor, read_local_archive, verify_archive, fetch_archive, unpack
+from development.maps.prebuilt_imagery import (read_descriptor, read_local_archive,
+                                               verify_archive, fetch_archive, unpack,
+                                               github_release_descriptor)
 
 # Rectangular planning envelopes, not county boundaries. No Canadian imagery promised.
 COVERAGES = {
@@ -65,13 +67,14 @@ def main():
     parser.add_argument('--update', action='store_true', help='Fetch and validate a fresh imagery revision')
     parser.add_argument('--yes', action='store_true', help='Confirm the printed plan; requires --coverage')
     parser.add_argument('--pack-manifest', help='HTTPS URL of a published .zip.json; downloads a prebuilt pack instead of contacting USGS')
+    parser.add_argument('--github-release', metavar='TAG', help='Install latest or a versioned published Metro Detroit GitHub Release')
     parser.add_argument('--pack-file', type=Path, help='Install a local .zip and its adjacent .zip.json without network access')
     parser.add_argument('--build-only', type=Path, help='Build imagery into this directory for packaging; do not activate it on this host')
     args = parser.parse_args()
     if args.yes and not args.coverage:
         parser.error('--yes requires --coverage')
-    if sum(bool(value) for value in (args.pack_manifest, args.pack_file, args.build_only)) > 1:
-        parser.error('--pack-manifest, --pack-file and --build-only cannot be combined')
+    if sum(bool(value) for value in (args.pack_manifest, args.github_release, args.pack_file, args.build_only)) > 1:
+        parser.error('--pack-manifest, --github-release, --pack-file and --build-only cannot be combined')
     try:
         coverage = args.coverage
         if coverage is None:
@@ -85,7 +88,13 @@ def main():
             coverage = tuple(COVERAGES)[int(choice)-1]
         title, bounds = COVERAGES[coverage]
         print(f'{title}: rectangular bounds {bounds}; not exact county boundaries.')
-        artifact = read_descriptor(args.pack_manifest, coverage) if args.pack_manifest else None
+        manifest_url = args.pack_manifest
+        if args.github_release:
+            if coverage != 'metro-detroit':
+                raise ValueError('Published GitHub releases currently support metro-detroit only')
+            manifest_url = github_release_descriptor(args.github_release)
+            print(f'Published release descriptor: {manifest_url}')
+        artifact = read_descriptor(manifest_url, coverage) if manifest_url else None
         if args.pack_file:
             artifact = read_local_archive(args.pack_file, coverage)
         if artifact:

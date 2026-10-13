@@ -590,8 +590,8 @@ assembly removes that cache so later updates fetch fresh acquisitions.
 ### Build once, distribute a checked imagery artifact
 
 For regular device installation, prefer a prebuilt archive over on-demand USGS
-exports. This path exists now, but **no Metro Detroit artifact or public hosting
-URL is bundled**. A build machine must first finish and inspect the imagery;
+exports. GitHub Releases is the distribution channel for inspected Metro Detroit
+packs. A build machine must first finish and inspect the imagery;
 packaging does not repair USGS outages or certify that exported imagery has no
 gaps. The existing navigation dataset still uses its SSH/rsync deployment.
 
@@ -644,16 +644,18 @@ artifact retention period. Each run uses a new tag such as
 available for rollback. Do not reuse a tag or replace assets in a published
 version.
 
-After publishing the draft, copy the version-specific descriptor URL from the
-workflow summary or release page and install it on Termux:
+After publishing the draft, install the newest published pack on Termux:
 
 ```bash
 git switch navigation-cesium
-python -m development.maps.install_region --coverage metro-detroit --pack-manifest https://github.com/markisrt4/OpenRoadCode/releases/download/metro-detroit-imagery-VERSION/metro-detroit-imagery.zip.json
+bash development/termux/install_metro_detroit_imagery.sh
 ./runOrcUi
 ```
 
-Add `--update` when replacing an already installed pack. Release assets remain
+The launcher selects the newest published, non-prerelease Metro Detroit imagery
+release. Add `--update` when replacing an already installed pack, or use
+`--version metro-detroit-imagery-VERSION` to install a specific revision for
+rollback. Pass `--yes` for a non-interactive install. Release assets remain
 available until the corresponding asset, release, or repository is deleted.
 The version-specific URL intentionally remains fixed; select a newer release
 explicitly when updating a device.
@@ -691,7 +693,8 @@ The installer shows size and asks for confirmation, checks the descriptor's
 region, filename, size and SHA256, then extracts and validates the imagery before
 activation. `--update` allows replacing an existing managed imagery revision;
 the previous revision remains available. Reopen Terrain if ORC is already running.
-`--pack-file`, `--pack-manifest` and `--build-only` are mutually exclusive.
+`--pack-file`, `--pack-manifest`, `--github-release` and `--build-only` are
+mutually exclusive.
 
 ### Shared ORC camera rail and detail imagery
 
