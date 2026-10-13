@@ -19,7 +19,7 @@ class AnalyzerAppearanceControls(tk.Frame, UiWidget):
         self._buttons = {}
         tabs = tk.Frame(self, bg=ui.surface)
         tabs.pack(fill=tk.X)
-        for index, name in enumerate(('LOOK', 'COLOR', 'MOTION', 'LABELS')):
+        for index, name in enumerate(('LOOK', 'COLOR', 'MOTION')):
             label = {'MOTION': 'MOVE', 'LABELS': 'TEXT'}.get(name, name)
             button = self._button(tabs, label, lambda n=name: self._show(n))
             tabs.columnconfigure(index, weight=1, uniform='appearance')
@@ -48,9 +48,9 @@ class AnalyzerAppearanceControls(tk.Frame, UiWidget):
                                font=('Sans', 9), pady=0, bd=0)
         button.pack(fill=tk.X)
 
-    def _slider(self, title, field, low, high, increment, *, width_percent=False):
+    def _slider(self, title, field, low, high, increment, *, width_percent=False, bar_density=False):
         initial = getattr(self._appearance, field)
-        value = tk.DoubleVar(value=(1-initial)*100 if width_percent else initial)
+        value = tk.DoubleVar(value=(72-initial)/8 if bar_density else (1-initial)*100 if width_percent else initial)
         header = tk.Frame(self._body, bg=self._ui.surface)
         header.pack(fill=tk.X)
         tk.Label(header, text=title, bg=self._ui.surface, fg=self._ui.text,
@@ -61,7 +61,8 @@ class AnalyzerAppearanceControls(tk.Frame, UiWidget):
         row.pack(fill=tk.X)
 
         def update(number):
-            self._change(**{field: round(1-float(number)/100, 6) if width_percent else float(number)})
+            self._change(**{field: int(72-float(number)*8) if bar_density else
+                           round(1-float(number)/100, 6) if width_percent else float(number)})
 
         def step(delta):
             number = round(max(low, min(high, value.get()+delta)), 2)
@@ -101,7 +102,7 @@ class AnalyzerAppearanceControls(tk.Frame, UiWidget):
         if name == 'LOOK':
             self._toggle('Segmented bars', 'segmented')
             self._toggle('Peak markers', 'peak_markers')
-            self._slider('BAR WIDTH (20-100%)', 'spacing', 20, 100, 5, width_percent=True)
+            self._slider('BAR WIDTH: NARROW - WIDE', 'band_count', 1, 8, 1, bar_density=True)
         elif name == 'COLOR':
             value = tk.StringVar(value=self._appearance.palette.value)
             menu = tk.OptionMenu(self._body, value, *(p.value for p in AnalyzerPalette),
@@ -123,8 +124,5 @@ class AnalyzerAppearanceControls(tk.Frame, UiWidget):
         elif name == 'MOTION':
             self._slider('RISE TIME (s)', 'response_s', 0, .3, .05)
             self._slider('DECAY TIME (s)', 'decay_s', .1, 1.5, .1)
-        else:
-            self._toggle('Frequency labels', 'frequency_labels')
-            self._toggle('Bass / mid / treble', 'range_guides')
         self._button(self._body, 'RESET APPEARANCE', self._reset).pack(fill=tk.X, pady=(2, 0))
         self.event_generate('<<AppearanceLayoutChanged>>')

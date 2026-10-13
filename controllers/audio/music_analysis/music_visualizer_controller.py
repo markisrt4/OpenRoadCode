@@ -7,7 +7,7 @@ import queue
 import threading
 
 from ui.music_visualizer import MusicVisualizerSource, VisualizerFrame
-from ui.music_visualizer.music_visualizer_types import MusicVisualizerOptions
+from ui.music_visualizer.music_visualizer_types import MusicCaptureState, MusicVisualizerOptions
 from ui.music_visualizer.music_visualizer_control_if import MusicVisualizerControlIf
 from .music_visualizer_session import MusicVisualizerSession
 
@@ -23,6 +23,7 @@ class MusicVisualizerController(MusicVisualizerControlIf):
         self._messages: queue.SimpleQueue[tuple[int, str]] = queue.SimpleQueue()
         self._generation = 0
         self._connected_generation: int | None = None
+        self._pending_generation: int | None = None
         self._closed = False
         self._latest: tuple[int, VisualizerFrame] | None = None
         self._options = MusicVisualizerOptions()
@@ -39,9 +40,13 @@ class MusicVisualizerController(MusicVisualizerControlIf):
         if (self._source is source and self._connected_generation == self._generation
                 and self._session is not None and self._session.is_running):
             return
+        if self._source is source and (self._pending_generation == self._generation
+                or (source is MusicVisualizerSource.SIMULATED and self._connected_generation == self._generation)):
+            return
         self._source = source
         self._generation += 1
         self._connected_generation = None
+        self._pending_generation = self._generation
         self._executor.submit(self._start_capture, self._generation, source)
 
     def stop(self) -> None:
@@ -49,6 +54,7 @@ class MusicVisualizerController(MusicVisualizerControlIf):
             return
         self._generation += 1
         self._connected_generation = None
+        self._pending_generation = None
         self._executor.submit(self._release_capture)
 
     def _offer_frame(self, generation: int, frame: VisualizerFrame) -> None:
@@ -76,10 +82,15 @@ class MusicVisualizerController(MusicVisualizerControlIf):
                 self._session.start()
                 self._connected_generation = generation
                 self._messages.put((generation, "Audio input connected"))
+            elif source is MusicVisualizerSource.SIMULATED:
+                self._connected_generation = generation
+                self._messages.put((generation, "Simulation active"))
         except Exception as exc:
             self._release_capture()
             self._messages.put((generation, f"Audio input unavailable: {exc}"))
         finally:
+            if self._pending_generation == generation:
+                self._pending_generation = None
             if generation != self._generation:
                 self._release_capture()
 
@@ -129,6 +140,17 @@ class MusicVisualizerController(MusicVisualizerControlIf):
                 and self._session is not None and not self._session.is_running):
             message = "Audio input stopped — check the source and press START"
         return frame, message
+
+    def capture_state(self) -> MusicCaptureState:
+        if self._closed:
+            return MusicCaptureState.IDLE
+        if (self._connected_generation == self._generation
+                and (self._source is MusicVisualizerSource.SIMULATED
+                     or (self._session is not None and self._session.is_running))):
+            return MusicCaptureState.RUNNING
+        if self._pending_generation == self._generation:
+            return MusicCaptureState.STARTING
+        return MusicCaptureState.IDLE
 
     def selected_source(self) -> MusicVisualizerSource | None:
         return self._source

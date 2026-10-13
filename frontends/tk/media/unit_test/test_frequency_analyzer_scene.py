@@ -90,8 +90,9 @@ def test_smooth_render_preserves_height_and_gradient_with_bounded_geometry(palet
     assert len(vertices) <= 64 * 8
     quads = [vertices[i:i+4] for i in range(0, len(vertices), 4)]
     for i, height in enumerate(display.levels):
-        x = .04 + .92 * i / 64
-        column = [quad for quad in quads if quad[0][0] == pytest.approx(x)]
+        center = .04 + .92 * (i+.5) / 64
+        column = [quad for quad in quads
+                  if (quad[0][0]+quad[1][0])/2 == pytest.approx(center)]
         assert min(v[1] for q in column for v in q) == pytest.approx(.08)
         assert max(v[1] for q in column for v in q) == pytest.approx(.08 + height * .86)
         assert column[0][0][2] == pytest.approx(analyzer_color(options, 0))
@@ -111,3 +112,17 @@ def test_bar_style_does_not_change_response_or_peak_timing():
         segmented.update(frame, replace(options, segmented=True), now, True)
         assert smooth.levels == segmented.levels
         assert smooth.peaks == segmented.peaks
+
+
+def test_wide_bars_regroup_real_bins_and_reset_display_without_changing_scale():
+    frame = replace(SILENT, spectrum_hz=(100, 110, 1000), spectrum_dbfs=(-30, -12, -24))
+    narrow = measured_levels(frame, 64)
+    wide = measured_levels(frame, 8)
+    assert len(narrow) == 64 and len(wide) == 8
+    assert max(wide) == pytest.approx(.8)
+    assert max(narrow) == pytest.approx(.8)
+    display = AnalyzerDisplay()
+    display.update(frame, AnalyzerAppearance(), 0, True)
+    display.update(frame, AnalyzerAppearance(band_count=8), .1, True)
+    assert len(display.levels) == len(display.peaks) == 8
+    assert display.levels == pytest.approx(wide)

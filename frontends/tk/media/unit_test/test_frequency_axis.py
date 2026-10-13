@@ -25,3 +25,10 @@ def test_frequency_labels_stay_in_bounds_without_overlapping(width):
     for hz, _label, x, _row in ticks:
         if hz not in (31.25, 16000):
             assert x == pytest.approx(width * (.04+.92*math.log(hz/31.25, 512)))
+
+
+def test_wide_bands_have_frequency_center_labels_on_the_same_log_axis():
+    ticks = frequency_ticks(800, lambda text: len(text)*5, band_count=8)
+    hz = 31.25 * 512 ** (.5/8)
+    selected = next(tick for tick in ticks if tick[0] == hz)
+    assert selected[2] == pytest.approx(800 * (.04+.92*.5/8))

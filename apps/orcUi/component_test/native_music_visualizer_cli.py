@@ -13,7 +13,7 @@ from frontends.tk.media.native_music_visualizer import NativeMusicVisualizerPane
 from frontends.tk.media.music_visualizer_screen import MusicVisualizerScreen
 from frontends.tk.media.music_gl_scene import MODE_LABELS
 from ui.music_visualizer import KickMode, MusicVisualizerSource, VisualizerFrame
-from ui.music_visualizer.music_visualizer_types import AnalyzerAppearance, AnalyzerPalette, MusicVisualizerView
+from ui.music_visualizer.music_visualizer_types import AnalyzerAppearance, AnalyzerPalette, MusicCaptureState, MusicVisualizerView
 from ui.theme import ThemeMode
 from apps.orcUi.theme_runtime import theme_bundle
 
@@ -34,6 +34,8 @@ def main():
     )
     controller = Mock()
     controller.presentation.return_value = (None, None)
+    controller.latest_frame.return_value = None
+    controller.capture_state.return_value = MusicCaptureState.IDLE
     screen = MusicVisualizerScreen(
         host, on_back=lambda: None, controller=controller,
         theme_bundle=lambda: theme_bundle(ThemeMode.DARK),
@@ -94,6 +96,11 @@ def main():
             for view in [MusicVisualizerView.VISUALIZER, MusicVisualizerView.DRUM_KIT]:
                 screen._select_view(view)
                 for page in ['AUDIO', 'SCENE', 'STYLE']:
+                    if view is MusicVisualizerView.DRUM_KIT and page == 'STYLE':
+                        assert screen._tab_buttons['STYLE'].cget('state') == tk.DISABLED
+                        screen._tab_buttons['STYLE'].invoke()
+                        assert screen._options.view is MusicVisualizerView.DRUM_KIT
+                        continue
                     screen._show_page(page)
                     root.update_idletasks()
                     assert screen._controls.winfo_reqheight() <= parent.winfo_height(), (view, page, screen._controls.winfo_reqheight())
@@ -104,7 +111,7 @@ def main():
                                 assert_controls_fit(child)
                     assert_controls_fit(screen._controls)
                     if page == 'STYLE':
-                        for tab in ('LOOK', 'COLOR', 'MOTION', 'LABELS'):
+                        for tab in ('LOOK', 'COLOR', 'MOTION'):
                             screen._style_page._buttons[tab].invoke()
                             root.update_idletasks()
                             assert screen._controls.winfo_reqheight() <= parent.winfo_height(), (tab, screen._controls.winfo_reqheight())
@@ -136,20 +143,14 @@ def main():
                         minus = next(button for button in buttons if button.cget('text') == '-')
                         for _ in range(30):
                             plus.invoke()
-                        assert screen._options.analyzer.spacing == 0
+                        assert screen._options.analyzer.band_count == 8
                         for _ in range(30):
                             minus.invoke()
-                        assert screen._options.analyzer.spacing == .8
+                        assert screen._options.analyzer.band_count == 64
                         toggles[0].invoke()
                         assert screen._options.analyzer.segmented
                         toggles[1].invoke()
                         assert not screen._options.analyzer.peak_markers
-                        appearance_controls._show('LABELS')
-                        for child in appearance_controls._body.winfo_children():
-                            if isinstance(child, tk.Checkbutton):
-                                child.invoke()
-                        assert not screen._options.analyzer.frequency_labels
-                        assert not screen._options.analyzer.range_guides
                         panel._surface._display()
                         assert GL.glGetError() == GL.GL_NO_ERROR
                         appearance_controls._reset()
@@ -170,6 +171,27 @@ def main():
                         assert screen._options.drum_gain == .2
                         controller.start.assert_not_called()
             assert screen._rail.winfo_width() == 180
+            screen._select_view(MusicVisualizerView.VISUALIZER)
+            assert screen._tab_buttons['STYLE'].cget('state') == tk.NORMAL
+            for state in (MusicCaptureState.STARTING, MusicCaptureState.RUNNING, MusicCaptureState.IDLE):
+                controller.capture_state.return_value = state
+                screen._update_capture_buttons()
+                active = state is not MusicCaptureState.IDLE
+                assert screen._capture_buttons['START'].cget('state') == (tk.DISABLED if active else tk.NORMAL)
+                assert screen._capture_buttons['STOP'].cget('state') == (tk.NORMAL if active else tk.DISABLED)
+            screen._open_fullscreen()
+            fullscreen = screen._fullscreen
+            root.update()
+            assert fullscreen._panel._surface.context_created
+            assert not panel.winfo_ismapped()
+            fullscreen.set_analysis_frame(VisualizerFrame(.7, .6, .4, .2, (.4,)*24))
+            fullscreen._panel._surface._display()
+            assert GL.glGetError() == GL.GL_NO_ERROR
+            next(child for child in fullscreen.winfo_children() if isinstance(child, tk.Button)).invoke()
+            root.update()
+            assert screen._fullscreen is None and panel.winfo_ismapped()
+            assert fullscreen._panel._job is None
+            controller.start.assert_not_called()
             print('PASS: adaptive controls, ten native scenes, detailed drums, softer response, double kick, custom appearance, 250px viewport, cleanup')
             print('Renderer:', GL.glGetString(GL.GL_RENDERER).decode())
         except Exception as exc:

@@ -8,6 +8,7 @@ import math
 
 from .frequency_analyzer_scene import draw_analyzer
 from .music_pattern_scenes import explosion_field, star_dance, kaleidoscope
+from .music_space_scenes import orbital_system, electric_freeway
 
 from ui.music_visualizer.music_visualizer_types import (
     KickMode, MusicVisualizationMode, MusicVisualizerOptions, MusicVisualizerView,
@@ -80,9 +81,9 @@ def draw_scene(gl, glu, quadric, options: MusicVisualizerOptions, frame: Visuali
     elif mode is MusicVisualizationMode.SPECTRUM:
         _spectrum(gl, spectrum, pulse, elapsed)
     elif mode is MusicVisualizationMode.ORBITING_PLANETS:
-        _planets(gl, glu, quadric, spectrum, pulse, elapsed)
+        orbital_system(gl, glu, quadric, spectrum, pulse, elapsed, aspect, geometry)
     elif mode is MusicVisualizationMode.ELECTRIC_FREEWAY:
-        _freeway(gl, spectrum, pulse, elapsed)
+        electric_freeway(gl, spectrum, pulse, elapsed)
     elif mode is MusicVisualizationMode.EXPLOSION_FIELD:
         explosion_field(gl, pulse, elapsed)
     elif mode is MusicVisualizationMode.STAR_DANCE:
@@ -134,40 +135,6 @@ def _spectrum(gl, spectrum, pulse, elapsed):
             for vy, z in [(0, 0), (0, -.3), (height, -.3), (height, 0)]:
                 gl.glVertex3f(vx, vy, z)
         gl.glEnd()
-
-
-def _planets(gl, glu, quadric, spectrum, pulse, elapsed):
-    gl.glTranslatef(0, 0, -9)
-    _lighting(gl)
-    gl.glColor3f(1, .55 + pulse * .2, .12)
-    glu.gluSphere(quadric, .45 + pulse * .2, 32, 20)
-    for i in range(5):
-        angle = elapsed * (.2 + i * .08) + i * 1.8
-        radius = 1.1 + i * .48
-        gl.glPushMatrix()
-        gl.glTranslatef(math.cos(angle) * radius, math.sin(angle) * radius * .65, math.sin(angle + i) * .5)
-        gl.glColor3f(.15 + i * .15, .8 - i * .08, .95 - i * .1)
-        glu.gluSphere(quadric, .16 + spectrum[i * len(spectrum) // 5] * .15 + pulse * .06, 24, 16)
-        gl.glPopMatrix()
-    gl.glDisable(gl.GL_LIGHTING)
-
-
-def _freeway(gl, spectrum, pulse, elapsed):
-    gl.glTranslatef(0, -1.4, -1)
-    gl.glColor3f(.15, .55 + pulse * .2, .85)
-    gl.glBegin(gl.GL_LINES)
-    for x in [-2, -1, 0, 1, 2]:
-        gl.glVertex3f(x, 0, 0)
-        gl.glVertex3f(x, 0, -50)
-    for row in range(28):
-        z = -((row * 2 - elapsed * 6) % 50)
-        gl.glVertex3f(-4, 0, z)
-        gl.glVertex3f(4, 0, z)
-        height = .3 + spectrum[row % len(spectrum)] * (2 + pulse)
-        for x in [-2.6, 2.6]:
-            gl.glVertex3f(x, 0, z)
-            gl.glVertex3f(x, height, z)
-    gl.glEnd()
 
 
 def _rings(gl, spectrum, pulse, elapsed):

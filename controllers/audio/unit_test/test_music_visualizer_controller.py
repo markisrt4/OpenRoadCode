@@ -99,3 +99,51 @@ def test_close_cancels_navigation_handoff_and_ignores_late_audio():
     controller._offer_frame(controller._generation - 1, Mock())
     assert controller.latest_frame() is None
     assert controller._detach_timer is None
+
+
+def test_capture_lifecycle_reports_pending_running_natural_stop_and_explicit_stop():
+    from ui.music_visualizer.music_visualizer_types import MusicCaptureState
+    entered, release = Event(), Event()
+    session = Mock(is_running=True)
+
+    def start():
+        entered.set()
+        assert release.wait(3)
+
+    session.start.side_effect = start
+    controller = MusicVisualizerController(lambda callback, source: session)
+    try:
+        assert controller.capture_state() is MusicCaptureState.IDLE
+        controller.start(MusicVisualizerSource.ANDROID_PLAYBACK)
+        assert entered.wait(3)
+        assert controller.capture_state() is MusicCaptureState.STARTING
+        release.set()
+        controller._executor.submit(lambda: None).result(timeout=3)
+        assert controller.capture_state() is MusicCaptureState.RUNNING
+        session.is_running = False
+        assert controller.capture_state() is MusicCaptureState.IDLE
+        controller.stop()
+        assert controller.capture_state() is MusicCaptureState.IDLE
+    finally:
+        release.set()
+        controller.close()
+
+
+def test_capture_failure_and_simulation_have_explicit_lifecycle_states():
+    from ui.music_visualizer.music_visualizer_types import MusicCaptureState
+    controller = MusicVisualizerController(Mock(side_effect=RuntimeError('unavailable')))
+    try:
+        controller.start(MusicVisualizerSource.ANDROID_PLAYBACK)
+        controller._executor.submit(lambda: None).result(timeout=3)
+        assert controller.capture_state() is MusicCaptureState.IDLE
+    finally:
+        controller.close()
+    simulation = MusicVisualizerController(lambda callback, source: None)
+    try:
+        simulation.start(MusicVisualizerSource.SIMULATED)
+        simulation._executor.submit(lambda: None).result(timeout=3)
+        assert simulation.capture_state() is MusicCaptureState.RUNNING
+        simulation.stop()
+        assert simulation.capture_state() is MusicCaptureState.IDLE
+    finally:
+        simulation.close()

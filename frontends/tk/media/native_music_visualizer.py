@@ -127,20 +127,16 @@ class NativeMusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
         canvas = self._axis
         canvas.delete('all')
         width = max(1, canvas.winfo_width())
-        appearance = self._render_settings.analyzer
         font = tkfont.Font(root=canvas, family='Sans', size=7)
-        if appearance.frequency_labels:
-            for hz, label, x, row in frequency_ticks(width, font.measure):
-                canvas.create_line(width * (.04 + .92 * math.log(hz / 31.25, 512)), 0,
-                                   width * (.04 + .92 * math.log(hz / 31.25, 512)), 3,
-                                   fill='#94abb8')
-                canvas.create_text(x, 8 + row * 12, text=label,
-                                   fill='#d9e7ef', font=('Sans', 7))
+        for hz, label, x, row in frequency_ticks(width, font.measure, self._render_settings.analyzer.band_count):
+            canvas.create_line(width * (.04 + .92 * math.log(hz / 31.25, 512)), 0,
+                               width * (.04 + .92 * math.log(hz / 31.25, 512)), 3,
+                               fill='#94abb8')
+            canvas.create_text(x, 8 + row * 12, text=label,
+                               fill='#d9e7ef', font=('Sans', 7))
         for lo, hi, label, color in ((31.25, 250, 'BASS', '#48d97c'),
                                      (250, 4000, 'MID', '#e6cf54'),
                                      (4000, 16000, 'TREBLE', '#fa7657')):
-            if not appearance.range_guides:
-                continue
             x1 = width * (.04 + .92 * math.log(lo / 31.25, 512))
             x2 = width * (.04 + .92 * math.log(hi / 31.25, 512))
             canvas.create_line(x1, 32, x2, 32, fill=color, width=3)
@@ -187,7 +183,7 @@ class NativeMusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
                 beat=pulse, kick=pulse, snare=pulse if int(phase) % 2 else 0,
                 tom_high=pulse*.2, tom_mid=pulse*.3, tom_low=pulse*.4, cymbal=pulse*.4,
             ))
-        if self._surface is not None and self._surface.context_created:
+        if self._surface is not None and self._surface.context_created and self._surface.winfo_ismapped():
             try:
                 self._surface._display()
             except Exception as exc:

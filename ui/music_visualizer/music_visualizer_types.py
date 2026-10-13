@@ -32,6 +32,14 @@ class MusicVisualizationMode(Enum):
     KALEIDOSCOPE = "kaleidoscope"
 
 
+class MusicCaptureState(Enum):
+    """Current capture lifecycle, including pending asynchronous connection."""
+
+    IDLE = 'idle'
+    STARTING = 'starting'
+    RUNNING = 'running'
+
+
 class MusicVisualizerSource(str, Enum):
     """Semantic capture source choices."""
 
@@ -89,8 +97,7 @@ class AnalyzerAppearance:
     response_s: float = .05
     decay_s: float = .3
     peak_markers: bool = True
-    frequency_labels: bool = True
-    range_guides: bool = True
+    band_count: int = 64
     low_color: tuple[float, float, float] = (.02, .35, .65)
     high_color: tuple[float, float, float] = (.15, .85, 1.0)
 

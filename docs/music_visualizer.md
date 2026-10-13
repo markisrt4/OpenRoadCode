@@ -211,17 +211,17 @@ Selection preserves the current audio session and is shared with the HOME previe
 
 
 Open **STYLE** to select the Frequency Analyzer and customize it. This keeps the
-current capture running. Four compact appearance pages fit the 250-pixel viewport:
+current capture running. Three compact appearance pages fit the 250-pixel viewport:
 
-- **LOOK:** smooth/segmented bars, peak markers, and bar width (20–100% of each frequency slot).
-  Larger width reduces spacing; the bounds prevent adjacent frequency bars overlapping.
+- **LOOK:** smooth/segmented bars, peak markers, and a narrow-to-wide control.
+  Width groups the measured FFT bins into 8–64 logarithmic bands. At the widest
+  setting, bars are eight times the default width, without overlapping.
 - **COLOR:** ORC blue, Retro green-to-red, Monochrome, Fire, or a custom gradient.
   BASE COLOR and TIP COLOR open native color pickers. Cancel leaves settings intact.
   For the original boombox look, choose Retro colors and enable segmented bars.
 - **MOVE:** rise time (0–0.3 seconds; zero gives immediate attack) and decay time
   (0.1–1.5 seconds). These are display envelopes, not analysis normalization.
   Peak markers hold for half a second before falling. Stale capture decays to zero.
-- **TEXT:** independently show frequency labels and bass/mid/treble guides.
 
 RESET APPEARANCE restores modern defaults. Settings are shared between the full
 screen and HOME preview for the current ORC session; they are not saved to disk.
@@ -258,3 +258,23 @@ stars drifting over a cool starfield, with spectrum/beat-driven scale. Kaleidosc
 fills the viewport with 16 mirrored wedges, six radial layers and 864 colored
 triangles; rotation, facet shapes and brightness respond to time, spectrum and beats.
 These scenes batch geometry to keep the richer content practical on native GL.
+
+
+Frequency labels and bass/mid/treble guides are always visible. On wider bar
+settings, labels include the centers of the displayed frequency bands; the fixed
+31.25 Hz–16 kHz axis and −60–0 dBFS scale stay unchanged. Each grouped bar reports
+the strongest actual FFT-bin amplitude within its full frequency interval.
+
+**FULL** opens an immersive presentation for the current visualizer or drum kit.
+Use EXIT FULLSCREEN, Esc, or F11 to return. It shares the current capture; the
+covered normal view pauses drawing. Leaving the screen or changing sources retires
+the fullscreen surface, and closing it restores the normal view without restarting
+audio. **STYLE** is disabled for drums. START is disabled while input is connecting
+or running; STOP is disabled when idle. Capture failure or a naturally stopped
+source re-enables START. HOME's START follows the same capture lifecycle.
+
+Orbiting Planets now has cached procedural terrain/gas surfaces, lit planets,
+orbital tracks, moons, tilted rings, a stellar corona and a starfield. The camera
+fits the system to narrow windows. Electric Freeway adds moving lane dashes,
+central energy tiles, road-spanning spectrum gates and suspended equalizer strips,
+with center activity driven by the spectrum and musical onsets.

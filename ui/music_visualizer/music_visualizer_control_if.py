@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Frontend-neutral audio lifecycle and presentation boundary."""
 from abc import ABC, abstractmethod
-from .music_visualizer_types import MusicVisualizerOptions, MusicVisualizerSource, VisualizerFrame
+from .music_visualizer_types import MusicCaptureState, MusicVisualizerOptions, MusicVisualizerSource, VisualizerFrame
 
 
 class MusicVisualizerControlIf(ABC):
@@ -92,4 +92,11 @@ class MusicVisualizerControlIf(ABC):
         """Read the most recently started input for another mounted presentation.
 
         @return Last selected source, or None before the first start.
+        """
+
+    @abstractmethod
+    def capture_state(self) -> MusicCaptureState:
+        """Read capture lifecycle without waiting or consuming frames.
+
+        @return Idle, starting, or running for the current generation.
         """

@@ -92,3 +92,17 @@ def test_close_cancels_pending_control_resize_and_late_resize_is_inert():
     screen._resize_controls()
     screen._schedule_control_resize()
     assert container.mock_calls == []
+
+
+def test_hiding_fullscreen_retires_it_without_remapping_a_leaving_screen():
+    screen = MusicVisualizerScreen(Mock(), on_back=Mock(), theme_bundle=Mock(),
+                                   controller=Mock(), initial_source=MusicVisualizerSource.ANDROID_PLAYBACK)
+    screen._visible = True
+    panel, fullscreen = Mock(), Mock()
+    screen._panel, screen._fullscreen = panel, fullscreen
+    fullscreen.close.side_effect = screen._fullscreen_closed
+    screen.hide()
+    fullscreen.close.assert_called_once()
+    panel.pack.assert_not_called()
+    panel.close.assert_called_once()
+    assert screen._fullscreen is None

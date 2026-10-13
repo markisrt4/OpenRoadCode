@@ -9,12 +9,15 @@ MINOR_HZ = (40, 50, 80, 100, 160, 200, 315, 400, 630, 800,
             1250, 1600, 2500, 3150, 5000, 6300, 10000, 12500)
 
 
-def frequency_ticks(width, measure):
+def frequency_ticks(width, measure, band_count=64):
     """Prioritize octave labels, then fit third-octave labels in two clear rows."""
     occupied = [[], []]
     result = []
-    for hz in (*MAJOR_HZ, *MINOR_HZ):
-        label = f'{hz / 1000:g}k' if hz >= 1000 else f'{hz:g}'
+    centers = tuple(31.25 * 512 ** ((i+.5)/band_count) for i in range(band_count)) if band_count < 32 else MINOR_HZ
+    for hz in (*MAJOR_HZ, *centers):
+        label = f'{hz / 1000:.3g}k' if hz >= 1000 else f'{hz:.3g}'
+        if hz == 31.25:
+            label = '31.25'
         half = measure(label) / 2
         if half * 2 + 4 > width:
             continue

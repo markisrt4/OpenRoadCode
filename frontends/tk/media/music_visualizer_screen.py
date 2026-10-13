@@ -9,7 +9,7 @@ import tkinter as tk
 from tkinter import font as tkfont
 
 from ui.music_visualizer import KickMode, MusicVisualizationMode, MusicVisualizerSource
-from ui.music_visualizer.music_visualizer_types import MusicVisualizerOptions, MusicVisualizerView
+from ui.music_visualizer.music_visualizer_types import MusicCaptureState, MusicVisualizerOptions, MusicVisualizerView
 from ui.music_visualizer.music_visualizer_control_if import MusicVisualizerControlIf
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
@@ -17,6 +17,7 @@ from ui.screen_ui_if import ScreenId
 from ui.theme import ThemeBundle, ThemeMode
 from .analyzer_appearance_controls import AnalyzerAppearanceControls
 from .music_gl_scene import MODE_LABELS
+from .visualizer_fullscreen import VisualizerFullscreen
 from .music_visualizer_icons import visualizer_icon
 from .music_visualizer_panel import MusicVisualizerPanel
 
@@ -42,6 +43,8 @@ class MusicVisualizerScreen(TkScreen):
         self._poll_job: object | None = None
         self._closed = False
         self._panel = None
+        self._fullscreen = None
+        self._visible = False
         self._source = initial_source
         self._options = MusicVisualizerOptions(mode=(MusicVisualizationMode.FREQUENCY_TUNNEL
                                                      if native_controls else MusicVisualizationMode.SPECTRUM))
@@ -55,6 +58,7 @@ class MusicVisualizerScreen(TkScreen):
         if self._closed:
             return
         self.hide()
+        self._visible = True
         self._host.activate_screen(self)
         self._host.clear_screen_content()
         self._host.set_screen_title('MUSIC VISUALIZER')
@@ -86,7 +90,9 @@ class MusicVisualizerScreen(TkScreen):
         self._render_parent.grid(row=0, column=1, sticky='nsew')
         self._build_controls()
         self._create_panel()
-        self._status.set('Press START to connect audio.')
+        state = self._controller.capture_state()
+        self._status.set('Audio input connected' if state is MusicCaptureState.RUNNING else
+                         'Connecting audio...' if state is MusicCaptureState.STARTING else 'Press START to connect audio.')
 
     def _label(self, text):
         tk.Label(self._controls, text=text, anchor='w', bg=self._ui.surface,
@@ -157,13 +163,19 @@ class MusicVisualizerScreen(TkScreen):
                                    activebackground=self._ui.control_active)
                 button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
                 self._view_buttons[view] = button
+            tk.Button(views, text='FULL', command=self._open_fullscreen,
+                      bg=self._ui.control_background, fg=self._ui.control_text,
+                      relief=tk.FLAT, font=('Sans', 9, 'bold'), pady=4).pack(side=tk.LEFT, fill=tk.X, expand=True)
         tabs = tk.Frame(self._controls, bg=self._ui.surface)
         tabs.pack(fill=tk.X)
+        self._tab_buttons = {}
         for name in (['AUDIO', 'SCENE', 'STYLE'] if self._native_controls else ['AUDIO', 'SCENE']):
-            tk.Button(tabs, text=name, command=lambda n=name: self._show_page(n),
+            button = tk.Button(tabs, text=name, command=lambda n=name: self._show_page(n),
                       relief=tk.FLAT, bg=self._ui.control_background, fg=self._ui.text_muted,
                       activebackground=self._ui.control_active, font=('Sans', 8, 'bold'),
-                      pady=3).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
+                      pady=3, disabledforeground=self._ui.text_muted)
+            button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
+            self._tab_buttons[name] = button
         self._page_host = tk.Frame(self._controls, bg=self._ui.surface)
         self._page_host.pack(fill=tk.BOTH, expand=True, pady=3)
         self._audio_page = tk.Frame(self._page_host, bg=self._ui.surface)
@@ -193,11 +205,14 @@ class MusicVisualizerScreen(TkScreen):
         footer.pack(side=tk.BOTTOM, fill=tk.X)
         start_stop = tk.Frame(footer, bg=self._ui.surface)
         start_stop.pack(fill=tk.X)
+        self._capture_buttons = {}
         for text, action, color in [('START', lambda: self._select_source(self._source_name.get()), self._ui.accent_primary),
                                    ('STOP', self._stop_capture, self._ui.control_background)]:
-            tk.Button(start_stop, text=text, command=action, bg=color, fg=self._ui.control_text,
+            button = tk.Button(start_stop, text=text, command=action, bg=color, fg=self._ui.control_text,
                       activebackground=self._ui.control_active, relief=tk.FLAT,
-                      font=('Sans', 9, 'bold'), pady=4).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
+                      font=('Sans', 9, 'bold'), pady=4, disabledforeground=self._ui.text_muted)
+            button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
+            self._capture_buttons[text] = button
         self._status = tk.StringVar()
         self._renderer_status = tk.StringVar()
         tk.Label(footer, textvariable=self._status, height=2, wraplength=165,
@@ -205,6 +220,7 @@ class MusicVisualizerScreen(TkScreen):
                  font=('Sans', 8)).pack(fill=tk.X, pady=1)
         self._show_page('SCENE')
         self._update_view_buttons()
+        self._update_capture_buttons()
 
     def _build_scene_page(self):
         for child in self._scene_page.winfo_children():
@@ -309,6 +325,8 @@ class MusicVisualizerScreen(TkScreen):
         self._icon_size = size
 
     def _show_page(self, page):
+        if page == 'STYLE' and self._options.view is MusicVisualizerView.DRUM_KIT:
+            return
         self._audio_page.pack_forget()
         self._scene_page.pack_forget()
         self._style_page.pack_forget()
@@ -318,6 +336,12 @@ class MusicVisualizerScreen(TkScreen):
          'STYLE': self._style_page}[page].pack(fill=tk.BOTH, expand=True)
 
     def _update_view_buttons(self):
+        style = getattr(self, '_tab_buttons', {}).get('STYLE')
+        if style is not None:
+            enabled = self._options.view is not MusicVisualizerView.DRUM_KIT
+            style.configure(state=tk.NORMAL if enabled else tk.DISABLED,
+                            fg=self._ui.text if enabled else self._ui.text_muted,
+                            bg=self._ui.control_background if enabled else self._ui.surface)
         for view, button in getattr(self, '_view_buttons', {}).items():
             selected = view is self._options.view
             color = (self._ui.accent_warning if view is MusicVisualizerView.DRUM_KIT
@@ -339,6 +363,8 @@ class MusicVisualizerScreen(TkScreen):
         self._update_mode_buttons()
         if self._panel is not None:
             self._panel.configure_visualizer(self._options)
+        if self._fullscreen is not None:
+            self._fullscreen.configure_visualizer(self._options)
 
     def _update_mode_buttons(self):
         if self._options.view is not MusicVisualizerView.VISUALIZER:
@@ -369,6 +395,8 @@ class MusicVisualizerScreen(TkScreen):
             self._poll_job = self._host.schedule_ui_callback(16, self._poll)
 
     def _select_source(self, value: str, *, start: bool = True) -> None:
+        if self._fullscreen is not None:
+            self._fullscreen.close()
         self._source = MusicVisualizerSource(value)
         self._source_name.set(value)
         self._controller.stop()
@@ -376,12 +404,44 @@ class MusicVisualizerScreen(TkScreen):
         self._status.set('Connecting audio…' if start else 'Source selected — press START')
         if start:
             self._controller.start(self._source)
+        self._update_capture_buttons()
 
     def _stop_capture(self) -> None:
+        if self._fullscreen is not None:
+            self._fullscreen.close()
         self._controller.stop()
         if self._panel is not None:
             self._panel.close()
         self._status.set('Stopped')
+        self._update_capture_buttons()
+
+    def _update_capture_buttons(self):
+        state = self._controller.capture_state()
+        active = state in (MusicCaptureState.STARTING, MusicCaptureState.RUNNING)
+        for name, button in getattr(self, '_capture_buttons', {}).items():
+            enabled = active if name == 'STOP' else not active
+            button.configure(state=tk.NORMAL if enabled else tk.DISABLED,
+                             bg=(self._ui.accent_warning if name == 'STOP' else self._ui.accent_primary)
+                             if enabled else self._ui.control_background)
+
+    def _open_fullscreen(self):
+        if self._fullscreen is not None:
+            self._fullscreen.lift()
+            return
+        self._fullscreen = VisualizerFullscreen(
+            self._container, panel_factory=self._panel_factory, theme_bundle=self._theme_bundle(),
+            options=self._options, simulate=self._source is MusicVisualizerSource.SIMULATED,
+            on_close=self._fullscreen_closed)
+        frame = self._controller.latest_frame()
+        if frame is not None:
+            self._fullscreen.set_analysis_frame(frame)
+        if self._panel is not None:
+            self._panel.pack_forget()
+
+    def _fullscreen_closed(self):
+        self._fullscreen = None
+        if self._visible and not self._closed and self._panel is not None:
+            self._panel.pack(fill=tk.BOTH, expand=True)
 
     def _calibrate(self, action: str) -> None:
         self._controller.calibrate(action)
@@ -390,9 +450,12 @@ class MusicVisualizerScreen(TkScreen):
         if self._closed or self._panel is None:
             self._poll_job = None
             return
+        self._update_capture_buttons()
         frame, message = self._controller.presentation()
         if frame is not None:
             self._panel.set_analysis_frame(frame)
+            if self._fullscreen is not None:
+                self._fullscreen.set_analysis_frame(frame)
         if message is not None and self._status is not None:
             self._status.set(message)
         if self._renderer_status is not None:
@@ -403,6 +466,9 @@ class MusicVisualizerScreen(TkScreen):
         self._poll_job = self._host.schedule_ui_callback(16, self._poll)
 
     def hide(self) -> None:
+        self._visible = False
+        if self._fullscreen is not None:
+            self._fullscreen.close()
         if getattr(self, '_resize_job', None) is not None:
             self._container.after_cancel(self._resize_job)
             self._resize_job = None

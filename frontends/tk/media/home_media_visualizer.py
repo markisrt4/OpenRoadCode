@@ -9,6 +9,7 @@ from ui.ui_widget import UiWidget
 from ui.music_visualizer.music_visualizer_control_if import MusicVisualizerControlIf
 from ui.music_visualizer.music_visualizer_presentation_if import MusicVisualizerPresentationIf
 from ui.music_visualizer import MusicVisualizerSource
+from ui.music_visualizer.music_visualizer_types import MusicCaptureState
 
 
 class HomeMediaVisualizer(tk.Frame, UiWidget):
@@ -45,9 +46,10 @@ class HomeMediaVisualizer(tk.Frame, UiWidget):
         self._body.pack(fill=tk.BOTH, expand=True)
         self._footer = tk.Frame(self, bg=ui.surface)
         self._footer.pack(fill=tk.X)
-        tk.Button(self._footer, text='START', command=lambda: controller.start(controller.selected_source() or source),
+        self._start_button = tk.Button(self._footer, text='START', command=lambda: controller.start(controller.selected_source() or source),
                   bg=ui.accent_primary, fg=ui.control_text, relief=tk.FLAT,
-                  font=('Sans', 7, 'bold'), pady=2).pack(side=tk.LEFT, expand=True, fill=tk.X)
+                  font=('Sans', 7, 'bold'), pady=2, disabledforeground=ui.text_muted)
+        self._start_button.pack(side=tk.LEFT, expand=True, fill=tk.X)
         tk.Button(self._footer, text='OPEN', command=on_open,
                   bg=ui.control_background, fg=ui.control_text, relief=tk.FLAT,
                   font=('Sans', 7, 'bold'), pady=2).pack(side=tk.LEFT, expand=True, fill=tk.X)
@@ -87,6 +89,9 @@ class HomeMediaVisualizer(tk.Frame, UiWidget):
         self._poll_job = None
         if self._closed or self._preview is None:
             return
+        active = self._controller.capture_state() in (MusicCaptureState.STARTING, MusicCaptureState.RUNNING)
+        self._start_button.configure(state=tk.DISABLED if active else tk.NORMAL,
+                                     bg=self._theme.ui.control_background if active else self._theme.ui.accent_primary)
         frame = self._controller.latest_frame()
         if frame is not None and frame is not self._last_frame:
             self._preview.set_analysis_frame(frame)
