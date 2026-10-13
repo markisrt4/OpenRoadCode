@@ -443,6 +443,9 @@ class GamesPanel(tk.Frame, GamesUiIf, UiWidget):
             bg=ui.surface,
             font=("Sans", 14, "bold"),
             anchor="w",
+            padx=0,
+            bd=0,
+            highlightthickness=0,
         ).grid(row=2, column=1, sticky="ew", padx=(4, 6), pady=(1, 5))
 
         action = tk.Button(
@@ -463,7 +466,7 @@ class GamesPanel(tk.Frame, GamesUiIf, UiWidget):
             highlightthickness=1,
             highlightbackground=accent if actionable else ui.border,
             font=("Sans", 14, "bold"),
-            padx=11,
+            padx=0,
             pady=5,
             cursor="hand2" if actionable else "",
         )
