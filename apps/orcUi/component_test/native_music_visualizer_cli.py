@@ -55,6 +55,14 @@ def main():
             assert screen._rail.winfo_width() >= 240
             assert screen._icon_size == 40
             assert all(button.winfo_height() >= 30 for button in screen._view_buttons.values())
+            top_buttons = [*screen._view_buttons.values(),
+                           next(child for child in screen._view_buttons[MusicVisualizerView.VISUALIZER].master.winfo_children()
+                                if child.cget('text') == 'FULL')]
+            assert all(button.winfo_width() >= button.winfo_reqwidth() for button in top_buttons)
+            assert all(button.winfo_x() + button.winfo_width() <= button.master.winfo_width()
+                       for button in top_buttons)
+            screen._set_options(view=MusicVisualizerView.DRUM_KIT)
+            assert screen._view_buttons[MusicVisualizerView.DRUM_KIT].cget('bg') == screen._ui.accent_primary
             # Read an actual light GL framebuffer, including analyzer labels/peaks.
             light_window = tk.Toplevel(root)
             light_window.geometry('500x350')

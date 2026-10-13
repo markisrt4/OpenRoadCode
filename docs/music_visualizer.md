@@ -53,12 +53,16 @@ The browser renderer remains available via
 microphone option. WebUi continues to use WebGL. Native GL failures display an
 explicit error; select the browser override if the device cannot create a GLX context.
 
-For PipeWire playback monitoring, set
-`OPENROAD_MUSIC_VISUALIZER_PIPEWIRE_TARGET` to the appropriate monitor node.
+On Linux, including Raspberry Pi 4/5 installations, the visualizer defaults to
+PipeWire system-output capture when `pw-record` is installed. It resolves the
+default sink through `pactl` and records its `.monitor` source, so changing the
+desktop's default output also changes the visualizer input. Set
+`OPENROAD_MUSIC_VISUALIZER_PIPEWIRE_TARGET` only to override that automatic
+selection with a specific monitor node.
 Termux/Android defaults to Android Playback. Start **Android Bridge → Android
 Playback Audio → START PLAYBACK CAPTURE**, grant audio permission, and approve
 Android's capture prompt, then press **START AUDIO** in ORC.
-`OPENROAD_MUSIC_VISUALIZER_SOURCE=pipewire` or `android-playback` overrides the
+`OPENROAD_MUSIC_VISUALIZER_SOURCE=simulated`, `pipewire`, or `android-playback` overrides the
 initial input. Capture begins only when START AUDIO is pressed. STOP releases capture; leaving all visualizer presentations also releases it. Native shutdown releases the renderer; the browser
 override closes Chromium and its local server.
 CAL, SAVE, and CLEAR manage the shared ambient-noise profile.
@@ -187,7 +191,7 @@ and analysis in both paths. WebUi retains the existing shared WebGL assets.
 
 ### Customizable frequency analyzer and drum controls
 
-The native **Frequency Analyzer** defaults to smooth ORC-blue bars on a fixed
+The native **Frequency Analyzer** defaults to smooth Retro green-to-red bars on a fixed
 31.25 Hz–16 kHz logarithmic axis. Frequency labels and bass (below 250 Hz), mid
 (250 Hz–4 kHz), and treble ranges sit below the plot. Grid lines represent
 −60, −40, −20, and 0 dBFS from bottom to top. Bars report the strongest
@@ -195,6 +199,15 @@ Hann-window FFT bin in each displayed band, without adaptive normalization or
 noise calibration. Bands with no FFT bins stay empty; at 48 kHz with 2048 samples,
 bin spacing is 23.4375 Hz. This is a frequency/amplitude analyzer, not a calibrated
 sound-pressure meter. Off-bin tones can show Hann-window scalloping loss.
+At narrow bar widths, a low-frequency band can be empty because the 23.4375 Hz
+FFT-bin spacing leaves no measured bin inside that logarithmic interval; the
+analyzer intentionally leaves that band blank rather than duplicating a nearby
+measurement. Frequency labels are angled and selected from the centers of the
+actual displayed bars. Wider bar settings therefore show proportionally fewer
+labels, each aligned with its bar.
+The default +24 dB INPUT GAIN is presentation-only, making low-level Linux and
+Raspberry Pi monitor streams visible without modifying shared FFT measurements,
+calibration, or the response of other visualizer scenes.
 
 Smaller kick drums and a separate snare leave clear horizontal gaps even with
 double kicks. New percussion onsets trigger short illuminated heads and a downward
@@ -213,7 +226,7 @@ Selection preserves the current audio session and is shared with the HOME previe
 Open **STYLE** to select the Frequency Analyzer and customize it. This keeps the
 current capture running. Three compact appearance pages fit the 250-pixel viewport:
 
-- **LOOK:** smooth/segmented bars, peak markers, and a narrow-to-wide control.
+- **LOOK:** smooth/segmented bars, peak markers, bar width, and input gain.
   Width groups the measured FFT bins into 8–64 logarithmic bands. At the widest
   setting, bars are eight times the default width, without overlapping.
 - **COLOR:** ORC blue, Retro green-to-red, Monochrome, Fire, or a custom gradient.

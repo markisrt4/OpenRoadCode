@@ -91,13 +91,14 @@ class AnalyzerPalette(str, Enum):
 class AnalyzerAppearance:
     """Appearance and display timing; never changes FFT measurement or capture."""
 
-    palette: AnalyzerPalette = AnalyzerPalette.ORC
+    palette: AnalyzerPalette = AnalyzerPalette.RETRO
     segmented: bool = False
     spacing: float = .2
     response_s: float = .05
     decay_s: float = .3
     peak_markers: bool = True
     band_count: int = 64
+    gain_db: float = 24.0
     low_color: tuple[float, float, float] = (.02, .35, .65)
     high_color: tuple[float, float, float] = (.15, .85, 1.0)
 

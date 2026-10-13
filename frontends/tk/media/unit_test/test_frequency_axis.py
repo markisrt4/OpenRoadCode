@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
 # SPDX-License-Identifier: MIT
-"""Detailed axis labels stay accurate and readable on narrow displays."""
-import math
+"""Frequency labels remain readable and correspond to displayed bars."""
 
 import pytest
 
@@ -10,25 +9,31 @@ from frontends.tk.media.frequency_axis import frequency_ticks
 
 @pytest.mark.parametrize('width', (120, 394, 614, 1000))
 def test_frequency_labels_stay_in_bounds_without_overlapping(width):
-    def measure(text):
-        return len(text)*5
+    measure = lambda text: len(text) * 5
     ticks = frequency_ticks(width, measure)
-    for row in (0, 1):
-        bounds = sorted((x-measure(label)/2, x+measure(label)/2)
-                        for _hz, label, x, lane in ticks if lane == row)
-        assert all(0 <= left < right <= width for left, right in bounds)
-        assert all(left >= previous_right for (_previous_left, previous_right), (left, _right)
-                   in zip(bounds, bounds[1:]))
-    if width >= 394:
-        assert len(ticks) >= 18
-        assert {250, 1000, 4000, 16000}.issubset({hz for hz, *_ in ticks})
-    for hz, _label, x, _row in ticks:
-        if hz not in (31.25, 16000):
-            assert x == pytest.approx(width * (.04+.92*math.log(hz/31.25, 512)))
+    bounds = sorted((x-max(5, measure(label)*.36)-2,
+                     x+max(5, measure(label)*.36)+2)
+                    for _hz, label, x, _row in ticks)
+    assert all(0 <= left < right <= width for left, right in bounds)
+    assert all(left >= previous_right for (_previous_left, previous_right), (left, _right)
+               in zip(bounds, bounds[1:]))
 
 
-def test_wide_bands_have_frequency_center_labels_on_the_same_log_axis():
-    ticks = frequency_ticks(800, lambda text: len(text)*5, band_count=8)
-    hz = 31.25 * 512 ** (.5/8)
-    selected = next(tick for tick in ticks if tick[0] == hz)
-    assert selected[2] == pytest.approx(800 * (.04+.92*.5/8))
+@pytest.mark.parametrize('band_count', (8, 16, 32, 64))
+def test_frequency_labels_are_centers_of_displayed_bars(band_count):
+    width = 800
+    ticks = frequency_ticks(width, lambda text: len(text) * 5, band_count=band_count)
+    centers = {width * (.04 + .92 * (index + .5) / band_count)
+               for index in range(band_count)}
+    assert all(any(x == pytest.approx(center) for center in centers)
+               for _hz, _label, x, _row in ticks)
+
+
+def test_wider_bars_produce_fewer_frequency_labels():
+    measure = lambda text: len(text) * 5
+    counts = [len(frequency_ticks(800, measure, band_count=count))
+              for count in (8, 16, 32, 64)]
+
+    assert counts == sorted(counts)
+    assert counts[0] == 8
+    assert counts[-1] < 64

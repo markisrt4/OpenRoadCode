@@ -32,7 +32,8 @@ class AnalyzerAppearanceControls(tk.Frame, UiWidget):
     def _button(self, parent, text, command):
         return tk.Button(parent, text=text, command=command, bg=self._ui.control_background,
                          fg=self._ui.control_text, activebackground=self._ui.control_active,
-                         relief=tk.FLAT, bd=0, font=('Sans', 7, 'bold'), padx=1, pady=3)
+                         activeforeground='#ffffff', relief=tk.FLAT, bd=0,
+                         highlightthickness=0, font=('Sans', 8, 'bold'), padx=4, pady=5)
 
     def _change(self, **changes):
         self._appearance = replace(self._appearance, **changes)
@@ -71,7 +72,7 @@ class AnalyzerAppearanceControls(tk.Frame, UiWidget):
 
         for text, delta, side in (('-', -increment, tk.LEFT), ('+', increment, tk.RIGHT)):
             button = self._button(row, text, lambda d=delta: step(d))
-            button.configure(width=3, font=('Sans', 11, 'bold'), padx=4, pady=1)
+            button.configure(width=3, font=('Sans', 11, 'bold'), padx=4, pady=3)
             button.pack(side=side)
         tk.Scale(row, variable=value, from_=low, to=high, resolution=increment,
                  command=update, orient=tk.HORIZONTAL, showvalue=False, length=70,
@@ -98,11 +99,16 @@ class AnalyzerAppearanceControls(tk.Frame, UiWidget):
         for child in self._body.winfo_children():
             child.destroy()
         for tab, button in self._buttons.items():
-            button.configure(bg=self._ui.accent_primary if tab == name else self._ui.control_background)
+            selected = tab == name
+            button.configure(
+                bg=self._ui.control_active if selected else self._ui.control_background,
+                fg='#ffffff' if selected else self._ui.text_muted,
+            )
         if name == 'LOOK':
             self._toggle('Segmented bars', 'segmented')
             self._toggle('Peak markers', 'peak_markers')
-            self._slider('BAR WIDTH: NARROW - WIDE', 'band_count', 1, 8, 1, bar_density=True)
+            self._slider('BAR WIDTH', 'band_count', 1, 8, 1, bar_density=True)
+            self._slider('INPUT GAIN (dB)', 'gain_db', 0, 48, 3)
         elif name == 'COLOR':
             value = tk.StringVar(value=self._appearance.palette.value)
             menu = tk.OptionMenu(self._body, value, *(p.value for p in AnalyzerPalette),

@@ -7,15 +7,18 @@ from .music_scene_theme import ScenePalette
 
 from ui.music_visualizer.music_visualizer_types import AnalyzerPalette
 
+PLOT_BOTTOM = .01
+PLOT_HEIGHT = .93
 
-def measured_levels(frame, band_count=64):
+
+def measured_levels(frame, band_count=64, gain_db=0.0):
     """Aggregate actual FFT bin peaks on the fixed logarithmic frequency axis."""
     result = []
     for i in range(band_count):
         low, high = 31.25 * 512 ** (i / band_count), 31.25 * 512 ** ((i + 1) / band_count)
         db = max((db for hz, db in zip(frame.spectrum_hz, frame.spectrum_dbfs)
-                  if low <= hz < high), default=-60)
-        result.append(max(0, min(1, (db + 60) / 60)))
+                  if low <= hz < high), default=None)
+        result.append(0 if db is None else max(0, min(1, (db + gain_db + 60) / 60)))
     return result
 
 
@@ -44,7 +47,7 @@ class AnalyzerDisplay:
         self._last = now
         if frame is not self._frame:
             self._frame = frame
-            self._targets = measured_levels(frame, count)
+            self._targets = measured_levels(frame, count, appearance.gain_db)
         targets = self._targets if fresh else [0.0] * count
         for i, target in enumerate(targets):
             previous = self.levels[i]
@@ -81,20 +84,24 @@ def draw_analyzer(gl, frame, decay, appearance, display, palette=None):
     gl.glMatrixMode(gl.GL_MODELVIEW)
     gl.glLoadIdentity()
     gl.glDisable(gl.GL_DEPTH_TEST)
-    levels = display.levels if display is not None else [v * decay for v in measured_levels(frame, max(8, min(64, appearance.band_count)))]
+    levels = display.levels if display is not None else [
+        value * decay for value in measured_levels(
+            frame, max(8, min(64, appearance.band_count)), appearance.gain_db,
+        )
+    ]
     peaks = display.peaks if display is not None else levels
     for db in (-60, -40, -20, 0):
         gl.glColor3f(*palette.grid)
         gl.glBegin(gl.GL_LINES)
-        gl.glVertex2f(.04, .08 + (db + 60) / 60 * .86)
-        gl.glVertex2f(.96, .08 + (db + 60) / 60 * .86)
+        gl.glVertex2f(.04, PLOT_BOTTOM + (db + 60) / 60 * PLOT_HEIGHT)
+        gl.glVertex2f(.96, PLOT_BOTTOM + (db + 60) / 60 * PLOT_HEIGHT)
         gl.glEnd()
     gl.glColor3f(*palette.guides)
     gl.glBegin(gl.GL_LINES)
     for hz in (250, 4000):
         x = .04 + .92 * math.log(hz / 31.25, 512)
-        gl.glVertex2f(x, .08)
-        gl.glVertex2f(x, .94)
+        gl.glVertex2f(x, PLOT_BOTTOM)
+        gl.glVertex2f(x, PLOT_BOTTOM + PLOT_HEIGHT)
     gl.glEnd()
     # Let GL interpolate linear gradients; Retro needs one extra stop at yellow.
     # Batch every bar in one draw block to avoid Python/GL calls per segment.
@@ -118,11 +125,11 @@ def draw_analyzer(gl, frame, decay, appearance, display, palette=None):
                      for j in range(len(stops)-1)]
         for bottom, top, low_color, high_color in spans:
             gl.glColor3f(*low_color)
-            gl.glVertex2f(x, .08 + bottom * .86)
-            gl.glVertex2f(x+width, .08 + bottom * .86)
+            gl.glVertex2f(x, PLOT_BOTTOM + bottom * PLOT_HEIGHT)
+            gl.glVertex2f(x+width, PLOT_BOTTOM + bottom * PLOT_HEIGHT)
             gl.glColor3f(*high_color)
-            gl.glVertex2f(x+width, .08 + top * .86)
-            gl.glVertex2f(x, .08 + top * .86)
+            gl.glVertex2f(x+width, PLOT_BOTTOM + top * PLOT_HEIGHT)
+            gl.glVertex2f(x, PLOT_BOTTOM + top * PLOT_HEIGHT)
     gl.glEnd()
     if appearance.peak_markers:
         gl.glColor3f(*palette.text)
@@ -130,7 +137,7 @@ def draw_analyzer(gl, frame, decay, appearance, display, palette=None):
         for i, peak in enumerate(peaks):
             if peak > .005:
                 x = .04 + .92 * (i + gap/2) / count
-                gl.glVertex2f(x, .08 + peak * .86)
-                gl.glVertex2f(x+width, .08 + peak * .86)
+                gl.glVertex2f(x, PLOT_BOTTOM + peak * PLOT_HEIGHT)
+                gl.glVertex2f(x+width, PLOT_BOTTOM + peak * PLOT_HEIGHT)
         gl.glEnd()
     gl.glEnable(gl.GL_DEPTH_TEST)

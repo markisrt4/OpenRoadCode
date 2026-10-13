@@ -103,8 +103,8 @@ class MusicVisualizerScreen(TkScreen):
         button = tk.Button(self._controls, text=text, command=action, relief=tk.FLAT,
                            bg=ui.accent_primary if active else ui.control_background,
                            fg=ui.control_text, activebackground=ui.control_active,
-                           activeforeground=ui.control_text, font=('Sans', 9, 'bold'),
-                           padx=3, pady=3, highlightthickness=1, highlightbackground=ui.border)
+                           activeforeground='#ffffff', font=('Sans', 9, 'bold'),
+                           padx=5, pady=5, bd=0, highlightthickness=0)
         button.pack(fill=tk.X, pady=1)
         return button
 
@@ -154,27 +154,39 @@ class MusicVisualizerScreen(TkScreen):
         if self._native_controls:
             views = tk.Frame(self._controls, bg=self._ui.surface)
             views.pack(fill=tk.X, pady=(0, 3))
-            for label, view in [('VISUALS', MusicVisualizerView.VISUALIZER),
-                                ('DRUMS', MusicVisualizerView.DRUM_KIT)]:
+            for column in range(3):
+                views.columnconfigure(column, weight=1, uniform='visualizer-view')
+            for column, (label, view) in enumerate([
+                    ('VISUALS', MusicVisualizerView.VISUALIZER),
+                    ('DRUMS', MusicVisualizerView.DRUM_KIT)]):
                 button = tk.Button(views, text=label,
                                    command=lambda v=view: self._select_view(v),
                                    relief=tk.FLAT, font=('Sans', 9, 'bold'), pady=4,
                                    fg=self._ui.control_text,
-                                   activebackground=self._ui.control_active)
-                button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
+                                   activebackground=self._ui.control_active,
+                                   activeforeground='#ffffff', bd=0, highlightthickness=0)
+                button.grid(row=0, column=column, sticky='ew', padx=1)
                 self._view_buttons[view] = button
-            tk.Button(views, text='FULL', command=self._open_fullscreen,
-                      bg=self._ui.control_background, fg=self._ui.control_text,
-                      relief=tk.FLAT, font=('Sans', 9, 'bold'), pady=4).pack(side=tk.LEFT, fill=tk.X, expand=True)
+            tk.Button(
+                views, text='FULL', command=self._open_fullscreen,
+                bg=self._ui.control_background, fg=self._ui.control_text,
+                activebackground=self._ui.control_active, activeforeground='#ffffff',
+                relief=tk.FLAT, bd=0, highlightthickness=0,
+                font=('Sans', 9, 'bold'), pady=4,
+            ).grid(row=0, column=2, sticky='ew', padx=1)
         tabs = tk.Frame(self._controls, bg=self._ui.surface)
         tabs.pack(fill=tk.X)
         self._tab_buttons = {}
-        for name in (['AUDIO', 'SCENE', 'STYLE'] if self._native_controls else ['AUDIO', 'SCENE']):
+        tab_names = ['AUDIO', 'SCENE', 'STYLE'] if self._native_controls else ['AUDIO', 'SCENE']
+        for column in range(len(tab_names)):
+            tabs.columnconfigure(column, weight=1, uniform='visualizer-page')
+        for column, name in enumerate(tab_names):
             button = tk.Button(tabs, text=name, command=lambda n=name: self._show_page(n),
                       relief=tk.FLAT, bg=self._ui.control_background, fg=self._ui.text_muted,
-                      activebackground=self._ui.control_active, font=('Sans', 8, 'bold'),
-                      pady=3, disabledforeground=self._ui.text_muted)
-            button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
+                      activebackground=self._ui.control_active, activeforeground='#ffffff',
+                      font=('Sans', 8, 'bold'), pady=5, bd=0, highlightthickness=0,
+                      disabledforeground=self._ui.text_muted)
+            button.grid(row=0, column=column, sticky='ew', padx=1)
             self._tab_buttons[name] = button
         self._page_host = tk.Frame(self._controls, bg=self._ui.surface)
         self._page_host.pack(fill=tk.BOTH, expand=True, pady=3)
@@ -195,8 +207,9 @@ class MusicVisualizerScreen(TkScreen):
         for text, operation in [('CAL', 'start_zeroize'), ('SAVE', 'finish_zeroize'), ('CLEAR', 'clear_zeroize')]:
             tk.Button(calibration, text=text, command=lambda op=operation: self._calibrate(op),
                       relief=tk.FLAT, bg=self._ui.control_background, fg=self._ui.control_text,
-                      activebackground=self._ui.control_active, font=('Sans', 8, 'bold'),
-                      pady=4).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
+                      activebackground=self._ui.control_active, activeforeground='#ffffff',
+                      font=('Sans', 8, 'bold'), pady=5, bd=0,
+                      highlightthickness=0).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
         tk.Label(self._controls, text='Pause music: CAL → SAVE', bg=self._ui.surface,
                  fg=self._ui.text_muted, font=('Sans', 7)).pack(fill=tk.X)
         self._build_scene_page()
@@ -209,8 +222,9 @@ class MusicVisualizerScreen(TkScreen):
         for text, action, color in [('START', lambda: self._select_source(self._source_name.get()), self._ui.accent_primary),
                                    ('STOP', self._stop_capture, self._ui.control_background)]:
             button = tk.Button(start_stop, text=text, command=action, bg=color, fg=self._ui.control_text,
-                      activebackground=self._ui.control_active, relief=tk.FLAT,
-                      font=('Sans', 9, 'bold'), pady=4, disabledforeground=self._ui.text_muted)
+                      activebackground=self._ui.control_active, activeforeground='#ffffff',
+                      relief=tk.FLAT, bd=0, highlightthickness=0,
+                      font=('Sans', 9, 'bold'), pady=6, disabledforeground=self._ui.text_muted)
             button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
             self._capture_buttons[text] = button
         self._status = tk.StringVar()
@@ -285,7 +299,7 @@ class MusicVisualizerScreen(TkScreen):
         self._layout_signature = signature
         large = width >= 500 and height >= 430
         rail_width = min(300, max(260, int(width*.35))) if large else 180
-        factor = 1.5 if large else 1.0
+        factor = 1.0
         self._container.grid_columnconfigure(0, minsize=rail_width)
         self._rail.configure(width=rail_width)
         root = getattr(self, '_rail_body', self._controls)
@@ -334,6 +348,12 @@ class MusicVisualizerScreen(TkScreen):
             self._set_options(mode=MusicVisualizationMode.BOOMBOX, view=MusicVisualizerView.VISUALIZER)
         {'AUDIO': self._audio_page, 'SCENE': self._scene_page,
          'STYLE': self._style_page}[page].pack(fill=tk.BOTH, expand=True)
+        for name, button in self._tab_buttons.items():
+            selected = name == page
+            button.configure(
+                bg=self._ui.control_active if selected else self._ui.control_background,
+                fg='#ffffff' if selected else self._ui.text_muted,
+            )
 
     def _update_view_buttons(self):
         style = getattr(self, '_tab_buttons', {}).get('STYLE')
@@ -344,9 +364,10 @@ class MusicVisualizerScreen(TkScreen):
                             bg=self._ui.control_background if enabled else self._ui.surface)
         for view, button in getattr(self, '_view_buttons', {}).items():
             selected = view is self._options.view
-            color = (self._ui.accent_warning if view is MusicVisualizerView.DRUM_KIT
-                     else self._ui.accent_primary)
-            button.configure(bg=color if selected else self._ui.control_background)
+            button.configure(
+                bg=self._ui.control_active if selected else self._ui.control_background,
+                fg='#ffffff' if selected else self._ui.text_muted,
+            )
 
     def _select_view(self, view):
         self._set_options(view=view)
@@ -421,7 +442,7 @@ class MusicVisualizerScreen(TkScreen):
         for name, button in getattr(self, '_capture_buttons', {}).items():
             enabled = active if name == 'STOP' else not active
             button.configure(state=tk.NORMAL if enabled else tk.DISABLED,
-                             bg=(self._ui.accent_warning if name == 'STOP' else self._ui.accent_primary)
+                             bg=self._ui.accent_primary
                              if enabled else self._ui.control_background)
 
     def _open_fullscreen(self):

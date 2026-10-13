@@ -7,7 +7,7 @@ import math
 import pytest
 
 from frontends.tk.media.frequency_analyzer_scene import (
-    AnalyzerDisplay, analyzer_color, measured_levels,
+    AnalyzerDisplay, PLOT_BOTTOM, PLOT_HEIGHT, analyzer_color, measured_levels,
 )
 from ui.music_visualizer import VisualizerFrame
 from ui.music_visualizer.music_visualizer_types import AnalyzerAppearance, AnalyzerPalette
@@ -25,8 +25,16 @@ def test_display_uses_fixed_dbfs_and_empty_bands_stay_empty():
     assert measured_levels(SILENT) == [0] * 64
 
 
+def test_presentation_gain_reveals_quiet_input_without_changing_frame():
+    quiet = replace(LOUD, spectrum_dbfs=(-74.0,))
+
+    assert max(measured_levels(quiet)) == 0
+    assert max(measured_levels(quiet, gain_db=24)) == pytest.approx(1 / 6)
+    assert quiet.spectrum_dbfs == (-74.0,)
+
+
 def test_response_is_elapsed_time_based_not_render_frame_count():
-    options = AnalyzerAppearance(response_s=.2)
+    options = AnalyzerAppearance(response_s=.2, gain_db=0)
     once, twice = AnalyzerDisplay(), AnalyzerDisplay()
     for display in (once, twice):
         display.update(SILENT, options, 0, True)
@@ -38,7 +46,7 @@ def test_response_is_elapsed_time_based_not_render_frame_count():
 
 
 def test_decay_and_peak_hold_do_not_fabricate_new_audio_when_stale():
-    options = AnalyzerAppearance(response_s=0, decay_s=.3)
+    options = AnalyzerAppearance(response_s=0, decay_s=.3, gain_db=0)
     display = AnalyzerDisplay()
     display.update(LOUD, options, 0, True)
     display.update(LOUD, options, .3, False)
@@ -62,7 +70,7 @@ def test_color_presets_and_custom_gradients_preserve_endpoints():
     assert analyzer_color(retro, 0) == (0, 1, .04)
     assert analyzer_color(retro, .5) == (1, 1, .04)
     assert analyzer_color(retro, 1) == (1, 0, .04)
-    assert AnalyzerAppearance().palette is AnalyzerPalette.ORC
+    assert AnalyzerAppearance().palette is AnalyzerPalette.RETRO
     assert not AnalyzerAppearance().segmented
 
 
@@ -93,8 +101,8 @@ def test_smooth_render_preserves_height_and_gradient_with_bounded_geometry(palet
         center = .04 + .92 * (i+.5) / 64
         column = [quad for quad in quads
                   if (quad[0][0]+quad[1][0])/2 == pytest.approx(center)]
-        assert min(v[1] for q in column for v in q) == pytest.approx(.08)
-        assert max(v[1] for q in column for v in q) == pytest.approx(.08 + height * .86)
+        assert min(v[1] for q in column for v in q) == pytest.approx(PLOT_BOTTOM)
+        assert max(v[1] for q in column for v in q) == pytest.approx(PLOT_BOTTOM + height * PLOT_HEIGHT)
         assert column[0][0][2] == pytest.approx(analyzer_color(options, 0))
         assert column[-1][2][2] == pytest.approx(analyzer_color(options, 1))
         for previous, following in zip(column, column[1:]):
@@ -122,7 +130,7 @@ def test_wide_bars_regroup_real_bins_and_reset_display_without_changing_scale():
     assert max(wide) == pytest.approx(.8)
     assert max(narrow) == pytest.approx(.8)
     display = AnalyzerDisplay()
-    display.update(frame, AnalyzerAppearance(), 0, True)
-    display.update(frame, AnalyzerAppearance(band_count=8), .1, True)
+    display.update(frame, AnalyzerAppearance(gain_db=0), 0, True)
+    display.update(frame, AnalyzerAppearance(band_count=8, gain_db=0), .1, True)
     assert len(display.levels) == len(display.peaks) == 8
     assert display.levels == pytest.approx(wide)

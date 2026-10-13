@@ -61,7 +61,7 @@ class NativeMusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
         self._started = self._last_tick = time.monotonic()
         self._pulse = 0.0
         self._status = 'Native OpenGL · Frequency Tunnel'
-        self._axis = tk.Canvas(self, height=64, bg=theme_bundle.ui.background,
+        self._axis = tk.Canvas(self, height=66, bg=theme_bundle.ui.background,
                                highlightthickness=0)
         self._axis.bind('<Configure>', lambda _event: self._draw_axis())
         self._surface = None
@@ -131,20 +131,21 @@ class NativeMusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
         canvas.delete('all')
         width = max(1, canvas.winfo_width())
         font = tkfont.Font(root=canvas, family='Sans', size=7)
-        for hz, label, x, row in frequency_ticks(width, font.measure, self._render_settings.analyzer.band_count):
-            canvas.create_line(width * (.04 + .92 * math.log(hz / 31.25, 512)), 0,
-                               width * (.04 + .92 * math.log(hz / 31.25, 512)), 3,
-                               fill=self._theme_ui.text_muted)
-            canvas.create_text(x, 8 + row * 12, text=label,
+        for _hz, label, x, _row in frequency_ticks(
+                width, font.measure, self._render_settings.analyzer.band_count):
+            canvas.create_line(x, 0, x, 4, fill=self._theme_ui.text_muted)
+            canvas.create_text(x, 2, text=label, angle=45, anchor='ne',
                                fill=self._theme_ui.text, font=('Sans', 7))
         for lo, hi, label, color in ((31.25, 250, 'BASS', self._theme_ui.accent_success),
                                      (250, 4000, 'MID', self._theme_ui.accent_warning),
                                      (4000, 16000, 'TREBLE', self._theme_ui.accent_danger)):
             x1 = width * (.04 + .92 * math.log(lo / 31.25, 512))
             x2 = width * (.04 + .92 * math.log(hi / 31.25, 512))
-            canvas.create_line(x1, 32, x2, 32, fill=color, width=3)
-            canvas.create_text((x1 + x2) / 2, 42, text=label, fill=color, font=('Sans', 7))
-        canvas.create_text(width / 2, 56, text='-60 / -40 / -20 / 0 dBFS | FFT bin peaks',
+            canvas.create_line(x1, 40, x2, 40, fill=color, width=3)
+            canvas.create_text((x1 + x2) / 2, 49, text=label, fill=color, font=('Sans', 7))
+        gain = self._render_settings.analyzer.gain_db
+        canvas.create_text(width / 2, 61,
+                           text=f'-60 / -40 / -20 / 0 dBFS | DISPLAY +{gain:g} dB',
                            fill=self._theme_ui.text_muted, font=('Sans', 7))
 
     def presentation_status(self) -> str:

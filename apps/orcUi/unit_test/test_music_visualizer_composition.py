@@ -11,8 +11,23 @@ from apps.orcUi.composition.music_visualizer import (
 )
 
 
-def test_visualizer_source_defaults_to_simulated(monkeypatch):
+def test_visualizer_source_defaults_to_pipewire_on_linux(monkeypatch):
     monkeypatch.delenv("OPENROAD_MUSIC_VISUALIZER_SOURCE", raising=False)
+    monkeypatch.setattr("apps.orcUi.composition.music_visualizer.sys.platform", "linux")
+    monkeypatch.setattr("apps.orcUi.composition.music_visualizer.shutil.which", lambda _name: "/usr/bin/pw-record")
+    assert selected_music_visualizer_source() is MusicVisualizerSource.PIPEWIRE
+
+
+def test_visualizer_source_defaults_to_simulated_without_pipewire(monkeypatch):
+    monkeypatch.delenv("OPENROAD_MUSIC_VISUALIZER_SOURCE", raising=False)
+    monkeypatch.setattr("apps.orcUi.composition.music_visualizer.shutil.which", lambda _name: None)
+    assert selected_music_visualizer_source() is MusicVisualizerSource.SIMULATED
+
+
+def test_visualizer_source_does_not_select_pipewire_on_termux(monkeypatch):
+    monkeypatch.delenv("OPENROAD_MUSIC_VISUALIZER_SOURCE", raising=False)
+    monkeypatch.setenv("TERMUX_VERSION", "test")
+    monkeypatch.setattr("apps.orcUi.composition.music_visualizer.shutil.which", lambda _name: "/usr/bin/pw-record")
     assert selected_music_visualizer_source() is MusicVisualizerSource.SIMULATED
 
 
