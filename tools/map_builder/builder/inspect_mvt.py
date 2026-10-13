@@ -103,6 +103,7 @@ def inspect_tile(blob: bytes) -> list[dict]:
             continue
 
         layer_name = "<unnamed>"
+        extent = 4096
         keys = []
         values = []
         features = []
@@ -113,6 +114,8 @@ def inspect_tile(blob: bytes) -> list[dict]:
                 features.append(layer_value)
             elif layer_field == 3 and layer_wire == 2:
                 keys.append(layer_value.decode("utf-8", errors="replace"))
+            elif layer_field == 5 and layer_wire == 0:
+                extent = int(layer_value)
             elif layer_field == 4 and layer_wire == 2:
                 values.append(_decode_value(layer_value))
 
@@ -127,6 +130,7 @@ def inspect_tile(blob: bytes) -> list[dict]:
             result.append(
                 {
                     "layer": layer_name,
+                    "extent": extent,
                     "feature_index": index,
                     "feature_id": feature_id,
                     "geometry_type": geom_type,

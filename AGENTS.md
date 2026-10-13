@@ -44,8 +44,12 @@
 
 Use the existing checkout in the task environment; do not create a worktree unless
 requested. Preserve unrelated user changes. Use the repository-supported setup
-and test commands. For device instructions, switch to the intended branch before
-pulling or testing.
+and test commands. Whenever providing repository command-line instructions to the
+user, always begin with `git switch <branch_name>`, replacing `<branch_name>` with
+the actual intended branch. Include this command even if the user is already on
+that branch, and place it before pulling, installing, running, or testing.
+When providing instructions to launch ORC UI, use `./runOrcUi` rather than
+`python -m apps.orcUi` so the repository launcher handles startup setup.
 
 ## Keep agent usage economical
 
@@ -65,7 +69,7 @@ pulling or testing.
 
 ## Termux device commands
 
-- Begin user-facing command blocks with `git switch orc-ui-polish`.
+- Begin user-facing command blocks with `git switch <branch_name>`, using the actual intended branch.
 - Use Termux's `$TMPDIR` for temporary files; do not assume `/tmp` exists.
 - When asking the user to paste diagnostic output, provide a command that copies
   the relevant output with `termux-clipboard-set`. Keep clipboard output focused

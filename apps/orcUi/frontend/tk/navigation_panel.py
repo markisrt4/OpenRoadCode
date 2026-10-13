@@ -18,6 +18,7 @@ from collections.abc import Callable
 
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from ui.weather.radar_ui_if import RadarPalette
+from ui.navigation.map_platform_if import MapPlatform, MapPlatformState, MapPlatformControlIf
 from ui.navigation.poi_models import PoiCategory, TransitMode
 from ui.navigation import (
     MapControlsDrawerRequestHandlerIf,
@@ -57,6 +58,7 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         theme_bundle: ThemeBundle | None = None,
         online_mode: OnlineModeIf | None = None,
         tooltip_factory: TooltipFactoryIf | None = None,
+        map_platform: MapPlatformControlIf | None = None,
         radar_enabled: bool = False,
         radar_frame_time: int | None = None,
         radar_palette: RadarPalette = RadarPalette.UNIVERSAL,
@@ -76,6 +78,10 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         super().__init__(parent, bg=self._theme_bundle.ui.background)
         del on_back
         self._request_handler = map_request_handler
+        self._map_platform = map_platform
+        self._terrain_active = False
+        self._map_follow_enabled = True
+        self._platform_toggle = None
         self._drawer_handler = drawer_handler
         self._drawer_state = MapControlsDrawerState()
         self._tooltip_factory = tooltip_factory
@@ -137,6 +143,32 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         self._build()
         self._schedule_renderer_refresh()
         self._poi_poll_after_id = self.after(100, self._poll_poi_events)
+
+    def apply_map_platform_state(self, state: MapPlatformState) -> None:
+        """Use the embedded viewer's camera controls for local 3D exploration."""
+        if self._platform_toggle is not None:
+            self._platform_toggle.set_state(state)
+        # Keep host geometry stable while the embedded WebGL surface starts.
+        terrain = state.requested is MapPlatform.CESIUM
+        if terrain and not self._terrain_active:
+            self._map_follow_enabled = self._follow_enabled
+        elif self._terrain_active and not terrain:
+            self.set_follow_enabled(self._map_follow_enabled)
+        self._terrain_active = terrain
+        self._follow_button.configure(state='disabled' if state.busy else 'normal')
+        if state.busy:
+            self._loading_cover.configure(text='Loading Terrain…' if terrain else 'Loading map…')
+            self._loading_cover.grid()
+            self._loading_cover.lift()
+        else:
+            self._loading_cover.grid_remove()
+        if terrain:
+            self.set_follow_enabled(state.follow_enabled)
+            self._zoom_text.set('—')
+            self._dimension_text.set('2D/3D')
+        else:
+            self._zoom_text.set(f'{self._zoom_level:.1f}')
+            self._dimension_text.set('2D' if self._pitch_rad > 0 else '3D')
 
     @property
     def map_host_window_id(self) -> int:

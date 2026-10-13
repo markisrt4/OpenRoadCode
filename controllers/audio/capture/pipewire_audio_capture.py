@@ -44,8 +44,9 @@ class PipewireAudioCapture(AudioCaptureIf):
         if shutil.which("pw-record") is None:
             raise RuntimeError("pw-record was not found; install PipeWire tools")
 
+        target = self.target or self._default_sink_monitor()
         self._process = subprocess.Popen(
-            self._build_command(),
+            self._build_command(target=target),
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             bufsize=0,
@@ -75,11 +76,10 @@ class PipewireAudioCapture(AudioCaptureIf):
         if thread is not None and thread is not threading.current_thread():
             thread.join(timeout=1.0)
 
-    def _build_command(self) -> list[str]:
+    def _build_command(self, *, target: str | None = None) -> list[str]:
         """Build a pw-record command that emits headerless float32 PCM."""
         command = [
             "pw-record",
-            "--raw",
             "--format",
             "f32",
             "--rate",
@@ -87,10 +87,31 @@ class PipewireAudioCapture(AudioCaptureIf):
             "--channels",
             "1",
         ]
-        if self.target:
-            command.extend(["--target", self.target])
+        selected_target = self.target if target is None else target
+        if selected_target:
+            command.extend(["--target", selected_target])
         command.append("-")
         return command
+
+    @staticmethod
+    def _default_sink_monitor() -> str:
+        """Resolve the PipeWire-Pulse monitor for the current output sink."""
+        try:
+            result = subprocess.run(
+                ["pactl", "get-default-sink"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+        except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+            raise RuntimeError(
+                "Unable to resolve the default output monitor; install pactl or set "
+                "OPENROAD_MUSIC_VISUALIZER_PIPEWIRE_TARGET"
+            ) from exc
+        sink = result.stdout.strip()
+        if not sink:
+            raise RuntimeError("PipeWire reported no default audio sink")
+        return f"{sink}.monitor"
 
     def _read_loop(self, callback: AudioSamplesCallback) -> None:
         process = self._process

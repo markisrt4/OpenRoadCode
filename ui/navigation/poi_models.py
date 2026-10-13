@@ -35,6 +35,7 @@ class PoiActionKind(Enum):
 
     ORDER = auto()
     OPEN_WEBSITE = auto()
+    EXPLORE_3D = auto()
 
 
 @dataclass(frozen=True, slots=True)

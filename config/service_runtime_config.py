@@ -312,7 +312,9 @@ class ServiceRuntimeConfigParser:
 
     def _parse_gps(self, value) -> GpsInputConfig:
         data = self._table(value, "services.navigation.inputs.gps")
-        source = self._source(data.get("source", "device"), "services.navigation.inputs.gps.source")
+        source = self._string(data.get("source", "device"), "services.navigation.inputs.gps.source").lower()
+        if source != "browser":
+            source = self._source(source, "services.navigation.inputs.gps.source")
         device = self._string(data.get("device", "gpsd"), "services.navigation.inputs.gps.device").lower()
         if source == "device" and device not in {"gpsd", "android"}:
             raise ServiceRuntimeConfigError("services.navigation.inputs.gps.device must be gpsd or android")

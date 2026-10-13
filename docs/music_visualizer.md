@@ -6,36 +6,68 @@ capture stay in the platform backend.
 
 ## ORC UI
 
-Run `./runOrcUi`, then open **Media → Music Visualizer**. ORC embeds the
-browser WebGL renderer inside its Media screen, retaining the shared ORC
-navigation and shell. The local HTTP host is created by composition; no separate
-WebUi process or service configuration is required.
+Run `./runOrcUi`, then open **Media → Music Visualizer**. ORC now defaults to
+native OpenGL in its Tk Media screen, using the existing GLX backend shared with
+the ECU renderer (including Termux/X11 compatibility). No browser process or local
+HTTP server is created for this renderer.
 
-The renderer offers 13 presets: Frequency Tunnel, Neon Ribbon, Spectrum Field,
-Plasma Bloom, Kaleidoscope, Star Warp, Electric Rings, Dancing Planets, Star Dance,
-Neon Instruments, Electric Freeway, Explosion Field, and Prismatic Spectrum.
-The **Visualization** and **Drum Kit** buttons switch views within this screen.
-Drum Kit shows reactive kick, snare, toms, and cymbals with percussion meters and
-single/double kick controls. Switching views preserves the current audio source,
-capture, calibration, preset, and kick mode; both consume the same analyzer.
-Use the sensitivity slider to adjust response and FULL SCREEN to expand the
-visualization. Browser Microphone is always offered; Chromium requests permission
-when you press START AUDIO. Linux System Audio is offered when `pw-record` is
-installed. Android Playback is offered on Termux/Android and consumes the local
-bridge stream at `http://127.0.0.1:8768/stream`; grant playback-capture consent in
-the bridge app first. Capture-restricted applications may not provide audio.
+The native icon grid offers ten distinct scenes: Frequency Tunnel, Spectrum Field,
+Orbiting Planets, Electric Freeway, Explosion Field, Star Dance, Electric Rings,
+Neon Ribbon, Kaleidoscope, and Frequency Analyzer. Frequency Tunnel sends spectrum-shaped rings
+through a 3D tunnel, expanding and brightening on musical onsets. **Drum Kit**
+switches the same GL surface to lacquered, layered drum shells, chrome hoops and
+tension rods, subtly moving drumheads, tripod stands, bass pedals, and curved
+cymbals with machined grooves and restrained wobble. Drum sticks are removed.
+The camera starts much closer;
+DRUM ZOOM adjusts the framing while preserving the kit on narrow surfaces.
+Single/double kick layouts share the same capture and calibration. The **Beat response** slider changes visual pulse strength.
+The prominent **VISUALS / DRUMS** buttons select the view and highlight the active
+choice. All controls live in a compact ORC-themed rail on the left; the GL surface
+fills the right side. **AUDIO** contains source and calibration controls; **SCENE**
+contains the selected view's options. START/STOP remain available in both tabs.
+No scrolling is required. CAL collects paused ambient sound, SAVE applies it, and
+CLEAR removes calibration.
+Selecting a scene immediately shows it without restarting capture. These native
+scenes use their own GL geometry rather than copying the browser shaders.
 
-For PipeWire playback monitoring, set
-`OPENROAD_MUSIC_VISUALIZER_PIPEWIRE_TARGET` to the appropriate monitor node.
+Audio analysis supplies an onset envelope based on positive spectral flux, with
+fast attack, 140 ms decay, and a 120 ms retrigger guard. Sustained tones do not
+produce a continuous full-strength beat pulse. Percussion estimates drive the
+individual drums; they are estimates from mixed audio, not isolated drum tracks.
+Drum response is independent of visualizer beat gain. Its lower default (0.6)
+and nonlinear gate suppress sustained activity below 0.22 and soften intermediate
+values; distinct hits still produce a clear response. **DRUM RESPONSE** adjusts
+that gain without changing capture, calibration, or visualizer pulse strength.
+Detailed cymbal meshes are cached in GL display lists and released on close.
+
+Select **android-playback** on Termux and press **START AUDIO** after granting playback
+capture consent in Android Bridge. The native renderer never opens a microphone.
+**pipewire** captures the configured Linux input and **simulated** demonstrates
+the graphics without real capture. Source selection waits for START. STOP stops capture and animation. Navigating between the full visualizer and
+an enabled HOME preview preserves capture; leaving both releases it after a short
+navigation handoff. Switching visualizer scenes or Drum Kit leaves
+the audio session alive.
+
+The browser renderer remains available via
+`OPENROAD_MUSIC_VISUALIZER_RENDERER=webgl`, with its 13 existing presets and browser
+microphone option. WebUi continues to use WebGL. Native GL failures display an
+explicit error; select the browser override if the device cannot create a GLX context.
+
+On Linux, including Raspberry Pi 4/5 installations, the visualizer defaults to
+PipeWire system-output capture when `pw-record` is installed. It resolves the
+default sink through `pactl` and records its `.monitor` source, so changing the
+desktop's default output also changes the visualizer input. Set
+`OPENROAD_MUSIC_VISUALIZER_PIPEWIRE_TARGET` only to override that automatic
+selection with a specific monitor node.
 Termux/Android defaults to Android Playback. Start **Android Bridge → Android
 Playback Audio → START PLAYBACK CAPTURE**, grant audio permission, and approve
 Android's capture prompt, then press **START AUDIO** in ORC.
-`OPENROAD_MUSIC_VISUALIZER_SOURCE=pipewire` or `android-playback` overrides the
-initial input. Capture begins only when START AUDIO is pressed. STOP and leaving
-the screen release capture; ORC shutdown closes Chromium and the local server.
-CALIBRATE, FINISH, and CLEAR manage the shared ambient-noise profile.
+`OPENROAD_MUSIC_VISUALIZER_SOURCE=simulated`, `pipewire`, or `android-playback` overrides the
+initial input. Capture begins only when START AUDIO is pressed. STOP releases capture; leaving all visualizer presentations also releases it. Native shutdown releases the renderer; the browser
+override closes Chromium and its local server.
+CAL, SAVE, and CLEAR manage the shared ambient-noise profile.
 
-Both input and preset menus render inside the browser page, avoiding native
+In the browser override, input and preset menus render inside the browser page, avoiding native
 Chromium popup windows that can fail when reparented into Termux/X11. Silence is
 reported separately from a failed stream. If Android Playback connects but stays
 silent, clear calibration and try a capture-permitted audio app. Inspect native
@@ -51,6 +83,27 @@ with the normal desktop/browser setup.
 
 The eight-mode Tk renderer remains an explicit fallback via
 `OPENROAD_MUSIC_VISUALIZER_RENDERER=tk`; its default input is simulation.
+
+## HOME Media card
+
+The existing Media card keeps its placement beside Radio, below the map. Choose
+**VISUALIZER** to mount a compact native preview or **PLAYING** for the existing
+now-playing presentation. Tap the preview or OPEN to open the full visualizer.
+START explicitly connects the last selected audio source; mounting a preview
+never requests microphone access or starts capture automatically.
+
+HOME and the full view share one controller, capture connection, calibration,
+and preset/view preferences. The card remembers the selected presentation while
+navigating. Each mounted visualizer retains a presentation lease; a short 250 ms
+handoff allows navigation without disconnecting the bridge's sole stream client.
+Switching to Playing or leaving both views stops capture and rendering. Shutdown
+cancels handoff timers and closes the shared controller.
+
+A native handoff component check uses synthetic PCM, with no microphone:
+
+```bash
+python -m apps.orcUi.component_test.home_music_visualizer_cli
+```
 
 ## WebUi
 
@@ -83,6 +136,28 @@ Run the automated unit and integration suites from the repository root:
 python scripts/run_tests.py all
 ```
 
+A native GL component check creates an X11 context and the actual themed
+left/right screen, renders all ten scenes, checks nonempty and distinct frames,
+verifies kick changes and a 250-pixel-high control layout, and releases resources:
+
+```bash
+python -m apps.orcUi.component_test.native_music_visualizer_cli
+```
+
+This uses supplied analysis snapshots, without microphone access. Device validation:
+
+```bash
+git switch music-visualizer-modernization
+git pull --ff-only
+OPENROAD_MUSIC_VISUALIZER_SOURCE=android-playback ./runOrcUi
+```
+
+Start bridge capture, play a capture-permitted local MP3, press START AUDIO, and check
+that tunnel pulses and individual drum activity respond. Native OpenGL uses the
+existing pinned `PyOpenGL==3.1.10` and `pyopengltk==0.0.4` dependencies. Keep the
+normal Termux/X11 graphics configuration; the cloud component check uses Mesa
+software rendering and does not establish phone GPU compatibility.
+
 A repeatable embedded X11/browser check is available with the optional Python
 `playwright` package installed:
 
@@ -102,30 +177,130 @@ not verify those device and permission paths.
 
 ## Architecture and resource ownership
 
-Media composition selects presentation and owns its runtime. The default uses the
-reusable `BrowserMediaScreen`, an ORC-selected `MusicVisualizerBrowser` adapter,
-and the existing shared WebGL assets. The adapter owns only the local HTTP host
-and browser lifecycle; `MusicAnalysisSession` owns audio capture and analysis.
-HTTP routes and the embedded page live under `frontends/web/audio_analysis` and
-serve the same semantic analyzer used by WebUi. The Tk fallback still consumes
-`MusicVisualizerControlIf`, with its capture/calibration worker in the controller.
-Screens choose no backends and composition closes their resources.
+Media composition selects presentation and owns its runtime. The native default
+receives a GL backend factory from composition and immutable `VisualizerFrame`
+snapshots through `MusicVisualizerPresentationIf`. The frontend chooses only how
+to render those snapshots. `MusicVisualizerController` owns capture workers,
+bounded latest-frame delivery, calibration, and stale completion handling. The
+renderer owns its GL geometry and animation timer and releases both on close.
 
-ORC's default WebGL runtime uses `SharedMusicAnalysisSession` for the same analyzer
-and capture used by Home's 32-pixel spectrum below both Radio and Media cards,
-spanning their combined width. The strip shares the existing fixed Home audio
-area; metadata and playback controls remain above it, preserving map height.
-Home's separate Spectrum button starts/stops platform capture on a worker;
-opening Home never starts or resumes audio. Android playback still requires
-Android Bridge capture consent, and browser microphone setup uses the full
-visualizer. Setup failures remain nonblocking and offer a tap-through setup prompt.
-Home reads an immutable `HomeSpectrumFeedIf` cache without capture or FFT work on
-the Tk thread. Bands disappear after 750 ms without real audio; the Spectrum
-button stays available. The strip uses no
-simulated animation and can be tapped to open the full visualizer.
+The browser override uses `BrowserMediaScreen` and `MusicVisualizerBrowser` for
+its local host and browser lifecycle. `MusicAnalysisSession` owns audio capture
+and analysis in both paths. WebUi retains the existing shared WebGL assets.
 
-A 250 ms handoff grace period allows navigation between the visualizer and Home.
-When neither view is visible, capture stops on a timer worker. Explicit Stop and
-application close stop capture regardless of visible consumers. Browser microphone
-capture ends with its page; Android playback and PipeWire capture can continue on
-Home. The optional Tk visualizer fallback has no Home spectrum feed.
+When the browser override is selected, Home reads its immutable
+`HomeSpectrumFeedIf` cache without capture or FFT work on the Tk thread. The Home
+strip uses the shared static spectrum artwork while capture is inactive; live
+bands replace it when analyzer data arrives. The strip can open the full
+visualizer. The Tk-only fallback does not expose a Home spectrum feed.
+
+### Customizable frequency analyzer and drum controls
+
+The native **Frequency Analyzer** defaults to smooth Retro green-to-red bars on a fixed
+31.25 Hz–16 kHz logarithmic axis. Frequency labels and bass (below 250 Hz), mid
+(250 Hz–4 kHz), and treble ranges sit below the plot. Grid lines represent
+−60, −40, −20, and 0 dBFS from bottom to top. Bars report the strongest
+Hann-window FFT bin in each displayed band, without adaptive normalization or
+noise calibration. Bands with no FFT bins stay empty; at 48 kHz with 2048 samples,
+bin spacing is 23.4375 Hz. This is a frequency/amplitude analyzer, not a calibrated
+sound-pressure meter. Off-bin tones can show Hann-window scalloping loss.
+At narrow bar widths, a low-frequency band can be empty because the 23.4375 Hz
+FFT-bin spacing leaves no measured bin inside that logarithmic interval; the
+analyzer intentionally leaves that band blank rather than duplicating a nearby
+measurement. Frequency labels are angled and selected from the centers of the
+actual displayed bars. Wider bar settings therefore show proportionally fewer
+labels, each aligned with its bar.
+The default +24 dB INPUT GAIN is presentation-only, making low-level Linux and
+Raspberry Pi monitor streams visible without modifying shared FFT measurements,
+calibration, or the response of other visualizer scenes.
+
+Smaller kick drums and a separate snare leave clear horizontal gaps even with
+double kicks. New percussion onsets trigger short illuminated heads and a downward
+cymbal tilt that settles quickly; steady activity does not sustain the flash.
+The existing drum-response threshold still suppresses weak background activity.
+All response and zoom sliders retain drag adjustment and add large **− / +**
+buttons in 0.1 steps, clamped to their limits, without restarting capture.
+
+
+The SCENE page uses a five-column icon grid for visualizer selection. Each tile
+has a vector preview of its effect; the selected tile is highlighted and its full
+name appears below the grid. Tiles support touch, mouse, and keyboard activation.
+Selection preserves the current audio session and is shared with the HOME preview.
+
+
+Open **STYLE** to select the Frequency Analyzer and customize it. This keeps the
+current capture running. Three compact appearance pages fit the 250-pixel viewport:
+
+- **LOOK:** smooth/segmented bars, peak markers, bar width, and input gain.
+  Width groups the measured FFT bins into 8–64 logarithmic bands. At the widest
+  setting, bars are eight times the default width, without overlapping.
+- **COLOR:** ORC blue, Retro green-to-red, Monochrome, Fire, or a custom gradient.
+  BASE COLOR and TIP COLOR open native color pickers. Cancel leaves settings intact.
+  Shell performance and aircraft status updates continue while a picker has focus.
+  For the original boombox look, choose Retro colors and enable segmented bars.
+- **MOVE:** rise time (0–0.3 seconds; zero gives immediate attack) and decay time
+  (0.1–1.5 seconds). These are display envelopes, not analysis normalization.
+  Peak markers hold for half a second before falling. Stale capture decays to zero.
+
+RESET APPEARANCE restores modern defaults. Settings are shared between the full
+screen and HOME preview for the current ORC session; they are not saved to disk.
+The fixed 31.25 Hz–16 kHz frequency axis and −60–0 dBFS scale remain unchanged.
+All appearance sliders include larger minus/plus buttons with clamped limits.
+
+
+Smooth bars use GPU-interpolated gradients (one rectangle per bar, or two for
+Retro's yellow midpoint). All bars are batched together, as are peak markers.
+Segmented bars share the same response/decay envelopes; switching style does not
+add smoothing. This avoids the previous 32 strips per smooth bar, which could
+make smooth mode slower than segmented mode on Termux/X11.
+
+
+Routine GLX context initialization messages from pyopengltk are logged at DEBUG
+rather than printed each time a native view opens. Unexpected backend output is
+logged as a warning; exceptions and driver stderr remain visible. To inspect the
+routine details, launch `./runOrcUi --log-level DEBUG`.
+
+
+The frequency axis now uses two staggered rows of labels: octave landmarks plus
+third-octave frequencies such as 40, 50, 80, 100, 160, 200, 315 and 630 Hz,
+1.25, 1.6, 2.5, 3.15, 5, 6.3, 10 and 12.5 kHz. Labels are added only where they
+fit without overlapping; frequency positions remain logarithmically accurate.
+
+Taller windows (at least 430 pixels high and 500 pixels wide) expand the left rail
+to 260–300 pixels with larger fonts, 40-pixel scene icons, taller buttons and wider
+slider handles. Shorter windows retain the compact 180-pixel rail. Resizing and
+switching control pages preserve capture and the existing OpenGL context.
+
+Explosion Field now renders three warm, expanding spark bursts with short streaks,
+falling sparks and onset shockwaves. Star Dance uses filled, rotating five-point
+stars drifting over a cool starfield, with spectrum/beat-driven scale. Kaleidoscope
+fills the viewport with 16 mirrored wedges, six radial layers and 864 colored
+triangles; rotation, facet shapes and brightness respond to time, spectrum and beats.
+These scenes batch geometry to keep the richer content practical on native GL.
+
+
+Frequency labels and bass/mid/treble guides are always visible. On wider bar
+settings, labels include the centers of the displayed frequency bands; the fixed
+31.25 Hz–16 kHz axis and −60–0 dBFS scale stay unchanged. Each grouped bar reports
+the strongest actual FFT-bin amplitude within its full frequency interval.
+
+**FULL** opens an immersive presentation for the current visualizer or drum kit.
+Use EXIT FULLSCREEN, Esc, or F11 to return. It shares the current capture; the
+covered normal view pauses drawing. Leaving the screen or changing sources retires
+the fullscreen surface, and closing it restores the normal view without restarting
+audio. **STYLE** is disabled for drums. START is disabled while input is connecting
+or running; STOP is disabled when idle. Capture failure or a naturally stopped
+source re-enables START. HOME's START follows the same capture lifecycle.
+
+Orbiting Planets now has cached procedural terrain/gas surfaces, lit planets,
+orbital tracks, moons, tilted rings, a stellar corona and a starfield. The camera
+fits the system to narrow windows. Electric Freeway adds moving lane dashes,
+central energy tiles, road-spanning spectrum gates and suspended equalizer strips,
+with center activity driven by the spectrum and musical onsets.
+
+
+The native GL clear color follows the supplied ORC background in light and dark
+mode, including HOME and fullscreen presentations. Analyzer grid/divider colors,
+peak markers, frequency labels and range guides use semantic theme colors so
+light mode does not retain the previous black plot or washed-out labels. Custom
+bar colors remain user-selected.

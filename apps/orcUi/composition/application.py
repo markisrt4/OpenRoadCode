@@ -11,12 +11,20 @@ from controllers.navigation.map_controls_drawer_controller import MapControlsDra
 from dataclasses import dataclass, field
 
 from common.resource_cleanup import ResourceCleanup, close_resources
+import math
 
 from common.app_settings import AppSettings, AppSettingsStore
+from apps.launchers.host_location_permission import HostLocationPermission
+from controllers.navigation.host_location_settings_controller import HostLocationSettingsController
 from controllers.weather.radar_palette import RadarPalette
 
 from apps.orcUi.application_runtime import OrcUiApplicationRuntime, create_orc_ui_application_runtime
 from apps.orcUi.composition.core import CoreComposition, create_core_composition
+from apps.orcUi.cesium_map_runtime import CesiumMapRuntime
+from apps.launchers.cesium_embedded_viewer import CesiumEmbeddedViewer
+from controllers.navigation.current_position import get_current_position
+from ui.navigation.cesium_viewer_state import CesiumViewerState
+from ui.navigation import GeoPoint
 from apps.orcUi.composition.games import configure_games
 from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
 from apps.orcUi.composition.tooltips import TooltipFactory
@@ -65,6 +73,7 @@ class OrcUiComposition:
     performance: SystemPerformanceMonitor | None = None
     diagnostics: DiagnosticsScreen | None = None
     performance_status: PerformanceStatusPresenter | None = None
+    host_location: HostLocationSettingsController | None = None
     startup_progress: Callable[[str, str], None] | None = None
     road_speed_limit: RoadSpeedLimitComposition | None = None
 
@@ -98,7 +107,8 @@ class OrcUiComposition:
         close_resources(
             self.app.shutdown,
             *(resource.close for resource in (
-                self.road_speed_limit, self.performance_status, self.performance, self.vision, self.navigation,
+                self.road_speed_limit, self.host_location, self.performance_status,
+                self.performance, self.vision, self.navigation,
                 self.navigation_places, self.radar_replay, self.weather_overlays,
             ) if resource is not None),
             self.radio.close,
@@ -218,15 +228,22 @@ def create_orc_ui_composition(
                                              weather.radar_tiles, unit_system, core.route_request_handler,
                                              core.presentation)
         cleanup.callback(overlays.close)
+        navigation_maps = CesiumMapRuntime(core.map_runtime, CesiumEmbeddedViewer(),
+            initial_view=lambda: CesiumViewerState(get_current_position() or
+                GeoPoint(math.radians(42.3314),math.radians(-83.0458)), label="Terrain", destination_marker_visible=False))
+        cleanup.callback(navigation_maps.close)
+        core.map_camera.observe_position(navigation_maps.update_position)
         navigation_places = NavigationPlacesFactory(
             online_allowed=lambda: app.online_mode.online,
-            camera_observer=core.map_camera.request_handler.observe_camera)
+            camera_observer=core.map_camera.request_handler.observe_camera,
+            embedded_explore=navigation_maps.request_explore)
         cleanup.callback(navigation_places.close)
         navigation = NavigationScreen(
             app,
             drawer_handler=MapControlsDrawerController(),
             online_mode=app.online_mode,
-            map_runtime=core.map_runtime,
+            map_runtime=navigation_maps,
+            map_platform=navigation_maps,
             places_factory=navigation_places,
             tooltip_factory=TooltipFactory(app),
             map_request_handler=core.map_camera.request_handler,
@@ -268,6 +285,10 @@ def create_orc_ui_composition(
             on_unit_system_changed=set_unit_system,
             on_back=lambda: app.navigate_to("HOME"),
         )
+        permission = HostLocationPermission()
+        host_location = HostLocationSettingsController(app, settings, permission, available=permission.available)
+        cleanup.callback(host_location.close)
+        settings.set_host_location_request_handler(host_location)
         performance = SystemPerformanceMonitor()
         cleanup.callback(performance.close)
         diagnostics = DiagnosticsScreen(
@@ -325,6 +346,7 @@ def create_orc_ui_composition(
             performance=performance,
             diagnostics=diagnostics,
             performance_status=performance_status,
+            host_location=host_location,
             startup_progress=progress,
             road_speed_limit=road_speed_limit,
         )

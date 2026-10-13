@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import os
 import logging
+import sys
 from common.logging.structured import configure_logging, event
 from pathlib import Path
 
@@ -24,6 +25,7 @@ from controllers.navigation import (
 )
 from controllers.navigation.android_position_source import AndroidPositionSource
 from controllers.navigation.browser_position_source import BrowserPositionSource
+from controllers.navigation.fallback_position_source import FallbackPositionSource
 from controllers.navigation.route_simulation_if import RouteSimulationIf
 from controllers.navigation.route_playback_position_source import RoutePlaybackPositionSource
 from controllers.navigation.simulated_ground_motion_source import (
@@ -135,23 +137,39 @@ def _build_position_source(config: NavigationServiceRuntimeConfig):
         )
 
     if config.gps.source == "browser":
-        host = os.environ.get("OPENROADCODE_BROWSER_POSITION_HOST", "127.0.0.1")
-        port = int(os.environ.get("OPENROADCODE_BROWSER_POSITION_PORT", "8765"))
-        return BrowserPositionSource(host=host, port=port)
+        return _browser_position_source()
 
     if config.gps.device == "android":
-        return RoutePlaybackPositionSource(
-            AndroidPositionSource(
-                AndroidSensorBridgeClient(base_url=_android_bridge_url(config.gps.bridge_url))
-            )
+        live_source = AndroidPositionSource(
+            AndroidSensorBridgeClient(base_url=_android_bridge_url(config.gps.bridge_url))
         )
+    elif config.gps.device == "gpsd":
+        live_source = GpsdNavigationAdapter(_create_gps_reader(config.gps.host, config.gps.port))
+    else:
+        raise ValueError(f"Unsupported GPS device: {config.gps.device}")
 
-    if config.gps.device == "gpsd":
-        return RoutePlaybackPositionSource(
-            GpsdNavigationAdapter(_create_gps_reader(config.gps.host, config.gps.port))
-        )
+    if _host_location_fallback_available():
+        live_source = FallbackPositionSource(live_source, _browser_position_source())
+    return RoutePlaybackPositionSource(live_source)
 
-    raise ValueError(f"Unsupported GPS device: {config.gps.device}")
+
+def _host_location_fallback_available() -> bool:
+    """Check the running host, not the saved deployment/build target."""
+    if (sys.platform != "linux" or os.environ.get("TERMUX_VERSION")
+            or os.environ.get("PREFIX", "").startswith("/data/data/com.termux/")):
+        return False
+    try:
+        model = Path("/proc/device-tree/model").read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        model = ""
+    return "Raspberry Pi" not in model
+
+
+def _browser_position_source() -> BrowserPositionSource:
+    # Loopback is deliberate: host geolocation requires a trustworthy origin,
+    # and permission must be granted on the machine running the browser.
+    port = int(os.environ.get("OPENROADCODE_BROWSER_POSITION_PORT", "8765"))
+    return BrowserPositionSource(host="127.0.0.1", port=port)
 
 
 def _build_ground_motion_source(config: NavigationServiceRuntimeConfig):

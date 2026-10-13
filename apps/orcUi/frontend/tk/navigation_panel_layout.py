@@ -5,6 +5,7 @@
 
 import tkinter as tk
 
+from .map_platform_bar import MapPlatformToggle
 from .navigation_earth_control import build_earth_control, build_poi_icon_button
 
 from ui.navigation.poi_models import (PoiActionKind, PoiCategory, TransitMode)
@@ -47,6 +48,11 @@ def build_navigation_panel(panel) -> None:
     panel._places_menu = places_menu
     places.configure(menu=places_menu)
     places.pack(side=tk.LEFT, padx=(0, 4))
+    if panel._map_platform is not None:
+        panel._platform_toggle = MapPlatformToggle(shortcuts, handler=panel._map_platform, theme=panel._theme_bundle,
+                                                   on_state=panel.apply_map_platform_state)
+        panel._platform_toggle.pack(side=tk.LEFT, padx=(0,4))
+        panel._add_tooltip(panel._platform_toggle, "Switch between the street map and 3D terrain")
     tk.Label(
         bar,
         textvariable=panel._shortcut_status,
@@ -121,6 +127,10 @@ def build_navigation_panel(panel) -> None:
         body, bg=ui.background, highlightthickness=1, highlightbackground=ui.border
     )
     panel._map_host.grid(row=0, column=0, sticky="nsew")
+    panel._loading_cover = tk.Label(body, text='Loading Terrain…',
+                                    bg=ui.background, fg=ui.text)
+    panel._loading_cover.grid(row=0, column=0, sticky='nsew')
+    panel._loading_cover.grid_remove()
     panel._map_host.bind("<Configure>", panel._log_map_allocation, add="+")
     panel._map_controls_handle = tk.Button(
         body,
@@ -155,6 +165,7 @@ def build_navigation_panel(panel) -> None:
         pady=10,
     )
     panel._map_controls_toggle.pack(fill=tk.X)
+    panel._native_camera_controls = controls
     rail = tk.Frame(controls, bg=ui.surface_alt)
     panel._map_controls_rail = rail
     rail.grid_columnconfigure(0, weight=1)
@@ -173,7 +184,7 @@ def build_navigation_panel(panel) -> None:
     panel._add_tooltip(panel._follow_button, "Toggle following the vehicle")
     for row, label, command, accent, description in (
         (1, "↑  North up", panel._north_up, ui.text, "Rotate north to the top (turns follow off)"),
-        (2, "⌖  Recenter", panel._recenter, ui.accent_success, "Center on the vehicle and resume following"),
+        (2, "⌖  Recenter", panel._recenter, ui.accent_success, "Center on the vehicle and enable following"),
     ):
         button = panel._control(orientation, label, command, accent)
         button.grid(row=row, column=0, sticky="nsew", pady=1)
@@ -334,6 +345,14 @@ def show_poi_card(panel, poi) -> None:
                           lambda: panel._navigate_to_poi(poi), tk)
     if earth_action is not None:
         build_earth_control(panel, buttons, poi, earth_action, tk)
+
+    local_action = next((a for a in poi.actions if a.kind is PoiActionKind.EXPLORE_3D), None)
+    panel._local_3d_button = None
+    if local_action is not None:
+        panel._local_3d_button = build_poi_icon_button(
+            panel, buttons, "map_3d.png", "3D Map",
+            lambda: panel._execute_poi_action(poi, local_action), tk)
+        panel._add_tooltip(panel._local_3d_button, "Offline 3D exploration; coverage depends on installed map packs")
 
     build_poi_icon_button(panel, buttons, "close.png", "Close", popup.destroy, tk)
 

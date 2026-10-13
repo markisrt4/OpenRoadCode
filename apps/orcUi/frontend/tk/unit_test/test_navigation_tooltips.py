@@ -13,6 +13,7 @@ from apps.orcUi.frontend.tk.navigation_screen import NavigationScreen
 
 def test_right_side_controls_have_action_descriptions():
     panel = Mock()
+    panel._map_platform = None
     with patch("apps.orcUi.frontend.tk.navigation_panel_layout.tk"):
         build_navigation_panel(panel)
     descriptions = [call.args[1] for call in panel._add_tooltip.call_args_list]
@@ -20,7 +21,7 @@ def test_right_side_controls_have_action_descriptions():
     for text in ("Toggle following the vehicle", "Zoom in", "Zoom out",
                  "Current map zoom level", "Switch between overhead 2D and tilted 3D view",
                  "Rotate north to the top (turns follow off)",
-                 "Center on the vehicle and resume following"):
+                 "Center on the vehicle and enable following"):
         assert text in descriptions
     for direction in ("up", "down", "left", "right"):
         assert f"Pan the map {direction} on screen (turns follow off)" in descriptions
@@ -57,6 +58,7 @@ def test_theme_rebuild_closes_tooltips_before_destroying_controls():
 def test_navigation_screen_closes_tooltips_when_unmounted(method):
     screen = object.__new__(NavigationScreen)
     panel = Mock()
+    panel._map_platform = None
     screen._panel = panel
     screen._radar_handler = None
     screen._route_weather = None
@@ -80,7 +82,9 @@ def test_camera_controls_start_as_compact_collapsible_drawer():
     with patch.multiple("apps.orcUi.frontend.tk.navigation_panel_layout.tk",
                         Frame=frame, Button=Mock(), Label=label,
                         Menubutton=Mock(), Menu=Mock(), PhotoImage=Mock(), Toplevel=Mock()):
-        build_navigation_panel(Mock())
+        panel = Mock()
+        panel._map_platform = None
+        build_navigation_panel(panel)
     controls = next(widget for widget, _args, kwargs in frames if kwargs.get("width") == 54)
     rail = next(widget for widget, args, _kwargs in frames if args and args[0] is controls)
     assert controls.pack_propagate.call_args.args == (False,)

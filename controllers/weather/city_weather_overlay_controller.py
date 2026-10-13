@@ -207,7 +207,7 @@ class CityWeatherOverlayController:
                 self._pending_id = None
                 self._query_warning = True
                 self._log.failed(operation_id=self._query_operation_id, stage="viewport", reason="timeout")
-                self.status = "City query timed out · rebuild the navigation renderer and retry"
+                self.status = "City query timed out · check the map renderer and message bus"
                 self.publish()
             if self._pending_id is None and monotonic() - self._last_query >= 4:
                 self._query()

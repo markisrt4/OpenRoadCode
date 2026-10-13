@@ -41,7 +41,10 @@ class GamesPanelLayoutTest(unittest.TestCase):
             for widget in card.winfo_children():
                 if isinstance(widget, (tk.Label, tk.Button)):
                     self.assertGreaterEqual(widget.winfo_height(), widget.winfo_reqheight())
-                    self.assertGreaterEqual(widget.winfo_width(), widget.winfo_reqwidth())
+                    self.assertGreaterEqual(
+                        widget.winfo_width(), widget.winfo_reqwidth(),
+                        f"{type(widget).__name__} {widget.cget('text')!r}",
+                    )
                     self.assertLessEqual(widget.winfo_x() + widget.winfo_width(), card.winfo_width())
                     self.assertLessEqual(widget.winfo_y() + widget.winfo_height(), card.winfo_height())
 

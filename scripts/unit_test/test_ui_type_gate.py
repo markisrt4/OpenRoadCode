@@ -8,13 +8,16 @@ import sys
 
 import pytest
 
-from scripts.check_ui_types import main
+from scripts.check_ui_types import main, is_termux
+import importlib.util
 
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 def check_source(tmp_path, source):
+    if is_termux() and importlib.util.find_spec('mypy') is None:
+        pytest.skip('mypy unavailable on Termux; strict type tests run in Linux/CI')
     path = tmp_path / "contract_example.py"
     path.write_text(source)
     return subprocess.run(
@@ -91,6 +94,8 @@ def test_gate_rejects_incompatible_contracts_and_calls(tmp_path, source, error_c
 
 
 def test_missing_mypy_fails_instead_of_silently_skipping(monkeypatch, capsys):
+    monkeypatch.delenv('TERMUX_VERSION', raising=False)
+    monkeypatch.delenv('PREFIX', raising=False)
     monkeypatch.setattr("scripts.check_ui_types.importlib.util.find_spec", lambda name: None)
     assert main() == 1
     assert "requirements-dev.txt" in capsys.readouterr().err
@@ -199,3 +204,22 @@ def tune(session: RfRadioSession) -> None:
 """)
     assert result.returncode == 1, result.stdout + result.stderr
     assert "[arg-type]" in result.stdout
+
+
+def test_missing_mypy_is_explicitly_skipped_on_termux(monkeypatch,capsys):
+    monkeypatch.setenv('PREFIX','/data/data/com.termux/files/usr')
+    monkeypatch.setattr('scripts.check_ui_types.importlib.util.find_spec',lambda _:None)
+    assert main() == 0
+    assert '[SKIP]' in capsys.readouterr().out
+
+
+def test_termux_quality_gate_reports_skip_without_running_type_checker(monkeypatch,capsys):
+    from scripts import quality_gate
+    from unittest.mock import Mock
+    monkeypatch.setenv('PREFIX','/data/data/com.termux/files/usr')
+    monkeypatch.setattr(quality_gate.importlib.util,'find_spec',lambda _:None)
+    run=Mock()
+    monkeypatch.setattr(quality_gate,'_run',run)
+    assert quality_gate._run_ui_types()
+    run.assert_not_called()
+    assert '[SKIP]' in capsys.readouterr().out

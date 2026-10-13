@@ -93,3 +93,18 @@ class BrowserKioskLauncherTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_owned_embedded_stop_uses_short_process_grace_without_window_or_proc_scan(tmp_path):
+    launcher=BrowserKioskLauncher(url='http://127.0.0.1:1234',profile_path=tmp_path/'profile',log_file=tmp_path/'browser.log')
+    process=Mock()
+    process.poll.return_value=None
+    launcher._process=process
+    with (patch('apps.launchers.browser_launcher.terminate_process') as terminate,
+          patch('apps.launchers.browser_launcher.close_matching_display_apps') as scan,
+          patch.object(launcher,'_close_app_window') as window):
+        launcher.stop(':1',owned_process_only=True)
+    terminate.assert_called_once_with(process,timeout_seconds=1.0)
+    scan.assert_not_called()
+    window.assert_not_called()
+    assert launcher._process is None

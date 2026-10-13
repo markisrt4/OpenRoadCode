@@ -29,7 +29,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--target",
-        help="optional PipeWire target node name or id; omit to use pw-record's default",
+        help="optional PipeWire target node name or id; omit to monitor the default output sink",
     )
     parser.add_argument("--seconds", type=float, default=10.0)
     parser.add_argument("--sample-rate", type=int, default=48_000)
@@ -65,7 +65,7 @@ def main() -> int:
     pipeline = MusicAnalysisPipeline(capture, analyzer, on_analysis)
 
     print("Starting live PipeWire music analysis...")
-    print(f"target:      {args.target or '<pw-record default>'}")
+    print(f"target:      {args.target or '<default output monitor>'}")
     print(f"sample rate: {args.sample_rate} Hz")
     print(f"FFT size:    {args.fft_size}")
     print(f"duration:    {args.seconds:.1f} s")
