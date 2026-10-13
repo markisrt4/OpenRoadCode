@@ -233,3 +233,9 @@ Retro's yellow midpoint). All bars are batched together, as are peak markers.
 Segmented bars share the same response/decay envelopes; switching style does not
 add smoothing. This avoids the previous 32 strips per smooth bar, which could
 make smooth mode slower than segmented mode on Termux/X11.
+
+
+Routine GLX context initialization messages from pyopengltk are logged at DEBUG
+rather than printed each time a native view opens. Unexpected backend output is
+logged as a warning; exceptions and driver stderr remain visible. To inspect the
+routine details, launch `./runOrcUi --log-level DEBUG`.

@@ -4,7 +4,10 @@
 """Native GL surface. Controls are supplied by the surrounding ORC screen."""
 from __future__ import annotations
 
+from contextlib import redirect_stdout
 from dataclasses import replace
+import io
+import logging
 import math
 import time
 import tkinter as tk
@@ -15,6 +18,25 @@ from ui.music_visualizer.music_visualizer_presentation_if import MusicVisualizer
 from ui.music_visualizer.music_visualizer_types import MusicVisualizationMode, MusicVisualizerOptions, MusicVisualizerView
 from .music_gl_scene import MODE_LABELS, NativeSceneGeometry, draw_scene
 from .frequency_analyzer_scene import AnalyzerDisplay
+
+
+_LOG = logging.getLogger(__name__)
+_GLX_PROGRESS = ('GLX version:', 'Screen is ', 'Number of FBconfigs',
+                 'Got a matching visual:', 'Is Direct?:', 'Done making a first context')
+
+
+def _create_glx_context(create):
+    """Route dependency progress to DEBUG; preserve exceptions and unexpected output."""
+    output = io.StringIO()
+    try:
+        with redirect_stdout(output):
+            return create()
+    finally:
+        for line in output.getvalue().splitlines():
+            if line.startswith(_GLX_PROGRESS):
+                _LOG.debug('Visualizer GLX: %s', line)
+            elif line.strip():
+                _LOG.warning('Visualizer GLX: %s', line)
 
 
 class NativeMusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
@@ -48,6 +70,9 @@ class NativeMusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
                     self.geometry = None
                     super().__init__(panel, width=1, height=1)
                     self.animate = 0
+
+                def tkCreateContext(self):
+                    return _create_glx_context(super().tkCreateContext)
 
                 def tkMap(self, event):
                     try:
@@ -124,6 +149,8 @@ class NativeMusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
         return self._status
 
     def _fail(self, exc):
+        if not self._failed:
+            _LOG.warning('Music visualizer OpenGL unavailable: %s', exc)
         self._failed = True
         self._status = f'OpenGL unavailable: {exc}'
         if self._job is not None:
