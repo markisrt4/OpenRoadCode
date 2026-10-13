@@ -239,19 +239,19 @@ class OrcUiApp(VolumeUiIf, UiWidget):
         if self._closing:
             return None
 
-        scheduled = {"token": None, "invoked": False}
+        token: str | None = None
+        invoked = False
 
         def invoke() -> None:
-            scheduled["invoked"] = True
-            token = scheduled["token"]
+            nonlocal invoked
+            invoked = True
             if token is not None:
                 self._ui_callbacks.discard(token)
             if not self._closing:
                 callback()
 
         token = self._root.after(delay_ms, invoke)
-        scheduled["token"] = token
-        if not scheduled["invoked"]:
+        if not invoked:
             self._ui_callbacks.add(token)
         return token
 

@@ -188,11 +188,12 @@ The browser override uses `BrowserMediaScreen` and `MusicVisualizerBrowser` for
 its local host and browser lifecycle. `MusicAnalysisSession` owns audio capture
 and analysis in both paths. WebUi retains the existing shared WebGL assets.
 
-When the browser override is selected, Home reads its immutable
-`HomeSpectrumFeedIf` cache without capture or FFT work on the Tk thread. The Home
-strip uses the shared static spectrum artwork while capture is inactive; live
-bands replace it when analyzer data arrives. The strip can open the full
-visualizer. The Tk-only fallback does not expose a Home spectrum feed.
+Home retains the compact now-playing Media card for every renderer. Both the
+native OpenGL default and browser override expose immutable cached analysis through
+`HomeSpectrumFeedIf`, without capture or FFT work on the Tk thread. The shared
+strip uses static spectrum artwork while capture is inactive; live bands replace
+it when analyzer data arrives, and tapping it opens the full visualizer. The
+Tk-only fallback does not expose a Home spectrum feed.
 
 ### Customizable frequency analyzer and drum controls
 

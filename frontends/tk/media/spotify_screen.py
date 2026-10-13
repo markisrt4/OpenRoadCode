@@ -162,9 +162,12 @@ class SpotifyScreen(TkScreen, MediaUiIf):
             self._account_layout_configured = desired_layout
         if (self._visible and self._view == "now" and desired_layout is not None
                 and desired_layout != previous_layout):
-            self._host.schedule_ui_callback(
-                0, lambda expected=desired_layout: self._refresh_account_layout(expected)
-            )
+            expected_layout: bool = desired_layout
+
+            def refresh_account_layout() -> None:
+                self._refresh_account_layout(expected_layout)
+
+            self._host.schedule_ui_callback(0, refresh_account_layout)
 
     def _refresh_account_layout(self, expected: bool) -> None:
         if (self._visible and self._view == "now"
