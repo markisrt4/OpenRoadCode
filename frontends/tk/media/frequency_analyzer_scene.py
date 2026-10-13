@@ -3,6 +3,8 @@
 """Measured spectrum display: fixed axes, configurable geometry and envelopes."""
 import math
 
+from .music_scene_theme import ScenePalette
+
 from ui.music_visualizer.music_visualizer_types import AnalyzerPalette
 
 
@@ -71,7 +73,8 @@ def analyzer_color(appearance, height):
     return tuple(a + (b - a) * t for a, b in zip(low, high))
 
 
-def draw_analyzer(gl, frame, decay, appearance, display):
+def draw_analyzer(gl, frame, decay, appearance, display, palette=None):
+    palette = palette or ScenePalette()
     gl.glMatrixMode(gl.GL_PROJECTION)
     gl.glLoadIdentity()
     gl.glOrtho(0, 1, 0, 1, -1, 1)
@@ -81,12 +84,12 @@ def draw_analyzer(gl, frame, decay, appearance, display):
     levels = display.levels if display is not None else [v * decay for v in measured_levels(frame, max(8, min(64, appearance.band_count)))]
     peaks = display.peaks if display is not None else levels
     for db in (-60, -40, -20, 0):
-        gl.glColor3f(.12, .18, .22)
+        gl.glColor3f(*palette.grid)
         gl.glBegin(gl.GL_LINES)
         gl.glVertex2f(.04, .08 + (db + 60) / 60 * .86)
         gl.glVertex2f(.96, .08 + (db + 60) / 60 * .86)
         gl.glEnd()
-    gl.glColor3f(.18, .3, .38)
+    gl.glColor3f(*palette.guides)
     gl.glBegin(gl.GL_LINES)
     for hz in (250, 4000):
         x = .04 + .92 * math.log(hz / 31.25, 512)
@@ -122,7 +125,7 @@ def draw_analyzer(gl, frame, decay, appearance, display):
             gl.glVertex2f(x, .08 + top * .86)
     gl.glEnd()
     if appearance.peak_markers:
-        gl.glColor3f(.88, .96, 1)
+        gl.glColor3f(*palette.text)
         gl.glBegin(gl.GL_LINES)
         for i, peak in enumerate(peaks):
             if peak > .005:

@@ -279,3 +279,10 @@ orbital tracks, moons, tilted rings, a stellar corona and a starfield. The camer
 fits the system to narrow windows. Electric Freeway adds moving lane dashes,
 central energy tiles, road-spanning spectrum gates and suspended equalizer strips,
 with center activity driven by the spectrum and musical onsets.
+
+
+The native GL clear color follows the supplied ORC background in light and dark
+mode, including HOME and fullscreen presentations. Analyzer grid/divider colors,
+peak markers, frequency labels and range guides use semantic theme colors so
+light mode does not retain the previous black plot or washed-out labels. Custom
+bar colors remain user-selected.

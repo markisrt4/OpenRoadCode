@@ -20,6 +20,7 @@ from ui.music_visualizer.music_visualizer_types import MusicVisualizationMode, M
 from .music_gl_scene import MODE_LABELS, NativeSceneGeometry, draw_scene
 from .frequency_analyzer_scene import AnalyzerDisplay
 from .frequency_axis import frequency_ticks
+from .music_scene_theme import scene_palette
 
 
 _LOG = logging.getLogger(__name__)
@@ -46,6 +47,8 @@ class NativeMusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
 
     def __init__(self, parent, *, theme_bundle, gl_backend, simulate=False, on_back=None, show_controls=False):
         super().__init__(parent, bg=theme_bundle.ui.background)
+        self._theme_ui = theme_bundle.ui
+        self._scene_palette = scene_palette(theme_bundle.ui, self.winfo_rgb)
         self._closed = False
         self._failed = False
         self._job = None
@@ -89,7 +92,7 @@ class NativeMusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
                     self.width, self.height = event.width, event.height
 
                 def initgl(self):
-                    gl.glClearColor(.015, .025, .055, 1)
+                    gl.glClearColor(*panel._scene_palette.background, 1)
                     gl.glEnable(gl.GL_DEPTH_TEST)
                     gl.glEnable(gl.GL_NORMALIZE)
                     self.quadric = glu.gluNewQuadric()
@@ -131,18 +134,18 @@ class NativeMusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
         for hz, label, x, row in frequency_ticks(width, font.measure, self._render_settings.analyzer.band_count):
             canvas.create_line(width * (.04 + .92 * math.log(hz / 31.25, 512)), 0,
                                width * (.04 + .92 * math.log(hz / 31.25, 512)), 3,
-                               fill='#94abb8')
+                               fill=self._theme_ui.text_muted)
             canvas.create_text(x, 8 + row * 12, text=label,
-                               fill='#d9e7ef', font=('Sans', 7))
-        for lo, hi, label, color in ((31.25, 250, 'BASS', '#48d97c'),
-                                     (250, 4000, 'MID', '#e6cf54'),
-                                     (4000, 16000, 'TREBLE', '#fa7657')):
+                               fill=self._theme_ui.text, font=('Sans', 7))
+        for lo, hi, label, color in ((31.25, 250, 'BASS', self._theme_ui.accent_success),
+                                     (250, 4000, 'MID', self._theme_ui.accent_warning),
+                                     (4000, 16000, 'TREBLE', self._theme_ui.accent_danger)):
             x1 = width * (.04 + .92 * math.log(lo / 31.25, 512))
             x2 = width * (.04 + .92 * math.log(hi / 31.25, 512))
             canvas.create_line(x1, 32, x2, 32, fill=color, width=3)
             canvas.create_text((x1 + x2) / 2, 42, text=label, fill=color, font=('Sans', 7))
         canvas.create_text(width / 2, 56, text='-60 / -40 / -20 / 0 dBFS | FFT bin peaks',
-                           fill='#94abb8', font=('Sans', 7))
+                           fill=self._theme_ui.text_muted, font=('Sans', 7))
 
     def presentation_status(self) -> str:
         return self._status
@@ -212,7 +215,7 @@ class NativeMusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
                                           now - self._received <= .15)
         draw_scene(gl, glu, surface.quadric, self._render_settings, frame,
                    min(1.5, self._pulse * self._render_settings.beat_gain), decay,
-                   now - self._started, width / height, surface.geometry, self._analyzer_display)
+                   now - self._started, width / height, surface.geometry, self._analyzer_display, self._scene_palette)
 
     def close(self) -> None:
         if self._closed:

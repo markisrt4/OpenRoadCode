@@ -13,7 +13,7 @@ from frontends.tk.media.native_music_visualizer import NativeMusicVisualizerPane
 from frontends.tk.media.music_visualizer_screen import MusicVisualizerScreen
 from frontends.tk.media.music_gl_scene import MODE_LABELS
 from ui.music_visualizer import KickMode, MusicVisualizerSource, VisualizerFrame
-from ui.music_visualizer.music_visualizer_types import AnalyzerAppearance, AnalyzerPalette, MusicCaptureState, MusicVisualizerView
+from ui.music_visualizer.music_visualizer_types import AnalyzerAppearance, AnalyzerPalette, MusicCaptureState, MusicVisualizationMode, MusicVisualizerView
 from ui.theme import ThemeMode
 from apps.orcUi.theme_runtime import theme_bundle
 
@@ -55,6 +55,28 @@ def main():
             assert screen._rail.winfo_width() >= 240
             assert screen._icon_size == 40
             assert all(button.winfo_height() >= 30 for button in screen._view_buttons.values())
+            # Read an actual light GL framebuffer, including analyzer labels/peaks.
+            light_window = tk.Toplevel(root)
+            light_window.geometry('500x350')
+            light = NativeMusicVisualizerPanel(light_window, theme_bundle=theme_bundle(ThemeMode.LIGHT),
+                                                gl_backend=load_gl_backend)
+            light.pack(fill=tk.BOTH, expand=True)
+            light.configure_visualizer(replace(screen._options, mode=MusicVisualizationMode.BOOMBOX))
+            root.update()
+            assert light._surface.context_created
+            light._surface.tkMakeCurrent()
+            light._draw(GL, light._glu, light._surface)
+            GL.glFinish()
+            GL.glReadBuffer(GL.GL_BACK)
+            pixel = np.frombuffer(GL.glReadPixels(0, 0, 1, 1, GL.GL_RGB, GL.GL_UNSIGNED_BYTE), dtype=np.uint8)
+            expected = np.array(light._scene_palette.background)*255
+            assert np.all(np.abs(pixel.astype(float)-expected) <= 1)
+            assert pixel.mean() > 200
+            assert light._scene_palette.text != light._scene_palette.background
+            assert light._axis.cget('bg') == theme_bundle(ThemeMode.LIGHT).ui.background
+            light.close()
+            light_window.destroy()
+            panel._surface.tkMakeCurrent()
             captures = []
             configurations = [(mode, MusicVisualizerView.VISUALIZER, KickMode.SINGLE)
                               for mode in MODE_LABELS]

@@ -66,7 +66,7 @@ class NativeSceneGeometry:
 
 
 def draw_scene(gl, glu, quadric, options: MusicVisualizerOptions, frame: VisualizerFrame,
-               pulse: float, decay: float, elapsed: float, aspect: float, geometry=None, analyzer_display=None) -> None:
+               pulse: float, decay: float, elapsed: float, aspect: float, geometry=None, analyzer_display=None, palette=None) -> None:
     if options.view is MusicVisualizerView.DRUM_KIT:
         _drums(gl, glu, quadric, options, frame, pulse, decay, elapsed, aspect, geometry)
         return
@@ -75,7 +75,7 @@ def draw_scene(gl, glu, quadric, options: MusicVisualizerOptions, frame: Visuali
     spectrum = tuple(value * decay for value in frame.spectrum) or (0,) * 24
     mode = options.mode
     if mode is MusicVisualizationMode.BOOMBOX:
-        draw_analyzer(gl, frame, decay, options.analyzer, analyzer_display)
+        draw_analyzer(gl, frame, decay, options.analyzer, analyzer_display, palette)
     elif mode is MusicVisualizationMode.FREQUENCY_TUNNEL:
         _tunnel(gl, spectrum, pulse, elapsed)
     elif mode is MusicVisualizationMode.SPECTRUM:
