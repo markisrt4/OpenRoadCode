@@ -213,7 +213,8 @@ Selection preserves the current audio session and is shared with the HOME previe
 Open **STYLE** to select the Frequency Analyzer and customize it. This keeps the
 current capture running. Four compact appearance pages fit the 250-pixel viewport:
 
-- **LOOK:** smooth/segmented bars, peak markers, and adjustable bar spacing.
+- **LOOK:** smooth/segmented bars, peak markers, and bar width (20–100% of each frequency slot).
+  Larger width reduces spacing; the bounds prevent adjacent frequency bars overlapping.
 - **COLOR:** ORC blue, Retro green-to-red, Monochrome, Fire, or a custom gradient.
   BASE COLOR and TIP COLOR open native color pickers. Cancel leaves settings intact.
   For the original boombox look, choose Retro colors and enable segmented bars.
@@ -239,3 +240,21 @@ Routine GLX context initialization messages from pyopengltk are logged at DEBUG
 rather than printed each time a native view opens. Unexpected backend output is
 logged as a warning; exceptions and driver stderr remain visible. To inspect the
 routine details, launch `./runOrcUi --log-level DEBUG`.
+
+
+The frequency axis now uses two staggered rows of labels: octave landmarks plus
+third-octave frequencies such as 40, 50, 80, 100, 160, 200, 315 and 630 Hz,
+1.25, 1.6, 2.5, 3.15, 5, 6.3, 10 and 12.5 kHz. Labels are added only where they
+fit without overlapping; frequency positions remain logarithmically accurate.
+
+Taller windows (at least 430 pixels high and 500 pixels wide) expand the left rail
+to 260–300 pixels with larger fonts, 40-pixel scene icons, taller buttons and wider
+slider handles. Shorter windows retain the compact 180-pixel rail. Resizing and
+switching control pages preserve capture and the existing OpenGL context.
+
+Explosion Field now renders three warm, expanding spark bursts with short streaks,
+falling sparks and onset shockwaves. Star Dance uses filled, rotating five-point
+stars drifting over a cool starfield, with spectrum/beat-driven scale. Kaleidoscope
+fills the viewport with 16 mirrored wedges, six radial layers and 864 colored
+triangles; rotation, facet shapes and brightness respond to time, spectrum and beats.
+These scenes batch geometry to keep the richer content practical on native GL.

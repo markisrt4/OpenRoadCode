@@ -78,3 +78,17 @@ def test_shared_screen_hide_releases_its_view_without_interrupting_home_audio():
     screen.hide()
     controller.detach_view.assert_called_once_with(screen._view_owner)
     controller.stop.assert_not_called()
+
+
+def test_close_cancels_pending_control_resize_and_late_resize_is_inert():
+    screen = MusicVisualizerScreen(Mock(), on_back=Mock(), theme_bundle=Mock(),
+                                   controller=Mock(), initial_source=MusicVisualizerSource.SIMULATED)
+    container = Mock()
+    screen._container = container
+    screen._resize_job = 'resize'
+    screen.close()
+    container.after_cancel.assert_called_once_with('resize')
+    container.reset_mock()
+    screen._resize_controls()
+    screen._schedule_control_resize()
+    assert container.mock_calls == []

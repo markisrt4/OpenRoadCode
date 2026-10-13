@@ -6,6 +6,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import replace
 import tkinter as tk
+from tkinter import font as tkfont
 
 from ui.music_visualizer import KickMode, MusicVisualizationMode, MusicVisualizerSource
 from ui.music_visualizer.music_visualizer_types import MusicVisualizerOptions, MusicVisualizerView
@@ -65,12 +66,20 @@ class MusicVisualizerScreen(TkScreen):
             self._source = self._controller.selected_source() or self._source
         self._container = tk.Frame(self._host.screen_parent, bg=ui.background)
         self._container.pack(fill=tk.BOTH, expand=True)
+        self._container.grid_propagate(False)
         self._container.grid_columnconfigure(1, weight=1)
         self._container.grid_rowconfigure(0, weight=1)
         rail = tk.Frame(self._container, width=180, bg=ui.surface,
                         highlightbackground=ui.border, highlightthickness=1)
-        rail.grid(row=0, column=0, sticky='ns', padx=(0, 6))
+        rail.grid(row=0, column=0, sticky='nsew', padx=(0, 6))
         rail.pack_propagate(False)
+        self._rail = rail
+        self._control_font_bases = {}
+        self._button_padding_bases = {}
+        self._layout_signature = None
+        self._resize_job = None
+        self._icon_size = 26
+        self._container.bind('<Configure>', lambda _event: self._schedule_control_resize())
         self._controls = tk.Frame(rail, bg=ui.surface, padx=5, pady=2)
         self._controls.pack(fill=tk.BOTH, expand=True)
         self._render_parent = tk.Frame(self._container, bg=ui.background)
@@ -121,7 +130,7 @@ class MusicVisualizerScreen(TkScreen):
             variable.set(value)
             action(str(value))
 
-        for text, delta, side in (('−', -.1, tk.LEFT), ('+', .1, tk.RIGHT)):
+        for text, delta, side in (('-', -.1, tk.LEFT), ('+', .1, tk.RIGHT)):
             tk.Button(row, text=text, command=lambda d=delta: step(d),
                       width=2, font=('Sans', 12, 'bold'), pady=0, bd=0,
                       bg=ui.control_background, fg=ui.control_text,
@@ -162,6 +171,7 @@ class MusicVisualizerScreen(TkScreen):
         self._style_page = AnalyzerAppearanceControls(
             self._page_host, ui=self._ui, appearance=self._options.analyzer,
             on_change=lambda appearance: self._set_options(analyzer=appearance))
+        self._style_page.bind('<<AppearanceLayoutChanged>>', lambda _event: self._resize_controls(force=True))
         self._controls = self._audio_page
         self._label('SOURCE')
         self._source_name = tk.StringVar(value=self._source.value)
@@ -222,7 +232,7 @@ class MusicVisualizerScreen(TkScreen):
             for column in range(5):
                 grid.columnconfigure(column, weight=1, uniform='visualizer')
             for index, mode in enumerate(modes):
-                icon = visualizer_icon(grid, mode, self._ui.text)
+                icon = visualizer_icon(grid, mode, self._ui.text, size=self._icon_size)
                 self._mode_images.append(icon)
                 button = tk.Button(grid, image=icon, command=lambda m=mode: self._select_visualizer(MODE_LABELS[m]),
                                    relief=tk.FLAT, bd=0, padx=2, pady=2,
@@ -238,6 +248,65 @@ class MusicVisualizerScreen(TkScreen):
                 self._gain = tk.DoubleVar(value=self._options.beat_gain)
                 self._scale(self._gain, .5, 3, lambda value: self._set_options(beat_gain=float(value)), 'BEAT RESPONSE')
         self._controls = previous
+        self._resize_controls(force=True)
+
+    def _schedule_control_resize(self):
+        if self._closed:
+            return
+        if self._resize_job is None:
+            self._resize_job = self._container.after(1, self._resize_controls)
+
+    def _resize_controls(self, *, force=False):
+        if self._closed:
+            return
+        if self._resize_job is not None:
+            self._container.after_cancel(self._resize_job)
+            self._resize_job = None
+        width, height = self._container.winfo_width(), self._container.winfo_height()
+        signature = (width, height)
+        if not force and signature == self._layout_signature:
+            return
+        self._layout_signature = signature
+        large = width >= 500 and height >= 430
+        rail_width = min(300, max(260, int(width*.35))) if large else 180
+        factor = 1.5 if large else 1.0
+        self._container.grid_columnconfigure(0, minsize=rail_width)
+        self._rail.configure(width=rail_width)
+        root = getattr(self, '_rail_body', self._controls)
+        live = set()
+
+        def scale(widget):
+            live.add(widget)
+            if 'font' in widget.keys():
+                base = self._control_font_bases.get(widget)
+                if base is None:
+                    base = tkfont.Font(root=widget, font=widget.cget('font')).configure()
+                    self._control_font_bases[widget] = base
+                widget.configure(font=(base['family'], round(base['size']*factor),
+                                       base['weight'], base['slant']))
+            if isinstance(widget, tk.Button):
+                base_padding = self._button_padding_bases.setdefault(widget, widget.winfo_pixels(widget.cget('pady')))
+                widget.configure(pady=max(10, round(base_padding*factor)) if large else base_padding)
+            if isinstance(widget, tk.Scale):
+                widget.configure(sliderlength=28 if large else 20, length=100 if large else 70)
+            if isinstance(widget, tk.Label) and widget.cget('wraplength'):
+                widget.configure(wraplength=rail_width-16)
+            for child in widget.winfo_children():
+                scale(child)
+
+        scale(root)
+        self._control_font_bases = {widget: base for widget, base in self._control_font_bases.items()
+                                    if widget in live}
+        self._button_padding_bases = {widget: base for widget, base in self._button_padding_bases.items()
+                                      if widget in live}
+        size = 40 if large else 26
+        if size != self._icon_size and self._options.view is MusicVisualizerView.VISUALIZER:
+            self._mode_images = []
+            for mode, button in getattr(self, '_mode_buttons', {}).items():
+                icon = visualizer_icon(button, mode, self._ui.text, size=size)
+                self._mode_images.append(icon)
+                button.configure(image=icon)
+        self._icon_size = size
 
     def _show_page(self, page):
         self._audio_page.pack_forget()
@@ -334,6 +403,9 @@ class MusicVisualizerScreen(TkScreen):
         self._poll_job = self._host.schedule_ui_callback(16, self._poll)
 
     def hide(self) -> None:
+        if getattr(self, '_resize_job', None) is not None:
+            self._container.after_cancel(self._resize_job)
+            self._resize_job = None
         if self._poll_job is not None:
             self._host.cancel_ui_callback(self._poll_job)
             self._poll_job = None

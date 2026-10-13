@@ -7,6 +7,7 @@ from __future__ import annotations
 import math
 
 from .frequency_analyzer_scene import draw_analyzer
+from .music_pattern_scenes import explosion_field, star_dance, kaleidoscope
 
 from ui.music_visualizer.music_visualizer_types import (
     KickMode, MusicVisualizationMode, MusicVisualizerOptions, MusicVisualizerView,
@@ -83,15 +84,15 @@ def draw_scene(gl, glu, quadric, options: MusicVisualizerOptions, frame: Visuali
     elif mode is MusicVisualizationMode.ELECTRIC_FREEWAY:
         _freeway(gl, spectrum, pulse, elapsed)
     elif mode is MusicVisualizationMode.EXPLOSION_FIELD:
-        _particles(gl, pulse, elapsed, explode=True)
+        explosion_field(gl, pulse, elapsed)
     elif mode is MusicVisualizationMode.STAR_DANCE:
-        _particles(gl, pulse, elapsed, explode=False)
+        star_dance(gl, spectrum, pulse, elapsed, aspect)
     elif mode is MusicVisualizationMode.ELECTRIC_RINGS:
         _rings(gl, spectrum, pulse, elapsed)
     elif mode is MusicVisualizationMode.NEON_RIBBON:
         _ribbon(gl, spectrum, pulse, elapsed)
     else:
-        _kaleidoscope(gl, spectrum, pulse, elapsed)
+        kaleidoscope(gl, spectrum, pulse, elapsed, aspect)
 
 
 def _tunnel(gl, spectrum, pulse, elapsed):
@@ -169,21 +170,6 @@ def _freeway(gl, spectrum, pulse, elapsed):
     gl.glEnd()
 
 
-def _particles(gl, pulse, elapsed, *, explode):
-    gl.glTranslatef(0, 0, -7)
-    gl.glPointSize(3 + pulse * 3)
-    gl.glBegin(gl.GL_POINTS)
-    for i in range(220):
-        a = i * 2.39996 + elapsed * .12
-        if explode:
-            radius = .2 + ((i * .137 + elapsed * .55) % 1) * (2.5 + pulse)
-        else:
-            radius = .4 + (i % 41) / 15 + pulse * .4
-        gl.glColor3f(.25 + .65 * (i % 7) / 7, .45 + pulse * .3, .95)
-        gl.glVertex3f(math.cos(a) * radius, math.sin(a) * radius, math.sin(i * .71 + elapsed) * 1.2)
-    gl.glEnd()
-
-
 def _rings(gl, spectrum, pulse, elapsed):
     gl.glTranslatef(0, 0, -8)
     gl.glRotatef(25 * math.sin(elapsed * .3), 0, 1, 0)
@@ -207,22 +193,6 @@ def _ribbon(gl, spectrum, pulse, elapsed):
             band = spectrum[i * len(spectrum) // 180]
             y = math.sin(x * 2.5 + elapsed * 2 + strand * .3) * (.25 + band + pulse * .4)
             gl.glVertex3f(x, y + strand * .16 - .4, math.cos(x + elapsed) * .4)
-        gl.glEnd()
-
-
-def _kaleidoscope(gl, spectrum, pulse, elapsed):
-    gl.glTranslatef(0, 0, -7)
-    gl.glRotatef(elapsed * 12, 0, 0, 1)
-    for petal in range(8):
-        angle = petal * math.tau / 8
-        gl.glColor3f(.25 + .6 * (petal % 3) / 3, .85, .9 - petal * .06)
-        gl.glBegin(gl.GL_LINE_LOOP)
-        for i in range(64):
-            t = i * math.tau / 64
-            radius = (.8 + .7 * math.cos(t)) * (1 + pulse * .25)
-            width = math.sin(t) * (.3 + spectrum[petal % len(spectrum)] * .35)
-            gl.glVertex3f(radius * math.cos(angle) - width * math.sin(angle),
-                          radius * math.sin(angle) + width * math.cos(angle), 0)
         gl.glEnd()
 
 

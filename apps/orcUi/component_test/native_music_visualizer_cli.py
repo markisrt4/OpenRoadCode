@@ -50,6 +50,9 @@ def main():
             assert screen._render_parent.winfo_x() >= 180
             assert screen._controls.winfo_rootx() < screen._render_parent.winfo_rootx()
             assert panel._surface.winfo_height() >= parent.winfo_height() - 4
+            assert screen._rail.winfo_width() >= 240
+            assert screen._icon_size == 40
+            assert all(button.winfo_height() >= 30 for button in screen._view_buttons.values())
             captures = []
             configurations = [(mode, MusicVisualizerView.VISUALIZER, KickMode.SINGLE)
                               for mode in MODE_LABELS]
@@ -125,6 +128,18 @@ def main():
                         appearance_controls._show('LOOK')
                         toggles = [child for child in appearance_controls._body.winfo_children()
                                    if isinstance(child, tk.Checkbutton)]
+                        width_slider = next(child for row in appearance_controls._body.winfo_children()
+                                            for child in row.winfo_children() if isinstance(child, tk.Scale))
+                        buttons = [child for child in width_slider.master.winfo_children()
+                                   if isinstance(child, tk.Button)]
+                        plus = next(button for button in buttons if button.cget('text') == '+')
+                        minus = next(button for button in buttons if button.cget('text') == '-')
+                        for _ in range(30):
+                            plus.invoke()
+                        assert screen._options.analyzer.spacing == 0
+                        for _ in range(30):
+                            minus.invoke()
+                        assert screen._options.analyzer.spacing == .8
                         toggles[0].invoke()
                         assert screen._options.analyzer.segmented
                         toggles[1].invoke()
@@ -143,10 +158,10 @@ def main():
                     if view is MusicVisualizerView.DRUM_KIT and page == 'SCENE':
                         buttons = [child for row in screen._scene_page.winfo_children()
                                    for child in row.winfo_children()
-                                   if isinstance(child, tk.Button) and child.cget('text') in ('+', '−')]
+                                   if isinstance(child, tk.Button) and child.cget('text') in ('+', '-')]
                         assert len(buttons) == 4
                         plus = next(button for button in buttons if button.cget('text') == '+')
-                        minus = next(button for button in buttons if button.cget('text') == '−')
+                        minus = next(button for button in buttons if button.cget('text') == '-')
                         for _ in range(30):
                             plus.invoke()
                         assert screen._options.drum_gain == 1.2
@@ -154,7 +169,8 @@ def main():
                             minus.invoke()
                         assert screen._options.drum_gain == .2
                         controller.start.assert_not_called()
-            print('PASS: compact controls, ten native scenes, detailed drums, softer response, double kick, custom appearance, 250px viewport, cleanup')
+            assert screen._rail.winfo_width() == 180
+            print('PASS: adaptive controls, ten native scenes, detailed drums, softer response, double kick, custom appearance, 250px viewport, cleanup')
             print('Renderer:', GL.glGetString(GL.GL_RENDERER).decode())
         except Exception as exc:
             errors.append(exc)

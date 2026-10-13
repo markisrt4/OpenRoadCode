@@ -11,6 +11,7 @@ import logging
 import math
 import time
 import tkinter as tk
+from tkinter import font as tkfont
 
 from ui.music_visualizer import VisualizerFrame
 from ui.ui_widget import UiWidget
@@ -18,6 +19,7 @@ from ui.music_visualizer.music_visualizer_presentation_if import MusicVisualizer
 from ui.music_visualizer.music_visualizer_types import MusicVisualizationMode, MusicVisualizerOptions, MusicVisualizerView
 from .music_gl_scene import MODE_LABELS, NativeSceneGeometry, draw_scene
 from .frequency_analyzer_scene import AnalyzerDisplay
+from .frequency_axis import frequency_ticks
 
 
 _LOG = logging.getLogger(__name__)
@@ -56,7 +58,7 @@ class NativeMusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
         self._started = self._last_tick = time.monotonic()
         self._pulse = 0.0
         self._status = 'Native OpenGL · Frequency Tunnel'
-        self._axis = tk.Canvas(self, height=48, bg=theme_bundle.ui.background,
+        self._axis = tk.Canvas(self, height=64, bg=theme_bundle.ui.background,
                                highlightthickness=0)
         self._axis.bind('<Configure>', lambda _event: self._draw_axis())
         self._surface = None
@@ -126,13 +128,14 @@ class NativeMusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
         canvas.delete('all')
         width = max(1, canvas.winfo_width())
         appearance = self._render_settings.analyzer
-        for hz, label in ((31.25, '31'), (125, '125'), (500, '500'),
-                          (2000, '2k'), (4000, '4k'), (16000, '16k Hz')):
-            if not appearance.frequency_labels:
-                continue
-            x = width * (.04 + .92 * math.log(hz / 31.25, 512))
-            canvas.create_text(x, 7, text=label, fill='#d9e7ef', font=('Sans', 7),
-                               anchor='e' if hz == 16000 else 'center')
+        font = tkfont.Font(root=canvas, family='Sans', size=7)
+        if appearance.frequency_labels:
+            for hz, label, x, row in frequency_ticks(width, font.measure):
+                canvas.create_line(width * (.04 + .92 * math.log(hz / 31.25, 512)), 0,
+                                   width * (.04 + .92 * math.log(hz / 31.25, 512)), 3,
+                                   fill='#94abb8')
+                canvas.create_text(x, 8 + row * 12, text=label,
+                                   fill='#d9e7ef', font=('Sans', 7))
         for lo, hi, label, color in ((31.25, 250, 'BASS', '#48d97c'),
                                      (250, 4000, 'MID', '#e6cf54'),
                                      (4000, 16000, 'TREBLE', '#fa7657')):
@@ -140,9 +143,9 @@ class NativeMusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
                 continue
             x1 = width * (.04 + .92 * math.log(lo / 31.25, 512))
             x2 = width * (.04 + .92 * math.log(hi / 31.25, 512))
-            canvas.create_line(x1, 18, x2, 18, fill=color, width=3)
-            canvas.create_text((x1 + x2) / 2, 28, text=label, fill=color, font=('Sans', 7))
-        canvas.create_text(width / 2, 42, text='−60 / −40 / −20 / 0 dBFS · FFT bin peaks',
+            canvas.create_line(x1, 32, x2, 32, fill=color, width=3)
+            canvas.create_text((x1 + x2) / 2, 42, text=label, fill=color, font=('Sans', 7))
+        canvas.create_text(width / 2, 56, text='-60 / -40 / -20 / 0 dBFS | FFT bin peaks',
                            fill='#94abb8', font=('Sans', 7))
 
     def presentation_status(self) -> str:

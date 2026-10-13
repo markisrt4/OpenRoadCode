@@ -8,7 +8,7 @@ from PIL import Image, ImageDraw, ImageTk
 from ui.music_visualizer import MusicVisualizationMode
 
 
-def visualizer_icon(master, mode, color):
+def visualizer_icon(master, mode, color, *, size=26):
     """Render a crisp, antialiased pictogram without platform-specific glyphs."""
     image = Image.new('RGBA', (104, 104))
     draw = ImageDraw.Draw(image)
@@ -72,4 +72,4 @@ def visualizer_icon(master, mode, color):
                        for delta, r in ((-.3, 28), (0, 45), (.3, 28))]
             points += [(52, 52)]
             line(points, 3)
-    return ImageTk.PhotoImage(image.resize((26, 26), Image.Resampling.LANCZOS), master=master)
+    return ImageTk.PhotoImage(image.resize((size, size), Image.Resampling.LANCZOS), master=master)
