@@ -3,7 +3,7 @@
 """Exercise the actual embedded host HTTP and capture lifecycle."""
 import json
 from urllib.request import Request, urlopen
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from apps.orcUi.adapters.music_visualizer_browser import MusicVisualizerBrowser
 from controllers.audio.music_analysis.music_analysis_session import MusicAnalysisSession, PushAudioCapture
@@ -46,3 +46,25 @@ def test_host_serves_shared_webgl_and_releases_audio_with_browser():
         host.close()
     assert not host._thread.is_alive()
     host.close()
+
+
+def test_shared_capture_survives_home_handoff_and_closes_with_host():
+    from controllers.audio.music_analysis.shared_music_analysis_session import SharedMusicAnalysisSession
+    capture = PushAudioCapture()
+    session = SharedMusicAnalysisSession({'android-playback': lambda: capture})
+    server = Mock(server_port=12345)
+    with patch('apps.orcUi.adapters.music_visualizer_browser.make_server', return_value=server), \
+         patch('controllers.audio.music_analysis.shared_music_analysis_session.Timer'):
+        host = MusicVisualizerBrowser(session, Mock(), color_scheme=lambda: 'dark')
+        try:
+            host.play(host.url, display=':1')
+            session.start('android-playback')
+            host.stop()
+            pending = session._release_generation
+            host.home_spectrum.attach_home()
+            session._stop_if_idle(pending)
+            assert capture.is_running
+        finally:
+            host.close()
+        assert not capture.is_running
+        server.shutdown.assert_called_once()

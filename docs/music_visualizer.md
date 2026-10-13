@@ -110,3 +110,16 @@ HTTP routes and the embedded page live under `frontends/web/audio_analysis` and
 serve the same semantic analyzer used by WebUi. The Tk fallback still consumes
 `MusicVisualizerControlIf`, with its capture/calibration worker in the controller.
 Screens choose no backends and composition closes their resources.
+
+ORC's default WebGL runtime uses `SharedMusicAnalysisSession` for the same analyzer
+and capture used by Home's small spectrum beneath album artwork. Home only keeps
+an already user-started capture alive; opening Home never starts or resumes audio.
+Home reads an immutable `HomeSpectrumFeedIf` cache without capture or FFT work on
+the Tk thread. Bands disappear after 750 ms without real audio. The strip uses no
+simulated animation and can be tapped to open the full visualizer.
+
+A 250 ms handoff grace period allows navigation between the visualizer and Home.
+When neither view is visible, capture stops on a timer worker. Explicit Stop and
+application close stop capture regardless of visible consumers. Browser microphone
+capture ends with its page; Android playback and PipeWire capture can continue on
+Home. The optional Tk visualizer fallback has no Home spectrum feed.

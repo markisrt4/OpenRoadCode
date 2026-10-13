@@ -275,6 +275,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
     )
     retire_views.append(spotify_screen.hide)
 
+    home_spectrum = None
     if os.getenv("OPENROAD_MUSIC_VISUALIZER_RENDERER", "webgl").lower() == "tk":
         visualizer_runtime = MusicVisualizerController(create_music_visualizer_session)
         cleanup.callback(visualizer_runtime.close)
@@ -285,6 +286,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         )
     else:
         visualizer_runtime = create_browser_visualizer(app)
+        home_spectrum = visualizer_runtime.home_spectrum
         cleanup.callback(visualizer_runtime.close)
         visualizer = BrowserMediaScreen(
             "music-visualizer", app, title="Music Visualizer", player=visualizer_runtime,
@@ -315,6 +317,8 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
             online_allowed=network_allowed,
             on_open=online_action(spotify_screen.show),
             on_open_media=media_screen.show,
+            spectrum_feed=home_spectrum,
+            on_open_visualizer=visualizer.show,
             theme_bundle=lambda: theme_bundle(app.theme_mode),
         )
         session = create_presentation(rich=False)

@@ -72,7 +72,8 @@ def create_browser_visualizer(app):
     from apps.launchers.browser_launcher import BrowserKioskLauncher
     from apps.orcUi.adapters.music_visualizer_browser import MusicVisualizerBrowser, WINDOW_CLASS
     from common.xdg_paths import openroadcode_data_dir
-    from controllers.audio.music_analysis.music_analysis_session import MusicAnalysisSession, PushAudioCapture
+    from controllers.audio.music_analysis.music_analysis_session import PushAudioCapture
+    from controllers.audio.music_analysis.shared_music_analysis_session import SharedMusicAnalysisSession
     from ui.theme import ThemeMode
 
     sources = {"browser": PushAudioCapture}
@@ -83,8 +84,8 @@ def create_browser_visualizer(app):
     if os.getenv("TERMUX_VERSION") or os.getenv("ANDROID_ROOT") or os.getenv("PREFIX", "").startswith("/data/data/com.termux/"):
         sources["android-playback"] = lambda: AndroidPlaybackAudioCapture(block_size=size)
     with ResourceCleanup() as cleanup:
-        session = MusicAnalysisSession(sources)
-        cleanup.callback(lambda: session.stop())
+        session = SharedMusicAnalysisSession(sources)
+        cleanup.callback(session.close)
         selected = selected_music_visualizer_source()
         if "OPENROAD_MUSIC_VISUALIZER_SOURCE" not in os.environ and "android-playback" in sources:
             selected = MusicVisualizerSource.ANDROID_PLAYBACK

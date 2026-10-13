@@ -11,6 +11,8 @@ from werkzeug.serving import make_server
 
 from apps.launchers.browser_launcher import BrowserKioskLauncher
 from controllers.audio.music_analysis.music_analysis_session import MusicAnalysisSession
+from controllers.audio.music_analysis.shared_music_analysis_session import SharedMusicAnalysisSession
+from ui.music_visualizer.home_spectrum_ui_if import HomeSpectrumFeedIf
 from frontends.web.audio_analysis.music_analysis_routes import create_music_analysis_routes
 from frontends.web.audio_analysis.visualizer_page import VISUALIZER_HTML
 
@@ -22,6 +24,8 @@ class MusicVisualizerBrowser:
 
     def __init__(self, session: MusicAnalysisSession, browser: BrowserKioskLauncher, *, color_scheme: Callable[[], str]) -> None:
         self._session = session
+        self._shared = session if isinstance(session, SharedMusicAnalysisSession) else None
+        self.home_spectrum: HomeSpectrumFeedIf | None = self._shared
         self._browser = browser
         self._closed = False
         self._display = os.environ.get("DISPLAY", ":0")
@@ -55,14 +59,24 @@ class MusicVisualizerBrowser:
         self._browser.set_url(self.url)
         if window_position is not None and window_size is not None:
             self._browser.configure_app_window(position=window_position, size=window_size)
-        self._browser.launch(display)
+        if self._shared is not None:
+            self._shared.attach_browser()
+        try:
+            self._browser.launch(display)
+        except Exception:
+            if self._shared is not None:
+                self._shared.detach_browser()
+            raise
         return True
 
     def stop(self) -> None:
         try:
             self._browser.stop(self._display)
         finally:
-            self._session.stop()
+            if self._shared is not None:
+                self._shared.detach_browser()
+            else:
+                self._session.stop()
 
     def is_active(self) -> bool:
         return self._browser.is_running()
@@ -74,6 +88,8 @@ class MusicVisualizerBrowser:
         try:
             self.stop()
         finally:
+            if self._shared is not None:
+                self._shared.close()
             self._server.shutdown()
             self._server.server_close()
             self._thread.join(timeout=2)
