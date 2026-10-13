@@ -3,6 +3,12 @@
 This package owns presentation-neutral camera capture. Linux USB cameras are
 currently supported through `V4L2Camera`, which uses OpenCV's V4L2 backend.
 
+Android Bridge video is supported through `AndroidBridgeCamera`, which checks the
+bridge's `/status` endpoint and decodes its H.264/MPEG-TS `/video` stream using the
+existing OpenCV FFmpeg backend. Termux Vision selects this source automatically;
+desktop/Linux keeps V4L2. See [Android Bridge Vision](../../docs/android_bridge_vision.md)
+for selection, decoder checks and device testing.
+
 ## VM / Raspberry Pi setup
 
 Install the runtime dependency:

@@ -61,8 +61,9 @@ git pull --ff-only
 sv restart openroadcode-navigation
 ```
 
-Restart ORC normally. Connect the existing camera source (`/dev/video0` in the
-current composition), calculate a route in Navigation, then open Vision. Confirm
+Restart ORC normally. Termux selects the [Android Bridge camera](android_bridge_vision.md);
+desktop/Linux uses `/dev/video0`. Start the selected camera source, calculate a
+route in Navigation, then open Vision. Confirm
 the maneuver, distance, road name and speed match Navigation, and that the toggle
 hides/reveals guidance without restarting the video. End the route, check arrival
 and off-route states, switch units in Settings, and leave/re-enter Vision. A stopped

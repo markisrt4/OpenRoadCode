@@ -26,7 +26,7 @@ Interface names and roles describe the capability exposed on the network. Applic
 | 8501 | `127.0.0.1:8501` client URL | Weather dashboard / Streamlit | Weather dashboard web application | TCP | Streamlit HTTP/WebSocket | No direct unit test located | Default in `WeatherDashLauncher` / `StreamlitLauncher`. Streamlit owns the server process. |
 | 8765 | `127.0.0.1:8765` | Browser position development source | Browser-provided geographic position ingress for development and component testing | TCP | HTTP + JSON | [browser position source](../controllers/navigation/unit_test/test_browser_position_source.py); [position source factory](../apps/carUi/unit_test/test_position_source_factory.py) | Navigation service composition uses `OPENROADCODE_BROWSER_POSITION_HOST` / `OPENROADCODE_BROWSER_POSITION_PORT`; legacy CarUi composition also supports `CARUI_BROWSER_POSITION_HOST` / `CARUI_BROWSER_POSITION_PORT`. Enable one owner per endpoint. |
 | 8766 | `http://127.0.0.1:8766` for same-device Termux; Android device LAN address when remote sensor access is enabled | OpenRoadCode Android sensor bridge | Android location/IMU sensor data plane consumed by an OpenRoadCode navigation runtime | TCP | HTTP + JSON/NDJSON (`/health`, `/imu`, `/location`, `/stream/imu`) | No direct unit test located | The Android device owns the listener. Same-device Termux uses loopback. A paired remote Linux runtime may consume the Android device on port 8766 when Navigation selects the Android Bridge profile. |
-| 8767 | `127.0.0.1:8767` | Navigation `BrowserMotionSource` | Browser DeviceMotion development input | TCP | HTTP + JSON | No direct unit test located | Dedicated browser-motion development/component port. |
+| 8767 | `127.0.0.1:8767` for same-device Termux; Android camera address for explicitly selected remote access | OpenRoadCode Android Bridge camera service | Rear-camera H.264 video for Vision | TCP | HTTP (`/status` JSON, `/video` MPEG-TS) | [camera adapter](../hardware_io/camera/unit_test/test_android_bridge_camera.py) | Bridge owns the listener. ORC defaults to loopback and consumes it through `AndroidBridgeCamera`. Legacy `BrowserMotionSource` also defaults to 8767; configure a different unused development port before running that source alongside Android video. |
 | 8770 | `127.0.0.1:8770` | ORC music-video player | Music-video player UI | TCP | HTTP | — | Reserved for music video; do not use for Android host actions. |
 | 8771 | `127.0.0.1:8771` | Spotify web player | Local Spotify player UI | TCP | HTTP | — | Reserved for the Spotify web player. |
 | 8772 | `127.0.0.1:8772` | Android Bridge host actions | Launch POI apps and open websites | TCP | HTTP, form-encoded POST | `apps/launchers/unit_test/test_android_host_action_client.py` | Same-device Termux uses `/health`, `/launch/package`, and `/open/uri`. Requires the bridge `host-actions` branch with port 8772. |
@@ -67,11 +67,17 @@ The adjacent `8765`-`8769` range is intentionally allocated by function so indep
 
 1. `8765` - browser position development source;
 2. `8766` - Android sensor bridge;
-3. `8767` - navigation browser motion source; and
+3. `8767` - Android Bridge camera video; and
 4. `8768` - YouTube music-video local player; and
 5. `8769` - OpenRoadCode service-manager control plane.
 
 These defaults may still be overridden where the owning component exposes configuration, but a new component must not reuse one of these defaults simply because it happens not to be running during development. That particular form of optimism is how the original collision arrived.
+
+The older `BrowserMotionSource` default of 8767 predates Android camera streaming.
+It is a development input, not part of the normal Termux Android-position profile.
+Its constructor accepts an explicit port; select an unused development port when
+enabling it alongside the bridge camera. The camera client introduces no new
+listener and follows the Android app's existing video port.
 
 ## Source-of-truth locations
 
