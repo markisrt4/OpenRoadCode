@@ -86,23 +86,39 @@ def draw_analyzer(gl, frame, decay, appearance, display):
             gl.glVertex2f(x, .08)
             gl.glVertex2f(x, .94)
         gl.glEnd()
+    # Let GL interpolate linear gradients; Retro needs one extra stop at yellow.
+    # Batch every bar in one draw block to avoid Python/GL calls per segment.
+    gl.glShadeModel(gl.GL_SMOOTH)
+    stops = (0, .5, 1) if appearance.palette is AnalyzerPalette.RETRO else (0, 1)
+    colors = [analyzer_color(appearance, stop) for stop in stops]
+    width = .92 / 64 * (1 - max(0, min(.8, appearance.spacing)))
+    gl.glBegin(gl.GL_QUADS)
     for i, height in enumerate(levels):
+        if height <= 0:
+            continue
         x = .04 + .92 * i / 64
-        width = .92 / 64 * (1 - max(0, min(.8, appearance.spacing)))
         if appearance.segmented:
             segments = [(j / 30, j / 30 + .025) for j in range(int(height * 30))]
+            spans = [(bottom, top, analyzer_color(appearance, bottom / height),
+                      analyzer_color(appearance, top / height)) for bottom, top in segments]
         else:
-            segments = [(height*j/32, height*(j+1)/32) for j in range(32)] if height > 0 else []
-        for bottom, top in segments:
-            gl.glBegin(gl.GL_QUADS)
-            for px, py in ((x, bottom), (x+width, bottom), (x+width, top), (x, top)):
-                gl.glColor3f(*analyzer_color(appearance, py / max(height, 1e-9)))
-                gl.glVertex2f(px, .08 + py * .86)
-            gl.glEnd()
-        if appearance.peak_markers and peaks[i] > .005:
-            gl.glColor3f(.88, .96, 1)
-            gl.glBegin(gl.GL_LINES)
-            gl.glVertex2f(x, .08 + peaks[i] * .86)
-            gl.glVertex2f(x+width, .08 + peaks[i] * .86)
-            gl.glEnd()
+            spans = [(height * stops[j], height * stops[j+1], colors[j], colors[j+1])
+                     for j in range(len(stops)-1)]
+        for bottom, top, low_color, high_color in spans:
+            gl.glColor3f(*low_color)
+            gl.glVertex2f(x, .08 + bottom * .86)
+            gl.glVertex2f(x+width, .08 + bottom * .86)
+            gl.glColor3f(*high_color)
+            gl.glVertex2f(x+width, .08 + top * .86)
+            gl.glVertex2f(x, .08 + top * .86)
+    gl.glEnd()
+    if appearance.peak_markers:
+        gl.glColor3f(.88, .96, 1)
+        gl.glBegin(gl.GL_LINES)
+        for i, peak in enumerate(peaks):
+            if peak > .005:
+                x = .04 + .92 * i / 64
+                gl.glVertex2f(x, .08 + peak * .86)
+                gl.glVertex2f(x+width, .08 + peak * .86)
+        gl.glEnd()
     gl.glEnable(gl.GL_DEPTH_TEST)

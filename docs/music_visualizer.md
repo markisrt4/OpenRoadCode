@@ -226,3 +226,10 @@ RESET APPEARANCE restores modern defaults. Settings are shared between the full
 screen and HOME preview for the current ORC session; they are not saved to disk.
 The fixed 31.25 Hz–16 kHz frequency axis and −60–0 dBFS scale remain unchanged.
 All appearance sliders include larger minus/plus buttons with clamped limits.
+
+
+Smooth bars use GPU-interpolated gradients (one rectangle per bar, or two for
+Retro's yellow midpoint). All bars are batched together, as are peak markers.
+Segmented bars share the same response/decay envelopes; switching style does not
+add smoothing. This avoids the previous 32 strips per smooth bar, which could
+make smooth mode slower than segmented mode on Termux/X11.
