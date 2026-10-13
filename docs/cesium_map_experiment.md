@@ -628,6 +628,36 @@ retained in the device's `.artifacts` cache for reuse; this consumes extra space
 The pack descriptor and archive must come from a trusted publisher: checksums
 verify transfer consistency, not publisher authenticity.
 
+### Build and retain versioned imagery on GitHub
+
+The repository includes a manually triggered **Build Metro Detroit imagery**
+GitHub Actions workflow. Run it from the Actions page on the
+`navigation-cesium` branch. It downloads and validates the overview, packages
+the pack, uploads a 14-day workflow artifact for inspection, and creates a
+versioned **draft** GitHub Release. No separate runner or publishing secret is
+required; the workflow uses the repository's scoped GitHub token.
+
+Download the workflow artifact and inspect the packaged image before publishing
+the draft release. Published release assets do not use the temporary Actions
+artifact retention period. Each run uses a new tag such as
+`metro-detroit-imagery-20261013-run42`, so previous known-good packs remain
+available for rollback. Do not reuse a tag or replace assets in a published
+version.
+
+After publishing the draft, copy the version-specific descriptor URL from the
+workflow summary or release page and install it on Termux:
+
+```bash
+git switch navigation-cesium
+python -m development.maps.install_region --coverage metro-detroit --pack-manifest https://github.com/markisrt4/OpenRoadCode/releases/download/metro-detroit-imagery-VERSION/metro-detroit-imagery.zip.json
+./runOrcUi
+```
+
+Add `--update` when replacing an already installed pack. Release assets remain
+available until the corresponding asset, release, or repository is deleted.
+The version-specific URL intentionally remains fixed; select a newer release
+explicitly when updating a device.
+
 USGS source downloads now retry temporary network failures, timeouts, incomplete
 response reads, HTTP 429 and HTTP 500/502/503/504 until success or Ctrl+C. Backoff
 is 10, 20, 40, 80, then 120 seconds; a longer server Retry-After takes precedence.
