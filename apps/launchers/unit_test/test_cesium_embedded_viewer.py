@@ -177,3 +177,16 @@ def test_vehicle_fix_and_manual_camera_observation_use_owned_browser(native):
     native.viewer.close()
     with pytest.raises(RuntimeError, match='not ready'):
         native.viewer.update_position(None,True)
+
+
+def test_software_diagnostic_renderer_is_explicit_and_preserves_default(monkeypatch):
+    monkeypatch.delenv('OPENROAD_CESIUM_RENDERER',raising=False)
+    assert module._rendering_arguments()==()
+    monkeypatch.setenv('OPENROAD_CESIUM_RENDERER','software')
+    flags=module._rendering_arguments()
+    assert '--use-angle=swiftshader' in flags
+    assert '--disable-gpu-compositing' in flags
+    assert '--disable-features=Vulkan' in flags
+    monkeypatch.setenv('OPENROAD_CESIUM_RENDERER','unknown')
+    with pytest.raises(ValueError,match='OPENROAD_CESIUM_RENDERER'):
+        module._rendering_arguments()

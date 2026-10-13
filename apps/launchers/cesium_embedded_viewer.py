@@ -24,6 +24,18 @@ from ui.navigation.map_platform_if import ExplorationCameraAction
 from ui.navigation import GeoPoint
 
 
+def _rendering_arguments():
+    """Opt-in diagnostic path; retain the default graphics backend otherwise."""
+    mode = os.environ.get('OPENROAD_CESIUM_RENDERER', 'default')
+    if mode == 'default':
+        return ()
+    if mode == 'software':
+        return ('--use-gl=angle', '--use-angle=swiftshader',
+                '--enable-unsafe-swiftshader', '--disable-gpu-compositing',
+                '--disable-features=Vulkan')
+    raise ValueError('OPENROAD_CESIUM_RENDERER must be default or software')
+
+
 class CesiumEmbeddedViewer:
     """Worker-owned browser, local HTTP origin, profile and native surface."""
 
@@ -66,7 +78,7 @@ class CesiumEmbeddedViewer:
                 window_position=(-20000,-20000), window_size=size,
                 window_class=window_class, startup_grace_seconds=.2,
                 extra_arguments=('--no-first-run','--no-default-browser-check',
-                    '--remote-debugging-port=0','--remote-debugging-address=127.0.0.1'),
+                    '--remote-debugging-port=0','--remote-debugging-address=127.0.0.1')+_rendering_arguments(),
                 log_file=logging_file_path('openroadcode','cesium-embedded.log'))
             resources.callback(browser.stop, display, None, owned_process_only=True)
             server.start()
