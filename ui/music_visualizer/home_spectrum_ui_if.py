@@ -11,6 +11,9 @@ class HomeSpectrumState:
 
     bands: tuple[float, ...] = ()
     active: bool = False
+    running: bool = False
+    busy: bool = False
+    message: str = ""
 
 
 class HomeSpectrumFeedIf(Protocol):
@@ -29,4 +32,12 @@ class HomeSpectrumFeedIf(Protocol):
 
         @return Fresh real-audio bands, or an inactive snapshot.
         """
+        ...
+
+    def request_start_spectrum(self) -> None:
+        """Start platform audio capture asynchronously after a user action."""
+        ...
+
+    def request_stop_spectrum(self) -> None:
+        """Stop the shared audio capture asynchronously after a user action."""
         ...

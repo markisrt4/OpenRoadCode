@@ -83,3 +83,73 @@ def test_leaving_both_views_does_not_stop_on_tk_thread(shared):
     timer.assert_called_once()
     assert timer.return_value.daemon
     timer.return_value.start.assert_called_once()
+
+
+def test_home_requests_are_deferred_and_duplicate_starts_are_ignored():
+    capture = PushAudioCapture()
+    jobs = []
+    session = SharedMusicAnalysisSession({'android-playback': lambda: capture}, run_work=jobs.append)
+    try:
+        session.attach_home()
+        session.request_start_spectrum()
+        session.request_start_spectrum()
+        assert len(jobs) == 1 and not capture.is_running
+        assert session.read_spectrum().busy
+        jobs.pop()()
+        assert capture.is_running and session.read_spectrum().running
+        assert not session.read_spectrum().busy
+        session.request_stop_spectrum()
+        assert capture.is_running
+        jobs.pop()()
+        assert not capture.is_running and not session.read_spectrum().running
+    finally:
+        session.close()
+
+
+def test_capture_failure_is_presented_and_retry_is_possible():
+    capture = Mock(is_running=False)
+    capture.start.side_effect = RuntimeError('Approve Android playback capture')
+    jobs = []
+    session = SharedMusicAnalysisSession({'android-playback': lambda: capture}, run_work=jobs.append)
+    try:
+        session.attach_home()
+        session.request_start_spectrum()
+        jobs.pop()()
+        state = session.read_spectrum()
+        assert not state.busy and not state.running
+        assert 'Approve Android' in state.message
+        session.request_start_spectrum()
+        assert len(jobs) == 1
+    finally:
+        session.close()
+
+
+def test_pending_start_cannot_activate_capture_after_hide_or_close():
+    capture = PushAudioCapture()
+    jobs = []
+    session = SharedMusicAnalysisSession({'android-playback': lambda: capture}, run_work=jobs.append)
+    with patch('controllers.audio.music_analysis.shared_music_analysis_session.Timer'):
+        session.attach_home()
+        session.request_start_spectrum()
+        session.detach_home()
+        jobs.pop()()
+        assert not capture.is_running
+        session.attach_home()
+        session.request_start_spectrum()
+        session.close()
+        jobs.pop()()
+        assert not capture.is_running and not session.read_spectrum().busy
+
+
+def test_home_does_not_attempt_browser_microphone_without_browser_consent():
+    capture = PushAudioCapture()
+    jobs = []
+    session = SharedMusicAnalysisSession({'browser': lambda: capture}, run_work=jobs.append)
+    try:
+        session.attach_home()
+        session.request_start_spectrum()
+        jobs.pop()()
+        assert not capture.is_running
+        assert 'Open Visualizer' in session.read_spectrum().message
+    finally:
+        session.close()

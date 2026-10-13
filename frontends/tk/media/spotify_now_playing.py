@@ -93,12 +93,17 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
             self._text, textvariable=self._status, fg=GREEN, bg=ui.surface,
             font=("Sans", 7, "bold"), anchor="w",
         )
-        self._status_label.grid(row=2, column=0, sticky="ew", pady=(3, 0))
+        # Spectrum status replaces the small Spotify status line so the title,
+        # artist, spectrum and transport still fit the fixed Home card height.
+        if spectrum_feed is None:
+            self._status_label.grid(row=2, column=0, sticky="ew", pady=(3, 0))
 
         self._bind_open(self)
-        self._spectrum = (HomeSpectrumStrip(self._art_host, feed=spectrum_feed,
+        self._spectrum = (HomeSpectrumStrip(self._body, feed=spectrum_feed,
             background=ui.surface, on_open=on_open_visualizer or on_open)
             if spectrum_feed is not None else None)
+        if self._spectrum is not None:
+            self._spectrum.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(2, 0))
         self._text.bind("<Configure>", lambda _event: self._render_metadata())
         controls = self._controls = tk.Frame(self, bg=ui.surface)
         controls.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=(0, 6))
@@ -130,7 +135,7 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._theme = theme
         ui = theme.ui
         if self._spectrum is not None:
-            self._spectrum.configure(bg=ui.surface)
+            self._spectrum.set_background(ui.surface)
         self.configure(bg=ui.surface)
         self._body.configure(bg=ui.surface)
         self._controls.configure(bg=ui.surface)

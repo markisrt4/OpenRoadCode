@@ -112,10 +112,14 @@ serve the same semantic analyzer used by WebUi. The Tk fallback still consumes
 Screens choose no backends and composition closes their resources.
 
 ORC's default WebGL runtime uses `SharedMusicAnalysisSession` for the same analyzer
-and capture used by Home's small spectrum beneath album artwork. Home only keeps
-an already user-started capture alive; opening Home never starts or resumes audio.
+and capture used by Home's card-wide, 32-pixel spectrum beneath song information.
+Home's separate Spectrum button starts/stops platform capture on a worker;
+opening Home never starts or resumes audio. Android playback still requires
+Android Bridge capture consent, and browser microphone setup uses the full
+visualizer. Setup failures remain nonblocking and offer a tap-through setup prompt.
 Home reads an immutable `HomeSpectrumFeedIf` cache without capture or FFT work on
-the Tk thread. Bands disappear after 750 ms without real audio. The strip uses no
+the Tk thread. Bands disappear after 750 ms without real audio; the Spectrum
+button stays available. The strip uses no
 simulated animation and can be tapped to open the full visualizer.
 
 A 250 ms handoff grace period allows navigation between the visualizer and Home.
