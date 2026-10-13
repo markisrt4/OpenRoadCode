@@ -10,8 +10,6 @@ from collections.abc import Callable
 
 from ui.radio.streaming_radio_state_source_if import StreamingRadioStateSourceIf
 from ui.theme import ThemeBundle
-from ui.music_visualizer.home_spectrum_ui_if import HomeSpectrumFeedIf
-from frontends.tk.media.home_spectrum_strip import HomeSpectrumStrip
 from ui.ui_widget import UiWidget
 
 
@@ -35,7 +33,6 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
         self._state_source = state_source
         self._ui = ui
         self._after_id: str | None = None
-        self._spectrum: HomeSpectrumStrip | None = None
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
@@ -50,7 +47,7 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
         )
 
         source_shortcuts = tk.Frame(self, bg=ui.surface)
-        source_shortcuts.grid(row=3, column=0, columnspan=2, sticky="ew", padx=10, pady=(4, 8))
+        source_shortcuts.grid(row=2, column=0, columnspan=2, sticky="ew", padx=10, pady=(4, 8))
         source_shortcuts.grid_columnconfigure(0, weight=1, uniform="home-radio-actions")
         source_shortcuts.grid_columnconfigure(1, weight=1, uniform="home-radio-actions")
 
@@ -108,18 +105,10 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
             font=("Sans", 9),
             anchor="w",
         )
-        self._detail.grid(row=4, column=0, columnspan=2, sticky="ew", padx=12, pady=(0, 4))
+        self._detail.grid(row=3, column=0, columnspan=2, sticky="ew", padx=12, pady=(0, 4))
 
         self.bind("<Configure>", lambda event: self._station.configure(wraplength=max(1, event.width - 24)))
         self._refresh()
-
-    def set_spectrum(self, feed: HomeSpectrumFeedIf, *, on_open: Callable[[], None]) -> None:
-        """Use Radio's spare middle row for the shared Home audio spectrum."""
-        if self._spectrum is not None:
-            self._spectrum.destroy()
-        self._spectrum = HomeSpectrumStrip(self, feed=feed,
-            background=self._ui.surface, on_open=on_open)
-        self._spectrum.grid(row=2, column=0, columnspan=2, sticky="ew", padx=12, pady=(0, 2))
 
     def destroy(self) -> None:
         if self._after_id is not None:

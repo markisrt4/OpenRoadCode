@@ -38,6 +38,7 @@ from apps.orcUi.frontend.tk.vehicle_screen import VehicleScreen
 from apps.orcUi.performance_status import PerformanceStatusPresenter
 from apps.orcUi.theme_runtime import theme_bundle
 from frontends.tk.games import GamesScreen
+from frontends.tk.media.home_spectrum_strip import HomeSpectrumStrip
 from frontends.tk.system.diagnostics_screen import DiagnosticsScreen
 from services.common.system_performance_monitor import SystemPerformanceMonitor
 
@@ -276,14 +277,14 @@ def create_orc_ui_composition(
         )
         performance_status = PerformanceStatusPresenter(app, performance, app.set_performance_status)
         cleanup.callback(performance_status.close)
-        def home_radio_factory(parent: tk.Misc) -> tk.Widget:
-            view = radio.home_factory(parent)
-            if media.home_spectrum is not None:
-                view.set_spectrum(media.home_spectrum, on_open=media.visualizer.show)
-            return view
-
-        home.set_radio_factory(home_radio_factory)
+        home.set_radio_factory(radio.home_factory)
         home.set_media_factory(media.home_factory)
+        if media.home_spectrum is not None:
+            def home_spectrum_factory(parent: tk.Misc) -> tk.Widget:
+                return HomeSpectrumStrip(parent, feed=media.home_spectrum,
+                    background=theme_bundle(app.theme_mode).ui.surface,
+                    on_open=media.visualizer.show)
+            home.set_spectrum_factory(home_spectrum_factory)
         core.presentation.observe_vehicle(home.apply_vehicle_state)
         core.presentation.observe_trip(home.apply_trip_state)
         core.presentation.observe_position(home.apply_position_state)

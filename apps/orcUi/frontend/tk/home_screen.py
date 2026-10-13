@@ -41,6 +41,7 @@ def build_home_screen(
     on_expand_context: Callable[[str], None],
     radio_factory: Callable[[tk.Misc], tk.Widget] | None,
     media_factory: Callable[[tk.Misc], tk.Widget] | None,
+    spectrum_factory: Callable[[tk.Misc], tk.Widget] | None = None,
     radar_enabled: Callable[[], bool] = lambda: False,
     on_radar_toggle: Callable[[bool], None] | None = None,
     road_speed_limit: RoadSpeedLimitState = RoadSpeedLimitState(),
@@ -96,6 +97,11 @@ def build_home_screen(
     else:
         media_factory(media).pack(fill=tk.BOTH, expand=True)
 
+    if spectrum_factory is not None:
+        lower.grid_rowconfigure(1, weight=0)
+        spectrum_factory(lower).grid(row=1, column=0, columnspan=2,
+                                     sticky="ew", padx=10, pady=(2, 0))
+
     return map_panel, context
 
 
@@ -134,6 +140,7 @@ class HomeScreen(TkScreen, RoadSpeedLimitUiIf):
 
         self._radio_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._media_factory: Callable[[tk.Misc], tk.Widget] | None = None
+        self._spectrum_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._map_panel: HomeMapPanel | None = None
         self._context_rail: ContextRail | None = None
         self._road_speed_limit = RoadSpeedLimitState()
@@ -155,6 +162,10 @@ class HomeScreen(TkScreen, RoadSpeedLimitUiIf):
     ) -> None:
         """Install the radio-owned HOME presentation factory."""
         self._radio_factory = factory
+
+    def set_spectrum_factory(self, factory: Callable[[tk.Misc], tk.Widget] | None) -> None:
+        """Install a shared spectrum strip below both Home audio cards."""
+        self._spectrum_factory = factory
 
     def set_media_factory(
         self,
@@ -204,6 +215,7 @@ class HomeScreen(TkScreen, RoadSpeedLimitUiIf):
             on_expand_context=self._on_expand_context,
             radio_factory=self._radio_factory,
             media_factory=self._media_factory,
+            spectrum_factory=self._spectrum_factory,
             radar_enabled=self._radar_enabled,
             on_radar_toggle=self._on_radar_toggle,
             road_speed_limit=self._road_speed_limit,

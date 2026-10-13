@@ -233,16 +233,15 @@ class OrcUiCompositionTest(unittest.TestCase):
         self.assertIs(composition.vision, vision)
         self.assertIs(composition.media, media)
         self.assertIs(composition.weather, weather)
+        self.assertIs(composition.home._radio_factory, radio.home_factory)
         parent = Mock()
-        home_radio = composition.home._radio_factory(parent)
-        radio.home_factory.assert_called_once_with(parent)
-        home_radio.set_spectrum.assert_called_once_with(
-            media.home_spectrum, on_open=media.visualizer.show)
-        # Optional native Tk visualizer leaves Radio's Home layout alone.
-        media.home_spectrum = None
-        home_radio.set_spectrum.reset_mock()
-        composition.home._radio_factory(parent)
-        home_radio.set_spectrum.assert_not_called()
+        with patch("apps.orcUi.composition.application.HomeSpectrumStrip") as strip, \
+             patch("apps.orcUi.composition.application.theme_bundle"):
+            widget = composition.home._spectrum_factory(parent)
+            self.assertIs(widget, strip.return_value)
+            self.assertIs(strip.call_args.args[0], parent)
+            self.assertIs(strip.call_args.kwargs["feed"], media.home_spectrum)
+            self.assertEqual(strip.call_args.kwargs["on_open"], media.visualizer.show)
         app.set_theme_change_handler.assert_called_once_with(core.map_runtime.set_theme)
         core.map_runtime.set_theme.assert_called_once_with(app.theme_mode)
         core.presentation.observe_weather_alert.assert_called_once_with(app.present_weather_alert)

@@ -89,7 +89,8 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
             self._text, textvariable=self._status, fg=GREEN, bg=ui.surface,
             font=("Sans", 7, "bold"), anchor="w",
         )
-        self._status_label.grid(row=2, column=0, sticky="ew", pady=(3, 0))
+        # Keep title/artist and transport readable above the shared spectrum.
+        # The redundant Spotify status line remains outside the compact layout.
 
         self._bind_open(self)
         self._text.bind("<Configure>", lambda _event: self._render_metadata())
