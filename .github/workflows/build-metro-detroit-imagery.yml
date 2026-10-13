@@ -98,6 +98,7 @@ jobs:
 
       - name: Create draft release
         env:
+          GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.build.outputs.release_tag }}
         shell: bash
