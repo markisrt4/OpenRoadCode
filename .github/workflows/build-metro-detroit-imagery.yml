@@ -1,0 +1,124 @@
+name: Build Metro Detroit imagery
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Optional release tag (defaults to metro-detroit-imagery-YYYYMMDD-runN)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: metro-detroit-imagery-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build draft imagery release
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    outputs:
+      release_tag: ${{ steps.release.outputs.tag }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install imagery dependency
+        run: python -m pip install Pillow
+
+      - name: Choose versioned release tag
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_TAG: ${{ inputs.release_tag }}
+        shell: bash
+        run: |
+          if [[ -n "$REQUESTED_TAG" ]]; then
+            tag="$REQUESTED_TAG"
+          else
+            tag="metro-detroit-imagery-$(date -u +%Y%m%d)-run${GITHUB_RUN_NUMBER}"
+          fi
+          if [[ ! "$tag" =~ ^metro-detroit-imagery-[A-Za-z0-9._-]+$ ]]; then
+            echo "::error::Release tag must start with metro-detroit-imagery- and contain only letters, digits, dots, underscores, or hyphens"
+            exit 1
+          fi
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "::error::Release $tag already exists; choose a new versioned tag"
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Download and validate Metro Detroit imagery
+        run: |
+          python -m development.maps.install_region \
+            --coverage metro-detroit \
+            --build-only build-output/metro-detroit-imagery \
+            --yes
+
+      - name: Package checked imagery
+        run: |
+          python -m tools.map_builder.builder.imagery_artifact \
+            --coverage metro-detroit \
+            --pack build-output/metro-detroit-imagery \
+            --output build-output/artifacts/metro-detroit-imagery.zip
+
+      - name: Upload inspection copy
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.release.outputs.tag }}
+          path: |
+            build-output/artifacts/metro-detroit-imagery.zip
+            build-output/artifacts/metro-detroit-imagery.zip.json
+          if-no-files-found: error
+          retention-days: 14
+
+  publish-draft:
+    name: Create draft release
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download packaged imagery
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.release_tag }}
+          path: build-output/artifacts
+
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.build.outputs.release_tag }}
+        shell: bash
+        run: |
+          gh release create "$RELEASE_TAG" \
+            build-output/artifacts/metro-detroit-imagery.zip \
+            build-output/artifacts/metro-detroit-imagery.zip.json \
+            --draft \
+            --target "$GITHUB_SHA" \
+            --title "Metro Detroit imagery ${RELEASE_TAG#metro-detroit-imagery-}" \
+            --notes "Offline Metro Detroit overview imagery. Inspect the packaged image before publishing this draft release. Source provenance and checksums are included in the archive and descriptor."
+
+          descriptor_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/metro-detroit-imagery.zip.json"
+          {
+            echo "## Draft imagery release"
+            echo
+            echo "Inspect the workflow artifact, then publish the draft release if the imagery is acceptable."
+            echo
+            echo "After publication, install it with:"
+            echo '```bash'
+            echo 'git switch navigation-cesium'
+            echo "python -m development.maps.install_region --coverage metro-detroit --pack-manifest ${descriptor_url}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
