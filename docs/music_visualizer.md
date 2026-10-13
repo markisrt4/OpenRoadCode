@@ -218,6 +218,7 @@ current capture running. Three compact appearance pages fit the 250-pixel viewpo
   setting, bars are eight times the default width, without overlapping.
 - **COLOR:** ORC blue, Retro green-to-red, Monochrome, Fire, or a custom gradient.
   BASE COLOR and TIP COLOR open native color pickers. Cancel leaves settings intact.
+  Shell performance and aircraft status updates continue while a picker has focus.
   For the original boombox look, choose Retro colors and enable segmented bars.
 - **MOVE:** rise time (0–0.3 seconds; zero gives immediate attack) and decay time
   (0.1–1.5 seconds). These are display envelopes, not analysis normalization.
