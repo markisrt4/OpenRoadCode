@@ -16,7 +16,7 @@ def native(tmp_path,monkeypatch):
         monkeypatch.setattr(module,name,lambda *args:absent)
     monkeypatch.setattr(module,'load_imagery_stack',lambda:())
     monkeypatch.setattr(module,'sdk_directory',lambda:tmp_path/'sdk')
-    monkeypatch.setattr(module,'logging_file_path',lambda *args:tmp_path/'embedded.log')
+    monkeypatch.setattr(module,'logging_file_path',lambda app,name:tmp_path/name)
     browser=Mock()
     browser.is_running.return_value=True
     server=Mock(url='http://127.0.0.1:12345/')
@@ -35,6 +35,7 @@ def native(tmp_path,monkeypatch):
     browsers=Mock(side_effect=make_browser)
     monkeypatch.setattr(module,'BrowserKioskLauncher',browsers)
     devtools=Mock()
+    devtools.system_info.return_value={'gpu':{'auxAttributes':{'glRenderer':'ANGLE SwiftShader fixture'}}}
     devtools.targets.return_value=[SimpleNamespace(url=server.url+'embedded-start.html')]
     def command(*args):
         if args[1] == 'Page.navigate':
@@ -190,3 +191,31 @@ def test_software_diagnostic_renderer_is_explicit_and_preserves_default(monkeypa
     monkeypatch.setenv('OPENROAD_CESIUM_RENDERER','unknown')
     with pytest.raises(ValueError,match='OPENROAD_CESIUM_RENDERER'):
         module._rendering_arguments()
+
+
+def test_renderer_and_stages_are_logged_before_terrain_navigation(native):
+    import json
+    native.viewer.open(state(),100,(640,320))
+    log=native.browsers.call_args.kwargs['log_file'].parent/'cesium-stages.log'
+    records=[json.loads(line) for line in log.read_text().splitlines()]
+    stages=[record['stage'] for record in records]
+    assert stages.index('graphics-info')<stages.index('terrain-navigation')
+    assert stages.index('window-attached')<stages.index('graphics-info')
+    gpu=next(record['gpu'] for record in records if record['stage']=='graphics-info')
+    assert gpu['auxAttributes']['glRenderer']=='ANGLE SwiftShader fixture'
+    assert 'first-frame-ready' in stages
+
+
+def test_unavailable_graphics_diagnostics_do_not_block_viewer(native):
+    native.devtools.system_info.side_effect=TimeoutError('diagnostic timeout')
+    native.viewer.open(state(),100,(640,320))
+    assert native.viewer.tick((640,320))
+
+
+def test_system_info_uses_browser_target_not_page_target():
+    from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
+    client=ChromiumDevToolsClient()
+    client.version=Mock(return_value={'webSocketDebuggerUrl':'ws://127.0.0.1:9223/browser/id'})
+    client._command=Mock(return_value={'gpu':{}})
+    assert client.system_info()=={'gpu':{}}
+    client._command.assert_called_once_with('ws://127.0.0.1:9223/browser/id','SystemInfo.getInfo',{})

@@ -1,6 +1,7 @@
 /* Presentation only: immutable destination snapshot, local SDK, no hosted layers. */
 'use strict';
 (async function () {
+  window.ORCViewerStage = 'config-request';
   window.ORCViewerReady = false;
   window.ORCViewerError = null;
   window.ORCManualCameraRevision = 0;
@@ -49,6 +50,7 @@
     const C = window.Cesium;
     if (!C) throw new Error('Local Cesium SDK did not load');
     C.Ion.defaultAccessToken = '';
+    window.ORCViewerStage = 'cesium-viewer-construction';
     viewer = new C.Viewer('map', {
       baseLayer:false, terrainProvider:new C.EllipsoidTerrainProvider(),
       geocoder:false, baseLayerPicker:false, animation:false, timeline:false,
@@ -57,6 +59,7 @@
       requestRenderMode:true, maximumRenderTimeChange:Infinity,
       contextOptions:{webgl:{powerPreference:'high-performance'}}
     });
+    window.ORCViewerStage = 'local-layers';
     const terrain = snapshot.terrain ? window.ORCLocalTerrain(snapshot.terrain,C) : null;
     if (terrain) {
       terrain.setScale(viewer, snapshot.terrain_scale);
@@ -285,7 +288,10 @@
       if (!viewer.scene.globe.tilesLoaded) return;
       remove();
       setTimeout(() => {
-        if (!viewer.isDestroyed() && !window.ORCViewerError) window.ORCViewerReady = true;
+        if (!viewer.isDestroyed() && !window.ORCViewerError) {
+          window.ORCViewerStage = 'first-frame-ready';
+          window.ORCViewerReady = true;
+        }
       }, 750);
     });
     viewer.scene.requestRender();

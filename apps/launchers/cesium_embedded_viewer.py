@@ -24,6 +24,16 @@ from ui.navigation.map_platform_if import ExplorationCameraAction
 from ui.navigation import GeoPoint
 
 
+def _diagnostic(stage, **details):
+    """Append and flush launch evidence before advancing a potentially fatal stage."""
+    try:
+        with logging_file_path('openroadcode','cesium-stages.log').open('a',encoding='utf-8') as log:
+            log.write(json.dumps({'time':time.time(),'stage':stage,**details})+'\n')
+            log.flush()
+    except (OSError,TypeError,ValueError):
+        pass  # Diagnostic storage must not prevent rendering or cleanup.
+
+
 def _rendering_arguments():
     """Opt-in diagnostic path; retain the default graphics backend otherwise."""
     mode = os.environ.get('OPENROAD_CESIUM_RENDERER', 'default')
@@ -51,6 +61,8 @@ class CesiumEmbeddedViewer:
 
     def open(self, state, parent_window_id, size, current=lambda: True):
         self.close()
+        _diagnostic('launch-request',renderer=os.environ.get('OPENROAD_CESIUM_RENDERER','default'),
+                    flags=_rendering_arguments(),size=size)
         if not self._embedder.supported():
             raise RuntimeError('xdotool is required for the embedded 3D map')
         if not current():
@@ -85,6 +97,7 @@ class CesiumEmbeddedViewer:
             if not current():
                 resources.close()
                 return
+            _diagnostic('browser-launch')
             browser.launch(display, None)
             deadline = time.monotonic()+10
             while current() and time.monotonic()<deadline:
@@ -101,6 +114,7 @@ class CesiumEmbeddedViewer:
                 resources.close()
                 self._embedder.clear()
                 return
+            _diagnostic('window-attached')
             # Navigate only after attachment: no live WebGL surface is reparented.
             deadline = time.monotonic()+10
             last_status = 'waiting for Chromium DevToolsActivePort'
@@ -112,6 +126,14 @@ class CesiumEmbeddedViewer:
                     devtools = ChromiumDevToolsClient(port=port)
                     target = next((item for item in devtools.targets() if item.url == startup_url), None)
                     if target is not None:
+                        _diagnostic('graphics-info-request')
+                        try:
+                            info = devtools.system_info()
+                            gpu = info.get('gpu',{})
+                            _diagnostic('graphics-info',gpu=gpu)
+                        except (OSError,RuntimeError,ValueError) as error:
+                            _diagnostic('graphics-info-unavailable',error=str(error))
+                        _diagnostic('terrain-navigation')
                         result = devtools.command(target,'Page.navigate',{'url':server.url})
                         if result.get('errorText'):
                             raise RuntimeError(result['errorText'])
@@ -125,22 +147,28 @@ class CesiumEmbeddedViewer:
                 resources.close()
                 self._embedder.clear()
                 return
+            last_stage = None
+            _diagnostic('waiting-first-frame')
             deadline = time.monotonic()+45
             while current() and time.monotonic()<deadline:
                 if not browser.is_running():
                     raise RuntimeError('Embedded Chromium exited while rendering the map')
                 try:
                     result = devtools.command(target, 'Runtime.evaluate', {
-                        'expression':'({ready: window.ORCViewerReady === true, error: window.ORCViewerError || null})',
+                        'expression':'({ready: window.ORCViewerReady === true, error: window.ORCViewerError || null, stage: window.ORCViewerStage || null})',
                         'returnByValue':True})
                 except (OSError, RuntimeError):
                     # Navigation can briefly destroy the execution context.
                     time.sleep(.1)
                     continue
                 observed = result.get('result', {}).get('value', {})
+                if observed.get('stage') != last_stage:
+                    last_stage = observed.get('stage')
+                    _diagnostic('page-stage',value=last_stage)
                 if observed.get('error'):
                     raise RuntimeError(f"3D rendering failed: {observed['error']}")
                 if observed.get('ready'):
+                    _diagnostic('first-frame-ready')
                     break
                 time.sleep(.1)
             else:
@@ -153,7 +181,8 @@ class CesiumEmbeddedViewer:
             self._resources, self._server, self._browser = resources, server, browser
             self._size = size
             self._devtools, self._target = devtools, target
-        except Exception:
+        except Exception as error:
+            _diagnostic('startup-failed',error=str(error))
             try:
                 resources.close()
             finally:
