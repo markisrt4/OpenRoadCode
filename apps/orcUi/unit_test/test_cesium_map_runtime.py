@@ -208,3 +208,30 @@ def test_position_updates_are_coalesced_and_old_generation_cannot_follow(mounted
     flush(runtime)
     runtime._send_position(old_generation)
     assert viewer.update_position.call_count == 1
+
+
+def test_one_browser_poll_timeout_keeps_terrain_and_success_resets_budget(mounted):
+    runtime,native,viewer=mounted
+    runtime._stop_tick.set()
+    runtime._ticker.join(timeout=2)
+    explore(runtime)
+    viewer.close.reset_mock()
+    viewer.tick.side_effect=[TimeoutError('timed out'),True,TimeoutError('timed out'),True]
+    for _ in range(4):
+        runtime._worker.submit(runtime._tick,runtime._generation).result(timeout=3)
+        assert runtime.state.active is MapPlatform.CESIUM
+    viewer.close.assert_not_called()
+    assert runtime._poll_timeouts==0
+
+
+def test_repeated_browser_poll_timeouts_restore_map_with_reason(mounted,caplog):
+    runtime,native,viewer=mounted
+    runtime._stop_tick.set()
+    runtime._ticker.join(timeout=2)
+    explore(runtime)
+    viewer.tick.side_effect=TimeoutError('browser timed out')
+    for _ in range(3):
+        runtime._worker.submit(runtime._tick,runtime._generation).result(timeout=3)
+    assert runtime.state.active is MapPlatform.MAPLIBRE
+    assert 'browser timed out' in runtime.state.status
+    assert 'Terrain returned to Map' in caplog.text

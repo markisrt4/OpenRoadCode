@@ -221,3 +221,5 @@ A reboot test is required before treating startup changes as deployment-ready.
 - Runtime services must be independently restartable and observable through journald.
 
 Terrain orientation labels use the installed offline vector map, including local streets at zoom 13 and above. Names accept the same `name:latin` field as the regular map. City labels also read zoom-10 parent tiles when detailed tiles omit them. The toolbar toggle names the view it opens (Terrain from Map, Map from Terrain). Terrain/building packs are selected when the viewer opens; camera movement does not yet switch those packs.
+
+The embedded Terrain watchdog tolerates two consecutive browser polling timeouts; a successful poll resets that budget. Three consecutive timeouts or a confirmed process/X11 failure returns to Map with a logged reason. Browser output is in `cesium-embedded.log`; capture the ORC launcher output too when diagnosing an unexpected fallback.

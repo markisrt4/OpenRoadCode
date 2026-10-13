@@ -3,6 +3,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 import math
+import logging
 import threading
 import time
 
@@ -23,6 +24,7 @@ class CesiumMapRuntime:
         self._position = None
         self._position_received = 0.0
         self._position_revision = 0
+        self._poll_timeouts = 0
         self._sent_position = None
         self._follow_enabled = True
         self._lock = threading.RLock()
@@ -142,6 +144,7 @@ class CesiumMapRuntime:
             return
         try:
             if action is ExplorationCameraAction.RECENTER:
+                self._poll_timeouts = 0
                 self._sent_position = None
                 self._send_position(generation)
                 if self._state.position_available:
@@ -182,6 +185,7 @@ class CesiumMapRuntime:
     def _fallback(self, generation, status):
         if not self._current(generation):
             return
+        logging.getLogger(__name__).warning('Terrain returned to Map: %s', status)
         try:
             self._native.launch(self._host)
         except (OSError, RuntimeError) as error:
@@ -211,7 +215,15 @@ class CesiumMapRuntime:
                 if self._viewer.consume_manual_camera() is True:
                     self.request_follow(False)
                 self._send_position(generation)
+                self._poll_timeouts = 0
         except Exception as error:
+            if isinstance(error, TimeoutError) and self._current(generation):
+                self._poll_timeouts += 1
+                if self._poll_timeouts < 3:
+                    with self._lock:
+                        if self._current(generation):
+                            self._state = replace(self._state, status='Terrain busy · retrying browser connection…')
+                    return
             try:
                 self._viewer.close()
             finally:
