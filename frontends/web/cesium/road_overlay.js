@@ -1,7 +1,7 @@
 'use strict';
 window.ORCRoadOverlay = function(viewer,C,heightAt=()=>0,onError=()=>{},maxZoom=14) {
   const entries=new Map();
-  let disposed=false,show=true,lastCheck=0,lastLayout=0;
+  let disposed=false,show=true,lastCheck=0;
   function remove(entry) {entry.abort.abort();if(entry.source)viewer.dataSources.remove(entry.source,true);}
   async function load(entry,z,x,y) {
     try {
@@ -15,16 +15,18 @@ window.ORCRoadOverlay = function(viewer,C,heightAt=()=>0,onError=()=>{},maxZoom=
         const entity=source.entities.add({position:C.Cartesian3.fromRadians(point[0],point[1],heightAt(...point)+15),
           label:{text,font:city?'bold 15px sans-serif':'11px sans-serif',fillColor:C.Color.WHITE,
             outlineColor:C.Color.BLACK,outlineWidth:3,style:C.LabelStyle.FILL_AND_OUTLINE,
-            disableDepthTestDistance:Infinity,showBackground:true,backgroundColor:C.Color.BLACK.withAlpha(.65)}});
-        entry.labels.push({entity,point,city,freeway,text});
+            disableDepthTestDistance:Infinity,
+            distanceDisplayCondition:city||freeway?undefined:new C.DistanceDisplayCondition(0,1000),
+            showBackground:true,backgroundColor:C.Color.BLACK.withAlpha(.65)}});
+        entry.labels.push({entity,point});
       }
       let names=0;const labeled=new Set();
       for(const road of state.roads) {
         const coordinates=road.points.flatMap(point=>[point[0],point[1]]);
         const freeway=road.kind==='motorway'||road.kind==='trunk';
-        source.entities.add({polyline:{positions:C.Cartesian3.fromRadiansArray(coordinates),clampToGround:true,
+        if(!['minor','residential','unclassified','service'].includes(road.kind))source.entities.add({polyline:{positions:C.Cartesian3.fromRadiansArray(coordinates),clampToGround:true,
           width:freeway?3:1.5,material:C.Color.fromCssColorString(freeway?'#ffd166':'#e7eff6').withAlpha(.8)}});
-        if(road.label && !labeled.has(road.label) && names<80) {
+        if(road.label && !labeled.has(road.label) && names<8) {
           labeled.add(road.label);names++;label(road.label,road.points[Math.floor(road.points.length/2)],false,freeway);
         }
       }
@@ -34,37 +36,11 @@ window.ORCRoadOverlay = function(viewer,C,heightAt=()=>0,onError=()=>{},maxZoom=
       if(disposed || entries.get(entry.key)!==entry){viewer.dataSources.remove(source,true);return;}
       source.show=show;
       entry.source=source;
-      lastLayout=0;layoutLabels(Date.now());
       viewer.scene.requestRender();
     } catch(error) {if(!disposed && error.name!=='AbortError')onError(error);}
   }
-  function layoutLabels(now) {
-    if(now-lastLayout<100)return;lastLayout=now;
-    const width=viewer.scene.canvas.clientWidth,height=viewer.scene.canvas.clientHeight;
-    const labels=Array.from(entries.values()).flatMap(entry=>entry.labels||[]);
-    labels.sort((a,b)=>Number(b.city)-Number(a.city)||Number(b.freeway)-Number(a.freeway));
-    const occupied=[],names=new Set();
-    const budget=Math.max(4,Math.min(30,Math.floor(width*height/12000)));
-    for(const item of labels) {
-      const {entity,city,freeway,text}=item;
-      entity.label.show=false;
-      const world=entity.position.getValue(viewer.clock.currentTime);
-      // Distance to each label also suppresses distant streets near the horizon
-      // in a tilted view, even when the camera itself is close to the ground.
-      if(!city && !freeway && C.Cartesian3.distance(viewer.camera.positionWC,world)>1000)continue;
-      const pixel=C.SceneTransforms.worldToWindowCoordinates(viewer.scene,world);
-      if(!pixel || pixel.x<0 || pixel.y<0 || pixel.x>width || pixel.y>height)continue;
-      const halfWidth=text.length*(city?4.5:3.5)+10,halfHeight=city?16:13;
-      const box={left:pixel.x-halfWidth,right:pixel.x+halfWidth,top:pixel.y-halfHeight,bottom:pixel.y+halfHeight};
-      if(names.has(text) || occupied.length>=budget || occupied.some(other=>
-        box.left<other.right && box.right>other.left && box.top<other.bottom && box.bottom>other.top))continue;
-      occupied.push(box);names.add(text);entity.label.show=true;
-    }
-  }
   function update() {
-    const now=Date.now();if(disposed || !show)return;
-    layoutLabels(now);
-    if(now-lastCheck<500)return;lastCheck=now;
+    const now=Date.now();if(disposed || !show || now-lastCheck<500)return;lastCheck=now;
     const centre=new C.Cartesian2(viewer.scene.canvas.clientWidth/2,viewer.scene.canvas.clientHeight/2);
     const ray=viewer.camera.getPickRay(centre);
     const anchor=(ray && viewer.scene.globe.pick(ray,viewer.scene)) || viewer.camera.pickEllipsoid(centre);
