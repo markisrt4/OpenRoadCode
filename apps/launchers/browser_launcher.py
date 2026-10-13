@@ -176,6 +176,11 @@ class BrowserKioskLauncher(AppLauncherIf):
         self._hidden = False
         browser_path = self._find_browser()
         environment = graphics_environment(x11_environment(remote_display))
+        # Importing opencv-python mutates the parent process environment to point
+        # at its bundled Qt plugins. External browsers must use their system UI
+        # libraries; inheriting OpenCV's private xcb plugin makes Chrome abort.
+        environment.pop("QT_QPA_PLATFORM_PLUGIN_PATH", None)
+        environment.pop("QT_QPA_FONTDIR", None)
         if self._color_scheme == "dark":
             environment["GTK_THEME"] = "Adwaita:dark"
         elif self._color_scheme == "light":
