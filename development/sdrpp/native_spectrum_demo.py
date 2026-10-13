@@ -12,6 +12,7 @@ import numpy as np
 
 from controllers.radio.spectrum.spectrum_analyzer import SpectrumAnalyzer
 from controllers.radio.spectrum.spectrum_display_processor import SpectrumDisplayProcessor
+from controllers.radio.spectrum.waterfall_history import WaterfallHistory
 from hardware_io.sdr import RtlSdrSource
 
 
@@ -22,10 +23,18 @@ def main() -> int:
     parser.add_argument("--fft-size", type=int, default=2048)
     parser.add_argument("--gain", type=float, default=None)
     parser.add_argument("--smoothing", type=float, default=0.2)
+    parser.add_argument("--waterfall-rows", type=int, default=180)
+    parser.add_argument("--waterfall-min-db", type=float, default=-85.0)
+    parser.add_argument("--waterfall-max-db", type=float, default=-15.0)
     args = parser.parse_args()
 
     analyzer = SpectrumAnalyzer(args.fft_size)
     display = SpectrumDisplayProcessor(alpha=args.smoothing)
+    waterfall = WaterfallHistory(
+        rows=args.waterfall_rows,
+        min_db=args.waterfall_min_db,
+        max_db=args.waterfall_max_db,
+    )
     source = RtlSdrSource()
     try:
         source.open()
@@ -34,7 +43,10 @@ def main() -> int:
         source.set_gain(args.gain)
         source.start()
 
-        fig, ax = plt.subplots()
+        fig, (ax, waterfall_ax) = plt.subplots(
+            2, 1, sharex=True, figsize=(10, 7),
+            gridspec_kw={"height_ratios": [2, 1]},
+        )
         x_mhz = (
             args.frequency
             + np.fft.fftshift(np.fft.fftfreq(args.fft_size, d=1 / args.sample_rate))
@@ -52,7 +64,15 @@ def main() -> int:
                 display.reset_peaks()
 
         fig.canvas.mpl_connect("key_press_event", on_key)
-        ax.set_xlabel("Frequency (MHz)")
+        waterfall_image = waterfall_ax.imshow(
+            np.zeros((args.waterfall_rows, args.fft_size), dtype=np.float32),
+            aspect="auto", origin="upper", interpolation="nearest",
+            extent=(x_mhz[0], x_mhz[-1], args.waterfall_rows, 0),
+            vmin=0, vmax=1, cmap="inferno",
+        )
+        waterfall_ax.set_ylabel("History (frames)")
+        waterfall_ax.set_xlabel("Frequency (MHz)")
+        fig.colorbar(waterfall_image, ax=waterfall_ax, label="Relative intensity")
         ax.set_ylabel("Relative power (dBFS)")
         ax.set_title("OpenRoadCode Native SDR Spectrum")
         ax.set_ylim(-110, 0)
@@ -64,6 +84,8 @@ def main() -> int:
             traces = display.process(frame)
             line.set_ydata(traces.smoothed_db)
             peak_line.set_ydata(traces.peak_db)
+            waterfall.append(frame)
+            waterfall_image.set_data(waterfall.image())
             fig.canvas.draw_idle()
             plt.pause(0.02)
     except KeyboardInterrupt:
