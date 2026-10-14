@@ -90,3 +90,19 @@ def test_overview_city_label_survives_detail_tile_without_places(tmp_path):
     state=LocalRoadOverlay(path).tile(14,250*16+7,312*16+7)
     assert [place.name for place in state.places]==['Rochester']
     assert not LocalRoadOverlay(path).tile(14,250*16+6,312*16+7).places
+
+
+def test_place_labels_are_budgeted_and_filtered_by_zoom():
+    move=b''.join(varint(value) for value in (9,4000,4000))
+    suburbs = b''.join(
+        layer('place','suburb',name,1,move) for name in ('One','Two','Three')
+    )
+    cities = b''.join(
+        layer('place','city',name,1,move) for name in ('Detroit','Pontiac','Troy')
+    )
+
+    overview = decode_overlay(suburbs + cities, 10, 250, 312)
+    detail = decode_overlay(suburbs + cities, 14, 4000, 5000)
+
+    assert [place.name for place in overview.places] == ['Detroit']
+    assert [place.name for place in detail.places] == ['Detroit','Pontiac','Troy']

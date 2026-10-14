@@ -28,7 +28,10 @@ window.ORCLocalMapTiles = function(viewer, data, C, heightAt, buildingsVisible) 
   function remove(entry) {
     entry.abort.abort();
     if (entry.layer) viewer.imageryLayers.remove(entry.layer,true);
-    if (entry.buildings) viewer.dataSources.remove(entry.buildings.source,true);
+    if (entry.buildings) {
+      if (typeof entry.buildings.destroy === 'function') entry.buildings.destroy();
+      else viewer.dataSources.remove(entry.buildings.source,true);
+    }
   }
   async function load(entry) {
     running++;

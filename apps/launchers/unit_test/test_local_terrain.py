@@ -11,7 +11,7 @@ from apps.launchers.local_terrain_pack import load_terrain
 from development.maps import download_detroit_terrain as downloader
 from tools.map_builder.builder import terrain
 from ui.navigation.local_imagery_state import LocalImageryState
-from ui.navigation.local_terrain_state import LocalTerrainState
+from ui.navigation.local_terrain_state import LocalTerrainMosaicState, LocalTerrainState
 
 
 def test_invalid_or_incomplete_heights_are_rejected():
@@ -56,3 +56,37 @@ def test_incomplete_sample_reply_is_not_installed(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError,match="every ground point"):
         downloader.download(tmp_path / "terrain")
     assert not (tmp_path / "terrain").exists()
+
+
+def _terrain_tile(root, bounds, heights, reference):
+    root.mkdir()
+    payload = json.dumps({"width": 2, "height": 2, "heights_m": heights,
+                          "reference_height_m": reference, "vertical_datum": "NAVD88"})
+    (root / "terrain.json").write_text(payload)
+    (root / "manifest.json").write_text(json.dumps({
+        "schema": 1, "title": root.name, "attribution": "USGS",
+        "bounds_deg": bounds,
+        "sha256": hashlib.sha256(payload.encode()).hexdigest(),
+    }))
+
+
+def test_mosaic_uses_one_reference_plane_and_validates_child_records(tmp_path):
+    root = tmp_path / "mosaic"
+    root.mkdir()
+    _terrain_tile(root / "west", [-84, 42, -83, 43], [100, 101, 102, 103], 100)
+    _terrain_tile(root / "east", [-83, 42, -82, 43], [200, 201, 202, 203], 200)
+    records = []
+    for name, bounds in (("west", [-84, 42, -83, 43]), ("east", [-83, 42, -82, 43])):
+        records.append({"path": name, "bounds_deg": bounds,
+                        "sha256": hashlib.sha256((root / name / "terrain.json").read_bytes()).hexdigest()})
+    manifest = {"schema": 2, "layers": ["terrain"], "attribution": "USGS", "tiles": records}
+    (root / "manifest.json").write_text(json.dumps(manifest))
+
+    state = load_terrain(root)
+    assert isinstance(state, LocalTerrainMosaicState)
+    assert {tile["reference_height_m"] for tile in state.document()["tiles"]} == {150}
+
+    records[0]["path"] = "../west"
+    (root / "manifest.json").write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match="inside the pack"):
+        load_terrain(root)

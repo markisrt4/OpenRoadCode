@@ -10,7 +10,7 @@ from typing import Any
 try:
     import tomllib
 except ModuleNotFoundError:  # Python 3.10
-    import tomli as tomllib
+    import tomli as tomllib  # type: ignore[no-redef]
 
 
 DEFAULT_RADIO_CONFIG_DIR = Path("config/radio")
@@ -40,7 +40,7 @@ class PositionCacheConfig:
     """Configure persistence of the last valid geographic fix."""
     enabled: bool = True
     directory: Path = Path.home() / ".cache" / "openroadcode" / "position"
-    max_age_seconds: float = 604800.0
+    max_age_seconds: float = 86400.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -240,7 +240,7 @@ class RuntimeConfigParser:
         directory = Path(directory_value.strip()).expanduser()
         if not directory.is_absolute():
             directory = self.project_root / directory
-        max_age = section.get("max_age_seconds", 604800.0)
+        max_age = section.get("max_age_seconds", 86400.0)
         if isinstance(max_age, bool) or not isinstance(max_age, (int, float)) or max_age < 0:
             raise RuntimeConfigError("position_cache.max_age_seconds must be non-negative")
         return PositionCacheConfig(enabled=enabled, directory=directory.resolve(), max_age_seconds=float(max_age))

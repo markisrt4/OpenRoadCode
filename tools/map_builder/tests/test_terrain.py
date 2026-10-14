@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -6,6 +7,7 @@ import pytest
 from tools.map_builder.builder import terrain, map_3d
 from tools.map_builder.builder.install_3d import validate_selection
 from apps.launchers.local_terrain_pack import load_terrain
+from tools.map_builder.builder.terrain_artifact import package
 
 
 def service(monkeypatch, *, missing=False, mixed=False):
@@ -216,3 +218,61 @@ def test_image_service_http_404_is_not_hidden_by_fallback(tmp_path, monkeypatch)
     with pytest.raises(HTTPError):
         terrain.download(tmp_path/'pine', 'pine-knob')
     assert not (tmp_path/'pine').exists()
+
+
+def test_regional_mosaic_build_and_release_archive_install(tmp_path, monkeypatch):
+    from development.maps import install_terrain, regional_terrain
+
+    def download_tile(destination, title, bounds, size=65):
+        del title, size
+        destination.mkdir()
+        payload = json.dumps({"width": 2, "height": 2, "heights_m": [1, 2, 3, 4],
+                              "reference_height_m": 2.5, "vertical_datum": "NAVD88"})
+        (destination/'terrain.json').write_text(payload)
+        (destination/'manifest.json').write_text(json.dumps({
+            "schema": 1, "title": destination.name, "attribution": "USGS",
+            "bounds_deg": bounds, "sha256": __import__('hashlib').sha256(payload.encode()).hexdigest(),
+        }))
+
+    monkeypatch.setattr(regional_terrain, 'download_bounds', download_tile)
+    built = tmp_path/'built'
+    regional_terrain.build(built)
+    assert len(load_terrain(built).tiles) == 16
+
+    archive = tmp_path/'metro-detroit-terrain.zip'
+    descriptor = package(built, archive, 'metro-detroit')
+    assert descriptor['kind'] == 'terrain'
+    active = tmp_path/'active'
+    install_terrain._install_archive(archive, active)
+    assert len(load_terrain(active).tiles) == 16
+
+
+def test_metro_build_only_validates_the_requested_output(tmp_path, monkeypatch):
+    from development.maps import install_terrain
+    output = tmp_path/'build-only'
+
+    def build(destination, *, coverage):
+        assert destination == output and coverage == 'metro-detroit'
+        destination.mkdir()
+        payload = json.dumps({"width": 2, "height": 2, "heights_m": [1, 2, 3, 4],
+                              "reference_height_m": 2.5, "vertical_datum": "NAVD88"})
+        (destination/'terrain.json').write_text(payload)
+        (destination/'manifest.json').write_text(json.dumps({
+            "schema": 1, "title": "test", "attribution": "USGS",
+            "bounds_deg": [-84, 42, -82, 43],
+            "sha256": __import__('hashlib').sha256(payload.encode()).hexdigest(),
+        }))
+
+    monkeypatch.setattr(install_terrain, 'build_regional_terrain', build)
+    monkeypatch.setattr('sys.argv', ['install_terrain', '--coverage', 'metro-detroit',
+                                    '--build-only', str(output), '--yes'])
+    assert install_terrain.main() == 0
+
+
+def test_map_data_workflow_builds_split_release_assets_without_actions_storage():
+    workflow = Path('.github/workflows/build-metro-detroit-imagery.yml').read_text()
+    assert '--detail' in workflow
+    assert 'terrain_artifact' in workflow
+    assert 'metro-detroit-terrain.zip.json' in workflow
+    assert 'actions/upload-artifact' not in workflow
+    assert 'RELEASE_TAG: ${{ steps.release.outputs.tag }}' in workflow

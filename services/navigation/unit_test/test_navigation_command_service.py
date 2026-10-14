@@ -145,7 +145,31 @@ def test_route_without_origin_is_rejected_when_current_position_has_no_fix():
     )
 
     assert not result.ok
-    assert "current navigation position is unavailable" in result.message
+    assert "current live navigation position is unavailable" in result.message
+    route_planner.calculate_route.assert_not_called()
+
+
+def test_route_without_origin_rejects_cached_position():
+    controller = Mock()
+    controller.read_state.return_value = _navigation_state(
+        PositionState(
+            latitude_deg=42.8028,
+            longitude_deg=-83.0127,
+            fix_mode=3,
+            source="cache",
+            is_cached=True,
+        )
+    )
+    route_planner = Mock()
+    service = NavigationCommandService(controller, route_planner)
+
+    result = service.execute(
+        CALCULATE_ROUTE_COMMAND,
+        {"destination": {"latitude": 42.3314, "longitude": -83.0458}},
+    )
+
+    assert not result.ok
+    assert "current live navigation position is unavailable" in result.message
     route_planner.calculate_route.assert_not_called()
 
 

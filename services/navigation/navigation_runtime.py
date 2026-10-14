@@ -211,6 +211,7 @@ class NavigationRuntime:
             or guidance_controller is None
             or position_state is None
             or not position_state.has_fix
+            or getattr(position_state, "is_cached", False)
         ):
             return
         if (

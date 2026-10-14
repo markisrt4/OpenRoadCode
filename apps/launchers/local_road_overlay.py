@@ -46,13 +46,33 @@ def decode_overlay(blob,z,x,y):
         raise ValueError('Road tile exceeds limit')
     roads=[];places=[];point_budget=12000
     features=inspect_tile(blob)
-    features.sort(key=lambda feature:feature['layer']!='transportation_name')
+    def priority(feature):
+        if feature['layer'] != 'place':
+            return (0, 0, 0)
+        attrs = feature['attributes']
+        kind = attrs.get('class', '')
+        kind_rank = {'city': 0, 'town': 1, 'village': 2, 'suburb': 3}.get(kind, 9)
+        try:
+            rank = int(attrs.get('rank', 99))
+        except (TypeError, ValueError):
+            rank = 99
+        try:
+            population = int(str(attrs.get('population', '0')).replace(',', ''))
+        except (TypeError, ValueError):
+            population = 0
+        return (1, kind_rank, rank, -population)
+    features.sort(key=priority)
     for feature in features:
         layer=feature['layer'];attrs=feature['attributes'];kind=attrs.get('class','')
         if layer not in ('transportation','transportation_name','place'):
             continue
-        if layer=='place' and kind not in ('city','town','village','suburb'):
-            continue
+        if layer=='place':
+            allowed = ({'city'} if z <= 10 else {'city','town'} if z == 11
+                       else {'city','town','village'} if z == 12
+                       else {'city','town','village','suburb'})
+            budget = 1 if z <= 11 else 2 if z <= 12 else 3
+            if kind not in allowed or len(places) >= budget:
+                continue
         if layer!='place' and (kind not in KINDS or feature['geometry_type']!=2
                                or (kind in {'minor','residential','unclassified','service'} and z<13)):
             continue
@@ -65,7 +85,7 @@ def decode_overlay(blob,z,x,y):
                             (((x+px/extent)/n*2*math.pi)%(2*math.pi))-math.pi)
         name=str(attrs.get('name:en') or attrs.get('name:latin') or attrs.get('name') or '')[:80]
         for path in geometry_paths(feature['geometry']):
-            if layer=='place' and path and len(places)<60:
+            if layer=='place' and path:
                 px,py=path[0]
                 if name and 0<=px<extent and 0<=py<extent:
                     places.append(PlaceOverlayLabel(name,point(px,py)))

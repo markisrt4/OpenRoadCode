@@ -55,13 +55,33 @@ class MapCameraCacheTest(unittest.TestCase):
                 )
             )
 
-            point = MapCameraRuntime._load_cached_center(Path(directory))
+            point = MapCameraRuntime._load_cached_center(
+                Path(directory),
+                clock=lambda: datetime(2026, 9, 1, 12, 30, 0),
+            )
 
             self.assertIsNotNone(point)
             assert point is not None
             self.assertAlmostEqual(42.8028, math.degrees(point.latitude_rad))
             self.assertAlmostEqual(-83.0127, math.degrees(point.longitude_rad))
             self.assertEqual(230.0, point.altitude_m)
+
+    def test_expired_cached_position_does_not_seed_camera(self) -> None:
+        with TemporaryDirectory() as directory:
+            cache = PositionSnapshotCache(PersistentCache(Path(directory)))
+            cache.store(PositionState(
+                received_at=datetime(2026, 9, 1, 12, 0, 0),
+                latitude_deg=42.8028,
+                longitude_deg=-83.0127,
+                fix_mode=3,
+            ))
+
+            point = MapCameraRuntime._load_cached_center(
+                Path(directory),
+                clock=lambda: datetime(2026, 9, 2, 12, 0, 1),
+            )
+
+            self.assertIsNone(point)
 
     def test_cache_miss_does_not_publish_placeholder_camera(self) -> None:
         renderer = FakeRenderer()

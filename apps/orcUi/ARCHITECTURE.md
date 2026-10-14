@@ -344,6 +344,13 @@ New features should follow the same sequence: define semantic contracts, impleme
 
 Semantic theme intent may originate from the active application shell. Provider-specific brand colors are allowed where intentional, but application chrome should continue to come from the shared theme model.
 
+The local Cesium building layer uses camera-height level of detail because OSM
+height coverage is incomplete. Regional views suppress building geometry;
+city-scale views retain explicit tagged heights; close views additionally show
+floor-count estimates. Generic-height placeholders remain hidden. This is a
+presentation policy in the local Cesium adapter and does not rewrite or imply
+greater accuracy in the immutable downloaded OSM building pack.
+
 ## Lifecycle
 
 A resource has one clear owner. The object that creates a process, worker, subscriber, browser host, or other managed resource must expose and own its cleanup behavior.

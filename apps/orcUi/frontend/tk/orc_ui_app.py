@@ -10,6 +10,7 @@ from frontends.common.ui_callback_queue import UiCallbackQueue
 from ui.system.online_mode_if import OnlineModeIf
 from collections.abc import Callable
 from apps.orcUi.performance_status import PerformanceStatus
+from apps.orcUi.navigation_presenter import PositionPresentationState
 from apps.orcUi.orc_theme import toggle
 from ui.theme import ThemeMode
 from .power_dialog import PowerDialog
@@ -196,6 +197,11 @@ class OrcUiApp(VolumeUiIf, UiWidget):
         if self._shell is not None:
             self._shell.set_performance_status(status)
 
+    def set_position_state(self, state: PositionPresentationState) -> None:
+        """Present semantic vehicle-position availability in shell chrome."""
+        if self._shell is not None:
+            self._shell.set_position_state(state)
+
     def activate_screen(self, screen: ScreenUiIf) -> None:
         previous = self._active_screen
         if previous is screen:
@@ -239,13 +245,20 @@ class OrcUiApp(VolumeUiIf, UiWidget):
         if self._closing:
             return None
 
+        token: str | None = None
+        invoked = False
+
         def invoke() -> None:
-            self._ui_callbacks.discard(token)
+            nonlocal invoked
+            invoked = True
+            if token is not None:
+                self._ui_callbacks.discard(token)
             if not self._closing:
                 callback()
 
         token = self._root.after(delay_ms, invoke)
-        self._ui_callbacks.add(token)
+        if not invoked:
+            self._ui_callbacks.add(token)
         return token
 
     def cancel_ui_callback(self, callback_id: object) -> None:

@@ -12,11 +12,15 @@ class HostLocationState:
     status: str = "Browser permission is required. Bridge/GPS takes priority."
     busy: bool = False
     can_share: bool = True
+    can_restart: bool = False
 
 
 class HostLocationUiIf(Protocol):
     def set_host_location_state(self, state: HostLocationState) -> None:
-        """Present permission-page availability, never infer browser consent."""
+        """Present permission-page availability, never infer browser consent.
+
+        @param state Immutable location permission/recovery presentation state.
+        """
         ...
 
 
@@ -31,4 +35,8 @@ class HostLocationRequestHandlerIf(Protocol):
 
     def share_host_location(self) -> None:
         """Open the permission page after checking the local service."""
+        ...
+
+    def restart_location_service(self) -> None:
+        """Request managed location-service recovery and reopen permission."""
         ...

@@ -61,11 +61,17 @@ class MapPlatformControlIf(Protocol):
         ...
 
     def request_camera(self, action: ExplorationCameraAction) -> None:
-        """Apply a relative camera action to the active exploration surface."""
+        """Apply a relative camera action to the active exploration surface.
+
+        @param action Renderer-neutral camera operation.
+        """
         ...
 
     def request_follow(self, enabled: bool) -> None:
-        """Enable vehicle following on the exploration surface; await a live fix if needed."""
+        """Enable vehicle following on the exploration surface; await a live fix if needed.
+
+        @param enabled True to follow vehicle position, false for free exploration.
+        """
         ...
 
     def resize(self, width: int, height: int, owner_window_id: int) -> None:

@@ -100,7 +100,7 @@ max_entries = 24
 [position_cache]
 enabled = true
 directory = "~/.cache/openroadcode/position"
-max_age_seconds = 604800
+max_age_seconds = 86400
 
 [rigctl]
 host = "127.0.0.1"

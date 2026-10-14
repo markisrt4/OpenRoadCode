@@ -62,3 +62,11 @@ test('relief scale replaces cached meshes, keeps source elevations and flattens 
   assert.ok(Math.abs(terrain.heightAt(.5,2/3)-5)<1e-10);
   assert.throws(()=>terrain.setScale(viewer,4),/Terrain scale/);
 });
+
+test('mosaic tiles retain relief at their shared edge', () => {
+  const west={...data,west_rad:0,east_rad:1,heights_m:Array(16).fill(20),reference_height_m:10};
+  const east={...data,west_rad:1,east_rad:2,heights_m:Array(16).fill(20),reference_height_m:10};
+  const mosaic=context.window.ORCLocalTerrain({tiles:[west,east],attribution:'USGS'},C);
+  assert.equal(mosaic.heightAt(1,.5),10);
+  assert.equal(mosaic.heightAt(1.5,.5),10);
+});

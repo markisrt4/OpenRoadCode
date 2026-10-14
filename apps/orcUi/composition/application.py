@@ -296,6 +296,7 @@ def create_orc_ui_composition(
         core.presentation.observe_vehicle(home.apply_vehicle_state)
         core.presentation.observe_trip(home.apply_trip_state)
         core.presentation.observe_position(home.apply_position_state)
+        core.presentation.observe_position(app.set_position_state)
         core.presentation.observe_attitude(home.apply_attitude_state)
         core.presentation.observe_vehicle(vehicle.apply_vehicle_state)
         core.presentation.observe_trip(vehicle.apply_trip_state)

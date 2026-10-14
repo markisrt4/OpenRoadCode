@@ -68,6 +68,21 @@ def test_callback_failure_keeps_frontend_pump_scheduled():
     assert app._root.after.call_args.args[0] == 16
 
 
+def test_immediate_timer_delivery_does_not_access_an_unassigned_token():
+    app = shell()
+    callback = Mock()
+
+    def invoke_immediately(_delay_ms, scheduled):
+        scheduled()
+        return "already-fired"
+
+    app._root.after.side_effect = invoke_immediately
+
+    assert app.schedule_ui_callback(0, callback) == "already-fired"
+    callback.assert_called_once_with()
+    assert app._ui_callbacks == set()
+
+
 def test_inert_or_foreign_timer_tokens_never_reach_tk():
     app = shell()
     for token in (None, object(), 42, []):

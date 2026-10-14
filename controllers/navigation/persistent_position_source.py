@@ -24,7 +24,7 @@ class PersistentPositionSource(PositionSourceIf):
         source: PositionSourceIf,
         cache: PositionSnapshotCache,
         *,
-        max_age_seconds: float = 604800.0,
+        max_age_seconds: float = 86400.0,
         cache_interval_seconds: float = 900.0,
         clock: Callable[[], datetime] = datetime.now,
     ) -> None:

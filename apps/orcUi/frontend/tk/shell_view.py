@@ -11,8 +11,9 @@ from collections.abc import Callable
 from datetime import datetime
 
 from apps.orcUi.performance_status import PerformanceStatus
-from apps.orcUi.orc_theme import ThemeMode, toggle_label
-from ui.theme import ThemeBundle
+from apps.orcUi.navigation_presenter import PositionPresentationState
+from apps.orcUi.orc_theme import toggle_label
+from ui.theme import ThemeBundle, ThemeMode
 from ui.radio import AircraftMenuRequestHandlerIf, AircraftMenuUiState
 from ui.weather import WeatherAlertUiEvent
 
@@ -68,6 +69,9 @@ class OrcUiShellView(UiWidget):
         self._bottom_bar: OrcUiBottomBar | None = None
         self._clock_label: tk.Label | None = None
         self._weather_status_label: tk.Label | None = None
+        self._position_status_label: tk.Label | None = None
+        self._bluetooth_status_label: tk.Label | None = None
+        self._position_state = PositionPresentationState()
         self._weather_status_text = "☁  --°"
         self._back_action: Callable[[], None] | None = None
         self._back_button: tk.Button | None = None
@@ -107,6 +111,26 @@ class OrcUiShellView(UiWidget):
         else:
             text, color = "ONLINE · CHECKING", ui.text_muted
         self._online_button.set_status(text, color, online and reachable is True)
+
+    def set_position_state(self, state: PositionPresentationState) -> None:
+        """Present live, estimated, or unavailable vehicle-position status."""
+        self._position_state = state
+        label = self._position_status_label
+        if label is None or not label.winfo_exists():
+            return
+        has_fix = (
+            state.fix_mode is not None
+            and state.fix_mode >= 2
+            and state.latitude_deg is not None
+            and state.longitude_deg is not None
+        )
+        if state.is_cached and has_fix:
+            text, color = "GPS EST   ◌🚗", self._theme.ui.accent_warning
+        elif has_fix:
+            text, color = "GPS LIVE   🚗", self._theme.ui.text
+        else:
+            text, color = "GPS --   ◌", self._theme.ui.text_muted
+        label.configure(text=text, fg=color)
 
     def rebuild(self, *, theme: ThemeBundle, theme_mode: ThemeMode) -> None:
         self._theme = theme
@@ -189,7 +213,7 @@ class OrcUiShellView(UiWidget):
             )
             self._weather_alert_banner = banner
         banner.set_online(getattr(self, "_weather_online", True))
-        banner.set_alert(alert)
+        banner.set_alert(alert)  # type: ignore[no-untyped-call]
         banner.place(relx=0.5, y=52, anchor="n", relwidth=0.78)
         banner.lift()
         self._schedule_weather_alert_tick()
@@ -296,13 +320,20 @@ class OrcUiShellView(UiWidget):
 
     def _build_chrome(self) -> None:
         self._weather_alert_banner = None
-        self._clock_label, self._weather_status_label, self._online_button = build_top_bar(
+        (
+            self._clock_label,
+            self._weather_status_label,
+            self._position_status_label,
+            self._bluetooth_status_label,
+            self._online_button,
+        ) = build_top_bar(
             self._root,
             theme=self._theme,
             on_power=self._on_power,
             on_online_toggle=self._on_online_toggle,
         )
         self.set_online_status(self._online, self._internet_reachable)
+        self.set_position_state(self._position_state)
         self._weather_status_label.configure(text=self._weather_status_text)
         self._side_nav = OrcUiSideNav(
             self._root,
@@ -362,7 +393,7 @@ class OrcUiShellView(UiWidget):
         )
         # Draw the gear around its geometric center; font glyphs carry uneven
         # baseline padding even when their button is centered.
-        points = []
+        points: list[float] = []
         for tooth in range(12):
             for fraction, radius in ((0.0, 15), (0.2, 19), (0.6, 19), (0.8, 15)):
                 angle = (tooth + fraction) * math.tau / 12

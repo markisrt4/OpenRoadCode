@@ -4,18 +4,24 @@ window.ORCLocalTerrain = function (data, C) {
   let scale = 1;
   let visible = true;
   const scheme = new C.GeographicTilingScheme();
-  function sampledHeightAt(longitude, latitude) {
-    if (longitude<data.west_rad || longitude>data.east_rad || latitude<data.south_rad || latitude>data.north_rad) return 0;
-    const x = (longitude-data.west_rad)/(data.east_rad-data.west_rad)*(data.width-1);
-    const y = (data.north_rad-latitude)/(data.north_rad-data.south_rad)*(data.height-1);
-    const col = Math.min(Math.floor(x),data.width-2), row = Math.min(Math.floor(y),data.height-2);
+  const tiles = data.tiles || [data];
+  function sample(tile,longitude,latitude) {
+    const x = (longitude-tile.west_rad)/(tile.east_rad-tile.west_rad)*(tile.width-1);
+    const y = (tile.north_rad-latitude)/(tile.north_rad-tile.south_rad)*(tile.height-1);
+    const col = Math.min(Math.floor(x),tile.width-2), row = Math.min(Math.floor(y),tile.height-2);
     const fx=x-col, fy=y-row;
-    const at = (r,c) => data.heights_m[r*data.width+c]-data.reference_height_m;
+    const at = (r,c) => tile.heights_m[r*tile.width+c]-tile.reference_height_m;
     const value=(at(row,col)*(1-fx)+at(row,col+1)*fx)*(1-fy)+
       (at(row+1,col)*(1-fx)+at(row+1,col+1)*fx)*fy;
     // Fade the boundary to the zero-relief outside region to avoid vertical seams.
-    const margin = Math.min(x,y,data.width-1-x,data.height-1-y);
+    // A single pack fades at its outer boundary. Mosaic tile edges stay continuous.
+    const margin = tiles.length === 1 ? Math.min(x,y,tile.width-1-x,tile.height-1-y) : 1;
     return scale*value*Math.min(1,Math.max(0,margin));
+  }
+  function sampledHeightAt(longitude, latitude) {
+    const tile = tiles.find(item => longitude>=item.west_rad && longitude<=item.east_rad
+      && latitude>=item.south_rad && latitude<=item.north_rad);
+    return tile ? sample(tile,longitude,latitude) : 0;
   }
   function heightAt(longitude, latitude) {
     return visible ? sampledHeightAt(longitude, latitude) : 0;

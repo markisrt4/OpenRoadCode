@@ -6,6 +6,7 @@ from unittest.mock import Mock
 import pytest
 
 from controllers.navigation.host_location_settings_controller import HostLocationSettingsController
+from controllers.navigation.host_location_permission_if import HostLocationServiceUnavailable
 
 
 def setup_controller(monkeypatch):
@@ -42,6 +43,27 @@ def test_service_failure_is_visible_and_allows_retry(monkeypatch):
     assert ui.set_host_location_state.call_args.args[0].status == 'Location service unavailable'
     controller.share_host_location()
     assert len(jobs) == 1
+
+
+def test_unavailable_service_offers_restart_then_opens_permission(monkeypatch):
+    controller, ui, permission, jobs, callbacks = setup_controller(monkeypatch)
+    permission.open_permission_page.side_effect = [HostLocationServiceUnavailable(), None]
+
+    controller.share_host_location()
+    jobs.pop()()
+    callbacks.pop()()
+    state = ui.set_host_location_state.call_args.args[0]
+    assert state.can_restart
+    assert "not running" in state.status
+
+    controller.restart_location_service()
+    jobs.pop()()
+    permission.restart_location_service.assert_called_once()
+    assert permission.open_permission_page.call_count == 2
+    callbacks.pop()()
+    state = ui.set_host_location_state.call_args.args[0]
+    assert not state.can_restart
+    assert "Permission page opened" in state.status
 
 
 @pytest.mark.parametrize('lifecycle', ['hide', 'close'])

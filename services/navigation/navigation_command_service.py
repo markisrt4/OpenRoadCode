@@ -151,10 +151,11 @@ class NavigationCommandService:
         if (
             position is None
             or not position.has_fix
+            or position.is_cached
             or position.latitude_deg is None
             or position.longitude_deg is None
         ):
-            raise ValueError("current navigation position is unavailable")
+            raise ValueError("current live navigation position is unavailable")
         return {
             "latitude": position.latitude_deg,
             "longitude": position.longitude_deg,

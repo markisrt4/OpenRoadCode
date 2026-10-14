@@ -33,3 +33,28 @@ class LocalTerrainState:
                         reference_height_m=self.reference_height_m, vertical_datum=self.vertical_datum,
                         display_mode="relative-relief")
         return document
+
+
+@dataclass(frozen=True, slots=True)
+class LocalTerrainMosaicState:
+    """Bounded collection of independently validated terrain grids."""
+
+    tiles: tuple[LocalTerrainState, ...]
+    attribution: str = "USGS 3DEP · The National Map"
+
+    def __post_init__(self):
+        if not 1 <= len(self.tiles) <= 64 or not self.attribution.strip():
+            raise ValueError("Terrain mosaic requires 1–64 attributed tiles")
+
+    def document(self):
+        reference = sum(tile.reference_height_m for tile in self.tiles) / len(self.tiles)
+        tiles = []
+        for tile in self.tiles:
+            document = tile.document()
+            document["reference_height_m"] = reference
+            tiles.append(document)
+        return {
+            "tiles": tiles,
+            "attribution": self.attribution,
+            "display_mode": "relative-relief",
+        }

@@ -27,7 +27,7 @@ def build_top_bar(
     theme: ThemeBundle,
     on_power: Callable[[], None],
     on_online_toggle: Callable[[], None] = lambda: None,
-) -> tuple[tk.Label, tk.Label, ConnectivityButton]:
+) -> tuple[tk.Label, tk.Label, tk.Label, tk.Label, ConnectivityButton]:
     """Build the branded top bar and return clock and weather labels."""
     ui = theme.ui
     bar = tk.Frame(root, bg=ui.surface_alt, height=TOP_BAR_HEIGHT)
@@ -80,14 +80,23 @@ def build_top_bar(
         font=("Sans", FONT_STATUS, "bold"),
     )
     weather.pack(side=tk.LEFT, padx=(0, 10))
-    tk.Label(
+    position = tk.Label(
         status,
-        text="GPS   BT   🚗",
+        text="GPS --   ◌",
         fg=ui.text_muted,
         bg=ui.surface_alt,
         font=("Sans", FONT_STATUS),
-    ).pack(side=tk.LEFT, padx=(0, 10))
-    online = ConnectivityButton(
+    )
+    position.pack(side=tk.LEFT, padx=(0, 6))
+    bluetooth = tk.Label(
+        status,
+        text="BT",
+        fg=ui.text_muted,
+        bg=ui.surface_alt,
+        font=("Sans", FONT_STATUS),
+    )
+    bluetooth.pack(side=tk.LEFT, padx=(0, 10))
+    online = ConnectivityButton(  # type: ignore[no-untyped-call]
         status, command=on_online_toggle, background=ui.control_background,
         active_background=ui.control_active, muted=ui.text_muted,
     )
@@ -107,7 +116,7 @@ def build_top_bar(
         font=("Sans", FONT_POWER, "bold"),
         cursor="hand2",
     ).pack(side=tk.LEFT)
-    return clock, weather, online
+    return clock, weather, position, bluetooth, online
 
 
 def build_footer(root: tk.Misc, *, theme: ThemeBundle) -> tuple[tk.Label, tk.Label]:

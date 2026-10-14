@@ -1,4 +1,4 @@
-name: Build Metro Detroit imagery
+name: Build Metro Detroit map data
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: metro-detroit-imagery-release
@@ -17,12 +17,9 @@ concurrency:
 
 jobs:
   build:
-    name: Build draft imagery release
+    name: Build draft map-data release
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    outputs:
-      release_tag: ${{ steps.release.outputs.tag }}
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -32,7 +29,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install imagery dependency
+      - name: Install map-data dependencies
         run: python -m pip install Pillow
 
       - name: Choose versioned release tag
@@ -62,64 +59,55 @@ jobs:
           python -m development.maps.install_region \
             --coverage metro-detroit \
             --build-only build-output/metro-detroit-imagery \
+            --detail \
             --yes
 
-      - name: Package checked imagery
+      - name: Download and validate tiled Metro Detroit terrain
+        run: |
+          python -m development.maps.install_terrain \
+            --coverage metro-detroit \
+            --build-only build-output/metro-detroit-terrain \
+            --yes
+
+      - name: Package checked map data
         run: |
           python -m tools.map_builder.builder.imagery_artifact \
             --coverage metro-detroit \
             --pack build-output/metro-detroit-imagery \
             --output build-output/artifacts/metro-detroit-imagery.zip
 
-      - name: Upload inspection copy
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.release.outputs.tag }}
-          path: |
-            build-output/artifacts/metro-detroit-imagery.zip
-            build-output/artifacts/metro-detroit-imagery.zip.json
-          if-no-files-found: error
-          retention-days: 14
-
-  publish-draft:
-    name: Create draft release
-    needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: write
-
-    steps:
-      - name: Download packaged imagery
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ needs.build.outputs.release_tag }}
-          path: build-output/artifacts
+          python -m tools.map_builder.builder.terrain_artifact \
+            --coverage metro-detroit \
+            --pack build-output/metro-detroit-terrain \
+            --output build-output/artifacts/metro-detroit-terrain.zip
 
       - name: Create draft release
         env:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.build.outputs.release_tag }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
         shell: bash
         run: |
           gh release create "$RELEASE_TAG" \
             build-output/artifacts/metro-detroit-imagery.zip \
             build-output/artifacts/metro-detroit-imagery.zip.json \
+            build-output/artifacts/metro-detroit-terrain.zip \
+            build-output/artifacts/metro-detroit-terrain.zip.json \
             --draft \
             --target "$GITHUB_SHA" \
-            --title "Metro Detroit imagery ${RELEASE_TAG#metro-detroit-imagery-}" \
-            --notes "Offline Metro Detroit overview imagery. Inspect the packaged image before publishing this draft release. Source provenance and checksums are included in the archive and descriptor."
+            --title "Metro Detroit offline map data ${RELEASE_TAG#metro-detroit-imagery-}" \
+            --notes "Offline Metro Detroit detail imagery and tiled USGS 3DEP terrain. Inspect both packages before publishing this draft release. Source provenance and checksums are included."
 
           descriptor_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/metro-detroit-imagery.zip.json"
           {
-            echo "## Draft imagery release"
+            echo "## Draft map-data release"
             echo
-            echo "Inspect the workflow artifact, then publish the draft release if the imagery is acceptable."
+            echo "Inspect the imagery and terrain assets on the draft release, then publish it if they are acceptable."
             echo
             echo "After publication, install it with:"
             echo '```bash'
             echo 'git switch navigation-cesium'
             echo "python -m development.maps.install_region --coverage metro-detroit --pack-manifest ${descriptor_url}"
+            echo "python -m development.maps.install_terrain --coverage metro-detroit --pack-manifest https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/metro-detroit-terrain.zip.json --yes"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"

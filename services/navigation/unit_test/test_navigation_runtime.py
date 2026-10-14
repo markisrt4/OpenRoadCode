@@ -125,6 +125,35 @@ def test_valid_position_fix_advances_guidance_and_session():
         runtime.close()
 
 
+def test_cached_position_does_not_advance_guidance():
+    route = _route()
+    publisher = Mock()
+    runtime = NavigationRuntime(
+        Mock(), publisher, source="test-navigation",
+        command_endpoint="inproc://navigation-runtime-cached-guidance-test",
+        route_planning_controller=Mock(),
+    )
+    request = RouteRequest(GeoPoint(42.0, -83.0), GeoPoint(42.1, -82.9))
+
+    try:
+        runtime._activate_route(request, route)
+        session = runtime._session_controller
+        assert session is not None
+        session.update = Mock(wraps=session.update)
+
+        runtime._update_guidance(SimpleNamespace(position=SimpleNamespace(
+            has_fix=True,
+            is_cached=True,
+            latitude_deg=42.0,
+            longitude_deg=-82.995,
+        )))
+
+        session.update.assert_not_called()
+        publisher.publish.assert_not_called()
+    finally:
+        runtime.close()
+
+
 def test_cancel_clears_active_session_state():
     route = _route()
     route_planner = Mock()

@@ -102,7 +102,7 @@
     if (buildings) buildings.source.show = snapshot.buildings_visible;
     tiledMap = snapshot.map_tiles ? window.ORCLocalMapTiles(viewer, snapshot.map_tiles, C,
       terrain?.heightAt, snapshot.buildings_visible) : null;
-    const buildingLabel = tiledMap ? "Tiled buildings: blue tagged, gold floor estimates, brown 9 m placeholders"
+    const buildingLabel = tiledMap ? "Tiled buildings: tagged heights; floor estimates appear close in; placeholders hidden"
       : buildings ? buildings.label : "buildings not installed";
     function bindVisibility(id, source) {
       const button = document.getElementById(id);
@@ -182,7 +182,7 @@
     document.querySelectorAll('nav button').forEach(button => { button.disabled = false; });
     const roadsButton=document.getElementById('roads');
     roadsButton.disabled=!snapshot.roads_available;
-    roadsButton.title=snapshot.roads_available?'Major roads, freeway references and place names':'Road overlay temporarily disabled while investigating rendering crashes';
+    roadsButton.title=snapshot.roads_available?'Major roads, freeway references and place names':'Install offline vector map data to enable roads and place names';
     if(snapshot.roads_available) {
       roadOverlay=window.ORCRoadOverlay(viewer,C,terrain?.heightAt,error=>{
         status.hidden=false;status.textContent='Road overlay unavailable: '+error.message;

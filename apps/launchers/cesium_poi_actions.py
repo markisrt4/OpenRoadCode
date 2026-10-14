@@ -12,6 +12,7 @@ from apps.launchers.local_imagery_pack import LocalImageryPack, detroit_pack_dir
 from apps.launchers.local_terrain_pack import load_terrain, preferred_terrain_directory
 from apps.launchers.local_building_pack import load_buildings, detroit_building_directory
 from apps.launchers.local_map_tiles_pack import load_viewer_tiles, preferred_tiles_directory
+from apps.launchers.local_road_overlay import LocalRoadOverlay
 from common.logging.logging_paths import logging_file_path
 from controllers.poi.poi_action_executor_if import PoiActionExecutorIf
 from ui.navigation.cesium_viewer_state import CesiumViewerState
@@ -54,11 +55,12 @@ class CesiumPoiActions(PoiActionExecutorIf):
             imagery = LocalImageryPack.load(imagery_dir) if not imagery_layers and (tiles is None or not any(t.imagery_available for t in tiles.state.tiles)) and imagery_dir.exists() else None
             terrain = load_terrain(terrain_dir) if terrain_dir.exists() else None
             buildings = load_buildings(building_dir) if tiles is None and building_dir.exists() else None
+            roads = LocalRoadOverlay.installed()
             display = os.environ.get('DISPLAY', ':1')
             resources = ExitStack()
             try:
                 server = CesiumViewerServer(sdk_directory(), state, imagery=imagery, imagery_layers=imagery_layers,
-                                             terrain=terrain, buildings=buildings, tiles=tiles)
+                                             terrain=terrain, buildings=buildings, tiles=tiles, roads=roads)
                 resources.callback(server.close)
                 profile = resources.enter_context(TemporaryDirectory(prefix='orc-cesium-poi-'))
                 browser = BrowserKioskLauncher(url=server.url, profile_path=profile,

@@ -15,6 +15,8 @@ def native(tmp_path,monkeypatch):
     for name in ('preferred_imagery_directory','preferred_terrain_directory','detroit_building_directory','preferred_tiles_directory'):
         monkeypatch.setattr(module,name,lambda *args:absent)
     monkeypatch.setattr(module,'load_imagery_stack',lambda:())
+    roads = Mock(name='roads')
+    monkeypatch.setattr(module.LocalRoadOverlay, 'installed', lambda: roads)
     monkeypatch.setattr(module,'sdk_directory',lambda:tmp_path/'sdk')
     monkeypatch.setattr(module,'logging_file_path',lambda app,name:tmp_path/name)
     browser=Mock()
@@ -48,9 +50,14 @@ def native(tmp_path,monkeypatch):
     embedder.supported.return_value=True
     embedder.embed.side_effect=lambda *args,**kwargs:events.append('window.embed')
     viewer=module.CesiumEmbeddedViewer(embedder=embedder)
-    yield SimpleNamespace(viewer=viewer,browser=browser,server=server,servers=servers,
+    yield SimpleNamespace(viewer=viewer,browser=browser,server=server,servers=servers,roads=roads,
         browsers=browsers,embedder=embedder,devtools=devtools,events=events)
     viewer.close()
+
+
+def test_installed_roads_are_passed_to_local_viewer(native):
+    native.viewer.open(CesiumViewerState(GeoPoint(0.7, -1.4)), 42, (800, 600))
+    assert native.servers.call_args.kwargs['roads'] is native.roads
 
 
 def state():

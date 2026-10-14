@@ -102,7 +102,8 @@ reports from replaced playback or an earlier source lifecycle. This adapter
 contains no GUI or bridge simulation configuration. See the
 [service README](../../services/navigation/README.md#local-route-playback).
 
-CarUi decorates either provider with `PersistentPositionSource`. It publishes
+CarUi and the navigation service decorate live providers with
+`PersistentPositionSource`. It publishes
 a recent last-known fix immediately at startup, then replaces it with live
 updates. Only valid live 2D/3D fixes are stored through `PositionSnapshotCache`
 and the generic `controllers.cache` storage layer. Restored states have
@@ -112,12 +113,22 @@ The default snapshot path and maximum age are:
 
 ```text
 ~/.cache/openroadcode/position
-604800 seconds (7 days)
+86400 seconds (24 hours)
 ```
 
-Override them with `CARUI_POSITION_CACHE_DIRECTORY` and
+The navigation service reads `[position_cache]` from `config/runtime.toml`.
+Cached fixes provide initial map and display context only: route origins and
+active guidance require a live fix. Override CarUi independently with
+`CARUI_POSITION_CACHE_DIRECTORY` and
 `CARUI_POSITION_CACHE_MAX_AGE_SECONDS`, or disable persistence with
 `CARUI_POSITION_CACHE=0`.
+
+Desktop host-location permission is exposed through a controller-owned Settings
+state/request contract. If the browser-position endpoint is unavailable, the
+controller offers semantic recovery rather than exposing an operator command.
+The launcher adapter asks the restricted localhost service-manager API to restart
+`openroadcode-navigation`, waits for the endpoint, and then opens the normal
+browser permission page. Widgets never access HTTP, systemd, or runit directly.
 
 ## Orientation Estimators
 

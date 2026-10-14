@@ -8,7 +8,7 @@ from pathlib import Path
 from common.xdg_paths import openroadcode_data_dir
 from common.navigation_data import navigation_data_root
 from ui.navigation.local_imagery_state import LocalImageryState
-from ui.navigation.local_terrain_state import LocalTerrainState
+from ui.navigation.local_terrain_state import LocalTerrainMosaicState, LocalTerrainState
 
 
 def detroit_terrain_directory():
@@ -24,9 +24,14 @@ def pine_knob_terrain_directory():
     return openroadcode_data_dir("map-packs", "pine-knob-terrain-v1")
 
 
+def metro_detroit_terrain_directory():
+    return openroadcode_data_dir("map-packs", "metro-detroit-terrain-active")
+
+
 def preferred_terrain_directory(destination=None):
     packs = navigation_data_root()/'maps/3d/packs'
-    candidates = (packs/'detroit-midtown-terrain', midtown_terrain_directory(),
+    candidates = (openroadcode_data_dir('map-packs','metro-detroit-terrain-active'),
+                  packs/'detroit-midtown-terrain', midtown_terrain_directory(),
                   packs/'detroit-downtown-terrain', detroit_terrain_directory(),
                   packs/'pine-knob-terrain', pine_knob_terrain_directory(),
                   packs/'rochester-terrain',openroadcode_data_dir('map-packs','rochester-terrain-v1'),
@@ -49,8 +54,45 @@ def preferred_terrain_directory(destination=None):
 def load_terrain(directory):
     root = Path(directory).resolve()
     manifest = json.loads((root / "manifest.json").read_text())
+    if manifest.get("schema") == 2 and manifest.get("layers") == ["terrain"]:
+        records = manifest.get("tiles")
+        if not isinstance(records, list) or not 1 <= len(records) <= 64:
+            raise ValueError("Terrain mosaic requires 1–64 tiles")
+        names = set()
+        tiles = []
+        for record in records:
+            if not isinstance(record, dict) or not isinstance(record.get("path"), str):
+                raise ValueError("Invalid terrain mosaic tile")
+            relative = Path(record["path"])
+            tile_root = (root / relative).resolve()
+            if (relative.is_absolute() or ".." in relative.parts or tile_root == root
+                    or not tile_root.is_relative_to(root) or record["path"] in names):
+                raise ValueError("Terrain tile must be a unique directory inside the pack")
+            names.add(record["path"])
+            state = _load_single_terrain(tile_root)
+            expected_bounds = record.get("bounds_deg")
+            actual_bounds = [math.degrees(value) for value in (
+                state.coverage.west_rad, state.coverage.south_rad,
+                state.coverage.east_rad, state.coverage.north_rad)]
+            if (not isinstance(expected_bounds, list) or len(expected_bounds) != 4
+                    or any(abs(float(a)-b) > 1e-9 for a, b in zip(expected_bounds, actual_bounds))):
+                raise ValueError("Terrain mosaic tile bounds do not match its manifest")
+            digest = hashlib.sha256((tile_root / "terrain.json").read_bytes()).hexdigest()
+            if record.get("sha256") != digest:
+                raise ValueError("Terrain mosaic tile checksum does not match")
+            tiles.append(state)
+        tiles = tuple(tiles)
+        return LocalTerrainMosaicState(tiles, str(manifest.get("attribution", "")))
     if manifest.get("schema") != 1:
         raise ValueError("Unsupported terrain schema")
+    return _load_single_terrain(root)
+
+
+def _load_single_terrain(root):
+    root = Path(root).resolve()
+    manifest = json.loads((root / "manifest.json").read_text())
+    if manifest.get("schema") != 1:
+        raise ValueError("Terrain mosaic children must use schema 1")
     payload = (root / "terrain.json").resolve()
     if not payload.is_relative_to(root):
         raise ValueError("Terrain data must remain inside the pack")

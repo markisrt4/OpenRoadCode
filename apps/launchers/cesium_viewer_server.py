@@ -21,7 +21,7 @@ _WEB = Path(__file__).resolve().parents[2] / "frontends/web/cesium"
 class CesiumViewerServer:
     """Own the local origin, immutable view state, and bounded serving lifecycle."""
 
-    def __init__(self, sdk: Path, state: CesiumViewerState, *, imagery=None, imagery_layers=(), terrain=None, buildings=None, tiles=None):
+    def __init__(self, sdk: Path, state: CesiumViewerState, *, imagery=None, imagery_layers=(), terrain=None, buildings=None, tiles=None, roads=None):
         self._sdk = require_sdk(sdk)
         self._state = state
         self._imagery = imagery
@@ -30,9 +30,7 @@ class CesiumViewerServer:
         self._terrain = terrain
         self._buildings = buildings
         self._tiles = tiles
-        # Disabled while isolating Termux:X11 crashes introduced by the overlay.
-        # Keep the base terrain/imagery/building viewer available.
-        self._roads = None
+        self._roads = roads
         self._token = secrets.token_urlsafe(32)
         self.close_requested = threading.Event()
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), partial(_Handler, owner=self))

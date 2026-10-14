@@ -27,7 +27,7 @@ def imagery_directory(coverage):
     return openroadcode_data_dir('map-packs', coverage+'-imagery-active')
 
 
-def install(coverage, *, update=False, artifact=None):
+def install(coverage, *, update=False, artifact=None, detail=False):
     """Validate a new revision before atomically switching the active symlink."""
     active = imagery_directory(coverage)
     if active.exists() and not update:
@@ -50,7 +50,7 @@ def install(coverage, *, update=False, artifact=None):
     else:
         download_overview(revision, bounds=bounds, title=title,
                           cache_directory=active.with_name(active.name+'.download'),
-                          image_size=(4096,4096) if coverage != 'metro-detroit' else (2048,1536))
+                          image_size=(4096,4096) if detail or coverage != 'metro-detroit' else (2048,1536))
     LocalImageryPack.load(revision)
     pending = active.parent / ('.active-'+uuid.uuid4().hex)
     try:
@@ -70,6 +70,7 @@ def main():
     parser.add_argument('--github-release', metavar='TAG', help='Install latest or a versioned published Metro Detroit GitHub Release')
     parser.add_argument('--pack-file', type=Path, help='Install a local .zip and its adjacent .zip.json without network access')
     parser.add_argument('--build-only', type=Path, help='Build imagery into this directory for packaging; do not activate it on this host')
+    parser.add_argument('--detail', action='store_true', help='Build 4096×4096 detail imagery, including Metro Detroit')
     args = parser.parse_args()
     if args.yes and not args.coverage:
         parser.error('--yes requires --coverage')
@@ -120,11 +121,11 @@ def main():
         if args.build_only:
             download_overview(args.build_only, bounds=bounds, title=title,
                               cache_directory=args.build_only.with_name(args.build_only.name+'.download'),
-                              image_size=(4096,4096) if coverage != 'metro-detroit' else (2048,1536))
+                              image_size=(4096,4096) if args.detail or coverage != 'metro-detroit' else (2048,1536))
             LocalImageryPack.load(args.build_only)
             print(f'Validated build output: {args.build_only}. Ready for imagery_artifact packaging.')
         else:
-            install(coverage, update=args.update, artifact=artifact)
+            install(coverage, update=args.update, artifact=artifact, detail=args.detail)
         return 0
     except (EOFError, KeyboardInterrupt):
         print('\nCancelled; active pack unchanged unless installation already completed.')

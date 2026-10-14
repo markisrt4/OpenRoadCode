@@ -64,6 +64,13 @@ def _download_image_server(destination, preset, *, size):
     if type(size) is not int or not 2 <= size <= 129:
         raise ValueError('Terrain grid size must be between 2 and 129')
     title, bounds = PRESETS[preset]
+    return download_bounds(destination, title, bounds, size=size)
+
+
+def download_bounds(destination, title, bounds, *, size=65):
+    """Download one explicitly bounded grid for a validated regional mosaic."""
+    if type(size) is not int or not 2 <= size <= 129:
+        raise ValueError('Terrain grid size must be between 2 and 129')
     if destination.exists():
         validate_terrain(destination)
         print(f"Terrain already installed: {destination}")
