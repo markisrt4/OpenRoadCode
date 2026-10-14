@@ -72,7 +72,7 @@ def main() -> int:
         )
         waterfall_ax.set_ylabel("History (frames)")
         waterfall_ax.set_xlabel("Frequency (MHz)")
-        fig.colorbar(waterfall_image, ax=waterfall_ax, label="Relative intensity")
+        fig.colorbar(waterfall_image, ax=[ax, waterfall_ax], label="Relative intensity")
         ax.set_ylabel("Relative power (dBFS)")
         ax.set_title("OpenRoadCode Native SDR Spectrum")
         ax.set_ylim(-110, 0)
