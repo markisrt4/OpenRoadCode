@@ -35,6 +35,24 @@ class WbfmMonoDemodulatorTest(unittest.TestCase):
         freqs = np.fft.rfftfreq(len(audio[1000:]), 1 / 48_000)
         self.assertLess(abs(freqs[int(np.argmax(spectrum))] - tone_hz), 20)
 
+    def test_streaming_matches_single_block(self) -> None:
+        rate = 2_400_000
+        count = 48_000
+        t = np.arange(count) / rate
+        iq = np.exp(1j * (2 * np.pi * 20_000 * t))
+        packed = np.empty(count * 2, dtype=np.uint8)
+        packed[::2] = np.rint(127.5 + 100 * iq.real).astype(np.uint8)
+        packed[1::2] = np.rint(127.5 + 100 * iq.imag).astype(np.uint8)
+        whole = WbfmMonoDemodulator().process(
+            IqBlock(packed.tobytes(), 104_300_000, rate, 1)
+        )
+        decoder = WbfmMonoDemodulator()
+        pieces = [
+            decoder.process(IqBlock(part.tobytes(), 104_300_000, rate, 1))
+            for part in np.array_split(packed, 12)
+        ]
+        np.testing.assert_allclose(np.concatenate(pieces), whole, atol=1e-5)
+
     def test_rejects_invalid_rate(self) -> None:
         with self.assertRaises(ValueError):
             WbfmMonoDemodulator(sample_rate_hz=1_000_000)
