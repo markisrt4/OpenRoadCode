@@ -180,9 +180,11 @@ def test_vehicle_fix_and_manual_camera_observation_use_owned_browser(native):
         native.viewer.update_position(None,True)
 
 
-def test_software_diagnostic_renderer_is_explicit_and_preserves_default(monkeypatch):
+def test_renderer_overrides_are_explicit_and_preserve_default(monkeypatch):
     monkeypatch.delenv('OPENROAD_CESIUM_RENDERER',raising=False)
     assert module._rendering_arguments()==()
+    monkeypatch.setenv('OPENROAD_CESIUM_RENDERER','hardware-override')
+    assert module._rendering_arguments()==('--ignore-gpu-blocklist',)
     monkeypatch.setenv('OPENROAD_CESIUM_RENDERER','software')
     flags=module._rendering_arguments()
     assert '--use-angle=swiftshader' in flags

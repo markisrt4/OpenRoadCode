@@ -478,6 +478,23 @@ git pull --ff-only
 python -m apps.orcUi
 ```
 
+Chromium normally applies its GPU safety list. On a separately qualified VMware
+SVGA3D VM where `chrome://gpu` confirms hardware WebGL after bypassing that list,
+launch the opt-in hardware path with:
+
+```bash
+git switch navigation-cesium
+OPENROAD_CESIUM_RENDERER=hardware-override ./runOrcUi
+```
+
+This passes `--ignore-gpu-blocklist`; it does not repair or certify the virtual
+GPU driver. Rendering corruption, context loss or GPU-process failure should be
+treated as a failed qualification. Use
+`OPENROAD_CESIUM_RENDERER=software ./runOrcUi` to return to the slower ANGLE
+SwiftShader fallback. With no variable, Chromium's normal safety decisions remain
+unchanged. Renderer selection, effective flags and the Chromium GPU report are
+recorded in `cesium-stages.log`.
+
 On Termux/X11, open Navigation and toggle Map to Terrain, or search for Pine Knob and use
 its 3D action. Verify it stays inside the map area; pan, pitch and relief controls
 should respond while ORC sidebar navigation remains usable. Resize ORC, switch

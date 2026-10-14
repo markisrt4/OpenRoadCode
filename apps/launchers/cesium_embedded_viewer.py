@@ -39,11 +39,13 @@ def _rendering_arguments():
     mode = os.environ.get('OPENROAD_CESIUM_RENDERER', 'default')
     if mode == 'default':
         return ()
+    if mode == 'hardware-override':
+        return ('--ignore-gpu-blocklist',)
     if mode == 'software':
         return ('--use-gl=angle', '--use-angle=swiftshader',
                 '--enable-unsafe-swiftshader', '--disable-gpu-compositing',
                 '--disable-features=Vulkan')
-    raise ValueError('OPENROAD_CESIUM_RENDERER must be default or software')
+    raise ValueError('OPENROAD_CESIUM_RENDERER must be default, hardware-override or software')
 
 
 class CesiumEmbeddedViewer:
