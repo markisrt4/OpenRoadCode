@@ -18,7 +18,7 @@ class WbfmMonoDemodulatorTest(unittest.TestCase):
         tone_hz = 1000
         count = 240_000
         t = np.arange(count) / rate
-        phase = 2 * np.pi * 25_000 / tone_hz * (1 - np.cos(2 * np.pi * tone_hz * t))
+        phase = 25_000 / tone_hz * (1 - np.cos(2 * np.pi * tone_hz * t))
         iq = np.exp(1j * phase)
         packed = np.empty(count * 2, dtype=np.uint8)
         packed[::2] = np.clip(np.rint(127.5 + 100 * iq.real), 0, 255).astype(np.uint8)
