@@ -10,6 +10,7 @@ Uses a compatibility-profile context. EGL/GLES integration is a later milestone.
 from __future__ import annotations
 
 import argparse
+import sys
 
 import numpy as np
 
@@ -170,10 +171,24 @@ def main() -> int:
             clock.tick(args.fps)
     except KeyboardInterrupt:
         pass
+    except RuntimeError as exc:
+        message = str(exc)
+        if "failed to open device" in message:
+            print(
+                "RTL-SDR unavailable: no accessible receiver found. "
+                "Connect the USB dongle and check device permissions. "
+                f"Details: {message}",
+                file=sys.stderr,
+            )
+        else:
+            print(f"SDR operation failed: {message}", file=sys.stderr)
+        return 1
     finally:
-        source.close()
-        GL.glDeleteTextures([texture])
-        pygame.quit()
+        try:
+            source.close()
+        finally:
+            GL.glDeleteTextures([texture])
+            pygame.quit()
     return 0
 
 
