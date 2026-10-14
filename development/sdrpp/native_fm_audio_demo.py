@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 
 import numpy as np
 
@@ -31,6 +32,10 @@ def main() -> int:
     source = RtlSdrSource()
     decoder = WbfmMonoDemodulator()
     samples_remaining = round(args.seconds * decoder.audio_rate_hz)
+    blocks = 0
+    dsp_total_s = 0.0
+    rf_total_s = 0.0
+    slow_blocks = 0
     try:
         source.open()
         source.set_sample_rate(2_400_000)
@@ -40,7 +45,15 @@ def main() -> int:
         print(f"Playing mono FM at {args.frequency / 1e6:.3f} MHz for {args.seconds:g}s")
         with sd.OutputStream(samplerate=48_000, channels=1, dtype="float32") as stream:
             while samples_remaining > 0:
-                pcm = decoder.process(source.read_iq())
+                block = source.read_iq()
+                started = time.perf_counter()
+                pcm = decoder.process(block)
+                elapsed = time.perf_counter() - started
+                duration = len(block.samples) / 2 / block.sample_rate_hz
+                blocks += 1
+                dsp_total_s += elapsed
+                rf_total_s += duration
+                slow_blocks += elapsed > duration
                 count = min(len(pcm), samples_remaining)
                 if count:
                     stream.write(np.ascontiguousarray((pcm[:count] * args.volume).reshape(-1, 1)))
@@ -52,6 +65,12 @@ def main() -> int:
         pass
     finally:
         source.close()
+        if blocks:
+            print(
+                f"DSP: {blocks} blocks, {dsp_total_s:.2f}s processing / "
+                f"{rf_total_s:.2f}s RF ({100 * dsp_total_s / rf_total_s:.1f}% "
+                f"of real-time budget), {slow_blocks} slow blocks"
+            )
     return 0
 
 
