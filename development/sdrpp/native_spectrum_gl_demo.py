@@ -10,7 +10,6 @@ Uses a compatibility-profile context. EGL/GLES integration is a later milestone.
 from __future__ import annotations
 
 import argparse
-import time
 
 import numpy as np
 
@@ -30,9 +29,13 @@ def main() -> int:
     parser.add_argument("--waterfall-min-db", type=float, default=-85)
     parser.add_argument("--waterfall-max-db", type=float, default=-15)
     parser.add_argument("--fps", type=int, default=30)
+    parser.add_argument("--peak-mode", choices=("hold", "fade", "off"), default="hold")
+    parser.add_argument("--peak-decay-db", type=float, default=0.5)
     args = parser.parse_args()
     if args.waterfall_rows < 1 or args.fps < 1:
         parser.error("--waterfall-rows and --fps must be positive")
+    if args.peak_decay_db <= 0:
+        parser.error("--peak-decay-db must be positive")
     if args.waterfall_min_db >= args.waterfall_max_db:
         parser.error("waterfall min dB must be below max dB")
 
@@ -47,7 +50,7 @@ def main() -> int:
     pygame.display.set_mode((1100, 720), pygame.OPENGL | pygame.DOUBLEBUF | pygame.RESIZABLE)
     pygame.display.set_caption("OpenRoadCode Native SDR | OpenGL")
     print("OpenGL renderer:", GL.glGetString(GL.GL_RENDERER).decode(errors="replace"))
-    print("Press R to reset peak hold; Esc to exit.")
+    print("P: cycle peak mode (hold/fade/off); R: reset peaks; Esc: exit.")
     GL.glDisable(GL.GL_DEPTH_TEST)
     GL.glEnable(GL.GL_TEXTURE_2D)
     texture = GL.glGenTextures(1)
@@ -74,7 +77,9 @@ def main() -> int:
     display = SpectrumDisplayProcessor(args.smoothing)
     source = RtlSdrSource()
     write_row = 0
-    filled = 0
+    peak_modes = ("hold", "fade", "off")
+    peak_mode = args.peak_mode
+    fading_peak = None
     running = True
     clock = pygame.time.Clock()
 
@@ -111,6 +116,12 @@ def main() -> int:
                         running = False
                     elif event.key == pygame.K_r:
                         display.reset_peaks()
+                        fading_peak = None
+                    elif event.key == pygame.K_p:
+                        peak_mode = peak_modes[(peak_modes.index(peak_mode) + 1) % len(peak_modes)]
+                        if peak_mode == "fade":
+                            fading_peak = None
+                        print(f"Peak mode: {peak_mode}")
             if not running:
                 break
             frame = analyzer.analyze(source.read_iq())
@@ -127,7 +138,6 @@ def main() -> int:
                 GL.GL_RGB, GL.GL_UNSIGNED_BYTE, rgb,
             )
             write_row = (write_row + 1) % rows
-            filled = min(filled + 1, rows)
             width, height = pygame.display.get_surface().get_size()
             GL.glViewport(0, 0, width, height)
             GL.glClearColor(0.035, 0.04, 0.055, 1)
@@ -138,7 +148,15 @@ def main() -> int:
             GL.glLoadIdentity()
             GL.glDisable(GL.GL_TEXTURE_2D)
             trace(traces.smoothed_db, (0.2, 0.7, 1))
-            trace(traces.peak_db, (1, 0.6, 0.2))
+            if peak_mode == "hold":
+                trace(traces.peak_db, (1, 0.6, 0.2))
+            elif peak_mode == "fade":
+                current = np.asarray(traces.smoothed_db, dtype=np.float32)
+                if fading_peak is None:
+                    fading_peak = current.copy()
+                else:
+                    np.maximum(current, fading_peak - args.peak_decay_db, out=fading_peak)
+                trace(tuple(fading_peak), (1, 0.6, 0.2))
             GL.glEnable(GL.GL_TEXTURE_2D)
             GL.glColor3f(1, 1, 1)
             # Newest row is at the top, including across ring-buffer wrap.
