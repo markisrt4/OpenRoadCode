@@ -141,14 +141,13 @@ def main() -> int:
             trace(traces.peak_db, (1, 0.6, 0.2))
             GL.glEnable(GL.GL_TEXTURE_2D)
             GL.glColor3f(1, 1, 1)
-            # Split texture at ring-buffer wrap: newest row remains at top.
-            top = write_row / rows
-            quad(-0.9, -0.05, top, top + (rows - write_row) / rows)
+            # Newest row is at the top, including across ring-buffer wrap.
+            fraction = write_row / rows
+            boundary = -0.05 - 0.85 * fraction
             if write_row:
-                # The older section occupies the remaining bottom area.
-                split = -0.9 + 0.85 * (write_row / rows)
-                quad(-0.9, split, 0, top)
-                quad(split, -0.05, top, 1)
+                quad(boundary, -0.05, 0, fraction)
+            if write_row < rows:
+                quad(-0.9, boundary, fraction, 1)
             pygame.display.flip()
             clock.tick(args.fps)
     except KeyboardInterrupt:
