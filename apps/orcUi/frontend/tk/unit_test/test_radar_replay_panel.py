@@ -85,24 +85,30 @@ def test_destroy_releases_grab_once_and_leaves_other_popups_alone():
         assert view.grab_release.call_count == int(owns_grab)
 
 
-def test_buttons_are_neutral_until_hovered_or_selected():
-    button = object.__new__(_TouchButton)
-    button._ui = theme_bundle(ThemeMode.DARK).ui
-    button._button = Mock()
-    button._button.cget.return_value = tk.NORMAL
-    button._selected = False
-    button._hovered = False
-    button._paint_background()
-    assert button._button.configure.call_args.kwargs['bg'] == button._ui.control_background
-    button._set_hover(True)
-    assert button._button.configure.call_args.kwargs['bg'] == button._ui.control_active
-    button._set_hover(False)
-    assert button._button.configure.call_args.kwargs['bg'] == button._ui.control_background
-    button.configure_button(selected=True)
-    assert button._button.configure.call_args.kwargs['bg'] == button._ui.control_active
-    button._button.cget.return_value = tk.DISABLED
-    button._set_hover(True)
-    assert button._button.configure.call_args.kwargs['bg'] == button._ui.control_background
+def test_hover_and_selected_buttons_remain_distinct_in_both_themes():
+    for mode in ThemeMode:
+        button = object.__new__(_TouchButton)
+        button._ui = theme_bundle(mode).ui
+        button._button = Mock()
+        button._button.cget.return_value = tk.NORMAL
+        button._selected = False
+        button._hovered = False
+        button._paint_background()
+        assert button._button.configure.call_args.kwargs['bg'] == button._ui.control_background
+        button._set_hover(True)
+        hover = button._button.configure.call_args.kwargs
+        assert hover['bg'] == hover['activebackground'] == button._ui.border
+        assert hover['bg'] != button._ui.control_active
+        button._set_hover(False)
+        assert button._button.configure.call_args.kwargs['bg'] == button._ui.control_background
+        button.configure_button(selected=True)
+        for hovered in (True, False):
+            button._set_hover(hovered)
+            selected = button._button.configure.call_args.kwargs
+            assert selected['bg'] == selected['activebackground'] == button._ui.control_active
+        button._button.cget.return_value = tk.DISABLED
+        button._set_hover(True)
+        assert button._button.configure.call_args.kwargs['bg'] == button._ui.control_background
 
 
 def test_playback_collapses_releases_map_input_and_stop_restores_full_controls():

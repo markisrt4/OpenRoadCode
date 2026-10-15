@@ -252,7 +252,7 @@ ORC's navigation RADAR button opens a centered, dark floating panel above the
 native map. Playback and Display tabs use 50-pixel touch targets and 14-point
 button labels. Replay speed (0.5×, 1×, 2×), colors and observed/forecast source
 are direct buttons rather than nested menus. Selected choices show a checkmark
-and blue selected background, synchronized from the existing radar presentation\nsnapshot. Inactive buttons use the neutral shell color; hover uses blue.
+and blue selected background, synchronized from the existing radar presentation\nsnapshot. Inactive buttons use the neutral shell color; hover uses a muted\nneutral highlight. Blue is reserved for selected options, including while hovered.
 
 The cloud shortcut remains available for quick visibility changes. The popup
 also has its own Radar on/off button, frame stepping, a larger timeline thumb,

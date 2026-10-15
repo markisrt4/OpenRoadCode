@@ -22,7 +22,7 @@ class _TouchButton(tk.Frame, UiWidget):
         self._hovered = False
         self._button = tk.Button(self, text=text, command=command, relief=tk.FLAT,
             bg=ui.control_background, fg=ui.control_text,
-            activebackground=ui.control_active, activeforeground=ui.text,
+            activebackground=ui.border, activeforeground=ui.text,
             disabledforeground=ui.text_muted, font=("Sans", 14, "bold"),
             padx=8, highlightthickness=0, bd=0,
             state=tk.NORMAL if command is not None else tk.DISABLED)
@@ -35,8 +35,14 @@ class _TouchButton(tk.Frame, UiWidget):
         self._paint_background()
 
     def _paint_background(self):
-        active = (self._selected or self._hovered) and self._button.cget("state") != tk.DISABLED
-        self._button.configure(bg=self._ui.control_active if active else self._ui.control_background)
+        enabled = self._button.cget("state") != tk.DISABLED
+        selected = self._selected and enabled
+        background = (self._ui.control_active if selected else self._ui.border
+                      if self._hovered and enabled else self._ui.control_background)
+        # Tk uses activebackground while the pointer is over the button, so it
+        # must preserve the same selected/hover distinction as the resting color.
+        self._button.configure(bg=background,
+            activebackground=self._ui.control_active if selected else self._ui.border)
 
     def configure_button(self, **options):
         self._selected = options.pop("selected", self._selected)
