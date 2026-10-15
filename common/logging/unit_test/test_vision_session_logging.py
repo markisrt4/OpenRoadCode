@@ -56,7 +56,7 @@ def test_stale_delivery_logs_original_operation_without_updating_ui(caplog):
     controller, dispatcher, ui, _, _, _ = session()
     with operation("old-session"):
         controller._publish(0, controller._state(VisionLifecycle.RUNNING))
-    callback = dispatcher.schedule_ui_callback.call_args.args[1]
+    callback = dispatcher.dispatch_ui.call_args.args[0]
     controller._generation += 1  # A newer session supersedes the queued delivery.
     ui.set_vision_state.reset_mock()
     callback()

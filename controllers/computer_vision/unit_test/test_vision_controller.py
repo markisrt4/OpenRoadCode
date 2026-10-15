@@ -23,10 +23,11 @@ class _Dispatcher:
     def __init__(self) -> None:
         self.callbacks = []
 
-    def schedule_ui_callback(self, delay_ms, callback):
-        assert delay_ms == 0
+    def dispatch_ui(self, callback):
         self.callbacks.append(callback)
-        return callback
+
+    def schedule_ui_callback(self, delay_ms, callback):
+        raise AssertionError("Worker deliveries must not call frontend timers")
 
     def run_all(self) -> None:
         while self.callbacks:
@@ -264,6 +265,27 @@ def test_frame_is_published_as_immutable_rgb_state_with_tracks() -> None:
     assert state.objects[0].track_id == 7
     assert state.inference_latency_s == 0.012
     controller.request_deactivate()
+
+
+def test_worker_delivery_is_queued_and_coalesces_until_ui_drains() -> None:
+    controller, dispatcher, ui, _controls = _controller(_Camera())
+    first = controller._state(VisionLifecycle.STARTING)
+    latest = controller._state(VisionLifecycle.RUNNING)
+    initial_count = len(ui.states)
+
+    def publish():
+        controller._publish(0, first)
+        controller._publish(0, latest)
+
+    thread = threading.Thread(target=publish)
+    thread.start()
+    thread.join(timeout=1)
+    assert not thread.is_alive()
+    assert len(ui.states) == initial_count
+    assert len(dispatcher.callbacks) == 1
+    dispatcher.run_all()
+    assert ui.states[initial_count:] == [latest]
+    controller.close()
 
 
 def test_target_state_requests_are_idempotent_and_do_not_touch_inactive_hardware() -> None:

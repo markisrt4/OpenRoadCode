@@ -328,7 +328,7 @@ class VisionController(VisionRequestHandlerIf):
                 return
             self._delivery_scheduled = True
         try:
-            self._dispatcher.schedule_ui_callback(0, self._deliver_pending)
+            self._dispatcher.dispatch_ui(self._deliver_pending)
             self._diagnostics.succeeded("dispatch")
         except Exception as error:
             self._diagnostics.failed("dispatch", error)

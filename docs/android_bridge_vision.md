@@ -59,7 +59,10 @@ Android exposure commands.
    and confirm streaming status. The current bridge stream is 1280x720 at a target
    of 30 FPS. Keep the bridge's camera service running when returning to Termux.
 2. Close ORC and other stream players such as ffplay. Bridge supports one HTTP
-   video client; a second player replaces the existing viewer.
+   video client; a second player replaces the existing viewer. Bridge's built-in
+   camera preview uses a separate camera surface and does not take this HTTP slot.
+   Do not run the CLI `--frames` check while Vision is open. Read-only `/status`
+   checks and `--check-only` do not consume the video stream.
 3. Activate the Python environment normally used to run ORC. Update and check the
    bridge/backend without taking the video slot:
 
@@ -81,6 +84,11 @@ live video, and the existing AI and NAV OVERLAY controls. Calculate a route in
 Navigation and return to Vision to check the maneuver overlay. Leaving Vision
 should release the HTTP video slot; returning should reconnect. Stop/start Camera
 in Bridge and check recovery by leaving and reopening Vision.
+
+Camera workers enqueue the latest snapshot through the thread-safe UI dispatcher;
+only the frontend thread renders it. A **VIDEO STALE** banner means the displayed
+frame has aged beyond the overlay threshold; it does not by itself establish
+whether the camera, decoder, UI delivery, or another HTTP viewer caused the delay.
 
 If diagnosis is needed, copy only the read-only listener/backend check:
 
