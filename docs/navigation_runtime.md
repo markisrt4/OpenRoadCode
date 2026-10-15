@@ -271,3 +271,12 @@ native dependency failure instead of claiming the GRIB driver is absent. Repair
 and align the Termux `gdal` and `openexr` packages, then verify `gdalinfo --version`
 and `gdalinfo --format GRIB` before retrying Forecast. The missing-driver message
 is reserved for a successful GDAL probe whose format list excludes GRIB.
+
+For a Termux GDAL/OpenEXR ABI mismatch, the optional
+`development/termux/build_weather_gdal.sh` builds a separate, checksum-pinned GDAL
+runtime with GRIB and JPEG2000 support and no OpenEXR driver. See the Termux README
+for installation and checks. Weather's `gdal_tools` resolver selects one complete
+private installation, with system-tool fallback only when no private runtime is
+configured. Probes and all HRRR decode/warp commands use the same resolution;
+widgets and the renderer do not change library search paths. Candidate activation
+is atomic and occurs only after a decode/reprojection smoke check passes.

@@ -394,3 +394,40 @@ configuration. The check runs inside Debian rather than against Termux's filesys
 An explicitly configured non-default directory is preserved. No checkout is moved
 or rebuilt; the setup script continues creating managed installations and refuses
 to modify unmanaged source trees. A compatibility symlink remains supported.
+
+## Isolated forecast-radar GDAL
+
+If packaged GDAL cannot start because its OpenEXR ABI no longer matches, build a
+separate ORC raster runtime. This is an explicit, potentially lengthy native
+Termux build, outside proot; one compiler job is used by default to limit memory.
+It installs compiler dependencies through `pkg` but does not replace Termux GDAL,
+OpenEXR, or their libraries. No global PATH or loader changes are made.
+
+```bash
+git switch orc-ui-polish
+git pull --ff-only origin orc-ui-polish
+bash development/termux/build_weather_gdal.sh
+bash development/termux/build_weather_gdal.sh --check
+./runOrcUi
+```
+
+GDAL 3.13.3 is downloaded from OSGeo and checked against its pinned SHA-256.
+The build excludes optional drivers and OpenEXR, retains GRIB, GeoTIFF, PNG and
+JPEG2000 support, and disables language bindings. Build logs and reusable build
+files live in `${XDG_STATE_HOME:-$HOME/.local/state}/openroadcode/gdal/`.
+Downloads are cached under `${XDG_CACHE_HOME:-$HOME/.cache}/openroadcode/gdal/`.
+
+Each candidate installs under `${XDG_DATA_HOME:-$HOME/.local/share}/openroadcode/tools/gdal/`.
+Before switching the `current` symlink, the installer checks the three tools,
+GRIB/JPEG2000 driver availability, and a tiny GRIB decode/reprojection/GeoTIFF
+round trip with valid numeric pixels. A failed build/check leaves the previous
+`current` installation unchanged. The smoke check does not download a live NOAA
+field; confirm Forecast in ORC after restarting. Temporary checks use `$TMPDIR`.
+`ORC_GDAL_BUILD_JOBS` can override the default of one job.
+
+ORC weather automatically uses the complete `current/bin` tool set, or the
+platform GDAL when no private installation exists. `OPENROAD_GDAL_ROOT` can select
+an explicit candidate root for diagnostics; incomplete private installations fail
+clearly rather than mixing different GDAL builds. The scoped wrappers put their
+own libraries first only for the native tool process and disable external GDAL
+plugins. Observed radar does not require this build.

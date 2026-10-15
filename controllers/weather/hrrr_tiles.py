@@ -16,15 +16,15 @@ from threading import Lock
 from urllib.parse import parse_qs, urlparse
 
 from PIL import Image
+from controllers.weather.gdal_tools import gdal_tool
 
 
 def check_gdal_tools():
     """Require native tools packaged by Termux, without Python GDAL bindings."""
     for tool in ("gdal_translate", "gdalwarp", "gdalinfo"):
-        if shutil.which(tool) is None:
-            raise RuntimeError("HRRR needs GDAL; in Termux run: pkg install -y gdal")
+        gdal_tool(tool)
     try:
-        result = subprocess.run(["gdalinfo", "--formats"], capture_output=True, text=True, timeout=20)
+        result = subprocess.run([gdal_tool("gdalinfo"), "--formats"], capture_output=True, text=True, timeout=20)
     except (OSError, subprocess.TimeoutExpired) as error:
         raise RuntimeError(f"GDAL capability check could not run: {error}") from error
     if result.returncode:
@@ -84,6 +84,7 @@ class HrrrTileSource:
 
     @staticmethod
     def _run(arguments):
+        arguments = [gdal_tool(arguments[0]), *arguments[1:]]
         try:
             result = subprocess.run(arguments, capture_output=True, text=True, timeout=180)
         except subprocess.TimeoutExpired as error:
