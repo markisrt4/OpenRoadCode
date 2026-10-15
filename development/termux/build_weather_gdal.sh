@@ -81,7 +81,7 @@ fi
 jobs="${ORC_GDAL_BUILD_JOBS:-1}"
 [[ "$jobs" =~ ^[1-9][0-9]*$ ]] || { echo "ORC_GDAL_BUILD_JOBS must be a positive integer." >&2; exit 2; }
 echo "Installing compiler/build dependencies through Termux; system GDAL/OpenEXR are not replaced."
-pkg install -y clang cmake ninja pkg-config proj libpng openjpeg curl tar coreutils util-linux python
+pkg install -y clang cmake ninja pkg-config proj libpng openjpeg json-c-static curl tar coreutils util-linux python
 mkdir -p "$ORC_GDAL_ROOT" "$ORC_GDAL_CACHE_HOME/openroadcode/gdal" "$ORC_GDAL_STATE_HOME/openroadcode/gdal"
 exec 9> "$ORC_GDAL_STATE_HOME/openroadcode/gdal/build.lock"
 flock -n 9 || { echo "Another ORC GDAL build is running." >&2; exit 1; }
