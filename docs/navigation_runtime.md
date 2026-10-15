@@ -265,3 +265,9 @@ Forecast startup failures retain their full explanation inside the radar popup,
 rather than only in the shell footer. An unavailable forecast points to Display →
 Observed; switching back clears the error after observed imagery loads. A missing
 GDAL GRIB driver is a device dependency issue, not an empty-weather forecast.
+
+If GDAL cannot start (for example a missing `libOpenEXR-3_4.so`), ORC reports the
+native dependency failure instead of claiming the GRIB driver is absent. Repair
+and align the Termux `gdal` and `openexr` packages, then verify `gdalinfo --version`
+and `gdalinfo --format GRIB` before retrying Forecast. The missing-driver message
+is reserved for a successful GDAL probe whose format list excludes GRIB.

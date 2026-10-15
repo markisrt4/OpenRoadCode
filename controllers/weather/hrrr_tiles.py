@@ -23,8 +23,14 @@ def check_gdal_tools():
     for tool in ("gdal_translate", "gdalwarp", "gdalinfo"):
         if shutil.which(tool) is None:
             raise RuntimeError("HRRR needs GDAL; in Termux run: pkg install -y gdal")
-    result = subprocess.run(["gdalinfo", "--formats"], capture_output=True, text=True, timeout=20)
-    if result.returncode or not re.search(r"^\s*GRIB\s", result.stdout, re.MULTILINE):
+    try:
+        result = subprocess.run(["gdalinfo", "--formats"], capture_output=True, text=True, timeout=20)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise RuntimeError(f"GDAL capability check could not run: {error}") from error
+    if result.returncode:
+        detail = (result.stderr or result.stdout or f"exit status {result.returncode}").strip()[-800:]
+        raise RuntimeError(f"GDAL cannot run; repair its installed dependencies: {detail}")
+    if not re.search(r"^\s*GRIB\s", result.stdout, re.MULTILINE):
         raise RuntimeError("Installed GDAL does not provide the GRIB decoder required for HRRR")
 
 
