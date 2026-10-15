@@ -42,6 +42,7 @@ class RtlSdrSource(SdrSourceIf):
         self._center_frequency_hz = 0
         self._sample_rate_hz = self.DEFAULT_SAMPLE_RATE_HZ
         self._gain_db: float | None = None
+        self._rtl_agc_enabled = False
         self._running = False
 
     def open(self) -> None:
@@ -62,6 +63,7 @@ class RtlSdrSource(SdrSourceIf):
         try:
             self.set_sample_rate(self._sample_rate_hz)
             self.set_gain(self._gain_db)
+            self.set_rtl_agc(self._rtl_agc_enabled)
         except Exception:
             self.close()
             raise
@@ -120,6 +122,17 @@ class RtlSdrSource(SdrSourceIf):
         gain_tenths_db = round(gain_db * 10.0)
         self._check(library.rtlsdr_set_tuner_gain(device, gain_tenths_db), "set tuner gain")
         self._gain_db = gain_db
+
+    def set_rtl_agc(self, enabled: bool) -> None:
+        """Configure RTL2832 digital AGC independently of tuner gain."""
+        device, library = self._require_device()
+        setter = getattr(library, "rtlsdr_set_agc_mode", None)
+        if setter is None:
+            if enabled:
+                raise RuntimeError("librtlsdr does not expose rtlsdr_set_agc_mode")
+            return
+        self._check(setter(device, int(enabled)), "set RTL digital AGC")
+        self._rtl_agc_enabled = enabled
 
     def start(self) -> None:
         device, library = self._require_device()
@@ -200,6 +213,10 @@ class RtlSdrSource(SdrSourceIf):
         for name in functions:
             if not hasattr(library, name):
                 raise RuntimeError(f"librtlsdr is missing required symbol {name}")
+
+        if isinstance(library, ctypes.CDLL) and hasattr(library, "rtlsdr_set_agc_mode"):
+            library.rtlsdr_set_agc_mode.argtypes = [ctypes.c_void_p, ctypes.c_int]
+            library.rtlsdr_set_agc_mode.restype = ctypes.c_int
 
         # Test doubles are normal Python callables and do not need ctypes metadata.
         if not isinstance(library, ctypes.CDLL):
