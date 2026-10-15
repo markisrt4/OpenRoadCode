@@ -99,7 +99,7 @@ class NavigationRadarControls:
             classic=self._radar_palette is RadarPalette.CLASSIC,
             on_speed=self._set_radar_speed, speed_value=self._radar_speed,
             ui=self._theme_bundle.ui,
-            on_source=self._on_radar_source,
+            on_source=self._on_radar_source, on_toggle=self._toggle_radar,
         )
         self._render_radar_state()
 
@@ -173,7 +173,9 @@ class NavigationRadarControls:
                          enabled=self._radar_enabled, playing=self._radar_playing,
                          forecast=self._radar_forecast, loading=self._radar_loading,
                          data_status=getattr(self, "_radar_data_status", ""),
-                         refreshed_at=getattr(self, "_radar_refreshed_at", None))
+                         refreshed_at=getattr(self, "_radar_refreshed_at", None),
+                         classic=self._radar_palette is RadarPalette.CLASSIC,
+                         speed=self._radar_speed)
 
         callback = self.__dict__.get("_on_weather_visibility_changed")
         if callback is not None:

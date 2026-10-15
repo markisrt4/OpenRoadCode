@@ -1,152 +1,231 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Compact radar timeline displayed above an embedded native map window."""
+"""Touch-sized radar controls floating above the embedded native map."""
 
 from datetime import datetime
+from functools import partial
 import tkinter as tk
 
-from .shell_metrics import FONT_CONTROL
 from ui.ui_widget import UiWidget
 
 
+class _TouchButton(tk.Frame, UiWidget):
+    """Fixed-height touch target with a theme-aware native Tk button."""
+
+    def __init__(self, parent, text, command, ui, width=None):
+        super().__init__(parent, bg=ui.control_background, height=50,
+                         **({"width": width} if width else {}))
+        self.pack_propagate(False)
+        self._button = tk.Button(self, text=text, command=command, relief=tk.FLAT,
+            bg=ui.control_active, fg=ui.control_text,
+            activebackground=ui.control_active, activeforeground=ui.text,
+            disabledforeground=ui.text_muted, font=("Sans", 14, "bold"),
+            padx=8, highlightthickness=0, bd=0,
+            state=tk.NORMAL if command is not None else tk.DISABLED)
+        self._button.pack(fill=tk.BOTH, expand=True)
+
+    def configure_button(self, **options):
+        self._button.configure(**options)
+
+
 class RadarReplayPanel(tk.Toplevel, UiWidget):
-    """Keep replay controls together in a collapsible floating panel."""
+    """Present existing radar requests in large, directly accessible buttons."""
 
     def __init__(self, owner, anchor, *, on_play, on_seek, on_live, on_close,
-                 on_palette, classic, on_speed, speed_value, ui, on_source=None):
+                 on_palette, classic, on_speed, speed_value, ui, on_source=None,
+                 on_toggle=None):
         super().__init__(owner, bg=ui.control_background)
         self.withdraw()
         self.overrideredirect(True)
-        self.transient(owner.winfo_toplevel())
+        self._owner_window = owner.winfo_toplevel()
+        self.transient(self._owner_window)
         self._frame_index = None
         self._on_seek = on_seek
         self._times = ()
-        self._anchor = anchor
         self._ui = ui
-        self._body = tk.Frame(self, bg=ui.control_background, padx=12, pady=8)
+        self._on_close = on_close
+        self._closed = False
+        self._tab = "playback"
+        self._body = tk.Frame(self, bg=ui.control_background, padx=12, pady=10)
         self._body.pack(fill=tk.BOTH, expand=True)
-        title = self._row()
-        self._title = self._label(title, "Radar history")
-        self._title.pack(side=tk.LEFT)
-        self._button(title, "×", on_close).pack(side=tk.RIGHT)
-        self._timestamp = self._label(self._body, "Turn radar on to load history")
-        self._timestamp.pack(anchor="w", pady=(3, 0))
-        self._data_status = self._label(self._body, "")
-        self._data_status.configure(wraplength=270, justify=tk.LEFT)
-        self._data_status.pack(anchor="w", pady=(0, 3))
+        self._body.grid_columnconfigure(0, weight=1)
+        title = self._row(self._body, 0)
+        self._label(title, "Radar controls", bold=True).pack(side=tk.LEFT)
+        self._button(title, "Close  ×", on_close, width=100).pack(side=tk.RIGHT)
+        summary = self._row(self._body, 1)
+        self._visibility = self._button(summary, "Radar off", on_toggle, width=140)
+        self._visibility.pack(side=tk.LEFT, padx=(0, 10))
+        self._timestamp = self._label(summary, "Turn radar on to load history")
+        self._timestamp.configure(wraplength=360, justify=tk.LEFT)
+        self._timestamp.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        tabs = self._row(self._body, 2)
+        self._tab_buttons = {}
+        for column, (key, text) in enumerate((("playback", "Playback"), ("display", "Display"))):
+            tabs.grid_columnconfigure(column, weight=1, uniform="radar-tabs")
+            button = self._button(tabs, text, partial(self._show_tab, key))
+            button.grid(row=0, column=column, sticky="ew", padx=(0, 4) if column == 0 else (4, 0))
+            self._tab_buttons[key] = button
+        self._pages = {key: tk.Frame(self._body, bg=ui.control_background)
+                       for key in ("playback", "display")}
+        for page in self._pages.values():
+            page.grid(row=3, column=0, sticky="nsew", pady=(6, 0))
+            page.grid_columnconfigure(0, weight=1)
+        playback = self._pages["playback"]
         self._value = tk.IntVar(self, value=0)
-        self._timeline = tk.Scale(
-            self._body, from_=0, to=1, orient=tk.HORIZONTAL, showvalue=False,
-            variable=self._value, command=self._scrub, resolution=1,
+        self._timeline = tk.Scale(playback, from_=0, to=1, orient=tk.HORIZONTAL,
+            showvalue=False, variable=self._value, command=self._scrub, resolution=1,
             bg=ui.control_background, fg=ui.control_text, troughcolor=ui.background,
-            highlightthickness=0, length=270, sliderlength=28, width=18,
-        )
-        self._timeline.pack(fill=tk.X, pady=4)
-        labels = self._row()
-        self._oldest = self._label(labels, "Earlier")
+            highlightthickness=0, bd=0, sliderlength=48, width=24)
+        self._timeline.grid(row=0, column=0, sticky="ew", pady=(4, 0))
+        labels = self._row(playback, 1)
+        self._oldest = self._label(labels, "Earlier", small=True)
         self._oldest.pack(side=tk.LEFT)
-        self._edge = self._label(labels, "Latest")
+        self._edge = self._label(labels, "Latest", small=True)
         self._edge.pack(side=tk.RIGHT)
-        actions = self._row()
+        actions = self._row(playback, 2)
+        self._previous = self._button(actions, "‹ Previous", partial(self._step, -1))
         self._play = self._button(actions, "▶ Play", on_play)
-        self._play.pack(side=tk.LEFT, pady=6)
-        self._live = self._button(actions, "Live", on_live)
-        self._live.pack(side=tk.RIGHT, pady=6)
-        options = tk.Menubutton(actions, text="Options", bg=ui.control_background,
-                                fg=ui.control_text, relief=tk.FLAT, padx=8,
-                                font=("Sans", FONT_CONTROL), highlightthickness=0, bd=0)
-        menu = tk.Menu(options, tearoff=False)
-        speed = tk.StringVar(self, value=f"{speed_value:g}×")
-        for text, factor in (("0.5×", 0.5), ("1×", 1.0), ("2×", 2.0)):
-            menu.add_radiobutton(label=f"Playback speed {text}", variable=speed, value=text,
-                                 command=lambda f=factor: on_speed(f))
-        options.configure(menu=menu)
-        options.pack(side=tk.RIGHT, padx=4)
-        palette = self._row()
-        self._classic = tk.BooleanVar(self, value=classic)
-        self._classic_toggle = tk.Checkbutton(
-            palette, text="Classic colors", variable=self._classic,
-            command=lambda: on_palette(self._classic.get()),
-            bg=ui.control_background, fg=ui.control_text,
-            activebackground=ui.control_background, activeforeground=ui.control_text,
-            selectcolor=ui.background, font=("Sans", FONT_CONTROL),
-            highlightthickness=0, pady=5,
-        )
-        self._classic_toggle.pack(anchor="w")
-        self._forecast = tk.BooleanVar(self, value=False)
-        self._forecast_toggle = tk.Checkbutton(
-            self._body, text="Forecast radar (experimental)", variable=self._forecast,
-            command=lambda: on_source(self._forecast.get()),
-            bg=ui.control_background, fg=ui.control_text, selectcolor=ui.background,
-            activebackground=ui.control_background, activeforeground=ui.control_text,
-            font=("Sans", FONT_CONTROL), highlightthickness=0, pady=5,
-            state=tk.NORMAL if on_source is not None else tk.DISABLED,
-        )
-        self._forecast_toggle.pack(anchor="w")
-        tk.Label(
-            self._body, text="Contiguous United States only",
-            bg=ui.control_background, fg=ui.control_text, font=("Sans", FONT_CONTROL),
-        ).pack(anchor="w")
+        self._next = self._button(actions, "Next ›", partial(self._step, 1))
+        for column, button in enumerate((self._previous, self._play, self._next)):
+            actions.grid_columnconfigure(column, weight=1, uniform="radar-transport")
+            button.grid(row=0, column=column, sticky="ew", padx=3)
+        self._live = self._button(playback, "Return to live radar", on_live)
+        self._live.grid(row=3, column=0, sticky="ew", pady=4)
+        self._label(playback, "Playback speed", small=True).grid(row=4, column=0, sticky="w")
+        self._speed_buttons = self._choices(playback, 5,
+            ((0.5, "0.5×"), (1.0, "1×"), (2.0, "2×")), on_speed)
+        display = self._pages["display"]
+        self._label(display, "Radar colors", small=True).grid(row=0, column=0, sticky="w")
+        self._palette_buttons = self._choices(display, 1,
+            ((False, "Universal"), (True, "Classic")), on_palette)
+        self._label(display, "Radar source", small=True).grid(row=2, column=0, sticky="w", pady=(8, 0))
+        self._source_buttons = self._choices(display, 3,
+            ((False, "Observed"), (True, "Forecast")), on_source)
+        self._label(display, "Forecast is experimental · Contiguous United States only",
+                    small=True).grid(row=4, column=0, sticky="ew", pady=(8, 0))
+        self._data_status = self._label(self._body, "", small=True)
+        self._data_status.configure(wraplength=540, justify=tk.LEFT, height=2)
+        self._data_status.grid(row=4, column=0, sticky="ew", pady=(6, 0))
+        self._paint_choices(self._speed_buttons, speed_value)
+        self._paint_choices(self._palette_buttons, classic)
+        self._show_tab("playback")
         self.bind("<Escape>", lambda _event: on_close())
+        self.bind("<Button-1>", self._outside_press, add="+")
         self.update_idletasks()
         self.reposition()
         self.deiconify()
         self.lift()
+        # A local grab forwards taps outside the popup, including the native map,
+        # so dismissal works without global application bindings.
+        self.grab_set()
+        self.focus_set()
 
-    def _row(self):
-        row = tk.Frame(self._body, bg=self._ui.control_background)
-        row.pack(fill=tk.X)
-        return row
+    def _row(self, parent, row):
+        frame = tk.Frame(parent, bg=self._ui.control_background)
+        frame.grid(row=row, column=0, sticky="ew", pady=3)
+        return frame
 
-    def _label(self, parent, text):
+    def _label(self, parent, text, *, small=False, bold=False):
         return tk.Label(parent, text=text, bg=self._ui.control_background,
-                        fg=self._ui.control_text, font=("Sans", FONT_CONTROL))
+            fg=self._ui.control_text, anchor="w", wraplength=540, justify=tk.LEFT,
+            font=("Sans", 11 if small else 14, "bold" if bold else "normal"))
 
-    def _button(self, parent, text, command):
-        return tk.Button(parent, text=text, command=command, relief=tk.FLAT,
-                         bg=self._ui.control_active, fg=self._ui.control_text,
-                         font=("Sans", FONT_CONTROL, "bold"), padx=10, pady=5, highlightthickness=0, bd=0)
+    def _button(self, parent, text, command, *, width=None):
+        return _TouchButton(parent, text, command, self._ui, width)
+
+    def _choices(self, parent, row, choices, callback):
+        frame = self._row(parent, row)
+        buttons = {}
+        for column, (value, text) in enumerate(choices):
+            frame.grid_columnconfigure(column, weight=1, uniform=f"radar-choices-{row}")
+            button = self._button(frame, text, partial(callback, value) if callback else None)
+            button.grid(row=0, column=column, sticky="ew", padx=3)
+            buttons[value] = (button, text)
+        return buttons
+
+    def _paint_choices(self, buttons, selected):
+        for value, (button, text) in buttons.items():
+            active = value == selected
+            button.configure_button(text=f"✓ {text}" if active else text,
+                fg=self._ui.accent_success if active else self._ui.control_text,
+                relief=tk.SUNKEN if active else tk.FLAT)
+
+    def _show_tab(self, key):
+        self._tab = key
+        self._pages[key].tkraise()
+        for name, button in self._tab_buttons.items():
+            button.configure_button(fg=self._ui.accent_success if name == key else self._ui.control_text,
+                                    relief=tk.SUNKEN if name == key else tk.FLAT)
 
     def reposition(self):
-        """Keep the popup below the radar menu and inside the screen."""
-        x = self._anchor.winfo_rootx() + self._anchor.winfo_width() - self.winfo_reqwidth()
-        y = self._anchor.winfo_rooty() + self._anchor.winfo_height() + 4
-        self.geometry(f"+{max(0, x)}+{max(0, y)}")
+        """Center within the application's visible screen allocation."""
+        owner = self._owner_window
+        width = min(600, max(280, owner.winfo_width() - 24), self.winfo_screenwidth())
+        self._data_status.configure(wraplength=max(1, width - 24))
+        self._timestamp.configure(wraplength=max(1, width - 190))
+        height = min(self.winfo_reqheight(), self.winfo_screenheight())
+        x = max(0, min(owner.winfo_rootx() + (owner.winfo_width() - width) // 2,
+                       self.winfo_screenwidth() - width))
+        y = max(0, min(owner.winfo_rooty() + (owner.winfo_height() - height) // 2,
+                       self.winfo_screenheight() - height))
+        self.geometry(f"{width}x{height}+{x}+{y}")
+
+    def _outside_press(self, event):
+        if not (self.winfo_rootx() <= event.x_root < self.winfo_rootx() + self.winfo_width()
+                and self.winfo_rooty() <= event.y_root < self.winfo_rooty() + self.winfo_height()):
+            self._on_close()
+            return "break"
+
+    def destroy(self):
+        """Release input ownership on close, navigation and parent destruction."""
+        if self._closed:
+            return
+        self._closed = True
+        if self.grab_current() is self:
+            self.grab_release()
+        super().destroy()
+
+    def _step(self, direction):
+        if self._times and self._frame_index is not None:
+            index = max(0, min(len(self._times) - 1, self._frame_index + direction))
+            if index != self._frame_index:
+                self._on_seek(index)
 
     def _scrub(self, value):
         index = int(float(value))
-        # Updating the slider for playback must not trigger another selection.
-        if self._times and index != self._frame_index:
+        if self._times and index != self._frame_index and 0 <= index < len(self._times):
             self._on_seek(index)
 
     def render(self, times, index, *, enabled, playing, forecast=False, loading=False,
-               data_status="", refreshed_at=None):
-        """Synchronize controls without treating playback as user scrubbing."""
+               data_status="", refreshed_at=None, classic=False, speed=1.0):
+        """Synchronize state without emitting any requests from rendering."""
         detail = data_status
         if refreshed_at is not None:
             refreshed = datetime.fromtimestamp(refreshed_at).strftime("%I:%M %p").lstrip("0")
             detail += f" · Data checked {refreshed}"
         self._data_status.configure(text=detail)
         self._times = times
-        self._forecast.set(forecast)
-        self._title.configure(text="Forecast radar" if forecast else "Radar history")
-        edge = (datetime.fromtimestamp(times[-1]).strftime("%I:%M %p").lstrip("0")
-                if forecast and times else "Latest")
-        self._edge.configure(text=edge)
         self._frame_index = index
+        self._visibility.configure_button(text="✓ Radar on" if enabled else "Radar off",
+            fg=self._ui.accent_success if enabled else self._ui.control_text)
+        self._paint_choices(self._palette_buttons, classic)
+        self._paint_choices(self._source_buttons, forecast)
+        self._paint_choices(self._speed_buttons, speed)
         available = enabled and bool(times)
         self._timeline.configure(to=max(1, len(times) - 1),
-                                 state=tk.NORMAL if available and len(times) > 1 else tk.DISABLED)
+            state=tk.NORMAL if available and len(times) > 1 else tk.DISABLED)
         if index is not None:
             self._value.set(index)
-        self._play.configure(text="Ⅱ Pause" if playing else "▶ Play",
-                             state=tk.NORMAL if available and len(times) > 1 else tk.DISABLED)
-        self._live.configure(text="Now" if forecast else "Live",
-                             state=tk.NORMAL if enabled or forecast else tk.DISABLED)
+        self._play.configure_button(text="Ⅱ Pause" if playing else "▶ Play",
+            state=tk.NORMAL if available and len(times) > 1 else tk.DISABLED)
+        self._previous.configure_button(state=tk.NORMAL if available and index is not None and index > 0 else tk.DISABLED)
+        self._next.configure_button(state=tk.NORMAL if available and index is not None and index < len(times) - 1 else tk.DISABLED)
+        self._live.configure_button(text="Return to now" if forecast else "Return to live radar",
+            state=tk.NORMAL if enabled or forecast else tk.DISABLED)
         if not enabled:
             label = "Turn radar on to load history"
-        elif not times or index is None:
+        elif not times or index is None or not 0 <= index < len(times):
             label = "Loading radar history…"
         else:
             frame = datetime.fromtimestamp(times[index]).astimezone()
@@ -157,5 +236,5 @@ class RadarReplayPanel(tk.Toplevel, UiWidget):
             if loading:
                 label += " · Loading…"
         self._timestamp.configure(text=label)
-        if times:
-            self._oldest.configure(text=datetime.fromtimestamp(times[0]).strftime("%I:%M %p").lstrip("0"))
+        self._oldest.configure(text=datetime.fromtimestamp(times[0]).strftime("%I:%M %p").lstrip("0") if times else "Earlier")
+        self._edge.configure(text=datetime.fromtimestamp(times[-1]).strftime("%I:%M %p").lstrip("0") if forecast and times else "Latest")
