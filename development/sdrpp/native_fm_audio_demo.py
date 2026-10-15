@@ -19,6 +19,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--frequency", type=int, default=104_300_000)
     parser.add_argument("--gain", type=float)
+    parser.add_argument("--rtl-agc", action="store_true", help="Enable RTL2832 digital AGC")
     parser.add_argument("--seconds", type=float, default=30.0)
     parser.add_argument("--volume", type=float, default=0.6)
     args = parser.parse_args()
@@ -41,6 +42,7 @@ def main() -> int:
         source.set_sample_rate(2_400_000)
         source.set_center_frequency(args.frequency)
         source.set_gain(args.gain)
+        source.set_rtl_agc(args.rtl_agc)
         source.start()
         print(f"Playing mono FM at {args.frequency / 1e6:.3f} MHz for {args.seconds:g}s")
         with sd.OutputStream(samplerate=48_000, channels=1, dtype="float32") as stream:
