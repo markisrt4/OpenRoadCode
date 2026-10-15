@@ -29,6 +29,7 @@ from ui.navigation.navigation_request_handler_if import NavigationRequestHandler
 from ui.navigation.navigation_request_handler_stub import NavigationRequestHandlerStub
 from ui.navigation.orientation_ui_if import HeadingReference, OrientationUiIf
 from ui.navigation.position_ui_if import PositionFix, PositionUiIf, SatelliteInfo
+from ui.navigation.poi_overlay_state import PoiOverlayState
 from ui.navigation.translation_ui_if import TranslationUiIf
 from ui.navigation.angular_velocity_ui_stub import AngularVelocityUiStub
 from ui.navigation.orientation_ui_stub import OrientationUiStub
@@ -96,6 +97,7 @@ __all__ = [
     "OrientationUiIf",
     "OrientationUiStub",
     "PositionFix",
+    "PoiOverlayState",
     "PositionUiIf",
     "PositionUiStub",
     "SatelliteInfo",

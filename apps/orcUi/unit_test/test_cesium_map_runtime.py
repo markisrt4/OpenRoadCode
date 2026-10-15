@@ -3,9 +3,10 @@ import threading
 from unittest.mock import Mock
 import pytest
 from apps.orcUi.cesium_map_runtime import CesiumMapRuntime
-from ui.navigation import GeoPoint
+from ui.navigation import GeoPoint, MapMarker, MapMarkerKind
 from ui.navigation.cesium_viewer_state import CesiumViewerState
 from ui.navigation.map_platform_if import MapPlatform
+from ui.navigation.poi_overlay_state import PoiOverlayState
 
 
 @pytest.fixture
@@ -210,6 +211,21 @@ def test_position_updates_are_coalesced_and_old_generation_cannot_follow(mounted
     assert viewer.update_position.call_count == 1
 
 
+def test_poi_results_are_cached_and_sent_only_to_the_active_3d_view(mounted):
+    runtime,native,viewer = mounted
+    overlay = PoiOverlayState((MapMarker('fuel',GeoPoint(.7,-1.4),
+                              MapMarkerKind.SEARCH_RESULT,'Fuel'),),'fuel')
+    runtime.update_poi_overlay(overlay)
+    flush(runtime)
+    viewer.update_poi_overlay.assert_not_called()
+    explore(runtime)
+    viewer.update_poi_overlay.assert_called_once_with(overlay)
+    replacement = PoiOverlayState((), '')
+    runtime.update_poi_overlay(replacement)
+    flush(runtime)
+    viewer.update_poi_overlay.assert_called_with(replacement)
+
+
 def test_one_browser_poll_timeout_keeps_terrain_and_success_resets_budget(mounted):
     runtime,native,viewer=mounted
     runtime._stop_tick.set()
@@ -234,4 +250,4 @@ def test_repeated_browser_poll_timeouts_restore_map_with_reason(mounted,caplog):
         runtime._worker.submit(runtime._tick,runtime._generation).result(timeout=3)
     assert runtime.state.active is MapPlatform.MAPLIBRE
     assert 'browser timed out' in runtime.state.status
-    assert 'Terrain returned to Map' in caplog.text
+    assert '3D map returned to Map' in caplog.text

@@ -187,6 +187,19 @@ def test_vehicle_fix_and_manual_camera_observation_use_owned_browser(native):
         native.viewer.update_position(None,True)
 
 
+def test_poi_overlay_is_sent_as_semantic_marker_document(native):
+    from ui.navigation import MapMarker, MapMarkerKind
+    from ui.navigation.poi_overlay_state import PoiOverlayState
+    native.viewer.open(state(),100,(640,320))
+    native.devtools.command.side_effect = None
+    native.devtools.command.return_value = {'result':{'value':True}}
+    overlay = PoiOverlayState((MapMarker('cafe',GeoPoint(.7,-1.4),
+                              MapMarkerKind.SEARCH_RESULT,'Cafe'),),'food')
+    native.viewer.update_poi_overlay(overlay)
+    expression = native.devtools.command.call_args.args[2]['expression']
+    assert 'ORCUpdatePois' in expression and 'Cafe' in expression and 'search_result' in expression
+
+
 def test_renderer_overrides_are_explicit_and_preserve_default(monkeypatch):
     monkeypatch.delenv('OPENROAD_CESIUM_RENDERER',raising=False)
     assert module._rendering_arguments()==()

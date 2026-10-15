@@ -22,6 +22,7 @@ from common.logging.logging_paths import logging_file_path
 from frontends.x11.x11_window_embedder import X11WindowEmbedder
 from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
 from ui.navigation.map_platform_if import ExplorationCameraAction
+from ui.navigation.poi_overlay_state import PoiOverlayState
 from ui.navigation import GeoPoint
 
 
@@ -237,6 +238,17 @@ class CesiumEmbeddedViewer:
             'returnByValue':True})
         if result.get('exceptionDetails') or result.get('result', {}).get('value') is not True:
             raise RuntimeError('3D vehicle tracking rejected the update')
+
+    def update_poi_overlay(self, state):
+        if self._devtools is None:
+            raise RuntimeError('3D POI overlay is not ready')
+        if not isinstance(state, PoiOverlayState):
+            raise TypeError('3D POI overlay requires PoiOverlayState')
+        result = self._devtools.command(self._target, 'Runtime.evaluate', {
+            'expression':f'window.ORCUpdatePois({json.dumps(state.document())})',
+            'returnByValue':True})
+        if result.get('exceptionDetails') or result.get('result', {}).get('value') is not True:
+            raise RuntimeError('3D POI overlay rejected the update')
 
     def close(self):
         resources, self._resources = self._resources, None

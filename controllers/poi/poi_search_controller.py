@@ -36,13 +36,16 @@ def _default_search_database():
 class PoiSearchController(PoiSearchControllerIf):
     """Discover POIs offline while keeping renderer selection independent."""
 
-    def __init__(self, source: MapPoiSource | None = None, *, search_source: PoiSearchSourceIf | None = None, position_provider: Callable[[], GeoPoint | None] | None = None) -> None:
+    def __init__(self, source: MapPoiSource | None = None, *, search_source: PoiSearchSourceIf | None = None,
+                 position_provider: Callable[[], GeoPoint | None] | None = None,
+                 viewport_search_enabled: Callable[[], bool] = lambda: True) -> None:
         self._diagnostics = ComponentLog("navigation.poi", "poi")
         self._search_operation_id = None
         self._source = source or MapPoiSource()
         self._search_source = search_source
         self._owns_search_source = search_source is None
         self._position_provider = position_provider or self._default_position
+        self._viewport_search_enabled = viewport_search_enabled
         self._active_category: PoiCategory | None = None
         self._pending_viewport_search: tuple[PoiCategory, TransitMode] | None = None
         self._pending_search_result: PoiSearchResult | None = None
@@ -57,7 +60,8 @@ class PoiSearchController(PoiSearchControllerIf):
 
         request_viewport = getattr(self._source, "request_search", None)
         poll_viewport = getattr(self._source, "poll_search_result", None)
-        if request_viewport is not None and poll_viewport is not None:
+        if (self._viewport_search_enabled() and request_viewport is not None
+                and poll_viewport is not None):
             self._pending_viewport_search = (category, transit_mode)
             request_viewport(category.name.casefold())
             return

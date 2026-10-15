@@ -20,9 +20,12 @@ from controllers.weather.radar_palette import RadarPalette
 from apps.orcUi.application_runtime import OrcUiApplicationRuntime, create_orc_ui_application_runtime
 from apps.orcUi.composition.core import CoreComposition, create_core_composition
 from apps.orcUi.cesium_map_runtime import CesiumMapRuntime
+from apps.orcUi.map_platform_requests import MapPlatformRequests
+from controllers.poi.poi_search_controller import PoiSearchController
 from apps.launchers.cesium_embedded_viewer import CesiumEmbeddedViewer
 from controllers.navigation.current_position import get_current_position
 from ui.navigation.cesium_viewer_state import CesiumViewerState
+from ui.navigation.map_platform_if import MapPlatform
 from ui.navigation import GeoPoint
 from apps.orcUi.composition.games import configure_games
 from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
@@ -223,12 +226,17 @@ def create_orc_ui_composition(
         cleanup.callback(overlays.close)
         navigation_maps = CesiumMapRuntime(core.map_runtime, CesiumEmbeddedViewer(),
             initial_view=lambda: CesiumViewerState(get_current_position() or
-                GeoPoint(math.radians(42.3314),math.radians(-83.0458)), label="Terrain", destination_marker_visible=False))
+                GeoPoint(math.radians(42.3314),math.radians(-83.0458)), label="3D map", destination_marker_visible=False))
         cleanup.callback(navigation_maps.close)
+        navigation_map_requests = MapPlatformRequests(
+            core.map_camera.request_handler, lambda _name, _args, _kwargs: None,
+            navigation_maps.update_poi_overlay)
         core.map_camera.observe_position(navigation_maps.update_position)
         navigation_places = NavigationPlacesFactory(
             online_allowed=lambda: app.online_mode.online,
             camera_observer=core.map_camera.request_handler.observe_camera,
+            search_factory=lambda: PoiSearchController(viewport_search_enabled=lambda:
+                navigation_maps.state.active is MapPlatform.MAPLIBRE),
             embedded_explore=navigation_maps.request_explore)
         cleanup.callback(navigation_places.close)
         navigation = NavigationScreen(
@@ -239,7 +247,7 @@ def create_orc_ui_composition(
             map_platform=navigation_maps,
             places_factory=navigation_places,
             tooltip_factory=TooltipFactory(app),
-            map_request_handler=core.map_camera.request_handler,
+            map_request_handler=navigation_map_requests,
             route_request_handler=core.route_request_handler,
             route_simulation_handler=core.route_request_handler,
             theme_bundle=lambda: theme_bundle(app.theme_mode),

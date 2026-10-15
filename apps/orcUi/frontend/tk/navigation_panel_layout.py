@@ -52,7 +52,7 @@ def build_navigation_panel(panel) -> None:
         panel._platform_toggle = MapPlatformToggle(shortcuts, handler=panel._map_platform, theme=panel._theme_bundle,
                                                    on_state=panel.apply_map_platform_state)
         panel._platform_toggle.pack(side=tk.LEFT, padx=(0,4))
-        panel._add_tooltip(panel._platform_toggle, "Switch between the street map and 3D terrain")
+        panel._add_tooltip(panel._platform_toggle, "Switch between the street map and local Cesium 3D map")
     tk.Label(
         bar,
         textvariable=panel._shortcut_status,

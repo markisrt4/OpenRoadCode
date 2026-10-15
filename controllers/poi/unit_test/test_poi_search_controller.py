@@ -112,6 +112,23 @@ def test_search_uses_offline_source_near_current_position() -> None:
     assert math.isclose(result.west, -83.02)
 
 
+def test_disabled_renderer_viewport_uses_nearby_offline_search() -> None:
+    map_source = FakeViewportMapPoiSource()
+    search_source = FakeSearchSource()
+    controller = PoiSearchController(
+        map_source,  # type: ignore[arg-type]
+        search_source=search_source,
+        position_provider=_position,
+        viewport_search_enabled=lambda: False,
+    )
+
+    controller.search(PoiCategory.FUEL)
+
+    assert map_source.requested_categories == []
+    assert len(search_source.queries) == 1
+    assert search_source.queries[0].category is PoiCategory.FUEL
+
+
 def test_search_without_position_returns_empty_result() -> None:
     search_source = FakeSearchSource()
     controller = PoiSearchController(

@@ -555,6 +555,17 @@ so a late successful handoff cannot close a replacement popup. Closed sessions
 discard completions. Canonical POI values include the validated website as well
 as missing-index error reporting. Platform launchers are injected by composition.
 
+Dynamic search markers cross renderer boundaries as immutable `PoiOverlayState`
+snapshots. Composition wraps the native map request handler so MapLibre remains
+the authoritative request consumer while the active Cesium runtime receives the
+same complete marker replacement. Cesium updates its owned browser through the
+embedded-viewer adapter; widgets do not evaluate JavaScript or inspect renderer
+state. While MapLibre is stopped for Cesium, `PoiSearchController` uses its
+existing offline nearby-position query instead of waiting for a viewport reply
+from the stopped renderer. Stale Cesium generations reject queued overlay work.
+Offline road tiles expose roads and settlement names through separate Cesium
+data sources and controls, allowing label rendering to be disabled independently.
+
 Termux updates retain `--renderer-only` and the configurable renderer build
 directory. Full navigation updates always rebuild the ORC-owned renderer, while
 MapLibre retains its build-state checks.

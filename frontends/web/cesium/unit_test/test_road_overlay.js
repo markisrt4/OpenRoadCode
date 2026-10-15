@@ -24,15 +24,17 @@ test('road overlay bounds requests, labels roads and places, and prevents attach
   render();assert.equal(pending.length,9);
   pending.shift()({ok:true,json:async()=>state});
   await new Promise(resolve=>setImmediate(resolve));
-  assert.equal(sources.length,1);
+  assert.equal(sources.length,2);
   assert.equal(sources[0].entities.values[1].label.text,'I-75');
   assert.equal(sources[0].entities.values[2].label.text,'Main Street');
   assert.equal(sources[0].entities.values[2].label.distanceDisplayCondition.far,1000);
-  assert.equal(sources[0].entities.values[3].label.text,'Detroit');
+  assert.equal(sources[1].entities.values[0].label.text,'Detroit');
+  assert.equal(sources[1].show,false,'places start disabled to reduce label work');
   assert.equal(sources[0].entities.values.filter(entity=>entity.polyline).length,1,
     'local streets do not create extra ground-clamped geometry');
   assert.equal(sources[0].entities.values[1].label.distanceDisplayCondition,undefined);
-  overlay.show=false;assert.equal(sources[0].show,false);
+  overlay.roadsVisible=false;assert.equal(sources[0].show,false);
+  overlay.placesVisible=true;assert.equal(sources[1].show,true);
   overlay.destroy();
   pending.forEach(resolve=>resolve({ok:true,json:async()=>state}));
   await new Promise(resolve=>setImmediate(resolve));
