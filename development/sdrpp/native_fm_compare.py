@@ -121,6 +121,63 @@ class OriginalDemodulator:
         return np.clip(audio, -1, 1).astype(np.float32)
 
 
+
+class WideDemodulator:
+    """480 kSPS discriminator to retain a wider broadcast FM channel."""
+
+    def __init__(self):
+        self.rf = signal.iirdesign(180_000, 240_000, 1, 65, fs=RATE, output="sos")
+        self.rf_zi = np.zeros((len(self.rf), 2), dtype=complex)
+        self.rf_phase = 0
+        self.audio = signal.iirdesign(15_000, 24_000, 1, 70, fs=480_000, output="sos")
+        self.audio_zi = np.zeros((len(self.audio), 2))
+        self.audio_phase = 0
+        self.prev = None
+        a = 1 - np.exp(-1 / (AUDIO_RATE * 75e-6))
+        self.de_b, self.de_a, self.de_zi = [a], [1, -(1-a)], np.zeros(1)
+
+    def process(self, block):
+        raw = np.frombuffer(block.samples, dtype=np.uint8).astype(np.float32)
+        iq = (raw[::2] - 127.5 + 1j * (raw[1::2] - 127.5)) / 127.5
+        rf, self.rf_zi = signal.sosfilt(self.rf, iq, zi=self.rf_zi)
+        n = len(rf)
+        rf = rf[self.rf_phase::5]
+        self.rf_phase = (self.rf_phase - n) % 5
+        if not len(rf):
+            return np.empty(0, dtype=np.float32)
+        prev = np.concatenate(([self.prev if self.prev is not None else rf[0]], rf[:-1]))
+        self.prev = complex(rf[-1])
+        fm = np.angle(rf * np.conj(prev))
+        audio, self.audio_zi = signal.sosfilt(self.audio, fm, zi=self.audio_zi)
+        n = len(audio)
+        audio = audio[self.audio_phase::10]
+        self.audio_phase = (self.audio_phase - n) % 10
+        audio *= 480_000 / (2 * np.pi * 75_000)
+        audio, self.de_zi = signal.lfilter(self.de_b, self.de_a, audio, zi=self.de_zi)
+        return np.clip(audio, -1, 1).astype(np.float32)
+
+
+class OffsetDemodulator:
+    """Mix the station to DC before running the selected demodulator."""
+
+    def __init__(self, decoder, station_offset_hz):
+        self.decoder = decoder
+        self.station_offset_hz = station_offset_hz
+        self.index = 0
+
+    def process(self, block):
+        raw = np.frombuffer(block.samples, dtype=np.uint8).astype(np.float32)
+        iq = (raw[::2] - 127.5) + 1j * (raw[1::2] - 127.5)
+        n = len(iq)
+        phase = -2j * np.pi * self.station_offset_hz / RATE
+        iq *= np.exp(phase * (np.arange(n) + self.index))
+        self.index += n
+        packed = np.empty(n * 2, dtype=np.uint8)
+        packed[::2] = np.clip(np.rint(127.5 + iq.real), 0, 255)
+        packed[1::2] = np.clip(np.rint(127.5 + iq.imag), 0, 255)
+        return self.decoder.process(IqBlock(packed.tobytes(), block.center_frequency_hz, RATE, 0))
+
+
 def capture(path: Path, frequency: int, gain: float | None, seconds: float) -> None:
     source = RtlSdrSource()
     remaining = round(seconds * RATE)
@@ -167,24 +224,31 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--frequency", type=int, default=104_300_000)
     parser.add_argument("--gain", type=float, default=None)
+    parser.add_argument("--offset-khz", type=int, default=0)
     parser.add_argument("--seconds", type=float, default=5.0)
     parser.add_argument("--output", type=Path, default=Path("fm_comparison"))
     parser.add_argument("--iq-file", type=Path, help="Reuse existing raw unsigned 8-bit interleaved IQ")
     args = parser.parse_args()
+    if abs(args.offset_khz) > 900:
+        parser.error("offset must be within 900 kHz")
     if args.seconds <= 0:
         parser.error("--seconds must be positive")
     args.output.mkdir(parents=True, exist_ok=True)
     recording = args.iq_file or args.output / "capture.u8"
     if args.iq_file is None:
-        print(f"Capturing {args.seconds:g}s at {args.frequency / 1e6:.3f} MHz, gain={args.gain} dB")
-        capture(recording, args.frequency, args.gain, args.seconds)
+        print(f"Capturing {args.seconds:g}s at {(args.frequency + args.offset_khz * 1000) / 1e6:.3f} MHz, gain={args.gain} dB")
+        capture(recording, args.frequency + args.offset_khz * 1000, args.gain, args.seconds)
     decoders = {
         "original": OriginalDemodulator(),
         "current": WbfmMonoDemodulator(),
         "no_dc": ConfigurableDemodulator(dc=False, limiter=False),
         "limited": ConfigurableDemodulator(dc=False, limiter=True),
         "limited_dc": ConfigurableDemodulator(dc=True, limiter=True),
+        "wide": WideDemodulator(),
     }
+    if args.offset_khz:
+        decoders["offset_current"] = OffsetDemodulator(WbfmMonoDemodulator(), -args.offset_khz * 1000)
+        decoders["offset_wide"] = OffsetDemodulator(WideDemodulator(), -args.offset_khz * 1000)
     results = []
     for name, decoder in decoders.items():
         result = run_variant(args.output / f"{name}.wav", decoder, recording, args.frequency)
