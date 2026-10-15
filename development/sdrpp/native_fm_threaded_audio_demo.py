@@ -9,6 +9,9 @@ queue drops are counted, but librtlsdr's internal USB overruns are not visible.
 from __future__ import annotations
 
 import argparse
+import json
+from pathlib import Path
+import wave
 from dataclasses import dataclass
 import queue
 import sys
@@ -32,6 +35,9 @@ class Counters:
     rf_seconds: float = 0.0
     iq_high_water: int = 0
     pcm_high_water: int = 0
+    record_dropped: int = 0
+    iq_recorded_bytes: int = 0
+    pcm_recorded_samples: int = 0
 
 
 def main() -> int:
@@ -46,6 +52,8 @@ def main() -> int:
     parser.add_argument("--volume", type=float, default=0.6)
     parser.add_argument("--iq-queue", type=int, default=32)
     parser.add_argument("--pcm-queue", type=int, default=32)
+    parser.add_argument("--record-dir", type=Path,
+                        help="Save same-session raw IQ (.u8), demodulated WAV, and metadata")
     args = parser.parse_args()
     if args.seconds <= 0 or not 0 <= args.volume <= 1:
         parser.error("seconds must be positive and volume in [0,1]")
@@ -66,6 +74,8 @@ def main() -> int:
     dsp_done = threading.Event()
     stats = Counters()
     failures: queue.Queue = queue.Queue()
+    record_queue: queue.Queue = queue.Queue(maxsize=128)
+    record_done = threading.Event()
     target_samples = int(round(args.seconds * 48_000))
 
     def capture():
@@ -73,6 +83,11 @@ def main() -> int:
             while not stop.is_set():
                 block = source.read_iq()
                 stats.captured += 1
+                if args.record_dir is not None:
+                    try:
+                        record_queue.put_nowait(("iq", bytes(block.samples)))
+                    except queue.Full:
+                        stats.record_dropped += 1
                 try:
                     iq_queue.put_nowait(block)
                     stats.iq_high_water = max(stats.iq_high_water, iq_queue.qsize())
@@ -100,6 +115,12 @@ def main() -> int:
                 stats.rf_seconds += len(block.samples) / (2 * block.sample_rate_hz)
                 stats.dsp_blocks += 1
                 if len(pcm):
+                    if args.record_dir is not None:
+                        try:
+                            record_queue.put_nowait(("pcm", np.ascontiguousarray(
+                                pcm, dtype=np.float32).tobytes()))
+                        except queue.Full:
+                            stats.record_dropped += 1
                     try:
                         pcm_queue.put_nowait(np.ascontiguousarray(
                             pcm * args.volume, dtype=np.float32
@@ -113,7 +134,37 @@ def main() -> int:
         finally:
             dsp_done.set()
 
+    def record():
+        try:
+            args.record_dir.mkdir(parents=True, exist_ok=True)
+            with (args.record_dir / "capture.u8").open("wb") as iq_file, wave.open(
+                str(args.record_dir / "demodulated.wav"), "wb"
+            ) as wav:
+                wav.setnchannels(1)
+                wav.setsampwidth(2)
+                wav.setframerate(48_000)
+                while not record_done.is_set() or not record_queue.empty():
+                    try:
+                        kind, data = record_queue.get(timeout=0.1)
+                    except queue.Empty:
+                        continue
+                    if kind == "iq":
+                        iq_file.write(data)
+                        stats.iq_recorded_bytes += len(data)
+                    else:
+                        # Save the *pre-volume* demodulated audio for offline analysis.
+                        audio = np.frombuffer(data, dtype=np.float32)
+                        pcm16 = np.round(np.clip(audio, -1, 1) * 32767).astype(
+                            "<i2"
+                        )
+                        wav.writeframesraw(pcm16.tobytes())
+                        stats.pcm_recorded_samples += len(audio)
+        except Exception as exc:
+            failures.put(("recorder", exc))
+            stop.set()
+
     threads = []
+    recorder_thread = None
     played = 0
     started = time.monotonic()
     try:
@@ -123,6 +174,11 @@ def main() -> int:
         source.set_gain(None if args.tuner_agc else args.gain)
         source.set_rtl_agc(args.rtl_agc)
         source.start()
+        if args.record_dir is not None:
+            recorder_thread = threading.Thread(
+                target=record, name="sdr-recorder", daemon=True
+            )
+            recorder_thread.start()
         threads = [
             threading.Thread(target=capture, name="sdr-capture", daemon=True),
             threading.Thread(target=process, name="sdr-dsp", daemon=True),
@@ -162,6 +218,36 @@ def main() -> int:
         else:
             print("Warning: capture thread did not stop; skipping unsafe close",
                   file=sys.stderr)
+        record_done.set()
+        if recorder_thread is not None:
+            recorder_thread.join(timeout=10.0)
+            if recorder_thread.is_alive():
+                print("Warning: recording not fully flushed", file=sys.stderr)
+            metadata = {
+                "frequency_hz": args.frequency,
+                "sample_rate_hz": 2_400_000,
+                "audio_rate_hz": 48_000,
+                "gain_db": None if args.tuner_agc else args.gain,
+                "tuner_agc": args.tuner_agc,
+                "rtl_agc": args.rtl_agc,
+                "volume": args.volume,
+                "iq_format": "u8_interleaved",
+                "wav_format": "pcm16_mono_pre_volume",
+                "captured_blocks": stats.captured,
+                "dsp_blocks": stats.dsp_blocks,
+                "iq_queue_dropped": stats.iq_dropped,
+                "pcm_queue_dropped": stats.pcm_dropped,
+                "record_queue_dropped": stats.record_dropped,
+                "iq_recorded_bytes": stats.iq_recorded_bytes,
+                "pcm_recorded_samples": stats.pcm_recorded_samples,
+                "recording_complete": not recorder_thread.is_alive(),
+            }
+            args.record_dir.mkdir(parents=True, exist_ok=True)
+            (args.record_dir / "metadata.json").write_text(
+                json.dumps(metadata, indent=2) + "\\n", encoding="utf-8"
+            )
+            print(f"Recordings: {args.record_dir} "
+                  f"(record queue drops={stats.record_dropped})")
         if not failures.empty():
             stage, exc = failures.get_nowait()
             print(f"{stage} failed: {exc}", file=sys.stderr)
