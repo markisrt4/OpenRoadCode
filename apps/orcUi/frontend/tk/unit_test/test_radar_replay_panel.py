@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 
 import tkinter as tk
 
-from apps.orcUi.frontend.tk.radar_replay_panel import RadarReplayPanel
+from apps.orcUi.frontend.tk.radar_replay_panel import RadarReplayPanel, _TouchButton
 from apps.orcUi.theme_runtime import theme_bundle
 from ui.theme import ThemeMode
 
@@ -18,7 +18,8 @@ def panel():
     view._on_seek = Mock()
     view._on_close = Mock()
     view._closed = False
-    for name in ('_data_status', '_visibility', '_timeline', '_value', '_play',
+    view._set_compact = Mock()
+    for name in ('_data_status', '_visibility', '_timeline', '_compact_timeline', '_value', '_play',
                  '_previous', '_next', '_live', '_timestamp', '_oldest', '_edge'):
         setattr(view, name, Mock())
     view._palette_buttons = {False: (Mock(), 'Universal'), True: (Mock(), 'Classic')}
@@ -82,3 +83,80 @@ def test_destroy_releases_grab_once_and_leaves_other_popups_alone():
             view.destroy()
             destroy.assert_called_once_with()
         assert view.grab_release.call_count == int(owns_grab)
+
+
+def test_buttons_are_neutral_until_hovered_or_selected():
+    button = object.__new__(_TouchButton)
+    button._ui = theme_bundle(ThemeMode.DARK).ui
+    button._button = Mock()
+    button._button.cget.return_value = tk.NORMAL
+    button._selected = False
+    button._hovered = False
+    button._paint_background()
+    assert button._button.configure.call_args.kwargs['bg'] == button._ui.control_background
+    button._set_hover(True)
+    assert button._button.configure.call_args.kwargs['bg'] == button._ui.control_active
+    button._set_hover(False)
+    assert button._button.configure.call_args.kwargs['bg'] == button._ui.control_background
+    button.configure_button(selected=True)
+    assert button._button.configure.call_args.kwargs['bg'] == button._ui.control_active
+    button._button.cget.return_value = tk.DISABLED
+    button._set_hover(True)
+    assert button._button.configure.call_args.kwargs['bg'] == button._ui.control_background
+
+
+def test_playback_collapses_releases_map_input_and_stop_restores_full_controls():
+    view = panel()
+    view._compact = False
+    view._body = Mock()
+    view._compact_body = Mock()
+    view.grab_current = Mock(return_value=view)
+    view.grab_release = Mock()
+    view.grab_set = Mock()
+    view.focus_set = Mock()
+    view.update_idletasks = Mock()
+    view.reposition = Mock()
+    del view._set_compact
+    view.render((100, 200, 300), 1, enabled=True, playing=True)
+    assert view._compact
+    view._body.pack_forget.assert_called_once()
+    view._compact_body.pack.assert_called_once()
+    view.grab_release.assert_called_once()
+    assert view._compact_timeline.configure.call_args.kwargs['state'] == tk.NORMAL
+    view._on_play = Mock()
+    view._stop_compact()
+    view._on_play.assert_called_once_with()
+    view.render((100, 200, 300), 1, enabled=True, playing=False)
+    assert not view._compact
+    view._compact_body.pack_forget.assert_called_once()
+    view._body.pack.assert_called_once()
+    view.grab_set.assert_called_once()
+    view._stop_compact()
+    assert view._on_play.call_count == 1
+
+
+def test_replay_frames_do_not_reposition_or_regrab_compact_bar():
+    view = panel()
+    view._compact = True
+    view.update_idletasks = Mock()
+    view.grab_set = Mock()
+    view.reposition = Mock()
+    RadarReplayPanel._set_compact(view, True)
+    view.update_idletasks.assert_not_called()
+    view.grab_set.assert_not_called()
+    view.reposition.assert_not_called()
+
+
+def test_compact_bar_is_positioned_at_bottom_of_map_panel():
+    view = panel()
+    view._compact = True
+    view._owner_panel = Mock()
+    for name, value in (('winfo_width', 900), ('winfo_height', 400),
+                        ('winfo_rootx', 100), ('winfo_rooty', 100)):
+        getattr(view._owner_panel, name).return_value = value
+    view.winfo_screenwidth = Mock(return_value=1280)
+    view.winfo_screenheight = Mock(return_value=720)
+    view.winfo_reqheight = Mock(return_value=64)
+    view.geometry = Mock()
+    view.reposition()
+    view.geometry.assert_called_once_with('720x64+190+424')

@@ -17,16 +17,31 @@ class _TouchButton(tk.Frame, UiWidget):
         super().__init__(parent, bg=ui.control_background, height=50,
                          **({"width": width} if width else {}))
         self.pack_propagate(False)
+        self._ui = ui
+        self._selected = False
+        self._hovered = False
         self._button = tk.Button(self, text=text, command=command, relief=tk.FLAT,
-            bg=ui.control_active, fg=ui.control_text,
+            bg=ui.control_background, fg=ui.control_text,
             activebackground=ui.control_active, activeforeground=ui.text,
             disabledforeground=ui.text_muted, font=("Sans", 14, "bold"),
             padx=8, highlightthickness=0, bd=0,
             state=tk.NORMAL if command is not None else tk.DISABLED)
         self._button.pack(fill=tk.BOTH, expand=True)
+        self._button.bind("<Enter>", lambda _event: self._set_hover(True))
+        self._button.bind("<Leave>", lambda _event: self._set_hover(False))
+
+    def _set_hover(self, hovered):
+        self._hovered = hovered
+        self._paint_background()
+
+    def _paint_background(self):
+        active = (self._selected or self._hovered) and self._button.cget("state") != tk.DISABLED
+        self._button.configure(bg=self._ui.control_active if active else self._ui.control_background)
 
     def configure_button(self, **options):
+        self._selected = options.pop("selected", self._selected)
         self._button.configure(**options)
+        self._paint_background()
 
 
 class RadarReplayPanel(tk.Toplevel, UiWidget):
@@ -39,6 +54,10 @@ class RadarReplayPanel(tk.Toplevel, UiWidget):
         self.withdraw()
         self.overrideredirect(True)
         self._owner_window = owner.winfo_toplevel()
+        self._owner_panel = owner
+        self._compact = False
+        self._playing = False
+        self._on_play = on_play
         self.transient(self._owner_window)
         self._frame_index = None
         self._on_seek = on_seek
@@ -107,6 +126,16 @@ class RadarReplayPanel(tk.Toplevel, UiWidget):
         self._data_status = self._label(self._body, "", small=True)
         self._data_status.configure(wraplength=540, justify=tk.LEFT, height=2)
         self._data_status.grid(row=4, column=0, sticky="ew", pady=(6, 0))
+        self._compact_body = tk.Frame(self, bg=ui.control_background, padx=12, pady=6)
+        self._compact_body.grid_columnconfigure(0, weight=1)
+        self._compact_timeline = tk.Scale(self._compact_body, from_=0, to=1,
+            orient=tk.HORIZONTAL, showvalue=False, variable=self._value,
+            command=self._scrub, resolution=1, bg=ui.control_background,
+            fg=ui.control_text, troughcolor=ui.background, highlightthickness=0,
+            bd=0, sliderlength=48, width=24)
+        self._compact_timeline.grid(row=0, column=0, sticky="ew", padx=(0, 10))
+        self._button(self._compact_body, "■ Stop", self._stop_compact, width=110).grid(
+            row=0, column=1)
         self._paint_choices(self._speed_buttons, speed_value)
         self._paint_choices(self._palette_buttons, classic)
         self._show_tab("playback")
@@ -147,28 +176,54 @@ class RadarReplayPanel(tk.Toplevel, UiWidget):
     def _paint_choices(self, buttons, selected):
         for value, (button, text) in buttons.items():
             active = value == selected
-            button.configure_button(text=f"✓ {text}" if active else text,
-                fg=self._ui.accent_success if active else self._ui.control_text,
+            button.configure_button(text=f"✓ {text}" if active else text, selected=active,
+                fg=self._ui.control_text,
                 relief=tk.SUNKEN if active else tk.FLAT)
 
     def _show_tab(self, key):
         self._tab = key
         self._pages[key].tkraise()
         for name, button in self._tab_buttons.items():
-            button.configure_button(fg=self._ui.accent_success if name == key else self._ui.control_text,
+            button.configure_button(selected=name == key,
+                                    fg=self._ui.control_text,
                                     relief=tk.SUNKEN if name == key else tk.FLAT)
 
+    def _set_compact(self, compact):
+        if compact == self._compact:
+            return
+        self._compact = compact
+        if compact:
+            self._body.pack_forget()
+            self._compact_body.pack(fill=tk.BOTH, expand=True)
+            if self.grab_current() is self:
+                self.grab_release()
+        else:
+            self._compact_body.pack_forget()
+            self._body.pack(fill=tk.BOTH, expand=True)
+            self.grab_set()
+            self.focus_set()
+        self.update_idletasks()
+        self.reposition()
+
+    def _stop_compact(self):
+        # Stop pauses at the current frame; the controller snapshot restores
+        # full controls, rather than resetting history or hiding the radar.
+        if self._playing and not self._closed:
+            self._on_play()
+
     def reposition(self):
-        """Center within the application's visible screen allocation."""
-        owner = self._owner_window
-        width = min(600, max(280, owner.winfo_width() - 24), self.winfo_screenwidth())
+        """Center settings; keep the slim playback strip near the map's bottom."""
+        owner = self._owner_panel if self._compact else self._owner_window
+        width = min(720 if self._compact else 600,
+                    max(280, owner.winfo_width() - 24), self.winfo_screenwidth())
         self._data_status.configure(wraplength=max(1, width - 24))
         self._timestamp.configure(wraplength=max(1, width - 190))
         height = min(self.winfo_reqheight(), self.winfo_screenheight())
         x = max(0, min(owner.winfo_rootx() + (owner.winfo_width() - width) // 2,
                        self.winfo_screenwidth() - width))
-        y = max(0, min(owner.winfo_rooty() + (owner.winfo_height() - height) // 2,
-                       self.winfo_screenheight() - height))
+        desired_y = (owner.winfo_rooty() + owner.winfo_height() - height - 12
+                     if self._compact else owner.winfo_rooty() + (owner.winfo_height() - height) // 2)
+        y = max(0, min(desired_y, self.winfo_screenheight() - height))
         self.geometry(f"{width}x{height}+{x}+{y}")
 
     def _outside_press(self, event):
@@ -208,13 +263,15 @@ class RadarReplayPanel(tk.Toplevel, UiWidget):
         self._times = times
         self._frame_index = index
         self._visibility.configure_button(text="✓ Radar on" if enabled else "Radar off",
-            fg=self._ui.accent_success if enabled else self._ui.control_text)
+            selected=enabled,
+            fg=self._ui.control_text)
         self._paint_choices(self._palette_buttons, classic)
         self._paint_choices(self._source_buttons, forecast)
         self._paint_choices(self._speed_buttons, speed)
         available = enabled and bool(times)
-        self._timeline.configure(to=max(1, len(times) - 1),
-            state=tk.NORMAL if available and len(times) > 1 else tk.DISABLED)
+        for timeline in (self._timeline, self._compact_timeline):
+            timeline.configure(to=max(1, len(times) - 1),
+                state=tk.NORMAL if available and len(times) > 1 else tk.DISABLED)
         if index is not None:
             self._value.set(index)
         self._play.configure_button(text="Ⅱ Pause" if playing else "▶ Play",
@@ -238,3 +295,5 @@ class RadarReplayPanel(tk.Toplevel, UiWidget):
         self._timestamp.configure(text=label)
         self._oldest.configure(text=datetime.fromtimestamp(times[0]).strftime("%I:%M %p").lstrip("0") if times else "Earlier")
         self._edge.configure(text=datetime.fromtimestamp(times[-1]).strftime("%I:%M %p").lstrip("0") if forecast and times else "Latest")
+        self._playing = enabled and playing
+        self._set_compact(self._playing)

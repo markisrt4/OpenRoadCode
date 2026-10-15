@@ -252,12 +252,11 @@ ORC's navigation RADAR button opens a centered, dark floating panel above the
 native map. Playback and Display tabs use 50-pixel touch targets and 14-point
 button labels. Replay speed (0.5×, 1×, 2×), colors and observed/forecast source
 are direct buttons rather than nested menus. Selected choices show a checkmark
-and accent color, synchronized from the existing radar presentation snapshot.
+and blue selected background, synchronized from the existing radar presentation\nsnapshot. Inactive buttons use the neutral shell color; hover uses blue.
 
 The cloud shortcut remains available for quick visibility changes. The popup
 also has its own Radar on/off button, frame stepping, a larger timeline thumb,
-Play/Pause and Live controls. Close, Escape or a tap outside dismisses it without
-changing radar state. Closing, navigating away or rebuilding for a theme change
+Play/Pause and Live controls. Starting playback collapses the full panel to a\nslim bar near the bottom of the map, with only the shared time slider and Stop.\nThe bar releases the input grab so map interactions remain available. Stop pauses\nat the current frame and restores the full controls; updates during playback do\nnot repeatedly move the bar or acquire input. Close, Escape or a tap outside the\nfull panel dismisses it without changing radar state. Closing, navigating away or rebuilding for a theme change
 releases its local input grab. Existing radar request contracts and provider
 behavior are unchanged; Weather overlay and Radio menus await device review of
 this first touch panel.
