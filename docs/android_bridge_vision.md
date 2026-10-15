@@ -90,6 +90,14 @@ frames, GPS coordinates or credential values.
 
 ## Focused validation
 
+If importing `cv2` fails with `dlopen failed` and a Protobuf symbol referenced by
+`libopencv_dnn.so`, the native OpenCV/Protobuf libraries are incompatible. Update
+the Termux package set, then reinstall its matching `libprotobuf`, `opencv`,
+`opencv-python` and `python-opencv-python` packages. This is a native package
+failure before any video decoding, not a failure of the Bridge camera endpoint.
+If it persists after package repair, collect installed package versions and the
+short import error before changing Python packages or rebuilding from source.
+
 ```bash
 git switch feature/navigation-upgrades
 python -m pytest -q hardware_io/camera/unit_test/test_android_bridge_camera.py apps/orcUi/composition/unit_test/test_vision_camera.py apps/orcUi/composition/unit_test/test_vision_optional.py controllers/computer_vision/unit_test/test_vision_controller.py apps/orcUi/composition/unit_test/test_vision_navigation.py

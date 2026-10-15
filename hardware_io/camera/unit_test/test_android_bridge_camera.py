@@ -169,3 +169,24 @@ def test_read_only_diagnostic_never_takes_the_video_client_slot(monkeypatch):
     from hardware_io.camera.component_test.android_bridge_camera_cli import main
     assert main() == 0
     cv2.VideoCapture.assert_not_called()
+
+
+@pytest.mark.parametrize('failure', [ImportError('dlopen failed: protobuf symbol'),
+                                    OSError('shared library could not load')])
+def test_native_dependency_failure_is_actionable_in_camera_and_cli(monkeypatch, capsys, failure):
+    import builtins
+    decoder(monkeypatch)
+    original_import = builtins.__import__
+    def importing(name, *args, **kwargs):
+        if name == 'cv2':
+            raise failure
+        return original_import(name, *args, **kwargs)
+    monkeypatch.setattr(builtins, '__import__', importing)
+    with pytest.raises(RuntimeError, match='OpenCV/libprotobuf'):
+        AndroidBridgeCamera().open()
+    monkeypatch.setattr(__import__('sys'), 'argv', ['bridge-check', '--check-only'])
+    from hardware_io.camera.component_test.android_bridge_camera_cli import main
+    assert main() == 1
+    stderr = capsys.readouterr().err
+    assert 'OpenCV/libprotobuf' in stderr
+    assert 'Traceback' not in stderr

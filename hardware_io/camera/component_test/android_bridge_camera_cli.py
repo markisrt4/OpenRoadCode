@@ -26,6 +26,11 @@ def main() -> int:
             import cv2
         except ModuleNotFoundError as exc:
             raise RuntimeError('OpenCV is unavailable in this Python environment') from exc
+        except (ImportError, OSError) as exc:
+            raise RuntimeError(
+                'OpenCV is installed but its native libraries cannot load. '
+                'On Termux, update and reinstall matching OpenCV/libprotobuf packages.'
+            ) from exc
         registry = getattr(cv2, 'videoio_registry', None)
         if (registry is None or not hasattr(registry, 'hasBackend')
                 or not registry.hasBackend(cv2.CAP_FFMPEG)
