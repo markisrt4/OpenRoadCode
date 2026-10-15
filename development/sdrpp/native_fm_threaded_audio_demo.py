@@ -244,7 +244,7 @@ def main() -> int:
             }
             args.record_dir.mkdir(parents=True, exist_ok=True)
             (args.record_dir / "metadata.json").write_text(
-                json.dumps(metadata, indent=2) + "\\n", encoding="utf-8"
+                json.dumps(metadata, indent=2) + "\n", encoding="utf-8"
             )
             print(f"Recordings: {args.record_dir} "
                   f"(record queue drops={stats.record_dropped})")
