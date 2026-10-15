@@ -47,6 +47,7 @@ class NavigationRadarControls:
         self._radar_palette = state.palette
         self._radar_data_status = state.data_status
         self._radar_refreshed_at = state.refreshed_at
+        self._radar_status = state.status
         classic_var = getattr(self, "_classic_radar_var", None)
         if classic_var is not None:
             classic_var.set(state.palette == RadarPalette.CLASSIC)
@@ -175,7 +176,8 @@ class NavigationRadarControls:
                          data_status=getattr(self, "_radar_data_status", ""),
                          refreshed_at=getattr(self, "_radar_refreshed_at", None),
                          classic=self._radar_palette is RadarPalette.CLASSIC,
-                         speed=self._radar_speed)
+                         speed=self._radar_speed,
+                         status=getattr(self, "_radar_status", ""))
 
         callback = self.__dict__.get("_on_weather_visibility_changed")
         if callback is not None:

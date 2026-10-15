@@ -259,9 +259,9 @@ class RadarReplayPanel(tk.Toplevel, UiWidget):
             self._on_seek(index)
 
     def render(self, times, index, *, enabled, playing, forecast=False, loading=False,
-               data_status="", refreshed_at=None, classic=False, speed=1.0):
+               data_status="", refreshed_at=None, classic=False, speed=1.0, status=""):
         """Synchronize state without emitting any requests from rendering."""
-        detail = data_status
+        detail = status or data_status
         if refreshed_at is not None:
             refreshed = datetime.fromtimestamp(refreshed_at).strftime("%I:%M %p").lstrip("0")
             detail += f" · Data checked {refreshed}"
@@ -286,7 +286,9 @@ class RadarReplayPanel(tk.Toplevel, UiWidget):
         self._next.configure_button(state=tk.NORMAL if available and index is not None and index < len(times) - 1 else tk.DISABLED)
         self._live.configure_button(text="Return to now" if forecast else "Return to live radar",
             state=tk.NORMAL if enabled or forecast else tk.DISABLED)
-        if not enabled:
+        if status and forecast and not enabled:
+            label = "Forecast unavailable · choose Observed in Display"
+        elif not enabled:
             label = "Turn radar on to load history"
         elif not times or index is None or not 0 <= index < len(times):
             label = "Loading radar history…"

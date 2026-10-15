@@ -260,3 +260,8 @@ Play/Pause and Live controls. Starting playback collapses the full panel to a\ns
 releases its local input grab. Existing radar request contracts and provider
 behavior are unchanged; Weather overlay and Radio menus await device review of
 this first touch panel.
+
+Forecast startup failures retain their full explanation inside the radar popup,
+rather than only in the shell footer. An unavailable forecast points to Display →
+Observed; switching back clears the error after observed imagery loads. A missing
+GDAL GRIB driver is a device dependency issue, not an empty-weather forecast.

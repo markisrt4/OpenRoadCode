@@ -62,6 +62,18 @@ def test_steps_and_scrubbing_remain_within_available_frames():
     view._on_seek.assert_not_called()
 
 
+def test_forecast_failure_shows_actual_error_and_observed_recovery():
+    view = panel()
+    failure = "Radar unavailable: Installed GDAL does not provide the GRIB decoder required for HRRR"
+    view.render((), None, enabled=False, playing=False, forecast=True,
+                data_status="Radar unavailable", status=failure)
+    assert view._data_status.configure.call_args.kwargs['text'] == failure
+    assert 'Observed' in view._timestamp.configure.call_args.kwargs['text']
+    view.render((100, 200), 1, enabled=True, playing=False, data_status="Imagery loaded")
+    assert view._data_status.configure.call_args.kwargs['text'] == 'Imagery loaded'
+    assert 'Observed' not in view._timestamp.configure.call_args.kwargs['text']
+
+
 def test_only_outside_taps_dismiss_popup():
     view = panel()
     for name, value in (('winfo_rootx', 100), ('winfo_rooty', 100),
