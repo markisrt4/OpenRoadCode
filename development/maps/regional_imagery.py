@@ -13,6 +13,21 @@ from apps.launchers.local_imagery_pack import LocalImageryPack
 from development.maps.download_detroit_imagery import MAX_BYTES, NoImageryCoverage, download as download_image
 
 
+def _save_overview(image, output, *, transparent):
+    """Encode bounded imagery below the runtime cap while preserving gap alpha."""
+    if not transparent:
+        with image.convert('RGB') as opaque:
+            opaque.save(output, format='JPEG', quality=90)
+        return
+    # Lossless PNG frequently exceeds 20 MiB for 4096px aerial photography.
+    # WebP retains the transparent no-coverage cells with bounded lossy imagery.
+    for quality in (88, 82, 76, 70, 64):
+        image.save(output, format='WEBP', quality=quality, method=4, exact=True)
+        if output.stat().st_size <= MAX_BYTES:
+            return
+    raise ValueError('Transparent regional imagery cannot fit the 20 MiB runtime limit')
+
+
 def download(destination, *, bounds, title, cache_directory, image_size=(2048,1536)):
     # Keep large exports away from ImageServer: each request covers one sixteenth
     # of the envelope and produces one sixteenth of the final pixel count.
@@ -83,12 +98,8 @@ def download(destination, *, bounds, title, cache_directory, image_size=(2048,15
         with TemporaryDirectory(dir=destination.parent, prefix='.overview-') as temporary:
             prepared = Path(temporary)/'pack'
             prepared.mkdir()
-            output = prepared/('imagery.png' if gaps else 'imagery.jpg')
-            if gaps:
-                overview.save(output, format='PNG')
-            else:
-                with overview.convert('RGB') as opaque:
-                    opaque.save(output, format='JPEG', quality=90)
+            output = prepared/('imagery.webp' if gaps else 'imagery.jpg')
+            _save_overview(overview, output, transparent=bool(gaps))
             records = [record for manifest in manifests for record in manifest['source_records']]
             attribution = ' · '.join(dict.fromkeys(manifest['attribution'] for manifest in manifests))
             suffix = f' · {len(gaps)} coverage gaps' if gaps else ''
@@ -97,6 +108,7 @@ def download(destination, *, bounds, title, cache_directory, image_size=(2048,15
                         'sha256':hashlib.sha256(output.read_bytes()).hexdigest(),
                         'source_records':records, 'downloaded_at':datetime.now(timezone.utc).isoformat(),
                         'assembly':'4×4 north-first bounded exports; source years may differ by tile',
+                        'encoding':'WebP with alpha' if gaps else 'JPEG',
                         'bytes':output.stat().st_size, 'missing_coverage':gaps}
             (prepared/'manifest.json').write_text(json.dumps(manifest, indent=2))
             for tile in sorted(cache.iterdir()):

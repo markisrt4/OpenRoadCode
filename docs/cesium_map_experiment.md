@@ -689,7 +689,8 @@ Regional envelopes can include areas with no approved US NAIP sources (for
 example, across the border or over water). If a complete catalog contains no
 NAIP/USDA source for an overview piece, the builder leaves that piece transparent
 and records its bounds and source evidence in `missing_coverage`. Such overviews
-use PNG, with a coverage-gap count in the title. It does not substitute partner
+use size-bounded WebP with alpha, with a coverage-gap count in the title. This
+avoids lossless PNG exceeding the viewer's 20 MiB image limit. It does not substitute partner
 imagery or invent ground detail. Undated identifiable NAIP, invalid rights,
 incomplete catalogs and network failures are not treated as coverage gaps. A
 region with no supported imagery at all still fails. Re-running reuses completed
