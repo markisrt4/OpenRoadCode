@@ -90,6 +90,13 @@ only the frontend thread renders it. A **VIDEO STALE** banner means the displaye
 frame has aged beyond the overlay threshold; it does not by itself establish
 whether the camera, decoder, UI delivery, or another HTTP viewer caused the delay.
 
+Vision continuously drains the Bridge decoder on a dedicated reader thread and
+keeps only one unread frame. Slow image processing skips intermediate frames
+instead of leaving them queued in the HTTP/decoder buffers. This bounds ORC's
+decoded-frame backlog, but cannot remove delay already inside the encoder,
+transport, or decoder if decoding itself cannot keep up. The standalone CLI still
+reads sequentially for its short decoder check.
+
 If diagnosis is needed, copy only the read-only listener/backend check:
 
 ```bash

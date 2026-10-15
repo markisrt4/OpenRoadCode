@@ -6,14 +6,14 @@ from unittest.mock import patch
 from unittest.mock import Mock
 import pytest
 from apps.orcUi.composition.vision_camera import create_vision_camera
-from hardware_io.camera.android_bridge_camera import AndroidBridgeCamera
+from hardware_io.camera.latest_frame_camera import LatestFrameCamera
 from hardware_io.camera.v4l2_camera import V4L2Camera
 from hardware_io.camera.software_camera_controls import SoftwareCameraControls
 
 
 def test_termux_defaults_to_the_bridge_without_opening_it():
     camera, controls, label = create_vision_camera({'PREFIX': '/data/data/com.termux/files/usr'})
-    assert isinstance(camera, AndroidBridgeCamera)
+    assert isinstance(camera, LatestFrameCamera)
     assert isinstance(controls, SoftwareCameraControls)
     assert not camera.is_open and label == 'Android Bridge camera'
 
@@ -46,7 +46,7 @@ def test_termux_composition_wires_bridge_frames_into_existing_vision_controller(
             patch('apps.orcUi.composition.vision.VisionController') as controller:
         composition = configure_vision(Mock())
         camera, controls = controller.call_args.args[2:4]
-        assert isinstance(camera, AndroidBridgeCamera)
+        assert isinstance(camera, LatestFrameCamera)
         assert isinstance(controls, SoftwareCameraControls)
         assert controller.call_args.kwargs['source_label'] == 'Android Bridge camera'
         assert not camera.is_open
