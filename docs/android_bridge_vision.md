@@ -30,8 +30,12 @@ so it does not start that browser-motion listener.
 ## Decoder and lifecycle
 
 OpenCV must include the FFmpeg video backend and support open/read timeout
-properties (OpenCV 4.5.2 or later). The existing Vision processing/model dependencies
-are still required. The adapter imports OpenCV lazily and reports missing backend
+properties (OpenCV 4.5.2 or later). OpenCV and Pillow are required for live video;
+AI detection/tracking libraries are optional. Missing tracking dependencies or a
+failed model load starts live video with **AI unavailable** and the AI button
+disabled. Navigation overlays and camera controls keep working. Restart ORC after
+installing AI dependencies to retry initialization. The adapter imports OpenCV
+lazily and reports missing backend
 support on the Vision error screen rather than using an unbounded decoder.
 
 Before opening video, `/status` must report `state=streaming`, `codec=h264`, and

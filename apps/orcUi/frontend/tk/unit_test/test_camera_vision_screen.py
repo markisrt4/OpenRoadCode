@@ -45,3 +45,18 @@ def test_overlay_button_emits_semantic_visibility_request():
     screen._navigation_handler = Mock()
     screen._request_navigation_change()
     screen._navigation_handler.request_enabled.assert_called_once_with(False)
+
+
+def test_camera_only_state_disables_ai_but_still_renders_the_video():
+    screen = object.__new__(CameraVisionScreen)
+    screen._state = VisionUiState(lifecycle=VisionLifecycle.RUNNING, ai_enabled=False,
+                                 ai_available=False, ai_unavailable_reason='Tracking unavailable')
+    screen._mode_label = Mock()
+    screen._ai_button = Mock()
+    screen._status_label = Mock()
+    screen._draw_image = Mock()
+    screen._render_state()
+    assert screen._ai_button.configure.call_args.kwargs['text'] == 'AI unavailable'
+    assert screen._ai_button.configure.call_args.kwargs['state'] == 'disabled'
+    assert 'Tracking unavailable' in screen._status_label.configure.call_args.kwargs['text']
+    screen._draw_image.assert_called_once()

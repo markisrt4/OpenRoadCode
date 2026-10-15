@@ -63,15 +63,9 @@ def configure_vision(app: OrcUiApp) -> VisionComposition:
     ingress = VisionNavigationIngress(navigation)
     try:
         camera, controls, source_label = create_vision_camera()
-        detector = LazyYoloObjectDetector(
-            readiness,
-            confidence=0.10,
-            image_size=640,
-        )
-        tracker = ByteTrackObjectTracker(frame_rate=30)
     except (RuntimeError, ImportError, OSError, ValueError) as exc:
-        # VISION is optional; absent inference dependencies or unusable weights
-        # should disable this destination rather than abort the entire cockpit.
+        # An invalid camera configuration disables this optional destination.
+        # AI availability is handled separately below so live video can continue.
         _LOG.warning("VISION unavailable: %s", exc)
         screen.set_vision_state(VisionUiState(
             lifecycle=VisionLifecycle.ERROR, ai_enabled=False,
@@ -80,15 +74,27 @@ def configure_vision(app: OrcUiApp) -> VisionComposition:
         app.register_screen("VISION", screen, before="CONTROLS")
         return VisionComposition(screen=screen, controller=None, model_readiness=readiness,
                                  navigation=navigation, ingress=ingress)
+    worker = None
+    prepare_model = None
+    ai_reason = ""
+    try:
+        detector = LazyYoloObjectDetector(readiness, confidence=0.10, image_size=640)
+        tracker = ByteTrackObjectTracker(frame_rate=30)
+        worker = PerceptionWorker(detector, tracker)
+        prepare_model = detector.prepare
+    except (RuntimeError, ImportError, OSError, ValueError) as exc:
+        _LOG.warning("VISION AI unavailable; live camera remains available: %s", exc)
+        ai_reason = str(exc)
     controller = VisionController(
         app,
         VisionNavigationUiAdapter(screen, navigation),
         camera,
         controls,
         CameraFrameProcessor(),
-        PerceptionWorker(detector, tracker),
+        worker,
         source_label=source_label,
-        prepare_model=detector.prepare,
+        prepare_model=prepare_model,
+        ai_unavailable_reason=ai_reason,
     )
     app.register_screen("VISION", screen, before="CONTROLS")
     return VisionComposition(

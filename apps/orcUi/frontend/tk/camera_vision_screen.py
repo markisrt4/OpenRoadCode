@@ -126,7 +126,7 @@ class CameraVisionScreen(TkScreen, VisionUiIf, NavigationOverlayUiIf):
 
         controls = tk.Frame(panel, bg=theme.surface, width=180)
         controls.grid(row=0, column=1, sticky="ns")
-        controls.grid_propagate(False)
+        controls.pack_propagate(False)
         tk.Label(
             controls, text="CAMERA / VISION", bg=theme.surface, fg=theme.text,
             font=("Sans", 12, "bold"),
@@ -175,6 +175,7 @@ class CameraVisionScreen(TkScreen, VisionUiIf, NavigationOverlayUiIf):
         self._navigation_button.pack(fill=tk.X, padx=8, pady=(8, 2))
         self._status_label = tk.Label(
             controls, text="", justify=tk.LEFT, anchor="nw",
+            wraplength=164,
             bg=theme.surface, fg=theme.text_muted, font=("Monospace", 9),
         )
         self._status_label.pack(fill=tk.X, padx=8, pady=(12, 4))
@@ -210,8 +211,10 @@ class CameraVisionScreen(TkScreen, VisionUiIf, NavigationOverlayUiIf):
             self._mode_label.configure(text=f"Mode: {text}")
         if self._ai_button is not None:
             self._ai_button.configure(
-                text="Disable AI" if state.ai_enabled else "Enable AI",
-                state=tk.NORMAL if state.lifecycle is not VisionLifecycle.STARTING else tk.DISABLED,
+                text=("AI unavailable" if not state.ai_available else
+                      "Disable AI" if state.ai_enabled else "Enable AI"),
+                state=(tk.NORMAL if state.ai_available and state.lifecycle is not VisionLifecycle.STARTING
+                       else tk.DISABLED),
             )
         if self._status_label is not None:
             oldest = max((item.track_age_s or 0.0 for item in state.objects), default=0.0)
@@ -225,7 +228,11 @@ class CameraVisionScreen(TkScreen, VisionUiIf, NavigationOverlayUiIf):
                 f"SRC {state.source_label}"
             )
             self._status_label.configure(
-                text=f"{state.status_message}\n{metrics}" if state.status_message else metrics
+                text="\n".join(part for part in (
+                    state.status_message,
+                    f"AI unavailable: {state.ai_unavailable_reason}" if not state.ai_available else "",
+                    metrics,
+                ) if part)
             )
         self._draw_image()
 

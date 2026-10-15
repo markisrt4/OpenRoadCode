@@ -9,6 +9,11 @@ typed maneuver direction, turn distance, road name, speed and GPS status. See
 [navigation over live video](../../docs/vision_navigation_overlay.md) for timestamp
 alignment, lifecycle behavior and device validation.
 
+Live camera viewing and navigation overlays work without AI tracking/model
+dependencies. Missing AI dependencies or failed model preparation leaves the
+camera running, reports AI availability separately, and disables the AI control.
+Camera-only mode does not start a perception worker or submit frames for inference.
+
 ## Debian/Ubuntu setup
 
 Use the project setup script rather than installing dependencies by hand:

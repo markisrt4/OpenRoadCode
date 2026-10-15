@@ -144,6 +144,68 @@ def _wait(event: threading.Event) -> None:
     assert event.wait(1.0)
 
 
+def test_camera_only_mode_delivers_frames_and_rejects_ai_enable_without_a_worker():
+    camera = _Camera(CameraFrame(np.zeros((1, 2, 3), dtype=np.uint8), 4.0, 9))
+    dispatcher, ui, controls = _Dispatcher(), _Ui(), _Controls()
+    controller = VisionController(
+        dispatcher, ui, camera, controls, CameraFrameProcessor(CameraMode.DAY), None,
+        source_label='Android Bridge camera', ai_unavailable_reason='Tracking unavailable',
+    )
+    controller.request_ai_enabled(True)
+    controller.request_activate()
+    _wait(camera.read_once)
+    time.sleep(0.01)
+    dispatcher.run_all()
+    state = ui.states[-1]
+    assert state.lifecycle is VisionLifecycle.RUNNING and state.image is not None
+    assert not state.ai_available and not state.ai_enabled and not state.objects
+    assert state.ai_unavailable_reason == 'Tracking unavailable'
+    assert state.source_label == 'Android Bridge camera'
+    controller.request_deactivate()
+    dispatcher.run_all()
+    assert ui.states[-1].lifecycle is VisionLifecycle.INACTIVE
+    assert not camera.is_open
+
+
+def test_failed_model_preparation_falls_back_to_live_video():
+    camera = _Camera(CameraFrame(np.zeros((1, 2, 3), dtype=np.uint8), 4.0, 9))
+    worker = _Worker()
+    def unavailable():
+        raise RuntimeError('Model dependencies missing')
+    controller, dispatcher, ui, _ = _controller(camera, worker, prepare_model=unavailable)
+    controller.request_activate()
+    _wait(camera.read_once)
+    time.sleep(0.01)
+    dispatcher.run_all()
+    state = ui.states[-1]
+    assert state.image is not None and state.lifecycle is VisionLifecycle.RUNNING
+    assert not state.ai_available and not state.ai_enabled
+    assert state.ai_unavailable_reason == 'Model dependencies missing'
+    assert worker.starts == 0
+    controller.request_deactivate()
+
+
+def test_model_failure_after_hide_cannot_enable_camera_or_publish_a_fallback():
+    loading, release = threading.Event(), threading.Event()
+    def unavailable():
+        loading.set()
+        release.wait(2)
+        raise RuntimeError('Late model failure')
+    camera = _Camera()
+    controller, dispatcher, ui, _ = _controller(camera, prepare_model=unavailable)
+    controller.request_activate()
+    _wait(loading)
+    deactivating = threading.Thread(target=controller.request_deactivate)
+    deactivating.start()
+    _wait(camera.closed)
+    release.set()
+    deactivating.join(1)
+    assert not deactivating.is_alive()
+    dispatcher.run_all()
+    assert not camera.open_attempted.is_set()
+    assert ui.states[-1].lifecycle is VisionLifecycle.INACTIVE
+
+
 def test_hide_invalidates_queued_active_state_and_releases_camera() -> None:
     """Deliver only inactive state when hide overtakes queued startup state."""
     camera = _Camera()

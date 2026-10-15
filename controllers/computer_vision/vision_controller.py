@@ -42,10 +42,11 @@ class VisionController(VisionRequestHandlerIf):
         camera: CameraIf,
         controls: CameraControlsIf,
         processor: CameraFrameProcessor,
-        worker: PerceptionWorker,
+        worker: PerceptionWorker | None,
         *,
         source_label: str,
         prepare_model: Callable[[], object] | None = None,
+        ai_unavailable_reason: str = "",
     ) -> None:
         self._diagnostics = ComponentLog("vision.session", "vision")
         self._operation_id = None
@@ -61,7 +62,10 @@ class VisionController(VisionRequestHandlerIf):
         self._generation = 0
         self._active = False
         self._closed = False
-        self._ai_enabled = True
+        self._ai_enabled = worker is not None
+        self._ai_unavailable_reason = ai_unavailable_reason or (
+            "AI processing is not configured" if worker is None else ""
+        )
         self._thread: threading.Thread | None = None
         self._pending_delivery: tuple[int, VisionUiState, str | None] | None = None
         self._delivery_scheduled = False
@@ -148,7 +152,7 @@ class VisionController(VisionRequestHandlerIf):
         with self._lock:
             if self._closed:
                 return
-            self._ai_enabled = bool(enabled)
+            self._ai_enabled = bool(enabled) and self._worker is not None
             self._diagnostics.changed("ai_enabled", self._ai_enabled, self._operation_id)
             self._publish(self._generation, self._state(self._lifecycle()))
 
@@ -170,12 +174,21 @@ class VisionController(VisionRequestHandlerIf):
 
     def _capture_session(self, generation: int) -> None:
         try:
-            if self._prepare_model is not None:
+            if self._prepare_model is not None and self._worker is not None:
                 self._publish(
                     generation,
                     self._state(VisionLifecycle.STARTING, "Preparing vision model…"),
                 )
-                self._prepare_model()
+                try:
+                    self._prepare_model()
+                except (RuntimeError, ImportError, OSError, ValueError) as exc:
+                    with self._lock:
+                        if not self._is_current(generation):
+                            return
+                        self._diagnostics.failed("model_prepare", exc)
+                        self._worker = None
+                        self._ai_enabled = False
+                        self._ai_unavailable_reason = str(exc)
                 if not self._is_current(generation):
                     return
             self._camera.open()
@@ -184,9 +197,10 @@ class VisionController(VisionRequestHandlerIf):
                 return
             self._controls.invalidate()
             self._controls.restore_day_defaults()
-            self._worker.start()
+            if self._worker is not None:
+                self._worker.start()
             with self._lock:
-                self._last_processed_count = self._worker.processed_frames
+                self._last_processed_count = 0 if self._worker is None else self._worker.processed_frames
             self._diagnostics.succeeded("capture_session")
             self._diagnostics.changed("lifecycle", "running")
             self._publish(generation, self._state(VisionLifecycle.RUNNING))
@@ -206,7 +220,7 @@ class VisionController(VisionRequestHandlerIf):
                     self._state(VisionLifecycle.ERROR, f"Camera unavailable: {exc}"),
                 )
         finally:
-            for stage, cleanup in (("worker_stop", self._worker.stop),
+            for stage, cleanup in (("worker_stop", self._worker.stop if self._worker is not None else lambda: None),
                                    ("restore_profile", self._controls.restore_day_defaults),
                                    ("camera_close", self._camera.close)):
                 try:
@@ -241,10 +255,10 @@ class VisionController(VisionRequestHandlerIf):
             ai_enabled = self._ai_enabled
 
         processed_frame = CameraFrame(processed, frame.timestamp_s, frame.sequence)
-        if ai_enabled:
+        if ai_enabled and self._worker is not None:
             self._worker.submit(processed_frame)
-        detection = self._worker.latest_result if ai_enabled else None
-        tracks = self._worker.latest_tracks if ai_enabled else None
+        detection = self._worker.latest_result if ai_enabled and self._worker is not None else None
+        tracks = self._worker.latest_tracks if ai_enabled and self._worker is not None else None
         self._update_inference_rate(now)
         image = self._to_ui_image(processed_frame)
         objects = self._objects(detection, tracks)
@@ -260,7 +274,7 @@ class VisionController(VisionRequestHandlerIf):
         )
 
     def _update_inference_rate(self, now: float) -> None:
-        processed_count = self._worker.processed_frames
+        processed_count = 0 if self._worker is None else self._worker.processed_frames
         with self._lock:
             if processed_count == self._last_processed_count:
                 return
@@ -300,6 +314,8 @@ class VisionController(VisionRequestHandlerIf):
                 status_message=status_message,
                 image=image,
                 objects=objects,
+                ai_available=self._worker is not None,
+                ai_unavailable_reason=self._ai_unavailable_reason,
             )
 
     def _publish(self, generation: int, state: VisionUiState) -> None:
@@ -348,7 +364,7 @@ class VisionController(VisionRequestHandlerIf):
         self._inference_rate_hz = 0.0
         self._last_capture_time = 0.0
         self._last_inference_time = 0.0
-        self._last_processed_count = self._worker.processed_frames
+        self._last_processed_count = 0 if self._worker is None else self._worker.processed_frames
 
     @staticmethod
     def _smooth(previous: float, measured: float, weight: float) -> float:
