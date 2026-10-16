@@ -4,6 +4,7 @@
 """City weather details render contract state without provider or map access."""
 import tkinter as tk
 from tkinter import ttk
+from frontends.tk.touch_button import TouchButton
 
 from frontends.common.weather_overlay_format import city_time_label, weather_value
 from ui.ui_widget import UiWidget
@@ -14,6 +15,8 @@ class CityWeatherDetailsPopup(tk.Toplevel, UiWidget):
 
     def __init__(self, owner, state, *, ui, imperial, on_close):
         super().__init__(owner, bg=ui.control_background)
+        self._closed = False
+        self._on_close = on_close
         self.withdraw()
         self.overrideredirect(True)
         self.transient(owner.winfo_toplevel())
@@ -22,56 +25,72 @@ class CityWeatherDetailsPopup(tk.Toplevel, UiWidget):
         body.pack(fill=tk.BOTH, expand=True)
         header = tk.Frame(body, bg=ui.control_background)
         header.pack(fill=tk.X)
-        self._title = tk.Label(header, bg=ui.control_background, fg=ui.text, font=('Sans', 12, 'bold'))
+        self._title = tk.Label(header, bg=ui.control_background, fg=ui.text, font=('Sans', 14, 'bold'))
         self._title.pack(side=tk.LEFT)
-        tk.Button(header, text='× Close', command=on_close, bg=ui.control_background,
-                  fg=ui.text, relief=tk.FLAT, padx=8, pady=4, highlightthickness=0, bd=0).pack(side=tk.RIGHT)
-        self._time = tk.Label(body, bg=ui.control_background, fg=ui.text_muted, anchor='w', justify=tk.LEFT, wraplength=440)
+        TouchButton(header, 'Close  ×', on_close, ui, width=110).pack(side=tk.RIGHT)
+        self._time = tk.Label(body, bg=ui.control_background, fg=ui.text_muted, font=('Sans', 11), anchor='w', justify=tk.LEFT, wraplength=580)
         self._time.pack(fill=tk.X, pady=3)
-        self._summary = tk.Label(body, bg=ui.control_background, fg=ui.text, anchor='w', justify=tk.LEFT, wraplength=440)
+        self._summary = tk.Label(body, bg=ui.control_background, fg=ui.text, font=('Sans', 12), anchor='w', justify=tk.LEFT, wraplength=580)
         self._summary.pack(fill=tk.X, pady=4)
-        self._source = tk.Label(body, bg=ui.control_background, fg=ui.text_muted, anchor='w', justify=tk.LEFT, wraplength=440)
+        self._source = tk.Label(body, bg=ui.control_background, fg=ui.text_muted, font=('Sans', 11), anchor='w', justify=tk.LEFT, wraplength=580)
         self._source.pack(fill=tk.X, pady=3)
         table_host = tk.Frame(body, bg=ui.control_background)
         table_host.pack(fill=tk.BOTH, expand=True)
         style = ttk.Style(self)
         style.configure('CityWeather.Treeview', background=ui.control_background,
-                        fieldbackground=ui.control_background, foreground=ui.text, rowheight=24,
+                        fieldbackground=ui.control_background, foreground=ui.text, rowheight=40, font=("Sans", 12),
                         borderwidth=0, relief=tk.FLAT, bordercolor=ui.border,
                         lightcolor=ui.border, darkcolor=ui.border)
         style.layout('CityWeather.Treeview', [('Treeview.treearea', {'sticky': 'nswe'})])
         style.map('CityWeather.Treeview', background=[('selected', ui.control_active)],
                   foreground=[('selected', ui.text)])
         style.configure('CityWeather.Treeview.Heading', background=ui.control_background,
-                        foreground=ui.text, relief=tk.FLAT, borderwidth=0,
+                        foreground=ui.text, font=('Sans', 11, 'bold'), relief=tk.FLAT, borderwidth=0,
                         bordercolor=ui.border, lightcolor=ui.border, darkcolor=ui.border)
         style.map('CityWeather.Treeview.Heading',
-                  background=[('active', ui.control_active)], foreground=[('active', ui.text)])
-        self._table = ttk.Treeview(table_host, style='CityWeather.Treeview', columns=('time', 'temp', 'wind', 'rain'), show='headings', height=6)
-        for name, label, width in (('time', 'Local time', 145), ('temp', 'Temp', 75),
-                                   ('wind', 'Wind', 90), ('rain', 'Rain / hour', 95)):
+                  background=[('active', ui.border)], foreground=[('active', ui.text)])
+        self._table = ttk.Treeview(table_host, style='CityWeather.Treeview', columns=('time', 'temp', 'wind', 'rain'), show='headings', height=5)
+        for name, label, width in (('time', 'Local time', 190), ('temp', 'Temp', 100),
+                                   ('wind', 'Wind', 120), ('rain', 'Rain / hour', 120)):
             self._table.heading(name, text=label)
             self._table.column(name, width=width, minwidth=55, anchor='w')
         self._table.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scroll = tk.Scrollbar(
             table_host, orient=tk.VERTICAL, command=self._table.yview,
-            bg=ui.control_background, activebackground=ui.control_active,
+            bg=ui.control_background, activebackground=ui.border, width=30,
             troughcolor=ui.surface, highlightthickness=0, bd=0,
             relief=tk.FLAT, elementborderwidth=0,
         )
         scroll.pack(side=tk.RIGHT, fill=tk.Y)
         self._table.configure(yscrollcommand=scroll.set)
         self.bind('<Escape>', lambda _event: on_close())
+        self.bind('<Button-1>', self._outside_press, add='+')
         self.render(state)
         self.update_idletasks()
         root = owner.winfo_toplevel()
-        width = min(490, max(280, root.winfo_width() - 24))
+        width = min(660, max(280, root.winfo_width() - 24))
         height = min(self.winfo_reqheight(), max(200, root.winfo_height() - 24))
         x = max(0, root.winfo_rootx() + (root.winfo_width() - width) // 2)
         y = max(0, root.winfo_rooty() + (root.winfo_height() - height) // 2)
         self.geometry(f'{width}x{height}+{x}+{y}')
         self.deiconify()
         self.lift()
+        self.grab_set()
+        self.focus_set()
+
+    def _outside_press(self, event):
+        if not (self.winfo_rootx() <= event.x_root < self.winfo_rootx() + self.winfo_width()
+                and self.winfo_rooty() <= event.y_root < self.winfo_rooty() + self.winfo_height()):
+            self._on_close()
+            return "break"
+
+    def destroy(self):
+        if self._closed:
+            return
+        self._closed = True
+        if self.grab_current() is self:
+            self.grab_release()
+        super().destroy()
 
     def render(self, state):
         """Update the same popup after time selection, unit changes or refreshed data."""

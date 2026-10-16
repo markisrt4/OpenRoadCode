@@ -277,3 +277,22 @@ private installation, with system-tool fallback only when no private runtime is
 configured. Probes and all HRRR decode/warp commands use the same resolution;
 widgets and the renderer do not change library search paths. Candidate activation
 is atomic and occurs only after a decode/reprojection smoke check passes.
+
+## Touch navigation Weather panel
+
+The separate navigation Weather button opens a centered Map / Route / Cities
+panel with the same shared 50-pixel touch targets, 14-point button labels,
+neutral backgrounds, grey hover and blue/checkmarked selection as radar.
+Map offers radar visibility and Off/Temperature/Wind model choices. Route has
+large visibility/layer buttons, refresh and touch-sized up/down forecast controls.
+Cities has field and history/forecast buttons, a larger hours-slider thumb and
+independent Play/Pause/Refresh controls. Snapshot rendering does not emit requests.
+
+Cities playback collapses the Weather panel to a time-and-Stop bar at the map's
+bottom and releases input so the map remains usable. Stop pauses city playback
+and restores the full Weather panel. Radar and city replay remain independent.
+Close, Escape and outside taps dismiss the full panel; navigation hide, handler
+replacement and close release its grab and retire city callbacks. City detail
+popups use larger table rows, readable text and the same large Close button.
+The presentation continues using the existing weather overlay contracts, with no
+provider, refresh-policy, unit or forecast-source changes.

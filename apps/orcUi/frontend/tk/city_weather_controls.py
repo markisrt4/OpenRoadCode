@@ -1,95 +1,113 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Compact city forecast controls for the shared Navigation weather menu."""
-
+"""Touch-friendly city weather selection and independent playback."""
 import tkinter as tk
+from functools import partial
 
-from .shell_metrics import FONT_CONTROL
+from frontends.tk.touch_button import TouchButton
+from ui.ui_widget import UiWidget
 from ui.weather.weather_overlay_request_handler_if import WeatherOverlayRequestHandlerIf
 from ui.weather.weather_overlay_state import CityWeatherOverlayState
 from frontends.common.weather_overlay_format import city_time_label
 
 
-class CityWeatherControls:
-    """Display a field selector, time window and independent city playback."""
+class CityWeatherControls(UiWidget):
+    """Render city snapshots and emit explicit, toolkit-independent requests."""
 
     def __init__(self, parent, handler: WeatherOverlayRequestHandlerIf, state: CityWeatherOverlayState, ui):
-        self._handler, self._state = handler, state
-        self._ui = ui
-        self._enabled = tk.BooleanVar(parent, value=state.enabled)
-        self._kind = tk.StringVar(parent, value=state.kind)
-        self._period = tk.StringVar(parent, value=state.period)
-        self._hours = tk.DoubleVar(parent, value=state.hours)
+        self._handler, self._state, self._ui = handler, state, ui
         self._updating = False
-        tk.Checkbutton(parent, text="City weather", variable=self._enabled,
-                       command=lambda: handler.request_city_enabled(self._enabled.get()),
-                       bg=ui.control_background, fg=ui.text, selectcolor=ui.background,
-                       activebackground=ui.control_background, activeforeground=ui.text,
-                       font=("Sans", FONT_CONTROL), highlightthickness=0, bd=0, relief=tk.FLAT).pack(anchor="w", pady=4)
-        fields = self._row(parent)
-        for value, text in (("temperature", "Temp"), ("wind", "Wind speed"), ("precipitation", "Precip total")):
-            self._radio(fields, self._kind, value, text)
-        periods = self._row(parent)
-        for value, text in (("past", "Recent history"), ("future", "Forecast")):
-            self._radio(periods, self._period, value, text)
+        self._hours = tk.DoubleVar(parent, value=state.hours)
+        self._enabled = TouchButton(parent, 'City weather', self._toggle_enabled, ui)
+        self._enabled.pack(fill=tk.X, pady=3)
+        self._fields = self._choices(parent, (
+            ('temperature', 'Temperature'), ('wind', 'Wind speed'), ('precipitation', 'Precip total')),
+            self._select_field)
+        self._periods = self._choices(parent, (('past', 'Recent history'), ('future', 'Forecast')),
+                                     self._select_period)
         self._scale = tk.Scale(parent, from_=1, to=24, resolution=1, orient=tk.HORIZONTAL,
-                               variable=self._hours, command=self._scrub, label="Hours", length=315,
-                               bg=ui.control_background, fg=ui.text, troughcolor=ui.background,
-                               highlightthickness=0, font=("Sans", FONT_CONTROL),
-                               activebackground=ui.control_active)
+            variable=self._hours, command=self._scrub, label='Hours', showvalue=True,
+            bg=ui.control_background, fg=ui.text, troughcolor=ui.background,
+            highlightthickness=0, bd=0, sliderlength=48, width=24,
+            font=('Sans', 12), activebackground=ui.border)
         self._scale.pack(fill=tk.X, pady=3)
-        self._time = self._label(parent, "")
-        buttons = self._row(parent)
-        self._play = tk.Button(buttons, text="Play", command=lambda: handler.request_city_playback(not self._state.playing),
-                               bg=ui.control_active, fg=ui.text, relief=tk.FLAT, padx=8, pady=4, highlightthickness=0, bd=0)
-        self._play.pack(side=tk.LEFT)
-        self._refresh = tk.Button(buttons, text="Refresh cities", command=handler.request_city_refresh,
-                                  bg=ui.control_background, fg=ui.text, relief=tk.FLAT, padx=8, pady=4, highlightthickness=0, bd=0)
-        self._refresh.pack(side=tk.RIGHT)
-        self._status = self._label(parent, "")
-        self._label(parent, "Recent history shows estimated weather. Precipitation includes rain and melted snow.\nPan or zoom to choose cities · Weather data provider: Open-Meteo")
+        self._time = self._label(parent, '')
+        actions = tk.Frame(parent, bg=ui.control_background)
+        actions.pack(fill=tk.X, pady=3)
+        self._play = TouchButton(actions, '▶ Play', self._toggle_playback, ui)
+        self._refresh = TouchButton(actions, 'Refresh cities', self._refresh_cities, ui)
+        for column, item in enumerate((self._play, self._refresh)):
+            actions.grid_columnconfigure(column, weight=1, uniform='city-actions')
+            item.grid(row=0, column=column, sticky='ew', padx=3)
+        self._status = self._label(parent, '', height=2)
+        self._label(parent, 'Recent history uses model estimates. Precipitation includes melted snow.\n'
+                    'Pan/zoom to choose cities · Provider: Open-Meteo')
         self.set_state(state)
 
-    def _row(self, parent):
+    def _choices(self, parent, choices, callback):
         row = tk.Frame(parent, bg=self._ui.control_background)
         row.pack(fill=tk.X, pady=3)
-        return row
+        buttons = {}
+        for column, (value, caption) in enumerate(choices):
+            row.grid_columnconfigure(column, weight=1, uniform='city-choices')
+            button = TouchButton(row, caption, partial(callback, value), self._ui)
+            button.grid(row=0, column=column, sticky='ew', padx=3)
+            buttons[value] = (button, caption)
+        return buttons
 
-    def _radio(self, parent, variable, value, text):
-        tk.Radiobutton(parent, text=text, variable=variable, value=value, command=self._select,
-                       bg=self._ui.control_background, fg=self._ui.text, selectcolor=self._ui.background,
-                       activebackground=self._ui.control_background, activeforeground=self._ui.text,
-                       font=("Sans", FONT_CONTROL), highlightthickness=0, bd=0, relief=tk.FLAT).pack(side=tk.LEFT)
-
-    def _label(self, parent, text):
+    def _label(self, parent, text, *, height=0):
         label = tk.Label(parent, text=text, bg=self._ui.control_background, fg=self._ui.text,
-                         font=("Sans", FONT_CONTROL), wraplength=340, anchor="w", justify=tk.LEFT)
+            font=('Sans', 11), wraplength=580, anchor='w', justify=tk.LEFT, height=height)
         label.pack(fill=tk.X, pady=3)
         return label
 
-    def _select(self):
-        self._handler.request_city_selection(self._kind.get(), self._period.get(), self._state.hours)
+    def _toggle_enabled(self):
+        if self._handler is not None:
+            self._handler.request_city_enabled(not self._state.enabled)
+
+    def _select_field(self, kind):
+        if self._handler is not None:
+            self._handler.request_city_selection(kind, self._state.period, self._state.hours)
+
+    def _select_period(self, period):
+        if self._handler is not None:
+            self._handler.request_city_selection(self._state.kind, period, self._state.hours)
+
+    def _toggle_playback(self):
+        if self._handler is not None:
+            self._handler.request_city_playback(not self._state.playing)
+
+    def _refresh_cities(self):
+        if self._handler is not None:
+            self._handler.request_city_refresh()
 
     def _scrub(self, value):
         hours = int(float(value))
-        if not self._updating and hours != self._state.hours:
+        if self._handler is not None and not self._updating and hours != self._state.hours:
             self._handler.request_city_selection(self._state.kind, self._state.period, hours)
 
     def set_state(self, state: CityWeatherOverlayState):
-        """Synchronize playback and time without turning Scale.set into a user scrub."""
+        """Synchronize selected buttons and slider without emitting requests."""
         self._updating = True
         try:
             self._state = state
-            self._enabled.set(state.enabled)
-            self._kind.set(state.kind)
-            self._period.set(state.period)
             self._hours.set(state.hours)
+            self._enabled.configure_button(selected=state.enabled,
+                text='✓ City weather on' if state.enabled else 'City weather off')
+            for buttons, selected in ((self._fields, state.kind), (self._periods, state.period)):
+                for value, (button, caption) in buttons.items():
+                    active = value == selected
+                    button.configure_button(selected=active, text=f'✓ {caption}' if active else caption)
             self._scale.configure(state=tk.NORMAL if state.enabled else tk.DISABLED)
             self._time.configure(text=city_time_label(state))
             self._status.configure(text=state.status)
-            self._play.configure(text="Pause" if state.playing else "Play",
-                                 state=tk.NORMAL if state.can_play else tk.DISABLED)
-            self._refresh.configure(state=tk.NORMAL if state.can_refresh else tk.DISABLED)
+            self._play.configure_button(text='Ⅱ Pause' if state.playing else '▶ Play',
+                selected=state.playing, state=tk.NORMAL if state.can_play else tk.DISABLED)
+            self._refresh.configure_button(state=tk.NORMAL if state.can_refresh else tk.DISABLED)
         finally:
             self._updating = False
+
+    def close(self):
+        """Retire actions before the popup's widgets are destroyed."""
+        self._handler = None
