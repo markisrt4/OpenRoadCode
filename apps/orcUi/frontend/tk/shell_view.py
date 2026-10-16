@@ -20,6 +20,7 @@ from .weather_alert_banner import WeatherAlertBanner
 
 from .bottom_bar import OrcUiBottomBar
 from .shell_chrome import build_footer, build_top_bar
+from .display_profiles import DisplayProfile
 from .shell_metrics import SHELL_PAD_X, SHELL_PAD_Y
 from .side_nav import OrcUiSideNav
 from ui.ui_widget import UiWidget
@@ -33,6 +34,7 @@ class OrcUiShellView(UiWidget):
         root: tk.Tk,
         *,
         theme: ThemeBundle,
+        display_profile: DisplayProfile,
         theme_mode: ThemeMode,
         nav_items: list[str],
         active_nav: str,
@@ -46,6 +48,7 @@ class OrcUiShellView(UiWidget):
         on_online_toggle: Callable[[], None] = lambda: None,
     ) -> None:
         self._root = root
+        self._display_profile = display_profile
         self._theme = theme
         self._theme_mode = theme_mode
         self._nav_items = nav_items
@@ -289,7 +292,8 @@ class OrcUiShellView(UiWidget):
     def _update_clock(self) -> None:
         if not self._root.winfo_exists():
             return
-        text = datetime.now().strftime("%I:%M %p     %a, %b %d").lstrip("0")
+        format_string = "%I:%M %p" if self._display_profile.name == "compact" else "%I:%M %p     %a, %b %d"
+        text = datetime.now().strftime(format_string).lstrip("0")
         if self._clock_label is not None and self._clock_label.winfo_exists():
             self._clock_label.configure(text=text)
         self._clock_after_id = self._root.after(1000, self._update_clock)
@@ -299,6 +303,7 @@ class OrcUiShellView(UiWidget):
         self._clock_label, self._weather_status_label, self._online_button = build_top_bar(
             self._root,
             theme=self._theme,
+            compact=self._display_profile.name == "compact",
             on_power=self._on_power,
             on_online_toggle=self._on_online_toggle,
         )
