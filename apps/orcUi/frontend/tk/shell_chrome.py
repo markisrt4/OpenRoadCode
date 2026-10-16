@@ -26,18 +26,20 @@ def build_top_bar(
     *,
     theme: ThemeBundle,
     on_power: Callable[[], None],
+    compact: bool = False,
     on_online_toggle: Callable[[], None] = lambda: None,
 ) -> tuple[tk.Label, tk.Label, ConnectivityButton]:
     """Build the branded top bar and return clock and weather labels."""
     ui = theme.ui
-    bar = tk.Frame(root, bg=ui.surface_alt, height=TOP_BAR_HEIGHT)
+    bar = tk.Frame(root, bg=ui.surface_alt, height=40 if compact else TOP_BAR_HEIGHT)
     bar.grid(row=0, column=0, columnspan=2, sticky="ew")
     bar.grid_propagate(False)
     bar.grid_columnconfigure(1, weight=1)
 
     brand = tk.Frame(bar, bg=ui.surface_alt)
     brand.grid(row=0, column=0, sticky="w", padx=(10, 8))
-    _build_logo_mark(brand, theme)
+    if not compact:
+        _build_logo_mark(brand, theme)
     for letter, color in (
         ("O", ui.accent_primary),
         ("R", ui.accent_danger),
@@ -48,7 +50,7 @@ def build_top_bar(
             text=letter,
             fg=color,
             bg=ui.surface_alt,
-            font=("Sans", FONT_BRAND, "bold"),
+            font=("Sans", 17 if compact else FONT_BRAND, "bold"),
             padx=0,
             pady=0,
             bd=0,
@@ -66,7 +68,7 @@ def build_top_bar(
         bar,
         fg=ui.text,
         bg=ui.surface_alt,
-        font=("Sans", FONT_CLOCK, "bold"),
+        font=("Sans", 14 if compact else FONT_CLOCK, "bold"),
     )
     clock.grid(row=0, column=1)
 
@@ -79,8 +81,9 @@ def build_top_bar(
         bg=ui.surface_alt,
         font=("Sans", FONT_STATUS, "bold"),
     )
-    weather.pack(side=tk.LEFT, padx=(0, 10))
-    tk.Label(
+    weather.pack(side=tk.LEFT, padx=(0, 4 if compact else 10))
+    if not compact:
+        tk.Label(
         status,
         text="GPS   BT   🚗",
         fg=ui.text_muted,
@@ -91,7 +94,7 @@ def build_top_bar(
         status, command=on_online_toggle, background=ui.control_background,
         active_background=ui.control_active, muted=ui.text_muted,
     )
-    online.pack(side=tk.LEFT, padx=(0, 8))
+    online.pack(side=tk.LEFT, padx=(0, 3 if compact else 8))
     tk.Button(
         status,
         text="⏻",
