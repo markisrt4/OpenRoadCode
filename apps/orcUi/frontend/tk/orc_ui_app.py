@@ -322,6 +322,7 @@ class OrcUiApp(VolumeUiIf, UiWidget):
         self._shell = OrcUiShellView(
             self._root,
             theme=self._theme,
+            display_profile=self._display_profile,
             theme_mode=self._theme_mode,
             nav_items=self._nav_items,
             active_nav=self._active_nav,
