@@ -431,3 +431,11 @@ an explicit candidate root for diagnostics; incomplete private installations fai
 clearly rather than mixing different GDAL builds. The scoped wrappers put their
 own libraries first only for the native tool process and disable external GDAL
 plugins. Observed radar does not require this build.
+
+The builder first verifies an existing `current` installation and exits before
+package installation, downloading or compilation when it is healthy. If an
+existing runtime fails verification, it stops and records `last-check.log` next
+to the build log; pass `--rebuild` explicitly to repair or replace it. Interrupted
+builds reuse their original candidate directory and compiler cache so embedded
+install paths do not change on every retry. An explicit rebuild never installs
+over the currently active candidate. `--check` remains a verification-only mode.

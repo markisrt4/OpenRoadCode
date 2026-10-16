@@ -7,14 +7,16 @@ set -euo pipefail
 GDAL_VERSION=3.13.3
 GDAL_SHA256=a3348c2102dd91962290007d7c293b467bb1b0cd89f086f24bb97b9b653a9804
 usage() {
-  echo "Usage: bash development/termux/build_weather_gdal.sh [--check]"
+  echo "Usage: bash development/termux/build_weather_gdal.sh [--check | --rebuild]"
   echo "Build and verify isolated GDAL, then activate it for ORC weather."
   echo "ORC_GDAL_BUILD_JOBS defaults to 1 to limit phone memory usage."
+  echo "A healthy current installation is reused automatically."
   echo "--check verifies the existing isolated installation without building."
+  echo "--rebuild bypasses reuse of the installed runtime; keeps compiler/download caches."
 }
 case "${1:-}" in
   --help|-h) usage; exit 0 ;;
-  --check|'') ;;
+  --check|--rebuild|'') ;;
   *) usage >&2; exit 2 ;;
 esac
 (( $# <= 1 )) || { usage >&2; exit 2; }
@@ -29,6 +31,8 @@ for path in "$ORC_GDAL_DATA_HOME" "$ORC_GDAL_CACHE_HOME" "$ORC_GDAL_STATE_HOME";
   [[ "$path" == /* ]] || { echo "XDG directories must be absolute." >&2; exit 2; }
 done
 ORC_GDAL_ROOT="$ORC_GDAL_DATA_HOME/openroadcode/tools/gdal"
+build="$ORC_GDAL_STATE_HOME/openroadcode/gdal/build-$GDAL_VERSION"
+log="$ORC_GDAL_STATE_HOME/openroadcode/gdal/build.log"
 probe_dir=''
 link_tmp=''
 cleanup() {
@@ -41,12 +45,18 @@ verify() {
   local candidate="$1"
   for tool in gdalinfo gdal_translate gdalwarp; do
     [[ -x "$candidate/bin/$tool" ]] || { echo "Missing isolated $tool" >&2; return 1; }
-    "$candidate/bin/$tool" --version || return 1
+    local version
+    version="$("$candidate/bin/$tool" --version)" || return 1
+    printf '%s\n' "$version"
+    [[ "$version" == "GDAL $GDAL_VERSION,"* || "$version" == "GDAL $GDAL_VERSION "* ||
+       "$version" == "GDAL $GDAL_VERSION" ]] || {
+      echo "Expected GDAL $GDAL_VERSION in $candidate" >&2; return 1;
+    }
   done
   "$candidate/bin/gdalinfo" --format GRIB || return 1
   "$candidate/bin/gdalinfo" --format JP2OpenJPEG || return 1
-  probe_dir="$(mktemp -d "$TMPDIR/orc-gdal-check.XXXXXX")"
-  cat > "$probe_dir/input.asc" <<'GRID'
+  probe_dir="$(mktemp -d "$TMPDIR/orc-gdal-check.XXXXXX")" || return 1
+  cat > "$probe_dir/input.asc" <<'GRID' || return 1
 ncols 2
 nrows 2
 xllcorner -84
@@ -78,6 +88,20 @@ if [[ "${1:-}" == --check ]]; then
   verify "$ORC_GDAL_ROOT/current"
   exit 0
 fi
+# Verify before invoking pkg, downloading sources or configuring CMake. A broken
+# installation needs an explicit rebuild, rather than an automatic lengthy loop.
+if [[ "${1:-}" != --rebuild && ( -e "$ORC_GDAL_ROOT/current" || -L "$ORC_GDAL_ROOT/current" ) ]]; then
+  mkdir -p "$(dirname -- "$log")"
+  check_log="$(dirname -- "$log")/last-check.log"
+  echo "Checking existing isolated GDAL..."
+  if verify "$ORC_GDAL_ROOT/current" > "$check_log" 2>&1; then
+    echo "Existing GDAL $GDAL_VERSION passed verification; no build needed."
+    exit 0
+  fi
+  cat "$check_log" >&2
+  echo "Existing GDAL failed verification. Use --rebuild to repair it; details: $check_log" >&2
+  exit 1
+fi
 jobs="${ORC_GDAL_BUILD_JOBS:-1}"
 [[ "$jobs" =~ ^[1-9][0-9]*$ ]] || { echo "ORC_GDAL_BUILD_JOBS must be a positive integer." >&2; exit 2; }
 echo "Installing compiler/build dependencies through Termux; system GDAL/OpenEXR are not replaced."
@@ -102,9 +126,30 @@ mkdir -p "$source_root"
 if [[ ! -f "$source_root/gdal-$GDAL_VERSION/CMakeLists.txt" ]]; then
   tar -xf "$archive" -C "$source_root"
 fi
-candidate="$(mktemp -d "$ORC_GDAL_ROOT/gdal-$GDAL_VERSION.XXXXXX")"
-build="$ORC_GDAL_STATE_HOME/openroadcode/gdal/build-$GDAL_VERSION"
-log="$ORC_GDAL_STATE_HOME/openroadcode/gdal/build.log"
+# Keep an interrupted build's original install prefix. Changing it on every run
+# regenerates embedded GDAL paths and can cause otherwise unnecessary recompiles.
+candidate=''
+cached_prefix=''
+if [[ -f "$build/CMakeCache.txt" ]]; then
+  while IFS= read -r entry; do
+    case "$entry" in
+      CMAKE_INSTALL_PREFIX:*=*) cached_prefix="${entry#*=}"; break ;;
+    esac
+  done < "$build/CMakeCache.txt"
+  cached_candidate="${cached_prefix%/runtime}"
+  active_candidate="$(readlink -f -- "$ORC_GDAL_ROOT/current" 2>/dev/null || true)"
+  if [[ "$cached_prefix" == "$cached_candidate/runtime" &&
+        "$(dirname -- "$cached_candidate")" == "$ORC_GDAL_ROOT" &&
+        "$(basename -- "$cached_candidate")" == "gdal-$GDAL_VERSION."?????? &&
+        -d "$cached_candidate" && ! -L "$cached_candidate" &&
+        "$(readlink -f -- "$cached_candidate")" != "$active_candidate" ]]; then
+    candidate="$cached_candidate"
+    echo "Resuming existing build candidate: $candidate"
+  fi
+fi
+if [[ -z "$candidate" ]]; then
+  candidate="$(mktemp -d "$ORC_GDAL_ROOT/gdal-$GDAL_VERSION.XXXXXX")"
+fi
 echo "Build log: $log"
 echo "Candidate: $candidate (previous current installation remains active until verification passes)"
 # Optional formats are off; explicitly keep GRIB and its PNG/JPEG2000 decoders.
