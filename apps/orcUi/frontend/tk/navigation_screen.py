@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from ui.navigation.waze_request_handler_if import WazeRequestHandlerIf
 from ui.system.online_mode_if import OnlineModeIf
 from ui.tooltip_if import TooltipFactoryIf
 
@@ -56,6 +57,7 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         online_mode: OnlineModeIf | None = None,
         tooltip_factory: TooltipFactoryIf | None = None,
         map_platform: MapPlatformControlIf | None = None,
+        waze_handler: WazeRequestHandlerIf | None = None,
     ) -> None:
         super().__init__(self.SCREEN_ID)
         if not isinstance(places_factory, NavigationPlacesFactoryIf):
@@ -67,6 +69,7 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         self._tooltip_factory = tooltip_factory
         self._host = host
         self._map_runtime = map_runtime
+        self._waze_handler = waze_handler
         self._map_platform = map_platform
         self._platform_generation = 0
         self._map_request_handler = map_request_handler
@@ -129,6 +132,7 @@ class NavigationScreen(TkScreen, RadarControlsIf):
                 online_mode=self._online_mode,
                 tooltip_factory=self._tooltip_factory,
                 map_platform=self._map_platform,
+                waze_handler=self._waze_handler,
                 route_request_handler=self._route_request_handler,
                 route_simulation_handler=self._route_simulation_handler,
                 on_back=self._on_back,

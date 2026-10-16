@@ -4,6 +4,9 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from controllers.navigation.waze_location_player import WazeLocationPlayer
+from ui.navigation import GeoPoint
+from ui.navigation.waze_request_handler_if import WazeRequestHandlerIf
 
 from apps.orcUi.adapters.managed_browser_media_player import ManagedBrowserMediaPlayer
 from apps.orcUi.application_runtime import OrcUiApplicationRuntime
@@ -14,17 +17,28 @@ from frontends.tk.media.browser_media_screen import BrowserMediaScreen
 
 
 @dataclass(slots=True)
-class WazeComposition:
+class WazeComposition(WazeRequestHandlerIf):
     screen: BrowserMediaScreen
     unsubscribe: Callable[[], None]
+    open_waze: Callable[[], None] = lambda: None
+    location: WazeLocationPlayer | None = None
     _closed: bool = field(default=False, init=False)
+
+    def request_open_waze(self) -> None:
+        if not self._closed:
+            self.open_waze()
+
+    def update_position(self, point: GeoPoint | None) -> None:
+        if self.location is not None:
+            self.location.update_position(point)
 
     def close(self) -> None:
         """Cancel pending display callbacks and stop the owned browser once."""
         if self._closed:
             return
         self._closed = True
-        close_resources(self.unsubscribe, self.screen.hide)
+        close_resources(self.unsubscribe, self.screen.hide,
+                        self.location.close if self.location is not None else lambda: None)
 
 
 def configure_waze(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> WazeComposition | None:
@@ -36,10 +50,12 @@ def configure_waze(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> WazeCompo
             runtime.manager, "waze", resolve_target=lambda target: target,
             network_allowed=lambda: app.online_mode.online,
         )
+        location = WazeLocationPlayer(player)
+        cleanup.callback(location.close)
         screen = BrowserMediaScreen(
-            "waze", app, title="Waze Live Map (experimental)", player=player,
+            "waze", app, title="Waze Live Map (experimental)", player=location,
             default_target=runtime.waze_url, window_class="openroadcode-waze",
-            back_action=lambda: app.navigate_to("HOME"),
+            back_action=lambda: app.navigate_to("NAVIGATION"),
             theme_bundle=lambda: theme_bundle(app.theme_mode),
         )
         cleanup.callback(screen.hide)
@@ -50,7 +66,14 @@ def configure_waze(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> WazeCompo
 
         unsubscribe = app.online_mode.subscribe(mode_changed)
         cleanup.callback(unsubscribe)
-        app.register_screen("WAZE", screen, before="NAVIGATION")
-        composition = WazeComposition(screen, unsubscribe)
+        app.register_screen("WAZE", screen, show_in_navigation=False)
+
+        def open_waze() -> None:
+            if app.online_mode.online:
+                app.navigate_to("WAZE")
+            else:
+                app.set_screen_status("Waze requires online mode")
+
+        composition = WazeComposition(screen, unsubscribe, open_waze, location)
         cleanup.release()
         return composition

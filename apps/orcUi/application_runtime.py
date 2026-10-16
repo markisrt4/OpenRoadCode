@@ -21,6 +21,7 @@ from apps.orcUi.radio_application_service import ManagedRadioApplicationService
 from config.application_config import ApplicationsConfigParser
 from config.radio_config_manager import load_radio_config
 from controllers.application_runtime import AppRuntimeManager
+from controllers.navigation.waze_location_player import WAZE_DEVTOOLS_PORT
 from controllers.radio.radio_profiles import RadioProfileCatalog
 from controllers.radio.streaming_radio_controller import StreamingRadioController
 from hardware_io.audio.mpv_streaming_audio_player import MpvStreamingAudioPlayer
@@ -78,7 +79,12 @@ def create_orc_ui_application_runtime() -> OrcUiApplicationRuntime:
         waze_config = next((app for app in config.apps if app.key == "waze"), None)
         waze_url = None
         if waze_config is not None and waze_config.enabled:
-            manager.register("waze", browser_factory.create("waze"))
+            waze_browser = browser_factory.create("waze")
+            waze_browser.extra_arguments = tuple(waze_browser.extra_arguments) + (
+                f"--remote-debugging-port={WAZE_DEVTOOLS_PORT}",
+                "--remote-debugging-address=127.0.0.1",
+            )
+            manager.register("waze", waze_browser)
             waze_url = waze_config.url
         earth_config = config.app("google_earth")
         earth = (GoogleEarthLauncher(browser=browser_factory.create("google_earth"))

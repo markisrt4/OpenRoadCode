@@ -21,6 +21,7 @@ class NavigationPanelControlTest(unittest.TestCase):
     def _panel(self) -> NavigationPanel:
         panel = object.__new__(NavigationPanel)
         panel._map_platform = None
+        panel._waze_handler = None
         panel._request_handler = Mock()
         panel._zoom_level = 16.5
         panel._zoom_text = Mock()
@@ -78,6 +79,7 @@ class NavigationPanelControlTest(unittest.TestCase):
 
         panel = Mock()
         panel._map_platform = None
+        panel._waze_handler = None
         label = Mock()
         label.return_value.winfo_reqheight.return_value = 18
         with patch.multiple(

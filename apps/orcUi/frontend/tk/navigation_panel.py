@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from ui.navigation.waze_request_handler_if import WazeRequestHandlerIf
 from ui.system.online_mode_if import OnlineModeIf
 from ui.tooltip_if import TooltipFactoryIf
 from frontends.tk.tooltip import TkTooltip
@@ -59,6 +60,7 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         online_mode: OnlineModeIf | None = None,
         tooltip_factory: TooltipFactoryIf | None = None,
         map_platform: MapPlatformControlIf | None = None,
+        waze_handler: WazeRequestHandlerIf | None = None,
         radar_enabled: bool = False,
         radar_frame_time: int | None = None,
         radar_palette: RadarPalette = RadarPalette.UNIVERSAL,
@@ -78,6 +80,8 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         super().__init__(parent, bg=self._theme_bundle.ui.background)
         del on_back
         self._request_handler = map_request_handler
+        self._waze_handler = waze_handler
+        self._waze_button = None
         self._map_platform = map_platform
         self._terrain_active = False
         self._map_follow_enabled = True

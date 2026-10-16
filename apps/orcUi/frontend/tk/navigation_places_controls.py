@@ -175,6 +175,9 @@ class NavigationPlacesControls:
         return self._online_mode is None or self._online_mode.online
 
     def _refresh_poi_action_buttons(self) -> None:
+        waze = self.__dict__.get('_waze_button')
+        if waze is not None and waze.winfo_exists():
+            waze.configure(state=tk.NORMAL if self.online_actions_allowed else tk.DISABLED)
         local_button = self.__dict__.get('_local_3d_button')
         if local_button is not None and local_button.winfo_exists():
             local_button.configure(state=tk.DISABLED if self._poi_launching else tk.NORMAL)

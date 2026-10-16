@@ -233,12 +233,17 @@ def create_orc_ui_composition(
             camera_observer=core.map_camera.request_handler.observe_camera,
             embedded_explore=navigation_maps.request_explore)
         cleanup.callback(navigation_places.close)
+        waze = configure_waze(app, runtime)
+        if waze is not None:
+            cleanup.callback(waze.close)
+            core.map_camera.observe_position(waze.update_position)
         navigation = NavigationScreen(
             app,
             drawer_handler=MapControlsDrawerController(),
             online_mode=app.online_mode,
             map_runtime=navigation_maps,
             map_platform=navigation_maps,
+            waze_handler=waze,
             places_factory=navigation_places,
             tooltip_factory=TooltipFactory(app),
             map_request_handler=core.map_camera.request_handler,
@@ -313,9 +318,6 @@ def create_orc_ui_composition(
         app.register_screen("OFF-ROAD", offroad, show_in_navigation=False)
         app.register_screen("SETTINGS", settings, show_in_navigation=False)
         app.register_screen("DIAGNOSTICS", diagnostics, show_in_navigation=False)
-        waze = configure_waze(app, runtime)
-        if waze is not None:
-            cleanup.callback(waze.close)
         app.set_initial_destination("HOME")
         app.set_settings_action(lambda: app.navigate_to("SETTINGS"))
         _report(progress, "screens", "Application screens loaded")

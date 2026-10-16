@@ -35,9 +35,9 @@ def test_waze_registration_offline_shutdown_and_back():
     with patch('apps.orcUi.composition.waze.BrowserMediaScreen') as screen_type:
         composition = configure_waze(app, runtime)
         screen = screen_type.return_value
-        app.register_screen.assert_called_once_with('WAZE', screen, before='NAVIGATION')
+        app.register_screen.assert_called_once_with('WAZE', screen, show_in_navigation=False)
         screen_type.call_args.kwargs['back_action']()
-        app.navigate_to.assert_called_once_with('HOME')
+        app.navigate_to.assert_called_once_with('NAVIGATION')
         on_mode = app.online_mode.subscribe.call_args.args[0]
         on_mode(True)
         screen.hide.assert_not_called()
@@ -109,3 +109,34 @@ def test_runtime_registers_only_enabled_waze_and_preserves_configured_url(enable
         assert runtime.waze_url == (url if enabled else None)
         runtime.close()
         manager.stop_all.assert_called_once()
+
+
+def test_open_request_checks_online_mode_and_ignores_requests_after_close():
+    app = Mock()
+    runtime = SimpleNamespace(waze_url='https://embed.waze.com/iframe', manager=Mock())
+    with patch('apps.orcUi.composition.waze.BrowserMediaScreen'):
+        composition = configure_waze(app, runtime)
+        app.online_mode.online = False
+        composition.request_open_waze()
+        app.navigate_to.assert_not_called()
+        app.online_mode.online = True
+        composition.request_open_waze()
+        app.navigate_to.assert_called_once_with('WAZE')
+        composition.close()
+        composition.request_open_waze()
+        app.navigate_to.assert_called_once_with('WAZE')
+
+
+def test_cancelled_browser_launch_does_not_attempt_embedding():
+    app, player, surface = Mock(), Mock(), Mock()
+    player.play.return_value = False
+    surface.winfo_width.return_value = 800
+    surface.winfo_height.return_value = 480
+    with patch('frontends.tk.media.browser_media_screen.X11WindowEmbedder') as embedder:
+        screen = BrowserMediaScreen('waze', app, title='Waze', player=player,
+            default_target='https://embed.waze.com/iframe', window_class='openroadcode-waze',
+            back_action=Mock())
+        screen._browser_host = surface
+        screen._launch_and_embed()
+        embedder.return_value.embed.assert_not_called()
+        app.set_screen_status.assert_called_once_with('Waze unavailable')

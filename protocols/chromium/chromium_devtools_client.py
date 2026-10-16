@@ -13,6 +13,8 @@ import socket
 import struct
 import urllib.parse
 import urllib.request
+from contextlib import contextmanager
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any
 
@@ -23,6 +25,29 @@ class DevToolsTarget:
     title: str
     url: str
     web_socket_debugger_url: str
+
+
+class ChromiumDevToolsSession:
+    """Commands on one retained connection, for session-scoped browser state."""
+
+    def __init__(self, client: ChromiumDevToolsClient, connection: socket.socket) -> None:
+        self._client = client
+        self._connection = connection
+        self._next_id = 1
+
+    def command(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
+        command_id = self._next_id
+        self._next_id += 1
+        self._client._send_text(self._connection, json.dumps({
+            "id": command_id, "method": method, "params": params,
+        }))
+        while True:
+            reply = json.loads(self._client._receive_text(self._connection))
+            if reply.get("id") != command_id:
+                continue
+            if "error" in reply:
+                raise RuntimeError(str(reply["error"].get("message") or reply["error"]))
+            return reply.get("result", {})
 
 
 class ChromiumDevToolsClient:
@@ -85,6 +110,12 @@ class ChromiumDevToolsClient:
         if not target.web_socket_debugger_url:
             raise ValueError("DevTools target does not expose a WebSocket debugger URL")
         return self._command(target.web_socket_debugger_url, method, params or {})
+
+    @contextmanager
+    def session(self, target: DevToolsTarget) -> Iterator[ChromiumDevToolsSession]:
+        """Retain a page connection until its geolocation owner stops."""
+        with self._connect_websocket(target.web_socket_debugger_url) as connection:
+            yield ChromiumDevToolsSession(self, connection)
 
     def command_earth(self, method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         """Send one Chrome DevTools Protocol command to the Google Earth page."""

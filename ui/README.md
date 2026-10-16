@@ -10,6 +10,9 @@ shared by applications, controllers, and concrete frontends. Code in this
 package must not import Tkinter, Qt, application composition, controllers, or
 hardware implementations.
 
+`ui.navigation.waze_request_handler_if.WazeRequestHandlerIf` supplies the semantic
+request for Navigation’s Waze toolbar action.
+
 `ui.media.browser_player_if.BrowserMediaPlayerIf` supplies toolkit-independent
 launch/stop requests for hosted browser surfaces, including the experimental
 [Waze Live Map](../docs/waze_live_map.md). Existing Tk import paths remain available.

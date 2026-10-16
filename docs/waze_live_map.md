@@ -1,8 +1,9 @@
 # Experimental Waze Live Map
 
-The `WAZE` destination opens the official Waze Live Map embed in an ORC-owned
-browser panel. It uses the existing X11 browser hosting, with a separate browser
-profile and a Back action to Home. Leaving the screen, entering offline mode,
+The **Waze** button at the right of Navigation’s top row opens the official
+Waze Live Map embed in an ORC-owned browser panel. It uses the existing X11 browser hosting, with a separate browser
+profile and a Back action to Navigation. It does not add a left-sidebar entry.
+Leaving the screen, entering offline mode,
 or closing ORC stops the browser and cancels pending launches.
 
 This requires an online connection, an existing supported Chromium/Chrome setup,
@@ -13,12 +14,28 @@ is not provided; use the existing ORC X11 session.
 Configure `[apps.waze]` in `config/applications.toml` (Linux/Pi) or
 `config/applications.termux.toml` (Termux). The default location is Detroit;
 change the URL's `lat`, `lon`, and `zoom` parameters to choose the initial view.
-Set `enabled = false` to remove the destination. Existing custom application
+Set `enabled = false` to remove the button. Existing custom application
 configs without a Waze entry continue to work without a Waze screen.
 
-The page is a separate Waze view: it does not receive ORC GPS, routes or POIs,
-and Waze data is not extracted into MapLibre. This is an online traffic/map
-experiment, not the mobile Waze app or voice-guided turn-by-turn navigation.
+Waze receives ORC's live GPS position while its screen is open. A local-only
+Chromium control connection on port 9224 supplies the browser geolocation API
+and grants location access to the Waze page. This avoids depending on Linux
+Chromium's location provider to obtain Android GPS in Termux. It shares your
+position with Waze; it does not send ORC routes or POIs or extract Waze data into
+MapLibre. Location forwarding stops when the screen is hidden or closed.
+
+Only future live, noncached fixes from ORC's navigation stream are used. Invalid
+or unavailable fixes clear browser location, and fixes expire after ten seconds
+without an update. The configured Detroit map center is never used as a GPS fix.
+The bridge uses a conservative 50 m accuracy estimate because this stream carries
+position without measured accuracy. Waze can still show unavailable location if
+ORC has no live fix; verify the Android sensor bridge/navigation service first.
+
+The local browser integration has been exercised in headless Chromium with a
+local test page, including moving fixes, invalidation and connection teardown.
+The actual Waze page and Android/Termux integration still need device validation.
+
+This is an online traffic/map experiment, not the mobile Waze app or voice-guided turn-by-turn navigation.
 The embed's available controls may differ from the full Live Map website.
 
 Use the documented [Waze embed](https://developers.google.com/waze/iframe/)
@@ -27,7 +44,7 @@ non-Waze maps and applying Waze branding to them. The documentation describes
 website embedding, not an explicit desktop-application license; this experiment
 does not settle that distinction or grant permission beyond Waze's terms.
 
-## Try on the Pi
+## Try on Termux or the Pi
 
 From the repository checkout:
 
@@ -36,17 +53,21 @@ git switch feature/waze-live-map
 ./runOrcUi
 ```
 
-Select **WAZE** while online. Check that the map loads, pan/zoom work by touch,
-resizing stays inside ORC, and Back returns Home. Reopen the screen repeatedly,
+Open **Navigation**, then select **Waze** at the top right while online. Check that the map loads, pan/zoom work by touch,
+resizing stays inside ORC, and Back returns Navigation. Reopen the screen repeatedly,
 switch to Navigation, then toggle offline while Waze is open: its browser should
 close, and normal ORC navigation should continue. Re-enable online and reopen
-Waze, then close ORC and check that the Waze browser exits.
+Waze, tap its location control and confirm it uses your live position. Move with
+an active GPS fix and confirm updates. Then close ORC and check that the Waze
+browser exits. If location still fails, distinguish an absent ORC GPS fix from
+Waze refusing browser geolocation; browser consent alone does not establish that
+Android GPS is reaching Linux Chromium.
 
 Focused portable validation:
 
 ```bash
 git switch feature/waze-live-map
-python -m pytest apps/orcUi/composition/unit_test/test_waze.py apps/orcUi/composition/unit_test/test_application.py apps/orcUi/composition/unit_test/test_startup_cleanup.py -q
+python -m pytest apps/orcUi/composition/unit_test/test_waze.py apps/orcUi/frontend/tk/unit_test/test_waze_toolbar.py controllers/navigation/unit_test/test_waze_location_player.py protocols/chromium/unit_test/test_chromium_devtools_session.py -q
 python scripts/check_ui_boundaries.py
 ```
 

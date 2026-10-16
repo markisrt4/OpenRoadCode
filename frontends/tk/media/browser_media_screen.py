@@ -136,7 +136,9 @@ class BrowserMediaScreen(TkScreen):
             height = max(1, host.winfo_height())
             position = (host.winfo_rootx(), host.winfo_rooty())
             display = os.environ.get("DISPLAY", ":1")
-            self._player.play(self._default_target, display=display, window_position=position, window_size=(width, height))
+            if not self._player.play(self._default_target, display=display, window_position=position, window_size=(width, height)):
+                self._host.set_screen_status(f"{self._title} unavailable")
+                return
             self._embedder.embed(0, int(host.winfo_id()), width, height, window_class=self._window_class)
             self._host.set_screen_status(f"{self._title} ready")
         except Exception as error:
