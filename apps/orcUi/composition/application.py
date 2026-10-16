@@ -27,6 +27,7 @@ from ui.navigation import GeoPoint
 from apps.orcUi.composition.games import configure_games
 from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
 from apps.orcUi.composition.tooltips import TooltipFactory
+from apps.orcUi.composition.waze import WazeComposition, configure_waze
 from apps.orcUi.composition.media import MediaComposition, configure_media
 from apps.orcUi.composition.radio import RadioComposition, configure_radio
 from apps.orcUi.composition.weather import WeatherComposition, configure_weather
@@ -72,6 +73,7 @@ class OrcUiComposition:
     performance_status: PerformanceStatusPresenter | None = None
     host_location: HostLocationSettingsController | None = None
     startup_progress: Callable[[str, str], None] | None = None
+    waze: WazeComposition | None = None
 
     _closed: bool = field(default=False, init=False)
 
@@ -103,7 +105,7 @@ class OrcUiComposition:
         close_resources(
             self.app.shutdown,
             *(resource.close for resource in (
-                self.host_location, self.performance_status, self.performance, self.vision, self.navigation,
+                self.waze, self.host_location, self.performance_status, self.performance, self.vision, self.navigation,
                 self.navigation_places, self.radar_replay, self.weather_overlays,
             ) if resource is not None),
             self.radio.close,
@@ -311,6 +313,9 @@ def create_orc_ui_composition(
         app.register_screen("OFF-ROAD", offroad, show_in_navigation=False)
         app.register_screen("SETTINGS", settings, show_in_navigation=False)
         app.register_screen("DIAGNOSTICS", diagnostics, show_in_navigation=False)
+        waze = configure_waze(app, runtime)
+        if waze is not None:
+            cleanup.callback(waze.close)
         app.set_initial_destination("HOME")
         app.set_settings_action(lambda: app.navigate_to("SETTINGS"))
         _report(progress, "screens", "Application screens loaded")
@@ -335,6 +340,7 @@ def create_orc_ui_composition(
             performance_status=performance_status,
             host_location=host_location,
             startup_progress=progress,
+            waze=waze,
         )
         cleanup.release()
         return composition

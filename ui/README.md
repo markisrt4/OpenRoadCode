@@ -10,6 +10,10 @@ shared by applications, controllers, and concrete frontends. Code in this
 package must not import Tkinter, Qt, application composition, controllers, or
 hardware implementations.
 
+`ui.media.browser_player_if.BrowserMediaPlayerIf` supplies toolkit-independent
+launch/stop requests for hosted browser surfaces, including the experimental
+[Waze Live Map](../docs/waze_live_map.md). Existing Tk import paths remain available.
+
 ## Dependency boundary
 
 <div class="orc-diagram-legend" aria-label="Architecture diagram legend">

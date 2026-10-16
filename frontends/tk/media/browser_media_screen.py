@@ -9,7 +9,7 @@ import os
 import tkinter as tk
 from collections.abc import Callable
 
-from frontends.tk.media.spotify_services_if import BrowserMediaPlayerIf
+from ui.media.browser_player_if import BrowserMediaPlayerIf
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from frontends.x11 import X11WindowEmbedder

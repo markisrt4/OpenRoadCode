@@ -66,3 +66,11 @@ profile = "google-earth"
 startup = "lazy"
 target = "auxiliary"
 exclusive_group = "auxiliary"
+
+# Experimental standalone Waze Live Map (online; no ORC route/GPS integration).
+[apps.waze]
+type = "browser"
+enabled = true
+url = "https://embed.waze.com/iframe?zoom=12&lat=42.3314&lon=-83.0458"
+profile = "waze"
+startup = "lazy"

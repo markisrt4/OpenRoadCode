@@ -39,6 +39,7 @@ class OrcUiApplicationRuntime:
     streaming_radio: StreamingRadioController
     media: MediaApplicationService
     earth: GoogleEarthLauncher | None = None
+    waze_url: str | None = None
 
     _closed: bool = field(default=False, init=False)
 
@@ -74,6 +75,11 @@ def create_orc_ui_application_runtime() -> OrcUiApplicationRuntime:
         browser_factory = BrowserApplicationFactory(config)
         manager.register("youtube", browser_factory.create("youtube"))
         manager.register("netflix", browser_factory.create("netflix"))
+        waze_config = next((app for app in config.apps if app.key == "waze"), None)
+        waze_url = None
+        if waze_config is not None and waze_config.enabled:
+            manager.register("waze", browser_factory.create("waze"))
+            waze_url = waze_config.url
         earth_config = config.app("google_earth")
         earth = (GoogleEarthLauncher(browser=browser_factory.create("google_earth"))
                  if earth_config.enabled else None)
@@ -96,6 +102,7 @@ def create_orc_ui_application_runtime() -> OrcUiApplicationRuntime:
             streaming_radio=streaming_radio,
             media=media,
             earth=earth,
+            waze_url=waze_url,
         )
         cleanup.release()
         return runtime
