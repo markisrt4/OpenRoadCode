@@ -18,12 +18,18 @@ def panel():
     view._on_seek = Mock()
     view._on_close = Mock()
     view._closed = False
+    view._playing = False
+    view._compact_requested = False
+    view._tab = "radar"
+    view._show_tab = Mock()
+    view._on_play = Mock()
+    view._compact_actions = [Mock() for _ in range(5)]
     view._set_compact = Mock()
-    for name in ('_data_status', '_visibility', '_timeline', '_compact_timeline', '_value', '_play',
+    for name in ('_header', '_data_status', '_visibility', '_timeline', '_compact_timeline', '_value', '_play',
                  '_previous', '_next', '_live', '_timestamp', '_oldest', '_edge'):
         setattr(view, name, Mock())
     view._palette_buttons = {False: (Mock(), 'Universal'), True: (Mock(), 'Classic')}
-    view._source_buttons = {False: (Mock(), 'Observed'), True: (Mock(), 'Forecast')}
+    view._zoom_buttons = {zoom: (Mock(), text) for zoom, text in ((10.0, 'Local'), (7.0, 'Regional'), (3.5, 'Country'))}
     view._speed_buttons = {factor: (Mock(), f'{factor:g}×') for factor in (0.5, 1.0, 2.0)}
     return view
 
@@ -36,7 +42,7 @@ def test_controller_updates_select_choices_and_do_not_seek():
                 forecast=True, classic=True, speed=2.0)
     view._on_seek.assert_not_called()
     for buttons, selected in ((view._palette_buttons, True),
-                              (view._source_buttons, True), (view._speed_buttons, 2.0)):
+                              (view._zoom_buttons, 16.5), (view._speed_buttons, 2.0)):
         for key, (button, _) in buttons.items():
             assert button.configure_button.call_args.kwargs['text'].startswith('✓') == (key == selected)
     assert view._play.configure_button.call_args.kwargs['text'] == 'Ⅱ Pause'
@@ -68,10 +74,10 @@ def test_forecast_failure_shows_actual_error_and_observed_recovery():
     view.render((), None, enabled=False, playing=False, forecast=True,
                 data_status="Radar unavailable", status=failure)
     assert view._data_status.configure.call_args.kwargs['text'] == failure
-    assert 'Observed' in view._timestamp.configure.call_args.kwargs['text']
+    assert 'choose Radar above' in view._timestamp.configure.call_args.kwargs['text']
     view.render((100, 200), 1, enabled=True, playing=False, data_status="Imagery loaded")
     assert view._data_status.configure.call_args.kwargs['text'] == 'Imagery loaded'
-    assert 'Observed' not in view._timestamp.configure.call_args.kwargs['text']
+    assert 'choose Radar' not in view._timestamp.configure.call_args.kwargs['text']
 
 
 def test_only_outside_taps_dismiss_popup():
@@ -178,3 +184,61 @@ def test_compact_bar_is_positioned_at_bottom_of_map_panel():
     view.geometry = Mock()
     view.reposition()
     view.geometry.assert_called_once_with('720x64+190+424')
+
+
+def test_radar_and_futurecast_are_direct_source_choices_not_display_options():
+    view = panel()
+    view._on_source = Mock()
+    view._forecast = False
+    view._select_tab('futurecast')
+    view._show_tab.assert_called_with('futurecast')
+    view._on_source.assert_called_once_with(True)
+    view._forecast = True  # Accepted controller snapshot.
+    view._on_source.reset_mock()
+    view._select_tab('display')
+    view._on_source.assert_not_called()
+    view._select_tab('futurecast')
+    view._on_source.assert_not_called()
+    view._select_tab('radar')
+    view._on_source.assert_called_once_with(False)
+    view._on_source.reset_mock()
+    view._closed = True
+    view._select_tab('futurecast')
+    view._on_source.assert_not_called()
+
+
+def test_compact_restart_preserves_play_and_steps_pause_for_inspection():
+    view = panel()
+    view._times = (100, 200, 300)
+    view._frame_index = 1
+    view._playing = True
+    events = []
+    view._on_seek.side_effect = lambda index: events.append(('seek', index))
+    view._on_play.side_effect = lambda: events.append(('resume',))
+    view._restart_compact()
+    assert events == [('seek', 0), ('resume',)]
+    events.clear()
+    view._step_compact(1)
+    assert events == [('seek', 2)]
+    events.clear()
+    view._playing = False
+    view._step_compact(-1)
+    assert events == [('seek', 0)]
+    events.clear()
+    view._frame_index = 0
+    view._step_compact(-1)
+    assert events == []
+    view._closed = True
+    view._restart_compact()
+    assert events == []
+
+
+def test_paused_transport_stays_compact_until_stop_returns_to_settings():
+    view = panel()
+    view.render((100, 200), 0, enabled=True, playing=True)
+    view._set_compact.assert_called_with(True)
+    view.render((100, 200), 1, enabled=True, playing=False)
+    view._set_compact.assert_called_with(True)
+    view._stop_compact()
+    view._set_compact.assert_called_with(False)
+    view._on_play.assert_not_called()

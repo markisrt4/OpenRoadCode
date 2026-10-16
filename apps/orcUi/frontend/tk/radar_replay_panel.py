@@ -55,7 +55,7 @@ class RadarReplayPanel(tk.Toplevel, UiWidget):
 
     def __init__(self, owner, anchor, *, on_play, on_seek, on_live, on_close,
                  on_palette, classic, on_speed, speed_value, ui, on_source=None,
-                 on_toggle=None):
+                 on_toggle=None, on_zoom=None, zoom_value=16.5):
         super().__init__(owner, bg=ui.control_background)
         self.withdraw()
         self.overrideredirect(True)
@@ -63,6 +63,9 @@ class RadarReplayPanel(tk.Toplevel, UiWidget):
         self._owner_panel = owner
         self._compact = False
         self._playing = False
+        self._compact_requested = False
+        self._forecast = False
+        self._on_source = on_source
         self._on_play = on_play
         self.transient(self._owner_window)
         self._frame_index = None
@@ -71,12 +74,13 @@ class RadarReplayPanel(tk.Toplevel, UiWidget):
         self._ui = ui
         self._on_close = on_close
         self._closed = False
-        self._tab = "playback"
+        self._tab = "radar"
         self._body = tk.Frame(self, bg=ui.control_background, padx=12, pady=10)
         self._body.pack(fill=tk.BOTH, expand=True)
         self._body.grid_columnconfigure(0, weight=1)
         title = self._row(self._body, 0)
-        self._label(title, "Radar controls", bold=True).pack(side=tk.LEFT)
+        self._header = self._label(title, "Radar controls", bold=True)
+        self._header.pack(side=tk.LEFT)
         self._button(title, "Close  ×", on_close, width=100).pack(side=tk.RIGHT)
         summary = self._row(self._body, 1)
         self._visibility = self._button(summary, "Radar off", on_toggle, width=140)
@@ -86,9 +90,10 @@ class RadarReplayPanel(tk.Toplevel, UiWidget):
         self._timestamp.pack(side=tk.LEFT, fill=tk.X, expand=True)
         tabs = self._row(self._body, 2)
         self._tab_buttons = {}
-        for column, (key, text) in enumerate((("playback", "Playback"), ("display", "Display"))):
+        for column, (key, text) in enumerate((("radar", "Radar"), ("futurecast", "Futurecast"), ("display", "Display"))):
             tabs.grid_columnconfigure(column, weight=1, uniform="radar-tabs")
-            button = self._button(tabs, text, partial(self._show_tab, key))
+            button = self._button(tabs, text, partial(self._select_tab, key)
+                if key != "futurecast" or on_source is not None else None)
             button.grid(row=0, column=column, sticky="ew", padx=(0, 4) if column == 0 else (4, 0))
             self._tab_buttons[key] = button
         self._pages = {key: tk.Frame(self._body, bg=ui.control_background)
@@ -124,10 +129,10 @@ class RadarReplayPanel(tk.Toplevel, UiWidget):
         self._label(display, "Radar colors", small=True).grid(row=0, column=0, sticky="w")
         self._palette_buttons = self._choices(display, 1,
             ((False, "Universal"), (True, "Classic")), on_palette)
-        self._label(display, "Radar source", small=True).grid(row=2, column=0, sticky="w", pady=(8, 0))
-        self._source_buttons = self._choices(display, 3,
-            ((False, "Observed"), (True, "Forecast")), on_source)
-        self._label(display, "Forecast is experimental · Contiguous United States only",
+        self._label(display, "Quick map zoom", small=True).grid(row=2, column=0, sticky="w", pady=(8, 0))
+        self._zoom_buttons = self._choices(display, 3,
+            ((10.0, "Local"), (7.0, "Regional"), (3.5, "Country")), on_zoom)
+        self._label(display, "Zoom presets keep the current map center.",
                     small=True).grid(row=4, column=0, sticky="ew", pady=(8, 0))
         self._data_status = self._label(self._body, "", small=True)
         self._data_status.configure(wraplength=540, justify=tk.LEFT, height=2)
@@ -140,11 +145,21 @@ class RadarReplayPanel(tk.Toplevel, UiWidget):
             fg=ui.control_text, troughcolor=ui.background, highlightthickness=0,
             bd=0, sliderlength=48, width=24)
         self._compact_timeline.grid(row=0, column=0, sticky="ew", padx=(0, 10))
-        self._button(self._compact_body, "■ Stop", self._stop_compact, width=110).grid(
-            row=0, column=1)
+        self._compact_actions = []
+        for column, (text, callback, width) in enumerate((
+            ("↺", self._restart_compact, 52),
+            ("‹", partial(self._step_compact, -1), 52),
+            ("Ⅱ", on_play, 52),
+            ("›", partial(self._step_compact, 1), 52),
+            ("■ Stop", self._stop_compact, 100),
+        ), start=1):
+            button = self._button(self._compact_body, text, callback, width=width)
+            button.grid(row=0, column=column, padx=2)
+            self._compact_actions.append(button)
         self._paint_choices(self._speed_buttons, speed_value)
         self._paint_choices(self._palette_buttons, classic)
-        self._show_tab("playback")
+        self._paint_choices(self._zoom_buttons, zoom_value)
+        self._show_tab("radar")
         self.bind("<Escape>", lambda _event: on_close())
         self.bind("<Button-1>", self._outside_press, add="+")
         self.update_idletasks()
@@ -186,9 +201,18 @@ class RadarReplayPanel(tk.Toplevel, UiWidget):
                 fg=self._ui.control_text,
                 relief=tk.SUNKEN if active else tk.FLAT)
 
+    def _select_tab(self, key):
+        if self._closed:
+            return
+        self._show_tab(key)
+        if key != "display" and self._on_source is not None:
+            forecast = key == "futurecast"
+            if forecast != self._forecast:
+                self._on_source(forecast)
+
     def _show_tab(self, key):
         self._tab = key
-        self._pages[key].tkraise()
+        self._pages["display" if key == "display" else "playback"].tkraise()
         for name, button in self._tab_buttons.items():
             button.configure_button(selected=name == key,
                                     fg=self._ui.control_text,
@@ -212,10 +236,32 @@ class RadarReplayPanel(tk.Toplevel, UiWidget):
         self.reposition()
 
     def _stop_compact(self):
-        # Stop pauses at the current frame; the controller snapshot restores
-        # full controls, rather than resetting history or hiding the radar.
-        if self._playing and not self._closed:
+        if self._closed:
+            return
+        self._compact_requested = False
+        if self._playing:
             self._on_play()
+        else:
+            self._set_compact(False)
+
+    def _seek_compact(self, index, *, resume=False):
+        if self._closed or not self._times or not 0 <= index < len(self._times):
+            return
+        playing = self._playing
+        self._on_seek(index)
+        # Seeking intentionally pauses through the existing radar contract.
+        # Restart can continue running; stepping pauses for frame inspection.
+        if playing and resume:
+            self._on_play()
+
+    def _restart_compact(self):
+        self._seek_compact(0, resume=True)
+
+    def _step_compact(self, direction):
+        if self._frame_index is not None:
+            index = self._frame_index + direction
+            if index != self._frame_index:
+                self._seek_compact(index)
 
     def reposition(self):
         """Center settings; keep the slim playback strip near the map's bottom."""
@@ -259,7 +305,7 @@ class RadarReplayPanel(tk.Toplevel, UiWidget):
             self._on_seek(index)
 
     def render(self, times, index, *, enabled, playing, forecast=False, loading=False,
-               data_status="", refreshed_at=None, classic=False, speed=1.0, status=""):
+               data_status="", refreshed_at=None, classic=False, speed=1.0, status="", zoom_value=16.5):
         """Synchronize state without emitting any requests from rendering."""
         detail = status or data_status
         if refreshed_at is not None:
@@ -272,7 +318,11 @@ class RadarReplayPanel(tk.Toplevel, UiWidget):
             selected=enabled,
             fg=self._ui.control_text)
         self._paint_choices(self._palette_buttons, classic)
-        self._paint_choices(self._source_buttons, forecast)
+        self._forecast = forecast
+        self._header.configure(text="Futurecast · next 6 hours" if forecast else "Radar controls")
+        if self._tab != "display":
+            self._show_tab("futurecast" if forecast else "radar")
+        self._paint_choices(self._zoom_buttons, zoom_value)
         self._paint_choices(self._speed_buttons, speed)
         available = enabled and bool(times)
         for timeline in (self._timeline, self._compact_timeline):
@@ -280,6 +330,11 @@ class RadarReplayPanel(tk.Toplevel, UiWidget):
                 state=tk.NORMAL if available and len(times) > 1 else tk.DISABLED)
         if index is not None:
             self._value.set(index)
+        self._compact_actions[0].configure_button(state=tk.NORMAL if available else tk.DISABLED)
+        self._compact_actions[1].configure_button(state=tk.NORMAL if available and index is not None and index > 0 else tk.DISABLED)
+        self._compact_actions[2].configure_button(text="Ⅱ" if playing else "▶",
+            state=tk.NORMAL if available and len(times) > 1 else tk.DISABLED)
+        self._compact_actions[3].configure_button(state=tk.NORMAL if available and index is not None and index < len(times) - 1 else tk.DISABLED)
         self._play.configure_button(text="Ⅱ Pause" if playing else "▶ Play",
             state=tk.NORMAL if available and len(times) > 1 else tk.DISABLED)
         self._previous.configure_button(state=tk.NORMAL if available and index is not None and index > 0 else tk.DISABLED)
@@ -287,7 +342,7 @@ class RadarReplayPanel(tk.Toplevel, UiWidget):
         self._live.configure_button(text="Return to now" if forecast else "Return to live radar",
             state=tk.NORMAL if enabled or forecast else tk.DISABLED)
         if status and forecast and not enabled:
-            label = "Forecast unavailable · choose Observed in Display"
+            label = "Futurecast unavailable · choose Radar above"
         elif not enabled:
             label = "Turn radar on to load history"
         elif not times or index is None or not 0 <= index < len(times):
@@ -303,5 +358,10 @@ class RadarReplayPanel(tk.Toplevel, UiWidget):
         self._timestamp.configure(text=label)
         self._oldest.configure(text=datetime.fromtimestamp(times[0]).strftime("%I:%M %p").lstrip("0") if times else "Earlier")
         self._edge.configure(text=datetime.fromtimestamp(times[-1]).strftime("%I:%M %p").lstrip("0") if forecast and times else "Latest")
+        was_playing = self._playing
         self._playing = enabled and playing
-        self._set_compact(self._playing)
+        if self._playing and not was_playing:
+            self._compact_requested = True
+        if not available:
+            self._compact_requested = False
+        self._set_compact(self._compact_requested)

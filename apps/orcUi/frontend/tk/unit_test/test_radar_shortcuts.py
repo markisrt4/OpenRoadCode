@@ -110,3 +110,22 @@ def test_weather_state_renders_provider_role_and_current_temperature():
     assert panel._provider_label.configure.call_args.kwargs['text'].startswith('Weather data provider: Open-Meteo')
     assert panel._temperature.configure.call_args.kwargs['text'] == '50°F'
     panel._render_forecasts.assert_called_once()
+
+
+def test_radar_zoom_presets_use_existing_camera_contract_without_recentering():
+    panel = object.__new__(NavigationPanel)
+    panel._request_handler = Mock()
+    panel._zoom_text = Mock()
+    panel._schedule_active_poi_refresh = Mock()
+    panel._render_radar_state = Mock()
+    for zoom in (10.0, 7.0, 3.5):
+        panel._set_radar_zoom(zoom)
+        panel._request_handler.request_zoom.assert_called_with(zoom)
+        assert panel._zoom_level == zoom
+    panel._request_handler.request_center_on.assert_not_called()
+    panel._request_handler.request_recenter.assert_not_called()
+    panel._request_handler.request_follow.assert_not_called()
+    assert panel._schedule_active_poi_refresh.call_count == 3
+    panel._request_handler = None
+    panel._set_radar_zoom(10.0)
+    assert panel._zoom_level == 3.5

@@ -101,7 +101,17 @@ class NavigationRadarControls:
             on_speed=self._set_radar_speed, speed_value=self._radar_speed,
             ui=self._theme_bundle.ui,
             on_source=self._on_radar_source, on_toggle=self._toggle_radar,
+            on_zoom=self._set_radar_zoom, zoom_value=getattr(self, "_zoom_level", 16.5),
         )
+        self._render_radar_state()
+
+    def _set_radar_zoom(self, zoom: float) -> None:
+        if self._request_handler is None:
+            return
+        self._zoom_level = zoom
+        self._zoom_text.set(f"{zoom:.1f}")
+        self._request_handler.request_zoom(zoom)
+        self._schedule_active_poi_refresh()
         self._render_radar_state()
 
     def close_radar_menu(self) -> None:
@@ -177,7 +187,8 @@ class NavigationRadarControls:
                          refreshed_at=getattr(self, "_radar_refreshed_at", None),
                          classic=self._radar_palette is RadarPalette.CLASSIC,
                          speed=self._radar_speed,
-                         status=getattr(self, "_radar_status", ""))
+                         status=getattr(self, "_radar_status", ""),
+                         zoom_value=getattr(self, "_zoom_level", 16.5))
 
         callback = self.__dict__.get("_on_weather_visibility_changed")
         if callback is not None:
