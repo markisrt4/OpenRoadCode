@@ -10,10 +10,12 @@ from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from common.units import UnitSystem
 from ui.automotive.vehicle_configuration import (EngineInductionType, VehicleConfiguration)
 from ui.theme import ThemeBundle, ThemeMode
+from ui.navigation.host_location_ui_if import HostLocationRequestHandlerIf, HostLocationState
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
+from ui.ui_widget import UiWidget
 
 
-class SettingsPanel(tk.Frame):
+class SettingsPanel(tk.Frame, UiWidget):
     """Top-level OpenRoadCode settings surface."""
 
     def __init__(
@@ -26,6 +28,8 @@ class SettingsPanel(tk.Frame):
         on_unit_system_changed: Callable[[UnitSystem], None],
         on_back: Callable[[], None],
         theme_bundle: ThemeBundle | None = None,
+        host_location_handler: HostLocationRequestHandlerIf | None = None,
+        host_location_state: HostLocationState = HostLocationState(),
     ) -> None:
         self._theme_bundle = theme_bundle or packaged_theme_bundle(ThemeMode.DARK)
         ui = self._theme_bundle.ui
@@ -68,6 +72,7 @@ class SettingsPanel(tk.Frame):
             font=("Sans", FONT_CONTROL, "bold"),
             padx=14,
             pady=6,
+            highlightthickness=0,
         ).pack(side=tk.RIGHT, padx=10, pady=8)
 
         body = tk.Frame(self, bg=ui.background)
@@ -80,7 +85,7 @@ class SettingsPanel(tk.Frame):
             highlightthickness=1,
             highlightbackground=ui.border,
         )
-        display.grid(row=0, column=0, sticky="ew", pady=4)
+        display.grid(row=1, column=0, sticky="ew", pady=4)
         display.grid_columnconfigure(1, weight=1)
 
         tk.Label(
@@ -124,6 +129,7 @@ class SettingsPanel(tk.Frame):
                 selectcolor=ui.control_background,
                 font=("Sans", FONT_CONTROL),
                 anchor="w",
+                highlightthickness=0, bd=0, relief=tk.FLAT,
             ).grid(row=row, column=0, sticky="w", pady=2)
 
         vehicle = tk.Frame(
@@ -132,7 +138,7 @@ class SettingsPanel(tk.Frame):
             highlightthickness=1,
             highlightbackground=ui.border,
         )
-        vehicle.grid(row=1, column=0, sticky="ew", pady=4)
+        vehicle.grid(row=2, column=0, sticky="ew", pady=4)
         vehicle.grid_columnconfigure(1, weight=1)
 
         tk.Label(
@@ -175,7 +181,43 @@ class SettingsPanel(tk.Frame):
                 selectcolor=ui.control_background,
                 font=("Sans", FONT_CONTROL),
                 anchor="w",
+                highlightthickness=0, bd=0, relief=tk.FLAT,
             ).grid(row=row, column=0, sticky="w", pady=2)
+
+        location = tk.Frame(body, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
+        location.grid(row=0, column=0, sticky="ew", pady=4)
+        location.grid_columnconfigure(0, weight=1)
+        tk.Label(location, text="LOCATION", bg=ui.surface, fg=ui.accent_primary,
+                 font=("Sans", 10, "bold")).grid(row=0, column=0, sticky="w", padx=14, pady=(8, 2))
+        self._location_status = tk.StringVar(value=host_location_state.status)
+        status = tk.Label(location, textvariable=self._location_status, bg=ui.surface, fg=ui.text_muted,
+                          font=("Sans", FONT_SMALL), justify=tk.LEFT, anchor="w", wraplength=200)
+        status.grid(row=1, column=0, sticky="ew", padx=14, pady=(0, 8))
+        status.bind("<Configure>", lambda event: self._update_location_wrap(status, event.width))
+        self._location_handler = host_location_handler
+        self._location_button = tk.Button(
+            location, text="SHARE HOST LOCATION", command=self._share_host_location,
+            bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active,
+            relief=tk.FLAT, font=("Sans", FONT_CONTROL, "bold"), padx=10, pady=6)
+        self._location_button.grid(row=0, column=1, rowspan=2, padx=14, pady=8)
+        self.set_host_location_state(host_location_state)
+
+    def _share_host_location(self) -> None:
+        if self._location_handler is not None:
+            self._location_handler.share_host_location()
+
+    @staticmethod
+    def _update_location_wrap(label: tk.Label, width: int) -> None:
+        wraplength = max(80, width)
+        # A wrap update can itself cause Configure events. Do not repeatedly
+        # request geometry for an unchanged width, especially on narrow X11 hosts.
+        if int(label.cget("wraplength")) != wraplength:
+            label.configure(wraplength=wraplength)
+
+    def set_host_location_state(self, state: HostLocationState) -> None:
+        self._location_status.set(state.status)
+        self._location_button.configure(state=tk.DISABLED if state.busy or not state.can_share
+                                        or self._location_handler is None else tk.NORMAL)
 
     @property
     def vehicle_configuration(self) -> VehicleConfiguration:

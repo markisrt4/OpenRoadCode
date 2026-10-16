@@ -11,6 +11,7 @@ from apps.orcUi.frontend.tk.navigation_panel import NavigationPanel
 from controllers.navigation.map_favorites import MapFavorite
 from ui.navigation.poi_models import (PoiAction, PoiActionKind, PoiCategory, PointOfInterest, TransitMode)
 from ui.navigation import GeoPoint
+from ui.navigation import MapControlsDrawerState
 from ui.navigation.route_types import TravelMode
 
 
@@ -19,6 +20,7 @@ class NavigationPanelControlTest(unittest.TestCase):
 
     def _panel(self) -> NavigationPanel:
         panel = object.__new__(NavigationPanel)
+        panel._map_platform = None
         panel._request_handler = Mock()
         panel._zoom_level = 16.5
         panel._zoom_text = Mock()
@@ -75,6 +77,7 @@ class NavigationPanelControlTest(unittest.TestCase):
         from apps.orcUi.frontend.tk.navigation_panel_layout import build_navigation_panel
 
         panel = Mock()
+        panel._map_platform = None
         label = Mock()
         label.return_value.winfo_reqheight.return_value = 18
         with patch.multiple(
@@ -160,6 +163,43 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel.set_follow_enabled.assert_called_once_with(False)
         panel._request_handler.request_follow.assert_called_once_with(False)
 
+    def test_collapsed_map_controls_release_rail_and_float_handle(self) -> None:
+        panel = self._panel()
+        panel._map_host = Mock()
+        panel._map_controls = Mock()
+        panel._map_controls_rail = Mock()
+        panel._map_controls_handle = Mock()
+        panel.after_idle = Mock()
+        panel._refresh_renderer_state = Mock()
+
+        panel.set_map_controls_drawer_state(MapControlsDrawerState(expanded=False))
+
+        panel._map_controls.place_forget.assert_called_once_with()
+        panel._map_host.grid_configure.assert_not_called()
+        panel._map_controls_rail.pack_forget.assert_called_once_with()
+        panel._map_controls_handle.place.assert_called_once_with(
+            relx=1.0, rely=0.5, anchor="e", width=48, height=72,
+        )
+        panel._map_controls_handle.lift.assert_called_once_with()
+
+    def test_expanded_map_controls_replace_floating_handle(self) -> None:
+        panel = self._panel()
+        panel._map_host = Mock()
+        panel._map_controls = Mock()
+        panel._map_controls_rail = Mock()
+        panel._map_controls_handle = Mock()
+        panel.after_idle = Mock()
+        panel._refresh_renderer_state = Mock()
+
+        panel.set_map_controls_drawer_state(MapControlsDrawerState(expanded=True))
+
+        panel._map_controls.place.assert_called_once_with(
+            relx=1.0, rely=0.0, anchor="ne", width=140, relheight=1.0,
+        )
+        panel._map_controls.lift.assert_called_once_with()
+        panel._map_host.grid_configure.assert_not_called()
+        panel._map_controls_handle.place_forget.assert_called_once_with()
+
     def test_gas_shortcut_starts_fuel_search(self) -> None:
         panel = self._panel()
         panel._start_poi_search = Mock()
@@ -178,19 +218,21 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._destination_shortcut("food")
         panel._start_poi_search.assert_called_once_with(PoiCategory.FOOD)
 
-    def test_home_shortcut_starts_route_to_saved_home(self) -> None:
+    def test_home_shortcut_opens_popup_before_routing(self) -> None:
         panel = self._panel()
         position = GeoPoint(math.radians(42.8), math.radians(-83.0))
-        panel._places_handler.favorite.return_value = MapFavorite("home", "Home", position)
+        panel._places_handler.favorite.return_value = MapFavorite("home", "Home", position, "123 Main St")
+        panel._show_poi_card = Mock()
 
         panel._destination_shortcut("home")
 
-        panel._route_request_handler.request_start_route.assert_called_once_with(
-            position,
-            (),
-            TravelMode.AUTO,
-        )
-        panel._shortcut_status.set.assert_called_with("Routing to Home")
+        panel._route_request_handler.request_start_route.assert_not_called()
+        poi = panel._show_poi_card.call_args.args[0]
+        self.assertEqual(poi.position, position)
+        self.assertEqual(poi.name, "Home")
+        self.assertEqual(poi.address, "123 Main St")
+        panel._navigate_to_poi(poi)
+        panel._route_request_handler.request_start_route.assert_called_once_with(position, TravelMode.AUTO)
 
     def test_work_shortcut_reports_unconfigured_location(self) -> None:
         panel = self._panel()
@@ -296,7 +338,6 @@ class NavigationPanelControlTest(unittest.TestCase):
 
         panel._route_request_handler.request_start_route.assert_called_once_with(
             poi.position,
-            (),
             TravelMode.AUTO,
         )
         panel._shortcut_status.set.assert_called_with("Routing to Panera Bread")
@@ -340,3 +381,62 @@ def test_close_places_cancels_poll_and_debounce_and_rejects_late_callbacks():
     panel._poll_poi_events()
     assert panel._places_handler.mock_calls == []
     panel._shortcut_status.set.assert_not_called()
+
+
+def test_embedded_platform_keeps_host_geometry_and_enables_follow():
+    from ui.navigation.map_platform_if import MapPlatform, MapPlatformState
+    panel = object.__new__(NavigationPanel)
+    panel._platform_toggle = None
+    panel._terrain_active = False
+    panel._follow_enabled = True
+    panel._native_camera_controls = Mock()
+    panel._follow_button = Mock()
+    panel._loading_cover = Mock()
+    panel.set_follow_enabled = Mock()
+    panel._zoom_text = Mock()
+    panel._dimension_text = Mock()
+    panel._zoom_level = 16.5
+    panel._pitch_rad = .7
+    panel.apply_map_platform_state(MapPlatformState(active=MapPlatform.CESIUM, requested=MapPlatform.CESIUM))
+    panel._native_camera_controls.grid_remove.assert_not_called()
+    panel._follow_button.configure.assert_called_with(state='normal')
+    panel.apply_map_platform_state(MapPlatformState())
+    panel._follow_button.configure.assert_called_with(state='normal')
+
+
+def test_terrain_toolbar_routes_camera_actions_without_native_requests():
+    from ui.navigation.map_platform_if import MapPlatform, MapPlatformState, ExplorationCameraAction
+    panel = object.__new__(NavigationPanel)
+    panel._map_platform = Mock(state=MapPlatformState(active=MapPlatform.CESIUM, requested=MapPlatform.CESIUM))
+    panel._request_handler = Mock()
+    panel._pan(1,0)
+    panel._change_zoom(1)
+    panel._change_pitch(-5)
+    panel._north_up()
+    panel._recenter()
+    panel._toggle_map_dimension()
+    assert [call.args[0] for call in panel._map_platform.request_camera.call_args_list] == [
+        ExplorationCameraAction.PAN_UP, ExplorationCameraAction.ZOOM_IN,
+        ExplorationCameraAction.PITCH_DOWN, ExplorationCameraAction.NORTH,
+        ExplorationCameraAction.RECENTER, ExplorationCameraAction.DIMENSION]
+    assert not panel._request_handler.mock_calls
+
+
+def test_loading_cover_stays_above_map_until_ready():
+    from ui.navigation.map_platform_if import MapPlatform, MapPlatformState
+    panel = object.__new__(NavigationPanel)
+    panel._platform_toggle = None
+    panel._terrain_active = False
+    panel._follow_enabled = True
+    panel._follow_button = Mock()
+    panel._loading_cover = Mock()
+    panel._zoom_text = Mock()
+    panel._dimension_text = Mock()
+    panel.set_follow_enabled = Mock()
+    panel.apply_map_platform_state(MapPlatformState(requested=MapPlatform.CESIUM,busy=True))
+    panel._loading_cover.grid.assert_called_once()
+    panel._loading_cover.lift.assert_called_once()
+    panel._loading_cover.grid_remove.assert_not_called()
+    panel.apply_map_platform_state(MapPlatformState(active=MapPlatform.CESIUM,requested=MapPlatform.CESIUM,follow_enabled=True))
+    panel._loading_cover.grid_remove.assert_called_once()
+    panel.set_follow_enabled.assert_called_with(True)

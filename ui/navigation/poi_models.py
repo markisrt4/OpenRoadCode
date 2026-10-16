@@ -35,6 +35,7 @@ class PoiActionKind(Enum):
 
     ORDER = auto()
     OPEN_WEBSITE = auto()
+    EXPLORE_3D = auto()
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,6 +61,7 @@ class PointOfInterest:
     source_subclass: str | None = None
     actions: tuple[PoiAction, ...] = ()
     website: str | None = None
+    address: str = ""
 
 
 @dataclass(frozen=True, slots=True)

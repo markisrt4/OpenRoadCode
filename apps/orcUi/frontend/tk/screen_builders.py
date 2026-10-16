@@ -9,6 +9,7 @@ from ui.system.online_mode_if import OnlineModeIf
 from ui.tooltip_if import TooltipFactoryIf
 
 import tkinter as tk
+from ui.navigation.map_platform_if import MapPlatformControlIf
 from collections.abc import Callable
 
 from apps.orcUi.trip_presenter import TripPresentationState
@@ -24,6 +25,7 @@ from ui.navigation import (
     RouteSimulationRequestHandlerIf,
 )
 from ui.theme import ThemeBundle
+from ui.navigation.host_location_ui_if import HostLocationRequestHandlerIf, HostLocationState
 from ui.navigation.navigation_places_request_handler_if import NavigationPlacesRequestHandlerIf
 
 from .navigation_panel import NavigationPanel
@@ -37,12 +39,14 @@ def build_navigation_screen(
     *,
     map_request_handler: MapRequestHandlerIf,
     places_handler: NavigationPlacesRequestHandlerIf,
+    drawer_handler,
     route_request_handler: RouteRequestHandlerIf,
     route_simulation_handler: RouteSimulationRequestHandlerIf,
     on_back: Callable[[], None],
     theme: ThemeBundle,
     online_mode: OnlineModeIf | None = None,
     tooltip_factory: TooltipFactoryIf | None = None,
+    map_platform: MapPlatformControlIf | None = None,
     radar_enabled: bool = False,
     radar_frame_time: int | None = None,
     radar_palette: RadarPalette = RadarPalette.UNIVERSAL,
@@ -60,12 +64,14 @@ def build_navigation_screen(
         parent,
         map_request_handler=map_request_handler,
         places_handler=places_handler,
+        drawer_handler=drawer_handler,
         route_request_handler=route_request_handler,
         route_simulation_handler=route_simulation_handler,
         on_back=on_back,
         theme_bundle=theme,
         online_mode=online_mode,
         tooltip_factory=tooltip_factory,
+        map_platform=map_platform,
         radar_enabled=radar_enabled,
         radar_frame_time=radar_frame_time,
         radar_palette=radar_palette,
@@ -119,6 +125,8 @@ def build_settings_screen(
     on_unit_system_changed: Callable[[UnitSystem], None],
     on_back: Callable[[], None],
     theme: ThemeBundle,
+    host_location_handler: HostLocationRequestHandlerIf | None = None,
+    host_location_state: HostLocationState = HostLocationState(),
 ) -> SettingsPanel:
     screen = SettingsPanel(
         parent,
@@ -128,6 +136,8 @@ def build_settings_screen(
         on_unit_system_changed=on_unit_system_changed,
         on_back=on_back,
         theme_bundle=theme,
+        host_location_handler=host_location_handler,
+        host_location_state=host_location_state,
     )
     screen.pack(fill=tk.BOTH, expand=True)
     return screen

@@ -7,19 +7,25 @@ from __future__ import annotations
 
 import os
 import tkinter as tk
-import tkinter.font as tkfont
 from collections.abc import Callable, Sequence
 from pathlib import Path
+from functools import partial
 
 from ui.games import GameStatus, GameUiState, GamesRequestHandlerIf, GamesUiIf
 from ui.theme import ThemeBundle
+from ui.ui_widget import UiWidget
 
 PAGE_SIZE = 6
 FILTERS = (("ALL", "all"), ("CASUAL", "casual"), ("PUZZLE", "puzzle"), ("CARD / BOARD", "card_board"), ("ACTION", "action"))
 _ICON_SIZES = (128, 96, 64, 48, 32, 256)
 
 
-class GamesPanel(tk.Frame, GamesUiIf):
+def catalog_column_count(width: int) -> int:
+    """Keep the vehicle display two-up while supporting narrow test windows."""
+    return 2 if width >= 680 else 1
+
+
+class GamesPanel(tk.Frame, GamesUiIf, UiWidget):
     """Touch-friendly Tk view that renders game state and emits requests."""
 
     def __init__(self, parent: tk.Misc, *, theme: ThemeBundle) -> None:
@@ -142,8 +148,10 @@ class GamesPanel(tk.Frame, GamesUiIf):
             button = tk.Button(
                 self._filters,
                 text=label,
-                command=lambda selected=category: self._set_filter(selected),
+                command=partial(self._set_filter, category),
                 relief=tk.FLAT,
+                bd=0,
+                highlightthickness=0,
                 font=("Sans", 14, "bold"),
                 padx=8,
                 pady=5,
@@ -197,12 +205,9 @@ class GamesPanel(tk.Frame, GamesUiIf):
     def _resize_catalog(self, event: tk.Event) -> None:
         if self._runtime_host is not None:
             return
-        # Use actual font metrics: Termux font substitution/DPI can change sizes.
-        title = tkfont.Font(self, font=("Sans", 18, "bold"))
-        action = tkfont.Font(self, font=("Sans", 14, "bold"))
-        minimum_width = max(340, 100 + title.measure("GNOME Sudoku"),
-                            100 + 2 * action.measure("UNAVAILABLE") + 36)
-        columns = 2 if event.width >= 2 * minimum_width else 1
+        # The 1280x720 vehicle surface is intentionally a two-card grid. Only
+        # collapse on genuinely narrow windows; card contents wrap as needed.
+        columns = catalog_column_count(event.width)
         page_size = PAGE_SIZE
         if (columns, page_size) != (self._columns, self._page_size):
             first_game = self._page * self._page_size
@@ -224,6 +229,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
             font=("Sans", 14, "bold"),
             padx=16,
             pady=4,
+            highlightthickness=0, bd=0,
         )
 
     def _paint_status(self) -> None:
@@ -264,7 +270,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
                 fg="#ffffff" if selected else ui.control_text,
                 activebackground=ui.control_active,
                 activeforeground="#ffffff",
-                highlightthickness=1,
+                highlightthickness=1 if selected else 0,
                 highlightbackground=ui.accent_success if selected else ui.border,
             )
 
@@ -442,7 +448,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
         action = tk.Button(
             card,
             text=label,
-            command=command,
+            command=command if command is not None else "",
             state=tk.NORMAL if actionable else tk.DISABLED,
             bg=ui.control_background,
             fg=accent,

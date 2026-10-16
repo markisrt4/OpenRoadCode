@@ -73,6 +73,11 @@ for feature in "${FEATURES[@]}"; do
   fi
   while read -r package; do
     [[ -z "$package" ]] && continue
+    # PyPI Ruff requires a Rust source build on Android. Keep typing mandatory.
+    if [[ "$package" == ruff ]]; then
+      echo "[*] Skipping Ruff installation on Termux (requires a Rust build)."
+      continue
+    fi
     if [[ " ${python_packages[*]} " != *" $package "* ]]; then
       python_packages+=("$package")
     fi

@@ -68,6 +68,13 @@ class ChromiumDevToolsClient:
         payload = self._json_get("/json/version")
         return payload if isinstance(payload, dict) else {}
 
+    def system_info(self) -> dict[str, Any]:
+        """Read graphics diagnostics from the browser target, without a WebGL probe."""
+        url = self.version().get('webSocketDebuggerUrl')
+        if not isinstance(url, str) or not url:
+            raise RuntimeError('Chromium browser diagnostic target is unavailable')
+        return self._command(url, 'SystemInfo.getInfo', {})
+
     def command(
         self,
         target: DevToolsTarget,

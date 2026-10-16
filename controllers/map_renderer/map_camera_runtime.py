@@ -50,6 +50,7 @@ class MapCameraRuntime:
         self._renderer_client = MapRendererClient()
         initial_position = self._load_cached_center(DEFAULT_POSITION_CACHE_DIRECTORY)
         self._current_position = initial_position
+        self._position_observers = []
         set_current_position(initial_position)
         self._handler = MapRequestHandler(
             self._renderer_client,
@@ -118,6 +119,7 @@ class MapCameraRuntime:
             return
         self._closed = True
         self._dispatcher.close()
+        self._position_observers.clear()
         self._renderer_client.close()
 
     @staticmethod
@@ -140,6 +142,12 @@ class MapCameraRuntime:
 
     def _on_position_message(self, message: PositionStateMessage) -> None:
         data = message.data
+        live_point = None
+        if (not data.is_cached and data.fix_mode is not None and data.fix_mode >= 2
+                and data.latitude_rad is not None and data.longitude_rad is not None):
+            live_point = GeoPoint(data.latitude_rad, data.longitude_rad, data.altitude_m)
+        for observer in tuple(self._position_observers):
+            observer(live_point)
         if data.latitude_rad is None or data.longitude_rad is None:
             return
 
@@ -174,6 +182,13 @@ class MapCameraRuntime:
             latitude=math.degrees(data.latitude_rad),
             longitude=math.degrees(data.longitude_rad),
         )
+
+    def observe_position(self, observer):
+        """Subscribe to live SI positions; None indicates unavailable/cached data.
+
+        Consumers receive future fixes only, not a cached startup position.
+        """
+        self._position_observers.append(observer)
 
     def _on_manual_camera_interaction(self, _payload) -> None:
         """Suspend follow when the user directly manipulates the native map."""

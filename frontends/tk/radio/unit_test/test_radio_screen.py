@@ -4,15 +4,14 @@
 """Tests for live radio theme propagation."""
 
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 from frontends.tk.radio.radio_screen import RadioScreen
 from ui.theme import ThemeMode
 
 
 class RadioScreenTest(unittest.TestCase):
-    @patch("frontends.tk.radio.radio_screen.X11WindowEmbedder")
-    def test_theme_change_updates_visible_panel_and_external_sdr(self, _embedder: Mock) -> None:
+    def test_theme_change_updates_visible_panel_and_external_sdr(self) -> None:
         host = Mock()
         bundle = Mock()
         sync_theme = Mock()
@@ -32,8 +31,7 @@ class RadioScreenTest(unittest.TestCase):
         panel.set_theme_bundle.assert_called_once_with(bundle)
         sync_theme.assert_called_once_with(ThemeMode.LIGHT)
 
-    @patch("frontends.tk.radio.radio_screen.X11WindowEmbedder")
-    def test_theme_change_still_updates_external_sdr_when_screen_hidden(self, _embedder: Mock) -> None:
+    def test_theme_change_still_updates_external_sdr_when_screen_hidden(self) -> None:
         sync_theme = Mock()
         screen = RadioScreen(
             Mock(),
@@ -47,6 +45,38 @@ class RadioScreenTest(unittest.TestCase):
 
         sync_theme.assert_called_once_with(ThemeMode.LIGHT)
 
+    def test_open_airband_routes_through_panel_and_updates_location(self) -> None:
+        location = Mock()
+        screen = RadioScreen(
+            Mock(),
+            theme_bundle=Mock(),
+            theme_mode=lambda: ThemeMode.DARK,
+            panel_factory=Mock(),
+            on_location_changed=location,
+        )
+        screen._panel = Mock()
+
+        screen.open_airband()
+
+        screen._panel.open_airband_radio.assert_called_once_with()
+        location.assert_called_once_with("AIRBAND")
+
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_hiding_radio_retires_streaming_panel_before_detaching_native_window():
+    embedder, panel = Mock(), Mock()
+    events = []
+    panel.deactivate.side_effect = lambda: events.append("deactivate")
+    panel.detach_sdrpp.side_effect = lambda parent: events.append("detach")
+    embedder.clear.side_effect = lambda: events.append("clear")
+    screen = RadioScreen(
+        Mock(), theme_bundle=Mock(), theme_mode=lambda: ThemeMode.DARK,
+        panel_factory=Mock(),
+    )
+    screen._panel = panel
+    screen.hide()
+    assert events == ["deactivate", "detach"]
+    embedder.clear.assert_not_called()

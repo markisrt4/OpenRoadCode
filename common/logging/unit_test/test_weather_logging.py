@@ -183,7 +183,8 @@ def load(controller, host, module):
     with patch(module + ".threading.Thread") as worker:
         controller.refresh()
         worker.call_args.kwargs["target"]()
-    return host.schedule_ui_callback.call_args.args[1]
+    host.schedule_ui_callback.assert_not_called()
+    return host.dispatch_ui.call_args.args[0]
 
 
 @pytest.mark.parametrize("kind", ["city", "model", "route"])
@@ -255,7 +256,7 @@ def test_late_radar_download_or_failure_cannot_reenable_overlay(caplog, failure)
         target = worker.call_args.kwargs["target"]
         controller.request_enabled(False)
         target()
-    host.schedule_ui_callback.call_args.args[1]()
+    host.dispatch_ui.call_args.args[0]()
     assert not backend.enabled
     emitted = records(caplog, "weather.radar.replay")
     assert emitted[-1]["event"] == "weather.result_discarded"
@@ -291,7 +292,8 @@ def test_forecast_screen_worker_result_after_hide_is_private_and_discarded(caplo
     with patch("controllers.weather.weather_screen_controller.threading.Thread") as worker:
         controller.request_refresh()
         worker.call_args.kwargs["target"](*worker.call_args.kwargs["args"])
-    callback = host.schedule_ui_callback.call_args.args[1]
+    host.schedule_ui_callback.assert_not_called()
+    callback = host.dispatch_ui.call_args.args[0]
     controller.set_visible(False)
     callback()
     emitted = records(caplog, "weather.screen")

@@ -10,9 +10,10 @@ from collections import deque
 
 from ui.system_diagnostics import SystemDiagnosticsSnapshot
 from ui.theme import ThemeBundle
+from ui.ui_widget import UiWidget
 
 
-class SystemMetricsPanel(tk.Frame):
+class SystemMetricsPanel(tk.Frame, UiWidget):
     """Display host and sampler-process performance with explicit measurement scope."""
 
     _HISTORY_SAMPLES = 120
@@ -262,7 +263,8 @@ class SystemMetricsPanel(tk.Frame):
         frame = tk.Frame(window, bg=ui.background)
         frame.pack(fill=tk.BOTH, expand=True, padx=12, pady=(0, 12))
         text = tk.Text(frame, bg=ui.surface, fg=ui.text, insertbackground=ui.text,
-                       font=("Monospace", 10), relief=tk.FLAT, wrap=tk.NONE)
+                       font=("Monospace", 10), relief=tk.FLAT, wrap=tk.NONE,
+                       bd=0, highlightthickness=0)
         scroll = tk.Scrollbar(frame, command=text.yview)
         scroll.pack(side=tk.RIGHT, fill=tk.Y)
         text.configure(yscrollcommand=scroll.set)

@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from collections.abc import Callable
 
 from common.logging.diagnostics import ComponentLog, diagnostic_action
 from common.logging.structured import current_operation, operation
@@ -44,6 +45,7 @@ class VisionController(VisionRequestHandlerIf):
         worker: PerceptionWorker,
         *,
         source_label: str,
+        prepare_model: Callable[[], object] | None = None,
     ) -> None:
         self._diagnostics = ComponentLog("vision.session", "vision")
         self._operation_id = None
@@ -54,6 +56,7 @@ class VisionController(VisionRequestHandlerIf):
         self._processor = processor
         self._worker = worker
         self._source_label = source_label
+        self._prepare_model = prepare_model
         self._lock = threading.RLock()
         self._generation = 0
         self._active = False
@@ -167,6 +170,14 @@ class VisionController(VisionRequestHandlerIf):
 
     def _capture_session(self, generation: int) -> None:
         try:
+            if self._prepare_model is not None:
+                self._publish(
+                    generation,
+                    self._state(VisionLifecycle.STARTING, "Preparing vision model…"),
+                )
+                self._prepare_model()
+                if not self._is_current(generation):
+                    return
             self._camera.open()
             if not self._is_current(generation):
                 self._diagnostics.emit(logging.DEBUG, "result_discarded")

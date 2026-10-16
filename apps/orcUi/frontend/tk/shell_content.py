@@ -17,7 +17,7 @@ def panel(parent: tk.Misc, title: str, accent: str, *, theme: ThemeBundle) -> tk
         parent,
         bg=ui.surface,
         highlightthickness=1,
-        highlightbackground=ui.border,
+        highlightcolor=ui.border, highlightbackground=ui.border,
     )
     tk.Label(
         frame,

@@ -6,7 +6,7 @@ set -euo pipefail
 
 # Emergency cleanup for interactive OpenRoadCode UI processes. This intentionally
 # does not stop supervised broker/navigation/ADS-B services.
-PATTERN='python(3)? .* -m apps\.orcUi|python(3)? -m apps\.orcUi|openroadcode-map-renderer|development/termux/start_map_renderer\.sh'
+PATTERN='python(3)? .* -m apps\.orcUi|python(3)? -m apps\.orcUi|python(3)? .*runpy\.run_module.*apps\.orcUi|openroadcode-map-renderer|development/termux/start_map_renderer\.sh'
 SELF_PID="$$"
 PARENT_PID="${PPID:-0}"
 

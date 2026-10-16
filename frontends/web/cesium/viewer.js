@@ -1,0 +1,307 @@
+/* Presentation only: immutable destination snapshot, local SDK, no hosted layers. */
+'use strict';
+(async function () {
+  window.ORCViewerStage = 'config-request';
+  window.ORCViewerReady = false;
+  window.ORCViewerError = null;
+  window.ORCManualCameraRevision = 0;
+  const status = document.getElementById('status');
+  let viewer;
+  let snapshot;
+  let tiledMap;
+  let imageryStack;
+  let roadOverlay;
+  let closing = false;
+  const close = document.getElementById('close');
+  document.querySelectorAll('nav button').forEach(button => { button.disabled = true; });
+  close.disabled = true;
+  try {
+    const response = await fetch('/config.json');
+    if (!response.ok) throw new Error('Unable to load the destination');
+    snapshot = await response.json();
+    document.body.classList.toggle('embedded', Boolean(snapshot.embedded));
+    if (snapshot.embedded) {
+      const controls = document.getElementById('map-controls');
+      const toggle = document.getElementById('controls-toggle');
+      controls.hidden = true;
+      toggle.hidden = false;
+      toggle.onclick = () => {
+        controls.hidden = !controls.hidden;
+        toggle.setAttribute('aria-expanded',String(!controls.hidden));
+      };
+      // Keep long data diagnostics accessible without covering the embedded map.
+      document.getElementById('status').title = 'Local offline map';
+    }
+    close.disabled = false;
+    close.onclick = async () => {
+      if (closing) return;
+      closing = true;
+      close.disabled = true;
+      try {
+        const result = await fetch('/close', {method:'POST', headers:{'X-ORC-Token':snapshot.close_token}});
+        if (!result.ok) throw new Error('Close request failed');
+        status.textContent = 'Returning to ORC…';
+      } catch (error) {
+        status.textContent = error.message + '; use the window close button';
+        closing = false;
+        close.disabled = false;
+      }
+    };
+    const C = window.Cesium;
+    if (!C) throw new Error('Local Cesium SDK did not load');
+    C.Ion.defaultAccessToken = '';
+    window.ORCViewerStage = 'cesium-viewer-construction';
+    viewer = new C.Viewer('map', {
+      baseLayer:false, terrainProvider:new C.EllipsoidTerrainProvider(),
+      geocoder:false, baseLayerPicker:false, animation:false, timeline:false,
+      homeButton:false, navigationHelpButton:false, fullscreenButton:false,
+      sceneModePicker:false, infoBox:false, selectionIndicator:false,
+      requestRenderMode:true, maximumRenderTimeChange:Infinity,
+      contextOptions:{webgl:{powerPreference:'high-performance'}}
+    });
+    window.ORCViewerStage = 'local-layers';
+    const terrain = snapshot.terrain ? window.ORCLocalTerrain(snapshot.terrain,C) : null;
+    if (terrain) {
+      terrain.setScale(viewer, snapshot.terrain_scale);
+      terrain.setVisible(viewer, snapshot.terrain_visible);
+    }
+    viewer.scene.globe.baseColor = C.Color.fromCssColorString('#174963');
+    const groundHeight = terrain ? terrain.heightAt(snapshot.longitude_rad,snapshot.latitude_rad) : 0;
+    let target = C.Cartesian3.fromRadians(snapshot.longitude_rad, snapshot.latitude_rad,groundHeight+3);
+    document.getElementById('destination').textContent = snapshot.label;
+    const destinationMarker = viewer.entities.add({position:target, show:snapshot.destination_marker_visible !== false,
+      // The selected POI is an overlay at its real location: building geometry
+      // must not hide the destination while the camera remains tilted.
+      point:{pixelSize:14,color:C.Color.CYAN,outlineColor:C.Color.WHITE,outlineWidth:2,
+        disableDepthTestDistance:Number.POSITIVE_INFINITY},
+      label:{text:snapshot.label,font:'bold 16px sans-serif',pixelOffset:new C.Cartesian2(0,-26),
+        fillColor:C.Color.WHITE,showBackground:true,backgroundColor:C.Color.BLACK.withAlpha(.8),
+        backgroundPadding:new C.Cartesian2(7,5),disableDepthTestDistance:Number.POSITIVE_INFINITY}});
+    const references = new C.CustomDataSource('references');
+    references.show = snapshot.references_visible;
+    viewer.dataSources.add(references);
+    function rebuildReferences() {
+      references.entities.removeAll();
+      // Procedural geographic grid: no imagery, terrain service, or building data.
+      for (let lat = -60; lat <= 60; lat += 30) {
+        const points = [];
+        for (let lon = -180; lon <= 180; lon += 3) points.push(C.Cartesian3.fromDegrees(lon,lat));
+        references.entities.add({polyline:{positions:points,width:1,material:C.Color.WHITE.withAlpha(.18)}});
+      }
+      for (let lon = -180; lon < 180; lon += 30) {
+        const points = [];
+        for (let lat = -90; lat <= 90; lat += 3) points.push(C.Cartesian3.fromDegrees(lon,lat));
+        references.entities.add({polyline:{positions:points,width:1,material:C.Color.WHITE.withAlpha(.18)}});
+      }
+      window.ORCCesiumReferences(viewer, snapshot, C, terrain?.heightAt, references.entities);
+    }
+    rebuildReferences();
+    const buildings = snapshot.buildings
+      ? window.ORCLocalBuildings(viewer, snapshot.buildings, C, terrain?.heightAt)
+      : null;
+    if (buildings) buildings.source.show = snapshot.buildings_visible;
+    tiledMap = snapshot.map_tiles ? window.ORCLocalMapTiles(viewer, snapshot.map_tiles, C,
+      terrain?.heightAt, snapshot.buildings_visible) : null;
+    const buildingLabel = tiledMap ? "Tiled buildings: blue tagged, gold floor estimates, brown 9 m placeholders"
+      : buildings ? buildings.label : "buildings not installed";
+    function bindVisibility(id, source) {
+      const button = document.getElementById(id);
+      button.disabled = !source;
+      button.setAttribute('aria-pressed', String(Boolean(source?.show)));
+      if (!source) button.title = 'Building pack not installed';
+      button.onclick = () => {
+        source.show = !source.show;
+        button.setAttribute('aria-pressed', String(source.show));
+        viewer.scene.requestRender();
+      };
+    }
+    viewer.scene.postRender.addEventListener(() => {
+      const height = Math.round(viewer.camera.positionCartographic.height);
+      const tilt = Math.round(C.Math.toDegrees(viewer.camera.pitch)+90);
+      const heading = Math.round(C.Math.toDegrees(viewer.camera.heading))%360;
+      const text = snapshot.embedded ? `Tilt ${tilt}°` : `Scene height ${height.toLocaleString()} m · tilt ${tilt}° · heading ${heading}°`;
+      const readout = document.getElementById('camera');
+      if (readout.textContent !== text) readout.textContent = text;
+    });
+    const cameraControls = window.ORCCameraControls(viewer, snapshot, C, terrain?.heightAt);
+    for (const event of ['pointerdown','wheel']) {
+      viewer.scene.canvas.addEventListener(event, () => { window.ORCManualCameraRevision++; }, {passive:true});
+    }
+    window.ORCUpdateVehicle = window.ORCVehicleFollow(viewer, snapshot, C, terrain?.heightAt);
+    document.getElementById('pitch-up').onclick = () => { cameraControls.pitch(1); tilted=true; };
+    document.getElementById('pitch-down').onclick = () => { cameraControls.pitch(-1); tilted=true; };
+    for (const [id,right,up] of [['pan-up',0,1],['pan-down',0,-1],['pan-left',-1,0],['pan-right',1,0]]) {
+      document.getElementById(id).onclick = () => cameraControls.pan(right,up);
+    }
+    let tilted = true;
+    function reset() {
+      viewer.camera.lookAt(target, new C.HeadingPitchRange(0,
+        tilted ? snapshot.tilt_rad-Math.PI/2 : -Math.PI/2, snapshot.distance_m));
+      viewer.camera.lookAtTransform(C.Matrix4.IDENTITY);
+      viewer.scene.requestRender();
+    }
+    document.getElementById('reset').onclick = () => {
+      window.ORCManualCameraRevision++;
+      tilted=true;
+      if (terrain) {terrainScale=1; updateTerrain();}
+      reset();
+    };
+    document.getElementById('tilt').onclick = () => { tilted=!tilted; reset(); };
+    document.getElementById('north').onclick = () => {
+      viewer.camera.setView({orientation:{heading:0,pitch:viewer.camera.pitch,roll:0}});
+      viewer.scene.requestRender();
+    };
+    document.getElementById('zoom-in').onclick = () => {
+      viewer.camera.zoomIn(Math.max(50,viewer.camera.positionCartographic.height*.25));
+      viewer.scene.requestRender();
+    };
+    document.getElementById('zoom-out').onclick = () => {
+      viewer.camera.zoomOut(Math.max(50,viewer.camera.positionCartographic.height*.25));
+      viewer.scene.requestRender();
+    };
+    window.ORCExplorationCamera = action => {
+      if (action === 'recenter') { reset(); return true; }
+      if (action === 'dimension') {
+        const tilt = viewer.camera.pitch+Math.PI/2;
+        tilted = tilt < .001;
+        cameraControls.pitch(0, tilted ? snapshot.tilt_rad : 0);
+        return true;
+      }
+      const allowed = ['pan-up','pan-down','pan-left','pan-right','zoom-in','zoom-out','pitch-up','pitch-down','north'];
+      if (!allowed.includes(action)) return false;
+      document.getElementById(action).onclick();
+      return true;
+    };
+    document.getElementById('tilt').onclick = () => window.ORCExplorationCamera('dimension');
+    viewer.scene.renderError.addEventListener((_scene,error) => {
+      window.ORCViewerError = error.message;
+      window.ORCViewerReady = false;
+      status.hidden = false;
+      status.textContent = 'Rendering stopped: '+error.message+' — return and retry';
+    });
+    document.querySelectorAll('nav button').forEach(button => { button.disabled = false; });
+    const roadsButton=document.getElementById('roads');
+    roadsButton.disabled=!snapshot.roads_available;
+    roadsButton.title=snapshot.roads_available?'Major roads, freeway references and place names':'Road overlay temporarily disabled while investigating rendering crashes';
+    if(snapshot.roads_available) {
+      roadOverlay=window.ORCRoadOverlay(viewer,C,terrain?.heightAt,error=>{
+        status.hidden=false;status.textContent='Road overlay unavailable: '+error.message;
+      },snapshot.roads_max_zoom);
+      roadsButton.onclick=()=>{roadOverlay.show=!roadOverlay.show;roadsButton.setAttribute('aria-pressed',String(roadOverlay.show));};
+    }
+
+    const terrainButton = document.getElementById('terrain');
+    terrainButton.disabled = !terrain;
+    let terrainVisible = snapshot.terrain_visible;
+    let terrainScale = snapshot.terrain_scale;
+    const scaleButton = document.getElementById('terrain-scale');
+    scaleButton.disabled = !terrain || !terrainVisible;
+    const hasImagery = snapshot.imagery_layers?.length || snapshot.imagery || snapshot.map_tiles?.tiles.some(t=>t.imagery_url);
+    const contours = terrain && !hasImagery ? C.Material.fromType('ElevationContour', {
+      color:C.Color.fromCssColorString('#e6d59a'), spacing:10, width:1.5
+    }) : undefined;
+    function updateTerrain() {
+      terrain.setScale(viewer, terrainScale);
+      terrain.setVisible(viewer, terrainVisible);
+      scaleButton.disabled = !terrainVisible;
+      scaleButton.textContent = `Relief ${terrainScale}×`;
+      scaleButton.title = terrainScale === 1 ? 'Actual elevations' : 'Exaggerated terrain; source elevations unchanged';
+      target = C.Cartesian3.fromRadians(snapshot.longitude_rad, snapshot.latitude_rad,
+        terrain.heightAt(snapshot.longitude_rad,snapshot.latitude_rad)+3);
+      destinationMarker.position = target;
+      rebuildReferences();
+      buildings?.refreshGround();
+      tiledMap?.refreshGround();
+      roadOverlay?.refreshGround();
+      viewer.scene.globe.material = terrainVisible ? contours : undefined;
+      terrainButton.setAttribute('aria-pressed', String(terrainVisible));
+      terrainButton.textContent = terrainVisible ? 'Terrain ON' : 'Terrain OFF';
+      const heights = snapshot.terrain.heights_m;
+      const relief = Math.max(...heights)-Math.min(...heights);
+      document.getElementById('terrain-status').textContent = terrainVisible
+        ? `Terrain ON · sampled relief ${relief.toFixed(0)} m · ${terrainScale}×${terrainScale>1 ? ' exaggerated' : ' actual'}${contours ? ' · 10 m contours' : ''}`
+        : 'Terrain OFF · flat comparison';
+      if (snapshot.embedded) {
+        const readout = document.getElementById('terrain-status');
+        readout.title = readout.textContent;
+        readout.textContent = terrainVisible ? `${terrainScale}× relief${terrainScale>1 ? ' · exaggerated' : ''}` : 'Flat ground';
+      }
+      viewer.scene.requestRender();
+    }
+    if (terrain) {
+      terrainButton.onclick = () => { terrainVisible = !terrainVisible; updateTerrain(); };
+      scaleButton.onclick = () => {terrainScale=terrainScale%3+1; updateTerrain();};
+      updateTerrain();
+    }
+    bindVisibility('buildings', tiledMap || buildings?.source);
+    bindVisibility('references', references);
+    reset();
+    const imageCoverage = snapshot.imagery_layers?.[0] || snapshot.imagery || (snapshot.map_tiles?.tiles.some(t=>t.imagery_url) ? snapshot.map_tiles.coverage : null);
+    const insideImagery = imageCoverage && snapshot.longitude_rad >= imageCoverage.west_rad
+      && snapshot.longitude_rad <= imageCoverage.east_rad && snapshot.latitude_rad >= imageCoverage.south_rad
+      && snapshot.latitude_rad <= imageCoverage.north_rad;
+    const tileCoverage = snapshot.map_tiles?.coverage;
+    const outsideTiles = tileCoverage && (snapshot.longitude_rad < tileCoverage.west_rad
+      || snapshot.longitude_rad > tileCoverage.east_rad || snapshot.latitude_rad < tileCoverage.south_rad
+      || snapshot.latitude_rad > tileCoverage.north_rad);
+    const coverageLabel = outsideTiles ? 'Selected place outside installed 3D coverage · '
+      : imageCoverage && !insideImagery ? 'Selected place outside installed imagery coverage · ' : '';
+    const terrainLabel = terrain ? `relative relief (${snapshot.terrain.width}×${snapshot.terrain.height} samples)` : 'terrain not installed';
+    status.textContent = `Offline reference globe · imagery not installed · ${terrainLabel} · ${buildingLabel}`;
+    if (tiledMap) {
+      status.textContent = `Offline · ${coverageLabel}${snapshot.map_tiles.coverage.title} · ${terrainLabel} · ${buildingLabel}`;
+      tiledMap.update();
+    }
+    if (snapshot.imagery_layers?.length) {
+      imageryStack = await window.ORCLocalImageryLayers(viewer,snapshot.imagery_layers,C,(error,layer)=>{
+        status.hidden=false;
+        status.textContent='Imagery layer unavailable: '+layer.title+' · '+error.message;
+      });
+      if (!/unavailable/i.test(status.textContent)) status.textContent = `Offline · ${snapshot.imagery_layers[0].title} + ${snapshot.imagery_layers.length-1} detail packs · ${terrainLabel} · ${buildingLabel}`;
+    } else if (snapshot.imagery) {
+      const layer = snapshot.imagery;
+      try {
+        const provider = await C.SingleTileImageryProvider.fromUrl(layer.url, {
+          rectangle:C.Rectangle.fromRadians(layer.west_rad,layer.south_rad,layer.east_rad,layer.north_rad),
+          credit:layer.attribution
+        });
+        if (closing || viewer.isDestroyed()) return;
+        // A transparent global base prevents Cesium stretching the first
+        // bounded image layer across uncovered parts of the globe.
+        viewer.imageryLayers.addImageryProvider(new C.GridImageryProvider({
+          color:C.Color.TRANSPARENT, glowColor:C.Color.TRANSPARENT,
+          backgroundColor:C.Color.TRANSPARENT, cells:1
+        }));
+        viewer.imageryLayers.addImageryProvider(provider);
+        viewer.scene.requestRender();
+        status.textContent = `Offline · ${coverageLabel}${layer.title} · ${terrainLabel} · ${buildingLabel}`;
+      } catch (error) {
+        if (!closing) status.textContent = 'Imagery unavailable: '+error.message+' · reference globe remains usable';
+      }
+    }
+  } catch (error) {
+    window.ORCViewerError = error.message;
+    status.textContent = 'Unable to render: '+error.message+' — use Return to ORC or the window close button';
+  }
+  if (viewer && !window.ORCViewerError) {
+    const remove = viewer.scene.postRender.addEventListener(() => {
+      if (!viewer.scene.globe.tilesLoaded) return;
+      remove();
+      setTimeout(() => {
+        if (!viewer.isDestroyed() && !window.ORCViewerError) {
+          window.ORCViewerStage = 'first-frame-ready';
+          window.ORCViewerReady = true;
+        }
+      }, 750);
+    });
+    viewer.scene.requestRender();
+  }
+  if (snapshot?.embedded) {
+    const statusText = document.getElementById('status');
+    document.getElementById('controls-toggle').title = statusText.textContent;
+    // Rendering errors stay visible. Normal dataset diagnostics belong in a tooltip.
+    if (!/unavailable|Unable|stopped/i.test(statusText.textContent)) statusText.hidden = true;
+    document.getElementById('tiles-status').hidden = true;
+  }
+  window.addEventListener('pagehide', () => { roadOverlay?.destroy(); imageryStack?.destroy(); tiledMap?.destroy(); if (viewer && !viewer.isDestroyed()) viewer.destroy(); });
+})();

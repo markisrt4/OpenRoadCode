@@ -12,9 +12,10 @@ from frontends.tk.automotive import DEFAULT_GAUGES
 from frontends.tk.automotive.vehicle_gauge_theme import vehicle_gauge_theme_from_style_sheet
 from frontends.tk.automotive.vehicle_gauge_widgets import LinearGauge
 from ui.theme import ThemeBundle
+from ui.ui_widget import UiWidget
 
 
-class EnginePanel(tk.Frame):
+class EnginePanel(tk.Frame, UiWidget):
     """Render live vehicle-health instrumentation."""
 
     _GAUGE_IDS = ("coolant", "intake", "load", "voltage")
