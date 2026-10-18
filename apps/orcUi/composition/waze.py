@@ -6,6 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from controllers.navigation.waze_location_player import WazeLocationPlayer
 from ui.navigation import GeoPoint
+from ui.theme import ThemeMode
 from ui.navigation.waze_request_handler_if import WazeRequestHandlerIf
 
 from apps.orcUi.adapters.managed_browser_media_player import ManagedBrowserMediaPlayer
@@ -46,17 +47,20 @@ def configure_waze(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> WazeCompo
     if not runtime.waze_url:
         return None
     with ResourceCleanup() as cleanup:
+        color_scheme = lambda: "dark" if app.theme_mode is ThemeMode.DARK else "light"
         player = ManagedBrowserMediaPlayer(
             runtime.manager, "waze", resolve_target=lambda target: target,
             network_allowed=lambda: app.online_mode.online,
+            preferred_color_scheme=color_scheme,
         )
-        location = WazeLocationPlayer(player)
+        location = WazeLocationPlayer(player, preferred_color_scheme=color_scheme)
         cleanup.callback(location.close)
         screen = BrowserMediaScreen(
             "waze", app, title="Waze Live Map (experimental)", player=location,
             default_target=runtime.waze_url, window_class="openroadcode-waze",
             back_action=lambda: app.navigate_to("NAVIGATION"),
             theme_bundle=lambda: theme_bundle(app.theme_mode),
+            theme_request_handler=location,
         )
         cleanup.callback(screen.hide)
 

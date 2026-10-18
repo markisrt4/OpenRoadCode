@@ -30,3 +30,11 @@ class BrowserMediaPlayerIf(Protocol):
     def stop(self) -> None:
         """Stop the browser instance owned by this player."""
         ...
+
+
+class BrowserThemeRequestHandlerIf(Protocol):
+    """Refresh a hosted page's theme without restarting its input/navigation session."""
+
+    def request_theme_refresh(self) -> None:
+        """Apply the latest supplied color preference in place."""
+        ...

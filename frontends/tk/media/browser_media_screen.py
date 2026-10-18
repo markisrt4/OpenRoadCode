@@ -9,7 +9,7 @@ import os
 import tkinter as tk
 from collections.abc import Callable
 
-from ui.media.browser_player_if import BrowserMediaPlayerIf
+from ui.media.browser_player_if import BrowserMediaPlayerIf, BrowserThemeRequestHandlerIf
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from frontends.x11 import X11WindowEmbedder
@@ -28,6 +28,7 @@ class BrowserMediaScreen(TkScreen):
         back_action: Callable[[], None],
         media_navigation_factory: MediaNavigationFactory | None = None,
         theme_bundle: Callable[[], ThemeBundle] | None = None,
+        theme_request_handler: BrowserThemeRequestHandlerIf | None = None,
     ) -> None:
         super().__init__(ScreenId(screen_id))
         self._host = host
@@ -38,6 +39,7 @@ class BrowserMediaScreen(TkScreen):
         self._back_action = back_action
         self._media_navigation_factory = media_navigation_factory
         self._theme_provider = theme_bundle
+        self._theme_request_handler = theme_request_handler
         self._launch_job: object | None = None
         self._embedder = X11WindowEmbedder()
         self._browser_host: tk.Frame | None = None
@@ -70,7 +72,7 @@ class BrowserMediaScreen(TkScreen):
         self._launch_job = self._host.schedule_ui_callback(1, self._launch_and_embed)
 
     def set_theme_mode(self, _mode: object) -> None:
-        """Repaint ORC chrome and relaunch Chromium with the new color scheme."""
+        """Repaint ORC chrome and request the browser surface’s theme update."""
         if not self._visible:
             return
         background = self._background()
@@ -83,7 +85,10 @@ class BrowserMediaScreen(TkScreen):
             if self._media_navigation_factory is not None:
                 self._navigation = self._media_navigation_factory(self._root, self.screen_id.value)
                 self._navigation.pack(fill=tk.X, padx=4, pady=(4, 2), before=self._browser_host)
-        self._restart_browser_for_theme()
+        if self._theme_request_handler is not None:
+            self._theme_request_handler.request_theme_refresh()
+        else:
+            self._restart_browser_for_theme()
 
     def _restart_browser_for_theme(self) -> None:
         host = self._browser_host

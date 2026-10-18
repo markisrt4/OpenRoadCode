@@ -215,3 +215,54 @@ def test_stop_during_bootstrap_never_grants_or_navigates_after_hide():
         'Emulation.setGeolocationOverride',
     ]
     client.session.return_value.__exit__.assert_called_once()
+
+
+def test_theme_refresh_switches_both_preferences_without_navigation_or_duplicate_commands():
+    scheme, session, stop = ['dark'], Mock(), ImmediateStop()
+    player = WazeLocationPlayer(Mock(), preferred_color_scheme=lambda: scheme[0])
+    applied = player._apply_theme(session, None, stop)
+    assert applied == 'dark'
+    assert session.command.call_args_list[0].args == ('Emulation.setEmulatedMedia', {
+        'features': [{'name': 'prefers-color-scheme', 'value': 'dark'}],
+    })
+    assert session.command.call_args_list[1].args == ('Emulation.setAutoDarkModeOverride', {'enabled': True})
+    player._apply_theme(session, applied, stop)
+    assert session.command.call_count == 2
+    scheme[0] = 'light'
+    applied = player._apply_theme(session, applied, stop)
+    assert applied == 'light'
+    assert session.command.call_args.args == ('Emulation.setAutoDarkModeOverride', {'enabled': False})
+    player.request_theme_refresh()
+    player._apply_theme(session, applied, stop)
+    assert session.command.call_count == 6
+    assert not any(call.args[0] == 'Page.navigate' for call in session.command.call_args_list)
+
+
+def test_unsupported_auto_dark_does_not_interrupt_location_permission_or_updates():
+    stop, client, session = ImmediateStop(), Mock(), Mock()
+    client.targets.return_value = [SimpleNamespace(id='owned', url='https://www.waze.com/live-map')]
+    client.session.return_value = MagicMock()
+    client.session.return_value.__enter__.return_value = session
+    commands = []
+    def command(method, params):
+        commands.append(method)
+        if method == 'Emulation.setAutoDarkModeOverride':
+            raise RuntimeError('Method not found')
+        if commands.count('Emulation.setGeolocationOverride') == 2:
+            stop.set()
+        return {}
+    session.command.side_effect = command
+    player = WazeLocationPlayer(Mock(), client=client, preferred_color_scheme=lambda: 'dark')
+    player._run(stop)
+    assert 'Browser.grantPermissions' in commands
+    assert commands.count('Emulation.setGeolocationOverride') == 2
+    assert commands.count('Emulation.setAutoDarkModeOverride') == 1
+
+
+def test_stopped_session_does_not_apply_pending_theme():
+    stop, session = ImmediateStop(), Mock()
+    player = WazeLocationPlayer(Mock(), preferred_color_scheme=lambda: 'dark')
+    stop.set()
+    player.request_theme_refresh()
+    player._apply_theme(session, None, stop)
+    session.command.assert_not_called()

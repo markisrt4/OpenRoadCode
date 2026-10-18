@@ -3,6 +3,7 @@
 """Supply fresh ORC fixes to a visible Waze browser through local CDP."""
 from __future__ import annotations
 
+from collections.abc import Callable
 import logging
 import math
 from threading import Event, Lock, Thread
@@ -10,7 +11,7 @@ import time
 from urllib.parse import urlsplit
 
 from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
-from ui.media.browser_player_if import BrowserMediaPlayerIf
+from ui.media.browser_player_if import BrowserMediaPlayerIf, BrowserThemeRequestHandlerIf
 from ui.navigation import GeoPoint
 
 LOGGER = logging.getLogger(__name__)
@@ -18,10 +19,13 @@ WAZE_DEVTOOLS_PORT = 9224
 WAZE_HOSTS = frozenset({'embed.waze.com', 'www.waze.com', 'waze.com'})
 
 
-class WazeLocationPlayer:
+class WazeLocationPlayer(BrowserThemeRequestHandlerIf):
     """Own the GPS connection for exactly one managed browser lifetime."""
 
-    def __init__(self, player: BrowserMediaPlayerIf, *, client=None, clock=time.monotonic):
+    def __init__(self, player: BrowserMediaPlayerIf, *, client=None, clock=time.monotonic,
+                 preferred_color_scheme: Callable[[], str] | None = None):
+        self._preferred_color_scheme = preferred_color_scheme
+        self._theme_dirty = Event()
         self._player = player
         self._client = client or ChromiumDevToolsClient(port=WAZE_DEVTOOLS_PORT)
         self._clock = clock
@@ -31,6 +35,36 @@ class WazeLocationPlayer:
         self._stop = Event()
         self._thread: Thread | None = None
         self._closed = False
+
+    def request_theme_refresh(self) -> None:
+        if not self._closed:
+            self._theme_dirty.set()
+
+    def _apply_theme(self, session, previous: str | None, stop: Event) -> str | None:
+        if self._preferred_color_scheme is None or stop.is_set():
+            return previous
+        scheme = self._preferred_color_scheme()
+        if scheme not in ('dark', 'light'):
+            return previous
+        dirty = self._theme_dirty.is_set()
+        self._theme_dirty.clear()
+        if scheme == previous and not dirty:
+            return previous
+        for method, params in (
+            ('Emulation.setEmulatedMedia', {'features': [
+                {'name': 'prefers-color-scheme', 'value': scheme},
+            ]}),
+            ('Emulation.setAutoDarkModeOverride', {'enabled': scheme == 'dark'}),
+        ):
+            if stop.is_set():
+                break
+            try:
+                session.command(method, params)
+            except RuntimeError:
+                # Older Chromium may not implement experimental auto-dark.
+                # Keep GPS and the remaining theme controls working.
+                LOGGER.warning('Waze browser does not support theme command %s', method)
+        return scheme
 
     def update_position(self, point: GeoPoint | None) -> None:
         """Accept live SI fixes; None immediately invalidates the previous fix."""
@@ -102,6 +136,9 @@ class WazeLocationPlayer:
                     with self._client.session(target) as session:
                         if stop.is_set():
                             return
+                        applied_theme = self._apply_theme(session, None, stop)
+                        if stop.is_set():
+                            return
                         destination = initial_url or target.url
                         parsed = urlsplit(destination)
                         origin = parsed.scheme + '://' + parsed.netloc
@@ -133,6 +170,9 @@ class WazeLocationPlayer:
                                 # and Chromium's empty URL during navigation.
                                 # A confirmed different origin releases the grant.
                                 break
+                            applied_theme = self._apply_theme(session, applied_theme, stop)
+                            if stop.is_set():
+                                return
                             session.command('Emulation.setGeolocationOverride', self._params())
                             reported = False
                             if stop.wait(1.0):

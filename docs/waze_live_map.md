@@ -136,3 +136,30 @@ updates. The full Waze website on Termux and Pi still requires device validation
 restart ORC, open Navigation → Waze, allow the page to load, then choose **Your
 location** for the starting point. Change the destination and confirm location
 continues working. If there is no live ORC GPS fix, obtain one before this check.
+
+## ORC light/dark theme
+
+Waze follows ORC's existing theme toggle. Composition supplies the current browser
+color preference, and the retained browser connection updates
+`prefers-color-scheme` plus Chromium's automatic dark-page rendering. Dark enables
+the automatic rendering override; light explicitly disables it. Updates apply
+within the browser polling interval (normally one second), including on first
+load and after reopening the screen.
+
+A toolkit-independent `BrowserThemeRequestHandlerIf` lets the Waze screen request
+an in-place update instead of restarting the browser. Current search/route state
+and GPS permission stay attached. Existing browser media screens retain their
+restart behavior unless supplied this optional handler.
+
+If Chromium does not implement the experimental auto-dark command, the bridge
+logs that limitation and continues GPS plus supported color-preference controls.
+A real Chromium/local-page check verified the media preference and screenshot
+background changing from dark `(18,18,18)` to light `(255,255,255)` without page
+reload or GPS disconnection. Actual Waze map tiles, route colors and text contrast
+still need device verification; browser dark rendering is not Waze mobile's native
+night-map theme.
+
+On the device, open Waze, select a destination, and toggle ORC between dark and
+light. Confirm both directions repaint while the chosen destination and current
+location remain available. Leave Waze, change ORC's theme, and reopen it to check
+the initial preference as well.

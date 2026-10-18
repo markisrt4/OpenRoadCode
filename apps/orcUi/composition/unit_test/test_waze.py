@@ -158,3 +158,36 @@ def test_embedding_failure_stops_spawned_browser_and_keeps_real_error():
         player.stop.assert_called_once()
         embedder.return_value.clear.assert_called_once()
         app.set_screen_status.assert_called_once_with('Waze launch failed: window not found')
+
+
+def test_waze_composition_supplies_current_orc_color_scheme_to_browser_and_controller():
+    from ui.theme import ThemeMode
+    app = Mock()
+    app.theme_mode = ThemeMode.DARK
+    runtime = SimpleNamespace(waze_url='https://www.waze.com/live-map', manager=Mock())
+    with patch('apps.orcUi.composition.waze.ManagedBrowserMediaPlayer') as player, patch(
+        'apps.orcUi.composition.waze.WazeLocationPlayer') as location, patch(
+        'apps.orcUi.composition.waze.BrowserMediaScreen') as screen:
+        configure_waze(app, runtime)
+        preference = player.call_args.kwargs['preferred_color_scheme']
+        assert preference() == 'dark'
+        app.theme_mode = ThemeMode.LIGHT
+        assert preference() == 'light'
+        assert location.call_args.kwargs['preferred_color_scheme'] is preference
+        assert screen.call_args.kwargs['theme_request_handler'] is location.return_value
+
+
+def test_waze_theme_update_preserves_browser_and_route_instead_of_restarting():
+    from ui.theme import ThemeMode
+    app, player, handler = Mock(), Mock(), Mock()
+    with patch('frontends.tk.media.browser_media_screen.X11WindowEmbedder'):
+        screen = BrowserMediaScreen('waze', app, title='Waze', player=player,
+            default_target='https://www.waze.com/live-map', window_class='openroadcode-waze',
+            back_action=Mock(), theme_request_handler=handler)
+        screen._visible = True
+        screen._restart_browser_for_theme = Mock()
+        screen.set_theme_mode(ThemeMode.DARK)
+        handler.request_theme_refresh.assert_called_once()
+        screen._restart_browser_for_theme.assert_not_called()
+        player.stop.assert_not_called()
+        player.play.assert_not_called()
