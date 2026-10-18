@@ -1,7 +1,8 @@
 # Experimental Waze Live Map
 
 The **Waze** button at the right of Navigation’s top row opens the official
-Waze Live Map embed in an ORC-owned browser panel. It uses the existing X11 browser hosting, with a separate browser
+full Waze Live Map (`https://www.waze.com/live-map`) in an ORC-owned browser
+panel. It uses the existing X11 browser hosting, with a separate browser
 profile and a Back action to Navigation. It does not add a left-sidebar entry.
 Leaving the screen, entering offline mode,
 or closing ORC stops the browser and cancels pending launches.
@@ -12,8 +13,9 @@ and touchscreen behavior still need device validation. Native Wayland embedding
 is not provided; use the existing ORC X11 session.
 
 Configure `[apps.waze]` in `config/applications.toml` (Linux/Pi) or
-`config/applications.termux.toml` (Termux). The default location is Detroit;
-change the URL's `lat`, `lon`, and `zoom` parameters to choose the initial view.
+`config/applications.termux.toml` (Termux). The default opens the full Live Map
+so its **Driving directions** controls are available. Existing custom URLs remain
+respected; the old compact embed URL can still be configured explicitly.
 Set `enabled = false` to remove the button. Existing custom application
 configs without a Waze entry continue to work without a Waze screen.
 
@@ -26,7 +28,7 @@ MapLibre. Location forwarding stops when the screen is hidden or closed.
 
 Only future live, noncached fixes from ORC's navigation stream are used. Invalid
 or unavailable fixes clear browser location, and fixes expire after ten seconds
-without an update. The configured Detroit map center is never used as a GPS fix.
+without an update. A map center or cached startup position is never used as a GPS fix.
 The bridge uses a conservative 50 m accuracy estimate because this stream carries
 position without measured accuracy. Waze can still show unavailable location if
 ORC has no live fix; verify the Android sensor bridge/navigation service first.
@@ -36,13 +38,14 @@ local test page, including moving fixes, invalidation and connection teardown.
 The actual Waze page and Android/Termux integration still need device validation.
 
 This is an online traffic/map experiment, not the mobile Waze app or voice-guided turn-by-turn navigation.
-The embed's available controls may differ from the full Live Map website.
+Enter an origin and destination under **Driving directions** to preview routes.
+Starting navigation on a phone is a separate Waze mobile-app action.
 
-Use the documented [Waze embed](https://developers.google.com/waze/iframe/)
-and preserve Waze's presentation. Its guidelines restrict associating Waze with
-non-Waze maps and applying Waze branding to them. The documentation describes
-website embedding, not an explicit desktop-application license; this experiment
-does not settle that distinction or grant permission beyond Waze's terms.
+This experimental browser host preserves Waze's presentation. The full website
+is distinct from the [documented iframe](https://developers.google.com/waze/iframe/):
+iframe documentation does not establish permission to host the full website in
+a desktop application. Waze's terms still apply; this experiment does not settle
+that licensing question.
 
 ## Try on Termux or the Pi
 
@@ -54,7 +57,10 @@ git switch feature/waze-live-map
 ```
 
 Open **Navigation**, then select **Waze** at the top right while online. Check that the map loads, pan/zoom work by touch,
-resizing stays inside ORC, and Back returns Navigation. Reopen the screen repeatedly,
+resizing stays inside ORC, and Back returns Navigation. Confirm **Driving
+directions** is visible, enter a starting point and destination, and select a
+route preview. If the page is cramped, check its responsive layout at the device
+resolution. Reopen the screen repeatedly,
 switch to Navigation, then toggle offline while Waze is open: its browser should
 close, and normal ORC navigation should continue. Re-enable online and reopen
 Waze, tap its location control and confirm it uses your live position. Move with
@@ -80,10 +86,12 @@ link in the lower-left corner leading to search/routing options. The full
 [Live Map](https://www.waze.com/live-map) exposes **Driving directions** for
 origin/destination route previews; starting navigation uses the mobile app.
 A destination pin in the embed alone does not mean that driving navigation has
-started. The default remains the compact embed pending a choice of presentation.
+started. The default now opens the full Live Map directly in the managed ORC
+panel, avoiding the compact embed's extra routing link.
 See [Waze embed documentation](https://developers.google.com/waze/iframe/) and
 [Waze desktop drive planning](https://support.google.com/waze/answer/6378906?co=GENIE.Platform%3DDesktop&hl=en-GB).
-The routing link's actual window/tab behavior still needs a device check.
+Device validation should confirm Driving directions is accessible at the actual
+Termux/Pi screen size and that selecting a route stays usable inside the panel.
 
 Configured browser applications now identify surviving browser processes by the
 literal, bounded `--user-data-dir` argument, rather than the initial URL. Waze's

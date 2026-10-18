@@ -71,6 +71,6 @@ exclusive_group = "auxiliary"
 [apps.waze]
 type = "browser"
 enabled = true
-url = "https://embed.waze.com/iframe?zoom=12&lat=42.3314&lon=-83.0458"
+url = "https://www.waze.com/live-map"
 profile = "waze"
 startup = "lazy"

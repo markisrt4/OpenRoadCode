@@ -12,11 +12,11 @@ from frontends.tk.media.browser_media_screen import BrowserMediaScreen
 
 
 @pytest.mark.parametrize('name', ['applications.toml', 'applications.termux.toml'])
-def test_platform_config_uses_official_embed_and_dedicated_profile(name):
+def test_platform_config_uses_full_live_map_and_dedicated_profile(name):
     from pathlib import Path
     config = ApplicationsConfigParser(Path('config') / name).load()
     app = config.app('waze')
-    assert app.url.startswith('https://embed.waze.com/iframe?')
+    assert app.url == 'https://www.waze.com/live-map'
     assert app.profile == 'waze'
     assert app.startup.value == 'lazy'
     assert config.target_for_app(app) == config.target('primary')

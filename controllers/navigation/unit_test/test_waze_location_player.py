@@ -34,7 +34,11 @@ def test_invalid_fix_is_not_delivered(point):
     assert player._params() == {}
 
 
-def test_retains_connection_until_stop_and_skips_unrelated_pages():
+@pytest.mark.parametrize('origin, path', [
+    ('https://www.waze.com', '/live-map'),
+    ('https://embed.waze.com', '/iframe'),
+])
+def test_retains_connection_until_stop_and_skips_unrelated_pages(origin, path):
     stop = Event()
     commands = []
     closed = []
@@ -47,7 +51,7 @@ def test_retains_connection_until_stop_and_skips_unrelated_pages():
     session.command.side_effect = command
     @contextmanager
     def connect(target):
-        assert target.url == 'https://embed.waze.com/iframe'
+        assert target.url == origin + path
         try:
             yield session
         finally:
@@ -55,13 +59,13 @@ def test_retains_connection_until_stop_and_skips_unrelated_pages():
     client = Mock()
     client.targets.return_value = [SimpleNamespace(id='page', url='https://example.com'),
         SimpleNamespace(id='page', url='https://www.waze.com.attacker.example'),
-        SimpleNamespace(id='page', url='https://embed.waze.com/iframe')]
+        SimpleNamespace(id='page', url=origin + path)]
     client.session.side_effect = connect
     player = WazeLocationPlayer(Mock(), client=client)
     player.update_position(GeoPoint(0, 0))
     player._run(stop)
     assert commands[0] == ('Browser.grantPermissions', {
-        'origin': 'https://embed.waze.com', 'permissions': ['geolocation']})
+        'origin': origin, 'permissions': ['geolocation']})
     assert commands[1][0] == 'Emulation.setGeolocationOverride'
     assert closed == [True]
 
