@@ -17,6 +17,11 @@ request for Navigation’s Waze toolbar action.
 launch/stop requests for hosted browser surfaces, including the experimental
 [Waze Live Map](../docs/waze_live_map.md). Existing Tk import paths remain available.
 
+Text-entry state and requests live under `ui/input`; see the
+[text input foundation](../docs/text_input.md). Native/browser field adapters
+retain text ownership; UI requests carry session tokens rather than widget or
+process details.
+
 ## Dependency boundary
 
 <div class="orc-diagram-legend" aria-label="Architecture diagram legend">
