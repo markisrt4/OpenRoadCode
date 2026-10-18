@@ -5,7 +5,7 @@ from contextlib import contextmanager
 import math
 from threading import Event, Thread
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, MagicMock
 
 import pytest
 
@@ -47,7 +47,8 @@ def test_retains_connection_until_stop_and_skips_unrelated_pages(origin, path):
         commands.append((method, params))
         if method == 'Emulation.setGeolocationOverride':
             assert not closed
-            stop.set()
+            if sum(command[0] == method for command in commands) == 2:
+                stop.set()
     session.command.side_effect = command
     @contextmanager
     def connect(target):
@@ -57,16 +58,17 @@ def test_retains_connection_until_stop_and_skips_unrelated_pages(origin, path):
         finally:
             closed.append(True)
     client = Mock()
-    client.targets.return_value = [SimpleNamespace(id='page', url='https://example.com'),
-        SimpleNamespace(id='page', url='https://www.waze.com.attacker.example'),
+    client.targets.return_value = [SimpleNamespace(id='other', url='https://example.com'),
+        SimpleNamespace(id='attacker', url='https://www.waze.com.attacker.example'),
         SimpleNamespace(id='page', url=origin + path)]
     client.session.side_effect = connect
     player = WazeLocationPlayer(Mock(), client=client)
     player.update_position(GeoPoint(0, 0))
     player._run(stop)
-    assert commands[0] == ('Browser.grantPermissions', {
+    assert commands[0][0] == 'Emulation.setGeolocationOverride'
+    assert commands[1] == ('Browser.grantPermissions', {
         'origin': origin, 'permissions': ['geolocation']})
-    assert commands[1][0] == 'Emulation.setGeolocationOverride'
+    assert commands[2][0] == 'Emulation.setGeolocationOverride'
     assert closed == [True]
 
 
@@ -103,3 +105,113 @@ def test_cancelled_launch_does_not_start_worker_and_closed_player_ignores_update
     assert not player.play('https://embed.waze.com/iframe', display=':0')
     browser.play.assert_called_once()
     assert player._params() == {}
+
+
+class ImmediateStop:
+    """Deterministic polling without sleeping in worker behavior tests."""
+    def __init__(self):
+        self.stopped = False
+
+    def is_set(self):
+        return self.stopped
+
+    def set(self):
+        self.stopped = True
+
+    def wait(self, _seconds):
+        return self.stopped
+
+
+def test_bootstrap_installs_provider_and_permission_before_waze_loads():
+    stop, client, session = ImmediateStop(), Mock(), Mock()
+    client.targets.side_effect = [
+        [SimpleNamespace(id='owned', url='about:blank')],
+        [SimpleNamespace(id='owned', url='')],
+        [SimpleNamespace(id='owned', url='https://www.waze.com/live-map')],
+        [SimpleNamespace(id='owned', url='https://www.waze.com/live-map/directions?to=home')],
+    ]
+    client.session.return_value = MagicMock()
+    client.session.return_value.__enter__.return_value = session
+    session.command.return_value = {}
+    commands = []
+    def command(method, params):
+        commands.append((method, params))
+        if len(commands) == 6:
+            stop.set()
+        return {}
+    session.command.side_effect = command
+    player = WazeLocationPlayer(Mock(), client=client)
+    player.update_position(GeoPoint(0, 0))
+    player._run(stop, 'https://www.waze.com/live-map')
+    assert [method for method, _ in commands[:3]] == [
+        'Emulation.setGeolocationOverride', 'Browser.grantPermissions', 'Page.navigate',
+    ]
+    assert commands[1][1]['origin'] == 'https://www.waze.com'
+    assert commands[2][1] == {'url': 'https://www.waze.com/live-map'}
+    client.session.assert_called_once()
+    client.session.return_value.__exit__.assert_called_once()
+
+
+def test_same_origin_route_changes_retain_permission_session():
+    stop, client, session = ImmediateStop(), Mock(), Mock()
+    urls = ('https://www.waze.com/live-map', '',
+            'https://www.waze.com/live-map/directions?to=home',
+            'https://www.waze.com/live-map?from=current&to=home')
+    client.targets.side_effect = [[SimpleNamespace(id='owned', url=url)] for url in urls]
+    client.session.return_value = MagicMock()
+    client.session.return_value.__enter__.return_value = session
+    def command(method, params):
+        if session.command.call_count == 5:
+            stop.set()
+        return {}
+    session.command.side_effect = command
+    WazeLocationPlayer(Mock(), client=client)._run(stop)
+    client.session.assert_called_once()
+    assert sum(call.args[0] == 'Browser.grantPermissions' for call in session.command.call_args_list) == 1
+    assert session.command.call_count == 5
+
+
+def test_cross_origin_navigation_closes_permission_session():
+    stop, client, session = ImmediateStop(), Mock(), Mock()
+    client.targets.side_effect = [
+        [SimpleNamespace(id='owned', url='https://www.waze.com/live-map')],
+        [SimpleNamespace(id='owned', url='https://example.com/')],
+    ]
+    @contextmanager
+    def connect(target):
+        try:
+            yield session
+        finally:
+            stop.set()
+    client.session.side_effect = connect
+    WazeLocationPlayer(Mock(), client=client)._run(stop)
+    assert [call.args[0] for call in session.command.call_args_list] == [
+        'Emulation.setGeolocationOverride', 'Browser.grantPermissions',
+    ]
+
+
+def test_play_opens_blank_before_worker_and_keeps_requested_destination():
+    from unittest.mock import patch
+    browser = Mock()
+    browser.play.return_value = True
+    player = WazeLocationPlayer(browser)
+    with patch('controllers.navigation.waze_location_player.Thread') as thread:
+        assert player.play('https://www.waze.com/live-map', display=':1')
+        assert browser.play.call_args.args == ('about:blank',)
+        assert thread.call_args.kwargs['args'][1] == 'https://www.waze.com/live-map'
+        thread.return_value.start.assert_called_once()
+        player.stop()
+        thread.return_value.join.assert_called_once()
+
+
+def test_stop_during_bootstrap_never_grants_or_navigates_after_hide():
+    stop, client, session = ImmediateStop(), Mock(), Mock()
+    client.targets.return_value = [SimpleNamespace(id='owned', url='about:blank')]
+    client.session.return_value = MagicMock()
+    client.session.return_value.__enter__.return_value = session
+    session.command.side_effect = lambda *_args: stop.set()
+    WazeLocationPlayer(Mock(), client=client)._run(stop, 'https://www.waze.com/live-map')
+    assert [call.args[0] for call in session.command.call_args_list] == [
+        'Emulation.setGeolocationOverride',
+    ]
+    client.session.return_value.__exit__.assert_called_once()

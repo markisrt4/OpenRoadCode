@@ -115,3 +115,24 @@ Focused lifecycle validation:
 git switch feature/waze-live-map
 python -m pytest apps/launchers/unit_test/test_browser_launcher.py apps/launchers/unit_test/test_browser_app_factory.py apps/orcUi/composition/unit_test/test_waze.py -q
 ```
+
+## Full-page location permission
+
+The managed Waze browser now starts on a blank page. Its retained local control
+connection installs the geolocation provider and grants location to the Waze
+origin **before** navigating to the configured Waze URL. This avoids the site's
+startup scripts recording a denied permission before the bridge is ready.
+
+The connection remains attached across route/query changes and Chromium's
+transient empty URL during same-page navigation. Closing it on every URL change
+revoked the session's permission and could produce Waze's location-denied toast.
+A confirmed navigation to another origin or leaving the Waze screen still closes
+the connection. Missing or stale ORC fixes still mean location unavailable; they
+are never replaced with a guessed current location.
+
+A real headless Chromium/local-page check verified permission and location at
+initial script execution, a history/route change, and subsequent position
+updates. The full Waze website on Termux and Pi still requires device validation:
+restart ORC, open Navigation → Waze, allow the page to load, then choose **Your
+location** for the starting point. Change the destination and confirm location
+continues working. If there is no live ORC GPS fix, obtain one before this check.

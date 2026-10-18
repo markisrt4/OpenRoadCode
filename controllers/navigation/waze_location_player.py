@@ -49,11 +49,14 @@ class WazeLocationPlayer:
         self.stop()
         if self._closed:
             return False
-        opened = self._player.play(target, display=display,
+        parsed = urlsplit(target)
+        bootstrap = parsed.scheme == 'https' and parsed.hostname in WAZE_HOSTS
+        # Start the owned page before Waze can cache a denied permission result.
+        opened = self._player.play('about:blank' if bootstrap else target, display=display,
             window_position=window_position, window_size=window_size)
-        if opened:
+        if opened and bootstrap:
             self._stop = Event()
-            self._thread = Thread(target=self._run, args=(self._stop,),
+            self._thread = Thread(target=self._run, args=(self._stop, target if bootstrap else None),
                                   name='waze-location', daemon=True)
             self._thread.start()
         return opened
@@ -87,26 +90,48 @@ class WazeLocationPlayer:
                 params['altitude'] = point.altitude_m
             return params
 
-    def _run(self, stop: Event) -> None:
+    def _run(self, stop: Event, initial_url: str | None = None) -> None:
         reported = False
         while not stop.is_set():
             try:
                 target = next((target for target in self._client.targets()
-                    if urlsplit(target.url).scheme == 'https'
-                    and urlsplit(target.url).hostname in WAZE_HOSTS), None)
+                    if (target.url == 'about:blank' if initial_url is not None else
+                        urlsplit(target.url).scheme == 'https'
+                        and urlsplit(target.url).hostname in WAZE_HOSTS)), None)
                 if target is not None and not stop.is_set():
                     with self._client.session(target) as session:
                         if stop.is_set():
                             return
-                        origin = 'https://' + urlsplit(target.url).netloc
+                        destination = initial_url or target.url
+                        parsed = urlsplit(destination)
+                        origin = parsed.scheme + '://' + parsed.netloc
+                        # Install the provider before granting access, since a
+                        # permission-change listener can immediately request GPS.
+                        session.command('Emulation.setGeolocationOverride', self._params())
+                        if stop.is_set():
+                            return
                         session.command('Browser.grantPermissions', {
                             'origin': origin, 'permissions': ['geolocation'],
                         })
+                        navigating = initial_url is not None
+                        if navigating:
+                            if stop.is_set():
+                                return
+                            result = session.command('Page.navigate', {'url': destination})
+                            if result.get('errorText'):
+                                raise RuntimeError('Could not load the Waze page')
+                            initial_url = None
                         while not stop.is_set():
-                            current = self._client.targets()
-                            if stop.is_set() or not any(
-                                page.id == target.id and page.url == target.url for page in current
-                            ):
+                            page = next((page for page in self._client.targets()
+                                         if page.id == target.id), None)
+                            if stop.is_set() or page is None:
+                                break
+                            parsed = urlsplit(page.url)
+                            current_origin = parsed.scheme + '://' + parsed.netloc
+                            if page.url not in ('', 'about:blank') and current_origin != origin:
+                                # Retain this session across route/query changes
+                                # and Chromium's empty URL during navigation.
+                                # A confirmed different origin releases the grant.
                                 break
                             session.command('Emulation.setGeolocationOverride', self._params())
                             reported = False
