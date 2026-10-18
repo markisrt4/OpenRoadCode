@@ -72,3 +72,38 @@ python scripts/check_ui_boundaries.py
 ```
 
 Full validation remains pending the user-run quality gate before merge.
+
+## Routing controls and browser startup
+
+The compact embed searches for an address and places a pin. Waze documents a
+link in the lower-left corner leading to search/routing options. The full
+[Live Map](https://www.waze.com/live-map) exposes **Driving directions** for
+origin/destination route previews; starting navigation uses the mobile app.
+A destination pin in the embed alone does not mean that driving navigation has
+started. The default remains the compact embed pending a choice of presentation.
+See [Waze embed documentation](https://developers.google.com/waze/iframe/) and
+[Waze desktop drive planning](https://support.google.com/waze/answer/6378906?co=GENIE.Platform%3DDesktop&hl=en-GB).
+The routing link's actual window/tab behavior still needs a device check.
+
+Configured browser applications now identify surviving browser processes by the
+literal, bounded `--user-data-dir` argument, rather than the initial URL. Waze's
+query-string punctuation must not be interpreted as process-search regex syntax,
+and navigation to another URL must not make the managed browser disappear from
+ORC's lifecycle tracking. Cleanup waits up to one second for the dedicated profile
+processes to exit before allowing another launch. If they remain, ORC reports the
+failure instead of racing the existing profile. Failed window embedding also
+stops the spawned browser instead of leaving a loose window holding the profile.
+
+A real headless Chromium check exercised surviving-profile discovery after losing
+the launch handle and changing the recorded URL, then fallback shutdown. This
+fixes a reproducible ownership problem; it does not prove the specific cause of
+a device's exit status 3. That exit remains an error and is not silently treated
+as a successful launch. If it recurs, the referenced browser log is needed to
+distinguish profile contention from another browser startup failure.
+
+Focused lifecycle validation:
+
+```bash
+git switch feature/waze-live-map
+python -m pytest apps/launchers/unit_test/test_browser_launcher.py apps/launchers/unit_test/test_browser_app_factory.py apps/orcUi/composition/unit_test/test_waze.py -q
+```

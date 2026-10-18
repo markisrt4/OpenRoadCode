@@ -298,6 +298,7 @@ class BrowserKioskLauncher(AppLauncherIf):
         self._hidden = False
         if not closed_normally:
             close_matching_display_apps(display=remote_display, patterns=(self.process_pattern,))
+        self._wait_for_profile_exit()
         _status(set_status, "Browser stopped")
 
     def toggle(self, remote_display: str, set_status: StatusCallback = None) -> bool:
@@ -310,6 +311,16 @@ class BrowserKioskLauncher(AppLauncherIf):
             return self.show(remote_display, set_status)
         self.launch(remote_display, set_status)
         return True
+
+    def _wait_for_profile_exit(self) -> None:
+        """Do not race Chromium's profile singleton after fallback termination."""
+        if self.profile_path is None:
+            return
+        deadline = time.monotonic() + 1.0
+        while is_process_running(self.process_pattern):
+            if time.monotonic() >= deadline:
+                raise RuntimeError("Browser profile is still running; refusing to reopen it")
+            time.sleep(0.05)
 
     def _close_app_window(self, display: str) -> bool:
         return self._window_manager.close(display=display, window_id=self._window_id)

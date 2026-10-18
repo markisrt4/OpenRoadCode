@@ -140,3 +140,21 @@ def test_cancelled_browser_launch_does_not_attempt_embedding():
         screen._launch_and_embed()
         embedder.return_value.embed.assert_not_called()
         app.set_screen_status.assert_called_once_with('Waze unavailable')
+
+
+def test_embedding_failure_stops_spawned_browser_and_keeps_real_error():
+    app, player, surface = Mock(), Mock(), Mock()
+    player.play.return_value = True
+    surface.winfo_width.return_value = 800
+    surface.winfo_height.return_value = 480
+    surface.winfo_id.return_value = 100
+    with patch('frontends.tk.media.browser_media_screen.X11WindowEmbedder') as embedder:
+        embedder.return_value.embed.side_effect = RuntimeError('window not found')
+        screen = BrowserMediaScreen('waze', app, title='Waze', player=player,
+            default_target='https://embed.waze.com/iframe', window_class='openroadcode-waze',
+            back_action=Mock())
+        screen._browser_host = surface
+        screen._launch_and_embed()
+        player.stop.assert_called_once()
+        embedder.return_value.clear.assert_called_once()
+        app.set_screen_status.assert_called_once_with('Waze launch failed: window not found')

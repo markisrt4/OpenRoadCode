@@ -82,3 +82,21 @@ class BrowserApplicationFactoryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_profile_identity_is_literal_and_survives_url_changes(tmp_path):
+    import re
+    from unittest.mock import patch
+    config = ApplicationsConfig(
+        browser=BrowserConfig(profile_root=tmp_path / 'profiles+[test]'),
+        apps=(ApplicationConfig(key='waze', type=ApplicationType.BROWSER,
+            url='https://embed.waze.com/iframe?zoom=12&lat=42&lon=-83', profile='waze'),),
+    )
+    launcher = BrowserApplicationFactory(config).create('waze')
+    command = f'/usr/bin/chromium --user-data-dir={launcher.profile_path} --app=https://www.waze.com/live-map'
+    assert re.search(launcher.process_pattern, command)
+    assert not re.search(launcher.process_pattern, command.replace('/waze ', '/waze-other '))
+    assert not re.search(launcher.process_pattern, 'chromium https://embed.waze.com/iframe?zoom=12')
+    with patch('apps.launchers.browser_launcher.is_process_running', return_value=False):
+        launcher.set_url('https://www.waze.com/live-map')
+    assert re.search(launcher.process_pattern, command)

@@ -143,7 +143,16 @@ class BrowserMediaScreen(TkScreen):
             self._host.set_screen_status(f"{self._title} ready")
         except Exception as error:
             self._embedder.clear()
-            self._host.set_screen_status(f"{self._title} launch failed: {error}")
+            # A successful spawn followed by failed embedding must not leave an
+            # unmanaged window holding this application's Chromium profile.
+            try:
+                self._player.stop()
+            except Exception as cleanup_error:
+                self._host.set_screen_status(
+                    f"{self._title} launch failed: {error}; cleanup failed: {cleanup_error}"
+                )
+            else:
+                self._host.set_screen_status(f"{self._title} launch failed: {error}")
 
     def _on_browser_host_resize(self, event: tk.Event) -> None:
         if self._embedder.window_id is not None:

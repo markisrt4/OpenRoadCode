@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 
 from apps.launchers.browser_launcher import BrowserKioskLauncher
 from apps.launchers.external_window_manager import ExternalWindowManager
@@ -46,6 +47,9 @@ class BrowserApplicationFactory:
         return BrowserKioskLauncher(
             url=app.url,
             profile_path=profile_path,
+            # A URL can change and contains regex syntax (notably Waze's '?').
+            # Match the dedicated profile argument, including its boundaries.
+            process_pattern=(r"(^| )--user-data-dir=" + re.escape(str(profile_path)) + r"( |$)"),
             window_class=self._window_class(app.key),
             exclusive_group=app.exclusive_group,
             window_manager=self._window_manager,
