@@ -118,10 +118,17 @@ python -m pytest apps/launchers/unit_test/test_browser_launcher.py apps/launcher
 
 ## Full-page location permission
 
-The managed Waze browser now starts on a blank page. Its retained local control
-connection installs the geolocation provider and grants location to the Waze
-origin **before** navigating to the configured Waze URL. This avoids the site's
-startup scripts recording a denied permission before the bridge is ready.
+The managed browser starts directly at the configured Waze URL. Its retained
+local control connection installs the geolocation provider, theme and permission,
+then reloads the page once so startup scripts see those settings. Later route
+and theme changes do not reload the page.
+
+A graphical Chromium test reproduced the failed blank-page approach:
+`--app=about:blank` opened `chrome://newtab/` rather than the expected target.
+That left the bridge waiting indefinitely and could embed an ordinary New Tab
+window. The direct-URL startup removes that dependency. Launch now waits up to
+eight seconds for the Waze control connection and reports failure/cleans up
+instead of reporting an unrelated or uncontrolled window as ready.
 
 The connection remains attached across route/query changes and Chromium's
 transient empty URL during same-page navigation. Closing it on every URL change
@@ -130,9 +137,10 @@ A confirmed navigation to another origin or leaving the Waze screen still closes
 the connection. Missing or stale ORC fixes still mean location unavailable; they
 are never replaced with a guessed current location.
 
-A real headless Chromium/local-page check verified permission and location at
-initial script execution, a history/route change, and subsequent position
-updates. The full Waze website on Termux and Pi still requires device validation:
+A real graphical Chromium/local-page test exercised two launch/embed/close
+cycles on an Xorg dummy display, including GPS permission, same-origin route
+changes and live theme changes without losing the embedded window. The actual
+Waze website on Termux and Pi still requires device validation:
 restart ORC, open Navigation → Waze, allow the page to load, then choose **Your
 location** for the starting point. Change the destination and confirm location
 continues working. If there is no live ORC GPS fix, obtain one before this check.
@@ -163,3 +171,25 @@ On the device, open Waze, select a destination, and toggle ORC between dark and
 light. Confirm both directions repaint while the chosen destination and current
 location remain available. Leave Waze, change ORC's theme, and reopen it to check
 the initial preference as well.
+
+
+## Destroyed X11 clients
+
+An embedded application can exit before ORC detaches or resizes its cached X11
+window ID. Detach now checks that the client exists, clears ownership first,
+and stops if reparenting fails; it does not cascade into an unmap of the same dead
+window. Resize also drops dead IDs. Errors from these expected races are captured
+instead of being printed to the terminal. An initial resize failure makes the
+embedder retry another window instead of declaring the vanished client ready.
+
+The graphical test explicitly closed Chromium before detaching its window and
+verified clean recovery. On Termux, restart ORC, open Waze, leave and reopen it,
+then change route and theme. Check that the full Waze page loads rather than New
+Tab and that repeated close/reopen does not emit `BadWindow` errors.
+
+Focused regression validation:
+
+```bash
+git switch feature/waze-live-map
+python -m pytest controllers/navigation/unit_test/test_waze_location_player.py frontends/x11/unit_test/test_x11_window_embedder.py apps/orcUi/composition/unit_test/test_waze.py -q
+```

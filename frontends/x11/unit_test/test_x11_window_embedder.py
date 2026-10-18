@@ -97,6 +97,7 @@ class X11WindowEmbedderTest(unittest.TestCase):
 
     @patch("frontends.x11.x11_window_embedder.subprocess.run")
     def test_detach_reparents_unmaps_and_forgets_window(self, run: Mock) -> None:
+        run.return_value = subprocess.CompletedProcess([], 0, stdout='', stderr='')
         embedder = X11WindowEmbedder()
         embedder._window_id = 99
 
@@ -104,16 +105,17 @@ class X11WindowEmbedderTest(unittest.TestCase):
 
         self.assertEqual(
             ["xdotool", "windowreparent", "99", "123"],
-            run.call_args_list[0].args[0],
+            run.call_args_list[1].args[0],
         )
         self.assertEqual(
             ["xdotool", "windowunmap", "99"],
-            run.call_args_list[1].args[0],
+            run.call_args_list[2].args[0],
         )
         self.assertIsNone(embedder.window_id)
 
     @patch("frontends.x11.x11_window_embedder.subprocess.run")
     def test_resize_clamps_dimensions_to_one(self, run: Mock) -> None:
+        run.return_value = subprocess.CompletedProcess([], 0, stdout="", stderr="")
         embedder = X11WindowEmbedder()
         embedder._window_id = 99
 
@@ -127,6 +129,7 @@ class X11WindowEmbedderTest(unittest.TestCase):
 
     @patch("frontends.x11.x11_window_embedder.subprocess.run")
     def test_resize_moves_embedded_client_to_host_origin(self, run: Mock) -> None:
+        run.return_value = subprocess.CompletedProcess([], 0, stdout="", stderr="")
         embedder = X11WindowEmbedder()
         embedder._window_id = 99
         embedder._host_window_id = 123
@@ -149,6 +152,7 @@ class X11WindowEmbedderTest(unittest.TestCase):
             return "/usr/bin/xprop" if name == "xprop" else "/usr/bin/xdotool"
 
         which.side_effect = fake_which
+        run.return_value = subprocess.CompletedProcess([], 0, stdout='', stderr='')
         embedder = X11WindowEmbedder()
         embedder._window_id = 99
         embedder._host_window_id = 123
@@ -195,3 +199,54 @@ def test_cancelled_host_stops_native_discovery_without_reparenting():
             embedder.embed(123, 456, 800, 400, cancelled=cancelled.is_set)
     find.assert_called_once()
     run.assert_not_called()
+
+
+def test_detach_of_destroyed_window_clears_state_without_reparent_or_unmap():
+    embedder = X11WindowEmbedder()
+    embedder._window_id = 99
+    embedder._host_window_id = 123
+    with patch('frontends.x11.x11_window_embedder.subprocess.run', return_value=
+               subprocess.CompletedProcess([], 1, stdout='', stderr='BadWindow')) as run:
+        embedder.detach(123)
+    run.assert_called_once_with(['xdotool', 'getwindowgeometry', '--shell', '99'],
+                                check=False, capture_output=True, text=True)
+    assert embedder.window_id is None
+    assert embedder._host_window_id is None
+
+
+def test_detach_race_after_existence_check_does_not_cascade_to_unmap():
+    embedder = X11WindowEmbedder()
+    embedder._window_id = 99
+    with patch('frontends.x11.x11_window_embedder.subprocess.run', side_effect=[
+        subprocess.CompletedProcess([], 0, stdout='', stderr=''),
+        subprocess.CompletedProcess([], 1, stdout='', stderr='BadWindow'),
+    ]) as run:
+        embedder.detach(123)
+    assert run.call_count == 2
+    assert embedder.window_id is None
+    assert all(call.kwargs['capture_output'] for call in run.call_args_list)
+
+
+def test_resize_of_destroyed_window_forgets_id_and_skips_windowmove():
+    embedder = X11WindowEmbedder()
+    embedder._window_id = 99
+    embedder._host_window_id = 123
+    with patch('frontends.x11.x11_window_embedder.subprocess.run', return_value=
+               subprocess.CompletedProcess([], 1, stdout='', stderr='BadWindow')) as run:
+        embedder.resize(800, 480)
+        embedder.resize(800, 480)
+    assert run.call_count == 1
+    assert embedder.window_id is None
+
+
+def test_client_disappearing_during_initial_resize_is_retried_not_reported_embedded():
+    embedder = X11WindowEmbedder(timeout_seconds=1)
+    def run(command, **kwargs):
+        code = 1 if command[:3] == ['xdotool', 'windowsize', '99'] else 0
+        return subprocess.CompletedProcess(command, code, stdout='', stderr='BadWindow' if code else '')
+    with patch.object(embedder, 'supported', return_value=True), patch.object(
+        embedder, '_find_by_process', side_effect=[99, 100]), patch(
+        'frontends.x11.x11_window_embedder.subprocess.run', side_effect=run), patch(
+        'frontends.x11.x11_window_embedder.time.sleep'):
+        assert embedder.embed(123, 456, 800, 480) == 100
+    assert embedder.window_id == 100

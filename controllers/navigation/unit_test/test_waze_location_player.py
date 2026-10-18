@@ -122,10 +122,10 @@ class ImmediateStop:
         return self.stopped
 
 
-def test_bootstrap_installs_provider_and_permission_before_waze_loads():
+def test_direct_start_installs_provider_and_permission_before_reload():
     stop, client, session = ImmediateStop(), Mock(), Mock()
     client.targets.side_effect = [
-        [SimpleNamespace(id='owned', url='about:blank')],
+        [SimpleNamespace(id='owned', url='https://www.waze.com/live-map')],
         [SimpleNamespace(id='owned', url='')],
         [SimpleNamespace(id='owned', url='https://www.waze.com/live-map')],
         [SimpleNamespace(id='owned', url='https://www.waze.com/live-map/directions?to=home')],
@@ -144,10 +144,10 @@ def test_bootstrap_installs_provider_and_permission_before_waze_loads():
     player.update_position(GeoPoint(0, 0))
     player._run(stop, 'https://www.waze.com/live-map')
     assert [method for method, _ in commands[:3]] == [
-        'Emulation.setGeolocationOverride', 'Browser.grantPermissions', 'Page.navigate',
+        'Emulation.setGeolocationOverride', 'Browser.grantPermissions', 'Page.reload',
     ]
     assert commands[1][1]['origin'] == 'https://www.waze.com'
-    assert commands[2][1] == {'url': 'https://www.waze.com/live-map'}
+    assert commands[2][1] == {'ignoreCache': False}
     client.session.assert_called_once()
     client.session.return_value.__exit__.assert_called_once()
 
@@ -190,14 +190,15 @@ def test_cross_origin_navigation_closes_permission_session():
     ]
 
 
-def test_play_opens_blank_before_worker_and_keeps_requested_destination():
+def test_play_opens_real_waze_and_waits_for_control_readiness():
     from unittest.mock import patch
     browser = Mock()
     browser.play.return_value = True
     player = WazeLocationPlayer(browser)
     with patch('controllers.navigation.waze_location_player.Thread') as thread:
+        thread.return_value.start.side_effect = lambda: (player._ready.set(), player._startup_complete.set())
         assert player.play('https://www.waze.com/live-map', display=':1')
-        assert browser.play.call_args.args == ('about:blank',)
+        assert browser.play.call_args.args == ('https://www.waze.com/live-map',)
         assert thread.call_args.kwargs['args'][1] == 'https://www.waze.com/live-map'
         thread.return_value.start.assert_called_once()
         player.stop()
@@ -206,7 +207,7 @@ def test_play_opens_blank_before_worker_and_keeps_requested_destination():
 
 def test_stop_during_bootstrap_never_grants_or_navigates_after_hide():
     stop, client, session = ImmediateStop(), Mock(), Mock()
-    client.targets.return_value = [SimpleNamespace(id='owned', url='about:blank')]
+    client.targets.return_value = [SimpleNamespace(id='owned', url='https://www.waze.com/live-map')]
     client.session.return_value = MagicMock()
     client.session.return_value.__enter__.return_value = session
     session.command.side_effect = lambda *_args: stop.set()
@@ -266,3 +267,29 @@ def test_stopped_session_does_not_apply_pending_theme():
     player.request_theme_refresh()
     player._apply_theme(session, None, stop)
     session.command.assert_not_called()
+
+
+def test_control_startup_timeout_stops_browser_instead_of_claiming_ready():
+    from unittest.mock import patch
+    browser = Mock()
+    browser.play.return_value = True
+    player = WazeLocationPlayer(browser, startup_timeout_seconds=0.001)
+    with patch('controllers.navigation.waze_location_player.Thread') as thread:
+        with pytest.raises(RuntimeError, match='did not become ready'):
+            player.play('https://www.waze.com/live-map', display=':1')
+        thread.return_value.join.assert_called_once()
+    assert not player._ready.is_set()
+    assert browser.stop.call_count == 2
+
+
+def test_new_tab_page_is_not_accepted_as_a_ready_waze_target():
+    class StopAfterPoll(ImmediateStop):
+        def wait(self, _seconds):
+            self.set()
+            return True
+    stop, client = StopAfterPoll(), Mock()
+    client.targets.return_value = [SimpleNamespace(id='newtab', url='chrome://newtab/')]
+    player = WazeLocationPlayer(Mock(), client=client)
+    player._run(stop, 'https://www.waze.com/live-map')
+    assert not player._ready.is_set()
+    client.session.assert_not_called()

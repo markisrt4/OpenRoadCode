@@ -75,6 +75,8 @@ class X11WindowEmbedder(WindowEmbedderIf):
                 self._host_window_id = host_window_id
                 self._relax_size_hints = relax_size_hints
                 self.resize(width, height)
+                if self._window_id is None:
+                    raise subprocess.SubprocessError('X11 client disappeared during embedding')
                 subprocess.run(
                     ["xdotool", "windowmap", str(window_id)],
                     check=True,
@@ -88,6 +90,8 @@ class X11WindowEmbedder(WindowEmbedderIf):
                 )
                 time.sleep(0.05)
                 self.resize(width, height)
+                if self._window_id is None:
+                    raise subprocess.SubprocessError('X11 client disappeared during embedding')
                 return window_id
             except subprocess.SubprocessError as error:
                 last_error = error
@@ -149,14 +153,23 @@ class X11WindowEmbedder(WindowEmbedderIf):
         raise RuntimeError("no usable X11 window found to hide")
 
     def detach(self, parent_window_id: int) -> None:
-        if self._window_id is None:
-            return
         window_id = self._window_id
-        subprocess.run(["xdotool", "windowreparent", str(window_id), str(parent_window_id)], check=False)
-        subprocess.run(["xdotool", "windowunmap", str(window_id)], check=False)
-        self._window_id = None
-        self._host_window_id = None
-        self._relax_size_hints = False
+        self.clear()
+        if window_id is None:
+            return
+        exists = subprocess.run(
+            ['xdotool', 'getwindowgeometry', '--shell', str(window_id)],
+            check=False, capture_output=True, text=True,
+        )
+        if exists.returncode != 0:
+            return
+        reparent = subprocess.run(
+            ['xdotool', 'windowreparent', str(window_id), str(parent_window_id)],
+            check=False, capture_output=True, text=True,
+        )
+        if reparent.returncode == 0:
+            subprocess.run(['xdotool', 'windowunmap', str(window_id)],
+                           check=False, capture_output=True, text=True)
 
     @staticmethod
     def _find_by_process(process_id: int) -> int | None:
@@ -262,9 +275,20 @@ class X11WindowEmbedder(WindowEmbedderIf):
         width = max(1, int(width))
         height = max(1, int(height))
         self._relax_current_size_hints()
-        subprocess.run(["xdotool", "windowsize", str(self._window_id), str(width), str(height)], check=False)
+        result = subprocess.run(
+            ["xdotool", "windowsize", str(self._window_id), str(width), str(height)],
+            check=False, capture_output=True, text=True,
+        )
+        if result.returncode != 0:
+            self.clear()
+            return
         if self._host_window_id is not None:
-            subprocess.run(["xdotool", "windowmove", str(self._window_id), "0", "0"], check=False)
+            result = subprocess.run(
+                ["xdotool", "windowmove", str(self._window_id), "0", "0"],
+                check=False, capture_output=True, text=True,
+            )
+            if result.returncode != 0:
+                self.clear()
 
     def clear(self) -> None:
         self._window_id = None
