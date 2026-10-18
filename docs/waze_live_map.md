@@ -193,3 +193,7 @@ Focused regression validation:
 git switch feature/waze-live-map
 python -m pytest controllers/navigation/unit_test/test_waze_location_player.py frontends/x11/unit_test/test_x11_window_embedder.py apps/orcUi/composition/unit_test/test_waze.py -q
 ```
+
+
+For the native Android alternative, see the
+[Termux/Pi 5 Android Waze investigation](waze_android_investigation.md).
