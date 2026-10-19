@@ -1,0 +1,61 @@
+name: ORC branch lifecycle audit
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+  schedule:
+    - cron: '17 13 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+jobs:
+  audit:
+    if: github.event_name != 'push' || github.event.created == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Audit branch lifecycle
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const {owner, repo} = context.repo;
+            const base = context.payload.repository?.default_branch || 'master';
+            const exempt = new Set([base, 'main', 'master', 'dev', 'int']);
+            const branches = await github.paginate(github.rest.repos.listBranches, {owner, repo, per_page: 100});
+            const findings = [];
+            for (const b of branches) {
+              if (exempt.has(b.name) || b.name.startsWith('archive/')) continue;
+              const compare = await github.rest.repos.compareCommitsWithBasehead({
+                owner, repo, basehead: `${base}...${b.name}`
+              }).catch(() => null);
+              if (!compare) continue;
+              if (compare.data.ahead_by === 0) {
+                findings.push(`- **Merged/behind**: \`${b.name}\` (candidate for reviewed cleanup)`);
+              } else if (context.eventName === 'schedule' || context.eventName === 'workflow_dispatch') {
+                findings.push(`- **Unmerged**: \`${b.name}\` (${compare.data.ahead_by} commits not in \`${base}\`; do not auto-delete)`);
+              }
+            }
+            const heading = 'ORC branch lifecycle audit';
+            const body = [
+              'Automated GitHub branch audit. Review before deleting anything.',
+              '',
+              'Linear reconciliation is not enabled until the integration credentials and mapping are configured.',
+              '',
+              ...(findings.length ? findings : ['No branch findings.']),
+              '',
+              'Policy: one Linear feature issue with an in-description checklist; merges require verification; never automatically delete unmerged work.'
+            ].join('\n');
+            await core.summary.addHeading(heading).addRaw(body).write();
+            if (context.eventName === 'schedule' || context.eventName === 'workflow_dispatch') {
+              const existing = await github.paginate(github.rest.issues.listForRepo, {
+                owner, repo, state: 'open', labels: 'branch-lifecycle-audit', per_page: 100
+              }).catch(() => []);
+              if (existing.length) {
+                await github.rest.issues.update({owner, repo, issue_number: existing[0].number, body});
+              } else {
+                await github.rest.issues.create({owner, repo, title: heading, body});
+              }
+            }
