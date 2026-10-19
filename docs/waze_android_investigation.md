@@ -110,6 +110,51 @@ platform adapters, not Tk widgets.
 
 ## Read-only device evidence
 
+### Ubuntu 24.04 Linux VM setup
+
+The optional installer supports Ubuntu noble on amd64/arm64 only; it is not a
+universal Linux or Pi OS installer. It loads the installed Binder module, installs
+Weston/diagnostics, adds the official Waydroid APT repository when no package
+candidate exists, and installs Waydroid. Repository setup executes the upstream
+HTTPS installer as root. Review `development/debian/setup_waydroid.sh` before use.
+It stops on errors and does not change the desktop login session or install Waze.
+The optional GAPPS initialization downloads an Android image with Google services;
+an existing configuration is preserved, not converted or reset.
+
+```bash
+git switch feature/waze-live-map
+git pull --ff-only
+bash development/debian/setup_waydroid.sh --init-gapps
+```
+
+In the existing X11 desktop, start nested Weston (skip if already running):
+
+```bash
+git switch feature/waze-live-map
+weston --backend=x11-backend.so --socket=wayland-orc --width=1280 --height=720
+```
+
+Leave Weston running. In a second terminal, start the session as your normal user:
+
+```bash
+git switch feature/waze-live-map
+WAYLAND_DISPLAY=wayland-orc waydroid session start
+```
+
+Leave the session running. In a third terminal:
+
+```bash
+git switch feature/waze-live-map
+WAYLAND_DISPLAY=wayland-orc waydroid show-full-ui
+```
+
+First validate the Android desktop. Google Play may need Waydroid certification
+(see the official link above). Availability of an x86_64-compatible Waze package,
+Android GPU support, location and voice guidance remain separate device gates.
+Do not install unofficial ARM translation layers or force software rendering as
+part of this installer. VMware SVGA3D acceleration in Weston alone does not prove
+Android acceleration works. No Android app embedding is wired by this script.
+
 Run `scripts/probe_android_navigation.py` on each actual device. It uses Python's
 standard library and existing tools only. It does not install/start Waydroid,
 start an ADB server, pair a device, launch Waze, or change settings. It reports
