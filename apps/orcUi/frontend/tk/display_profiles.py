@@ -20,6 +20,10 @@ class DisplayProfile:
     context_rail_width: int
     top_bar_height: int
     bottom_bar_height: int
+    nav_visible_items: int = 8
+    nav_tile_height: int = 50
+    bottom_volume_width: int = 120
+    compact_controls: bool = False
 
     @property
     def geometry(self) -> str:
@@ -42,10 +46,10 @@ def select_display_profile(width: int, height: int) -> DisplayProfile:
     if width <= 0 or height <= 0:
         raise ValueError("Display dimensions must be positive")
     if width <= 800 or height <= 480:
-        return DisplayProfile("compact", width, height, 88, 220, 40, 44)
+        return DisplayProfile("compact", width, height, 88, 220, 40, 44, 6, 42, 94, True)
     if width <= 1024 or height <= 600:
-        return DisplayProfile("standard", width, height, 108, 280, 44, 46)
-    return DisplayProfile("hd", width, height, 132, 340, 48, 50)
+        return DisplayProfile("standard", width, height, 108, 280, 44, 46, 8, 50, 120, False)
+    return DisplayProfile("hd", width, height, 120, 340, 48, 44, 8, 50, 120, False)
 
 
 def profile_for_geometry(value: str) -> DisplayProfile:
