@@ -15,6 +15,7 @@ from apps.orcUi.frontend.tk.radio_panel import RadioPanel
 from frontends.tk.radio.persistent_streaming_radio_panel import PersistentStreamingRadioPanel
 from ui.theme import ThemeBundle
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
+from .display_profiles import profile_for_geometry
 from .radio_source_icon import draw_source_icon, draw_source_scene
 from ui.ui_widget import UiWidget
 
@@ -38,6 +39,7 @@ class RadioEntryPanel(tk.Frame, UiWidget):
         self._unsubscribe_online = (online_mode.subscribe(self._mode_changed)
                                     if online_mode is not None else lambda: None)
         self._theme = theme
+        self._compact = profile_for_geometry(parent.winfo_toplevel().geometry()).name == "compact"
         ui = theme.ui
         super().__init__(parent, bg=ui.background)
         self._rf_panel_factory = rf_panel_factory
@@ -140,7 +142,7 @@ class RadioEntryPanel(tk.Frame, UiWidget):
             icon_kind="rf",
             command=self.open_rf_radio,
         )
-        rf_card.grid(row=0, column=0, sticky="nsew", padx=(12, 6), pady=(18, 12))
+        rf_card.grid(row=0, column=0, sticky="nsew", padx=(4, 3) if self._compact else (12, 6), pady=(4, 4) if self._compact else (18, 12))
 
         streaming_card, self._streaming_button = self._build_source_card(
             parent=self._chooser,
@@ -157,8 +159,8 @@ class RadioEntryPanel(tk.Frame, UiWidget):
             row=0,
             column=1,
             sticky="nsew",
-            padx=(6, 12),
-            pady=(18, 12),
+            padx=(3, 4) if self._compact else (6, 12),
+            pady=(4, 4) if self._compact else (18, 12),
         )
         self._status = tk.Label(
             self._chooser,
@@ -194,28 +196,28 @@ class RadioEntryPanel(tk.Frame, UiWidget):
         card.grid_columnconfigure(0, weight=1)
         card.grid_rowconfigure(2, weight=1)
 
-        scene = tk.Canvas(card, height=96, bg=ui.surface, highlightthickness=0, bd=0)
+        scene = tk.Canvas(card, height=52 if self._compact else 96, bg=ui.surface, highlightthickness=0, bd=0)
         scene.grid(row=0, column=0, sticky="ew")
         scene.bind("<Configure>", lambda event: draw_source_scene(
             scene, icon_kind=icon_kind, accent=accent, theme=self._theme,
             width=event.width, height=event.height))
 
         heading = tk.Frame(card, bg=ui.surface)
-        heading.grid(row=1, column=0, sticky="ew", padx=12, pady=(8, 6))
+        heading.grid(row=1, column=0, sticky="ew", padx=5 if self._compact else 12, pady=(3, 2) if self._compact else (8, 6))
         heading.grid_columnconfigure(1, weight=1)
         icon = tk.Canvas(
             heading,
-            width=64,
-            height=64,
+            width=32 if self._compact else 64,
+            height=32 if self._compact else 64,
             bg=ui.surface,
             highlightthickness=0,
             bd=0,
         )
-        icon.grid(row=0, column=0, rowspan=2, sticky="w", padx=(0, 12))
+        icon.grid(row=0, column=0, rowspan=2, sticky="w", padx=(0, 4) if self._compact else (0, 12))
         draw_source_icon(icon, icon_kind=icon_kind, accent=accent, theme=self._theme)
         tk.Label(
             heading,
-            text=eyebrow,
+            text=("" if self._compact else eyebrow),
             bg=ui.surface,
             fg=accent,
             font=("Sans", 9, "bold"),
@@ -223,20 +225,20 @@ class RadioEntryPanel(tk.Frame, UiWidget):
         ).grid(row=0, column=1, sticky="sw", pady=(8, 2))
         tk.Label(
             heading,
-            text=title,
+            text=("RF RADIO" if icon_kind == "rf" else "STREAMING") if self._compact else title,
             bg=ui.surface,
             fg=ui.text,
-            font=("Sans", 18, "bold"),
+            font=("Sans", 12 if self._compact else 18, "bold"),
             anchor="w",
         ).grid(row=1, column=1, sticky="nw")
 
         body = tk.Frame(card, bg=ui.surface)
-        body.grid(row=2, column=0, sticky="nsew", padx=12, pady=(4, 10))
+        body.grid(row=2, column=0, sticky="nsew", padx=5 if self._compact else 12, pady=(2, 4) if self._compact else (4, 10))
         body.grid_columnconfigure(0, weight=1)
         body.grid_rowconfigure(0, weight=1)
         description_label = tk.Label(
             body,
-            text=description,
+            text=("" if self._compact else description),
             bg=ui.surface,
             fg=ui.text_muted,
             font=("Sans", 12),
@@ -249,15 +251,15 @@ class RadioEntryPanel(tk.Frame, UiWidget):
             wraplength=max(1, event.width)))
         tk.Label(
             body,
-            text=features,
+            text=("FM • WX • AIR • HAM" if icon_kind == "rf" else "LOCAL • FAVORITES") if self._compact else features,
             bg=ui.surface,
             fg=ui.text,
-            font=("Sans", 10, "bold"),
+            font=("Sans", 8 if self._compact else 10, "bold"),
             anchor="w",
         ).grid(row=1, column=0, sticky="ew", pady=(14, 8))
         button = tk.Button(
             body,
-            text=action_text,
+            text=("OPEN RADIO ›" if icon_kind == "rf" else "STATIONS ›") if self._compact else action_text,
             command=command,
             bg=ui.control_background,
             fg=accent,
@@ -266,9 +268,9 @@ class RadioEntryPanel(tk.Frame, UiWidget):
             relief=tk.FLAT,
             bd=0,
             highlightthickness=0,
-            font=("Sans", FONT_CONTROL + 2, "bold"),
-            padx=16,
-            pady=10,
+            font=("Sans", 10 if self._compact else FONT_CONTROL + 2, "bold"),
+            padx=4 if self._compact else 16,
+            pady=5 if self._compact else 10,
             cursor="hand2",
         )
         button.grid(row=2, column=0, sticky="ew", pady=(8, 0))
