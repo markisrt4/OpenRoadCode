@@ -46,7 +46,7 @@ def select_display_profile(width: int, height: int) -> DisplayProfile:
     if width <= 0 or height <= 0:
         raise ValueError("Display dimensions must be positive")
     if width <= 800 or height <= 480:
-        return DisplayProfile("compact", width, height, 88, 220, 40, 44, 6, 42, 94, True)
+        return DisplayProfile("compact", width, height, 88, 220, 40, 40, 6, 42, 94, True)
     if width <= 1024 or height <= 600:
         return DisplayProfile("standard", width, height, 108, 280, 44, 46, 8, 50, 120, False)
     return DisplayProfile("hd", width, height, 120, 340, 48, 44, 8, 50, 120, False)
