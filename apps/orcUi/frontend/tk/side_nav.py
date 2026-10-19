@@ -10,6 +10,7 @@ from collections.abc import Callable
 
 from ui.theme import ThemeBundle
 from .shell_metrics import FONT_CONTROL, SIDE_NAV_WIDTH
+from .display_profiles import DisplayProfile
 from ui.ui_widget import UiWidget
 
 
@@ -38,7 +39,11 @@ class _NavTile(tk.Canvas, UiWidget):
         theme: ThemeBundle,
         on_navigate: Callable[[str], None],
         on_swipe: Callable[[int], None] | None = None,
+        tile_height: int = 50,
+        rail_width: int = SIDE_NAV_WIDTH,
     ) -> None:
+        self._tile_height = tile_height
+        self._rail_width = rail_width
         self._nav_name = name
         self._theme = theme
         self._on_navigate = on_navigate
@@ -48,7 +53,7 @@ class _NavTile(tk.Canvas, UiWidget):
         self._press_y: int | None = None
         super().__init__(
             parent,
-            height=self.HEIGHT,
+            height=self._tile_height,
             highlightthickness=1,
             bd=0,
             cursor="hand2",
@@ -88,8 +93,8 @@ class _NavTile(tk.Canvas, UiWidget):
 
     def _paint(self) -> None:
         ui = self._theme.ui
-        width = max(SIDE_NAV_WIDTH - 8, self.winfo_width())
-        height = max(self.HEIGHT, self.winfo_height())
+        width = max(self._rail_width - 8, self.winfo_width())
+        height = max(self._tile_height, self.winfo_height())
 
         if self._selected:
             top = _blend(ui.control_active, "#ffffff", 0.10)
@@ -221,8 +226,12 @@ class OrcUiSideNav(tk.Frame, UiWidget):
         items: list[str],
         active: str,
         on_navigate: Callable[[str], None],
+        display_profile: DisplayProfile | None = None,
     ) -> None:
-        super().__init__(parent, width=self.WIDTH)
+        self._rail_width = display_profile.side_nav_width if display_profile else self.WIDTH
+        self._visible_items = display_profile.nav_visible_items if display_profile else self.VISIBLE_ITEMS
+        self._tile_height = display_profile.nav_tile_height if display_profile else _NavTile.HEIGHT
+        super().__init__(parent, width=self._rail_width)
         self._on_navigate = on_navigate
         self._theme = theme
         self._items: list[str] = []
@@ -303,6 +312,8 @@ class OrcUiSideNav(tk.Frame, UiWidget):
                 theme=theme,
                 on_navigate=self._on_navigate,
                 on_swipe=self._scroll,
+                tile_height=self._tile_height,
+                rail_width=self._rail_width,
             )
             tile.pack(fill=tk.BOTH, expand=True, padx=4, pady=1)
             tile.set_state(selected=item == self._active, theme=theme)
