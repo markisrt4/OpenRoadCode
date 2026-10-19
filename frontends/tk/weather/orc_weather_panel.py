@@ -171,8 +171,24 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
 
         self._hourly_title = self._section_title(self._forecast_area, "HOURLY")
         self._hourly_title.grid(row=0, column=0, sticky="ew", pady=(0, 2))
-        self._hourly = tk.Frame(self._forecast_area)
-        self._hourly.grid(row=1, column=0, sticky="nsew")
+        self._hourly_view = tk.Frame(self._forecast_area)
+        self._hourly_view.grid(row=1, column=0, sticky="nsew")
+        self._hourly_view.grid_columnconfigure(1, weight=1)
+        self._hourly_view.grid_rowconfigure(0, weight=1)
+        tk.Button(self._hourly_view, text="<", width=2,
+                  command=lambda: self._scroll_hourly(-1)).grid(row=0, column=0, sticky="ns")
+        self._hourly_canvas = tk.Canvas(self._hourly_view, height=128,
+                                        highlightthickness=0, bd=0)
+        self._hourly_canvas.grid(row=0, column=1, sticky="nsew")
+        self._hourly = tk.Frame(self._hourly_canvas)
+        self._hourly_canvas.create_window((0, 0), window=self._hourly, anchor="nw")
+        self._hourly.bind("<Configure>", self._update_hourly_scrollregion)
+        tk.Button(self._hourly_view, text=">", width=2,
+                  command=lambda: self._scroll_hourly(1)).grid(row=0, column=2, sticky="ns")
+        self._hourly_canvas.bind("<ButtonPress-1>", self._hourly_drag_start)
+        self._hourly_canvas.bind("<B1-Motion>", self._hourly_drag_move)
+        self._hourly_canvas.bind("<MouseWheel>", self._hourly_wheel)
+
 
         self._daily_title = self._section_title(self._forecast_area, "6-DAY FORECAST")
         self._daily_title.grid(row=2, column=0, sticky="ew", pady=(5, 2))
@@ -180,6 +196,22 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
         self._daily.grid(row=3, column=0, sticky="nsew")
 
         self.set_theme_bundle(theme_bundle())
+
+    def _update_hourly_scrollregion(self, _event: tk.Event) -> None:
+        self._hourly_canvas.configure(scrollregion=self._hourly_canvas.bbox("all"))
+
+    def _scroll_hourly(self, direction: int) -> None:
+        self._hourly_canvas.xview_scroll(direction * 2, "units")
+
+    def _hourly_drag_start(self, event: tk.Event) -> None:
+        self._hourly_canvas.scan_mark(event.x, event.y)
+
+    def _hourly_drag_move(self, event: tk.Event) -> None:
+        self._hourly_canvas.scan_dragto(event.x, event.y, gain=1)
+
+    def _hourly_wheel(self, event: tk.Event) -> None:
+        if event.delta:
+            self._scroll_hourly(-1 if event.delta > 0 else 1)
 
     @staticmethod
     def _section_title(parent: tk.Misc, text: str) -> tk.Label:
@@ -335,7 +367,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
             item for item in state.hourly
             if self._local_timestamp(item.timestamp) >= current_hour
         ]
-        for column, item in enumerate(upcoming[:6]):
+        for column, item in enumerate(upcoming[:24]):
             precipitation = (
                 "" if item.precipitation_probability is None
                 else f"PRECIP {self._percent(item.precipitation_probability)}"
@@ -394,7 +426,12 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
             sticky="nsew",
             padx=(0 if column == 0 else 2, 2),
         )
-        parent.grid_columnconfigure(column, weight=1, uniform="forecast")
+        if parent is self._hourly:
+            cell.configure(width=148)
+            cell.grid_propagate(False)
+            parent.grid_columnconfigure(column, weight=0, minsize=148)
+        else:
+            parent.grid_columnconfigure(column, weight=1, uniform="forecast")
         parent.grid_rowconfigure(0, weight=1)
 
         tk.Label(
