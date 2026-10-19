@@ -243,7 +243,7 @@ class OrcUiSideNav(tk.Frame, UiWidget):
         display_profile: DisplayProfile | None = None,
     ) -> None:
         self._rail_width = display_profile.side_nav_width if display_profile else self.WIDTH
-        self._visible_items = display_profile.nav_visible_items if display_profile else self.VISIBLE_ITEMS
+        self._visible_items = display_profile.nav_visible_items if display_profile else self._visible_items
         self._tile_height = display_profile.nav_tile_height if display_profile else _NavTile.HEIGHT
         super().__init__(parent, width=self._rail_width)
         self._on_navigate = on_navigate
@@ -285,7 +285,7 @@ class OrcUiSideNav(tk.Frame, UiWidget):
             self._scroll(-1 if event.delta > 0 else 1)
 
     def _scroll(self, delta: int) -> None:
-        maximum = max(0, len(self._items) - self.VISIBLE_ITEMS)
+        maximum = max(0, len(self._items) - self._visible_items)
         new_offset = max(0, min(maximum, self._offset + delta))
         if new_offset == self._offset:
             return
@@ -293,7 +293,7 @@ class OrcUiSideNav(tk.Frame, UiWidget):
         self._render()
 
     def _ensure_active_visible(self) -> None:
-        maximum = max(0, len(self._items) - self.VISIBLE_ITEMS)
+        maximum = max(0, len(self._items) - self._visible_items)
         self._offset = max(0, min(maximum, self._offset))
         try:
             index = self._items.index(self._active)
@@ -301,8 +301,8 @@ class OrcUiSideNav(tk.Frame, UiWidget):
             return
         if index < self._offset:
             self._offset = index
-        elif index >= self._offset + self.VISIBLE_ITEMS:
-            self._offset = index - self.VISIBLE_ITEMS + 1
+        elif index >= self._offset + self._visible_items:
+            self._offset = index - self._visible_items + 1
         self._offset = max(0, min(maximum, self._offset))
 
     def _render(self) -> None:
@@ -314,11 +314,11 @@ class OrcUiSideNav(tk.Frame, UiWidget):
 
         if self._items:
             self._up_button = self._make_scroll_button("▲", lambda: self._scroll(-1))
-            self._up_button.pack(fill=tk.X, padx=8, pady=(0, 2))
+            self._up_button.pack(fill=tk.X, padx=3 if self._rail_width <= 90 else 8, pady=(0, 1))
         else:
             self._up_button = None
 
-        visible = self._items[self._offset:self._offset + self.VISIBLE_ITEMS]
+        visible = self._items[self._offset:self._offset + self._visible_items]
         for item in visible:
             tile = _NavTile(
                 self,
@@ -329,13 +329,13 @@ class OrcUiSideNav(tk.Frame, UiWidget):
                 tile_height=self._tile_height,
                 rail_width=self._rail_width,
             )
-            tile.pack(fill=tk.BOTH, expand=True, padx=4, pady=1)
+            tile.pack(fill=tk.BOTH, expand=True, padx=2 if self._rail_width <= 90 else 4, pady=1)
             tile.set_state(selected=item == self._active, theme=theme)
             self._tiles[item] = tile
 
         if self._items:
             self._down_button = self._make_scroll_button("▼", lambda: self._scroll(1))
-            self._down_button.pack(fill=tk.X, padx=8, pady=(2, 0))
+            self._down_button.pack(fill=tk.X, padx=3 if self._rail_width <= 90 else 8, pady=(1, 0))
         else:
             self._down_button = None
         self._paint_scroll_buttons()
@@ -355,7 +355,7 @@ class OrcUiSideNav(tk.Frame, UiWidget):
 
     def _paint_scroll_buttons(self) -> None:
         ui = self._theme.ui
-        maximum = max(0, len(self._items) - self.VISIBLE_ITEMS)
+        maximum = max(0, len(self._items) - self._visible_items)
         for button, enabled in (
             (self._up_button, self._offset > 0),
             (self._down_button, self._offset < maximum),
