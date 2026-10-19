@@ -315,6 +315,7 @@ class OrcUiShellView(UiWidget):
             items=self._nav_items,
             active=self._active_nav,
             on_navigate=self._on_navigate,
+            display_profile=self._display_profile,
         )
         self._side_nav.grid(
             row=1,
@@ -335,12 +336,13 @@ class OrcUiShellView(UiWidget):
             on_volume_up=self._on_volume_up,
             on_theme_toggle=self._on_theme_toggle,
             on_diagnostics=lambda: self._on_navigate("DIAGNOSTICS"),
+            display_profile=self._display_profile,
         )
         self._bottom_bar.grid(
             row=2,
             column=1,
             sticky="ew",
-            padx=(SHELL_PAD_X, SHELL_PAD_X + 78),
+            padx=(SHELL_PAD_X, SHELL_PAD_X + (64 if self._display_profile.compact_controls else 78)),
         )
         self._bottom_bar.set_aircraft_request_handler(self._aircraft_handler)
         self._bottom_bar.set_aircraft_state(AircraftMenuUiState(
