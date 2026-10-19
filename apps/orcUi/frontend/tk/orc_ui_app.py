@@ -207,6 +207,8 @@ class OrcUiApp(VolumeUiIf, UiWidget):
         if self._shell is not None:
             self._shell.set_back_action(None)
         self._active_screen = screen
+        if self._shell is not None:
+            self._shell.set_footer_detail("")
     def clear_screen_content(self) -> None:
         self._clear_content()
     def set_screen_title(self, title: str) -> None:
@@ -222,6 +224,11 @@ class OrcUiApp(VolumeUiIf, UiWidget):
         """Show the active screen's semantic back action in persistent chrome."""
         if self._shell is not None:
             self._shell.set_back_action(action)
+    def set_screen_footer_detail(self, detail: str) -> None:
+        """Display screen metadata in persistent shell chrome."""
+        if self._shell is not None:
+            self._shell.set_footer_detail(detail)
+
     def set_screen_status(self, message: str) -> None:
         if self._shell is not None:
             self._shell.set_status(message)
