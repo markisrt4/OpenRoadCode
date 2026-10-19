@@ -33,7 +33,15 @@ sudo modprobe binder_linux
 sudo apt-get update
 sudo apt-get install -y curl ca-certificates weston mesa-utils xdotool
 
-if ! apt-cache policy waydroid | grep -Eq 'Candidate: [^ (]'; then
+has_waydroid_candidate() {
+    # Consume the complete output: grep -q can close the pipe early and make
+    # apt-cache fail with SIGPIPE under pipefail. Pin the parsed field's locale.
+    LC_ALL=C apt-cache policy waydroid | awk '
+        $1 == "Candidate:" && NF >= 2 && $2 != "(none)" { found = 1 }
+        END { exit !found }
+    '
+}
+if ! has_waydroid_candidate; then
     repository_script=$(mktemp)
     trap 'rm -f -- "$repository_script"' EXIT
     curl -fsSL https://repo.waydro.id -o "$repository_script"
@@ -43,7 +51,7 @@ if ! apt-cache policy waydroid | grep -Eq 'Candidate: [^ (]'; then
     sudo bash "$repository_script" noble
     sudo apt-get update
 fi
-apt-cache policy waydroid | grep -Eq 'Candidate: [^ (]' ||
+has_waydroid_candidate ||
     fail "Waydroid repository has no package candidate; inspect apt errors above"
 sudo apt-get install -y waydroid
 
