@@ -12,6 +12,7 @@ from ui.theme import ThemeBundle
 from ui.radio import AircraftMenuRequestHandlerIf, AircraftMenuUiState
 from apps.orcUi.performance_status import PerformanceStatus
 from .gradient_control import GradientControl
+from .display_profiles import DisplayProfile
 from .shell_metrics import (
     BOTTOM_BAR_HEIGHT,
     FONT_CONTROL,
@@ -52,9 +53,13 @@ class OrcUiBottomBar(tk.Frame, UiWidget):
         on_volume_up: Callable[[], None],
         on_theme_toggle: Callable[[], None],
         on_diagnostics: Callable[[], None],
+        display_profile: DisplayProfile | None = None,
     ) -> None:
         ui = theme.ui
-        super().__init__(parent, bg=ui.background, height=BOTTOM_BAR_HEIGHT)
+        self._compact = bool(display_profile and display_profile.compact_controls)
+        height = display_profile.bottom_bar_height if display_profile else BOTTOM_BAR_HEIGHT
+        volume_width = display_profile.bottom_volume_width if display_profile else 120
+        super().__init__(parent, bg=ui.background, height=height)
         self._theme = theme
         self._adsb_enabled = False
         self._adsb_simulation = False
@@ -64,7 +69,7 @@ class OrcUiBottomBar(tk.Frame, UiWidget):
 
         self.grid_propagate(False)
         self.grid_rowconfigure(0, weight=1)
-        self.grid_columnconfigure(0, weight=0, minsize=120)
+        self.grid_columnconfigure(0, weight=0, minsize=volume_width)
         for column in range(1, 4):
             self.grid_columnconfigure(column, weight=1, uniform="bottom-actions")
 
@@ -75,9 +80,9 @@ class OrcUiBottomBar(tk.Frame, UiWidget):
         )
         volume.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
         volume.grid_rowconfigure(0, weight=1)
-        volume.grid_columnconfigure(0, minsize=36)
+        volume.grid_columnconfigure(0, minsize=28 if self._compact else 36)
         volume.grid_columnconfigure(1, weight=1)
-        volume.grid_columnconfigure(2, minsize=36)
+        volume.grid_columnconfigure(2, minsize=28 if self._compact else 36)
         down = self._button(on_volume_down, bold=True, parent=volume)
         down.configure(text="−")
         down.grid(row=0, column=0, sticky="nsew")
@@ -125,7 +130,8 @@ class OrcUiBottomBar(tk.Frame, UiWidget):
 
     def set_performance_status(self, status: PerformanceStatus) -> None:
         """Present observed computing-unit health alongside the shell controls."""
-        self._performance_button.configure(text=status.text, fg=getattr(self._theme.ui, status.tone))
+        label = "SYS" if self._compact else status.text
+        self._performance_button.configure(text=label, fg=getattr(self._theme.ui, status.tone))
 
     def set_volume_text(self, text: str) -> None:
         self._volume_label.configure(text=text)
@@ -218,10 +224,10 @@ class OrcUiBottomBar(tk.Frame, UiWidget):
     def _paint_adsb(self) -> None:
         ui = self._theme.ui
         self._aircraft_button.configure(
-            text=aircraft_button_text(
+            text=("✈ AIR" if self._compact else aircraft_button_text(
                 enabled=self._adsb_enabled,
                 aircraft_count=self._aircraft_count,
-            ),
+            )),
             state=tk.NORMAL,
             fg=ui.accent_success if self._adsb_enabled else ui.control_text,
         )
