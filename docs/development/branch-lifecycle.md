@@ -14,7 +14,7 @@
 
 Phase 1: The GitHub Actions workflow `.github/workflows/branch-lifecycle.yml` runs on branch creation, pull requests, and a weekly schedule. It reports branches already included in the default branch and flags unmerged branches. It never deletes code or changes Linear issues.
 
-Phase 2 (pending): Configure Linear API credentials and exact branch-to-feature mappings, then add idempotent find-or-create and PR association. Until configured, the workflow must **not** invent Linear issues or change their status. Reuse Linear's native GitHub integration where possible.
+Phase 2 (implemented, pending validation): The `linear-reconcile.yml` workflow uses the repository Actions secret `LINEAR_API_KEY` to match branches to existing Linear issues by exact `owner/repository:branch` reference, then by unique normalized title. For unmatched `feature/`, `fix/`, `research/`, and `experiment/` branches it creates one feature issue with a checklist. Ambiguous matches are flagged without creating issues. PR URLs are appended to the associated issue; merges never automatically mark issues Done. The workflow only becomes active once merged into the default branch. GitHub Actions secrets are never committed.
 
 Phase 3 (pending): Add verification-state transitions and multi-repository reusable workflow callers. Do not auto-check acceptance checkboxes based on commit messages.
 
