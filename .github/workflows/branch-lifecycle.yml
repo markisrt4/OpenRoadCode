@@ -53,7 +53,8 @@ jobs:
               const existing = await github.paginate(github.rest.issues.listForRepo, {
                 owner, repo, state: 'open', per_page: 100
               }).catch(() => []);
-              const prior = existing.find(i => !i.pull_request && i.title === heading);\n              if (prior) {
+              const prior = existing.find(i => !i.pull_request && i.title === heading);
+              if (prior) {
                 await github.rest.issues.update({owner, repo, issue_number: prior.number, body});
               } else {
                 await github.rest.issues.create({owner, repo, title: heading, body});
