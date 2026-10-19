@@ -51,10 +51,10 @@ jobs:
             await core.summary.addHeading(heading).addRaw(body).write();
             if (context.eventName === 'schedule' || context.eventName === 'workflow_dispatch') {
               const existing = await github.paginate(github.rest.issues.listForRepo, {
-                owner, repo, state: 'open', labels: 'branch-lifecycle-audit', per_page: 100
+                owner, repo, state: 'open', per_page: 100
               }).catch(() => []);
-              if (existing.length) {
-                await github.rest.issues.update({owner, repo, issue_number: existing[0].number, body});
+              const prior = existing.find(i => !i.pull_request && i.title === heading);\n              if (prior) {
+                await github.rest.issues.update({owner, repo, issue_number: prior.number, body});
               } else {
                 await github.rest.issues.create({owner, repo, title: heading, body});
               }
