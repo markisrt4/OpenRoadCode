@@ -79,7 +79,7 @@ def build_top_bar(
         text="☁  --°",
         fg=ui.text,
         bg=ui.surface_alt,
-        font=("Sans", FONT_STATUS, "bold"),
+        font=("Sans", 12 if compact else FONT_STATUS, "bold"),
     )
     weather.pack(side=tk.LEFT, padx=(0, 4 if compact else 10))
     if not compact:
@@ -107,7 +107,7 @@ def build_top_bar(
         bd=0,
         highlightthickness=0,
         width=3,
-        font=("Sans", FONT_POWER, "bold"),
+        font=("Sans", 16 if compact else FONT_POWER, "bold"),
         cursor="hand2",
     ).pack(side=tk.LEFT)
     return clock, weather, online
