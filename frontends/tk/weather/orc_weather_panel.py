@@ -166,27 +166,23 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
         self._forecast_area = tk.Frame(self)
         self._forecast_area.grid(row=2, column=0, sticky="nsew", padx=8, pady=(0, 3))
         self._forecast_area.grid_columnconfigure(0, weight=1)
-        self._forecast_area.grid_rowconfigure(1, weight=1)
+        self._forecast_area.grid_rowconfigure(0, weight=1)
 
         self._forecast_mode = "hourly"
-        self._forecast_tabs = tk.Frame(self._forecast_area)
-        self._forecast_tabs.grid(row=0, column=0, sticky="ew", pady=(0, 3))
-        self._hourly_title = tk.Button(
-            self._forecast_tabs, text="HOURLY", command=lambda: self._show_forecast("hourly"),
-            relief=tk.FLAT, bd=0, highlightthickness=0, font=("Sans", 10, "bold"))
-        self._hourly_title.pack(side=tk.LEFT, padx=(0, 8))
-        self._daily_title = tk.Button(
-            self._forecast_tabs, text="DAILY", command=lambda: self._show_forecast("daily"),
-            relief=tk.FLAT, bd=0, highlightthickness=0, font=("Sans", 10, "bold"))
-        self._daily_title.pack(side=tk.LEFT)
         self._hourly_view = tk.Frame(self._forecast_area)
-        self._hourly_view.grid(row=1, column=0, sticky="nsew")
+        self._hourly_view.grid(row=0, column=0, sticky="nsew")
         self._hourly_view.grid_columnconfigure(1, weight=1)
         self._hourly_view.grid_rowconfigure(0, weight=1)
-        self._hourly_back = tk.Button(self._hourly_view, text="◀", width=2,
+        self._hourly_controls = tk.Frame(self._hourly_view)
+        self._hourly_controls.grid(row=0, column=0, sticky="ns", padx=(0, 3))
+        self._hourly_toggle = tk.Button(self._hourly_controls, text="HOURLY",
+                  command=self._toggle_forecast, font=("Sans", 9, "bold"),
+                  relief=tk.FLAT, bd=0, highlightthickness=0)
+        self._hourly_toggle.pack(fill=tk.X, pady=(0, 5))
+        self._hourly_back = tk.Button(self._hourly_controls, text="◀", width=2,
                   command=lambda: self._scroll_hourly(-1), font=("Sans", 12, "bold"),
                   relief=tk.FLAT, bd=0, highlightthickness=0)
-        self._hourly_back.grid(row=0, column=0, sticky="ns", padx=(0, 3))
+        self._hourly_back.pack(fill=tk.BOTH, expand=True)
         self._hourly_canvas = tk.Canvas(self._hourly_view, height=170,
                                         highlightthickness=0, bd=0)
         self._hourly_canvas.grid(row=0, column=1, sticky="nsew")
@@ -205,10 +201,16 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
         self._daily_view = tk.Frame(self._forecast_area)
         self._daily_view.grid_columnconfigure(1, weight=1)
         self._daily_view.grid_rowconfigure(0, weight=1)
-        self._daily_back = tk.Button(self._daily_view, text="◀", width=2,
+        self._daily_controls = tk.Frame(self._daily_view)
+        self._daily_controls.grid(row=0, column=0, sticky="ns", padx=(0, 3))
+        self._daily_toggle = tk.Button(self._daily_controls, text="DAILY",
+                  command=self._toggle_forecast, font=("Sans", 9, "bold"),
+                  relief=tk.FLAT, bd=0, highlightthickness=0)
+        self._daily_toggle.pack(fill=tk.X, pady=(0, 5))
+        self._daily_back = tk.Button(self._daily_controls, text="◀", width=2,
                                     command=lambda: self._scroll_forecast(self._daily_canvas, self._daily, -1),
                                     font=("Sans", 12, "bold"), relief=tk.FLAT, bd=0, highlightthickness=0)
-        self._daily_back.grid(row=0, column=0, sticky="ns", padx=(0, 3))
+        self._daily_back.pack(fill=tk.BOTH, expand=True)
         self._daily_canvas = tk.Canvas(self._daily_view, height=170, highlightthickness=0, bd=0)
         self._daily_canvas.grid(row=0, column=1, sticky="nsew")
         self._daily = tk.Frame(self._daily_canvas)
@@ -228,15 +230,18 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
         self._hourly_view.grid_forget()
         self._daily_view.grid_forget()
         selected = self._hourly_view if mode == "hourly" else self._daily_view
-        selected.grid(row=1, column=0, sticky="nsew")
+        selected.grid(row=0, column=0, sticky="nsew")
         self._style_forecast_tabs()
+
+    def _toggle_forecast(self) -> None:
+        self._show_forecast("daily" if self._forecast_mode == "hourly" else "hourly")
 
     def _style_forecast_tabs(self) -> None:
         ui = self._theme_bundle().ui
-        self._forecast_tabs.configure(bg=ui.background)
-        for mode, button in (("hourly", self._hourly_title), ("daily", self._daily_title)):
-            button.configure(bg=ui.control_active if mode == self._forecast_mode else ui.control_background,
-                             fg=ui.text if mode == self._forecast_mode else ui.text_muted)
+        for button in (self._hourly_toggle, self._daily_toggle):
+            button.configure(bg=ui.control_active, fg=ui.text,
+                             activebackground=ui.control_background,
+                             activeforeground=ui.text)
 
     def _update_hourly_scrollregion(self, _event: tk.Event) -> None:
         self._hourly_canvas.configure(scrollregion=self._hourly_canvas.bbox("all"))
@@ -307,7 +312,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
     def set_theme_bundle(self, theme: ThemeBundle) -> None:
         ui = theme.ui
         self.configure(bg=ui.background)
-        for frame in (self._header, self._forecast_area, self._hourly_view, self._hourly, self._daily_view, self._daily):
+        for frame in (self._header, self._forecast_area, self._hourly_view, self._hourly_controls, self._hourly, self._daily_view, self._daily_controls, self._daily):
             frame.configure(bg=ui.background)
         self._location.configure(bg=ui.background, fg=ui.text)
         self._provider_label.configure(bg=ui.background, fg=ui.text_muted)
