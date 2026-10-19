@@ -20,6 +20,23 @@ class DisplayProfilesTest(unittest.TestCase):
         self.assertEqual(profile_for_geometry("1024x600").name, "standard")
         self.assertEqual(profile_for_geometry("1280x720").name, "hd")
 
+    def test_compact_shell_metrics(self):
+        profile = profile_for_geometry("800x480")
+        self.assertEqual(profile.side_nav_width, 88)
+        self.assertEqual(profile.nav_visible_items, 6)
+        self.assertEqual(profile.nav_tile_height, 42)
+        self.assertEqual(profile.bottom_volume_width, 94)
+        self.assertTrue(profile.compact_controls)
+
+    def test_hd_shell_metrics_preserve_existing_style(self):
+        profile = profile_for_geometry("1280x720")
+        self.assertEqual(profile.side_nav_width, 120)
+        self.assertEqual(profile.top_bar_height, 48)
+        self.assertEqual(profile.bottom_bar_height, 44)
+        self.assertEqual(profile.nav_visible_items, 8)
+        self.assertEqual(profile.nav_tile_height, 50)
+        self.assertFalse(profile.compact_controls)
+
     def test_window_position_suffix(self):
         self.assertEqual(parse_geometry("800x480+10-20"), (800, 480))
 
