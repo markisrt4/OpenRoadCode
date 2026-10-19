@@ -17,24 +17,27 @@ test('road overlay bounds requests, labels roads and places, and prevents attach
     cesiumWidget:{creditDisplay:{addStaticCredit(){}}},dataSources:{async add(source){sources.push(source);return source;},
       remove(source){const index=sources.indexOf(source);if(index>=0)sources.splice(index,1);}}};
   const state={roads:[{kind:'motorway',label:'I-75',points:[[-1.4,.7],[-1.41,.71]]},{kind:'minor',label:'Main Street',points:[[-1.42,.7],[-1.43,.71]]}],places:[{name:'Detroit',position:[-1.4,.7]}]};
-  const context={window:{},Date:{now:()=>1000},AbortController,
-    fetch:()=>new Promise(resolve=>pending.push(resolve))};
+  const requested=[];
+  const context={window:{},Date:{now:()=>1000},AbortController,requested,
+    fetch:url=>{requested.push(url);return new Promise(resolve=>pending.push(resolve));}};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../road_overlay.js'),'utf8'),context);
   const overlay=context.window.ORCRoadOverlay(viewer,C);
-  render();assert.equal(pending.length,9);
+  render();assert.equal(pending.length,4);
+  assert.ok(pending.length && context.requested.every(url=>url.startsWith('/data/roads/13/')));
   pending.shift()({ok:true,json:async()=>state});
   await new Promise(resolve=>setImmediate(resolve));
-  assert.equal(sources.length,2);
+  assert.equal(sources.length,1);
   assert.equal(sources[0].entities.values[1].label.text,'I-75');
   assert.equal(sources[0].entities.values[2].label.text,'Main Street');
   assert.equal(sources[0].entities.values[2].label.distanceDisplayCondition.far,1000);
-  assert.equal(sources[1].entities.values[0].label.text,'Detroit');
-  assert.equal(sources[1].show,false,'places start disabled to reduce label work');
   assert.equal(sources[0].entities.values.filter(entity=>entity.polyline).length,1,
     'local streets do not create extra ground-clamped geometry');
   assert.equal(sources[0].entities.values[1].label.distanceDisplayCondition,undefined);
   overlay.roadsVisible=false;assert.equal(sources[0].show,false);
-  overlay.placesVisible=true;assert.equal(sources[1].show,true);
+  overlay.placesVisible=true;
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(sources.length,2);assert.equal(sources[1].entities.values[0].label.text,'Detroit');
+  assert.equal(sources[1].show,true);
   overlay.destroy();
   pending.forEach(resolve=>resolve({ok:true,json:async()=>state}));
   await new Promise(resolve=>setImmediate(resolve));
