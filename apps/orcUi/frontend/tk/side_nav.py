@@ -135,7 +135,11 @@ class _NavTile(tk.Canvas, UiWidget):
             badge_x + badge_radius, badge_y + badge_radius,
             fill=badge_fill, outline=border, width=1,
         )
-        self._draw_icon(self._nav_name, badge_x, badge_y, icon_color)
+        if self._compact:
+            self.create_text(badge_x, badge_y, text=self._compact_icon(self._nav_name),
+                             fill=icon_color, font=("Sans", 10, "bold"))
+        else:
+            self._draw_icon(self._nav_name, badge_x, badge_y, icon_color)
         compact_labels = {"NAVIGATION": "NAV", "VEHICLE": "CAR", "WEATHER": "WX", "LIGHTING": "LIGHT", "DIAGNOSTICS": "DIAG"}
         label = (compact_labels.get(self._nav_name, self._nav_name)
                  if self._compact else _NAV_LABELS.get(self._nav_name, self._nav_name))
@@ -155,6 +159,12 @@ class _NavTile(tk.Canvas, UiWidget):
             y1 = round(index * step_height)
             y2 = round((index + 1) * step_height) + 1
             self.create_rectangle(0, y1, width, y2, fill=color, outline="")
+
+    @staticmethod
+    def _compact_icon(name: str) -> str:
+        return {"HOME": "⌂", "NAVIGATION": "➤", "RADIO": "◉",
+                "VEHICLE": "▰", "WEATHER": "☁", "VISION": "◎",
+                "MEDIA": "▶", "GAMES": "♧", "LIGHTING": "☼"}.get(name, "•")
 
     def _draw_icon(self, name: str, x: float, y: float, color: str) -> None:
         if name == "HOME": self._draw_home(x, y, color)
