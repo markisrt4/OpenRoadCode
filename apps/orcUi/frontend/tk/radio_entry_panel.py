@@ -194,9 +194,9 @@ class RadioEntryPanel(tk.Frame, UiWidget):
             highlightbackground=ui.border,
         )
         card.grid_columnconfigure(0, weight=1)
-        card.grid_rowconfigure(2, weight=1)
+        card.grid_rowconfigure(2, weight=0 if self._compact else 1)
 
-        scene = tk.Canvas(card, height=52 if self._compact else 96, bg=ui.surface, highlightthickness=0, bd=0)
+        scene = tk.Canvas(card, height=72 if self._compact else 96, bg=ui.surface, highlightthickness=0, bd=0)
         scene.grid(row=0, column=0, sticky="ew")
         scene.bind("<Configure>", lambda event: draw_source_scene(
             scene, icon_kind=icon_kind, accent=accent, theme=self._theme,
@@ -235,7 +235,7 @@ class RadioEntryPanel(tk.Frame, UiWidget):
         body = tk.Frame(card, bg=ui.surface)
         body.grid(row=2, column=0, sticky="nsew", padx=5 if self._compact else 12, pady=(2, 4) if self._compact else (4, 10))
         body.grid_columnconfigure(0, weight=1)
-        body.grid_rowconfigure(0, weight=1)
+        body.grid_rowconfigure(0, weight=0 if self._compact else 1)
         description_label = tk.Label(
             body,
             text=("" if self._compact else description),
@@ -256,7 +256,7 @@ class RadioEntryPanel(tk.Frame, UiWidget):
             fg=ui.text,
             font=("Sans", 8 if self._compact else 10, "bold"),
             anchor="w",
-        ).grid(row=1, column=0, sticky="ew", pady=(14, 8))
+        ).grid(row=1, column=0, sticky="ew", pady=(8, 5) if self._compact else (14, 8))
         button = tk.Button(
             body,
             text=("OPEN RADIO ›" if icon_kind == "rf" else "STATIONS ›") if self._compact else action_text,
