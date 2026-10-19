@@ -79,6 +79,7 @@ class OrcUiShellView(UiWidget):
         self._status_text = ""
         self._performance_status = PerformanceStatus()
         self._breadcrumb = active_nav
+        self._footer_detail = ""
         self._clock_after_id: str | None = None
         self._weather_alert: WeatherAlertUiEvent | None = None
         self._weather_alert_banner: WeatherAlertBanner | None = None
@@ -160,7 +161,13 @@ class OrcUiShellView(UiWidget):
         ]
         self._breadcrumb = "  ›  ".join(deduplicated) if deduplicated else self._active_nav
         if self._breadcrumb_label is not None and self._breadcrumb_label.winfo_exists():
-            self._breadcrumb_label.configure(text=self._breadcrumb)
+            self._breadcrumb_label.configure(text=self._breadcrumb + self._footer_detail)
+
+    def set_footer_detail(self, detail: str) -> None:
+        """Display screen metadata beside the persistent breadcrumb."""
+        self._footer_detail = f"  •  {detail}" if detail else ""
+        if self._breadcrumb_label is not None and self._breadcrumb_label.winfo_exists():
+            self._breadcrumb_label.configure(text=self._breadcrumb + self._footer_detail)
 
     def close(self) -> None:
         self._cancel_weather_alert_timer()
@@ -399,5 +406,5 @@ class OrcUiShellView(UiWidget):
         )
         self.set_back_action(self._back_action)
         self.set_performance_status(self._performance_status)
-        self._breadcrumb_label.configure(text=self._breadcrumb)
+        self._breadcrumb_label.configure(text=self._breadcrumb + self._footer_detail)
         self._status_label.configure(text=self._status_text)
