@@ -45,6 +45,7 @@ class _NavTile(tk.Canvas, UiWidget):
         self._tile_height = tile_height
         self._rail_width = rail_width
         self._nav_name = name
+        self._compact = rail_width <= 90
         self._theme = theme
         self._on_navigate = on_navigate
         self._on_swipe = on_swipe
@@ -126,20 +127,23 @@ class _NavTile(tk.Canvas, UiWidget):
             self.create_rectangle(0, 0, 4, height, fill=ui.accent_primary, outline="")
 
         # Keep the rail narrow; the longest label gets a slightly smaller font.
-        badge_x = 18
+        badge_x = 15 if self._compact else 18
         badge_y = height / 2
-        badge_radius = 12
+        badge_radius = 10 if self._compact else 12
         self.create_oval(
             badge_x - badge_radius, badge_y - badge_radius,
             badge_x + badge_radius, badge_y + badge_radius,
             fill=badge_fill, outline=border, width=1,
         )
         self._draw_icon(self._nav_name, badge_x, badge_y, icon_color)
+        compact_labels = {"NAVIGATION": "NAV", "VEHICLE": "CAR", "WEATHER": "WX", "LIGHTING": "LIGHT", "DIAGNOSTICS": "DIAG"}
+        label = (compact_labels.get(self._nav_name, self._nav_name)
+                 if self._compact else _NAV_LABELS.get(self._nav_name, self._nav_name))
         self.create_text(
-            35, height / 2,
-            text=_NAV_LABELS.get(self._nav_name, self._nav_name),
+            29 if self._compact else 35, height / 2,
+            text=label,
             fill=label_color,
-            font=("Sans", FONT_CONTROL - (2 if self._nav_name == "WEATHER" else 1), "bold"),
+            font=("Sans", (8 if self._compact else FONT_CONTROL - (2 if self._nav_name == "WEATHER" else 1)), "bold"),
             anchor="w",
         )
 
