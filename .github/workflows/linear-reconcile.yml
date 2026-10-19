@@ -1,0 +1,102 @@
+name: ORC Linear branch reconciliation
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Existing branch to reconcile (optional)
+        required: false
+permissions:
+  contents: read
+  pull-requests: read
+jobs:
+  reconcile:
+    if: github.event_name != 'push' || github.event.created == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Match branch to one Linear feature issue
+        uses: actions/github-script@v7
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          LINEAR_TEAM_ID: e773936c-d3c5-4cc9-9501-ba26b39ad864
+          LINEAR_PROJECT_ID: 279751bf-d424-4f9b-b30c-4ae5fa2d2029
+          LINEAR_IN_PROGRESS_ID: 7ae47d8d-4d4b-44c4-bcc1-1089b65235b8
+          TARGET_BRANCH: ${{ inputs.branch }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const key = process.env.LINEAR_API_KEY;
+            if (!key) { core.setFailed('LINEAR_API_KEY is missing'); return; }
+            const repo = context.repo.owner + '/' + context.repo.repo;
+            const branch = context.payload.pull_request?.head?.ref ||
+              (context.eventName === 'workflow_dispatch' ? process.env.TARGET_BRANCH : context.ref.replace('refs/heads/', ''));
+            if (!branch || ['main','master','dev','int'].includes(branch) || branch.startsWith('archive/')) return;
+            const branchKey = repo + ':' + branch;
+            const pr = context.payload.pull_request;
+            const gql = async (query, variables = {}) => {
+              const response = await fetch('https://api.linear.app/graphql', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json','Authorization':key},
+                body: JSON.stringify({query, variables})
+              });
+              if (!response.ok) throw new Error('Linear HTTP ' + response.status);
+              const data = await response.json();
+              if (data.errors?.length) throw new Error(data.errors.map(e=>e.message).join('; '));
+              return data.data;
+            };
+            const issues = [];
+            let after = null;
+            do {
+              const data = await gql(`query($after:String){issues(first:250,after:$after){nodes{id identifier title description state{name type}}pageInfo{hasNextPage endCursor}}}`, {after});
+              issues.push(...data.issues.nodes);
+              after = data.issues.pageInfo.hasNextPage ? data.issues.pageInfo.endCursor : null;
+            } while (after);
+            const norm = value => value.toLowerCase().replace(/^(feature|fix|research|experiment|review)\//,'').replace(/[^a-z0-9]+/g,' ').trim();
+            const exact = issues.filter(i => (i.description || '').includes(branchKey));
+            const candidateName = norm(branch);
+            const titleMatches = issues.filter(i => norm(i.title.replace(/^BRANCH:\s*/i,'')) === candidateName);
+            let issue = null;
+            if (exact.length === 1) issue = exact[0];
+            else if (exact.length > 1) { core.warning('Multiple Linear issues reference ' + branchKey); return; }
+            else if (titleMatches.length === 1) issue = titleMatches[0];
+            else if (titleMatches.length > 1) { core.warning('Ambiguous Linear issue title for ' + branchKey); return; }
+            else if (/^(feature|fix|research|experiment)\//.test(branch)) {
+              const title = branch.replace(/^(feature|fix|research|experiment)\//,'').replace(/[-_]+/g,' ').trim();
+              const description = [
+                '## Goal', 'Describe the feature outcome.', '',
+                '## Repositories and branches', '- `' + branchKey + '`', '',
+                '## Implementation checklist', '- [ ] Implement and test feature', '- [ ] Verify on target hardware when applicable', '',
+                '## Acceptance criteria', '- [ ] Validation confirmed', '- [ ] Documentation updated'
+              ].join('\n');
+              const data = await gql(`mutation($input:IssueCreateInput!){issueCreate(input:$input){success issue{id identifier title description}}}`, {
+                input:{teamId:process.env.LINEAR_TEAM_ID,projectId:process.env.LINEAR_PROJECT_ID,
+                  stateId:process.env.LINEAR_IN_PROGRESS_ID,title,description}
+              });
+              if (!data.issueCreate.success) throw new Error('Linear issue creation unsuccessful');
+              issue = data.issueCreate.issue;
+              core.info('Created ' + issue.identifier);
+            } else {
+              core.warning('No confident Linear match for ' + branchKey + '; manual reconciliation required.');
+              return;
+            }
+            if (!issue.description?.includes(branchKey)) {
+              const description = (issue.description || '') + '\n\n## Repositories and branches\n- `' + branchKey + '`';
+              await gql(`mutation($id:String!,$input:IssueUpdateInput!){issueUpdate(id:$id,input:$input){success}}`, {
+                id:issue.id,input:{description}
+              });
+              issue.description = description;
+            }
+            if (pr) {
+              const link = '- PR: ' + pr.html_url;
+              if (!issue.description.includes(pr.html_url)) {
+                const description = issue.description + '\n\n## Pull requests\n' + link;
+                await gql(`mutation($id:String!,$input:IssueUpdateInput!){issueUpdate(id:$id,input:$input){success}}`, {
+                  id:issue.id,input:{description}
+                });
+              }
+              if (pr.merged) core.notice(issue.identifier + ': merged; manual verification required before Done');
+            }
+            core.notice('Associated ' + branchKey + ' with ' + issue.identifier);
