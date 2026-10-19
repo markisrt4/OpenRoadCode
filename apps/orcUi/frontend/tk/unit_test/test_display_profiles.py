@@ -25,6 +25,7 @@ class DisplayProfilesTest(unittest.TestCase):
         self.assertEqual(profile.side_nav_width, 88)
         self.assertEqual(profile.nav_visible_items, 6)
         self.assertEqual(profile.nav_tile_height, 42)
+        self.assertEqual(profile.bottom_bar_height, 40)
         self.assertEqual(profile.bottom_volume_width, 94)
         self.assertTrue(profile.compact_controls)
 
