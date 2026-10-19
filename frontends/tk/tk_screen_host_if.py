@@ -48,6 +48,10 @@ class TkScreenHostIf(Protocol):
         """
         ...
 
+    def set_screen_footer_detail(self, detail: str) -> None:
+        """Set screen-specific footer text."""
+        ...
+
     def set_screen_status(self, message: str) -> None:
         """Set application status associated with the active screen.
 
