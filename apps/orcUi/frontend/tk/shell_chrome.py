@@ -62,7 +62,7 @@ def build_top_bar(
         bg=ui.surface_alt,
         font=("Monospace", FONT_STATUS),
         padx=0,
-    ).pack(side=tk.LEFT, padx=(3, 0), pady=(5, 0))
+    ).pack(side=tk.LEFT, padx=(3, 0), pady=(0 if compact else 5, 0))
 
     clock = tk.Label(
         bar,
