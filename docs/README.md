@@ -98,6 +98,7 @@ Generated from the canonical documentation files. Every component README and sta
 - [Apps Architecture Audit](apps_architecture_audit.md)
 - [Architecture](architecture.md)
 - [Automotive Architecture](automotive_architecture.md)
+- [Branch Lifecycle (`docs/development`)](development/branch-lifecycle.md)
 - [Detroit Map Data Review](detroit_map_data_review.md)
 - [Ethernet Idd](ethernet_idd.md)
 - [Google Earth Navigation](google_earth_navigation.md)
