@@ -89,7 +89,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
         self.grid_rowconfigure(2, weight=1, minsize=280)
 
         self._header = tk.Frame(self, bg=ui.background)
-        self._header.grid(row=0, column=0, sticky="ew", padx=14, pady=(12, 7))
+        self._header.grid(row=0, column=0, sticky="ew", padx=8, pady=(2, 3))
         self._header.grid_columnconfigure(0, weight=1)
         self._location = tk.Label(
             self._header, text="WEATHER", anchor="w", font=("Sans", 16, "bold")
@@ -98,7 +98,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
         self._provider_label = tk.Label(
             self._header, text="", anchor="w", font=("Sans", 10)
         )
-        self._provider_label.grid(row=1, column=0, sticky="w", pady=(1, 0))
+        self._provider_label.grid(row=4, column=0, sticky="w", padx=8, pady=(0, 1))
         self._weather_radio = tk.Button(
             self._header,
             text="◉  NOAA",
@@ -108,7 +108,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
             font=("Sans", 9, "bold"),
             highlightthickness=0, bd=0, relief=tk.FLAT,
         )
-        self._weather_radio.grid(row=0, column=1, rowspan=2, padx=(8, 6))
+        self._weather_radio.grid(row=0, column=1, padx=(8, 6))
         self._refresh = tk.Button(
             self._header,
             text="↻  REFRESH",
@@ -118,28 +118,28 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
             font=("Sans", 9, "bold"),
             highlightthickness=0, bd=0, relief=tk.FLAT,
         )
-        self._refresh.grid(row=0, column=2, rowspan=2)
+        self._refresh.grid(row=0, column=2)
         self._radar_map = tk.Button(
             self._header, text="RADAR MAP", command=self._request_radar_map,
             padx=12, pady=6, font=("Sans", 9, "bold"),
             state=tk.NORMAL if on_radar_map is not None else tk.DISABLED,
             highlightthickness=0, bd=0, relief=tk.FLAT,
         )
-        self._radar_map.grid(row=0, column=3, rowspan=2, padx=(6, 0))
+        self._radar_map.grid(row=0, column=3, padx=(6, 0))
 
         self._hero = tk.Frame(self, bd=0, highlightthickness=1)
-        self._hero.grid(row=1, column=0, sticky="ew", padx=14, pady=(0, 12))
-        self._hero.grid_columnconfigure(2, weight=1, minsize=200)
+        self._hero.grid(row=1, column=0, sticky="ew", padx=8, pady=(0, 5))
+        self._hero.grid_columnconfigure(2, weight=1, minsize=0)
         self._hero.grid_columnconfigure(3, weight=0)
 
         self._symbol = tk.Label(
             self._hero, text="◌", width=2, font=("Sans", 48), anchor="center"
         )
-        self._symbol.grid(row=0, column=0, rowspan=2, padx=(14, 2), pady=8)
+        self._symbol.grid(row=0, column=0, rowspan=2, padx=(5, 1), pady=5)
         self._temperature = tk.Label(
             self._hero, text="--°", font=("Sans", 48, "bold"), anchor="w"
         )
-        self._temperature.grid(row=0, column=1, rowspan=2, sticky="w", padx=(0, 14), pady=6)
+        self._temperature.grid(row=0, column=1, rowspan=2, sticky="w", padx=(0, 5), pady=4)
 
         self._condition = tk.Label(
             self._hero, text="Weather unavailable", font=("Sans", 18, "bold"), anchor="w"
@@ -151,7 +151,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
         self._summary.grid(row=1, column=2, sticky="nw", pady=(1, 12))
 
         self._metrics = tk.Frame(self._hero)
-        self._metrics.grid(row=0, column=3, rowspan=2, sticky="e", padx=(4, 6), pady=10)
+        self._metrics.grid(row=0, column=3, rowspan=2, sticky="e", padx=(2, 4), pady=5)
         self._metric_cards: list[tuple[tk.Frame, tk.Label, tk.Label]] = []
         for column, heading in enumerate(("HUMIDITY", "WIND", "PRESSURE")):
             card = tk.Frame(self._metrics, bd=0, highlightthickness=0)
@@ -164,7 +164,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
             self._metric_cards.append((card, title, value))
 
         self._forecast_area = tk.Frame(self)
-        self._forecast_area.grid(row=2, column=0, sticky="nsew", padx=14, pady=(0, 10))
+        self._forecast_area.grid(row=2, column=0, sticky="nsew", padx=8, pady=(0, 3))
         self._forecast_area.grid_columnconfigure(0, weight=1)
         self._forecast_area.grid_rowconfigure(1, weight=1, uniform="forecast_row")
         self._forecast_area.grid_rowconfigure(3, weight=1, uniform="forecast_row")
@@ -175,16 +175,20 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
         self._hourly_view.grid(row=1, column=0, sticky="nsew")
         self._hourly_view.grid_columnconfigure(1, weight=1)
         self._hourly_view.grid_rowconfigure(0, weight=1)
-        tk.Button(self._hourly_view, text="<", width=2,
-                  command=lambda: self._scroll_hourly(-1)).grid(row=0, column=0, sticky="ns")
+        self._hourly_back = tk.Button(self._hourly_view, text="◀", width=2,
+                  command=lambda: self._scroll_hourly(-1), font=("Sans", 12, "bold"),
+                  relief=tk.FLAT, bd=0, highlightthickness=0)
+        self._hourly_back.grid(row=0, column=0, sticky="ns", padx=(0, 3))
         self._hourly_canvas = tk.Canvas(self._hourly_view, height=128,
                                         highlightthickness=0, bd=0)
         self._hourly_canvas.grid(row=0, column=1, sticky="nsew")
         self._hourly = tk.Frame(self._hourly_canvas)
         self._hourly_canvas.create_window((0, 0), window=self._hourly, anchor="nw")
         self._hourly.bind("<Configure>", self._update_hourly_scrollregion)
-        tk.Button(self._hourly_view, text=">", width=2,
-                  command=lambda: self._scroll_hourly(1)).grid(row=0, column=2, sticky="ns")
+        self._hourly_next = tk.Button(self._hourly_view, text="▶", width=2,
+                  command=lambda: self._scroll_hourly(1), font=("Sans", 12, "bold"),
+                  relief=tk.FLAT, bd=0, highlightthickness=0)
+        self._hourly_next.grid(row=0, column=2, sticky="ns", padx=(3, 0))
         self._hourly_canvas.bind("<ButtonPress-1>", self._hourly_drag_start)
         self._hourly_canvas.bind("<B1-Motion>", self._hourly_drag_move)
         self._hourly_canvas.bind("<MouseWheel>", self._hourly_wheel)
@@ -201,7 +205,16 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
         self._hourly_canvas.configure(scrollregion=self._hourly_canvas.bbox("all"))
 
     def _scroll_hourly(self, direction: int) -> None:
-        self._hourly_canvas.xview_scroll(direction * 2, "units")
+        self._hourly_canvas.update_idletasks()
+        content_width = max(1, self._hourly.winfo_reqwidth())
+        viewport_width = max(1, self._hourly_canvas.winfo_width())
+        card_width = 148
+        cards_per_page = max(1, viewport_width // card_width)
+        step = cards_per_page * card_width
+        current = self._hourly_canvas.canvasx(0)
+        page = round(current / step)
+        target = max(0, min(content_width - viewport_width, (page + direction) * step))
+        self._hourly_canvas.xview_moveto(target / content_width)
 
     def _hourly_drag_start(self, event: tk.Event) -> None:
         self._hourly_canvas.scan_mark(event.x, event.y)
@@ -233,12 +246,12 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
         if self._state is not None:
             return
         if not loading:
-            self._provider_label.configure(text="Weather data unavailable")
+            self._provider_label.configure(text="Source: unavailable")
             self._condition.configure(text="Unavailable")
             self._summary.configure(text="Try Refresh")
             return
         self._location.configure(text="WEATHER")
-        self._provider_label.configure(text="Loading current conditions…")
+        self._provider_label.configure(text="Source: loading")
         self._symbol.configure(text="◌")
         self._temperature.configure(text="--°")
         self._condition.configure(text="Loading…" if getattr(self, "_online", True) else "Offline")
@@ -254,11 +267,11 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
     def set_theme_bundle(self, theme: ThemeBundle) -> None:
         ui = theme.ui
         self.configure(bg=ui.background)
-        for frame in (self._header, self._forecast_area, self._hourly, self._daily):
+        for frame in (self._header, self._forecast_area, self._hourly_view, self._hourly, self._daily):
             frame.configure(bg=ui.background)
         self._location.configure(bg=ui.background, fg=ui.text)
         self._provider_label.configure(bg=ui.background, fg=ui.text_muted)
-        for button in (self._refresh, self._weather_radio, self._radar_map):
+        for button in (self._refresh, self._weather_radio, self._radar_map, self._hourly_back, self._hourly_next):
             button.configure(
                 bg=ui.control_background,
                 fg=ui.control_text,
@@ -269,6 +282,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
                 highlightthickness=0,
             )
 
+        self._hourly_canvas.configure(bg=ui.background)
         self._hero.configure(bg=ui.surface, highlightcolor=ui.border, highlightbackground=ui.border)
         for widget in (self._symbol, self._temperature, self._condition, self._summary):
             widget.configure(bg=ui.surface)
@@ -323,7 +337,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
         self._location.configure(
             text="WEATHER" if not location or location.lower() == "configured fallback" else location
         )
-        self._provider_label.configure(text=self._provider_label_text(state))
+        self._provider_label.configure(text=f"Source: {state.provider_label or 'Weather'}")
         self._symbol.configure(
             text=weather_symbol(current.condition_label),
             fg=weather_accent(current.condition_label, self._theme_bundle()),
