@@ -58,6 +58,7 @@ class WeatherScreen(TkScreen, WeatherScreenUiIf):
         self._panel = panel
         panel.set_online(self._online)
         panel.set_weather_state(self._state)
+        self._update_footer_source()
         if self._handler is not None:
             self._handler.set_visible(True)
 
@@ -79,8 +80,14 @@ class WeatherScreen(TkScreen, WeatherScreenUiIf):
     def set_weather_state(self, state: WeatherUiState | None) -> None:
         """Display SI forecast state. @param state Latest forecast or None."""
         self._state = state
+        self._update_footer_source()
         if self._panel is not None:
             self._panel.set_weather_state(state)
+
+    def _update_footer_source(self) -> None:
+        if self._panel is not None:
+            provider = self._state.provider_label if self._state is not None else ""
+            self._host.set_screen_footer_detail(f"Source: {provider}" if provider else "")
 
     def set_online(self, online: bool) -> None:
         """Present availability. @param online Whether internet actions are enabled."""
