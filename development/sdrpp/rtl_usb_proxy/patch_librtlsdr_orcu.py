@@ -330,16 +330,37 @@ int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx,
 					/* Give the Bridge's terminal-failure path time to publish its
 					 * replacement UsbDeviceConnection before issuing control traffic. */
 					usleep(250000);
+					if (dev->async_cancel)
+						break;
 					rtlsdr_init_baseband(dev);
 					recover_r = 0;
 					fprintf(stderr, "[ORCU recovery] baseband init completed\\n");
 					fflush(stderr);
-					if (dev->tuner && dev->tuner->init) {
-						recover_r = dev->tuner->init(dev);
+					if (dev->async_cancel)
+						break;
+					/* Baseband reset restores generic Zero-IF defaults. Mirror
+					 * rtlsdr_open's R82xx demod setup before reinitializing the
+					 * tuner; sample-rate restoration below sets its bandwidth. */
+					if (dev->tuner_type == RTLSDR_TUNER_R820T ||
+					    dev->tuner_type == RTLSDR_TUNER_R828D) {
+						recover_r = rtlsdr_demod_write_reg(dev, 1, 0xb1, 0x1a, 1);
+						recover_r |= rtlsdr_demod_write_reg(dev, 0, 0x08, 0x4d, 1);
+						recover_r |= rtlsdr_set_if_freq(dev, R82XX_IF_FREQ);
+						recover_r |= rtlsdr_demod_write_reg(dev, 1, 0x15, 0x01, 1);
+					}
+					if (recover_r >= 0 && dev->tuner && dev->tuner->init) {
+						/* Tuner init requires the I2C repeater, just as in open().
+						 * Use the checked register write because the upstream
+						 * rtlsdr_set_i2c_repeater wrapper returns void. */
+						recover_r = rtlsdr_demod_write_reg(dev, 1, 0x01, 0x18, 1);
+						if (recover_r >= 0)
+							recover_r = dev->tuner->init(dev);
+						if (rtlsdr_demod_write_reg(dev, 1, 0x01, 0x10, 1) < 0)
+							recover_r = -1;
 						fprintf(stderr, "[ORCU recovery] tuner init result=%d\\n", recover_r);
 						fflush(stderr);
 					}
-					if (recover_r >= 0) {
+					if (recover_r >= 0 && !dev->async_cancel) {
 						rtlsdr_set_sample_rate(dev, dev->rate);
 						rtlsdr_set_center_freq(dev, dev->freq);
 						rtlsdr_reset_buffer(dev);
