@@ -347,8 +347,8 @@ indicate bad samples rather than successful terrain rendering.
 ### Multi-resolution Metro Detroit terrain
 
 The regional release pipeline builds terrain schema 3 as a bounded offline LOD
-pack. It contains a 33×33 Metro Detroit overview, four 65×65 regional grids that
-become eligible at Cesium level 9, and 129×129 focus grids for Downtown–Midtown,
+pack. It contains a 33×33 Metro Detroit overview, sixteen 129×129 regional grids
+that become eligible at Cesium level 9, and 129×129 focus grids for Downtown–Midtown,
 Rochester, Southfield, and Pine Knob that become eligible at level 12. Cesium
 selects the most detailed eligible grid for each requested heightmap and stops
 refining at level 16. Vehicle, building, and POI placement use the best installed
@@ -365,6 +365,26 @@ The optional **Terrain cues** control adds Cesium globe lighting and restrained
 elevations and the selected 1×/2×/3× relief scale are unchanged. Cues turn off
 while Ground is Flat and return to their prior selection when Relief is restored.
 They default off to avoid extra GPU work on constrained virtual and mobile GPUs.
+
+Metro Detroit's schema-3 regional tier uses sixteen 129×129 grids, approximately
+200 metres apart, while retaining its four finer focus grids. The separately
+triggered **Build Michigan terrain shard** workflow publishes a draft release for
+one bounded statewide package at a time. `michigan-overview` is an 8×8 set of
+129×129 grids (roughly 600-metre sampling). Eight selectable peninsula shards use
+the same tile layout over smaller envelopes for approximately 200–300-metre
+sampling. Each release includes `michigan-terrain-index.json`; its rectangles are
+planning envelopes and include lakes plus some neighboring territory.
+Complete USGS response records are retained as deterministic gzip JSON so large
+statewide builds preserve provenance without exceeding the device's extracted-
+pack limit; elevation payloads remain ordinary validated JSON.
+
+Install the statewide overview or the shard containing the intended destination
+with `development.maps.install_terrain --coverage COVERAGE --pack-manifest URL
+--yes`. An installed Metro Detroit pack takes precedence, followed by a matching
+Michigan detail shard and then the statewide overview. Each Michigan build is
+independent and resumable so one service failure does not invalidate other
+published regions. Building all nine packages is intentionally not one workflow
+job because USGS request time and release inspection remain explicit.
 
 ### Pine Knob relief comparison (Termux)
 

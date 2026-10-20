@@ -1,6 +1,7 @@
 """Sample ordering, source heights, and complete-pack installation are explicit."""
 
 import hashlib
+import gzip
 import json
 import math
 from unittest.mock import Mock
@@ -40,7 +41,9 @@ def test_download_preserves_source_grid_and_reports_relative_display(tmp_path, m
     assert state.reference_height_m == 184
     assert state.vertical_datum == "NAVD88"
     assert state.document()["display_mode"] == "relative-relief"
-    assert (destination / "source-samples.json").exists()
+    assert (destination / "source-samples.json.gz").exists()
+    responses = json.loads(gzip.decompress((destination / "source-samples.json.gz").read_bytes()))
+    assert len(responses[0]["samples"]) == 9
     data = destination / "terrain.json"
     data.write_bytes(data.read_bytes()+b" ")
     with pytest.raises(ValueError,match="checksum"):

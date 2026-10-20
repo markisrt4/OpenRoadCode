@@ -28,9 +28,16 @@ def metro_detroit_terrain_directory():
     return openroadcode_data_dir("map-packs", "metro-detroit-terrain-active")
 
 
+def regional_terrain_directory(coverage):
+    return openroadcode_data_dir("map-packs", coverage + "-terrain-active")
+
+
 def preferred_terrain_directory(destination=None):
     packs = navigation_data_root()/'maps/3d/packs'
+    from development.maps.terrain_regions import MICHIGAN_SHARDS
     candidates = (openroadcode_data_dir('map-packs','metro-detroit-terrain-active'),
+                  *(regional_terrain_directory(name) for name in MICHIGAN_SHARDS),
+                  regional_terrain_directory('michigan-overview'),
                   packs/'detroit-midtown-terrain', midtown_terrain_directory(),
                   packs/'detroit-downtown-terrain', detroit_terrain_directory(),
                   packs/'pine-knob-terrain', pine_knob_terrain_directory(),
@@ -45,7 +52,7 @@ def preferred_terrain_directory(destination=None):
                 west, south, east, north = manifest['bounds_deg']
                 if west <= longitude <= east and south <= latitude <= north:
                     return directory
-    for directory in candidates[:3]:
+    for directory in candidates:
         if (directory/'manifest.json').is_file():
             return directory
     return detroit_terrain_directory()

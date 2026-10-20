@@ -1,0 +1,64 @@
+name: Build Michigan terrain shard
+
+on:
+  workflow_dispatch:
+    inputs:
+      coverage:
+        description: Statewide overview or detail shard
+        required: true
+        type: choice
+        options:
+          - michigan-overview
+          - mi-lower-southwest
+          - mi-lower-southeast
+          - mi-lower-central-west
+          - mi-lower-central-east
+          - mi-lower-northwest
+          - mi-lower-northeast
+          - mi-upper-west
+          - mi-upper-east
+
+permissions:
+  contents: write
+
+concurrency:
+  group: michigan-terrain-${{ inputs.coverage }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build resumable terrain shard
+        run: |
+          python -m development.maps.install_terrain \
+            --coverage "${{ inputs.coverage }}" \
+            --build-only "build-output/${{ inputs.coverage }}-terrain" \
+            --yes
+      - name: Package checked terrain shard
+        run: |
+          python -m tools.map_builder.builder.terrain_artifact \
+            --coverage "${{ inputs.coverage }}" \
+            --pack "build-output/${{ inputs.coverage }}-terrain" \
+            --output "build-output/${{ inputs.coverage }}-terrain.zip"
+          python -m development.maps.terrain_regions \
+            --output build-output/michigan-terrain-index.json
+      - name: Create draft release
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          COVERAGE: ${{ inputs.coverage }}
+        run: |
+          tag="michigan-terrain-${COVERAGE}-$(date -u +%Y%m%d)-run${GITHUB_RUN_NUMBER}"
+          gh release create "$tag" \
+            "build-output/${COVERAGE}-terrain.zip" \
+            "build-output/${COVERAGE}-terrain.zip.json" \
+            build-output/michigan-terrain-index.json \
+            --draft --target "$GITHUB_SHA" \
+            --title "Michigan terrain · ${COVERAGE}" \
+            --notes "Offline rectangular USGS 3DEP terrain shard. Inspect coverage, size, and rendering before publishing."

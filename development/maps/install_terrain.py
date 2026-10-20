@@ -10,7 +10,7 @@ from tempfile import TemporaryDirectory
 import uuid
 import zipfile
 
-from apps.launchers.local_terrain_pack import detroit_terrain_directory, metro_detroit_terrain_directory, midtown_terrain_directory, pine_knob_terrain_directory, load_terrain
+from apps.launchers.local_terrain_pack import detroit_terrain_directory, metro_detroit_terrain_directory, midtown_terrain_directory, pine_knob_terrain_directory, regional_terrain_directory, load_terrain
 from common.xdg_paths import openroadcode_data_dir
 from development.maps.install_region import COVERAGES
 from development.maps.prebuilt_imagery import fetch_archive, read_descriptor, read_local_archive, verify_archive
@@ -18,11 +18,13 @@ from development.maps.regional_terrain import build as build_regional_terrain
 from tools.map_builder.builder.map_3d import PRESETS
 from tools.map_builder.builder.map_3d_menu import choose_coverage
 from tools.map_builder.builder.terrain import download
+from development.maps.terrain_regions import MICHIGAN_COVERAGES
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--coverage', choices=tuple(PRESETS) + ('metro-detroit',))
+    regional_coverages = ('metro-detroit',) + tuple(MICHIGAN_COVERAGES)
+    parser.add_argument('--coverage', choices=tuple(PRESETS) + regional_coverages)
     parser.add_argument('--output', type=Path, help='Override the device-owned pack directory')
     parser.add_argument('--yes', action='store_true', help='Skip confirmation; requires --coverage')
     parser.add_argument('--pack-manifest', help='HTTPS descriptor for a published terrain archive')
@@ -38,14 +40,22 @@ def main():
         if coverage is None:
             print('Cancelled')
             return 0
-        title, bounds = COVERAGES[coverage] if coverage == 'metro-detroit' else PRESETS[coverage]
+        title, bounds = (COVERAGES[coverage] if coverage == 'metro-detroit' else
+                         MICHIGAN_COVERAGES[coverage] if coverage in MICHIGAN_COVERAGES else
+                         PRESETS[coverage])
         directories = {'detroit-downtown': detroit_terrain_directory,
                        'detroit-midtown': midtown_terrain_directory,
                        'pine-knob': pine_knob_terrain_directory}
         destination = args.output or (metro_detroit_terrain_directory() if coverage == 'metro-detroit'
+            else regional_terrain_directory(coverage) if coverage in MICHIGAN_COVERAGES
             else directories[coverage]() if coverage in directories else openroadcode_data_dir('map-packs',coverage+'-terrain-v1'))
         print(f'Coverage: {title} · {bounds}')
-        print('USGS 3DEP: streamed overview, regional, and focus-area LOD grids for Metro Detroit; one grid for smaller coverage.')
+        if coverage == 'metro-detroit':
+            print('USGS 3DEP: streamed overview, 200 m-class regional, and focus-area LOD grids.')
+        elif coverage in MICHIGAN_COVERAGES:
+            print('USGS 3DEP: 64 resumable 129×129 grids; rectangular coverage includes water and neighboring areas.')
+        else:
+            print('USGS 3DEP: one grid for the selected local coverage.')
         print('Internet needed for downloading; viewing works offline.')
         print('Source elevations in metres; scene displays relative relief, not converted ellipsoid heights.')
         print(f'Install directory: {destination}')
@@ -65,7 +75,7 @@ def main():
             verify_archive(archive, descriptor)
             _install_archive(archive, destination)
             installed = destination
-        elif coverage == 'metro-detroit':
+        elif coverage in regional_coverages:
             target = args.build_only or destination
             build_regional_terrain(target, coverage=coverage)
         else:

@@ -35,7 +35,7 @@ def test_midtown_terrain_build_is_runtime_and_deployment_compatible(tmp_path, mo
     assert state.vertical_datum == 'NAVD88'
     record = map_3d.validate_pack(root)
     assert record['layers'] == ['terrain'] and record['buildings'] == 0
-    assert 'source-samples.json' in record['checksums']
+    assert 'source-samples.json.gz' in record['checksums']
     manifest = {'map_3d':{'detroit-midtown-terrain':record}}
     (tmp_path/'build-manifest.json').write_text(json.dumps(manifest))
     validate_selection(tmp_path, ['detroit-midtown-terrain'])
@@ -59,6 +59,8 @@ def test_runtime_prefers_deployed_midtown_terrain(tmp_path, monkeypatch):
     root = tmp_path/'maps/3d/packs/detroit-midtown-terrain'
     terrain.download(root, 'detroit-midtown')
     monkeypatch.setattr(local_terrain_pack,'navigation_data_root',lambda:tmp_path)
+    monkeypatch.setattr(local_terrain_pack,'openroadcode_data_dir',
+                        lambda *parts:tmp_path/'absent-user'/parts[-1])
     monkeypatch.setattr(local_map_tiles_pack,'navigation_data_root',lambda:tmp_path)
     assert local_terrain_pack.preferred_terrain_directory() == root
     assert local_map_tiles_pack.preferred_tiles_directory() != root
@@ -105,6 +107,8 @@ def test_direct_device_install_downloads_and_viewer_discovers_local_midtown(tmp_
     monkeypatch.setattr(install_terrain,'midtown_terrain_directory',lambda:destination)
     monkeypatch.setattr(local_terrain_pack,'midtown_terrain_directory',lambda:destination)
     monkeypatch.setattr(local_terrain_pack,'navigation_data_root',lambda:tmp_path/'absent-dataset')
+    monkeypatch.setattr(local_terrain_pack,'openroadcode_data_dir',
+                        lambda *parts:tmp_path/'absent-user'/parts[-1])
     monkeypatch.setattr('sys.argv',['install_terrain','--coverage','detroit-midtown','--yes'])
     assert install_terrain.main() == 0
     assert local_terrain_pack.preferred_terrain_directory() == destination
@@ -170,6 +174,8 @@ def test_pine_knob_install_is_separate_and_selected_by_destination(tmp_path, mon
     from ui.navigation import GeoPoint
     service(monkeypatch)
     monkeypatch.setattr(local_terrain_pack, 'navigation_data_root', lambda: tmp_path/'shared')
+    monkeypatch.setattr(local_terrain_pack, 'openroadcode_data_dir',
+                        lambda *parts: tmp_path/'absent-user'/parts[-1])
     midtown = tmp_path/'midtown'
     pine = tmp_path/'pine'
     terrain.download(midtown, 'detroit-midtown', size=3)
@@ -238,7 +244,7 @@ def test_regional_mosaic_build_and_release_archive_install(tmp_path, monkeypatch
     built = tmp_path/'built'
     regional_terrain.build(built)
     state = load_terrain(built)
-    assert len(state.tiles) == 9
+    assert len(state.tiles) == 21
     assert state.maximum_zoom == 16
     assert {tile.detail_level for tile in state.tiles} == {0, 1, 2}
 
@@ -247,8 +253,36 @@ def test_regional_mosaic_build_and_release_archive_install(tmp_path, monkeypatch
     assert descriptor['kind'] == 'terrain'
     active = tmp_path/'active'
     install_terrain._install_archive(archive, active)
-    assert len(load_terrain(active).tiles) == 9
+    assert len(load_terrain(active).tiles) == 21
     assert descriptor['lod_levels'] == [0, 1, 2]
+
+
+def test_michigan_shard_plan_is_bounded_and_cataloged(tmp_path, monkeypatch):
+    from development.maps import regional_terrain
+    from development.maps.terrain_regions import catalog_document
+
+    sizes = []
+    def download_tile(destination, title, bounds, size=65):
+        del title
+        sizes.append(size)
+        destination.mkdir()
+        payload = json.dumps({"width": 2, "height": 2, "heights_m": [1, 2, 3, 4],
+                              "reference_height_m": 2.5, "vertical_datum": "NAVD88"})
+        (destination/'terrain.json').write_text(payload)
+        (destination/'manifest.json').write_text(json.dumps({
+            "schema": 1, "title": destination.name, "attribution": "USGS",
+            "bounds_deg": bounds, "sha256": __import__('hashlib').sha256(payload.encode()).hexdigest(),
+        }))
+
+    monkeypatch.setattr(regional_terrain, 'download_bounds', download_tile)
+    built = tmp_path/'michigan'
+    regional_terrain.build(built, coverage='mi-upper-east')
+    state = load_terrain(built)
+    assert len(state.tiles) == 64
+    assert set(sizes) == {129}
+    catalog = catalog_document()
+    assert catalog['overview'] == 'michigan-overview'
+    assert len(catalog['detail_shards']) == 8
 
 
 def test_metro_build_only_validates_the_requested_output(tmp_path, monkeypatch):
@@ -280,3 +314,6 @@ def test_map_data_workflow_builds_split_release_assets_without_actions_storage()
     assert 'metro-detroit-terrain.zip.json' in workflow
     assert 'actions/upload-artifact' not in workflow
     assert 'RELEASE_TAG: ${{ steps.release.outputs.tag }}' in workflow
+    michigan = Path('.github/workflows/build-michigan-terrain.yml').read_text()
+    assert 'michigan-terrain-index.json' in michigan
+    assert 'timeout-minutes: 360' in michigan

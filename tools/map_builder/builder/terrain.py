@@ -2,6 +2,7 @@
 
 from datetime import datetime, timezone
 import hashlib
+import gzip
 import json
 import math
 from pathlib import Path
@@ -132,7 +133,8 @@ def _install_pack(destination,title,bounds,size,heights,datum,metadata,responses
         (root/"terrain.json").write_bytes(content)
         (root/"manifest.json").write_text(json.dumps(manifest,indent=2))
         (root/"source-service.json").write_text(json.dumps(metadata,indent=2))
-        (root/"source-samples.json").write_text(json.dumps(responses))
+        (root/"source-samples.json.gz").write_bytes(
+            gzip.compress(json.dumps(responses).encode(), compresslevel=9, mtime=0))
         validate_terrain(root)
         root.rename(destination)
     print(f"Installed {len(content):,} terrain bytes at {destination}")
