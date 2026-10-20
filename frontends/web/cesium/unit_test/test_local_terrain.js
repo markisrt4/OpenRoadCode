@@ -8,7 +8,9 @@ const context = {window:{}, Float32Array};
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../local_terrain.js'),'utf8'),context);
 const C = {
   EllipsoidTerrainProvider:class {},
-  GeographicTilingScheme:class {},
+  GeographicTilingScheme:class {
+    tileXYToRectangle() { return {west:0,south:0,east:1,north:1}; }
+  },
   CustomHeightmapTerrainProvider:class {
     constructor(options) { this.options=options; }
     getLevelMaximumGeometricError(level) { return 10000/(2**level); }
@@ -69,4 +71,19 @@ test('mosaic tiles retain relief at their shared edge', () => {
   const mosaic=context.window.ORCLocalTerrain({tiles:[west,east],attribution:'USGS'},C);
   assert.equal(mosaic.heightAt(1,.5),10);
   assert.equal(mosaic.heightAt(1.5,.5),10);
+});
+
+test('LOD terrain uses camera-appropriate samples and stops at its declared limit', async () => {
+  const overview={...data,heights_m:Array(16).fill(20),reference_height_m:10,
+    detail_level:0,minimum_zoom:0};
+  const focus={...data,west_rad:.25,east_rad:.75,south_rad:.25,north_rad:.75,
+    heights_m:Array(16).fill(40),reference_height_m:10,detail_level:2,minimum_zoom:12};
+  const lod=context.window.ORCLocalTerrain({tiles:[overview,focus],attribution:'USGS',maximum_zoom:16},C);
+  const coarse=await lod.provider.options.callback(0,0,8);
+  const detailed=await lod.provider.options.callback(0,0,12);
+  assert.equal(coarse[16*33+16],10);
+  assert.equal(detailed[16*33+16],30);
+  assert.equal(lod.heightAt(.5,.5),30);
+  assert.ok(lod.provider.getLevelMaximumGeometricError(15)>0);
+  assert.equal(lod.provider.getLevelMaximumGeometricError(16),0);
 });

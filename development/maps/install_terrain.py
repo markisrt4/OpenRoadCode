@@ -45,7 +45,7 @@ def main():
         destination = args.output or (metro_detroit_terrain_directory() if coverage == 'metro-detroit'
             else directories[coverage]() if coverage in directories else openroadcode_data_dir('map-packs',coverage+'-terrain-v1'))
         print(f'Coverage: {title} · {bounds}')
-        print('USGS 3DEP: 16 streamed 65×65 grids for Metro Detroit; one grid for smaller coverage.')
+        print('USGS 3DEP: streamed overview, regional, and focus-area LOD grids for Metro Detroit; one grid for smaller coverage.')
         print('Internet needed for downloading; viewing works offline.')
         print('Source elevations in metres; scene displays relative relief, not converted ellipsoid heights.')
         print(f'Install directory: {destination}')

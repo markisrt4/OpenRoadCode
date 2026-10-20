@@ -237,14 +237,18 @@ def test_regional_mosaic_build_and_release_archive_install(tmp_path, monkeypatch
     monkeypatch.setattr(regional_terrain, 'download_bounds', download_tile)
     built = tmp_path/'built'
     regional_terrain.build(built)
-    assert len(load_terrain(built).tiles) == 16
+    state = load_terrain(built)
+    assert len(state.tiles) == 9
+    assert state.maximum_zoom == 16
+    assert {tile.detail_level for tile in state.tiles} == {0, 1, 2}
 
     archive = tmp_path/'metro-detroit-terrain.zip'
     descriptor = package(built, archive, 'metro-detroit')
     assert descriptor['kind'] == 'terrain'
     active = tmp_path/'active'
     install_terrain._install_archive(archive, active)
-    assert len(load_terrain(active).tiles) == 16
+    assert len(load_terrain(active).tiles) == 9
+    assert descriptor['lod_levels'] == [0, 1, 2]
 
 
 def test_metro_build_only_validates_the_requested_output(tmp_path, monkeypatch):

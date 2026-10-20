@@ -90,3 +90,26 @@ def test_mosaic_uses_one_reference_plane_and_validates_child_records(tmp_path):
     (root / "manifest.json").write_text(json.dumps(manifest))
     with pytest.raises(ValueError, match="inside the pack"):
         load_terrain(root)
+
+
+def test_lod_mosaic_uses_overview_reference_and_exposes_detail_metadata(tmp_path):
+    root = tmp_path / "lod"
+    root.mkdir()
+    _terrain_tile(root / "overview", [-84, 42, -82, 43], [100, 101, 102, 103], 100)
+    _terrain_tile(root / "focus", [-83.1, 42.3, -83.0, 42.4], [200, 201, 202, 203], 200)
+    records = []
+    for name, bounds, detail, zoom in (
+            ("overview", [-84, 42, -82, 43], 0, 0),
+            ("focus", [-83.1, 42.3, -83.0, 42.4], 2, 12)):
+        records.append({"path": name, "bounds_deg": bounds, "detail_level": detail,
+                        "minimum_zoom": zoom,
+                        "sha256": hashlib.sha256((root/name/"terrain.json").read_bytes()).hexdigest()})
+    (root / "manifest.json").write_text(json.dumps({
+        "schema": 3, "layers": ["terrain"], "attribution": "USGS",
+        "maximum_zoom": 16, "tiles": records,
+    }))
+    state = load_terrain(root)
+    document = state.document()
+    assert document["maximum_zoom"] == 16
+    assert {tile["detail_level"] for tile in document["tiles"]} == {0, 2}
+    assert {tile["reference_height_m"] for tile in document["tiles"]} == {100}

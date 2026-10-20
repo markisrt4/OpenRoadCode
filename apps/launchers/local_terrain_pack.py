@@ -54,7 +54,8 @@ def preferred_terrain_directory(destination=None):
 def load_terrain(directory):
     root = Path(directory).resolve()
     manifest = json.loads((root / "manifest.json").read_text())
-    if manifest.get("schema") == 2 and manifest.get("layers") == ["terrain"]:
+    schema = manifest.get("schema")
+    if schema in (2, 3) and manifest.get("layers") == ["terrain"]:
         records = manifest.get("tiles")
         if not isinstance(records, list) or not 1 <= len(records) <= 64:
             raise ValueError("Terrain mosaic requires 1–64 tiles")
@@ -69,7 +70,14 @@ def load_terrain(directory):
                     or not tile_root.is_relative_to(root) or record["path"] in names):
                 raise ValueError("Terrain tile must be a unique directory inside the pack")
             names.add(record["path"])
-            state = _load_single_terrain(tile_root)
+            detail_level = record.get("detail_level", 0)
+            minimum_zoom = record.get("minimum_zoom", 0)
+            if (type(detail_level) is not int or not 0 <= detail_level <= 8
+                    or type(minimum_zoom) is not int or not 0 <= minimum_zoom <= 18
+                    or (schema == 2 and (detail_level or minimum_zoom))):
+                raise ValueError("Invalid terrain tile detail metadata")
+            state = _load_single_terrain(tile_root, detail_level=detail_level,
+                                         minimum_zoom=minimum_zoom)
             expected_bounds = record.get("bounds_deg")
             actual_bounds = [math.degrees(value) for value in (
                 state.coverage.west_rad, state.coverage.south_rad,
@@ -82,13 +90,14 @@ def load_terrain(directory):
                 raise ValueError("Terrain mosaic tile checksum does not match")
             tiles.append(state)
         tiles = tuple(tiles)
-        return LocalTerrainMosaicState(tiles, str(manifest.get("attribution", "")))
+        maximum_zoom = manifest.get("maximum_zoom", 13)
+        return LocalTerrainMosaicState(tiles, str(manifest.get("attribution", "")), maximum_zoom)
     if manifest.get("schema") != 1:
         raise ValueError("Unsupported terrain schema")
     return _load_single_terrain(root)
 
 
-def _load_single_terrain(root):
+def _load_single_terrain(root, *, detail_level=0, minimum_zoom=0):
     root = Path(root).resolve()
     manifest = json.loads((root / "manifest.json").read_text())
     if manifest.get("schema") != 1:
@@ -105,4 +114,5 @@ def _load_single_terrain(root):
     coverage = LocalImageryState(manifest["title"], manifest["attribution"],
                                  *(math.radians(v) for v in manifest["bounds_deg"]))
     return LocalTerrainState(coverage, data["width"], data["height"], tuple(data["heights_m"]),
-                              data["reference_height_m"], data["vertical_datum"])
+                              data["reference_height_m"], data["vertical_datum"],
+                              detail_level, minimum_zoom)

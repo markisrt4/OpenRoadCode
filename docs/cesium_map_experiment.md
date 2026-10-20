@@ -344,6 +344,22 @@ ground with buildings on, toggle 2D/3D, and confirm the destination remains
 visible. Repeat offline. Detroit is fairly flat, so large mountains would
 indicate bad samples rather than successful terrain rendering.
 
+### Multi-resolution Metro Detroit terrain
+
+The regional release pipeline builds terrain schema 3 as a bounded offline LOD
+pack. It contains a 33×33 Metro Detroit overview, four 65×65 regional grids that
+become eligible at Cesium level 9, and 129×129 focus grids for Downtown–Midtown,
+Rochester, Southfield, and Pine Knob that become eligible at level 12. Cesium
+selects the most detailed eligible grid for each requested heightmap and stops
+refining at level 16. Vehicle, building, and POI placement use the best installed
+sample at their coordinate.
+
+Schema-1 single grids and schema-2 mosaics remain readable. The source datum is
+still preserved as relative relief; this change does not claim ellipsoid-height
+conversion or navigation-grade altitude. All grids and original USGS response
+metadata remain offline after installation. The terrain artifact command reports
+tile count, LOD count, and compressed bytes and rejects archives above 64 MiB.
+
 ### Pine Knob relief comparison (Termux)
 
 Pine Knob in Clarkston is coverage 3 in the optional terrain menu. Its separate

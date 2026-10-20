@@ -29,6 +29,7 @@ def package(root, output, coverage):
             raise ValueError("Terrain archive exceeds 64 MiB")
         with temporary.open("rb") as source:
             digest = hashlib.file_digest(source, "sha256").hexdigest()
+        manifest = json.loads((root / "manifest.json").read_text())
         descriptor = {
             "schema": 1,
             "kind": "terrain",
@@ -36,7 +37,11 @@ def package(root, output, coverage):
             "archive": output.name,
             "bytes": temporary.stat().st_size,
             "sha256": digest,
-            "bounds_deg": json.loads((root / "manifest.json").read_text())["bounds_deg"],
+            "bounds_deg": manifest["bounds_deg"],
+            "terrain_schema": manifest["schema"],
+            "tile_count": len(manifest.get("tiles", ())),
+            "lod_levels": sorted({tile.get("detail_level", 0)
+                                  for tile in manifest.get("tiles", ())}),
         }
         temporary.replace(output)
         output.with_suffix(output.suffix + ".json").write_text(json.dumps(descriptor, indent=2))
@@ -51,7 +56,9 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--coverage", default="metro-detroit")
     args = parser.parse_args()
-    package(args.pack, args.output, args.coverage)
+    descriptor = package(args.pack, args.output, args.coverage)
+    print(f"Packaged {descriptor['tile_count']} terrain tiles across "
+          f"{len(descriptor['lod_levels'])} LODs: {descriptor['bytes']:,} bytes")
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ window.ORCLocalTerrain = function (data, C) {
   let scale = 1;
   let visible = true;
   const scheme = new C.GeographicTilingScheme();
-  const tiles = data.tiles || [data];
+  const tiles = (data.tiles || [data]).slice().sort((a,b)=>(b.detail_level||0)-(a.detail_level||0));
   function sample(tile,longitude,latitude) {
     const x = (longitude-tile.west_rad)/(tile.east_rad-tile.west_rad)*(tile.width-1);
     const y = (tile.north_rad-latitude)/(tile.north_rad-tile.south_rad)*(tile.height-1);
@@ -18,8 +18,9 @@ window.ORCLocalTerrain = function (data, C) {
     const margin = tiles.length === 1 ? Math.min(x,y,tile.width-1-x,tile.height-1-y) : 1;
     return scale*value*Math.min(1,Math.max(0,margin));
   }
-  function sampledHeightAt(longitude, latitude) {
-    const tile = tiles.find(item => longitude>=item.west_rad && longitude<=item.east_rad
+  function sampledHeightAt(longitude, latitude, zoom=Infinity) {
+    const tile = tiles.find(item => (item.minimum_zoom||0)<=zoom
+      && longitude>=item.west_rad && longitude<=item.east_rad
       && latitude>=item.south_rad && latitude<=item.north_rad);
     return tile ? sample(tile,longitude,latitude) : 0;
   }
@@ -34,14 +35,15 @@ window.ORCLocalTerrain = function (data, C) {
         const buffer=new Float32Array(33*33);
         for (let row=0;row<33;row++) for (let col=0;col<33;col++) {
           buffer[row*33+col]=sampledHeightAt(rectangle.west+(rectangle.east-rectangle.west)*col/32,
-            rectangle.north-(rectangle.north-rectangle.south)*row/32);
+            rectangle.north-(rectangle.north-rectangle.south)*row/32,level);
         }
         return buffer;
       }
     });
     const geometricError=provider.getLevelMaximumGeometricError.bind(provider);
     // Do not keep subdividing a ~100 m source grid into metre-scale meshes.
-    provider.getLevelMaximumGeometricError=level => level>=13 ? 0 : geometricError(level);
+    const maximumZoom=data.maximum_zoom||13;
+    provider.getLevelMaximumGeometricError=level => level>=maximumZoom ? 0 : geometricError(level);
     return provider;
   }
   let provider = createProvider();
