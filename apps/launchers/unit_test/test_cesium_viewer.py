@@ -124,6 +124,14 @@ def test_terrain_visibility_is_explicit_boolean_snapshot_state(state):
         replace(state, terrain_visible='false')
 
 
+def test_terrain_cues_are_optional_boolean_snapshot_state(state):
+    from dataclasses import replace
+    assert state.document()['terrain_shading_visible'] is False
+    assert replace(state, terrain_shading_visible=True).document()['terrain_shading_visible'] is True
+    with pytest.raises(ValueError, match='visibility'):
+        replace(state, terrain_shading_visible='true')
+
+
 def test_pitch_control_contract_uses_finite_si_angles(state):
     from dataclasses import replace
     import math

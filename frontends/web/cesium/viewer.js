@@ -203,14 +203,15 @@
     let terrainScale = snapshot.terrain_scale;
     const scaleButton = document.getElementById('terrain-scale');
     scaleButton.disabled = !terrain || !terrainVisible;
-    const hasImagery = snapshot.imagery_layers?.length || snapshot.imagery || snapshot.map_tiles?.tiles.some(t=>t.imagery_url);
-    const contours = terrain && !hasImagery ? C.Material.fromType('ElevationContour', {
-      color:C.Color.fromCssColorString('#e6d59a'), spacing:10, width:1.5
-    }) : undefined;
+    const cuesButton = document.getElementById('terrain-cues');
+    const terrainCues = terrain ? window.ORCTerrainCues(viewer,C) : null;
+    let cuesVisible = Boolean(snapshot.terrain_shading_visible);
+    cuesButton.disabled = !terrain || !terrainVisible;
     function updateTerrain() {
       terrain.setScale(viewer, terrainScale);
       terrain.setVisible(viewer, terrainVisible);
       scaleButton.disabled = !terrainVisible;
+      cuesButton.disabled = !terrainVisible;
       scaleButton.textContent = `Height ${terrainScale}×`;
       scaleButton.title = terrainScale === 1 ? 'Actual elevations' : 'Exaggerated terrain; source elevations unchanged';
       target = C.Cartesian3.fromRadians(snapshot.longitude_rad, snapshot.latitude_rad,
@@ -220,14 +221,15 @@
       buildings?.refreshGround();
       tiledMap?.refreshGround();
       roadOverlay?.refreshGround();
-      viewer.scene.globe.material = terrainVisible ? contours : undefined;
+      terrainCues?.setEnabled(terrainVisible && cuesVisible);
+      cuesButton.setAttribute('aria-pressed', String(terrainVisible && cuesVisible));
       terrainButton.setAttribute('aria-pressed', String(terrainVisible));
       terrainButton.textContent = terrainVisible ? 'Ground: Relief' : 'Ground: Flat';
       const terrainTiles = snapshot.terrain.tiles || [snapshot.terrain];
       const heights = terrainTiles.flatMap(tile=>tile.heights_m);
       const relief = Math.max(...heights)-Math.min(...heights);
       document.getElementById('terrain-status').textContent = terrainVisible
-        ? `Relief ground · sampled range ${relief.toFixed(0)} m · ${terrainScale}×${terrainScale>1 ? ' exaggerated' : ' actual'}${contours ? ' · 10 m contours' : ''}`
+        ? `Relief ground · sampled range ${relief.toFixed(0)} m · ${terrainScale}×${terrainScale>1 ? ' exaggerated' : ' actual'}${cuesVisible ? ' · shaded · 10 m contours' : ''}`
         : 'Flat ground comparison';
       if (snapshot.embedded) {
         const readout = document.getElementById('terrain-status');
@@ -239,6 +241,7 @@
     if (terrain) {
       terrainButton.onclick = () => { terrainVisible = !terrainVisible; updateTerrain(); };
       scaleButton.onclick = () => {terrainScale=terrainScale%3+1; updateTerrain();};
+      cuesButton.onclick = () => {cuesVisible=!cuesVisible;updateTerrain();};
       updateTerrain();
     }
     bindVisibility('buildings', tiledMap || buildings?.source);
