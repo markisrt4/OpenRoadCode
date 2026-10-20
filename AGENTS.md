@@ -85,3 +85,23 @@ Explain the proposed scope and consequences first, then wait for the user's
 answer. Do not treat an unanswered preference question as authorization. Routine
 fixes within an agreed scope can proceed. Apply this preference in every Codex
 session working on this repository.
+
+## Keep Linear feature issues current
+
+- For meaningful progress on a feature branch, find its corresponding Linear issue
+  and update the existing issue rather than creating a duplicate. Use the
+  repository-and-branch reference and linked PR to identify the issue; if no
+  confident match exists, report that instead of guessing.
+- Update Linear at substantial milestones: completed implementation slices,
+  significant design decisions, newly discovered blockers, validation results,
+  or material changes in scope. Do not post an update for every minor commit.
+- Maintain the issue's implementation checklist as the work evolves. Check off
+  items only when completed and supported by actual work or test evidence; add
+  newly discovered tasks without discarding prior context or history.
+- Distinguish tests actually run from tests pending or failing. Include concise
+  commit or PR references when useful, and preserve outstanding verification
+  steps in the issue.
+- Never mark an issue Done just because code was pushed or a PR was merged.
+  Leave final completion to explicit verification and user approval.
+- If Linear access is unavailable, report the pending update at handoff; do not
+  claim the issue was updated or block code progress solely on tracking.
