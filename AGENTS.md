@@ -86,6 +86,17 @@ answer. Do not treat an unanswered preference question as authorization. Routine
 fixes within an agreed scope can proceed. Apply this preference in every Codex
 session working on this repository.
 
+## Confirm branch creation with the user
+
+- Before creating or switching to a new working branch for a task, ask the user
+  whether to open a new branch or continue on the current branch. Recommend a
+  descriptive branch name when a new branch would be appropriate.
+- Wait for explicit user approval before creating the branch. Do not treat a
+  general request to implement a feature as automatic permission to branch.
+- If the user chooses the existing branch, respect that choice and verify the
+  active branch before making changes. Never silently modify `master`.
+- This approval is separate from any required discussion of major changes.
+
 ## Keep Linear feature issues current
 
 - For meaningful progress on a feature branch, find its corresponding Linear issue
