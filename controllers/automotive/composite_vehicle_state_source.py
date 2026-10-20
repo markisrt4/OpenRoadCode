@@ -43,6 +43,13 @@ class CompositeVehicleStateSource(VehicleStateSourceIf):
         if callable(setter):
             setter(profile)
 
+    def scan_diagnostics(self, *, timeout_s: float = 10.0):
+        """Forward a scheduled scan to the engine source, never the motion source."""
+        scanner = getattr(self._engine_source, "scan_diagnostics", None)
+        if not callable(scanner):
+            raise RuntimeError("Diagnostics unavailable for this engine source")
+        return scanner(timeout_s=timeout_s)
+
     def read_state(self) -> VehicleState:
         engine = self._engine_source.read_state()
         motion = self._motion_source.read_state()
