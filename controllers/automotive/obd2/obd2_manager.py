@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import math
+import threading
 import time
 import logging
 from datetime import datetime
@@ -11,6 +12,11 @@ from typing import TypeVar
 
 from common.logging.structured import current_operation, event, operation
 from ui.automotive.automotive_telemetry_profile import (AutomotiveTelemetryProfile)
+from controllers.automotive.obd2.obd2_diagnostics import (
+    Obd2DiagnosticsScanner,
+    Obd2DiagnosticsScanSession,
+    Obd2DiagnosticsSnapshot,
+)
 from controllers.automotive.vehicle_state import VehicleState
 from controllers.automotive.obd2.obd2_poll_scheduler import (
     Obd2PollingProfile,
@@ -58,6 +64,10 @@ class Obd2Manager(VehicleStateSourceIf):
         self._supported_pids: set[int] | None = None
         self._polling_profile = Obd2PollingProfile.BACKGROUND
         self._scheduler: Obd2PollScheduler | None = None
+        self._diagnostics_condition = threading.Condition()
+        self._diagnostics_session: Obd2DiagnosticsScanSession | None = None
+        self._diagnostics_result: Obd2DiagnosticsSnapshot | None = None
+        self._diagnostics_error: Exception | None = None
 
         self._actual_torque_pid = ActualEngineTorquePid()
         self._reference_torque_pid = ReferenceEngineTorquePid()
@@ -130,6 +140,40 @@ class Obd2Manager(VehicleStateSourceIf):
 
     def disconnect(self) -> None:
         self._adapter.disconnect()
+        with self._diagnostics_condition:
+            self._diagnostics_error = RuntimeError("OBD adapter disconnected")
+            self._diagnostics_session = None
+            self._diagnostics_condition.notify_all()
+
+    def scan_diagnostics(self, *, timeout_s: float = 10.0) -> Obd2DiagnosticsSnapshot:
+        """Queue a scan into the normal OBD request budget and await its result."""
+        if timeout_s <= 0.0:
+            raise ValueError("timeout_s must be positive")
+        with self._diagnostics_condition:
+            if self._diagnostics_session is not None:
+                raise RuntimeError("A vehicle diagnostic scan is already active")
+            session = Obd2DiagnosticsScanner.create_session()
+            self._diagnostics_session = session
+            self._diagnostics_result = None
+            self._diagnostics_error = None
+            completed = self._diagnostics_condition.wait_for(
+                lambda: (
+                    self._diagnostics_session is not session
+                    or self._diagnostics_result is not None
+                    or self._diagnostics_error is not None
+                ),
+                timeout=timeout_s,
+            )
+            if not completed:
+                if self._diagnostics_session is session:
+                    self._diagnostics_session = None
+                raise TimeoutError("Vehicle diagnostic scan timed out")
+            if self._diagnostics_error is not None:
+                raise RuntimeError(str(self._diagnostics_error)) from self._diagnostics_error
+            if self._diagnostics_result is None:
+                raise RuntimeError("Vehicle diagnostic scan was cancelled")
+            return self._diagnostics_result
+
 
     @property
     def polling_profile(self) -> Obd2PollingProfile:
@@ -167,9 +211,10 @@ class Obd2Manager(VehicleStateSourceIf):
             scheduler = self._create_scheduler()
             self._scheduler = scheduler
 
-        decoder = scheduler.next_decoder()
-        if decoder is not None:
-            self._update_cached_value(decoder)
+        if not self._advance_diagnostics():
+            decoder = scheduler.next_decoder()
+            if decoder is not None:
+                self._update_cached_value(decoder)
 
         return VehicleState(
             timestamp=datetime.now(),
@@ -203,6 +248,33 @@ class Obd2Manager(VehicleStateSourceIf):
             actual_engine_torque_ratio=self._current_torque_ratio(),
             reference_engine_torque_nm=self._reference_torque_nm,
         )
+
+    def _advance_diagnostics(self) -> bool:
+        with self._diagnostics_condition:
+            session = self._diagnostics_session
+            request = None if session is None else session.next_request
+        if session is None or request is None:
+            return False
+        try:
+            responses = self._adapter.request(request)
+        except Obd2CommandError:
+            responses = ()
+        except Exception as exc:
+            with self._diagnostics_condition:
+                if self._diagnostics_session is session:
+                    self._diagnostics_error = exc
+                    self._diagnostics_session = None
+                    self._diagnostics_condition.notify_all()
+            raise
+        with self._diagnostics_condition:
+            if self._diagnostics_session is not session:
+                return True
+            session.accept(responses)
+            if session.complete:
+                self._diagnostics_result = session.snapshot()
+                self._diagnostics_session = None
+                self._diagnostics_condition.notify_all()
+        return True
 
     def _current_torque_ratio(self) -> float | None:
         # Do not keep presenting an old instantaneous output after polling stalls.
