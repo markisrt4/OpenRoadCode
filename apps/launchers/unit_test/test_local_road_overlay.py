@@ -83,8 +83,8 @@ def test_local_street_and_city_latin_names_are_read():
 def test_transportation_geometry_draws_but_name_placement_path_does_not():
     move=b''.join(varint(value) for value in (9,4000,4000))
     line=move+b''.join(varint(value) for value in (10,100,100))
-    tile=(layer('transportation','primary','Woodward Avenue',2,line)
-          + layer('transportation_name','primary','Woodward Avenue',2,line))
+    tile=(layer('transportation_name','primary','Woodward Avenue',2,line)
+          + layer('transportation','primary','Woodward Avenue',2,line))
     state=decode_overlay(tile,13,2000,2500)
     assert [road.geometry_visible for road in state.roads] == [True,False]
 

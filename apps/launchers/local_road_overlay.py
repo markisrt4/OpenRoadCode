@@ -47,10 +47,18 @@ def decode_overlay(blob,z,x,y):
     roads=[];places=[];point_budget=12000
     features=inspect_tile(blob)
     def priority(feature):
-        if feature['layer'] != 'place':
-            return (0, 0, 0)
+        layer = feature['layer']
         attrs = feature['attributes']
         kind = attrs.get('class', '')
+        road_rank = {'motorway': 0, 'trunk': 1, 'primary': 2, 'secondary': 3,
+                     'tertiary': 4, 'minor': 5, 'residential': 6,
+                     'unclassified': 7, 'service': 8}.get(kind, 9)
+        if layer == 'transportation':
+            return (0, road_rank, 0, 0)
+        if layer == 'transportation_name':
+            return (1, road_rank, 0, 0)
+        if layer != 'place':
+            return (3, 0, 0, 0)
         kind_rank = {'city': 0, 'town': 1, 'village': 2, 'suburb': 3}.get(kind, 9)
         try:
             rank = int(attrs.get('rank', 99))
@@ -60,7 +68,7 @@ def decode_overlay(blob,z,x,y):
             population = int(str(attrs.get('population', '0')).replace(',', ''))
         except (TypeError, ValueError):
             population = 0
-        return (1, kind_rank, rank, -population)
+        return (2, kind_rank, rank, -population)
     features.sort(key=priority)
     for feature in features:
         layer=feature['layer'];attrs=feature['attributes'];kind=attrs.get('class','')

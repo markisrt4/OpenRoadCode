@@ -701,7 +701,10 @@ camera rectangle with at most six vector tiles, reducing zoom when necessary.
 Roads and settlement names are separate
 controls; Places starts disabled, and its Cesium label entities are not created
 until enabled. Transportation-name placement paths supply labels but are never
-drawn as road geometry. This bounds entity and label work on virtual or embedded GPUs.
+drawn as road geometry. Tile decoding admits drawable major-road geometry before
+local-road and label-placement paths so metadata cannot exhaust the bounded tile
+budget ahead of the roads themselves. This bounds entity and label work on virtual
+or embedded GPUs.
 
 ### Inspect a locally built archive without hosting
 
