@@ -696,10 +696,12 @@ incomplete catalogs and network failures are not treated as coverage gaps. A
 region with no supported imagery at all still fails. Re-running reuses completed
 pieces, including checked gap records, until the pack is successfully assembled.
 
-The optional Cesium road overlay limits detail to zoom 13 and keeps four nearby
-vector tiles around the camera anchor. Roads and settlement names are separate
+The optional Cesium road overlay limits detail to zoom 13 and covers the visible
+camera rectangle with at most six vector tiles, reducing zoom when necessary.
+Roads and settlement names are separate
 controls; Places starts disabled, and its Cesium label entities are not created
-until enabled. This bounds entity and label work on virtual or embedded GPUs.
+until enabled. Transportation-name placement paths supply labels but are never
+drawn as road geometry. This bounds entity and label work on virtual or embedded GPUs.
 
 ### Inspect a locally built archive without hosting
 

@@ -16,7 +16,10 @@ test('road overlay bounds requests, labels roads and places, and prevents attach
       requestRender(){},postRender:{addEventListener(callback){render=callback;return()=>{render=null;};}}},
     cesiumWidget:{creditDisplay:{addStaticCredit(){}}},dataSources:{async add(source){sources.push(source);return source;},
       remove(source){const index=sources.indexOf(source);if(index>=0)sources.splice(index,1);}}};
-  const state={roads:[{kind:'motorway',label:'I-75',points:[[-1.4,.7],[-1.41,.71]]},{kind:'minor',label:'Main Street',points:[[-1.42,.7],[-1.43,.71]]}],places:[{name:'Detroit',position:[-1.4,.7]}]};
+  const state={roads:[{kind:'motorway',label:'',geometry_visible:true,points:[[-1.4,.7],[-1.41,.71]]},
+    {kind:'motorway',label:'I-75',geometry_visible:false,points:[[-1.405,.705],[-1.406,.706]]},
+    {kind:'minor',label:'Main Street',geometry_visible:false,points:[[-1.42,.7],[-1.43,.71]]}],
+    places:[{name:'Detroit',position:[-1.4,.7]}]};
   const requested=[];
   const context={window:{},Date:{now:()=>1000},AbortController,requested,
     fetch:url=>{requested.push(url);return new Promise(resolve=>pending.push(resolve));}};

@@ -92,7 +92,9 @@ def decode_overlay(blob,z,x,y):
             elif feature['geometry_type']==2 and 1<len(path)<=point_budget and len(roads)<500:
                 point_budget-=len(path)
                 label=str((attrs.get('ref') or name) if kind in {'motorway','trunk'} else (name or attrs.get('ref') or ''))[:80] if layer=='transportation_name' else ''
-                roads.append(RoadOverlayLine(kind,tuple(point(px,py) for px,py in path),label))
+                roads.append(RoadOverlayLine(
+                    kind, tuple(point(px,py) for px,py in path), label,
+                    geometry_visible=layer == 'transportation'))
     return RoadOverlayState(tuple(roads),tuple(places))
 
 

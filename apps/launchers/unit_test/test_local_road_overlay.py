@@ -36,6 +36,7 @@ def vector_tile():
 def test_roads_and_places_decode_with_si_points():
     state=decode_overlay(gzip.compress(vector_tile()),14,4000,5000)
     assert state.roads[0].label=='I-75'
+    assert not state.roads[0].geometry_visible
     assert len(state.roads[0].points)==2
     assert state.places[0].name=='Southfield'
     assert all(abs(point.longitude_rad)<=math.pi and abs(point.latitude_rad)<=math.pi/2 for point in state.roads[0].points)
@@ -77,6 +78,15 @@ def test_local_street_and_city_latin_names_are_read():
     assert state.roads[0].label=='Main Street'
     assert state.places[0].name=='Rochester'
     assert not decode_overlay(tile,12,400,500).roads
+
+
+def test_transportation_geometry_draws_but_name_placement_path_does_not():
+    move=b''.join(varint(value) for value in (9,4000,4000))
+    line=move+b''.join(varint(value) for value in (10,100,100))
+    tile=(layer('transportation','primary','Woodward Avenue',2,line)
+          + layer('transportation_name','primary','Woodward Avenue',2,line))
+    state=decode_overlay(tile,13,2000,2500)
+    assert [road.geometry_visible for road in state.roads] == [True,False]
 
 
 def test_overview_city_label_survives_detail_tile_without_places(tmp_path):

@@ -52,7 +52,7 @@ window.ORCRoadOverlay = function(viewer,C,heightAt=()=>0,onError=()=>{},maxZoom=
       for(const road of state.roads) {
         const coordinates=road.points.flatMap(point=>[point[0],point[1]]);
         const freeway=road.kind==='motorway'||road.kind==='trunk';
-        if(!['minor','residential','unclassified','service'].includes(road.kind))roads.entities.add({polyline:{positions:C.Cartesian3.fromRadiansArray(coordinates),clampToGround:true,
+        if(road.geometry_visible!==false && !['minor','residential','unclassified','service'].includes(road.kind))roads.entities.add({polyline:{positions:C.Cartesian3.fromRadiansArray(coordinates),clampToGround:true,
           width:freeway?3:1.5,material:C.Color.fromCssColorString(freeway?'#ffd166':'#e7eff6').withAlpha(.8)}});
         if(road.label && !labeled.has(road.label) && names<8) {
           labeled.add(road.label);names++;label(road.label,road.points[Math.floor(road.points.length/2)],freeway);
@@ -76,19 +76,45 @@ window.ORCRoadOverlay = function(viewer,C,heightAt=()=>0,onError=()=>{},maxZoom=
     if(!anchor)return;
     const position=C.Cartographic.fromCartesian(anchor);
     const height=Math.max(100,viewer.camera.positionCartographic.height);
-    const z=Math.max(8,Math.min(maxZoom,13,Math.floor(Math.log2(20000000/height))));
-    const n=2**z;
+    let z=Math.max(8,Math.min(maxZoom,13,Math.floor(Math.log2(20000000/height))));
+    let n=2**z;
     const tileX=(position.longitude+Math.PI)/(2*Math.PI)*n;
     const x=Math.floor(tileX);
     const latitude=Math.max(-1.48,Math.min(1.48,position.latitude));
     const tileY=(1-Math.asinh(Math.tan(latitude))/Math.PI)/2*n;
     const y=Math.floor(tileY);
-    const xDirection=tileX-x>=.5?1:-1,yDirection=tileY-y>=.5?1:-1;
     const wanted=new Set();
-    for(const dx of [0,xDirection])for(const dy of [0,yDirection]) {
-      const xx=(x+dx+n)%n,yy=y+dy;if(yy<0||yy>=n)continue;
-      const key=`${z}/${xx}/${yy}`;wanted.add(key);
-      if(!entries.has(key)) {const entry={key,abort:new AbortController(),roads:null,places:null,placesPending:false,state:null,labels:[]};entries.set(key,entry);load(entry,z,xx,yy);}
+    const view=viewer.camera.computeViewRectangle?.(viewer.scene.globe.ellipsoid);
+    let xFirst,xLast,yFirst,yLast;
+    if(view && view.east>=view.west) {
+      function range(level) {
+        const count=2**level;
+        return [Math.floor((view.west+Math.PI)/(2*Math.PI)*count),
+          Math.floor((view.east+Math.PI)/(2*Math.PI)*count),
+          Math.floor((1-Math.asinh(Math.tan(Math.min(1.48,view.north)))/Math.PI)/2*count),
+          Math.floor((1-Math.asinh(Math.tan(Math.max(-1.48,view.south)))/Math.PI)/2*count)];
+      }
+      [xFirst,xLast,yFirst,yLast]=range(z);
+      while((xLast-xFirst+1)*(yLast-yFirst+1)>6 && z>8) {
+        z--;n=2**z;[xFirst,xLast,yFirst,yLast]=range(z);
+      }
+      if((xLast-xFirst+1)*(yLast-yFirst+1)>6) {
+        const centreX=(position.longitude+Math.PI)/(2*Math.PI)*n;
+        const centreY=(1-Math.asinh(Math.tan(latitude))/Math.PI)/2*n;
+        const baseX=Math.floor(centreX),baseY=Math.floor(centreY);
+        const xDirection=centreX-baseX>=.5?1:-1,yDirection=centreY-baseY>=.5?1:-1;
+        xFirst=Math.min(baseX,baseX+xDirection);xLast=Math.max(baseX,baseX+xDirection);
+        yFirst=Math.min(baseY,baseY+yDirection);yLast=Math.max(baseY,baseY+yDirection);
+      }
+    } else {
+      const xDirection=tileX-x>=.5?1:-1,yDirection=tileY-y>=.5?1:-1;
+      xFirst=Math.min(x,x+xDirection);xLast=Math.max(x,x+xDirection);
+      yFirst=Math.min(y,y+yDirection);yLast=Math.max(y,y+yDirection);
+    }
+    for(let xx=xFirst;xx<=xLast;xx++)for(let yy=yFirst;yy<=yLast;yy++) {
+      const wrappedX=(xx+n)%n;if(yy<0||yy>=n)continue;
+      const key=`${z}/${wrappedX}/${yy}`;wanted.add(key);
+      if(!entries.has(key)) {const entry={key,abort:new AbortController(),roads:null,places:null,placesPending:false,state:null,labels:[]};entries.set(key,entry);load(entry,z,wrappedX,yy);}
     }
     for(const [key,entry] of entries)if(!wanted.has(key)){remove(entry);entries.delete(key);}
   }
