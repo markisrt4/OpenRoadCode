@@ -17,11 +17,13 @@ test('dynamic POI snapshots replace markers at terrain-relative positions',async
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../poi_overlay.js'),'utf8'),context);
   const overlay=context.window.ORCPoiOverlay(viewer,C,()=>7);
   assert.equal(overlay.update({markers:[{id:'one',longitude_rad:-1.4,latitude_rad:.7,label:'Cafe'}]}),true);
-  assert.equal(values.length,1);assert.equal(values[0].label.text,'Cafe');
-  assert.deepEqual(values[0].position,[-1.4,.7,25]);
+  assert.equal(values.length,2);assert.equal(values[0].label.text,'◆');
+  assert.deepEqual(values[0].position,[-1.4,.7,19]);
+  assert.equal(values[1].show,false);
+  assert.equal(overlay.focus('poi-one'),true);assert.equal(values[1].show,true);
   assert.equal(overlay.select('poi-one'),true);
   assert.equal(overlay.consumeSelection(),'one');
   assert.equal(overlay.consumeSelection(),null);
   assert.equal(overlay.select('route-line'),false);
-  overlay.update({markers:[]});assert.equal(values.length,0);assert.equal(renders,2);
+  overlay.update({markers:[]});assert.equal(values.length,0);assert.equal(renders,3);
 });

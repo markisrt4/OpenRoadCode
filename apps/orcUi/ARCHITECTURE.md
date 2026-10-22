@@ -569,6 +569,10 @@ Cesium POI entity clicks return only the selected semantic marker identifier
 through `MapMarkerSelectionSourceIf`; the existing places controller resolves
 that identifier against its current result set and the Tk view presents the same
 place card and Navigate request used by MapLibre.
+Cesium uses the MapLibre search-result category palette and glyph semantics but
+reveals names on hover or selection. This avoids drawing every name in a tilted
+scene, where Cesium dynamic entities have no equivalent of MapLibre symbol
+collision placement.
 
 Active routes follow the same boundary. `RouteOverlayController` merges the
 navigation service's route result and guidance messages into an immutable,

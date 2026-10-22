@@ -138,6 +138,10 @@
       const picked=viewer.scene.pick(movement.position);
       poiOverlay.select(picked?.id?.id);
     },C.ScreenSpaceEventType.LEFT_CLICK);
+    viewer.screenSpaceEventHandler.setInputAction(movement=>{
+      const picked=viewer.scene.pick(movement.endPosition);
+      poiOverlay.focus(picked?.id?.id);
+    },C.ScreenSpaceEventType.MOUSE_MOVE);
     routeOverlay=window.ORCRouteOverlay(viewer,C,terrain?.heightAt);
     window.ORCUpdateRoute=state=>routeOverlay.update(state);
     document.getElementById('pitch-up').onclick = () => { cameraControls.pitch(1); tilted=true; };
