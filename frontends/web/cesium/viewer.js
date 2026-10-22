@@ -225,6 +225,7 @@
       buildings?.refreshGround();
       tiledMap?.refreshGround();
       roadOverlay?.refreshGround();
+      terrainCues?.setScale(terrainScale);
       terrainCues?.setEnabled(terrainVisible && cuesVisible);
       terrainHillshade?.setEnabled(terrainVisible && cuesVisible);
       cuesButton.setAttribute('aria-pressed', String(terrainVisible && cuesVisible));

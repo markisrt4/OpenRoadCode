@@ -365,7 +365,9 @@ The optional **Terrain cues** control adds Cesium globe lighting, restrained
 elevations and the selected 1×/2×/3× relief scale are unchanged. Cues turn off
 while Ground is Flat and return to their prior selection when Relief is restored.
 They default off to avoid extra GPU work on constrained virtual and mobile GPUs.
-Hillshade generation uses fourfold slope contrast to reveal Michigan's subtle
+Contour presentation remains equivalent to a 10-metre source interval: Cesium
+uses 10/20/30-metre rendered spacing at 1×/2×/3× so exaggeration does not create
+three times as many lines. Hillshade generation uses fourfold slope contrast to reveal Michigan's subtle
 relief, attaches no more than six visible tiles, and caches each generated image;
 it does not exaggerate the terrain mesh or require another data download.
 
