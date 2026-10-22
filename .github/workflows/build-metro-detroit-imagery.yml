@@ -1,8 +1,24 @@
-name: Build Metro Detroit map data
+name: Build regional map data
 
 on:
   workflow_dispatch:
     inputs:
+      build_target:
+        description: Map-data package to build
+        required: true
+        type: choice
+        default: metro-detroit
+        options:
+          - metro-detroit
+          - michigan-overview
+          - mi-lower-southwest
+          - mi-lower-southeast
+          - mi-lower-central-west
+          - mi-lower-central-east
+          - mi-lower-northwest
+          - mi-lower-northeast
+          - mi-upper-west
+          - mi-upper-east
       release_tag:
         description: Optional release tag (defaults to metro-detroit-imagery-YYYYMMDD-runN)
         required: false
@@ -12,12 +28,13 @@ permissions:
   contents: write
 
 concurrency:
-  group: metro-detroit-imagery-release
+  group: regional-map-data-${{ inputs.build_target }}
   cancel-in-progress: false
 
 jobs:
   build:
     name: Build draft map-data release
+    if: ${{ inputs.build_target == 'metro-detroit' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -111,3 +128,11 @@ jobs:
             echo "python -m development.maps.install_terrain --coverage metro-detroit --pack-manifest https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/metro-detroit-terrain.zip.json --yes"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  michigan:
+    name: Build Michigan terrain package
+    if: ${{ inputs.build_target != 'metro-detroit' }}
+    uses: ./.github/workflows/build-michigan-terrain.yml
+    with:
+      coverage: ${{ inputs.build_target }}
+    secrets: inherit

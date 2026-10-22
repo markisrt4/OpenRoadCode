@@ -1,6 +1,12 @@
 name: Build Michigan terrain shard
 
 on:
+  workflow_call:
+    inputs:
+      coverage:
+        description: Statewide overview or detail shard
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       coverage:

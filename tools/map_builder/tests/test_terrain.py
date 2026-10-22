@@ -314,6 +314,8 @@ def test_map_data_workflow_builds_split_release_assets_without_actions_storage()
     assert 'metro-detroit-terrain.zip.json' in workflow
     assert 'actions/upload-artifact' not in workflow
     assert 'RELEASE_TAG: ${{ steps.release.outputs.tag }}' in workflow
+    assert 'build_target:' in workflow
+    assert 'uses: ./.github/workflows/build-michigan-terrain.yml' in workflow
     michigan = Path('.github/workflows/build-michigan-terrain.yml').read_text()
     assert 'michigan-terrain-index.json' in michigan
     assert 'timeout-minutes: 360' in michigan

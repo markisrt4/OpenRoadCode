@@ -391,6 +391,12 @@ independent and resumable so one service failure does not invalidate other
 published regions. Building all nine packages is intentionally not one workflow
 job because USGS request time and release inspection remain explicit.
 
+Until the Michigan workflow file reaches the default branch, GitHub cannot
+dispatch that new filename directly. On `navigation-cesium`, use the already
+registered `build-metro-detroit-imagery.yml` dispatcher with a Michigan
+`build_target`; it calls the reusable Michigan workflow from the selected branch.
+Direct `build-michigan-terrain.yml` dispatch becomes available after merge.
+
 ### Pine Knob relief comparison (Termux)
 
 Pine Knob in Clarkston is coverage 3 in the optional terrain menu. Its separate
