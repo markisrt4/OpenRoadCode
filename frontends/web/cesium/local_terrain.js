@@ -5,6 +5,12 @@ window.ORCLocalTerrain = function (data, C) {
   let visible = true;
   const scheme = new C.GeographicTilingScheme();
   const tiles = (data.tiles || [data]).slice().sort((a,b)=>(b.detail_level||0)-(a.detail_level||0));
+  let minimumSourceHeight=Infinity, maximumSourceHeight=-Infinity;
+  for (const tile of tiles) for (const height of tile.heights_m) {
+    if (height<minimumSourceHeight) minimumSourceHeight=height;
+    if (height>maximumSourceHeight) maximumSourceHeight=height;
+  }
+  const sourceReliefM=maximumSourceHeight-minimumSourceHeight;
   function sample(tile,longitude,latitude) {
     const x = (longitude-tile.west_rad)/(tile.east_rad-tile.west_rad)*(tile.width-1);
     const y = (tile.north_rad-latitude)/(tile.north_rad-tile.south_rad)*(tile.height-1);
@@ -62,5 +68,5 @@ window.ORCLocalTerrain = function (data, C) {
     viewer.terrainProvider = visible ? provider : flat;
     viewer.scene.requestRender();
   }
-  return {get provider(){return provider;},heightAt,setVisible,setScale};
+  return {get provider(){return provider;},heightAt,setVisible,setScale,sourceReliefM};
 };

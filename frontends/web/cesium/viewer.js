@@ -225,11 +225,8 @@
       cuesButton.setAttribute('aria-pressed', String(terrainVisible && cuesVisible));
       terrainButton.setAttribute('aria-pressed', String(terrainVisible));
       terrainButton.textContent = terrainVisible ? 'Ground: Relief' : 'Ground: Flat';
-      const terrainTiles = snapshot.terrain.tiles || [snapshot.terrain];
-      const heights = terrainTiles.flatMap(tile=>tile.heights_m);
-      const relief = Math.max(...heights)-Math.min(...heights);
       document.getElementById('terrain-status').textContent = terrainVisible
-        ? `Relief ground · sampled range ${relief.toFixed(0)} m · ${terrainScale}×${terrainScale>1 ? ' exaggerated' : ' actual'}${cuesVisible ? ' · shaded · 10 m contours' : ''}`
+        ? `Relief ground · sampled range ${terrain.sourceReliefM.toFixed(0)} m · ${terrainScale}×${terrainScale>1 ? ' exaggerated' : ' actual'}${cuesVisible ? ' · shaded · 10 m contours' : ''}`
         : 'Flat ground comparison';
       if (snapshot.embedded) {
         const readout = document.getElementById('terrain-status');

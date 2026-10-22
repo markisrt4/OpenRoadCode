@@ -71,6 +71,15 @@ test('mosaic tiles retain relief at their shared edge', () => {
   const mosaic=context.window.ORCLocalTerrain({tiles:[west,east],attribution:'USGS'},C);
   assert.equal(mosaic.heightAt(1,.5),10);
   assert.equal(mosaic.heightAt(1.5,.5),10);
+  assert.equal(mosaic.sourceReliefM,0);
+});
+
+test('source relief scans large packs without spreading samples onto the call stack', () => {
+  const heights=Array(350000).fill(200);
+  heights[1]=125;
+  heights[heights.length-1]=425;
+  const large=context.window.ORCLocalTerrain({...data,width:700,height:500,heights_m:heights},C);
+  assert.equal(large.sourceReliefM,300);
 });
 
 test('LOD terrain uses camera-appropriate samples and stops at its declared limit', async () => {
