@@ -85,6 +85,15 @@ Runtime wrapper: `scripts/runtime/start_navigation_service.sh`
 
 Installer: `scripts/systemd/install_navigation_service_systemd.sh`
 
+When launched manually, the runtime wrapper detects an active installed
+`openroadcode-navigation.service`, stops that known unit, and restores it when
+the foreground process exits or receives a terminal signal. It never terminates
+an unidentified process merely because a navigation port is occupied. The
+handoff requires permission to control the system unit; if sudo or the host
+security policy denies that operation, the wrapper exits before opening another
+navigation runtime. The installed unit marks its own wrapper invocation so the
+handoff cannot recursively stop the service during systemd startup.
+
 ## Startup
 
 Install the complete runtime stack from the repository root:
