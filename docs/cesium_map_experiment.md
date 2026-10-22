@@ -7,8 +7,7 @@ ellipsoid globe, procedural geographic grid, and a static Detroit marker. Around
 the marker, a synthetic 250-metre checkerboard grid, 250/500/1,000-metre distance
 rings, and labelled compass directions make camera movement visible. A yellow
 ground arrow points north; the footer reports camera height, tilt, and heading.
-These reference graphics are not real streets or buildings. Without an installed imagery pack it has no aerial imagery. An optional coarse terrain pack adds relative relief. Building datasets, routing,
-and GPS follow are not implemented yet. Zoom, rotation/pan gestures, north-up, tilt, and reset are available. The
+These reference graphics are not real streets or buildings. Without an installed imagery pack it has no aerial imagery. An optional terrain pack adds relative relief. Installed map packs can provide buildings, roads, and places. The embedded viewer consumes the existing navigation service's active route and guidance state to draw the route, destination, and current maneuver, and it can follow live GPS. Zoom, rotation/pan gestures, north-up, tilt, and reset are available. The
 viewer is an owned, isolated Chromium app window; Return to ORC, window close, or
 Ctrl+C stops only this experiment and its local server.
 

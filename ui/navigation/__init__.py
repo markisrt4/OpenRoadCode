@@ -25,11 +25,13 @@ from ui.navigation.map_ui_if import (
     RouteGeometry,
 )
 from ui.navigation.map_ui_stub import MapUiStub
+from ui.navigation.map_marker_selection_source_if import MapMarkerSelectionSourceIf
 from ui.navigation.navigation_request_handler_if import NavigationRequestHandlerIf
 from ui.navigation.navigation_request_handler_stub import NavigationRequestHandlerStub
 from ui.navigation.orientation_ui_if import HeadingReference, OrientationUiIf
 from ui.navigation.position_ui_if import PositionFix, PositionUiIf, SatelliteInfo
 from ui.navigation.poi_overlay_state import PoiOverlayState
+from ui.navigation.route_overlay_state import RouteOverlayState
 from ui.navigation.translation_ui_if import TranslationUiIf
 from ui.navigation.angular_velocity_ui_stub import AngularVelocityUiStub
 from ui.navigation.orientation_ui_stub import OrientationUiStub
@@ -86,6 +88,7 @@ __all__ = [
     "LaneGuidanceUiStub",
     "MapMarker",
     "MapMarkerKind",
+    "MapMarkerSelectionSourceIf",
     "MapRequestHandlerIf",
     "MapRequestHandlerStub",
     "MapState",
@@ -98,6 +101,7 @@ __all__ = [
     "OrientationUiStub",
     "PositionFix",
     "PoiOverlayState",
+    "RouteOverlayState",
     "PositionUiIf",
     "PositionUiStub",
     "SatelliteInfo",

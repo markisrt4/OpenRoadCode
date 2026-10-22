@@ -38,7 +38,8 @@ class PoiSearchController(PoiSearchControllerIf):
 
     def __init__(self, source: MapPoiSource | None = None, *, search_source: PoiSearchSourceIf | None = None,
                  position_provider: Callable[[], GeoPoint | None] | None = None,
-                 viewport_search_enabled: Callable[[], bool] = lambda: True) -> None:
+                 viewport_search_enabled: Callable[[], bool] = lambda: True,
+                 marker_selection_source=None) -> None:
         self._diagnostics = ComponentLog("navigation.poi", "poi")
         self._search_operation_id = None
         self._source = source or MapPoiSource()
@@ -46,6 +47,7 @@ class PoiSearchController(PoiSearchControllerIf):
         self._owns_search_source = search_source is None
         self._position_provider = position_provider or self._default_position
         self._viewport_search_enabled = viewport_search_enabled
+        self._marker_selection_source = marker_selection_source
         self._active_category: PoiCategory | None = None
         self._pending_viewport_search: tuple[PoiCategory, TransitMode] | None = None
         self._pending_search_result: PoiSearchResult | None = None
@@ -81,6 +83,14 @@ class PoiSearchController(PoiSearchControllerIf):
         self._pending_search_result = _result_for(category, pois)
 
     def poll_selected(self) -> PointOfInterest | None:
+        if self._marker_selection_source is not None:
+            marker_id = self._marker_selection_source.poll_selected_marker_id()
+            if marker_id is not None:
+                for poi in self._visible_pois:
+                    if poi.poi_id == marker_id:
+                        self._diagnostics.emit(logging.DEBUG, "selected", self._search_operation_id,
+                                               stage="semantic_marker_id")
+                        return enrich_poi(poi)
         raw = self._source.poll_selected()
         if raw is not None:
             # Result markers carry an id; keep the richer SQLite metadata when

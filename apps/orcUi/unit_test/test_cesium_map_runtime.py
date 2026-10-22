@@ -7,6 +7,7 @@ from ui.navigation import GeoPoint, MapMarker, MapMarkerKind
 from ui.navigation.cesium_viewer_state import CesiumViewerState
 from ui.navigation.map_platform_if import MapPlatform
 from ui.navigation.poi_overlay_state import PoiOverlayState
+from ui.navigation.route_overlay_state import RouteOverlayState
 
 
 @pytest.fixture
@@ -224,6 +225,29 @@ def test_poi_results_are_cached_and_sent_only_to_the_active_3d_view(mounted):
     runtime.update_poi_overlay(replacement)
     flush(runtime)
     viewer.update_poi_overlay.assert_called_with(replacement)
+
+
+def test_route_is_cached_replaced_and_cleared_only_on_active_3d_view(mounted):
+    runtime,native,viewer = mounted
+    route = RouteOverlayState()
+    runtime.update_route_overlay(route)
+    flush(runtime)
+    viewer.update_route_overlay.assert_not_called()
+    explore(runtime)
+    viewer.update_route_overlay.assert_called_once_with(route)
+    runtime.update_route_overlay(RouteOverlayState())
+    flush(runtime)
+    assert viewer.update_route_overlay.call_count == 1  # equal empty snapshot is coalesced
+
+
+def test_cesium_marker_selection_is_exposed_once_to_places(mounted):
+    runtime,native,viewer = mounted
+    explore(runtime)
+    viewer.consume_poi_selection.return_value = 'fuel-1'
+    runtime._worker.submit(runtime._tick,runtime._generation).result(timeout=3)
+    viewer.consume_poi_selection.return_value = None
+    assert runtime.poll_selected_marker_id() == 'fuel-1'
+    assert runtime.poll_selected_marker_id() is None
 
 
 def test_one_browser_poll_timeout_keeps_terrain_and_success_resets_budget(mounted):

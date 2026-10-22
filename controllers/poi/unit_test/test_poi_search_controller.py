@@ -77,6 +77,15 @@ class FakeSearchSource:
         self.closed = True
 
 
+class FakeMarkerSelectionSource:
+    def __init__(self, marker_id: str | None) -> None:
+        self.marker_id = marker_id
+
+    def poll_selected_marker_id(self) -> str | None:
+        marker_id, self.marker_id = self.marker_id, None
+        return marker_id
+
+
 def _position() -> GeoPoint:
     return GeoPoint(math.radians(42.80), math.radians(-83.01))
 
@@ -220,6 +229,28 @@ def test_map_click_marker_index_selects_exact_visible_poi() -> None:
 
     assert selected is not None
     assert selected.poi_id == "panera"
+
+
+def test_semantic_marker_selection_selects_visible_cesium_poi_once() -> None:
+    panera = PointOfInterest(
+        poi_id="panera",
+        name="Panera Bread",
+        category=PoiCategory.FOOD,
+        position=GeoPoint(math.radians(42.8000), math.radians(-83.0000)),
+    )
+    controller = PoiSearchController(
+        FakeMapPoiSource(),  # type: ignore[arg-type]
+        search_source=FakeSearchSource((panera,)),
+        position_provider=_position,
+        marker_selection_source=FakeMarkerSelectionSource("panera"),
+    )
+    controller.search(PoiCategory.FOOD)
+    controller.poll_search_result()
+
+    selected = controller.poll_selected()
+
+    assert selected is not None and selected.poi_id == "panera"
+    assert controller.poll_selected() is None
 
 
 def test_map_click_selects_nearest_visible_poi_and_enriches_business() -> None:

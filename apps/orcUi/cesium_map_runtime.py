@@ -6,16 +6,18 @@ import math
 import logging
 import threading
 import time
+from collections import deque
 
-from ui.navigation import GeoPoint
+from ui.navigation import GeoPoint, MapMarkerSelectionSourceIf
 from ui.navigation.cesium_viewer_state import CesiumViewerState
 from ui.navigation.map_platform_if import MapPlatform, MapPlatformState, ExplorationCameraAction
 from ui.navigation.poi_overlay_state import PoiOverlayState
+from ui.navigation.route_overlay_state import RouteOverlayState
 
 _PLATFORMS = (MapPlatform.MAPLIBRE, MapPlatform.CESIUM)
 
 
-class CesiumMapRuntime:
+class CesiumMapRuntime(MapMarkerSelectionSourceIf):
     """Composition-owned lifecycle adapter; no browser access from widgets."""
 
     def __init__(self, native, viewer, *, initial_view=None):
@@ -29,6 +31,9 @@ class CesiumMapRuntime:
         self._sent_position = None
         self._poi_overlay = PoiOverlayState()
         self._sent_poi_overlay = None
+        self._poi_selections = deque(maxlen=16)
+        self._route_overlay = RouteOverlayState()
+        self._sent_route_overlay = None
         self._follow_enabled = True
         self._lock = threading.RLock()
         self._state = MapPlatformState(available_platforms=_PLATFORMS)
@@ -129,6 +134,38 @@ class CesiumMapRuntime:
         if active:
             self._worker.submit(self._send_poi_overlay, generation)
 
+    def poll_selected_marker_id(self):
+        """Consume a semantic selection reported by the active 3D renderer."""
+        with self._lock:
+            return self._poi_selections.popleft() if self._poi_selections else None
+
+    def update_route_overlay(self, state):
+        """Cache one semantic route snapshot and update the active 3D renderer."""
+        if not isinstance(state, RouteOverlayState):
+            raise TypeError('3D route overlay requires RouteOverlayState')
+        with self._lock:
+            if self._closed:
+                return
+            self._route_overlay = state
+            generation = self._generation
+            active = self._state.active is MapPlatform.CESIUM and not self._state.busy
+        if active:
+            self._worker.submit(self._send_route_overlay, generation)
+
+    def _send_route_overlay(self, generation):
+        with self._lock:
+            if not self._current(generation):
+                return
+            state = self._route_overlay
+        if state != self._sent_route_overlay:
+            try:
+                self._viewer.update_route_overlay(state)
+                self._sent_route_overlay = state
+            except (OSError, RuntimeError, ValueError, TypeError) as error:
+                with self._lock:
+                    if self._current(generation):
+                        self._state = replace(self._state, status=f'3D route unavailable: {error}')
+
     def _send_poi_overlay(self, generation):
         with self._lock:
             if not self._current(generation):
@@ -199,13 +236,15 @@ class CesiumMapRuntime:
                 self._viewer.open(self._view,self._host,self._size,lambda:self._current(generation))
                 self._sent_position = None
                 self._sent_poi_overlay = None
+                self._sent_route_overlay = None
                 self._send_poi_overlay(generation)
+                self._send_route_overlay(generation)
             elif self._current(generation):
                 self._native.launch(self._host)
             with self._lock:
                 if self._current(generation):
                     self._state = MapPlatformState(platform,platform,False,
-                        '3D exploration · routes and radar use MapLibre' if platform is MapPlatform.CESIUM else 'MapLibre',
+                        '3D map · vehicle follow' if platform is MapPlatform.CESIUM else 'MapLibre',
                         available_platforms=_PLATFORMS, follow_enabled=self._follow_enabled)
         except Exception as error:
             try:
@@ -246,6 +285,11 @@ class CesiumMapRuntime:
             else:
                 if self._viewer.consume_manual_camera() is True:
                     self.request_follow(False)
+                marker_id = self._viewer.consume_poi_selection()
+                if isinstance(marker_id, str) and marker_id:
+                    with self._lock:
+                        if self._current(generation):
+                            self._poi_selections.append(marker_id)
                 self._send_position(generation)
                 self._poll_timeouts = 0
         except Exception as error:

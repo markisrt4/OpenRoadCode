@@ -12,6 +12,7 @@
   let imageryStack;
   let roadOverlay;
   let poiOverlay;
+  let routeOverlay;
   let terrainHillshade;
   let closing = false;
   const close = document.getElementById('close');
@@ -132,6 +133,13 @@
     window.ORCUpdateVehicle = window.ORCVehicleFollow(viewer, snapshot, C, terrain?.heightAt);
     poiOverlay=window.ORCPoiOverlay(viewer,C,terrain?.heightAt);
     window.ORCUpdatePois=state=>poiOverlay.update(state);
+    window.ORCConsumePoiSelection=()=>poiOverlay.consumeSelection();
+    viewer.screenSpaceEventHandler.setInputAction(movement=>{
+      const picked=viewer.scene.pick(movement.position);
+      poiOverlay.select(picked?.id?.id);
+    },C.ScreenSpaceEventType.LEFT_CLICK);
+    routeOverlay=window.ORCRouteOverlay(viewer,C,terrain?.heightAt);
+    window.ORCUpdateRoute=state=>routeOverlay.update(state);
     document.getElementById('pitch-up').onclick = () => { cameraControls.pitch(1); tilted=true; };
     document.getElementById('pitch-down').onclick = () => { cameraControls.pitch(-1); tilted=true; };
     for (const [id,right,up] of [['pan-up',0,1],['pan-down',0,-1],['pan-left',-1,0],['pan-right',1,0]]) {

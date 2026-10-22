@@ -23,6 +23,7 @@ from frontends.x11.x11_window_embedder import X11WindowEmbedder
 from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
 from ui.navigation.map_platform_if import ExplorationCameraAction
 from ui.navigation.poi_overlay_state import PoiOverlayState
+from ui.navigation.route_overlay_state import RouteOverlayState
 from ui.navigation import GeoPoint
 
 
@@ -62,6 +63,7 @@ class CesiumEmbeddedViewer:
         self._devtools = self._target = None
         self._manual_revision = 0
         self._manual_pending = False
+        self._poi_selection = None
 
     def open(self, state, parent_window_id, size, current=lambda: True):
         self.close()
@@ -215,16 +217,25 @@ class CesiumEmbeddedViewer:
             self._embedder.resize(*size)
             self._size = size
         result = self._devtools.command(self._target, 'Runtime.evaluate', {
-            'expression':'window.ORCManualCameraRevision || 0', 'returnByValue':True})
-        revision = result.get('result', {}).get('value', 0)
+            'expression':'({revision:window.ORCManualCameraRevision||0,poi:window.ORCConsumePoiSelection?window.ORCConsumePoiSelection():null})',
+            'returnByValue':True})
+        value = result.get('result', {}).get('value', {})
+        revision = value.get('revision', 0)
         if type(revision) is int and revision != self._manual_revision:
             self._manual_pending = True
             self._manual_revision = revision
+        marker_id = value.get('poi')
+        if isinstance(marker_id, str) and marker_id:
+            self._poi_selection = marker_id
         return True
 
     def consume_manual_camera(self):
         pending, self._manual_pending = self._manual_pending, False
         return pending
+
+    def consume_poi_selection(self):
+        marker_id, self._poi_selection = self._poi_selection, None
+        return marker_id
 
     def update_position(self, position, follow_enabled):
         if self._devtools is None:
@@ -250,12 +261,24 @@ class CesiumEmbeddedViewer:
         if result.get('exceptionDetails') or result.get('result', {}).get('value') is not True:
             raise RuntimeError('3D POI overlay rejected the update')
 
+    def update_route_overlay(self, state):
+        if self._devtools is None:
+            raise RuntimeError('3D route overlay is not ready')
+        if not isinstance(state, RouteOverlayState):
+            raise TypeError('3D route overlay requires RouteOverlayState')
+        result = self._devtools.command(self._target, 'Runtime.evaluate', {
+            'expression':f'window.ORCUpdateRoute({json.dumps(state.document())})',
+            'returnByValue':True})
+        if result.get('exceptionDetails') or result.get('result', {}).get('value') is not True:
+            raise RuntimeError('3D route overlay rejected the update')
+
     def close(self):
         resources, self._resources = self._resources, None
         self._browser = self._server = self._size = None
         self._devtools = self._target = None
         self._manual_revision = 0
         self._manual_pending = False
+        self._poi_selection = None
         try:
             if resources is not None:
                 # Close the browser while attached, before the Tk host is destroyed.

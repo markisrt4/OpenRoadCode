@@ -15,6 +15,7 @@ import math
 from common.app_settings import AppSettings, AppSettingsStore
 from apps.launchers.host_location_permission import HostLocationPermission
 from controllers.navigation.host_location_settings_controller import HostLocationSettingsController
+from controllers.navigation.route_overlay_controller import RouteOverlayController
 from controllers.weather.radar_palette import RadarPalette
 
 from apps.orcUi.application_runtime import OrcUiApplicationRuntime, create_orc_ui_application_runtime
@@ -232,11 +233,19 @@ def create_orc_ui_composition(
             core.map_camera.request_handler, lambda _name, _args, _kwargs: None,
             navigation_maps.update_poi_overlay)
         core.map_camera.observe_position(navigation_maps.update_position)
+        route_overlay = RouteOverlayController(navigation_maps.update_route_overlay)
+        core.route_request_handler.observe_route(route_overlay.update_route)
+        core.presentation.observe_route_guidance(route_overlay.update_guidance)
+        if core.route_request_handler.active_route is not None:
+            route_overlay.update_route(core.route_request_handler.active_route)
+        if core.presentation.route_guidance is not None:
+            route_overlay.update_guidance(core.presentation.route_guidance)
         navigation_places = NavigationPlacesFactory(
             online_allowed=lambda: app.online_mode.online,
             camera_observer=core.map_camera.request_handler.observe_camera,
             search_factory=lambda: PoiSearchController(viewport_search_enabled=lambda:
-                navigation_maps.state.active is MapPlatform.MAPLIBRE),
+                navigation_maps.state.active is MapPlatform.MAPLIBRE,
+                marker_selection_source=navigation_maps),
             embedded_explore=navigation_maps.request_explore)
         cleanup.callback(navigation_places.close)
         navigation = NavigationScreen(

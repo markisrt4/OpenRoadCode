@@ -565,6 +565,17 @@ existing offline nearby-position query instead of waiting for a viewport reply
 from the stopped renderer. Stale Cesium generations reject queued overlay work.
 Offline road tiles expose roads and settlement names through separate Cesium
 data sources and controls, allowing label rendering to be disabled independently.
+Cesium POI entity clicks return only the selected semantic marker identifier
+through `MapMarkerSelectionSourceIf`; the existing places controller resolves
+that identifier against its current result set and the Tk view presents the same
+place card and Navigate request used by MapLibre.
+
+Active routes follow the same boundary. `RouteOverlayController` merges the
+navigation service's route result and guidance messages into an immutable,
+SI-normalized `RouteOverlayState`. Composition sends complete replacements to
+the Cesium runtime, which caches them across renderer switches and rejects stale
+viewer generations. The web frontend only draws the terrain-clamped route,
+destination, and current maneuver; it owns no routing or guidance policy.
 
 Termux updates retain `--renderer-only` and the configurable renderer build
 directory. Full navigation updates always rebuild the ORC-owned renderer, while
