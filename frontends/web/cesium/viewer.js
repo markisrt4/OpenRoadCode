@@ -12,6 +12,7 @@
   let imageryStack;
   let roadOverlay;
   let poiOverlay;
+  let terrainHillshade;
   let closing = false;
   const close = document.getElementById('close');
   document.querySelectorAll('nav button').forEach(button => { button.disabled = true; });
@@ -205,6 +206,9 @@
     scaleButton.disabled = !terrain || !terrainVisible;
     const cuesButton = document.getElementById('terrain-cues');
     const terrainCues = terrain ? window.ORCTerrainCues(viewer,C) : null;
+    terrainHillshade = terrain ? window.ORCTerrainHillshade(viewer,snapshot.terrain,C,error=>{
+      status.hidden=false;status.textContent='Terrain hillshade unavailable: '+error.message;
+    }) : null;
     let cuesVisible = Boolean(snapshot.terrain_shading_visible);
     cuesButton.disabled = !terrain || !terrainVisible;
     function updateTerrain() {
@@ -222,11 +226,12 @@
       tiledMap?.refreshGround();
       roadOverlay?.refreshGround();
       terrainCues?.setEnabled(terrainVisible && cuesVisible);
+      terrainHillshade?.setEnabled(terrainVisible && cuesVisible);
       cuesButton.setAttribute('aria-pressed', String(terrainVisible && cuesVisible));
       terrainButton.setAttribute('aria-pressed', String(terrainVisible));
       terrainButton.textContent = terrainVisible ? 'Ground: Relief' : 'Ground: Flat';
       document.getElementById('terrain-status').textContent = terrainVisible
-        ? `Relief ground · sampled range ${terrain.sourceReliefM.toFixed(0)} m · ${terrainScale}×${terrainScale>1 ? ' exaggerated' : ' actual'}${cuesVisible ? ' · shaded · 10 m contours' : ''}`
+        ? `Relief ground · sampled range ${terrain.sourceReliefM.toFixed(0)} m · ${terrainScale}×${terrainScale>1 ? ' exaggerated' : ' actual'}${cuesVisible ? ' · contrast hillshade · 10 m contours' : ''}`
         : 'Flat ground comparison';
       if (snapshot.embedded) {
         const readout = document.getElementById('terrain-status');
@@ -312,5 +317,5 @@
     if (!/unavailable|Unable|stopped/i.test(statusText.textContent)) statusText.hidden = true;
     document.getElementById('tiles-status').hidden = true;
   }
-  window.addEventListener('pagehide', () => { roadOverlay?.destroy(); imageryStack?.destroy(); tiledMap?.destroy(); if (viewer && !viewer.isDestroyed()) viewer.destroy(); });
+  window.addEventListener('pagehide', () => { roadOverlay?.destroy(); terrainHillshade?.destroy(); imageryStack?.destroy(); tiledMap?.destroy(); if (viewer && !viewer.isDestroyed()) viewer.destroy(); });
 })();

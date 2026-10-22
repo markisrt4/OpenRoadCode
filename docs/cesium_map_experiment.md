@@ -360,11 +360,14 @@ conversion or navigation-grade altitude. All grids and original USGS response
 metadata remain offline after installation. The terrain artifact command reports
 tile count, LOD count, and compressed bytes and rejects archives above 64 MiB.
 
-The optional **Terrain cues** control adds Cesium globe lighting and restrained
-10-metre contours over installed imagery. It changes presentation only: source
+The optional **Terrain cues** control adds Cesium globe lighting, restrained
+10-metre contours, and a locally generated contrast hillshade over installed imagery. It changes presentation only: source
 elevations and the selected 1×/2×/3× relief scale are unchanged. Cues turn off
 while Ground is Flat and return to their prior selection when Relief is restored.
 They default off to avoid extra GPU work on constrained virtual and mobile GPUs.
+Hillshade generation uses fourfold slope contrast to reveal Michigan's subtle
+relief, attaches no more than six visible tiles, and caches each generated image;
+it does not exaggerate the terrain mesh or require another data download.
 
 Metro Detroit's schema-3 regional tier uses sixteen 129×129 grids, approximately
 200 metres apart, while retaining its four finer focus grids. The separately

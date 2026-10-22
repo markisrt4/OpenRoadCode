@@ -34,6 +34,15 @@ def test_optional_terrain_cues_restore_globe_presentation():
     assert result.returncode == 0, result.stdout+result.stderr
 
 
+def test_bounded_local_terrain_hillshade():
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("Node is optional; terrain-hillshade JS check requires node")
+    test = Path(__file__).resolve().parents[3] / "frontends/web/cesium/unit_test/test_terrain_hillshade.js"
+    result = subprocess.run([node, "--test", str(test)], capture_output=True, text=True, timeout=20)
+    assert result.returncode == 0, result.stdout+result.stderr
+
+
 def test_building_relief_alignment():
     node = shutil.which("node")
     if not node:
