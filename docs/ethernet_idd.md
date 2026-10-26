@@ -116,3 +116,13 @@ The forward is opt-in and owned by the user's SSH client. No ORC service binds
 and run TechForge's `--check-setup` against that port; SSH connection success
 alone does not prove the phone's SMS proxy is configured. Alternate free ports
 may be selected consistently in SSH's `-L` and TechForge's `--port`.
+
+## Guided local SMS connection
+
+ORC Companion's Connect messaging flow uses `/sms/connect/*` on the existing
+phone-local Termux Service Manager port 8769 for a short-lived browser approval
+and verified credential exchange. All setup requests require a loopback peer;
+runtime pairing is not an SMS grant. The Android gateway stays at
+127.0.0.1:8773. No additional listener is introduced. See
+[guided messaging setup](sms_messaging_setup.md) for the bounded route contract,
+private storage precedence, cancellation, and validation.

@@ -21,6 +21,20 @@ def default_path() -> Path:
     return xdg_config_home() / "openroadcode" / "service-manager" / "android-sms-token"
 
 
+def client_token_path() -> Path:
+    return default_path().with_name("sms-client-token")
+
+
+def connection_tokens() -> tuple[bool, str | None, str | None]:
+    """An approved guided connection is authoritative; legacy env remains fallback."""
+    client = load_token(client_token_path())
+    if client:
+        return True, client, load_token()
+    return (os.environ.get("OPENROADCODE_SMS_ENABLED") == "1",
+            os.environ.get("OPENROADCODE_SMS_TOKEN", "").strip() or None,
+            os.environ.get("OPENROADCODE_ANDROID_SMS_TOKEN", "").strip() or load_token())
+
+
 def load_token(path: Path | None = None) -> str | None:
     target = path or default_path()
     try:

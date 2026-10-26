@@ -58,6 +58,11 @@ class ServiceManagerBrowserPairing:
         self._sessions[session.session_id] = session
         return session, poll_token, approval_token
 
+    def active_count(self) -> int:
+        """Count unexpired sessions for bounded callers; caller owns synchronization."""
+        self._prune_expired()
+        return len(self._sessions)
+
     def get(self, session_id: str) -> BrowserPairingSession | None:
         session = self._sessions.get(session_id)
         if session is None:

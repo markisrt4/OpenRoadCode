@@ -34,6 +34,7 @@ from services.common.service_manager_pairing import ServiceManagerPairing
 from services.common.service_manager_logs import serve_logs
 from services.common.service_manager_sms_proxy import serve_sms
 from services.common.service_manager_sms_provision import serve_sms_provision
+from services.common.service_manager_sms_connect import SmsConnectionSessions, serve_sms_connect
 from services.common.system_performance_monitor import SystemPerformanceMonitor
 from services.termux.service_manager import RunitServiceManager, ServiceStatus
 
@@ -55,8 +56,11 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
     auth_token: str | None = None
     pairing = ServiceManagerPairing()
     browser_pairing = ServiceManagerBrowserPairing(pairing)
+    sms_connections = SmsConnectionSessions()
 
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+        if serve_sms_connect(self, "GET"):
+            return
         from urllib.parse import urlsplit
 
         parts = [part for part in urlsplit(self.path).path.split("/") if part]
@@ -88,6 +92,8 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
         self._json(HTTPStatus.OK, _payload(self.manager.all_status()))
 
     def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+        if serve_sms_connect(self, "POST"):
+            return
         from urllib.parse import urlsplit
 
         parts = [part for part in urlsplit(self.path).path.split("/") if part]
@@ -135,6 +141,8 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
         self._json(HTTPStatus.OK, _payload(statuses))
 
     def do_DELETE(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+        if serve_sms_connect(self, "DELETE"):
+            return
         if serve_sms_provision(self, "DELETE"):
             return
         self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})

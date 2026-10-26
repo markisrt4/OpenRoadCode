@@ -8,11 +8,10 @@ from __future__ import annotations
 from http import HTTPStatus
 from http.client import HTTPConnection
 import json
-import os
 from urllib.parse import urlsplit
 
 from services.common.service_manager_messaging_auth import messaging_authorized
-from services.common.service_manager_sms_credentials import load_token
+from services.common.service_manager_sms_credentials import connection_tokens
 
 ENABLED_ENV = "OPENROADCODE_SMS_ENABLED"
 TOKEN_ENV = "OPENROADCODE_SMS_TOKEN"
@@ -35,9 +34,7 @@ def serve_sms(handler: object, method: str) -> bool:
     if (method, path) not in ALLOWED_ROUTES:
         return False
 
-    enabled = os.environ.get(ENABLED_ENV) == "1"
-    external_token = os.environ.get(TOKEN_ENV, "").strip() or None
-    internal_token = os.environ.get(ANDROID_TOKEN_ENV, "").strip() or load_token()
+    enabled, external_token, internal_token = connection_tokens()
     if not enabled or not external_token or not internal_token:
         handler._json(HTTPStatus.SERVICE_UNAVAILABLE, {"error": "SMS gateway disabled"})
         return True
