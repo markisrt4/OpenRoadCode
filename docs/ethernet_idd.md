@@ -33,6 +33,7 @@ Interface names and roles describe the capability exposed on the network. Applic
 | 8768 | `127.0.0.1:8768` | `YouTubeMusicVideo` local player server | Serves the temporary local YouTube player page and close callback | TCP | HTTP | No direct unit test located | Dedicated transient music-video player port; listener exists only while playback is active. |
 | 8769 | `0.0.0.0:8769` on remotely managed Linux runtimes | OpenRoadCode service manager | Authenticated runtime control plane for pairing, service status/lifecycle, and runtime-profile configuration | TCP | HTTP + JSON | [systemd service-manager HTTP](../services/linux/unit_test/test_systemd_service_manager_http.py) | Android Bridge is a management client. Remote binding requires the service-manager bootstrap token; paired clients receive their own bearer credential. This is control/configuration traffic, not sensor telemetry. |
 | 8773 | `127.0.0.1:8773` | ORC Companion SMS gateway | Opt-in, bearer-authenticated SMS conversations, messages, and sending for same-device Termux | TCP | HTTP + JSON (`/sms/conversations`, `/sms/messages`, `/sms/send`) | Pending Android and proxy integration tests | Android owns the listener; Termux service manager proxies to it. `READ_SMS` enables read-only operation; sending additionally requires `SEND_SMS`. Never reuse host-actions port 8772. |\n| 8888 | `127.0.0.1:8888/callback` | OpenRoadCode OAuth redirect server | Local browser OAuth callback, including Spotify authentication | TCP | HTTP / OAuth 2.0 loopback redirect | No direct unit test located | Transient authentication listener rather than a long-lived service. |
+| 18769 | `127.0.0.1:18769` on the Linux client | User-started SSH local forward for TechForge Messaging | Encrypted access to the phone's Termux SMS proxy at `127.0.0.1:8769` | TCP | SSH carrying authenticated HTTP/JSON | TechForge `tests/test_tunnel.py` checks alternate-port HTTP authentication and redirect/proxy rejection; real SSH/device validation pending | Optional tunnel port, selected with TechForge `--port 18769`; not a new Service Manager or Android listener. Keep SSH local forwarding bound to 127.0.0.1, verify with `ss -ltn`, and retain the separate SMS credential. |
 | 35000 | `127.0.0.1:35000` | OpenRoadCode Android Bluetooth SPP bridge | Raw ELM327 stream consumed by the Termux automotive service | TCP | Raw TCP carrying ELM327 ASCII command/response data | No direct unit test located | Current Termux automotive default. Android owns the Bluetooth SPP connection; OpenRoadCode consumes the proxied stream. |
 
 `No direct unit test located` means the repository audit did not identify a unit test that directly exercises that listener or port. It does not mean the owning subsystem has no unit, integration, or component-test coverage. Links in this column deliberately point only to unit tests that directly cover the documented interface rather than merely testing nearby code.
@@ -100,3 +101,18 @@ The principal code/configuration locations behind this registry are:
 - `controllers/weather/radar_tile_service.py`
 
 When code and this document disagree, treat the mismatch as a documentation defect or an undocumented interface change and reconcile both in the same pull request.
+
+## TechForge SMS over SSH
+
+For a Linux VM with its own runtime Service Manager on 8769, use a separately
+started SSH local forward bound to `127.0.0.1:18769`, targeting the phone's
+Termux Service Manager at `127.0.0.1:8769`. TechForge selects that endpoint with
+`--port 18769` and reads the distinct SMS client credential from its selected
+private `--config` file. The Android gateway remains on the phone's
+`127.0.0.1:8773`; pairing still grants runtime control only.
+
+The forward is opt-in and owned by the user's SSH client. No ORC service binds
+18769 automatically. Verify the actual socket is bound to 127.0.0.1 with `ss`
+and run TechForge's `--check-setup` against that port; SSH connection success
+alone does not prove the phone's SMS proxy is configured. Alternate free ports
+may be selected consistently in SSH's `-L` and TechForge's `--port`.
