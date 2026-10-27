@@ -70,7 +70,10 @@ def build(destination: Path, *, coverage: str = "metro-detroit", size: int | Non
         }
     indexed = list(enumerate(definitions, 1))
     if coverage in MICHIGAN_COVERAGES:
-        with ThreadPoolExecutor(max_workers=4) as executor:
+        # Statewide grids generate many USGS sampling calls. Two concurrent
+        # tiles are intentionally gentler on the public service and more stable
+        # than the four-way prototype used for local builds.
+        with ThreadPoolExecutor(max_workers=2) as executor:
             records = list(executor.map(build_tile, indexed))
     else:
         records = [build_tile(item) for item in indexed]

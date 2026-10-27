@@ -386,9 +386,14 @@ Install the statewide overview or the shard containing the intended destination
 with `development.maps.install_terrain --coverage COVERAGE --pack-manifest URL
 --yes`. An installed Metro Detroit pack takes precedence, followed by a matching
 Michigan detail shard and then the statewide overview. Each Michigan build is
-independent and resumable so one service failure does not invalidate other
-published regions. Building all nine packages is intentionally not one workflow
-job because USGS request time and release inspection remain explicit.
+independent. GitHub Actions restores validated `.download` tiles from a
+coverage-specific cache and saves them even when a transient USGS failure stops
+the job, so rerunning that coverage resumes instead of sampling completed tiles
+again. Statewide sampling uses two concurrent tiles plus bounded exponential
+request backoff to reduce pressure on the public endpoint. Packaging and draft
+release creation still require every tile to pass validation. Building all nine
+packages is intentionally not one workflow job because USGS request time and
+release inspection remain explicit.
 
 Until the Michigan workflow file reaches the default branch, GitHub cannot
 dispatch that new filename directly. On `navigation-cesium`, use the already

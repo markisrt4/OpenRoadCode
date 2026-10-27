@@ -210,10 +210,12 @@ def test_http_500_request_retries_are_bounded(monkeypatch):
         attempts.append(1)
         raise HTTPError(terrain.SERVICE, 500, 'Server error', {}, None)
     monkeypatch.setattr(terrain.urllib.request, 'urlopen', unavailable)
-    monkeypatch.setattr(terrain.time, 'sleep', lambda seconds: None)
+    delays = []
+    monkeypatch.setattr(terrain.time, 'sleep', delays.append)
     with pytest.raises(HTTPError):
         terrain._json_request(terrain.SERVICE)
-    assert len(attempts) == 3
+    assert len(attempts) == 6
+    assert delays == [1, 2, 4, 8, 16]
 
 
 def test_image_service_http_404_is_not_hidden_by_fallback(tmp_path, monkeypatch):
@@ -319,3 +321,7 @@ def test_map_data_workflow_builds_split_release_assets_without_actions_storage()
     michigan = Path('.github/workflows/build-michigan-terrain.yml').read_text()
     assert 'michigan-terrain-index.json' in michigan
     assert 'timeout-minutes: 360' in michigan
+    assert 'actions/cache/restore@v4' in michigan
+    assert 'actions/cache/save@v4' in michigan
+    assert "steps.terrain-build.outcome == 'failure'" in michigan
+    assert '${{ inputs.coverage }}-terrain.download' in michigan

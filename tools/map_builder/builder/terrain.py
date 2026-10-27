@@ -17,6 +17,8 @@ from .map_3d import PRESETS
 
 SERVICE = "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer"
 EPQS = "https://epqs.nationalmap.gov/v1/json"
+_REQUEST_ATTEMPTS = 6
+_MAX_RETRY_DELAY_SECONDS = 30
 
 
 class ElevationServiceError(RuntimeError):
@@ -32,17 +34,18 @@ def request(endpoint, parameters):
 
 
 def _json_request(url, data=None):
-    for attempt in range(3):
+    for attempt in range(_REQUEST_ATTEMPTS):
         try:
             req = urllib.request.Request(url, data=data, headers={'User-Agent':'OpenRoadCode terrain installer'})
             with urllib.request.urlopen(req, timeout=30) as response:
                 result = json.load(response)
             break
         except (URLError, TimeoutError) as error:
-            if (isinstance(error, HTTPError) and error.code not in (429,500,502,503,504)) or attempt == 2:
+            if (isinstance(error, HTTPError) and error.code not in (429,500,502,503,504)) or attempt == _REQUEST_ATTEMPTS - 1:
                 raise
-            print(f"USGS request failed; retry {attempt+1}/2: {error}")
-            time.sleep(attempt+1)
+            delay = min(_MAX_RETRY_DELAY_SECONDS, 2**attempt)
+            print(f"USGS request failed; retry {attempt+1}/{_REQUEST_ATTEMPTS-1} in {delay}s: {error}", flush=True)
+            time.sleep(delay)
     if "error" in result:
         raise ElevationServiceError(result['error'])
     return result

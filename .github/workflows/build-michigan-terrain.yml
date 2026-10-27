@@ -42,12 +42,33 @@ jobs:
           python-version: '3.12'
       - name: Install map-data dependencies
         run: python -m pip install Pillow
+      - name: Restore validated terrain tiles
+        id: terrain-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: build-output/${{ inputs.coverage }}-terrain.download
+          key: terrain-v2-${{ inputs.coverage }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            terrain-v2-${{ inputs.coverage }}-
       - name: Build resumable terrain shard
+        id: terrain-build
+        continue-on-error: true
         run: |
           python -m development.maps.install_terrain \
             --coverage "${{ inputs.coverage }}" \
             --build-only "build-output/${{ inputs.coverage }}-terrain" \
             --yes
+      - name: Preserve validated terrain tiles after interruption
+        if: ${{ always() && steps.terrain-build.outcome == 'failure' }}
+        uses: actions/cache/save@v4
+        with:
+          path: build-output/${{ inputs.coverage }}-terrain.download
+          key: terrain-v2-${{ inputs.coverage }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Report incomplete terrain build
+        if: ${{ steps.terrain-build.outcome == 'failure' }}
+        run: |
+          echo "::error::Terrain build stopped before all tiles validated. Rerun this coverage to restore completed tiles."
+          exit 1
       - name: Package checked terrain shard
         run: |
           python -m tools.map_builder.builder.terrain_artifact \
