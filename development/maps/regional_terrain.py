@@ -38,6 +38,50 @@ def _metro_lod_tiles(bounds):
         yield "focus-" + preset, PRESETS[preset][1], 129, 2, 12
 
 
+def _definitions(coverage, bounds, size=None):
+    if size is not None:
+        return [(tile_id, tile_bounds, size, 0, 0)
+                for tile_id, tile_bounds in terrain_tiles(bounds)]
+    if coverage == "metro-detroit":
+        return list(_metro_lod_tiles(bounds))
+    return [(tile_id, tile_bounds, 129, 0, 0)
+            for tile_id, tile_bounds in terrain_tiles(bounds, 8)]
+
+
+def _build_tile(cache, title, index, total, definition):
+    tile_id, tile_bounds, grid_size, detail_level, minimum_zoom = definition
+    tile = cache / tile_id
+    print(f"Terrain tile {index}/{total}: {tile_id} (LOD {detail_level})", flush=True)
+    download_bounds(tile, f"{title} {tile_id}", tile_bounds, size=grid_size)
+    return {
+        "id": tile_id,
+        "path": tile_id,
+        "bounds_deg": tile_bounds,
+        "sha256": hashlib.sha256((tile / "terrain.json").read_bytes()).hexdigest(),
+        "detail_level": detail_level,
+        "minimum_zoom": minimum_zoom,
+    }
+
+
+def build_michigan_row(cache: Path, *, coverage: str, row: int) -> None:
+    """Build and validate one row of a Michigan pack's shared tile cache."""
+    if coverage not in MICHIGAN_COVERAGES:
+        raise ValueError(f"Not a Michigan terrain coverage: {coverage}")
+    if row not in range(8):
+        raise ValueError(f"Michigan terrain row must be 0-7, got {row}")
+    title, bounds = MICHIGAN_COVERAGES[coverage]
+    cache = Path(cache)
+    cache.mkdir(parents=True, exist_ok=True)
+    definitions = _definitions(coverage, bounds)
+    selected = [(index, definition) for index, definition in enumerate(definitions, 1)
+                if definition[0].startswith(f"r{row}-")]
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        list(executor.map(
+            lambda item: _build_tile(cache, title, item[0], len(definitions), item[1]),
+            selected,
+        ))
+
+
 def build(destination: Path, *, coverage: str = "metro-detroit", size: int | None = None) -> None:
     title, bounds = (COVERAGES[coverage] if coverage == "metro-detroit"
                      else MICHIGAN_COVERAGES[coverage])
@@ -47,27 +91,9 @@ def build(destination: Path, *, coverage: str = "metro-detroit", size: int | Non
         return
     cache = destination.with_name(destination.name + ".download")
     cache.mkdir(parents=True, exist_ok=True)
-    if size is not None:
-        definitions = [(tile_id, tile_bounds, size, 0, 0)
-                       for tile_id, tile_bounds in terrain_tiles(bounds)]
-    elif coverage == "metro-detroit":
-        definitions = list(_metro_lod_tiles(bounds))
-    else:
-        definitions = [(tile_id, tile_bounds, 129, 0, 0)
-                       for tile_id, tile_bounds in terrain_tiles(bounds, 8)]
-    def build_tile(index_definition):
-        index, (tile_id, tile_bounds, grid_size, detail_level, minimum_zoom) = index_definition
-        tile = cache / tile_id
-        print(f"Terrain tile {index}/{len(definitions)}: {tile_id} (LOD {detail_level})", flush=True)
-        download_bounds(tile, f"{title} {tile_id}", tile_bounds, size=grid_size)
-        return {
-            "id": tile_id,
-            "path": tile_id,
-            "bounds_deg": tile_bounds,
-            "sha256": hashlib.sha256((tile / "terrain.json").read_bytes()).hexdigest(),
-            "detail_level": detail_level,
-            "minimum_zoom": minimum_zoom,
-        }
+    definitions = _definitions(coverage, bounds, size)
+    def build_tile(item):
+        return _build_tile(cache, title, item[0], len(definitions), item[1])
     indexed = list(enumerate(definitions, 1))
     if coverage in MICHIGAN_COVERAGES:
         # Statewide grids generate many USGS sampling calls. Two concurrent

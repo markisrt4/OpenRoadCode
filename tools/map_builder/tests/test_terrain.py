@@ -287,6 +287,25 @@ def test_michigan_shard_plan_is_bounded_and_cataloged(tmp_path, monkeypatch):
     assert len(catalog['detail_shards']) == 8
 
 
+def test_michigan_row_builder_selects_one_globally_numbered_row(tmp_path, monkeypatch):
+    from development.maps import regional_terrain
+
+    selected = []
+    def download_tile(destination, title, bounds, size=65):
+        del title
+        selected.append((destination.name, bounds, size))
+        destination.mkdir()
+        (destination/'terrain.json').write_text('{}')
+
+    monkeypatch.setattr(regional_terrain, 'download_bounds', download_tile)
+    cache = tmp_path/'terrain.download'
+    regional_terrain.build_michigan_row(cache, coverage='michigan-overview', row=3)
+    assert {item[0] for item in selected} == {f'r3-c{column}' for column in range(8)}
+    assert {item[2] for item in selected} == {129}
+    with pytest.raises(ValueError, match='0-7'):
+        regional_terrain.build_michigan_row(cache, coverage='michigan-overview', row=8)
+
+
 def test_metro_build_only_validates_the_requested_output(tmp_path, monkeypatch):
     from development.maps import install_terrain
     output = tmp_path/'build-only'
@@ -320,8 +339,12 @@ def test_map_data_workflow_builds_split_release_assets_without_actions_storage()
     assert 'uses: ./.github/workflows/build-michigan-terrain.yml' in workflow
     michigan = Path('.github/workflows/build-michigan-terrain.yml').read_text()
     assert 'michigan-terrain-index.json' in michigan
-    assert 'timeout-minutes: 360' in michigan
+    assert 'max-parallel: 2' in michigan
+    assert 'row: [0, 1, 2, 3, 4, 5, 6, 7]' in michigan
+    assert 'development.maps.build_terrain_row' in michigan
     assert 'actions/cache/restore@v4' in michigan
     assert 'actions/cache/save@v4' in michigan
-    assert "steps.terrain-build.outcome == 'failure'" in michigan
-    assert '${{ inputs.coverage }}-terrain.download' in michigan
+    assert 'actions/upload-artifact@v4' in michigan
+    assert 'actions/download-artifact@v4' in michigan
+    assert 'needs: build-row' in michigan
+    assert 'merge-multiple: true' in michigan

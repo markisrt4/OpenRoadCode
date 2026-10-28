@@ -386,12 +386,15 @@ Install the statewide overview or the shard containing the intended destination
 with `development.maps.install_terrain --coverage COVERAGE --pack-manifest URL
 --yes`. An installed Metro Detroit pack takes precedence, followed by a matching
 Michigan detail shard and then the statewide overview. Each Michigan build is
-independent. GitHub Actions restores validated `.download` tiles from a
-coverage-specific cache and saves them even when a transient USGS failure stops
-the job, so rerunning that coverage resumes instead of sampling completed tiles
-again. Statewide sampling uses two concurrent tiles plus bounded exponential
-request backoff to reduce pressure on the public endpoint. Packaging and draft
-release creation still require every tile to pass validation. Building all nine
+independent. GitHub Actions builds the eight terrain rows as bounded matrix jobs,
+with no more than two rows running at once. Each row restores and saves its own
+validated `.download` tile cache, then passes successful tiles to a final assembly
+job through a seven-day workflow artifact. Rerunning a failed coverage therefore
+reuses completed rows instead of resampling them. Each row uses two concurrent
+tiles plus bounded exponential request backoff to reduce pressure on the public
+endpoint. Packaging and draft release creation still require all eight rows and
+every tile to pass validation; the temporary row artifacts are not the published
+map package. Building all nine
 packages is intentionally not one workflow job because USGS request time and
 release inspection remain explicit.
 
