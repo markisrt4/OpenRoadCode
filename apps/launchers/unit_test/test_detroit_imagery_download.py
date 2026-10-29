@@ -86,6 +86,18 @@ def test_catalog_network_failure_identifies_stage_and_endpoint(monkeypatch):
     assert downloader.SERVICE+'/query' in str(error.value)
 
 
+def test_large_export_parameters_use_arcgis_form_post(monkeypatch):
+    opened = Mock(return_value=io.BytesIO(b'{"width": 1}'))
+    monkeypatch.setattr(downloader, 'open_source', opened)
+    document = downloader.get_json('/exportImage', mosaicRule='x'*3000)
+    assert document == {'width': 1}
+    request = opened.call_args.args[0]
+    assert isinstance(request, downloader.urllib.request.Request)
+    assert request.full_url == downloader.SERVICE+'/exportImage'
+    assert request.get_header('Content-type') == 'application/x-www-form-urlencoded'
+    assert b'mosaicRule=' in request.data
+
+
 def test_truncated_catalog_fetches_complete_ids_with_smaller_batches(monkeypatch):
     service = Mock(side_effect=[
         {'features': [], 'exceededTransferLimit': True},

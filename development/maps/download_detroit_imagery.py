@@ -180,22 +180,28 @@ def open_source(url, *, timeout, attempts=None):
 def get_json(endpoint, *, timeout=60, attempts=None, **parameters):
     stage = {"":"service metadata", "/query":"NAIP source catalog", "/exportImage":"bounded image export"}.get(endpoint, endpoint)
     print(f'USGS imagery: requesting {stage}…', flush=True)
-    url = SERVICE + endpoint + "?" + urllib.parse.urlencode({"f":"json", **parameters})
+    address = SERVICE + endpoint
+    encoded = urllib.parse.urlencode({"f":"json", **parameters}).encode()
+    # Large statewide mosaics can lock hundreds of source rasters. ArcGIS
+    # accepts the same form parameters by POST, avoiding proxy/server URI caps.
+    request = (urllib.request.Request(address, data=encoded, headers={
+        'Content-Type': 'application/x-www-form-urlencoded',
+    }) if len(encoded) > 1800 else address + "?" + encoded.decode())
 
     def read():
-        with open_source(url, timeout=timeout, attempts=1) as response:
+        with open_source(request, timeout=timeout, attempts=1) as response:
             document = json.load(response)
         if 'error' in document:
             error = document['error']
             if error.get('code') in (429, 500, 502, 503, 504):
-                raise HTTPError(url, error['code'], error.get('message', 'Service unavailable'), {}, None)
+                raise HTTPError(address, error['code'], error.get('message', 'Service unavailable'), {}, None)
             raise RuntimeError(f'USGS service error: {error}')
         return document
 
     try:
         return retry_request(read, stage=stage, attempts=attempts)
     except (URLError, TimeoutError, IncompleteRead) as error:
-        raise SourceRequestError(f'{stage} failed after retries: {error} · endpoint {SERVICE+endpoint}') from error
+        raise SourceRequestError(f'{stage} failed after retries: {error} · endpoint {address}') from error
 
 
 def download_image_bytes(href, max_bytes):
