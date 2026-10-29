@@ -47,9 +47,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: build-output/${{ inputs.coverage }}-imagery.download
-          key: imagery-v1-${{ inputs.coverage }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: imagery-v2-${{ inputs.coverage }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            imagery-v1-${{ inputs.coverage }}-
+            imagery-v2-${{ inputs.coverage }}-
       - name: Build checked regional imagery
         id: imagery-build
         continue-on-error: true
@@ -63,7 +63,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: build-output/${{ inputs.coverage }}-imagery.download
-          key: imagery-v1-${{ inputs.coverage }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: imagery-v2-${{ inputs.coverage }}-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Report incomplete imagery build
         if: ${{ steps.imagery-build.outcome == 'failure' }}
         run: |
