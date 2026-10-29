@@ -346,5 +346,7 @@ def test_map_data_workflow_builds_split_release_assets_without_actions_storage()
     assert 'actions/cache/save@v4' in michigan
     assert 'actions/upload-artifact@v4' in michigan
     assert 'actions/download-artifact@v4' in michigan
-    assert 'needs: build-row' in michigan
+    assert 'needs: [build-row, build-imagery]' in michigan
     assert 'merge-multiple: true' in michigan
+    assert 'development.maps.install_region' in michigan
+    assert 'michigan-imagery-index.json' in michigan

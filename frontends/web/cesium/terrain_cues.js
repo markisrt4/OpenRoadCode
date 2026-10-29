@@ -4,11 +4,13 @@ window.ORCTerrainCues = function (viewer, C) {
   const globe = viewer.scene.globe;
   const originalLighting = globe.enableLighting;
   const originalMaterial = globe.material;
-  const color=C.Color.fromCssColorString('#e6d59a').withAlpha(.58);
+  // Keep contours cool and subdued so they cannot be mistaken for the
+  // yellow/white navigation road hierarchy.
+  const color=C.Color.fromCssColorString('#69a7bd').withAlpha(.46);
   let scale=1;
   let contours;
   function createContours() {
-    return C.Material.fromType('ElevationContour',{color,spacing:10*scale,width:1.25});
+    return C.Material.fromType('ElevationContour',{color,spacing:10*scale,width:1.0});
   }
   contours=createContours();
   let enabled = false;

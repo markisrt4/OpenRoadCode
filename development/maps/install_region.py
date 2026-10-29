@@ -13,6 +13,7 @@ from development.maps.regional_imagery import download as download_overview
 from development.maps.prebuilt_imagery import (read_descriptor, read_local_archive,
                                                verify_archive, fetch_archive, unpack,
                                                github_release_descriptor)
+from development.maps.terrain_regions import MICHIGAN_COVERAGES
 
 # Rectangular planning envelopes, not county boundaries. No Canadian imagery promised.
 COVERAGES = {
@@ -20,7 +21,15 @@ COVERAGES = {
     'detroit-midtown': ('Detroit Downtown–Midtown detail', (-83.085, 42.315, -83.025, 42.375)),
     'rochester': PRESETS['rochester'],
     'southfield': PRESETS['southfield'],
+    **{coverage: (title.replace('terrain overview', 'imagery overview'), bounds)
+       for coverage, (title, bounds) in MICHIGAN_COVERAGES.items()},
 }
+
+
+def build_image_size(coverage, detail=False):
+    if coverage in MICHIGAN_COVERAGES:
+        return (8192, 8192)
+    return (4096,4096) if detail or coverage != 'metro-detroit' else (2048,1536)
 
 
 def imagery_directory(coverage):
@@ -50,7 +59,7 @@ def install(coverage, *, update=False, artifact=None, detail=False):
     else:
         download_overview(revision, bounds=bounds, title=title,
                           cache_directory=active.with_name(active.name+'.download'),
-                          image_size=(4096,4096) if detail or coverage != 'metro-detroit' else (2048,1536))
+                          image_size=build_image_size(coverage, detail))
     LocalImageryPack.load(revision)
     pending = active.parent / ('.active-'+uuid.uuid4().hex)
     try:
@@ -121,7 +130,7 @@ def main():
         if args.build_only:
             download_overview(args.build_only, bounds=bounds, title=title,
                               cache_directory=args.build_only.with_name(args.build_only.name+'.download'),
-                              image_size=(4096,4096) if args.detail or coverage != 'metro-detroit' else (2048,1536))
+                              image_size=build_image_size(coverage, args.detail))
             LocalImageryPack.load(args.build_only)
             print(f'Validated build output: {args.build_only}. Ready for imagery_artifact packaging.')
         else:

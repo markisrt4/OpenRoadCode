@@ -17,8 +17,11 @@ def _save_overview(image, output, *, transparent):
     """Encode bounded imagery below the runtime cap while preserving gap alpha."""
     if not transparent:
         with image.convert('RGB') as opaque:
-            opaque.save(output, format='JPEG', quality=90)
-        return
+            for quality in (90, 86, 82, 78, 74, 68, 62):
+                opaque.save(output, format='JPEG', quality=quality, optimize=True)
+                if output.stat().st_size <= MAX_BYTES:
+                    return
+        raise ValueError('Regional imagery cannot fit the 20 MiB runtime limit')
     # Lossless PNG frequently exceeds 20 MiB for 4096px aerial photography.
     # WebP retains the transparent no-coverage cells with bounded lossy imagery.
     for quality in (88, 82, 76, 70, 64):
@@ -31,7 +34,7 @@ def _save_overview(image, output, *, transparent):
 def download(destination, *, bounds, title, cache_directory, image_size=(2048,1536)):
     # Keep large exports away from ImageServer: each request covers one sixteenth
     # of the envelope and produces one sixteenth of the final pixel count.
-    if image_size not in ((2048,1536), (4096,4096)):
+    if image_size not in ((2048,1536), (4096,4096), (8192,8192)):
         raise ValueError('Unsupported regional image dimensions')
     if destination.exists():
         LocalImageryPack.load(destination)
@@ -69,7 +72,8 @@ def download(destination, *, bounds, title, cache_directory, image_size=(2048,15
                         raise ValueError('Resume tile does not match the requested overview')
                 try:
                     download_image(tile, bounds=tile_bounds, title=title,
-                                   image_size=tile_size, max_bytes=MAX_BYTES//16)
+                                   image_size=tile_size,
+                                   max_bytes=8*1024*1024 if image_size == (8192,8192) else MAX_BYTES//16)
                 except NoImageryCoverage as error:
                     gap = {'bounds_deg':tile_bounds, 'reason':'No approved NAIP/USDA source in complete catalog'}
                     with TemporaryDirectory(dir=cache, prefix='.gap-') as temporary:

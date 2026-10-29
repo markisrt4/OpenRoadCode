@@ -369,6 +369,8 @@ uses 10/20/30-metre rendered spacing at 1×/2×/3× so exaggeration does not cre
 three times as many lines. Hillshade generation uses fourfold slope contrast to reveal Michigan's subtle
 relief, attaches no more than six visible tiles, and caches each generated image;
 it does not exaggerate the terrain mesh or require another data download.
+Contours use a translucent cool blue-gray rather than the road overlay's
+yellow/white hierarchy, so terrain shape and navigation geometry remain distinct.
 
 Metro Detroit's schema-3 regional tier uses sixteen 129×129 grids, approximately
 200 metres apart, while retaining its four finer focus grids. The separately
@@ -397,6 +399,25 @@ every tile to pass validation; the temporary row artifacts are not the published
 map package. Building all nine
 packages is intentionally not one workflow job because USGS request time and
 release inspection remain explicit.
+
+The same Michigan workflow builds a separately installable 8192×8192 USGS aerial
+image for the selected envelope. The statewide overview is intentionally broad
+background context; the eight smaller peninsula envelopes provide the useful
+regional tier, and existing Metro Detroit/focus imagery remains the most detailed
+layer. Imagery and terrain archives retain independent descriptors and checksums
+in one draft release. Runtime selection orders installed imagery broad-to-fine,
+so the smallest matching validated pack draws on top without stretching outside
+its declared rectangle. Each image remains under the runtime's 20 MiB payload
+limit; source export evidence is retained in its archive.
+
+After publishing a successful draft release, install both descriptors from the
+same tag and reopen the 3D viewer:
+
+```bash
+git switch navigation-cesium
+python -m development.maps.install_region --coverage COVERAGE --pack-manifest "https://github.com/markisrt4/OpenRoadCode/releases/download/TAG/COVERAGE-imagery.zip.json" --yes
+python -m development.maps.install_terrain --coverage COVERAGE --pack-manifest "https://github.com/markisrt4/OpenRoadCode/releases/download/TAG/COVERAGE-terrain.zip.json" --yes
+```
 
 Until the Michigan workflow file reaches the default branch, GitHub cannot
 dispatch that new filename directly. On `navigation-cesium`, use the already

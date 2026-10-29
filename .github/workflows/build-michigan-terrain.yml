@@ -32,6 +32,62 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  build-imagery:
+    name: Build regional imagery
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install map-data dependencies
+        run: python -m pip install Pillow
+      - name: Restore resumable imagery exports
+        uses: actions/cache/restore@v4
+        with:
+          path: build-output/${{ inputs.coverage }}-imagery.download
+          key: imagery-v1-${{ inputs.coverage }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            imagery-v1-${{ inputs.coverage }}-
+      - name: Build checked regional imagery
+        id: imagery-build
+        continue-on-error: true
+        run: |
+          python -m development.maps.install_region \
+            --coverage "${{ inputs.coverage }}" \
+            --build-only "build-output/${{ inputs.coverage }}-imagery" \
+            --yes
+      - name: Preserve resumable imagery exports
+        if: ${{ always() && steps.imagery-build.outcome == 'failure' }}
+        uses: actions/cache/save@v4
+        with:
+          path: build-output/${{ inputs.coverage }}-imagery.download
+          key: imagery-v1-${{ inputs.coverage }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Report incomplete imagery build
+        if: ${{ steps.imagery-build.outcome == 'failure' }}
+        run: |
+          echo "::error::Imagery build stopped before all exports validated. Rerun this coverage to restore completed exports."
+          exit 1
+      - name: Package checked imagery
+        run: |
+          python -m tools.map_builder.builder.imagery_artifact \
+            --coverage "${{ inputs.coverage }}" \
+            --pack "build-output/${{ inputs.coverage }}-imagery" \
+            --output "build-output/${{ inputs.coverage }}-imagery.zip"
+          python -m development.maps.imagery_regions \
+            --output build-output/michigan-imagery-index.json
+      - name: Upload checked imagery package
+        uses: actions/upload-artifact@v4
+        with:
+          name: imagery-${{ inputs.coverage }}
+          path: |
+            build-output/${{ inputs.coverage }}-imagery.zip
+            build-output/${{ inputs.coverage }}-imagery.zip.json
+            build-output/michigan-imagery-index.json
+          if-no-files-found: error
+          retention-days: 7
+
   build-row:
     name: Build terrain row ${{ matrix.row }}
     runs-on: ubuntu-latest
@@ -84,8 +140,8 @@ jobs:
           retention-days: 7
 
   assemble:
-    name: Assemble checked terrain package
-    needs: build-row
+    name: Assemble checked map-data package
+    needs: [build-row, build-imagery]
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -101,6 +157,11 @@ jobs:
           pattern: terrain-row-${{ inputs.coverage }}-*
           path: build-output/${{ inputs.coverage }}-terrain.download
           merge-multiple: true
+      - name: Download checked imagery package
+        uses: actions/download-artifact@v4
+        with:
+          name: imagery-${{ inputs.coverage }}
+          path: build-output/imagery-artifacts
       - name: Validate and assemble terrain shard
         run: |
           python -m development.maps.install_terrain \
@@ -126,6 +187,9 @@ jobs:
             "build-output/${COVERAGE}-terrain.zip" \
             "build-output/${COVERAGE}-terrain.zip.json" \
             build-output/michigan-terrain-index.json \
+            "build-output/imagery-artifacts/${COVERAGE}-imagery.zip" \
+            "build-output/imagery-artifacts/${COVERAGE}-imagery.zip.json" \
+            build-output/imagery-artifacts/michigan-imagery-index.json \
             --draft --target "$GITHUB_SHA" \
-            --title "Michigan terrain · ${COVERAGE}" \
-            --notes "Offline rectangular USGS 3DEP terrain shard. Inspect coverage, size, and rendering before publishing."
+            --title "Michigan offline map data · ${COVERAGE}" \
+            --notes "Offline rectangular USGS imagery and 3DEP terrain shard. Inspect coverage, size, and rendering before publishing."

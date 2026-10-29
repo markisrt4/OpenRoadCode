@@ -11,6 +11,13 @@ from development.maps import regional_imagery
 from apps.launchers.local_imagery_pack import LocalImageryPack
 
 
+def test_michigan_builds_use_large_bounded_images():
+    from development.maps.install_region import build_image_size
+    assert build_image_size('michigan-overview') == (8192, 8192)
+    assert build_image_size('mi-lower-southeast') == (8192, 8192)
+    assert build_image_size('metro-detroit') == (2048, 1536)
+
+
 @pytest.mark.parametrize('image_size', [(2048,1536),(4096,4096)])
 def test_overview_resumes_checked_tiles_and_preserves_north_first_placement(tmp_path, monkeypatch, image_size):
     bounds = (-84., 42., -82., 44.)

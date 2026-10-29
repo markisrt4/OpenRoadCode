@@ -15,7 +15,7 @@ test('terrain cues restore the prior globe presentation when disabled',()=>{
   const viewer={scene:{globe,requestRender(){renders++;}}};
   const spacings=[];
   const C={Material:{fromType(type,options){assert.equal(type,'ElevationContour');spacings.push(options.spacing);return {...contour,spacing:options.spacing};}},
-    Color:{fromCssColorString(){return {withAlpha(value){assert.equal(value,.58);return 'color';}}}}};
+    Color:{fromCssColorString(value){assert.equal(value,'#69a7bd');return {withAlpha(value){assert.equal(value,.46);return 'color';}}}}};
   const cues=context.window.ORCTerrainCues(viewer,C);
   cues.setEnabled(true);
   assert.equal(globe.enableLighting,true);
