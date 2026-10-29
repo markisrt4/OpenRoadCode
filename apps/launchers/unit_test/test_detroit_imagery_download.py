@@ -26,10 +26,10 @@ def test_export_locks_newest_naip_sources_and_retains_provenance(tmp_path, monke
     destination = tmp_path / "pack"
     downloader.download(destination, bounds=(west,south,east,north), title=title)
     rule = json.loads(service.call_args.kwargs["mosaicRule"])
-    assert rule["lockRasterIds"] == [2]
+    assert rule["lockRasterIds"] == [2, 1]
     document = json.loads((destination / "manifest.json").read_text())
-    assert document["source_records"] == [records[1]["attributes"]]
-    assert document["title"] == f"{title} NAIP 2022"
+    assert document["source_records"] == [records[1]["attributes"], records[0]["attributes"]]
+    assert document["title"] == f"{title} NAIP through 2022"
     assert (destination / "source-service.json").exists()
     assert LocalImageryPack.load(destination).state.attribution.startswith("USGS / USDA")
 

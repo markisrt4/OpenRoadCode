@@ -234,7 +234,13 @@ def download(destination, *, bounds=BOUNDS, title="Detroit", image_size=(2048,15
     if not candidates:
         raise RuntimeError("No identifiable dated NAIP/USDA source found for selected coverage; source review required")
     year = max(record["Year"] for record in candidates)
-    selected = [record for record in candidates if record["Year"] == year]
+    # Acquisition years vary within large regions. Lock every approved dated
+    # NAIP raster, newest first, so MT_FIRST can use older flights only where
+    # the newest year has no coverage instead of exporting black holes.
+    selected = sorted(candidates, key=lambda record: (
+        record["Year"], record.get("acquisition_date") or 0,
+        record.get("OBJECTID") or 0,
+    ), reverse=True)
     mosaic = {"mosaicMethod":"esriMosaicLockRaster", "lockRasterIds":[r["OBJECTID"] for r in selected],
               "mosaicOperation":"MT_FIRST"}
     export = get_json("/exportImage", bbox=",".join(map(str, bounds)), bboxSR=4326, imageSR=4326,
@@ -265,7 +271,7 @@ def download(destination, *, bounds=BOUNDS, title="Detroit", image_size=(2048,15
             raise RuntimeError("USGS export is oversized or not a JPEG image")
         (root / "imagery.jpg").write_bytes(image)
         manifest = {"schema":1, "image":"imagery.jpg", "sha256":hashlib.sha256(image).hexdigest(),
-                    "title":f"{title} NAIP {year}", "attribution":f"USGS / USDA NAIP {year} · The National Map",
+                    "title":f"{title} NAIP through {year}", "attribution":f"USGS / USDA NAIP through {year} · The National Map",
                     "bounds_deg":bounds, "width":export["width"], "height":export["height"],
                     "source":SERVICE, "source_records":selected, "downloaded_at":datetime.now(timezone.utc).isoformat(),
                     "rights":"Public-domain NAIP imagery; USGS service description retained in source-service.json",
