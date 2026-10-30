@@ -143,7 +143,8 @@ python -m apps.orcUi.component_test.native_music_visualizer_cli
 This uses supplied analysis snapshots, without microphone access. Device validation:
 
 ```bash
-git switch music-visualizer-modernization
+git fetch origin
+git switch feature/music-visualizer-libmusicforge
 git pull --ff-only
 OPENROAD_MUSIC_VISUALIZER_SOURCE=android-playback ./runOrcUi
 ```
@@ -170,6 +171,15 @@ Hardware component checks remain separate: confirm live PipeWire monitor audio
 on Linux, Android playback consent and streaming on the phone, and browser
 microphone/WebGL behavior in the target browser. Passing synthetic-PCM tests does
 not verify those device and permission paths.
+
+## Shared analyzer and standalone diagnostics
+
+The native visualizer consumes the headless `musicforge.analysis` analyzer from
+libMusicForge. ORC owns audio capture, UI, OpenGL rendering, and lifecycle.
+The library's standalone WAV/TUI component tests are run from the libMusicForge
+source checkout and are not part of the ORC renderer or wheel installation.
+On Termux, install NumPy via `pkg install python-numpy` and use a virtual
+environment created with `--system-site-packages` when needed.
 
 ## Architecture and resource ownership
 
