@@ -51,14 +51,13 @@ class AnalyzerAppearanceControls(tk.Frame, UiWidget):
     def _slider(self, title, field, low, high, increment, *, width_percent=False, bar_density=False):
         initial = getattr(self._appearance, field)
         value = tk.DoubleVar(value=(72-initial)/8 if bar_density else (1-initial)*100 if width_percent else initial)
-        header = tk.Frame(self._body, bg=self._ui.surface)
-        header.pack(fill=tk.X)
-        tk.Label(header, text=title, bg=self._ui.surface, fg=self._ui.text,
-                 font=('Sans', 7)).pack(side=tk.LEFT)
-        tk.Label(header, textvariable=value, bg=self._ui.surface, fg=self._ui.text,
-                 font=('Sans', 7)).pack(side=tk.RIGHT)
+        # One row per slider keeps MOTION within compact Termux viewports.
         row = tk.Frame(self._body, bg=self._ui.surface)
         row.pack(fill=tk.X)
+        tk.Label(row, text=title, bg=self._ui.surface, fg=self._ui.text,
+                 font=('Sans', 7)).pack(side=tk.LEFT)
+        tk.Label(row, textvariable=value, bg=self._ui.surface, fg=self._ui.text,
+                 font=('Sans', 7), width=4).pack(side=tk.RIGHT)
 
         def update(number):
             self._change(**{field: int(72-float(number)*8) if bar_density else
