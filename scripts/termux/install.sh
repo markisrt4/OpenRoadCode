@@ -89,6 +89,9 @@ if (( ${#python_packages[@]} > 0 )); then
   python -m pip install "${python_packages[@]}"
 fi
 
+echo "[*] Installing shared music-analysis engine..."
+bash "$PROJECT_ROOT/scripts/installers/install_libmusicforge.sh"
+
 deactivate
 
 echo

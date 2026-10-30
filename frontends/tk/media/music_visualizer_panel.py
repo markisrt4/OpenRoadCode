@@ -18,7 +18,8 @@ from typing import Callable
 
 from ui.theme import ThemeBundle
 from ui.music_visualizer import MusicVisualizationMode, VisualizerFrame
-from ui.ui_widget import UiWidget
+from ui.music_visualizer.music_visualizer_types import MusicVisualizerOptions
+from ui.music_visualizer.music_visualizer_presentation_if import MusicVisualizerPresentationIf
 
 BLUE = "#168bd1"
 RED = "#f15a16"
@@ -37,7 +38,7 @@ _MODE_LABELS = {
 _LABEL_MODES = {label: mode for mode, label in _MODE_LABELS.items()}
 
 
-class MusicVisualizerPanel(tk.Frame, UiWidget):
+class MusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
     """Render OpenRoadCode music visualizations inside a Tk parent."""
 
     FRAME_MS = 33
@@ -49,6 +50,7 @@ class MusicVisualizerPanel(tk.Frame, UiWidget):
         on_back: Callable[[], None] | None = None,
         simulate: bool = True,
         theme_bundle: ThemeBundle,
+        show_controls: bool = True,
     ) -> None:
         ui = theme_bundle.ui
         self._bg, self._panel, self._card = ui.background, ui.surface, ui.surface
@@ -67,9 +69,19 @@ class MusicVisualizerPanel(tk.Frame, UiWidget):
             for _ in range(90)
         ]
         self._particles: list[list[float]] = []
+        self._show_controls = show_controls
         self._build()
         if self._simulate:
             self._simulation_job = self.after(self.FRAME_MS, self._simulation_tick)
+
+    def configure_visualizer(self, options: MusicVisualizerOptions) -> None:
+        mode = options.mode
+        if mode not in _MODE_LABELS:
+            mode = MusicVisualizationMode.SPECTRUM
+        self.set_visualization_mode(mode)
+
+    def presentation_status(self) -> str:
+        return "Tk canvas renderer"
 
     @property
     def visualization_mode(self) -> MusicVisualizationMode:
@@ -108,7 +120,8 @@ class MusicVisualizerPanel(tk.Frame, UiWidget):
             padx=10,
             pady=8,
         )
-        header.grid(row=0, column=0, sticky="ew", padx=4, pady=(4, 6))
+        if self._show_controls:
+            header.grid(row=0, column=0, sticky="ew", padx=4, pady=(4, 6))
         header.grid_columnconfigure(2, weight=1)
 
         if self._on_back is not None:

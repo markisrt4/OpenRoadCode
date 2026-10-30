@@ -16,7 +16,10 @@ class HostLocationState:
 
 class HostLocationUiIf(Protocol):
     def set_host_location_state(self, state: HostLocationState) -> None:
-        """Present permission-page availability, never infer browser consent."""
+        """Present permission-page availability, never infer browser consent.
+
+        @param state Current host-location permission presentation state.
+        """
         ...
 
 
