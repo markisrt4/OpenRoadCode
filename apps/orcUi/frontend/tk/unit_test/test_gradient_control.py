@@ -52,8 +52,10 @@ class GradientControlTest(unittest.TestCase):
             root.update()
             root.tk.call("focus", "-force", ".__tk__color.entry")
             root.update()
-            with self.assertRaises(KeyError):
-                control.focus_get()
+            # Tk versions differ in whether focus_get() resolves Tcl-only widgets.
+            # Verify actual focus ownership rather than requiring a KeyError.
+            self.assertEqual(str(root.tk.call("focus", "-displayof", control._w)),
+                             ".__tk__color.entry")
             control.configure(text="CPU 10%", fg="#80d080")
             root.update()
             outlines = [item for item in control.find_all()
