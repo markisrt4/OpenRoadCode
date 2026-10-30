@@ -68,7 +68,10 @@ class MapPlatformControlIf(Protocol):
         ...
 
     def request_follow(self, enabled: bool) -> None:
-        """Enable vehicle following on the exploration surface; await a live fix if needed."""
+        """Enable vehicle following on the exploration surface; await a live fix if needed.
+
+        @param enabled Whether vehicle-follow mode should be active.
+        """
         ...
 
     def resize(self, width: int, height: int, owner_window_id: int) -> None:
