@@ -1,6 +1,6 @@
 # libMusicForge audio-analysis integration
 
-This branch delegates OpenRoadCode's FFT analyzer, analysis interface, and
+OpenRoadCode delegates OpenRoadCode's FFT analyzer, analysis interface, and
 analysis state models to the reusable `musicforge.analysis` package.
 
 ## Development setup
@@ -48,3 +48,36 @@ before importing the analysis modules.
 
 The source analyzer was MIT licensed. Its original implementation and
 copyright/license notices are retained in libMusicForge.
+
+## Installer behavior
+
+Both `scripts/installers/install_python_env.sh` and `scripts/termux/install.sh`
+invoke `scripts/installers/install_libmusicforge.sh` in the selected virtual
+environment. By default the helper prefers a sibling `../libMusicForge`
+checkout and otherwise installs from GitHub. Set `LIBMUSICFORGE_SOURCE`
+to override that source. On Termux, `python-numpy` must be visible inside
+the virtual environment; the helper avoids compiling NumPy with pip.
+The Termux environment check verifies that the shared analyzer imports.
+
+For local development, install the sibling library in editable mode:
+
+```bash
+python -m pip install -e ../libMusicForge --no-deps  # Termux, with python-numpy installed
+```
+
+A normal installer run uses a non-editable installation, so subsequent library
+changes require reinstalling it. The core libMusicForge wheel excludes its
+standalone `component_test/` examples, which are run from its source checkout.
+
+## Native visualizer checks
+
+From the OpenRoadCode root with an X11 display:
+
+```bash
+python -m apps.orcUi.component_test.native_music_visualizer_cli
+python -m apps.orcUi.component_test.home_music_visualizer_cli
+```
+
+These use synthetic analysis/capture and do not validate Android playback
+permissions or hardware GPU compatibility. See `docs/music_visualizer.md`
+for device-specific checks.
