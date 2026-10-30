@@ -61,7 +61,10 @@ class MapPlatformControlIf(Protocol):
         ...
 
     def request_camera(self, action: ExplorationCameraAction) -> None:
-        """Apply a relative camera action to the active exploration surface."""
+        """Apply a relative camera action to the active exploration surface.
+
+        @param action Relative camera movement or view adjustment.
+        """
         ...
 
     def request_follow(self, enabled: bool) -> None:
