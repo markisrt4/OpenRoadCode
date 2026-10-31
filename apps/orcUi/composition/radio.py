@@ -127,6 +127,7 @@ class RadioComposition:
     bind_song_launch: Callable[[Callable[[SongLaunchRequest], None]], None] = lambda _handler: None
     close_charts: Callable[[], None] = lambda: None
     bind_video_player: Callable[[ManagedBrowserMediaPlayer], None] = lambda _player: None
+    bind_spotify_factory: Callable[[Callable], None] = lambda _factory: None
 
     def close(self) -> None:
         """Retire browser sessions and workers; runtime retains playback ownership."""
@@ -166,6 +167,10 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
         cleanup.callback(charts.close)
         song_launch: list[Callable[[SongLaunchRequest], None]] = []
         video_players: list[ManagedBrowserMediaPlayer] = []
+        spotify_factories: list[Callable] = []
+
+        def bind_spotify_factory(factory: Callable) -> None:
+            spotify_factories[:] = [factory]
 
         def bind_video_player(player: ManagedBrowserMediaPlayer) -> None:
             video_players[:] = [player]
@@ -218,7 +223,8 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
             panel = TrendingRadioPanel(parent, theme=theme, on_back=on_back,
                                        on_refresh=refresh, on_play=play,
                                        radio_factory=lambda host, colors: rf_panel_factory(host, colors, fm_only=True),
-                                       video_player=lambda: video_players[0] if video_players else None)
+                                       video_player=lambda: video_players[0] if video_players else None,
+                                       spotify_factory=lambda host, back: spotify_factories[0](host, back) if spotify_factories else None)
             return panel
 
         favorites = StreamingRadioFavorites()
