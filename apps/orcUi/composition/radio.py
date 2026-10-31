@@ -417,6 +417,7 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
             bind_song_launch=bind_song_launch,
             close_charts=charts.close,
             bind_video_player=bind_video_player,
+            bind_spotify_factory=bind_spotify_factory,
         )
         cleanup.release()
     return composition
