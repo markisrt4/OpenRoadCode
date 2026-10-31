@@ -72,6 +72,10 @@ class RadioEntryPanel(tk.Frame, UiWidget):
                                          disabledforeground=self._theme.ui.text_muted)
         self._status.configure(text="" if online else "Offline mode: RF radio remains available")
         if not online:
+            if self._trending_page is not None and self._trending_page.winfo_exists():
+                self._trending_page.destroy()
+                self._trending_page = None
+                self._show_chooser()
             if self._streaming_page is not None and self._streaming_page.winfo_exists():
                 self._streaming_page.destroy()
                 self._streaming_page = None
