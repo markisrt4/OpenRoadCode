@@ -256,11 +256,18 @@ class TrendingRadioPanel(tk.Frame):
         self._radio.launch()
 
     def _open_spotify(self) -> None:
-        if self._selected is None:
+        if self._selected is None or self._spotify_factory is None:
+            self._status.configure(text="Spotify panel unavailable")
             return
-        self._on_play(SongLaunchRequest(
-            title=self._selected["title"], artist=self._selected["artist"],
-            destination=SongDestination.SPOTIFY))
+        if self._video_pane is not None:
+            self._video_pane.destroy()
+            self._video_pane = None
+        elif self._spotify_pane is None:
+            self._radio.destroy()
+        if self._spotify_pane is not None:
+            self._spotify_pane.destroy()
+        self._spotify_pane = self._spotify_factory(self._left, self._restore_fm)
+        self._spotify_pane.grid(row=0, column=0, sticky="nsew")
 
     def _play_selected(self) -> None:
         if self._selected is None:
@@ -276,6 +283,9 @@ class TrendingRadioPanel(tk.Frame):
         if self._video_pane is not None:
             self._video_pane.destroy()
             self._video_pane = None
+        elif self._spotify_pane is not None:
+            self._spotify_pane.destroy()
+            self._spotify_pane = None
         else:
             self._radio.destroy()
         self._video_pane = TrendingVideoPane(
