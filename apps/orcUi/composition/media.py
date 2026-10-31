@@ -344,17 +344,18 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         session.activate(view)
         return view
 
-    def trending_spotify_factory(parent: tk.Misc, on_back: Callable[[], None]) -> tk.Widget:
+    def trending_spotify_factory(parent: tk.Misc, on_back: Callable[[], None], artist: str, title: str) -> tk.Widget:
         """Mount the existing Spotify playback view inside Trending, with independent ownership."""
         host = tk.Frame(parent, bg=spotify_theme(app)["colors"]["background"])
         host.grid_rowconfigure(1, weight=1)
         host.grid_columnconfigure(0, weight=1)
         back = tk.Button(host, text="‹ BACK TO FM", command=on_back)
         back.grid(row=0, column=0, sticky="w", padx=8, pady=4)
-        panel = SpotifyPlaybackPanel(host, theme=spotify_theme(app))
+        panel = SpotifyPlaybackPanel(host, theme=spotify_theme(app), show_video=False)
         panel.grid(row=1, column=0, sticky="nsew")
         session = create_presentation(rich=True)
         session.activate(panel)
+        media.spotify.request_play_song(artist, title, lambda message: app.dispatch_ui(lambda: app.set_screen_status(message)))
         def retire(event: tk.Event) -> None:
             if event.widget is host:
                 session.close()
