@@ -172,9 +172,9 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         theme_bundle=lambda: theme_bundle(app.theme_mode),
     )
     song_launch_controller = SongLaunchController(
-        open_spotify_search=lambda _query: app.set_screen_status(
-            "Spotify song search is not available yet"
-        ),
+        open_spotify_search=lambda query: online_action(
+            lambda: open_trending_spotify(query)
+        )(),
         open_youtube_search=lambda query: online_action(lambda: youtube_screen.show_target(query))(),
     )
     youtube_music_screen = YouTubeMusicComingSoonScreen(
@@ -188,6 +188,13 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         back_action=lambda: media_screen.show(), media_navigation_factory=media_navigation,
         theme_bundle=lambda: theme_bundle(app.theme_mode),
     )
+
+    def open_trending_spotify(query: str) -> None:
+        """Keep MusicForge handoff inside ORC's native Spotify screen."""
+        spotify_screen.show()
+        app.set_screen_status(
+            f"Spotify opened for {query}. Automatic track lookup is not available yet."
+        )
 
     def show_spotify_remote() -> None:
         if not network_allowed():
