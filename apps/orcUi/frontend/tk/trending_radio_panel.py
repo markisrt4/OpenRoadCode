@@ -9,7 +9,7 @@ from collections.abc import Callable
 from ui.media.song_launch import SongDestination, SongLaunchRequest
 from ui.theme import ThemeBundle
 
-PAGE_SIZE = 5
+PAGE_SIZE = 4
 
 
 class TrendingRadioPanel(tk.Frame):
@@ -38,7 +38,7 @@ class TrendingRadioPanel(tk.Frame):
         header.grid(row=0, column=0, columnspan=2, sticky="ew", padx=12, pady=8)
         self._button(header, "‹ RADIO", on_back).pack(side=tk.LEFT)
         tk.Label(header, text="FM RADIO  /  TRENDING", bg=ui.background,
-                 fg=ui.text, font=("Sans", 15, "bold")).pack(side=tk.LEFT, padx=16)
+                 fg=ui.text, font=("Sans", 13, "bold")).pack(side=tk.LEFT, padx=16)
 
         left = tk.Frame(self, bg=ui.background)
         left.grid(row=1, column=0, sticky="nsew", padx=(12, 6), pady=(0, 12))
@@ -67,7 +67,7 @@ class TrendingRadioPanel(tk.Frame):
         self._station_menu.configure(bg=ui.control_background, fg=ui.text,
                                      activebackground=ui.control_active,
                                      activeforeground=ui.text, relief=tk.FLAT,
-                                     highlightthickness=0, font=("Sans", 10))
+                                     highlightthickness=0, font=("Sans", 9))
         self._station_menu.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 6))
         self._period_buttons: dict[str, tk.Button] = {}
         for period, label in (("today", "1D"), ("7d", "7D"), ("30d", "30D")):
@@ -165,7 +165,7 @@ class TrendingRadioPanel(tk.Frame):
         for index, song in enumerate(visible):
             active = song is self._selected
             bg = ui.control_active if active else ui.surface_alt
-            card = tk.Frame(self._cards, bg=bg, padx=10, pady=5,
+            card = tk.Frame(self._cards, bg=bg, padx=8, pady=2,
                             highlightthickness=1,
                             highlightbackground=ui.accent_primary if active else ui.border)
             card.grid(row=index, column=0, sticky="nsew", pady=2)
@@ -174,11 +174,14 @@ class TrendingRadioPanel(tk.Frame):
                             bg=bg, fg=ui.accent_primary, font=("Sans", 15, "bold"))
             rank.grid(row=0, column=0, rowspan=2, sticky="w", padx=(0, 12))
             title = tk.Label(card, text=song["title"], bg=bg, fg=ui.text,
-                             anchor="w", font=("Sans", 11, "bold"))
+                             anchor="w", font=("Sans", 10, "bold"))
             title.grid(row=0, column=1, sticky="ew")
+            title.configure(wraplength=200, justify=tk.LEFT)
             artist = tk.Label(card, text=song["artist"], bg=bg, fg=ui.text_muted,
                               anchor="w", font=("Sans", 10))
             artist.grid(row=1, column=1, sticky="ew")
+            card.bind("<Configure>", lambda event, label=title: label.configure(
+                wraplength=max(80, event.width - 68)))
             for widget in (card, rank, title, artist):
                 widget.bind("<Button-1>", lambda _event, item=song: self._select(item))
                 widget.configure(cursor="hand2")
