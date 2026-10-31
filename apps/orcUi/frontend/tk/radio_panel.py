@@ -24,8 +24,10 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         *,
         session: RfRadioSession,
         theme: ThemeBundle,
+        fm_only: bool = False,
     ) -> None:
         self._theme = theme
+        self._fm_only = fm_only
         ui = theme.ui
         super().__init__(parent, bg=ui.background)
         self._session = session
