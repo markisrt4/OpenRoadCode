@@ -100,6 +100,10 @@ class RadioEntryPanel(tk.Frame, UiWidget):
         for child in self._chooser.winfo_children():
             child.destroy()
         self._build_choice_buttons()
+        if self._trending_page is not None and self._trending_page.winfo_exists():
+            self._trending_page.destroy()
+            self._trending_page = None
+            self._show_chooser()
         if self._streaming_page is not None and self._streaming_page.winfo_exists():
             self._streaming_page.set_theme_bundle(theme)
         if self._radio_panel is not None and self._radio_panel.winfo_exists():
@@ -175,7 +179,7 @@ class RadioEntryPanel(tk.Frame, UiWidget):
                 description="Explore songs heard on Detroit radio and search for them on YouTube.",
                 features="TODAY  •  7 DAYS  •  30 DAYS",
                 action_text="EXPLORE TRENDING  ›", accent=ui.accent_primary,
-                icon_kind="stream", command=self.open_trending,
+                icon_kind="trending", command=self.open_trending,
             )
             trending_card.grid(row=0, column=1, sticky="nsew", padx=5, pady=(18, 12))
 
