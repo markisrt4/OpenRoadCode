@@ -4,12 +4,12 @@ from unittest.mock import patch
 from controllers.media.youtube_search_resolver import first_video_url
 
 
-def test_first_result_opens_embedded_autoplay() -> None:
+def test_first_result_opens_watch_page_with_autoplay() -> None:
     class Result:
         stdout = json.dumps({"entries": [{"id": "dQw4w9WgXcQ"}]})
     with patch("controllers.media.youtube_search_resolver.subprocess.run", return_value=Result()):
         assert first_video_url("test song") == (
-            "https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&playsinline=1"
+            "https://www.youtube.com/watch?v=dQw4w9WgXcQ&autoplay=1"
         )
 
 
