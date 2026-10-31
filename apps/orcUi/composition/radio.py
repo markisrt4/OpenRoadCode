@@ -24,6 +24,7 @@ from apps.orcUi.frontend.tk.radio_entry_panel import RadioEntryPanel
 from apps.orcUi.frontend.tk.trending_radio_panel import TrendingRadioPanel
 from apps.orcUi.adapters.musicforge_api_adapter import MusicForgeApiAdapter
 from ui.media.song_launch import SongLaunchRequest
+from apps.orcUi.adapters.managed_browser_media_player import ManagedBrowserMediaPlayer
 from apps.orcUi.theme_runtime import theme_bundle
 from controllers.radio.adapters.radio_browser_directory import RadioBrowserDirectory
 from controllers.radio.weather_radio import play_weather_radio
@@ -125,6 +126,7 @@ class RadioComposition:
     streaming_resources: StreamingRadioResources
     bind_song_launch: Callable[[Callable[[SongLaunchRequest], None]], None] = lambda _handler: None
     close_charts: Callable[[], None] = lambda: None
+    bind_video_player: Callable[[ManagedBrowserMediaPlayer], None] = lambda _player: None
 
     def close(self) -> None:
         """Retire browser sessions and workers; runtime retains playback ownership."""
@@ -163,6 +165,10 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
         charts = MusicForgeApiAdapter(os.getenv("MUSICFORGE_AIRPLAY_URL", "http://127.0.0.1:8000"))
         cleanup.callback(charts.close)
         song_launch: list[Callable[[SongLaunchRequest], None]] = []
+        video_players: list[ManagedBrowserMediaPlayer] = []
+
+        def bind_video_player(player: ManagedBrowserMediaPlayer) -> None:
+            video_players[:] = [player]
 
         def bind_song_launch(handler: Callable[[SongLaunchRequest], None]) -> None:
             song_launch[:] = [handler]
@@ -211,7 +217,8 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
 
             panel = TrendingRadioPanel(parent, theme=theme, on_back=on_back,
                                        on_refresh=refresh, on_play=play,
-                                       radio_factory=lambda host, colors: rf_panel_factory(host, colors, fm_only=True))
+                                       radio_factory=lambda host, colors: rf_panel_factory(host, colors, fm_only=True),
+                                       video_player=lambda: video_players[0] if video_players else None)
             return panel
 
         favorites = StreamingRadioFavorites()
@@ -403,6 +410,7 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
             streaming_resources=resources,
             bind_song_launch=bind_song_launch,
             close_charts=charts.close,
+            bind_video_player=bind_video_player,
         )
         cleanup.release()
     return composition
