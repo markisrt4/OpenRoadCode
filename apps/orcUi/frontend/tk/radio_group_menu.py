@@ -26,7 +26,8 @@ class RadioGroupMenuMixin(RadioPresentationFrame):
 
     def _build_group_bar(self) -> None:
         ui = self._theme.ui
-        for name, label in MAIN_GROUPS:
+        groups = MAIN_GROUPS[:1] if getattr(self, '_fm_only', False) else MAIN_GROUPS
+        for name, label in groups:
             command = partial(self._show_group_menu, name)
             button = tk.Button(
                 self._groups,
