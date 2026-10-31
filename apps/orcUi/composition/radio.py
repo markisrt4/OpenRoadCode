@@ -178,7 +178,7 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
             generation = [0]
             panel: TrendingRadioPanel
 
-            def refresh(station: str, period: str) -> None:
+            def refresh(station: str, period: str, kind: str = 'songs') -> None:
                 generation[0] += 1
                 request = generation[0]
                 if not network_allowed():
@@ -188,13 +188,13 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
                 def work() -> None:
                     try:
                         stations = charts.stations()
-                        songs = charts.songs(
+                        chart = (charts.artists if kind == 'artists' else charts.songs)(
                             station=None if station == "All stations" else station,
                             period=period, limit=40,
                         )
                         error = None
                     except Exception as exc:
-                        stations, songs, error = [], {}, str(exc)
+                        stations, chart, error = [], {}, str(exc)
 
                     def deliver() -> None:
                         if resources.closed or request != generation[0] or not panel.winfo_exists():
@@ -203,7 +203,7 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
                             panel.set_error(error)
                         else:
                             panel.set_stations(stations)
-                            panel.set_songs(songs)
+                            panel.set_chart(chart, kind=kind)
 
                     app.dispatch_ui(deliver)
 
