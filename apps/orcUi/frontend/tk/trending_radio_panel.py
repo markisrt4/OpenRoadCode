@@ -25,7 +25,8 @@ class TrendingRadioPanel(tk.Frame):
                  on_play: Callable[[SongLaunchRequest], None],
                  radio_factory: Callable[[tk.Misc, ThemeBundle], tk.Widget],
                  video_player: Callable[[], ManagedBrowserMediaPlayer | None] = lambda: None,
-                 spotify_factory: Callable | None = None) -> None:
+                 spotify_factory: Callable | None = None,
+                 online_allowed: Callable[[], bool] = lambda: True) -> None:
         ui = theme.ui
         super().__init__(parent, bg=ui.background)
         self._theme = theme
@@ -34,6 +35,7 @@ class TrendingRadioPanel(tk.Frame):
         self._radio_factory = radio_factory
         self._video_player = video_player
         self._spotify_factory = spotify_factory
+        self._online_allowed = online_allowed
         self._spotify_pane = None
         self._video_pane: TrendingVideoPane | None = None
         self._songs: list[dict] = []
@@ -139,6 +141,9 @@ class TrendingRadioPanel(tk.Frame):
                          padx=10, pady=7, cursor="hand2")
 
     def refresh(self) -> None:
+        if not self._online_allowed():
+            self.set_error("Offline mode")
+            return
         self._status.configure(text="Refreshing airplay charts…")
         self._on_refresh(self._station.get(), self._period.get(), self._kind)
 
@@ -176,6 +181,14 @@ class TrendingRadioPanel(tk.Frame):
         self._selected = None
         self._page = 0
         self._status.configure(text=f'{len(self._songs)} songs  ·  {payload.get("coverage", "unknown")} coverage')
+        self._render()
+
+    def network_changed(self) -> None:
+        if not self._online_allowed():
+            self._songs = []
+            self._selected = None
+            self._page = 0
+            self._status.configure(text="Offline mode: Trending unavailable")
         self._render()
 
     def set_error(self, message: str) -> None:
@@ -241,8 +254,8 @@ class TrendingRadioPanel(tk.Frame):
         self._page_label.configure(text=f"{self._page + 1} / {total}")
         self._previous.configure(state=tk.NORMAL if self._page > 0 else tk.DISABLED)
         self._next.configure(state=tk.NORMAL if self._page + 1 < total else tk.DISABLED)
-        self._play.configure(state=tk.NORMAL if self._selected is not None and self._kind == "songs" else tk.DISABLED)
-        self._spotify.configure(state=tk.NORMAL if self._selected is not None and self._kind == "songs" else tk.DISABLED)
+        self._play.configure(state=tk.NORMAL if self._online_allowed() and self._selected is not None and self._kind == "songs" else tk.DISABLED)
+        self._spotify.configure(state=tk.NORMAL if self._online_allowed() and self._selected is not None and self._kind == "songs" else tk.DISABLED)
 
     def _restore_fm(self) -> None:
         if self._spotify_pane is not None:
@@ -256,6 +269,9 @@ class TrendingRadioPanel(tk.Frame):
         self._radio.launch()
 
     def _open_spotify(self) -> None:
+        if not self._online_allowed():
+            self._status.configure(text="Offline mode: Spotify unavailable")
+            return
         if self._selected is None or self._spotify_factory is None:
             self._status.configure(text="Spotify panel unavailable")
             return
@@ -266,10 +282,13 @@ class TrendingRadioPanel(tk.Frame):
             self._radio.destroy()
         if self._spotify_pane is not None:
             self._spotify_pane.destroy()
-        self._spotify_pane = self._spotify_factory(self._left, self._restore_fm)
+        self._spotify_pane = self._spotify_factory(self._left, self._restore_fm, self._selected["artist"], self._selected["title"])
         self._spotify_pane.grid(row=0, column=0, sticky="nsew")
 
     def _play_selected(self) -> None:
+        if not self._online_allowed():
+            self._status.configure(text="Offline mode: YouTube unavailable")
+            return
         if self._selected is None:
             return
         request = SongLaunchRequest(
