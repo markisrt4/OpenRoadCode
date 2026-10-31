@@ -5,8 +5,6 @@
 from __future__ import annotations
 
 import tkinter as tk
-import subprocess
-from urllib.parse import quote
 from collections.abc import Callable
 from ui.media.song_launch import SongDestination, SongLaunchRequest
 from ui.radio.station_identity import station_label
@@ -220,18 +218,11 @@ class TrendingRadioPanel(tk.Frame):
         self._radio.launch()
 
     def _open_spotify(self) -> None:
-        """Open Spotify's song search; actual playback remains user-controlled."""
         if self._selected is None:
             return
-        query = f'{self._selected["artist"]} {self._selected["title"]}'
-        try:
-            subprocess.Popen(
-                ["xdg-open", "https://open.spotify.com/search/" + quote(query, safe="")],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                start_new_session=True,
-            )
-        except OSError as exc:
-            self._status.configure(text=f"Cannot open Spotify: {exc}")
+        self._on_play(SongLaunchRequest(
+            title=self._selected["title"], artist=self._selected["artist"],
+            destination=SongDestination.SPOTIFY))
 
     def _play_selected(self) -> None:
         if self._selected is None:
