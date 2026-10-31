@@ -99,22 +99,11 @@ class TrendingVideoPane(tk.Frame):
         if self._pending is not None:
             self.after_cancel(self._pending)
             self._pending = None
-        # X11 detach and Chromium shutdown can block for seconds on Termux.
-        # Run teardown away from Tk; do not touch Tk objects in the worker.
-        window_id = self._embedder.window_id
-        embedder = self._embedder
-        stop = self._stop
-        if window_id is not None:
-            parent_id = int(self.winfo_toplevel().winfo_id())
-            def cleanup() -> None:
-                try:
-                    embedder.detach(parent_id)
-                finally:
-                    stop()
-        else:
-            cleanup = stop
+        # The embedded child belongs to the managed Chromium process.
+        # Reparenting it during shutdown races Chromium's own window destruction
+        # and produces BadWindow errors on Termux X11. Stop the process instead.
+        self._embedder.clear()
         self._resolver.shutdown(wait=False, cancel_futures=True)
-        self._resolver = None
         from threading import Thread
-        Thread(target=cleanup, name="trending-browser-close", daemon=True).start()
+        Thread(target=self._stop, name="trending-browser-close", daemon=True).start()
         super().destroy()
