@@ -111,8 +111,10 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
         theme: dict[str, Any],
         show_media: Callable[[], None] | None = None,
         show_visualizer: Callable[[], None] | None = None,
+        show_video: bool = True,
     ) -> None:
         self._show_media, self._show_visualizer = show_media, show_visualizer
+        self._show_video = show_video
         self._video_handler: SpotifyVideoRequests | None = None
         self._presentation = SpotifyPresentationState()
         self._artwork_payload: bytes | None = None
@@ -422,7 +424,8 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
         self._video_button = self._button(
             bottom, _WATCH_VIDEO_TEXT, self._toggle_video, width=0, vertical_padding=4,
         )
-        self._video_button.grid(row=0, column=1, padx=6)
+        if self._show_video:
+            self._video_button.grid(row=0, column=1, padx=6)
         self._video_button.configure(state=tk.DISABLED, font=("Sans", 13, "bold"))
         self._youtube_icon = tk.PhotoImage(master=self, width=18, height=12)
         self._youtube_icon.put("#ff0033", to=(0, 0, 18, 12))
