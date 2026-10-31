@@ -211,7 +211,7 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
 
             panel = TrendingRadioPanel(parent, theme=theme, on_back=on_back,
                                        on_refresh=refresh, on_play=play,
-                                       radio_factory=rf_panel_factory)
+                                       radio_factory=lambda host, colors: rf_panel_factory(host, colors, fm_only=True))
             return panel
 
         favorites = StreamingRadioFavorites()
@@ -242,7 +242,7 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
                 rollback.release()
             return panel
 
-        def rf_panel_factory(parent: tk.Misc, theme: ThemeBundle) -> RadioPanel:
+        def rf_panel_factory(parent: tk.Misc, theme: ThemeBundle, *, fm_only: bool = False) -> RadioPanel:
             if resources.closed:
                 raise RuntimeError("Radio composition is closed")
             radio = RadioProfileController()
@@ -255,7 +255,7 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
             with ResourceCleanup() as rollback:
                 rollback.callback(session.close)
                 resources.rf_sessions.add(session)
-                panel = RadioPanel(parent, session=session, theme=theme)
+                panel = RadioPanel(parent, session=session, theme=theme, fm_only=fm_only)
                 rollback.release()
             return panel
 
