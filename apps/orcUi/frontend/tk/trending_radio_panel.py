@@ -7,6 +7,7 @@ from __future__ import annotations
 import tkinter as tk
 from collections.abc import Callable
 from ui.media.song_launch import SongDestination, SongLaunchRequest
+from ui.radio.station_identity import station_label
 from ui.theme import ThemeBundle
 
 PAGE_SIZE = 4
@@ -119,7 +120,7 @@ class TrendingRadioPanel(tk.Frame):
         menu = self._station_menu["menu"]
         menu.delete(0, "end")
         for name in names:
-            menu.add_command(label=name, command=lambda value=name: self._change_station(value))
+            menu.add_command(label=station_label(name), command=lambda value=name: self._change_station(value))
 
     def _change_station(self, name: str) -> None:
         self._station.set(name)
