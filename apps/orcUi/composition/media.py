@@ -39,6 +39,7 @@ from controllers.media.song_launch_controller import SongLaunchController
 from controllers.video import MusicVideoController, NetflixPlayer, YouTubeMusicVideo, YouTubePlayer
 from frontends.x11 import X11WindowEmbedder
 from frontends.tk.media import BrowserMediaScreen, MediaNavigationBar, MediaScreen, SpotifyNowPlaying, SpotifyScreen
+from frontends.tk.media.spotify_playback_panel import SpotifyPlaybackPanel
 from frontends.tk.media.youtube_music_coming_soon_screen import YouTubeMusicComingSoonScreen
 from ui.theme import ThemeMode
 from protocols.spotify import (
@@ -62,6 +63,7 @@ class MediaComposition:
     music_video_controller: MusicVideoController
     song_launch_controller: SongLaunchController
     trending_youtube_player: ManagedBrowserMediaPlayer
+    trending_spotify_factory: Callable
     home_factory: Callable[[tk.Misc], tk.Widget]
     visualizer: MusicVisualizerScreen | BrowserMediaScreen
     visualizer_runtime: MusicVisualizerController | MusicVisualizerBrowser
@@ -342,6 +344,25 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         session.activate(view)
         return view
 
+    def trending_spotify_factory(parent: tk.Misc, on_back: Callable[[], None]) -> tk.Widget:
+        """Mount the existing Spotify playback view inside Trending, with independent ownership."""
+        host = tk.Frame(parent, bg=spotify_theme(app)["colors"]["background"])
+        host.grid_rowconfigure(1, weight=1)
+        host.grid_columnconfigure(0, weight=1)
+        back = tk.Button(host, text="‹ BACK TO FM", command=on_back)
+        back.grid(row=0, column=0, sticky="w", padx=8, pady=4)
+        panel = SpotifyPlaybackPanel(host, theme=spotify_theme(app))
+        panel.grid(row=1, column=0, sticky="nsew")
+        session = create_presentation(rich=True)
+        session.activate(panel)
+        def retire(event: tk.Event) -> None:
+            if event.widget is host:
+                session.close()
+                if session in presentations:
+                    presentations.remove(session)
+        host.bind("<Destroy>", retire, add="+")
+        return host
+
     def mode_changed(online: bool) -> None:
         account_controller.network_changed()
         if not online:
@@ -366,6 +387,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         music_video_controller=music_video_controller,
         song_launch_controller=song_launch_controller,
         trending_youtube_player=youtube_player,
+        trending_spotify_factory=trending_spotify_factory,
         home_factory=home_media_factory,
         visualizer=visualizer,
         visualizer_runtime=visualizer_runtime,
