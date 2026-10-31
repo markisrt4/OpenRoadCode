@@ -122,6 +122,15 @@ class _SynchronizedSpotifyController(SpotifyControllerIf):
                 raise RuntimeError("Spotify unavailable in offline mode")
             return self._backend.playlist_tracks(playlist_id, limit=limit)
 
+    def search_track(self, artist: str, title: str) -> str | None:
+        with self._lock:
+            if not self.network_allowed():
+                raise RuntimeError("Spotify unavailable in offline mode")
+            lookup = getattr(self._backend, "search_track", None)
+            if lookup is None:
+                raise RuntimeError("Spotify search unavailable")
+            return lookup(artist, title)
+
     def play_track(self, track_uri: str) -> None:
         with self._lock:
             if not self.network_allowed():
@@ -254,6 +263,21 @@ class SpotifyStateService(
 
     def request_transfer_playback(self, device_id: str, *, play: bool = True) -> None:
         self._enqueue(lambda: self._controller.transfer_playback(device_id, play=play), "transfer")
+
+    def request_play_song(self, artist: str, title: str, report: Callable[[str], None] = lambda _message: None) -> None:
+        """Resolve and play on the Spotify worker; never block the Tk thread."""
+        def work() -> None:
+            try:
+                uri = self._controller.search_track(artist, title)
+                if uri is None:
+                    report(f"No exact Spotify match for {artist} - {title}")
+                    return
+                self._controller.play_track(uri)
+                report(f"Playing {artist} - {title}")
+                self.request_refresh()
+            except Exception as exc:
+                report(f"Spotify playback unavailable: {exc}")
+        self._enqueue(work, "play_song")
 
     def request_play_track(self, track_uri: str) -> None:
         self._enqueue(lambda: self._controller.play_track(track_uri), "play_track")
