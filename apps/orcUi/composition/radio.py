@@ -21,6 +21,9 @@ from apps.launchers.sdrpp_launcher import sync_sdrpp_theme
 from apps.orcUi.adapters.adsb_control import OrcUiAdsbControl
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.radio_entry_panel import RadioEntryPanel
+from apps.orcUi.frontend.tk.trending_radio_panel import TrendingRadioPanel
+from apps.orcUi.adapters.musicforge_api_adapter import MusicForgeApiAdapter
+from ui.media.song_launch import SongLaunchRequest
 from apps.orcUi.theme_runtime import theme_bundle
 from controllers.radio.adapters.radio_browser_directory import RadioBrowserDirectory
 from controllers.radio.weather_radio import play_weather_radio
@@ -120,6 +123,7 @@ class RadioComposition:
     home_factory: Callable[[tk.Misc], tk.Widget]
     open_weather_radio: Callable[[], None]
     streaming_resources: StreamingRadioResources
+    bind_song_launch: Callable[[Callable[[SongLaunchRequest], None]], None] = lambda _handler: None
 
     def close(self) -> None:
         """Retire browser sessions and workers; runtime retains playback ownership."""
@@ -154,6 +158,59 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
             resources.unsubscribe = online_mode.subscribe(mode_changed)
         mode_changed(network_allowed())
         directory = RadioBrowserDirectory(timeout_s=10.0, network_allowed=network_allowed)
+        charts = MusicForgeApiAdapter(os.getenv("MUSICFORGE_AIRPLAY_URL", "http://127.0.0.1:8000"))
+        cleanup.callback(charts.close)
+        song_launch: list[Callable[[SongLaunchRequest], None]] = []
+
+        def bind_song_launch(handler: Callable[[SongLaunchRequest], None]) -> None:
+            song_launch[:] = [handler]
+
+        def trending_panel_factory(parent: tk.Misc, theme: ThemeBundle,
+                                   on_back: Callable[[], None]) -> TrendingRadioPanel:
+            generation = [0]
+            panel: TrendingRadioPanel
+
+            def refresh(station: str, period: str) -> None:
+                generation[0] += 1
+                request = generation[0]
+                if not network_allowed():
+                    panel.set_error("Offline mode")
+                    return
+
+                def work() -> None:
+                    try:
+                        stations = charts.stations()
+                        songs = charts.songs(
+                            station=None if station == "All stations" else station,
+                            period=period, limit=40,
+                        )
+                        error = None
+                    except Exception as exc:
+                        stations, songs, error = [], {}, str(exc)
+
+                    def deliver() -> None:
+                        if resources.closed or request != generation[0] or not panel.winfo_exists():
+                            return
+                        if error is not None:
+                            panel.set_error(error)
+                        else:
+                            panel.set_stations(stations)
+                            panel.set_songs(songs)
+
+                    app.dispatch_ui(deliver)
+
+                resources.run_work(work)
+
+            def play(request: SongLaunchRequest) -> None:
+                if not song_launch:
+                    app.set_screen_status("YouTube search not configured")
+                    return
+                song_launch[0](request)
+
+            panel = TrendingRadioPanel(parent, theme=theme, on_back=on_back,
+                                       on_refresh=refresh, on_play=play)
+            return panel
+
         favorites = StreamingRadioFavorites()
         adsb = OrcUiAdsbControl()
 
@@ -209,6 +266,7 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
                 rf_panel_factory=rf_panel_factory,
                 online_mode=app.online_mode,
                 streaming_panel_factory=streaming_panel_factory,
+                trending_panel_factory=trending_panel_factory,
                 on_location_changed=lambda leaf: app.set_breadcrumb("RADIO", leaf),
             ),
             sync_theme=sync_theme,
