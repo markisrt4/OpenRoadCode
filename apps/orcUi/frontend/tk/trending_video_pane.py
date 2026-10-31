@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import tkinter as tk
 from concurrent.futures import ThreadPoolExecutor
 from controllers.media.youtube_search_resolver import first_video_url
@@ -73,8 +74,21 @@ class TrendingVideoPane(tk.Frame):
             self._embedder.embed(0, int(self._host.winfo_id()), width, height,
                                  window_class=self._window_class)
             self._status.configure(text="YOUTUBE")
+            self.after(900, self._maximize_player)
         except Exception as exc:
             self._status.configure(text=f"YouTube unavailable: {exc}")
+
+    def _maximize_player(self) -> None:
+        """Request YouTube theater mode without fullscreening the ORC window."""
+        if self._closed or self._embedder.window_id is None:
+            return
+        try:
+            subprocess.run(
+                ["xdotool", "key", "--window", str(self._embedder.window_id), "t"],
+                check=False, timeout=1, capture_output=True,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            pass
 
     def _resize(self, event: tk.Event) -> None:
         if self._embedder.window_id is not None:
@@ -85,11 +99,22 @@ class TrendingVideoPane(tk.Frame):
         if self._pending is not None:
             self.after_cancel(self._pending)
             self._pending = None
-        if self._embedder.window_id is not None:
-            try:
-                self._embedder.detach(int(self.winfo_toplevel().winfo_id()))
-            except (RuntimeError, tk.TclError):
-                self._embedder.clear()
-        self._stop()
+        # X11 detach and Chromium shutdown can block for seconds on Termux.
+        # Run teardown away from Tk; do not touch Tk objects in the worker.
+        window_id = self._embedder.window_id
+        embedder = self._embedder
+        stop = self._stop
+        if window_id is not None:
+            parent_id = int(self.winfo_toplevel().winfo_id())
+            def cleanup() -> None:
+                try:
+                    embedder.detach(parent_id)
+                finally:
+                    stop()
+        else:
+            cleanup = stop
         self._resolver.shutdown(wait=False, cancel_futures=True)
+        self._resolver = None
+        from threading import Thread
+        Thread(target=cleanup, name="trending-browser-close", daemon=True).start()
         super().destroy()
