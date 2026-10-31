@@ -8,6 +8,9 @@ import tkinter as tk
 from collections.abc import Callable
 from ui.media.song_launch import SongDestination, SongLaunchRequest
 from ui.radio.station_identity import station_label
+from controllers.video import YouTubePlayer
+from apps.orcUi.frontend.tk.trending_video_pane import TrendingVideoPane
+from apps.orcUi.adapters.managed_browser_media_player import ManagedBrowserMediaPlayer
 from ui.theme import ThemeBundle
 
 PAGE_SIZE = 4
@@ -20,12 +23,16 @@ class TrendingRadioPanel(tk.Frame):
                  on_back: Callable[[], None],
                  on_refresh: Callable[[str, str], None],
                  on_play: Callable[[SongLaunchRequest], None],
-                 radio_factory: Callable[[tk.Misc, ThemeBundle], tk.Widget]) -> None:
+                 radio_factory: Callable[[tk.Misc, ThemeBundle], tk.Widget],
+                 video_player: Callable[[], ManagedBrowserMediaPlayer | None] = lambda: None) -> None:
         ui = theme.ui
         super().__init__(parent, bg=ui.background)
         self._theme = theme
         self._on_refresh = on_refresh
         self._on_play = on_play
+        self._radio_factory = radio_factory
+        self._video_player = video_player
+        self._video_pane: TrendingVideoPane | None = None
         self._songs: list[dict] = []
         self._selected: dict | None = None
         self._page = 0
@@ -45,6 +52,7 @@ class TrendingRadioPanel(tk.Frame):
         left.grid(row=1, column=0, sticky="nsew", padx=(12, 6), pady=(0, 12))
         left.grid_rowconfigure(0, weight=1)
         left.grid_columnconfigure(0, weight=1)
+        self._left = left
         self._radio = radio_factory(left, theme)
         self._radio.grid(row=0, column=0, sticky="nsew")
         self._radio.launch()
@@ -192,8 +200,34 @@ class TrendingRadioPanel(tk.Frame):
         self._next.configure(state=tk.NORMAL if self._page + 1 < total else tk.DISABLED)
         self._play.configure(state=tk.NORMAL if self._selected is not None else tk.DISABLED)
 
+    def _restore_fm(self) -> None:
+        if self._video_pane is not None:
+            self._video_pane.destroy()
+            self._video_pane = None
+        self._radio = self._radio_factory(self._left, self._theme)
+        self._radio.grid(row=0, column=0, sticky="nsew")
+        self._radio.launch()
+
     def _play_selected(self) -> None:
-        if self._selected is not None:
-            self._on_play(SongLaunchRequest(
-                title=self._selected["title"], artist=self._selected["artist"],
-                destination=SongDestination.YOUTUBE))
+        if self._selected is None:
+            return
+        request = SongLaunchRequest(
+            title=self._selected["title"], artist=self._selected["artist"],
+            destination=SongDestination.YOUTUBE)
+        player = self._video_player()
+        if player is None:
+            self._on_play(request)
+            return
+        # Retire the SDR session before starting browser audio.
+        if self._video_pane is not None:
+            self._video_pane.destroy()
+            self._video_pane = None
+        else:
+            self._radio.destroy()
+        self._video_pane = TrendingVideoPane(
+            self._left, query=request.search_text,
+            play=player.play, stop=player.stop,
+            on_back=self._restore_fm, window_class="openroadcode-youtube",
+            background=self._theme.ui.background,
+            foreground=self._theme.ui.text)
+        self._video_pane.grid(row=0, column=0, sticky="nsew")
