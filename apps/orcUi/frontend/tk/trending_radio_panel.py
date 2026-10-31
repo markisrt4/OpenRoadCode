@@ -21,7 +21,7 @@ class TrendingRadioPanel(tk.Frame):
 
     def __init__(self, parent: tk.Misc, *, theme: ThemeBundle,
                  on_back: Callable[[], None],
-                 on_refresh: Callable[[str, str], None],
+                 on_refresh: Callable[[str, str, str], None],
                  on_play: Callable[[SongLaunchRequest], None],
                  radio_factory: Callable[[tk.Misc, ThemeBundle], tk.Widget],
                  video_player: Callable[[], ManagedBrowserMediaPlayer | None] = lambda: None) -> None:
@@ -34,6 +34,7 @@ class TrendingRadioPanel(tk.Frame):
         self._video_player = video_player
         self._video_pane: TrendingVideoPane | None = None
         self._songs: list[dict] = []
+        self._kind = "songs"
         self._selected: dict | None = None
         self._page = 0
         self._station = tk.StringVar(value="All stations")
@@ -64,7 +65,7 @@ class TrendingRadioPanel(tk.Frame):
         right.grid(row=1, column=1, sticky="nsew", padx=(6, 12), pady=(0, 12))
         right.grid_propagate(False)
         right.grid_columnconfigure(0, weight=1)
-        right.grid_rowconfigure(3, weight=1)
+        right.grid_rowconfigure(4, weight=1)
 
         heading = tk.Frame(right, bg=ui.surface)
         heading.grid(row=0, column=0, sticky="ew")
@@ -72,8 +73,15 @@ class TrendingRadioPanel(tk.Frame):
                  fg=ui.accent_primary, font=("Sans", 14, "bold")).pack(side=tk.LEFT)
         self._button(heading, "↻", self.refresh).pack(side=tk.RIGHT)
 
+        tabs = tk.Frame(right, bg=ui.surface)
+        tabs.grid(row=1, column=0, sticky="ew")
+        self._song_tab = self._button(tabs, "SONGS", lambda: self._change_kind("songs"))
+        self._song_tab.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self._artist_tab = self._button(tabs, "ARTISTS", lambda: self._change_kind("artists"))
+        self._artist_tab.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self._paint_kind()
         filters = tk.Frame(right, bg=ui.surface)
-        filters.grid(row=1, column=0, sticky="ew", pady=(8, 4))
+        filters.grid(row=2, column=0, sticky="ew", pady=(8, 4))
         self._station_menu = tk.OptionMenu(filters, self._station, "All stations",
                                             command=lambda _: self.refresh())
         self._station_menu.configure(bg=ui.control_background, fg=ui.text,
@@ -90,16 +98,16 @@ class TrendingRadioPanel(tk.Frame):
 
         self._status = tk.Label(right, text="Loading airplay…", bg=ui.surface,
                                 fg=ui.text_muted, anchor="w", font=("Sans", 9))
-        self._status.grid(row=2, column=0, sticky="ew", pady=(0, 4))
+        self._status.grid(row=3, column=0, sticky="ew", pady=(0, 4))
 
         self._cards = tk.Frame(right, bg=ui.surface)
-        self._cards.grid(row=3, column=0, sticky="nsew")
+        self._cards.grid(row=4, column=0, sticky="nsew")
         self._cards.grid_columnconfigure(0, weight=1)
         for index in range(PAGE_SIZE):
             self._cards.grid_rowconfigure(index, weight=1, uniform="songs")
 
         footer = tk.Frame(right, bg=ui.surface)
-        footer.grid(row=4, column=0, sticky="ew", pady=(8, 0))
+        footer.grid(row=5, column=0, sticky="ew", pady=(8, 0))
         self._previous = self._button(footer, "‹ PREV", lambda: self._change_page(-1))
         self._previous.pack(side=tk.LEFT)
         self._page_label = tk.Label(footer, text="0 / 0", bg=ui.surface,
@@ -108,7 +116,7 @@ class TrendingRadioPanel(tk.Frame):
         self._next = self._button(footer, "NEXT ›", lambda: self._change_page(1))
         self._next.pack(side=tk.RIGHT)
         actions = tk.Frame(right, bg=ui.surface)
-        actions.grid(row=5, column=0, sticky="ew", pady=(8, 0))
+        actions.grid(row=6, column=0, sticky="ew", pady=(8, 0))
         actions.grid_columnconfigure(0, weight=1)
         actions.grid_columnconfigure(1, weight=1)
         self._play = self._button(actions, "▶ YOUTUBE", self._play_selected)
@@ -129,7 +137,7 @@ class TrendingRadioPanel(tk.Frame):
 
     def refresh(self) -> None:
         self._status.configure(text="Refreshing airplay charts…")
-        self._on_refresh(self._station.get(), self._period.get())
+        self._on_refresh(self._station.get(), self._period.get(), self._kind)
 
     def set_stations(self, stations: list[dict]) -> None:
         names = ["All stations"] + sorted({s["station"] for s in stations if s.get("station")})
@@ -155,8 +163,13 @@ class TrendingRadioPanel(tk.Frame):
                              fg=ui.control_text if active else ui.text)
 
     def set_songs(self, payload: dict) -> None:
-        self._songs = [song for song in payload.get("results", [])
-                       if song.get("artist") and song.get("title")]
+        self.set_chart(payload, kind="songs")
+
+    def set_chart(self, payload: dict, *, kind: str) -> None:
+        self._kind = kind
+        self._paint_kind()
+        self._songs = [item for item in payload.get("results", [])
+                       if item.get("artist") and (kind == "artists" or item.get("title"))]
         self._selected = None
         self._page = 0
         self._status.configure(text=f'{len(self._songs)} songs  ·  {payload.get("coverage", "unknown")} coverage')
@@ -164,6 +177,24 @@ class TrendingRadioPanel(tk.Frame):
 
     def set_error(self, message: str) -> None:
         self._status.configure(text=f"MusicForge unavailable: {message}")
+
+    def _change_kind(self, kind: str) -> None:
+        if kind == self._kind:
+            return
+        self._kind = kind
+        self._songs = []
+        self._selected = None
+        self._page = 0
+        self._paint_kind()
+        self._render()
+        self.refresh()
+
+    def _paint_kind(self) -> None:
+        ui = self._theme.ui
+        for kind, button in (("songs", self._song_tab), ("artists", self._artist_tab)):
+            active = kind == self._kind
+            button.configure(bg=ui.accent_primary if active else ui.control_background,
+                             fg=ui.control_text if active else ui.text)
 
     def _change_page(self, direction: int) -> None:
         total = max(1, (len(self._songs) + PAGE_SIZE - 1) // PAGE_SIZE)
@@ -190,11 +221,12 @@ class TrendingRadioPanel(tk.Frame):
             rank = tk.Label(card, text=f'{song.get("rank", self._page * PAGE_SIZE + index + 1):02}',
                             bg=bg, fg=ui.accent_primary, font=("Sans", 15, "bold"))
             rank.grid(row=0, column=0, rowspan=2, sticky="w", padx=(0, 12))
-            title = tk.Label(card, text=song["title"], bg=bg, fg=ui.text,
+            title = tk.Label(card, text=song["artist"] if self._kind == "artists" else song["title"], bg=bg, fg=ui.text,
                              anchor="w", font=("Sans", 10, "bold"))
             title.grid(row=0, column=1, sticky="ew")
             title.configure(wraplength=200, justify=tk.LEFT)
-            artist = tk.Label(card, text=song["artist"], bg=bg, fg=ui.text_muted,
+            detail = (str(song.get("plays", 0)) + " airplays · " + str(song.get("songs", 0)) + " songs") if self._kind == "artists" else song["artist"]
+            artist = tk.Label(card, text=detail, bg=bg, fg=ui.text_muted,
                               anchor="w", font=("Sans", 10))
             artist.grid(row=1, column=1, sticky="ew")
             card.bind("<Configure>", lambda event, label=title: label.configure(
@@ -206,8 +238,8 @@ class TrendingRadioPanel(tk.Frame):
         self._page_label.configure(text=f"{self._page + 1} / {total}")
         self._previous.configure(state=tk.NORMAL if self._page > 0 else tk.DISABLED)
         self._next.configure(state=tk.NORMAL if self._page + 1 < total else tk.DISABLED)
-        self._play.configure(state=tk.NORMAL if self._selected is not None else tk.DISABLED)
-        self._spotify.configure(state=tk.NORMAL if self._selected is not None else tk.DISABLED)
+        self._play.configure(state=tk.NORMAL if self._selected is not None and self._kind == "songs" else tk.DISABLED)
+        self._spotify.configure(state=tk.NORMAL if self._selected is not None and self._kind == "songs" else tk.DISABLED)
 
     def _restore_fm(self) -> None:
         if self._video_pane is not None:
