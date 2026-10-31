@@ -14,6 +14,7 @@ from frontends.tk.offline_card import OfflineCardAppearance
 from apps.orcUi.frontend.tk.radio_panel import RadioPanel
 from frontends.tk.radio.persistent_streaming_radio_panel import PersistentStreamingRadioPanel
 from ui.theme import ThemeBundle
+from .trending_radio_panel import TrendingRadioPanel
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
 from .radio_source_icon import draw_source_icon, draw_source_scene
 from ui.ui_widget import UiWidget
@@ -31,6 +32,7 @@ class RadioEntryPanel(tk.Frame, UiWidget):
             [tk.Misc, ThemeBundle, Callable[[], None]], PersistentStreamingRadioPanel
         ],
         theme: ThemeBundle,
+        trending_panel_factory: Callable[[tk.Misc, ThemeBundle, Callable[[], None]], TrendingRadioPanel] | None = None,
         on_location_changed: Callable[[str], None] | None = None,
         online_mode: OnlineModeIf | None = None,
     ) -> None:
@@ -42,6 +44,8 @@ class RadioEntryPanel(tk.Frame, UiWidget):
         super().__init__(parent, bg=ui.background)
         self._rf_panel_factory = rf_panel_factory
         self._streaming_panel_factory = streaming_panel_factory
+        self._trending_panel_factory = trending_panel_factory
+        self._trending_page: TrendingRadioPanel | None = None
         self._radio_panel: RadioPanel | None = None
         self._streaming_page: PersistentStreamingRadioPanel | None = None
         self._on_location_changed = on_location_changed
@@ -52,6 +56,7 @@ class RadioEntryPanel(tk.Frame, UiWidget):
         self._chooser.grid(row=0, column=0, sticky="nsew")
         self._chooser.grid_columnconfigure(0, weight=1, uniform="radio-source")
         self._chooser.grid_columnconfigure(1, weight=1, uniform="radio-source")
+        self._chooser.grid_columnconfigure(2, weight=1, uniform="radio-source")
         self._chooser.grid_rowconfigure(0, weight=1)
         self._build_choice_buttons()
 
@@ -61,6 +66,8 @@ class RadioEntryPanel(tk.Frame, UiWidget):
 
     def _mode_changed(self, online: bool) -> None:
         self._streaming_card_appearance.set_online(online)
+        if self._trending_button is not None:
+            self._trending_button.configure(state=tk.NORMAL if online else tk.DISABLED)
         self._streaming_button.configure(state=tk.NORMAL if online else tk.DISABLED,
                                          disabledforeground=self._theme.ui.text_muted)
         self._status.configure(text="" if online else "Offline mode: RF radio remains available")
@@ -73,6 +80,9 @@ class RadioEntryPanel(tk.Frame, UiWidget):
 
     def deactivate(self) -> None:
         """Retire browser callbacks as the containing radio screen is hidden."""
+        if self._trending_page is not None:
+            self._trending_page.destroy()
+            self._trending_page = None
         if self._streaming_page is not None:
             self._streaming_page.deactivate()
         if self._radio_panel is not None:
@@ -94,6 +104,22 @@ class RadioEntryPanel(tk.Frame, UiWidget):
             self._streaming_page.set_theme_bundle(theme)
         if self._radio_panel is not None and self._radio_panel.winfo_exists():
             self._radio_panel.set_theme_bundle(theme)
+
+    def open_trending(self) -> None:
+        if not self._online_allowed() or self._trending_panel_factory is None:
+            return
+        if self._radio_panel is not None:
+            self._radio_panel.destroy()
+            self._radio_panel = None
+        if self._streaming_page is not None and self._streaming_page.winfo_exists():
+            self._streaming_page.deactivate()
+            self._streaming_page.grid_remove()
+        self._chooser.grid_remove()
+        if self._trending_page is None or not self._trending_page.winfo_exists():
+            self._trending_page = self._trending_panel_factory(self, self._theme, self._show_chooser)
+        self._trending_page.grid(row=0, column=0, sticky="nsew")
+        self._trending_page.refresh()
+        self._set_location("TRENDING")
 
     def open_streaming_radio(self) -> None:
         """Present the streaming-radio browser directly."""
@@ -140,7 +166,18 @@ class RadioEntryPanel(tk.Frame, UiWidget):
             icon_kind="rf",
             command=self.open_rf_radio,
         )
-        rf_card.grid(row=0, column=0, sticky="nsew", padx=(12, 6), pady=(18, 12))
+        rf_card.grid(row=0, column=0, sticky="nsew", padx=(12, 5), pady=(18, 12))
+        self._trending_button = None
+        if self._trending_panel_factory is not None:
+            trending_card, self._trending_button = self._build_source_card(
+                parent=self._chooser, title="TRENDING",
+                eyebrow="MUSICFORGE · AIRPLAY CHARTS",
+                description="Explore songs heard on Detroit radio and search for them on YouTube.",
+                features="TODAY  •  7 DAYS  •  30 DAYS",
+                action_text="EXPLORE TRENDING  ›", accent=ui.accent_primary,
+                icon_kind="stream", command=self.open_trending,
+            )
+            trending_card.grid(row=0, column=1, sticky="nsew", padx=5, pady=(18, 12))
 
         streaming_card, self._streaming_button = self._build_source_card(
             parent=self._chooser,
@@ -155,9 +192,9 @@ class RadioEntryPanel(tk.Frame, UiWidget):
         )
         streaming_card.grid(
             row=0,
-            column=1,
+            column=2 if self._trending_panel_factory is not None else 1,
             sticky="nsew",
-            padx=(6, 12),
+            padx=(5, 12),
             pady=(18, 12),
         )
         self._status = tk.Label(
@@ -167,7 +204,7 @@ class RadioEntryPanel(tk.Frame, UiWidget):
             fg=ui.text_muted,
             font=("Sans", FONT_BODY),
         )
-        self._status.grid(row=1, column=0, columnspan=2, pady=(0, 10))
+        self._status.grid(row=1, column=0, columnspan=3, pady=(0, 10))
         self._streaming_card_appearance = OfflineCardAppearance(streaming_card)
         self._mode_changed(self._online_allowed())
 
@@ -296,6 +333,9 @@ class RadioEntryPanel(tk.Frame, UiWidget):
         return tuple(widgets)
 
     def _show_streaming_radio(self) -> None:
+        if self._trending_page is not None:
+            self._trending_page.destroy()
+            self._trending_page = None
         if not self._online_allowed():
             return
         if self._radio_panel is not None:
@@ -310,6 +350,9 @@ class RadioEntryPanel(tk.Frame, UiWidget):
         self._streaming_page.grid(row=0, column=0, sticky="nsew")
 
     def _show_chooser(self) -> None:
+        if self._trending_page is not None:
+            self._trending_page.destroy()
+            self._trending_page = None
         if self._streaming_page is not None and self._streaming_page.winfo_exists():
             self._streaming_page.deactivate()
             self._streaming_page.grid_remove()
