@@ -157,6 +157,7 @@ def create_orc_ui_composition(
         _report(progress, "vision", "Vision subsystem loaded")
         media = configure_media(app, runtime)
         cleanup.callback(media.close)
+        radio.bind_song_launch(media.song_launch_controller.launch_song)
         _report(progress, "media", "Media subsystem loaded")
         settings_store = AppSettingsStore()
         app_settings = settings_store.load()
