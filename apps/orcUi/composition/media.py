@@ -35,6 +35,7 @@ from frontends.tk.media.spotify_account_dialog import SpotifyAccountDialog
 from controllers.image import ImageCache
 from controllers.spotify.media_preview_controller import MediaPreviewController
 from controllers.lyrics import LrclibLyricsClient
+from controllers.media.song_launch_controller import SongLaunchController
 from controllers.video import MusicVideoController, NetflixPlayer, YouTubeMusicVideo, YouTubePlayer
 from frontends.x11 import X11WindowEmbedder
 from frontends.tk.media import BrowserMediaScreen, MediaNavigationBar, MediaScreen, SpotifyNowPlaying, SpotifyScreen
@@ -59,6 +60,7 @@ SPOTIFY_GREEN = "#1DB954"
 @dataclass(slots=True)
 class MediaComposition:
     music_video_controller: MusicVideoController
+    song_launch_controller: SongLaunchController
     home_factory: Callable[[tk.Misc], tk.Widget]
     visualizer: MusicVisualizerScreen | BrowserMediaScreen
     visualizer_runtime: MusicVisualizerController | MusicVisualizerBrowser
@@ -167,6 +169,12 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         default_target="https://www.youtube.com/", window_class=YOUTUBE_WINDOW_CLASS,
         back_action=lambda: media_screen.show(), media_navigation_factory=media_navigation,
         theme_bundle=lambda: theme_bundle(app.theme_mode),
+    )
+    song_launch_controller = SongLaunchController(
+        open_spotify_search=lambda _query: app.set_screen_status(
+            "Spotify song search is not available yet"
+        ),
+        open_youtube_search=online_action(youtube_screen.show_target),
     )
     youtube_music_screen = YouTubeMusicComingSoonScreen(
         app,
@@ -348,6 +356,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
     return MediaComposition(
         preview=preview,
         music_video_controller=music_video_controller,
+        song_launch_controller=song_launch_controller,
         home_factory=home_media_factory,
         visualizer=visualizer,
         visualizer_runtime=visualizer_runtime,
