@@ -182,7 +182,7 @@ class RadioEntryPanel(tk.Frame, UiWidget):
                 eyebrow="MUSICFORGE · AIRPLAY CHARTS",
                 description="Explore songs heard on Detroit radio and search for them on YouTube.",
                 features="TODAY  •  7 DAYS  •  30 DAYS",
-                action_text="EXPLORE TRENDING  ›", accent=ui.accent_success,
+                action_text="EXPLORE TRENDING  ›", accent="#C58AF9",
                 icon_kind="trending", command=self.open_trending,
             )
             trending_card.grid(row=0, column=1, sticky="nsew", padx=5, pady=(18, 12))
@@ -259,22 +259,28 @@ class RadioEntryPanel(tk.Frame, UiWidget):
         )
         icon.grid(row=0, column=0, rowspan=2, sticky="w", padx=(0, 6))
         draw_source_icon(icon, icon_kind=icon_kind, accent=accent, theme=self._theme)
-        tk.Label(
+        eyebrow_label = tk.Label(
             heading,
             text=eyebrow,
             bg=ui.surface,
             fg=accent,
             font=("Sans", 8, "bold"),
             anchor="w",
-        ).grid(row=0, column=1, sticky="sw", pady=(8, 2))
-        tk.Label(
+        )
+        eyebrow_label.grid(row=0, column=1, sticky="sw", pady=(8, 2))
+        title_label = tk.Label(
             heading,
             text=title,
             bg=ui.surface,
             fg=ui.text,
             font=("Sans", 14, "bold"),
             anchor="w",
-        ).grid(row=1, column=1, sticky="nw")
+        )
+        title_label.grid(row=1, column=1, sticky="nw")
+        heading.bind("<Configure>", lambda event: (
+            eyebrow_label.configure(wraplength=max(50, event.width - 70)),
+            title_label.configure(wraplength=max(50, event.width - 70)),
+        ))
 
         body = tk.Frame(card, bg=ui.surface)
         body.grid(row=2, column=0, sticky="nsew", padx=12, pady=(4, 10))
