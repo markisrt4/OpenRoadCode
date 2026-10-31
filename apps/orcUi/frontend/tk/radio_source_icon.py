@@ -49,6 +49,15 @@ def draw_source_scene(canvas: tk.Canvas, *, icon_kind: str, accent: str,
             points.extend((x, y))
         line(points, fill=accent, width=2, smooth=True)
         caption = "AIRWAVES  ›  SDR  ›  AUDIO"
+    elif icon_kind == "trending":
+        heights = (21, 34, 27, 51, 44, 68, 58, 78, 65, 86)
+        for index, top in enumerate(heights):
+            x = (28 + index * 29) * sx
+            canvas.create_rectangle(x, top * sy, x + 15 * sx, 75 * sy,
+                                    fill=accent if index >= 6 else ui.text_muted, outline="")
+        line((25, 61, 57, 49, 87, 56, 117, 33, 147, 40, 177, 20, 207, 29, 237, 12, 267, 19, 300, 7),
+             fill=ui.text, width=3, smooth=True)
+        caption = "AIRPLAY  ›  CHARTS  ›  DISCOVER"
     else:
         canvas.create_oval(22 * sx, 12 * sy, 74 * sx, 64 * sy,
                            outline=accent, width=2)
@@ -83,6 +92,14 @@ def draw_source_icon(
         canvas.create_line(23, 51, 41, 51, fill=ui.text_muted, width=2)
         return
 
+    if icon_kind == "trending":
+        for index, height in enumerate((12, 22, 16, 30)):
+            x = 15 + index * 10
+            canvas.create_rectangle(x, 48 - height, x + 6, 48,
+                                    fill=accent if index == 3 else ui.text_muted, outline="")
+        canvas.create_line(15, 37, 25, 28, 35, 33, 46, 17,
+                           fill=ui.text, width=2, smooth=True)
+        return
     canvas.create_oval(27, 27, 37, 37, fill=accent, outline=accent)
     canvas.create_arc(20, 20, 44, 44, start=315, extent=90, style=tk.ARC, outline=accent, width=2)
     canvas.create_arc(13, 13, 51, 51, start=315, extent=90, style=tk.ARC, outline=ui.text_muted, width=2)
