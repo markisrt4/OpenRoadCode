@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import os
 import tkinter as tk
+from concurrent.futures import ThreadPoolExecutor
+from controllers.media.youtube_search_resolver import first_video_url
 from collections.abc import Callable
 
 from frontends.x11 import X11WindowEmbedder
@@ -25,6 +27,9 @@ class TrendingVideoPane(tk.Frame):
         self._embedder = X11WindowEmbedder()
         self._pending: str | None = None
         self._closed = False
+        self._resolver = ThreadPoolExecutor(max_workers=1, thread_name_prefix="trending-youtube")
+        self._future = self._resolver.submit(first_video_url, query)
+        self._resolved_target = query
         bar = tk.Frame(self, bg=background)
         bar.pack(fill=tk.X)
         tk.Button(bar, text="‹ BACK TO FM", command=on_back,
@@ -36,7 +41,20 @@ class TrendingVideoPane(tk.Frame):
         self._host = tk.Frame(self, bg=background)
         self._host.pack(fill=tk.BOTH, expand=True)
         self._host.bind("<Configure>", self._resize)
-        self._pending = self.after(50, self._launch)
+        self._pending = self.after(100, self._await_result)
+
+    def _await_result(self) -> None:
+        self._pending = None
+        if self._closed:
+            return
+        if not self._future.done():
+            self._pending = self.after(100, self._await_result)
+            return
+        try:
+            self._resolved_target = self._future.result()
+        except Exception:
+            self._resolved_target = self._query
+        self._launch()
 
     def _launch(self) -> None:
         self._pending = None
@@ -47,7 +65,7 @@ class TrendingVideoPane(tk.Frame):
             width = max(1, self._host.winfo_width())
             height = max(1, self._host.winfo_height())
             if not self._play(
-                self._query, display=os.environ.get("DISPLAY", ":1"),
+                self._resolved_target, display=os.environ.get("DISPLAY", ":1"),
                 window_position=(self._host.winfo_rootx(), self._host.winfo_rooty()),
                 window_size=(width, height),
             ):
@@ -73,4 +91,5 @@ class TrendingVideoPane(tk.Frame):
             except (RuntimeError, tk.TclError):
                 self._embedder.clear()
         self._stop()
+        self._resolver.shutdown(wait=False, cancel_futures=True)
         super().destroy()
