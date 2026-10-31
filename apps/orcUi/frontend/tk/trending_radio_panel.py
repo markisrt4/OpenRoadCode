@@ -38,8 +38,9 @@ class TrendingRadioPanel(tk.Frame):
         self._page = 0
         self._station = tk.StringVar(value="All stations")
         self._period = tk.StringVar(value="7d")
-        self.grid_columnconfigure(0, weight=3)
-        self.grid_columnconfigure(1, weight=2)
+        # Disable geometry propagation: browser and SDR have different requested widths.
+        self.grid_columnconfigure(0, weight=3, uniform='trending_split')
+        self.grid_columnconfigure(1, weight=2, uniform='trending_split')
         self.grid_rowconfigure(1, weight=1)
 
         header = tk.Frame(self, bg=ui.background)
@@ -52,6 +53,7 @@ class TrendingRadioPanel(tk.Frame):
         left.grid(row=1, column=0, sticky="nsew", padx=(12, 6), pady=(0, 12))
         left.grid_rowconfigure(0, weight=1)
         left.grid_columnconfigure(0, weight=1)
+        left.grid_propagate(False)
         self._left = left
         self._radio = radio_factory(left, theme)
         self._radio.grid(row=0, column=0, sticky="nsew")
@@ -60,6 +62,7 @@ class TrendingRadioPanel(tk.Frame):
         right = tk.Frame(self, bg=ui.surface, padx=12, pady=10,
                          highlightthickness=1, highlightbackground=ui.border)
         right.grid(row=1, column=1, sticky="nsew", padx=(6, 12), pady=(0, 12))
+        right.grid_propagate(False)
         right.grid_columnconfigure(0, weight=1)
         right.grid_rowconfigure(3, weight=1)
 
