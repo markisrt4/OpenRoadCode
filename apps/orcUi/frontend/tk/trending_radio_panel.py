@@ -24,7 +24,8 @@ class TrendingRadioPanel(tk.Frame):
                  on_refresh: Callable[[str, str, str], None],
                  on_play: Callable[[SongLaunchRequest], None],
                  radio_factory: Callable[[tk.Misc, ThemeBundle], tk.Widget],
-                 video_player: Callable[[], ManagedBrowserMediaPlayer | None] = lambda: None) -> None:
+                 video_player: Callable[[], ManagedBrowserMediaPlayer | None] = lambda: None,
+                 spotify_factory: Callable | None = None) -> None:
         ui = theme.ui
         super().__init__(parent, bg=ui.background)
         self._theme = theme
@@ -32,6 +33,8 @@ class TrendingRadioPanel(tk.Frame):
         self._on_play = on_play
         self._radio_factory = radio_factory
         self._video_player = video_player
+        self._spotify_factory = spotify_factory
+        self._spotify_pane = None
         self._video_pane: TrendingVideoPane | None = None
         self._songs: list[dict] = []
         self._kind = "songs"
