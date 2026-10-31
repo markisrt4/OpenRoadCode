@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import tkinter as tk
+import subprocess
+from urllib.parse import quote
 from collections.abc import Callable
 from ui.media.song_launch import SongDestination, SongLaunchRequest
 from ui.radio.station_identity import station_label
@@ -107,9 +109,14 @@ class TrendingRadioPanel(tk.Frame):
         self._page_label.pack(side=tk.LEFT, expand=True)
         self._next = self._button(footer, "NEXT ›", lambda: self._change_page(1))
         self._next.pack(side=tk.RIGHT)
-        self._play = self._button(right, "▶  SEARCH SELECTED ON YOUTUBE",
-                                  self._play_selected)
-        self._play.grid(row=5, column=0, sticky="ew", pady=(8, 0))
+        actions = tk.Frame(right, bg=ui.surface)
+        actions.grid(row=5, column=0, sticky="ew", pady=(8, 0))
+        actions.grid_columnconfigure(0, weight=1)
+        actions.grid_columnconfigure(1, weight=1)
+        self._play = self._button(actions, "▶ YOUTUBE", self._play_selected)
+        self._play.grid(row=0, column=0, sticky="ew", padx=(0, 3))
+        self._spotify = self._button(actions, "♫ SPOTIFY", self._open_spotify)
+        self._spotify.grid(row=0, column=1, sticky="ew", padx=(3, 0))
         self._render()
 
     def _button(self, parent: tk.Misc, label: str,
@@ -202,6 +209,7 @@ class TrendingRadioPanel(tk.Frame):
         self._previous.configure(state=tk.NORMAL if self._page > 0 else tk.DISABLED)
         self._next.configure(state=tk.NORMAL if self._page + 1 < total else tk.DISABLED)
         self._play.configure(state=tk.NORMAL if self._selected is not None else tk.DISABLED)
+        self._spotify.configure(state=tk.NORMAL if self._selected is not None else tk.DISABLED)
 
     def _restore_fm(self) -> None:
         if self._video_pane is not None:
@@ -210,6 +218,20 @@ class TrendingRadioPanel(tk.Frame):
         self._radio = self._radio_factory(self._left, self._theme)
         self._radio.grid(row=0, column=0, sticky="nsew")
         self._radio.launch()
+
+    def _open_spotify(self) -> None:
+        """Open Spotify's song search; actual playback remains user-controlled."""
+        if self._selected is None:
+            return
+        query = f'{self._selected["artist"]} {self._selected["title"]}'
+        try:
+            subprocess.Popen(
+                ["xdg-open", "https://open.spotify.com/search/" + quote(query, safe="")],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+        except OSError as exc:
+            self._status.configure(text=f"Cannot open Spotify: {exc}")
 
     def _play_selected(self) -> None:
         if self._selected is None:
