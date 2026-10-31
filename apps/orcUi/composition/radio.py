@@ -210,7 +210,8 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
                 song_launch[0](request)
 
             panel = TrendingRadioPanel(parent, theme=theme, on_back=on_back,
-                                       on_refresh=refresh, on_play=play)
+                                       on_refresh=refresh, on_play=play,
+                                       radio_factory=rf_panel_factory)
             return panel
 
         favorites = StreamingRadioFavorites()
