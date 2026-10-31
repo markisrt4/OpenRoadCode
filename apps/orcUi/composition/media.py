@@ -61,6 +61,7 @@ SPOTIFY_GREEN = "#1DB954"
 class MediaComposition:
     music_video_controller: MusicVideoController
     song_launch_controller: SongLaunchController
+    trending_youtube_player: ManagedBrowserMediaPlayer
     home_factory: Callable[[tk.Misc], tk.Widget]
     visualizer: MusicVisualizerScreen | BrowserMediaScreen
     visualizer_runtime: MusicVisualizerController | MusicVisualizerBrowser
@@ -357,6 +358,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         preview=preview,
         music_video_controller=music_video_controller,
         song_launch_controller=song_launch_controller,
+        trending_youtube_player=youtube_player,
         home_factory=home_media_factory,
         visualizer=visualizer,
         visualizer_runtime=visualizer_runtime,
