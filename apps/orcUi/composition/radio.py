@@ -224,7 +224,8 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
                                        on_refresh=refresh, on_play=play,
                                        radio_factory=lambda host, colors: rf_panel_factory(host, colors, fm_only=True),
                                        video_player=lambda: video_players[0] if video_players else None,
-                                       spotify_factory=lambda host, back: spotify_factories[0](host, back) if spotify_factories else None)
+                                       spotify_factory=lambda host, back, artist, title: spotify_factories[0](host, back, artist, title) if spotify_factories else None,
+                                       online_allowed=network_allowed)
             return panel
 
         favorites = StreamingRadioFavorites()
