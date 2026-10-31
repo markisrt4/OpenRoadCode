@@ -355,7 +355,19 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         panel.grid(row=1, column=0, sticky="nsew")
         session = create_presentation(rich=True)
         session.activate(panel)
-        media.spotify.request_play_song(artist, title, lambda message: app.dispatch_ui(lambda: app.set_screen_status(message)))
+        status = tk.Label(host, text=f"Looking up {artist} - {title}…",
+                          bg=spotify_theme(app)["colors"]["background"],
+                          fg="#d8dee9", anchor="w", wraplength=340)
+        status.grid(row=2, column=0, sticky="ew", padx=8, pady=3)
+
+        def report(message: str) -> None:
+            def update() -> None:
+                if host.winfo_exists():
+                    status.configure(text=message)
+                app.set_screen_status(message)
+            app.dispatch_ui(update)
+
+        media.spotify.request_play_song(artist, title, report)
         def retire(event: tk.Event) -> None:
             if event.widget is host:
                 session.close()
