@@ -124,10 +124,12 @@ class RadioComposition:
     open_weather_radio: Callable[[], None]
     streaming_resources: StreamingRadioResources
     bind_song_launch: Callable[[Callable[[SongLaunchRequest], None]], None] = lambda _handler: None
+    close_charts: Callable[[], None] = lambda: None
 
     def close(self) -> None:
         """Retire browser sessions and workers; runtime retains playback ownership."""
         self.streaming_resources.close()
+        self.close_charts()
 
 
 def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioComposition:
@@ -398,6 +400,8 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
             home_factory=home_radio_factory,
             open_weather_radio=open_weather_radio,
             streaming_resources=resources,
+            bind_song_launch=bind_song_launch,
+            close_charts=charts.close,
         )
         cleanup.release()
     return composition
