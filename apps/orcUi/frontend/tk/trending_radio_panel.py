@@ -245,6 +245,9 @@ class TrendingRadioPanel(tk.Frame):
         self._spotify.configure(state=tk.NORMAL if self._selected is not None and self._kind == "songs" else tk.DISABLED)
 
     def _restore_fm(self) -> None:
+        if self._spotify_pane is not None:
+            self._spotify_pane.destroy()
+            self._spotify_pane = None
         if self._video_pane is not None:
             self._video_pane.destroy()
             self._video_pane = None
