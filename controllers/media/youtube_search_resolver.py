@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Resolve the first YouTube video result without scraping page markup."""
+"""Resolve first YouTube search result to its normal watch page."""
 from __future__ import annotations
 
 import json
@@ -28,7 +28,7 @@ def first_video_url(query: str, *, timeout: float = 12.0) -> str:
         if isinstance(video_id, str) and len(video_id) == 11 and all(
             char.isascii() and (char.isalnum() or char in "-_") for char in video_id
         ):
-            return f"https://www.youtube.com/embed/{video_id}?autoplay=1&playsinline=1"
+            return f"https://www.youtube.com/watch?v={video_id}&autoplay=1"
     except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError):
         pass
     return fallback
