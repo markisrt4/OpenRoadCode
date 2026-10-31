@@ -174,7 +174,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         open_spotify_search=lambda _query: app.set_screen_status(
             "Spotify song search is not available yet"
         ),
-        open_youtube_search=online_action(youtube_screen.show_target),
+        open_youtube_search=lambda query: online_action(lambda: youtube_screen.show_target(query))(),
     )
     youtube_music_screen = YouTubeMusicComingSoonScreen(
         app,
