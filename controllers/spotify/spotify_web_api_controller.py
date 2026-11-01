@@ -56,18 +56,19 @@ class SpotifyWebApiController(SpotifyControllerIf):
 
     def search_track(self, artist: str, title: str) -> str | None:
         """Resolve a MusicForge song to a Spotify track URI."""
-        query = urlencode({"q": f'track:{title} artist:{artist}', "type": "track", "limit": 10})
+        primary_artist = artist.split(" feat.")[0].split(" ft.")[0].strip()
+        query = urlencode({"q": f"{title} {primary_artist}", "type": "track", "limit": 20})
         response = self._client.request_json("GET", f"/search?{query}") or {}
         tracks = response.get("tracks") or {}
         items = tracks.get("items") or []
         normalize = lambda value: " ".join(str(value).casefold().split())
-        target_artist, target_title = normalize(artist), normalize(title)
+        target_artist, target_title = normalize(primary_artist), normalize(title)
         for item in items:
             if not isinstance(item, dict):
                 continue
             artists = item.get("artists") or []
             names = [normalize(a.get("name", "")) for a in artists if isinstance(a, dict)]
-            if normalize(item.get("name", "")) == target_title and target_artist in names:
+            if normalize(item.get("name", "")) == target_title and any(target_artist == name for name in names):
                 uri = item.get("uri")
                 if isinstance(uri, str) and uri.startswith("spotify:track:"):
                     return uri
