@@ -275,6 +275,11 @@ class SpotifyStateService(
                 self._controller.play_track(uri)
                 report(f"Playing {artist} - {title}")
                 self.request_refresh()
+            except SpotifyWebApiError as exc:
+                if exc.status_code == 404 and "NO_ACTIVE_DEVICE" in exc.response_body:
+                    report("No active Spotify device. Start Spotify on a phone or select ORC PLAYER, then retry.")
+                else:
+                    report(f"Spotify HTTP {exc.status_code}: {exc.response_body}")
             except Exception as exc:
                 report(f"Spotify playback unavailable: {exc}")
         self._enqueue(work, "play_song")
