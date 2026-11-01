@@ -367,7 +367,33 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
                 app.set_screen_status(message)
             app.dispatch_ui(update)
 
-        media.spotify.request_play_song(artist, title, report)
+        # Register the SDK playback device before queuing a track. The local
+        # player queues its transfer first, so subsequent play uses that device.
+        from ui.media.spotify_browse_if import SpotifyPlaybackMode
+        from time import monotonic
+        player = media.spotify_local_player
+        state = player.state()
+        if not state.available:
+            report("Local Spotify player unavailable: " + state.message)
+        else:
+            deadline = monotonic() + 25.0
+            player.request_player()
+
+            def await_device() -> None:
+                if not host.winfo_exists() or not network_allowed():
+                    return
+                current = player.state()
+                if current.mode is SpotifyPlaybackMode.PLAYER and not current.busy:
+                    report("ORC Spotify device ready. Loading selected track…")
+                    media.spotify.request_play_song(artist, title, report)
+                elif current.mode is SpotifyPlaybackMode.REMOTE and not current.busy:
+                    report(current.message)
+                elif monotonic() >= deadline:
+                    report("Timed out waiting for ORC Spotify player registration")
+                else:
+                    host.after(200, await_device)
+
+            host.after(200, await_device)
         def retire(event: tk.Event) -> None:
             if event.widget is host:
                 session.close()
