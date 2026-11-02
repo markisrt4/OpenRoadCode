@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-from scripts.probe_waydroid_embedding import parse_geometry, android_window_frames
+from scripts.probe_waydroid_embedding import parse_geometry, android_window_frames, activity_orientation, compatibility_overrides
 
 
 def test_geometry_retains_parent_relative_offsets_and_sizes():
@@ -26,3 +26,31 @@ def test_only_panera_geometry_is_reported_without_window_contents():
     mFrame=[0,0][123,456]
 '''
     assert android_window_frames(output) == [['[0,24][567,505]']]
+
+
+def test_orientation_is_scoped_to_panera_activity():
+    text = '''
+    * Hist #0: ActivityRecord{abc u0 com.panera.bread/.MainActivity t1}
+      overrideOrientation=SCREEN_ORIENTATION_NOSENSOR
+      requestedOrientation=SCREEN_ORIENTATION_PORTRAIT
+      mSizeCompatScale=0.5
+      mCompatDisplayInsets=unused private data
+  Other task:
+    overrideOrientation=SCREEN_ORIENTATION_LANDSCAPE
+    * Hist #1: ActivityRecord{def u0 com.other.app/.SecretActivity t2}
+      requestedOrientation=SCREEN_ORIENTATION_LANDSCAPE
+'''
+    assert activity_orientation(text) == [{'overrideOrientation': 'SCREEN_ORIENTATION_NOSENSOR',
+        'requestedOrientation': 'SCREEN_ORIENTATION_PORTRAIT', 'size_compat_scale': '0.5',
+        'has_size_compat_insets': True}]
+
+
+def test_compat_flags_distinguish_known_from_enabled_without_other_apps():
+    text = '''ChangeId(265464455; name=OVERRIDE_ANY_ORIENTATION; disabled; packageOverrides={com.panera.bread=true, com.other.app=false}; overridable)
+ChangeId(265451093; name=OVERRIDE_UNDEFINED_ORIENTATION_TO_NOSENSOR; disabled; overridable)
+'''
+    result = compatibility_overrides(text)
+    assert result['OVERRIDE_ANY_ORIENTATION']['panera_override'] is True
+    assert result['OVERRIDE_UNDEFINED_ORIENTATION_TO_NOSENSOR']['known']
+    assert result['OVERRIDE_UNDEFINED_ORIENTATION_TO_NOSENSOR']['panera_override'] is None
+    assert result['FORCE_RESIZE_APP'] == {'known': False}

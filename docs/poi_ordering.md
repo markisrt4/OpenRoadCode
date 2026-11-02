@@ -295,6 +295,20 @@ sudo waydroid shell -- am compat reset FORCE_RESIZE_APP com.panera.bread
 waydroid app launch com.panera.bread
 ```
 
+If the app briefly fills the display and then shrinks, do not infer that it
+relocked portrait solely from the transition. The expanded probe now reports
+Panera's requested orientation separately from Android's effective override,
+size-compat scale/insets, and the evaluated per-app compatibility overrides.
+Known flags, default values and explicit enabled overrides are distinct. The
+probe omits other applications' records and app UI contents. Leave the failing
+view expanded after it settles and capture it without changing flags again:
+
+```bash
+git switch feature/waze-live-map
+sudo -v
+python3 scripts/probe_waydroid_embedding.py --mode expanded
+```
+
 For a stable bad frame, compare Android's own framebuffer with the ORC view in
 the same mode before changing any more geometry/orientation settings:
 

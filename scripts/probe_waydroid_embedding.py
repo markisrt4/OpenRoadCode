@@ -47,6 +47,57 @@ def android_window_frames(output, package='com.panera.bread'):
     return frames[:12]
 
 
+def activity_orientation(output, package='com.panera.bread'):
+    """Read only orientation/size-compat metadata from this package's records."""
+    records, current, indent = [], None, 0
+    for line in output.splitlines():
+        header = re.match(r'^(\s*)\* Hist #\d+:.*ActivityRecord\{', line)
+        if header:
+            if current:
+                records.append(current)
+            current = {} if package + '/' in line else None
+            indent = len(header[1])
+            continue
+        if current is None:
+            continue
+        if line.strip() and len(line) - len(line.lstrip()) <= indent:
+            if current:
+                records.append(current)
+            current = None
+            continue
+        for key in ('requestedOrientation', 'overrideOrientation'):
+            match = re.search(r'\b' + key + r'=([A-Z_]+|-?\d+)', line)
+            if match:
+                current[key] = match[1]
+        match = re.search(r'\bmSizeCompatScale=([0-9.]+)', line)
+        if match:
+            current['size_compat_scale'] = match[1]
+        if 'mCompatDisplayInsets=' in line:
+            current['has_size_compat_insets'] = True
+    if current:
+        records.append(current)
+    return records[:12]
+
+
+def compatibility_overrides(output, package='com.panera.bread'):
+    names = ('FORCE_RESIZE_APP', 'FORCE_NON_RESIZE_APP', 'OVERRIDE_ANY_ORIENTATION',
+             'OVERRIDE_UNDEFINED_ORIENTATION_TO_NOSENSOR', 'OVERRIDE_ORIENTATION_ONLY_FOR_CAMERA',
+             'OVERRIDE_RESPECT_REQUESTED_ORIENTATION')
+    result = {}
+    for name in names:
+        line = next((line for line in output.splitlines() if 'name=' + name + ';' in line
+                     or 'name=' + name + ')' in line), None)
+        if line is None:
+            result[name] = {'known': False}
+            continue
+        # Report only the evaluated override, not other packages or raw version rules.
+        evaluated = re.search(r'packageOverrides=\{([^}]*)\}', line)
+        override = re.search(r'(?<![\w.])' + re.escape(package) + r'=(true|false)\b', evaluated[1]) if evaluated else None
+        result[name] = {'known': True, 'default_disabled': '; disabled;' in line or '; disabled)' in line,
+                        'panera_override': override[1] == 'true' if override else None}
+    return result
+
+
 def collect(mode):
     report = {'mode': mode, 'x11_display_set': bool(os.getenv('DISPLAY'))}
     code, output = query(['xdotool', 'search', '--class', '^Weston Compositor$'])
@@ -75,6 +126,10 @@ def collect(mode):
         report['android'][label] = value[:256] if code == 0 else 'unavailable (run sudo -v first)'
     code, output = query(['sudo', '-n', 'waydroid', 'shell', '--', 'dumpsys', 'window', 'windows'])
     report['android']['panera_window_rectangles'] = android_window_frames(output) if code == 0 else []
+    code, output = query(['sudo', '-n', 'waydroid', 'shell', '--', 'dumpsys', 'activity', 'activities'])
+    report['android']['panera_orientation'] = activity_orientation(output) if code == 0 else []
+    code, output = query(['sudo', '-n', 'waydroid', 'shell', '--', 'dumpsys', 'platform_compat'])
+    report['android']['panera_compat_overrides'] = compatibility_overrides(output) if code == 0 else {'error': 'unavailable'}
     return report
 
 
