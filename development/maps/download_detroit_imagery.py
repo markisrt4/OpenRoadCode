@@ -234,15 +234,16 @@ def download(destination, *, bounds=BOUNDS, title="Detroit", image_size=(2048,15
     if not candidates:
         raise RuntimeError("No identifiable dated NAIP/USDA source found for selected coverage; source review required")
     year = max(record["Year"] for record in candidates)
-    # Acquisition years vary within large regions. Lock every approved dated
-    # NAIP raster, newest first, so MT_FIRST can use older flights only where
-    # the newest year has no coverage instead of exporting black holes.
+    # Acquisition years vary within large regions. Retain the approved records
+    # for provenance, but let the service's supported ByAttribute mosaic choose
+    # the newest available image at each location. LockRaster is capped at 50
+    # source images by this service and produces sparse statewide exports.
     selected = sorted(candidates, key=lambda record: (
         record["Year"], record.get("acquisition_date") or 0,
         record.get("OBJECTID") or 0,
     ), reverse=True)
-    mosaic = {"mosaicMethod":"esriMosaicLockRaster", "lockRasterIds":[r["OBJECTID"] for r in selected],
-              "mosaicOperation":"MT_FIRST"}
+    mosaic = {"mosaicMethod":"esriMosaicAttribute", "sortField":"Year", "sortValue":3000,
+              "where":"agency = 'USDA'", "mosaicOperation":"MT_FIRST"}
     export = get_json("/exportImage", bbox=",".join(map(str, bounds)), bboxSR=4326, imageSR=4326,
                       size=','.join(map(str, image_size)), format="jpg", adjustAspectRatio="false",
                       mosaicRule=json.dumps(mosaic), renderingRule=json.dumps({"rasterFunction":"NaturalColor"}))

@@ -13,8 +13,8 @@ from apps.launchers.local_imagery_pack import LocalImageryPack
 @pytest.mark.parametrize("coverage,title", [("detroit-downtown","Detroit"),("pine-knob","Pine Knob")])
 def test_export_locks_newest_naip_sources_and_retains_provenance(tmp_path, monkeypatch, coverage, title):
     records = [
-        {"attributes":{"OBJECTID":1,"Name":"m_4208307_sw_16_2020","Year":2020}},
-        {"attributes":{"OBJECTID":2,"Name":"m_4208307_sw_16_2022","Year":2022}},
+        {"attributes":{"OBJECTID":1,"Name":"m_4208307_sw_16_2020","Year":2020,"agency":"USDA"}},
+        {"attributes":{"OBJECTID":2,"Name":"m_4208307_sw_16_2022","Year":2022,"agency":"USDA"}},
         {"attributes":{"OBJECTID":3,"Name":"m_partner","Year":2024}},
     ]
     west,south,east,north = downloader.PRESETS[coverage][1]
@@ -26,7 +26,8 @@ def test_export_locks_newest_naip_sources_and_retains_provenance(tmp_path, monke
     destination = tmp_path / "pack"
     downloader.download(destination, bounds=(west,south,east,north), title=title)
     rule = json.loads(service.call_args.kwargs["mosaicRule"])
-    assert rule["lockRasterIds"] == [2, 1]
+    assert rule == {"mosaicMethod":"esriMosaicAttribute", "sortField":"Year", "sortValue":3000,
+                    "where":"agency = 'USDA'", "mosaicOperation":"MT_FIRST"}
     document = json.loads((destination / "manifest.json").read_text())
     assert document["source_records"] == [records[1]["attributes"], records[0]["attributes"]]
     assert document["title"] == f"{title} NAIP through 2022"
