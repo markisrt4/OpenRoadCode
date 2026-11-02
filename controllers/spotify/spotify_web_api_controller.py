@@ -55,20 +55,43 @@ class SpotifyWebApiController(SpotifyControllerIf):
             return self._last_state
 
     def search_track(self, artist: str, title: str) -> str | None:
-        """Resolve a MusicForge song to a Spotify track URI."""
-        primary_artist = artist.split(" feat.")[0].split(" ft.")[0].strip()
-        query = urlencode({"q": f"{title} {primary_artist}", "type": "track", "limit": 10})
+        """Resolve a MusicForge track, tolerating Spotify edition suffixes."""
+        import re
+        import unicodedata
+
+        def normalize(value: str) -> str:
+            value = unicodedata.normalize("NFKD", str(value)).casefold()
+            value = "".join(char for char in value if not unicodedata.combining(char))
+            return " ".join(re.findall(r"[a-z0-9]+", value))
+
+        def base_title(value: str) -> str:
+            # Ignore edition annotations, not meaningful words in the song title.
+            value = re.sub(
+                r"\\s*[-–—]\\s*(?:\\d{4}\\s*)?(?:remaster(?:ed)?|"
+                r"radio edit|mono|stereo|live|version)\\b.*$",
+                "", value, flags=re.IGNORECASE,
+            )
+            value = re.sub(
+                r"\\s*[([](?:\\d{4}\\s*)?(?:remaster(?:ed)?|"
+                r"radio edit|mono|stereo|live|version)\\b[^)\\]]*[)\\]]",
+                "", value, flags=re.IGNORECASE,
+            )
+            return normalize(value)
+
+        primary_artist = re.split(r"\\s+(?:feat\\.?|ft\\.?)\\s+", artist, maxsplit=1, flags=re.I)[0].strip()
+        query = urlencode({"q": f"track:{title} artist:{primary_artist}", "type": "track", "limit": 10})
         response = self._client.request_json("GET", f"/search?{query}") or {}
-        tracks = response.get("tracks") or {}
-        items = tracks.get("items") or []
-        normalize = lambda value: " ".join(str(value).casefold().split())
-        target_artist, target_title = normalize(primary_artist), normalize(title)
+        items = (response.get("tracks") or {}).get("items") or []
+        target_artist, target_title = normalize(primary_artist), base_title(title)
         for item in items:
             if not isinstance(item, dict):
                 continue
-            artists = item.get("artists") or []
-            names = [normalize(a.get("name", "")) for a in artists if isinstance(a, dict)]
-            if normalize(item.get("name", "")) == target_title and any(target_artist == name for name in names):
+            names = [
+                normalize(entry.get("name", ""))
+                for entry in item.get("artists") or []
+                if isinstance(entry, dict)
+            ]
+            if target_artist in names and base_title(item.get("name", "")) == target_title:
                 uri = item.get("uri")
                 if isinstance(uri, str) and uri.startswith("spotify:track:"):
                     return uri
