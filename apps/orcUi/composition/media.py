@@ -415,6 +415,12 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
                 host.after(100, display)
                 host.after(2000, refresh)
 
+            # Resolve the selected MusicForge song and request it on the active
+            # Spotify Connect device (normally the Android Spotify app).
+            # Keep Web API calls on its existing worker, never on Tk's thread.
+            if network_allowed():
+                media.spotify.request_play_song(artist, title, report)
+                report(f"Requesting {artist} - {title} on active Spotify device")
             host.after(100, refresh)
         else:
             # Register the SDK playback device before queuing a track. The local
