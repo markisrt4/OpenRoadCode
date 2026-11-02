@@ -12,7 +12,7 @@ from controllers.spotify.spotify_local_player import SpotifyLocalPlayer
 from controllers.spotify.spotify_state_service import SpotifyStateService
 
 WINDOW_CLASS = "OpenRoadCodeSpotifyPlayer"
-SPOTIFY_PLAYER_BROWSERS = ("google-chrome-stable", "google-chrome")
+SPOTIFY_PLAYER_BROWSERS = ("google-chrome-stable", "google-chrome", "chromium-browser", "chromium")
 
 
 def create_spotify_local_player(
