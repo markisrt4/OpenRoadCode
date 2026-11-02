@@ -49,6 +49,8 @@ def main() -> int:
                         help="Use automatic tuner gain instead of --gain")
     parser.add_argument("--rtl-agc", action="store_true")
     parser.add_argument("--seconds", type=float, default=30.0)
+    parser.add_argument("--prebuffer-ms", type=int, default=400,
+                        help="PCM to queue before starting playback (default: 400 ms)")
     parser.add_argument("--warmup-seconds", type=float, default=2.0,
                         help="Prime receiver before audio playback (default: 2 seconds)")
     parser.add_argument("--volume", type=float, default=0.6)
@@ -59,6 +61,8 @@ def main() -> int:
     args = parser.parse_args()
     if args.seconds <= 0 or args.warmup_seconds < 0 or not 0 <= args.volume <= 1:
         parser.error("seconds must be positive and volume in [0,1]")
+    if args.prebuffer_ms < 0:
+        parser.error("prebuffer-ms must be non-negative")
     if args.iq_queue < 2 or args.pcm_queue < 2:
         parser.error("queue capacities must be at least 2")
 
@@ -197,6 +201,21 @@ def main() -> int:
         print(f"Threaded WFM {args.frequency / 1e6:.3f} MHz, "
               f"gain={'auto' if args.tuner_agc else str(args.gain) + ' dB'}, "
               f"RTL AGC={'on' if args.rtl_agc else 'off'}", flush=True)
+        prebuffer_samples = round(args.prebuffer_ms * 48)
+        queued_samples = 0
+        prebuffer_deadline = time.monotonic() + max(5.0, args.prebuffer_ms / 1000.0 * 4)
+        while queued_samples < prebuffer_samples and not stop.is_set():
+            if not failures.empty() or dsp_done.is_set():
+                break
+            with pcm_queue.mutex:
+                queued_samples = sum(len(chunk) for chunk in pcm_queue.queue)
+            if queued_samples >= prebuffer_samples:
+                break
+            if time.monotonic() >= prebuffer_deadline:
+                print(f"Warning: PCM prebuffer timeout ({queued_samples} samples)", flush=True)
+                break
+            time.sleep(0.02)
+        print(f"PCM prebuffer: {queued_samples / 48_000:.3f}s ready before playback", flush=True)
         with sd.OutputStream(samplerate=48_000, channels=1, dtype="float32") as stream:
             while played < target_samples and not stop.is_set():
                 if not failures.empty():
