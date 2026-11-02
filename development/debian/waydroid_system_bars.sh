@@ -23,7 +23,9 @@ if [[ $1 == hide ]]; then
     previous=$(sudo waydroid shell -- settings get global policy_control)
     previous=${previous//$'\r'/}
     # Avoid replacing unrelated apps' immersive policies.
-    [[ -z $previous || $previous == null ]] || fail 'An existing Android immersive policy is configured; it was left unchanged.'
+    # Some experimental images/setups contain the literal malformed value
+    # "null*". It is not an immersive rule; preserve it for exact restoration.
+    [[ -z $previous || $previous == null || $previous == 'null*' ]] || fail 'An existing Android immersive policy is configured; it was left unchanged.'
     policy="immersive.full=$2"
     mkdir -p "$state_dir"
     printf '%s\n%s\n' "$policy" "$previous" > "$backup"

@@ -60,3 +60,13 @@ def test_existing_or_changed_policy_is_not_overwritten(settings):
     assert run('restore').returncode != 0
     assert policy.read_text() == 'immersive.full=com.other.app'
     assert backup.exists()
+
+
+def test_literal_null_star_placeholder_is_preserved_on_restore(settings):
+    policy, backup, run = settings
+    policy.write_text('null*')
+    assert run('hide', 'com.panera.bread').returncode == 0
+    assert policy.read_text() == 'immersive.full=com.panera.bread'
+    assert backup.read_text().splitlines()[1] == 'null*'
+    assert run('restore').returncode == 0
+    assert policy.read_text() == 'null*'

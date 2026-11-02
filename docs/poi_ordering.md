@@ -125,7 +125,8 @@ bash development/debian/waydroid_system_bars.sh hide com.panera.bread
 
 This one-time admin action requires sudo and a running Waydroid. It saves the
 previous setting under the desktop user's state directory, refuses to overwrite
-an existing immersive policy, and does not add privileges to the ORC UI. The
+an existing immersive policy, and does not add privileges to the ORC UI. A literal
+`null*` placeholder is accepted and saved exactly for restoration. The
 setting persists until restored, including outside ORC. To undo:
 
 ```bash
