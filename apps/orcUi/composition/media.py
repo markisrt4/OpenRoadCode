@@ -367,35 +367,88 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
                 app.set_screen_status(message)
             app.dispatch_ui(update)
 
-        # Register the SDK playback device before queuing a track. The local
-        # player queues its transfer first, so subsequent play uses that device.
-        from ui.media.spotify_browse_if import SpotifyPlaybackMode
-        from time import monotonic
-        player = media.spotify_local_player
-        state = player.state()
-        if not state.available:
-            report("Local Spotify player unavailable: " + state.message)
-        else:
-            deadline = monotonic() + 25.0
-            player.request_player()
+        # On Termux, Spotify plays in the Android app. Never launch the SDK browser.
+        if detect_runtime_target() is RuntimeTarget.TERMUX:
+            from apps.orcUi.adapters.android_spotify_media import AndroidSpotifyMedia
+            bridge = AndroidSpotifyMedia()
+            executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="android-spotify")
+            controls = tk.Frame(host, bg=spotify_theme(app)["colors"]["background"])
+            controls.grid(row=3, column=0, sticky="ew")
+            stopped = [False]
 
-            def await_device() -> None:
-                if not host.winfo_exists() or not network_allowed():
+            def command(action: str) -> None:
+                def run() -> None:
+                    try:
+                        bridge.command(action)
+                    except Exception as exc:
+                        report(f"Android Spotify {action} failed: {exc}")
+                executor.submit(run)
+
+            for label, action in (("PREV", "previous"), ("PLAY", "play"),
+                                  ("PAUSE", "pause"), ("NEXT", "next")):
+                tk.Button(controls, text=label, command=lambda a=action: command(a)).pack(
+                    side="left", expand=True, fill="x", padx=2)
+
+            def refresh() -> None:
+                if stopped[0] or not host.winfo_exists():
                     return
-                current = player.state()
-                if current.mode is SpotifyPlaybackMode.PLAYER and not current.busy:
-                    report("ORC Spotify device ready. Loading selected track…")
-                    media.spotify.request_play_song(artist, title, report)
-                elif current.mode is SpotifyPlaybackMode.REMOTE and not current.busy:
-                    report(current.message)
-                elif monotonic() >= deadline:
-                    report("Timed out waiting for ORC Spotify player registration")
-                else:
-                    host.after(200, await_device)
+                future = executor.submit(bridge.status)
 
-            host.after(200, await_device)
+                def display() -> None:
+                    if stopped[0] or not host.winfo_exists():
+                        return
+                    if not future.done():
+                        host.after(100, display)
+                        return
+                    try:
+                        data = future.result()
+                        if not data.get("permission_granted"):
+                            message = "Enable ORC Companion notification access"
+                        elif not data.get("session_found"):
+                            message = "Open Spotify on Android to start playback"
+                        else:
+                            state = "Playing" if data.get("playing") else "Paused"
+                            message = f"{state}: {data.get('artist', '')} - {data.get('title', '')}"
+                        status.configure(text=message)
+                    except Exception as exc:
+                        status.configure(text=f"Android Spotify unavailable: {exc}")
+                host.after(100, display)
+                host.after(2000, refresh)
+
+            host.after(100, refresh)
+        else:
+            # Register the SDK playback device before queuing a track. The local
+            # player queues its transfer first, so subsequent play uses that device.
+            from ui.media.spotify_browse_if import SpotifyPlaybackMode
+            from time import monotonic
+            player = media.spotify_local_player
+            state = player.state()
+            if not state.available:
+                report("Local Spotify player unavailable: " + state.message)
+            else:
+                deadline = monotonic() + 25.0
+                player.request_player()
+
+                def await_device() -> None:
+                    if not host.winfo_exists() or not network_allowed():
+                        return
+                    current = player.state()
+                    if current.mode is SpotifyPlaybackMode.PLAYER and not current.busy:
+                        report("ORC Spotify device ready. Loading selected track…")
+                        media.spotify.request_play_song(artist, title, report)
+                    elif current.mode is SpotifyPlaybackMode.REMOTE and not current.busy:
+                        report(current.message)
+                    elif monotonic() >= deadline:
+                        report("Timed out waiting for ORC Spotify player registration")
+                    else:
+                        host.after(200, await_device)
+
+                host.after(200, await_device)
         def retire(event: tk.Event) -> None:
             if event.widget is host:
+                if detect_runtime_target() is RuntimeTarget.TERMUX:
+                    stopped[0] = True
+                    executor.shutdown(wait=False, cancel_futures=True)
                 session.close()
                 if session in presentations:
                     presentations.remove(session)
