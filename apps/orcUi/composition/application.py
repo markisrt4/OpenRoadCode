@@ -243,7 +243,7 @@ def create_orc_ui_composition(
             embedded_explore=navigation_maps.request_explore,
             android_app_view=android_app_view)
         cleanup.callback(navigation_places.close)
-        waze = configure_waze(app, runtime)
+        waze = configure_waze(app, runtime, android_app_view=android_app_view)
         if waze is not None:
             cleanup.callback(waze.close)
             core.map_camera.observe_position(waze.update_position)

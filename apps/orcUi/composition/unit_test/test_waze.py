@@ -29,6 +29,24 @@ def test_custom_config_without_waze_does_not_register_screen():
     app.online_mode.subscribe.assert_not_called()
 
 
+def test_panel_opt_in_wires_native_controller_and_cancels_on_offline_and_close():
+    app, view = Mock(), Mock()
+    runtime = SimpleNamespace(waze_url='https://www.waze.com/live-map', manager=Mock())
+    with patch('apps.orcUi.composition.waze.BrowserMediaScreen'), \
+            patch('apps.orcUi.composition.waze.WazeAppController') as native:
+        composition = configure_waze(app, runtime, android_app_view=view)
+        assert native.call_args.args[1] is view
+        composition.request_open_waze()
+        native.return_value.request_open_waze.assert_called_once_with()
+        native.call_args.kwargs['fallback']()
+        app.navigate_to.assert_called_once_with('WAZE')
+        app.online_mode.subscribe.call_args.args[0](False)
+        native.return_value.cancel.assert_called_once_with()
+        composition.close()
+        composition.close()
+        native.return_value.close.assert_called_once_with()
+
+
 def test_waze_registration_offline_shutdown_and_back():
     app = Mock()
     runtime = SimpleNamespace(waze_url='https://embed.waze.com/iframe?zoom=12', manager=Mock())

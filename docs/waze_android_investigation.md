@@ -25,11 +25,47 @@ sudo waydroid shell -- getprop ro.dalvik.vm.native.bridge
 sudo waydroid shell -- pm path com.waze
 ```
 
-No APK download, translation-layer installation or Android image change is part
-of this diagnostic. If Waze can run, its native app can use the existing hosted
-Android presentation. Routing the Waze button to that app and supplying GPS to
-Android still require implementation and device validation; ORC's current Waze
-button continues to open the web Live Map.
+These commands are read-only. The VM subsequently reported only x86/x86_64 with
+native bridge `0`. After a VMware snapshot, the user installed the community
+installer's Android 13 libndk translation, confirmed ARM ABIs and
+`libndk_translation.so`, and successfully installed Waze through Play. Waze runs
+but reports no GPS; ORC currently appears to have only a cached position.
+
+### Native Waze window integration
+
+With `ORC_WAYDROID_PANEL=1`, Navigation's existing Waze button now tries the
+installed `com.waze` package through Waydroid, then presents it in the same
+map-left/app-right panel used by Panera. FULL SCREEN APP and SPLIT VIEW reuse the
+existing Weston sizing, automatic chrome trimming and retained Navigation camera.
+Back to map returns to Navigation. The breadcrumb uses the installed app name.
+
+The installed-app lookup and launch run off the UI thread. Repeated pending
+requests coalesce; closing ORC or switching offline invalidates pending display
+callbacks. A missing app or failed Waydroid launch falls back to the existing
+embedded Waze web Live Map. Without the Android-panel opt-in, Waze retains the
+browser behavior. Waze must remain enabled in ORC's application configuration.
+
+Start the dedicated Weston and Waydroid session using the startup instructions
+below, then from the normal desktop terminal run:
+
+```bash
+git switch feature/waze-live-map
+git pull --ff-only
+source venv/bin/activate
+ORC_WAYDROID_PANEL=1 ./runOrcUi
+```
+
+Choose Navigation → Waze. Validate app embedding, both layouts, input alignment,
+Back to map and reopening. This integration does not inject cached or live ORC
+positions into Android, select a destination, or establish working turn-by-turn
+navigation. The native app may still report no GPS. The earlier browser-only GPS
+bridge is separate. App installation was device-tested; this new Waze panel
+wiring still needs the VM test. Focused validation:
+
+```bash
+git switch feature/waze-live-map
+LOGGING_TMP_DIR=/tmp/orc-waze-validation venv/bin/python -m pytest -q controllers/navigation/unit_test/test_waze_app_controller.py apps/launchers/unit_test/test_installed_waydroid_app.py apps/orcUi/composition/unit_test/test_waze.py apps/orcUi/composition/unit_test/test_android_app_view.py
+```
 
 ## Earlier investigation baseline
 

@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Semantic request to open the independent Waze browser view."""
+"""Semantic request to open Waze using the configured native or browser view."""
 from typing import Protocol
 
 

@@ -5,6 +5,9 @@
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from controllers.navigation.waze_location_player import WazeLocationPlayer
+from controllers.navigation.waze_app_controller import WazeAppController
+from apps.launchers.installed_waydroid_app import InstalledWaydroidAppLauncher
+from ui.navigation.android_app_view_if import AndroidAppViewRequestHandlerIf
 from ui.navigation import GeoPoint
 from ui.theme import ThemeMode
 from ui.navigation.waze_request_handler_if import WazeRequestHandlerIf
@@ -23,6 +26,7 @@ class WazeComposition(WazeRequestHandlerIf):
     unsubscribe: Callable[[], None]
     open_waze: Callable[[], None] = lambda: None
     location: WazeLocationPlayer | None = None
+    native: WazeAppController | None = None
     _closed: bool = field(default=False, init=False)
 
     def request_open_waze(self) -> None:
@@ -38,11 +42,13 @@ class WazeComposition(WazeRequestHandlerIf):
         if self._closed:
             return
         self._closed = True
-        close_resources(self.unsubscribe, self.screen.hide,
+        close_resources(self.native.close if self.native is not None else lambda: None,
+                        self.unsubscribe, self.screen.hide,
                         self.location.close if self.location is not None else lambda: None)
 
 
-def configure_waze(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> WazeComposition | None:
+def configure_waze(app: OrcUiApp, runtime: OrcUiApplicationRuntime, *,
+                   android_app_view: AndroidAppViewRequestHandlerIf | None = None) -> WazeComposition | None:
     """Reuse browser lifecycle and presentation without sharing ORC map data."""
     if not runtime.waze_url:
         return None
@@ -64,9 +70,13 @@ def configure_waze(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> WazeCompo
         )
         cleanup.callback(screen.hide)
 
+        native = None
+
         def mode_changed(online: bool) -> None:
             if not online:
                 screen.hide()
+                if native is not None:
+                    native.cancel()
 
         unsubscribe = app.online_mode.subscribe(mode_changed)
         cleanup.callback(unsubscribe)
@@ -78,6 +88,13 @@ def configure_waze(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> WazeCompo
             else:
                 app.set_screen_status("Waze requires online mode")
 
-        composition = WazeComposition(screen, unsubscribe, open_waze, location)
+        if android_app_view is not None:
+            native = WazeAppController(InstalledWaydroidAppLauncher(), android_app_view,
+                dispatch_ui=app.dispatch_ui, online=lambda: app.online_mode.online,
+                fallback=open_waze, status=app.set_screen_status)
+            cleanup.callback(native.close)
+        composition = WazeComposition(screen, unsubscribe,
+                                      native.request_open_waze if native is not None else open_waze,
+                                      location, native)
         cleanup.release()
         return composition
