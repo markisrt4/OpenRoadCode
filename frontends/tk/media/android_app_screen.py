@@ -30,15 +30,21 @@ class AndroidAppScreen(BrowserMediaScreen):
         self._expand_button = None
         self._toolbar = None
         self._name_label = None
+        self._trim_button = None
 
     def present(self, state: AndroidAppViewState) -> None:
         self._state = state
         self._title = state.app_name
+        # Default VM geometry: Weston panel + Android status bar, then navbar.
+        # This only clips the nested surface and never changes Android policies.
+        self._vertical_crop = (56, 48) if state.trim_android_frame else (0, 0)
         if self._visible:
             self._name_label.configure(text=state.app_name)
             self._host.set_screen_title(state.app_name)
             self._breadcrumb(state.app_name)
             self._apply_layout()
+            self._embedder.set_vertical_crop(*self._vertical_crop)
+            self._embedder.resize(self._browser_host.winfo_width(), self._browser_host.winfo_height())
 
     def show(self) -> None:
         self.hide()
@@ -61,6 +67,8 @@ class AndroidAppScreen(BrowserMediaScreen):
         self._name_label.pack(side=tk.LEFT, padx=8)
         self._expand_button = tk.Button(toolbar, command=self._requests.request_toggle_android_app_expanded)
         self._expand_button.pack(side=tk.RIGHT, padx=4, pady=4)
+        self._trim_button = tk.Button(toolbar, command=self._requests.request_toggle_android_frame_trim)
+        self._trim_button.pack(side=tk.RIGHT, padx=4, pady=4)
         self._map_host = tk.Frame(root, bg=self._background())
         self._map_host.bind('<Configure>', self._resize_map)
         self._browser_host = tk.Frame(root, bg=self._background())
@@ -71,6 +79,7 @@ class AndroidAppScreen(BrowserMediaScreen):
     def _apply_layout(self):
         if self._root is None:
             return
+        self._trim_button.configure(text='Show Android frame' if self._state.trim_android_frame else 'Trim Android frame')
         if self._state.expanded:
             self._map_host.grid_remove()
             self._root.grid_columnconfigure(0, weight=0, minsize=0, uniform='')
@@ -124,6 +133,7 @@ class AndroidAppScreen(BrowserMediaScreen):
         self._expand_button = None
         self._toolbar = None
         self._name_label = None
+        self._trim_button = None
 
     def set_theme_mode(self, mode):
         super().set_theme_mode(mode)

@@ -42,6 +42,7 @@ class BrowserMediaScreen(TkScreen):
         self._theme_provider = theme_bundle
         self._theme_request_handler = theme_request_handler
         self._preserve_external_window = preserve_external_window
+        self._vertical_crop = (0, 0)
         self._launch_job: object | None = None
         self._embedder = X11WindowEmbedder()
         self._browser_host: tk.Frame | None = None
@@ -155,6 +156,8 @@ class BrowserMediaScreen(TkScreen):
             options = {}
             if self._preserve_external_window:
                 options['failure_parent_window_id'] = self._detach_parent_id()
+            if self._vertical_crop != (0, 0):
+                options['vertical_crop'] = self._vertical_crop
             self._embedder.embed(0, int(host.winfo_id()), width, height,
                                  window_class=self._window_class, **options)
             self._host.set_screen_status(f"{self._title} ready")

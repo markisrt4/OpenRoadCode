@@ -30,7 +30,7 @@ if [[ $1 == hide ]]; then
     mkdir -p "$state_dir"
     printf '%s\n%s\n' "$policy" "$previous" > "$backup"
     sudo waydroid shell -- settings put global policy_control "$policy"
-    echo "Android bars hidden for $2. Swipe from an edge to reveal them temporarily."
+    echo "Legacy immersive policy saved for $2. Newer Android builds may ignore it."
     echo "Use restore to remove this experiment. ORC's Back control remains available."
 else
     [[ -f $backup ]] || fail 'No saved override exists for this user.'

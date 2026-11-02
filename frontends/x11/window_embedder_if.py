@@ -34,6 +34,7 @@ class WindowEmbedderIf(ABC):
         window_class: str | None = None,
         relax_size_hints: bool = False,
         failure_parent_window_id: int | None = None,
+        vertical_crop: tuple[int, int] = (0, 0),
     ) -> int:
         """Embed a matching application window into the supplied frontend host.
 
@@ -45,6 +46,7 @@ class WindowEmbedderIf(ABC):
         @param window_class Optional native window-class match used during discovery.
         @param relax_size_hints Whether the backend may remove restrictive X11 size hints.
         @param failure_parent_window_id Safe parent for an external window after a failed embed.
+        @param vertical_crop Top/bottom chrome clipped outside the host viewport, in pixels.
         @return The native identifier of the embedded application window.
         """
 

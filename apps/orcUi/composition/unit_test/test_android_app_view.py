@@ -55,10 +55,28 @@ def test_expand_collapses_with_no_app_relaunch_and_next_app_starts_split():
         state = screen.return_value.present.call_args.args[0]
         assert state.app_name == 'Maps'
         assert not state.expanded
+        view.request_toggle_android_frame_trim()
+        assert screen.return_value.present.call_args.args[0].trim_android_frame
+        assert app.navigate_to.call_count == 2
         view.close()
         count = screen.return_value.present.call_count
         view.request_toggle_android_app_expanded()
         assert screen.return_value.present.call_count == count
+
+
+def test_frame_crop_sizes_and_offsets_the_borrowed_window_without_scaling():
+    embedder = X11WindowEmbedder()
+    embedder._window_id = 12
+    embedder._host_window_id = 99
+    with patch('frontends.x11.x11_window_embedder.subprocess.run', return_value=
+               subprocess.CompletedProcess([], 0, stdout='')) as run:
+        embedder.set_vertical_crop(56, 48)
+        embedder.resize(600, 500)
+        commands = [call.args[0] for call in run.call_args_list]
+        assert ['xdotool', 'windowsize', '12', '600', '604'] in commands
+        assert ['xdotool', 'windowmove', '--', '12', '0', '-56'] in commands
+        embedder.clear()
+        assert embedder._vertical_crop == (0, 0)
 
 
 @pytest.mark.parametrize('windows', ['', '12\n13\n'])

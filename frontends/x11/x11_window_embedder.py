@@ -19,6 +19,7 @@ class X11WindowEmbedder(WindowEmbedderIf):
         self._window_id: int | None = None
         self._host_window_id: int | None = None
         self._relax_size_hints = False
+        self._vertical_crop = (0, 0)
 
     @staticmethod
     def supported() -> bool:
@@ -53,6 +54,7 @@ class X11WindowEmbedder(WindowEmbedderIf):
         relax_size_hints: bool = False,
         cancelled: Callable[[], bool] | None = None,
         failure_parent_window_id: int | None = None,
+        vertical_crop: tuple[int, int] = (0, 0),
     ) -> int:
         """Find, hide, reparent, size, and map an X11 client inside the host."""
         if not self.supported():
@@ -88,6 +90,7 @@ class X11WindowEmbedder(WindowEmbedderIf):
                 self._window_id = window_id
                 self._host_window_id = host_window_id
                 self._relax_size_hints = relax_size_hints
+                self.set_vertical_crop(*vertical_crop)
                 self.resize(width, height)
                 if self._window_id is None:
                     raise subprocess.SubprocessError('X11 client disappeared during embedding')
@@ -294,9 +297,10 @@ class X11WindowEmbedder(WindowEmbedderIf):
             return
         width = max(1, int(width))
         height = max(1, int(height))
+        top, bottom = self._vertical_crop
         self._relax_current_size_hints()
         result = subprocess.run(
-            ["xdotool", "windowsize", str(self._window_id), str(width), str(height)],
+            ["xdotool", "windowsize", str(self._window_id), str(width), str(height + top + bottom)],
             check=False, capture_output=True, text=True,
         )
         if result.returncode != 0:
@@ -304,7 +308,8 @@ class X11WindowEmbedder(WindowEmbedderIf):
             return
         if self._host_window_id is not None:
             result = subprocess.run(
-                ["xdotool", "windowmove", str(self._window_id), "0", "0"],
+                (["xdotool", "windowmove", "--", str(self._window_id), "0", str(-top)]
+                 if top else ["xdotool", "windowmove", str(self._window_id), "0", "0"]),
                 check=False, capture_output=True, text=True,
             )
             if result.returncode != 0:
@@ -314,3 +319,10 @@ class X11WindowEmbedder(WindowEmbedderIf):
         self._window_id = None
         self._host_window_id = None
         self._relax_size_hints = False
+        self._vertical_crop = (0, 0)
+
+    def set_vertical_crop(self, top: int, bottom: int) -> None:
+        """Reserve off-viewport chrome without scaling the application's pixels."""
+        if not (0 <= top <= 256 and 0 <= bottom <= 256):
+            raise ValueError('Vertical crop must be between 0 and 256 pixels')
+        self._vertical_crop = (int(top), int(bottom))

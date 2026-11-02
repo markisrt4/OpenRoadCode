@@ -112,18 +112,25 @@ a separate opt-in experiment, not a silent global rotation/resize setting.
 
 #### Hide Android status/navigation bars (optional VM setup)
 
-Android 13 supports a per-package immersive policy. The experimental helper below
-hides the Android status bar and bottom navigation buttons for Panera while
-leaving ORC's Back/Expand controls available. It does not remove Weston's desktop
-panel. Edge swipes may temporarily reveal the Android bars; app/system support
-must be checked on the actual VM.
+Use **Trim Android frame** in ORC's app toolbar to visually clip the hosted
+Weston/Android chrome. ORC's Back/Expand controls remain outside that viewport.
+This does not hide Android system bars globally or change app permissions. The
+initial trim is 56 pixels at the top and 48 at the bottom, sized for the VM used
+in this experiment. Different density/chrome sizes can require adjustment; use
+Show Android frame immediately if application content is clipped. Expand/Split
+does not relaunch Android when toggling the trim.
+
+The earlier helper used the legacy `policy_control` setting. LineageOS 20's
+framework no longer has that policy hook, so storing the value is not evidence
+that Android applies immersive mode. It did not hide bars on the tested VM.
+Do not keep reapplying that setting. If it was applied, restore its saved value:
 
 ```bash
 git switch feature/waze-live-map
-bash development/debian/waydroid_system_bars.sh hide com.panera.bread
+bash development/debian/waydroid_system_bars.sh restore
 ```
 
-This one-time admin action requires sudo and a running Waydroid. It saves the
+For older images only, the helper's one-time admin action requires sudo and a running Waydroid. It saves the
 previous setting under the desktop user's state directory, refuses to overwrite
 an existing immersive policy, and does not add privileges to the ORC UI. A literal
 `null*` placeholder is accepted and saved exactly for restoration. The
@@ -137,6 +144,28 @@ bash development/debian/waydroid_system_bars.sh restore
 If another tool changed the policy afterward, restore refuses to overwrite it.
 The helper is tested against a fake settings store; actual Android bar behavior
 remains a VM validation step.
+
+#### Diagnose a POI popup that does not reopen
+
+The metadata cache repair alone did not resolve the reported VM failure. POI
+polling now rearms after recoverable errors instead of silently losing all later
+clicks. Stream lifetime, named selection and popup handoff diagnostics distinguish
+transport/selection failures from presentation failures; this is not a confirmed
+fix of the remaining device-specific symptom.
+
+```bash
+git switch feature/waze-live-map
+ORC_LOG_COMPONENT_LEVELS='navigation.poi=DEBUG,map_renderer=DEBUG' ORC_WAYDROID_PANEL=1 ./runOrcUi --follow-logs 2>&1 | tee /tmp/orc-poi-reopen.log
+```
+
+Open Panera's popup, leave Navigation, return, and click the same marker several
+times. Close ORC and collect the focused excerpt (debug clicks can include
+coordinates; redact them if desired):
+
+```bash
+git switch feature/waze-live-map
+grep -E -A8 -B2 'navigation.poi|map.clicked|showing POI|Traceback|Error|Exception' /tmp/orc-poi-reopen.log | tail -n 120
+```
 
 POI result metadata is now scoped to the factory alongside retained renderer
 markers. Returning to Navigation creates fresh event transports and action

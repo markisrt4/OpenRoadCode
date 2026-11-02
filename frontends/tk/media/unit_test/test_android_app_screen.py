@@ -32,7 +32,8 @@ def test_equal_split_expand_restore_and_stale_mount():
         screen.present(state)
         screen.show()
         root.update()
-        assert abs(screen._map_host.winfo_width() - screen._browser_host.winfo_width()) <= 3
+        # Allow the gutter and Tk's integer column rounding.
+        assert abs(screen._map_host.winfo_width() - screen._browser_host.winfo_width()) <= 5
         assert screen._browser_host.winfo_width() > 500
         breadcrumb.assert_called_with('Panera Bread')
         host.set_screen_title.assert_called_with('Panera Bread')
@@ -43,13 +44,17 @@ def test_equal_split_expand_restore_and_stale_mount():
         player.play.assert_called_once()
         screen._expand_button.invoke()
         requests.request_toggle_android_app_expanded.assert_called_once()
+        screen._trim_button.invoke()
+        requests.request_toggle_android_frame_trim.assert_called_once()
+        screen.present(replace(state, trim_android_frame=True))
+        screen._embedder.set_vertical_crop.assert_called_with(56, 48)
         screen.present(replace(state, expanded=True))
         root.update()
         assert screen._browser_host.winfo_width() >= 1190
         runtime.stop.assert_called_once()
         screen.present(state)
         root.update()
-        assert abs(screen._map_host.winfo_width() - screen._browser_host.winfo_width()) <= 3
+        assert abs(screen._map_host.winfo_width() - screen._browser_host.winfo_width()) <= 5
         stale = callbacks[-1]
         screen.hide()
         stale()

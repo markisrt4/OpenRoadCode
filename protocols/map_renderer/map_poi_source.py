@@ -95,6 +95,7 @@ class MapPoiSource:
         self._camera_state_queue: SimpleQueue[RawMapCamera] = SimpleQueue()
         self._thread = Thread(target=self._receive, name="map-poi-source", daemon=True)
         self._thread.start()
+        _LOG.debug('POI selection stream started session=%s', id(self))
 
     def poll_selected(self) -> RawMapPoi | None:
         try:
@@ -140,6 +141,7 @@ class MapPoiSource:
                 break
 
     def close(self) -> None:
+        _LOG.debug('POI selection stream closing session=%s', id(self))
         self._publisher.close()
         self._subscriber.close()
 
@@ -152,6 +154,7 @@ class MapPoiSource:
             if topic == POI_SELECTED_TOPIC:
                 poi = self._decode(payload)
                 if poi is not None:
+                    _LOG.debug('Received named POI selection session=%s name=%r', id(self), poi.name)
                     self._queue.put(poi)
             elif topic == MAP_CLICK_TOPIC:
                 click = self._decode_click(payload)
