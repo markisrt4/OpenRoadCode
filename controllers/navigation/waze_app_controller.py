@@ -3,6 +3,8 @@
 """Open native Waze asynchronously, preserving the existing web fallback."""
 from collections.abc import Callable
 from threading import Lock, Thread
+import logging
+from common.logging.structured import event
 
 from ui.navigation.android_app_view_if import AndroidAppViewRequestHandlerIf
 from ui.navigation.installed_android_app_if import InstalledAndroidAppLauncherIf
@@ -56,6 +58,8 @@ class WazeAppController(WazeRequestHandlerIf):
         if not self._online():
             return
         if name:
+            event(logging.getLogger('navigation.waze'), logging.INFO,
+                  'app.open.requested', 'Opening Waze', backend='native')
             self._view.request_show_android_app(name, 'com.waze')
         else:
             self._fallback()

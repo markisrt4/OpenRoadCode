@@ -34,6 +34,7 @@ class BrowserMediaScreen(TkScreen):
         surface_geometry: HostedSurfaceGeometryIf | None = None,
         window_embedder: WindowEmbedderIf | None = None,
         window_name: str | Callable[[], str | None] | None = None,
+        back_label: str | None = None,
     ) -> None:
         super().__init__(ScreenId(screen_id))
         self._host = host
@@ -43,6 +44,7 @@ class BrowserMediaScreen(TkScreen):
         self._window_class = window_class
         self._window_name = window_name
         self._back_action = back_action
+        self._back_label = back_label
         self._media_navigation_factory = media_navigation_factory
         self._theme_provider = theme_bundle
         self._theme_request_handler = theme_request_handler
@@ -71,14 +73,30 @@ class BrowserMediaScreen(TkScreen):
         root = tk.Frame(self._host.screen_parent, bg=background)
         root.pack(fill=tk.BOTH, expand=True)
         self._root = root
-        if self._media_navigation_factory is not None:
-            self._navigation = self._media_navigation_factory(root, self.screen_id.value)
+        self._navigation = self._build_navigation(root)
+        if self._navigation is not None:
             self._navigation.pack(fill=tk.X, padx=4, pady=(4, 2))
         browser_host = tk.Frame(root, bg=background)
         browser_host.pack(fill=tk.BOTH, expand=True, padx=4, pady=(2, 4))
         browser_host.bind("<Configure>", self._on_browser_host_resize)
         self._browser_host = browser_host
         self._launch_job = self._host.schedule_ui_callback(1, self._launch_and_embed)
+
+    def _build_navigation(self, root):
+        if self._media_navigation_factory is not None:
+            return self._media_navigation_factory(root, self.screen_id.value)
+        if self._back_label is None:
+            return None
+        ui = self._theme_provider().ui if self._theme_provider is not None else None
+        bar = tk.Frame(root, bg=self._background())
+        tk.Button(bar, text=self._back_label, command=self._back_action,
+                  bg=ui.control_background if ui else '#101b23',
+                  fg=ui.control_text if ui else '#ffffff',
+                  activebackground=ui.control_active if ui else '#20313e',
+                  activeforeground=ui.text if ui else '#ffffff',
+                  relief=tk.FLAT, bd=0, highlightthickness=0,
+                  font=('Sans', 11, 'bold'), padx=12, pady=8).pack(side=tk.LEFT)
+        return bar
 
     def set_theme_mode(self, _mode: object) -> None:
         """Repaint ORC chrome and request the browser surface’s theme update."""
@@ -91,8 +109,8 @@ class BrowserMediaScreen(TkScreen):
         if self._navigation is not None and self._root is not None and self._root.winfo_exists():
             self._navigation.destroy()
             self._navigation = None
-            if self._media_navigation_factory is not None:
-                self._navigation = self._media_navigation_factory(self._root, self.screen_id.value)
+            self._navigation = self._build_navigation(self._root)
+            if self._navigation is not None:
                 self._navigation.pack(fill=tk.X, padx=4, pady=(4, 2), before=self._browser_host)
         if self._theme_request_handler is not None:
             self._theme_request_handler.request_theme_refresh()

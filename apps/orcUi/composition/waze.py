@@ -4,6 +4,8 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+import logging
+from common.logging.structured import event
 from controllers.navigation.waze_location_player import WazeLocationPlayer
 from controllers.navigation.waze_app_controller import WazeAppController
 from apps.launchers.installed_waydroid_app import InstalledWaydroidAppLauncher
@@ -69,6 +71,7 @@ def configure_waze(app: OrcUiApp, runtime: OrcUiApplicationRuntime, *,
             back_action=lambda: app.navigate_to("NAVIGATION"),
             theme_bundle=lambda: theme_bundle(app.theme_mode),
             theme_request_handler=location,
+            back_label='‹ BACK TO MAP',
         )
         cleanup.callback(screen.hide)
 
@@ -86,6 +89,8 @@ def configure_waze(app: OrcUiApp, runtime: OrcUiApplicationRuntime, *,
 
         def open_waze() -> None:
             if app.online_mode.online:
+                event(logging.getLogger('navigation.waze'), logging.INFO,
+                      'app.open.requested', 'Opening Waze', backend='browser')
                 app.navigate_to("WAZE")
             else:
                 app.set_screen_status("Waze requires online mode")

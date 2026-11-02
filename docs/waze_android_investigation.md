@@ -39,6 +39,10 @@ Android panel used by Panera. Waze opens full width without a split toggle,
 because a second map is redundant. Other apps retain their split and expanded
 layouts. Existing Weston sizing and automatic chrome trimming are reused.
 Back to map returns to Navigation. The breadcrumb uses the installed app name.
+The browser fallback also has an explicit ORC-styled BACK TO MAP toolbar above
+the hosted page, including after dark/light theme changes. Opening Waze records
+`navigation.waze` / `app.open.requested` with `backend` set to `native` or
+`browser`; use that event to distinguish a native panel issue from fallback UI.
 
 The installed-app lookup and launch run off the UI thread. Repeated pending
 requests coalesce; closing ORC or switching offline invalidates pending display

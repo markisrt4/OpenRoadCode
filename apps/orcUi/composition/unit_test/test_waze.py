@@ -63,6 +63,7 @@ def test_waze_registration_offline_shutdown_and_back():
     with patch('apps.orcUi.composition.waze.BrowserMediaScreen') as screen_type:
         composition = configure_waze(app, runtime)
         screen = screen_type.return_value
+        assert screen_type.call_args.kwargs['back_label'] == '‹ BACK TO MAP'
         app.register_screen.assert_called_once_with('WAZE', screen, show_in_navigation=False)
         screen_type.call_args.kwargs['back_action']()
         app.navigate_to.assert_called_once_with('NAVIGATION')

@@ -9,9 +9,43 @@ import tkinter as tk
 import pytest
 
 from frontends.tk.media.android_app_screen import AndroidAppScreen
+from frontends.tk.media.browser_media_screen import BrowserMediaScreen
 from ui.navigation.android_app_view_if import AndroidAppViewState
 from apps.orcUi.theme_runtime import theme_bundle
 from ui.theme import ThemeMode
+
+
+@pytest.mark.skipif(not os.environ.get('DISPLAY'), reason='real Tk geometry needs X11')
+def test_waze_browser_fallback_back_button_survives_theme_change():
+    root = tk.Tk()
+    root.geometry('1200x700')
+    host = Mock(screen_parent=root)
+    back, player = Mock(), Mock()
+    mode = [ThemeMode.DARK]
+    screen = BrowserMediaScreen('waze', host, title='Waze Live Map', player=player,
+        default_target='https://www.waze.com/live-map', window_class='waze',
+        back_action=back, back_label='‹ BACK TO MAP', theme_request_handler=player,
+        theme_bundle=lambda: theme_bundle(mode[0]), window_embedder=Mock(window_id=None))
+    try:
+        screen.show()
+        root.update()
+        button = screen._navigation.winfo_children()[0]
+        assert button.winfo_ismapped()
+        assert screen._navigation.winfo_height() > 20
+        assert screen._browser_host.winfo_y() >= screen._navigation.winfo_height()
+        button.invoke()
+        back.assert_called_once_with()
+        mode[0] = ThemeMode.LIGHT
+        screen.set_theme_mode(mode[0])
+        root.update()
+        button = screen._navigation.winfo_children()[0]
+        assert button.winfo_ismapped()
+        assert button.cget('bg') == theme_bundle(mode[0]).ui.control_background
+        button.invoke()
+        assert back.call_count == 2
+    finally:
+        screen.hide()
+        root.destroy()
 
 
 @pytest.mark.skipif(not os.environ.get('DISPLAY'), reason='real Tk geometry needs X11')
