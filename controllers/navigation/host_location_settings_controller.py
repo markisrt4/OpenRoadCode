@@ -47,7 +47,7 @@ class HostLocationSettingsController:
             return
         self._generation += 1
         generation = self._generation
-        self._state = HostLocationState("Checking location service…", busy=True)
+        self._state = HostLocationState("Preparing location sharing…", busy=True)
         self._ui.set_host_location_state(self._state)
 
         def cancelled() -> bool:
@@ -56,11 +56,11 @@ class HostLocationSettingsController:
         def work() -> None:
             try:
                 self._permission.open_permission_page(cancelled)
-                message = "Permission page opened. Click Share host location and allow access."
+                message = "In your browser, click Share host location and allow access. Keep that page open."
             except Exception as error:
                 message = str(error)
             if not cancelled():
-                self._dispatcher.schedule_ui_callback(0, lambda: self._complete(generation, message))
+                self._dispatcher.dispatch_ui(lambda: self._complete(generation, message))
 
         threading.Thread(target=work, name="host-location-permission", daemon=True).start()
 

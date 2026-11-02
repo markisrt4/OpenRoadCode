@@ -13,7 +13,7 @@ def setup_controller(monkeypatch):
     monkeypatch.setattr('controllers.navigation.host_location_settings_controller.threading.Thread',
                         lambda **kwargs: Mock(start=lambda: jobs.append(kwargs['target'])))
     dispatcher, ui, permission = Mock(), Mock(), Mock()
-    dispatcher.schedule_ui_callback.side_effect = lambda delay, callback: callbacks.append(callback)
+    dispatcher.dispatch_ui.side_effect = lambda callback: callbacks.append(callback)
     controller = HostLocationSettingsController(dispatcher, ui, permission)
     controller.show()
     return controller, ui, permission, jobs, callbacks
@@ -30,7 +30,7 @@ def test_share_request_opens_permission_page_once_and_never_claims_consent(monke
     callbacks.pop()()
     state = ui.set_host_location_state.call_args.args[0]
     assert not state.busy
-    assert 'Click Share host location' in state.status
+    assert 'Share host location' in state.status
 
 
 def test_service_failure_is_visible_and_allows_retry(monkeypatch):

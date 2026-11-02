@@ -12,6 +12,7 @@ from controllers.navigation.map_favorites import MapFavorites
 from controllers.poi.android_poi_action_executor import AndroidPoiActionExecutor
 from controllers.poi.navigation_places_controller import NavigationPlacesController
 from controllers.poi.poi_search_controller import PoiSearchController
+from controllers.poi.poi_selection_cache import PoiSelectionCache
 from controllers.poi.poi_search_controller_if import PoiSearchControllerIf
 from controllers.poi.poi_action_executor_if import PoiActionExecutorIf
 from ui.navigation.navigation_places_request_handler_if import NavigationPlacesFactoryIf
@@ -22,7 +23,7 @@ class NavigationPlacesFactory(NavigationPlacesFactoryIf):
 
     def __init__(self, *, favorites: MapFavorites | None = None,
                  actions: PoiActionExecutorIf | None = None,
-                 search_factory: Callable[[], PoiSearchControllerIf] = PoiSearchController,
+                 search_factory: Callable[[], PoiSearchControllerIf] | None = None,
                  online_allowed: Callable[[], bool] = lambda: True, camera_observer=None, embedded_explore=None,
                  android_app_view=None):
         self._favorites = favorites if favorites is not None else MapFavorites()
@@ -30,7 +31,9 @@ class NavigationPlacesFactory(NavigationPlacesFactoryIf):
             EarthExplorationActions(AndroidPoiActionExecutor(AndroidAppLauncher(app_view=android_app_view))),
             embedded_explore=embedded_explore)
         self._actions = actions if actions is not None else self._owned_3d
-        self._search_factory = search_factory
+        self._selection_cache = PoiSelectionCache()
+        self._search_factory = search_factory if search_factory is not None else (
+            lambda: PoiSearchController(selection_cache=self._selection_cache))
         self._sessions = WeakSet()
         self._closed = False
         self._online_allowed = online_allowed
@@ -59,6 +62,7 @@ class NavigationPlacesFactory(NavigationPlacesFactoryIf):
             except Exception as caught:
                 error = error or caught
         self._sessions.clear()
+        self._selection_cache.pois = ()
         if self._owned_3d is not None:
             try:
                 self._owned_3d.close()

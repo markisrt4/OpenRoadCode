@@ -107,6 +107,46 @@ sudo waydroid shell -- wm density reset
 Forced landscape is not enabled. It may override an app's assumptions and needs
 a separate opt-in experiment, not a silent global rotation/resize setting.
 
+#### Hide Android status/navigation bars (optional VM setup)
+
+Android 13 supports a per-package immersive policy. The experimental helper below
+hides the Android status bar and bottom navigation buttons for Panera while
+leaving ORC's Back/Expand controls available. It does not remove Weston's desktop
+panel. Edge swipes may temporarily reveal the Android bars; app/system support
+must be checked on the actual VM.
+
+```bash
+git switch feature/waze-live-map
+bash development/debian/waydroid_system_bars.sh hide com.panera.bread
+```
+
+This one-time admin action requires sudo and a running Waydroid. It saves the
+previous setting under the desktop user's state directory, refuses to overwrite
+an existing immersive policy, and does not add privileges to the ORC UI. The
+setting persists until restored, including outside ORC. To undo:
+
+```bash
+git switch feature/waze-live-map
+bash development/debian/waydroid_system_bars.sh restore
+```
+
+If another tool changed the policy afterward, restore refuses to overwrite it.
+The helper is tested against a fake settings store; actual Android bar behavior
+remains a VM validation step.
+
+POI result metadata is now scoped to the factory alongside retained renderer
+markers. Returning to Navigation creates fresh event transports and action
+sessions but preserves the marker-to-business lookup, so an existing Panera
+marker remains selectable without running a new search. Explicitly clearing or
+replacing search results also clears or replaces this metadata.
+
+Focused validation for the remount, consent recovery and system-bar helper:
+
+```bash
+git switch feature/waze-live-map
+python -m pytest controllers/poi/unit_test/test_poi_search_controller.py apps/orcUi/composition/unit_test/test_navigation_places.py apps/launchers/unit_test/test_host_location_permission.py controllers/navigation/unit_test/test_host_location_settings_controller.py scripts/unit_test/test_waydroid_system_bars.py -q
+```
+
 Focused local validation:
 
 ```bash

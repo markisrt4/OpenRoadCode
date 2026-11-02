@@ -269,6 +269,19 @@ does not update `/opt/openroadcode/navigation/bin/openroadcode-map-renderer`.
 
 ## Desktop host location fallback
 
+The Settings action checks the local consent page first. If it is unavailable,
+ORC attempts to start the installed navigation service through its existing
+restricted supervisor permissions, then retries the page briefly. It uses start,
+not restart, so an active guidance session is not deliberately interrupted.
+Ordinary users see permission/retry instructions, not supervisor commands. If the
+service or its permissions were never installed, an installer must finish that
+setup; the Settings action does not install services or grant new privileges.
+Completing the worker dispatches back through the UI queue, and leaving Settings
+discards obsolete permission-page completions.
+
+This action shares browser location with ORC. It does not inject a GPS provider
+into Waydroid or give Android applications location automatically.
+
 Desktop Linux navigation services offer browser geolocation alongside device
 GPS. Eligibility checks the actual runtime and Pi hardware model, rather than
 the saved install/build target: a desktop configured to build for `rpi5` still

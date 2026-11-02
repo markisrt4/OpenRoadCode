@@ -20,6 +20,7 @@ from controllers.navigation.position_snapshot_cache import DEFAULT_POSITION_CACH
 from controllers.poi.poi_enricher import enrich_poi
 from ui.navigation.poi_models import (PoiCategory, PoiSearchResult, PointOfInterest, TransitMode)
 from controllers.poi.poi_search_controller_if import PoiSearchControllerIf
+from controllers.poi.poi_selection_cache import PoiSelectionCache
 from controllers.poi.poi_search_source_if import PoiSearchBounds, PoiSearchQuery, PoiSearchSourceIf
 from controllers.poi.sqlite_poi_search_source import SqlitePoiSearchSource
 from protocols.map_renderer.map_poi_source import MapPoiSource, RawMapPoi
@@ -36,7 +37,8 @@ def _default_search_database():
 class PoiSearchController(PoiSearchControllerIf):
     """Discover POIs offline while keeping renderer selection independent."""
 
-    def __init__(self, source: MapPoiSource | None = None, *, search_source: PoiSearchSourceIf | None = None, position_provider: Callable[[], GeoPoint | None] | None = None) -> None:
+    def __init__(self, source: MapPoiSource | None = None, *, search_source: PoiSearchSourceIf | None = None, position_provider: Callable[[], GeoPoint | None] | None = None,
+                 selection_cache: PoiSelectionCache | None = None) -> None:
         self._diagnostics = ComponentLog("navigation.poi", "poi")
         self._search_operation_id = None
         self._source = source or MapPoiSource()
@@ -46,7 +48,15 @@ class PoiSearchController(PoiSearchControllerIf):
         self._active_category: PoiCategory | None = None
         self._pending_viewport_search: tuple[PoiCategory, TransitMode] | None = None
         self._pending_search_result: PoiSearchResult | None = None
-        self._visible_pois: tuple[PointOfInterest, ...] = ()
+        self._selection_cache = selection_cache if selection_cache is not None else PoiSelectionCache()
+
+    @property
+    def _visible_pois(self) -> tuple[PointOfInterest, ...]:
+        return self._selection_cache.pois
+
+    @_visible_pois.setter
+    def _visible_pois(self, pois: tuple[PointOfInterest, ...]) -> None:
+        self._selection_cache.pois = pois
 
     @diagnostic_action("search")
     def search(self, category: PoiCategory, transit_mode: TransitMode = TransitMode.ALL) -> None:

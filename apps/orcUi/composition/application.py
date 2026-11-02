@@ -15,6 +15,7 @@ import os
 
 from common.app_settings import AppSettings, AppSettingsStore
 from apps.launchers.host_location_permission import HostLocationPermission
+from apps.launchers.host_location_recovery import start_host_location_service
 from controllers.navigation.host_location_settings_controller import HostLocationSettingsController
 from controllers.weather.radar_palette import RadarPalette
 
@@ -293,7 +294,7 @@ def create_orc_ui_composition(
             on_unit_system_changed=set_unit_system,
             on_back=lambda: app.navigate_to("HOME"),
         )
-        permission = HostLocationPermission()
+        permission = HostLocationPermission(recover=start_host_location_service)
         host_location = HostLocationSettingsController(app, settings, permission, available=permission.available)
         cleanup.callback(host_location.close)
         settings.set_host_location_request_handler(host_location)
