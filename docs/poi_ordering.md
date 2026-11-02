@@ -231,6 +231,31 @@ explicitly reconfigures fullscreen Wayland clients, avoiding dependence on
 whether Android's desktop-mode surface remained maximized. This has source-level
 support in Weston 13; actual Waydroid split/expand behavior needs VM validation.
 
+The subsequent VM screenshots still showed clipped split content and a narrow
+expanded activity. Do not infer success from the outer pane dimensions. Capture
+both modes without closing ORC or changing Android settings between captures:
+
+```bash
+git switch feature/waze-live-map
+sudo -v
+python3 scripts/probe_waydroid_embedding.py --mode split
+```
+
+Then click Expand app and run:
+
+```bash
+git switch feature/waze-live-map
+python3 scripts/probe_waydroid_embedding.py --mode expanded
+```
+
+The read-only probe reports the Weston client's parent-relative offsets, its
+actual dimensions, the hosting parent's dimensions, Android physical/override
+size, rotation, density, and Panera window rectangles. It does not collect app UI
+contents, GPS or the rest of the host window inventory. Android queries use
+noninteractive sudo after the explicit credential refresh above; missing results
+are labeled instead of blocking on an unseen password prompt. Parser tests pass;
+native sizing still needs the two VM snapshots before another geometry change.
+
 POI result metadata is now scoped to the factory alongside retained renderer
 markers. Returning to Navigation creates fresh event transports and action
 sessions but preserves the marker-to-business lookup, so an existing Panera
