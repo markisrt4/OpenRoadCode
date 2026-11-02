@@ -57,7 +57,7 @@ class SpotifyWebApiController(SpotifyControllerIf):
     def search_track(self, artist: str, title: str) -> str | None:
         """Resolve a MusicForge song to a Spotify track URI."""
         primary_artist = artist.split(" feat.")[0].split(" ft.")[0].strip()
-        query = urlencode({"q": f"{title} {primary_artist}", "type": "track", "limit": 20})
+        query = urlencode({"q": f"{title} {primary_artist}", "type": "track", "limit": 10})
         response = self._client.request_json("GET", f"/search?{query}") or {}
         tracks = response.get("tracks") or {}
         items = tracks.get("items") or []
