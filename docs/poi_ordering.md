@@ -420,6 +420,39 @@ and restarting ORC before reopening again. No purchase is needed for this test.
 
 ## Updating and testing
 
+### Confirmed split-view clipping fix (Waydroid / nested Weston)
+
+On the Ubuntu VMware test VM, Android's screenshot and app bounds were correct
+at 567×586, but the embedded split pane showed only the right half of the app.
+Disabling Waydroid's separate background subsurface fixed both split and expanded
+presentation in the device test. The setting persists; it needs to be applied
+once, followed by a Waydroid session restart. Keep the working per-app orientation
+overrides. No additional FORCE_RESIZE_APP override was needed for this result.
+
+Close ORC first. With the dedicated Weston compositor still running:
+
+```bash
+git switch feature/waze-live-map
+waydroid prop set persist.waydroid.no_background_subsurface true
+waydroid session stop
+WAYLAND_DISPLAY=wayland-0 waydroid session start
+```
+
+Leave that terminal running, then launch ORC in another terminal:
+
+```bash
+git switch feature/waze-live-map
+source venv/bin/activate
+ORC_WAYDROID_PANEL=1 ./runOrcUi
+```
+
+Verify FULL SCREEN APP → SPLIT VIEW → FULL SCREEN APP, including mouse/touch
+alignment. To undo the background setting, set the same property to `false` and
+restart the Waydroid session with ORC closed. This is a tested configuration for
+this VM, not a claim that all Waydroid devices require it.
+
+### Automatic output resize recovery
+
 The embedded Waydroid panel checks Android's reported output dimensions after
 split/fullscreen changes. If nested Weston accepts the X11 size but Android
 misses the output update, ORC retries with a brief two-pixel width nudge, then
