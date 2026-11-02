@@ -47,6 +47,16 @@ def test_panel_opt_in_wires_native_controller_and_cancels_on_offline_and_close()
         native.return_value.close.assert_called_once_with()
 
 
+def test_platform_specific_launcher_is_injected_for_termux():
+    app, view, launcher = Mock(), Mock(), Mock()
+    runtime = SimpleNamespace(waze_url='https://www.waze.com/live-map', manager=Mock())
+    with patch('apps.orcUi.composition.waze.BrowserMediaScreen'), \
+            patch('apps.orcUi.composition.waze.WazeAppController') as native:
+        composition = configure_waze(app, runtime, android_app_view=view, native_launcher=launcher)
+        assert native.call_args.args[0] is launcher
+        composition.close()
+
+
 def test_waze_registration_offline_shutdown_and_back():
     app = Mock()
     runtime = SimpleNamespace(waze_url='https://embed.waze.com/iframe?zoom=12', manager=Mock())

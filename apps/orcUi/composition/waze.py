@@ -8,6 +8,7 @@ from controllers.navigation.waze_location_player import WazeLocationPlayer
 from controllers.navigation.waze_app_controller import WazeAppController
 from apps.launchers.installed_waydroid_app import InstalledWaydroidAppLauncher
 from ui.navigation.android_app_view_if import AndroidAppViewRequestHandlerIf
+from ui.navigation.installed_android_app_if import InstalledAndroidAppLauncherIf
 from ui.navigation import GeoPoint
 from ui.theme import ThemeMode
 from ui.navigation.waze_request_handler_if import WazeRequestHandlerIf
@@ -48,7 +49,8 @@ class WazeComposition(WazeRequestHandlerIf):
 
 
 def configure_waze(app: OrcUiApp, runtime: OrcUiApplicationRuntime, *,
-                   android_app_view: AndroidAppViewRequestHandlerIf | None = None) -> WazeComposition | None:
+                   android_app_view: AndroidAppViewRequestHandlerIf | None = None,
+                   native_launcher: InstalledAndroidAppLauncherIf | None = None) -> WazeComposition | None:
     """Reuse browser lifecycle and presentation without sharing ORC map data."""
     if not runtime.waze_url:
         return None
@@ -89,7 +91,7 @@ def configure_waze(app: OrcUiApp, runtime: OrcUiApplicationRuntime, *,
                 app.set_screen_status("Waze requires online mode")
 
         if android_app_view is not None:
-            native = WazeAppController(InstalledWaydroidAppLauncher(), android_app_view,
+            native = WazeAppController(native_launcher if native_launcher is not None else InstalledWaydroidAppLauncher(), android_app_view,
                 dispatch_ui=app.dispatch_ui, online=lambda: app.online_mode.online,
                 fallback=open_waze, status=app.set_screen_status)
             cleanup.callback(native.close)

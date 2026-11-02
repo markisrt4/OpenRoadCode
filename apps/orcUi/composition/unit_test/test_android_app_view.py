@@ -11,6 +11,22 @@ from frontends.tk.media.browser_media_screen import BrowserMediaScreen
 from frontends.x11.x11_window_embedder import X11WindowEmbedder
 
 
+def test_waze_is_fullscreen_only_and_other_apps_still_start_split():
+    app = Mock()
+    with patch('apps.orcUi.composition.android_app_view.AndroidAppScreen') as screen:
+        view = AndroidAppView(app, map_runtime=Mock(), map_platform=Mock())
+        view.request_show_android_app('Waze', 'com.waze')
+        app.dispatch_ui.call_args.args[0]()
+        state = screen.return_value.present.call_args.args[0]
+        assert state.expanded and not state.can_split
+        view.request_toggle_android_app_expanded()
+        assert screen.return_value.present.call_count == 1
+        view.request_show_android_app('Panera', 'com.panera.bread')
+        app.dispatch_ui.call_args.args[0]()
+        state = screen.return_value.present.call_args.args[0]
+        assert not state.expanded and state.can_split
+
+
 def test_worker_request_dispatches_and_close_discards_queued_open():
     app = Mock()
     with patch('apps.orcUi.composition.android_app_view.AndroidAppScreen') as screen:

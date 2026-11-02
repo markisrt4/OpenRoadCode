@@ -80,6 +80,13 @@ def test_equal_split_expand_restore_and_stale_mount():
         assert presentation.request_replay_map_presentation.call_count == count
         assert runtime.launch.call_count == 1
         assert player.play.call_count == 1
+        screen.present(AndroidAppViewState('Waze', 'com.waze', expanded=True, can_split=False))
+        screen.show()
+        root.update()
+        assert screen._browser_host.winfo_width() >= 1190
+        assert not screen._expand_button.winfo_ismapped()
+        assert not screen._map_host.winfo_ismapped()
+        assert screen._back_button.winfo_ismapped()
     finally:
         screen.hide()
         root.destroy()

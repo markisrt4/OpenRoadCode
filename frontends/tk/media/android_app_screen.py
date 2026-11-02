@@ -103,6 +103,8 @@ class AndroidAppScreen(BrowserMediaScreen):
         self._expand_button = tk.Button(toolbar, command=self._requests.request_toggle_android_app_expanded,
                                         **self._button_style())
         self._expand_button.pack(side=tk.RIGHT, padx=4, pady=4)
+        if not self._state.can_split:
+            self._expand_button.pack_forget()
         self._map_host = tk.Frame(root, bg=self._background())
         self._map_host.bind('<Configure>', self._resize_map)
         self._browser_host = tk.Frame(root, bg=self._background())

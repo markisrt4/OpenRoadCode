@@ -11,6 +11,7 @@ class AndroidAppViewState:
     app_name: str = 'Android app'
     package: str = ''
     expanded: bool = False
+    can_split: bool = True
 
 
 class AndroidAppViewRequestHandlerIf(Protocol):

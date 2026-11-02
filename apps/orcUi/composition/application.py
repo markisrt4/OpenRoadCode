@@ -31,6 +31,9 @@ from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
 from apps.orcUi.composition.tooltips import TooltipFactory
 from apps.orcUi.composition.waze import WazeComposition, configure_waze
 from apps.orcUi.composition.android_app_view import AndroidAppView
+from apps.orcUi.adapters.scrcpy_waze_player import ScrcpyWazePlayer
+from apps.launchers.scrcpy_waze_launcher import ScrcpyWazeLauncher
+from frontends.x11.x11_window_embedder import X11WindowEmbedder
 from apps.orcUi.composition.media import MediaComposition, configure_media
 from apps.orcUi.composition.radio import RadioComposition, configure_radio
 from apps.orcUi.composition.weather import WeatherComposition, configure_weather
@@ -233,17 +236,27 @@ def create_orc_ui_composition(
         cleanup.callback(navigation_maps.close)
         core.map_camera.observe_position(navigation_maps.update_position)
         android_app_view = None
+        waze_app_view = None
+        waze_native_launcher = None
         if os.environ.get('ORC_WAYDROID_PANEL') == '1' and not os.path.exists('/system/bin/am'):
             android_app_view = AndroidAppView(app, map_runtime=navigation_maps, map_platform=navigation_maps,
                                               map_presentation=core.map_camera)
             cleanup.callback(android_app_view.close)
+            waze_app_view = android_app_view
+        elif os.environ.get('ORC_SCRCPY_WAZE') == '1' and os.path.exists('/system/bin/am'):
+            waze_app_view = AndroidAppView(app, map_runtime=navigation_maps, map_platform=navigation_maps,
+                map_presentation=core.map_camera, player=ScrcpyWazePlayer(),
+                window_embedder=X11WindowEmbedder(), preserve_external_window=False)
+            cleanup.callback(waze_app_view.close)
+            waze_native_launcher = ScrcpyWazeLauncher()
         navigation_places = NavigationPlacesFactory(
             online_allowed=lambda: app.online_mode.online,
             camera_observer=core.map_camera.request_handler.observe_camera,
             embedded_explore=navigation_maps.request_explore,
             android_app_view=android_app_view)
         cleanup.callback(navigation_places.close)
-        waze = configure_waze(app, runtime, android_app_view=android_app_view)
+        waze = configure_waze(app, runtime, android_app_view=waze_app_view,
+                              native_launcher=waze_native_launcher)
         if waze is not None:
             cleanup.callback(waze.close)
             core.map_camera.observe_position(waze.update_position)

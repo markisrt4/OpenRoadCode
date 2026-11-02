@@ -25,7 +25,7 @@ class BrowserMediaScreen(TkScreen):
 
     def __init__(
         self, screen_id: str, host: TkScreenHostIf, *, title: str,
-        player: BrowserMediaPlayerIf, default_target: str, window_class: str,
+        player: BrowserMediaPlayerIf, default_target: str, window_class: str | None,
         back_action: Callable[[], None],
         media_navigation_factory: MediaNavigationFactory | None = None,
         theme_bundle: Callable[[], ThemeBundle] | None = None,
@@ -33,6 +33,7 @@ class BrowserMediaScreen(TkScreen):
         preserve_external_window: bool = False,
         surface_geometry: HostedSurfaceGeometryIf | None = None,
         window_embedder: WindowEmbedderIf | None = None,
+        window_name: str | None = None,
     ) -> None:
         super().__init__(ScreenId(screen_id))
         self._host = host
@@ -40,6 +41,7 @@ class BrowserMediaScreen(TkScreen):
         self._player = player
         self._default_target = default_target
         self._window_class = window_class
+        self._window_name = window_name
         self._back_action = back_action
         self._media_navigation_factory = media_navigation_factory
         self._theme_provider = theme_bundle
@@ -158,6 +160,8 @@ class BrowserMediaScreen(TkScreen):
                 self._host.set_screen_status(f"{self._title} unavailable")
                 return
             options = {}
+            if self._window_name is not None:
+                options['window_name'] = self._window_name
             if self._surface_geometry is not None:
                 self._vertical_crop = self._surface_geometry.vertical_crop()
             if self._preserve_external_window:

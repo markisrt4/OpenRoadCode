@@ -35,8 +35,9 @@ but reports no GPS; ORC currently appears to have only a cached position.
 
 With `ORC_WAYDROID_PANEL=1`, Navigation's existing Waze button now tries the
 installed `com.waze` package through Waydroid, then presents it in the same
-map-left/app-right panel used by Panera. FULL SCREEN APP and SPLIT VIEW reuse the
-existing Weston sizing, automatic chrome trimming and retained Navigation camera.
+Android panel used by Panera. Waze opens full width without a split toggle,
+because a second map is redundant. Other apps retain their split and expanded
+layouts. Existing Weston sizing and automatic chrome trimming are reused.
 Back to map returns to Navigation. The breadcrumb uses the installed app name.
 
 The installed-app lookup and launch run off the UI thread. Repeated pending
@@ -55,7 +56,7 @@ source venv/bin/activate
 ORC_WAYDROID_PANEL=1 ./runOrcUi
 ```
 
-Choose Navigation → Waze. Validate app embedding, both layouts, input alignment,
+Choose Navigation → Waze. Validate app embedding, full-width layout, input alignment,
 Back to map and reopening. This integration does not inject cached or live ORC
 positions into Android, select a destination, or establish working turn-by-turn
 navigation. The native app may still report no GPS. The earlier browser-only GPS
@@ -68,6 +69,59 @@ LOGGING_TMP_DIR=/tmp/orc-waze-validation venv/bin/python -m pytest -q controller
 ```
 
 ## Earlier investigation baseline
+
+### Termux native Waze experiment
+
+On native Termux with Termux:X11, opt into the scrcpy backend instead of Waydroid:
+
+```bash
+git switch feature/waze-live-map
+git pull --ff-only
+adb get-state
+ORC_SCRCPY_WAZE=1 ./runOrcUi
+```
+
+ADB must already be paired/connected to the same Android phone and report `device`.
+The launcher does not pair devices, choose an arbitrary device when multiple are
+connected, or disconnect ADB. If needed, set `ANDROID_SERIAL` to the intended
+already-connected device; both adb and scrcpy inherit it. Run in native Termux,
+where scrcpy/adb are installed, rather than only inside Debian proot.
+
+Navigation → Waze checks package availability using ADB, then starts an owned
+scrcpy viewer with a dedicated 1280×720/240 Android virtual display and launches
+`com.waze`. This avoids mirroring ORC recursively. It uses an ORC-specific window
+title, borderless X11 output, full-width presentation and Back to map. It applies
+no Waydroid-specific crop or Android configuration overrides. On departure ORC
+terminates only its own scrcpy process; scrcpy's normal virtual-display teardown
+applies, so this experiment does not promise an ongoing route survives closing
+the panel. The installed Android app remains installed. Audio forwarding is
+disabled; audio behavior on the phone still needs testing. Native Android owns
+GPS permissions and theme; no ORC location is injected.
+
+OpenGL is the default renderer. Earlier standalone phone tests had corruption
+with OpenGL and GLES; this integration does not establish that driver issue is
+fixed. To isolate it with the previously working software renderer:
+
+```bash
+git switch feature/waze-live-map
+ORC_SCRCPY_WAZE=1 ORC_SCRCPY_RENDERER=software ./runOrcUi
+```
+
+`ORC_SCRCPY_RENDERER=opengles2` is also available. Validate Waze rendering, clicks,
+text input, Back to map and reopening. The viewer writes diagnostics to Termux's
+temporary directory. For a launch/render failure, share the tail:
+
+```bash
+git switch feature/waze-live-map
+tail -n 60 "$TMPDIR/orc-scrcpy-waze.log" | termux-clipboard-set
+```
+
+If no log exists, check `adb get-state`: a failed installed-package check falls
+back to the existing web Live Map before the viewer is started. Termux device
+validation remains pending; cloud tests cover commands, owned-process teardown
+and fullscreen-only UI behavior, not phone graphics or GPS reception.
+
+### Original baseline
 
 Status: repository/source investigation, not a device compatibility result.
 No Android runtime, kernel, application, display configuration, or existing Waze
