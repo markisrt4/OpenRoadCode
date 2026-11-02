@@ -67,22 +67,23 @@ class SpotifyWebApiController(SpotifyControllerIf):
         def base_title(value: str) -> str:
             # Ignore edition annotations, not meaningful words in the song title.
             value = re.sub(
-                r"\\s*[-–—]\\s*(?:\\d{4}\\s*)?(?:remaster(?:ed)?|"
-                r"radio edit|mono|stereo|live|version)\\b.*$",
+                r"\s*[-–—]\s*(?:\d{4}\s*)?(?:remaster(?:ed)?|"
+                r"radio edit|mono|stereo|live|version)\b.*$",
                 "", value, flags=re.IGNORECASE,
             )
             value = re.sub(
-                r"\\s*[([](?:\\d{4}\\s*)?(?:remaster(?:ed)?|"
-                r"radio edit|mono|stereo|live|version)\\b[^)\\]]*[)\\]]",
+                r"\s*[([](?:\d{4}\s*)?(?:remaster(?:ed)?|"
+                r"radio edit|mono|stereo|live|version)\b[^)\]]*[)\]]",
                 "", value, flags=re.IGNORECASE,
             )
             return normalize(value)
 
-        primary_artist = re.split(r"\\s+(?:feat\\.?|ft\\.?)\\s+", artist, maxsplit=1, flags=re.I)[0].strip()
+        primary_artist = re.split(r"\s+(?:feat\.?|ft\.?)\s+", artist, maxsplit=1, flags=re.I)[0].strip()
         query = urlencode({"q": f"track:{title} artist:{primary_artist}", "type": "track", "limit": 10})
         response = self._client.request_json("GET", f"/search?{query}") or {}
         items = (response.get("tracks") or {}).get("items") or []
         target_artist, target_title = normalize(primary_artist), base_title(title)
+        LOGGER.info("Spotify search artist=%r title=%r candidates=%r", artist, title, [(item.get("name"), [entry.get("name") for entry in item.get("artists") or [] if isinstance(entry, dict)]) for item in items if isinstance(item, dict)])
         for item in items:
             if not isinstance(item, dict):
                 continue
