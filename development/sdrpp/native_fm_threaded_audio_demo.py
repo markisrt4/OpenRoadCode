@@ -149,6 +149,9 @@ def main() -> int:
                 wav.setnchannels(1)
                 wav.setsampwidth(2)
                 wav.setframerate(48_000)
+                # Unseekable or interrupted writers can leave an incorrect RIFF length.
+                # Set the expected frame count up front, then close to finalize.
+                wav.setnframes(target_samples)
                 while not record_done.is_set() or not record_queue.empty():
                     try:
                         kind, data = record_queue.get(timeout=0.1)
@@ -279,7 +282,8 @@ def main() -> int:
                 json.dumps(metadata, indent=2) + "\n", encoding="utf-8"
             )
             print(f"Recordings: {args.record_dir} "
-                  f"(record queue drops={stats.record_dropped})")
+                  f"(record queue drops={stats.record_dropped}, "
+                  f"PCM samples={stats.pcm_recorded_samples})")
         if not failures.empty():
             stage, exc = failures.get_nowait()
             print(f"{stage} failed: {exc}", file=sys.stderr)
