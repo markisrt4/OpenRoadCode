@@ -256,6 +256,33 @@ noninteractive sudo after the explicit credential refresh above; missing results
 are labeled instead of blocking on an unseen password prompt. Parser tests pass;
 native sizing still needs the two VM snapshots before another geometry change.
 
+The collected snapshots subsequently confirmed that the host pipeline resizes:
+split was 566x586 for both Weston and Android, and expanded was 1132x586 for
+both. Panera itself used bounds [8,0][559,586] in split and [429,0][704,586]
+when expanded: Android constrained the expanded activity to 275 pixels wide.
+Persistent Waydroid width/height overrides were empty. Further X11 scaling is
+not justified by those measurements.
+
+The next targeted Android 13 experiment is the per-app `FORCE_RESIZE_APP`
+compatibility change (174042936), whose framework documentation explicitly
+allows app resizing when the display container changes size. This is separate
+from the global developer resizable setting. It restarts Panera; test before
+entering an order, then reopen through ORDER:
+
+```bash
+git switch feature/waze-live-map
+sudo waydroid shell -- am compat enable FORCE_RESIZE_APP com.panera.bread
+```
+
+Test Split/Expand and capture the same two snapshots if it remains constrained.
+This is a source-verified command, not a verified Panera compatibility result.
+Reset only this experiment (not all application compatibility settings) with:
+
+```bash
+git switch feature/waze-live-map
+sudo waydroid shell -- am compat reset FORCE_RESIZE_APP com.panera.bread
+```
+
 POI result metadata is now scoped to the factory alongside retained renderer
 markers. Returning to Navigation creates fresh event transports and action
 sessions but preserves the marker-to-business lookup, so an existing Panera
