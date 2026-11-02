@@ -7,6 +7,7 @@ from dataclasses import replace
 from apps.orcUi.adapters.waydroid_surface_player import WaydroidSurfacePlayer
 from apps.orcUi.theme_runtime import theme_bundle
 from frontends.tk.media.android_app_screen import AndroidAppScreen
+from frontends.x11.waydroid_window_embedder import WaydroidWindowEmbedder
 from ui.navigation.android_app_view_if import AndroidAppViewRequestHandlerIf, AndroidAppViewState
 
 
@@ -26,6 +27,7 @@ class AndroidAppView(AndroidAppViewRequestHandlerIf):
             theme_bundle=lambda: theme_bundle(app.theme_mode),
             theme_request_handler=self._player, preserve_external_window=True,
             surface_geometry=self._player,
+            window_embedder=WaydroidWindowEmbedder(),
             map_runtime=map_runtime, map_platform=map_platform, requests=self,
             map_presentation=map_presentation,
             breadcrumb=lambda name: app.set_breadcrumb('NAV', name))

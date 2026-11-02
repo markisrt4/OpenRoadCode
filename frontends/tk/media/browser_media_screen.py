@@ -13,6 +13,7 @@ from ui.media.browser_player_if import BrowserMediaPlayerIf, BrowserThemeRequest
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from frontends.x11 import X11WindowEmbedder
+from frontends.x11.window_embedder_if import WindowEmbedderIf
 from ui.screen_ui_if import ScreenId
 from ui.theme import ThemeBundle
 
@@ -31,6 +32,7 @@ class BrowserMediaScreen(TkScreen):
         theme_request_handler: BrowserThemeRequestHandlerIf | None = None,
         preserve_external_window: bool = False,
         surface_geometry: HostedSurfaceGeometryIf | None = None,
+        window_embedder: WindowEmbedderIf | None = None,
     ) -> None:
         super().__init__(ScreenId(screen_id))
         self._host = host
@@ -46,7 +48,7 @@ class BrowserMediaScreen(TkScreen):
         self._surface_geometry = surface_geometry
         self._vertical_crop = (0, 0)
         self._launch_job: object | None = None
-        self._embedder = X11WindowEmbedder()
+        self._embedder = window_embedder if window_embedder is not None else X11WindowEmbedder()
         self._browser_host: tk.Frame | None = None
         self._root: tk.Frame | None = None
         self._navigation: tk.Widget | None = None

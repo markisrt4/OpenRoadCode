@@ -420,6 +420,14 @@ and restarting ORC before reopening again. No purchase is needed for this test.
 
 ## Updating and testing
 
+The embedded Waydroid panel checks Android's reported output dimensions after
+split/fullscreen changes. If nested Weston accepts the X11 size but Android
+misses the output update, ORC retries with a brief two-pixel width nudge, then
+restores the requested size. This bounded recovery runs outside the UI thread
+and is cancelled by a newer resize or leaving the panel. It does not change
+Android compatibility settings or restart the app. On the VM, alternate FULL
+SCREEN APP and SPLIT VIEW and allow several seconds for output recovery.
+
 Update either platform:
 
 ```bash
