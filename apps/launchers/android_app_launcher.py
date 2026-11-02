@@ -66,10 +66,11 @@ class AndroidAppLauncher:
 
         if package:
             try:
-                if any(app.package == package for app in self._waydroid.list_apps()):
+                app = next((app for app in self._waydroid.list_apps() if app.package == package), None)
+                if app is not None:
                     self._waydroid.launch_app(package)
                     if self._app_view is not None:
-                        self._app_view.request_show_android_app()
+                        self._app_view.request_show_android_app(app.name, package)
                     return "Waydroid"
             except WaydroidLauncherError:
                 pass

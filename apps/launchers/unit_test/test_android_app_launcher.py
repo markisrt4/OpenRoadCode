@@ -35,7 +35,7 @@ def test_panel_requested_only_after_successful_android_launch(_exists):
     waydroid.list_apps.return_value = (AndroidApp('Panera', 'com.panera.bread'),)
     launcher = AndroidAppLauncher(waydroid=waydroid, browser=browser, app_view=view)
     launcher.open_package_or_uri('com.panera.bread', 'https://example.com')
-    view.request_show_android_app.assert_called_once()
+    view.request_show_android_app.assert_called_once_with('Panera', 'com.panera.bread')
     view.reset_mock()
     waydroid.launch_app.side_effect = WaydroidLauncherError('stopped')
     assert launcher.open_package_or_uri('com.panera.bread', 'https://example.com') == 'browser'

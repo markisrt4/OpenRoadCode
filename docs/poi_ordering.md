@@ -50,11 +50,16 @@ ORC_WAYDROID_PANEL=1 ./runOrcUi
 ```
 
 Select a Panera POI and ORDER. A successful Android launch queues presentation
-on the UI thread and opens an Android app screen with Back to Navigation. The
+on the UI thread and opens an Android app screen with Back to Navigation.
+The breadcrumb is NAV followed by the installed app's display name. The default
+view has equal map-left/app-right panes. Expand app fills the content area; Split
+view restores both panes without restarting Android or its current activity.
+The map uses the existing renderer lifecycle and stops when expanded or hidden.
+This is a map presentation, not a second copy of Navigation's POI/route controls.
+The
 external-window root lookup uses `xwininfo` from `x11-utils` (included by the
 desktop and Waydroid setup scripts).
-The
-screen fills the landscape content area. ORC does not stretch individual Android
+The screen fills the landscape content area. ORC does not stretch individual Android
 app contents or force their orientation; portrait-only app compatibility layout
 and any side margins remain Android-controlled and need device validation.
 Termux's native Bridge behavior and desktop browser fallbacks remain unchanged.
@@ -67,18 +72,46 @@ X11 root before destroying its own host. A theme change repaints ORC chrome with
 restarting Android. ORC owns only its `show-full-ui` command client, not the session
 or compositor. Use Waydroid's normal controls to stop navigation or Android.
 
-VM validation: open Panera, Back, reopen, resize ORC, switch theme, then close
+VM validation: open Panera, expand, restore split, Back, reopen, resize ORC, switch theme, then close
 ORC. Confirm the app remains available using `waydroid app list` and Android can
 still be shown. Test portrait margins explicitly; the current patch does not add
 an Android orientation override. Graphical Waydroid testing is pending on the VM;
 focused automated checks cover launch/fallback, queued shutdown and borrowed-window
 cleanup. The full quality gate remains a user-run check before merge.
 
+#### Narrow portrait layouts on the VM
+
+The outer pane can grow, but a portrait-only Android activity may remain
+letterboxed. Shrinking the desktop can leave that compatibility viewport below
+the app's usable logical width. ORC does not stretch the bitmap to hide this.
+On the dedicated experimental VM, record Android's existing density, then try a
+lower density to provide more logical space within the portrait viewport:
+
+```bash
+git switch feature/waze-live-map
+sudo waydroid shell -- wm density | tee /tmp/orc-waydroid-density-before.txt
+sudo waydroid shell -- wm density 120
+```
+
+This is an optional diagnostic affecting all Android apps in this VM, not a
+per-app ORC default. Text becomes smaller. If it helps, test readability and touch
+targets; if not, revert. If the recorded output listed an Override density,
+restore that exact value using `wm density VALUE`. If it listed only Physical
+density, remove the diagnostic override:
+
+```bash
+git switch feature/waze-live-map
+sudo waydroid shell -- wm density reset
+```
+
+Forced landscape is not enabled. It may override an app's assumptions and needs
+a separate opt-in experiment, not a silent global rotation/resize setting.
+
 Focused local validation:
 
 ```bash
 git switch feature/waze-live-map
-python -m pytest apps/orcUi/composition/unit_test/test_android_app_view.py apps/launchers/unit_test/test_android_app_launcher.py apps/orcUi/composition/unit_test/test_application.py apps/orcUi/composition/unit_test/test_waze.py frontends/x11/unit_test/test_x11_window_embedder.py -q
+python -m pytest apps/orcUi/composition/unit_test/test_android_app_view.py apps/launchers/unit_test/test_android_app_launcher.py apps/orcUi/composition/unit_test/test_application.py apps/orcUi/composition/unit_test/test_waze.py frontends/x11/unit_test/test_x11_window_embedder.py frontends/tk/media/unit_test/test_android_app_screen.py -q
 ```
 
 If ORC has closed and the borrowed Weston window remains hidden, remap it from

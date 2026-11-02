@@ -13,12 +13,13 @@ from frontends.x11.x11_window_embedder import X11WindowEmbedder
 
 def test_worker_request_dispatches_and_close_discards_queued_open():
     app = Mock()
-    with patch('apps.orcUi.composition.android_app_view.BrowserMediaScreen') as screen:
-        view = AndroidAppView(app)
-        view.request_show_android_app()
+    with patch('apps.orcUi.composition.android_app_view.AndroidAppScreen') as screen:
+        view = AndroidAppView(app, map_runtime=Mock(), map_platform=Mock())
+        view.request_show_android_app('Panera Bread', 'com.panera.bread')
         app.navigate_to.assert_not_called()
         first = app.dispatch_ui.call_args.args[0]
         first()
+        assert screen.return_value.present.call_args.args[0].app_name == 'Panera Bread'
         app.navigate_to.assert_called_once_with('ANDROID_APP')
         view.request_show_android_app()
         queued = app.dispatch_ui.call_args.args[0]
@@ -33,6 +34,31 @@ def test_worker_request_dispatches_and_close_discards_queued_open():
         assert options['preserve_external_window'] is True
         options['back_action']()
         app.navigate_to.assert_called_with('NAVIGATION')
+        options['breadcrumb']('Panera Bread')
+        app.set_breadcrumb.assert_called_once_with('NAV', 'Panera Bread')
+
+
+def test_expand_collapses_with_no_app_relaunch_and_next_app_starts_split():
+    app = Mock()
+    with patch('apps.orcUi.composition.android_app_view.AndroidAppScreen') as screen:
+        view = AndroidAppView(app, map_runtime=Mock(), map_platform=Mock())
+        view.request_show_android_app('Panera Bread', 'com.panera.bread')
+        app.dispatch_ui.call_args.args[0]()
+        view.request_toggle_android_app_expanded()
+        assert screen.return_value.present.call_args.args[0].expanded
+        view.request_toggle_android_app_expanded()
+        assert not screen.return_value.present.call_args.args[0].expanded
+        assert app.navigate_to.call_count == 1
+        view.request_toggle_android_app_expanded()
+        view.request_show_android_app('Maps', 'com.google.android.apps.maps')
+        app.dispatch_ui.call_args.args[0]()
+        state = screen.return_value.present.call_args.args[0]
+        assert state.app_name == 'Maps'
+        assert not state.expanded
+        view.close()
+        count = screen.return_value.present.call_count
+        view.request_toggle_android_app_expanded()
+        assert screen.return_value.present.call_count == count
 
 
 @pytest.mark.parametrize('windows', ['', '12\n13\n'])

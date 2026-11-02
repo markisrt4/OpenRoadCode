@@ -2,38 +2,50 @@
 # SPDX-License-Identifier: MIT
 """Queue worker presentation requests and host the dedicated Weston surface."""
 from threading import Lock
+from dataclasses import replace
 
 from apps.orcUi.adapters.waydroid_surface_player import WaydroidSurfacePlayer
 from apps.orcUi.theme_runtime import theme_bundle
-from frontends.tk.media.browser_media_screen import BrowserMediaScreen
-from ui.navigation.android_app_view_if import AndroidAppViewRequestHandlerIf
+from frontends.tk.media.android_app_screen import AndroidAppScreen
+from ui.navigation.android_app_view_if import AndroidAppViewRequestHandlerIf, AndroidAppViewState
 
 
 class AndroidAppView(AndroidAppViewRequestHandlerIf):
     """Keep Tk calls on the UI thread and reject completions after shutdown."""
 
-    def __init__(self, app):
+    def __init__(self, app, *, map_runtime, map_platform):
         self._app = app
         self._lock = Lock()
         self._closed = False
+        self._state = AndroidAppViewState()
         self._player = WaydroidSurfacePlayer()
-        self._screen = BrowserMediaScreen(
+        self._screen = AndroidAppScreen(
             'android-app', app, title='Android app', player=self._player,
             default_target='android', window_class=self._player.window_class,
             back_action=lambda: app.navigate_to('NAVIGATION'),
             theme_bundle=lambda: theme_bundle(app.theme_mode),
-            theme_request_handler=self._player, preserve_external_window=True)
+            theme_request_handler=self._player, preserve_external_window=True,
+            map_runtime=map_runtime, map_platform=map_platform, requests=self,
+            breadcrumb=lambda name: app.set_breadcrumb('NAV', name))
         app.register_screen('ANDROID_APP', self._screen, show_in_navigation=False)
 
-    def request_show_android_app(self):
+    def request_show_android_app(self, app_name='Android app', package=''):
         with self._lock:
             if not self._closed:
-                self._app.dispatch_ui(self._show)
+                state = AndroidAppViewState(app_name.strip() or 'Android app', package)
+                self._app.dispatch_ui(lambda: self._show(state))
 
-    def _show(self):
+    def _show(self, state):
         if self._closed:
             return
+        self._state = state
+        self._screen.present(state)
         self._app.navigate_to('ANDROID_APP')
+
+    def request_toggle_android_app_expanded(self):
+        if not self._closed:
+            self._state = replace(self._state, expanded=not self._state.expanded)
+            self._screen.present(self._state)
 
     def close(self):
         with self._lock:
