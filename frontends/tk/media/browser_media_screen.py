@@ -135,7 +135,7 @@ class BrowserMediaScreen(TkScreen):
     def _detach_parent_id(self) -> int:
         # A user-owned compositor must survive destruction of ORC's toplevel.
         if self._preserve_external_window:
-            return int(self._host.screen_parent.winfo_vrootid())
+            return self._embedder.root_window_id()
         return int(self._host.screen_parent.winfo_toplevel().winfo_id())
 
     def _launch_and_embed(self) -> None:

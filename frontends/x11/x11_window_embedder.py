@@ -28,6 +28,19 @@ class X11WindowEmbedder(WindowEmbedderIf):
     def window_id(self) -> int | None:
         return self._window_id
 
+    @staticmethod
+    def root_window_id() -> int:
+        """Resolve the X11 root without relying on a nonexistent Tk winfo API."""
+        try:
+            result = subprocess.run(['xwininfo', '-root'], capture_output=True,
+                                    text=True, check=True, timeout=3)
+        except (OSError, subprocess.SubprocessError) as error:
+            raise RuntimeError('xwininfo (x11-utils) is required to preserve external windows') from error
+        match = re.search(r'Window id:\s*(0x[0-9a-fA-F]+)', result.stdout)
+        if match is None:
+            raise RuntimeError('Could not identify the X11 root window')
+        return int(match.group(1), 16)
+
     def embed(
         self,
         process_id: int,

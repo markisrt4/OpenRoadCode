@@ -71,11 +71,26 @@ def test_external_surface_detaches_to_x_root_before_orc_window_destruction():
     screen = BrowserMediaScreen('android', Mock(), title='Android', player=Mock(),
                                 default_target='android', window_class='Weston Compositor',
                                 back_action=Mock(), preserve_external_window=True)
-    screen._host.screen_parent.winfo_vrootid.return_value = 42
     screen._embedder = Mock(window_id=12)
+    screen._embedder.root_window_id.return_value = 42
     screen.hide()
     screen._embedder.detach.assert_called_once_with(42)
+    screen._embedder.root_window_id.assert_called_once_with()
     screen._host.screen_parent.winfo_toplevel.assert_not_called()
+
+
+def test_root_lookup_uses_real_x11_window_identifier():
+    with patch('frontends.x11.x11_window_embedder.subprocess.run', return_value=
+               subprocess.CompletedProcess(['xwininfo', '-root'], 0,
+                   stdout='xwininfo: Window id: 0x50d (the root window) (has no name)')) as run:
+        assert X11WindowEmbedder.root_window_id() == 0x50d
+        assert run.call_args.args[0] == ['xwininfo', '-root']
+
+
+def test_root_lookup_failure_is_actionable():
+    with patch('frontends.x11.x11_window_embedder.subprocess.run', side_effect=FileNotFoundError):
+        with pytest.raises(RuntimeError, match='x11-utils'):
+            X11WindowEmbedder.root_window_id()
 
 
 def test_failed_external_embed_restores_safe_parent():

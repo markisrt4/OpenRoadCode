@@ -51,6 +51,9 @@ ORC_WAYDROID_PANEL=1 ./runOrcUi
 
 Select a Panera POI and ORDER. A successful Android launch queues presentation
 on the UI thread and opens an Android app screen with Back to Navigation. The
+external-window root lookup uses `xwininfo` from `x11-utils` (included by the
+desktop and Waydroid setup scripts).
+The
 screen fills the landscape content area. ORC does not stretch individual Android
 app contents or force their orientation; portrait-only app compatibility layout
 and any side margins remain Android-controlled and need device validation.
