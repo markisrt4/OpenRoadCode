@@ -270,10 +270,10 @@ class SpotifyStateService(
             try:
                 uri = self._controller.search_track(artist, title)
                 if uri is None:
-                    report(f"No exact Spotify match for {artist} - {title}")
+                    report(f"No matching Spotify recording for {artist} - {title}; check Spotify search candidates in logs")
                     return
                 self._controller.play_track(uri)
-                report(f"Playing {artist} - {title}")
+                report(f"Spotify playback requested: {artist} - {title}")
                 self.request_refresh()
             except SpotifyWebApiError as exc:
                 if exc.status_code == 404 and "NO_ACTIVE_DEVICE" in exc.response_body:
