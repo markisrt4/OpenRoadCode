@@ -37,6 +37,9 @@ ORDER launches inside ORC. Start exactly one **dedicated nested Weston**, using
 the standard `Weston Compositor` X11 class, and start Android there before ORC.
 Use `wayland-0`; a custom socket previously left Android's hardware compositor
 looking at the wrong display. See [VM setup](waze_android_investigation.md).
+For this dedicated nested desktop, use Weston's `--idle-time=0` startup option
+to prevent its idle lock screen from appearing inside ORC. Host desktop locking
+is unchanged.
 Do not use a Weston instance containing unrelated desktop work: the whole nested
 compositor window is borrowed and resized, including its desktop chrome.
 

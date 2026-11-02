@@ -131,8 +131,13 @@ In the existing X11 desktop, start nested Weston (skip if already running):
 
 ```bash
 git switch feature/waze-live-map
-weston --backend=x11-backend.so --socket=wayland-0 --width=1280 --height=720
+weston --backend=x11-backend.so --socket=wayland-0 --width=1280 --height=720 --idle-time=0
 ```
+
+`--idle-time=0` disables idle blanking/locking in this dedicated nested Weston;
+it does not change the Linux host desktop's lock policy. If the existing nested
+desktop is already locked, click its green unlock control before using Android,
+or stop Waydroid and restart Weston with the option above.
 
 Leave Weston running. In a second terminal, start the session as your normal user:
 
