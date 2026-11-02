@@ -101,12 +101,14 @@ python -m development.maps.download_detroit_imagery
 python -m apps.launchers.component_test.cesium_viewer_cli --display :1
 ```
 
-The downloader queries the USGS NAIP Plus catalog for primary Michigan records,
-selects the newest identifiable NAIP/USDA acquisition year, locks the export to
-those raster IDs, and saves a natural-colour WGS84 JPEG plus provenance. It does
-not substitute commercial imagery if no qualifying record is found. Source
-metadata is retained and the service must still describe public-domain imagery.
-USGS reference: https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer
+The downloader queries the USGS NAIP-only catalog for primary Michigan records,
+retains the newest identifiable NAIP/USDA acquisition year in provenance, and
+uses the service's advertised newest-by-year mosaic to save a natural-colour
+WGS84 JPEG. It does not substitute partner or commercial imagery if no qualifying
+record is found. Completely black no-data exports are rejected before they enter
+the resumable cache. Source metadata is retained and the service must still
+describe public-domain imagery.
+USGS reference: https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer
 
 Coverage is west/south/east/north `-83.065, 42.315, -83.025, 42.345`, approximately
 3.3 km across around downtown Detroit. The export is 2,048 × 1,536 pixels; these

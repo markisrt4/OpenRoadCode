@@ -15,14 +15,14 @@ be untextured extrusions, not Google's photogrammetric city mesh.
 
 | Layer | Candidate and coverage evidence | Rights and limits | Preparation |
 | --- | --- | --- | --- |
-| Aerial imagery | USGS NAIP Plus advertises roughly six-inch to one-meter source imagery. Michigan publishes a 2022 NAIP service; newer 2024 state imagery is also listed. | USGS explicitly offers public-domain downloadable orthoimagery. Check each selected source record and retain credits. Michigan service metadata has an empty license field, which is not permission by itself. | Download a bounded area, inspect its actual acquisition date/resolution, and create imagery tiles. A published state service does not establish every Detroit tile's freshness. |
+| Aerial imagery | USGS NAIP Imagery advertises primarily 0.6-meter, four-band source imagery. Michigan publishes a 2022 NAIP service; newer 2024 state imagery is also listed. | USGS explicitly offers public-domain downloadable orthoimagery. Check each selected source record and retain credits. Michigan service metadata has an empty license field, which is not permission by itself. | Download a bounded area, inspect its actual acquisition date/resolution, and create imagery tiles. A published state service does not establish every Detroit tile's freshness. |
 | Terrain | USGS 3DEP offers DEMs and lidar; USGS shows the Detroit skyline in its 3DEP point cloud. Michigan reports downloadable QL2 lidar collected during 2015–2020. | USGS 3DEP datasets are public domain. Distinguish ground elevation from surface/building returns. | Reproject and tile DEMs. Cesium commonly uses quantized-mesh terrain; MapLibre terrain uses its supported elevation encoding. A raw GeoTIFF is not automatically a ready-to-stream terrain layer. |
 | Buildings | Microsoft Global ML Building Footprints includes the United States, with height estimates for some buildings. Existing OSM buildings are another candidate. | Microsoft data is CDLA-Permissive-2.0; include the agreement when sharing data. OSM has ODbL attribution and database obligations. These licenses are separate from restrictions on streaming Bing imagery through Cesium ion. | Clip footprints to Detroit, inspect completeness/height availability, and extrude polygons. Missing heights need an explicitly approximate fallback. Footprints are not detailed roof or facade models. |
 | Detailed city geometry | Detroit 3DEP lidar establishes a local source of 3D measurements. | Prefer the public-domain USGS acquisition records. No verified ready-made, textured Detroit city mesh was identified in this review. | Producing roof meshes or classified point-cloud 3D Tiles is a separate processing project, not a free substitute for Google's textured city mesh. |
 
 ## Source evidence
 
-- [USGS NAIP Plus service](https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer)
+- [USGS NAIP Imagery service](https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer)
   describes resolution ranges and public-domain imagery downloads.
 - [Michigan 2022 NAIP metadata](https://imagery.michigan.gov/server/rest/services/Michigan_NAIP_2022/ImageServer/info/iteminfo)
   and [Michigan 2024 imagery metadata](https://imagery.michigan.gov/server/rest/services/Michigan_imagery_2024/ImageServer/info/iteminfo)
