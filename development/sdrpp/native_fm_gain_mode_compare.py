@@ -87,7 +87,8 @@ def demodulate(path: Path, output: Path) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--frequency", type=int, default=104_300_000)
-    parser.add_argument("--gain", type=float, default=40.0)\n    parser.add_argument("--low-gain", type=float, default=30.0)
+    parser.add_argument("--gain", type=float, default=40.0)
+    parser.add_argument("--low-gain", type=float, default=30.0)
     parser.add_argument("--seconds", type=float, default=15.0)
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
@@ -96,7 +97,12 @@ def main() -> None:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     report = {"frequency_hz": args.frequency, "sample_rate_hz": RATE,
               "captures": {}}
-    for name, gain, rtl_agc in (\n        ("manual_40", args.gain, False),\n        ("manual_30", args.low_gain, False),\n        ("manual_30_rtl_agc", args.low_gain, True),\n        ("tuner_agc", None, False),\n    ):
+    for name, gain, rtl_agc in (
+        ("manual_40", args.gain, False),
+        ("manual_30", args.low_gain, False),
+        ("manual_30_rtl_agc", args.low_gain, True),
+        ("tuner_agc", None, False),
+    ):
         print(f"Capturing {name}...", flush=True)
         iq_path = args.output_dir / f"{name}.u8"
         metrics = capture(iq_path, args.frequency, gain, args.seconds, rtl_agc)
@@ -109,7 +115,8 @@ def main() -> None:
         json.dumps(report, indent=2) + "\n", encoding="utf-8"
     )
     print(json.dumps(report, indent=2))
-    print("Captures are sequential, so broadcast content can differ.")\n    print("Near-rail fraction is not proof of ADC clipping.")
+    print("Captures are sequential, so broadcast content can differ.")
+    print("Near-rail fraction is not proof of ADC clipping.")
     print(f"Files: {args.output_dir.resolve()}")
 
 
