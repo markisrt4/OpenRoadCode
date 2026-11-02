@@ -283,6 +283,32 @@ git switch feature/waze-live-map
 sudo waydroid shell -- am compat reset FORCE_RESIZE_APP com.panera.bread
 ```
 
+The VM test of this override did not produce a usable result: split content
+remained displaced and the expanded view could become blank. Reset the override
+before further testing. `am compat enable/reset` stops the app process to apply
+the change; it does not automatically reopen Panera in the existing ORC panel.
+After resetting, explicitly launch Panera again:
+
+```bash
+git switch feature/waze-live-map
+sudo waydroid shell -- am compat reset FORCE_RESIZE_APP com.panera.bread
+waydroid app launch com.panera.bread
+```
+
+For a stable bad frame, compare Android's own framebuffer with the ORC view in
+the same mode before changing any more geometry/orientation settings:
+
+```bash
+git switch feature/waze-live-map
+sudo waydroid shell -- screencap -p > /tmp/orc-android-screen.png
+```
+
+Capture after the launch has settled, not immediately after `am compat` stopped
+the app. Compare the PNG with a simultaneous ORC screenshot: a correct Android
+frame with a displaced hosted image points to the compositor/view transform;
+a displaced Android frame points to Android/app layout. No app data is cleared
+by reset/relaunch or by this screen capture.
+
 POI result metadata is now scoped to the factory alongside retained renderer
 markers. Returning to Navigation creates fresh event transports and action
 sessions but preserves the marker-to-business lookup, so an existing Panera
