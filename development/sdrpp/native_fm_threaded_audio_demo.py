@@ -149,9 +149,6 @@ def main() -> int:
                 wav.setnchannels(1)
                 wav.setsampwidth(2)
                 wav.setframerate(48_000)
-                # Unseekable or interrupted writers can leave an incorrect RIFF length.
-                # Set the expected frame count up front, then close to finalize.
-                wav.setnframes(target_samples)
                 while not record_done.is_set() or not record_queue.empty():
                     try:
                         kind, data = record_queue.get(timeout=0.1)
@@ -166,7 +163,7 @@ def main() -> int:
                         pcm16 = np.round(np.clip(audio, -1, 1) * 32767).astype(
                             "<i2"
                         )
-                        wav.writeframesraw(pcm16.tobytes())
+                        wav.writeframes(pcm16.tobytes())
                         stats.pcm_recorded_samples += len(audio)
         except Exception as exc:
             failures.put(("recorder", exc))
