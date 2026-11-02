@@ -26,6 +26,7 @@ def inspect_iq(path: Path) -> dict:
     sum_sq = 0.0
     large_steps = 0
     previous = None
+    started = time.monotonic()
     with path.open("rb") as stream:
         while raw := stream.read(262144 * 4):
             values = np.frombuffer(raw, dtype=np.uint8)
@@ -35,13 +36,16 @@ def inspect_iq(path: Path) -> dict:
             total += len(iq)
             rails += int(np.count_nonzero((values <= 2) | (values >= 253)))
             sum_sq += float(np.sum(iq ** 2))
+            if total and total % (RATE * 5) < len(iq):
+                print(f"  IQ inspected: {total / RATE:.1f}s, elapsed {time.monotonic() - started:.1f}s", flush=True)
             if previous is not None and len(iq):
                 first = iq[0]
-                if float(np.linalg.norm(first - previous)) > 1.0:
+                if float(np.sum((first - previous) ** 2)) > 1.0:
                     large_steps += 1
             if len(iq) > 1:
+                delta = np.diff(iq, axis=0)
                 large_steps += int(np.count_nonzero(
-                    np.linalg.norm(np.diff(iq, axis=0), axis=1) > 1.0))
+                    delta[:, 0] ** 2 + delta[:, 1] ** 2 > 1.0))
             if len(iq):
                 previous = iq[-1].copy()
     return {
@@ -66,7 +70,19 @@ def cli_capture(path: Path, frequency: int, seconds: float) -> dict:
                "-g", str(GAIN), "-n", str(samples), str(path)]
     print("CLI capture:", " ".join(command), flush=True)
     start = time.perf_counter()
-    proc = subprocess.run(command, capture_output=True, text=True)
+    timeout = max(45.0, seconds * 5.0)
+    try:
+        proc = subprocess.run(command, stdout=subprocess.DEVNULL,
+                              stderr=subprocess.PIPE, text=True,
+                              timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        stderr = exc.stderr or b""
+        if isinstance(stderr, bytes):
+            stderr = stderr.decode("utf-8", errors="replace")
+        raise RuntimeError(
+            f"rtl_sdr timed out after {timeout:.0f}s. "
+            f"Captured {path.stat().st_size if path.exists() else 0} bytes. "
+            f"stderr tail:\n{stderr[-2000:]}") from exc
     if proc.returncode:
         raise RuntimeError(f"rtl_sdr failed ({proc.returncode}):\n{proc.stderr}")
     expected_bytes = samples * 2
@@ -96,10 +112,14 @@ def main() -> None:
     report["captures"]["rtl_sdr_cli"] = cli_capture(
         cli_iq, args.frequency, args.seconds)
     for name, path in (("orc_sync", sync_iq), ("rtl_sdr_cli", cli_iq)):
-        print(f"Analyzing and decoding {name}...", flush=True)
+        print(f"Inspecting IQ for {name}...", flush=True)
         report["captures"][name]["iq_analysis"] = inspect_iq(path)
+        print(f"Decoding WAV for {name}...", flush=True)
         report["captures"][name]["audio"] = demodulate(
             path, args.output_dir / f"{name}.wav")
+        (args.output_dir / "capture_comparison.json").write_text(
+            json.dumps(report, indent=2) + "\n", encoding="utf-8")
+        print(f"Finished {name}", flush=True)
     report_path = args.output_dir / "capture_comparison.json"
     report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report, indent=2))
