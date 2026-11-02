@@ -107,8 +107,33 @@ git switch feature/waze-live-map
 sudo waydroid shell -- wm density reset
 ```
 
-Forced landscape is not enabled. It may override an app's assumptions and needs
-a separate opt-in experiment, not a silent global rotation/resize setting.
+Expanding ORC alone does not change a portrait-only Android activity. The
+following **optional, VM-wide landscape experiment** uses commands verified in
+LineageOS 20 / Android 13's WindowManager shell source. It saves user rotation,
+fixed-to-user-rotation, ignore-orientation-request and force-resizable settings
+before changing them. It does not assume that rotation 1 always means landscape:
+the nested Waydroid display can have natural landscape at rotation 0.
+
+With Waydroid running, select Expand app first, then run from the normal desktop:
+
+```bash
+git switch feature/waze-live-map
+python3 scripts/waydroid_landscape.py apply
+```
+
+This uses sudo for Android shell access and affects every app on Android display
+0 in this VM. It is not ORC's default or a per-app guarantee. Close Panera from
+Android Recents and reopen it via ORDER if the current activity keeps its old
+layout. Portrait-only applications may render badly even when forced resizable;
+app compatibility still requires a device test. To undo:
+
+```bash
+git switch feature/waze-live-map
+python3 scripts/waydroid_landscape.py restore
+```
+
+The backup is kept under the desktop user's state directory until restore
+succeeds. Partial failures retain it. Do not repeatedly apply without restoring.
 
 #### Hide Android status/navigation bars (optional VM setup)
 
@@ -155,16 +180,19 @@ fix of the remaining device-specific symptom.
 
 ```bash
 git switch feature/waze-live-map
-ORC_LOG_COMPONENT_LEVELS='navigation.poi=DEBUG,map_renderer=DEBUG' ORC_WAYDROID_PANEL=1 ./runOrcUi --follow-logs 2>&1 | tee /tmp/orc-poi-reopen.log
+ORC_LOG_COMPONENT_LEVELS='navigation.poi=DEBUG,map_renderer=DEBUG' ORC_WAYDROID_PANEL=1 ./runOrcUi --follow-logs --log-level DEBUG 2>&1 | tee /tmp/orc-poi-reopen.log
 ```
 
-Open Panera's popup, leave Navigation, return, and click the same marker several
+`--log-level DEBUG` is necessary for the live viewer as well as collection; the
+old command enabled component debug records but left the viewer at INFO.
+Open Panera's popup, leave Navigation, press Back to map to return to full
+Navigation, and click the same marker several
 times. Close ORC and collect the focused excerpt (debug clicks can include
 coordinates; redact them if desired):
 
 ```bash
 git switch feature/waze-live-map
-grep -E -A8 -B2 'navigation.poi|map.clicked|showing POI|Traceback|Error|Exception' /tmp/orc-poi-reopen.log | tail -n 120
+grep -E -A8 -B2 'navigation.poi|map.clicked|showing POI|Traceback' /tmp/orc-poi-reopen.log | tail -n 160
 ```
 
 POI result metadata is now scoped to the factory alongside retained renderer
