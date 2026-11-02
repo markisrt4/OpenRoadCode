@@ -5,6 +5,7 @@
 import argparse
 import json
 import os
+import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import urlopen
@@ -36,11 +37,45 @@ def collect(base_url):
     return report
 
 
+def collect_bus(seconds=5):
+    """Validate the same position contract as the UI, without printing fixes."""
+    import zmq
+    from messaging.contracts.navigation.position_state_codec import decode_position_state
+
+    context = zmq.Context()
+    socket = context.socket(zmq.SUB)
+    messages = []
+    try:
+        socket.connect('tcp://127.0.0.1:5557')
+        socket.setsockopt_string(zmq.SUBSCRIBE, 'openroad.navigation.position')
+        deadline = time.monotonic() + seconds
+        while time.monotonic() < deadline and len(messages) < 3:
+            if not socket.poll(250):
+                continue
+            try:
+                payload = json.loads(socket.recv_multipart()[-1])
+                message = decode_position_state(payload)
+                messages.append({'valid_for_map': True, 'source': message.source,
+                                 'fix_mode': message.data.fix_mode,
+                                 'is_cached': message.data.is_cached})
+            except (ValueError, TypeError, KeyError) as error:
+                # Contract validators report field names, not coordinate values.
+                messages.append({'valid_for_map': False, 'error': str(error)})
+    finally:
+        socket.close(linger=0)
+        context.term()
+    return messages
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--url', default=os.environ.get('OPENROADCODE_ANDROID_BRIDGE_URL') or 'http://127.0.0.1:8766')
+    parser.add_argument('--bus', action='store_true', help='Also validate bus messages; run as python -m scripts.probe_android_location --bus')
     args = parser.parse_args()
-    print(json.dumps(collect(args.url), indent=2))
+    report = collect(args.url)
+    if args.bus:
+        report['position_messages'] = collect_bus()
+    print(json.dumps(report, indent=2))
 
 
 if __name__ == '__main__':

@@ -148,6 +148,25 @@ location permission first. The branch leaves AndroidPositionSource's `/location`
 reader and the Termux GPS input profile unchanged; it adds a route-playback wrapper
 around live sources, while desktop browser fallback is disabled on Termux.
 
+If the bridge reports a fresh fix but Recenter does nothing, validate the complete
+bus contract rather than only the presence of latitude/longitude fields:
+
+```bash
+git switch feature/waze-live-map
+python -m scripts.probe_android_location --bus | tee "$TMPDIR/orc-android-location-probe.json" | termux-clipboard-set
+```
+
+The bounded bus check uses the same strict decoder as the map and omits position
+coordinates. A running navigation service retains its imported code after a Git
+update: restart the supervised service and ORC to load changes before comparing
+their message formats. Do not start a second producer alongside the supervised
+one. The UI logs `map_renderer.position` events for the first accepted live fix,
+Recenter requests and dispatch failures; repeated identical errors are suppressed.
+Optional position-observer failures are isolated so they cannot block the native
+map's position and camera updates. These changes improve recovery and diagnosis;
+they do not establish the cause of a particular phone's missing marker without
+the device results.
+
 ### Original baseline
 
 Status: repository/source investigation, not a device compatibility result.

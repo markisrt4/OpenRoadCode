@@ -6,7 +6,9 @@
 from __future__ import annotations
 
 import math
+import logging
 from pathlib import Path
+from common.logging.structured import event
 
 from controllers.cache import PersistentCache
 from controllers.map_renderer.map_request_handler import MapRequestHandler
@@ -51,6 +53,8 @@ class MapCameraRuntime:
         initial_position = self._load_cached_center(DEFAULT_POSITION_CACHE_DIRECTORY)
         self._current_position = initial_position
         self._position_observers = []
+        self._last_dispatch_error = None
+        self._logged_live_fix = False
         set_current_position(initial_position)
         self._handler = MapRequestHandler(
             self._renderer_client,
@@ -61,7 +65,8 @@ class MapCameraRuntime:
             camera_initialized=initial_position is not None,
         )
         self._dispatcher = MessageDispatcher(
-            ZeroMqSubscriber(LOCAL_SUBSCRIBER_ENDPOINT)
+            ZeroMqSubscriber(LOCAL_SUBSCRIBER_ENDPOINT),
+            error_handler=self._on_dispatch_error,
         )
         self._dispatcher.register(
             POSITION_STATE_TOPIC,
@@ -152,7 +157,10 @@ class MapCameraRuntime:
                 and data.latitude_rad is not None and data.longitude_rad is not None):
             live_point = GeoPoint(data.latitude_rad, data.longitude_rad, data.altitude_m)
         for observer in tuple(self._position_observers):
-            observer(live_point)
+            try:
+                observer(live_point)
+            except Exception as error:
+                self._on_dispatch_error('position.observer', error)
         if data.latitude_rad is None or data.longitude_rad is None:
             return
 
@@ -187,6 +195,20 @@ class MapCameraRuntime:
             latitude=math.degrees(data.latitude_rad),
             longitude=math.degrees(data.longitude_rad),
         )
+        if live_point is not None and not getattr(self, '_logged_live_fix', False):
+            self._logged_live_fix = True
+            event(logging.getLogger('map_renderer.position'), logging.INFO,
+                  'position.received', 'Map accepted its first live position',
+                  fix_mode=data.fix_mode, following=self._handler.follow_enabled)
+
+    def _on_dispatch_error(self, topic, error):
+        key = (topic, type(error).__name__, str(error))
+        if key == self._last_dispatch_error:
+            return
+        self._last_dispatch_error = key
+        event(logging.getLogger('map_renderer.position'), logging.WARNING,
+              'position.dispatch_failed', 'Map position dispatch failed',
+              topic=topic, exception_type=type(error).__name__, reason=str(error))
 
     def observe_position(self, observer):
         """Subscribe to live SI positions; None indicates unavailable/cached data.
