@@ -52,7 +52,7 @@ def main() -> int:
     parser.add_argument("--prebuffer-ms", type=int, default=400,
                         help="PCM to queue before starting playback (default: 400 ms)")
     parser.add_argument("--warmup-seconds", type=float, default=2.0,
-                        help="Prime receiver before audio playback (default: 2 seconds)")
+                        help="Discard initial RF within continuous threaded capture (default: 2 seconds)")
     parser.add_argument("--volume", type=float, default=0.6)
     parser.add_argument("--iq-queue", type=int, default=32)
     parser.add_argument("--pcm-queue", type=int, default=32)
@@ -78,6 +78,8 @@ def main() -> int:
     stop = threading.Event()
     capture_done = threading.Event()
     dsp_done = threading.Event()
+    primed = threading.Event()
+    warmup_target = round(args.warmup_seconds * 2_400_000)
     stats = Counters()
     failures: queue.Queue = queue.Queue()
     record_queue: queue.Queue = queue.Queue(maxsize=128)
@@ -89,7 +91,7 @@ def main() -> int:
             while not stop.is_set():
                 block = source.read_iq()
                 stats.captured += 1
-                if args.record_dir is not None:
+                if primed.is_set() and args.record_dir is not None:
                     try:
                         record_queue.put_nowait(("iq", bytes(block.samples)))
                     except queue.Full:
@@ -107,6 +109,7 @@ def main() -> int:
             capture_done.set()
 
     def process():
+        warmup_samples = 0
         try:
             while not stop.is_set() or not iq_queue.empty():
                 try:
@@ -117,6 +120,12 @@ def main() -> int:
                     continue
                 start = time.perf_counter()
                 pcm = decoder.process(block)
+                if not primed.is_set():
+                    warmup_samples += len(block.samples) // 2
+                    if warmup_samples >= warmup_target:
+                        primed.set()
+                        print(f"Receiver primed: {warmup_samples / 2_400_000:.3f}s RF", flush=True)
+                    continue
                 stats.dsp_seconds += time.perf_counter() - start
                 stats.rf_seconds += len(block.samples) / (2 * block.sample_rate_hz)
                 stats.dsp_blocks += 1
@@ -180,13 +189,6 @@ def main() -> int:
         source.set_gain(None if args.tuner_agc else args.gain)
         source.set_rtl_agc(args.rtl_agc)
         source.start()
-        warmup_target = round(args.warmup_seconds * 2_400_000)
-        warmup_samples = 0
-        while warmup_samples < warmup_target:
-            warmup_block = source.read_iq()
-            decoder.process(warmup_block)
-            warmup_samples += len(warmup_block.samples) // 2
-        print(f"Receiver primed: {warmup_samples / 2_400_000:.3f}s RF", flush=True)
         if args.record_dir is not None:
             recorder_thread = threading.Thread(
                 target=record, name="sdr-recorder", daemon=True
@@ -201,6 +203,8 @@ def main() -> int:
         print(f"Threaded WFM {args.frequency / 1e6:.3f} MHz, "
               f"gain={'auto' if args.tuner_agc else str(args.gain) + ' dB'}, "
               f"RTL AGC={'on' if args.rtl_agc else 'off'}", flush=True)
+        if not primed.wait(timeout=max(10.0, args.warmup_seconds * 4)):
+            raise RuntimeError("Receiver warmup timed out")
         prebuffer_samples = round(args.prebuffer_ms * 48)
         queued_samples = 0
         prebuffer_deadline = time.monotonic() + max(5.0, args.prebuffer_ms / 1000.0 * 4)
