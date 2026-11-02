@@ -55,8 +55,6 @@ def test_expand_collapses_with_no_app_relaunch_and_next_app_starts_split():
         state = screen.return_value.present.call_args.args[0]
         assert state.app_name == 'Maps'
         assert not state.expanded
-        view.request_toggle_android_frame_trim()
-        assert screen.return_value.present.call_args.args[0].trim_android_frame
         assert app.navigate_to.call_count == 2
         view.close()
         count = screen.return_value.present.call_count
@@ -89,25 +87,20 @@ def test_surface_rejects_missing_or_ambiguous_compositors(windows):
         spawn.assert_not_called()
 
 
-def test_surface_repeated_open_and_stop_only_own_presentation_clients():
-    clients = [Mock(), Mock()]
-    for client in clients:
-        client.poll.return_value = None
+def test_surface_repeated_open_and_stop_never_rewrite_android_display_policy():
     with patch('apps.orcUi.adapters.waydroid_surface_player.subprocess.run',
                return_value=Mock(returncode=0, stdout='12\n')) as run, patch(
                'apps.orcUi.adapters.waydroid_surface_player.subprocess.Popen',
-               side_effect=clients) as spawn:
+               ) as spawn:
         player = WaydroidSurfacePlayer()
         assert player.play('android', display=':2')
         player.request_theme_refresh()
-        assert spawn.call_count == 1
+        spawn.assert_not_called()
         assert player.play('android', display=':2')
-        clients[0].terminate.assert_called_once()
         player.stop()
         player.stop()
-        clients[1].terminate.assert_called_once()
-        assert spawn.call_args.args[0] == ['waydroid', 'show-full-ui']
-        assert spawn.call_args.kwargs['env']['DISPLAY'] == ':2'
+        spawn.assert_not_called()
+        assert run.call_args.kwargs['env']['DISPLAY'] == ':2'
         assert run.call_count == 2
 
 

@@ -10,6 +10,8 @@ import pytest
 
 from frontends.tk.media.android_app_screen import AndroidAppScreen
 from ui.navigation.android_app_view_if import AndroidAppViewState
+from apps.orcUi.theme_runtime import theme_bundle
+from ui.theme import ThemeMode
 
 
 @pytest.mark.skipif(not os.environ.get('DISPLAY'), reason='real Tk geometry needs X11')
@@ -22,10 +24,12 @@ def test_equal_split_expand_restore_and_stale_mount():
     callbacks = []
     host.schedule_ui_callback.side_effect = lambda delay, callback: callbacks.append(callback) or len(callbacks)
     runtime, platform, player, requests, breadcrumb = Mock(), Mock(), Mock(), Mock(), Mock()
+    mode = [ThemeMode.DARK]
     screen = AndroidAppScreen('android', host, title='Android', player=player,
         default_target='android', window_class='Weston Compositor', back_action=Mock(),
         preserve_external_window=True, map_runtime=runtime, map_platform=platform,
-        requests=requests, breadcrumb=breadcrumb)
+        requests=requests, breadcrumb=breadcrumb, theme_bundle=lambda: theme_bundle(mode[0]),
+        theme_request_handler=player)
     screen._embedder = Mock(window_id=None)
     try:
         state = AndroidAppViewState('Panera Bread', 'com.panera.bread')
@@ -44,17 +48,26 @@ def test_equal_split_expand_restore_and_stale_mount():
         player.play.assert_called_once()
         screen._expand_button.invoke()
         requests.request_toggle_android_app_expanded.assert_called_once()
-        screen._trim_button.invoke()
-        requests.request_toggle_android_frame_trim.assert_called_once()
-        screen.present(replace(state, trim_android_frame=True))
-        screen._embedder.set_vertical_crop.assert_called_with(56, 48)
+        screen.present(state)
+        screen._embedder.set_vertical_crop.assert_called_with(32, 48)
         screen.present(replace(state, expanded=True))
         root.update()
         assert screen._browser_host.winfo_width() >= 1190
+        screen._embedder.resize.assert_called_with(screen._browser_host.winfo_width(), screen._browser_host.winfo_height())
+        assert screen._back_button.cget('relief') == 'flat'
+        assert int(screen._back_button.cget('borderwidth')) == 0
+        assert screen._back_button.cget('background') == theme_bundle(ThemeMode.DARK).ui.control_background
+        assert screen._vertical_crop == (32, 48)
+        assert not any(isinstance(widget, tk.Button) and 'Android frame' in widget.cget('text')
+                       for widget in screen._toolbar.winfo_children())
         runtime.stop.assert_called_once()
         screen.present(state)
         root.update()
         assert abs(screen._map_host.winfo_width() - screen._browser_host.winfo_width()) <= 5
+        mode[0] = ThemeMode.LIGHT
+        screen.set_theme_mode(ThemeMode.LIGHT)
+        assert screen._back_button.cget('background') == theme_bundle(ThemeMode.LIGHT).ui.control_background
+        assert screen._expand_button.cget('foreground') == theme_bundle(ThemeMode.LIGHT).ui.control_text
         stale = callbacks[-1]
         screen.hide()
         stale()

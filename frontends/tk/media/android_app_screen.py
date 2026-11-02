@@ -30,21 +30,52 @@ class AndroidAppScreen(BrowserMediaScreen):
         self._expand_button = None
         self._toolbar = None
         self._name_label = None
-        self._trim_button = None
+        self._back_button = None
+        self._surface_resize_job = None
+        self._surface_generation = 0
+        # App-first Waydroid presentation requests immersive status mode itself.
+        # Trim the nested Weston panel and Android navigation area automatically.
+        self._vertical_crop = (32, 48)
 
     def present(self, state: AndroidAppViewState) -> None:
         self._state = state
         self._title = state.app_name
-        # Default VM geometry: Weston panel + Android status bar, then navbar.
-        # This only clips the nested surface and never changes Android policies.
-        self._vertical_crop = (56, 48) if state.trim_android_frame else (0, 0)
+        # Cropping only affects the nested viewport, not Android permissions.
         if self._visible:
             self._name_label.configure(text=state.app_name)
             self._host.set_screen_title(state.app_name)
             self._breadcrumb(state.app_name)
             self._apply_layout()
+            # Grid changes are deferred by Tk. Flush them before sizing the
+            # compositor, then reapply after native output configuration settles.
+            if self._surface_resize_job is not None:
+                self._host.cancel_ui_callback(self._surface_resize_job)
+                self._surface_resize_job = None
+            self._surface_generation += 1
+            generation = self._surface_generation
+            self._root.update_idletasks()
+            self._resize_android_surface()
+            self._surface_resize_job = self._host.schedule_ui_callback(150, lambda: self._settled_resize(generation))
+
+    def _settled_resize(self, generation):
+        if generation != self._surface_generation or not self._visible:
+            return
+        self._surface_resize_job = None
+        self._resize_android_surface()
+
+    def _resize_android_surface(self):
+        if self._visible and self._browser_host is not None and self._browser_host.winfo_exists():
             self._embedder.set_vertical_crop(*self._vertical_crop)
             self._embedder.resize(self._browser_host.winfo_width(), self._browser_host.winfo_height())
+
+    def _button_style(self):
+        ui = self._theme_provider().ui if self._theme_provider is not None else None
+        return dict(bg=ui.control_background if ui else '#101b23',
+                    fg=ui.control_text if ui else '#ffffff',
+                    activebackground=ui.control_active if ui else '#20313e',
+                    activeforeground=ui.text if ui else '#ffffff',
+                    relief=tk.FLAT, bd=0, highlightthickness=0,
+                    font=('Sans', 9, 'bold'), padx=12, pady=6, cursor='hand2')
 
     def show(self) -> None:
         self.hide()
@@ -61,14 +92,14 @@ class AndroidAppScreen(BrowserMediaScreen):
         toolbar = tk.Frame(root, bg=self._background())
         self._toolbar = toolbar
         toolbar.grid(row=0, column=0, columnspan=2, sticky='ew')
-        tk.Button(toolbar, text='Back to map', command=self._back_action).pack(side=tk.LEFT, padx=4, pady=4)
+        self._back_button = tk.Button(toolbar, text='‹ BACK TO MAP', command=self._back_action, **self._button_style())
+        self._back_button.pack(side=tk.LEFT, padx=4, pady=4)
         foreground = self._theme_provider().ui.text if self._theme_provider is not None else 'white'
         self._name_label = tk.Label(toolbar, text=self._state.app_name, bg=self._background(), fg=foreground)
         self._name_label.pack(side=tk.LEFT, padx=8)
-        self._expand_button = tk.Button(toolbar, command=self._requests.request_toggle_android_app_expanded)
+        self._expand_button = tk.Button(toolbar, command=self._requests.request_toggle_android_app_expanded,
+                                        **self._button_style())
         self._expand_button.pack(side=tk.RIGHT, padx=4, pady=4)
-        self._trim_button = tk.Button(toolbar, command=self._requests.request_toggle_android_frame_trim)
-        self._trim_button.pack(side=tk.RIGHT, padx=4, pady=4)
         self._map_host = tk.Frame(root, bg=self._background())
         self._map_host.bind('<Configure>', self._resize_map)
         self._browser_host = tk.Frame(root, bg=self._background())
@@ -79,13 +110,12 @@ class AndroidAppScreen(BrowserMediaScreen):
     def _apply_layout(self):
         if self._root is None:
             return
-        self._trim_button.configure(text='Show Android frame' if self._state.trim_android_frame else 'Trim Android frame')
         if self._state.expanded:
             self._map_host.grid_remove()
             self._root.grid_columnconfigure(0, weight=0, minsize=0, uniform='')
             self._root.grid_columnconfigure(1, weight=1, uniform='')
             self._stop_map()
-            self._expand_button.configure(text='Split view')
+            self._expand_button.configure(text='SPLIT VIEW')
         else:
             self._root.grid_columnconfigure(0, weight=1, uniform='panes')
             self._root.grid_columnconfigure(1, weight=1, uniform='panes')
@@ -93,7 +123,7 @@ class AndroidAppScreen(BrowserMediaScreen):
             if not self._map_running and self._map_job is None:
                 generation = self._map_generation
                 self._map_job = self._host.schedule_ui_callback(1, lambda: self._start_map(generation))
-            self._expand_button.configure(text='Expand app')
+            self._expand_button.configure(text='EXPAND APP')
         self._browser_host.grid(row=1, column=1, sticky='nsew')
 
     def _start_map(self, generation=None):
@@ -127,13 +157,17 @@ class AndroidAppScreen(BrowserMediaScreen):
             self._map_runtime.stop()
 
     def hide(self):
+        self._surface_generation += 1
+        if self._surface_resize_job is not None:
+            self._host.cancel_ui_callback(self._surface_resize_job)
+            self._surface_resize_job = None
         self._stop_map()
         super().hide()
         self._map_host = None
         self._expand_button = None
         self._toolbar = None
         self._name_label = None
-        self._trim_button = None
+        self._back_button = None
 
     def set_theme_mode(self, mode):
         super().set_theme_mode(mode)
@@ -143,3 +177,5 @@ class AndroidAppScreen(BrowserMediaScreen):
                 widget.configure(bg=self._background())
             if self._theme_provider is not None:
                 self._name_label.configure(fg=self._theme_provider().ui.text)
+            for button in (self._back_button, self._expand_button):
+                button.configure(**self._button_style())

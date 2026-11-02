@@ -53,8 +53,3 @@ class AndroidAppView(AndroidAppViewRequestHandlerIf):
                 return
             self._closed = True
         self._screen.hide()
-
-    def request_toggle_android_frame_trim(self):
-        if not self._closed:
-            self._state = replace(self._state, trim_android_frame=not self._state.trim_android_frame)
-            self._screen.present(self._state)
