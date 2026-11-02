@@ -372,22 +372,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
             from apps.orcUi.adapters.android_spotify_media import AndroidSpotifyMedia
             bridge = AndroidSpotifyMedia()
             executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="android-spotify")
-            controls = tk.Frame(host, bg=spotify_theme(app)["colors"]["background"])
-            controls.grid(row=3, column=0, sticky="ew")
             stopped = [False]
-
-            def command(action: str) -> None:
-                def run() -> None:
-                    try:
-                        bridge.command(action)
-                    except Exception as exc:
-                        report(f"Android Spotify {action} failed: {exc}")
-                executor.submit(run)
-
-            for label, action in (("PREV", "previous"), ("PLAY", "play"),
-                                  ("PAUSE", "pause"), ("NEXT", "next")):
-                tk.Button(controls, text=label, command=lambda a=action: command(a)).pack(
-                    side="left", expand=True, fill="x", padx=2)
 
             def refresh() -> None:
                 if stopped[0] or not host.winfo_exists():
