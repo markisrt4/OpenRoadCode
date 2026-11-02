@@ -303,6 +303,12 @@ Known flags, default values and explicit enabled overrides are distinct. The
 probe omits other applications' records and app UI contents. Leave the failing
 view expanded after it settles and capture it without changing flags again:
 
+The first report returned no orientation fields because the probe requested a
+summary activity dump and assumed a single space in the `Hist #` header. It now
+requests `dumpsys activity -a activities` and accepts Android's variable spacing.
+Compatibility entries also report whether Panera appears anywhere in the change
+record, so missing evaluated override data is not silently treated as disabled.
+
 ```bash
 git switch feature/waze-live-map
 sudo -v

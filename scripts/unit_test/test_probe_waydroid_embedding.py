@@ -30,7 +30,7 @@ def test_only_panera_geometry_is_reported_without_window_contents():
 
 def test_orientation_is_scoped_to_panera_activity():
     text = '''
-    * Hist #0: ActivityRecord{abc u0 com.panera.bread/.MainActivity t1}
+    * Hist  #0: ActivityRecord{abc u0 com.panera.bread/.MainActivity t1}
       overrideOrientation=SCREEN_ORIENTATION_NOSENSOR
       requestedOrientation=SCREEN_ORIENTATION_PORTRAIT
       mSizeCompatScale=0.5
@@ -51,6 +51,8 @@ ChangeId(265451093; name=OVERRIDE_UNDEFINED_ORIENTATION_TO_NOSENSOR; disabled; o
 '''
     result = compatibility_overrides(text)
     assert result['OVERRIDE_ANY_ORIENTATION']['panera_override'] is True
+    assert result['OVERRIDE_ANY_ORIENTATION']['panera_mentioned_in_record'] is True
     assert result['OVERRIDE_UNDEFINED_ORIENTATION_TO_NOSENSOR']['known']
     assert result['OVERRIDE_UNDEFINED_ORIENTATION_TO_NOSENSOR']['panera_override'] is None
+    assert result['OVERRIDE_UNDEFINED_ORIENTATION_TO_NOSENSOR']['panera_mentioned_in_record'] is False
     assert result['FORCE_RESIZE_APP'] == {'known': False}

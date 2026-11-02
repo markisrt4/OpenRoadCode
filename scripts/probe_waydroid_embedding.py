@@ -51,7 +51,7 @@ def activity_orientation(output, package='com.panera.bread'):
     """Read only orientation/size-compat metadata from this package's records."""
     records, current, indent = [], None, 0
     for line in output.splitlines():
-        header = re.match(r'^(\s*)\* Hist #\d+:.*ActivityRecord\{', line)
+        header = re.match(r'^(\s*)(?:\*\s+)?Hist\s+#\d+:.*ActivityRecord\{', line)
         if header:
             if current:
                 records.append(current)
@@ -94,7 +94,8 @@ def compatibility_overrides(output, package='com.panera.bread'):
         evaluated = re.search(r'packageOverrides=\{([^}]*)\}', line)
         override = re.search(r'(?<![\w.])' + re.escape(package) + r'=(true|false)\b', evaluated[1]) if evaluated else None
         result[name] = {'known': True, 'default_disabled': '; disabled;' in line or '; disabled)' in line,
-                        'panera_override': override[1] == 'true' if override else None}
+                        'panera_override': override[1] == 'true' if override else None,
+                        'panera_mentioned_in_record': package in line}
     return result
 
 
@@ -126,7 +127,8 @@ def collect(mode):
         report['android'][label] = value[:256] if code == 0 else 'unavailable (run sudo -v first)'
     code, output = query(['sudo', '-n', 'waydroid', 'shell', '--', 'dumpsys', 'window', 'windows'])
     report['android']['panera_window_rectangles'] = android_window_frames(output) if code == 0 else []
-    code, output = query(['sudo', '-n', 'waydroid', 'shell', '--', 'dumpsys', 'activity', 'activities'])
+    # Without -a, live activities may be printed as summaries without orientation.
+    code, output = query(['sudo', '-n', 'waydroid', 'shell', '--', 'dumpsys', 'activity', '-a', 'activities'])
     report['android']['panera_orientation'] = activity_orientation(output) if code == 0 else []
     code, output = query(['sudo', '-n', 'waydroid', 'shell', '--', 'dumpsys', 'platform_compat'])
     report['android']['panera_compat_overrides'] = compatibility_overrides(output) if code == 0 else {'error': 'unavailable'}
