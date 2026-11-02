@@ -33,6 +33,7 @@ def test_orientation_is_scoped_to_panera_activity():
     * Hist  #0: ActivityRecord{abc u0 com.panera.bread/.MainActivity t1}
       overrideOrientation=SCREEN_ORIENTATION_NOSENSOR
       requestedOrientation=SCREEN_ORIENTATION_PORTRAIT
+      supportsSizeChanges=SIZE_CHANGES_SUPPORTED_OVERRIDE
       mSizeCompatScale=0.5
       mCompatDisplayInsets=unused private data
   Other task:
@@ -42,7 +43,7 @@ def test_orientation_is_scoped_to_panera_activity():
 '''
     assert activity_orientation(text) == [{'overrideOrientation': 'SCREEN_ORIENTATION_NOSENSOR',
         'requestedOrientation': 'SCREEN_ORIENTATION_PORTRAIT', 'size_compat_scale': '0.5',
-        'has_size_compat_insets': True}]
+        'has_size_compat_insets': True, 'supports_size_changes': 'SIZE_CHANGES_SUPPORTED_OVERRIDE'}]
 
 
 def test_compat_flags_distinguish_known_from_enabled_without_other_apps():

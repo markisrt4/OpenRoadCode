@@ -126,7 +126,7 @@ class AndroidAppScreen(BrowserMediaScreen):
             if not self._map_running and self._map_job is None:
                 generation = self._map_generation
                 self._map_job = self._host.schedule_ui_callback(1, lambda: self._start_map(generation))
-            self._expand_button.configure(text='EXPAND APP')
+            self._expand_button.configure(text='FULL SCREEN APP')
         self._browser_host.grid(row=1, column=1, sticky='nsew')
 
     def _start_map(self, generation=None):

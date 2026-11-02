@@ -37,6 +37,7 @@ def test_equal_split_expand_restore_and_stale_mount():
         screen.present(state)
         screen.show()
         root.update()
+        assert screen._expand_button.cget('text') == 'FULL SCREEN APP'
         # Allow the gutter and Tk's integer column rounding.
         assert abs(screen._map_host.winfo_width() - screen._browser_host.winfo_width()) <= 5
         assert screen._browser_host.winfo_width() > 500
@@ -55,6 +56,7 @@ def test_equal_split_expand_restore_and_stale_mount():
         screen.present(replace(state, expanded=True))
         root.update()
         assert screen._browser_host.winfo_width() >= 1190
+        assert screen._expand_button.cget('text') == 'SPLIT VIEW'
         screen._embedder.resize.assert_called_with(screen._browser_host.winfo_width(), screen._browser_host.winfo_height())
         assert screen._back_button.cget('relief') == 'flat'
         assert int(screen._back_button.cget('borderwidth')) == 0
@@ -65,6 +67,7 @@ def test_equal_split_expand_restore_and_stale_mount():
         runtime.stop.assert_called_once()
         screen.present(state)
         root.update()
+        assert screen._expand_button.cget('text') == 'FULL SCREEN APP'
         assert abs(screen._map_host.winfo_width() - screen._browser_host.winfo_width()) <= 5
         mode[0] = ThemeMode.LIGHT
         screen.set_theme_mode(ThemeMode.LIGHT)

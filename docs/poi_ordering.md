@@ -58,7 +58,7 @@ ORC_WAYDROID_PANEL=1 ./runOrcUi
 Select a Panera POI and ORDER. A successful Android launch queues presentation
 on the UI thread and opens an Android app screen with Back to Navigation.
 The breadcrumb is NAV followed by the installed app's display name. The default
-view has equal map-left/app-right panes. Expand app fills the content area; Split
+view has equal map-left/app-right panes. Full screen app fills the content area; Split
 view restores both panes without restarting Android or its current activity.
 The map uses the existing renderer lifecycle and stops when expanded or hidden.
 After each split mount, ORC replays the retained Navigation camera (including
@@ -124,7 +124,7 @@ fixed-to-user-rotation, ignore-orientation-request and force-resizable settings
 before changing them. It does not assume that rotation 1 always means landscape:
 the nested Waydroid display can have natural landscape at rotation 0.
 
-With Waydroid running, select Expand app first, then run from the normal desktop:
+With Waydroid running, select Full screen app first, then run from the normal desktop:
 
 ```bash
 git switch feature/waze-live-map
@@ -155,7 +155,7 @@ the nested Weston panel and navigation area on this VM. With the kiosk launcher,
 the live process marker selects zero top crop because there is no desktop panel.
 Waydroid's app-first launch requests
 immersive status mode; ORC does not reset it by opening full desktop mode again.
-Different density/chrome sizes can require adjustment. Expand/Split does not
+Different density/chrome sizes can require adjustment. Full screen/Split does not
 relaunch the app. Toolbar buttons use ORC control colors in dark and light mode.
 
 The earlier helper used `policy_control`. Upstream LineageOS removed that hook,
@@ -241,7 +241,7 @@ sudo -v
 python3 scripts/probe_waydroid_embedding.py --mode split
 ```
 
-Then click Expand app and run:
+Then click Full screen app and run:
 
 ```bash
 git switch feature/waze-live-map
@@ -314,6 +314,25 @@ git switch feature/waze-live-map
 sudo -v
 python3 scripts/probe_waydroid_embedding.py --mode expanded
 ```
+
+The user confirmed fullscreen worked after enabling the two activity-orientation
+overrides. Keep those enabled. The resize override had previously been reset
+during portrait diagnosis; the next targeted split-view test enables it alongside
+the working orientation overrides, instead of testing either treatment alone:
+
+```bash
+git switch feature/waze-live-map
+sudo waydroid shell -- am compat enable FORCE_RESIZE_APP com.panera.bread
+waydroid app launch com.panera.bread
+```
+
+Android stops Panera when applying the change; the launch command reopens it.
+The framework's `shouldCreateCompatDisplayInsets()` skips frozen launch bounds
+when `supportsSizeChanges()` reports the per-app override. Whether that resolves
+the remaining split clipping is still a VM test, not established by source alone.
+The probe now includes `supports_size_changes` to check the effective mode.
+The toolbar action is labeled **FULL SCREEN APP** when split, and **SPLIT VIEW**
+when full width.
 
 For a stable bad frame, compare Android's own framebuffer with the ORC view in
 the same mode before changing any more geometry/orientation settings:

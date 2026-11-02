@@ -69,6 +69,9 @@ def activity_orientation(output, package='com.panera.bread'):
             match = re.search(r'\b' + key + r'=([A-Z_]+|-?\d+)', line)
             if match:
                 current[key] = match[1]
+        match = re.search(r'\bsupportsSizeChanges=([A-Z_]+)', line)
+        if match:
+            current['supports_size_changes'] = match[1]
         match = re.search(r'\bmSizeCompatScale=([0-9.]+)', line)
         if match:
             current['size_compat_scale'] = match[1]
