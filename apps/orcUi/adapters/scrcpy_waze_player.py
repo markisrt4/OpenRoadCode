@@ -5,14 +5,17 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
+from threading import Lock, Thread
+from uuid import uuid4
 
 
 class ScrcpyWazePlayer:
     window_class = None
-    window_name = 'OpenRoadCode Waze Android'
 
     def __init__(self):
         self._process = None
+        self._process_lock = Lock()
+        self.window_name = f'OpenRoadCode Waze Android {uuid4().hex}'
 
     def vertical_crop(self):
         return (0, 0)
@@ -23,6 +26,9 @@ class ScrcpyWazePlayer:
     def play(self, target, *, display, window_position=None, window_size=None):
         del target
         self.stop()
+        # An old viewer may still be tearing down while a new one starts.
+        # Never let X11 discovery select that retired process's window.
+        self.window_name = f'OpenRoadCode Waze Android {uuid4().hex}'
         width, height = window_size or (1280, 720)
         renderer = os.environ.get('ORC_SCRCPY_RENDERER', 'opengl')
         if renderer not in ('opengl', 'opengles2', 'software'):
@@ -35,14 +41,26 @@ class ScrcpyWazePlayer:
         environment = dict(os.environ, DISPLAY=display, SDL_VIDEODRIVER='x11')
         log_path = Path(os.environ.get('TMPDIR') or tempfile.gettempdir()) / 'orc-scrcpy-waze.log'
         with log_path.open('ab') as log:
-            self._process = subprocess.Popen(command, env=environment, stdout=log, stderr=subprocess.STDOUT)
+            process = subprocess.Popen(command, env=environment, stdout=log, stderr=subprocess.STDOUT)
+        with self._process_lock:
+            self._process = process
         return True
 
     def stop(self):
-        process, self._process = self._process, None
+        with self._process_lock:
+            process, self._process = self._process, None
         if process is None or process.poll() is not None:
             return
-        process.terminate()
+        try:
+            process.terminate()
+        except ProcessLookupError:
+            pass
+        # Signal synchronously so application shutdown cannot strand the viewer;
+        # only the potentially slow wait/kill/reap belongs on the worker.
+        Thread(target=self._stop_process, args=(process,), daemon=True).start()
+
+    @staticmethod
+    def _stop_process(process):
         try:
             process.wait(timeout=3)
         except subprocess.TimeoutExpired:

@@ -57,6 +57,9 @@ def _config(imu_source: str, gps_source: str) -> NavigationServiceRuntimeConfig:
 
 
 def _patch_devices(monkeypatch) -> None:
+    # These tests exercise input composition, independently of the test host's
+    # optional desktop/browser fallback. Platform behavior is checked below.
+    monkeypatch.setattr(navigation_service_cli, '_host_location_fallback_available', lambda: False)
     monkeypatch.setattr(navigation_service_cli, "Mpu6050Imu", _FakeImuDevice)
     monkeypatch.setattr(navigation_service_cli, "Mpu6050NavigationAdapter", _FakeMotionAdapter)
     monkeypatch.setattr(navigation_service_cli, "GpsdNavigationAdapter", _FakeGpsAdapter)
@@ -130,3 +133,15 @@ def test_simulated_gps_uses_configured_speed_and_course():
     assert isinstance(controller._gps_source, SimulatedPositionSource)
     assert controller._gps_source._speed_mps == 0.0
     assert controller._gps_source._course_deg == 0.0
+
+
+def test_termux_keeps_android_bridge_as_live_position_source(monkeypatch):
+    from controllers.navigation.android_position_source import AndroidPositionSource
+
+    monkeypatch.setenv('TERMUX_VERSION', 'test')
+    monkeypatch.delenv('OPENROADCODE_ANDROID_BRIDGE_URL', raising=False)
+    config = NavigationServiceRuntimeConfig(gps=GpsInputConfig(device='android'))
+    source = navigation_service_cli._build_position_source(config)
+    assert isinstance(source, RoutePlaybackPositionSource)
+    assert isinstance(source._live_source, AndroidPositionSource)
+    assert source._live_source._client._base_url == 'http://127.0.0.1:8766'

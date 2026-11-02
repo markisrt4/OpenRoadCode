@@ -33,7 +33,7 @@ class BrowserMediaScreen(TkScreen):
         preserve_external_window: bool = False,
         surface_geometry: HostedSurfaceGeometryIf | None = None,
         window_embedder: WindowEmbedderIf | None = None,
-        window_name: str | None = None,
+        window_name: str | Callable[[], str | None] | None = None,
     ) -> None:
         super().__init__(ScreenId(screen_id))
         self._host = host
@@ -160,8 +160,9 @@ class BrowserMediaScreen(TkScreen):
                 self._host.set_screen_status(f"{self._title} unavailable")
                 return
             options = {}
-            if self._window_name is not None:
-                options['window_name'] = self._window_name
+            window_name = self._window_name() if callable(self._window_name) else self._window_name
+            if window_name is not None:
+                options['window_name'] = window_name
             if self._surface_geometry is not None:
                 self._vertical_crop = self._surface_geometry.vertical_crop()
             if self._preserve_external_window:

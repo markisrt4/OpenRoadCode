@@ -29,7 +29,7 @@ class AndroidAppView(AndroidAppViewRequestHandlerIf):
             theme_request_handler=self._player, preserve_external_window=preserve_external_window,
             surface_geometry=self._player,
             window_embedder=window_embedder if window_embedder is not None else WaydroidWindowEmbedder(),
-            window_name=getattr(self._player, 'window_name', None),
+            window_name=lambda: getattr(self._player, 'window_name', None),
             map_runtime=map_runtime, map_platform=map_platform, requests=self,
             map_presentation=map_presentation,
             breadcrumb=lambda name: app.set_breadcrumb('NAV', name))

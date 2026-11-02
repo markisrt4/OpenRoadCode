@@ -170,6 +170,21 @@ def test_cancelled_browser_launch_does_not_attempt_embedding():
         app.set_screen_status.assert_called_once_with('Waze unavailable')
 
 
+def test_embedding_resolves_new_viewer_identity_after_player_launch():
+    app, player, surface, embedder = Mock(), Mock(), Mock(), Mock(window_id=None)
+    identity = ['retired-viewer']
+    player.play.side_effect = lambda *args, **kwargs: identity.__setitem__(0, 'current-viewer') or True
+    surface.winfo_width.return_value = 800
+    surface.winfo_height.return_value = 480
+    surface.winfo_id.return_value = 100
+    screen = BrowserMediaScreen('waze', app, title='Waze', player=player,
+        default_target='android', window_class=None, window_name=lambda: identity[0],
+        back_action=Mock(), window_embedder=embedder)
+    screen._browser_host = surface
+    screen._launch_and_embed()
+    assert embedder.embed.call_args.kwargs['window_name'] == 'current-viewer'
+
+
 def test_embedding_failure_stops_spawned_browser_and_keeps_real_error():
     app, player, surface = Mock(), Mock(), Mock()
     player.play.return_value = True

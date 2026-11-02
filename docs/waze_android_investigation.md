@@ -92,7 +92,10 @@ scrcpy viewer with a dedicated 1280×720/240 Android virtual display and launche
 `com.waze`. This avoids mirroring ORC recursively. It uses an ORC-specific window
 title, borderless X11 output, full-width presentation and Back to map. It applies
 no Waydroid-specific crop or Android configuration overrides. On departure ORC
-terminates only its own scrcpy process; scrcpy's normal virtual-display teardown
+signals only its own scrcpy process and reaps it on a background worker, so the
+viewer teardown wait does not block the Tk thread. Each viewer launch has a
+unique window title to prevent a fast reopen from attaching the retiring viewer.
+scrcpy's normal virtual-display teardown
 applies, so this experiment does not promise an ongoing route survives closing
 the panel. The installed Android app remains installed. Audio forwarding is
 disabled; audio behavior on the phone still needs testing. Native Android owns
@@ -120,6 +123,26 @@ If no log exists, check `adb get-state`: a failed installed-package check falls
 back to the existing web Live Map before the viewer is started. Termux device
 validation remains pending; cloud tests cover commands, owned-process teardown
 and fullscreen-only UI behavior, not phone graphics or GPS reception.
+
+If ORC's map lacks location independently of Waze, inspect Android Bridge
+readiness without sharing coordinates:
+
+```bash
+git switch feature/waze-live-map
+python scripts/probe_android_location.py | tee "$TMPDIR/orc-android-location-probe.json" | termux-clipboard-set
+```
+
+This reads `/health` and `/location` at the configured environment override
+`OPENROADCODE_ANDROID_BRIDGE_URL`, or localhost port 8766 by default. It reports
+readiness/provider/fix age and whether coordinate fields exist, without printing
+the coordinates. It does not start the Bridge or navigation service, request
+permissions, change location settings, or prove the running service's selected
+configuration matches the probe. If the Bridge is ready with fresh fixes, inspect
+the navigation producer configuration and bus delivery next. If it is unavailable
+or waiting for a fix, check the Android Bridge foreground service and its Android
+location permission first. The branch leaves AndroidPositionSource's `/location`
+reader and the Termux GPS input profile unchanged; it adds a route-playback wrapper
+around live sources, while desktop browser fallback is disabled on Termux.
 
 ### Original baseline
 
