@@ -36,7 +36,7 @@ def test_closed_session_does_not_emit_late_results_or_requests():
     controller, search, _, _ = session()
     controller.close()
     controller.close()
-    search.clear.assert_called_once_with()
+    search.clear.assert_not_called()
     search.close.assert_called_once_with()
     search.reset_mock()
     controller.search(PoiCategory.FOOD)
@@ -48,11 +48,11 @@ def test_closed_session_does_not_emit_late_results_or_requests():
     assert search.mock_calls == []
 
 
-def test_close_releases_source_even_if_clear_fails():
+def test_close_releases_source_without_clearing_retained_markers():
     controller, search, _, _ = session()
     search.clear.side_effect = RuntimeError('failed to clear')
-    with pytest.raises(RuntimeError, match='failed to clear'):
-        controller.close()
+    controller.close()
+    search.clear.assert_not_called()
     search.close.assert_called_once_with()
     assert controller.poll_selected() is None
 

@@ -2,9 +2,53 @@
 # SPDX-License-Identifier: MIT
 
 """Composition owns shared stores and fresh, independently closed search sessions."""
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 import pytest
 from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
+
+
+def test_panera_marker_reopens_after_real_session_close_and_factory_remount():
+    from controllers.poi.poi_search_controller import PoiSearchController
+    from protocols.map_renderer.map_poi_source import RawMapClick
+    from ui.navigation import GeoPoint
+    from ui.navigation.poi_models import PointOfInterest, PoiActionKind, PoiCategory
+
+    position = GeoPoint(0.74, -1.45)
+    pois = tuple(PointOfInterest(str(index), 'Other', PoiCategory.FOOD, position)
+                 for index in range(4)) + (
+        PointOfInterest('osm:node:11952787417', 'Panera Bread', PoiCategory.FOOD, position),)
+    sources = []
+    def build_search(**kwargs):
+        source = Mock(spec=['poll_selected', 'poll_click', 'close', 'clear'])
+        source.poll_selected.return_value = None
+        source.poll_click.return_value = None
+        sources.append(source)
+        database = Mock()
+        database.search.return_value = pois
+        return PoiSearchController(source, search_source=database,
+                                   position_provider=lambda: position, **kwargs)
+
+    with patch('apps.orcUi.composition.navigation_places.PoiSearchController', side_effect=build_search):
+        factory = NavigationPlacesFactory(favorites=Mock(), actions=Mock())
+        first = factory.create()
+        first.search(PoiCategory.FOOD)
+        assert len(first.poll_search_result().pois) == 5
+        first.close()  # Exact production wrapper that previously cleared the cache.
+        sources[0].close.assert_called_once()
+        second = factory.create()
+        click = RawMapClick(position, 20, marker_id='osm:node:11952787417', marker_index=4)
+        sources[1].poll_click.return_value = click
+        selected = second.poll_selected()
+        assert selected is not None
+        assert selected.name == 'Panera Bread'
+        assert any(action.kind is PoiActionKind.ORDER for action in selected.actions)
+        assert first.poll_selected() is None
+        second.clear()
+        assert second.poll_selected() is None
+        factory.close()
+        assert len(sources) == 2
+        for source in sources:
+            source.close.assert_called_once()
 
 
 def test_factory_creates_fresh_sessions_and_closes_all_remaining_sources():

@@ -154,7 +154,7 @@ class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
         if self._closed:
             return
         self._closed = True
-        try:
-            self._search.clear()
-        finally:
-            self._search.close()
+        # Leaving Navigation closes transient queues/transports, not the search
+        # represented by retained renderer markers. Only explicit clear/search
+        # actions may invalidate their shared selection metadata.
+        self._search.close()

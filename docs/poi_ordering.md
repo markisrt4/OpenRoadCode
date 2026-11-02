@@ -172,11 +172,18 @@ remains a VM validation step.
 
 #### Diagnose a POI popup that does not reopen
 
-The metadata cache repair alone did not resolve the reported VM failure. POI
-polling now rearms after recoverable errors instead of silently losing all later
-clicks. Stream lifetime, named selection and popup handoff diagnostics distinguish
-transport/selection failures from presentation failures; this is not a confirmed
-fix of the remaining device-specific symptom.
+The VM trace showed that a click after Back to map reached ORC with Panera's
+correct marker ID/index, followed by selection mismatch/missed events. The
+session wrapper still called search.clear() during close, emptying the shared
+metadata despite the retained markers. Close now only releases transient source
+resources; explicit Clear/Search actions retain their metadata-clearing behavior.
+A regression test exercises the factory and real session wrapper across close
+and remount, reproduces the failure with the old close behavior, and passes with
+the fix. Actual popup behavior still needs a VM retry.
+
+POI polling also rearms after recoverable errors. Stream lifetime, named selection
+and popup handoff diagnostics distinguish transport/selection failures from
+presentation failures if another symptom occurs.
 
 ```bash
 git switch feature/waze-live-map
