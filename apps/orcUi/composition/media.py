@@ -368,7 +368,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
             app.dispatch_ui(update)
 
         # On Termux, Spotify plays in the Android app. Never launch the SDK browser.
-        if detect_runtime_target() is RuntimeTarget.TERMUX:
+        if bool(os.environ.get("TERMUX_VERSION") or os.environ.get("TERMUX__PREFIX") or os.environ.get("PREFIX", "").startswith("/data/data/com.termux/")):
             from apps.orcUi.adapters.android_spotify_media import AndroidSpotifyMedia
             bridge = AndroidSpotifyMedia()
             executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="android-spotify")
@@ -446,7 +446,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
                 host.after(200, await_device)
         def retire(event: tk.Event) -> None:
             if event.widget is host:
-                if detect_runtime_target() is RuntimeTarget.TERMUX:
+                if bool(os.environ.get("TERMUX_VERSION") or os.environ.get("TERMUX__PREFIX") or os.environ.get("PREFIX", "").startswith("/data/data/com.termux/")):
                     stopped[0] = True
                     executor.shutdown(wait=False, cancel_futures=True)
                 session.close()
