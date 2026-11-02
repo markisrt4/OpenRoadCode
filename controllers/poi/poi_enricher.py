@@ -18,7 +18,8 @@ def enrich_poi(poi: PointOfInterest) -> PointOfInterest:
     brand = poi.brand
 
     if poi.category is PoiCategory.FOOD:
-        business = resolve_business(brand=poi.brand, name=poi.name)
+        business = resolve_business(brand=poi.brand, name=poi.name,
+                                    brand_wikidata=poi.brand_wikidata, operator=poi.operator)
         if business is not None:
             brand = business.brand
             if "order" in business.capabilities:

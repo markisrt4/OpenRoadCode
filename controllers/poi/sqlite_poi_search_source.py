@@ -44,6 +44,9 @@ class SqlitePoiSearchSource(PoiSearchSourceIf):
         self._connection.row_factory = sqlite3.Row
         columns = {row[1] for row in self._connection.execute("PRAGMA table_info(poi)")}
         self._website_column = "website" if "website" in columns else "NULL AS website"
+        self._identity_columns = ', '.join(
+            column if column in columns else f'NULL AS {column}'
+            for column in ('brand_wikidata', 'operator'))
 
     def search(self, query: PoiSearchQuery) -> tuple[PointOfInterest, ...]:
         category = _CATEGORY_NAME.get(query.category)
@@ -63,7 +66,7 @@ class SqlitePoiSearchSource(PoiSearchSourceIf):
         fetch_limit = query.limit * 4 if query.category is PoiCategory.TRANSIT else query.limit
         rows = self._connection.execute(
             f"""
-            SELECT id, name, brand, latitude, longitude, class, subclass, {self._website_column}
+            SELECT id, name, brand, latitude, longitude, class, subclass, {self._website_column}, {self._identity_columns}
               FROM poi
              WHERE category = ?
                AND latitude BETWEEN ? AND ?
@@ -113,6 +116,8 @@ class SqlitePoiSearchSource(PoiSearchSourceIf):
                 math.radians(float(row["longitude"])),
             ),
             brand=row["brand"],
+            brand_wikidata=row["brand_wikidata"],
+            operator=row["operator"],
             website=row["website"],
             source_class=row["class"],
             source_subclass=row["subclass"],

@@ -1,5 +1,38 @@
 # Native Waze investigation: Termux and Raspberry Pi 5
 
+## Linux VM follow-up
+
+The Ubuntu x86_64 VMware device test now successfully embeds Panera through
+Waydroid Android 13, with split/expanded layout recovery. The confirmed background
+subsurface setting is documented in [POI ordering](poi_ordering.md). That proves
+the presentation path, not Waze installation or navigation compatibility.
+
+Google Play previously marked Waze incompatible on this VM while allowing Google
+Maps. Android 13 exceeds Waze's documented Android 10 minimum, so the OS version
+alone does not explain the rejection. See [Waze requirements](https://support.google.com/waze/answer/6071125?hl=en).
+CPU ABI, Play device filtering and other device capabilities remain separate
+possibilities. [Waydroid's documentation](https://docs.waydro.id/usage/install-and-run-android-applications)
+notes that ARM-only APKs do not run on x86_64. Do not infer the installed Waze
+package's ABI from the Play rejection alone.
+
+With Waydroid running, collect these read-only facts before choosing an install
+or launch path:
+
+```bash
+git switch feature/waze-live-map
+sudo waydroid shell -- getprop ro.product.cpu.abilist
+sudo waydroid shell -- getprop ro.dalvik.vm.native.bridge
+sudo waydroid shell -- pm path com.waze
+```
+
+No APK download, translation-layer installation or Android image change is part
+of this diagnostic. If Waze can run, its native app can use the existing hosted
+Android presentation. Routing the Waze button to that app and supplying GPS to
+Android still require implementation and device validation; ORC's current Waze
+button continues to open the web Live Map.
+
+## Earlier investigation baseline
+
 Status: repository/source investigation, not a device compatibility result.
 No Android runtime, kernel, application, display configuration, or existing Waze
 browser behavior was changed. This checkout is an x86_64 cloud environment with

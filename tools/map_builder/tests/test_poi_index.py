@@ -1,13 +1,26 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-from tools.map_builder.builder.poi_index import _classification, _transit_mode
+import sqlite3
+
+from tools.map_builder.builder.poi_index import _classification, _transit_mode, _create_schema, _insert_point_feature
 
 
 def test_bus_stop_normalizes_to_bus() -> None:
     tags = {"highway": "bus_stop", "public_transport": "platform"}
     assert _transit_mode(tags) == "bus"
     assert _classification(tags) == ("transit", "bus", "bus_stop", "bus")
+
+
+def test_index_retains_structured_business_identity():
+    with sqlite3.connect(':memory:') as connection:
+        _create_schema(connection)
+        _insert_point_feature(connection, {
+            'properties': {'@id': '123', '@type': 'node', 'name': 'Village Square Cafe',
+                           'amenity': 'cafe', 'brand:wikidata': 'Q7130852', 'operator': 'Panera Bread'},
+            'geometry': {'type': 'Point', 'coordinates': [-83.0, 42.5]},
+        })
+        assert connection.execute('SELECT brand_wikidata, operator FROM poi').fetchone() == ('Q7130852', 'Panera Bread')
 
 
 def test_public_transport_station_preserves_rail_mode() -> None:

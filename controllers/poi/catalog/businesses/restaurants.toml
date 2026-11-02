@@ -3,6 +3,8 @@
 
 [business.panera]
 name = "Panera Bread"
+# https://www.wikidata.org/wiki/Q7130852
+wikidata = ["Q7130852"]
 aliases = [
   "Panera",
   "Panera Bread",

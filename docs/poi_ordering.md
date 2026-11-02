@@ -7,6 +7,32 @@ An independent restaurant's website may offer ordering, but ORC does not assume
 that every website is an ordering service. Cached POI data remains searchable
 offline; Order and Website require ORC's online mode.
 
+## Associating brands with Android apps
+
+The registry is data-driven, rather than a list of individual store locations:
+
+| Catalog | Purpose |
+| --- | --- |
+| `controllers/poi/catalog/businesses/*.toml` | Canonical provider ID, brand name, exact aliases, optional Wikidata IDs and capabilities |
+| `controllers/poi/catalog/integrations/android.toml` | Provider ID → Android package |
+| `controllers/poi/catalog/integrations/web.toml` | Provider ID → ordering website fallback |
+
+Matching prefers OSM `brand:wikidata`, then exact normalized `brand`, `operator`,
+and finally the POI name. Punctuation and case are ignored; substring guessing is
+not used. Panera's structured identity is `Q7130852`. The app mapping remains
+`panera` → `com.panera.bread`. Existing McDonald's entries remain supported.
+
+Newly built search indexes retain `brand:wikidata` and `operator`. Older installed
+indexes still work with brand/name matching; rebuilding the index is only needed
+to gain the extra structured metadata. No runtime OSM/Wikidata lookup is needed.
+
+To add a brand, add its canonical business entry and verified platform entries
+using the same provider ID. Add regression cases for aliases and metadata
+precedence. A supported package is checked against the installed apps at launch;
+the registry does not claim that every store has an installed app. The current
+Panera integration opens the app, not a store-specific deep link. Only add such
+links when the provider's supported format and store identifier are verified.
+
 | Platform | ORDER | WEBSITE |
 | --- | --- | --- |
 | Termux / Android | Android Bridge opens the configured package if installed, otherwise the configured web destination | `termux-open-url` opens the website directly |

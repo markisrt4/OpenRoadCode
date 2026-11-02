@@ -22,6 +22,7 @@ class BusinessEntity:
     aliases: tuple[str, ...]
     categories: frozenset[str]
     capabilities: frozenset[str]
+    wikidata: tuple[str, ...] = ()
 
 
 def _normalize(value: str | None) -> str:
@@ -50,6 +51,7 @@ def _load_businesses(directory: Path = _CATALOG_DIR) -> tuple[BusinessEntity, ..
                 capabilities=frozenset(
                     str(value).casefold() for value in raw.get("capabilities", ())
                 ),
+                wikidata=tuple(str(value).strip().upper() for value in raw.get("wikidata", ())),
             )
 
     return tuple(businesses.values())
@@ -63,12 +65,23 @@ _ALIAS_INDEX = {
     for alias in (business.brand, *business.aliases)
 }
 
+_WIKIDATA_INDEX = {
+    identifier: business
+    for business in BUSINESSES
+    for identifier in business.wikidata
+}
+
 
 def resolve_business(
-    *, brand: str | None = None, name: str | None = None
+    *, brand: str | None = None, name: str | None = None,
+    brand_wikidata: str | None = None, operator: str | None = None,
 ) -> BusinessEntity | None:
-    """Resolve a canonical business, preferring explicit brand metadata."""
-    for candidate in (brand, name):
+    """Prefer structured brand identity, then exact brand/operator/name aliases."""
+    for identifier in (brand_wikidata or '').split(';'):
+        match = _WIKIDATA_INDEX.get(identifier.strip().upper())
+        if match is not None:
+            return match
+    for candidate in (brand, operator, name):
         match = _ALIAS_INDEX.get(_normalize(candidate))
         if match is not None:
             return match
