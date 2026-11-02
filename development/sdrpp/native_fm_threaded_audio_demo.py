@@ -49,13 +49,15 @@ def main() -> int:
                         help="Use automatic tuner gain instead of --gain")
     parser.add_argument("--rtl-agc", action="store_true")
     parser.add_argument("--seconds", type=float, default=30.0)
+    parser.add_argument("--warmup-seconds", type=float, default=2.0,
+                        help="Prime receiver before audio playback (default: 2 seconds)")
     parser.add_argument("--volume", type=float, default=0.6)
     parser.add_argument("--iq-queue", type=int, default=32)
     parser.add_argument("--pcm-queue", type=int, default=32)
     parser.add_argument("--record-dir", type=Path,
                         help="Save same-session raw IQ (.u8), demodulated WAV, and metadata")
     args = parser.parse_args()
-    if args.seconds <= 0 or not 0 <= args.volume <= 1:
+    if args.seconds <= 0 or args.warmup_seconds < 0 or not 0 <= args.volume <= 1:
         parser.error("seconds must be positive and volume in [0,1]")
     if args.iq_queue < 2 or args.pcm_queue < 2:
         parser.error("queue capacities must be at least 2")
@@ -65,7 +67,7 @@ def main() -> int:
     except ImportError as exc:
         raise SystemExit("Install sounddevice: pip install sounddevice") from exc
 
-    source = RtlSdrSource()
+    source = RtlSdrSource(acquisition_mode="async")
     decoder = WbfmMonoDemodulator()
     iq_queue: queue.Queue = queue.Queue(maxsize=args.iq_queue)
     pcm_queue: queue.Queue = queue.Queue(maxsize=args.pcm_queue)
@@ -174,6 +176,13 @@ def main() -> int:
         source.set_gain(None if args.tuner_agc else args.gain)
         source.set_rtl_agc(args.rtl_agc)
         source.start()
+        warmup_target = round(args.warmup_seconds * 2_400_000)
+        warmup_samples = 0
+        while warmup_samples < warmup_target:
+            warmup_block = source.read_iq()
+            decoder.process(warmup_block)
+            warmup_samples += len(warmup_block.samples) // 2
+        print(f"Receiver primed: {warmup_samples / 2_400_000:.3f}s RF", flush=True)
         if args.record_dir is not None:
             recorder_thread = threading.Thread(
                 target=record, name="sdr-recorder", daemon=True
@@ -210,7 +219,11 @@ def main() -> int:
         print("\nInterrupted")
     finally:
         stop.set()
-        # read_sync can block until USB completes. Join before closing source.
+        # Cancel asynchronous USB acquisition before joining the capture reader.
+        try:
+            source.stop()
+        except Exception as exc:
+            print(f"Warning: SDR stop failed: {exc}", file=sys.stderr)
         for thread in threads:
             thread.join(timeout=3.0)
         if not threads or not threads[0].is_alive():
@@ -256,6 +269,7 @@ def main() -> int:
               f"captured={stats.captured} DSP={stats.dsp_blocks}")
         print(f"IQ queue: high-water={stats.iq_high_water}/{args.iq_queue}, "
               f"dropped={stats.iq_dropped}")
+        print(f"RTL async acquisition: {source.get_acquisition_stats()}")
         print(f"PCM queue: high-water={stats.pcm_high_water}/{args.pcm_queue}, "
               f"dropped={stats.pcm_dropped}, empty waits={stats.pcm_underruns}")
         if stats.rf_seconds:
