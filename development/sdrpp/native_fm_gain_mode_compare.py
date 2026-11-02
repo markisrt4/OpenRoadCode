@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Compare tuner AGC against fixed tuner gain with RTL digital AGC disabled."""
+"""Compare manual tuner gains and RTL digital AGC using the same DSP."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ BLOCK = 262_144
 
 
 def capture(path: Path, frequency: int, gain: float | None,
-            seconds: float) -> dict:
+            seconds: float, rtl_agc: bool) -> dict:
     source = RtlSdrSource(block_bytes=BLOCK)
     total = 0
     expected = int(seconds * RATE * 2)
@@ -32,7 +32,7 @@ def capture(path: Path, frequency: int, gain: float | None,
         source.set_sample_rate(RATE)
         source.set_center_frequency(frequency)
         source.set_gain(gain)
-        source.set_rtl_agc(False)
+        source.set_rtl_agc(rtl_agc)
         source.start()
         with path.open("wb", buffering=1024 * 1024) as output:
             while total < expected:
@@ -53,7 +53,7 @@ def capture(path: Path, frequency: int, gain: float | None,
     return {
         "mode": "tuner_agc" if gain is None else "manual",
         "gain_db_requested": gain,
-        "rtl_agc": False,
+        "rtl_agc": rtl_agc,
         "rf_seconds": total / (2 * RATE),
         "wall_seconds": time.perf_counter() - start,
         "iq_rms_normalized": float(np.sqrt(
@@ -87,7 +87,7 @@ def demodulate(path: Path, output: Path) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--frequency", type=int, default=104_300_000)
-    parser.add_argument("--gain", type=float, default=40.0)
+    parser.add_argument("--gain", type=float, default=40.0)\n    parser.add_argument("--low-gain", type=float, default=30.0)
     parser.add_argument("--seconds", type=float, default=15.0)
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
@@ -96,10 +96,10 @@ def main() -> None:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     report = {"frequency_hz": args.frequency, "sample_rate_hz": RATE,
               "captures": {}}
-    for name, gain in (("tuner_agc", None), ("manual", args.gain)):
+    for name, gain, rtl_agc in (\n        ("manual_40", args.gain, False),\n        ("manual_30", args.low_gain, False),\n        ("manual_30_rtl_agc", args.low_gain, True),\n        ("tuner_agc", None, False),\n    ):
         print(f"Capturing {name}...", flush=True)
         iq_path = args.output_dir / f"{name}.u8"
-        metrics = capture(iq_path, args.frequency, gain, args.seconds)
+        metrics = capture(iq_path, args.frequency, gain, args.seconds, rtl_agc)
         metrics.update(demodulate(iq_path, args.output_dir / f"{name}.wav"))
         report["captures"][name] = metrics
         print(f"{name}: RF RMS={metrics['iq_rms_normalized']:.4f}, "
@@ -109,7 +109,7 @@ def main() -> None:
         json.dumps(report, indent=2) + "\n", encoding="utf-8"
     )
     print(json.dumps(report, indent=2))
-    print("Captures are sequential, so broadcast content can differ.")
+    print("Captures are sequential, so broadcast content can differ.")\n    print("Near-rail fraction is not proof of ADC clipping.")
     print(f"Files: {args.output_dir.resolve()}")
 
 
