@@ -77,6 +77,17 @@ def test_frame_crop_sizes_and_offsets_the_borrowed_window_without_scaling():
         assert embedder._vertical_crop == (0, 0)
 
 
+def test_kiosk_crop_does_not_cut_an_absent_desktop_panel(monkeypatch, tmp_path):
+    import os
+    monkeypatch.setenv('XDG_RUNTIME_DIR', str(tmp_path))
+    player = WaydroidSurfacePlayer()
+    assert player.vertical_crop() == (32, 48)
+    (tmp_path / 'openroadcode-waydroid-kiosk').write_text(str(os.getpid()))
+    with patch('apps.orcUi.adapters.waydroid_surface_player.Path.read_bytes',
+               return_value=b'/usr/bin/weston\0--shell=kiosk-shell.so\0'):
+        assert player.vertical_crop() == (0, 48)
+
+
 @pytest.mark.parametrize('windows', ['', '12\n13\n'])
 def test_surface_rejects_missing_or_ambiguous_compositors(windows):
     with patch('apps.orcUi.adapters.waydroid_surface_player.subprocess.run',

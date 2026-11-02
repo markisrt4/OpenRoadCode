@@ -32,6 +32,12 @@ class BrowserMediaPlayerIf(Protocol):
         ...
 
 
+class HostedSurfaceGeometryIf(Protocol):
+    def vertical_crop(self) -> tuple[int, int]:
+        """Return top/bottom host chrome insets after preparing the surface."""
+        ...
+
+
 class BrowserThemeRequestHandlerIf(Protocol):
     """Refresh a hosted page's theme without restarting its input/navigation session."""
 

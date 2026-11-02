@@ -14,6 +14,19 @@ from controllers.map_renderer.map_request_handler import MapRequestHandler
 from ui.navigation import GeoPoint
 
 
+def test_split_renderer_replay_keeps_the_last_observed_zoom_and_camera():
+    runtime = _camera_runtime()
+    center = GeoPoint(math.radians(42.51), math.radians(-83.04))
+    runtime._handler.observe_camera(center, 17.75, math.radians(25), math.radians(40))
+    runtime._renderer_client.reset_mock()
+    runtime.request_replay_map_presentation()
+    values = runtime._renderer_client.set_camera.call_args.kwargs
+    assert values['zoom'] == 17.75
+    assert values['latitude'] == pytest.approx(42.51)
+    assert values['longitude'] == pytest.approx(-83.04)
+    assert runtime._handler.zoom_level == 17.75
+
+
 def _camera_runtime():
     runtime = _runtime_for_filter()
     runtime._renderer_client = Mock()

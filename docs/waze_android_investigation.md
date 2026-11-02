@@ -131,13 +131,23 @@ In the existing X11 desktop, start nested Weston (skip if already running):
 
 ```bash
 git switch feature/waze-live-map
-weston --backend=x11-backend.so --socket=wayland-0 --width=1280 --height=720 --idle-time=0
+bash development/debian/start_waydroid_display.sh
 ```
 
-`--idle-time=0` disables idle blanking/locking in this dedicated nested Weston;
-it does not change the Linux host desktop's lock policy. If the existing nested
-desktop is already locked, click its green unlock control before using Android,
-or stop Waydroid and restart Weston with the option above.
+The launcher uses Weston's X11 backend, `kiosk-shell.so`, and `--idle-time=0`.
+Kiosk mode gives the Android surface the complete output and reconfigures it when
+the embedded output changes size; it does not depend on a desktop app's maximized
+state. It has no desktop panel or nested lock screen. The Linux host desktop's
+session/lock policy is unchanged. Start from the normal desktop, without sudo,
+and leave the launcher terminal open.
+
+For the first switch from desktop shell, close ORC, stop the Waydroid session and
+container, then Ctrl+C the old Weston before running the launcher. It refuses an
+occupied Wayland socket and does not kill an unrelated compositor. Its cleanup
+owns only the Weston process it starts. A runtime marker lets ORC recognize the
+live kiosk process and omit the desktop-panel crop automatically. If Weston
+reports that `kiosk-shell.so` is missing, send that error; do not change kernels,
+graphics drivers or Android images to address it.
 
 Leave Weston running. In a second terminal, start the session as your normal user:
 

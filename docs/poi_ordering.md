@@ -42,6 +42,9 @@ to prevent its idle lock screen from appearing inside ORC. Host desktop locking
 is unchanged.
 Do not use a Weston instance containing unrelated desktop work: the whole nested
 compositor window is borrowed and resized, including its desktop chrome.
+Use the dedicated [kiosk launcher](waze_android_investigation.md) for the resize
+experiment. Desktop-shell maximization previously left Android at 567x505 when
+ORC expanded; resizing the outer X11 frame alone did not resolve it.
 
 Launch ORC from the normal X11 desktop:
 
@@ -58,6 +61,10 @@ The breadcrumb is NAV followed by the installed app's display name. The default
 view has equal map-left/app-right panes. Expand app fills the content area; Split
 view restores both panes without restarting Android or its current activity.
 The map uses the existing renderer lifecycle and stops when expanded or hidden.
+After each split mount, ORC replays the retained Navigation camera (including
+zoom, center, pitch and bearing), markers and vehicle position. Startup replays
+are bounded and canceled when the map is hidden; it no longer starts in the
+renderer dataset overview by omission.
 This is a map presentation, not a second copy of Navigation's POI/route controls.
 The
 external-window root lookup uses `xwininfo` from `x11-utils` (included by the
@@ -143,8 +150,10 @@ succeeds. Partial failures retain it. Do not repeatedly apply without restoring.
 Frame trimming is automatic, with no trim toggle in the ordinary toolbar.
 ORC's Back/Expand controls remain outside the clipped viewport.
 This does not hide Android system bars globally or change app permissions. The
-initial trim is 32 pixels at the top and 48 at the bottom, sized for the nested
-Weston panel and navigation area on this VM. Waydroid's app-first launch requests
+initial desktop-shell trim is 32 pixels at the top and 48 at the bottom, sized for
+the nested Weston panel and navigation area on this VM. With the kiosk launcher,
+the live process marker selects zero top crop because there is no desktop panel.
+Waydroid's app-first launch requests
 immersive status mode; ORC does not reset it by opening full desktop mode again.
 Different density/chrome sizes can require adjustment. Expand/Split does not
 relaunch the app. Toolbar buttons use ORC control colors in dark and light mode.
@@ -216,6 +225,11 @@ from using the old split-pane allocation. The VM previously reported Android's
 physical display as 567x505 even while ORC was expanded, with no persistent size
 override. After updating, verify both the visible app width and `wm size`; the
 Tk geometry test alone does not prove Waydroid adopted the new output mode.
+
+The kiosk launcher is the next resize experiment. Its output-resize handler
+explicitly reconfigures fullscreen Wayland clients, avoiding dependence on
+whether Android's desktop-mode surface remained maximized. This has source-level
+support in Weston 13; actual Waydroid split/expand behavior needs VM validation.
 
 POI result metadata is now scoped to the factory alongside retained renderer
 markers. Returning to Navigation creates fresh event transports and action

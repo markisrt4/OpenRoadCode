@@ -13,7 +13,7 @@ from ui.navigation.android_app_view_if import AndroidAppViewRequestHandlerIf, An
 class AndroidAppView(AndroidAppViewRequestHandlerIf):
     """Keep Tk calls on the UI thread and reject completions after shutdown."""
 
-    def __init__(self, app, *, map_runtime, map_platform):
+    def __init__(self, app, *, map_runtime, map_platform, map_presentation=None):
         self._app = app
         self._lock = Lock()
         self._closed = False
@@ -25,7 +25,9 @@ class AndroidAppView(AndroidAppViewRequestHandlerIf):
             back_action=lambda: app.navigate_to('NAVIGATION'),
             theme_bundle=lambda: theme_bundle(app.theme_mode),
             theme_request_handler=self._player, preserve_external_window=True,
+            surface_geometry=self._player,
             map_runtime=map_runtime, map_platform=map_platform, requests=self,
+            map_presentation=map_presentation,
             breadcrumb=lambda name: app.set_breadcrumb('NAV', name))
         app.register_screen('ANDROID_APP', self._screen, show_in_navigation=False)
 

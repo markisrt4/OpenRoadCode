@@ -3,6 +3,7 @@
 """Present a user-started, dedicated nested Weston without owning Android."""
 import os
 import subprocess
+from pathlib import Path
 
 
 class WaydroidSurfacePlayer:
@@ -14,6 +15,19 @@ class WaydroidSurfacePlayer:
     """
 
     window_class = "Weston Compositor"
+
+    def vertical_crop(self):
+        """The kiosk shell has no desktop panel to trim."""
+        runtime = os.environ.get('XDG_RUNTIME_DIR')
+        if runtime:
+            try:
+                pid = int((Path(runtime) / 'openroadcode-waydroid-kiosk').read_text().strip())
+                command = (Path('/proc') / str(pid) / 'cmdline').read_bytes().split(b'\0')
+                if b'--shell=kiosk-shell.so' in command:
+                    return (0, 48)
+            except (OSError, ValueError):
+                pass
+        return (32, 48)
 
     def play(self, target, *, display, window_position=None, window_size=None):
         del target, window_position, window_size

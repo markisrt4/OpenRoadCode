@@ -24,12 +24,13 @@ def test_equal_split_expand_restore_and_stale_mount():
     callbacks = []
     host.schedule_ui_callback.side_effect = lambda delay, callback: callbacks.append(callback) or len(callbacks)
     runtime, platform, player, requests, breadcrumb = Mock(), Mock(), Mock(), Mock(), Mock()
+    presentation = Mock()
     mode = [ThemeMode.DARK]
     screen = AndroidAppScreen('android', host, title='Android', player=player,
         default_target='android', window_class='Weston Compositor', back_action=Mock(),
         preserve_external_window=True, map_runtime=runtime, map_platform=platform,
         requests=requests, breadcrumb=breadcrumb, theme_bundle=lambda: theme_bundle(mode[0]),
-        theme_request_handler=player)
+        theme_request_handler=player, map_presentation=presentation)
     screen._embedder = Mock(window_id=None)
     try:
         state = AndroidAppViewState('Panera Bread', 'com.panera.bread')
@@ -45,6 +46,7 @@ def test_equal_split_expand_restore_and_stale_mount():
         pending()
         screen._launch_and_embed()
         runtime.launch.assert_called_once()
+        presentation.request_replay_map_presentation.assert_called_once()
         player.play.assert_called_once()
         screen._expand_button.invoke()
         requests.request_toggle_android_app_expanded.assert_called_once()
@@ -69,8 +71,10 @@ def test_equal_split_expand_restore_and_stale_mount():
         assert screen._back_button.cget('background') == theme_bundle(ThemeMode.LIGHT).ui.control_background
         assert screen._expand_button.cget('foreground') == theme_bundle(ThemeMode.LIGHT).ui.control_text
         stale = callbacks[-1]
+        count = presentation.request_replay_map_presentation.call_count
         screen.hide()
         stale()
+        assert presentation.request_replay_map_presentation.call_count == count
         assert runtime.launch.call_count == 1
         assert player.play.call_count == 1
     finally:

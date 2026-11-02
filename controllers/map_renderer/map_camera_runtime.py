@@ -109,6 +109,11 @@ class MapCameraRuntime:
                 longitude=math.degrees(position.longitude_rad),
             )
 
+    def request_replay_map_presentation(self) -> None:
+        """Replay the last observed Navigation camera without changing its zoom."""
+        self._handler.refresh_renderer_state()
+        self.refresh_renderer_position()
+
     def start(self) -> None:
         """Start receiving navigation position and motion updates."""
         self._dispatcher.start()

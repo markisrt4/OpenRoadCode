@@ -6,7 +6,7 @@ from collections.abc import Callable
 
 from frontends.tk.media.browser_media_screen import BrowserMediaScreen
 from ui.navigation.android_app_view_if import AndroidAppViewState, AndroidAppViewRequestHandlerIf
-from ui.navigation.map_runtime_if import MapRuntimeIf
+from ui.navigation.map_runtime_if import MapRuntimeIf, MapPresentationRequestHandlerIf
 from ui.navigation.map_platform_if import MapPlatformControlIf
 
 
@@ -16,12 +16,15 @@ class AndroidAppScreen(BrowserMediaScreen):
     def __init__(self, *args, map_runtime: MapRuntimeIf,
                  map_platform: MapPlatformControlIf,
                  requests: AndroidAppViewRequestHandlerIf,
-                 breadcrumb: Callable[[str], None], **kwargs):
+                 breadcrumb: Callable[[str], None],
+                 map_presentation: MapPresentationRequestHandlerIf | None = None, **kwargs):
         super().__init__(*args, **kwargs)
         self._map_runtime = map_runtime
         self._map_platform = map_platform
         self._requests = requests
         self._breadcrumb = breadcrumb
+        self._map_presentation = map_presentation
+        self._map_refresh_jobs = []
         self._state = AndroidAppViewState()
         self._map_host = None
         self._map_job = None
@@ -137,9 +140,20 @@ class AndroidAppScreen(BrowserMediaScreen):
             self._resize_map()
             self._map_runtime.launch(int(self._map_host.winfo_id()))
             self._map_running = True
+            if self._map_presentation is not None:
+                current = self._map_generation
+                self._replay_map(current)
+                for delay in (300, 700, 1200):
+                    self._map_refresh_jobs.append(self._host.schedule_ui_callback(
+                        delay, lambda generation=current: self._replay_map(generation)))
         except (OSError, RuntimeError) as error:
+            self._map_running = False
             self._map_runtime.stop()
             self._host.set_screen_status(f'Map unavailable: {error}')
+
+    def _replay_map(self, generation):
+        if self._visible and self._map_running and generation == self._map_generation:
+            self._map_presentation.request_replay_map_presentation()
 
     def _resize_map(self, _event=None):
         if self._map_host is not None and self._visible and not self._state.expanded:
@@ -149,6 +163,9 @@ class AndroidAppScreen(BrowserMediaScreen):
 
     def _stop_map(self):
         self._map_generation += 1
+        for job in self._map_refresh_jobs:
+            self._host.cancel_ui_callback(job)
+        self._map_refresh_jobs.clear()
         if self._map_job is not None:
             self._host.cancel_ui_callback(self._map_job)
             self._map_job = None

@@ -9,7 +9,7 @@ import os
 import tkinter as tk
 from collections.abc import Callable
 
-from ui.media.browser_player_if import BrowserMediaPlayerIf, BrowserThemeRequestHandlerIf
+from ui.media.browser_player_if import BrowserMediaPlayerIf, BrowserThemeRequestHandlerIf, HostedSurfaceGeometryIf
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from frontends.x11 import X11WindowEmbedder
@@ -30,6 +30,7 @@ class BrowserMediaScreen(TkScreen):
         theme_bundle: Callable[[], ThemeBundle] | None = None,
         theme_request_handler: BrowserThemeRequestHandlerIf | None = None,
         preserve_external_window: bool = False,
+        surface_geometry: HostedSurfaceGeometryIf | None = None,
     ) -> None:
         super().__init__(ScreenId(screen_id))
         self._host = host
@@ -42,6 +43,7 @@ class BrowserMediaScreen(TkScreen):
         self._theme_provider = theme_bundle
         self._theme_request_handler = theme_request_handler
         self._preserve_external_window = preserve_external_window
+        self._surface_geometry = surface_geometry
         self._vertical_crop = (0, 0)
         self._launch_job: object | None = None
         self._embedder = X11WindowEmbedder()
@@ -154,6 +156,8 @@ class BrowserMediaScreen(TkScreen):
                 self._host.set_screen_status(f"{self._title} unavailable")
                 return
             options = {}
+            if self._surface_geometry is not None:
+                self._vertical_crop = self._surface_geometry.vertical_crop()
             if self._preserve_external_window:
                 options['failure_parent_window_id'] = self._detach_parent_id()
             if self._vertical_crop != (0, 0):

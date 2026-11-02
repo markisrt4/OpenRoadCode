@@ -234,7 +234,8 @@ def create_orc_ui_composition(
         core.map_camera.observe_position(navigation_maps.update_position)
         android_app_view = None
         if os.environ.get('ORC_WAYDROID_PANEL') == '1' and not os.path.exists('/system/bin/am'):
-            android_app_view = AndroidAppView(app, map_runtime=navigation_maps, map_platform=navigation_maps)
+            android_app_view = AndroidAppView(app, map_runtime=navigation_maps, map_platform=navigation_maps,
+                                              map_presentation=core.map_camera)
             cleanup.callback(android_app_view.close)
         navigation_places = NavigationPlacesFactory(
             online_allowed=lambda: app.online_mode.online,

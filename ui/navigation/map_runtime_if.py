@@ -6,6 +6,12 @@ from typing import Protocol
 from ui.theme import ThemeMode
 
 
+class MapPresentationRequestHandlerIf(Protocol):
+    def request_replay_map_presentation(self) -> None:
+        """Restore the retained camera, markers and vehicle after renderer startup."""
+        ...
+
+
 class MapRuntimeIf(Protocol):
     """Control a native map presentation without importing backend infrastructure."""
 
