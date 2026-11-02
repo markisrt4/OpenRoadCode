@@ -369,44 +369,16 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
 
         # On Termux, Spotify plays in the Android app. Never launch the SDK browser.
         if bool(os.environ.get("TERMUX_VERSION") or os.environ.get("TERMUX__PREFIX") or os.environ.get("PREFIX", "").startswith("/data/data/com.termux/")):
-            from apps.orcUi.adapters.android_spotify_media import AndroidSpotifyMedia
-            bridge = AndroidSpotifyMedia()
-            executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="android-spotify")
-            stopped = [False]
-
-            def refresh() -> None:
-                if stopped[0] or not host.winfo_exists():
-                    return
-                future = executor.submit(bridge.status)
-
-                def display() -> None:
-                    if stopped[0] or not host.winfo_exists():
-                        return
-                    if not future.done():
-                        host.after(100, display)
-                        return
-                    try:
-                        data = future.result()
-                        if not data.get("permission_granted"):
-                            message = "Enable ORC Companion notification access"
-                        elif not data.get("session_found"):
-                            message = "Open Spotify on Android to start playback"
-                        else:
-                            state = "Playing" if data.get("playing") else "Paused"
-                            message = f"{state}: {data.get('artist', '')} - {data.get('title', '')}"
-                        status.configure(text=message)
-                    except Exception as exc:
-                        status.configure(text=f"Android Spotify unavailable: {exc}")
-                host.after(100, display)
-                host.after(2000, refresh)
-
+            # The existing Spotify presentation already supplies metadata,
+            # artwork, progress, and controls from Spotify Web API. Do not
+            # duplicate or overwrite its status with MediaSession polling.
+            # Android Bridge remains available as a separate transport adapter.
             # Resolve the selected MusicForge song and request it on the active
             # Spotify Connect device (normally the Android Spotify app).
             # Keep Web API calls on its existing worker, never on Tk's thread.
             if network_allowed():
                 media.spotify.request_play_song(artist, title, report)
                 report(f"Requesting {artist} - {title} on active Spotify device")
-            host.after(100, refresh)
         else:
             # Register the SDK playback device before queuing a track. The local
             # player queues its transfer first, so subsequent play uses that device.
@@ -437,9 +409,6 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
                 host.after(200, await_device)
         def retire(event: tk.Event) -> None:
             if event.widget is host:
-                if bool(os.environ.get("TERMUX_VERSION") or os.environ.get("TERMUX__PREFIX") or os.environ.get("PREFIX", "").startswith("/data/data/com.termux/")):
-                    stopped[0] = True
-                    executor.shutdown(wait=False, cancel_futures=True)
                 session.close()
                 if session in presentations:
                     presentations.remove(session)
