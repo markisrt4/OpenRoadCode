@@ -50,6 +50,14 @@ class RtlSdrSource(SdrSourceIf):
         self._worker_error: str | None = None
         self._dropped_blocks = 0
         self._received_blocks = 0
+        self._first_callback_ns: int | None = None
+        self._previous_callback_ns: int | None = None
+        self._callback_gap_max_ns = 0
+        self._callback_gap_over_2x = 0
+        self._callback_gap_over_4x = 0
+        self._queue_high_water = 0
+        self._startup_gap_max_ns = 0
+        self._startup_gap_over_2x = 0
         self._device_index = device_index
         self._block_bytes = block_bytes
         self._library = library
@@ -158,6 +166,14 @@ class RtlSdrSource(SdrSourceIf):
         self._worker_error = None
         self._dropped_blocks = 0
         self._received_blocks = 0
+        self._first_callback_ns = None
+        self._previous_callback_ns = None
+        self._callback_gap_max_ns = 0
+        self._callback_gap_over_2x = 0
+        self._callback_gap_over_4x = 0
+        self._queue_high_water = 0
+        self._startup_gap_max_ns = 0
+        self._startup_gap_over_2x = 0
         self._running = True
         if self._use_async(library):
             self._callback = ctypes.CFUNCTYPE(None, ctypes.POINTER(ctypes.c_ubyte), ctypes.c_uint32, ctypes.c_void_p)(self._on_iq)
@@ -177,9 +193,17 @@ class RtlSdrSource(SdrSourceIf):
             self._callback = None
 
     def get_acquisition_stats(self) -> dict[str, int]:
-        return {"received_blocks": self._received_blocks,
-                "dropped_blocks": self._dropped_blocks,
-                "queued_blocks": self._queue.qsize()}
+        return {
+            "received_blocks": self._received_blocks,
+            "dropped_blocks": self._dropped_blocks,
+            "queued_blocks": self._queue.qsize(),
+            "queue_high_water": self._queue_high_water,
+            "callback_gap_max_ms": round(self._callback_gap_max_ns / 1e6, 3),
+            "callback_gap_over_2x": self._callback_gap_over_2x,
+            "callback_gap_over_4x": self._callback_gap_over_4x,
+            "startup_gap_max_ms": round(self._startup_gap_max_ns / 1e6, 3),
+            "startup_gap_over_2x": self._startup_gap_over_2x,
+        }
 
     def _use_async(self, library: Any) -> bool:
         available = all(hasattr(library, name) for name in
@@ -191,6 +215,22 @@ class RtlSdrSource(SdrSourceIf):
     def _on_iq(self, buffer, length, _context) -> None:
         if not self._running or length == 0 or length % 2:
             return
+        now_ns = time.monotonic_ns()
+        if self._first_callback_ns is None:
+            self._first_callback_ns = now_ns
+        if self._previous_callback_ns is not None:
+            gap_ns = now_ns - self._previous_callback_ns
+            expected_ns = self._block_bytes * 1_000_000_000 / (2 * self._sample_rate_hz)
+            self._callback_gap_max_ns = max(self._callback_gap_max_ns, gap_ns)
+            if gap_ns > 2 * expected_ns:
+                self._callback_gap_over_2x += 1
+            if gap_ns > 4 * expected_ns:
+                self._callback_gap_over_4x += 1
+            if now_ns - self._first_callback_ns < 5_000_000_000:
+                self._startup_gap_max_ns = max(self._startup_gap_max_ns, gap_ns)
+                if gap_ns > 2 * expected_ns:
+                    self._startup_gap_over_2x += 1
+        self._previous_callback_ns = now_ns
         self._received_blocks += 1
         payload = ctypes.string_at(buffer, length)
         block = IqBlock(samples=payload,
@@ -199,6 +239,7 @@ class RtlSdrSource(SdrSourceIf):
                         timestamp_ns=time.monotonic_ns())
         try:
             self._queue.put_nowait(block)
+            self._queue_high_water = max(self._queue_high_water, self._queue.qsize())
         except queue.Full:
             self._dropped_blocks += 1
 
