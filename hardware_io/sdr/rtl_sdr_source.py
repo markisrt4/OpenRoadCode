@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import ctypes
 import ctypes.util
+import queue
+import threading
 import time
 from typing import Any
 
@@ -27,6 +29,8 @@ class RtlSdrSource(SdrSourceIf):
         device_index: int = 0,
         block_bytes: int = DEFAULT_BLOCK_BYTES,
         library: Any | None = None,
+        acquisition_mode: str = "auto",
+        queue_blocks: int = 32,
     ) -> None:
         if device_index < 0:
             raise ValueError("device_index must be non-negative")
@@ -35,6 +39,17 @@ class RtlSdrSource(SdrSourceIf):
         if block_bytes % 2:
             raise ValueError("block_bytes must contain complete IQ pairs")
 
+        if acquisition_mode not in ("auto", "sync", "async"):
+            raise ValueError("acquisition_mode must be auto, sync, or async")
+        if queue_blocks <= 0:
+            raise ValueError("queue_blocks must be positive")
+        self._acquisition_mode = acquisition_mode
+        self._queue = queue.Queue(maxsize=queue_blocks)
+        self._worker: threading.Thread | None = None
+        self._callback = None
+        self._worker_error: str | None = None
+        self._dropped_blocks = 0
+        self._received_blocks = 0
         self._device_index = device_index
         self._block_bytes = block_bytes
         self._library = library
@@ -73,7 +88,7 @@ class RtlSdrSource(SdrSourceIf):
         if not self.is_connected():
             self._running = False
             return
-        self._running = False
+        self.stop()
         assert self._library is not None
         device = self._device
         self._device = ctypes.c_void_p()
@@ -139,10 +154,66 @@ class RtlSdrSource(SdrSourceIf):
         if self._running:
             return
         self._check(library.rtlsdr_reset_buffer(device), "reset IQ buffer")
+        self._queue = queue.Queue(maxsize=self._queue.maxsize)
+        self._worker_error = None
+        self._dropped_blocks = 0
+        self._received_blocks = 0
         self._running = True
+        if self._use_async(library):
+            self._callback = ctypes.CFUNCTYPE(None, ctypes.POINTER(ctypes.c_ubyte), ctypes.c_uint32, ctypes.c_void_p)(self._on_iq)
+            self._worker = threading.Thread(target=self._run_async, name="rtl-sdr-async", daemon=True)
+            self._worker.start()
 
     def stop(self) -> None:
         self._running = False
+        worker = self._worker
+        if worker is not None:
+            if self.is_connected():
+                self._check(self._library.rtlsdr_cancel_async(self._device), "cancel async IQ")
+            worker.join(timeout=5.0)
+            if worker.is_alive():
+                raise RuntimeError("RTL-SDR async worker did not stop; refusing to close device")
+            self._worker = None
+            self._callback = None
+
+    def get_acquisition_stats(self) -> dict[str, int]:
+        return {"received_blocks": self._received_blocks,
+                "dropped_blocks": self._dropped_blocks,
+                "queued_blocks": self._queue.qsize()}
+
+    def _use_async(self, library: Any) -> bool:
+        available = all(hasattr(library, name) for name in
+                        ("rtlsdr_read_async", "rtlsdr_cancel_async"))
+        if self._acquisition_mode == "async" and not available:
+            raise RuntimeError("librtlsdr async API unavailable")
+        return available and self._acquisition_mode != "sync"
+
+    def _on_iq(self, buffer, length, _context) -> None:
+        if not self._running or length == 0 or length % 2:
+            return
+        self._received_blocks += 1
+        payload = ctypes.string_at(buffer, length)
+        block = IqBlock(samples=payload,
+                        center_frequency_hz=self._center_frequency_hz,
+                        sample_rate_hz=self._sample_rate_hz,
+                        timestamp_ns=time.monotonic_ns())
+        try:
+            self._queue.put_nowait(block)
+        except queue.Full:
+            self._dropped_blocks += 1
+
+    def _run_async(self) -> None:
+        try:
+            result = self._library.rtlsdr_read_async(
+                self._device, self._callback, None, 0, self._block_bytes)
+            if result < 0 and self._running:
+                self._worker_error = f"librtlsdr async read failed: {result}"
+            elif self._running:
+                self._worker_error = "librtlsdr async read exited unexpectedly"
+        except Exception as exc:
+            self._worker_error = str(exc)
+        finally:
+            self._running = False
 
     def read_iq(self) -> IqBlock:
         device, library = self._require_device()
@@ -150,6 +221,14 @@ class RtlSdrSource(SdrSourceIf):
             raise RuntimeError("RTL-SDR acquisition has not been started")
         if self._center_frequency_hz <= 0:
             raise RuntimeError("RTL-SDR center frequency has not been configured")
+
+        if self._worker is not None:
+            while True:
+                try:
+                    return self._queue.get(timeout=0.2)
+                except queue.Empty:
+                    if not self._running:
+                        raise RuntimeError(self._worker_error or "RTL-SDR acquisition stopped")
 
         buffer = (ctypes.c_ubyte * self._block_bytes)()
         bytes_read = ctypes.c_int()
@@ -213,6 +292,13 @@ class RtlSdrSource(SdrSourceIf):
         for name in functions:
             if not hasattr(library, name):
                 raise RuntimeError(f"librtlsdr is missing required symbol {name}")
+
+        if isinstance(library, ctypes.CDLL) and hasattr(library, "rtlsdr_read_async"):
+            library.rtlsdr_read_async.argtypes = [ctypes.c_void_p, ctypes.c_void_p,
+                                                   ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint32]
+            library.rtlsdr_read_async.restype = ctypes.c_int
+            library.rtlsdr_cancel_async.argtypes = [ctypes.c_void_p]
+            library.rtlsdr_cancel_async.restype = ctypes.c_int
 
         if isinstance(library, ctypes.CDLL) and hasattr(library, "rtlsdr_set_agc_mode"):
             library.rtlsdr_set_agc_mode.argtypes = [ctypes.c_void_p, ctypes.c_int]
