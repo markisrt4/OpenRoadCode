@@ -29,6 +29,7 @@ class BrowserMediaScreen(TkScreen):
         media_navigation_factory: MediaNavigationFactory | None = None,
         theme_bundle: Callable[[], ThemeBundle] | None = None,
         theme_request_handler: BrowserThemeRequestHandlerIf | None = None,
+        preserve_external_window: bool = False,
     ) -> None:
         super().__init__(ScreenId(screen_id))
         self._host = host
@@ -40,6 +41,7 @@ class BrowserMediaScreen(TkScreen):
         self._media_navigation_factory = media_navigation_factory
         self._theme_provider = theme_bundle
         self._theme_request_handler = theme_request_handler
+        self._preserve_external_window = preserve_external_window
         self._launch_job: object | None = None
         self._embedder = X11WindowEmbedder()
         self._browser_host: tk.Frame | None = None
@@ -102,7 +104,7 @@ class BrowserMediaScreen(TkScreen):
             self._launch_job = None
         if self._embedder.window_id is not None:
             try:
-                parent_id = int(self._host.screen_parent.winfo_toplevel().winfo_id())
+                parent_id = self._detach_parent_id()
                 self._embedder.detach(parent_id)
             except (RuntimeError, tk.TclError):
                 self._embedder.clear()
@@ -121,7 +123,7 @@ class BrowserMediaScreen(TkScreen):
             self._launch_job = None
         if self._embedder.window_id is not None:
             try:
-                parent_id = int(self._host.screen_parent.winfo_toplevel().winfo_id())
+                parent_id = self._detach_parent_id()
                 self._embedder.detach(parent_id)
             except (RuntimeError, tk.TclError):
                 self._embedder.clear()
@@ -129,6 +131,12 @@ class BrowserMediaScreen(TkScreen):
         self._browser_host = None
         self._root = None
         self._navigation = None
+
+    def _detach_parent_id(self) -> int:
+        # A user-owned compositor must survive destruction of ORC's toplevel.
+        if self._preserve_external_window:
+            return int(self._host.screen_parent.winfo_vrootid())
+        return int(self._host.screen_parent.winfo_toplevel().winfo_id())
 
     def _launch_and_embed(self) -> None:
         self._launch_job = None
@@ -144,7 +152,11 @@ class BrowserMediaScreen(TkScreen):
             if not self._player.play(self._default_target, display=display, window_position=position, window_size=(width, height)):
                 self._host.set_screen_status(f"{self._title} unavailable")
                 return
-            self._embedder.embed(0, int(host.winfo_id()), width, height, window_class=self._window_class)
+            options = {}
+            if self._preserve_external_window:
+                options['failure_parent_window_id'] = self._detach_parent_id()
+            self._embedder.embed(0, int(host.winfo_id()), width, height,
+                                 window_class=self._window_class, **options)
             self._host.set_screen_status(f"{self._title} ready")
         except Exception as error:
             self._embedder.clear()

@@ -29,6 +29,19 @@ def test_linux_launches_package_through_waydroid(_exists) -> None:
     assert destination == "Waydroid"
 
 
+@patch("apps.launchers.android_app_launcher.os.path.exists", return_value=False)
+def test_panel_requested_only_after_successful_android_launch(_exists):
+    waydroid, browser, view = Mock(), Mock(), Mock()
+    waydroid.list_apps.return_value = (AndroidApp('Panera', 'com.panera.bread'),)
+    launcher = AndroidAppLauncher(waydroid=waydroid, browser=browser, app_view=view)
+    launcher.open_package_or_uri('com.panera.bread', 'https://example.com')
+    view.request_show_android_app.assert_called_once()
+    view.reset_mock()
+    waydroid.launch_app.side_effect = WaydroidLauncherError('stopped')
+    assert launcher.open_package_or_uri('com.panera.bread', 'https://example.com') == 'browser'
+    view.request_show_android_app.assert_not_called()
+
+
 @patch("apps.launchers.android_app_launcher.os.path.exists", return_value=True)
 def test_android_delegates_to_bridge_launcher(_exists) -> None:
     native = Mock()

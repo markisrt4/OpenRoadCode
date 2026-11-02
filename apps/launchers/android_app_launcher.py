@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import os
+from ui.navigation.android_app_view_if import AndroidAppViewRequestHandlerIf
 
 from apps.launchers.android_bridge_launcher import (
     AndroidBridgeLauncher,
@@ -28,10 +29,12 @@ class AndroidAppLauncher:
         native: AndroidBridgeLauncher | None = None,
         waydroid: WaydroidLauncher | None = None,
         browser: DesktopBrowserLauncher | None = None,
+        app_view: AndroidAppViewRequestHandlerIf | None = None,
     ) -> None:
         self._browser = browser or DesktopBrowserLauncher()
         self._native = native
         self._waydroid = waydroid or WaydroidLauncher()
+        self._app_view = app_view
 
     @staticmethod
     def _is_native_android() -> bool:
@@ -65,6 +68,8 @@ class AndroidAppLauncher:
             try:
                 if any(app.package == package for app in self._waydroid.list_apps()):
                     self._waydroid.launch_app(package)
+                    if self._app_view is not None:
+                        self._app_view.request_show_android_app()
                     return "Waydroid"
             except WaydroidLauncherError:
                 pass

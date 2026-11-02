@@ -131,21 +131,21 @@ In the existing X11 desktop, start nested Weston (skip if already running):
 
 ```bash
 git switch feature/waze-live-map
-weston --backend=x11-backend.so --socket=wayland-orc --width=1280 --height=720
+weston --backend=x11-backend.so --socket=wayland-0 --width=1280 --height=720
 ```
 
 Leave Weston running. In a second terminal, start the session as your normal user:
 
 ```bash
 git switch feature/waze-live-map
-WAYLAND_DISPLAY=wayland-orc waydroid session start
+WAYLAND_DISPLAY=wayland-0 waydroid session start
 ```
 
 Leave the session running. In a third terminal:
 
 ```bash
 git switch feature/waze-live-map
-WAYLAND_DISPLAY=wayland-orc waydroid show-full-ui
+WAYLAND_DISPLAY=wayland-0 waydroid show-full-ui
 ```
 
 First validate the Android desktop. Google Play may need Waydroid certification

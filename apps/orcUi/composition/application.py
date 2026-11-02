@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 
 from common.resource_cleanup import ResourceCleanup, close_resources
 import math
+import os
 
 from common.app_settings import AppSettings, AppSettingsStore
 from apps.launchers.host_location_permission import HostLocationPermission
@@ -28,6 +29,7 @@ from apps.orcUi.composition.games import configure_games
 from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
 from apps.orcUi.composition.tooltips import TooltipFactory
 from apps.orcUi.composition.waze import WazeComposition, configure_waze
+from apps.orcUi.composition.android_app_view import AndroidAppView
 from apps.orcUi.composition.media import MediaComposition, configure_media
 from apps.orcUi.composition.radio import RadioComposition, configure_radio
 from apps.orcUi.composition.weather import WeatherComposition, configure_weather
@@ -74,6 +76,7 @@ class OrcUiComposition:
     host_location: HostLocationSettingsController | None = None
     startup_progress: Callable[[str, str], None] | None = None
     waze: WazeComposition | None = None
+    android_app_view: AndroidAppView | None = None
 
     _closed: bool = field(default=False, init=False)
 
@@ -105,7 +108,7 @@ class OrcUiComposition:
         close_resources(
             self.app.shutdown,
             *(resource.close for resource in (
-                self.waze, self.host_location, self.performance_status, self.performance, self.vision, self.navigation,
+                self.android_app_view, self.waze, self.host_location, self.performance_status, self.performance, self.vision, self.navigation,
                 self.navigation_places, self.radar_replay, self.weather_overlays,
             ) if resource is not None),
             self.radio.close,
@@ -228,10 +231,15 @@ def create_orc_ui_composition(
                 GeoPoint(math.radians(42.3314),math.radians(-83.0458)), label="Terrain", destination_marker_visible=False))
         cleanup.callback(navigation_maps.close)
         core.map_camera.observe_position(navigation_maps.update_position)
+        android_app_view = None
+        if os.environ.get('ORC_WAYDROID_PANEL') == '1' and not os.path.exists('/system/bin/am'):
+            android_app_view = AndroidAppView(app)
+            cleanup.callback(android_app_view.close)
         navigation_places = NavigationPlacesFactory(
             online_allowed=lambda: app.online_mode.online,
             camera_observer=core.map_camera.request_handler.observe_camera,
-            embedded_explore=navigation_maps.request_explore)
+            embedded_explore=navigation_maps.request_explore,
+            android_app_view=android_app_view)
         cleanup.callback(navigation_places.close)
         waze = configure_waze(app, runtime)
         if waze is not None:
@@ -343,6 +351,7 @@ def create_orc_ui_composition(
             host_location=host_location,
             startup_progress=progress,
             waze=waze,
+            android_app_view=android_app_view,
         )
         cleanup.release()
         return composition

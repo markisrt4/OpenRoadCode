@@ -39,6 +39,7 @@ class X11WindowEmbedder(WindowEmbedderIf):
         window_class: str | None = None,
         relax_size_hints: bool = False,
         cancelled: Callable[[], bool] | None = None,
+        failure_parent_window_id: int | None = None,
     ) -> int:
         """Find, hide, reparent, size, and map an X11 client inside the host."""
         if not self.supported():
@@ -95,6 +96,12 @@ class X11WindowEmbedder(WindowEmbedderIf):
                 return window_id
             except subprocess.SubprocessError as error:
                 last_error = error
+                if failure_parent_window_id is not None:
+                    # Preserve a borrowed compositor even after a late resize
+                    # failure: it must not remain under a soon-destroyed host.
+                    subprocess.run(
+                        ['xdotool', 'windowreparent', str(window_id), str(failure_parent_window_id)],
+                        check=False, capture_output=True, text=True)
                 self._window_id = None
                 self._host_window_id = None
                 self._relax_size_hints = False

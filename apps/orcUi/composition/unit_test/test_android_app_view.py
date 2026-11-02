@@ -1,0 +1,95 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+from unittest.mock import Mock, patch
+import subprocess
+
+import pytest
+
+from apps.orcUi.composition.android_app_view import AndroidAppView
+from apps.orcUi.adapters.waydroid_surface_player import WaydroidSurfacePlayer
+from frontends.tk.media.browser_media_screen import BrowserMediaScreen
+from frontends.x11.x11_window_embedder import X11WindowEmbedder
+
+
+def test_worker_request_dispatches_and_close_discards_queued_open():
+    app = Mock()
+    with patch('apps.orcUi.composition.android_app_view.BrowserMediaScreen') as screen:
+        view = AndroidAppView(app)
+        view.request_show_android_app()
+        app.navigate_to.assert_not_called()
+        first = app.dispatch_ui.call_args.args[0]
+        first()
+        app.navigate_to.assert_called_once_with('ANDROID_APP')
+        view.request_show_android_app()
+        queued = app.dispatch_ui.call_args.args[0]
+        view.close()
+        view.close()
+        queued()
+        view.request_show_android_app()
+        assert app.navigate_to.call_count == 1
+        assert app.dispatch_ui.call_count == 2
+        screen.return_value.hide.assert_called_once()
+        options = screen.call_args.kwargs
+        assert options['preserve_external_window'] is True
+        options['back_action']()
+        app.navigate_to.assert_called_with('NAVIGATION')
+
+
+@pytest.mark.parametrize('windows', ['', '12\n13\n'])
+def test_surface_rejects_missing_or_ambiguous_compositors(windows):
+    with patch('apps.orcUi.adapters.waydroid_surface_player.subprocess.run',
+               return_value=Mock(returncode=0, stdout=windows)), patch(
+               'apps.orcUi.adapters.waydroid_surface_player.subprocess.Popen') as spawn:
+        with pytest.raises(RuntimeError, match='exactly one dedicated Weston'):
+            WaydroidSurfacePlayer().play('android', display=':0')
+        spawn.assert_not_called()
+
+
+def test_surface_repeated_open_and_stop_only_own_presentation_clients():
+    clients = [Mock(), Mock()]
+    for client in clients:
+        client.poll.return_value = None
+    with patch('apps.orcUi.adapters.waydroid_surface_player.subprocess.run',
+               return_value=Mock(returncode=0, stdout='12\n')) as run, patch(
+               'apps.orcUi.adapters.waydroid_surface_player.subprocess.Popen',
+               side_effect=clients) as spawn:
+        player = WaydroidSurfacePlayer()
+        assert player.play('android', display=':2')
+        player.request_theme_refresh()
+        assert spawn.call_count == 1
+        assert player.play('android', display=':2')
+        clients[0].terminate.assert_called_once()
+        player.stop()
+        player.stop()
+        clients[1].terminate.assert_called_once()
+        assert spawn.call_args.args[0] == ['waydroid', 'show-full-ui']
+        assert spawn.call_args.kwargs['env']['DISPLAY'] == ':2'
+        assert run.call_count == 2
+
+
+def test_external_surface_detaches_to_x_root_before_orc_window_destruction():
+    screen = BrowserMediaScreen('android', Mock(), title='Android', player=Mock(),
+                                default_target='android', window_class='Weston Compositor',
+                                back_action=Mock(), preserve_external_window=True)
+    screen._host.screen_parent.winfo_vrootid.return_value = 42
+    screen._embedder = Mock(window_id=12)
+    screen.hide()
+    screen._embedder.detach.assert_called_once_with(42)
+    screen._host.screen_parent.winfo_toplevel.assert_not_called()
+
+
+def test_failed_external_embed_restores_safe_parent():
+    embedder = X11WindowEmbedder(timeout_seconds=0.01)
+    def fail_mapping(command, **kwargs):
+        if command == ['xdotool', 'windowmap', '12'] and kwargs.get('check'):
+            raise subprocess.CalledProcessError(1, command)
+        return subprocess.CompletedProcess(command, 0, stdout='', stderr='')
+    with patch.object(embedder, 'supported', return_value=True), patch.object(
+            embedder, '_find_by_process', return_value=12), patch.object(
+            embedder, 'resize'), patch(
+            'frontends.x11.x11_window_embedder.subprocess.run', side_effect=fail_mapping) as run:
+        with pytest.raises(RuntimeError, match='no usable X11 window'):
+            embedder.embed(0, 99, 800, 400, failure_parent_window_id=42)
+        commands = [call.args[0] for call in run.call_args_list]
+        assert ['xdotool', 'windowreparent', '12', '42'] in commands
+        assert embedder.window_id is None
