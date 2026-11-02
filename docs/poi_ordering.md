@@ -309,6 +309,37 @@ frame with a displaced hosted image points to the compositor/view transform;
 a displaced Android frame points to Android/app layout. No app data is cleared
 by reset/relaunch or by this screen capture.
 
+The clean-reset Android framebuffer remained narrow, with a possible brief
+full-width frame at app startup. That confirms letterboxing inside Android,
+not just displacement in ORC. The next orientation-specific experiment replaces
+the activity's own requested orientation. In LineageOS 20's
+[LetterboxUiController](https://github.com/LineageOS/android_frameworks_base/blob/lineage-20.0/services/core/java/com/android/server/wm/LetterboxUiController.java),
+`OVERRIDE_ANY_ORIENTATION` lets the override apply even to a fixed portrait
+request, and `OVERRIDE_UNDEFINED_ORIENTATION_TO_NOSENSOR` replaces that request
+with the display's natural orientation. An app can opt out through its manifest
+compatibility property, and the installed image must recognize these change
+names; neither outcome is established until the VM test.
+
+Keep ORC expanded so the display is landscape. These commands stop Panera to
+apply the overrides; the last command reopens it:
+
+```bash
+git switch feature/waze-live-map
+sudo waydroid shell -- am compat enable OVERRIDE_ANY_ORIENTATION com.panera.bread
+sudo waydroid shell -- am compat enable OVERRIDE_UNDEFINED_ORIENTATION_TO_NOSENSOR com.panera.bread
+waydroid app launch com.panera.bread
+```
+
+If a change name is unknown, retain that error rather than substituting an
+unchecked numeric ID. Reset just these two experimental overrides with:
+
+```bash
+git switch feature/waze-live-map
+sudo waydroid shell -- am compat reset OVERRIDE_ANY_ORIENTATION com.panera.bread
+sudo waydroid shell -- am compat reset OVERRIDE_UNDEFINED_ORIENTATION_TO_NOSENSOR com.panera.bread
+waydroid app launch com.panera.bread
+```
+
 POI result metadata is now scoped to the factory alongside retained renderer
 markers. Returning to Navigation creates fresh event transports and action
 sessions but preserves the marker-to-business lookup, so an existing Panera
