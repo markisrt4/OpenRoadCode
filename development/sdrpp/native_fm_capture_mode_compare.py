@@ -69,6 +69,7 @@ def cli_capture(path: Path, frequency: int, seconds: float) -> dict:
     command = [exe, "-f", str(frequency), "-s", str(RATE),
                "-g", str(GAIN), "-n", str(samples), str(path)]
     print("CLI capture:", " ".join(command), flush=True)
+    print("Waiting for rtl_sdr to finish; timeout is enabled.", flush=True)
     start = time.perf_counter()
     timeout = max(45.0, seconds * 5.0)
     try:
@@ -97,6 +98,10 @@ def main() -> None:
     parser.add_argument("--frequency", type=int, default=104_300_000)
     parser.add_argument("--seconds", type=float, default=15.0)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--skip-cli", action="store_true",
+                        help="Inspect/decode ORC sync capture only; skip rtl_sdr")
+    parser.add_argument("--reuse-sync", action="store_true",
+                        help="Reuse existing orc_sync.u8 instead of capturing")
     args = parser.parse_args()
     if args.seconds <= 0:
         parser.error("--seconds must be positive")
@@ -105,13 +110,23 @@ def main() -> None:
               "gain_db": GAIN, "rtl_agc": False, "captures": {}}
     sync_iq = args.output_dir / "orc_sync.u8"
     cli_iq = args.output_dir / "rtl_sdr_cli.u8"
-    print("Capturing with ORC synchronous reads...", flush=True)
-    report["captures"]["orc_sync"] = capture(
-        sync_iq, args.frequency, GAIN, args.seconds, False)
-    print("Capturing with rtl_sdr CLI...", flush=True)
-    report["captures"]["rtl_sdr_cli"] = cli_capture(
-        cli_iq, args.frequency, args.seconds)
-    for name, path in (("orc_sync", sync_iq), ("rtl_sdr_cli", cli_iq)):
+    if args.reuse_sync:
+        if not sync_iq.is_file():
+            parser.error(f"Existing capture missing: {sync_iq}")
+        print(f"Reusing {sync_iq}", flush=True)
+        report["captures"]["orc_sync"] = {"reused": True}
+    else:
+        print("Capturing with ORC synchronous reads...", flush=True)
+        report["captures"]["orc_sync"] = capture(
+            sync_iq, args.frequency, GAIN, args.seconds, False)
+    if not args.skip_cli:
+        print("Capturing with rtl_sdr CLI...", flush=True)
+        report["captures"]["rtl_sdr_cli"] = cli_capture(
+            cli_iq, args.frequency, args.seconds)
+    captures = [("orc_sync", sync_iq)]
+    if not args.skip_cli:
+        captures.append(("rtl_sdr_cli", cli_iq))
+    for name, path in captures:
         print(f"Inspecting IQ for {name}...", flush=True)
         report["captures"][name]["iq_analysis"] = inspect_iq(path)
         print(f"Decoding WAV for {name}...", flush=True)
