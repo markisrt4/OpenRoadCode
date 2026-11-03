@@ -92,15 +92,26 @@ class RtlSdrSource(SdrSourceIf):
             raise
 
     def close(self) -> None:
-        """Stop acquisition and close the librtlsdr device."""
+        """Release the device even if asynchronous acquisition already failed."""
         if not self.is_connected():
             self._running = False
             return
-        self.stop()
+        stop_error = None
+        try:
+            self.stop()
+        except Exception as exc:
+            stop_error = exc
+        # Never close a device while its callback thread may still be using it.
+        if self._worker is not None and self._worker.is_alive():
+            raise RuntimeError("cannot close RTL-SDR while async reader is active") from stop_error
         assert self._library is not None
         device = self._device
         self._device = ctypes.c_void_p()
-        self._check(self._library.rtlsdr_close(device), "close device")
+        close_result = self._library.rtlsdr_close(device)
+        if close_result < 0 and stop_error is None:
+            self._check(close_result, "close device")
+        if stop_error is not None:
+            raise stop_error
 
     def is_connected(self) -> bool:
         return bool(self._device.value)
@@ -181,16 +192,28 @@ class RtlSdrSource(SdrSourceIf):
             self._worker.start()
 
     def stop(self) -> None:
+        """Stop the async worker; tolerate cancel failure after USB disconnect."""
         self._running = False
         worker = self._worker
-        if worker is not None:
-            if self.is_connected():
-                self._check(self._library.rtlsdr_cancel_async(self._device), "cancel async IQ")
-            worker.join(timeout=5.0)
-            if worker.is_alive():
-                raise RuntimeError("RTL-SDR async worker did not stop; refusing to close device")
-            self._worker = None
-            self._callback = None
+        if worker is None:
+            return
+        # A finished worker has nothing left to cancel. librtlsdr can return
+        # -2 here after a physical USB disconnect; cancellation is redundant.
+        cancel_error = None
+        if worker.is_alive() and self.is_connected():
+            result = self._library.rtlsdr_cancel_async(self._device)
+            if result < 0:
+                cancel_error = RuntimeError(
+                    f"librtlsdr failed to cancel async IQ: error {result}")
+        worker.join(timeout=5.0)
+        if worker.is_alive():
+            raise RuntimeError("RTL-SDR async worker did not stop; refusing to close device") from cancel_error
+        self._worker = None
+        self._callback = None
+        # Once the reader exited with its own error, the cancel failure is
+        # secondary and must not replace the meaningful read failure.
+        if cancel_error is not None and self._worker_error is None:
+            raise cancel_error
 
     def get_acquisition_stats(self) -> dict[str, int]:
         return {
