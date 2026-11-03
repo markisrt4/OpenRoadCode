@@ -170,6 +170,8 @@ def main(argv: list[str] | None = None) -> int:
                     "discontinuities": service.status.discontinuities,
                     "source": source.get_acquisition_stats(),
                     "dsp": asdict(monitor.snapshot()),
+                    "rf_channels": {name: asdict(value) for name, value in receiver.telemetry.items()},
+                    "rf_telemetry_note": "spectral peak-to-median contrast; not calibrated RF SNR",
                     "recovery": asdict(recovery.status),
                     "tuner": {
                         "requested_center_hz": center,
