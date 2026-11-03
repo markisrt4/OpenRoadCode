@@ -59,6 +59,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--report-seconds", type=float, default=2.0)
     parser.add_argument("--warmup-seconds", type=float, default=5.0,
                         help="exclude first N seconds from steady throughput")
+    parser.add_argument("--rf-warmup-seconds", type=float, default=2.0)
+    parser.add_argument("--audio-prebuffer-ms", type=int, default=400)
     parser.add_argument("--reconnect-retries", type=int, default=5)
     parser.add_argument("--reconnect-delay", type=float, default=2.0)
     parser.add_argument("--dry-run", action="store_true",
@@ -72,7 +74,8 @@ def configuration(args: argparse.Namespace, parser: argparse.ArgumentParser):
     if center <= 0 or args.seconds <= 0 or args.report_seconds <= 0 or args.warmup_seconds < 0:
         parser.error("center, seconds and report-seconds must be positive")
     if (args.device_index < 0 or args.pcm_queue < 1 or args.audio_prime_ms < 0
-            or args.reconnect_retries < 0 or args.reconnect_delay < 0):
+            or args.reconnect_retries < 0 or args.reconnect_delay < 0
+            or args.rf_warmup_seconds < 0 or args.audio_prebuffer_ms < 0):
         parser.error("invalid device index, PCM queue size or audio prime")
     if not 0 <= args.volume <= 1:
         parser.error("volume must be between 0 and 1")
@@ -103,6 +106,8 @@ def main(argv: list[str] | None = None) -> int:
         "device_index": args.device_index,
         "gain_db": None if args.tuner_agc else args.gain,
         "dry_run": args.dry_run,
+        "rf_warmup_seconds": args.rf_warmup_seconds,
+        "audio_prebuffer_ms": args.audio_prebuffer_ms,
     }, indent=2), flush=True)
     if args.dry_run:
         return 0
@@ -112,13 +117,15 @@ def main(argv: list[str] | None = None) -> int:
         service = NativeRadioService(
             source, receiver, center_frequency_hz=center,
             gain_db=None if args.tuner_agc else args.gain,
+            rf_warmup_seconds=args.rf_warmup_seconds,
         )
         if args.no_audio:
             return service
         output = SounddevicePcmOutputAdapter(
             volume=args.volume, prime_ms=args.audio_prime_ms, latency="high"
         )
-        playback = PcmPlaybackWorker(output, queue_blocks=args.pcm_queue)
+        playback = PcmPlaybackWorker(output, queue_blocks=args.pcm_queue,
+                                     prebuffer_ms=args.audio_prebuffer_ms)
         session = RadioAudioSession(service, playback)
         session.select_channel(listen)
         return session
