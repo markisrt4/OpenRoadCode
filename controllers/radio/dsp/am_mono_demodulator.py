@@ -41,6 +41,7 @@ class AmMonoDemodulator:
         # Remove carrier/DC after envelope detection.
         self._dc_alpha = 1 - np.exp(-1 / (audio_rate_hz * 0.05))
         self._dc_state = np.zeros(1)
+        self._dc_initialized = False
         self._dc_b = [self._dc_alpha]
         self._dc_a = [1, -(1 - self._dc_alpha)]
         self._agc_target = agc_target
@@ -64,6 +65,11 @@ class AmMonoDemodulator:
         if not len(decimated):
             return np.empty(0, dtype=np.float32)
         envelope = np.abs(decimated)
+        if not self._dc_initialized:
+            # Start the carrier estimate at the first envelope sample rather
+            # than ramping up from zero and producing a large DC transient.
+            self._dc_state[0] = (1 - self._dc_alpha) * float(envelope[0])
+            self._dc_initialized = True
         dc, self._dc_state = signal.lfilter(
             self._dc_b, self._dc_a, envelope, zi=self._dc_state
         )
