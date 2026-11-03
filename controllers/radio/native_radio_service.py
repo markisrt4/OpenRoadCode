@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import time
 from typing import Callable
 
 import numpy as np
@@ -52,6 +53,7 @@ class NativeRadioService:
         self._last_timestamp_ns: int | None = None
         self._last_duration_ns = 0
         self._last_dropped_blocks: int | None = None
+        self.last_dsp_seconds = 0.0
 
     @property
     def status(self) -> RadioServiceStatus:
@@ -107,7 +109,11 @@ class NativeRadioService:
             if gap or dropped_changed:
                 self.receiver.reset()
                 self._discontinuities += 1
-            pcm = self.receiver.process(block)
+            dsp_start = time.perf_counter()
+            try:
+                pcm = self.receiver.process(block)
+            finally:
+                self.last_dsp_seconds = time.perf_counter() - dsp_start
             self._last_timestamp_ns = block.timestamp_ns
             self._last_duration_ns = round(
                 len(block.samples) * 1_000_000_000 / (2 * self.sample_rate_hz)
