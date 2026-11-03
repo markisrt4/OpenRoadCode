@@ -4,6 +4,7 @@
 """Unit tests for the native librtlsdr SDR source."""
 
 import ctypes
+import threading
 import unittest
 
 from hardware_io.sdr.rtl_sdr_source import RtlSdrSource
@@ -88,6 +89,45 @@ class RtlSdrSourceTest(unittest.TestCase):
         self.source.start()
         with self.assertRaisesRegex(RuntimeError, "center frequency"):
             self.source.read_iq()
+
+    def test_disconnected_finished_async_worker_does_not_cancel(self):
+        self.library.rtlsdr_cancel_async = _Function(lambda _device: -2)
+        self.source.open()
+        self.source.set_center_frequency(104_300_000)
+        self.source._running = False
+        self.source._worker_error = "librtlsdr async read failed: -5"
+        worker = threading.Thread(target=lambda: None)
+        worker.start()
+        worker.join()
+        self.source._worker = worker
+
+        self.source.close()
+
+        self.assertFalse(self.source.is_connected())
+        self.assertEqual(len(self.library.rtlsdr_cancel_async.calls), 0)
+        self.assertEqual(len(self.library.rtlsdr_close.calls), 1)
+
+    def test_cancel_error_still_releases_device_when_worker_has_exited(self):
+        self.library.rtlsdr_cancel_async = _Function(lambda _device: -2)
+        self.source.open()
+        started = threading.Event()
+        release = threading.Event()
+
+        def reader():
+            started.set()
+            release.wait(timeout=2)
+
+        worker = threading.Thread(target=reader)
+        worker.start()
+        self.assertTrue(started.wait(timeout=1))
+        self.source._worker = worker
+        self.source._running = True
+        # Ensure the simulated worker can exit after cancel returns an error.
+        release.set()
+        with self.assertRaisesRegex(RuntimeError, "cancel async IQ"):
+            self.source.close()
+        self.assertFalse(self.source.is_connected())
+        self.assertEqual(len(self.library.rtlsdr_close.calls), 1)
 
     def test_librtlsdr_errors_are_not_silently_ignored(self) -> None:
         self.library.rtlsdr_set_center_freq = _Function(lambda _device, _frequency: -5)
