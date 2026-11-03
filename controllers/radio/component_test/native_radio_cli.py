@@ -125,7 +125,6 @@ def main(argv: list[str] | None = None) -> int:
         else:
             service.start()
         while time.monotonic() - started < args.seconds:
-            dsp_started = time.perf_counter()
             samples_before = service.status.processed_iq_samples
             if session is not None:
                 session.process_once()
@@ -134,10 +133,9 @@ def main(argv: list[str] | None = None) -> int:
                     raise RuntimeError(f"audio playback failed: {audio_status.last_error}")
             else:
                 service.process_once()
-            dsp_elapsed = time.perf_counter() - dsp_started
             processed_samples = service.status.processed_iq_samples - samples_before
             if processed_samples:
-                monitor.record(samples=processed_samples, dsp_seconds=dsp_elapsed)
+                monitor.record(samples=processed_samples, dsp_seconds=service.last_dsp_seconds)
             now = time.monotonic()
             if now >= next_report:
                 elapsed = max(now - started, 1e-9)
