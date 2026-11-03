@@ -22,6 +22,7 @@ from controllers.radio.dsp_performance_monitor import DspPerformanceMonitor
 from controllers.radio.multi_mode_radio_receiver import MultiModeRadioReceiver, RadioChannel
 from controllers.radio.native_radio_service import NativeRadioService
 from controllers.radio.radio_audio_session import RadioAudioSession
+from controllers.radio.recovering_radio_session import RecoveringRadioSession
 from hardware_io.audio.pcm_playback_worker import PcmPlaybackWorker
 from hardware_io.audio.sounddevice_pcm_output_adapter import SounddevicePcmOutputAdapter
 from hardware_io.sdr.rtl_sdr_source import RtlSdrSource
@@ -58,6 +59,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--report-seconds", type=float, default=2.0)
     parser.add_argument("--warmup-seconds", type=float, default=5.0,
                         help="exclude first N seconds from steady throughput")
+    parser.add_argument("--reconnect-retries", type=int, default=5)
+    parser.add_argument("--reconnect-delay", type=float, default=2.0)
     parser.add_argument("--dry-run", action="store_true",
                         help="validate and display configuration without SDR hardware")
     return parser
@@ -68,7 +71,8 @@ def configuration(args: argparse.Namespace, parser: argparse.ArgumentParser):
     center = args.center if args.center is not None else channels[0].frequency_hz
     if center <= 0 or args.seconds <= 0 or args.report_seconds <= 0 or args.warmup_seconds < 0:
         parser.error("center, seconds and report-seconds must be positive")
-    if args.device_index < 0 or args.pcm_queue < 1 or args.audio_prime_ms < 0:
+    if (args.device_index < 0 or args.pcm_queue < 1 or args.audio_prime_ms < 0
+            or args.reconnect_retries < 0 or args.reconnect_delay < 0):
         parser.error("invalid device index, PCM queue size or audio prime")
     if not 0 <= args.volume <= 1:
         parser.error("volume must be between 0 and 1")
@@ -103,57 +107,68 @@ def main(argv: list[str] | None = None) -> int:
     if args.dry_run:
         return 0
 
-    source = RtlSdrSource(device_index=args.device_index, acquisition_mode="async")
-    service = NativeRadioService(
-        source, receiver, center_frequency_hz=center,
-        gain_db=None if args.tuner_agc else args.gain,
-    )
-    session = None
-    if not args.no_audio:
+    def create_session():
+        source = RtlSdrSource(device_index=args.device_index, acquisition_mode="async")
+        service = NativeRadioService(
+            source, receiver, center_frequency_hz=center,
+            gain_db=None if args.tuner_agc else args.gain,
+        )
+        if args.no_audio:
+            return service
         output = SounddevicePcmOutputAdapter(
             volume=args.volume, prime_ms=args.audio_prime_ms, latency="high"
         )
         playback = PcmPlaybackWorker(output, queue_blocks=args.pcm_queue)
         session = RadioAudioSession(service, playback)
         session.select_channel(listen)
+        return session
+
+    recovery = RecoveringRadioSession(
+        create_session, max_retries=args.reconnect_retries,
+        retry_delay_seconds=args.reconnect_delay,
+    )
     started = time.monotonic()
     monitor = DspPerformanceMonitor(warmup_seconds=args.warmup_seconds)
     next_report = started + args.report_seconds
+    exit_code = 0
     try:
-        if session is not None:
-            session.start()
-        else:
-            service.start()
+        recovery.start()
         while time.monotonic() - started < args.seconds:
-            samples_before = service.status.processed_iq_samples
-            if session is not None:
-                session.process_once()
-                audio_status = session.playback.status
-                if audio_status.last_error:
-                    raise RuntimeError(f"audio playback failed: {audio_status.last_error}")
-            else:
-                service.process_once()
+            previous = recovery.session
+            previous_service = previous.radio if isinstance(previous, RadioAudioSession) else previous
+            samples_before = previous_service.status.processed_iq_samples
+            recovery.process_once()
+            current = recovery.session
+            if current is not previous:
+                print(json.dumps({"recovery": asdict(recovery.status)}), flush=True)
+                monitor = DspPerformanceMonitor(warmup_seconds=args.warmup_seconds)
+                next_report = time.monotonic() + args.report_seconds
+                continue
+            session = current if isinstance(current, RadioAudioSession) else None
+            service = session.radio if session is not None else current
+            source = service.source
+            if session is not None and session.playback.status.last_error:
+                raise RuntimeError(f"audio playback failed: {session.playback.status.last_error}")
             processed_samples = service.status.processed_iq_samples - samples_before
             if processed_samples:
                 monitor.record(samples=processed_samples, dsp_seconds=service.last_dsp_seconds)
             now = time.monotonic()
             if now >= next_report:
                 elapsed = max(now - started, 1e-9)
-                stats = source.get_acquisition_stats()
                 print(json.dumps({
                     "elapsed_s": round(elapsed, 2),
                     "iq_blocks": service.status.processed_blocks,
                     "iq_samples": service.status.processed_iq_samples,
                     "processing_msps": round(service.status.processed_iq_samples / elapsed / 1e6, 3),
                     "discontinuities": service.status.discontinuities,
-                    "source": stats,
+                    "source": source.get_acquisition_stats(),
                     "dsp": asdict(monitor.snapshot()),
+                    "recovery": asdict(recovery.status),
                     "tuner": {
                         "requested_center_hz": center,
                         "reported_center_hz": source.get_center_frequency(),
                         "reported_sample_rate_hz": source.get_sample_rate(),
                         "pll_lock_status": "not_exposed_by_librtlsdr",
-                        "note": "R82XX PLL warnings are emitted by librtlsdr on stderr; successful tuning does not prove PLL lock",
                     },
                     "audio": vars(session.playback.status) if session else None,
                 }), flush=True)
@@ -162,13 +177,10 @@ def main(argv: list[str] | None = None) -> int:
         print("Interrupted; stopping receiver.", flush=True)
     except Exception as exc:
         print(f"Receiver error: {exc}", flush=True)
-        return 1
+        exit_code = 1
     finally:
-        if session is not None:
-            session.stop()
-        else:
-            service.stop()
-    return 0
+        recovery.stop()
+    return exit_code
 
 
 if __name__ == "__main__":
