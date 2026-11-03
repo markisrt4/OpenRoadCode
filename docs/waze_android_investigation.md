@@ -37,12 +37,48 @@ shell. The private key stays on the VM. Do not disable ADB authentication.
 git switch feature/waze-live-map
 sudo -v
 adb start-server
-cat "$HOME/.android/adbkey.pub" | sudo waydroid shell -- tee -a /data/misc/adb/adb_keys >/dev/null
+{
+    printf '\n'
+    cat "$HOME/.android/adbkey.pub"
+    printf '\n'
+} | sudo waydroid shell -- tee -a /data/misc/adb/adb_keys >/dev/null
 sudo waydroid shell -- chown system:shell /data/misc/adb/adb_keys
 sudo waydroid shell -- chmod 0640 /data/misc/adb/adb_keys
 sudo waydroid shell -- restorecon /data/misc/adb/adb_keys
-sudo waydroid shell -- setprop ctl.restart adbd
+sudo waydroid shell -- stop adbd
+sleep 1
+sudo waydroid shell -- start adbd
+sleep 1
 waydroid adb connect
+adb -s 192.168.240.112:5555 get-state
+```
+
+Use the actual IP from `waydroid status` in place of the example address. The
+target must report `device` before enabling the location provider. The CLI's
+“Established ADB connection” log does not verify the transport's authorization.
+The leading and trailing newlines above keep the public key on its own record
+even when either existing file lacks a final newline; existing keys are retained.
+
+If `getprop init.svc.adbd` remains `stopping`, recover only Android's ADB daemon
+through the root shell (no Android UI or ADB connection is needed):
+
+```bash
+git switch feature/waze-live-map
+sudo waydroid shell -- setprop service.adb.tcp.port 5555
+sudo waydroid shell -- killall -9 adbd
+sudo waydroid shell -- start adbd
+sleep 1
+sudo waydroid shell -- getprop init.svc.adbd
+waydroid adb connect
+adb -s 192.168.240.112:5555 get-state
+```
+
+Expect `running` and then `device`. If either is absent, diagnose before
+continuing. Keep `ro.adb.secure=1`; disabling authentication is not required.
+Once authorized:
+
+```bash
+git switch feature/waze-live-map
 python3 -m scripts.setup_waydroid_location enable
 python3 -m scripts.setup_waydroid_location status
 ```
