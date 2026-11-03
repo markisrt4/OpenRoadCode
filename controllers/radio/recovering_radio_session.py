@@ -112,7 +112,9 @@ class RecoveringRadioSession:
                 self._successes += 1
             self._attempts += 1
             self._state = "CONNECTED"
-            self._last_error = None
+            # Retain the most recent failure for diagnostics after recovery.
+            # A CONNECTED state indicates recovery succeeded; it does not
+            # invalidate the error that triggered the restart.
             return
         self._state = "FAILED"
         raise RuntimeError(
