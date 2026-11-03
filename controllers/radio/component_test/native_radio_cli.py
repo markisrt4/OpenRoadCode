@@ -45,8 +45,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="repeat NAME:FREQUENCY_HZ:MODE (default fm:104300000:wfm)")
     parser.add_argument("--center", type=int, default=None,
                         help="RF center Hz (default first channel frequency)")
-    parser.add_argument("--gain", type=float, default=40.0,
-                        help="RTL tuner manual gain dB (default 40)")
+    parser.add_argument("--gain", type=float, default=30.0,
+                        help="RTL tuner manual gain dB (default 30; measured preferred FM setting)")
     parser.add_argument("--tuner-agc", action="store_true")
     parser.add_argument("--device-index", type=int, default=0)
     parser.add_argument("--seconds", type=float, default=30.0)
