@@ -21,6 +21,7 @@ import time
 import numpy as np
 
 from controllers.radio.dsp.wbfm_mono_demodulator import WbfmMonoDemodulator
+from controllers.radio.dsp.nbfm_mono_demodulator import NbfmMonoDemodulator
 from hardware_io.sdr import RtlSdrSource
 
 
@@ -43,7 +44,9 @@ class Counters:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--frequency", type=int, default=104_300_000)
+    parser.add_argument("--frequency", type=int, default=None)
+    parser.add_argument("--mode", choices=("wfm", "nfm"), default="wfm",
+                        help="FM demodulation mode (default: wfm)")
     parser.add_argument("--gain", type=float, default=40.0,
                         help="Manual tuner gain in dB (default: known-good 40)")
     parser.add_argument("--tuner-agc", action="store_true",
@@ -64,6 +67,8 @@ def main() -> int:
     parser.add_argument("--record-dir", type=Path,
                         help="Save same-session raw IQ (.u8), demodulated WAV, and metadata")
     args = parser.parse_args()
+    if args.frequency is None:
+        args.frequency = 162_550_000 if args.mode == "nfm" else 104_300_000
     if args.seconds <= 0 or args.warmup_seconds < 0 or not 0 <= args.volume <= 1:
         parser.error("seconds must be positive and volume in [0,1]")
     if args.prebuffer_ms < 0 or args.audio_prime_ms < 0:
@@ -77,7 +82,8 @@ def main() -> int:
         raise SystemExit("Install sounddevice: pip install sounddevice") from exc
 
     source = RtlSdrSource(acquisition_mode="async")
-    decoder = WbfmMonoDemodulator()
+    decoder = (NbfmMonoDemodulator() if args.mode == "nfm"
+               else WbfmMonoDemodulator())
     iq_queue: queue.Queue = queue.Queue(maxsize=args.iq_queue)
     pcm_queue: queue.Queue = queue.Queue(maxsize=args.pcm_queue)
     stop = threading.Event()
@@ -205,7 +211,7 @@ def main() -> int:
         ]
         for thread in threads:
             thread.start()
-        print(f"Threaded WFM {args.frequency / 1e6:.3f} MHz, "
+        print(f"Threaded {args.mode.upper()} {args.frequency / 1e6:.3f} MHz, "
               f"gain={'auto' if args.tuner_agc else str(args.gain) + ' dB'}, "
               f"RTL AGC={'on' if args.rtl_agc else 'off'}", flush=True)
         if not primed.wait(timeout=max(10.0, args.warmup_seconds * 4)):
@@ -277,6 +283,7 @@ def main() -> int:
                 print("Warning: recording not fully flushed", file=sys.stderr)
             metadata = {
                 "frequency_hz": args.frequency,
+                "mode": args.mode,
                 "sample_rate_hz": 2_400_000,
                 "audio_rate_hz": 48_000,
                 "gain_db": None if args.tuner_agc else args.gain,
