@@ -20,6 +20,7 @@ from apps.launchers.host_location_session import HostLocationSession
 from controllers.navigation.host_location_settings_controller import HostLocationSettingsController
 from controllers.navigation.location_sharing_controller import LocationSharingController
 from controllers.navigation.map_favorites import MapFavorites
+from controllers.navigation.navigation_view_controller import NavigationViewController
 from apps.launchers.waydroid_location_provider import WaydroidLocationProvider
 from controllers.weather.radar_palette import RadarPalette
 
@@ -83,6 +84,7 @@ class OrcUiComposition:
     performance_status: PerformanceStatusPresenter | None = None
     host_location: HostLocationSettingsController | None = None
     host_location_session: HostLocationSession | None = None
+    host_location_permission: HostLocationPermission | None = None
     location_sharing: LocationSharingController | None = None
     startup_progress: Callable[[str, str], None] | None = None
     waze: WazeComposition | None = None
@@ -119,7 +121,7 @@ class OrcUiComposition:
         close_resources(
             self.app.shutdown,
             *(resource.close for resource in (
-                self.android_app_view, self.waze_app_view, self.waze, self.host_location, self.location_sharing, self.host_location_session, self.performance_status, self.performance, self.vision, self.navigation,
+                self.android_app_view, self.waze_app_view, self.waze, self.host_location, self.host_location_permission, self.location_sharing, self.host_location_session, self.performance_status, self.performance, self.vision, self.navigation,
                 self.navigation_places, self.radar_replay, self.weather_overlays,
             ) if resource is not None),
             self.radio.close,
@@ -259,15 +261,23 @@ def create_orc_ui_composition(
             if host_location is not None:
                 host_location.update_location_status(location, android)
 
+        def host_sharing_changed(sharing):
+            if host_location is not None:
+                host_location.update_host_sharing(sharing)
+
         location_sharing = LocationSharingController(
             WaydroidLocationProvider.from_config() if waydroid_enabled else None,
-            status=location_status, android_requested=waydroid_enabled)
+            status=location_status, android_requested=waydroid_enabled,
+            sharing_changed=host_sharing_changed)
         cleanup.callback(location_sharing.close)
         core.map_camera.observe_location(location_sharing.update_snapshot)
         android_app_view = None
         waze_app_view = None
         waze_native_launcher = None
         waze = None
+        navigation_view = NavigationViewController(open_map=lambda: app.navigate_to('NAVIGATION'),
+            open_waze=lambda: waze.request_open_waze() if waze is not None else app.navigate_to('NAVIGATION'))
+        app.register_navigation_action('NAVIGATION', navigation_view.request_resume_navigation)
         close_waze = lambda: waze.request_close_waze() if waze is not None else None
         saved_waze_destination = lambda key: waze.request_navigate_saved_destination(key) if waze is not None else None
         if waydroid_enabled:
@@ -276,16 +286,18 @@ def create_orc_ui_composition(
                                               visibility_changed=location_sharing.set_active)
             cleanup.callback(android_app_view.close)
             waze_app_view = AndroidAppView(app, map_runtime=navigation_maps, map_platform=navigation_maps,
-                map_presentation=core.map_camera, screen_label='WAZE_NATIVE', navigation_label='WAZE',
-                persistent_session=True, close_action=close_waze, saved_destination_action=saved_waze_destination)
+                map_presentation=core.map_camera, screen_label='WAZE_NATIVE', navigation_label='NAVIGATION',
+                persistent_session=True, close_action=close_waze, saved_destination_action=saved_waze_destination,
+                on_present=navigation_view.remember_waze)
             cleanup.callback(waze_app_view.close)
         elif scrcpy_enabled:
             scrcpy_player = ScrcpyWazePlayer(retain_session=True)
             waze_app_view = AndroidAppView(app, map_runtime=navigation_maps, map_platform=navigation_maps,
                 map_presentation=core.map_camera, player=scrcpy_player,
                 window_embedder=X11WindowEmbedder(), preserve_external_window=False,
-                screen_label='WAZE_NATIVE', navigation_label='WAZE',
-                persistent_session=True, close_action=close_waze, saved_destination_action=saved_waze_destination)
+                screen_label='WAZE_NATIVE', navigation_label='NAVIGATION',
+                persistent_session=True, close_action=close_waze, saved_destination_action=saved_waze_destination,
+                on_present=navigation_view.remember_waze)
             cleanup.callback(waze_app_view.close)
             waze_native_launcher = ScrcpyWazeLauncher(prepare_destination=scrcpy_player.prepare_destination,
                                                      stop_viewer=scrcpy_player.stop)
@@ -309,6 +321,7 @@ def create_orc_ui_composition(
             map_runtime=navigation_maps,
             map_platform=navigation_maps,
             waze_handler=waze,
+            on_show=navigation_view.remember_map,
             places_factory=navigation_places,
             tooltip_factory=TooltipFactory(app),
             map_request_handler=core.map_camera.request_handler,
@@ -353,9 +366,11 @@ def create_orc_ui_composition(
         host_location_session = HostLocationSession()
         cleanup.callback(host_location_session.close)
         permission = HostLocationPermission(recover=host_location_session.start)
+        cleanup.callback(permission.close)
         host_location = HostLocationSettingsController(app, settings, permission, available=permission.available)
         cleanup.callback(host_location.close)
         settings.set_host_location_request_handler(host_location)
+        host_location.restore_if_running()
         location_sharing.start()
         performance = SystemPerformanceMonitor()
         cleanup.callback(performance.close)
@@ -410,6 +425,7 @@ def create_orc_ui_composition(
             performance_status=performance_status,
             host_location=host_location,
             host_location_session=host_location_session,
+            host_location_permission=permission,
             location_sharing=location_sharing,
             startup_progress=progress,
             waze=waze,

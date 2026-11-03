@@ -17,7 +17,8 @@ class AndroidAppView(AndroidAppViewRequestHandlerIf):
     def __init__(self, app, *, map_runtime, map_platform, map_presentation=None,
                  player=None, window_embedder=None, preserve_external_window=True,
                  visibility_changed=None, screen_label='ANDROID_APP', navigation_label=None,
-                 persistent_session=False, close_action=None, saved_destination_action=None):
+                 persistent_session=False, close_action=None, saved_destination_action=None,
+                 on_present=lambda: None):
         self._app = app
         self._lock = Lock()
         self._closed = False
@@ -25,6 +26,7 @@ class AndroidAppView(AndroidAppViewRequestHandlerIf):
         self._visibility_changed = visibility_changed
         self._screen_label = screen_label
         self._saved_destination_action = saved_destination_action
+        self._on_present = on_present
         self._state = AndroidAppViewState()
         self._player = player if player is not None else WaydroidSurfacePlayer()
         self._screen = AndroidAppScreen(
@@ -49,7 +51,8 @@ class AndroidAppView(AndroidAppViewRequestHandlerIf):
                 navigation_app = package == 'com.waze'
                 state = AndroidAppViewState(app_name.strip() or 'Android app', package,
                     expanded=navigation_app, can_split=not navigation_app,
-                    can_navigate_saved_destinations=navigation_app and self._saved_destination_action is not None)
+                    can_navigate_saved_destinations=navigation_app and self._saved_destination_action is not None,
+                    navigation_mode_controls=navigation_app)
                 generation = self._generation
                 self._app.dispatch_ui(lambda: self._show(state, generation))
 
@@ -58,6 +61,7 @@ class AndroidAppView(AndroidAppViewRequestHandlerIf):
             return
         self._state = state
         self._screen.present(state)
+        self._on_present()
         self._app.navigate_to(self._screen_label)
 
     def request_toggle_android_app_expanded(self):

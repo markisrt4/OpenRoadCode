@@ -19,7 +19,8 @@ def test_existing_navigation_is_reused_without_starting_or_stopping_services():
 
 def test_user_session_starts_local_services_without_sudo_and_stops_only_owned_children():
     client = Mock()
-    client.prepare_host_location.side_effect = NavigationCommandUnavailableError('offline')
+    client.prepare_host_location.side_effect = [NavigationCommandUnavailableError('offline'),
+                                               NavigationCommandUnavailableError('starting'), None, None]
     session = HostLocationSession(client)
     session._listening = lambda port: False
     broker, navigation = Mock(), Mock()
@@ -29,6 +30,7 @@ def test_user_session_starts_local_services_without_sudo_and_stops_only_owned_ch
         session.start()
         session.start()
         assert spawn.call_count == 2
+        assert client.prepare_host_location.call_count == 4
         commands = [call.args[0] for call in spawn.call_args_list]
         assert 'sudo' not in str(commands)
         assert 'tcp://127.0.0.1:5556' in commands[0]

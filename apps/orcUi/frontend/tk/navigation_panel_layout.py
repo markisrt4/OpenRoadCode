@@ -22,13 +22,17 @@ def build_navigation_panel(panel) -> None:
     bar.grid_propagate(False)
     if panel._waze_handler is not None:
         panel._waze_button = tk.Button(
-            bar, text="Waze", command=panel._waze_handler.request_open_waze,
+            bar, text="WAZE", command=panel._waze_handler.request_open_waze,
             bg=ui.control_background, fg=ui.control_text,
             activebackground=ui.control_active, relief=tk.FLAT,
             bd=0, highlightthickness=0, font=("Sans", 9, "bold"), padx=7, pady=3,
             state=tk.NORMAL if panel.online_actions_allowed else tk.DISABLED,
         )
         panel._waze_button.pack(side=tk.RIGHT, padx=4, pady=3)
+        tk.Button(bar, text='MAP', state=tk.DISABLED,
+            bg=ui.control_active, disabledforeground='#ffffff', relief=tk.FLAT,
+            bd=0, highlightthickness=0, font=('Sans', 9, 'bold'),
+            padx=7, pady=3).pack(side=tk.RIGHT, padx=0, pady=3)
     shortcuts = tk.Frame(bar, bg=ui.surface_alt)
     shortcuts.pack(side=tk.LEFT, padx=4, pady=3)
     for label, accent, key in (

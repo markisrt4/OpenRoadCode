@@ -28,9 +28,10 @@ border-radius:4px;background:#132733;color:#e5edf3;cursor:pointer}button:disable
 pre{font:inherit;white-space:pre-wrap;line-height:1.45;margin:10px 0}
 </style>
 <body><h1>OpenRoadCode Host Location</h1>
-<p>Share this computer's location with ORC. Keep this window open while sharing;
-you can move it out of the way. Accuracy depends on your browser and host.</p>
+<p>Share this computer's location with ORC.<br>
+Close hides this popup and keeps sharing. Stop sharing ends location updates.</p>
 <button id=start>Share host location</button><button id=stop disabled>Stop sharing</button>
+<button id=close hidden title='Hide this window and keep location sharing'>Close</button>
 <pre id=status>Not sharing.</pre><script>
 const status=document.querySelector('#status'), start=document.querySelector('#start'),
       stop=document.querySelector('#stop');
@@ -39,13 +40,19 @@ function stopSharing(message='Not sharing.') {
   generation++; clearTimeout(timer); pending?.abort(); pending=null;
   start.disabled=false; stop.disabled=true; status.textContent=message;
 }
+function retry(current,message) {
+  if(current!==generation) return;
+  status.textContent=message;
+  timer=setTimeout(()=>locate(current),2000);
+}
 function locate(current) {
   if(current!==generation) return;
   navigator.geolocation.getCurrentPosition(async p=>{
     if(current!==generation) return;
-    const c=p.coords; pending=new AbortController();
+    const c=p.coords, request=new AbortController(); pending=request;
+    const timeout=setTimeout(()=>request.abort(),4000);
     try {
-      const r=await fetch('/position',{method:'POST',signal:pending.signal,
+      const r=await fetch('/position',{method:'POST',signal:request.signal,
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({latitude:c.latitude,longitude:c.longitude,
           altitude:c.altitude,accuracy:c.accuracy})});
@@ -53,8 +60,13 @@ function locate(current) {
       if(!r.ok) throw new Error(await r.text());
       status.textContent=`Sharing live host location.\nAccuracy: ${c.accuracy.toFixed(0)} m.`;
       timer=setTimeout(()=>locate(current),5000);
-    } catch(e) { if(current===generation) stopSharing(e.message); }
-  },e=>{ if(current===generation) stopSharing(e.message); },
+    } catch(e) { retry(current,'Waiting for ORC to reconnect. Retrying...'); }
+    finally { clearTimeout(timeout); if(pending===request) pending=null; }
+  },e=>{
+    if(current!==generation) return;
+    if(e.code===1) stopSharing(e.message);
+    else retry(current,'Waiting for a fresh host location. Retrying...');
+  },
     {enableHighAccuracy:true,maximumAge:1000,timeout:15000});
 }
 start.onclick=()=>{
@@ -63,6 +75,17 @@ start.onclick=()=>{
   locate(++generation);
 };
 stop.onclick=()=>stopSharing();
+const close=document.querySelector('#close');
+const controlPort=Number(new URLSearchParams(window.location.hash.slice(1)).get('window'));
+if(Number.isInteger(controlPort) && controlPort>0 && controlPort<=65535) {
+  close.hidden=false;
+  close.onclick=async()=>{
+    try {
+      const response=await fetch(`http://127.0.0.1:${controlPort}/hide`,{method:'POST'});
+      if(!response.ok) throw new Error('Window could not be hidden.');
+    } catch(e) { status.textContent='Use the window minimize control to keep sharing.'; }
+  };
+}
 window.addEventListener('pagehide',()=>stopSharing());
 </script></body>"""
 

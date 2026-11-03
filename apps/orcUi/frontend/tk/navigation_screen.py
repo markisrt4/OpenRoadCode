@@ -58,6 +58,7 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         tooltip_factory: TooltipFactoryIf | None = None,
         map_platform: MapPlatformControlIf | None = None,
         waze_handler: WazeRequestHandlerIf | None = None,
+        on_show: Callable[[], None] = lambda: None,
     ) -> None:
         super().__init__(self.SCREEN_ID)
         if not isinstance(places_factory, NavigationPlacesFactoryIf):
@@ -70,6 +71,7 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         self._host = host
         self._map_runtime = map_runtime
         self._waze_handler = waze_handler
+        self._on_show = on_show
         self._map_platform = map_platform
         self._platform_generation = 0
         self._map_request_handler = map_request_handler
@@ -107,6 +109,7 @@ class NavigationScreen(TkScreen, RadarControlsIf):
 
     def show(self) -> None:
         """Build NAVIGATION content and start its embedded map renderer."""
+        self._on_show()
         self._host.activate_screen(self)
         self._host.clear_screen_content()
         self._host.set_screen_title("NAVIGATION")

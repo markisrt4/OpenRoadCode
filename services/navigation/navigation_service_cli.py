@@ -137,7 +137,7 @@ def _build_position_source(config: NavigationServiceRuntimeConfig, *, host_locat
         )
 
     if config.gps.source == "browser":
-        return _browser_position_source()
+        return host_location_source if host_location_source is not None else _browser_position_source()
 
     if config.gps.device == "android":
         live_source = AndroidPositionSource(

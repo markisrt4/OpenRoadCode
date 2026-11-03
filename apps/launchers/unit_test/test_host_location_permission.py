@@ -12,6 +12,28 @@ from apps.launchers.host_location_permission import HostLocationPermission
 @pytest.fixture(autouse=True)
 def no_system_chromium_during_default_browser_checks(monkeypatch):
     monkeypatch.setattr('apps.launchers.host_location_permission.shutil.which', lambda _name: None)
+    monkeypatch.setattr('apps.launchers.host_location_permission.HostLocationWindowControl', Mock())
+
+
+def test_restart_reconnects_existing_helper_without_opening_or_reauthorizing_it(monkeypatch):
+    monkeypatch.setenv('DISPLAY', ':0')
+    recover = Mock()
+    with patch('apps.launchers.host_location_permission.BrowserKioskLauncher') as browser:
+        browser.return_value.is_running.return_value = True
+        permission = HostLocationPermission(recover=recover)
+        permission.restore_if_running(lambda: False)
+    recover.assert_called_once_with()
+    browser.return_value.launch.assert_not_called()
+    browser.return_value.stop.assert_not_called()
+
+
+def test_restore_does_not_start_location_when_no_helper_is_running(monkeypatch):
+    monkeypatch.setenv('DISPLAY', ':0')
+    recover = Mock()
+    with patch('apps.launchers.host_location_permission.BrowserKioskLauncher') as browser:
+        browser.return_value.is_running.return_value = False
+        HostLocationPermission(recover=recover).restore_if_running(lambda: False)
+    recover.assert_not_called()
 
 
 def test_compact_permission_window_uses_app_mode_own_profile_and_reuses_window(monkeypatch):

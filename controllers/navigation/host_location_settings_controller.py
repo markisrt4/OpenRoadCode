@@ -17,6 +17,10 @@ class HostLocationPermissionIf(Protocol):
         """Check service availability and open the host location permission window."""
         ...
 
+    def restore_if_running(self, cancelled: Callable[[], bool]) -> None:
+        """Reconnect an existing permission page without opening a new window."""
+        ...
+
 
 class HostLocationSettingsController:
     def __init__(self, dispatcher: UiDispatcherIf, ui: HostLocationUiIf,
@@ -33,6 +37,15 @@ class HostLocationSettingsController:
             self._visible = True
             self._ui.set_host_location_state(self._state)
 
+    def restore_if_running(self):
+        def work():
+            try:
+                self._permission.restore_if_running(lambda: self._closed)
+            except (OSError, RuntimeError):
+                pass  # The normal Share action remains available for recovery.
+        if self._state.can_share:
+            threading.Thread(target=work, name='host-location-restore', daemon=True).start()
+
     def hide(self) -> None:
         self._visible = False
         self._generation += 1
@@ -44,7 +57,7 @@ class HostLocationSettingsController:
         self._closed = True
 
     def share_host_location(self) -> None:
-        if not self._visible or self._closed or self._state.busy or not self._state.can_share:
+        if not self._visible or self._closed or self._state.busy or self._state.sharing or not self._state.can_share:
             return
         self._generation += 1
         generation = self._generation
@@ -68,7 +81,7 @@ class HostLocationSettingsController:
     def _complete(self, generation: int, message: str) -> None:
         if self._closed or not self._visible or generation != self._generation:
             return
-        self._state = replace(self._state, status=message, busy=False)
+        self._state = replace(self._state, status='Host location sharing is active.' if self._state.sharing else message, busy=False)
         self._ui.set_host_location_state(self._state)
 
     def update_location_status(self, location_status, android_status):
@@ -76,6 +89,16 @@ class HostLocationSettingsController:
             if self._closed:
                 return
             self._state = replace(self._state, location_status=location_status, android_status=android_status)
+            if self._visible:
+                self._ui.set_host_location_state(self._state)
+        self._dispatcher.dispatch_ui(apply)
+
+    def update_host_sharing(self, sharing: bool):
+        def apply():
+            if self._closed:
+                return
+            self._state = replace(self._state, sharing=sharing,
+                status='Host location sharing is active.' if sharing else HostLocationState().status)
             if self._visible:
                 self._ui.set_host_location_state(self._state)
         self._dispatcher.dispatch_ui(apply)

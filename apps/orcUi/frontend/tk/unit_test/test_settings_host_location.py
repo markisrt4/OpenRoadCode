@@ -39,6 +39,18 @@ def test_share_button_emits_only_the_semantic_request():
     panel._location_handler.share_host_location.assert_called_once()
 
 
+def test_share_control_hides_during_live_sharing_and_returns_when_it_expires():
+    panel = object.__new__(SettingsPanel)
+    panel._location_handler = Mock()
+    panel._location_status = Mock()
+    panel._location_button = Mock()
+    panel.set_host_location_state(HostLocationState(sharing=True))
+    panel._location_button.grid_remove.assert_called_once_with()
+    panel._location_button.grid.assert_not_called()
+    panel.set_host_location_state(HostLocationState(sharing=False))
+    panel._location_button.grid.assert_called_once_with()
+
+
 def test_repeated_resize_events_do_not_reconfigure_the_same_geometry():
     label = Mock()
     label.cget.return_value = 200

@@ -14,6 +14,7 @@ class HostLocationState:
     can_share: bool = True
     location_status: str = 'Waiting for a live location.'
     android_status: str = ''
+    sharing: bool = False
 
 
 class HostLocationUiIf(Protocol):

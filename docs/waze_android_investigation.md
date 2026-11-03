@@ -2,10 +2,11 @@
 
 ## Current integration: native Waze only
 
-The left rail places **NAV** and **WAZE** side by side in one tile, with one
-shared navigation icon, independent tap targets and active indicators.
-When Waze is disabled, Navigation remains a full
-tile. The native Waze toolbar also has **Home** and **Work** buttons. They read
+The left rail has one full **NAV** tile. The navigation top bar provides a
+**Map / Waze** switch; the NAV tile restores whichever view was last presented.
+Failed Waze launches do not replace the remembered Map view. When Waze is
+disabled, Navigation remains a normal Map destination. The native Waze toolbar
+also has **Home** and **Work** buttons. They read
 the same saved destinations as Navigation, refresh edits on each click, and send
 the coordinates to Waze without changing an active ORC route. Missing locations
 report that the shortcut must be configured in Navigation.
@@ -24,6 +25,38 @@ The Android session/ADB connection must already be running. Explicit
 `ORC_WAYDROID_PANEL=0` or `ORC_SCRCPY_WAZE=0` disables its respective integration;
 this produces an unavailable message, not a web fallback. Existing commands with
 either flag set to `1` remain valid.
+
+### Command-line ADB authorization on the local VM
+
+If setup reports `adb: device unauthorized`, the running Android image has not
+trusted this desktop user's ADB key. Android UI access is not required: with
+Waydroid running, explicitly append this VM's **public** key through its root
+shell. The private key stays on the VM. Do not disable ADB authentication.
+
+```bash
+git switch feature/waze-live-map
+sudo -v
+adb start-server
+cat "$HOME/.android/adbkey.pub" | sudo waydroid shell -- tee -a /data/misc/adb/adb_keys >/dev/null
+sudo waydroid shell -- chown system:shell /data/misc/adb/adb_keys
+sudo waydroid shell -- chmod 0640 /data/misc/adb/adb_keys
+sudo waydroid shell -- restorecon /data/misc/adb/adb_keys
+sudo waydroid shell -- setprop ctl.restart adbd
+waydroid adb connect
+python3 -m scripts.setup_waydroid_location enable
+python3 -m scripts.setup_waydroid_location status
+```
+
+This authorizes the VM for ADB access to its local Waydroid instance. Normal GPS
+updates still run without sudo. Restart ORC after enabling the configuration.
+If the status report shows Waze's location permissions denied, its declared
+permissions can also be granted through the root shell:
+
+```bash
+git switch feature/waze-live-map
+sudo waydroid shell -- pm grant com.waze android.permission.ACCESS_COARSE_LOCATION
+sudo waydroid shell -- pm grant com.waze android.permission.ACCESS_FINE_LOCATION
+```
 
 ### Native current location
 
@@ -50,20 +83,41 @@ In ORC Settings, share the host location, allow the browser permission and keep
 that host-location page open. Confirm **Live location** before opening Waze;
 cached/expired positions are not forwarded. The permission page is ORC's host
 location source, not the Waze website. With Waze active, Settings should report
-**Sharing live location with Android**. Resume Waze through its sidebar entry
+**Sharing live location with Android**. Resume Waze through the NAV entry
 after changing Android app permissions. Mock-location acceptance and navigation
 still need device verification.
 
 On an X11 desktop with Chrome/Chromium installed, **Share host location** opens
 a dedicated app-style window sized to 480×330, using its own persistent
 `host-location` profile. The window retains normal move/close controls and can
-be moved out of the way while sharing. Repeated requests reuse it; closing the
-window stops that page's feed. Its timers are not throttled just because ORC is
+be moved out of the way while sharing. Its **Close** button minimizes the helper
+without closing its browser page, so GPS continues. **Stop sharing** ends the
+feed; the operating system's title-bar X also ends it by actually closing the
+browser. Repeated requests reuse the helper. Its timers are not throttled just because ORC is
 in front. Browser permission must be allowed in this dedicated profile the
 first time. The page uses compact ORC colors and controls. If no supported
 Chrome/Chromium executable is available, the default-browser path remains for
 Firefox and other hosts; that browser controls its window size. No browser
 dependency is installed automatically.
+
+The Settings **Share host location** button hides while fresh browser fixes are
+arriving and returns if that feed expires. An already-running helper reconnects
+to navigation when ORC restarts, without opening the popup or asking permission
+again. The page retries transient HTTP failures and obtains a new fix after
+reconnection; it does not replay cached coordinates as live GPS. This requires
+the helper browser process to remain running. After an OS restart or actually
+closing the browser, start sharing again. Consent remains in its persistent
+profile subject to the browser's own permission policy.
+
+The custom Close control uses a loopback window-control listener on port 8767.
+Only POST requests from the local permission-page origin are accepted. It can
+only hide this dedicated helper window; it cannot inject locations or change
+Android permissions. The listener stops with ORC, while the helper page may
+remain running to reconnect on the next launch.
+
+When updating from an older helper version, close its old browser window once
+using its title-bar X before restarting ORC, then share again to load the new
+Close control and reconnection behavior.
 
 If GPS does not reach Waze, collect the permission/connection status as your
 normal desktop user while Waydroid is running:
@@ -94,10 +148,10 @@ LOGGING_TMP_DIR=/tmp/orc-waze-validation venv/bin/python -m pytest -q apps/orcUi
 
 ## Multitasking: return to Waze without resetting navigation
 
-An enabled Waze integration now adds a persistent **Waze** sidebar destination.
+An enabled Waze integration provides a **Map / Waze** navigation switch.
 Leaving Waze for Settings, Radio, the ORC map or another screen hides/detaches
-its surface rather than closing the session. Choose **Waze** in the sidebar to
-return. The separate Waze panel no longer shares its presentation state with
+its surface rather than closing the session. Choose **NAV** to restore the last
+navigation view, or use the top-bar switch. The separate Waze panel does not share its presentation state with
 Panera or other POI apps. Native Android brings the existing Waze activity back
 to the foreground without resending a destination. The Termux viewer reuses its
 owned scrcpy process and virtual display. An externally killed process may still require

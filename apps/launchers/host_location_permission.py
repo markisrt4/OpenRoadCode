@@ -13,6 +13,7 @@ from urllib.error import URLError
 from urllib.request import ProxyHandler, build_opener
 from apps.launchers.host_location_session import HostLocationSessionError
 from apps.launchers.browser_launcher import BrowserKioskLauncher
+from apps.launchers.host_location_window_control import HostLocationWindowControl
 from common.xdg_paths import openroadcode_data_dir
 
 
@@ -31,23 +32,60 @@ class HostLocationPermission:
         self._recover = recover
         self._browser = None
         self._browser_lock = Lock()
+        self._window_control = None
+        self._closed = False
+
+    def _ensure_window_control(self):
+        if self._window_control is None:
+            origins = {self.url.rstrip('/'), self.url.replace('127.0.0.1', 'localhost').rstrip('/')}
+            self._window_control = HostLocationWindowControl(origins=origins,
+                hide=lambda: self._browser.hide(os.environ['DISPLAY']) if self._browser is not None else False)
+
+    def _make_browser(self):
+        if self._browser is None:
+            self._browser = BrowserKioskLauncher(
+                url=self.url + '#window=8767', browser_candidates=('google-chrome', 'chromium', 'chromium-browser'),
+                kiosk=False, app_mode=True,
+                process_pattern=r'(^|[[:space:]])--class=openroadcode-host-location([[:space:]]|$)',
+                profile_path=openroadcode_data_dir('browser_profiles', 'host-location'),
+                window_class='openroadcode-host-location', window_size=(480, 330),
+                extra_arguments=('--disable-background-timer-throttling', '--disable-renderer-backgrounding',
+                                 '--disable-background-mode'))
+
+    def restore_if_running(self, cancelled):
+        """Reconnect an already-authorized, still-running page without showing it."""
+        if not os.environ.get('DISPLAY') or cancelled():
+            return
+        with self._browser_lock:
+            if self._closed or cancelled():
+                return
+            self._make_browser()
+            if not self._browser.is_running():
+                return
+            self._ensure_window_control()
+            if self._recover is not None and not cancelled():
+                self._recover()
+
+    def close(self):
+        self._closed = True
+        def release():
+            with self._browser_lock:
+                if self._window_control is not None:
+                    self._window_control.close()
+                    self._window_control = None
+        from threading import Thread
+        Thread(target=release, name='host-location-window-cleanup', daemon=True).start()
 
     def _open_browser(self, cancelled):
         with self._browser_lock:
-            if not cancelled():
+            if not cancelled() and not self._closed:
                 self._open_browser_once()
 
     def _open_browser_once(self):
         candidates = ('google-chrome', 'chromium', 'chromium-browser')
         if os.environ.get('DISPLAY') and any(shutil.which(name) for name in candidates):
-            if self._browser is None:
-                self._browser = BrowserKioskLauncher(
-                    url=self.url, browser_candidates=candidates, kiosk=False, app_mode=True,
-                    process_pattern=r'(^|[[:space:]])--class=openroadcode-host-location([[:space:]]|$)',
-                    profile_path=openroadcode_data_dir('browser_profiles', 'host-location'),
-                    window_class='openroadcode-host-location', window_size=(480, 330),
-                    extra_arguments=(
-                        '--disable-background-timer-throttling', '--disable-renderer-backgrounding'))
+            self._make_browser()
+            self._ensure_window_control()
             self._browser.launch(os.environ['DISPLAY'])
             return
         if not webbrowser.open(self.url, new=2):

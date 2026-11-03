@@ -32,7 +32,7 @@ def test_waze_hide_return_and_close_have_separate_lifetimes():
     screen._embedder = Mock(window_id=None)
     try:
         screen.present(AndroidAppViewState('Waze', 'com.waze', expanded=True, can_split=False,
-                                           can_navigate_saved_destinations=True))
+                                           can_navigate_saved_destinations=True, navigation_mode_controls=True))
         screen.show()
         root.update()
         screen._launch_and_embed()
@@ -44,6 +44,9 @@ def test_waze_hide_return_and_close_have_separate_lifetimes():
         player.stop.assert_not_called()
         assert screen._close_button.winfo_ismapped()
         assert screen._close_button.cget('text') == 'CLOSE WAZE'
+        assert screen._back_button.cget('text') == 'MAP'
+        assert screen._waze_mode_button.cget('text') == 'WAZE'
+        assert screen._back_button.winfo_ismapped() and screen._waze_mode_button.winfo_ismapped()
         assert [button.cget('text') for button in screen._destination_buttons] == ['⌂ HOME', '▣ WORK']
         for button in screen._destination_buttons:
             assert button.winfo_ismapped()

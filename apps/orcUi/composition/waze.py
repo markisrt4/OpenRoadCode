@@ -100,6 +100,7 @@ def configure_waze(app: OrcUiApp, runtime: OrcUiApplicationRuntime, *,
         cleanup.callback(unsubscribe)
         composition = WazeComposition(unsubscribe, native, app.set_screen_status,
                                       session_closed=lambda: app.navigate_to('NAVIGATION'))
-        app.register_screen('WAZE', RequestScreen('waze-entry', composition.request_open_waze), before='RADIO')
+        app.register_screen('WAZE', RequestScreen('waze-entry', composition.request_open_waze),
+                            show_in_navigation=False, navigation_label='NAVIGATION')
         cleanup.release()
         return composition

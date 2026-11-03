@@ -18,7 +18,7 @@ def test_waze_button_is_on_right_of_top_bar_and_emits_request():
     with patch('apps.orcUi.frontend.tk.navigation_panel_layout.tk') as tk:
         tk.Button.side_effect = button
         build_navigation_panel(panel)
-        widget, args, kwargs = next(item for item in buttons if item[2].get('text') == 'Waze')
+        widget, args, kwargs = next(item for item in buttons if item[2].get('text') == 'WAZE')
         widget.pack.assert_called_once_with(side=tk.RIGHT, padx=4, pady=3)
         assert args[0] is panel._build_radar_controls.call_args.args[0]
         kwargs['command']()
@@ -31,7 +31,7 @@ def test_no_waze_control_when_configuration_disabled():
     panel._waze_handler = None
     with patch('apps.orcUi.frontend.tk.navigation_panel_layout.tk') as tk:
         build_navigation_panel(panel)
-    assert not any(call.kwargs.get('text') == 'Waze' for call in tk.Button.call_args_list)
+    assert not any(call.kwargs.get('text') == 'WAZE' for call in tk.Button.call_args_list)
 
 
 def test_online_change_updates_waze_button():

@@ -36,6 +36,7 @@ class AndroidAppScreen(BrowserMediaScreen):
         self._back_button = None
         self._close_button = None
         self._destination_buttons = []
+        self._waze_mode_button = None
         self._surface_resize_job = None
         self._surface_generation = 0
         # App-first Waydroid presentation requests immersive status mode itself.
@@ -104,11 +105,19 @@ class AndroidAppScreen(BrowserMediaScreen):
         toolbar = tk.Frame(root, bg=self._background())
         self._toolbar = toolbar
         toolbar.grid(row=0, column=0, columnspan=2, sticky='ew')
-        self._back_button = tk.Button(toolbar, text='‹ BACK TO MAP', command=self._back_action, **self._button_style())
+        self._back_button = tk.Button(toolbar, text='MAP' if self._state.navigation_mode_controls else '‹ BACK TO MAP',
+                                     command=self._back_action, **self._button_style())
         self._back_button.pack(side=tk.LEFT, padx=4, pady=4)
+        if self._state.navigation_mode_controls:
+            style = self._button_style()
+            style['bg'] = self._theme_provider().ui.control_active if self._theme_provider is not None else '#20313e'
+            self._waze_mode_button = tk.Button(toolbar, text='WAZE', state=tk.DISABLED,
+                                               disabledforeground='#ffffff', **style)
+            self._waze_mode_button.pack(side=tk.LEFT, padx=0, pady=4)
         foreground = self._theme_provider().ui.text if self._theme_provider is not None else 'white'
         self._name_label = tk.Label(toolbar, text=self._state.app_name, bg=self._background(), fg=foreground)
-        self._name_label.pack(side=tk.LEFT, padx=8)
+        if not self._state.navigation_mode_controls:
+            self._name_label.pack(side=tk.LEFT, padx=8)
         if self._state.can_navigate_saved_destinations:
             for key, label in (('home', '⌂ HOME'), ('work', '▣ WORK')):
                 button = tk.Button(toolbar, text=label,
@@ -211,6 +220,7 @@ class AndroidAppScreen(BrowserMediaScreen):
         self._back_button = None
         self._close_button = None
         self._destination_buttons = []
+        self._waze_mode_button = None
 
     def set_theme_mode(self, mode):
         super().set_theme_mode(mode)
@@ -225,3 +235,7 @@ class AndroidAppScreen(BrowserMediaScreen):
                     button.configure(**self._button_style())
             for key, button in zip(('home', 'work'), self._destination_buttons):
                 button.configure(**self._destination_button_style(key))
+            if self._waze_mode_button is not None:
+                style = self._button_style()
+                style['bg'] = self._theme_provider().ui.control_active
+                self._waze_mode_button.configure(**style)

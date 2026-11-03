@@ -8,6 +8,19 @@ from ui.navigation import GeoPoint
 from ui.navigation.location_sharing_if import LocationSnapshot
 
 
+def test_host_sharing_state_tracks_fresh_browser_fixes_and_expiry():
+    changed = Mock()
+    now = [100]
+    controller = LocationSharingController(None, status=Mock(), clock=lambda: now[0], sharing_changed=changed)
+    controller.update_snapshot(LocationSnapshot(GeoPoint(.7, -1.4), 99, source='browser'))
+    controller._tick()
+    controller._tick()
+    changed.assert_called_once_with(True)
+    now[0] = 120
+    controller._tick()
+    assert [call.args[0] for call in changed.call_args_list] == [True, False]
+
+
 def test_retained_navigation_keeps_fresh_gps_when_the_panel_is_hidden_until_explicit_close():
     provider = Mock()
     controller = LocationSharingController(provider, status=Mock(), clock=lambda: 100)

@@ -6,6 +6,7 @@ from pathlib import Path
 import socket
 import subprocess
 import sys
+import time
 from threading import Event, Lock, Thread
 
 from services.navigation.navigation_command_client import (
@@ -49,9 +50,13 @@ class HostLocationSession:
             if self._listening(5560):
                 raise HostLocationSessionError('Navigation is busy. Please try location sharing again in a moment.')
         with self._lock:
-            if self._closed.is_set() or any(module == 'services.navigation.navigation_service_cli'
-                                           and process.poll() is None for module, process in self._owned):
-                return
+            owned_running = any(module == 'services.navigation.navigation_service_cli'
+                                and process.poll() is None for module, process in self._owned)
+        if self._closed.is_set():
+            return
+        if owned_running:
+            self._prepare_owned_navigation()
+            return
         if not self._listening(5556):
             if self._listening(5557):
                 raise HostLocationSessionError('The location messaging service is unavailable. Restart ORC and retry.')
@@ -62,6 +67,21 @@ class HostLocationSession:
                 self._spawn('messaging.zeromq.broker_cli', '--publisher-endpoint', 'tcp://127.0.0.1:5556',
                             '--subscriber-endpoint', 'tcp://127.0.0.1:5557')
         self._spawn('services.navigation.navigation_service_cli', '--profile', 'local')
+        self._prepare_owned_navigation()
+
+    def _prepare_owned_navigation(self):
+        """Wait for startup, then explicitly activate the permission-page source."""
+        deadline = time.monotonic() + 5
+        while not self._closed.is_set():
+            try:
+                self._client.prepare_host_location()
+                return
+            except NavigationCommandUnavailableError as error:
+                if time.monotonic() >= deadline:
+                    raise HostLocationSessionError('Location sharing is still starting. Please retry in a moment.') from error
+                self._closed.wait(.15)
+            except NavigationCommandError as error:
+                raise HostLocationSessionError('Navigation could not prepare location sharing. Check diagnostics and retry.') from error
 
     def _spawn(self, module, *arguments):
         if self._closed.is_set():

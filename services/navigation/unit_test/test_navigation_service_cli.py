@@ -129,6 +129,8 @@ def test_browser_only_source_is_accepted_by_configuration_and_composition(tmp_pa
     config = ServiceRuntimeConfigParser(configuration).load().navigation
     assert config.gps.source == 'browser'
     assert isinstance(navigation_service_cli._build_position_source(config), BrowserPositionSource)
+    shared = BrowserPositionSource(port=0)
+    assert navigation_service_cli._build_position_source(config, host_location_source=shared) is shared
 
 
 def test_build_controller_supports_device_imu_with_simulated_gps(monkeypatch) -> None:

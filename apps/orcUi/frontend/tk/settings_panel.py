@@ -218,6 +218,10 @@ class SettingsPanel(tk.Frame, UiWidget):
         self._location_status.set('\n'.join(filter(None, (state.location_status, state.android_status, state.status))))
         self._location_button.configure(state=tk.DISABLED if state.busy or not state.can_share
                                         or self._location_handler is None else tk.NORMAL)
+        if state.sharing:
+            self._location_button.grid_remove()
+        else:
+            self._location_button.grid()
 
     @property
     def vehicle_configuration(self) -> VehicleConfiguration:

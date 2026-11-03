@@ -162,6 +162,18 @@ class OrcUiApp(VolumeUiIf, UiWidget):
                 self._nav_items.append(nav_label)
         self._rebuild_side_nav()
 
+    def register_navigation_action(self, label: str, action: Callable[[], None]) -> None:
+        if not hasattr(self, '_navigation_actions'):
+            self._navigation_actions = {}
+        self._navigation_actions[label.strip().upper()] = action
+
+    def _navigate_from_sidebar(self, label: str) -> None:
+        action = getattr(self, '_navigation_actions', {}).get(label)
+        if action is not None:
+            action()
+        else:
+            self.navigate_to(label)
+
     def register_screen(self, label: str, screen: ScreenUiIf, *, before: str | None = None, show_in_navigation: bool = True, navigation_label: str | None = None) -> None:
         nav_label = label.strip().upper()
         if not nav_label:
@@ -326,7 +338,7 @@ class OrcUiApp(VolumeUiIf, UiWidget):
             theme_mode=self._theme_mode,
             nav_items=self._nav_items,
             active_nav=self._active_nav,
-            on_navigate=self.navigate_to,
+            on_navigate=self._navigate_from_sidebar,
             on_power=self._power_dialog.show,
             on_online_toggle=self._toggle_online_mode,
             on_theme_toggle=self._toggle_theme,

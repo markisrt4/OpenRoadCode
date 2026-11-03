@@ -10,7 +10,7 @@ from ui.navigation.location_sharing_if import AndroidLocationProviderIf, Locatio
 
 class LocationSharingController:
     def __init__(self, provider: AndroidLocationProviderIf | None, *, status, clock=time.time,
-                 android_requested=False):
+                 android_requested=False, sharing_changed=lambda _sharing: None):
         self._provider, self._status, self._clock = provider, status, clock
         self._snapshot = LocationSnapshot()
         self._active = False
@@ -21,6 +21,8 @@ class LocationSharingController:
         self._thread = None
         self._last_status = None
         self._android_requested = android_requested
+        self._sharing_changed = sharing_changed
+        self._last_sharing = False
 
     def start(self):
         if self._thread is None:
@@ -66,6 +68,10 @@ class LocationSharingController:
                  and math.isfinite(age) and -5 <= age <= 10
                  and math.isfinite(point.latitude_rad) and abs(point.latitude_rad) <= math.pi / 2
                  and math.isfinite(point.longitude_rad) and abs(point.longitude_rad) <= math.pi)
+        sharing = fresh and snapshot.source == 'browser'
+        if sharing != self._last_sharing and not self._stop.is_set():
+            self._last_sharing = sharing
+            self._sharing_changed(sharing)
         if snapshot.is_cached:
             location_status = 'Last known location (cached) — waiting for a live fix.'
         elif simulated:

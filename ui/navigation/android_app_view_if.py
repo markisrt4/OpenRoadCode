@@ -13,6 +13,7 @@ class AndroidAppViewState:
     expanded: bool = False
     can_split: bool = True
     can_navigate_saved_destinations: bool = False
+    navigation_mode_controls: bool = False
 
 
 class AndroidAppViewRequestHandlerIf(Protocol):
