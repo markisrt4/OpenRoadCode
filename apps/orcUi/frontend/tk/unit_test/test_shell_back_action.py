@@ -7,6 +7,21 @@ from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.shell_view import OrcUiShellView
 
 
+def test_native_and_browser_waze_views_select_the_persistent_waze_sidebar_entry():
+    app = OrcUiApp.__new__(OrcUiApp)
+    app._screen_registry = {}
+    app._shell = Mock()
+    app.register_navigation_destination = Mock()
+    native, browser = Mock(), Mock()
+    app.register_screen('WAZE_NATIVE', native, show_in_navigation=False, navigation_label='WAZE')
+    app.register_screen('WAZE_BROWSER', browser, show_in_navigation=False, navigation_label='WAZE')
+    for label, screen in [('WAZE_NATIVE', native), ('WAZE_BROWSER', browser)]:
+        assert app._screen_registry[label] is screen
+        app._active_nav = label
+        app._paint_nav()
+        app._shell.set_active_navigation.assert_called_with('WAZE')
+
+
 def test_shell_back_control_runs_replacement_and_hides_when_cleared():
     shell = OrcUiShellView.__new__(OrcUiShellView)
     shell._back_button = Mock()

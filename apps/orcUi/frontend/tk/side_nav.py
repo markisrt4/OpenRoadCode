@@ -149,7 +149,7 @@ class _NavTile(tk.Canvas, UiWidget):
 
     def _draw_icon(self, name: str, x: float, y: float, color: str) -> None:
         if name == "HOME": self._draw_home(x, y, color)
-        elif name == "NAVIGATION": self._draw_navigation(x, y, color)
+        elif name in ("NAVIGATION", "WAZE"): self._draw_navigation(x, y, color)
         elif name == "RADIO": self._draw_radio(x, y, color)
         elif name == "VEHICLE": self._draw_vehicle(x, y, color)
         elif name == "LIGHTING": self._draw_light(x, y, color)

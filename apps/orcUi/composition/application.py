@@ -85,6 +85,7 @@ class OrcUiComposition:
     startup_progress: Callable[[str, str], None] | None = None
     waze: WazeComposition | None = None
     android_app_view: AndroidAppView | None = None
+    waze_app_view: AndroidAppView | None = None
 
     _closed: bool = field(default=False, init=False)
 
@@ -116,7 +117,7 @@ class OrcUiComposition:
         close_resources(
             self.app.shutdown,
             *(resource.close for resource in (
-                self.android_app_view, self.waze, self.host_location, self.location_sharing, self.host_location_session, self.performance_status, self.performance, self.vision, self.navigation,
+                self.android_app_view, self.waze_app_view, self.waze, self.host_location, self.location_sharing, self.host_location_session, self.performance_status, self.performance, self.vision, self.navigation,
                 self.navigation_places, self.radar_replay, self.weather_overlays,
             ) if resource is not None),
             self.radio.close,
@@ -254,19 +255,27 @@ def create_orc_ui_composition(
         android_app_view = None
         waze_app_view = None
         waze_native_launcher = None
+        waze = None
+        close_waze = lambda: waze.request_close_waze() if waze is not None else None
         if waydroid_enabled:
             android_app_view = AndroidAppView(app, map_runtime=navigation_maps, map_platform=navigation_maps,
                                               map_presentation=core.map_camera,
                                               visibility_changed=location_sharing.set_active)
             cleanup.callback(android_app_view.close)
-            waze_app_view = android_app_view
+            waze_app_view = AndroidAppView(app, map_runtime=navigation_maps, map_platform=navigation_maps,
+                map_presentation=core.map_camera, screen_label='WAZE_NATIVE', navigation_label='WAZE',
+                persistent_session=True, close_action=close_waze)
+            cleanup.callback(waze_app_view.close)
         elif os.environ.get('ORC_SCRCPY_WAZE') == '1' and os.path.exists('/system/bin/am'):
-            scrcpy_player = ScrcpyWazePlayer()
+            scrcpy_player = ScrcpyWazePlayer(retain_session=True)
             waze_app_view = AndroidAppView(app, map_runtime=navigation_maps, map_platform=navigation_maps,
                 map_presentation=core.map_camera, player=scrcpy_player,
-                window_embedder=X11WindowEmbedder(), preserve_external_window=False)
+                window_embedder=X11WindowEmbedder(), preserve_external_window=False,
+                screen_label='WAZE_NATIVE', navigation_label='WAZE',
+                persistent_session=True, close_action=close_waze)
             cleanup.callback(waze_app_view.close)
-            waze_native_launcher = ScrcpyWazeLauncher(prepare_destination=scrcpy_player.prepare_destination)
+            waze_native_launcher = ScrcpyWazeLauncher(prepare_destination=scrcpy_player.prepare_destination,
+                                                     stop_viewer=scrcpy_player.stop)
         navigation_places = NavigationPlacesFactory(
             online_allowed=lambda: app.online_mode.online,
             camera_observer=core.map_camera.request_handler.observe_camera,
@@ -274,7 +283,8 @@ def create_orc_ui_composition(
             android_app_view=android_app_view)
         cleanup.callback(navigation_places.close)
         waze = configure_waze(app, runtime, android_app_view=waze_app_view,
-                              native_launcher=waze_native_launcher)
+                              native_launcher=waze_native_launcher,
+                              session_changed=lambda state: location_sharing.set_navigation_active(state.active))
         if waze is not None:
             cleanup.callback(waze.close)
             core.map_camera.observe_position(waze.update_position)
@@ -390,6 +400,7 @@ def create_orc_ui_composition(
             startup_progress=progress,
             waze=waze,
             android_app_view=android_app_view,
+            waze_app_view=waze_app_view,
         )
         cleanup.release()
         return composition

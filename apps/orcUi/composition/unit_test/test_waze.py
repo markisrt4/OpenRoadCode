@@ -12,6 +12,34 @@ from frontends.tk.media.browser_media_screen import BrowserMediaScreen
 from ui.navigation import GeoPoint
 
 
+def test_sidebar_request_opens_waze_and_browser_hide_retains_session_until_explicit_close():
+    app = Mock()
+    runtime = SimpleNamespace(waze_url='https://www.waze.com/live-map', manager=Mock())
+    with patch('apps.orcUi.composition.waze.BrowserMediaScreen') as screen:
+        composition = configure_waze(app, runtime)
+        assert screen.call_args.kwargs['keep_player_on_hide'] is True
+        entry = app.register_screen.call_args.args[1]
+        entry.show()
+        app.navigate_to.assert_called_once_with('WAZE_BROWSER')
+        composition.request_close_waze()
+        screen.return_value.close_session.assert_called_once_with()
+        app.navigate_to.assert_called_with('NAVIGATION')
+
+
+def test_hidden_retained_surface_unmaps_but_does_not_stop_player_until_close():
+    host, player, embedder = Mock(), Mock(), Mock(window_id=12)
+    embedder.root_window_id.return_value = 42
+    screen = BrowserMediaScreen('waze', host, title='Waze', player=player,
+        default_target='android', window_class='Weston Compositor', back_action=Mock(),
+        keep_player_on_hide=True, window_embedder=embedder)
+    screen.hide()
+    embedder.detach.assert_called_once_with(42)
+    player.stop.assert_not_called()
+    embedder.window_id = None
+    screen.close_session()
+    player.stop.assert_called_once_with()
+
+
 def test_destination_uses_native_controller_and_close_suppresses_requests():
     native, screen = Mock(), Mock()
     composition = WazeComposition(screen, Mock(), native=native)
@@ -59,7 +87,7 @@ def test_panel_opt_in_wires_native_controller_and_cancels_on_offline_and_close()
         composition.request_open_waze()
         native.return_value.request_open_waze.assert_called_once_with()
         native.call_args.kwargs['fallback']()
-        app.navigate_to.assert_called_once_with('WAZE')
+        app.navigate_to.assert_called_once_with('WAZE_BROWSER')
         app.online_mode.subscribe.call_args.args[0](False)
         native.return_value.cancel.assert_called_once_with()
         composition.close()
@@ -84,18 +112,20 @@ def test_waze_registration_offline_shutdown_and_back():
         composition = configure_waze(app, runtime)
         screen = screen_type.return_value
         assert screen_type.call_args.kwargs['back_label'] == '‹ BACK TO MAP'
-        app.register_screen.assert_called_once_with('WAZE', screen, show_in_navigation=False)
+        app.register_screen.assert_any_call('WAZE_BROWSER', screen, show_in_navigation=False, navigation_label='WAZE')
+        assert app.register_screen.call_args.args[0] == 'WAZE'
+        assert app.register_screen.call_args.kwargs == {'before': 'RADIO'}
         screen_type.call_args.kwargs['back_action']()
         app.navigate_to.assert_called_once_with('NAVIGATION')
         on_mode = app.online_mode.subscribe.call_args.args[0]
         on_mode(True)
         screen.hide.assert_not_called()
         on_mode(False)
-        screen.hide.assert_called_once()
+        screen.close_session.assert_not_called()
         composition.close()
         composition.close()
         app.online_mode.subscribe.return_value.assert_called_once_with()
-        assert screen.hide.call_count == 2
+        screen.close_session.assert_called_once()
 
 
 def test_registration_failure_cleans_subscription_and_screen():
@@ -106,7 +136,7 @@ def test_registration_failure_cleans_subscription_and_screen():
         with pytest.raises(RuntimeError, match='registration failed'):
             configure_waze(app, runtime)
         app.online_mode.subscribe.return_value.assert_called_once_with()
-        screen_type.return_value.hide.assert_called_once()
+        screen_type.return_value.close_session.assert_called_once()
 
 
 def test_close_still_hides_when_unsubscribe_fails():
@@ -115,7 +145,7 @@ def test_close_still_hides_when_unsubscribe_fails():
     with pytest.raises(RuntimeError, match='unsubscribe failed'):
         composition.close()
     composition.close()
-    screen.hide.assert_called_once()
+    screen.close_session.assert_called_once()
 
 
 def test_hidden_browser_cancels_pending_launch_and_ignores_late_callback():
@@ -170,10 +200,10 @@ def test_open_request_checks_online_mode_and_ignores_requests_after_close():
         app.navigate_to.assert_not_called()
         app.online_mode.online = True
         composition.request_open_waze()
-        app.navigate_to.assert_called_once_with('WAZE')
+        app.navigate_to.assert_called_once_with('WAZE_BROWSER')
         composition.close()
         composition.request_open_waze()
-        app.navigate_to.assert_called_once_with('WAZE')
+        app.navigate_to.assert_called_once_with('WAZE_BROWSER')
 
 
 def test_cancelled_browser_launch_does_not_attempt_embedding():

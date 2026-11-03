@@ -9,6 +9,12 @@ class InstalledWaydroidAppLauncher(InstalledAndroidAppLauncherIf):
     def __init__(self, waydroid=None):
         self._waydroid = waydroid if waydroid is not None else WaydroidLauncher()
 
+    def resume_installed_app(self, package):
+        self._waydroid.launch_app(package)
+
+    def stop_installed_app(self, package):
+        self._waydroid.stop_app(package)
+
     def launch_installed_app(self, package, *, uri=None):
         try:
             app = next((app for app in self._waydroid.list_apps() if app.package == package), None)

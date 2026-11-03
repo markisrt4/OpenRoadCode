@@ -7,8 +7,22 @@ from ui.navigation.installed_android_app_if import InstalledAndroidAppLauncherIf
 
 
 class ScrcpyWazeLauncher(InstalledAndroidAppLauncherIf):
-    def __init__(self, *, prepare_destination=None):
+    def __init__(self, *, prepare_destination=None, stop_viewer=lambda: None):
         self._prepare_destination = prepare_destination
+        self._stop_viewer = stop_viewer
+
+    def resume_installed_app(self, package):
+        """The retained viewer owns the existing Android virtual display."""
+
+    def stop_installed_app(self, package):
+        try:
+            result = subprocess.run(['adb', 'shell', 'am', 'force-stop', package],
+                                    capture_output=True, text=True, timeout=5, check=True)
+            if 'Exception' in result.stdout + result.stderr or 'Error:' in result.stdout + result.stderr:
+                raise RuntimeError('Android refused to close Waze')
+        except (OSError, subprocess.SubprocessError) as error:
+            raise RuntimeError('Could not close Waze on the selected Android device') from error
+        self._stop_viewer()
 
     def launch_installed_app(self, package, *, uri=None):
         if package != 'com.waze':

@@ -2,7 +2,15 @@
 # SPDX-License-Identifier: MIT
 """Semantic request to open Waze using the configured native or browser view."""
 from typing import Protocol
+from dataclasses import dataclass
 from ui.navigation import GeoPoint
+
+
+@dataclass(frozen=True)
+class WazeSessionState:
+    active: bool = False
+    closing: bool = False
+    launching: bool = False
 
 
 class WazeRequestHandlerIf(Protocol):
@@ -12,4 +20,8 @@ class WazeRequestHandlerIf(Protocol):
 
     def request_navigate_waze(self, destination: GeoPoint) -> None:
         """Hand an SI destination to native Waze without changing the ORC route."""
+        ...
+
+    def request_close_waze(self) -> None:
+        """Explicitly stop the Waze session; ordinary navigation only hides it."""
         ...

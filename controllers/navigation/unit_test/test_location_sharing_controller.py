@@ -8,6 +8,21 @@ from ui.navigation import GeoPoint
 from ui.navigation.location_sharing_if import LocationSnapshot
 
 
+def test_retained_navigation_keeps_fresh_gps_when_the_panel_is_hidden_until_explicit_close():
+    provider = Mock()
+    controller = LocationSharingController(provider, status=Mock(), clock=lambda: 100)
+    point = GeoPoint(.7, -1.4)
+    controller.update_snapshot(LocationSnapshot(point, 99, 25, 'browser'))
+    controller.set_navigation_active(True)
+    controller.set_active(False)
+    controller._tick()
+    provider.send_location.assert_called_once_with(point, 25)
+    provider.clear_location.assert_not_called()
+    controller.set_navigation_active(False)
+    controller._tick()
+    provider.clear_location.assert_called_once_with()
+
+
 def test_only_fresh_visible_location_is_forwarded_and_hide_removes_provider():
     provider, status = Mock(), Mock()
     controller = LocationSharingController(provider, status=status, clock=lambda: 100)

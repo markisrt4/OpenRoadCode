@@ -1,5 +1,52 @@
 # Native Waze investigation: Termux and Raspberry Pi 5
 
+## Multitasking: return to Waze without resetting navigation
+
+An enabled Waze integration now adds a persistent **Waze** sidebar destination.
+Leaving Waze for Settings, Radio, the ORC map or another screen hides/detaches
+its surface rather than closing the session. Choose **Waze** in the sidebar to
+return. The separate Waze panel no longer shares its presentation state with
+Panera or other POI apps. Native Android brings the existing Waze activity back
+to the foreground without resending a destination. The Termux viewer reuses its
+owned scrcpy process and virtual display, and the web fallback retains its
+browser page and GPS worker. An externally killed process may still require
+recovery; this is session retention, not restoration after a device restart.
+
+Fresh host locations continue to feed a retained Waydroid Waze session while
+another ORC screen is visible. Cached, simulated and expired fixes are still
+excluded. Background audio is not deliberately stopped or muted; actual voice
+guidance and Android's behavior while Weston is unmapped need device validation.
+The web Live Map remains an experimental fallback, not proof of native guidance.
+An already active native session can be restored even after ORC goes offline.
+
+Use **Close Waze** in its toolbar to explicitly end the session. Native close
+force-stops only `com.waze`, releases the retained surface, stops its background
+location forwarding and returns to the ORC map. Waydroid close uses the verified
+local Waydroid ADB target; it needs `adb`, now included by the Linux setup script.
+A failed close reports the error and retains the session for retry. Other
+Android apps, saved places and Waze sign-in data are not removed. Closing ORC
+releases its owned browser/scrcpy resources and GPS feed; it does not force-stop
+the externally owned Waydroid app. Use **Close Waze** first if navigation must end.
+
+Chrome launches now include `--no-first-run` and `--no-default-browser-check` to
+keep standard browser onboarding out of the embedded panel. These flags do not
+accept terms or authenticate users. Any deployment-specific license/management
+setup still belongs in device provisioning. Seeing “Waze Live Map” means the web
+fallback is in use, rather than native Waze.
+
+Device check after updating: start native Waze, select a destination, switch to
+Settings and Radio, then return through the sidebar. Confirm the same route,
+fresh GPS and audio remain active. Finally choose **Close Waze**, confirm GPS
+sharing pauses, and reopen Waze. Repeat on Termux to verify the virtual display
+survives hiding. Core focused checks:
+
+```bash
+git switch feature/waze-live-map
+LOGGING_TMP_DIR=/tmp/orc-waze-validation venv/bin/python -m pytest -q controllers/navigation/unit_test/test_waze_session.py controllers/navigation/unit_test/test_location_sharing_controller.py apps/orcUi/composition/unit_test/test_waze.py apps/orcUi/composition/unit_test/test_scrcpy_waze_player.py frontends/tk/media/unit_test/test_android_app_screen.py
+```
+
+The final file includes real Tk lifecycle checks, skipped without `DISPLAY`.
+
 ## Home, Work and POI destination handoff
 
 Home and Work remain ORC saved destinations. Select either shortcut, or select a
@@ -91,8 +138,10 @@ without sudo. Repeat setup if the Waydroid IP or ADB connection changes.
 
 Share a live host location in Settings, then open Waze. Only noncached,
 nonsimulated samples at most ten seconds old are forwarded, while the Android
-app screen is active. Leaving the screen, losing fresh fixes or closing ORC
-removes the test provider. This is an Android-wide mock GPS feed: other Waydroid
+app screen is active, or a retained Waze navigation session is active in the
+background. Leaving another Android app pauses its visible-screen sharing;
+explicitly closing Waze, losing fresh fixes or closing ORC removes the provider
+when no other app view needs it. This is an Android-wide mock GPS feed: other Waydroid
 apps with location permission can also see it while active. Grant Waze its normal
 location permission. Whether Waze accepts and follows this feed still needs VM
 validation; unit and loopback integration tests do not establish navigation

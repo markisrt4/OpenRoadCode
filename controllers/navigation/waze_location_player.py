@@ -24,10 +24,13 @@ class WazeLocationPlayer(BrowserThemeRequestHandlerIf):
 
     def __init__(self, player: BrowserMediaPlayerIf, *, client=None, clock=time.monotonic,
                  preferred_color_scheme: Callable[[], str] | None = None,
-                 startup_timeout_seconds: float = 8.0):
+                 startup_timeout_seconds: float = 8.0, retain_session=False,
+                 session_active: Callable[[], bool] = lambda: False):
         if startup_timeout_seconds <= 0:
             raise ValueError('startup_timeout_seconds must be positive')
         self._startup_timeout = startup_timeout_seconds
+        self._retain_session = retain_session
+        self._session_alive = session_active
         self._startup_complete = Event()
         self._ready = Event()
         self._preferred_color_scheme = preferred_color_scheme
@@ -45,6 +48,10 @@ class WazeLocationPlayer(BrowserThemeRequestHandlerIf):
     def request_theme_refresh(self) -> None:
         if not self._closed:
             self._theme_dirty.set()
+
+    @property
+    def session_active(self) -> bool:
+        return bool(self._retain_session and self._ready.is_set() and self._session_alive())
 
     def _apply_theme(self, session, previous: str | None, stop: Event) -> str | None:
         if self._preferred_color_scheme is None or stop.is_set():
@@ -86,6 +93,8 @@ class WazeLocationPlayer(BrowserThemeRequestHandlerIf):
             self._received_at = self._clock()
 
     def play(self, target: str, *, display: str, window_position=None, window_size=None) -> bool:
+        if self.session_active:
+            return True
         self.stop()
         if self._closed:
             return False
@@ -113,6 +122,7 @@ class WazeLocationPlayer(BrowserThemeRequestHandlerIf):
     def stop(self) -> None:
         """Wait for in-flight local commands before stopping/replacing the browser."""
         self._stop.set()
+        self._ready.clear()
         self._startup_complete.set()
         worker, self._thread = self._thread, None
         try:

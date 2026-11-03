@@ -16,11 +16,14 @@ from common.logging.structured import event
 class ScrcpyWazePlayer:
     window_class = None
 
-    def __init__(self):
+    def __init__(self, *, retain_session=False):
         self._process = None
         self._process_lock = Lock()
         self._pending_destination = None
         self._destination_cancel = Event()
+        self._retain_session = retain_session
+        self._log_path = None
+        self._log_offset = 0
         self.window_name = f'OpenRoadCode Waze Android {uuid4().hex}'
 
     def vertical_crop(self):
@@ -36,6 +39,16 @@ class ScrcpyWazePlayer:
 
     def play(self, target, *, display, window_position=None, window_size=None):
         del target
+        with self._process_lock:
+            process = self._process
+            if self._retain_session and process is not None and process.poll() is None:
+                uri, self._pending_destination = self._pending_destination, None
+                if uri is not None:
+                    self._destination_cancel.set()
+                    cancelled = self._destination_cancel = Event()
+                    Thread(target=self._deliver_destination,
+                           args=(process, cancelled, uri, self._log_path, self._log_offset), daemon=True).start()
+                return True
         self.stop()
         # An old viewer may still be tearing down while a new one starts.
         # Never let X11 discovery select that retired process's window.
@@ -56,6 +69,7 @@ class ScrcpyWazePlayer:
             process = subprocess.Popen(command, env=environment, stdout=log, stderr=subprocess.STDOUT)
         with self._process_lock:
             self._process = process
+            self._log_path, self._log_offset = log_path, log_offset
             uri, self._pending_destination = self._pending_destination, None
             cancelled = self._destination_cancel = Event()
         if uri is not None:

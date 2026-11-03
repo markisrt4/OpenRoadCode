@@ -16,6 +16,42 @@ from ui.theme import ThemeMode
 
 
 @pytest.mark.skipif(not os.environ.get('DISPLAY'), reason='real Tk geometry needs X11')
+def test_waze_hide_return_and_close_have_separate_lifetimes():
+    root = tk.Tk()
+    root.geometry('1200x700')
+    parent = tk.Frame(root)
+    parent.pack(fill='both', expand=True)
+    host = Mock(screen_parent=parent)
+    host.clear_screen_content.side_effect = lambda: [child.destroy() for child in parent.winfo_children()]
+    player, close = Mock(), Mock()
+    screen = AndroidAppScreen('waze', host, title='Waze', player=player,
+        default_target='android', window_class='Weston Compositor', back_action=Mock(),
+        preserve_external_window=True, keep_player_on_hide=True, close_action=close,
+        map_runtime=Mock(), map_platform=Mock(), requests=Mock(), breadcrumb=Mock(),
+        theme_bundle=lambda: theme_bundle(ThemeMode.DARK))
+    screen._embedder = Mock(window_id=None)
+    try:
+        screen.present(AndroidAppViewState('Waze', 'com.waze', expanded=True, can_split=False))
+        screen.show()
+        root.update()
+        screen._launch_and_embed()
+        screen.hide()
+        player.stop.assert_not_called()
+        screen.show()
+        root.update()
+        screen._launch_and_embed()
+        player.stop.assert_not_called()
+        assert screen._close_button.winfo_ismapped()
+        assert screen._close_button.cget('text') == 'CLOSE WAZE'
+        screen._close_button.invoke()
+        close.assert_called_once_with()
+        screen.close_session()
+        player.stop.assert_called_once_with()
+    finally:
+        root.destroy()
+
+
+@pytest.mark.skipif(not os.environ.get('DISPLAY'), reason='real Tk geometry needs X11')
 def test_waze_browser_fallback_back_button_survives_theme_change():
     root = tk.Tk()
     root.geometry('1200x700')

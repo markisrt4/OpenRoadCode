@@ -34,6 +34,7 @@ class AndroidAppScreen(BrowserMediaScreen):
         self._toolbar = None
         self._name_label = None
         self._back_button = None
+        self._close_button = None
         self._surface_resize_job = None
         self._surface_generation = 0
         # App-first Waydroid presentation requests immersive status mode itself.
@@ -103,6 +104,10 @@ class AndroidAppScreen(BrowserMediaScreen):
         self._expand_button = tk.Button(toolbar, command=self._requests.request_toggle_android_app_expanded,
                                         **self._button_style())
         self._expand_button.pack(side=tk.RIGHT, padx=4, pady=4)
+        if self._close_action is not None:
+            self._close_button = tk.Button(toolbar, text='CLOSE WAZE', command=self._close_action,
+                                           **self._button_style())
+            self._close_button.pack(side=tk.RIGHT, padx=4, pady=4)
         if not self._state.can_split:
             self._expand_button.pack_forget()
         self._map_host = tk.Frame(root, bg=self._background())
@@ -189,6 +194,7 @@ class AndroidAppScreen(BrowserMediaScreen):
         self._toolbar = None
         self._name_label = None
         self._back_button = None
+        self._close_button = None
 
     def set_theme_mode(self, mode):
         super().set_theme_mode(mode)
@@ -198,5 +204,6 @@ class AndroidAppScreen(BrowserMediaScreen):
                 widget.configure(bg=self._background())
             if self._theme_provider is not None:
                 self._name_label.configure(fg=self._theme_provider().ui.text)
-            for button in (self._back_button, self._expand_button):
-                button.configure(**self._button_style())
+            for button in (self._back_button, self._expand_button, self._close_button):
+                if button is not None:
+                    button.configure(**self._button_style())

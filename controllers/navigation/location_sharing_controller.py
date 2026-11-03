@@ -14,6 +14,7 @@ class LocationSharingController:
         self._provider, self._status, self._clock = provider, status, clock
         self._snapshot = LocationSnapshot()
         self._active = False
+        self._navigation_active = False
         self._generation = 0
         self._lock = Lock()
         self._stop = Event()
@@ -42,6 +43,12 @@ class LocationSharingController:
         finally:
             self._clear()
 
+    def set_navigation_active(self, active: bool):
+        """A retained Waze session needs GPS even while another screen is shown."""
+        with self._lock:
+            self._navigation_active = active
+            self._generation += 1
+
     def _clear(self):
         if self._provider is not None:
             try:
@@ -51,7 +58,7 @@ class LocationSharingController:
 
     def _tick(self):
         with self._lock:
-            snapshot, active, generation = self._snapshot, self._active, self._generation
+            snapshot, active, generation = self._snapshot, self._active or self._navigation_active, self._generation
         simulated = 'simulat' in snapshot.source.casefold()
         age = self._clock() - snapshot.sampled_at_s if snapshot.sampled_at_s is not None else float('inf')
         point = snapshot.point
@@ -100,4 +107,5 @@ class LocationSharingController:
 
     def close(self):
         self.set_active(False)
+        self.set_navigation_active(False)
         self._stop.set()

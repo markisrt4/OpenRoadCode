@@ -11,6 +11,22 @@ from frontends.tk.media.browser_media_screen import BrowserMediaScreen
 from frontends.x11.x11_window_embedder import X11WindowEmbedder
 
 
+def test_dedicated_waze_surface_is_retained_but_explicit_close_rejects_queued_present():
+    app = Mock()
+    with patch('apps.orcUi.composition.android_app_view.AndroidAppScreen') as screen:
+        view = AndroidAppView(app, map_runtime=Mock(), map_platform=Mock(),
+            screen_label='WAZE_NATIVE', navigation_label='WAZE', persistent_session=True)
+        assert screen.call_args.kwargs['keep_player_on_hide'] is True
+        app.register_screen.assert_called_once_with('WAZE_NATIVE', screen.return_value,
+            show_in_navigation=False, navigation_label='WAZE')
+        view.request_show_android_app('Waze', 'com.waze')
+        late = app.dispatch_ui.call_args.args[0]
+        view.request_close_android_app()
+        late()
+        app.navigate_to.assert_not_called()
+        screen.return_value.close_session.assert_called_once_with()
+
+
 def test_android_view_visibility_controls_location_scope_and_close_revokes_it():
     app, visibility = Mock(), Mock()
     with patch('apps.orcUi.composition.android_app_view.AndroidAppScreen'):
@@ -60,7 +76,7 @@ def test_worker_request_dispatches_and_close_discards_queued_open():
         view.request_show_android_app()
         assert app.navigate_to.call_count == 1
         assert app.dispatch_ui.call_count == 2
-        screen.return_value.hide.assert_called_once()
+        screen.return_value.close_session.assert_called_once()
         options = screen.call_args.kwargs
         assert options['preserve_external_window'] is True
         options['back_action']()

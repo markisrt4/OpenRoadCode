@@ -44,6 +44,8 @@ class BrowserKioskLauncherTest(unittest.TestCase):
 
             command = popen.call_args.args[0]
             self.assertIn("--password-store=basic", command)
+            self.assertIn('--no-first-run', command)
+            self.assertIn('--no-default-browser-check', command)
 
     @patch("apps.launchers.browser_launcher.close_matching_display_apps")
     @patch("apps.launchers.browser_launcher.terminate_process")

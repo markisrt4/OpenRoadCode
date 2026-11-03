@@ -13,6 +13,21 @@ from controllers.navigation.waze_location_player import WazeLocationPlayer
 from ui.navigation import GeoPoint
 
 
+def test_return_to_retained_browser_preserves_page_gps_worker_and_route():
+    browser = Mock()
+    browser.is_active.return_value = True
+    player = WazeLocationPlayer(browser, retain_session=True, session_active=browser.is_active)
+    player._ready.set()
+    worker = player._thread = Mock()
+    assert player.play('https://www.waze.com/live-map', display=':1')
+    browser.play.assert_not_called()
+    browser.stop.assert_not_called()
+    worker.join.assert_not_called()
+    player.close()
+    browser.stop.assert_called_once_with()
+    assert not player.session_active
+
+
 def test_live_si_fix_conversion_expiry_and_invalidation():
     clock = Mock(return_value=100.0)
     player = WazeLocationPlayer(Mock(), clock=clock)

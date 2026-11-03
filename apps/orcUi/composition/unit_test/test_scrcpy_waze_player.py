@@ -10,6 +10,29 @@ from apps.orcUi.adapters.scrcpy_waze_player import ScrcpyWazePlayer
 from apps.launchers.scrcpy_waze_launcher import ScrcpyWazeLauncher
 
 
+def test_retained_viewer_returns_without_restarting_process_or_changing_window_identity():
+    player = ScrcpyWazePlayer(retain_session=True)
+    process = player._process = Mock()
+    process.poll.return_value = None
+    identity = player.window_name
+    with patch('apps.orcUi.adapters.scrcpy_waze_player.subprocess.Popen') as spawn:
+        player.play('android', display=':1')
+        player.play('android', display=':1')
+    spawn.assert_not_called()
+    process.terminate.assert_not_called()
+    assert player.window_name == identity
+
+
+def test_explicit_close_stops_android_waze_before_releasing_owned_viewer():
+    stop = Mock()
+    launcher = ScrcpyWazeLauncher(stop_viewer=stop)
+    with patch('apps.launchers.scrcpy_waze_launcher.subprocess.run', return_value=
+               subprocess.CompletedProcess([], 0, '', '')) as run:
+        launcher.stop_installed_app('com.waze')
+    assert run.call_args.args[0] == ['adb', 'shell', 'am', 'force-stop', 'com.waze']
+    stop.assert_called_once_with()
+
+
 def test_viewer_uses_native_waze_virtual_display_and_requested_x11(tmp_path, monkeypatch):
     monkeypatch.setenv('TMPDIR', str(tmp_path))
     monkeypatch.setenv('ORC_SCRCPY_RENDERER', 'software')

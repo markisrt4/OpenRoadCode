@@ -26,3 +26,7 @@ class AndroidAppViewRequestHandlerIf(Protocol):
     def request_set_android_app_visible(self, visible: bool) -> None:
         """Scope optional location forwarding to the embedded app's visibility."""
         ...
+
+    def request_close_android_app(self) -> None:
+        """Release this view's retained surface without shutting down the view."""
+        ...
