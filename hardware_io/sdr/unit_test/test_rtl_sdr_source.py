@@ -108,7 +108,6 @@ class RtlSdrSourceTest(unittest.TestCase):
         self.assertEqual(len(self.library.rtlsdr_close.calls), 1)
 
     def test_cancel_error_still_releases_device_when_worker_has_exited(self):
-        self.library.rtlsdr_cancel_async = _Function(lambda _device: -2)
         self.source.open()
         started = threading.Event()
         release = threading.Event()
@@ -122,8 +121,11 @@ class RtlSdrSourceTest(unittest.TestCase):
         self.assertTrue(started.wait(timeout=1))
         self.source._worker = worker
         self.source._running = True
-        # Ensure the simulated worker can exit after cancel returns an error.
-        release.set()
+        def failed_cancel(_device):
+            release.set()
+            return -2
+
+        self.library.rtlsdr_cancel_async = _Function(failed_cancel)
         with self.assertRaisesRegex(RuntimeError, "cancel async IQ"):
             self.source.close()
         self.assertFalse(self.source.is_connected())
