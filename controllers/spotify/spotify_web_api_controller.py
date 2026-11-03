@@ -228,11 +228,32 @@ class SpotifyWebApiController(SpotifyControllerIf):
                 tracks.append(track)
         return tuple(tracks)
 
-    def play_track(self, track_uri: str) -> None:
+    def available_devices(self) -> tuple[dict[str, Any], ...]:
+        """Return currently visible Spotify Connect devices."""
+        response = self._client.request_json("GET", "/me/player/devices") or {}
+        return tuple(d for d in response.get("devices", [])
+                     if isinstance(d, dict) and isinstance(d.get("id"), str) and d["id"])
+
+    def select_playback_device(self) -> dict[str, Any]:
+        devices = self.available_devices()
+        if not devices:
+            raise RuntimeError("No Spotify Connect devices available. Open Spotify on your phone and start a track, then retry.")
+        active = next((d for d in devices if d.get("is_active")), None)
+        if active:
+            return active
+        if len(devices) == 1:
+            return devices[0]
+        names = ", ".join(str(d.get("name", "Unnamed")) for d in devices)
+        raise RuntimeError(f"No active Spotify Connect device. Available: {names}")
+
+    def play_track(self, track_uri: str, *, device_id: str | None = None) -> None:
         track_uri = track_uri.strip()
         if not track_uri.startswith("spotify:track:"):
             raise ValueError("track_uri must be a Spotify track URI")
-        self._client.request("PUT", "/me/player/play", body={"uris": [track_uri]})
+        path = "/me/player/play"
+        if device_id:
+            path += "?" + urlencode({"device_id": device_id})
+        self._client.request("PUT", path, body={"uris": [track_uri]})
 
     def _create_state(self, response: dict[str, Any]) -> SpotifyState:
         item = response.get("item") or {}
