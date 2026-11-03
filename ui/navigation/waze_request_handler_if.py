@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Semantic request to open Waze using the configured native or browser view."""
+"""Semantic requests for native Android Waze navigation and session lifetime."""
 from typing import Protocol
 from dataclasses import dataclass
 from ui.navigation import GeoPoint
@@ -15,7 +15,7 @@ class WazeSessionState:
 
 class WazeRequestHandlerIf(Protocol):
     def request_open_waze(self) -> None:
-        """Open Waze when online without changing the active ORC route."""
+        """Open or restore native Waze without changing the active ORC route."""
         ...
 
     def request_navigate_waze(self, destination: GeoPoint) -> None:

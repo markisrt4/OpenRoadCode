@@ -1,5 +1,62 @@
 # Native Waze investigation: Termux and Raspberry Pi 5
 
+## Current integration: native Waze only
+
+The ORC Waze entry and Home/Work/POI destination handoffs now use the Android app
+exclusively. Missing integration or a failed launch reports **Native Waze
+unavailable** rather than opening the website. ORC no longer constructs or
+registers a Waze browser launcher, web screen or browser GPS worker. The older
+web experiments below are historical, not a fallback available from the UI.
+The existing `apps.waze.enabled` switch is retained; its legacy URL/profile
+fields remain compatible but do not select or launch a browser.
+
+On Linux, installed Waydroid is detected automatically. On native Termux,
+installed `adb` and `scrcpy` select the virtual-display backend automatically.
+The Android session/ADB connection must already be running. Explicit
+`ORC_WAYDROID_PANEL=0` or `ORC_SCRCPY_WAZE=0` disables its respective integration;
+this produces an unavailable message, not a web fallback. Existing commands with
+either flag set to `1` remain valid.
+
+### Native current location
+
+On Waydroid, enable Android Location and grant Waze **Location → Allow while
+using the app**, with **Use precise location** enabled if offered. To open
+Waze's Android app-info page without launching the entire Android desktop:
+
+```bash
+git switch feature/waze-live-map
+waydroid app intent android.settings.APPLICATION_DETAILS_SETTINGS package:com.waze
+```
+
+These Android permissions allow Waze to consume location; they do not create a
+GPS source in a VM. Configure the host-to-Waydroid feed once, as the normal
+desktop user, with Waydroid running:
+
+```bash
+git switch feature/waze-live-map
+python3 -m scripts.setup_waydroid_location enable
+./runOrcUi --follow-logs
+```
+
+In ORC Settings, share the host location, allow the browser permission and keep
+that host-location page open. Confirm **Live location** before opening Waze;
+cached/expired positions are not forwarded. The permission page is ORC's host
+location source, not the Waze website. With Waze active, Settings should report
+**Sharing live location with Android**. Resume Waze through its sidebar entry
+after changing Android app permissions. Mock-location acceptance and navigation
+still need device verification.
+
+On Termux, grant location to the native Waze app in the phone's Android settings
+and enable the phone's Location service. Waze uses the phone's native GPS; it
+does not use the Waydroid mock-location setup or Chrome website permissions.
+
+Focused validation for native-only selection and session behavior:
+
+```bash
+git switch feature/waze-live-map
+LOGGING_TMP_DIR=/tmp/orc-waze-validation venv/bin/python -m pytest -q apps/orcUi/composition/unit_test/test_waze.py apps/orcUi/composition/unit_test/test_native_waze_backend.py controllers/navigation/unit_test/test_waze_app_controller.py controllers/navigation/unit_test/test_waze_session.py
+```
+
 ## Multitasking: return to Waze without resetting navigation
 
 An enabled Waze integration now adds a persistent **Waze** sidebar destination.
@@ -8,15 +65,14 @@ its surface rather than closing the session. Choose **Waze** in the sidebar to
 return. The separate Waze panel no longer shares its presentation state with
 Panera or other POI apps. Native Android brings the existing Waze activity back
 to the foreground without resending a destination. The Termux viewer reuses its
-owned scrcpy process and virtual display, and the web fallback retains its
-browser page and GPS worker. An externally killed process may still require
+owned scrcpy process and virtual display. An externally killed process may still require
 recovery; this is session retention, not restoration after a device restart.
 
 Fresh host locations continue to feed a retained Waydroid Waze session while
 another ORC screen is visible. Cached, simulated and expired fixes are still
 excluded. Background audio is not deliberately stopped or muted; actual voice
 guidance and Android's behavior while Weston is unmapped need device validation.
-The web Live Map remains an experimental fallback, not proof of native guidance.
+The historical web Live Map experiment is no longer a UI fallback.
 An already active native session can be restored even after ORC goes offline.
 
 Use **Close Waze** in its toolbar to explicitly end the session. Native close
@@ -28,11 +84,9 @@ Android apps, saved places and Waze sign-in data are not removed. Closing ORC
 releases its owned browser/scrcpy resources and GPS feed; it does not force-stop
 the externally owned Waydroid app. Use **Close Waze** first if navigation must end.
 
-Chrome launches now include `--no-first-run` and `--no-default-browser-check` to
-keep standard browser onboarding out of the embedded panel. These flags do not
-accept terms or authenticate users. Any deployment-specific license/management
-setup still belongs in device provisioning. Seeing “Waze Live Map” means the web
-fallback is in use, rather than native Waze.
+The native Waze entry does not launch Chrome or show the website's app-store
+banner. Android's own Waze first-run screens and location permissions still
+apply; ORC does not accept terms or authenticate users automatically.
 
 Device check after updating: start native Waze, select a destination, switch to
 Settings and Radio, then return through the sidebar. Confirm the same route,

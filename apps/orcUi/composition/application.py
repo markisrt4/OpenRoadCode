@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from common.resource_cleanup import ResourceCleanup, close_resources
 import math
 import os
+import shutil
 
 from common.app_settings import AppSettings, AppSettingsStore
 from apps.launchers.host_location_permission import HostLocationPermission
@@ -138,6 +139,16 @@ def _report(
         progress(stage, message)
 
 
+def _android_panel_backends():
+    """Prefer installed native tools; retain explicit integration opt-outs."""
+    android_host = os.path.exists('/system/bin/am')
+    waydroid = (not android_host and os.environ.get('ORC_WAYDROID_PANEL', '1') == '1'
+                and shutil.which('waydroid') is not None)
+    scrcpy = (android_host and os.environ.get('ORC_SCRCPY_WAZE', '1') == '1'
+              and shutil.which('adb') is not None and shutil.which('scrcpy') is not None)
+    return waydroid, scrcpy
+
+
 def create_orc_ui_composition(
     *,
     progress: Callable[[str, str], None] | None = None,
@@ -241,7 +252,7 @@ def create_orc_ui_composition(
         cleanup.callback(navigation_maps.close)
         core.map_camera.observe_position(navigation_maps.update_position)
         host_location = None
-        waydroid_enabled = os.environ.get('ORC_WAYDROID_PANEL') == '1' and not os.path.exists('/system/bin/am')
+        waydroid_enabled, scrcpy_enabled = _android_panel_backends()
 
         def location_status(location, android):
             if host_location is not None:
@@ -266,7 +277,7 @@ def create_orc_ui_composition(
                 map_presentation=core.map_camera, screen_label='WAZE_NATIVE', navigation_label='WAZE',
                 persistent_session=True, close_action=close_waze)
             cleanup.callback(waze_app_view.close)
-        elif os.environ.get('ORC_SCRCPY_WAZE') == '1' and os.path.exists('/system/bin/am'):
+        elif scrcpy_enabled:
             scrcpy_player = ScrcpyWazePlayer(retain_session=True)
             waze_app_view = AndroidAppView(app, map_runtime=navigation_maps, map_platform=navigation_maps,
                 map_presentation=core.map_camera, player=scrcpy_player,
@@ -287,7 +298,6 @@ def create_orc_ui_composition(
                               session_changed=lambda state: location_sharing.set_navigation_active(state.active))
         if waze is not None:
             cleanup.callback(waze.close)
-            core.map_camera.observe_position(waze.update_position)
         navigation = NavigationScreen(
             app,
             drawer_handler=MapControlsDrawerController(),

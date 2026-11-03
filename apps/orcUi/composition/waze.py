@@ -1,54 +1,47 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Compose an independent, experimental Waze Live Map browser surface."""
-
+"""Compose native Waze navigation without silently opening a website."""
 from collections.abc import Callable
 from dataclasses import dataclass, field
 import logging
-from common.logging.structured import event
-from controllers.navigation.waze_location_player import WazeLocationPlayer
-from controllers.navigation.waze_app_controller import WazeAppController
-from apps.launchers.installed_waydroid_app import InstalledWaydroidAppLauncher
-from ui.navigation.android_app_view_if import AndroidAppViewRequestHandlerIf
-from ui.navigation.installed_android_app_if import InstalledAndroidAppLauncherIf
-from ui.navigation import GeoPoint
-from ui.theme import ThemeMode
-from ui.navigation.waze_request_handler_if import WazeRequestHandlerIf
 
-from apps.orcUi.adapters.managed_browser_media_player import ManagedBrowserMediaPlayer
+from apps.launchers.installed_waydroid_app import InstalledWaydroidAppLauncher
 from apps.orcUi.application_runtime import OrcUiApplicationRuntime
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
-from apps.orcUi.theme_runtime import theme_bundle
+from common.logging.structured import event
 from common.resource_cleanup import ResourceCleanup, close_resources
-from frontends.tk.media.browser_media_screen import BrowserMediaScreen
+from controllers.navigation.waze_app_controller import WazeAppController
 from frontends.tk.request_screen import RequestScreen
+from ui.navigation import GeoPoint
+from ui.navigation.android_app_view_if import AndroidAppViewRequestHandlerIf
+from ui.navigation.installed_android_app_if import InstalledAndroidAppLauncherIf
+from ui.navigation.waze_request_handler_if import WazeRequestHandlerIf
 
 
 @dataclass(slots=True)
 class WazeComposition(WazeRequestHandlerIf):
-    screen: BrowserMediaScreen
     unsubscribe: Callable[[], None]
-    open_waze: Callable[[], None] = lambda: None
-    location: WazeLocationPlayer | None = None
     native: WazeAppController | None = None
-    destination_status: Callable[[str], None] = lambda _message: None
+    status: Callable[[str], None] = lambda _message: None
     session_closed: Callable[[], None] = lambda: None
     _closed: bool = field(default=False, init=False)
 
     def request_open_waze(self) -> None:
         if not self._closed:
-            self.open_waze()
-
-    def update_position(self, point: GeoPoint | None) -> None:
-        if self.location is not None:
-            self.location.update_position(point)
+            if self.native is not None:
+                self.native.request_open_waze()
+            else:
+                self._unconfigured()
 
     def request_navigate_waze(self, destination: GeoPoint) -> None:
         if not self._closed:
             if self.native is not None:
                 self.native.request_navigate_waze(destination)
             else:
-                self.destination_status('Destination handoff requires native Waze. Enable the Android Waze panel first.')
+                self._unconfigured()
+
+    def _unconfigured(self):
+        self.status('Native Waze is not configured on this device. Set up the Android integration to use Waze.')
 
     def request_close_waze(self) -> None:
         if self._closed:
@@ -58,80 +51,46 @@ class WazeComposition(WazeRequestHandlerIf):
         else:
             if self.native is not None:
                 self.native.cancel()
-            self.screen.close_session()
             self.session_closed()
 
     def close(self) -> None:
-        """Cancel pending display callbacks and stop the owned browser once."""
         if self._closed:
             return
         self._closed = True
         close_resources(self.native.close if self.native is not None else lambda: None,
-                        self.unsubscribe, self.screen.close_session,
-                        self.location.close if self.location is not None else lambda: None)
+                        self.unsubscribe)
 
 
 def configure_waze(app: OrcUiApp, runtime: OrcUiApplicationRuntime, *,
                    android_app_view: AndroidAppViewRequestHandlerIf | None = None,
                    native_launcher: InstalledAndroidAppLauncherIf | None = None,
                    session_changed=lambda _state: None) -> WazeComposition | None:
-    """Reuse browser lifecycle and presentation without sharing ORC map data."""
+    """Retain the existing config enable switch; never construct a Waze browser."""
     if not runtime.waze_url:
         return None
     with ResourceCleanup() as cleanup:
-        color_scheme = lambda: "dark" if app.theme_mode is ThemeMode.DARK else "light"
-        player = ManagedBrowserMediaPlayer(
-            runtime.manager, "waze", resolve_target=lambda target: target,
-            network_allowed=lambda: app.online_mode.online,
-            preferred_color_scheme=color_scheme,
-        )
-        location = WazeLocationPlayer(player, preferred_color_scheme=color_scheme,
-                                      retain_session=True, session_active=player.is_active)
-        cleanup.callback(location.close)
-        screen = BrowserMediaScreen(
-            "waze", app, title="Waze Live Map (experimental)", player=location,
-            default_target=runtime.waze_url, window_class="openroadcode-waze",
-            back_action=lambda: app.navigate_to("NAVIGATION"),
-            theme_bundle=lambda: theme_bundle(app.theme_mode),
-            theme_request_handler=location,
-            back_label='‹ BACK TO MAP',
-            keep_player_on_hide=True, preserve_external_window=True,
-            close_action=lambda: composition.request_close_waze(),
-        )
-        cleanup.callback(screen.close_session)
-
         native = None
 
-        def mode_changed(online: bool) -> None:
-            if not online:
-                if native is not None:
-                    native.cancel()
+        def unavailable():
+            event(logging.getLogger('navigation.waze'), logging.WARNING,
+                  'app.unavailable', 'Native Waze could not be opened', backend='native')
+            app.set_screen_status('Native Waze unavailable. Start the Android session and check that Waze is installed.')
+
+        if android_app_view is not None:
+            native = WazeAppController(
+                native_launcher if native_launcher is not None else InstalledWaydroidAppLauncher(),
+                android_app_view, dispatch_ui=app.dispatch_ui, online=lambda: app.online_mode.online,
+                fallback=unavailable, status=app.set_screen_status, session_changed=session_changed,
+                session_closed=lambda: app.navigate_to('NAVIGATION'))
+            cleanup.callback(native.close)
+
+        def mode_changed(online: bool):
+            if not online and native is not None:
+                native.cancel()
 
         unsubscribe = app.online_mode.subscribe(mode_changed)
         cleanup.callback(unsubscribe)
-        app.register_screen('WAZE_BROWSER', screen, show_in_navigation=False, navigation_label='WAZE')
-
-        def open_waze() -> None:
-            if app.online_mode.online or location.session_active is True:
-                event(logging.getLogger('navigation.waze'), logging.INFO,
-                      'app.open.requested', 'Opening Waze', backend='browser')
-                app.navigate_to('WAZE_BROWSER')
-            else:
-                app.set_screen_status("Waze requires online mode")
-
-        if android_app_view is not None:
-            def finish_close():
-                screen.close_session()
-                app.navigate_to('NAVIGATION')
-
-            native = WazeAppController(native_launcher if native_launcher is not None else InstalledWaydroidAppLauncher(), android_app_view,
-                dispatch_ui=app.dispatch_ui, online=lambda: app.online_mode.online,
-                fallback=open_waze, status=app.set_screen_status,
-                session_changed=session_changed, session_closed=finish_close)
-            cleanup.callback(native.close)
-        composition = WazeComposition(screen, unsubscribe,
-                                      native.request_open_waze if native is not None else open_waze,
-                                      location, native, destination_status=app.set_screen_status,
+        composition = WazeComposition(unsubscribe, native, app.set_screen_status,
                                       session_closed=lambda: app.navigate_to('NAVIGATION'))
         app.register_screen('WAZE', RequestScreen('waze-entry', composition.request_open_waze), before='RADIO')
         cleanup.release()

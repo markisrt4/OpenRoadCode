@@ -1,4 +1,8 @@
-# Experimental Waze Live Map
+# Historical experiment: Waze Live Map
+
+ORC now uses **native Android Waze only**. The browser experiment below is
+retained as historical documentation; the Waze entry no longer opens this web
+panel or falls back to it. See [native setup and current location](waze_android_investigation.md#current-integration-native-waze-only).
 
 The **Waze** button at the right of Navigation’s top row opens the official
 full Waze Live Map (`https://www.waze.com/live-map`) in an ORC-owned browser

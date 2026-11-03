@@ -66,7 +66,7 @@ startup = "lazy"
 target = "auxiliary"
 exclusive_group = "auxiliary"
 
-# Experimental Waze Live Map (online; live ORC GPS while open, no route sharing).
+# Native Waze integration. Legacy URL/profile fields are not browser launch targets.
 [apps.waze]
 type = "browser"
 enabled = true

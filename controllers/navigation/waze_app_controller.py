@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Open native Waze asynchronously, preserving the existing web fallback."""
+"""Open and retain native Waze, reporting failure without switching providers."""
 from collections.abc import Callable
 from threading import Lock, Thread
 import logging
