@@ -15,6 +15,9 @@ from __future__ import annotations
 import argparse
 import json
 import time
+from dataclasses import asdict
+
+from controllers.radio.dsp_performance_monitor import DspPerformanceMonitor
 
 from controllers.radio.multi_mode_radio_receiver import MultiModeRadioReceiver, RadioChannel
 from controllers.radio.native_radio_service import NativeRadioService
@@ -53,6 +56,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--audio-prime-ms", type=int, default=1000)
     parser.add_argument("--pcm-queue", type=int, default=32)
     parser.add_argument("--report-seconds", type=float, default=2.0)
+    parser.add_argument("--warmup-seconds", type=float, default=5.0,
+                        help="exclude first N seconds from steady throughput")
     parser.add_argument("--dry-run", action="store_true",
                         help="validate and display configuration without SDR hardware")
     return parser
@@ -61,7 +66,7 @@ def build_parser() -> argparse.ArgumentParser:
 def configuration(args: argparse.Namespace, parser: argparse.ArgumentParser):
     channels = args.channel or [RadioChannel("fm", 104_300_000, "WFM")]
     center = args.center if args.center is not None else channels[0].frequency_hz
-    if center <= 0 or args.seconds <= 0 or args.report_seconds <= 0:
+    if center <= 0 or args.seconds <= 0 or args.report_seconds <= 0 or args.warmup_seconds < 0:
         parser.error("center, seconds and report-seconds must be positive")
     if args.device_index < 0 or args.pcm_queue < 1 or args.audio_prime_ms < 0:
         parser.error("invalid device index, PCM queue size or audio prime")
@@ -112,6 +117,7 @@ def main(argv: list[str] | None = None) -> int:
         session = RadioAudioSession(service, playback)
         session.select_channel(listen)
     started = time.monotonic()
+    monitor = DspPerformanceMonitor(warmup_seconds=args.warmup_seconds)
     next_report = started + args.report_seconds
     try:
         if session is not None:
@@ -119,6 +125,8 @@ def main(argv: list[str] | None = None) -> int:
         else:
             service.start()
         while time.monotonic() - started < args.seconds:
+            dsp_started = time.perf_counter()
+            samples_before = service.status.processed_iq_samples
             if session is not None:
                 session.process_once()
                 audio_status = session.playback.status
@@ -126,6 +134,10 @@ def main(argv: list[str] | None = None) -> int:
                     raise RuntimeError(f"audio playback failed: {audio_status.last_error}")
             else:
                 service.process_once()
+            dsp_elapsed = time.perf_counter() - dsp_started
+            processed_samples = service.status.processed_iq_samples - samples_before
+            if processed_samples:
+                monitor.record(samples=processed_samples, dsp_seconds=dsp_elapsed)
             now = time.monotonic()
             if now >= next_report:
                 elapsed = max(now - started, 1e-9)
@@ -137,6 +149,14 @@ def main(argv: list[str] | None = None) -> int:
                     "processing_msps": round(service.status.processed_iq_samples / elapsed / 1e6, 3),
                     "discontinuities": service.status.discontinuities,
                     "source": stats,
+                    "dsp": asdict(monitor.snapshot()),
+                    "tuner": {
+                        "requested_center_hz": center,
+                        "reported_center_hz": source.get_center_frequency(),
+                        "reported_sample_rate_hz": source.get_sample_rate(),
+                        "pll_lock_status": "not_exposed_by_librtlsdr",
+                        "note": "R82XX PLL warnings are emitted by librtlsdr on stderr; successful tuning does not prove PLL lock",
+                    },
                     "audio": vars(session.playback.status) if session else None,
                 }), flush=True)
                 next_report = now + args.report_seconds
