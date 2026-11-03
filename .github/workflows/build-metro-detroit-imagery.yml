@@ -23,6 +23,11 @@ on:
         description: Optional release tag (defaults to metro-detroit-imagery-YYYYMMDD-runN)
         required: false
         type: string
+      force_rebuild:
+        description: Ignore matching release assets and artifact caches
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -54,6 +59,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REQUESTED_TAG: ${{ inputs.release_tag }}
+          FORCE_REBUILD: ${{ inputs.force_rebuild }}
         shell: bash
         run: |
           if [[ -n "$REQUESTED_TAG" ]]; then
@@ -66,12 +72,76 @@ jobs:
             exit 1
           fi
           if gh release view "$tag" >/dev/null 2>&1; then
-            echo "::error::Release $tag already exists; choose a new versioned tag"
-            exit 1
+            if [[ "$FORCE_REBUILD" == "true" ]]; then
+              echo "::error::Force rebuild requires a new release tag; $tag already exists"
+              exit 1
+            fi
+            echo "existing=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "existing=false" >> "$GITHUB_OUTPUT"
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
+      - name: Validate reusable release
+        if: ${{ steps.release.outputs.existing == 'true' && !inputs.force_rebuild }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          mkdir -p build-output/artifacts
+          gh release download "$RELEASE_TAG" --dir build-output/artifacts \
+            --pattern 'metro-detroit-imagery.zip.json' \
+            --pattern 'metro-detroit-terrain.zip.json'
+          assets="$(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name')"
+          for name in metro-detroit-imagery.zip metro-detroit-terrain.zip; do
+            grep -Fxq "$name" <<<"$assets" || { echo "::error::Existing release is missing $name"; exit 1; }
+          done
+          python -m development.maps.artifact_identity imagery metro-detroit \
+            --descriptor build-output/artifacts/metro-detroit-imagery.zip.json
+          python -m development.maps.artifact_identity terrain metro-detroit \
+            --descriptor build-output/artifacts/metro-detroit-terrain.zip.json
+
+      - name: Calculate artifact identities
+        if: ${{ steps.release.outputs.existing != 'true' || inputs.force_rebuild }}
+        id: identity
+        run: |
+          echo "imagery=$(python -m development.maps.artifact_identity imagery metro-detroit)" >> "$GITHUB_OUTPUT"
+          echo "terrain=$(python -m development.maps.artifact_identity terrain metro-detroit)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore reusable imagery artifact
+        if: ${{ !inputs.force_rebuild && steps.release.outputs.existing != 'true' }}
+        id: imagery-artifact
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            build-output/artifacts/metro-detroit-imagery.zip
+            build-output/artifacts/metro-detroit-imagery.zip.json
+          key: map-artifact-imagery-metro-detroit-${{ steps.identity.outputs.imagery }}
+
+      - name: Restore reusable terrain artifact
+        if: ${{ !inputs.force_rebuild && steps.release.outputs.existing != 'true' }}
+        id: terrain-artifact
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            build-output/artifacts/metro-detroit-terrain.zip
+            build-output/artifacts/metro-detroit-terrain.zip.json
+          key: map-artifact-terrain-metro-detroit-${{ steps.identity.outputs.terrain }}
+
+      - name: Validate restored artifact descriptors
+        if: ${{ steps.imagery-artifact.outputs.cache-hit == 'true' || steps.terrain-artifact.outputs.cache-hit == 'true' }}
+        run: |
+          if [[ "${{ steps.imagery-artifact.outputs.cache-hit }}" == "true" ]]; then
+            python -m development.maps.artifact_identity imagery metro-detroit \
+              --descriptor build-output/artifacts/metro-detroit-imagery.zip.json
+          fi
+          if [[ "${{ steps.terrain-artifact.outputs.cache-hit }}" == "true" ]]; then
+            python -m development.maps.artifact_identity terrain metro-detroit \
+              --descriptor build-output/artifacts/metro-detroit-terrain.zip.json
+          fi
+
       - name: Download and validate Metro Detroit imagery
+        if: ${{ steps.release.outputs.existing != 'true' && (inputs.force_rebuild || steps.imagery-artifact.outputs.cache-hit != 'true') }}
         run: |
           python -m development.maps.install_region \
             --coverage metro-detroit \
@@ -80,25 +150,49 @@ jobs:
             --yes
 
       - name: Download and validate tiled Metro Detroit terrain
+        if: ${{ steps.release.outputs.existing != 'true' && (inputs.force_rebuild || steps.terrain-artifact.outputs.cache-hit != 'true') }}
         run: |
           python -m development.maps.install_terrain \
             --coverage metro-detroit \
             --build-only build-output/metro-detroit-terrain \
             --yes
 
-      - name: Package checked map data
+      - name: Package checked imagery
+        if: ${{ steps.release.outputs.existing != 'true' && (inputs.force_rebuild || steps.imagery-artifact.outputs.cache-hit != 'true') }}
         run: |
           python -m tools.map_builder.builder.imagery_artifact \
             --coverage metro-detroit \
             --pack build-output/metro-detroit-imagery \
             --output build-output/artifacts/metro-detroit-imagery.zip
 
+      - name: Package checked terrain
+        if: ${{ steps.release.outputs.existing != 'true' && (inputs.force_rebuild || steps.terrain-artifact.outputs.cache-hit != 'true') }}
+        run: |
           python -m tools.map_builder.builder.terrain_artifact \
             --coverage metro-detroit \
             --pack build-output/metro-detroit-terrain \
             --output build-output/artifacts/metro-detroit-terrain.zip
 
+      - name: Preserve reusable imagery artifact
+        if: ${{ !inputs.force_rebuild && steps.release.outputs.existing != 'true' && steps.imagery-artifact.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            build-output/artifacts/metro-detroit-imagery.zip
+            build-output/artifacts/metro-detroit-imagery.zip.json
+          key: map-artifact-imagery-metro-detroit-${{ steps.identity.outputs.imagery }}
+
+      - name: Preserve reusable terrain artifact
+        if: ${{ !inputs.force_rebuild && steps.release.outputs.existing != 'true' && steps.terrain-artifact.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            build-output/artifacts/metro-detroit-terrain.zip
+            build-output/artifacts/metro-detroit-terrain.zip.json
+          key: map-artifact-terrain-metro-detroit-${{ steps.identity.outputs.terrain }}
+
       - name: Create draft release
+        if: ${{ steps.release.outputs.existing != 'true' || inputs.force_rebuild }}
         env:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
@@ -135,4 +229,5 @@ jobs:
     uses: ./.github/workflows/build-michigan-terrain.yml
     with:
       coverage: ${{ inputs.build_target }}
+      force_rebuild: ${{ inputs.force_rebuild }}
     secrets: inherit

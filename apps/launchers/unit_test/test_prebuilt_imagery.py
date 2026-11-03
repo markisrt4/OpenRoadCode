@@ -22,6 +22,8 @@ def test_packaging_and_prebuilt_install_never_contact_usgs(tmp_path):
     descriptor = package(root, archive, 'metro-detroit')
     assert descriptor['bytes'] == archive.stat().st_size
     assert descriptor['sha256'] == hashlib.sha256(archive.read_bytes()).hexdigest()
+    assert descriptor['kind'] == 'imagery'
+    assert len(descriptor['build_fingerprint']) == 64
     active = tmp_path/'active'
     with (patch.object(install_region, 'imagery_directory', return_value=active),
           patch.object(install_region, 'fetch_archive', return_value=archive),

@@ -7,6 +7,8 @@ from pathlib import Path
 import zipfile
 
 from apps.launchers.local_terrain_pack import load_terrain
+from development.maps.artifact_identity import (build_fingerprint, build_profile,
+                                                 build_revision)
 
 MAX_ARCHIVE_BYTES = 64 * 1024 * 1024
 
@@ -42,6 +44,9 @@ def package(root, output, coverage):
             "tile_count": len(manifest.get("tiles", ())),
             "lod_levels": sorted({tile.get("detail_level", 0)
                                   for tile in manifest.get("tiles", ())}),
+            "build_profile": build_profile("terrain", coverage),
+            "build_revision": build_revision("terrain"),
+            "build_fingerprint": build_fingerprint("terrain", coverage),
         }
         temporary.replace(output)
         output.with_suffix(output.suffix + ".json").write_text(json.dumps(descriptor, indent=2))

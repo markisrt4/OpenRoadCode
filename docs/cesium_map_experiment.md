@@ -402,6 +402,17 @@ map package. Building all nine
 packages is intentionally not one workflow job because USGS request time and
 release inspection remain explicit.
 
+Pack descriptors carry separate imagery and terrain build fingerprints derived
+from coverage plus reviewed source/algorithm revisions. Before contacting USGS,
+the workflows restore an exact matching packaged artifact when one exists in the
+GitHub Actions cache. Metro Detroit also treats an existing requested release as
+reusable only after both archive names and descriptor fingerprints validate;
+stale or partial releases fail closed. The `force_rebuild` dispatch option
+bypasses artifact caches, requires a new Metro Detroit release tag, and is meant
+for source inspection rather than silently replacing an immutable cache entry.
+Changes to imagery sourcing, masking, dimensions, terrain tiling or schemas must
+bump the corresponding revision in `development.maps.artifact_identity`.
+
 The same Michigan workflow builds a separately installable 8192×8192 USGS aerial
 image for the selected envelope. The statewide overview is intentionally broad
 background context; the eight smaller peninsula envelopes provide the useful

@@ -7,6 +7,8 @@ from pathlib import Path
 import zipfile
 
 from apps.launchers.local_imagery_pack import LocalImageryPack
+from development.maps.artifact_identity import (build_fingerprint, build_profile,
+                                                 build_revision)
 from development.maps.terrain_regions import MICHIGAN_COVERAGES
 
 MAX_ARCHIVE_BYTES = 64*1024*1024
@@ -31,9 +33,12 @@ def package(root, output, coverage):
             raise ValueError('Imagery archive exceeds 64 MiB')
         with temporary.open('rb') as source:
             digest = hashlib.file_digest(source, 'sha256').hexdigest()
-        descriptor = {'schema':1, 'coverage':coverage, 'title':pack.state.title,
+        descriptor = {'schema':1, 'kind':'imagery', 'coverage':coverage, 'title':pack.state.title,
                       'archive':output.name, 'bytes':temporary.stat().st_size, 'sha256':digest,
-                      'bounds_deg':json.loads((root/'manifest.json').read_text())['bounds_deg']}
+                      'bounds_deg':json.loads((root/'manifest.json').read_text())['bounds_deg'],
+                      'build_profile':build_profile('imagery', coverage),
+                      'build_revision':build_revision('imagery'),
+                      'build_fingerprint':build_fingerprint('imagery', coverage)}
         temporary.replace(output)
         output.with_suffix(output.suffix+'.json').write_text(json.dumps(descriptor, indent=2))
         return descriptor

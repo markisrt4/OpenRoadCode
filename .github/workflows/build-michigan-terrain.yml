@@ -7,6 +7,11 @@ on:
         description: Statewide overview or detail shard
         required: true
         type: string
+      force_rebuild:
+        description: Ignore matching artifact caches
+        required: false
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       coverage:
@@ -23,6 +28,11 @@ on:
           - mi-lower-northeast
           - mi-upper-west
           - mi-upper-east
+      force_rebuild:
+        description: Ignore matching artifact caches
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -43,14 +53,35 @@ jobs:
           python-version: '3.12'
       - name: Install map-data dependencies
         run: python -m pip install Pillow
+      - name: Calculate imagery artifact identity
+        id: identity
+        run: |
+          echo "value=$(python -m development.maps.artifact_identity imagery '${{ inputs.coverage }}')" >> "$GITHUB_OUTPUT"
+      - name: Restore reusable imagery package
+        if: ${{ !inputs.force_rebuild }}
+        id: imagery-artifact
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            build-output/${{ inputs.coverage }}-imagery.zip
+            build-output/${{ inputs.coverage }}-imagery.zip.json
+            build-output/michigan-imagery-index.json
+          key: map-artifact-imagery-${{ inputs.coverage }}-${{ steps.identity.outputs.value }}
       - name: Restore resumable imagery exports
+        if: ${{ inputs.force_rebuild || steps.imagery-artifact.outputs.cache-hit != 'true' }}
         uses: actions/cache/restore@v4
         with:
           path: build-output/${{ inputs.coverage }}-imagery.download
           key: imagery-v5-${{ inputs.coverage }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             imagery-v5-${{ inputs.coverage }}-
+      - name: Validate restored imagery descriptor
+        if: ${{ steps.imagery-artifact.outputs.cache-hit == 'true' }}
+        run: |
+          python -m development.maps.artifact_identity imagery "${{ inputs.coverage }}" \
+            --descriptor "build-output/${{ inputs.coverage }}-imagery.zip.json"
       - name: Build checked regional imagery
+        if: ${{ inputs.force_rebuild || steps.imagery-artifact.outputs.cache-hit != 'true' }}
         id: imagery-build
         continue-on-error: true
         run: |
@@ -70,6 +101,7 @@ jobs:
           echo "::error::Imagery build stopped before all exports validated. Rerun this coverage to restore completed exports."
           exit 1
       - name: Package checked imagery
+        if: ${{ inputs.force_rebuild || steps.imagery-artifact.outputs.cache-hit != 'true' }}
         run: |
           python -m tools.map_builder.builder.imagery_artifact \
             --coverage "${{ inputs.coverage }}" \
@@ -77,6 +109,15 @@ jobs:
             --output "build-output/${{ inputs.coverage }}-imagery.zip"
           python -m development.maps.imagery_regions \
             --output build-output/michigan-imagery-index.json
+      - name: Preserve reusable imagery package
+        if: ${{ !inputs.force_rebuild && steps.imagery-artifact.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            build-output/${{ inputs.coverage }}-imagery.zip
+            build-output/${{ inputs.coverage }}-imagery.zip.json
+            build-output/michigan-imagery-index.json
+          key: map-artifact-imagery-${{ inputs.coverage }}-${{ steps.identity.outputs.value }}
       - name: Upload checked imagery package
         uses: actions/upload-artifact@v4
         with:

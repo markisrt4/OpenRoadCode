@@ -337,12 +337,16 @@ def test_map_data_workflow_builds_split_release_assets_without_actions_storage()
     assert 'RELEASE_TAG: ${{ steps.release.outputs.tag }}' in workflow
     assert 'build_target:' in workflow
     assert 'uses: ./.github/workflows/build-michigan-terrain.yml' in workflow
+    assert 'force_rebuild:' in workflow
+    assert 'map-artifact-imagery-metro-detroit-' in workflow
+    assert 'development.maps.artifact_identity' in workflow
     michigan = Path('.github/workflows/build-michigan-terrain.yml').read_text()
     assert 'michigan-terrain-index.json' in michigan
     assert 'max-parallel: 2' in michigan
     assert 'row: [0, 1, 2, 3, 4, 5, 6, 7]' in michigan
     assert 'development.maps.build_terrain_row' in michigan
     assert 'actions/cache/restore@v4' in michigan
+    assert 'map-artifact-imagery-${{ inputs.coverage }}-' in michigan
     assert 'actions/cache/save@v4' in michigan
     assert 'actions/upload-artifact@v4' in michigan
     assert 'actions/download-artifact@v4' in michigan
