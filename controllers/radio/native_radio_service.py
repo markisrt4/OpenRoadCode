@@ -36,8 +36,9 @@ class NativeRadioService:
         *, center_frequency_hz: int, sample_rate_hz: int = 2_400_000,
         gain_db: float | None = 30.0,
         pcm_sink: Callable[[str, np.ndarray], None] | None = None,
+        rf_warmup_seconds: float = 0.0,
     ) -> None:
-        if center_frequency_hz <= 0 or sample_rate_hz <= 0:
+        if center_frequency_hz <= 0 or sample_rate_hz <= 0 or rf_warmup_seconds < 0:
             raise ValueError("center frequency and sample rate must be positive")
         self.source = source
         self.receiver = receiver
@@ -45,6 +46,8 @@ class NativeRadioService:
         self.sample_rate_hz = sample_rate_hz
         self.gain_db = gain_db
         self.pcm_sink = pcm_sink
+        self.rf_warmup_seconds = rf_warmup_seconds
+        self.warmup_iq_samples = 0
         self._started = False
         self._blocks = 0
         self._samples = 0
@@ -70,6 +73,14 @@ class NativeRadioService:
             self.source.set_center_frequency(self.center_frequency_hz)
             self.receiver.reset()
             self.source.start()
+            self.warmup_iq_samples = 0
+            target_samples = round(self.rf_warmup_seconds * self.sample_rate_hz)
+            while self.warmup_iq_samples < target_samples:
+                block = self.source.read_iq()
+                if block.sample_rate_hz != self.sample_rate_hz or block.center_frequency_hz != self.center_frequency_hz:
+                    raise RuntimeError("unexpected SDR format during RF warmup")
+                self.warmup_iq_samples += len(block.samples) // 2
+            self.receiver.reset()
         except Exception as exc:
             self._last_error = str(exc)
             self.source.close()
