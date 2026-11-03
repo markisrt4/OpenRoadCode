@@ -39,6 +39,14 @@ class MapFavorites:
     def home(self) -> MapFavorite | None:
         return self._home
 
+    def shortcut_position(self, key: str) -> GeoPoint | None:
+        """Refresh the same saved destinations used by Navigation shortcuts."""
+        if key not in ('home', 'work'):
+            return None
+        self.load()
+        favorite = self._home if key == 'home' else self._work
+        return favorite.position if favorite is not None else None
+
     @property
     def work(self) -> MapFavorite | None:
         return self._work

@@ -29,6 +29,41 @@ def save(path, value):
     temporary.replace(path)
 
 
+def location_status():
+    """Read only configuration and permission flags; never collect coordinates."""
+    path = configuration_path()
+    configuration = json.loads(path.read_text()) if path.exists() else {}
+    report = {'configured': configuration.get('enabled') is True}
+    status = run(['waydroid', 'status'])
+    match = re.search(r'^\s*IP address:\s*(\d+\.\d+\.\d+\.\d+)\s*$', status, re.MULTILINE)
+    if match is None:
+        report['android_connection'] = 'Waydroid has no IP address'
+        return report
+    serial = match[1] + ':5555'
+    report['configured_device_matches_session'] = configuration.get('serial') == serial
+    report['android_connection'] = 'unavailable'
+    try:
+        model = run(['adb', '-s', serial, 'shell', 'getprop', 'ro.product.model'])
+        if 'waydroid' not in model.casefold():
+            report['android_connection'] = 'Device is not Waydroid'
+            return report
+        report['android_connection'] = 'connected'
+        report['location_enabled'] = run(['adb', '-s', serial, 'shell', 'cmd', 'location',
+                                          'is-location-enabled', '--user', '0'])
+        uid = run(['adb', '-s', serial, 'shell', 'id', '-u'])
+        report['configured_identity_matches'] = configuration.get('mock_uid') == uid
+        modes = run(['adb', '-s', serial, 'shell', 'cmd', 'appops', 'get', uid, 'android:mock_location'])
+        mode = re.search(r'MOCK_LOCATION:\s*(allow|deny|ignore|default|foreground)', modes, re.IGNORECASE)
+        report['mock_location_permission'] = mode[1].lower() if mode else 'not explicitly allowed'
+        package = run(['adb', '-s', serial, 'shell', 'dumpsys', 'package', 'com.waze'])
+        for permission in ('ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION'):
+            granted = re.search(r'android.permission.' + permission + r':\s*granted=(true|false)', package)
+            report[permission.lower()] = granted[1] == 'true' if granted else 'unavailable'
+    except RuntimeError:
+        report['diagnostic_error'] = 'Could not read Android connection or permissions; rerun location setup with Waydroid running'
+    return report
+
+
 def setup(action, serial=None):
     path = configuration_path()
     previous = json.loads(path.read_text()) if path.exists() else None
@@ -80,12 +115,15 @@ def setup(action, serial=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=('enable', 'disable'))
+    parser.add_argument('action', choices=('enable', 'disable', 'status'))
     parser.add_argument('--serial')
     args = parser.parse_args()
     if os.geteuid() == 0:
         parser.error('Run as the normal desktop user; only setup commands use sudo.')
     try:
+        if args.action == 'status':
+            print(json.dumps(location_status(), indent=2))
+            return
         setup(args.action, args.serial)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         raise SystemExit(str(error)) from error

@@ -17,13 +17,14 @@ class AndroidAppView(AndroidAppViewRequestHandlerIf):
     def __init__(self, app, *, map_runtime, map_platform, map_presentation=None,
                  player=None, window_embedder=None, preserve_external_window=True,
                  visibility_changed=None, screen_label='ANDROID_APP', navigation_label=None,
-                 persistent_session=False, close_action=None):
+                 persistent_session=False, close_action=None, saved_destination_action=None):
         self._app = app
         self._lock = Lock()
         self._closed = False
         self._generation = 0
         self._visibility_changed = visibility_changed
         self._screen_label = screen_label
+        self._saved_destination_action = saved_destination_action
         self._state = AndroidAppViewState()
         self._player = player if player is not None else WaydroidSurfacePlayer()
         self._screen = AndroidAppScreen(
@@ -47,7 +48,8 @@ class AndroidAppView(AndroidAppViewRequestHandlerIf):
             if not self._closed:
                 navigation_app = package == 'com.waze'
                 state = AndroidAppViewState(app_name.strip() or 'Android app', package,
-                                            expanded=navigation_app, can_split=not navigation_app)
+                    expanded=navigation_app, can_split=not navigation_app,
+                    can_navigate_saved_destinations=navigation_app and self._saved_destination_action is not None)
                 generation = self._generation
                 self._app.dispatch_ui(lambda: self._show(state, generation))
 
@@ -62,6 +64,10 @@ class AndroidAppView(AndroidAppViewRequestHandlerIf):
         if not self._closed and self._state.can_split:
             self._state = replace(self._state, expanded=not self._state.expanded)
             self._screen.present(self._state)
+
+    def request_navigate_saved_destination(self, key):
+        if not self._closed and self._saved_destination_action is not None:
+            self._saved_destination_action(key)
 
     def close(self):
         with self._lock:

@@ -16,6 +16,13 @@ from ui.ui_widget import UiWidget
 _NAV_LABELS = {"NAVIGATION": "NAV"}
 
 
+def _navigation_slots(items: list[str]) -> list[tuple[str, ...]]:
+    """NAV/Waze share one rail slot while retaining independent destinations."""
+    combined = 'NAVIGATION' in items and 'WAZE' in items
+    return [('NAVIGATION', 'WAZE') if combined and item == 'NAVIGATION' else (item,)
+            for item in items if not (combined and item == 'WAZE')]
+
+
 def _blend(first: str, second: str, amount: float) -> str:
     """Blend two six-digit hexadecimal colors for lightweight Tk gradients."""
     amount = max(0.0, min(1.0, amount))
@@ -38,6 +45,7 @@ class _NavTile(tk.Canvas, UiWidget):
         theme: ThemeBundle,
         on_navigate: Callable[[str], None],
         on_swipe: Callable[[int], None] | None = None,
+        compact: bool = False,
     ) -> None:
         self._nav_name = name
         self._theme = theme
@@ -46,9 +54,10 @@ class _NavTile(tk.Canvas, UiWidget):
         self._selected = False
         self._hovered = False
         self._press_y: int | None = None
+        self._minimum_height = self.HEIGHT // 2 if compact else self.HEIGHT
         super().__init__(
             parent,
-            height=self.HEIGHT,
+            height=self._minimum_height,
             highlightthickness=1,
             bd=0,
             cursor="hand2",
@@ -89,7 +98,7 @@ class _NavTile(tk.Canvas, UiWidget):
     def _paint(self) -> None:
         ui = self._theme.ui
         width = max(SIDE_NAV_WIDTH - 8, self.winfo_width())
-        height = max(self.HEIGHT, self.winfo_height())
+        height = max(self._minimum_height, self.winfo_height())
 
         if self._selected:
             top = _blend(ui.control_active, "#ffffff", 0.10)
@@ -240,6 +249,7 @@ class OrcUiSideNav(tk.Frame, UiWidget):
     def rebuild(self, *, theme: ThemeBundle, items: list[str], active: str) -> None:
         self._theme = theme
         self._items = list(items)
+        self._slots = _navigation_slots(items)
         self._active = active
         self._ensure_active_visible()
         self._render()
@@ -262,7 +272,7 @@ class OrcUiSideNav(tk.Frame, UiWidget):
             self._scroll(-1 if event.delta > 0 else 1)
 
     def _scroll(self, delta: int) -> None:
-        maximum = max(0, len(self._items) - self.VISIBLE_ITEMS)
+        maximum = max(0, len(self._slots) - self.VISIBLE_ITEMS)
         new_offset = max(0, min(maximum, self._offset + delta))
         if new_offset == self._offset:
             return
@@ -270,11 +280,11 @@ class OrcUiSideNav(tk.Frame, UiWidget):
         self._render()
 
     def _ensure_active_visible(self) -> None:
-        maximum = max(0, len(self._items) - self.VISIBLE_ITEMS)
+        maximum = max(0, len(self._slots) - self.VISIBLE_ITEMS)
         self._offset = max(0, min(maximum, self._offset))
         try:
-            index = self._items.index(self._active)
-        except ValueError:
+            index = next(index for index, slot in enumerate(self._slots) if self._active in slot)
+        except StopIteration:
             return
         if index < self._offset:
             self._offset = index
@@ -295,18 +305,25 @@ class OrcUiSideNav(tk.Frame, UiWidget):
         else:
             self._up_button = None
 
-        visible = self._items[self._offset:self._offset + self.VISIBLE_ITEMS]
-        for item in visible:
-            tile = _NavTile(
-                self,
-                name=item,
-                theme=theme,
-                on_navigate=self._on_navigate,
-                on_swipe=self._scroll,
-            )
-            tile.pack(fill=tk.BOTH, expand=True, padx=4, pady=1)
-            tile.set_state(selected=item == self._active, theme=theme)
-            self._tiles[item] = tile
+        visible = self._slots[self._offset:self._offset + self.VISIBLE_ITEMS]
+        for slot in visible:
+            parent = self
+            if len(slot) > 1:
+                parent = tk.Frame(self, height=_NavTile.HEIGHT, bg=theme.ui.background)
+                parent.pack(fill=tk.BOTH, expand=True, padx=4, pady=1)
+                parent.grid_propagate(False)
+                parent.grid_columnconfigure(0, weight=1)
+            for row, item in enumerate(slot):
+                tile = _NavTile(parent, name=item, theme=theme,
+                                on_navigate=self._on_navigate, on_swipe=self._scroll,
+                                compact=len(slot) > 1)
+                if len(slot) > 1:
+                    parent.grid_rowconfigure(row, weight=1, uniform='navigation-halves')
+                    tile.grid(row=row, column=0, sticky='nsew')
+                else:
+                    tile.pack(fill=tk.BOTH, expand=True, padx=4, pady=1)
+                tile.set_state(selected=item == self._active, theme=theme)
+                self._tiles[item] = tile
 
         if self._items:
             self._down_button = self._make_scroll_button("▼", lambda: self._scroll(1))
@@ -330,7 +347,7 @@ class OrcUiSideNav(tk.Frame, UiWidget):
 
     def _paint_scroll_buttons(self) -> None:
         ui = self._theme.ui
-        maximum = max(0, len(self._items) - self.VISIBLE_ITEMS)
+        maximum = max(0, len(self._slots) - self.VISIBLE_ITEMS)
         for button, enabled in (
             (self._up_button, self._offset > 0),
             (self._down_button, self._offset < maximum),

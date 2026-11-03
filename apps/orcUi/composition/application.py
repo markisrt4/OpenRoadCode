@@ -19,6 +19,7 @@ from apps.launchers.host_location_permission import HostLocationPermission
 from apps.launchers.host_location_session import HostLocationSession
 from controllers.navigation.host_location_settings_controller import HostLocationSettingsController
 from controllers.navigation.location_sharing_controller import LocationSharingController
+from controllers.navigation.map_favorites import MapFavorites
 from apps.launchers.waydroid_location_provider import WaydroidLocationProvider
 from controllers.weather.radar_palette import RadarPalette
 
@@ -268,6 +269,7 @@ def create_orc_ui_composition(
         waze_native_launcher = None
         waze = None
         close_waze = lambda: waze.request_close_waze() if waze is not None else None
+        saved_waze_destination = lambda key: waze.request_navigate_saved_destination(key) if waze is not None else None
         if waydroid_enabled:
             android_app_view = AndroidAppView(app, map_runtime=navigation_maps, map_platform=navigation_maps,
                                               map_presentation=core.map_camera,
@@ -275,7 +277,7 @@ def create_orc_ui_composition(
             cleanup.callback(android_app_view.close)
             waze_app_view = AndroidAppView(app, map_runtime=navigation_maps, map_platform=navigation_maps,
                 map_presentation=core.map_camera, screen_label='WAZE_NATIVE', navigation_label='WAZE',
-                persistent_session=True, close_action=close_waze)
+                persistent_session=True, close_action=close_waze, saved_destination_action=saved_waze_destination)
             cleanup.callback(waze_app_view.close)
         elif scrcpy_enabled:
             scrcpy_player = ScrcpyWazePlayer(retain_session=True)
@@ -283,11 +285,12 @@ def create_orc_ui_composition(
                 map_presentation=core.map_camera, player=scrcpy_player,
                 window_embedder=X11WindowEmbedder(), preserve_external_window=False,
                 screen_label='WAZE_NATIVE', navigation_label='WAZE',
-                persistent_session=True, close_action=close_waze)
+                persistent_session=True, close_action=close_waze, saved_destination_action=saved_waze_destination)
             cleanup.callback(waze_app_view.close)
             waze_native_launcher = ScrcpyWazeLauncher(prepare_destination=scrcpy_player.prepare_destination,
                                                      stop_viewer=scrcpy_player.stop)
-        navigation_places = NavigationPlacesFactory(
+        saved_destinations = MapFavorites()
+        navigation_places = NavigationPlacesFactory(favorites=saved_destinations,
             online_allowed=lambda: app.online_mode.online,
             camera_observer=core.map_camera.request_handler.observe_camera,
             embedded_explore=navigation_maps.request_explore,
@@ -295,7 +298,8 @@ def create_orc_ui_composition(
         cleanup.callback(navigation_places.close)
         waze = configure_waze(app, runtime, android_app_view=waze_app_view,
                               native_launcher=waze_native_launcher,
-                              session_changed=lambda state: location_sharing.set_navigation_active(state.active))
+                              session_changed=lambda state: location_sharing.set_navigation_active(state.active),
+                              saved_destination=saved_destinations.shortcut_position)
         if waze is not None:
             cleanup.callback(waze.close)
         navigation = NavigationScreen(

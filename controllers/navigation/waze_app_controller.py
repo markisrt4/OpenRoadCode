@@ -19,7 +19,7 @@ class WazeAppController(WazeRequestHandlerIf):
                  dispatch_ui: Callable[[Callable[[], None]], None],
                  online: Callable[[], bool], fallback: Callable[[], None],
                  status: Callable[[str], None], session_changed=lambda _state: None,
-                 session_closed=lambda: None):
+                 session_closed=lambda: None, saved_destination=lambda _key: None):
         self._launcher, self._view = launcher, view
         self._dispatch_ui, self._online = dispatch_ui, online
         self._fallback, self._status = fallback, status
@@ -32,6 +32,23 @@ class WazeAppController(WazeRequestHandlerIf):
         self._state = WazeSessionState()
         self._session_changed = session_changed
         self._session_closed = session_closed
+        self._saved_destination = saved_destination
+
+    def request_navigate_saved_destination(self, key: str):
+        with self._lock:
+            if self._closed:
+                return
+        if key not in ('home', 'work'):
+            return
+        try:
+            position = self._saved_destination(key)
+        except (OSError, RuntimeError, ValueError):
+            self._status('Saved destinations are unavailable. Check your Home and Work settings.')
+            return
+        if position is None:
+            self._status(f'{key.title()} location is not configured. Set it in Navigation first.')
+            return
+        self.request_navigate_waze(position)
 
     @property
     def state(self):

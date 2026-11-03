@@ -25,3 +25,7 @@ class WazeRequestHandlerIf(Protocol):
     def request_close_waze(self) -> None:
         """Explicitly stop the Waze session; ordinary navigation only hides it."""
         ...
+
+    def request_navigate_saved_destination(self, key: str) -> None:
+        """Use ORC's current saved Home/Work coordinates, without account sync."""
+        ...

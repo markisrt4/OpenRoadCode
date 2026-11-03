@@ -5,6 +5,37 @@ import pytest
 from scripts import setup_waydroid_location as setup
 
 
+def test_status_reports_stale_device_and_denied_waze_permission_without_mutation(tmp_path, monkeypatch):
+    path = tmp_path / 'location.json'
+    path.write_text(json.dumps({'enabled': True, 'serial': '192.168.240.110:5555', 'mock_uid': '0'}))
+    monkeypatch.setattr(setup, 'configuration_path', lambda: path)
+    original = path.read_bytes()
+    calls = []
+
+    def run(arguments):
+        calls.append(arguments)
+        if arguments == ['waydroid', 'status']:
+            return 'IP address: 192.168.240.112'
+        if 'ro.product.model' in arguments:
+            return 'WayDroid-x86_64-Device'
+        if arguments[-2:] == ['id', '-u']:
+            return '0'
+        if 'is-location-enabled' in arguments:
+            return 'true'
+        if 'appops' in arguments:
+            return 'MOCK_LOCATION: allow'
+        return 'android.permission.ACCESS_FINE_LOCATION: granted=false\nandroid.permission.ACCESS_COARSE_LOCATION: granted=true'
+
+    monkeypatch.setattr(setup, 'run', run)
+    value = setup.location_status()
+    assert value['configured_device_matches_session'] is False
+    assert value['mock_location_permission'] == 'allow'
+    assert value['access_fine_location'] is False
+    assert value['access_coarse_location'] is True
+    assert path.read_bytes() == original
+    assert not any('sudo' in command or 'set' in command or 'connect' in command for command in calls)
+
+
 @pytest.mark.parametrize('uid', ['0', '2000'])
 def test_explicit_setup_saves_original_permission_and_disable_restores_it(tmp_path, monkeypatch, uid):
     path = tmp_path / 'state/waydroid-location.json'

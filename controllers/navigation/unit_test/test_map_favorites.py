@@ -8,6 +8,20 @@ from controllers.navigation.map_favorites import MapFavorites
 from ui.navigation import GeoPoint
 
 
+def test_shortcuts_refresh_when_navigation_changes_saved_destinations(tmp_path):
+    storage = PersistentCache(tmp_path, suffix='.json')
+    navigation, waze = MapFavorites(storage), MapFavorites(storage)
+    first, second = GeoPoint(.7, -1.4), GeoPoint(.8, -1.5)
+    assert waze.shortcut_position('work') is None
+    navigation.set_home(first)
+    assert waze.shortcut_position('home') == first
+    navigation.set_home(second)
+    refreshed = waze.shortcut_position('home')
+    assert math.isclose(refreshed.latitude_rad, second.latitude_rad)
+    assert math.isclose(refreshed.longitude_rad, second.longitude_rad)
+    assert waze.shortcut_position('unknown') is None
+
+
 def test_home_and_work_survive_across_instances(tmp_path):
     storage = PersistentCache(tmp_path, suffix=".json")
     first = MapFavorites(storage)

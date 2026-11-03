@@ -35,6 +35,7 @@ class AndroidAppScreen(BrowserMediaScreen):
         self._name_label = None
         self._back_button = None
         self._close_button = None
+        self._destination_buttons = []
         self._surface_resize_job = None
         self._surface_generation = 0
         # App-first Waydroid presentation requests immersive status mode itself.
@@ -81,6 +82,13 @@ class AndroidAppScreen(BrowserMediaScreen):
                     relief=tk.FLAT, bd=0, highlightthickness=0,
                     font=('Sans', 9, 'bold'), padx=12, pady=6, cursor='hand2')
 
+    def _destination_button_style(self, key):
+        style = self._button_style()
+        if self._theme_provider is not None:
+            ui = self._theme_provider().ui
+            style['fg'] = ui.accent_primary if key == 'home' else ui.accent_warning
+        return style
+
     def show(self) -> None:
         self.hide()
         self._host.activate_screen(self)
@@ -101,6 +109,13 @@ class AndroidAppScreen(BrowserMediaScreen):
         foreground = self._theme_provider().ui.text if self._theme_provider is not None else 'white'
         self._name_label = tk.Label(toolbar, text=self._state.app_name, bg=self._background(), fg=foreground)
         self._name_label.pack(side=tk.LEFT, padx=8)
+        if self._state.can_navigate_saved_destinations:
+            for key, label in (('home', '⌂ HOME'), ('work', '▣ WORK')):
+                button = tk.Button(toolbar, text=label,
+                    command=lambda key=key: self._requests.request_navigate_saved_destination(key),
+                    **self._destination_button_style(key))
+                button.pack(side=tk.LEFT, padx=4, pady=4)
+                self._destination_buttons.append(button)
         self._expand_button = tk.Button(toolbar, command=self._requests.request_toggle_android_app_expanded,
                                         **self._button_style())
         self._expand_button.pack(side=tk.RIGHT, padx=4, pady=4)
@@ -195,6 +210,7 @@ class AndroidAppScreen(BrowserMediaScreen):
         self._name_label = None
         self._back_button = None
         self._close_button = None
+        self._destination_buttons = []
 
     def set_theme_mode(self, mode):
         super().set_theme_mode(mode)
@@ -207,3 +223,5 @@ class AndroidAppScreen(BrowserMediaScreen):
             for button in (self._back_button, self._expand_button, self._close_button):
                 if button is not None:
                     button.configure(**self._button_style())
+            for key, button in zip(('home', 'work'), self._destination_buttons):
+                button.configure(**self._destination_button_style(key))

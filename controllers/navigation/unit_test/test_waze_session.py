@@ -4,6 +4,7 @@
 from unittest.mock import Mock, patch
 
 from controllers.navigation.waze_app_controller import WazeAppController
+from ui.navigation import GeoPoint
 
 
 def setup():
@@ -18,6 +19,26 @@ def setup():
 
 def run(thread):
     thread.call_args.kwargs['target'](*thread.call_args.kwargs['args'])
+
+
+def test_home_work_shortcuts_load_current_orc_destinations_and_send_native_intents():
+    launcher, lookup, status = Mock(), Mock(), Mock()
+    lookup.side_effect = [GeoPoint(0, 0), GeoPoint(0, .5), None]
+    controller = WazeAppController(launcher, Mock(), dispatch_ui=Mock(), online=lambda: True,
+        fallback=Mock(), status=status, saved_destination=lookup)
+    with patch('controllers.navigation.waze_app_controller.Thread') as thread:
+        controller.request_navigate_saved_destination('home')
+        run(thread)
+        assert 'uri' in launcher.launch_installed_app.call_args.kwargs
+        assert launcher.launch_installed_app.call_args.kwargs['uri'].startswith('waze://?ll=0.0000000,0.0000000')
+        controller.cancel()
+        controller.request_navigate_saved_destination('work')
+        run(thread)
+        assert '28.6478898' in launcher.launch_installed_app.call_args.kwargs['uri']
+        controller.cancel()
+        controller.request_navigate_saved_destination('home')
+        assert 'not configured' in status.call_args.args[0]
+    assert [call.args[0] for call in lookup.call_args_list] == ['home', 'work', 'home']
 
 
 def test_return_uses_existing_session_even_offline_without_resending_destination():

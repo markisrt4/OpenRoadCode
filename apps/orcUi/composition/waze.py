@@ -43,6 +43,13 @@ class WazeComposition(WazeRequestHandlerIf):
     def _unconfigured(self):
         self.status('Native Waze is not configured on this device. Set up the Android integration to use Waze.')
 
+    def request_navigate_saved_destination(self, key: str) -> None:
+        if not self._closed:
+            if self.native is not None:
+                self.native.request_navigate_saved_destination(key)
+            else:
+                self._unconfigured()
+
     def request_close_waze(self) -> None:
         if self._closed:
             return
@@ -64,7 +71,8 @@ class WazeComposition(WazeRequestHandlerIf):
 def configure_waze(app: OrcUiApp, runtime: OrcUiApplicationRuntime, *,
                    android_app_view: AndroidAppViewRequestHandlerIf | None = None,
                    native_launcher: InstalledAndroidAppLauncherIf | None = None,
-                   session_changed=lambda _state: None) -> WazeComposition | None:
+                   session_changed=lambda _state: None,
+                   saved_destination=lambda _key: None) -> WazeComposition | None:
     """Retain the existing config enable switch; never construct a Waze browser."""
     if not runtime.waze_url:
         return None
@@ -81,7 +89,7 @@ def configure_waze(app: OrcUiApp, runtime: OrcUiApplicationRuntime, *,
                 native_launcher if native_launcher is not None else InstalledWaydroidAppLauncher(),
                 android_app_view, dispatch_ui=app.dispatch_ui, online=lambda: app.online_mode.online,
                 fallback=unavailable, status=app.set_screen_status, session_changed=session_changed,
-                session_closed=lambda: app.navigate_to('NAVIGATION'))
+                session_closed=lambda: app.navigate_to('NAVIGATION'), saved_destination=saved_destination)
             cleanup.callback(native.close)
 
         def mode_changed(online: bool):

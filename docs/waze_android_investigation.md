@@ -2,6 +2,13 @@
 
 ## Current integration: native Waze only
 
+The left rail groups **NAV** above **WAZE** in one tile, with independent tap
+targets and active indicators. When Waze is disabled, Navigation remains a full
+tile. The native Waze toolbar also has **Home** and **Work** buttons. They read
+the same saved destinations as Navigation, refresh edits on each click, and send
+the coordinates to Waze without changing an active ORC route. Missing locations
+report that the shortcut must be configured in Navigation.
+
 The ORC Waze entry and Home/Work/POI destination handoffs now use the Android app
 exclusively. Missing integration or a failed launch reports **Native Waze
 unavailable** rather than opening the website. ORC no longer constructs or
@@ -45,6 +52,22 @@ location source, not the Waze website. With Waze active, Settings should report
 **Sharing live location with Android**. Resume Waze through its sidebar entry
 after changing Android app permissions. Mock-location acceptance and navigation
 still need device verification.
+
+If GPS does not reach Waze, collect the permission/connection status as your
+normal desktop user while Waydroid is running:
+
+```bash
+git switch feature/waze-live-map
+python3 -m scripts.setup_waydroid_location status
+```
+
+This is read-only: it does not connect ADB, grant permissions, inject a position,
+or print coordinates. It checks whether configuration matches the current
+Waydroid IP and ADB identity, Android Location is enabled, mock GPS is allowed,
+and Waze has precise/coarse location permission. Include ORC Settings' location
+status with the result so a missing live host fix can be distinguished from an
+Android connection or permission failure. A matching configuration and granted
+permissions do not by themselves prove that Waze accepts mock GPS.
 
 On Termux, grant location to the native Waze app in the phone's Android settings
 and enable the phone's Location service. Waze uses the phone's native GPS; it

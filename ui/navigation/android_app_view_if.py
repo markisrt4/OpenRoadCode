@@ -12,6 +12,7 @@ class AndroidAppViewState:
     package: str = ''
     expanded: bool = False
     can_split: bool = True
+    can_navigate_saved_destinations: bool = False
 
 
 class AndroidAppViewRequestHandlerIf(Protocol):
@@ -29,4 +30,8 @@ class AndroidAppViewRequestHandlerIf(Protocol):
 
     def request_close_android_app(self) -> None:
         """Release this view's retained surface without shutting down the view."""
+        ...
+
+    def request_navigate_saved_destination(self, key: str) -> None:
+        """Navigate the active Waze session to ORC's saved Home or Work."""
         ...

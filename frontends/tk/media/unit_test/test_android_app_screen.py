@@ -23,15 +23,16 @@ def test_waze_hide_return_and_close_have_separate_lifetimes():
     parent.pack(fill='both', expand=True)
     host = Mock(screen_parent=parent)
     host.clear_screen_content.side_effect = lambda: [child.destroy() for child in parent.winfo_children()]
-    player, close = Mock(), Mock()
+    player, close, requests = Mock(), Mock(), Mock()
     screen = AndroidAppScreen('waze', host, title='Waze', player=player,
         default_target='android', window_class='Weston Compositor', back_action=Mock(),
         preserve_external_window=True, keep_player_on_hide=True, close_action=close,
-        map_runtime=Mock(), map_platform=Mock(), requests=Mock(), breadcrumb=Mock(),
+        map_runtime=Mock(), map_platform=Mock(), requests=requests, breadcrumb=Mock(),
         theme_bundle=lambda: theme_bundle(ThemeMode.DARK))
     screen._embedder = Mock(window_id=None)
     try:
-        screen.present(AndroidAppViewState('Waze', 'com.waze', expanded=True, can_split=False))
+        screen.present(AndroidAppViewState('Waze', 'com.waze', expanded=True, can_split=False,
+                                           can_navigate_saved_destinations=True))
         screen.show()
         root.update()
         screen._launch_and_embed()
@@ -43,6 +44,11 @@ def test_waze_hide_return_and_close_have_separate_lifetimes():
         player.stop.assert_not_called()
         assert screen._close_button.winfo_ismapped()
         assert screen._close_button.cget('text') == 'CLOSE WAZE'
+        assert [button.cget('text') for button in screen._destination_buttons] == ['⌂ HOME', '▣ WORK']
+        for button in screen._destination_buttons:
+            assert button.winfo_ismapped()
+            button.invoke()
+        assert [call.args[0] for call in requests.request_navigate_saved_destination.call_args_list] == ['home', 'work']
         screen._close_button.invoke()
         close.assert_called_once_with()
         screen.close_session()
