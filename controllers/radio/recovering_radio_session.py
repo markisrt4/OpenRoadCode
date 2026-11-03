@@ -105,13 +105,12 @@ class RecoveringRadioSession:
                         candidate.stop()
                     except Exception as cleanup_exc:
                         self._last_cleanup_error = str(cleanup_exc)
-                if index:
-                    self._attempts += 1
+                self._attempts += 1
                 continue
             self._session = candidate
             if recovering or index:
                 self._successes += 1
-            self._attempts += index
+            self._attempts += 1
             self._state = "CONNECTED"
             self._last_error = None
             return
