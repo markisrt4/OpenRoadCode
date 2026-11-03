@@ -13,6 +13,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from controllers.radio.dsp.channel_rf_telemetry import ChannelRfTelemetry, adc_clip_fraction, measure_channel_rf
 from controllers.radio.dsp.channelized_am_demodulator import ChannelizedAmDemodulator
 from controllers.radio.dsp.channelized_nbfm_demodulator import ChannelizedNbfmDemodulator
 from controllers.radio.dsp.channelized_wbfm_demodulator import ChannelizedWbfmDemodulator
@@ -42,6 +43,11 @@ class MultiModeRadioReceiver:
         self._manager = VirtualReceiverManager(input_rate_hz=input_rate_hz)
         self._decoders: dict[str, object] = {}
         self._configs: dict[str, RadioChannel] = {}
+        self._telemetry: dict[str, ChannelRfTelemetry] = {}
+
+    @property
+    def telemetry(self) -> dict[str, ChannelRfTelemetry]:
+        return dict(self._telemetry)
 
     @property
     def channels(self) -> tuple[RadioChannel, ...]:
@@ -66,6 +72,7 @@ class MultiModeRadioReceiver:
         self._manager.remove_channel(name)
         del self._decoders[name]
         del self._configs[name]
+        self._telemetry.pop(name, None)
 
     def retune_channel(self, name: str, frequency_hz: int) -> None:
         self._manager.retune_channel(name, frequency_hz)
@@ -73,16 +80,23 @@ class MultiModeRadioReceiver:
         self._configs[name] = RadioChannel(old.name, frequency_hz, old.mode,
                                             old.bandwidth_hz)
         self._decoders[name].reset()
+        self._telemetry.pop(name, None)
 
     def reset(self) -> None:
         """Reset after a source gap, RF retune or discontinuous recording."""
         self._manager.reset()
+        self._telemetry.clear()
         for decoder in self._decoders.values():
             decoder.reset()
 
     def process(self, block: IqBlock) -> dict[str, np.ndarray]:
         """Return separate 48 kHz mono float32 PCM for every active channel."""
         iq_by_channel = self._manager.process(block)
+        clipping = adc_clip_fraction(block.samples)
+        self._telemetry = {
+            name: measure_channel_rf(samples, adc_clip_fraction=clipping)
+            for name, samples in iq_by_channel.items()
+        }
         return {
             name: self._decoders[name].process(samples)
             for name, samples in iq_by_channel.items()
