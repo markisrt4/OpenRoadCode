@@ -22,6 +22,7 @@ import numpy as np
 
 from controllers.radio.dsp.wbfm_mono_demodulator import WbfmMonoDemodulator
 from controllers.radio.dsp.nbfm_mono_demodulator import NbfmMonoDemodulator
+from controllers.radio.dsp.am_mono_demodulator import AmMonoDemodulator
 from hardware_io.sdr import RtlSdrSource
 
 
@@ -45,7 +46,7 @@ class Counters:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--frequency", type=int, default=None)
-    parser.add_argument("--mode", choices=("wfm", "nfm"), default="wfm",
+    parser.add_argument("--mode", choices=("wfm", "nfm", "am"), default="wfm",
                         help="FM demodulation mode (default: wfm)")
     parser.add_argument("--gain", type=float, default=40.0,
                         help="Manual tuner gain in dB (default: known-good 40)")
@@ -68,7 +69,8 @@ def main() -> int:
                         help="Save same-session raw IQ (.u8), demodulated WAV, and metadata")
     args = parser.parse_args()
     if args.frequency is None:
-        args.frequency = 162_550_000 if args.mode == "nfm" else 104_300_000
+        args.frequency = {"wfm": 104_300_000, "nfm": 162_550_000,
+                          "am": 125_000_000}[args.mode]
     if args.seconds <= 0 or args.warmup_seconds < 0 or not 0 <= args.volume <= 1:
         parser.error("seconds must be positive and volume in [0,1]")
     if args.prebuffer_ms < 0 or args.audio_prime_ms < 0:
@@ -82,8 +84,9 @@ def main() -> int:
         raise SystemExit("Install sounddevice: pip install sounddevice") from exc
 
     source = RtlSdrSource(acquisition_mode="async")
-    decoder = (NbfmMonoDemodulator() if args.mode == "nfm"
-               else WbfmMonoDemodulator())
+    decoder = {"wfm": WbfmMonoDemodulator,
+               "nfm": NbfmMonoDemodulator,
+               "am": AmMonoDemodulator}[args.mode]()
     iq_queue: queue.Queue = queue.Queue(maxsize=args.iq_queue)
     pcm_queue: queue.Queue = queue.Queue(maxsize=args.pcm_queue)
     stop = threading.Event()
