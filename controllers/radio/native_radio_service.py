@@ -80,7 +80,8 @@ class NativeRadioService:
                 if block.sample_rate_hz != self.sample_rate_hz or block.center_frequency_hz != self.center_frequency_hz:
                     raise RuntimeError("unexpected SDR format during RF warmup")
                 self.warmup_iq_samples += len(block.samples) // 2
-            self.receiver.reset()
+            if target_samples:
+                self.receiver.reset()
         except Exception as exc:
             self._last_error = str(exc)
             self.source.close()
