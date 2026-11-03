@@ -59,6 +59,10 @@ class MapRuntime:
         self._parent_window_id: int | None = None
         self._theme_mode: ThemeMode | None = None
 
+    @property
+    def state(self):
+        return self._renderer.state
+
     def set_theme(self, mode: ThemeMode) -> None:
         """Install map presentation assets for the requested ORC theme."""
         install_map_style(mode)

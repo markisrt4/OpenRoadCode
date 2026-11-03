@@ -58,3 +58,22 @@ def test_native_child_output_is_collected_and_drained(tmp_path, monkeypatch):
     assert item["pid"] == child.pid
     assert item["event"] == "native.output"
     assert item["message"] == "renderer fixture output"
+
+
+def test_linker_failure_is_exposed_as_persistent_health_state(tmp_path, monkeypatch):
+    import sys
+    from apps.launchers.map_renderer_launcher import MapRendererLauncher
+
+    launcher = MapRendererLauncher(command=[sys.executable, '-c',
+        'print("CANNOT LINK EXECUTABLE: cannot locate symbol fmt11", flush=True); raise SystemExit(127)'],
+        log_file=tmp_path / 'renderer.jsonl')
+    monkeypatch.setattr(launcher, '_terminate_stale_renderers', lambda: None)
+    launcher.launch(display=':0', parent_window_id=1)
+    launcher._process.wait(timeout=5)
+    launcher._collector.join(timeout=2)
+    state = launcher.state
+    assert not state.running
+    assert 'library is incompatible' in state.error
+    assert launcher.state.error == state.error
+    launcher.stop()
+    assert not launcher.state.error

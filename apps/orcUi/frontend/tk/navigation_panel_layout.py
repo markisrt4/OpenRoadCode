@@ -140,6 +140,10 @@ def build_navigation_panel(panel) -> None:
                                     bg=ui.background, fg=ui.text)
     panel._loading_cover.grid(row=0, column=0, sticky='nsew')
     panel._loading_cover.grid_remove()
+    panel._map_retry_button = tk.Button(body, text='RETRY MAP',
+        command=panel._map_platform.request_retry if panel._map_platform is not None else None,
+        bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active,
+        relief=tk.FLAT, bd=0, font=('Sans', 11, 'bold'), padx=16, pady=10)
     panel._map_host.bind("<Configure>", panel._log_map_allocation, add="+")
     panel._map_controls_handle = tk.Button(
         body,

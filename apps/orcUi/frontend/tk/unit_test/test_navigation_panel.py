@@ -5,6 +5,9 @@
 
 import math
 import unittest
+import os
+import tkinter as tk
+import pytest
 from unittest.mock import Mock, patch
 
 from apps.orcUi.frontend.tk.navigation_panel import NavigationPanel
@@ -392,6 +395,7 @@ def test_embedded_platform_keeps_host_geometry_and_enables_follow():
     panel._terrain_active = False
     panel._follow_enabled = True
     panel._native_camera_controls = Mock()
+    panel._map_retry_button = Mock()
     panel._follow_button = Mock()
     panel._loading_cover = Mock()
     panel.set_follow_enabled = Mock()
@@ -432,6 +436,7 @@ def test_loading_cover_stays_above_map_until_ready():
     panel._follow_enabled = True
     panel._follow_button = Mock()
     panel._loading_cover = Mock()
+    panel._map_retry_button = Mock()
     panel._zoom_text = Mock()
     panel._dimension_text = Mock()
     panel.set_follow_enabled = Mock()
@@ -442,3 +447,63 @@ def test_loading_cover_stays_above_map_until_ready():
     panel.apply_map_platform_state(MapPlatformState(active=MapPlatform.CESIUM,requested=MapPlatform.CESIUM,follow_enabled=True))
     panel._loading_cover.grid_remove.assert_called_once()
     panel.set_follow_enabled.assert_called_with(True)
+
+
+def test_failed_map_has_visible_error_cover_and_retry_control():
+    from ui.navigation.map_platform_if import MapPlatformState
+    panel = object.__new__(NavigationPanel)
+    panel._platform_toggle = None
+    panel._terrain_active = False
+    panel._follow_enabled = True
+    panel._follow_button = Mock()
+    panel._loading_cover = Mock()
+    panel._map_retry_button = Mock()
+    panel._map_host = Mock()
+    panel._map_host.winfo_width.return_value = 640
+    panel._zoom_text = Mock()
+    panel._dimension_text = Mock()
+    panel._zoom_level = 16.5
+    panel._pitch_rad = 0
+    panel.apply_map_platform_state(MapPlatformState(error='A required library is incompatible'))
+    assert 'Map unavailable' in panel._loading_cover.configure.call_args.kwargs['text']
+    panel._loading_cover.grid.assert_called_once_with()
+    panel._map_retry_button.place.assert_called_once()
+    panel._loading_cover.grid_remove.assert_not_called()
+    panel.apply_map_platform_state(MapPlatformState())
+    panel._loading_cover.grid_remove.assert_called_once()
+
+
+@pytest.mark.skipif(not os.environ.get('DISPLAY'), reason='real map error overlay needs X11')
+def test_map_failure_overlay_and_retry_are_visible_and_actionable_in_tk():
+    from ui.navigation.map_platform_if import MapPlatformState
+    root = tk.Tk()
+    root.geometry('800x500')
+    root.grid_rowconfigure(0, weight=1)
+    root.grid_columnconfigure(0, weight=1)
+    retry = Mock()
+    panel = object.__new__(NavigationPanel)
+    panel._platform_toggle = None
+    panel._terrain_active = False
+    panel._follow_enabled = True
+    panel._follow_button = Mock()
+    panel._map_host = tk.Frame(root)
+    panel._map_host.grid(row=0, column=0, sticky='nsew')
+    panel._loading_cover = tk.Label(root)
+    panel._map_retry_button = tk.Button(root, text='RETRY MAP', command=retry)
+    panel._zoom_text, panel._dimension_text = Mock(), Mock()
+    panel._zoom_level, panel._pitch_rad = 16.5, 0
+    try:
+        root.update()
+        panel.apply_map_platform_state(MapPlatformState(error='A required map library is incompatible.'))
+        root.update()
+        assert panel._loading_cover.winfo_ismapped()
+        assert panel._map_retry_button.winfo_ismapped()
+        assert 'Map unavailable' in panel._loading_cover.cget('text')
+        panel._map_retry_button.invoke()
+        retry.assert_called_once_with()
+        panel.apply_map_platform_state(MapPlatformState())
+        root.update()
+        assert not panel._loading_cover.winfo_ismapped()
+        assert not panel._map_retry_button.winfo_ismapped()
+    finally:
+        root.destroy()

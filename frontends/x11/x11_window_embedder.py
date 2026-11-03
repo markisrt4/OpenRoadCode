@@ -186,6 +186,14 @@ class X11WindowEmbedder(WindowEmbedderIf):
         )
         if exists.returncode != 0:
             return
+        # Reparenting a *mapped* client to the desktop requests that the window
+        # manager manage/map it. Unmap first so a late WM map cannot undo hide.
+        hidden = subprocess.run(
+            ['xdotool', 'windowunmap', str(window_id)],
+            check=False, capture_output=True, text=True,
+        )
+        if hidden.returncode != 0:
+            return
         reparent = subprocess.run(
             ['xdotool', 'windowreparent', str(window_id), str(parent_window_id)],
             check=False, capture_output=True, text=True,

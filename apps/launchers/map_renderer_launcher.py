@@ -14,6 +14,7 @@ from common.logging.structured import JsonStore, collect_native_output, event
 from pathlib import Path
 
 from apps.launchers.process_manager import find_matching_processes, terminate_process
+from ui.navigation.map_runtime_if import MapRuntimeState
 
 _MAP_RENDERER_PROCESS_PATTERN = r"(^|/)openroadcode-map-renderer([[:space:]]|$)"
 
@@ -31,6 +32,31 @@ class MapRendererLauncher:
         self._log_file = Path(log_file) if log_file else None
         self._process: subprocess.Popen[str] | None = None
         self._collector: threading.Thread | None = None
+        self._exit_code = None
+        self._diagnostics = {'linker_failure': False}
+
+    @property
+    def state(self) -> MapRuntimeState:
+        running = self.is_running()
+        error = ''
+        if not running and self._exit_code is not None:
+            error = ('A required map library is incompatible. Rebuild the map renderer after updating system packages.'
+                     if self._diagnostics['linker_failure'] else
+                     f'The map renderer stopped unexpectedly (exit code {self._exit_code}).')
+        return MapRuntimeState(running, error)
+
+    @staticmethod
+    def _collect_output(stream, store, pid, diagnostics):
+        class CapturedStream:
+            def readline(self, size):
+                line = stream.readline(size)
+                if 'CANNOT LINK EXECUTABLE' in line or 'cannot locate symbol' in line:
+                    diagnostics['linker_failure'] = True
+                return line
+
+            def close(self):
+                stream.close()
+        collect_native_output(CapturedStream(), store, pid)
 
     def is_running(self) -> bool:
         """Return whether the renderer process owned by this launcher is alive."""
@@ -39,8 +65,7 @@ class MapRendererLauncher:
             return False
         if self._process.poll() is None:
             return True
-        if self._collector:
-            self._collector.join(timeout=2)
+        self._exit_code = self._process.returncode
         event(
             logging.getLogger("map_renderer.lifecycle"),
             logging.ERROR,
@@ -66,6 +91,8 @@ class MapRendererLauncher:
         self._terminate_stale_renderers()
 
         command = self._command or _default_command()
+        self._exit_code = None
+        self._diagnostics = {'linker_failure': False}
         environment = os.environ.copy()
         environment.update(
             {
@@ -86,8 +113,8 @@ class MapRendererLauncher:
             errors="replace",
         )
         self._collector = threading.Thread(
-            target=collect_native_output,
-            args=(self._process.stdout, store, self._process.pid),
+            target=self._collect_output,
+            args=(self._process.stdout, store, self._process.pid, self._diagnostics),
             name="orc-renderer-logs",
             daemon=True,
         )
@@ -103,6 +130,7 @@ class MapRendererLauncher:
     def stop(self) -> None:
         """Stop the renderer process owned by this launcher."""
 
+        self._exit_code = None
         if self._process is None:
             return
         child_pid = self._process.pid

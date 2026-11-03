@@ -6,6 +6,7 @@ from apps.orcUi.cesium_map_runtime import CesiumMapRuntime
 from ui.navigation import GeoPoint
 from ui.navigation.cesium_viewer_state import CesiumViewerState
 from ui.navigation.map_platform_if import MapPlatform
+from ui.navigation.map_runtime_if import MapRuntimeState
 
 
 @pytest.fixture
@@ -21,6 +22,30 @@ def mounted():
 
 def flush(runtime):
     runtime._worker.submit(lambda:None).result(timeout=3)
+
+
+def test_native_renderer_failure_stays_visible_until_successful_retry(mounted):
+    runtime, native, _ = mounted
+    native.state = MapRuntimeState(error='Required map library is incompatible')
+    runtime._worker.submit(runtime._tick, runtime._generation).result(timeout=3)
+    assert runtime.state.error == 'Required map library is incompatible'
+    assert 'Map unavailable' in runtime.state.status
+    runtime._worker.submit(runtime._tick, runtime._generation).result(timeout=3)
+    assert runtime.state.error
+    runtime.request_retry()
+    flush(runtime)
+    native.state = MapRuntimeState(running=True)
+    runtime._worker.submit(runtime._tick, runtime._generation).result(timeout=3)
+    assert not runtime.state.error
+    native.launch.assert_called_with(100)
+
+
+def test_native_start_exception_becomes_visible_error_instead_of_blank_map(mounted):
+    runtime, native, _ = mounted
+    native.launch.side_effect = OSError('renderer missing')
+    runtime.request_retry()
+    flush(runtime)
+    assert runtime.state.error == 'renderer missing'
 
 
 def explore(runtime):

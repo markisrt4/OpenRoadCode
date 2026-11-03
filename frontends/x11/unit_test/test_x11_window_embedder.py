@@ -104,12 +104,16 @@ class X11WindowEmbedderTest(unittest.TestCase):
         embedder.detach(123)
 
         self.assertEqual(
-            ["xdotool", "windowreparent", "99", "123"],
+            ["xdotool", "windowunmap", "99"],
             run.call_args_list[1].args[0],
         )
         self.assertEqual(
-            ["xdotool", "windowunmap", "99"],
+            ["xdotool", "windowreparent", "99", "123"],
             run.call_args_list[2].args[0],
+        )
+        self.assertEqual(
+            ["xdotool", "windowunmap", "99"],
+            run.call_args_list[3].args[0],
         )
         self.assertIsNone(embedder.window_id)
 

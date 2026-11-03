@@ -161,10 +161,19 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         self._terrain_active = terrain
         self._follow_button.configure(state='disabled' if state.busy else 'normal')
         if state.busy:
+            self._map_retry_button.place_forget()
             self._loading_cover.configure(text='Loading Terrain…' if terrain else 'Loading map…')
             self._loading_cover.grid()
             self._loading_cover.lift()
+        elif state.error:
+            self._loading_cover.configure(text=f'Map unavailable\n\n{state.error}',
+                                          wraplength=max(180, self._map_host.winfo_width() - 48))
+            self._loading_cover.grid()
+            self._loading_cover.lift()
+            self._map_retry_button.place(relx=.5, rely=.75, anchor='center')
+            self._map_retry_button.lift()
         else:
+            self._map_retry_button.place_forget()
             self._loading_cover.grid_remove()
         if terrain:
             self.set_follow_enabled(state.follow_enabled)

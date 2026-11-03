@@ -3,7 +3,14 @@
 
 """Native map host lifecycle contract independent of process implementation."""
 from typing import Protocol
+from dataclasses import dataclass
 from ui.theme import ThemeMode
+
+
+@dataclass(frozen=True)
+class MapRuntimeState:
+    running: bool = False
+    error: str = ''
 
 
 class MapPresentationRequestHandlerIf(Protocol):
@@ -14,6 +21,11 @@ class MapPresentationRequestHandlerIf(Protocol):
 
 class MapRuntimeIf(Protocol):
     """Control a native map presentation without importing backend infrastructure."""
+
+    @property
+    def state(self) -> MapRuntimeState:
+        """Return renderer process health without waiting for startup or exit."""
+        ...
 
     def set_theme(self, mode: ThemeMode) -> None:
         """Select map appearance.

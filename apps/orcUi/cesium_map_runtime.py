@@ -10,6 +10,7 @@ import time
 from ui.navigation import GeoPoint
 from ui.navigation.cesium_viewer_state import CesiumViewerState
 from ui.navigation.map_platform_if import MapPlatform, MapPlatformState, ExplorationCameraAction
+from ui.navigation.map_runtime_if import MapRuntimeState
 
 _PLATFORMS = (MapPlatform.MAPLIBRE, MapPlatform.CESIUM)
 
@@ -57,7 +58,11 @@ class CesiumMapRuntime:
             self._host = parent_window_id
             platform = self._state.requested
         if platform is MapPlatform.MAPLIBRE:
-            self._native.launch(parent_window_id)
+            try:
+                self._native.launch(parent_window_id)
+            except (OSError, RuntimeError) as error:
+                with self._lock:
+                    self._state = replace(self._state, error=str(error), status=f'Map unavailable: {error}')
         else:
             self.request_platform(platform)
 
@@ -82,8 +87,11 @@ class CesiumMapRuntime:
                 self._view = self._initial_view()
             self._generation += 1
             generation = self._generation
-            self._state = replace(self._state,requested=platform,busy=True,status=f'Opening {platform.value}…')
+            self._state = replace(self._state,requested=platform,busy=True,error='',status=f'Opening {platform.value}…')
             self._worker.submit(self._select,platform,generation)
+
+    def request_retry(self):
+        self.request_platform(self.state.requested)
 
     def request_chase(self):
         """Live vehicle-follow is outside this destination-exploration prototype."""
@@ -176,6 +184,12 @@ class CesiumMapRuntime:
                         '3D exploration · routes and radar use MapLibre' if platform is MapPlatform.CESIUM else 'MapLibre',
                         available_platforms=_PLATFORMS, follow_enabled=self._follow_enabled)
         except Exception as error:
+            if platform is MapPlatform.MAPLIBRE:
+                with self._lock:
+                    if self._current(generation):
+                        self._state = MapPlatformState(status=f'Map unavailable: {error}',
+                            available_platforms=_PLATFORMS, error=str(error))
+                return
             try:
                 self._viewer.close()
             finally:
@@ -186,13 +200,15 @@ class CesiumMapRuntime:
         if not self._current(generation):
             return
         logging.getLogger(__name__).warning('Terrain returned to Map: %s', status)
+        map_error = ''
         try:
             self._native.launch(self._host)
         except (OSError, RuntimeError) as error:
             status += f'; MapLibre failed: {error}'
+            map_error = str(error)
         with self._lock:
             if self._current(generation):
-                self._state = MapPlatformState(status=status,available_platforms=_PLATFORMS)
+                self._state = MapPlatformState(status=status,available_platforms=_PLATFORMS,error=map_error)
 
     def _tick_loop(self):
         pending = None
@@ -200,12 +216,22 @@ class CesiumMapRuntime:
             with self._lock:
                 if self._closed:
                     return
-                if self._host is not None and not self._state.busy and self._state.active is MapPlatform.CESIUM:
+                if self._host is not None and not self._state.busy:
                     if pending is None or pending.done():
                         pending = self._worker.submit(self._tick,self._generation)
 
     def _tick(self, generation):
         if not self._current(generation):
+            return
+        if self.state.active is MapPlatform.MAPLIBRE:
+            health = self._native.state
+            if isinstance(health, MapRuntimeState):
+                with self._lock:
+                    if self._current(generation):
+                        if health.error:
+                            self._state = replace(self._state, error=health.error, status=f'Map unavailable: {health.error}')
+                        elif health.running and self._state.error:
+                            self._state = replace(self._state, error='', status='MapLibre')
             return
         try:
             if not self._viewer.tick(self._size):

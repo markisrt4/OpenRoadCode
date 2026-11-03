@@ -36,10 +36,15 @@ class MapPlatformState:
     available_platforms: tuple[MapPlatform, ...] = (MapPlatform.MAPLIBRE, MapPlatform.EARTH)
     follow_enabled: bool = False
     position_available: bool = False
+    error: str = ''
 
 
 class MapPlatformControlIf(Protocol):
     """Select a map platform without exposing browser or process access."""
+
+    def request_retry(self) -> None:
+        """Retry a failed map launch after its underlying problem is resolved."""
+        ...
 
     @property
     def state(self) -> MapPlatformState:
