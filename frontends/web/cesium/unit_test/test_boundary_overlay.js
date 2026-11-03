@@ -18,18 +18,18 @@ test('state boundaries preserve semantic emphasis and clean up with the viewer',
   const viewer={dataSources:{add(){},remove(source,destroy){removed={source,destroy};}},
     cesiumWidget:{creditDisplay:{addStaticCredit(value){credit=value;}}},
     scene:{requestRender(){renders++;}}};
-  const ring=[[0,0],[1,0],[1,1],[0,0]];
+  const path=[[0,0],[1,0],[1,1]];
   const overlay=context.window.ORCBoundaryOverlay(viewer,{attribution:'Census',regions:[
-    {name:'Michigan',emphasized:true,rings_rad:[ring]},
-    {name:'Wisconsin',emphasized:false,rings_rad:[ring]},
+    {name:'State boundaries',emphasized:false,paths_rad:[path]},
+    {name:'Michigan',emphasized:true,paths_rad:[path]},
   ]},C);
   assert.equal(entities.length,2);
-  assert.equal(entities[0].polyline.width,2.5);
-  assert.equal(entities[0].polyline.material.color.value,'#59d8ff');
+  assert.equal(entities[0].polyline.width,1.25);
+  assert.equal(entities[0].polyline.material.color.alpha,.45);
   assert.equal(entities[0].polyline.material.dashLength,12);
   assert.equal(entities[0].polyline.material.dashPattern,0x000f);
-  assert.equal(entities[1].polyline.width,1.25);
-  assert.equal(entities[1].polyline.material.color.alpha,.45);
+  assert.equal(entities[1].polyline.width,2.5);
+  assert.equal(entities[1].polyline.material.color.value,'#59d8ff');
   assert.equal(credit.value,'Census');
   assert.equal(renders,1);
   overlay.destroy();

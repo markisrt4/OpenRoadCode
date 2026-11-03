@@ -118,7 +118,7 @@ visibility/replay. `RadarUiState`, `RadarControlsIf` and
 `RadarRequestHandlerIf` provide the corresponding radar replay boundary.
 
 Navigation boundary outlines use immutable `BoundaryOverlayState` and
-`BoundaryRegionState` snapshots. Coordinates are normalized radians and semantic
+`BoundaryRegionState` boundary-path snapshots. Coordinates are normalized radians and semantic
 emphasis is frontend-neutral; composition loads attributed geometry while the
 Cesium adapter owns line color, width, terrain clamping and cleanup.
 

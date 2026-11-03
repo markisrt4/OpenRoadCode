@@ -10,18 +10,23 @@ from ui.navigation.boundary_overlay_state import BoundaryOverlayState, BoundaryR
 
 def test_census_boundaries_are_normalized_to_immutable_radians():
     state = load_state_boundary_overlay()
-    assert [region.name for region in state.regions] == ['Michigan', 'Indiana', 'Ohio', 'Wisconsin']
+    assert [region.name for region in state.regions] == ['United States state boundaries', 'Michigan']
     assert [region.name for region in state.regions if region.emphasized] == ['Michigan']
     assert state.attribution.startswith('U.S. Census Bureau')
-    assert max(abs(point[0]) for region in state.regions for ring in region.rings_rad for point in ring) <= math.pi
+    assert max(abs(point[0]) for region in state.regions for path in region.paths_rad for point in path) <= math.pi
     document = state.document()
-    assert 'path' not in str(document).lower()
-    assert document['regions'][0]['rings_rad'][0][0] == document['regions'][0]['rings_rad'][0][-1]
+    assert 'source' not in str(document).lower()
+    assert document['regions'][0]['paths_rad']
+    edges = [tuple(sorted((start, end))) for path in state.regions[0].paths_rad
+             for start, end in zip(path, path[1:])]
+    assert len(edges) == len(set(edges))
 
 
-def test_boundary_contract_rejects_mutable_open_and_unbounded_state():
-    with pytest.raises(ValueError, match='closed'):
-        BoundaryRegionState('Michigan', True, (((0.,0.),(.1,0.),(.1,.1),(.2,.2)),))
-    region = BoundaryRegionState('Michigan', True, (((0.,0.),(.1,0.),(.1,.1),(0.,0.)),))
+def test_boundary_contract_rejects_mutable_short_and_unbounded_state():
+    with pytest.raises(ValueError, match='immutable'):
+        BoundaryRegionState('Michigan', True, [[(0.,0.),(.1,0.)]])
+    with pytest.raises(ValueError, match='immutable lines'):
+        BoundaryRegionState('Michigan', True, (((0.,0.),),))
+    region = BoundaryRegionState('Michigan', True, (((0.,0.),(.1,0.)),))
     with pytest.raises(ValueError, match='attribution'):
         BoundaryOverlayState((region,), '')

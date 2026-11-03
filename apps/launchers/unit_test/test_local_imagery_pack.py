@@ -112,8 +112,9 @@ def test_server_exposes_boundary_contract_without_asset_paths(server):
     server._boundaries = load_state_boundary_overlay()
     with urllib.request.urlopen(server.url+'config.json') as response:
         overlay = json.load(response)['boundary_overlay']
-    assert overlay['regions'][0]['name'] == 'Michigan'
-    assert overlay['regions'][0]['emphasized'] is True
+    assert [region['name'] for region in overlay['regions']] == [
+        'United States state boundaries', 'Michigan']
+    assert overlay['regions'][1]['emphasized'] is True
     assert 'path' not in json.dumps(overlay).lower()
 
 

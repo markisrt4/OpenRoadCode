@@ -6,33 +6,33 @@ import math
 
 @dataclass(frozen=True, slots=True)
 class BoundaryRegionState:
-    """One named region outline in normalized SI angular units."""
+    """One named boundary-line group in normalized SI angular units."""
 
     name: str
     emphasized: bool
-    rings_rad: tuple[tuple[tuple[float, float], ...], ...]
+    paths_rad: tuple[tuple[tuple[float, float], ...], ...]
 
     def __post_init__(self):
         if not self.name.strip() or type(self.emphasized) is not bool:
             raise ValueError('Boundary region needs a name and semantic emphasis')
-        if not isinstance(self.rings_rad, tuple) or not 1 <= len(self.rings_rad) <= 128:
-            raise ValueError('Boundary region needs a bounded immutable ring collection')
+        if not isinstance(self.paths_rad, tuple) or not 1 <= len(self.paths_rad) <= 512:
+            raise ValueError('Boundary region needs a bounded immutable path collection')
         point_count = 0
-        for ring in self.rings_rad:
-            if not isinstance(ring, tuple) or len(ring) < 4 or ring[0] != ring[-1]:
-                raise ValueError('Boundary rings must be immutable closed lines')
-            point_count += len(ring)
+        for path in self.paths_rad:
+            if not isinstance(path, tuple) or len(path) < 2:
+                raise ValueError('Boundary paths must be immutable lines')
+            point_count += len(path)
             if any(not (math.isfinite(lon) and math.isfinite(lat)
                        and -math.pi <= lon <= math.pi
                        and -math.pi/2 <= lat <= math.pi/2)
-                   for lon, lat in ring):
+                   for lon, lat in path):
                 raise ValueError('Boundary coordinates must be finite radians')
-        if point_count > 10000:
+        if point_count > 20000:
             raise ValueError('Boundary region exceeds the presentation point limit')
 
     def document(self):
         return {'name': self.name, 'emphasized': self.emphasized,
-                'rings_rad': self.rings_rad}
+                'paths_rad': self.paths_rad}
 
 
 @dataclass(frozen=True, slots=True)
