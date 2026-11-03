@@ -47,6 +47,26 @@ class DigitalDownconverterTest(unittest.TestCase):
             chunks.append(stream.process(part, CENTER + 100_000))
         np.testing.assert_allclose(np.concatenate(chunks), whole, atol=1e-5)
 
+    def test_center_tuned_chunking_matches_whole_block(self) -> None:
+        block = synthetic_block()
+        whole = DigitalDownconverter().process(block, CENTER)
+        streaming = DigitalDownconverter()
+        chunks = []
+        for index in range(0, len(block.samples), 12_346):
+            part = IqBlock(block.samples[index:index + 12_346], CENTER, RATE, 1)
+            chunks.append(streaming.process(part, CENTER))
+        np.testing.assert_allclose(np.concatenate(chunks), whole, atol=1e-5)
+
+    def test_center_tuned_output_matches_original_filter_path(self) -> None:
+        block = synthetic_block()
+        converter = DigitalDownconverter()
+        result = converter.process(block, CENTER)
+        raw = np.frombuffer(block.samples, dtype=np.uint8).astype(np.float32)
+        iq = ((raw[::2] - 127.5) + 1j * (raw[1::2] - 127.5)) / 127.5
+        from scipy import signal
+        expected = signal.sosfilt(converter._sos, iq.astype(np.complex128))[::10]
+        np.testing.assert_allclose(result, expected.astype(np.complex64), atol=1e-5)
+
     def test_rejects_out_of_band_channel(self) -> None:
         with self.assertRaises(ValueError):
             DigitalDownconverter().process(synthetic_block(), CENTER + 1_150_000)
