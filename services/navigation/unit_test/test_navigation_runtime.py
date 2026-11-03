@@ -20,6 +20,18 @@ from messaging.contracts.route_guidance import ROUTE_GUIDANCE_STATE_TOPIC
 from services.navigation.navigation_runtime import NavigationRuntime
 
 
+def test_host_location_permission_is_prepared_by_the_navigation_owner():
+    source, controller = Mock(), Mock()
+    source.url = 'http://localhost:8765/'
+    runtime = NavigationRuntime(controller, Mock(), source='test', host_location_source=source)
+    response = runtime._command_server._handle_request({'command': 'navigation.location.host.prepare'})
+    assert response['ok'] is True
+    assert response['data']['url'] == 'http://localhost:8765/'
+    source.start.assert_called_once_with(controller.update_host_position_state)
+    runtime.close()
+    source.stop.assert_called_once_with()
+
+
 def _route() -> RouteResult:
     return RouteResult(
         1.0,

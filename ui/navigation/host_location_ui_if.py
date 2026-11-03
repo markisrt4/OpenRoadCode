@@ -12,6 +12,8 @@ class HostLocationState:
     status: str = "Share this computer's location with ORC using your browser."
     busy: bool = False
     can_share: bool = True
+    location_status: str = 'Waiting for a live location.'
+    android_status: str = ''
 
 
 class HostLocationUiIf(Protocol):

@@ -30,6 +30,7 @@ from messaging.zeromq import ZeroMqSubscriber
 from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
 from protocols.map_renderer.map_renderer_client import MapRendererClient
 from ui.navigation import GeoPoint, MapRequestHandlerIf
+from ui.navigation.location_sharing_if import LocationSnapshot
 
 _MIN_COURSE_UP_SPEED_M_S = 1.5
 _MIN_COURSE_POSITION_DELTA_M = 4.0
@@ -53,6 +54,7 @@ class MapCameraRuntime:
         initial_position = self._load_cached_center(DEFAULT_POSITION_CACHE_DIRECTORY)
         self._current_position = initial_position
         self._position_observers = []
+        self._location_observers = []
         self._last_dispatch_error = None
         self._logged_live_fix = False
         set_current_position(initial_position)
@@ -130,6 +132,7 @@ class MapCameraRuntime:
         self._closed = True
         self._dispatcher.close()
         self._position_observers.clear()
+        self._location_observers.clear()
         self._renderer_client.close()
 
     @staticmethod
@@ -156,6 +159,16 @@ class MapCameraRuntime:
         if (not data.is_cached and data.fix_mode is not None and data.fix_mode >= 2
                 and data.latitude_rad is not None and data.longitude_rad is not None):
             live_point = GeoPoint(data.latitude_rad, data.longitude_rad, data.altitude_m)
+        if getattr(self, '_location_observers', ()):
+            snapshot = LocationSnapshot(
+                live_point,
+                message.timestamp.seconds + message.timestamp.nanoseconds / 1_000_000_000,
+                data.accuracy_m, message.source, data.is_cached)
+            for observer in tuple(self._location_observers):
+                try:
+                    observer(snapshot)
+                except Exception as error:
+                    self._on_dispatch_error('location.observer', error)
         for observer in tuple(self._position_observers):
             try:
                 observer(live_point)
@@ -216,6 +229,12 @@ class MapCameraRuntime:
         Consumers receive future fixes only, not a cached startup position.
         """
         self._position_observers.append(observer)
+
+    def observe_location(self, observer):
+        """Supply timestamped location metadata for freshness and sharing policy."""
+        self._location_observers.append(observer)
+        if self._current_position is not None:
+            observer(LocationSnapshot(self._current_position, source='cache', is_cached=True))
 
     def _on_manual_camera_interaction(self, _payload) -> None:
         """Suspend follow when the user directly manipulates the native map."""

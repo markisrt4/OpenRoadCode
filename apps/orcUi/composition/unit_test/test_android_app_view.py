@@ -11,6 +11,21 @@ from frontends.tk.media.browser_media_screen import BrowserMediaScreen
 from frontends.x11.x11_window_embedder import X11WindowEmbedder
 
 
+def test_android_view_visibility_controls_location_scope_and_close_revokes_it():
+    app, visibility = Mock(), Mock()
+    with patch('apps.orcUi.composition.android_app_view.AndroidAppScreen'):
+        view = AndroidAppView(app, map_runtime=Mock(), map_platform=Mock(), visibility_changed=visibility)
+        view.request_set_android_app_visible(True)
+        visibility.assert_called_with(True)
+        view.request_set_android_app_visible(False)
+        visibility.assert_called_with(False)
+        view.close()
+        count = visibility.call_count
+        view.request_set_android_app_visible(True)
+        assert visibility.call_count == count
+        visibility.assert_called_with(False)
+
+
 def test_waze_is_fullscreen_only_and_other_apps_still_start_split():
     app = Mock()
     with patch('apps.orcUi.composition.android_app_view.AndroidAppScreen') as screen:

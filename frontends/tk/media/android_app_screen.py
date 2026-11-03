@@ -111,6 +111,7 @@ class AndroidAppScreen(BrowserMediaScreen):
         self._browser_host.bind('<Configure>', self._on_browser_host_resize)
         self._apply_layout()
         self._launch_job = self._host.schedule_ui_callback(1, self._launch_and_embed)
+        self._requests.request_set_android_app_visible(True)
 
     def _apply_layout(self):
         if self._root is None:
@@ -176,6 +177,7 @@ class AndroidAppScreen(BrowserMediaScreen):
             self._map_runtime.stop()
 
     def hide(self):
+        self._requests.request_set_android_app_visible(False)
         self._surface_generation += 1
         if self._surface_resize_job is not None:
             self._host.cancel_ui_callback(self._surface_resize_job)

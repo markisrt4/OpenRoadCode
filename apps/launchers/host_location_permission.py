@@ -9,6 +9,7 @@ import time
 from collections.abc import Callable
 from urllib.error import URLError
 from urllib.request import ProxyHandler, build_opener
+from apps.launchers.host_location_session import HostLocationSessionError
 
 
 class HostLocationPermission:
@@ -44,7 +45,9 @@ class HostLocationPermission:
             try:
                 self._recover()
             except Exception as recovery_error:
-                raise RuntimeError("Location sharing isn't set up on this device. Ask your ORC installer to enable it.") from recovery_error
+                message = (str(recovery_error) if isinstance(recovery_error, HostLocationSessionError)
+                           else 'Location sharing could not start. Please retry or check ORC diagnostics.')
+                raise RuntimeError(message) from recovery_error
             deadline = time.monotonic() + 5
             while not cancelled():
                 try:

@@ -125,7 +125,7 @@ def _build_motion_sensor(config: NavigationServiceRuntimeConfig):
     raise ValueError(f"Unsupported IMU device: {config.imu.device}")
 
 
-def _build_position_source(config: NavigationServiceRuntimeConfig):
+def _build_position_source(config: NavigationServiceRuntimeConfig, *, host_location_source=None):
     if config.gps.source == "simulation":
         simulation = config.gps.simulation
         return SimulatedPositionSource(
@@ -149,7 +149,7 @@ def _build_position_source(config: NavigationServiceRuntimeConfig):
         raise ValueError(f"Unsupported GPS device: {config.gps.device}")
 
     if _host_location_fallback_available():
-        live_source = FallbackPositionSource(live_source, _browser_position_source())
+        live_source = FallbackPositionSource(live_source, host_location_source if host_location_source is not None else _browser_position_source())
     return RoutePlaybackPositionSource(live_source)
 
 
@@ -249,7 +249,8 @@ def main() -> int:
         print("Navigation service disabled by runtime configuration")
         return 0
 
-    position_source = _build_position_source(config)
+    host_location_source = _browser_position_source() if _host_location_fallback_available() else None
+    position_source = _build_position_source(config, host_location_source=host_location_source)
     controller = build_controller(config, position_source=position_source)
     route_planning_controller = build_route_planning_controller(config)
     geocoder = build_geocoder(args.search_database)
@@ -269,6 +270,7 @@ def main() -> int:
         route_planning_controller=route_planning_controller,
         geocoder=geocoder,
         route_simulator=route_simulator,
+        host_location_source=host_location_source,
     )
 
     print("OpenRoadCode navigation service")

@@ -67,6 +67,9 @@ class NavigationController(NavigationControllerIf):
         self._last_sample_time: float | None = None
         self._state_lock = Lock()
         self._position_state: PositionState | None = None
+        self._host_position_state: PositionState | None = None
+        self._host_position_at = float('-inf')
+        self._host_location_suspended = False
         self._ground_motion_state: GroundMotionState | None = None
         self._calibration: MotionCalibration | None = None
         self._motion_available = False
@@ -237,6 +240,20 @@ class NavigationController(NavigationControllerIf):
         with self._state_lock:
             self._ground_motion_state = ground_motion_state
 
+    def update_host_position_state(self, position: PositionState) -> None:
+        if (position.is_cached or not position.has_fix or position.latitude_deg is None
+                or position.longitude_deg is None or not math.isfinite(position.latitude_deg)
+                or not math.isfinite(position.longitude_deg) or not -90 <= position.latitude_deg <= 90
+                or not -180 <= position.longitude_deg <= 180):
+            return
+        with self._state_lock:
+            self._host_position_state = position
+            self._host_position_at = self._monotonic_clock()
+
+    def set_host_location_suspended(self, suspended: bool) -> None:
+        with self._state_lock:
+            self._host_location_suspended = suspended
+
     def read_state(self) -> NavigationState:
         """Read motion and return the current navigation state."""
         if not self._started or self._last_sample_time is None:
@@ -284,6 +301,9 @@ class NavigationController(NavigationControllerIf):
 
         with self._state_lock:
             position_state = self._position_state
+            if (self._host_position_state is not None and not self._host_location_suspended
+                    and self._monotonic_clock() - self._host_position_at <= 10.0):
+                position_state = self._host_position_state
             ground_motion_state = self._ground_motion_state
 
         return NavigationState(

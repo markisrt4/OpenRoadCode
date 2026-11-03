@@ -22,6 +22,7 @@ from services.navigation.navigation_command_service import (
     SIMULATE_ROUTE_COMMAND,
     START_ROUTE_COMMAND,
     STOP_ROUTE_SIMULATION_COMMAND,
+    PREPARE_HOST_LOCATION_COMMAND,
 )
 from services.navigation.zeromq_navigation_command_server import (
     DEFAULT_NAVIGATION_COMMAND_ENDPOINT,
@@ -59,6 +60,10 @@ class NavigationCommandClient:
             },
         )
         return self._route_from_response(response)
+
+    def prepare_host_location(self) -> str:
+        response = self._request(PREPARE_HOST_LOCATION_COMMAND, {})
+        return str(response.get('data', {}).get('url', ''))
 
     def calculate_route_to(
         self,

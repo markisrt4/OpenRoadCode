@@ -121,6 +121,9 @@ def test_equal_split_expand_restore_and_stale_mount():
         assert not screen._expand_button.winfo_ismapped()
         assert not screen._map_host.winfo_ismapped()
         assert screen._back_button.winfo_ismapped()
+        requests.request_set_android_app_visible.assert_called_with(True)
+        screen.hide()
+        requests.request_set_android_app_visible.assert_called_with(False)
     finally:
         screen.hide()
         root.destroy()

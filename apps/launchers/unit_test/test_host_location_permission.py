@@ -67,7 +67,7 @@ def test_recovery_failure_does_not_expose_supervisor_errors():
     recover = Mock(side_effect=RuntimeError('sudo: password required'))
     with patch('apps.launchers.host_location_permission.build_opener', return_value=opener), \
          patch('apps.launchers.host_location_permission.webbrowser.open') as launch:
-        with pytest.raises(RuntimeError, match='Ask your ORC installer') as error:
+        with pytest.raises(RuntimeError, match='could not start') as error:
             HostLocationPermission(recover=recover).open_permission_page(lambda: False)
     assert 'sudo' not in str(error.value)
     launch.assert_not_called()

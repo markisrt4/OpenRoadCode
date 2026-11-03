@@ -1,5 +1,12 @@
 # Ordering and websites from a POI
 
+Leaving an embedded Android app for Settings or another ORC screen unmaps the
+borrowed Weston window before returning it to the desktop root. This prevents
+the window manager from displaying Waze outside ORC during the handoff. The
+Android session remains running. Optional live host-to-Waydroid GPS setup and
+its visibility lifecycle are documented in
+[the Waze investigation](waze_android_investigation.md#host-location-sharing-and-waydroid-gps).
+
 Select a food marker in Navigation, then choose ORDER or WEBSITE. ORDER appears
 for businesses with a configured ordering integration (currently Panera and
 McDonald's). WEBSITE appears whenever the POI has a valid OSM website link.

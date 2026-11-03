@@ -42,10 +42,12 @@ class NavigationRuntime:
         guidance_controller: RouteGuidanceController | None = None,
         geocoder: GeocoderIf | None = None,
         route_simulator: RouteSimulationIf | None = None,
+        host_location_source=None,
     ) -> None:
         if rate_hz <= 0.0:
             raise ValueError("rate_hz must be greater than zero")
         self._controller = controller
+        self._host_location_source = host_location_source
         self._state_publisher = NavigationStatePublisher(publisher, source=source)
         self._guidance_publisher = RouteGuidanceStatePublisher(
             publisher,
@@ -69,6 +71,7 @@ class NavigationRuntime:
                 controller,
                 route_planning_controller=route_planning_controller,
                 geocoder=geocoder,
+                prepare_host_location=self._prepare_host_location if host_location_source is not None else None,
                 on_route_started=(
                     self._activate_route if route_planning_controller is not None else None
                 ),
@@ -87,6 +90,10 @@ class NavigationRuntime:
         self._command_thread: threading.Thread | None = None
         self._command_server_error: BaseException | None = None
         self._stop_event = threading.Event()
+
+    def _prepare_host_location(self):
+        self._host_location_source.start(self._controller.update_host_position_state)
+        return self._host_location_source.url
 
     def start(self) -> None:
         """Start the controller and require the command server to become ready."""
@@ -155,6 +162,8 @@ class NavigationRuntime:
             thread.join(timeout=1.0)
         self._command_thread = None
         self._controller.stop()
+        if self._host_location_source is not None:
+            self._host_location_source.stop()
 
     def _run_command_server(self) -> None:
         try:
@@ -195,12 +204,18 @@ class NavigationRuntime:
             raise RuntimeError("route simulation is not configured")
         if session is None or session.state is None:
             raise RuntimeError("no active route to simulate")
-        simulator.follow_route(session.state.route, time_scale=time_scale)
+        self._controller.set_host_location_suspended(True)
+        try:
+            simulator.follow_route(session.state.route, time_scale=time_scale)
+        except Exception:
+            self._controller.set_host_location_suspended(False)
+            raise
 
     def _stop_route_simulation(self) -> None:
         simulator = self._route_simulator
         if simulator is not None:
             simulator.stop_route()
+        self._controller.set_host_location_suspended(False)
 
     def _update_guidance(self, state) -> None:
         session = self._session_controller

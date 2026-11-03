@@ -31,7 +31,7 @@ modinfo binder_linux >/dev/null 2>&1 ||
     fail "kernel has no discoverable binder_linux module; resolve kernel support first"
 sudo modprobe binder_linux
 sudo apt-get update
-sudo apt-get install -y curl ca-certificates weston mesa-utils xdotool x11-utils
+sudo apt-get install -y curl ca-certificates weston mesa-utils xdotool x11-utils adb
 
 has_waydroid_candidate() {
     # Consume the complete output: grep -q can close the pipe early and make

@@ -15,10 +15,12 @@ class AndroidAppView(AndroidAppViewRequestHandlerIf):
     """Keep Tk calls on the UI thread and reject completions after shutdown."""
 
     def __init__(self, app, *, map_runtime, map_platform, map_presentation=None,
-                 player=None, window_embedder=None, preserve_external_window=True):
+                 player=None, window_embedder=None, preserve_external_window=True,
+                 visibility_changed=None):
         self._app = app
         self._lock = Lock()
         self._closed = False
+        self._visibility_changed = visibility_changed
         self._state = AndroidAppViewState()
         self._player = player if player is not None else WaydroidSurfacePlayer()
         self._screen = AndroidAppScreen(
@@ -60,4 +62,10 @@ class AndroidAppView(AndroidAppViewRequestHandlerIf):
             if self._closed:
                 return
             self._closed = True
+        if self._visibility_changed is not None:
+            self._visibility_changed(False)
         self._screen.hide()
+
+    def request_set_android_app_visible(self, visible):
+        if not self._closed and self._visibility_changed is not None:
+            self._visibility_changed(visible)

@@ -4,7 +4,7 @@
 """Navigation controller state types."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 
 from hardware_io.imu import Vector3
 
@@ -13,7 +13,7 @@ from hardware_io.imu import Vector3
 class PositionState:
     """Represent the latest normalized geographic position report."""
 
-    received_at: datetime = field(default_factory=datetime.now)
+    received_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     latitude_deg: float | None = None
     longitude_deg: float | None = None
     altitude_m: float | None = None

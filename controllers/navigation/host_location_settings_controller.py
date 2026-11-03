@@ -4,6 +4,7 @@
 """Own asynchronous permission-page launch and obsolete completion handling."""
 
 import threading
+from dataclasses import replace
 from collections.abc import Callable
 from typing import Protocol
 
@@ -36,7 +37,7 @@ class HostLocationSettingsController:
         self._visible = False
         self._generation += 1
         if self._state.busy:
-            self._state = HostLocationState()
+            self._state = replace(self._state, status=HostLocationState().status, busy=False)
 
     def close(self) -> None:
         self.hide()
@@ -47,7 +48,7 @@ class HostLocationSettingsController:
             return
         self._generation += 1
         generation = self._generation
-        self._state = HostLocationState("Preparing location sharing…", busy=True)
+        self._state = replace(self._state, status="Preparing location sharing…", busy=True)
         self._ui.set_host_location_state(self._state)
 
         def cancelled() -> bool:
@@ -67,5 +68,14 @@ class HostLocationSettingsController:
     def _complete(self, generation: int, message: str) -> None:
         if self._closed or not self._visible or generation != self._generation:
             return
-        self._state = HostLocationState(message)
+        self._state = replace(self._state, status=message, busy=False)
         self._ui.set_host_location_state(self._state)
+
+    def update_location_status(self, location_status, android_status):
+        def apply():
+            if self._closed:
+                return
+            self._state = replace(self._state, location_status=location_status, android_status=android_status)
+            if self._visible:
+                self._ui.set_host_location_state(self._state)
+        self._dispatcher.dispatch_ui(apply)

@@ -22,3 +22,7 @@ class AndroidAppViewRequestHandlerIf(Protocol):
     def request_toggle_android_app_expanded(self) -> None:
         """Toggle between equal map/app panes and the full-width app view."""
         ...
+
+    def request_set_android_app_visible(self, visible: bool) -> None:
+        """Scope optional location forwarding to the embedded app's visibility."""
+        ...

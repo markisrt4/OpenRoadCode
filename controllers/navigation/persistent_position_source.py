@@ -45,7 +45,7 @@ class PersistentPositionSource(PositionSourceIf):
         self._callback = callback
         cached = self._cache.load()
         if cached is not None:
-            age = (self._clock() - cached.received_at).total_seconds()
+            age = (self._clock().astimezone() - cached.received_at.astimezone()).total_seconds()
             if 0 <= age <= self._max_age_seconds:
                 self._last_cache_write_at = cached.received_at
                 callback(cached)
@@ -80,5 +80,5 @@ class PersistentPositionSource(PositionSourceIf):
     def _cache_write_due(self) -> bool:
         if self._last_cache_write_at is None:
             return True
-        elapsed = (self._clock() - self._last_cache_write_at).total_seconds()
+        elapsed = (self._clock().astimezone() - self._last_cache_write_at.astimezone()).total_seconds()
         return elapsed >= self._cache_interval_seconds

@@ -77,3 +77,17 @@ def test_unavailable_platform_never_starts_permission_work():
     assert 'Android sensor bridge' in ui.set_host_location_state.call_args.args[0].status
     controller.share_host_location()
     permission.open_permission_page.assert_not_called()
+
+
+def test_source_status_keeps_permission_message_and_is_safe_after_close(monkeypatch):
+    controller, ui, _, _, callbacks = setup_controller(monkeypatch)
+    controller.update_location_status('Live location · Browser', 'Android sharing paused.')
+    callbacks.pop()()
+    state = ui.set_host_location_state.call_args.args[0]
+    assert state.location_status == 'Live location · Browser'
+    assert 'Share this computer' in state.status
+    controller.update_location_status('Location expired', 'Android waiting')
+    controller.close()
+    ui.reset_mock()
+    callbacks.pop()()
+    ui.set_host_location_state.assert_not_called()

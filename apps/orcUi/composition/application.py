@@ -15,8 +15,10 @@ import os
 
 from common.app_settings import AppSettings, AppSettingsStore
 from apps.launchers.host_location_permission import HostLocationPermission
-from apps.launchers.host_location_recovery import start_host_location_service
+from apps.launchers.host_location_session import HostLocationSession
 from controllers.navigation.host_location_settings_controller import HostLocationSettingsController
+from controllers.navigation.location_sharing_controller import LocationSharingController
+from apps.launchers.waydroid_location_provider import WaydroidLocationProvider
 from controllers.weather.radar_palette import RadarPalette
 
 from apps.orcUi.application_runtime import OrcUiApplicationRuntime, create_orc_ui_application_runtime
@@ -78,6 +80,8 @@ class OrcUiComposition:
     diagnostics: DiagnosticsScreen | None = None
     performance_status: PerformanceStatusPresenter | None = None
     host_location: HostLocationSettingsController | None = None
+    host_location_session: HostLocationSession | None = None
+    location_sharing: LocationSharingController | None = None
     startup_progress: Callable[[str, str], None] | None = None
     waze: WazeComposition | None = None
     android_app_view: AndroidAppView | None = None
@@ -112,7 +116,7 @@ class OrcUiComposition:
         close_resources(
             self.app.shutdown,
             *(resource.close for resource in (
-                self.android_app_view, self.waze, self.host_location, self.performance_status, self.performance, self.vision, self.navigation,
+                self.android_app_view, self.waze, self.host_location, self.location_sharing, self.host_location_session, self.performance_status, self.performance, self.vision, self.navigation,
                 self.navigation_places, self.radar_replay, self.weather_overlays,
             ) if resource is not None),
             self.radio.close,
@@ -235,12 +239,25 @@ def create_orc_ui_composition(
                 GeoPoint(math.radians(42.3314),math.radians(-83.0458)), label="Terrain", destination_marker_visible=False))
         cleanup.callback(navigation_maps.close)
         core.map_camera.observe_position(navigation_maps.update_position)
+        host_location = None
+        waydroid_enabled = os.environ.get('ORC_WAYDROID_PANEL') == '1' and not os.path.exists('/system/bin/am')
+
+        def location_status(location, android):
+            if host_location is not None:
+                host_location.update_location_status(location, android)
+
+        location_sharing = LocationSharingController(
+            WaydroidLocationProvider.from_config() if waydroid_enabled else None,
+            status=location_status, android_requested=waydroid_enabled)
+        cleanup.callback(location_sharing.close)
+        core.map_camera.observe_location(location_sharing.update_snapshot)
         android_app_view = None
         waze_app_view = None
         waze_native_launcher = None
-        if os.environ.get('ORC_WAYDROID_PANEL') == '1' and not os.path.exists('/system/bin/am'):
+        if waydroid_enabled:
             android_app_view = AndroidAppView(app, map_runtime=navigation_maps, map_platform=navigation_maps,
-                                              map_presentation=core.map_camera)
+                                              map_presentation=core.map_camera,
+                                              visibility_changed=location_sharing.set_active)
             cleanup.callback(android_app_view.close)
             waze_app_view = android_app_view
         elif os.environ.get('ORC_SCRCPY_WAZE') == '1' and os.path.exists('/system/bin/am'):
@@ -308,10 +325,13 @@ def create_orc_ui_composition(
             on_unit_system_changed=set_unit_system,
             on_back=lambda: app.navigate_to("HOME"),
         )
-        permission = HostLocationPermission(recover=start_host_location_service)
+        host_location_session = HostLocationSession()
+        cleanup.callback(host_location_session.close)
+        permission = HostLocationPermission(recover=host_location_session.start)
         host_location = HostLocationSettingsController(app, settings, permission, available=permission.available)
         cleanup.callback(host_location.close)
         settings.set_host_location_request_handler(host_location)
+        location_sharing.start()
         performance = SystemPerformanceMonitor()
         cleanup.callback(performance.close)
         diagnostics = DiagnosticsScreen(
@@ -364,6 +384,8 @@ def create_orc_ui_composition(
             diagnostics=diagnostics,
             performance_status=performance_status,
             host_location=host_location,
+            host_location_session=host_location_session,
+            location_sharing=location_sharing,
             startup_progress=progress,
             waze=waze,
             android_app_view=android_app_view,

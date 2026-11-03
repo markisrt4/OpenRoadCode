@@ -1,5 +1,63 @@
 # Native Waze investigation: Termux and Raspberry Pi 5
 
+## Host location sharing and Waydroid GPS
+
+Settings → **Share host location** reuses the navigation service or starts an
+ORC-owned user-session producer and loopback message broker when none is running.
+The button does not require sudo or a preinstalled systemd unit. Allow location
+in the browser and keep that permission page open. Fresh browser fixes become
+the navigation producer's position; after ten seconds without a new fix, it
+returns to its primary source. Explicit route playback temporarily suspends this
+override. Settings distinguishes live, cached, expired and simulated positions.
+Closing ORC stops only services that this UI session started.
+
+An already-running navigation producer from an older checkout needs a one-time
+restart after updating, so it understands the new location-sharing command.
+The producer now preserves Android Bridge sample times in UTC; repeated delivery
+of an old sample does not make it fresh. Termux continues using its Android
+Bridge source, and native phone Waze keeps its own Android location permissions.
+
+For the Linux Waydroid experiment, start Weston and Waydroid, close ORC, and run
+this once as the normal desktop user (the setup script requests sudo for Android
+permission changes):
+
+```bash
+git switch feature/waze-live-map
+git pull --ff-only
+sudo apt-get install -y adb
+python3 -m scripts.setup_waydroid_location enable
+ORC_WAYDROID_PANEL=1 ./runOrcUi --follow-logs
+```
+
+Setup verifies the local Waydroid IP, model and ADB identity, saves the previous
+mock-location permission and Android location setting, and enables that identity
+to supply test GPS. Runtime updates use the explicitly configured ADB device,
+without sudo. Repeat setup if the Waydroid IP or ADB connection changes.
+
+Share a live host location in Settings, then open Waze. Only noncached,
+nonsimulated samples at most ten seconds old are forwarded, while the Android
+app screen is active. Leaving the screen, losing fresh fixes or closing ORC
+removes the test provider. This is an Android-wide mock GPS feed: other Waydroid
+apps with location permission can also see it while active. Grant Waze its normal
+location permission. Whether Waze accepts and follows this feed still needs VM
+validation; unit and loopback integration tests do not establish navigation
+compatibility. A VM browser's location may also be approximate.
+
+Close ORC before restoring the saved Android settings:
+
+```bash
+git switch feature/waze-live-map
+python3 -m scripts.setup_waydroid_location disable
+```
+
+Normal shutdown removes the owned provider; forcibly killing ORC cannot guarantee
+cleanup. This experiment is intended for the dedicated Waydroid instance.
+
+Native renderer failures now leave a **Map unavailable** message and **Retry
+map** control instead of a blank panel. Retry relaunches the renderer; it cannot
+repair incompatible libraries. After a Termux package upgrade, a missing `fmt`
+symbol still requires rebuilding the native renderer against current packages.
+
 ## Linux VM follow-up
 
 The Ubuntu x86_64 VMware device test now successfully embeds Panera through
@@ -29,7 +87,8 @@ These commands are read-only. The VM subsequently reported only x86/x86_64 with
 native bridge `0`. After a VMware snapshot, the user installed the community
 installer's Android 13 libndk translation, confirmed ARM ABIs and
 `libndk_translation.so`, and successfully installed Waze through Play. Waze runs
-but reports no GPS; ORC currently appears to have only a cached position.
+but initially reported no GPS while ORC had only a cached position. The optional
+host-location experiment above now provides a separate Android GPS adapter.
 
 ### Native Waze window integration
 
@@ -61,11 +120,11 @@ ORC_WAYDROID_PANEL=1 ./runOrcUi
 ```
 
 Choose Navigation → Waze. Validate app embedding, full-width layout, input alignment,
-Back to map and reopening. This integration does not inject cached or live ORC
-positions into Android, select a destination, or establish working turn-by-turn
-navigation. The native app may still report no GPS. The earlier browser-only GPS
-bridge is separate. App installation was device-tested; this new Waze panel
-wiring still needs the VM test. Focused validation:
+Back to map and reopening. Window embedding alone does not supply Android GPS,
+select a destination, or establish working turn-by-turn navigation. Configure
+the separate host-location experiment above to test GPS forwarding. App
+installation and window embedding were device-tested; GPS forwarding still
+needs the VM test. Focused validation:
 
 ```bash
 git switch feature/waze-live-map
@@ -257,11 +316,10 @@ Sources: [Waze requirements](https://support.google.com/waze/answer/6071125?hl=e
 
 ## GPS, audio and lifecycle gates
 
-The existing Chromium GPS bridge does not provide Android location. Native Waze
-on the phone should use its normal location permission. Waydroid needs a distinct,
-verified Android provider or mock-location experiment; test whether Waze accepts
-and follows that feed before designing a permanent ORC adapter. Do not treat a
-fixed map pin as proof of navigation.
+The Chromium GPS bridge alone does not provide Android location. The opt-in
+Waydroid adapter above supplies a separate mock-location experiment. Test whether
+Waze accepts and follows that feed; a fixed map pin is not proof of navigation.
+Native Waze on the phone uses its normal location permission.
 
 scrcpy audio forwarding is documented for Android 11+, with Android-version
 conditions; video success alone does not prove voice guidance works. For native
