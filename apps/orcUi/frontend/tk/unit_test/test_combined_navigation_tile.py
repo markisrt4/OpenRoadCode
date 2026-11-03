@@ -18,7 +18,7 @@ def test_nav_and_waze_are_one_slot_without_changing_the_other_destinations():
 
 
 @pytest.mark.skipif(not os.environ.get('DISPLAY'), reason='real rail geometry needs X11')
-def test_combined_tile_has_two_independent_half_height_targets_and_active_states():
+def test_combined_tile_has_side_by_side_targets_and_one_shared_icon():
     root = tk.Tk()
     root.geometry('110x700')
     navigate = Mock()
@@ -29,17 +29,17 @@ def test_combined_tile_has_two_independent_half_height_targets_and_active_states
     try:
         root.update()
         nav, waze, radio = (rail._tiles[key] for key in ('NAVIGATION', 'WAZE', 'RADIO'))
-        assert nav.master is waze.master
-        assert abs(nav.winfo_height() - waze.winfo_height()) <= 1
-        assert abs(nav.master.winfo_height() - radio.winfo_height()) <= 2
-        assert nav.winfo_rooty() < waze.winfo_rooty()
-        assert waze._selected and not nav._selected
-        nav._on_click(SimpleNamespace(y_root=0))
+        assert nav is waze
+        assert abs(nav.winfo_height() - radio.winfo_height()) <= 2
+        assert len(nav.find_withtag('navigation-icon')) == 1
+        assert len(nav.find_withtag('navigation-badge')) == 1
+        assert nav._active_target == 'WAZE'
+        nav._on_click(SimpleNamespace(x=nav.winfo_width() / 4, y_root=0))
         navigate.assert_called_with('NAVIGATION')
-        waze._on_click(SimpleNamespace(y_root=0))
+        waze._on_click(SimpleNamespace(x=waze.winfo_width() * .75, y_root=0))
         navigate.assert_called_with('WAZE')
         rail.set_active(active='NAVIGATION', theme=theme)
-        assert nav._selected and not waze._selected
+        assert nav._active_target == 'NAVIGATION'
         assert len(rail._slots) == 8
         assert str(rail._down_button.cget('state')) == 'disabled'
         rail.rebuild(theme=theme_bundle(ThemeMode.LIGHT), items=items, active='WAZE')

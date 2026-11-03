@@ -14,7 +14,7 @@ from ui.ui_dispatcher_if import UiDispatcherIf
 
 class HostLocationPermissionIf(Protocol):
     def open_permission_page(self, cancelled: Callable[[], bool]) -> None:
-        """Check service availability and open the host's ordinary browser."""
+        """Check service availability and open the host location permission window."""
         ...
 
 
@@ -57,7 +57,7 @@ class HostLocationSettingsController:
         def work() -> None:
             try:
                 self._permission.open_permission_page(cancelled)
-                message = "In your browser, click Share host location and allow access. Keep that page open."
+                message = "In the location window, click Share host location and allow access. Keep that window open."
             except Exception as error:
                 message = str(error)
             if not cancelled():

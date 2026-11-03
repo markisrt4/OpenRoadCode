@@ -45,7 +45,7 @@ class _NavTile(tk.Canvas, UiWidget):
         theme: ThemeBundle,
         on_navigate: Callable[[str], None],
         on_swipe: Callable[[int], None] | None = None,
-        compact: bool = False,
+        alternate: str | None = None,
     ) -> None:
         self._nav_name = name
         self._theme = theme
@@ -54,10 +54,11 @@ class _NavTile(tk.Canvas, UiWidget):
         self._selected = False
         self._hovered = False
         self._press_y: int | None = None
-        self._minimum_height = self.HEIGHT // 2 if compact else self.HEIGHT
+        self._alternate = alternate
+        self._active_target = None
         super().__init__(
             parent,
-            height=self._minimum_height,
+            height=self.HEIGHT,
             highlightthickness=1,
             bd=0,
             cursor="hand2",
@@ -73,6 +74,10 @@ class _NavTile(tk.Canvas, UiWidget):
         self._selected = selected
         self._theme = theme
         self._paint()
+
+    def set_navigation_state(self, *, active: str, theme: ThemeBundle) -> None:
+        self._active_target = active
+        self.set_state(selected=active in (self._nav_name, self._alternate), theme=theme)
 
     def _on_enter(self, _event: tk.Event) -> None:
         self._hovered = True
@@ -93,12 +98,14 @@ class _NavTile(tk.Canvas, UiWidget):
             if abs(delta_y) >= 24:
                 self._on_swipe(1 if delta_y < 0 else -1)
                 return
-        self._on_navigate(self._nav_name)
+        target = (self._alternate if self._alternate is not None
+                  and event.x >= self.winfo_width() / 2 else self._nav_name)
+        self._on_navigate(target)
 
     def _paint(self) -> None:
         ui = self._theme.ui
         width = max(SIDE_NAV_WIDTH - 8, self.winfo_width())
-        height = max(self._minimum_height, self.winfo_height())
+        height = max(self.HEIGHT, self.winfo_height())
 
         if self._selected:
             top = _blend(ui.control_active, "#ffffff", 0.10)
@@ -128,6 +135,25 @@ class _NavTile(tk.Canvas, UiWidget):
 
         if self._selected:
             self.create_rectangle(0, 0, 4, height, fill=ui.accent_primary, outline="")
+
+        if self._alternate is not None:
+            # One shared icon, with independent left/right navigation targets.
+            x, y = width / 2, height * .28
+            self.create_oval(x - 11, y - 11, x + 11, y + 11,
+                             fill=badge_fill, outline=border, tags='navigation-badge')
+            self._draw_navigation(x, y, icon_color)
+            top = height * .55
+            self.create_line(width / 2, top, width / 2, height, fill=ui.border)
+            for index, target in enumerate((self._nav_name, self._alternate)):
+                if target == self._active_target:
+                    self.create_rectangle(index * width / 2 + 2, top,
+                        (index + 1) * width / 2 - 2, height - 2,
+                        fill=ui.control_active, outline='')
+                self.create_text((index + .5) * width / 2, height * .77,
+                    text=_NAV_LABELS.get(target, target),
+                    fill='#ffffff' if target == self._active_target else ui.control_text,
+                    font=('Sans', max(8, FONT_CONTROL - 2), 'bold'))
+            return
 
         # Keep the rail narrow; the longest label gets a slightly smaller font.
         badge_x = 18
@@ -173,7 +199,7 @@ class _NavTile(tk.Canvas, UiWidget):
         self.create_rectangle(x - 2, y + 2, x + 2, y + 7, outline=color, width=1)
 
     def _draw_navigation(self, x: float, y: float, color: str) -> None:
-        self.create_polygon(x - 7, y + 7, x - 1, y - 8, x + 8, y - 4, x + 2, y, x + 5, y + 7, x, y + 3, fill=color, outline=color)
+        self.create_polygon(x - 7, y + 7, x - 1, y - 8, x + 8, y - 4, x + 2, y, x + 5, y + 7, x, y + 3, fill=color, outline=color, tags='navigation-icon')
 
     def _draw_radio(self, x: float, y: float, color: str) -> None:
         self.create_oval(x - 2, y - 2, x + 2, y + 2, fill=color, outline=color)
@@ -263,8 +289,8 @@ class OrcUiSideNav(tk.Frame, UiWidget):
             self._render()
             return
         self.configure(bg=theme.ui.background)
-        for name, tile in self._tiles.items():
-            tile.set_state(selected=name == active, theme=theme)
+        for tile in dict.fromkeys(self._tiles.values()):
+            tile.set_navigation_state(active=active, theme=theme)
         self._paint_scroll_buttons()
 
     def _on_mouse_wheel(self, event: tk.Event) -> None:
@@ -307,22 +333,12 @@ class OrcUiSideNav(tk.Frame, UiWidget):
 
         visible = self._slots[self._offset:self._offset + self.VISIBLE_ITEMS]
         for slot in visible:
-            parent = self
-            if len(slot) > 1:
-                parent = tk.Frame(self, height=_NavTile.HEIGHT, bg=theme.ui.background)
-                parent.pack(fill=tk.BOTH, expand=True, padx=4, pady=1)
-                parent.grid_propagate(False)
-                parent.grid_columnconfigure(0, weight=1)
-            for row, item in enumerate(slot):
-                tile = _NavTile(parent, name=item, theme=theme,
-                                on_navigate=self._on_navigate, on_swipe=self._scroll,
-                                compact=len(slot) > 1)
-                if len(slot) > 1:
-                    parent.grid_rowconfigure(row, weight=1, uniform='navigation-halves')
-                    tile.grid(row=row, column=0, sticky='nsew')
-                else:
-                    tile.pack(fill=tk.BOTH, expand=True, padx=4, pady=1)
-                tile.set_state(selected=item == self._active, theme=theme)
+            tile = _NavTile(self, name=slot[0], theme=theme,
+                            on_navigate=self._on_navigate, on_swipe=self._scroll,
+                            alternate=slot[1] if len(slot) > 1 else None)
+            tile.pack(fill=tk.BOTH, expand=True, padx=4, pady=1)
+            tile.set_navigation_state(active=self._active, theme=theme)
+            for item in slot:
                 self._tiles[item] = tile
 
         if self._items:

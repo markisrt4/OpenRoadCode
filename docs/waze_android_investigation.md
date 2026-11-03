@@ -2,8 +2,9 @@
 
 ## Current integration: native Waze only
 
-The left rail groups **NAV** above **WAZE** in one tile, with independent tap
-targets and active indicators. When Waze is disabled, Navigation remains a full
+The left rail places **NAV** and **WAZE** side by side in one tile, with one
+shared navigation icon, independent tap targets and active indicators.
+When Waze is disabled, Navigation remains a full
 tile. The native Waze toolbar also has **Home** and **Work** buttons. They read
 the same saved destinations as Navigation, refresh edits on each click, and send
 the coordinates to Waze without changing an active ORC route. Missing locations
@@ -52,6 +53,17 @@ location source, not the Waze website. With Waze active, Settings should report
 **Sharing live location with Android**. Resume Waze through its sidebar entry
 after changing Android app permissions. Mock-location acceptance and navigation
 still need device verification.
+
+On an X11 desktop with Chrome/Chromium installed, **Share host location** opens
+a dedicated app-style window sized to 480×330, using its own persistent
+`host-location` profile. The window retains normal move/close controls and can
+be moved out of the way while sharing. Repeated requests reuse it; closing the
+window stops that page's feed. Its timers are not throttled just because ORC is
+in front. Browser permission must be allowed in this dedicated profile the
+first time. The page uses compact ORC colors and controls. If no supported
+Chrome/Chromium executable is available, the default-browser path remains for
+Firefox and other hosts; that browser controls its window size. No browser
+dependency is installed automatically.
 
 If GPS does not reach Waze, collect the permission/connection status as your
 normal desktop user while Waydroid is running:

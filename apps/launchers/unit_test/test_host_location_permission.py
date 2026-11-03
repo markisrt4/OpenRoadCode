@@ -9,6 +9,33 @@ import pytest
 from apps.launchers.host_location_permission import HostLocationPermission
 
 
+@pytest.fixture(autouse=True)
+def no_system_chromium_during_default_browser_checks(monkeypatch):
+    monkeypatch.setattr('apps.launchers.host_location_permission.shutil.which', lambda _name: None)
+
+
+def test_compact_permission_window_uses_app_mode_own_profile_and_reuses_window(monkeypatch):
+    monkeypatch.setenv('DISPLAY', ':0')
+    with patch('apps.launchers.host_location_permission.build_opener', return_value=response()), \
+            patch('apps.launchers.host_location_permission.shutil.which', return_value='/usr/bin/google-chrome'), \
+            patch('apps.launchers.host_location_permission.BrowserKioskLauncher') as browser, \
+            patch('apps.launchers.host_location_permission.webbrowser.open') as default:
+        permission = HostLocationPermission()
+        permission.open_permission_page(lambda: False)
+        permission.open_permission_page(lambda: False)
+    browser.assert_called_once()
+    options = browser.call_args.kwargs
+    assert options['app_mode'] is True and options['kiosk'] is False
+    assert options['window_size'] == (480, 330)
+    assert options['profile_path'].name == 'host-location'
+    assert 'openroadcode-host-location' in options['process_pattern']
+    assert options.get('window_position') is None  # Keep normal move/close window decorations.
+    assert '--disable-background-timer-throttling' in options['extra_arguments']
+    assert browser.return_value.launch.call_count == 2
+    browser.return_value.launch.assert_called_with(':0')
+    default.assert_not_called()
+
+
 def response():
     opener = Mock()
     opener.open.return_value.__enter__ = Mock(return_value=Mock(read=Mock(return_value=b'OpenRoadCode Host Location')))
@@ -16,7 +43,7 @@ def response():
     return opener
 
 
-def test_uses_the_default_browser_without_chromium_specific_flags():
+def test_without_supported_compact_browser_falls_back_to_the_default_browser():
     opener = response()
     with patch('apps.launchers.host_location_permission.build_opener', return_value=opener), \
          patch('apps.launchers.host_location_permission.webbrowser.open', return_value=True) as launch:
@@ -39,6 +66,13 @@ def test_cancelled_service_check_does_not_open_browser():
     with patch('apps.launchers.host_location_permission.build_opener', return_value=response()), \
          patch('apps.launchers.host_location_permission.webbrowser.open') as launch:
         HostLocationPermission().open_permission_page(Mock(side_effect=[False, True]))
+    launch.assert_not_called()
+
+
+def test_obsolete_request_waiting_for_browser_lock_does_not_open_a_late_window():
+    with patch('apps.launchers.host_location_permission.build_opener', return_value=response()), \
+            patch('apps.launchers.host_location_permission.webbrowser.open') as launch:
+        HostLocationPermission().open_permission_page(Mock(side_effect=[False, False, True]))
     launch.assert_not_called()
 
 
