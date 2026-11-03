@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from concurrent.futures import Future
+from services.automotive.automotive_command_service import AutomotiveCommandService, SCAN_DIAGNOSTICS_COMMAND
 import logging
 import threading
 import time
@@ -46,6 +48,39 @@ class AutomotiveRuntime:
         self._connected = False
         self._connection_failed = False
         self._running = False
+        self._owner_thread_id: int | None = None
+        self._command_lock = threading.Lock()
+        self._command_future: Future | None = None
+
+    def request_command(self, command: str, arguments=None) -> Future:
+        """Run only the scan wait off-thread; adapter I/O stays in read_state()."""
+        future = Future()
+        with self._command_lock:
+            if command != SCAN_DIAGNOSTICS_COMMAND:
+                future.set_result({"ok": False, "message": "Unknown automotive command"})
+            elif not self._running or not self._connected or self._stop_event.is_set():
+                future.set_result({"ok": False, "message": "Vehicle diagnostics unavailable"})
+            elif self._command_future is not None:
+                future.set_result({"ok": False, "message": "A diagnostic scan is already active"})
+            else:
+                self._command_future = future
+                threading.Thread(
+                    target=self._execute_scan, args=(future, command, arguments),
+                    name="automotive-diagnostics", daemon=True,
+                ).start()
+        return future
+
+    def _execute_scan(self, future: Future, command: str, arguments) -> None:
+        try:
+            if future.set_running_or_notify_cancel():
+                try:
+                    result = AutomotiveCommandService(self._source).execute(command, arguments)
+                except Exception as exc:
+                    result = {"ok": False, "message": f"{type(exc).__name__}: {exc}"}
+                future.set_result(result)
+        finally:
+            with self._command_lock:
+                self._command_future = None
 
     def start(self) -> None:
         """Prepare the runtime; source connection is managed by run()."""
@@ -54,6 +89,7 @@ class AutomotiveRuntime:
     def run(self) -> None:
         """Publish snapshots and reconnect the source after OBD-II failures."""
         self.start()
+        self._owner_thread_id = threading.get_ident()
         self._running = True
         event(
             LOGGER,
@@ -111,8 +147,10 @@ class AutomotiveRuntime:
             self.close()
 
     def close(self) -> None:
-        """Stop publishing and disconnect the owned source."""
+        """Signal stop; run() disconnects on its owner thread before returning."""
         self._stop_event.set()
+        if self._running and self._owner_thread_id not in (None, threading.get_ident()):
+            return  # run() disconnects on the adapter-owning thread.
         try:
             self._disconnect_source()
         finally:

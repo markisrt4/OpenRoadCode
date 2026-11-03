@@ -301,3 +301,8 @@ flowchart LR
 ```
 
 Switching between simulation and physical hardware therefore changes service composition, not application code or the wire contract.
+
+## Read-only diagnostics
+
+See [vehicle diagnostics and Android fault-injection checks](../../docs/vehicle_diagnostics.md)
+for the asynchronous command path, HEALTH UI, configuration, and device validation.

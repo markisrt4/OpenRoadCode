@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from ui.automotive.diagnostics_scan_if import DiagnosticsScanHandlerIf, DiagnosticsScanState
+
 import tkinter as tk
 
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
@@ -26,13 +28,18 @@ class EnginePanel(tk.Frame, UiWidget):
         *,
         theme: ThemeBundle,
         state: VehiclePresentationState,
+        diagnostics_handler: DiagnosticsScanHandlerIf | None = None,
+        diagnostics_state: DiagnosticsScanState = DiagnosticsScanState(),
     ) -> None:
+        self._diagnostics_handler = diagnostics_handler
+        self._diagnostics_state = diagnostics_state
         self._theme = theme
         self._state = state
         self._gauges: dict[str, LinearGauge] = {}
         super().__init__(parent, bg=theme.ui.background)
         self._build()
         self.update_state(state)
+        self.update_diagnostics(diagnostics_state)
 
     def update_state(self, state: VehiclePresentationState) -> None:
         self._state = state
@@ -137,20 +144,33 @@ class EnginePanel(tk.Frame, UiWidget):
             bg=ui.surface_alt,
             font=("Sans", 10, "bold"),
         ).pack(anchor="w", padx=12, pady=(12, 4))
-        tk.Label(
-            summary,
-            text="Monitoring live sensors",
-            fg=ui.text,
-            bg=ui.surface_alt,
-            font=("Sans", 13, "bold"),
-        ).pack(anchor="w", padx=12)
-        tk.Label(
-            summary,
-            text="Coolant · Intake · Load · Voltage",
-            fg=ui.text_muted,
-            bg=ui.surface_alt,
-            font=("Sans", 10),
-        ).pack(anchor="w", padx=12, pady=(4, 10))
+        self._scan_button = tk.Button(
+            summary, text="Scan Now", command=self._request_scan,
+            bg=ui.control_background, fg=ui.control_text,
+        )
+        self._scan_button.pack(anchor="w", padx=12)
+        self._diagnostics_summary = tk.Label(summary, bg=ui.surface_alt, fg=ui.text,
+                                             anchor="w", justify=tk.LEFT, wraplength=420)
+        self._diagnostics_summary.pack(fill=tk.X, padx=12, pady=4)
+        self._diagnostics_details = tk.Text(summary, height=8, width=46, wrap=tk.WORD,
+                                          bg=ui.surface_alt, fg=ui.text, relief=tk.FLAT)
+        self._diagnostics_details.pack(fill=tk.BOTH, expand=True, padx=12, pady=4)
+
+    def _request_scan(self) -> None:
+        if self._diagnostics_handler is not None:
+            self._diagnostics_handler.request_scan()
+
+    def update_diagnostics(self, state: DiagnosticsScanState) -> None:
+        self._diagnostics_state = state
+        self._scan_button.configure(
+            text="Scanning…" if state.scanning else "Scan Now",
+            state=tk.DISABLED if state.scanning or self._diagnostics_handler is None else tk.NORMAL,
+        )
+        self._diagnostics_summary.configure(text=f"{state.status.upper()}: {state.summary}")
+        self._diagnostics_details.configure(state=tk.NORMAL)
+        self._diagnostics_details.delete("1.0", tk.END)
+        self._diagnostics_details.insert("1.0", state.details)
+        self._diagnostics_details.configure(state=tk.DISABLED)
 
     def _instrument_card(
         self,

@@ -109,6 +109,23 @@ class Obd2DiagnosticsScannerTest(unittest.TestCase):
         self.assertEqual(snapshot.responding_ecus, ())
         self.assertEqual(snapshot.trouble_codes, ())
 
+    def test_service_coverage_requires_all_observed_ecus(self):
+        monitor = tuple(Obd2Response(0x41, 1, bytes.fromhex("00072100"), ecu)
+                        for ecu in (0x7E8, 0x7E9))
+        empty = (Obd2Response(0x43, None, bytes.fromhex("0000"), 0x7E8),)
+        snapshot = Obd2DiagnosticsScanner.decode(monitor, empty, (), ())
+        self.assertEqual(snapshot.completed_services, ("monitor",))
+        self.assertFalse(snapshot.mil_on)
+
+    def test_truncated_services_cannot_claim_complete_coverage(self):
+        snapshot = Obd2DiagnosticsScanner.decode(
+            (Obd2Response(0x41, 1, bytes.fromhex("00"), 0x7E8),),
+            (Obd2Response(0x43, None, bytes.fromhex("03"), 0x7E8),), (), (),
+        )
+        self.assertIsNone(snapshot.mil_on)
+        self.assertIsNone(snapshot.emissions_ready)
+        self.assertEqual(snapshot.completed_services, ())
+
     def test_manager_advances_scan_inside_normal_request_budget(self) -> None:
         adapter = _Adapter({
             (0x01, 0x01): (
@@ -126,7 +143,7 @@ class Obd2DiagnosticsScannerTest(unittest.TestCase):
         while manager._diagnostics_session is None and time.monotonic() < deadline:
             time.sleep(0.001)
 
-        for _ in range(4):
+        for _ in range(7):
             before = len(adapter.requests)
             manager.read_state()
             self.assertEqual(len(adapter.requests), before + 1)
@@ -135,7 +152,7 @@ class Obd2DiagnosticsScannerTest(unittest.TestCase):
         self.assertFalse(thread.is_alive())
         self.assertEqual(result[0].trouble_codes[0].code, "P0302")
         self.assertEqual(
-            adapter.requests,
+            adapter.requests[::2],
             [(0x01, 0x01), (0x03, None), (0x07, None), (0x0A, None)],
         )
 

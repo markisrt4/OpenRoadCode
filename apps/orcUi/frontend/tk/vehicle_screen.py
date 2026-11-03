@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from ui.automotive.diagnostics_scan_if import DiagnosticsScanHandlerIf, DiagnosticsScanState
+
 from collections.abc import Callable
 
 from apps.orcUi.frontend.tk.presentation_state import OrcUiPresentationState
@@ -35,8 +37,11 @@ class VehicleScreen(TkScreen):
         ),
         vehicle_configuration: Callable[[], VehicleConfiguration],
         on_back: Callable[[], None],
+        diagnostics_handler: DiagnosticsScanHandlerIf | None = None,
     ) -> None:
         super().__init__(self.SCREEN_ID)
+        self._diagnostics_handler = diagnostics_handler
+        self._diagnostics_unsubscribe = None
         self._host = host
         self._theme_bundle = theme_bundle
         self._presentation = presentation
@@ -47,6 +52,7 @@ class VehicleScreen(TkScreen):
 
     def show(self) -> None:
         """Build VEHICLE content from the latest presentation state."""
+        self.hide()
         self._host.activate_screen(self)
         self._host.clear_screen_content()
         self._host.set_screen_title("VEHICLE")
@@ -54,6 +60,7 @@ class VehicleScreen(TkScreen):
         self._panel = build_vehicle_screen(
             self._host.screen_parent,
             on_back=self._on_back,
+            diagnostics_handler=self._diagnostics_handler,
             on_view_changed=lambda view: self._host.set_screen_title(view),
             on_telemetry_profile=self._telemetry_profile_request,
             state=self._presentation.vehicle,
@@ -63,8 +70,17 @@ class VehicleScreen(TkScreen):
             engine_analysis=self._presentation.engine_analysis,
         )
 
+        if self._diagnostics_handler is not None:
+            self._diagnostics_unsubscribe = self._diagnostics_handler.observe(self._panel.update_diagnostics)
+
+    def close(self) -> None:
+        self.hide()
+
     def hide(self) -> None:
         """Release VEHICLE telemetry demand when navigating away."""
+        if self._diagnostics_unsubscribe is not None:
+            self._diagnostics_unsubscribe()
+            self._diagnostics_unsubscribe = None
         panel = self._panel
         if panel is not None and panel.winfo_exists():
             panel.release_telemetry_profile()

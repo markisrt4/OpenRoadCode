@@ -9,6 +9,10 @@ from collections.abc import Callable
 from controllers.navigation.map_controls_drawer_controller import MapControlsDrawerController
 from dataclasses import dataclass, field
 
+from controllers.automotive.diagnostics_scan_controller import DiagnosticsScanController
+from services.automotive.automotive_command_client import AutomotiveCommandClient
+from config.service_runtime_config import ServiceRuntimeConfigParser
+from services.automotive.automotive_service_cli import DEFAULT_RUNTIME_CONFIG
 from common.resource_cleanup import ResourceCleanup, close_resources
 import math
 
@@ -71,6 +75,7 @@ class OrcUiComposition:
     diagnostics: DiagnosticsScreen | None = None
     performance_status: PerformanceStatusPresenter | None = None
     host_location: HostLocationSettingsController | None = None
+    diagnostics_scan: DiagnosticsScanController | None = None
     startup_progress: Callable[[str, str], None] | None = None
 
     _closed: bool = field(default=False, init=False)
@@ -103,7 +108,7 @@ class OrcUiComposition:
         close_resources(
             self.app.shutdown,
             *(resource.close for resource in (
-                self.host_location, self.performance_status, self.performance, self.vision, self.navigation,
+                self.diagnostics_scan, self.vehicle, self.host_location, self.performance_status, self.performance, self.vision, self.navigation,
                 self.navigation_places, self.radar_replay, self.weather_overlays,
             ) if resource is not None),
             self.radio.close,
@@ -254,10 +259,15 @@ def create_orc_ui_composition(
                                               refresh_renderer=refresh_radar_map_state)
         cleanup.callback(radar_replay.close)
         navigation.set_radar_request_handler(radar_replay)
+        diagnostics_config = ServiceRuntimeConfigParser(DEFAULT_RUNTIME_CONFIG).load().automotive
+        diagnostics_client = AutomotiveCommandClient(diagnostics_config.command_endpoint)
+        diagnostics_scan = DiagnosticsScanController(diagnostics_client.scan_diagnostics, app)
+        cleanup.callback(diagnostics_scan.close)
         vehicle = VehicleScreen(
             app,
             theme_bundle=lambda: theme_bundle(app.theme_mode),
             presentation=core.presentation,
+            diagnostics_handler=diagnostics_scan,
             telemetry_profile_request=core.telemetry_profile_request,
             vehicle_configuration=lambda: core.vehicle_configuration.configuration,
             on_back=lambda: app.navigate_to("HOME"),
@@ -325,6 +335,7 @@ def create_orc_ui_composition(
             home=home,
             navigation=navigation,
             vehicle=vehicle,
+            diagnostics_scan=diagnostics_scan,
             offroad=offroad,
             settings=settings,
             weather_overlays=overlays,

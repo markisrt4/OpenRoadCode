@@ -8,6 +8,8 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import threading
+from services.automotive.zeromq_automotive_command_server import ZeroMqAutomotiveCommandServer
 from dataclasses import replace
 from pathlib import Path
 
@@ -199,6 +201,8 @@ def _run_service(args: argparse.Namespace) -> int:
         ZeroMqSubscriber(system.messaging.subscriber_endpoint),
         source,
     )
+    command_server = ZeroMqAutomotiveCommandServer(runtime, config.command_endpoint)
+    command_thread = threading.Thread(target=command_server.run, name="automotive-commands", daemon=True)
     print("OpenRoadCode automotive service")
     print(f"  input profile:     {profile}")
     print(f"  input source:      {source_description}")
@@ -215,6 +219,7 @@ def _run_service(args: argparse.Namespace) -> int:
     elif config.input.source == "obd_simulation":
         print("  device:            simulated ELM327 / ECU")
     print(f"  telemetry ingress: {system.messaging.publisher_endpoint}")
+    print(f"  diagnostics:       {config.command_endpoint}")
     print(f"  service cadence:   {rate_hz:g} Hz")
     if config.input.source in {"device", "obd_simulation"}:
         print(f"  OBD request budget:{config.input.request_rate_hz:g} req/s")
@@ -227,13 +232,16 @@ def _run_service(args: argparse.Namespace) -> int:
     )
     print("Ctrl+C to stop")
     try:
+        command_thread.start()
         profile_runtime.start()
         runtime.run()
     except KeyboardInterrupt:
         pass
     finally:
+        command_server.close()
         profile_runtime.close()
         runtime.close()
+        command_thread.join(timeout=11.0)
         publisher.close()
     return 0
 

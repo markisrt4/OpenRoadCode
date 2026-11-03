@@ -37,6 +37,7 @@ class Obd2DiagnosticsSnapshot:
     emissions_ready: bool | None
     responding_ecus: tuple[int, ...]
     trouble_codes: tuple[Obd2DiagnosticTroubleCode, ...]
+    completed_services: tuple[str, ...] = ()
 
 
 class Obd2DiagnosticsScanSession:
@@ -107,7 +108,11 @@ class Obd2DiagnosticsScanner:
         permanent: tuple[Obd2Response, ...],
     ) -> Obd2DiagnosticsSnapshot:
         """Decode four generic diagnostic-service response groups."""
-        valid_monitor = tuple(response for response in monitor if response.data)
+        stored, pending, permanent = (
+            tuple(response for response in group if len(response.data) >= 2 and len(response.data) % 2 == 0)
+            for group in (stored, pending, permanent)
+        )
+        valid_monitor = tuple(response for response in monitor if len(response.data) >= 4)
         ecu_ids = tuple(sorted({
             response.ecu_id
             for responses in (monitor, stored, pending, permanent)
@@ -140,21 +145,29 @@ class Obd2DiagnosticsScanner:
                 permanent, Obd2DiagnosticStatus.PERMANENT
             )
         )
+        groups = (valid_monitor, stored, pending, permanent)
+        expected_ecus = {response.ecu_id for group in groups for response in group}
         return Obd2DiagnosticsSnapshot(
             mil_on=mil_on,
             stored_dtc_count=stored_count,
             emissions_ready=emissions_ready,
             responding_ecus=ecu_ids,
             trouble_codes=trouble_codes,
+            completed_services=tuple(
+                name for name, responses in zip(
+                    ("monitor", "stored", "pending", "permanent"),
+                    groups,
+                ) if responses and expected_ecus.issubset({response.ecu_id for response in responses})
+            ),
         )
 
     @staticmethod
     def _decode_readiness(response: Obd2Response) -> bool:
         # PID 01 bytes B-D encode supported and incomplete monitors. Continuous
-        # monitors use B[6:4] for support and B[2:0] for incomplete state.
+        # monitors use B[2:0] for support and B[6:4] for incomplete state.
         _, byte_b, byte_c, byte_d = response.data[:4]
-        continuous_supported = (byte_b >> 4) & 0x07
-        continuous_incomplete = byte_b & 0x07
+        continuous_supported = byte_b & 0x07
+        continuous_incomplete = (byte_b >> 4) & 0x07
         if continuous_supported & continuous_incomplete:
             return False
         # For non-continuous monitors, byte C marks support and byte D marks

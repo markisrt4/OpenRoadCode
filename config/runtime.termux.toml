@@ -55,6 +55,7 @@ source = "navigation-service-android"
 # Android owns the Bluetooth SPP connection. OpenRoadCode consumes the raw
 # ELM327 byte stream over the bridge's localhost-only TCP endpoint.
 [services.automotive]
+command_endpoint = "tcp://127.0.0.1:5561"
 enabled = true
 rate_hz = 10.0
 

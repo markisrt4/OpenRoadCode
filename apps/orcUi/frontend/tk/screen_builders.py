@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from ui.automotive.diagnostics_scan_if import DiagnosticsScanHandlerIf, DiagnosticsScanState
+
 from ui.system.online_mode_if import OnlineModeIf
 from ui.tooltip_if import TooltipFactoryIf
 
@@ -100,6 +102,7 @@ def build_vehicle_screen(
     theme: ThemeBundle,
     vehicle_configuration: VehicleConfiguration,
     engine_analysis: EngineAnalysis,
+    diagnostics_handler: DiagnosticsScanHandlerIf | None = None,
 ) -> VehiclePanel:
     screen = VehiclePanel(
         parent,
@@ -111,6 +114,7 @@ def build_vehicle_screen(
         theme_bundle=theme,
         vehicle_configuration=vehicle_configuration,
         engine_analysis=engine_analysis,
+        diagnostics_handler=diagnostics_handler,
     )
     screen.pack(fill=tk.BOTH, expand=True)
     return screen

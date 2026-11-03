@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from ui.automotive.diagnostics_scan_if import DiagnosticsScanHandlerIf, DiagnosticsScanState
+
 import tkinter as tk
 from collections.abc import Callable
 
@@ -44,7 +46,10 @@ class VehiclePanel(tk.Frame, UiWidget):
         theme_bundle: ThemeBundle | None = None,
         vehicle_configuration: VehicleConfiguration = VehicleConfiguration(),
         engine_analysis: EngineAnalysis | None = None,
+        diagnostics_handler: DiagnosticsScanHandlerIf | None = None,
     ) -> None:
+        self._diagnostics_handler = diagnostics_handler
+        self._diagnostics_state = DiagnosticsScanState()
         self._theme_bundle = theme_bundle or packaged_theme_bundle(ThemeMode.DARK)
         self._vehicle_configuration = vehicle_configuration
         self._engine_analysis = engine_analysis or EngineAnalysis(
@@ -182,10 +187,17 @@ class VehiclePanel(tk.Frame, UiWidget):
             self._view_host,
             theme=self._theme_bundle,
             state=self._state,
+            diagnostics_handler=self._diagnostics_handler,
+            diagnostics_state=self._diagnostics_state,
         )
         panel.grid(row=0, column=0, sticky="nsew", padx=6, pady=6)
         self._engine_panel = panel
         self._view_content = panel
+
+    def update_diagnostics(self, state: DiagnosticsScanState) -> None:
+        self._diagnostics_state = state
+        if self._engine_panel is not None:
+            self._engine_panel.update_diagnostics(state)
 
     def _show_ecu(self) -> None:
         panel = EcuPanel(

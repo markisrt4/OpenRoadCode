@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from services.automotive.endpoints import DEFAULT_AUTOMOTIVE_COMMAND_ENDPOINT
+
 from dataclasses import dataclass
 
 from controllers.automotive.vehicle_configuration import EngineInductionType, VehicleConfiguration
@@ -133,6 +135,7 @@ class AutomotiveServiceRuntimeConfig:
     input: AutomotiveInputConfig = AutomotiveInputConfig()
     fuel: AutomotiveFuelConfig = AutomotiveFuelConfig()
     publish: AutomotivePublishConfig = AutomotivePublishConfig()
+    command_endpoint: str = DEFAULT_AUTOMOTIVE_COMMAND_ENDPOINT
 
 
 @dataclass(frozen=True, slots=True)
@@ -262,6 +265,7 @@ class ServiceRuntimeConfigParser:
         if not isinstance(tcp_port, int) or isinstance(tcp_port, bool) or not 1 <= tcp_port <= 65535:
             raise ServiceRuntimeConfigError("services.automotive.input.tcp_port must be an integer from 1 to 65535")
         return AutomotiveServiceRuntimeConfig(
+            command_endpoint=self._string(data.get("command_endpoint", DEFAULT_AUTOMOTIVE_COMMAND_ENDPOINT), "services.automotive.command_endpoint"),
             enabled=self._bool(data.get("enabled", True), "services.automotive.enabled"),
             rate_hz=self._positive(data.get("rate_hz", 10.0), "services.automotive.rate_hz"),
             input=AutomotiveInputConfig(

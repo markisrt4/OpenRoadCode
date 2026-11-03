@@ -23,7 +23,7 @@ from controllers.automotive.obd2.obd2_poll_scheduler import (
     Obd2PollScheduler,
 )
 from controllers.automotive.vehicle_state_source_if import VehicleStateSourceIf
-from protocols.obd2 import Obd2AdapterIf, Obd2Error, Obd2Request
+from protocols.obd2 import Obd2AdapterIf, Obd2CommandError, Obd2Error, Obd2Request
 from protocols.obd2.obd_pid_decoder import ObdPidDecoder
 from protocols.obd2.obd_pids import (
     AbsoluteEngineLoadPid,
@@ -65,6 +65,8 @@ class Obd2Manager(VehicleStateSourceIf):
         self._polling_profile = Obd2PollingProfile.BACKGROUND
         self._scheduler: Obd2PollScheduler | None = None
         self._diagnostics_condition = threading.Condition()
+        self._diagnostics_waiter = False
+        self._diagnostics_yield = False
         self._diagnostics_session: Obd2DiagnosticsScanSession | None = None
         self._diagnostics_result: Obd2DiagnosticsSnapshot | None = None
         self._diagnostics_error: Exception | None = None
@@ -139,7 +141,12 @@ class Obd2Manager(VehicleStateSourceIf):
             )
 
     def disconnect(self) -> None:
-        self._adapter.disconnect()
+        try:
+            self._adapter.disconnect()
+        finally:
+            self._cancel_diagnostics()
+
+    def _cancel_diagnostics(self) -> None:
         with self._diagnostics_condition:
             self._diagnostics_error = RuntimeError("OBD adapter disconnected")
             self._diagnostics_session = None
@@ -147,32 +154,34 @@ class Obd2Manager(VehicleStateSourceIf):
 
     def scan_diagnostics(self, *, timeout_s: float = 10.0) -> Obd2DiagnosticsSnapshot:
         """Queue a scan into the normal OBD request budget and await its result."""
-        if timeout_s <= 0.0:
-            raise ValueError("timeout_s must be positive")
+        if not math.isfinite(timeout_s) or timeout_s <= 0.0:
+            raise ValueError("timeout_s must be finite and positive")
         with self._diagnostics_condition:
-            if self._diagnostics_session is not None:
+            if self._diagnostics_waiter:
                 raise RuntimeError("A vehicle diagnostic scan is already active")
+            if not self._adapter.is_connected:
+                raise RuntimeError("OBD adapter is disconnected")
+            self._diagnostics_waiter = True
             session = Obd2DiagnosticsScanner.create_session()
             self._diagnostics_session = session
+            self._diagnostics_yield = False
             self._diagnostics_result = None
             self._diagnostics_error = None
-            completed = self._diagnostics_condition.wait_for(
-                lambda: (
-                    self._diagnostics_session is not session
-                    or self._diagnostics_result is not None
-                    or self._diagnostics_error is not None
-                ),
-                timeout=timeout_s,
-            )
-            if not completed:
-                if self._diagnostics_session is session:
+            try:
+                completed = self._diagnostics_condition.wait_for(
+                    lambda: self._diagnostics_session is not session,
+                    timeout=timeout_s,
+                )
+                if not completed:
                     self._diagnostics_session = None
-                raise TimeoutError("Vehicle diagnostic scan timed out")
-            if self._diagnostics_error is not None:
-                raise RuntimeError(str(self._diagnostics_error)) from self._diagnostics_error
-            if self._diagnostics_result is None:
-                raise RuntimeError("Vehicle diagnostic scan was cancelled")
-            return self._diagnostics_result
+                    raise TimeoutError("Vehicle diagnostic scan timed out")
+                if self._diagnostics_error is not None:
+                    raise RuntimeError(str(self._diagnostics_error)) from self._diagnostics_error
+                if self._diagnostics_result is None:
+                    raise RuntimeError("Vehicle diagnostic scan was cancelled")
+                return self._diagnostics_result
+            finally:
+                self._diagnostics_waiter = False
 
 
     @property
@@ -251,6 +260,9 @@ class Obd2Manager(VehicleStateSourceIf):
 
     def _advance_diagnostics(self) -> bool:
         with self._diagnostics_condition:
+            if self._diagnostics_yield:
+                self._diagnostics_yield = False
+                return False
             session = self._diagnostics_session
             request = None if session is None else session.next_request
         if session is None or request is None:
@@ -270,6 +282,7 @@ class Obd2Manager(VehicleStateSourceIf):
             if self._diagnostics_session is not session:
                 return True
             session.accept(responses)
+            self._diagnostics_yield = True
             if session.complete:
                 self._diagnostics_result = session.snapshot()
                 self._diagnostics_session = None

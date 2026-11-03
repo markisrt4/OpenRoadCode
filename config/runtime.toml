@@ -69,6 +69,7 @@ timeout_seconds = 10.0
 induction = "turbocharged"
 
 [services.automotive]
+command_endpoint = "tcp://127.0.0.1:5561"
 enabled = true
 rate_hz = 10.0
 
