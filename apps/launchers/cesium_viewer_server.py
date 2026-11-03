@@ -11,6 +11,7 @@ from urllib.parse import unquote, urlsplit
 
 from apps.launchers.cesium_sdk import require_sdk
 from ui.navigation.cesium_viewer_state import CesiumViewerState
+from ui.navigation.boundary_overlay_state import BoundaryOverlayState
 from ui.navigation.local_imagery_state import LocalImageryStackState
 import sqlite3
 from tools.map_builder.builder.validate import ValidationError
@@ -21,7 +22,7 @@ _WEB = Path(__file__).resolve().parents[2] / "frontends/web/cesium"
 class CesiumViewerServer:
     """Own the local origin, immutable view state, and bounded serving lifecycle."""
 
-    def __init__(self, sdk: Path, state: CesiumViewerState, *, imagery=None, imagery_layers=(), terrain=None, buildings=None, tiles=None, roads=None):
+    def __init__(self, sdk: Path, state: CesiumViewerState, *, imagery=None, imagery_layers=(), terrain=None, buildings=None, tiles=None, roads=None, boundaries=None):
         self._sdk = require_sdk(sdk)
         self._state = state
         self._imagery = imagery
@@ -31,6 +32,9 @@ class CesiumViewerServer:
         self._buildings = buildings
         self._tiles = tiles
         self._roads = roads
+        if boundaries is not None and not isinstance(boundaries, BoundaryOverlayState):
+            raise TypeError('Viewer boundaries must use the presentation contract')
+        self._boundaries = boundaries
         self._token = secrets.token_urlsafe(32)
         self.close_requested = threading.Event()
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), partial(_Handler, owner=self))
@@ -81,6 +85,8 @@ class _Handler(BaseHTTPRequestHandler):
             document["close_token"] = self.owner._token
             document['roads_available'] = self.owner._roads is not None
             document['roads_max_zoom'] = self.owner._roads.max_zoom if self.owner._roads is not None else 14
+            if self.owner._boundaries is not None:
+                document['boundary_overlay'] = self.owner._boundaries.document()
             if self.owner._imagery_layers:
                 document['imagery_layers'] = self.owner._imagery_stack.document()
                 for index, layer in enumerate(document['imagery_layers']):

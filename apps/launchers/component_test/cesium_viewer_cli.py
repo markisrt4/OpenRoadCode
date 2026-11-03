@@ -11,6 +11,7 @@ from apps.launchers.browser_launcher import BrowserKioskLauncher
 from apps.launchers.cesium_sdk import sdk_directory
 from apps.launchers.local_imagery_pack import LocalImageryPack, preferred_imagery_directory, load_imagery_stack
 from apps.launchers.cesium_viewer_server import CesiumViewerServer
+from apps.launchers.state_boundary_overlay import load_state_boundary_overlay
 from apps.launchers.local_terrain_pack import load_terrain, preferred_terrain_directory
 from apps.launchers.local_building_pack import load_buildings, detroit_building_directory
 from apps.launchers.local_map_tiles_pack import load_viewer_tiles, preferred_tiles_directory
@@ -21,7 +22,9 @@ from ui.navigation.cesium_viewer_state import CesiumViewerState
 
 def run(state, sdk, display, *, imagery=None, imagery_layers=(), terrain=None, buildings=None, tiles=None):
     with ExitStack() as resources:
-        server = CesiumViewerServer(sdk, state, imagery=imagery, imagery_layers=imagery_layers, terrain=terrain, buildings=buildings, tiles=tiles)
+        server = CesiumViewerServer(sdk, state, imagery=imagery, imagery_layers=imagery_layers,
+                                    terrain=terrain, buildings=buildings, tiles=tiles,
+                                    boundaries=load_state_boundary_overlay())
         resources.callback(server.close)
         profile = resources.enter_context(TemporaryDirectory(prefix="orc-cesium-"))
         browser = BrowserKioskLauncher(

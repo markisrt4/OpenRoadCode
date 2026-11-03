@@ -10,6 +10,7 @@ import pytest
 
 from apps.launchers.local_imagery_pack import LocalImageryPack
 from apps.launchers.cesium_viewer_server import CesiumViewerServer
+from apps.launchers.state_boundary_overlay import load_state_boundary_overlay
 from ui.navigation import GeoPoint
 from ui.navigation.cesium_viewer_state import CesiumViewerState
 from ui.navigation.local_imagery_state import LocalImageryState
@@ -105,6 +106,15 @@ def test_server_mounts_checked_stack_layers_without_exposing_paths(server,pack):
         assert response.read() == loaded.image.read_bytes()
     with pytest.raises(HTTPError):
         urllib.request.urlopen(server.url+'data/imagery/2')
+
+
+def test_server_exposes_boundary_contract_without_asset_paths(server):
+    server._boundaries = load_state_boundary_overlay()
+    with urllib.request.urlopen(server.url+'config.json') as response:
+        overlay = json.load(response)['boundary_overlay']
+    assert overlay['regions'][0]['name'] == 'Michigan'
+    assert overlay['regions'][0]['emphasized'] is True
+    assert 'path' not in json.dumps(overlay).lower()
 
 
 def test_server_exposes_only_bounded_offline_road_tiles(server):

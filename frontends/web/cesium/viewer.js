@@ -10,6 +10,7 @@
   let snapshot;
   let tiledMap;
   let imageryStack;
+  let boundaryOverlay;
   let roadOverlay;
   let poiOverlay;
   let routeOverlay;
@@ -69,6 +70,7 @@
       terrain.setVisible(viewer, snapshot.terrain_visible);
     }
     viewer.scene.globe.baseColor = C.Color.fromCssColorString('#174963');
+    boundaryOverlay=window.ORCBoundaryOverlay(viewer,snapshot.boundary_overlay,C);
     const groundHeight = terrain ? terrain.heightAt(snapshot.longitude_rad,snapshot.latitude_rad) : 0;
     let target = C.Cartesian3.fromRadians(snapshot.longitude_rad, snapshot.latitude_rad,groundHeight+3);
     document.getElementById('destination').textContent = snapshot.label;
@@ -293,12 +295,10 @@
           credit:layer.attribution
         });
         if (closing || viewer.isDestroyed()) return;
-        // A transparent global base prevents Cesium stretching the first
-        // bounded image layer across uncovered parts of the globe.
-        viewer.imageryLayers.addImageryProvider(new C.GridImageryProvider({
-          color:C.Color.TRANSPARENT, glowColor:C.Color.TRANSPARENT,
-          backgroundColor:C.Color.TRANSPARENT, cells:1
-        }));
+        // A real opaque image layer prevents bounded-image stretching and gives
+        // transparent no-data pixels a reliable blue surface to composite onto.
+        await window.ORCReferenceGlobeLayer(viewer,C);
+        if (closing || viewer.isDestroyed()) return;
         viewer.imageryLayers.addImageryProvider(provider);
         viewer.scene.requestRender();
         status.textContent = `Offline · ${coverageLabel}${layer.title} · ${terrainLabel} · ${buildingLabel}`;
@@ -330,5 +330,5 @@
     if (!/unavailable|Unable|stopped/i.test(statusText.textContent)) statusText.hidden = true;
     document.getElementById('tiles-status').hidden = true;
   }
-  window.addEventListener('pagehide', () => { roadOverlay?.destroy(); terrainHillshade?.destroy(); imageryStack?.destroy(); tiledMap?.destroy(); if (viewer && !viewer.isDestroyed()) viewer.destroy(); });
+  window.addEventListener('pagehide', () => { roadOverlay?.destroy(); terrainHillshade?.destroy(); boundaryOverlay?.destroy(); imageryStack?.destroy(); tiledMap?.destroy(); if (viewer && !viewer.isDestroyed()) viewer.destroy(); });
 })();

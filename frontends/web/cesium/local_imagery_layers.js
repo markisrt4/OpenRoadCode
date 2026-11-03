@@ -3,8 +3,8 @@ window.ORCLocalImageryLayers = async function(viewer, layers, C, onError=()=>{})
   if (!layers.length) return {destroy(){}};
   let disposed=false, lastCheck=0;
   const entries=layers.map(state=>({state,layer:null,pending:false,failed:false,wanted:false}));
-  const grid=viewer.imageryLayers.addImageryProvider(new C.GridImageryProvider({color:C.Color.TRANSPARENT,
-    glowColor:C.Color.TRANSPARENT,backgroundColor:C.Color.TRANSPARENT,cells:1}),0);
+  const grid=await window.ORCReferenceGlobeLayer(viewer,C);
+  if (!grid) return {destroy(){disposed=true;}};
   async function attach(entry,index) {
     if (entry.layer || entry.pending || entry.failed) return;
     entry.pending=true;

@@ -117,6 +117,11 @@ consumer, `WeatherOverlayControlsIf` adds request binding, and
 visibility/replay. `RadarUiState`, `RadarControlsIf` and
 `RadarRequestHandlerIf` provide the corresponding radar replay boundary.
 
+Navigation boundary outlines use immutable `BoundaryOverlayState` and
+`BoundaryRegionState` snapshots. Coordinates are normalized radians and semantic
+emphasis is frontend-neutral; composition loads attributed geometry while the
+Cesium adapter owns line color, width, terrain clamping and cleanup.
+
 Weather controller tests exercise asynchronous lifecycle and cache behavior
 without Tk. Frontend contract tests exercise state consumption and request
 forwarding. CI runs `scripts/check_weather_ui_contracts.py` to reject weather

@@ -7,7 +7,7 @@ from pathlib import Path
 import shutil
 from tempfile import TemporaryDirectory
 
-from PIL import Image
+from PIL import Image, ImageChops
 
 from apps.launchers.local_imagery_pack import LocalImageryPack
 from development.maps.download_detroit_imagery import MAX_BYTES, NoImageryCoverage, download as download_image
@@ -29,6 +29,13 @@ def _save_overview(image, output, *, transparent):
         if output.stat().st_size <= MAX_BYTES:
             return
     raise ValueError('Transparent regional imagery cannot fit the 20 MiB runtime limit')
+
+
+def _nodata_alpha(rgb):
+    """Make neutral near-black export padding transparent, retaining dark color."""
+    red, green, blue = rgb.split()
+    maximum = ImageChops.lighter(ImageChops.lighter(red, green), blue)
+    return maximum.point(lambda value: 0 if value <= 24 else 255)
 
 
 def download(destination, *, bounds, title, cache_directory, image_size=(2048,1536)):
@@ -95,10 +102,11 @@ def download(destination, *, bounds, title, cache_directory, image_size=(2048,15
                     if image.size != tile_size:
                         raise ValueError('Overview tile has unexpected JPEG dimensions')
                     rgb = image.convert('RGB')
-                    # ArcGIS encodes pixels outside locked raster footprints as
-                    # true black JPEG. Make only that near-zero sentinel
-                    # transparent; ordinary dark imagery remains visible.
-                    alpha = rgb.convert('L').point(lambda value: 0 if value <= 4 else 255)
+                    # ArcGIS/JPEG encodes pixels outside raster footprints as
+                    # black with a small compression halo. Remove only pixels
+                    # whose every channel is near zero; dark colored imagery
+                    # remains visible.
+                    alpha = _nodata_alpha(rgb)
                     has_nodata = has_nodata or alpha.getextrema()[0] == 0
                     rgba = rgb.convert('RGBA')
                     rgba.putalpha(alpha)

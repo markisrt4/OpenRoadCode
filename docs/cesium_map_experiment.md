@@ -412,6 +412,18 @@ so the smallest matching validated pack draws on top without stretching outside
 its declared rectangle. Each image remains under the runtime's 20 MiB payload
 limit; source export evidence is retained in its archive.
 
+The Cesium presentation keeps rectangular imagery envelopes for useful
+cross-border context. A bundled, simplified Census TIGERweb overlay emphasizes
+Michigan in cyan and draws Indiana, Ohio and Wisconsin more subtly; coordinates
+cross the toolkit-independent UI boundary in radians and the frontend clamps the
+lines to installed terrain. These are statistical boundaries, not survey-grade
+or navigation-authoritative borders. Transparent NAIP coverage gaps reveal the
+same blue reference globe used outside installed imagery instead of a black
+imagery-layer base. Neutral near-black JPEG padding is masked during regional
+assembly while dark colored source pixels remain visible. Boundary source: U.S. Census Bureau TIGERweb `State_County`
+States layer, retrieved 2026-11-02:
+https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/0
+
 After publishing a successful draft release, install both descriptors from the
 same tag and reopen the 3D viewer:
 

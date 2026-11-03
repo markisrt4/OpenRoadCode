@@ -9,6 +9,7 @@ from apps.launchers.browser_launcher import BrowserKioskLauncher
 from apps.launchers.cesium_sdk import sdk_directory
 from apps.launchers.cesium_viewer_server import CesiumViewerServer
 from apps.launchers.local_imagery_pack import LocalImageryPack, detroit_pack_directory, preferred_imagery_directory, load_imagery_stack
+from apps.launchers.state_boundary_overlay import load_state_boundary_overlay
 from apps.launchers.local_terrain_pack import load_terrain, preferred_terrain_directory
 from apps.launchers.local_building_pack import load_buildings, detroit_building_directory
 from apps.launchers.local_map_tiles_pack import load_viewer_tiles, preferred_tiles_directory
@@ -60,7 +61,8 @@ class CesiumPoiActions(PoiActionExecutorIf):
             resources = ExitStack()
             try:
                 server = CesiumViewerServer(sdk_directory(), state, imagery=imagery, imagery_layers=imagery_layers,
-                                             terrain=terrain, buildings=buildings, tiles=tiles, roads=roads)
+                                             terrain=terrain, buildings=buildings, tiles=tiles, roads=roads,
+                                             boundaries=load_state_boundary_overlay())
                 resources.callback(server.close)
                 profile = resources.enter_context(TemporaryDirectory(prefix='orc-cesium-poi-'))
                 browser = BrowserKioskLauncher(url=server.url, profile_path=profile,
