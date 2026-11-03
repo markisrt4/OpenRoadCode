@@ -30,6 +30,7 @@ class Counters:
     iq_dropped: int = 0
     pcm_dropped: int = 0
     pcm_underruns: int = 0
+    portaudio_underflows: int = 0
     dsp_blocks: int = 0
     dsp_seconds: float = 0.0
     rf_seconds: float = 0.0
@@ -53,6 +54,10 @@ def main() -> int:
                         help="PCM to queue before starting playback (default: 400 ms)")
     parser.add_argument("--warmup-seconds", type=float, default=2.0,
                         help="Discard initial RF within continuous threaded capture (default: 2 seconds)")
+    parser.add_argument("--audio-latency", choices=("low", "high"), default="high",
+                        help="PortAudio output latency (default: high)")
+    parser.add_argument("--audio-prime-ms", type=int, default=1000,
+                        help="Silence sent to output device before playback (default: 1000)")
     parser.add_argument("--volume", type=float, default=0.6)
     parser.add_argument("--iq-queue", type=int, default=32)
     parser.add_argument("--pcm-queue", type=int, default=32)
@@ -61,8 +66,8 @@ def main() -> int:
     args = parser.parse_args()
     if args.seconds <= 0 or args.warmup_seconds < 0 or not 0 <= args.volume <= 1:
         parser.error("seconds must be positive and volume in [0,1]")
-    if args.prebuffer_ms < 0:
-        parser.error("prebuffer-ms must be non-negative")
+    if args.prebuffer_ms < 0 or args.audio_prime_ms < 0:
+        parser.error("prebuffer-ms and audio-prime-ms must be non-negative")
     if args.iq_queue < 2 or args.pcm_queue < 2:
         parser.error("queue capacities must be at least 2")
 
@@ -220,7 +225,17 @@ def main() -> int:
                 break
             time.sleep(0.02)
         print(f"PCM prebuffer: {queued_samples / 48_000:.3f}s ready before playback", flush=True)
-        with sd.OutputStream(samplerate=48_000, channels=1, dtype="float32") as stream:
+        with sd.OutputStream(
+            samplerate=48_000, channels=1, dtype="float32",
+            latency=args.audio_latency,
+        ) as stream:
+            if args.audio_prime_ms:
+                silence = np.zeros((round(args.audio_prime_ms * 48), 1),
+                                   dtype=np.float32)
+                if stream.write(silence):
+                    stats.portaudio_underflows += 1
+                print(f"Audio device primed: {args.audio_prime_ms}ms silence "
+                      f"(latency={args.audio_latency})", flush=True)
             while played < target_samples and not stop.is_set():
                 if not failures.empty():
                     break
@@ -233,7 +248,8 @@ def main() -> int:
                     continue
                 count = min(len(pcm), target_samples - played)
                 if count:
-                    stream.write(pcm[:count].reshape(-1, 1))
+                    if stream.write(pcm[:count].reshape(-1, 1)):
+                        stats.portaudio_underflows += 1
                     played += count
     except (RuntimeError, sd.PortAudioError) as exc:
         print(f"FM audio unavailable: {exc}", file=sys.stderr)
@@ -296,6 +312,7 @@ def main() -> int:
         print(f"RTL async acquisition: {source.get_acquisition_stats()}")
         print(f"PCM queue: high-water={stats.pcm_high_water}/{args.pcm_queue}, "
               f"dropped={stats.pcm_dropped}, empty waits={stats.pcm_underruns}")
+        print(f"PortAudio output underflows: {stats.portaudio_underflows}")
         if stats.rf_seconds:
             print(f"DSP time {stats.dsp_seconds:.2f}s / RF time "
                   f"{stats.rf_seconds:.2f}s "
