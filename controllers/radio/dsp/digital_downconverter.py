@@ -67,8 +67,7 @@ class DigitalDownconverter:
         raw = np.frombuffer(block.samples, dtype=np.uint8).astype(np.float32)
         iq = ((raw[::2] - 127.5) + 1j * (raw[1::2] - 127.5)) / 127.5
         count = len(iq)
-        indices = np.arange(count, dtype=np.float64) + self._sample_index
-        shifted = iq * np.exp(-2j * np.pi * offset * indices / self.input_rate_hz)
+        # The common single-station case is tuned to the hardware center.\n        # Avoid constructing a full-rate oscillator and multiplying every\n        # sample by unity; retain the same filter and decimation state.\n        if offset == 0:\n            shifted = iq\n        else:\n            indices = np.arange(count, dtype=np.float64) + self._sample_index\n            shifted = iq * np.exp(-2j * np.pi * offset * indices / self.input_rate_hz)
         filtered, self._state = signal.sosfilt(self._sos, shifted, zi=self._state)
         result = filtered[self._phase::self._factor]
         self._phase = (self._phase - count) % self._factor
