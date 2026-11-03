@@ -32,12 +32,17 @@ class PcmPlaybackWorker:
     """
 
     def __init__(self, output: PcmOutputIf, *, queue_blocks: int = 32,
-                 sample_rate_hz: int = 48_000) -> None:
-        if queue_blocks < 1 or sample_rate_hz <= 0:
+                 sample_rate_hz: int = 48_000, prebuffer_ms: int = 0) -> None:
+        if queue_blocks < 1 or sample_rate_hz <= 0 or prebuffer_ms < 0:
             raise ValueError("queue_blocks and sample_rate_hz must be positive")
         self._output = output
         self._queue: queue.Queue[tuple[int, np.ndarray]] = queue.Queue(maxsize=queue_blocks)
         self._sample_rate_hz = sample_rate_hz
+        self._prebuffer_samples = round(prebuffer_ms * sample_rate_hz / 1000)
+        self._buffered_samples = 0
+        self._prebuffer_ready = threading.Event()
+        if not self._prebuffer_samples:
+            self._prebuffer_ready.set()
         self._lock = threading.Lock()
         self._selected: str | None = None
         self._generation = 0
@@ -62,6 +67,9 @@ class PcmPlaybackWorker:
             self._selected = name
             self._generation += 1
             self._clear_queue()
+            self._buffered_samples = 0
+            if self._prebuffer_samples:
+                self._prebuffer_ready.clear()
 
     def start(self) -> None:
         with self._lock:
@@ -70,6 +78,11 @@ class PcmPlaybackWorker:
             self._stop.clear()
             self._error = None
             self._clear_queue()
+            self._buffered_samples = 0
+            if self._prebuffer_samples:
+                self._prebuffer_ready.clear()
+            else:
+                self._prebuffer_ready.set()
         self._output.open(self._sample_rate_hz)
         thread = threading.Thread(target=self._run, name="pcm-playback", daemon=True)
         with self._lock:
@@ -87,6 +100,9 @@ class PcmPlaybackWorker:
                 return False
             try:
                 self._queue.put_nowait((self._generation, pcm.copy()))
+                self._buffered_samples += len(pcm)
+                if self._buffered_samples >= self._prebuffer_samples:
+                    self._prebuffer_ready.set()
                 return True
             except queue.Full:
                 self._dropped += 1
@@ -116,6 +132,8 @@ class PcmPlaybackWorker:
     def _run(self) -> None:
         try:
             while not self._stop.is_set():
+                if not self._prebuffer_ready.wait(timeout=0.05):
+                    continue
                 try:
                     generation, pcm = self._queue.get(timeout=0.05)
                 except queue.Empty:
@@ -125,6 +143,8 @@ class PcmPlaybackWorker:
                 if not current or self._stop.is_set():
                     continue
                 self._output.write(pcm)
+                with self._lock:
+                    self._buffered_samples = max(0, self._buffered_samples - len(pcm))
                 with self._lock:
                     self._played += 1
         except Exception as exc:
