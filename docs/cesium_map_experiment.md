@@ -414,7 +414,8 @@ limit; source export evidence is retained in its archive.
 
 The Cesium presentation keeps rectangular imagery envelopes for useful
 cross-border context. A bundled, simplified Census TIGERweb overlay emphasizes
-Michigan in cyan and draws Indiana, Ohio and Wisconsin more subtly; coordinates
+Michigan with a thin cyan dashed line and draws Indiana, Ohio and Wisconsin with
+thinner muted dashes; coordinates
 cross the toolkit-independent UI boundary in radians and the frontend clamps the
 lines to installed terrain. These are statistical boundaries, not survey-grade
 or navigation-authoritative borders. Transparent NAIP coverage gaps reveal the
