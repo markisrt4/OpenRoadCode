@@ -39,7 +39,7 @@ class AmMonoDemodulator:
         )
         self._audio_state = np.zeros((len(self._audio_sos), 2))
         # Remove carrier/DC after envelope detection.
-        self._dc_alpha = 1 - np.exp(-1 / (audio_rate_hz * 0.05))
+        # A 5 ms carrier tracker rejects startup envelope transients while\n        # preserving speech modulation (high-pass corner about 32 Hz).\n        self._dc_alpha = 1 - np.exp(-1 / (audio_rate_hz * 0.005))
         self._dc_state = np.zeros(1)
         self._dc_initialized = False
         self._dc_b = [self._dc_alpha]
