@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 import subprocess
+import shlex
 from unittest.mock import Mock, patch
 
 import pytest
@@ -86,3 +87,72 @@ def test_fast_reopen_has_a_new_window_identity_while_old_viewer_retires(tmp_path
         worker.call_args.kwargs['target'](*worker.call_args.kwargs['args'])
         new_process.terminate.assert_not_called()
         assert player._process is new_process
+
+
+def test_destination_waits_for_current_display_and_quotes_uri_for_android_shell(tmp_path):
+    path = tmp_path / 'scrcpy.log'
+    old = b'[server] INFO: New display: 1280x720/240 (id=6)\n'
+    path.write_bytes(old + b'[server] INFO: New display: 1280x720/240 (id=17)\n')
+    process, cancelled = Mock(), Mock()
+    process.poll.return_value = None
+    cancelled.wait.return_value = False
+    cancelled.is_set.return_value = False
+    uri = 'waze://?ll=42.5,-83.25&navigate=yes'
+    with patch('apps.orcUi.adapters.scrcpy_waze_player.subprocess.run', return_value=
+               subprocess.CompletedProcess([], 0, 'Starting: Intent', '')) as run:
+        ScrcpyWazePlayer._deliver_destination(process, cancelled, uri, path, len(old))
+    command = run.call_args.args[0]
+    assert command[:2] == ['adb', 'shell']
+    assert shlex.split(command[2]) == ['am', 'start', '--display', '17',
+        '-a', 'android.intent.action.VIEW', '-d', uri, '-p', 'com.waze']
+
+
+def test_cancelled_destination_never_uses_phone_default_display(tmp_path):
+    process, cancelled = Mock(), Mock()
+    cancelled.wait.return_value = True
+    with patch('apps.orcUi.adapters.scrcpy_waze_player.subprocess.run') as run:
+        ScrcpyWazePlayer._deliver_destination(process, cancelled, 'waze://?', tmp_path / 'missing', 0)
+    run.assert_not_called()
+
+
+def test_no_display_acknowledgement_reports_failure_instead_of_sending_to_phone(tmp_path, caplog):
+    path = tmp_path / 'scrcpy.log'
+    path.write_bytes(b'waiting for Android\n')
+    process, cancelled = Mock(), Mock()
+    process.poll.return_value = None
+    cancelled.wait.return_value = False
+    cancelled.is_set.return_value = False
+    with patch('apps.orcUi.adapters.scrcpy_waze_player.subprocess.run') as run:
+        ScrcpyWazePlayer._deliver_destination(process, cancelled, 'waze://?', path, 0)
+    run.assert_not_called()
+    assert 'Could not deliver' in caplog.text
+
+
+def test_launcher_queues_destination_only_after_confirming_package():
+    prepare = Mock()
+    launcher = ScrcpyWazeLauncher(prepare_destination=prepare)
+    uri = 'waze://?ll=42,-83&navigate=yes'
+    with patch('apps.launchers.scrcpy_waze_launcher.subprocess.run') as run:
+        run.return_value = subprocess.CompletedProcess([], 0, 'package:/data/app/waze/base.apk', '')
+        assert launcher.launch_installed_app('com.waze', uri=uri) == 'Waze'
+        prepare.assert_called_once_with(uri)
+        launcher.launch_installed_app('com.waze')
+        prepare.assert_called_with(None)
+
+
+def test_viewer_launch_starts_destination_worker_with_current_log_offset(tmp_path, monkeypatch):
+    monkeypatch.setenv('TMPDIR', str(tmp_path))
+    path = tmp_path / 'orc-scrcpy-waze.log'
+    path.write_bytes(b'old viewer log\n')
+    player = ScrcpyWazePlayer()
+    uri = 'waze://?ll=42,-83&navigate=yes'
+    player.prepare_destination(uri)
+    with patch('apps.orcUi.adapters.scrcpy_waze_player.subprocess.Popen') as spawn, \
+            patch('apps.orcUi.adapters.scrcpy_waze_player.Thread') as worker:
+        player.play('android', display=':1')
+        args = worker.call_args.kwargs['args']
+        assert args[0] is spawn.return_value
+        assert args[2:] == (uri, path, len(b'old viewer log\n'))
+        assert not args[1].is_set()
+        player.stop()
+        assert args[1].is_set()

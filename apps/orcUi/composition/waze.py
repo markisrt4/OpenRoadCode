@@ -30,6 +30,7 @@ class WazeComposition(WazeRequestHandlerIf):
     open_waze: Callable[[], None] = lambda: None
     location: WazeLocationPlayer | None = None
     native: WazeAppController | None = None
+    destination_status: Callable[[str], None] = lambda _message: None
     _closed: bool = field(default=False, init=False)
 
     def request_open_waze(self) -> None:
@@ -39,6 +40,13 @@ class WazeComposition(WazeRequestHandlerIf):
     def update_position(self, point: GeoPoint | None) -> None:
         if self.location is not None:
             self.location.update_position(point)
+
+    def request_navigate_waze(self, destination: GeoPoint) -> None:
+        if not self._closed:
+            if self.native is not None:
+                self.native.request_navigate_waze(destination)
+            else:
+                self.destination_status('Destination handoff requires native Waze. Enable the Android Waze panel first.')
 
     def close(self) -> None:
         """Cancel pending display callbacks and stop the owned browser once."""
@@ -102,6 +110,6 @@ def configure_waze(app: OrcUiApp, runtime: OrcUiApplicationRuntime, *,
             cleanup.callback(native.close)
         composition = WazeComposition(screen, unsubscribe,
                                       native.request_open_waze if native is not None else open_waze,
-                                      location, native)
+                                      location, native, destination_status=app.set_screen_status)
         cleanup.release()
         return composition

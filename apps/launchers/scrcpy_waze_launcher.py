@@ -7,7 +7,10 @@ from ui.navigation.installed_android_app_if import InstalledAndroidAppLauncherIf
 
 
 class ScrcpyWazeLauncher(InstalledAndroidAppLauncherIf):
-    def launch_installed_app(self, package):
+    def __init__(self, *, prepare_destination=None):
+        self._prepare_destination = prepare_destination
+
+    def launch_installed_app(self, package, *, uri=None):
         if package != 'com.waze':
             return None
         try:
@@ -15,4 +18,10 @@ class ScrcpyWazeLauncher(InstalledAndroidAppLauncherIf):
                                     check=False, capture_output=True, text=True, timeout=5)
         except (OSError, subprocess.SubprocessError):
             return None
-        return 'Waze' if result.returncode == 0 and 'package:' in result.stdout else None
+        if result.returncode != 0 or 'package:' not in result.stdout:
+            return None
+        if uri is not None and self._prepare_destination is None:
+            return None
+        if self._prepare_destination is not None:
+            self._prepare_destination(uri)
+        return 'Waze'

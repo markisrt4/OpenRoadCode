@@ -1,10 +1,12 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 from unittest.mock import Mock, patch
+import math
 
 import pytest
 
 from controllers.navigation.waze_app_controller import WazeAppController
+from ui.navigation import GeoPoint
 
 
 def controller():
@@ -76,3 +78,51 @@ def test_offline_request_does_not_start_worker():
     thread.assert_not_called()
     launcher.launch_installed_app.assert_not_called()
     status.assert_called_once_with('Waze requires online mode')
+
+
+def test_destination_uses_degrees_and_opens_the_same_embedded_panel():
+    instance, launcher, view, fallback, _, queued, _ = controller()
+    launcher.launch_installed_app.return_value = 'Waze'
+    with patch('controllers.navigation.waze_app_controller.Thread') as thread:
+        instance.request_navigate_waze(GeoPoint(math.radians(42.5), math.radians(-83.25)))
+        run_worker(thread)
+    launcher.launch_installed_app.assert_called_once_with('com.waze',
+        uri='waze://?ll=42.5000000,-83.2500000&navigate=yes')
+    queued.pop()()
+    view.request_show_android_app.assert_called_once_with('Waze', 'com.waze')
+    fallback.assert_not_called()
+
+
+@pytest.mark.parametrize('point', [GeoPoint(float('nan'), 0), GeoPoint(0, float('inf')), GeoPoint(2, 0)])
+def test_invalid_destination_never_launches(point):
+    instance, launcher, _, _, status, _, _ = controller()
+    with patch('controllers.navigation.waze_app_controller.Thread') as thread:
+        instance.request_navigate_waze(point)
+    thread.assert_not_called()
+    launcher.launch_installed_app.assert_not_called()
+    status.assert_called_once_with('Waze destination is invalid')
+
+
+def test_failed_destination_does_not_silently_drop_destination_into_browser():
+    instance, launcher, view, fallback, status, queued, _ = controller()
+    launcher.launch_installed_app.return_value = None
+    with patch('controllers.navigation.waze_app_controller.Thread') as thread:
+        instance.request_navigate_waze(GeoPoint(0, 0))
+        run_worker(thread)
+    queued.pop()()
+    view.request_show_android_app.assert_not_called()
+    fallback.assert_not_called()
+    assert 'Could not send destination' in status.call_args.args[0]
+
+
+@pytest.mark.parametrize('action', ['close', 'cancel'])
+def test_destination_completion_is_ignored_after_cancel(action):
+    instance, launcher, view, fallback, _, queued, _ = controller()
+    launcher.launch_installed_app.return_value = 'Waze'
+    with patch('controllers.navigation.waze_app_controller.Thread') as thread:
+        instance.request_navigate_waze(GeoPoint(0, 0))
+        run_worker(thread)
+        getattr(instance, action)()
+        queued.pop()()
+    view.request_show_android_app.assert_not_called()
+    fallback.assert_not_called()

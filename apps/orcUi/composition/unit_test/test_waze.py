@@ -9,6 +9,26 @@ import pytest
 from apps.orcUi.composition.waze import WazeComposition, configure_waze
 from config.application_config import ApplicationsConfigParser
 from frontends.tk.media.browser_media_screen import BrowserMediaScreen
+from ui.navigation import GeoPoint
+
+
+def test_destination_uses_native_controller_and_close_suppresses_requests():
+    native, screen = Mock(), Mock()
+    composition = WazeComposition(screen, Mock(), native=native)
+    point = GeoPoint(.7, -1.4)
+    composition.request_navigate_waze(point)
+    native.request_navigate_waze.assert_called_once_with(point)
+    composition.close()
+    composition.request_navigate_waze(point)
+    native.request_navigate_waze.assert_called_once_with(point)
+
+
+def test_browser_only_destination_reports_limitation_without_opening_plain_map():
+    status, open_waze = Mock(), Mock()
+    composition = WazeComposition(Mock(), Mock(), open_waze=open_waze, destination_status=status)
+    composition.request_navigate_waze(GeoPoint(0, 0))
+    open_waze.assert_not_called()
+    assert 'requires native Waze' in status.call_args.args[0]
 
 
 @pytest.mark.parametrize('name', ['applications.toml', 'applications.termux.toml'])

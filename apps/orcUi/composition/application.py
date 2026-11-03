@@ -261,11 +261,12 @@ def create_orc_ui_composition(
             cleanup.callback(android_app_view.close)
             waze_app_view = android_app_view
         elif os.environ.get('ORC_SCRCPY_WAZE') == '1' and os.path.exists('/system/bin/am'):
+            scrcpy_player = ScrcpyWazePlayer()
             waze_app_view = AndroidAppView(app, map_runtime=navigation_maps, map_platform=navigation_maps,
-                map_presentation=core.map_camera, player=ScrcpyWazePlayer(),
+                map_presentation=core.map_camera, player=scrcpy_player,
                 window_embedder=X11WindowEmbedder(), preserve_external_window=False)
             cleanup.callback(waze_app_view.close)
-            waze_native_launcher = ScrcpyWazeLauncher()
+            waze_native_launcher = ScrcpyWazeLauncher(prepare_destination=scrcpy_player.prepare_destination)
         navigation_places = NavigationPlacesFactory(
             online_allowed=lambda: app.online_mode.online,
             camera_observer=core.map_camera.request_handler.observe_camera,

@@ -68,6 +68,12 @@ class WaydroidLauncher:
             raise ValueError("Android package name must not be empty")
         self._run("app", "launch", package)
 
+    def launch_uri(self, uri: str) -> None:
+        """Use Waydroid's session service for an Android VIEW deep link."""
+        result = self._run('app', 'intent', 'android.intent.action.VIEW', uri)
+        if 'Failed to access IPlatform service' in result.stdout + result.stderr:
+            raise WaydroidLauncherError('Waydroid could not deliver the destination intent')
+
     def _run(self, *arguments: str) -> subprocess.CompletedProcess[str]:
         if shutil.which(self._executable) is None:
             raise WaydroidLauncherError(

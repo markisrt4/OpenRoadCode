@@ -189,6 +189,13 @@ class NavigationPlacesControls:
     def online_actions_allowed(self) -> bool:
         return self._online_mode is None or self._online_mode.online
 
+    def _navigate_to_poi_with_waze(self, poi: PointOfInterest) -> None:
+        if self._waze_handler is None or not self.online_actions_allowed:
+            return
+        if self._poi_card is not None and self._poi_card.winfo_exists():
+            self._poi_card.destroy()
+        self._waze_handler.request_navigate_waze(poi.position)
+
     def _refresh_poi_action_buttons(self) -> None:
         waze = self.__dict__.get('_waze_button')
         if waze is not None and waze.winfo_exists():

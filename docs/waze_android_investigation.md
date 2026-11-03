@@ -1,5 +1,60 @@
 # Native Waze investigation: Termux and Raspberry Pi 5
 
+## Home, Work and POI destination handoff
+
+Home and Work remain ORC saved destinations. Select either shortcut, or select a
+POI, and choose **Navigate with Waze** in its details popup. The action converts
+the stored SI coordinates into a `waze://?ll=LAT,LON&navigate=yes` VIEW intent,
+then presents the existing full-width Waze panel with **Back to map**. It does
+not change an active ORC route, copy favorites into Waze, or synchronize accounts.
+The ordinary **Waze** toolbar button still opens Waze without a destination.
+Destination handoff requires online mode and the native Android-panel opt-in;
+browser-only configurations report that native Waze is required instead of
+silently dropping the selected destination.
+
+Waydroid uses its supported `app intent ACTION URI` session command, avoiding
+per-request sudo or a separate ADB setup for destination delivery. Termux uses
+`ORC_SCRCPY_WAZE=1`: it waits for the new scrcpy display ID and sends the VIEW
+intent explicitly to that virtual display. Hiding the viewer cancels pending
+delivery. Missing display acknowledgement or an Android command failure emits
+`navigation.waze` / `destination.failed`; it never retries on the phone's default
+display. Returning to ORC and selecting the destination again retries delivery.
+Destination coordinates and place names are not included in these events.
+
+### First device test: guest navigation
+
+With the compositor and Android session running, close and update ORC:
+
+```bash
+git switch feature/waze-live-map
+git pull --ff-only
+ORC_WAYDROID_PANEL=1 ./runOrcUi --follow-logs
+```
+
+1. Open Waze and, if the installed version offers it, choose its guest/continue
+   without an account flow. Complete any terms and Android location permissions.
+   ORC does not automate or bypass these screens. Do not clear Android app data
+   merely to run this test.
+2. Return to ORC, select a configured Home or Work destination, and choose
+   **Navigate with Waze**. If first-run screens consumed the intent, retry the
+   action after completing those screens.
+3. Confirm Waze receives the intended destination, offers a route while signed
+   out, stays embedded, and returns through **Back to map**. Then try a POI.
+4. Test live GPS and route following separately; delivery of a destination does
+   not prove navigation or voice guidance works.
+
+Guest availability and destination acceptance are still device-validation gates;
+the focused tests cover intent arguments, coordinate units, cancellation and
+popup actions, not Waze's account policy. No credentials or signed-in Android
+data are included in an ORC build.
+
+Focused developer validation (set `DISPLAY` to run the popup layout tests too):
+
+```bash
+git switch feature/waze-live-map
+LOGGING_TMP_DIR=/tmp/orc-waze-validation venv/bin/python -m pytest -q controllers/navigation/unit_test/test_waze_app_controller.py apps/launchers/unit_test/test_installed_waydroid_app.py apps/launchers/unit_test/test_waydroid_launcher.py apps/orcUi/composition/unit_test/test_waze.py apps/orcUi/composition/unit_test/test_scrcpy_waze_player.py apps/orcUi/frontend/tk/unit_test/test_navigation_panel.py
+```
+
 ## Host location sharing and Waydroid GPS
 
 Settings → **Share host location** reuses the navigation service or starts an

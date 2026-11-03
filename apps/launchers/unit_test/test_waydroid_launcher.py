@@ -14,6 +14,14 @@ from apps.launchers.waydroid_launcher import (
 
 
 class WaydroidLauncherTest(unittest.TestCase):
+    @patch('apps.launchers.waydroid_launcher.subprocess.run')
+    @patch('apps.launchers.waydroid_launcher.shutil.which', return_value='/usr/bin/waydroid')
+    def test_destination_uses_supported_view_intent_without_a_shell(self, _which, run):
+        run.return_value = subprocess.CompletedProcess([], 0, '', '')
+        uri = 'waze://?ll=42.5,-83&navigate=yes'
+        WaydroidLauncher().launch_uri(uri)
+        self.assertEqual(run.call_args.args[0], ['waydroid', 'app', 'intent', 'android.intent.action.VIEW', uri])
+
     @patch("apps.launchers.waydroid_launcher.subprocess.run")
     @patch("apps.launchers.waydroid_launcher.shutil.which", return_value="/usr/bin/waydroid")
     def test_is_available_when_status_succeeds(self, _which, run) -> None:

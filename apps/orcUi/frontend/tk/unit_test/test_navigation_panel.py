@@ -18,8 +18,60 @@ from ui.navigation import MapControlsDrawerState
 from ui.navigation.route_types import TravelMode
 
 
+@pytest.mark.skipif(not os.environ.get('DISPLAY'), reason='popup layout requires X11')
+@pytest.mark.parametrize('name,source', [('Home', 'saved-destination'), ('Work', 'saved-destination'), ('Panera', 'osm')])
+def test_destination_popup_has_visible_themed_waze_action(name, source):
+    from apps.orcUi.frontend.tk.navigation_panel_layout import show_poi_card
+    from apps.orcUi.theme_runtime import theme_bundle
+    from ui.theme import ThemeMode
+    root = tk.Tk()
+    panel = tk.Frame(root, width=800, height=600)
+    panel.pack()
+    panel._theme_bundle = theme_bundle(ThemeMode.DARK)
+    panel._poi_card = None
+    panel._waze_handler = Mock()
+    panel._navigate_to_poi_with_waze = Mock()
+    panel._navigate_to_poi = Mock()
+    panel._execute_poi_action = Mock()
+    panel._refresh_poi_action_buttons = Mock()
+    panel.online_actions_allowed = True
+    poi = PointOfInterest(name, name, PoiCategory.OTHER, GeoPoint(.7, -1.4), source_class=source)
+    try:
+        with patch('apps.orcUi.frontend.tk.navigation_panel_layout.build_poi_icon_button'):
+            show_poi_card(panel, poi)
+        root.update()
+        button = panel._poi_action_buttons[0]
+        assert button.cget('text') == 'NAVIGATE WITH WAZE'
+        assert button.winfo_ismapped()
+        assert button.winfo_rooty() + button.winfo_height() <= panel._poi_card.winfo_rooty() + panel._poi_card.winfo_height()
+        assert button.cget('background') == panel._theme_bundle.ui.control_background
+        button.invoke()
+        panel._navigate_to_poi_with_waze.assert_called_once_with(poi)
+    finally:
+        root.destroy()
+
+
 class NavigationPanelControlTest(unittest.TestCase):
     """Verify semantic requests without requiring an X display."""
+
+    def test_waze_handoff_closes_popup_without_changing_orc_route(self):
+        panel = self._panel()
+        panel._waze_handler = Mock()
+        panel._route_active = True
+        panel._poi_card = Mock()
+        poi = PointOfInterest('home', 'Home', PoiCategory.OTHER, GeoPoint(.7, -1.4))
+        panel._navigate_to_poi_with_waze(poi)
+        panel._waze_handler.request_navigate_waze.assert_called_once_with(poi.position)
+        panel._poi_card.destroy.assert_called_once_with()
+        panel._route_request_handler.request_start_route.assert_not_called()
+        self.assertTrue(panel._route_active)
+
+    def test_offline_waze_destination_request_is_ignored(self):
+        panel = self._panel()
+        panel._waze_handler = Mock()
+        panel._online_mode = Mock(online=False)
+        panel._navigate_to_poi_with_waze(PointOfInterest('work', 'Work', PoiCategory.OTHER, GeoPoint(0, 0)))
+        panel._waze_handler.request_navigate_waze.assert_not_called()
 
     def _panel(self) -> NavigationPanel:
         panel = object.__new__(NavigationPanel)

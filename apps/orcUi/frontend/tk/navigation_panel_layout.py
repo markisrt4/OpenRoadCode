@@ -304,6 +304,9 @@ def show_poi_card(panel, poi) -> None:
                           if action.kind in {PoiActionKind.ORDER, PoiActionKind.OPEN_WEBSITE}
                           and action.provider_id != "google-earth-explore")
     height = 260 if other_actions else 210
+    has_waze = panel.__dict__.get('_waze_handler') is not None
+    if has_waze:
+        height += 46
     panel.update_idletasks()
     x = panel.winfo_rootx() + max(0, (panel.winfo_width() - width) // 2)
     y = panel.winfo_rooty() + max(0, (panel.winfo_height() - height) // 2)
@@ -373,6 +376,17 @@ def show_poi_card(panel, poi) -> None:
     if other_actions:
         extra_buttons.pack(pady=(6, 0))
     panel._poi_action_buttons = []
+    if has_waze:
+        waze_button = tk.Button(
+            frame, text='NAVIGATE WITH WAZE',
+            command=lambda: panel._navigate_to_poi_with_waze(poi),
+            bg=ui.control_background, fg=ui.accent_primary,
+            activebackground=ui.control_active, activeforeground=ui.text,
+            disabledforeground=ui.text_muted, relief=tk.FLAT,
+            highlightthickness=1, highlightbackground=ui.border,
+            font=('Sans', 10, 'bold'), padx=12, pady=6)
+        waze_button.pack(pady=4)
+        panel._poi_action_buttons.append(waze_button)
     for action in other_actions:
         if (action.kind in {PoiActionKind.ORDER, PoiActionKind.OPEN_WEBSITE}
                 and action.provider_id != "google-earth-explore"):

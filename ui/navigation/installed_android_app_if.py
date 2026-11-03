@@ -5,6 +5,6 @@ from typing import Protocol
 
 
 class InstalledAndroidAppLauncherIf(Protocol):
-    def launch_installed_app(self, package: str) -> str | None:
-        """Return the launched app's display name, or None when unavailable."""
+    def launch_installed_app(self, package: str, *, uri: str | None = None) -> str | None:
+        """Launch the app, optionally delivering a deep link; None means unavailable."""
         ...
