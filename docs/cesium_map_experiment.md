@@ -402,6 +402,14 @@ map package. Building all nine
 packages is intentionally not one workflow job because USGS request time and
 release inspection remain explicit.
 
+Metro Detroit uses the same resumable principle at individual-tile granularity.
+Its imagery package is preserved independently, while a matrix builds the 21
+terrain grids with at most two USGS requests in flight. Each successful tile is
+cached and transferred as a seven-day workflow artifact. A final job assembles
+the unchanged schema-3 terrain layout only after every tile validates. A rerun
+therefore restores completed tiles instead of restarting a two-hour monolithic
+job, and an exact packaged-terrain cache bypasses the tile matrix entirely.
+
 Pack descriptors carry separate imagery and terrain build fingerprints derived
 from coverage plus reviewed source/algorithm revisions. Before contacting USGS,
 the workflows restore an exact matching packaged artifact when one exists in the
