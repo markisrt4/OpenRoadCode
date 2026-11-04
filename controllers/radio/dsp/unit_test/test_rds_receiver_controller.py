@@ -1,0 +1,60 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+"""Hardware-independent RDS receiver orchestration tests."""
+
+import unittest
+
+import numpy as np
+
+from controllers.radio.rds_receiver_controller import RdsReceiverController
+from controllers.radio.dsp.rds_block_sync import RdsGroup
+
+
+class RdsReceiverControllerTest(unittest.TestCase):
+    def test_empty_input_and_status(self):
+        receiver = RdsReceiverController()
+        self.assertEqual(receiver.process_multiplex(np.array([], dtype=np.float32)), [])
+        self.assertEqual(receiver.process_iq(np.array([], dtype=np.complex64)), [])
+        self.assertEqual(receiver.status.groups_found, 0)
+        self.assertIsNone(receiver.status.metadata.pi)
+        self.assertAlmostEqual(receiver.status.half_bit_samples_per_symbol,
+                               12_000 / 2375)
+
+    def test_group_metadata_and_reset_with_stubbed_physical_stages(self):
+        """Exercise real bit/group/metadata stages while isolating RF locking.
+
+        This is not an end-to-end RF waveform decoding test.
+        """
+        receiver = RdsReceiverController()
+        from controllers.radio.dsp.rds_block_sync import encode_block
+        words = [encode_block(value, name) for value, name in (
+            (0x1234, "A"), (0x0000, "B"), (0, "C"), (0x4F52, "D"))]
+        bits = np.array([(word >> shift) & 1
+                         for word in words for shift in range(25, -1, -1)],
+                        dtype=np.uint8)
+        # Isolate the downstream real block synchronizer/metadata decoder.
+        groups = receiver._blocks.process(bits)
+        for group in groups:
+            receiver._metadata.process(group)
+        self.assertEqual(len(groups), 1)
+        self.assertIsInstance(groups[0], RdsGroup)
+        self.assertEqual(receiver.status.metadata.pi, 0x1234)
+        self.assertEqual(receiver.status.groups_found, 1)
+        receiver.reset()
+        self.assertIsNone(receiver.status.metadata.pi)
+        self.assertEqual(receiver.status.groups_found, 0)
+
+    def test_invalid_pair_phase_rejected(self):
+        with self.assertRaises(ValueError):
+            RdsReceiverController(pair_phase=2)
+
+    def test_streamed_multiplex_does_not_require_audio_device(self):
+        receiver = RdsReceiverController()
+        samples = np.zeros(4_800, dtype=np.float32)
+        self.assertEqual(receiver.process_multiplex(samples[:127]), [])
+        self.assertEqual(receiver.process_multiplex(samples[127:]), [])
+        self.assertEqual(receiver.status.groups_found, 0)
+
+
+if __name__ == "__main__":
+    unittest.main()
