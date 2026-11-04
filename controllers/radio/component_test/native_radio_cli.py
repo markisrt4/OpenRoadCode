@@ -49,6 +49,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--gain", type=float, default=30.0,
                         help="RTL tuner manual gain dB (default 30; measured preferred FM setting)")
     parser.add_argument("--tuner-agc", action="store_true")
+    parser.add_argument("--stereo", action="store_true",
+                        help="enable experimental WFM stereo decoding and output")
     parser.add_argument("--device-index", type=int, default=0)
     parser.add_argument("--seconds", type=float, default=30.0)
     parser.add_argument("--listen", help="channel to play (default first channel)")
@@ -82,7 +84,9 @@ def configuration(args: argparse.Namespace, parser: argparse.ArgumentParser):
     listen = args.listen or channels[0].name
     if listen not in [c.name for c in channels]:
         parser.error("--listen must name a configured channel")
-    receiver = MultiModeRadioReceiver()
+    if args.stereo and any(channel.mode.upper() != "WFM" for channel in channels):
+        parser.error("--stereo currently requires WFM-only channels")
+    receiver = MultiModeRadioReceiver(stereo_wfm=args.stereo)
     for channel in channels:
         try:
             receiver.add_channel(channel)
@@ -104,6 +108,7 @@ def main(argv: list[str] | None = None) -> int:
         "channels": [vars(channel) for channel in receiver.channels],
         "listen": None if args.no_audio else listen,
         "device_index": args.device_index,
+        "stereo": args.stereo,
         "gain_db": None if args.tuner_agc else args.gain,
         "dry_run": args.dry_run,
         "rf_warmup_seconds": args.rf_warmup_seconds,
@@ -122,10 +127,12 @@ def main(argv: list[str] | None = None) -> int:
         if args.no_audio:
             return service
         output = SounddevicePcmOutputAdapter(
-            volume=args.volume, prime_ms=args.audio_prime_ms, latency="high"
+            volume=args.volume, prime_ms=args.audio_prime_ms, latency="high",
+            channels=2 if args.stereo else 1
         )
         playback = PcmPlaybackWorker(output, queue_blocks=args.pcm_queue,
-                                     prebuffer_ms=args.audio_prebuffer_ms)
+                                     prebuffer_ms=args.audio_prebuffer_ms,
+                                     channels=2 if args.stereo else 1)
         session = RadioAudioSession(service, playback)
         session.select_channel(listen)
         return session
