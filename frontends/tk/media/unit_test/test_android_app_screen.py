@@ -13,6 +13,43 @@ from frontends.tk.media.browser_media_screen import BrowserMediaScreen
 from ui.navigation.android_app_view_if import AndroidAppViewState
 from apps.orcUi.theme_runtime import theme_bundle
 from ui.theme import ThemeMode
+from ui.navigation.navigation_experience_if import NavigationExperienceState, NavigationExperience
+
+
+@pytest.mark.skipif(not os.environ.get('DISPLAY'), reason='real Tk geometry needs X11')
+def test_shared_waze_navigation_drawer_shrinks_host_and_hide_cancels_poll_without_stopping_player():
+    root = tk.Tk()
+    root.geometry('1000x600')
+    host = Mock(screen_parent=root)
+    player = Mock()
+    experiences = Mock(state=NavigationExperienceState(selected=NavigationExperience.WAZE,
+        waze_available=True, terrain_available=True, waze_running=True))
+    screen = AndroidAppScreen('waze', host, title='Waze', player=player,
+        default_target='android', window_class=None, back_action=Mock(),
+        keep_player_on_hide=True, map_runtime=Mock(), map_platform=Mock(),
+        requests=Mock(), breadcrumb=Mock(), experience_handler=experiences,
+        theme_bundle=lambda: theme_bundle(ThemeMode.DARK), window_embedder=Mock(window_id=None))
+    try:
+        screen.present(AndroidAppViewState('Waze', 'com.waze', expanded=True, can_split=False,
+                                           navigation_mode_controls=True))
+        screen.show()
+        root.update()
+        full_width = screen._browser_host.winfo_width()
+        controls = screen._experience_controls
+        controls.show_drawer('views')
+        root.update()
+        assert screen._browser_host.winfo_width() < full_width
+        assert not screen._back_button.winfo_ismapped()
+        controls.close_drawer()
+        root.update()
+        assert screen._browser_host.winfo_width() == full_width
+        controls.places_button.invoke()
+        experiences.request_places.assert_called_once_with()
+        screen.hide()
+        assert controls._poll_job is None
+        player.stop.assert_not_called()
+    finally:
+        root.destroy()
 
 
 @pytest.mark.skipif(not os.environ.get('DISPLAY'), reason='real Tk geometry needs X11')

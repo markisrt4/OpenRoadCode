@@ -77,6 +77,7 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel = object.__new__(NavigationPanel)
         panel._map_platform = None
         panel._waze_handler = None
+        panel._experience_handler = None
         panel._request_handler = Mock()
         panel._zoom_level = 16.5
         panel._zoom_text = Mock()
@@ -135,6 +136,7 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel = Mock()
         panel._map_platform = None
         panel._waze_handler = None
+        panel._experience_handler = None
         label = Mock()
         label.return_value.winfo_reqheight.return_value = 18
         with patch.multiple(
@@ -145,7 +147,6 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._build_radar_controls.assert_called_once()
         self.assertIsNotNone(panel._simulate_button)
         self.assertIsNotNone(panel._cancel_route_button)
-        self.assertIsNotNone(panel._places_menu)
 
     def test_zoom_preserves_follow_and_requests_zoom(self) -> None:
         panel = self._panel()
@@ -235,7 +236,7 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._map_host.grid_configure.assert_not_called()
         panel._map_controls_rail.pack_forget.assert_called_once_with()
         panel._map_controls_handle.place.assert_called_once_with(
-            relx=1.0, rely=0.5, anchor="e", width=48, height=72,
+            in_=panel._map_host, relx=1.0, rely=0.5, anchor="e", width=100, height=44,
         )
         panel._map_controls_handle.lift.assert_called_once_with()
 
@@ -251,7 +252,7 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel.set_map_controls_drawer_state(MapControlsDrawerState(expanded=True))
 
         panel._map_controls.place.assert_called_once_with(
-            relx=1.0, rely=0.0, anchor="ne", width=140, relheight=1.0,
+            in_=panel._map_host, relx=1.0, rely=0.0, anchor="ne", width=140, relheight=1.0,
         )
         panel._map_controls.lift.assert_called_once_with()
         panel._map_host.grid_configure.assert_not_called()

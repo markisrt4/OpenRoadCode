@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from ui.navigation.navigation_experience_if import NavigationExperienceRequestHandlerIf
 from ui.navigation.waze_request_handler_if import WazeRequestHandlerIf
 from ui.system.online_mode_if import OnlineModeIf
 from ui.tooltip_if import TooltipFactoryIf
@@ -49,6 +50,7 @@ def build_navigation_screen(
     tooltip_factory: TooltipFactoryIf | None = None,
     map_platform: MapPlatformControlIf | None = None,
     waze_handler: WazeRequestHandlerIf | None = None,
+    experience_handler: NavigationExperienceRequestHandlerIf | None = None,
     radar_enabled: bool = False,
     radar_frame_time: int | None = None,
     radar_palette: RadarPalette = RadarPalette.UNIVERSAL,
@@ -75,6 +77,7 @@ def build_navigation_screen(
         tooltip_factory=tooltip_factory,
         map_platform=map_platform,
         waze_handler=waze_handler,
+        experience_handler=experience_handler,
         radar_enabled=radar_enabled,
         radar_frame_time=radar_frame_time,
         radar_palette=radar_palette,

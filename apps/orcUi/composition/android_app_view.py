@@ -18,7 +18,7 @@ class AndroidAppView(AndroidAppViewRequestHandlerIf):
                  player=None, window_embedder=None, preserve_external_window=True,
                  visibility_changed=None, screen_label='ANDROID_APP', navigation_label=None,
                  persistent_session=False, close_action=None, saved_destination_action=None,
-                 on_present=lambda: None):
+                 on_present=lambda: None, experience_handler=None):
         self._app = app
         self._lock = Lock()
         self._closed = False
@@ -40,6 +40,7 @@ class AndroidAppView(AndroidAppViewRequestHandlerIf):
             window_embedder=window_embedder if window_embedder is not None else WaydroidWindowEmbedder(),
             window_name=lambda: getattr(self._player, 'window_name', None),
             map_runtime=map_runtime, map_platform=map_platform, requests=self,
+            experience_handler=experience_handler,
             map_presentation=map_presentation,
             breadcrumb=lambda name: app.set_breadcrumb('NAV', name))
         options = {'navigation_label': navigation_label} if navigation_label is not None else {}

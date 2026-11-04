@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from ui.navigation.navigation_experience_if import NavigationExperienceRequestHandlerIf
 from ui.navigation.waze_request_handler_if import WazeRequestHandlerIf
 from ui.system.online_mode_if import OnlineModeIf
 from ui.tooltip_if import TooltipFactoryIf
@@ -61,6 +62,7 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         tooltip_factory: TooltipFactoryIf | None = None,
         map_platform: MapPlatformControlIf | None = None,
         waze_handler: WazeRequestHandlerIf | None = None,
+        experience_handler: NavigationExperienceRequestHandlerIf | None = None,
         radar_enabled: bool = False,
         radar_frame_time: int | None = None,
         radar_palette: RadarPalette = RadarPalette.UNIVERSAL,
@@ -80,6 +82,8 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         super().__init__(parent, bg=self._theme_bundle.ui.background)
         del on_back
         self._request_handler = map_request_handler
+        self._experience_handler = experience_handler
+        self._experience_controls = None
         self._waze_handler = waze_handler
         self._waze_button = None
         self._map_platform = map_platform
@@ -222,7 +226,7 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
             return
         if state.expanded:
             self._map_controls.place(
-                relx=1.0, rely=0.0, anchor="ne", width=140, relheight=1.0,
+                in_=self._map_host, relx=1.0, rely=0.0, anchor="ne", width=140, relheight=1.0,
             )
             self._map_controls.lift()
             self._map_controls_handle.place_forget()
@@ -231,7 +235,7 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
             self._map_controls_rail.pack_forget()
             self._map_controls.place_forget()
             self._map_controls_handle.place(
-                relx=1.0, rely=0.5, anchor="e", width=48, height=72,
+                in_=self._map_host, relx=1.0, rely=0.5, anchor="e", width=100, height=44,
             )
             self._map_controls_handle.lift()
         self.after_idle(self._refresh_renderer_state)
@@ -254,6 +258,9 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         )
 
     def _toggle_map_controls_drawer(self) -> None:
+        controls = self.__dict__.get('_experience_controls')
+        if controls is not None:
+            controls.close_drawer()
         self._drawer_handler.request_map_controls_expanded(not self._drawer_state.expanded)
 
     def close_places(self) -> None:
@@ -264,6 +271,10 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         if self._places_closed:
             return
         self._places_closed = True
+        controls = self.__dict__.get('_experience_controls')
+        if controls is not None:
+            controls.destroy()
+            self._experience_controls = None
         self._unsubscribe_online_mode()
         for name in ("_poi_poll_after_id", "_poi_search_after_id"):
             callback_id = getattr(self, name)

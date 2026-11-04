@@ -21,6 +21,8 @@ from controllers.navigation.host_location_settings_controller import HostLocatio
 from controllers.navigation.location_sharing_controller import LocationSharingController
 from controllers.navigation.map_favorites import MapFavorites
 from controllers.navigation.navigation_view_controller import NavigationViewController
+from controllers.navigation.navigation_experience_controller import NavigationExperienceController
+from ui.navigation.waze_request_handler_if import WazeSessionState
 from apps.launchers.waydroid_location_provider import WaydroidLocationProvider
 from controllers.weather.radar_palette import RadarPalette
 
@@ -280,6 +282,20 @@ def create_orc_ui_composition(
         app.register_navigation_action('NAVIGATION', navigation_view.request_resume_navigation)
         close_waze = lambda: waze.request_close_waze() if waze is not None else None
         saved_waze_destination = lambda key: waze.request_navigate_saved_destination(key) if waze is not None else None
+        # Late-bound view callbacks keep platform/app logic outside Tk widgets.
+        experiences = NavigationExperienceController(platform=navigation_maps,
+            navigation_state=lambda: navigation_view.state,
+            open_map=lambda: app.navigate_to('NAVIGATION'),
+            open_waze=lambda: waze.request_open_waze() if waze is not None else None,
+            waze_state=lambda: waze.native.state if waze is not None and waze.native is not None else WazeSessionState(),
+            waze_available=lambda: waze is not None and waze.native is not None,
+            saved_map=lambda key: navigation.request_saved_destination(key),
+            saved_waze=saved_waze_destination,
+            show_places=lambda: navigation.request_places_drawer(),
+            search_places=lambda category, transit: navigation.request_search_places(category, transit),
+            select_place=lambda place: navigation.request_select_place(place),
+            clear_places=lambda: navigation.request_clear_places(), close_waze=close_waze,
+            select_platform=lambda platform: navigation.request_map_platform(platform))
         if waydroid_enabled:
             android_app_view = AndroidAppView(app, map_runtime=navigation_maps, map_platform=navigation_maps,
                                               map_presentation=core.map_camera,
@@ -288,7 +304,7 @@ def create_orc_ui_composition(
             waze_app_view = AndroidAppView(app, map_runtime=navigation_maps, map_platform=navigation_maps,
                 map_presentation=core.map_camera, screen_label='WAZE_NATIVE', navigation_label='NAVIGATION',
                 persistent_session=True, close_action=close_waze, saved_destination_action=saved_waze_destination,
-                on_present=navigation_view.remember_waze)
+                on_present=navigation_view.remember_waze, experience_handler=experiences)
             cleanup.callback(waze_app_view.close)
         elif scrcpy_enabled:
             scrcpy_player = ScrcpyWazePlayer(retain_session=True)
@@ -297,7 +313,7 @@ def create_orc_ui_composition(
                 window_embedder=X11WindowEmbedder(), preserve_external_window=False,
                 screen_label='WAZE_NATIVE', navigation_label='NAVIGATION',
                 persistent_session=True, close_action=close_waze, saved_destination_action=saved_waze_destination,
-                on_present=navigation_view.remember_waze)
+                on_present=navigation_view.remember_waze, experience_handler=experiences)
             cleanup.callback(waze_app_view.close)
             waze_native_launcher = ScrcpyWazeLauncher(prepare_destination=scrcpy_player.prepare_destination,
                                                      stop_viewer=scrcpy_player.stop)
@@ -321,6 +337,7 @@ def create_orc_ui_composition(
             map_runtime=navigation_maps,
             map_platform=navigation_maps,
             waze_handler=waze,
+            experience_handler=experiences,
             on_show=navigation_view.remember_map,
             places_factory=navigation_places,
             tooltip_factory=TooltipFactory(app),

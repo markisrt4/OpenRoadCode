@@ -418,6 +418,10 @@ LOGGING_TMP_DIR=/tmp/orc-waze-validation venv/bin/python -m pytest -q controller
 
 ### Termux native Waze experiment
 
+The current shared navigation bar and experience/places drawers are described in
+[Navigation views and places](navigation_views.md). Use Views → Waze to launch
+or resume the native session.
+
 Retaining the native viewer requires the X11 root window. When `xwininfo` is
 absent, ORC reads it through the system X11 library already used by Tk. A missing
 `xwininfo` command therefore does not abort the viewer after Android starts Waze.

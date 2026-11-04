@@ -5,10 +5,9 @@
 
 import tkinter as tk
 
-from .map_platform_bar import MapPlatformToggle
 from .navigation_earth_control import build_earth_control, build_poi_icon_button
 
-from ui.navigation.poi_models import (PoiActionKind, PoiCategory, TransitMode)
+from ui.navigation.poi_models import PoiActionKind
 
 
 def build_navigation_panel(panel) -> None:
@@ -17,67 +16,12 @@ def build_navigation_panel(panel) -> None:
     panel.grid_rowconfigure(1, weight=1)
     panel.grid_rowconfigure(2, weight=0)
     panel.grid_columnconfigure(0, weight=1)
-    bar = tk.Frame(panel, bg=ui.surface_alt, height=38, highlightthickness=0)
+    bar = tk.Frame(panel, bg=ui.surface_alt, height=48, highlightthickness=0)
     bar.grid(row=0, column=0, sticky="ew", pady=(0, 4))
     bar.grid_propagate(False)
-    if panel._waze_handler is not None:
-        panel._waze_button = tk.Button(
-            bar, text="WAZE", command=panel._waze_handler.request_open_waze,
-            bg=ui.control_background, fg=ui.control_text,
-            activebackground=ui.control_active, relief=tk.FLAT,
-            bd=0, highlightthickness=0, font=("Sans", 9, "bold"), padx=7, pady=3,
-            state=tk.NORMAL if panel.online_actions_allowed else tk.DISABLED,
-        )
-        panel._waze_button.pack(side=tk.RIGHT, padx=4, pady=3)
-        tk.Button(bar, text='MAP', state=tk.DISABLED,
-            bg=ui.control_active, disabledforeground='#ffffff', relief=tk.FLAT,
-            bd=0, highlightthickness=0, font=('Sans', 9, 'bold'),
-            padx=7, pady=3).pack(side=tk.RIGHT, padx=0, pady=3)
-    shortcuts = tk.Frame(bar, bg=ui.surface_alt)
-    shortcuts.pack(side=tk.LEFT, padx=4, pady=3)
-    for label, accent, key in (
-        ("⌂ Home", ui.accent_primary, "home"),
-        ("▣ Work", ui.accent_warning, "work"),
-    ):
-        tk.Button(shortcuts, text=label,
-                  command=lambda selected=key: panel._destination_shortcut(selected),
-                  bg=ui.control_background, fg=accent, activebackground=ui.control_active,
-                  activeforeground=ui.control_text, relief=tk.FLAT,
-                  bd=0, highlightthickness=0,
-                  font=("Sans", 9, "bold"), padx=7, pady=3).pack(side=tk.LEFT, padx=(0, 4))
-    places = tk.Menubutton(shortcuts, text="Places ▾", bg=ui.control_background,
-                           fg=ui.text, relief=tk.FLAT, bd=0, highlightthickness=0,
-                           font=("Sans", 9, "bold"), padx=7, pady=3)
-    places_menu = tk.Menu(places, tearoff=False, bg=ui.control_background, fg=ui.control_text)
-    for label, key in (("Gas stations", "gas"), ("Groceries", "grocery"), ("Food", "food")):
-        places_menu.add_command(label=label, command=lambda selected=key: panel._destination_shortcut(selected))
-    transit_menu = tk.Menu(places_menu, tearoff=False, bg=ui.control_background, fg=ui.control_text)
-    for label, mode in (("All transit", TransitMode.ALL), ("Bus", TransitMode.BUS),
-                        ("Rail", TransitMode.RAIL), ("Tram / Subway", TransitMode.TRAM_SUBWAY)):
-        transit_menu.add_command(label=label, command=lambda selected=mode: panel._start_poi_search(PoiCategory.TRANSIT, selected))
-    places_menu.add_cascade(label="Transit", menu=transit_menu)
-    places_menu.add_separator()
-    places_menu.add_command(label="Clear place results", command=panel._clear_poi_search)
-    panel._places_menu = places_menu
-    places.configure(menu=places_menu)
-    places.pack(side=tk.LEFT, padx=(0, 4))
-    if panel._map_platform is not None:
-        panel._platform_toggle = MapPlatformToggle(shortcuts, handler=panel._map_platform, theme=panel._theme_bundle,
-                                                   on_state=panel.apply_map_platform_state)
-        panel._platform_toggle.pack(side=tk.LEFT, padx=(0,4))
-        panel._add_tooltip(panel._platform_toggle, "Switch between the street map and 3D terrain")
-    tk.Label(
-        bar,
-        textvariable=panel._shortcut_status,
-        bg=ui.surface_alt,
-        fg=ui.text_muted,
-        font=("Sans", 7),
-        anchor="w",
-        wraplength=220,
-        width=1,
-    ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=7)
-
-    panel._build_radar_controls(bar)
+    # Drawer widgets are built after the native host so they occupy a separate
+    # grid column, never covering an X11 child window.
+    panel._navigation_toolbar = bar
 
     guidance = tk.Frame(
         panel, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border
@@ -149,9 +93,21 @@ def build_navigation_panel(panel) -> None:
         bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active,
         relief=tk.FLAT, bd=0, font=('Sans', 11, 'bold'), padx=16, pady=10)
     panel._map_host.bind("<Configure>", panel._log_map_allocation, add="+")
+    if panel._experience_handler is not None:
+        from frontends.tk.navigation_experience_controls import NavigationExperienceControls
+        panel._experience_controls = NavigationExperienceControls(
+            bar, drawer_parent=body, drawer_row=0, drawer_column=1,
+            handler=panel._experience_handler, theme=panel._theme_bundle,
+            on_open=lambda: panel._drawer_handler.request_map_controls_expanded(False),
+            on_close=panel.close_radar_menu)
+        panel._experience_controls.pack(fill=tk.X, expand=True)
+        panel._build_radar_controls(panel._experience_controls.overlay_frame)
+    else:
+        panel._build_radar_controls(bar)
+
     panel._map_controls_handle = tk.Button(
         body,
-        text="☰",
+        text="CONTROLS ›",
         command=panel._toggle_map_controls_drawer,
         bg=ui.control_background,
         fg=ui.accent_primary,
@@ -160,7 +116,7 @@ def build_navigation_panel(panel) -> None:
         relief=tk.FLAT,
         bd=0,
         highlightthickness=0,
-        font=("Sans", 17, "bold"),
+        font=("Sans", 9, "bold"),
         cursor="hand2",
     )
     controls = tk.Frame(body, bg=ui.surface_alt, width=54, highlightthickness=0)

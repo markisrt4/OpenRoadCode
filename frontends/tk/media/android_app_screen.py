@@ -8,6 +8,8 @@ from frontends.tk.media.browser_media_screen import BrowserMediaScreen
 from ui.navigation.android_app_view_if import AndroidAppViewState, AndroidAppViewRequestHandlerIf
 from ui.navigation.map_runtime_if import MapRuntimeIf, MapPresentationRequestHandlerIf
 from ui.navigation.map_platform_if import MapPlatformControlIf
+from ui.navigation.navigation_experience_if import NavigationExperienceRequestHandlerIf
+from frontends.tk.navigation_experience_controls import NavigationExperienceControls
 
 
 class AndroidAppScreen(BrowserMediaScreen):
@@ -17,9 +19,12 @@ class AndroidAppScreen(BrowserMediaScreen):
                  map_platform: MapPlatformControlIf,
                  requests: AndroidAppViewRequestHandlerIf,
                  breadcrumb: Callable[[str], None],
+                 experience_handler: NavigationExperienceRequestHandlerIf | None = None,
                  map_presentation: MapPresentationRequestHandlerIf | None = None, **kwargs):
         super().__init__(*args, **kwargs)
         self._map_runtime = map_runtime
+        self._experience_handler = experience_handler
+        self._experience_controls = None
         self._map_platform = map_platform
         self._requests = requests
         self._breadcrumb = breadcrumb
@@ -104,16 +109,21 @@ class AndroidAppScreen(BrowserMediaScreen):
         self._root = root
         toolbar = tk.Frame(root, bg=self._background())
         self._toolbar = toolbar
-        toolbar.grid(row=0, column=0, columnspan=2, sticky='ew')
+        toolbar.grid(row=0, column=0, columnspan=3, sticky='ew')
         self._back_button = tk.Button(toolbar, text='MAP' if self._state.navigation_mode_controls else '‹ BACK TO MAP',
                                      command=self._back_action, **self._button_style())
         self._back_button.pack(side=tk.LEFT, padx=4, pady=4)
+        shared_navigation = self._state.navigation_mode_controls and self._experience_handler is not None
+        if shared_navigation:
+            self._back_button.pack_forget()
         if self._state.navigation_mode_controls:
             style = self._button_style()
             style['bg'] = self._theme_provider().ui.control_active if self._theme_provider is not None else '#20313e'
             self._waze_mode_button = tk.Button(toolbar, text='WAZE', state=tk.DISABLED,
                                                disabledforeground='#ffffff', **style)
             self._waze_mode_button.pack(side=tk.LEFT, padx=0, pady=4)
+            if shared_navigation:
+                self._waze_mode_button.pack_forget()
         foreground = self._theme_provider().ui.text if self._theme_provider is not None else 'white'
         self._name_label = tk.Label(toolbar, text=self._state.app_name, bg=self._background(), fg=foreground)
         if not self._state.navigation_mode_controls:
@@ -125,6 +135,8 @@ class AndroidAppScreen(BrowserMediaScreen):
                     **self._destination_button_style(key))
                 button.pack(side=tk.LEFT, padx=4, pady=4)
                 self._destination_buttons.append(button)
+                if shared_navigation:
+                    button.pack_forget()
         self._expand_button = tk.Button(toolbar, command=self._requests.request_toggle_android_app_expanded,
                                         **self._button_style())
         self._expand_button.pack(side=tk.RIGHT, padx=4, pady=4)
@@ -132,12 +144,19 @@ class AndroidAppScreen(BrowserMediaScreen):
             self._close_button = tk.Button(toolbar, text='CLOSE WAZE', command=self._close_action,
                                            **self._button_style())
             self._close_button.pack(side=tk.RIGHT, padx=4, pady=4)
+            if shared_navigation:
+                self._close_button.pack_forget()
         if not self._state.can_split:
             self._expand_button.pack_forget()
         self._map_host = tk.Frame(root, bg=self._background())
         self._map_host.bind('<Configure>', self._resize_map)
         self._browser_host = tk.Frame(root, bg=self._background())
         self._browser_host.bind('<Configure>', self._on_browser_host_resize)
+        if shared_navigation:
+            self._experience_controls = NavigationExperienceControls(toolbar,
+                drawer_parent=root, drawer_row=1, drawer_column=2,
+                handler=self._experience_handler, theme=self._theme_provider())
+            self._experience_controls.pack(fill=tk.X, expand=True)
         self._apply_layout()
         self._launch_job = self._host.schedule_ui_callback(1, self._launch_and_embed)
         self._requests.request_set_android_app_visible(True)
@@ -206,6 +225,9 @@ class AndroidAppScreen(BrowserMediaScreen):
             self._map_runtime.stop()
 
     def hide(self):
+        if self._experience_controls is not None:
+            self._experience_controls.destroy()
+            self._experience_controls = None
         self._requests.request_set_android_app_visible(False)
         self._surface_generation += 1
         if self._surface_resize_job is not None:
@@ -213,6 +235,7 @@ class AndroidAppScreen(BrowserMediaScreen):
             self._surface_resize_job = None
         self._stop_map()
         super().hide()
+        self._experience_controls = None
         self._map_host = None
         self._expand_button = None
         self._toolbar = None
@@ -239,3 +262,5 @@ class AndroidAppScreen(BrowserMediaScreen):
                 style = self._button_style()
                 style['bg'] = self._theme_provider().ui.control_active
                 self._waze_mode_button.configure(**style)
+            if self._experience_controls is not None:
+                self._experience_controls.set_theme(self._theme_provider())

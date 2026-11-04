@@ -45,6 +45,31 @@ class MapPlatformBarTest(unittest.TestCase):
 
 
 class MapPlatformPollTest(unittest.TestCase):
+    def test_experience_request_before_host_launch_is_applied_after_launch(self):
+        screen = object.__new__(NavigationScreen)
+        screen._map_started = False
+        screen._pending_platform = None
+        screen._last_platform = MapPlatform.MAPLIBRE
+        screen._panel = Mock(map_host_size=(800, 500), map_host_window_id=123)
+        screen._map_platform = Mock(state=MapPlatformState())
+        screen._map_runtime = Mock()
+        screen.request_map_platform(MapPlatform.CESIUM)
+        screen._map_platform.request_platform.assert_not_called()
+        screen._start_map_renderer()
+        screen._map_runtime.launch.assert_called_once_with(123)
+        screen._map_platform.request_platform.assert_called_once_with(MapPlatform.CESIUM)
+        self.assertIsNone(screen._pending_platform)
+
+    def test_returning_to_map_restores_the_remembered_terrain_experience(self):
+        screen = object.__new__(NavigationScreen)
+        screen._pending_platform = None
+        screen._last_platform = MapPlatform.CESIUM
+        screen._panel = Mock(map_host_size=(800, 500), map_host_window_id=123)
+        screen._map_platform = Mock(state=MapPlatformState())
+        screen._map_runtime = Mock()
+        screen._start_map_renderer()
+        screen._map_platform.request_platform.assert_called_once_with(MapPlatform.CESIUM)
+
     def test_stale_poll_does_not_touch_destroyed_or_replaced_widgets(self):
         screen = object.__new__(NavigationScreen)
         screen._platform_generation = 2
