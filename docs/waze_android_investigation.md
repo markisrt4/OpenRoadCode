@@ -457,6 +457,9 @@ The virtual display matches the Waze panel's aspect ratio at launch, with a
 minimum resolution of 1280×720, instead of adding side margins for a fixed 16:9
 display. Resizing ORC during an existing session still preserves that session's
 display proportions; close Waze and reopen it to use the new proportions.
+The viewer starts at local position (0, 0); the X11 embedder owns placement.
+Passing the panel's desktop coordinates to scrcpy can cause SDL to reapply them
+after reparenting, shifting the viewer down and right inside the panel.
 
 OpenGL is the default renderer. Earlier standalone phone tests had corruption
 with OpenGL and GLES; this integration does not establish that driver issue is

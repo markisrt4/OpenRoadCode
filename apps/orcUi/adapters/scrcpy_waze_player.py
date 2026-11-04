@@ -38,7 +38,7 @@ class ScrcpyWazePlayer:
             self._pending_destination = uri
 
     def play(self, target, *, display, window_position=None, window_size=None):
-        del target
+        del target, window_position
         with self._process_lock:
             process = self._process
             if self._retain_session and process is not None and process.poll() is None:
@@ -67,8 +67,10 @@ class ScrcpyWazePlayer:
         command = ['scrcpy', f'--new-display={display_width}x{display_height}/240', '--start-app=com.waze',
                    '--no-audio', '--window-borderless', f'--window-title={self.window_name}',
                    f'--render-driver={renderer}', f'--window-width={width}', f'--window-height={height}']
-        if window_position is not None:
-            command.extend((f'--window-x={window_position[0]}', f'--window-y={window_position[1]}'))
+        # SDL may reapply its startup position after X11 reparenting. Desktop
+        # coordinates would then become an offset inside ORC and clip the view.
+        # The embedder owns placement; the viewer starts at the same local origin.
+        command.extend(('--window-x=0', '--window-y=0'))
         environment = dict(os.environ, DISPLAY=display, SDL_VIDEODRIVER='x11')
         log_path = Path(os.environ.get('TMPDIR') or tempfile.gettempdir()) / 'orc-scrcpy-waze.log'
         with log_path.open('ab') as log:

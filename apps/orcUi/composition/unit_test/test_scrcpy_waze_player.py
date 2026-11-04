@@ -76,6 +76,16 @@ def test_virtual_display_matches_panel_aspect_without_reducing_android_resolutio
     assert abs(width / height - size[0] / size[1]) < .003
 
 
+def test_desktop_position_is_not_reapplied_as_an_offset_inside_embedded_panel(tmp_path, monkeypatch):
+    monkeypatch.setenv('TMPDIR', str(tmp_path))
+    with patch('apps.orcUi.adapters.scrcpy_waze_player.subprocess.Popen') as spawn:
+        ScrcpyWazePlayer().play('android', display=':1',
+                                window_position=(156, 224), window_size=(876, 383))
+    command = spawn.call_args.args[0]
+    assert [value for value in command if value.startswith('--window-x=')] == ['--window-x=0']
+    assert [value for value in command if value.startswith('--window-y=')] == ['--window-y=0']
+
+
 def test_unresponsive_owned_viewer_is_killed_without_adb_commands():
     player = ScrcpyWazePlayer()
     process = player._process = Mock()
