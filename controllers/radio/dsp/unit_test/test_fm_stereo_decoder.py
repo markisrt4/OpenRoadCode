@@ -38,6 +38,26 @@ class FmStereoDecoderTest(unittest.TestCase):
         self.assertFalse(decoder.stereo_locked)
         np.testing.assert_allclose(pcm[:, 0], pcm[:, 1], atol=1e-6)
 
+    def test_chunked_matches_whole_after_pilot_acquisition(self):
+        samples = stereo_multiplex(count=120_000)
+        warmup, payload = samples[:48_000], samples[48_000:]
+        whole, chunked = FmStereoDecoder(), FmStereoDecoder()
+        whole.process(warmup)
+        chunked.process(warmup)
+        self.assertTrue(whole.stereo_locked)
+        expected = whole.process(payload)
+        pieces = [chunked.process(payload[i:i + 1237])
+                  for i in range(0, len(payload), 1237)]
+        np.testing.assert_allclose(np.concatenate(pieces), expected, atol=1e-5)
+
+    def test_pilot_loss_returns_to_dual_mono(self):
+        decoder = FmStereoDecoder()
+        decoder.process(stereo_multiplex(count=48_000))
+        self.assertTrue(decoder.stereo_locked)
+        pcm = decoder.process(stereo_multiplex(count=240_000, pilot=0))
+        self.assertFalse(decoder.stereo_locked)
+        np.testing.assert_allclose(pcm[-4800:, 0], pcm[-4800:, 1], atol=1e-6)
+
     def test_rejects_non_vector(self):
         with self.assertRaises(ValueError):
             FmStereoDecoder().process(np.zeros((10, 2)))
