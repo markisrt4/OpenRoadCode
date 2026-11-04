@@ -17,6 +17,7 @@ from controllers.radio.dsp.channel_rf_telemetry import ChannelRfTelemetry, adc_c
 from controllers.radio.dsp.channelized_am_demodulator import ChannelizedAmDemodulator
 from controllers.radio.dsp.channelized_nbfm_demodulator import ChannelizedNbfmDemodulator
 from controllers.radio.dsp.channelized_wbfm_demodulator import ChannelizedWbfmDemodulator
+from controllers.radio.dsp.channelized_stereo_wbfm_demodulator import ChannelizedStereoWbfmDemodulator
 from controllers.radio.virtual_receiver_manager import VirtualChannel, VirtualReceiverManager
 from hardware_io.sdr.sdr_types import IqBlock
 
@@ -39,8 +40,10 @@ class MultiModeRadioReceiver:
         "AM": ChannelizedAmDemodulator,
     }
 
-    def __init__(self, *, input_rate_hz: int = 2_400_000) -> None:
+    def __init__(self, *, input_rate_hz: int = 2_400_000,
+                 stereo_wfm: bool = False) -> None:
         self._manager = VirtualReceiverManager(input_rate_hz=input_rate_hz)
+        self._stereo_wfm = stereo_wfm
         self._decoders: dict[str, object] = {}
         self._configs: dict[str, RadioChannel] = {}
         self._telemetry: dict[str, ChannelRfTelemetry] = {}
@@ -66,7 +69,10 @@ class MultiModeRadioReceiver:
         self._manager.add_channel(channel)
         self._configs[config.name] = RadioChannel(config.name, config.frequency_hz,
                                                    mode, bandwidth)
-        self._decoders[config.name] = self._DEMODULATORS[mode]()
+        decoder_type = (ChannelizedStereoWbfmDemodulator
+                        if mode == "WFM" and self._stereo_wfm
+                        else self._DEMODULATORS[mode])
+        self._decoders[config.name] = decoder_type()
 
     def remove_channel(self, name: str) -> None:
         self._manager.remove_channel(name)
@@ -90,7 +96,7 @@ class MultiModeRadioReceiver:
             decoder.reset()
 
     def process(self, block: IqBlock) -> dict[str, np.ndarray]:
-        """Return separate 48 kHz mono float32 PCM for every active channel."""
+        """Return 48 kHz float32 PCM; stereo WFM yields (frames, 2)."""
         iq_by_channel = self._manager.process(block)
         clipping = adc_clip_fraction(block.samples)
         self._telemetry = {
