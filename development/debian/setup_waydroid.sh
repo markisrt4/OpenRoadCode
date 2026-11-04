@@ -7,7 +7,8 @@ usage() {
     echo "Usage: bash development/debian/setup_waydroid.sh [--init-gapps]"
     echo "Ubuntu 24.04 experiment: install Waydroid, Weston and diagnostics."
     echo "--init-gapps downloads a Google-services Android image if not initialized."
-    echo "Does not change desktop sessions, configure GPS, or install Waze."
+    echo "For the managed display/network/ADB/location workflow, use waydroid_vm.sh."
+    echo "Preserves existing images; does not install Waze or ARM translation."
 }
 initialize=false
 case "${1:-}" in
@@ -27,11 +28,13 @@ case "$(dpkg --print-architecture)" in
     amd64|arm64) ;;
     *) fail "requires amd64 or arm64" ;;
 esac
-modinfo binder_linux >/dev/null 2>&1 ||
-    fail "kernel has no discoverable binder_linux module; resolve kernel support first"
-sudo modprobe binder_linux
+if [[ ! -d /sys/module/binder_linux ]]; then
+    modinfo binder_linux >/dev/null 2>&1 ||
+        fail "kernel has no discoverable binder_linux support; resolve kernel support first"
+    sudo modprobe binder_linux
+fi
 sudo apt-get update
-sudo apt-get install -y curl ca-certificates weston mesa-utils xdotool x11-utils adb
+sudo apt-get install -y curl ca-certificates weston mesa-utils xdotool x11-utils adb python3 iproute2 iptables iputils-ping
 
 has_waydroid_candidate() {
     # Consume the complete output: grep -q can close the pipe early and make
@@ -63,5 +66,5 @@ if "$initialize"; then
     fi
     sudo systemctl start waydroid-container
 fi
-echo "Setup complete. See docs/waze_android_investigation.md for desktop startup."
-echo "Start Weston and the Waydroid session as your normal user, not with sudo."
+echo "Setup complete. See docs/waydroid_vm.md for the repeatable VM workflow."
+echo "Next: bash development/debian/waydroid_vm.sh run (normal desktop user)."

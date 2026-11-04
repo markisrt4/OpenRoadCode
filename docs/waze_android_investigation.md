@@ -1,5 +1,9 @@
 # Native Waze investigation: Termux and Raspberry Pi 5
 
+For the repeatable Ubuntu development VM install/start/network/ADB/location
+workflow, use [Waydroid on the Linux VM](waydroid_vm.md). The manual commands below
+remain useful for targeted diagnostics.
+
 ## Current integration: native Waze only
 
 The left rail has one full **NAV** tile. The navigation top bar provides a
