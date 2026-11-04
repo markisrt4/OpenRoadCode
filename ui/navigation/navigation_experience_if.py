@@ -19,6 +19,7 @@ class NavigationExperienceState:
     waze_available: bool = False
     waze_running: bool = False
     busy: bool = False
+    waze_loading: bool = False
 
 
 @dataclass(frozen=True, slots=True)

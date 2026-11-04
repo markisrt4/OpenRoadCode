@@ -109,3 +109,23 @@ def test_theme_change_keeps_drawer_and_selection_without_relaunch_requests(layou
     assert bar._drawer_kind == 'views'
     assert bar.views_button.cget('bg') == theme_bundle(ThemeMode.LIGHT).ui.control_background
     handler.request_experience.assert_not_called()
+
+
+def test_loading_label_covers_launch_and_native_attachment_then_disappears(layout):
+    root, _, bar, handler = layout
+    handler.state = replace(handler.state, waze_loading=True, busy=True)
+    bar.after_cancel(bar._poll_job)
+    bar._poll()
+    root.update()
+    assert bar._loading_label.winfo_ismapped()
+    assert bar._loading_label.cget('text') == 'Loading Waze…'
+    bar.set_surface_loading(True)
+    handler.state = replace(handler.state, waze_loading=False, busy=False)
+    bar.after_cancel(bar._poll_job)
+    bar._poll()
+    root.update()
+    assert bar._loading_label.winfo_ismapped()
+    bar.set_surface_loading(False)
+    root.update()
+    assert not bar._loading_label.winfo_ismapped()
+    handler.request_experience.assert_not_called()

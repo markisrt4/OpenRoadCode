@@ -28,7 +28,8 @@ class NavigationExperienceController:
         return NavigationExperienceState(selected=selected,
             terrain_available=MapPlatform.CESIUM in platform.available_platforms,
             waze_available=self._waze_available(), waze_running=waze.active,
-            busy=platform.busy or waze.launching or waze.closing)
+            busy=platform.busy or waze.launching or waze.closing,
+            waze_loading=waze.launching)
 
     def request_experience(self, experience):
         if self.state.busy:

@@ -36,6 +36,10 @@ def test_shared_waze_navigation_drawer_shrinks_host_and_hide_cancels_poll_withou
         root.update()
         full_width = screen._browser_host.winfo_width()
         controls = screen._experience_controls
+        assert controls._loading_label.winfo_ismapped()
+        screen._launch_and_embed()
+        root.update()
+        assert not controls._loading_label.winfo_ismapped()
         controls.show_drawer('views')
         root.update()
         assert screen._browser_host.winfo_width() < full_width

@@ -157,9 +157,17 @@ class AndroidAppScreen(BrowserMediaScreen):
                 drawer_parent=root, drawer_row=1, drawer_column=2,
                 handler=self._experience_handler, theme=self._theme_provider())
             self._experience_controls.pack(fill=tk.X, expand=True)
+            self._experience_controls.set_surface_loading(True)
         self._apply_layout()
         self._launch_job = self._host.schedule_ui_callback(1, self._launch_and_embed)
         self._requests.request_set_android_app_visible(True)
+
+    def _launch_and_embed(self):
+        try:
+            super()._launch_and_embed()
+        finally:
+            if self._experience_controls is not None:
+                self._experience_controls.set_surface_loading(False)
 
     def _apply_layout(self):
         if self._root is None:

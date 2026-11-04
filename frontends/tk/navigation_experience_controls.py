@@ -23,13 +23,18 @@ class NavigationExperienceControls(tk.Frame, UiWidget):
         self._last_state = None
         self._places_state = NavigationPlacesDrawerState()
         self._poll_job = None
+        self._surface_loading = False
+        toolbar = tk.Frame(self, bg=ui.surface_alt)
+        toolbar.pack(fill=tk.X)
         for text, key in (('⌂ HOME', 'home'), ('▣ WORK', 'work')):
-            self._button(self, text, lambda key=key: handler.request_saved_destination(key)).pack(
+            self._button(toolbar, text, lambda key=key: handler.request_saved_destination(key)).pack(
                 side=tk.LEFT, padx=(0, 4), pady=3)
-        self.places_button = self._button(self, 'PLACES ▾', handler.request_places)
+        self.places_button = self._button(toolbar, 'PLACES ▾', handler.request_places)
         self.places_button.pack(side=tk.LEFT, padx=2, pady=3)
-        self.views_button = self._button(self, '▱ VIEWS', lambda: self.toggle_drawer('views'))
+        self.views_button = self._button(toolbar, '▱ VIEWS', lambda: self.toggle_drawer('views'))
         self.views_button.pack(side=tk.RIGHT, padx=4, pady=3)
+        self._loading_label = tk.Label(self, text='Loading Waze…', bg=ui.surface_alt,
+            fg=ui.accent_primary, font=('Sans', 12, 'bold'), pady=6)
         self._drawer = tk.Frame(drawer_parent, bg=ui.surface_alt,
                                 highlightthickness=1, highlightbackground=ui.border)
         self._drawer.grid_propagate(False)
@@ -142,7 +147,19 @@ class NavigationExperienceControls(tk.Frame, UiWidget):
             self.views_button.configure(text='▱ VIEWS · ' + {
                 NavigationExperience.ROAD: 'MAP', NavigationExperience.WAZE: 'WAZE',
                 NavigationExperience.TERRAIN: 'TERRAIN'}[state.selected])
+            self._render_loading()
         self._poll_job = self.after(500, self._poll)
+
+    def set_surface_loading(self, loading: bool):
+        """Present native viewer attachment separately from the app launch worker."""
+        self._surface_loading = loading
+        self._render_loading()
+
+    def _render_loading(self):
+        if self._surface_loading or (self._last_state is not None and self._last_state.waze_loading):
+            self._loading_label.pack(fill=tk.X)
+        else:
+            self._loading_label.pack_forget()
 
     def toggle_drawer(self, kind):
         if self._drawer_kind == kind:

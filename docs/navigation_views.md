@@ -8,6 +8,10 @@ Views opens a docked drawer with schematic preview tiles for Road map, Waze and
 label while its session is active. Unsupported experiences are disabled. Launch
 and close operations disable duplicate selections until they finish. Selecting
 a tile closes the drawer. Closing the drawer alone changes no active session.
+An explicit Loading Waze… label remains visible during app launch and while
+the native window is being attached. It clears when attachment completes or
+fails; existing launch-failure details remain in ORC's status bar. The label
+does not mean Waze has acquired GPS or completed route calculation.
 
 The drawer occupies a separate column beside the native viewport. It does not
 cover an embedded X11 surface. Its content scrolls on short displays. Closing
