@@ -25,7 +25,7 @@ class RdsReceiverControllerTest(unittest.TestCase):
 
         This is not an end-to-end RF waveform decoding test.
         """
-        receiver = RdsReceiverController()
+        receiver = RdsReceiverController(pair_phase=0)
         from controllers.radio.dsp.rds_block_sync import encode_block
         words = [encode_block(value, name) for value, name in (
             (0x1234, "A"), (0x0000, "B"), (0, "C"), (0x4F52, "D"))]
@@ -43,6 +43,33 @@ class RdsReceiverControllerTest(unittest.TestCase):
         receiver.reset()
         self.assertIsNone(receiver.status.metadata.pi)
         self.assertEqual(receiver.status.groups_found, 0)
+
+    def test_auto_phase_acquisition_and_reacquisition(self):
+        from controllers.radio.dsp.rds_block_sync import encode_block
+        words = [encode_block(value, offset) for value, offset in (
+            (0x1234, "A"), (0x0000, "B"), (0, "C"), (0x4F52, "D"))]
+        payload = np.asarray([(word >> shift) & 1
+                              for word in words for shift in range(25, -1, -1)],
+                             dtype=np.uint8)
+        def halves(bits):
+            previous = 0
+            result = []
+            for bit in bits:
+                previous ^= int(bit)
+                result.extend((previous * 2 - 1, (previous ^ 1) * 2 - 1))
+            return np.asarray(result, dtype=np.float32)
+        receiver = RdsReceiverController(loss_timeout_bits=104)
+        # Prepend one half-bit, so phase 1 is the correct pair alignment.
+        aligned = np.concatenate(([1.0], halves(np.concatenate(([0], payload)))))
+        groups = receiver.process_half_bits(aligned)
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(receiver.status.locked_pair_phase, 1)
+        self.assertEqual(receiver.status.metadata.pi, 0x1234)
+        receiver.process_half_bits(np.zeros(420, dtype=np.float32))
+        self.assertIsNone(receiver.status.locked_pair_phase)
+        self.assertIsNone(receiver.status.metadata.pi)
+        receiver.reset()
+        self.assertIsNone(receiver.status.locked_pair_phase)
 
     def test_invalid_pair_phase_rejected(self):
         with self.assertRaises(ValueError):
