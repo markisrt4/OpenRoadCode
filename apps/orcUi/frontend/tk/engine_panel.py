@@ -11,6 +11,7 @@ import tkinter as tk
 
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from frontends.tk.automotive import DEFAULT_GAUGES
+from frontends.tk.automotive.diagnostics_panel import VehicleDiagnosticsPanel
 from frontends.tk.automotive.vehicle_gauge_theme import vehicle_gauge_theme_from_style_sheet
 from frontends.tk.automotive.vehicle_gauge_widgets import LinearGauge
 from ui.theme import ThemeBundle
@@ -87,10 +88,12 @@ class EnginePanel(tk.Frame, UiWidget):
 
         grid = tk.Frame(self, bg=ui.background)
         grid.grid(row=1, column=0, sticky="nsew")
-        grid.grid_columnconfigure(0, weight=1, uniform="engine")
-        grid.grid_columnconfigure(1, weight=1, uniform="engine")
-        for row in range(3):
-            grid.grid_rowconfigure(row, weight=1)
+        grid.grid_columnconfigure(0, weight=1)
+        grid.grid_rowconfigure(1, weight=1)
+        instruments = tk.Frame(grid, bg=ui.background)
+        instruments.grid(row=0, column=0, sticky="ew")
+        for column in range(4):
+            instruments.grid_columnconfigure(column, weight=1, uniform="health-gauge")
 
         definitions = {
             definition.gauge_id: definition
@@ -101,9 +104,9 @@ class EnginePanel(tk.Frame, UiWidget):
 
         for index, gauge_id in enumerate(self._GAUGE_IDS):
             definition = definitions[gauge_id]
-            row, column = divmod(index, 2)
+            row, column = 0, index
             card = self._instrument_card(
-                grid,
+                instruments,
                 title=definition.title.upper(),
                 unit=definition.unit,
             )
@@ -124,53 +127,20 @@ class EnginePanel(tk.Frame, UiWidget):
                 icon=definition.icon,
                 precision=definition.precision,
                 style=style,
-                width=260,
+                width=150,
                 height=82,
             )
             gauge.grid(row=1, column=0, sticky="nsew", padx=5, pady=(0, 5))
             self._gauges[gauge_id] = gauge
 
-        summary = tk.Frame(
-            grid,
-            bg=ui.surface_alt,
-            highlightthickness=1,
-            highlightbackground=ui.border,
+        self._diagnostics_panel = VehicleDiagnosticsPanel(
+            grid, theme=self._theme, handler=self._diagnostics_handler,
         )
-        summary.grid(row=2, column=1, sticky="nsew", padx=4, pady=4)
-        tk.Label(
-            summary,
-            text="HEALTH STATUS",
-            fg=ui.text_muted,
-            bg=ui.surface_alt,
-            font=("Sans", 10, "bold"),
-        ).pack(anchor="w", padx=12, pady=(12, 4))
-        self._scan_button = tk.Button(
-            summary, text="Scan Now", command=self._request_scan,
-            bg=ui.control_background, fg=ui.control_text,
-        )
-        self._scan_button.pack(anchor="w", padx=12)
-        self._diagnostics_summary = tk.Label(summary, bg=ui.surface_alt, fg=ui.text,
-                                             anchor="w", justify=tk.LEFT, wraplength=420)
-        self._diagnostics_summary.pack(fill=tk.X, padx=12, pady=4)
-        self._diagnostics_details = tk.Text(summary, height=8, width=46, wrap=tk.WORD,
-                                          bg=ui.surface_alt, fg=ui.text, relief=tk.FLAT)
-        self._diagnostics_details.pack(fill=tk.BOTH, expand=True, padx=12, pady=4)
-
-    def _request_scan(self) -> None:
-        if self._diagnostics_handler is not None:
-            self._diagnostics_handler.request_scan()
+        self._diagnostics_panel.grid(row=1, column=0, sticky="nsew", padx=4, pady=4)
 
     def update_diagnostics(self, state: DiagnosticsScanState) -> None:
         self._diagnostics_state = state
-        self._scan_button.configure(
-            text="Scanning…" if state.scanning else "Scan Now",
-            state=tk.DISABLED if state.scanning or self._diagnostics_handler is None else tk.NORMAL,
-        )
-        self._diagnostics_summary.configure(text=f"{state.status.upper()}: {state.summary}")
-        self._diagnostics_details.configure(state=tk.NORMAL)
-        self._diagnostics_details.delete("1.0", tk.END)
-        self._diagnostics_details.insert("1.0", state.details)
-        self._diagnostics_details.configure(state=tk.DISABLED)
+        self._diagnostics_panel.update_diagnostics(state)
 
     def _instrument_card(
         self,

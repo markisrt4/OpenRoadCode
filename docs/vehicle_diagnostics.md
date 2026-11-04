@@ -78,3 +78,38 @@ Android APK workflow tests the actual Java response helper and builds the APK.
 These checks do not replace a device run of the Android service or read-only
 KONNWEI testing. Complete simulation/device verification before physical testing.
 The project-wide quality gate remains the user's final branch validation.
+
+## Plain-language HEALTH results
+
+HEALTH keeps live coolant, intake, load and voltage gauges in a compact row above
+scan results. The summary distinguishes reported faults, no emissions faults,
+incomplete scans and unfinished emissions checks. Scan Now remains asynchronous,
+with an indeterminate progress indicator. A completed result shows its completion
+time in the frontend's local timezone; it is a snapshot, not a live fault monitor.
+
+Fault cards describe the condition, reporting status, meaning and conservative
+next steps. Confirmed, pending and retained permanent records are distinct.
+Permanent records may remain after repair; pending reports are not confirmed.
+Unknown codes receive vehicle-specific diagnosis guidance. No code implies a
+part should be replaced. The four common injector faults have specific guidance.
+
+Identifiers, ECU source and coverage appear under Show technical details. Faults
+remain visible when coverage is partial, alongside a scan-incomplete warning.
+Unfinished emissions checks alone do not mean a fault; a missing response never
+becomes a fault-free result. Scan errors replace the old result and show connection
+and retry guidance. The scrollable result area supports a wheel, arrow keys when
+focused, a scrollbar, and touch-sized up/down buttons. The Scan Now control stays
+visible while browsing long results.
+
+Focused presentation validation (Tk tests need an X display and otherwise skip):
+
+```sh
+git switch vehicle-diagnostics-integration
+python -m pytest controllers/automotive/unit_test/test_diagnostics_scan_controller.py frontends/tk/automotive/unit_test/test_diagnostics_panel.py apps/orcUi/frontend/tk/unit_test/test_vehicle_diagnostics_lifecycle.py
+```
+
+For device review, select each Android test-lab scenario, scan in HEALTH, compare
+the plain-language result, and expand the technical details to verify its code
+and ECU. Include pending/permanent records, incomplete readiness, a disconnected
+simulator, repeated scans, and hiding/remounting HEALTH during a scan. Verify long
+results scroll and the Scan Now control remains accessible at your display size.

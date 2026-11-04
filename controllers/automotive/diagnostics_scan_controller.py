@@ -2,27 +2,81 @@
 # SPDX-License-Identifier: MIT
 """Own asynchronous scan work and deliver immutable state through a UI dispatcher."""
 import threading
-from ui.automotive.diagnostics_scan_if import DiagnosticsScanState
+from datetime import datetime, timezone
+from ui.automotive.diagnostics_scan_if import DiagnosticFaultCard, DiagnosticsScanState
 
-_EXPLANATIONS = {
-    "P0300": "Random/multiple-cylinder misfire. If shaking or the MIL flashes, stop safely and seek service.",
-    "P0171": "Fuel mixture too lean (bank 1). Arrange diagnosis of intake leaks and fuel delivery.",
-    "P0420": "Catalyst efficiency below threshold (bank 1). Check related faults before replacing parts.",
-    "P0455": "Large evaporative-emissions leak. Check the fuel cap when safely parked; arrange leak testing if persistent.",
+_FAULT_GUIDANCE = {
+    "P0300": (
+        "Engine misfire", "The engine computer detected uneven firing in multiple cylinders.",
+        "If the engine shakes badly or the Check Engine light flashes, stop safely and seek service. "
+        "Otherwise, arrange diagnosis soon; a code alone does not identify the cause.",
+    ),
+    "P0171": (
+        "Lean fuel mixture", "The engine reports too much air or too little fuel on one side of the engine.",
+        "Arrange a check for intake leaks, fuel delivery and sensor readings before replacing parts.",
+    ),
+    "P0420": (
+        "Reduced exhaust cleaning", "The vehicle reports that its catalytic converter is not cleaning exhaust as effectively as expected.",
+        "Arrange diagnosis and check related faults first. This result alone does not prove the converter needs replacement.",
+    ),
+    "P0455": (
+        "Fuel-vapor system leak", "The system that contains fuel vapors reports a large leak, which can include a loose fuel cap.",
+        "When safely parked, check that the fuel cap is fitted correctly. If the fault persists, arrange leak testing.",
+    ),
 }
+_REPORTING = {"stored": "Confirmed fault", "pending": "Possible problem · not yet confirmed",
+              "permanent": "Retained emissions record"}
 
-def present_diagnostics(data):
+
+def _fault_card(item):
+    title, explanation, recommendation = _FAULT_GUIDANCE.get(item["code"], (
+        "Vehicle-reported fault", "The vehicle reported a fault that needs vehicle-specific interpretation.",
+        "Have the code checked against service information for your vehicle. Do not replace parts based on the code alone.",
+    ))
+    status = item.get("status", "unknown")
+    if status == "pending":
+        explanation += " This is a pending report; it has not yet become a confirmed fault."
+    elif status == "permanent":
+        explanation += " This retained record can remain after a repair; it does not by itself prove the problem is still active."
+        recommendation = ("Review any confirmed or pending faults and the vehicle's repair history. "
+                          "The vehicle computer removes a permanent record after its required checks pass.")
+    return DiagnosticFaultCard(title, _REPORTING.get(status, "Reporting status unavailable"),
+                               explanation, recommendation, item["code"], item.get("ecu_id"))
+
+def present_diagnostics(data, *, completed_at=None):
     codes = data.get("trouble_codes", [])
     complete = set(data.get("completed_services", [])) == {"monitor", "stored", "pending", "permanent"}
     mil = data.get("mil_on")
     ready = data.get("emissions_ready")
     known = mil is not None and ready is not None and bool(data.get("responding_ecus"))
     faulted = bool(codes) or mil is True or bool(data.get("stored_dtc_count"))
-    status = "faulted" if faulted else "healthy" if complete and known and ready else "unavailable"
-    summary = ("Diagnostic faults reported" if faulted else
-               "No generic emissions faults reported" if status == "healthy" else
-               "Diagnostic coverage incomplete" if not complete or not known else
-               "Emissions monitors not ready")
+    coverage_complete = complete and known
+    status = ("faulted" if faulted else "unavailable" if not coverage_complete else
+              "not_ready" if ready is False else "healthy")
+    summary = ("Faults found" if faulted else "No emissions faults reported" if status == "healthy" else
+               "Emissions checks not ready" if status == "not_ready" else "Scan incomplete")
+    coverage_message = (
+        "All requested emissions checks responded. Other vehicle systems are outside this scan."
+        if coverage_complete else
+        "Scan incomplete: some diagnostic information is unavailable. Other faults may be present."
+    )
+    next_action = (
+        "Review the reported conditions below. A fault code alone does not identify a failed part."
+        if faulted else
+        "Unfinished emissions checks do not necessarily mean a fault. Checks may reset after battery work or repairs. "
+        "Follow vehicle-specific guidance; readiness cannot be guaranteed by driving a fixed distance."
+        if status == "not_ready" else
+        "Check the vehicle connection and try again. Missing responses are not evidence that the vehicle is fault-free."
+        if status == "unavailable" else
+        "No faults were reported by the emissions checks in this scan. Have unusual symptoms or other warning lights checked."
+    )
+    faults = tuple(_fault_card(item) for item in codes)
+    if faulted and not faults:
+        faults = (DiagnosticFaultCard(
+            "Check Engine light is on" if mil else "Stored faults reported", "Fault information incomplete",
+            "The vehicle reports a diagnostic warning, but this scan did not retrieve its fault descriptions.",
+            "Try another scan and arrange vehicle-specific diagnosis if the warning remains.",
+        ),)
     details = [
         "MIL / Check Engine: " + ("ON" if mil is True else "OFF" if mil is False else "unknown"),
         "Readiness: " + ("ready" if ready is True else "not ready" if ready is False else "unknown"),
@@ -36,12 +90,17 @@ def present_diagnostics(data):
         ecu = item.get("ecu_id")
         source = f"0x{ecu:X}" if isinstance(ecu, int) else "unknown"
         details.append(f"{item['code']} ({item.get('status', 'unknown')}, ECU {source}): " +
-                       _EXPLANATIONS.get(item["code"], "Consult vehicle-specific service information."))
+                       _fault_card(item).title + ". " + _fault_card(item).explanation)
     ecus = data.get("responding_ecus", [])
     details.append("ECU source: " + (", ".join(f"0x{ecu:X}" for ecu in ecus) or "unknown / no identified ECU"))
     details.append("Services responding: " + (", ".join(data.get("completed_services", [])) or "none"))
     details.append("Read-only generic OBD-II scan; other vehicle systems may have faults. Codes alone do not identify a failed part.")
-    return DiagnosticsScanState(status=status, summary=summary, details="\n".join(details))
+    return DiagnosticsScanState(
+        status=status, summary=summary, details="\n".join(details), faults=faults,
+        mil_on=mil, emissions_ready=ready, coverage_complete=coverage_complete,
+        coverage_message=coverage_message, next_action=next_action,
+        completed_at=completed_at or datetime.now(timezone.utc),
+    )
 
 class DiagnosticsScanController:
     def __init__(self, scan, dispatcher):
@@ -72,7 +131,11 @@ class DiagnosticsScanController:
         self._busy = True
         self._generation += 1
         generation = self._generation
-        self._publish(DiagnosticsScanState(scanning=True, summary="Scanning vehicle diagnostics…"))
+        self._publish(DiagnosticsScanState(
+            scanning=True, status="scanning", summary="Scanning vehicle diagnostics…",
+            coverage_message="Reading available emissions checks. Live telemetry continues.",
+            next_action="Please wait for the scan to finish.",
+        ))
         threading.Thread(target=self._work, args=(generation,), daemon=True,
                          name="diagnostics-ui-worker").start()
 
@@ -80,7 +143,11 @@ class DiagnosticsScanController:
         try:
             state = present_diagnostics(self._scan())
         except Exception as exc:
-            state = DiagnosticsScanState(summary="Diagnostics unavailable", details=str(exc))
+            state = DiagnosticsScanState(
+                summary="Diagnostics unavailable", details=f"{type(exc).__name__}: {exc}",
+                coverage_message="The scan could not finish. No fault-free result is available.",
+                next_action="Check that the automotive service and vehicle connection are running, then try again.",
+            )
         self._dispatcher.dispatch_ui(lambda: self._complete(generation, state))
 
     def _complete(self, generation, state):
