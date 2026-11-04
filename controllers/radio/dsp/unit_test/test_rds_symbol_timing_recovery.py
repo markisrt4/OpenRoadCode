@@ -33,6 +33,33 @@ class RdsSymbolTimingRecoveryTest(unittest.TestCase):
                   for i in range(0, len(samples), 137)]
         np.testing.assert_allclose(np.concatenate(chunks), expected, atol=1e-6)
 
+
+    def test_symbol_decisions_with_fractional_offset_and_noise(self):
+        """Measure actual decisions, not merely the recovered sample count."""
+        rng = np.random.default_rng(2026)
+        reference = rng.choice([-1.0, 1.0], size=5_000)
+        count = 36_000
+        # Symbol centers occur at half-integer symbol times. Offset the
+        # sampling clock and add deterministic complex receiver noise.
+        times = np.arange(count) * 1187.5 / 12_000 + 0.23
+        samples = np.interp(times, np.arange(len(reference)) + 0.5,
+                            reference, left=reference[0],
+                            right=reference[-1]).astype(np.complex64)
+        noise = (rng.normal(size=count) + 1j * rng.normal(size=count)) * 0.06
+        samples += noise.astype(np.complex64)
+        decisions = np.where(RdsSymbolTimingRecovery().process(samples).real >= 0,
+                             1.0, -1.0)
+        # Ignore acquisition and tail. Allow a constant integer symbol
+        # alignment, but never independently shift individual decisions.
+        start = 200
+        length = min(2_500, len(decisions) - start - 5)
+        self.assertGreater(length, 2_000)
+        errors = []
+        for shift in range(-3, 4):
+            expected = reference[start + shift:start + shift + length]
+            errors.append(np.mean(decisions[start:start + length] != expected))
+        self.assertLess(min(errors), 0.02)
+
     def test_reset_restarts_symbol_clock(self):
         samples = synthetic_symbols(12_000)
         recovery = RdsSymbolTimingRecovery()
