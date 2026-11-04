@@ -43,7 +43,7 @@ def test_viewer_uses_native_waze_virtual_display_and_requested_x11(tmp_path, mon
         process.poll.return_value = None
         assert player.play('android', display=':1', window_size=(900, 500))
         command = spawn.call_args.args[0]
-        assert '--new-display=1280x720/240' in command
+        assert '--new-display=1296x720/240' in command
         assert '--start-app=com.waze' in command
         assert '--render-driver=software' in command
         assert '--no-audio' in command
@@ -61,6 +61,19 @@ def test_viewer_uses_native_waze_virtual_display_and_requested_x11(tmp_path, mon
         process.wait.assert_called_once_with(timeout=3)
     assert (tmp_path / 'orc-scrcpy-waze.log').exists()
     assert player.vertical_crop() == (0, 0)
+
+
+@pytest.mark.parametrize('size', [(876, 383), (522, 184), (1280, 720)])
+def test_virtual_display_matches_panel_aspect_without_reducing_android_resolution(size, tmp_path, monkeypatch):
+    monkeypatch.setenv('TMPDIR', str(tmp_path))
+    with patch('apps.orcUi.adapters.scrcpy_waze_player.subprocess.Popen') as spawn:
+        ScrcpyWazePlayer().play('android', display=':1', window_size=size)
+    command = spawn.call_args.args[0]
+    option = next(value for value in command if value.startswith('--new-display='))
+    width, height = map(int, option.split('=')[1].split('/')[0].split('x'))
+    assert width >= 1280 and height >= 720
+    assert width % 2 == height % 2 == 0
+    assert abs(width / height - size[0] / size[1]) < .003
 
 
 def test_unresponsive_owned_viewer_is_killed_without_adb_commands():

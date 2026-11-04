@@ -440,7 +440,7 @@ already-connected device; both adb and scrcpy inherit it. Run in native Termux,
 where scrcpy/adb are installed, rather than only inside Debian proot.
 
 Navigation → Waze checks package availability using ADB, then starts an owned
-scrcpy viewer with a dedicated 1280×720/240 Android virtual display and launches
+scrcpy viewer with a dedicated Android virtual display at density 240 and launches
 `com.waze`. This avoids mirroring ORC recursively. It uses an ORC-specific window
 title, borderless X11 output, full-width presentation and Back to map. It applies
 no Waydroid-specific crop or Android configuration overrides. On departure ORC
@@ -452,6 +452,11 @@ applies, so this experiment does not promise an ongoing route survives closing
 the panel. The installed Android app remains installed. Audio forwarding is
 disabled; audio behavior on the phone still needs testing. Native Android owns
 GPS permissions and theme; no ORC location is injected.
+
+The virtual display matches the Waze panel's aspect ratio at launch, with a
+minimum resolution of 1280×720, instead of adding side margins for a fixed 16:9
+display. Resizing ORC during an existing session still preserves that session's
+display proportions; close Waze and reopen it to use the new proportions.
 
 OpenGL is the default renderer. Earlier standalone phone tests had corruption
 with OpenGL and GLES; this integration does not establish that driver issue is

@@ -54,10 +54,17 @@ class ScrcpyWazePlayer:
         # Never let X11 discovery select that retired process's window.
         self.window_name = f'OpenRoadCode Waze Android {uuid4().hex}'
         width, height = window_size or (1280, 720)
+        # Match the host aspect ratio instead of letterboxing a fixed 16:9
+        # display. Keep enough Android pixels for legible app layouts and use
+        # even dimensions for the video encoder.
+        width, height = max(1, int(width)), max(1, int(height))
+        scale = max(1280 / width, 720 / height)
+        display_width = max(2, round(width * scale / 2) * 2)
+        display_height = max(2, round(height * scale / 2) * 2)
         renderer = os.environ.get('ORC_SCRCPY_RENDERER', 'opengl')
         if renderer not in ('opengl', 'opengles2', 'software'):
             raise ValueError('ORC_SCRCPY_RENDERER must be opengl, opengles2 or software')
-        command = ['scrcpy', '--new-display=1280x720/240', '--start-app=com.waze',
+        command = ['scrcpy', f'--new-display={display_width}x{display_height}/240', '--start-app=com.waze',
                    '--no-audio', '--window-borderless', f'--window-title={self.window_name}',
                    f'--render-driver={renderer}', f'--window-width={width}', f'--window-height={height}']
         if window_position is not None:
