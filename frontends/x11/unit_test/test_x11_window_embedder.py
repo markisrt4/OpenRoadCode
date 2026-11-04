@@ -10,6 +10,35 @@ from unittest.mock import Mock, patch
 from frontends.x11.x11_window_embedder import X11WindowEmbedder
 
 
+def test_missing_xwininfo_uses_xlib_instead_of_failing_the_viewer_launch():
+    with patch('frontends.x11.x11_window_embedder.subprocess.run', side_effect=FileNotFoundError), \
+            patch.object(X11WindowEmbedder, '_root_from_xlib', return_value=1293) as fallback:
+        assert X11WindowEmbedder.root_window_id() == 1293
+    fallback.assert_called_once_with()
+
+
+def test_xlib_uses_pointer_width_types_and_closes_its_own_display():
+    library = Mock()
+    library.XOpenDisplay.return_value = 0x100000001
+    library.XDefaultRootWindow.return_value = 1293
+    with patch('frontends.x11.x11_window_embedder.ctypes.CDLL', return_value=library), \
+            patch('frontends.x11.x11_window_embedder.find_library', return_value='libX11.so'):
+        assert X11WindowEmbedder._root_from_xlib() == 1293
+    library.XDefaultRootWindow.assert_called_once_with(0x100000001)
+    library.XCloseDisplay.assert_called_once_with(0x100000001)
+
+
+def test_xlib_connection_failure_is_actionable_and_does_not_close_an_invalid_pointer():
+    import pytest
+    library = Mock()
+    library.XOpenDisplay.return_value = None
+    with patch('frontends.x11.x11_window_embedder.ctypes.CDLL', return_value=library), \
+            patch('frontends.x11.x11_window_embedder.find_library', return_value='libX11.so'):
+        with pytest.raises(RuntimeError, match='DISPLAY and X11 access'):
+            X11WindowEmbedder._root_from_xlib()
+    library.XCloseDisplay.assert_not_called()
+
+
 class X11WindowEmbedderTest(unittest.TestCase):
     @patch("frontends.x11.x11_window_embedder.shutil.which")
     def test_supported_requires_xdotool(self, which: Mock) -> None:

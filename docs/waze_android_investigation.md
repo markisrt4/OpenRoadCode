@@ -418,6 +418,12 @@ LOGGING_TMP_DIR=/tmp/orc-waze-validation venv/bin/python -m pytest -q controller
 
 ### Termux native Waze experiment
 
+Retaining the native viewer requires the X11 root window. When `xwininfo` is
+absent, ORC reads it through the system X11 library already used by Tk. A missing
+`xwininfo` command therefore does not abort the viewer after Android starts Waze.
+Connection failures still appear as a launch error in ORC; check `DISPLAY` and
+access to the running Termux X server.
+
 On native Termux with Termux:X11, opt into the scrcpy backend instead of Waydroid:
 
 ```bash

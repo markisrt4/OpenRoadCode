@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import re
+import ctypes
+from ctypes.util import find_library
 from collections.abc import Callable
 import shutil
 import subprocess
@@ -35,12 +37,38 @@ class X11WindowEmbedder(WindowEmbedderIf):
         try:
             result = subprocess.run(['xwininfo', '-root'], capture_output=True,
                                     text=True, check=True, timeout=3)
+        except FileNotFoundError:
+            return X11WindowEmbedder._root_from_xlib()
         except (OSError, subprocess.SubprocessError) as error:
-            raise RuntimeError('xwininfo (x11-utils) is required to preserve external windows') from error
+            raise RuntimeError('Could not read the X11 root window; check DISPLAY and X11 access') from error
         match = re.search(r'Window id:\s*(0x[0-9a-fA-F]+)', result.stdout)
         if match is None:
             raise RuntimeError('Could not identify the X11 root window')
         return int(match.group(1), 16)
+
+    @staticmethod
+    def _root_from_xlib() -> int:
+        """Termux may lack xwininfo; reuse Tk's existing system X11 library."""
+        try:
+            library = ctypes.CDLL(find_library('X11') or 'libX11.so')
+            library.XOpenDisplay.argtypes = [ctypes.c_char_p]
+            library.XOpenDisplay.restype = ctypes.c_void_p
+            library.XDefaultRootWindow.argtypes = [ctypes.c_void_p]
+            library.XDefaultRootWindow.restype = ctypes.c_ulong
+            library.XCloseDisplay.argtypes = [ctypes.c_void_p]
+            library.XCloseDisplay.restype = ctypes.c_int
+            display = library.XOpenDisplay(None)
+            if not display:
+                raise RuntimeError('Could not open the X11 display; check DISPLAY and X11 access')
+            try:
+                root = int(library.XDefaultRootWindow(display))
+                if root == 0:
+                    raise RuntimeError('Could not identify the X11 root window')
+                return root
+            finally:
+                library.XCloseDisplay(display)
+        except (OSError, AttributeError) as error:
+            raise RuntimeError('Could not load the X11 library needed to preserve the viewer window') from error
 
     def embed(
         self,

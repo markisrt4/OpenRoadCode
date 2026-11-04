@@ -183,8 +183,8 @@ def test_root_lookup_uses_real_x11_window_identifier():
 
 
 def test_root_lookup_failure_is_actionable():
-    with patch('frontends.x11.x11_window_embedder.subprocess.run', side_effect=FileNotFoundError):
-        with pytest.raises(RuntimeError, match='x11-utils'):
+    with patch('frontends.x11.x11_window_embedder.subprocess.run', side_effect=subprocess.CalledProcessError(1, 'xwininfo')):
+        with pytest.raises(RuntimeError, match='DISPLAY and X11 access'):
             X11WindowEmbedder.root_window_id()
 
 
