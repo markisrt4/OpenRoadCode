@@ -32,9 +32,13 @@ class PcmPlaybackWorker:
     """
 
     def __init__(self, output: PcmOutputIf, *, queue_blocks: int = 32,
-                 sample_rate_hz: int = 48_000, prebuffer_ms: int = 0) -> None:
+                 sample_rate_hz: int = 48_000, prebuffer_ms: int = 0,
+                 channels: int = 1) -> None:
         if queue_blocks < 1 or sample_rate_hz <= 0 or prebuffer_ms < 0:
             raise ValueError("queue_blocks and sample_rate_hz must be positive")
+        if channels not in (1, 2):
+            raise ValueError("channels must be 1 or 2")
+        self._channels = channels
         self._output = output
         self._queue: queue.Queue[tuple[int, np.ndarray]] = queue.Queue(maxsize=queue_blocks)
         self._sample_rate_hz = sample_rate_hz
@@ -96,7 +100,9 @@ class PcmPlaybackWorker:
                     or self._error is not None or name != self._selected):
                 return False
             pcm = np.asarray(samples, dtype=np.float32)
-            if pcm.ndim != 1 or not len(pcm) or not np.all(np.isfinite(pcm)):
+            if ((self._channels == 1 and pcm.ndim != 1) or
+                    (self._channels == 2 and (pcm.ndim != 2 or pcm.shape[1] != 2)) or
+                    not len(pcm) or not np.all(np.isfinite(pcm))):
                 return False
             try:
                 self._queue.put_nowait((self._generation, pcm.copy()))
