@@ -258,3 +258,28 @@ def test_explicit_restart_rebuilds_container_but_preserves_display_record_and_ho
     assert runtime.state() == {'display_launcher': display}
     assert any(args == ['sudo', '-n', 'systemctl', 'restart', 'waydroid-container'] for args, _ in commands.calls)
     assert not any('adb' in args or 'weston' in args for args, _ in commands.calls)
+
+
+@pytest.mark.parametrize('window_pid,windows,ready', [('', '81788933', True),
+    ('123', '81788933', True), ('999', '81788933', False), ('', '81788933\n81788934', False)])
+def test_weston_readiness_allows_missing_x11_pid_but_rejects_mismatch_and_ambiguity(vm, monkeypatch, window_pid, windows, ready):
+    runtime, commands = vm
+    (runtime.runtime / runtime.display).touch()
+    (runtime.runtime / 'openroadcode-waydroid-kiosk').write_text('123')
+    original_read = Path.read_bytes
+
+    def read(path):
+        if str(path) == '/proc/123/cmdline':
+            return b'weston\0--shell=kiosk-shell.so\0--idle-time=0\0--socket=wayland-0\0'
+        return original_read(path)
+
+    def run(arguments, **options):
+        if arguments[:2] == ['xdotool', 'search']:
+            return subprocess.CompletedProcess(arguments, 0, windows, '')
+        if arguments[:2] == ['xdotool', 'getwindowpid']:
+            return subprocess.CompletedProcess(arguments, 0 if window_pid else 1, window_pid, '')
+        return commands(arguments, **options)
+
+    monkeypatch.setattr(Path, 'read_bytes', read)
+    runtime.command = run
+    assert runtime.display_ready() is ready

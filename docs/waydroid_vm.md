@@ -36,7 +36,9 @@ One command checks/starts the runtime, configures it, verifies readiness and the
 launches ORC through `./runOrcUi`. It performs the following stages:
 
 1. Reuse or start exactly one dedicated Weston X11 kiosk with `kiosk-shell.so`
-   and `--idle-time=0`. Verify its PID/window and wait for its socket.
+   and `--idle-time=0`. Verify its live marker process and socket, and require one
+   Weston window. Weston 13 does not publish `_NET_WM_PID`; an absent window PID
+   is accepted, but a contradictory advertised PID or multiple windows is not.
 2. Start `waydroid-container` and the user's Android session, then wait for boot.
 3. Discover the current bridge subnet, guest IP and veth peer. Reject conflicting
    host routes. With NetworkManager running, mark only `waydroid0` and its exact

@@ -149,7 +149,13 @@ class WaydroidVM:
                 b'--shell=kiosk-shell.so', b'--idle-time=0', ('--socket=' + self.display).encode())):
                 return False
             windows = self.out('xdotool', 'search', '--class', '^Weston Compositor$', check=False).splitlines()
-            return len(windows) == 1 and self.out('xdotool', 'getwindowpid', windows[0], check=False) == str(pid)
+            if len(windows) != 1:
+                return False
+            # Weston 13's X11 backend publishes WM_CLASS but no _NET_WM_PID.
+            # The marker's live process/arguments and socket were checked above.
+            # Reject a contradictory PID when advertised, not an absent property.
+            window_pid = self.out('xdotool', 'getwindowpid', windows[0], check=False)
+            return not window_pid or window_pid == str(pid)
         except (OSError, ValueError):
             return False
 
