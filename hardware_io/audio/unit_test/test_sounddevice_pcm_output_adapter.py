@@ -45,6 +45,19 @@ class SounddevicePcmOutputAdapterTest(unittest.TestCase):
             output.write(np.zeros((2, 2)))
         output.close()
 
+    def test_stereo_output_preserves_left_and_right(self):
+        output = SounddevicePcmOutputAdapter(
+            sounddevice_module=self.sd, prime_ms=0, channels=2, volume=1.0
+        )
+        output.open()
+        self.assertEqual(self.sd.OutputStream.call_args.kwargs["channels"], 2)
+        pcm = np.array([[0.25, -0.5], [-0.25, 0.5]], dtype=np.float32)
+        output.write(pcm)
+        np.testing.assert_array_equal(self.stream.write.call_args.args[0], pcm)
+        with self.assertRaises(ValueError):
+            output.write(np.ones(10, dtype=np.float32))
+        output.close()
+
     def test_requires_open(self):
         output = SounddevicePcmOutputAdapter(sounddevice_module=self.sd)
         with self.assertRaises(RuntimeError):
