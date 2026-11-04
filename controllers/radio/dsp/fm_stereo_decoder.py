@@ -26,6 +26,10 @@ class FmStereoDecoder:
         self._audio_sos = signal.butter(6, 15_000, fs=sample_rate_hz, output="sos")
         self._difference_sos = signal.butter(6, 15_000, fs=sample_rate_hz, output="sos")
         self._alpha = 1 - np.exp(-1 / (audio_rate_hz * deemphasis_us * 1e-6))
+        # Compensate the pilot bandpass phase at 19 kHz. The synthetic
+        # multiplex convention uses a sine pilot and cosine 38 kHz carrier.
+        _, response = signal.sosfreqz(self._pilot_sos, worN=[19_000], fs=sample_rate_hz)
+        self._pilot_phase_correction = np.pi / 2 - np.angle(response[0])
         self._pilot_threshold = pilot_threshold
         self.reset()
 
@@ -63,7 +67,7 @@ class FmStereoDecoder:
         self.stereo_locked = pilot_amplitude >= self._pilot_threshold
         # Derive the 38 kHz oscillator from the pilot's phase. A bandpass
         # filter's phase at 19 kHz must be accounted for by calibration.
-        phase = np.angle(smooth)
+        phase = np.angle(smooth) + self._pilot_phase_correction
         carrier = np.cos(2 * (2 * np.pi * 19_000 * indices / 240_000 + phase))
         summed, self._sum_state = signal.sosfilt(
             self._audio_sos, samples, zi=self._sum_state)
