@@ -58,6 +58,21 @@ class FmStereoDecoderTest(unittest.TestCase):
         self.assertFalse(decoder.stereo_locked)
         np.testing.assert_allclose(pcm[-4800:, 0], pcm[-4800:, 1], atol=1e-6)
 
+    def test_stereo_separation_in_decibels(self):
+        pcm = FmStereoDecoder().process(stereo_multiplex(count=240_000))
+        steady = pcm[12_000:]
+        frequencies = np.fft.rfftfreq(len(steady), 1 / 48_000)
+        left = np.abs(np.fft.rfft(steady[:, 0]))
+        right = np.abs(np.fft.rfft(steady[:, 1]))
+        for hz, wanted, unwanted in ((1_000, left, right),
+                                      (2_000, right, left)):
+            index = np.argmin(np.abs(frequencies - hz))
+            separation_db = 20 * np.log10(
+                max(float(wanted[index]), 1e-12)
+                / max(float(unwanted[index]), 1e-12))
+            self.assertGreater(separation_db, 6.0,
+                               f"{hz} Hz stereo separation: {separation_db:.1f} dB")
+
     def test_rejects_non_vector(self):
         with self.assertRaises(ValueError):
             FmStereoDecoder().process(np.zeros((10, 2)))
