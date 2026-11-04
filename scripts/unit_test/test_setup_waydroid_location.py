@@ -1,8 +1,33 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 import json
+import subprocess
 import pytest
 from scripts import setup_waydroid_location as setup
+
+
+@pytest.mark.parametrize('code', [0, 1, 255])
+@pytest.mark.parametrize('stream', ['stdout', 'stderr'])
+def test_android_help_usage_status_is_accepted_only_with_expected_capabilities(monkeypatch, code, stream):
+    text = 'Location service commands:\n providers\n add-test-provider\n set-test-provider-location\n'
+    result = subprocess.CompletedProcess([], code, text if stream == 'stdout' else '', text if stream == 'stderr' else '')
+    monkeypatch.setattr(setup.subprocess, 'run', lambda *args, **kwargs: result)
+    assert setup.run(['adb', '-s', '192.168.240.112:5555', 'shell', 'cmd', 'location', 'help']) == text.strip()
+
+
+@pytest.mark.parametrize('text', ['adb: device unauthorized', 'Location service commands:\n providers',
+    'Error: denied\nLocation service commands:\n providers add-test-provider set-test-provider-location'])
+def test_bad_or_incomplete_help_still_fails(monkeypatch, text):
+    monkeypatch.setattr(setup.subprocess, 'run', lambda *args, **kwargs: subprocess.CompletedProcess([], 1, text, ''))
+    with pytest.raises(RuntimeError, match='Location setup command failed'):
+        setup.run(['adb', '-s', '192.168.240.112:5555', 'shell', 'cmd', 'location', 'help'])
+
+
+def test_help_text_cannot_mask_a_failed_location_mutation(monkeypatch):
+    text = 'Location service commands:\n providers add-test-provider set-test-provider-location'
+    monkeypatch.setattr(setup.subprocess, 'run', lambda *args, **kwargs: subprocess.CompletedProcess([], 255, text, ''))
+    with pytest.raises(RuntimeError, match='Location setup command failed'):
+        setup.run(['adb', '-s', '192.168.240.112:5555', 'shell', 'cmd', 'location', 'set-location-enabled', 'true'])
 
 
 def test_status_reports_stale_device_and_denied_waze_permission_without_mutation(tmp_path, monkeypatch):

@@ -57,6 +57,8 @@ launches ORC through `./runOrcUi`. It performs the following stages:
    restart local Android adbd when needed, and recover its known `stopping` state.
    Keep ADB authentication enabled. Require `get-state` to report **device** and
    verify the target identifies as Waydroid; a “connected” message is insufficient.
+   The location capability probe accepts Android's documented help text even when
+   the image returns a usage exit status; actual failed mutations still stop setup.
 7. Disable Android's non-secure lock, keep the virtual Android screen awake,
    configure the existing location provider and grant installed Waze location
    permissions. It does not remove a PIN/password; a secure-lock failure stops

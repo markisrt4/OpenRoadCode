@@ -14,9 +14,16 @@ from apps.launchers.waydroid_location_provider import configuration_path
 def run(arguments):
     result = subprocess.run(arguments, capture_output=True, text=True, timeout=15, check=False)
     output = result.stdout + result.stderr
-    if result.returncode or any(value in output for value in ('Exception', 'Error:', 'Unknown command')):
+    location_help = arguments[0] == 'adb' and arguments[-4:] == ['shell', 'cmd', 'location', 'help']
+    # Some Android images return ShellCommand's usage status (1 or 255) even
+    # after printing valid help, sometimes to stderr. Accept only this precise
+    # read-only probe with the required location-provider capabilities present.
+    valid_help = (location_help and result.returncode in (0, 1, 255)
+                  and 'Location service commands:' in output
+                  and all(value in output for value in ('providers', 'add-test-provider', 'set-test-provider-location')))
+    if (result.returncode and not valid_help) or any(value in output for value in ('Exception', 'Error:', 'Unknown command')):
         raise RuntimeError('Location setup command failed: ' + ' '.join(arguments[:5]) + '\n' + output)
-    return result.stdout.strip()
+    return output.strip() if location_help else result.stdout.strip()
 
 
 def save(path, value):
