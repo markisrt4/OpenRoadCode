@@ -27,6 +27,10 @@ opening the camera tray closes the navigation drawer. Existing Cesium layer
 controls remain in the terrain viewer; this change does not replace that
 branch's layer implementation. Radar/weather controls are in the map's Views
 drawer rather than competing for space on the top bar.
+The Controls handle is aligned at the top-right of the map, directly below
+Views. It hides while Views or Places is open and returns when the drawer closes.
+Nested native hosts explicitly settle their grid allocation when a drawer opens
+or closes, including on the first click. Left-rail tile sizing is unchanged.
 Returning to NAV restores the last selected Road/Terrain experience as well as
 the remembered Map/Waze destination.
 

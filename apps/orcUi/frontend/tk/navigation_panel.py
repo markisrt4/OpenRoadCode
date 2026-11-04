@@ -84,6 +84,7 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         self._request_handler = map_request_handler
         self._experience_handler = experience_handler
         self._experience_controls = None
+        self._navigation_drawer_visible = False
         self._waze_handler = waze_handler
         self._waze_button = None
         self._map_platform = map_platform
@@ -235,8 +236,10 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
             self._map_controls_rail.pack_forget()
             self._map_controls.place_forget()
             self._map_controls_handle.place(
-                in_=self._map_host, relx=1.0, rely=0.5, anchor="e", width=100, height=44,
+                in_=self._map_host, relx=1.0, rely=0.0, y=4, anchor="ne", width=140, height=44,
             )
+            if self.__dict__.get('_navigation_drawer_visible', False):
+                self._map_controls_handle.place_forget()
             self._map_controls_handle.lift()
         self.after_idle(self._refresh_renderer_state)
         self.after_idle(self._log_map_allocation)
@@ -262,6 +265,16 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         if controls is not None:
             controls.close_drawer()
         self._drawer_handler.request_map_controls_expanded(not self._drawer_state.expanded)
+
+    def set_navigation_drawer_visible(self, visible: bool) -> None:
+        """Keep the camera handle out of an open experience/places drawer."""
+        self._navigation_drawer_visible = visible
+        if visible:
+            self._drawer_handler.request_map_controls_expanded(False)
+            self._map_controls_handle.place_forget()
+        else:
+            self.close_radar_menu()
+            self.set_map_controls_drawer_state(self._drawer_state)
 
     def close_places(self) -> None:
         """Cancel pending view callbacks and close its places session once."""

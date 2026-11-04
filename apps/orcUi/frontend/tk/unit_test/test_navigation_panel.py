@@ -18,6 +18,51 @@ from ui.navigation import MapControlsDrawerState
 from ui.navigation.route_types import TravelMode
 
 
+@pytest.mark.skipif(not os.environ.get('DISPLAY'), reason='native host layout needs X11')
+def test_first_views_click_allocates_drawer_and_controls_return_below_views():
+    from apps.orcUi.theme_runtime import theme_bundle
+    from controllers.navigation.map_controls_drawer_controller import MapControlsDrawerController
+    from ui.navigation import MapRequestHandlerStub
+    from ui.navigation.navigation_places_request_handler_if import NavigationPlacesRequestHandlerIf
+    from ui.navigation.navigation_experience_if import NavigationExperienceState
+    from ui.theme import ThemeMode
+
+    root = tk.Tk()
+    root.geometry('1200x600')
+    places = Mock(spec=NavigationPlacesRequestHandlerIf)
+    places.poll_search_result.return_value = None
+    places.poll_selected.return_value = None
+    places.poll_camera_interaction.return_value = False
+    drawer = MapControlsDrawerController()
+    panel = NavigationPanel(root, map_request_handler=MapRequestHandlerStub(), places_handler=places,
+        drawer_handler=drawer, experience_handler=Mock(state=NavigationExperienceState()),
+        theme_bundle=theme_bundle(ThemeMode.DARK))
+    panel.pack(fill=tk.BOTH, expand=True)
+    drawer.set_ui(panel)
+    try:
+        root.update()
+        controls = panel._experience_controls
+        full_width = panel._map_host.winfo_width()
+        controls.views_button.invoke()
+        root.update()
+        assert controls._drawer.winfo_ismapped()
+        assert controls._drawer.winfo_width() >= 230
+        assert controls._drawer.winfo_height() > 100
+        assert panel._map_host.winfo_width() < full_width
+        assert not panel._map_controls_handle.winfo_ismapped()
+        controls.views_button.invoke()
+        root.update()
+        assert panel._map_host.winfo_width() == full_width
+        handle = panel._map_controls_handle
+        assert handle.winfo_ismapped()
+        assert 0 <= handle.winfo_rooty() - panel._map_host.winfo_rooty() <= 6
+        assert abs(handle.winfo_rootx() + handle.winfo_width() -
+                   controls.views_button.winfo_rootx() - controls.views_button.winfo_width()) < 10
+    finally:
+        panel.destroy()
+        root.destroy()
+
+
 @pytest.mark.skipif(not os.environ.get('DISPLAY'), reason='popup layout requires X11')
 @pytest.mark.parametrize('name,source', [('Home', 'saved-destination'), ('Work', 'saved-destination'), ('Panera', 'osm')])
 def test_destination_popup_has_visible_themed_waze_action(name, source):
@@ -236,7 +281,7 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._map_host.grid_configure.assert_not_called()
         panel._map_controls_rail.pack_forget.assert_called_once_with()
         panel._map_controls_handle.place.assert_called_once_with(
-            in_=panel._map_host, relx=1.0, rely=0.5, anchor="e", width=100, height=44,
+            in_=panel._map_host, relx=1.0, rely=0.0, y=4, anchor="ne", width=140, height=44,
         )
         panel._map_controls_handle.lift.assert_called_once_with()
 

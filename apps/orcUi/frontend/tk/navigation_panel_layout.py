@@ -98,8 +98,8 @@ def build_navigation_panel(panel) -> None:
         panel._experience_controls = NavigationExperienceControls(
             bar, drawer_parent=body, drawer_row=0, drawer_column=1,
             handler=panel._experience_handler, theme=panel._theme_bundle,
-            on_open=lambda: panel._drawer_handler.request_map_controls_expanded(False),
-            on_close=panel.close_radar_menu)
+            on_open=lambda: panel.set_navigation_drawer_visible(True),
+            on_close=lambda: panel.set_navigation_drawer_visible(False))
         panel._experience_controls.pack(fill=tk.X, expand=True)
         panel._build_radar_controls(panel._experience_controls.overlay_frame)
     else:
