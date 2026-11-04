@@ -31,5 +31,13 @@ jobs:
           python -m pip install pytest numpy scipy PyYAML requests
       - name: Run unit tests
         run: |
-          python -m pytest -q --disable-warnings --maxfail=1 \
-            controllers/radio/dsp/unit_test
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          import sys
+          dirs = sorted(str(p) for p in Path('.').rglob('unit_test') if p.is_dir() and any(p.glob('test_*.py')))
+          if not dirs:
+              sys.exit('No unit_test directories with test_*.py files found')
+          print(f'Running tests from {len(dirs)} directories', flush=True)
+          sys.exit(subprocess.call([sys.executable, '-m', 'pytest', '-q', '--disable-warnings', '--maxfail=1', *dirs]))
+          PY
