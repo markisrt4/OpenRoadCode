@@ -31,6 +31,8 @@ class DiagnosticsScanState:
     coverage_message: str = "Run a scan to check available emissions diagnostics."
     next_action: str = "Park safely before reviewing diagnostic results."
     completed_at: datetime | None = None
+    scan_available: bool = False
+    connection_message: str = "Checking automotive connection…"
 
 
 class DiagnosticsScanHandlerIf(Protocol):

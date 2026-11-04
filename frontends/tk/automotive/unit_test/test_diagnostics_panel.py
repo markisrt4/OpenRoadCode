@@ -65,6 +65,7 @@ def test_scan_progress_and_busy_cleanup(root):
     handler = Mock()
     panel = VehicleDiagnosticsPanel(root, theme=theme_bundle(ThemeMode.DARK), handler=handler)
     panel.pack(fill=tk.BOTH, expand=True)
+    panel.update_diagnostics(fault_state())
     panel._scan.invoke()
     handler.request_scan.assert_called_once()
     panel.update_diagnostics(DiagnosticsScanState(scanning=True, status='scanning', summary='Scanning…'))
@@ -97,3 +98,21 @@ def test_multiple_faults_and_technical_details_remain_scrollable(root):
     panel._details_button.invoke()
     root.update()
     assert 'P0300' in visible_text(panel)
+
+
+def test_disconnected_control_is_greyed_out_and_cannot_request_scan(root):
+    handler = Mock()
+    panel = VehicleDiagnosticsPanel(root, theme=theme_bundle(ThemeMode.DARK), handler=handler)
+    panel.pack(fill=tk.BOTH, expand=True)
+    root.update()
+    assert str(panel._scan.cget('state')) == tk.DISABLED
+    panel._scan.invoke()
+    handler.request_scan.assert_not_called()
+    panel.update_diagnostics(fault_state())
+    assert str(panel._scan.cget('state')) == tk.NORMAL
+    panel.update_diagnostics(replace(fault_state(), scan_available=False,
+                                    connection_message='Vehicle connection unavailable'))
+    assert str(panel._scan.cget('state')) == tk.DISABLED
+    assert 'unavailable' in panel._connection.cget('text')
+    panel._scan.invoke()
+    handler.request_scan.assert_not_called()

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from concurrent.futures import Future
-from services.automotive.automotive_command_service import AutomotiveCommandService, SCAN_DIAGNOSTICS_COMMAND
+from services.automotive.automotive_command_service import AutomotiveCommandService, SCAN_DIAGNOSTICS_COMMAND, DIAGNOSTICS_STATUS_COMMAND
 import logging
 import threading
 import time
@@ -56,7 +56,14 @@ class AutomotiveRuntime:
         """Run only the scan wait off-thread; adapter I/O stays in read_state()."""
         future = Future()
         with self._command_lock:
-            if command != SCAN_DIAGNOSTICS_COMMAND:
+            if command == DIAGNOSTICS_STATUS_COMMAND:
+                connected = self._running and self._connected and not self._stop_event.is_set()
+                future.set_result({"ok": True, "data": {
+                    "connected": connected,
+                    "available": connected and callable(getattr(self._source, "scan_diagnostics", None))
+                        and self._command_future is None,
+                }})
+            elif command != SCAN_DIAGNOSTICS_COMMAND:
                 future.set_result({"ok": False, "message": "Unknown automotive command"})
             elif not self._running or not self._connected or self._stop_event.is_set():
                 future.set_result({"ok": False, "message": "Vehicle diagnostics unavailable"})

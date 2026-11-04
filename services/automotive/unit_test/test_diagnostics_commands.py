@@ -14,7 +14,7 @@ from hardware_io.automotive.elm327.elm327_response import Elm327Response
 from protocols.obd2 import Obd2CommandError, Obd2ConnectionError, Obd2Response, Obd2Request
 from services.automotive.automotive_runtime import AutomotiveRuntime
 from services.automotive.automotive_command_client import AutomotiveCommandClient
-from services.automotive.automotive_command_service import SCAN_DIAGNOSTICS_COMMAND
+from services.automotive.automotive_command_service import SCAN_DIAGNOSTICS_COMMAND, DIAGNOSTICS_STATUS_COMMAND
 from services.automotive.zeromq_automotive_command_server import ZeroMqAutomotiveCommandServer
 
 class _Publisher:
@@ -74,6 +74,7 @@ class DiagnosticsCommandsTest(unittest.TestCase):
                 publisher.states[-1][key] is not None for key in
                 ('engine_speed_rad_s', 'vehicle_speed_m_s', 'intake_manifold_pressure_pa')
             ))
+            self.assertTrue(client.diagnostics_available())
             before = publisher.count
             result = client.scan_diagnostics()
             self.assertTrue(result['mil_on'])
@@ -94,6 +95,22 @@ class DiagnosticsCommandsTest(unittest.TestCase):
         self.assertFalse(server_thread.is_alive())
         self.assertEqual(len(adapter.owners), 1)
         self.assertTrue(adapter.finished.is_set())
+
+    def test_connection_status_is_read_only_and_rejects_disconnected_or_unsupported_sources(self):
+        from unittest.mock import Mock
+        source = Mock()
+        runtime = AutomotiveRuntime(source, _Publisher())
+        self.assertFalse(runtime.request_command(DIAGNOSTICS_STATUS_COMMAND).result()['data']['available'])
+        runtime._running = runtime._connected = True
+        self.assertTrue(runtime.request_command(DIAGNOSTICS_STATUS_COMMAND).result()['data']['available'])
+        source.connect.assert_not_called()
+        source.read_state.assert_not_called()
+        source.scan_diagnostics.assert_not_called()
+        runtime._source = object()
+        self.assertFalse(runtime.request_command(DIAGNOSTICS_STATUS_COMMAND).result()['data']['available'])
+        runtime._source = source
+        runtime._connected = False
+        self.assertFalse(runtime.request_command(DIAGNOSTICS_STATUS_COMMAND).result()['data']['available'])
 
     def test_concurrent_scan_rejected_and_shutdown_releases_pending_scan(self):
         adapter = _TrackedAdapter()

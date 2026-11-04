@@ -261,8 +261,11 @@ def create_orc_ui_composition(
         navigation.set_radar_request_handler(radar_replay)
         diagnostics_config = ServiceRuntimeConfigParser(DEFAULT_RUNTIME_CONFIG).load().automotive
         diagnostics_client = AutomotiveCommandClient(diagnostics_config.command_endpoint)
-        diagnostics_scan = DiagnosticsScanController(diagnostics_client.scan_diagnostics, app)
+        diagnostics_scan = DiagnosticsScanController(
+            diagnostics_client.scan_diagnostics, app, availability=diagnostics_client.diagnostics_available,
+        )
         cleanup.callback(diagnostics_scan.close)
+        diagnostics_scan.start()
         vehicle = VehicleScreen(
             app,
             theme_bundle=lambda: theme_bundle(app.theme_mode),

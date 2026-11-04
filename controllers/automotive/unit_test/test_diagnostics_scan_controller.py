@@ -42,6 +42,7 @@ class DiagnosticsPresentationTest(unittest.TestCase):
             release.wait(1)
             return self.healthy()
         controller = DiagnosticsScanController(scan, dispatcher)
+        controller.set_connection_available(True)
         states = []
         remove = controller.observe(states.append)
         controller.request_scan()
@@ -70,6 +71,7 @@ class DiagnosticsPresentationTest(unittest.TestCase):
         def fail():
             raise TimeoutError('scan timed out')
         controller = DiagnosticsScanController(fail, dispatcher)
+        controller.set_connection_available(True)
         states = []
         controller.observe(states.append)
         controller.request_scan()
@@ -132,3 +134,68 @@ class DiagnosticsPresentationTest(unittest.TestCase):
         self.assertFalse(empty.coverage_complete)
         self.assertIsNone(empty.mil_on)
         self.assertIsNone(empty.emissions_ready)
+
+    def test_disconnected_scan_request_does_not_start_worker(self):
+        from unittest.mock import Mock
+        scan = Mock()
+        controller = DiagnosticsScanController(scan, _Dispatcher())
+        states = []
+        controller.observe(states.append)
+        controller.request_scan()
+        scan.assert_not_called()
+        self.assertFalse(states[-1].scan_available)
+        controller.set_connection_available(True)
+        self.assertTrue(states[-1].scan_available)
+        controller.set_connection_available(False)
+        controller.request_scan()
+        scan.assert_not_called()
+        self.assertIn('unavailable', states[-1].connection_message)
+
+    def test_connection_monitor_handles_timeout_recovery_and_close(self):
+        from unittest.mock import Mock
+        class Timers(_Dispatcher):
+            def __init__(self):
+                super().__init__()
+                self.timer = None
+                self.cancelled = []
+            def schedule_ui_callback(self, delay, callback):
+                self.timer = callback
+                return callback
+            def cancel_ui_callback(self, token):
+                self.cancelled.append(token)
+        dispatcher = Timers()
+        availability = Mock(side_effect=[TimeoutError('offline'), True, False])
+        controller = DiagnosticsScanController(Mock(), dispatcher, availability=availability)
+        states = []
+        controller.observe(states.append)
+        controller.start()
+        controller.start()
+        def complete():
+            self.assertTrue(dispatcher.ready.wait(1))
+            dispatcher.ready.clear()
+            dispatcher.callbacks.pop(0)()
+        complete()
+        self.assertFalse(states[-1].scan_available)
+        dispatcher.timer()
+        complete()
+        self.assertTrue(states[-1].scan_available)
+        dispatcher.timer()
+        complete()
+        self.assertFalse(states[-1].scan_available)
+        self.assertEqual(availability.call_count, 3)
+        token = dispatcher.timer
+        controller.close()
+        self.assertEqual(dispatcher.cancelled, [token])
+        controller._connection_checked(controller._generation, True)
+        self.assertFalse(states[-1].scan_available)
+
+    def test_old_connection_check_does_not_overwrite_scan_in_progress(self):
+        from unittest.mock import Mock
+        dispatcher = _Dispatcher()
+        dispatcher.schedule_ui_callback = Mock()
+        controller = DiagnosticsScanController(Mock(), dispatcher)
+        controller.set_connection_available(True)
+        controller._generation = 1
+        controller._busy = True
+        controller._connection_checked(0, False)
+        self.assertTrue(controller._available)

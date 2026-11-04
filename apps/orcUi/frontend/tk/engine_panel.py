@@ -21,7 +21,7 @@ from ui.ui_widget import UiWidget
 class EnginePanel(tk.Frame, UiWidget):
     """Render live vehicle-health instrumentation."""
 
-    _GAUGE_IDS = ("coolant", "intake", "load", "voltage")
+    _GAUGE_IDS = ("coolant", "load", "voltage")
 
     def __init__(
         self,
@@ -46,7 +46,6 @@ class EnginePanel(tk.Frame, UiWidget):
         self._state = state
         values = {
             "coolant": state.coolant_temperature_f,
-            "intake": state.intake_air_temperature_f,
             "load": state.engine_load_percent,
             "voltage": state.control_voltage_v,
         }
@@ -89,11 +88,13 @@ class EnginePanel(tk.Frame, UiWidget):
         grid = tk.Frame(self, bg=ui.background)
         grid.grid(row=1, column=0, sticky="nsew")
         grid.grid_columnconfigure(0, weight=1)
-        grid.grid_rowconfigure(1, weight=1)
+        grid.grid_columnconfigure(1, weight=3)
+        grid.grid_rowconfigure(0, weight=1)
         instruments = tk.Frame(grid, bg=ui.background)
-        instruments.grid(row=0, column=0, sticky="ew")
-        for column in range(4):
-            instruments.grid_columnconfigure(column, weight=1, uniform="health-gauge")
+        instruments.grid(row=0, column=0, sticky="nsew")
+        instruments.grid_columnconfigure(0, weight=1)
+        for row in range(len(self._GAUGE_IDS)):
+            instruments.grid_rowconfigure(row, weight=1)
 
         definitions = {
             definition.gauge_id: definition
@@ -104,7 +105,7 @@ class EnginePanel(tk.Frame, UiWidget):
 
         for index, gauge_id in enumerate(self._GAUGE_IDS):
             definition = definitions[gauge_id]
-            row, column = 0, index
+            row, column = index, 0
             card = self._instrument_card(
                 instruments,
                 title=definition.title.upper(),
@@ -136,7 +137,7 @@ class EnginePanel(tk.Frame, UiWidget):
         self._diagnostics_panel = VehicleDiagnosticsPanel(
             grid, theme=self._theme, handler=self._diagnostics_handler,
         )
-        self._diagnostics_panel.grid(row=1, column=0, sticky="nsew", padx=4, pady=4)
+        self._diagnostics_panel.grid(row=0, column=1, sticky="nsew", padx=4, pady=4)
 
     def update_diagnostics(self, state: DiagnosticsScanState) -> None:
         self._diagnostics_state = state

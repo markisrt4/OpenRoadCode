@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Own asynchronous scan work and deliver immutable state through a UI dispatcher."""
 import threading
+from dataclasses import replace
 from datetime import datetime, timezone
 from ui.automotive.diagnostics_scan_if import DiagnosticFaultCard, DiagnosticsScanState
 
@@ -100,10 +101,11 @@ def present_diagnostics(data, *, completed_at=None):
         mil_on=mil, emissions_ready=ready, coverage_complete=coverage_complete,
         coverage_message=coverage_message, next_action=next_action,
         completed_at=completed_at or datetime.now(timezone.utc),
+        scan_available=True, connection_message="Vehicle connected — ready to scan.",
     )
 
 class DiagnosticsScanController:
-    def __init__(self, scan, dispatcher):
+    def __init__(self, scan, dispatcher, *, availability=None):
         self._scan = scan
         self._dispatcher = dispatcher
         self._state = DiagnosticsScanState()
@@ -111,6 +113,53 @@ class DiagnosticsScanController:
         self._closed = False
         self._busy = False
         self._generation = 0
+        self._availability = availability
+        self._available = False
+        self._connection_timer = None
+        self._monitoring = False
+
+    def start(self):
+        """Monitor the service connection without blocking the UI or adapter owner."""
+        if self._closed or self._monitoring or self._availability is None:
+            return
+        self._monitoring = True
+        self._poll_connection()
+
+    def _poll_connection(self):
+        self._connection_timer = None
+        if self._closed:
+            return
+        if self._busy:
+            self._schedule_connection_check()
+            return
+        generation = self._generation
+        def check():
+            try:
+                available = self._availability() is True
+            except Exception:
+                available = False
+            self._dispatcher.dispatch_ui(lambda: self._connection_checked(generation, available))
+        threading.Thread(target=check, name="diagnostics-connection", daemon=True).start()
+
+    def _connection_checked(self, generation, available):
+        if self._closed:
+            return
+        if generation == self._generation and not self._busy:
+            self.set_connection_available(available)
+        self._schedule_connection_check()
+
+    def _schedule_connection_check(self):
+        if not self._closed:
+            self._connection_timer = self._dispatcher.schedule_ui_callback(1500, self._poll_connection)
+
+    def set_connection_available(self, available: bool):
+        """Apply an observed connection state on the UI-dispatch thread."""
+        if self._closed:
+            return
+        self._available = available
+        self._publish(replace(self._state, scan_available=available,
+            connection_message="Vehicle connected — ready to scan." if available else
+            "Vehicle diagnostics unavailable. Connect the automotive source to scan."))
 
     def observe(self, callback):
         self._observers.append(callback)
@@ -126,7 +175,7 @@ class DiagnosticsScanController:
             observer(state)
 
     def request_scan(self):
-        if self._closed or self._busy:
+        if self._closed or self._busy or not self._available:
             return
         self._busy = True
         self._generation += 1
@@ -135,6 +184,7 @@ class DiagnosticsScanController:
             scanning=True, status="scanning", summary="Scanning vehicle diagnostics…",
             coverage_message="Reading available emissions checks. Live telemetry continues.",
             next_action="Please wait for the scan to finish.",
+            scan_available=True, connection_message="Vehicle connected — scan in progress.",
         ))
         threading.Thread(target=self._work, args=(generation,), daemon=True,
                          name="diagnostics-ui-worker").start()
@@ -154,9 +204,16 @@ class DiagnosticsScanController:
         if self._closed or generation != self._generation:
             return
         self._busy = False
-        self._publish(state)
+        if state.completed_at is None:
+            self._available = False
+        self._publish(replace(state, scan_available=self._available,
+            connection_message="Vehicle connected — ready to scan." if self._available else
+            "Vehicle diagnostics unavailable. Check the connection and try again."))
 
     def close(self):
         self._closed = True
+        if self._connection_timer is not None:
+            self._dispatcher.cancel_ui_callback(self._connection_timer)
+            self._connection_timer = None
         self._generation += 1
         self._observers.clear()

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Automotive command client; each call owns its socket, including after timeout."""
 import zmq
-from services.automotive.automotive_command_service import SCAN_DIAGNOSTICS_COMMAND
+from services.automotive.automotive_command_service import SCAN_DIAGNOSTICS_COMMAND, DIAGNOSTICS_STATUS_COMMAND
 from services.automotive.endpoints import DEFAULT_AUTOMOTIVE_COMMAND_ENDPOINT
 
 class AutomotiveCommandError(RuntimeError):
@@ -14,17 +14,24 @@ class AutomotiveCommandClient:
         self._timeout_ms = timeout_ms
 
     def scan_diagnostics(self):
+        return self._request(SCAN_DIAGNOSTICS_COMMAND, self._timeout_ms)
+
+    def diagnostics_available(self):
+        """Query service-owned connection state without opening or probing the adapter."""
+        return self._request(DIAGNOSTICS_STATUS_COMMAND, 800).get("available") is True
+
+    def _request(self, command, timeout_ms):
         with zmq.Context() as context:
             with context.socket(zmq.REQ) as socket:
                 socket.setsockopt(zmq.LINGER, 0)
-                socket.setsockopt(zmq.RCVTIMEO, self._timeout_ms)
-                socket.setsockopt(zmq.SNDTIMEO, self._timeout_ms)
+                socket.setsockopt(zmq.RCVTIMEO, timeout_ms)
+                socket.setsockopt(zmq.SNDTIMEO, timeout_ms)
                 socket.connect(self._endpoint)
                 try:
-                    socket.send_json({"command": SCAN_DIAGNOSTICS_COMMAND, "arguments": {}})
+                    socket.send_json({"command": command, "arguments": {}})
                     response = socket.recv_json()
                 except zmq.Again as exc:
-                    raise AutomotiveCommandError("Diagnostic scan timed out") from exc
+                    raise AutomotiveCommandError("Automotive command timed out") from exc
         if not isinstance(response, dict):
             raise AutomotiveCommandError("Invalid diagnostic response")
         if not response.get("ok"):

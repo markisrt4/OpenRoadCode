@@ -81,8 +81,9 @@ The project-wide quality gate remains the user's final branch validation.
 
 ## Plain-language HEALTH results
 
-HEALTH keeps live coolant, intake, load and voltage gauges in a compact row above
-scan results. The summary distinguishes reported faults, no emissions faults,
+HEALTH puts coolant temperature, engine load and voltage gauges in a left column,
+with diagnostic results on the right. Intake-air temperature remains in telemetry
+but is not a primary HEALTH gauge. The summary distinguishes reported faults, no emissions faults,
 incomplete scans and unfinished emissions checks. Scan Now remains asynchronous,
 with an indeterminate progress indicator. A completed result shows its completion
 time in the frontend's local timezone; it is a snapshot, not a live fault monitor.
@@ -113,3 +114,32 @@ the plain-language result, and expand the technical details to verify its code
 and ECU. Include pending/permanent records, incomplete readiness, a disconnected
 simulator, repeated scans, and hiding/remounting HEALTH during a scan. Verify long
 results scroll and the Scan Now control remains accessible at your display size.
+
+## Connection-aware Scan Now
+
+Scan Now starts disabled while the connection is checked, and is enabled only
+when the automotive service reports a connected source with diagnostic support
+and no other active scan. The UI polls `automotive.diagnostics.status` over the
+existing command endpoint. This reads service-owned connection state; it does
+not open a second adapter connection or consume the OBD polling budget.
+Connection checks run off the UI thread, use a short transport timeout, and are
+repeated about every 1.5 seconds after completion. Missing service replies disable
+scanning. Checks pause during a scan; stale check replies cannot override a scan
+in progress. Closing cancels the pending monitor timer and ignores late replies.
+
+Previous results remain time-stamped snapshots when a connection disappears,
+with an explicit connection-unavailable message and a disabled scan control.
+Restart both the automotive service and ORC after updating, since the service
+must support the new status command. On a Termux runit installation:
+
+```sh
+git switch vehicle-diagnostics-integration
+sv restart openroadcode-automotive
+./runOrcUi
+```
+
+Device check: with the automotive source stopped, Scan Now must be disabled.
+Start the Android simulated vehicle endpoint and the automotive service; it
+should enable after a successful connection check. Stop the source/service and
+verify it disables again. Repeat after reconnecting. A connection indication is
+not a claim that every ECU or diagnostic service will answer a scan.

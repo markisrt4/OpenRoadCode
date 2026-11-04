@@ -23,7 +23,7 @@ class VehicleDiagnosticsPanel(tk.Frame, UiWidget):
                          highlightbackground=self._ui.border)
         ui = self._ui
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(3, weight=1)
+        self.grid_rowconfigure(4, weight=1)
         header = tk.Frame(self, bg=ui.surface_alt)
         header.grid(row=0, column=0, sticky="ew", padx=12, pady=(10, 4))
         self._scan = tk.Button(header, text="Scan Now", command=self._request_scan,
@@ -37,12 +37,15 @@ class VehicleDiagnosticsPanel(tk.Frame, UiWidget):
         self._timestamp = tk.Label(self, bg=ui.surface_alt, fg=ui.text_muted,
                                    anchor="w", font=("Sans", 10))
         self._timestamp.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 6))
+        self._connection = tk.Label(self, bg=ui.surface_alt, fg=ui.text_muted,
+                                     anchor="w", justify=tk.LEFT, wraplength=320, font=("Sans", 10))
+        self._connection.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 6))
         self._progress = ttk.Progressbar(self, mode="indeterminate")
-        self._progress.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 6))
+        self._progress.grid(row=3, column=0, sticky="ew", padx=12, pady=(0, 6))
         self._progress.grid_remove()
 
         body = tk.Frame(self, bg=ui.surface_alt)
-        body.grid(row=3, column=0, sticky="nsew")
+        body.grid(row=4, column=0, sticky="nsew")
         rail = tk.Frame(body, bg=ui.surface_alt)
         rail.pack(side=tk.RIGHT, fill=tk.Y)
         self._canvas = tk.Canvas(body, bg=ui.surface_alt, highlightthickness=0,
@@ -65,7 +68,7 @@ class VehicleDiagnosticsPanel(tk.Frame, UiWidget):
         self.update_diagnostics(self._state)
 
     def _request_scan(self):
-        if self._handler is not None:
+        if self._handler is not None and self._state.scan_available and not self._state.scanning:
             self._handler.request_scan()
 
     def update_diagnostics(self, state: DiagnosticsScanState):
@@ -77,7 +80,10 @@ class VehicleDiagnosticsPanel(tk.Frame, UiWidget):
                  "scanning": ui.accent_primary, "not_ready": ui.accent_warning}.get(state.status, ui.text_muted)
         self._summary.configure(text=state.summary, fg=color)
         self._scan.configure(text="Scanning…" if state.scanning else "Scan Now",
-                             state=tk.DISABLED if state.scanning or self._handler is None else tk.NORMAL)
+                             state=tk.DISABLED if state.scanning or not state.scan_available or self._handler is None else tk.NORMAL,
+                             disabledforeground=ui.text_muted)
+        self._connection.configure(text=state.connection_message,
+                                   fg=ui.text_muted if state.scan_available else ui.accent_warning)
         if state.scanning:
             self._progress.grid()
             self._progress.start(60)
@@ -152,6 +158,7 @@ class VehicleDiagnosticsPanel(tk.Frame, UiWidget):
     def _resize(self, event):
         self._canvas.itemconfigure(self._window, width=event.width)
         self._summary.configure(wraplength=max(120, event.width - 140))
+        self._connection.configure(wraplength=max(160, event.width - 24))
         self._resize_labels()
 
     def _resize_labels(self):

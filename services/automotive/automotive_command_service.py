@@ -9,6 +9,7 @@ from dataclasses import asdict
 from typing import Any, Mapping
 
 SCAN_DIAGNOSTICS_COMMAND = "automotive.diagnostics.scan"
+DIAGNOSTICS_STATUS_COMMAND = "automotive.diagnostics.status"
 
 
 class AutomotiveCommandService:
