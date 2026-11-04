@@ -41,6 +41,7 @@ class FmStereoDecoder:
         self._pilot_complex = 0j
         self._pilot_smoothing_state = np.zeros(1, dtype=np.complex128)
         self._pilot_level = 0.0
+        self.stereo_blend = 0.0
         self._deemphasis_state = np.zeros(2)
         self._sample_index = 0
         self.stereo_locked = False
@@ -67,6 +68,15 @@ class FmStereoDecoder:
         pilot_amplitude = 2 * abs(self._pilot_complex)
         self._pilot_level = pilot_amplitude
         self.stereo_locked = pilot_amplitude >= self._pilot_threshold
+        # Use the per-sample pilot envelope rather than a block-wide switch.
+        # This avoids stereo jumps at arbitrary SDR callback boundaries.
+        # Below threshold: dual mono. Above twice threshold: full stereo.
+        if self._pilot_threshold == 0:
+            blend = np.ones(len(samples))
+        else:
+            blend = np.clip((2 * np.abs(smooth) - self._pilot_threshold)
+                            / self._pilot_threshold, 0.0, 1.0)
+        self.stereo_blend = float(blend[-1])
         # Derive the 38 kHz oscillator from the pilot's phase. A bandpass
         # filter's phase at 19 kHz must be accounted for by calibration.
         phase = np.angle(smooth) + self._pilot_phase_correction
@@ -75,10 +85,8 @@ class FmStereoDecoder:
             self._audio_sos, samples, zi=self._sum_state)
         difference, self._difference_state = signal.sosfilt(
             self._difference_sos, samples * (2 * carrier), zi=self._difference_state)
-        if not self.stereo_locked:
-            difference *= 0
         summed = summed[self._phase::5]
-        difference = difference[self._phase::5]
+        difference = difference[self._phase::5] * blend[self._phase::5]
         self._phase = (self._phase - len(samples)) % 5
         self._sample_index = (self._sample_index + len(samples)) % 240_000
         channels = np.column_stack(((summed + difference) * 0.5,
