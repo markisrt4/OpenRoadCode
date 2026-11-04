@@ -39,6 +39,7 @@ class FmStereoDecoder:
         self._difference_state = signal.sosfilt_zi(self._difference_sos) * 0
         self._phase = 0
         self._pilot_complex = 0j
+        self._pilot_smoothing_state = np.zeros(1, dtype=np.complex128)
         self._pilot_level = 0.0
         self._deemphasis_state = np.zeros(2)
         self._sample_index = 0
@@ -59,8 +60,9 @@ class FmStereoDecoder:
         # reference inherits that shift and is calibrated below.
         reference = pilot * oscillator
         alpha = 0.0005
-        smooth, _ = signal.lfilter([alpha], [1, -(1 - alpha)], reference,
-                                   zi=[self._pilot_complex * (1 - alpha)])
+        smooth, self._pilot_smoothing_state = signal.lfilter(
+            [alpha], [1, -(1 - alpha)], reference,
+            zi=self._pilot_smoothing_state)
         self._pilot_complex = complex(smooth[-1])
         pilot_amplitude = 2 * abs(self._pilot_complex)
         self._pilot_level = pilot_amplitude
