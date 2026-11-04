@@ -60,6 +60,29 @@ class RdsSymbolTimingRecoveryTest(unittest.TestCase):
             errors.append(np.mean(decisions[start:start + length] != expected))
         self.assertLess(min(errors), 0.02)
 
+    def test_rds_half_bit_rate_and_chunk_continuity(self):
+        rng = np.random.default_rng(57)
+        data = rng.choice([-1.0, 1.0], size=8_000)
+        count = 24_000
+        # Each biphase data bit occupies two half-bit intervals.
+        # A mid-bit polarity transition is guaranteed.
+        halves = np.empty(2 * len(data), dtype=np.float64)
+        halves[::2] = data
+        halves[1::2] = -data
+        positions = np.arange(count) * 2375.0 / 12_000
+        samples = np.interp(positions, np.arange(len(halves)) + 0.5,
+                            halves, left=halves[0], right=halves[-1])
+        samples = samples.astype(np.complex64)
+        whole = RdsSymbolTimingRecovery(symbol_rate_hz=2375)
+        expected = whole.process(samples)
+        self.assertLess(abs(len(expected) - 4750), 5)
+        self.assertAlmostEqual(whole.samples_per_symbol, 12_000 / 2375,
+                               delta=0.11)
+        streaming = RdsSymbolTimingRecovery(symbol_rate_hz=2375)
+        chunks = [streaming.process(samples[i:i + 113])
+                  for i in range(0, len(samples), 113)]
+        np.testing.assert_allclose(np.concatenate(chunks), expected, atol=1e-6)
+
     def test_reset_restarts_symbol_clock(self):
         samples = synthetic_symbols(12_000)
         recovery = RdsSymbolTimingRecovery()
