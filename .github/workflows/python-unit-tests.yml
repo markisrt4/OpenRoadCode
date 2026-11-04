@@ -1,35 +1,33 @@
-name: Python unit tests
-
+name: OpenRoadCode CI
 on:
-  workflow_dispatch:
   pull_request:
-    paths:
-      - '**/*.py'
-      - 'pytest.ini'
-      - 'pyproject.toml'
-      - '.github/workflows/python-unit-tests.yml'
-
+  push:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      full_gate:
+        description: Run the full portable quality gate
+        type: boolean
+        default: false
 permissions:
   contents: read
-
 jobs:
-  unit-tests:
+  fast:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: pip
-          cache-dependency-path: pyproject.toml
-      - name: Install test dependencies
+      - name: Install verification dependencies
+        run: python -m pip install pytest numpy scipy PyYAML requests ruff mypy
+      - name: Focused architecture checks
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install pytest numpy scipy PyYAML requests
-      - name: Run unit tests
+          python scripts/check_python_module_size.py
+          python scripts/check_ui_boundaries.py
+          python scripts/check_weather_ui_contracts.py
+      - name: Unit tests
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -38,6 +36,25 @@ jobs:
           dirs = sorted(str(p) for p in Path('.').rglob('unit_test') if p.is_dir() and any(p.glob('test_*.py')))
           if not dirs:
               sys.exit('No unit_test directories with test_*.py files found')
-          print(f'Running tests from {len(dirs)} directories', flush=True)
-          sys.exit(subprocess.call([sys.executable, '-m', 'pytest', '-q', '--disable-warnings', '--maxfail=1', *dirs]))
+          sys.exit(subprocess.call([sys.executable, '-m', 'pytest', '-q', '--maxfail=1', '--junitxml=unit-test-results.xml', *dirs]))
           PY
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: orc-unit-test-results
+          path: unit-test-results.xml
+          if-no-files-found: ignore
+  full:
+    if: github.event_name == 'workflow_dispatch' && inputs.full_gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install quality gate dependencies
+        run: python -m pip install pytest numpy scipy PyYAML requests ruff mypy
+      - name: Run portable full quality gate
+        run: python scripts/quality_gate.py
