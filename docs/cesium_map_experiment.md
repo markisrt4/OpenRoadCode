@@ -1081,8 +1081,10 @@ The embedded Map and Terrain views now use one ORC-owned collapsible drawer with
 Cesium-inspired button grouping. Follow, recenter, north-up, 2D/3D, directional pan,
 zoom and tilt retain their existing semantic camera requests. Reset restores the
 initial Terrain view; in Map it uses the existing vehicle recenter behavior.
-Layers and Terrain options fold away, and the drawer scrolls in short windows
-without changing the native map host's geometry or its window ID.
+Layers and Terrain options replace the camera page inside the same drawer.
+Each has a Back to controls button; no scrollbar or scrolling canvas is used.
+Compact windows use tighter spacing and smaller text, without changing the
+native map host's geometry or its window ID.
 
 Terrain exposes imagery, buildings, roads, places, relief, height exaggeration,
 terrain cues and grid controls through immutable `MapLayerControls` snapshots.
@@ -1094,6 +1096,6 @@ stale generations; the Tk widgets never reach into browser/process objects.
 
 Embedded Terrain no longer shows a second browser controls panel. The standalone
 viewer retains its browser panel. No extra WebGL context, render-loop work or
-source download was added. Native X11 stacking, touch, drawer sizing, scroll and
+source download was added. Native X11 stacking, touch, drawer sizing, page navigation and
 mode changes still require Termux device verification, as does GPU stability.
 The generated mockup was a styling reference, not a promise of new map imagery.

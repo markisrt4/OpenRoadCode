@@ -172,6 +172,15 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
             self._zoom_text.set(f'{self._zoom_level:.1f}')
             self._dimension_text.set('2D' if self._pitch_rad > 0 else '3D')
 
+    def _show_map_controls_page(self, name: str) -> None:
+        """Replace drawer contents without changing the native viewport."""
+        if name not in self._map_control_pages:
+            raise ValueError('Unknown map controls page')
+        for page in self._map_control_pages.values():
+            page.grid_remove()
+        self._map_control_pages[name].grid(row=0,column=0,sticky='nsew')
+        self._map_controls_page=name
+
     def _apply_layer_controls(self, state: MapLayerControls, terrain: bool) -> None:
         ui=self._theme_bundle.ui
         values={control.action:control for control in state.controls}

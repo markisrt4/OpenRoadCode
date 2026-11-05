@@ -143,7 +143,7 @@ class EarthPoiControlTest(unittest.TestCase):
         self.assertEqual(str(button.cget('state')), 'disabled')
 
 
-    def test_unified_drawer_scrolls_short_window_without_resizing_map(self):
+    def test_unified_drawer_pages_fit_without_scrolling_or_resizing_map(self):
         from ui.navigation import MapControlsDrawerState
         self.root.geometry('580x260')
         self.root.update()
@@ -151,13 +151,18 @@ class EarthPoiControlTest(unittest.TestCase):
         original_size=self.panel.map_host_size
         self.panel.set_map_controls_drawer_state(MapControlsDrawerState(expanded=True))
         self.root.update()
-        self.assertEqual(self.panel.map_host_window_id,host_id)
-        self.assertEqual(self.panel.map_host_size,original_size)
-        canvas=next(child for child in self.panel._map_controls_rail.winfo_children() if isinstance(child,tk.Canvas))
-        self.assertGreater(canvas.bbox('all')[3],canvas.winfo_height())
-        canvas.yview_moveto(1)
-        self.root.update()
-        self.assertGreater(canvas.yview()[0],0)
+        for name in ('camera','layers','terrain','camera'):
+            self.panel._show_map_controls_page(name)
+            self.root.update()
+            self.assertEqual(self.panel.map_host_window_id,host_id)
+            self.assertEqual(self.panel.map_host_size,original_size)
+            page=self.panel._map_control_pages[name]
+            self.assertTrue(page.winfo_ismapped())
+            self.assertEqual(page.winfo_height(),self.panel._map_controls_rail.winfo_height())
+            def inspect(widget):
+                self.assertNotIsInstance(widget,(tk.Scrollbar,tk.Canvas))
+                for child in widget.winfo_children():inspect(child)
+            inspect(self.panel._map_controls)
         self.panel.set_map_controls_drawer_state(MapControlsDrawerState(expanded=False))
         self.root.update()
         self.assertEqual(self.panel.map_host_size,original_size)

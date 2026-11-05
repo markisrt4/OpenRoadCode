@@ -473,3 +473,16 @@ def test_reset_preserves_existing_native_recenter_and_routes_terrain_reset():
     panel._reset_map_view()
     panel._recenter.assert_not_called()
     assert panel._map_platform.request_camera.call_args.args[0].value=='reset'
+
+
+def test_drawer_page_navigation_replaces_contents_without_viewport_requests():
+    panel=object.__new__(NavigationPanel)
+    panel._map_control_pages={name:Mock() for name in ('camera','layers','terrain')}
+    panel._request_handler=Mock()
+    for name in ('layers','terrain','camera'):
+        panel._show_map_controls_page(name)
+        assert panel._map_controls_page==name
+        panel._map_control_pages[name].grid.assert_called_with(row=0,column=0,sticky='nsew')
+    panel._request_handler.assert_not_called()
+    import pytest
+    with pytest.raises(ValueError):panel._show_map_controls_page('unknown')
