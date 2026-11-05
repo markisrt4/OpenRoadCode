@@ -161,7 +161,13 @@ def main(argv: list[str] | None = None) -> int:
                         f"Station: {status.metadata.program_service or 'Searching...'}\n"
                         f"RadioText: {status.metadata.radio_text or 'Waiting...'}\n"
                         f"Groups: {total_groups} total | {report_groups / max(now - report_time, 1e-9):.2f}/s recent\n"
-                        f"Invalid pairs: {status.invalid_pairs} | Carrier offset: {status.carrier_offset_hz:+.2f} Hz\n"
+                        f"Selected-phase invalid: {status.selected_invalid_pairs}/{status.selected_total_pairs}"
+                        f" ({100 * status.selected_invalid_pair_fraction:.1f}% error)"
+                        if status.selected_invalid_pair_fraction is not None else
+                        f"Selected-phase invalid: unavailable"
+                        ,
+                        f"\nSync confidence: {status.sync_confidence}/10 | "
+                        f"Carrier offset: {status.carrier_offset_hz:+.2f} Hz\n"
                         f"DSP: {100 * dsp_seconds / elapsed:.1f}% | SDR drops: {drops}\n"
                         + (f"Pilot 19k: {spectral.pilot_19khz_dbfs:.1f} dBFS | "
                            f"RDS 57k band: {spectral.rds_57khz_band_dbfs:.1f} dBFS | "
