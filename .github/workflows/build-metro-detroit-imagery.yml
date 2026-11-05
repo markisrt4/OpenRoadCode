@@ -20,6 +20,17 @@ on:
           - mi-upper-west
           - mi-upper-east
           - michigan-all
+          - generic-state
+      state:
+        description: State name, postal abbreviation, or FIPS code (generic-state only)
+        required: false
+        type: string
+      scope:
+        description: Coverage tier for generic-state
+        required: false
+        type: choice
+        default: all
+        options: [overview, detail, all]
       release_tag:
         description: Optional release tag (defaults to metro-detroit-imagery-YYYYMMDD-runN)
         required: false
@@ -294,7 +305,7 @@ jobs:
 
   michigan:
     name: Build Michigan terrain package
-    if: ${{ inputs.build_target != 'metro-detroit' && inputs.build_target != 'michigan-all' }}
+    if: ${{ inputs.build_target != 'metro-detroit' && inputs.build_target != 'michigan-all' && inputs.build_target != 'generic-state' }}
     uses: ./.github/workflows/build-michigan-terrain.yml
     with:
       coverage: ${{ inputs.build_target }}
@@ -347,4 +358,70 @@ jobs:
             --draft --target "$GITHUB_SHA" \
             --title "Michigan offline map data · statewide detail" \
             --notes "Eight independently resumable Michigan imagery and terrain shards. Install the statewide overview plus any or all detail assets."
+          echo "Draft release: $tag" >> "$GITHUB_STEP_SUMMARY"
+
+  prepare-generic-state:
+    name: Plan generic state build
+    if: ${{ inputs.build_target == 'generic-state' }}
+    runs-on: ubuntu-latest
+    outputs:
+      state: ${{ steps.plan.outputs.state }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v6
+      - id: plan
+        name: Validate state and create coverage matrix
+        env:
+          REQUESTED_STATE: ${{ inputs.state }}
+          REQUESTED_SCOPE: ${{ inputs.scope }}
+        run: |
+          if [[ -z "$REQUESTED_STATE" ]]; then
+            echo "::error::The state input is required for generic-state"
+            exit 1
+          fi
+          plan="$(python -m development.maps.state_map_catalog \
+            --state "$REQUESTED_STATE" --scope "$REQUESTED_SCOPE" --matrix)"
+          echo "state=$(jq -r .state <<<"$plan")" >> "$GITHUB_OUTPUT"
+          echo "matrix=$(jq -c .coverage <<<"$plan")" >> "$GITHUB_OUTPUT"
+
+  generic-state:
+    name: Build state coverage ${{ matrix.coverage }}
+    needs: prepare-generic-state
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        coverage: ${{ fromJSON(needs.prepare-generic-state.outputs.matrix) }}
+    uses: ./.github/workflows/build-michigan-terrain.yml
+    with:
+      coverage: ${{ matrix.coverage }}
+      force_rebuild: ${{ inputs.force_rebuild }}
+      publish_release: false
+    secrets: inherit
+
+  assemble-generic-state:
+    name: Assemble generic state draft release
+    needs: [prepare-generic-state, generic-state]
+    if: ${{ needs.generic-state.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+      - name: Download checked state packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: map-data-us-${{ needs.prepare-generic-state.outputs.state }}-*
+          path: build-output/state
+          merge-multiple: true
+      - name: Create checked state draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STATE: ${{ needs.prepare-generic-state.outputs.state }}
+          SCOPE: ${{ inputs.scope }}
+        run: |
+          tag="${STATE}-map-data-${SCOPE}-$(date -u +%Y%m%d)-run${GITHUB_RUN_NUMBER}"
+          gh release create "$tag" build-output/state/* \
+            --draft --target "$GITHUB_SHA" \
+            --title "${STATE^^} offline map data · ${SCOPE}" \
+            --notes "State-driven USGS NAIP imagery and 3DEP terrain. Inspect all coverage assets before publishing this draft release."
           echo "Draft release: $tag" >> "$GITHUB_STEP_SUMMARY"

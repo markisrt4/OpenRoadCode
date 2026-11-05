@@ -132,8 +132,24 @@ python -m development.maps.state_map_catalog --state WI --scope all
 python -m development.maps.state_map_catalog --state CA --scope detail --matrix
 ```
 
-After `build-state-map-data.yml` reaches the repository's default branch, dispatch
-the reusable **Build state map data** workflow:
+Before `build-state-map-data.yml` reaches the repository's default branch, use
+the registered **Build regional map data** workflow as a validation bridge from
+the feature branch:
+
+```bash
+git switch navigation-cesium
+gh workflow run build-metro-detroit-imagery.yml \
+  --ref navigation-cesium \
+  -f build_target=generic-state \
+  -f state=OH \
+  -f scope=all \
+  -f force_rebuild=false
+```
+
+The bridge validates the state input, builds its coverage matrix sequentially,
+and creates the same kind of per-state draft release. Once
+`build-state-map-data.yml` reaches the repository's default branch, dispatch the
+dedicated **Build state map data** workflow instead:
 
 ```bash
 git switch navigation-cesium

@@ -390,6 +390,11 @@ def test_map_data_workflow_builds_resumable_split_release_assets():
     assert 'map-data-${{ inputs.coverage }}' in michigan
     assert 'michigan-all' in workflow
     assert 'assemble-michigan-all' in workflow
+    assert 'generic-state' in workflow
+    assert 'prepare-generic-state' in workflow
+    assert 'assemble-generic-state' in workflow
+    assert 'The state input is required for generic-state' in workflow
+    assert 'pattern: map-data-us-${{ needs.prepare-generic-state.outputs.state }}-*' in workflow
     state_workflow = Path('.github/workflows/build-state-map-data.yml').read_text()
     assert 'development.maps.state_map_catalog' in state_workflow
     assert 'uses: ./.github/workflows/build-michigan-terrain.yml' in state_workflow
