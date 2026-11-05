@@ -67,9 +67,28 @@ class RdsReceiverControllerTest(unittest.TestCase):
         self.assertEqual(receiver.status.metadata.pi, 0x1234)
         receiver.process_half_bits(np.zeros(420, dtype=np.float32))
         self.assertIsNone(receiver.status.locked_pair_phase)
-        self.assertIsNone(receiver.status.metadata.pi)
+        self.assertEqual(receiver.status.metadata.pi, 0x1234)
+        self.assertEqual(receiver.status.sync_confidence, 0)
         receiver.reset()
+        self.assertIsNone(receiver.status.metadata.pi)
         self.assertIsNone(receiver.status.locked_pair_phase)
+
+    def test_sync_confidence_requires_multiple_timeouts(self):
+        from controllers.radio.dsp.rds_block_sync import encode_block
+        words = [encode_block(value, offset) for value, offset in (
+            (0x1234, "A"), (0x0000, "B"), (0, "C"), (0x4F52, "D"))]
+        bits = [(word >> shift) & 1 for word in words for shift in range(25, -1, -1)]
+        previous = 0
+        halves = []
+        for bit in bits:
+            previous ^= bit
+            halves.extend((previous * 2 - 1, (previous ^ 1) * 2 - 1))
+        receiver = RdsReceiverController(loss_timeout_bits=104)
+        receiver.process_half_bits(np.asarray(halves * 4, dtype=np.float32))
+        self.assertIsNotNone(receiver.status.locked_pair_phase)
+        self.assertGreaterEqual(receiver.status.sync_confidence, 1)
+        receiver.process_half_bits(np.zeros(420, dtype=np.float32))
+        self.assertEqual(receiver.status.metadata.pi, 0x1234)
 
     def test_invalid_pair_phase_rejected(self):
         with self.assertRaises(ValueError):
