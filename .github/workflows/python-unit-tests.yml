@@ -21,7 +21,9 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install verification dependencies
-        run: python -m pip install pytest numpy scipy PyYAML requests tinycss2 pyzmq Pillow ruff mypy
+        run: |
+          python -m pip install pytest numpy scipy PyYAML requests tinycss2 pyzmq Pillow ruff mypy
+          python -m pip install 'libmusicforge[analysis] @ git+https://github.com/markisrt4/libMusicForge.git@main'
       - name: Focused architecture checks
         run: |
           python scripts/check_python_module_size.py
@@ -55,6 +57,8 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install quality gate dependencies
-        run: python -m pip install pytest numpy scipy PyYAML requests tinycss2 pyzmq Pillow ruff mypy
+        run: |
+          python -m pip install pytest numpy scipy PyYAML requests tinycss2 pyzmq Pillow ruff mypy
+          python -m pip install 'libmusicforge[analysis] @ git+https://github.com/markisrt4/libMusicForge.git@main'
       - name: Run portable full quality gate
         run: python scripts/quality_gate.py
