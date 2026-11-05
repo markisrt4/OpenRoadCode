@@ -27,6 +27,9 @@ class RdsReceiverStatus:
     locked_pair_phase: int | None
     phase_groups_found: tuple[int, int]
     sync_confidence: int
+    selected_invalid_pairs: int
+    selected_total_pairs: int
+    selected_invalid_pair_fraction: float | None
 
 
 class RdsReceiverController:
@@ -41,7 +44,8 @@ class RdsReceiverController:
     """
 
     def __init__(self, *, pair_phase: int | None = None,
-                 loss_timeout_bits: int = 2080) -> None:
+                 loss_timeout_bits: int = 2080,
+                 ps_repetitions: int = 2) -> None:
         if pair_phase not in (None, 0, 1):
             raise ValueError('pair_phase must be None, 0 or 1')
         if loss_timeout_bits < 104:
@@ -58,7 +62,7 @@ class RdsReceiverController:
         self._blocks = self._block_candidates[pair_phase or 0]
         self._locked_pair_phase = pair_phase
         self._bits_since_group = 0
-        self._metadata = RdsMetadataDecoder()
+        self._metadata = RdsMetadataDecoder(ps_repetitions=ps_repetitions)
         self._sync_confidence = 0
 
     def reset(self) -> None:
@@ -81,6 +85,15 @@ class RdsReceiverController:
             locked_pair_phase=self._locked_pair_phase,
             phase_groups_found=tuple(stage.groups_found for stage in self._block_candidates),
             sync_confidence=self._sync_confidence,
+            selected_invalid_pairs=(self._biphases[self._locked_pair_phase].invalid_pairs
+                                    if self._locked_pair_phase is not None else 0),
+            selected_total_pairs=(self._biphases[self._locked_pair_phase].total_pairs
+                                 if self._locked_pair_phase is not None else 0),
+            selected_invalid_pair_fraction=(
+                self._biphases[self._locked_pair_phase].invalid_pairs /
+                self._biphases[self._locked_pair_phase].total_pairs
+                if self._locked_pair_phase is not None and
+                self._biphases[self._locked_pair_phase].total_pairs else None),
         )
 
     def process_iq(self, iq: np.ndarray) -> list[RdsGroup]:
