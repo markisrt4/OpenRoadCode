@@ -270,6 +270,12 @@ class BrowserKioskLauncher(AppLauncherIf):
 
     @logged_action("runtime.browser", "browser.action", "stop")
     def stop(self, remote_display: str, set_status: StatusCallback = None, *, owned_process_only: bool = False) -> None:
+        """! @brief Stop the browser process or only processes owned by this launcher.
+
+        @param remote_display Target display for browser cleanup.
+        @param set_status Optional callback for status updates.
+        @param owned_process_only Restrict cleanup to this launcher\'s browser process.
+        """
         if owned_process_only:
             # Dedicated embedded profiles are launched in their own session.
             # Avoid the interactive-window grace period and global /proc scan.
