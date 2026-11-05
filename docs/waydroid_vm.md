@@ -4,6 +4,10 @@ Use the normal desktop user in an Ubuntu 24.04 X11 VM, with sudo access. This
 workflow owns a dedicated nested Weston kiosk and Waydroid session. It is not
 the Termux workflow and does not change the Linux desktop's lock policy.
 
+For unattended desktop startup and a separately managed ORC UI, use the
+[Waydroid service integration](waydroid_services.md). Do not run the manual
+workflow concurrently with those services.
+
 ## Install once
 
 ```bash

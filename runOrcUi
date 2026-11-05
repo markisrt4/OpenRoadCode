@@ -13,7 +13,7 @@ if [[ -n "${TERMUX_VERSION:-}" || "${PREFIX:-}" == *com.termux* ]]; then
     export DISPLAY=:1
     default_venv="$PROJECT_ROOT/venv-termux"
 else
-    export DISPLAY=:0
+    export DISPLAY="${DISPLAY:-:0}"
     default_venv="$PROJECT_ROOT/venv"
 fi
 

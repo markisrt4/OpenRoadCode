@@ -68,3 +68,4 @@ if "$initialize"; then
 fi
 echo "Setup complete. See docs/waydroid_vm.md for the repeatable VM workflow."
 echo "Next: bash development/debian/waydroid_vm.sh run (normal desktop user)."
+echo "For unattended X11 desktop startup, see docs/waydroid_services.md."

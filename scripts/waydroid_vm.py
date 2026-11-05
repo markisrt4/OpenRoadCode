@@ -159,9 +159,9 @@ class WaydroidVM:
         except (OSError, ValueError):
             return False
 
-    def start_runtime(self):
+    def start_runtime(self, *, user_service=False):
         self.desktop_preflight()
-        if self.command(['sudo', '-n', 'test', '-s', '/var/lib/waydroid/waydroid.cfg'], check=False).returncode:
+        if not user_service and self.command(['sudo', '-n', 'test', '-s', '/var/lib/waydroid/waydroid.cfg'], check=False).returncode:
             raise RuntimeError('Android is not initialized. Run install --init-gapps first.')
         self.stage('Starting/reusing the dedicated kiosk display')
         state = self.state()
@@ -177,12 +177,17 @@ class WaydroidVM:
             self.save(state)
             self.wait('Weston kiosk socket', self.display_ready, attempts=15)
         self.stage('Starting the Android container and session')
-        self.out('sudo', '-n', 'systemctl', 'start', 'waydroid-container')
+        if not user_service:
+            self.out('sudo', '-n', 'systemctl', 'start', 'waydroid-container')
         status = self.out('waydroid', 'status', env=self.environment)
         if not re.search(r'Session:\s*RUNNING', status):
             state['session'] = self.spawn(['waydroid', 'session', 'start'], 'session.log')
             self.save(state)
-        self.wait('Android boot', lambda: self.android('getprop', 'sys.boot_completed') == '1', attempts=120)
+        if user_service:
+            self.wait('Android session', lambda: re.search(r'Session:\s*RUNNING',
+                self.out('waydroid', 'status', env=self.environment)), attempts=120)
+        else:
+            self.wait('Android boot', lambda: self.android('getprop', 'sys.boot_completed') == '1', attempts=120)
         return state
 
     def reclaim_stale_display(self):
