@@ -23,12 +23,17 @@ class RdsMetadataDecoder:
     station text; RadioText A/B flag changes clear the RT assembly.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, ps_repetitions: int = 1) -> None:
+        if ps_repetitions < 1:
+            raise ValueError("ps_repetitions must be positive")
+        self._ps_repetitions = ps_repetitions
         self.reset()
 
     def reset(self) -> None:
         self._pi: int | None = None
         self._ps: list[str | None] = [None] * 4
+        self._ps_candidates: list[str | None] = [None] * 4
+        self._ps_counts = [0] * 4
         self._rt: list[str | None] = [None] * 16
         self._rt_ab: int | None = None
         self._rt_variant: int | None = None
@@ -38,6 +43,8 @@ class RdsMetadataDecoder:
     def lose_sync(self) -> None:
         """Discard partial assemblies without erasing last-known station data."""
         self._ps = [None] * 4
+        self._ps_candidates = [None] * 4
+        self._ps_counts = [0] * 4
         self._rt = [None] * 16
         self._rt_ab = None
         self._rt_variant = None
@@ -62,7 +69,14 @@ class RdsMetadataDecoder:
 
         if group_type == 0:
             index = group.block_b & 0x3
-            self._ps[index] = self._chars(group.block_d)
+            value = self._chars(group.block_d)
+            if value == self._ps_candidates[index]:
+                self._ps_counts[index] += 1
+            else:
+                self._ps_candidates[index] = value
+                self._ps_counts[index] = 1
+            if self._ps_counts[index] >= self._ps_repetitions:
+                self._ps[index] = value
             if all(segment is not None for segment in self._ps):
                 self._program_service = "".join(self._ps).rstrip()
 
