@@ -92,7 +92,14 @@ def staged_imagery_url(record):
         if key.startswith(prefix) and path.suffix.lower() in ('.jp2','.tif') and any(
                 path.stem==stem or path.stem.startswith(stem+'_') for stem in stems):
             matches.append(key)
-    if not matches:raise ValueError(f'No matching staged NAIP file for catalog names {sorted(stems)}')
+    if not matches:
+        state_prefix=f'StagedProducts/NAIP/mi_{record["Year"]}/'
+        address='https://prd-tnm.s3.amazonaws.com/?'+urlencode({'list-type':2,'prefix':state_prefix,'delimiter':'/','max-keys':1000})
+        with urlopen(address,timeout=60) as response:
+            listing=ET.fromstring(response.read(2*1024*1024))
+        folders=[item.findtext('{*}Prefix') for item in listing.findall('{*}CommonPrefixes')]
+        keys=[item.findtext('{*}Key') for item in document.findall('{*}Contents')]
+        raise ValueError(f'No matching staged NAIP file for catalog names {sorted(stems)}; directory keys={keys[:8]}; state folders={folders[:12]}')
     chosen=sorted(matches,key=lambda key:(Path(key).suffix.lower()=='.jp2',key))[-1]
     return approved_url('https://prd-tnm.s3.amazonaws.com/'+quote(chosen,safe='/'))
 
