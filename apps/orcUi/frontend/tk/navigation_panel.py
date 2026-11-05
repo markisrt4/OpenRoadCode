@@ -18,6 +18,7 @@ from collections.abc import Callable
 
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from ui.weather.radar_ui_if import RadarPalette
+from ui.navigation.map_layer_controls import MapLayerAction, MapLayerControls
 from ui.navigation.map_platform_if import MapPlatform, MapPlatformState, MapPlatformControlIf
 from ui.navigation.poi_models import PoiCategory, TransitMode
 from ui.navigation import (
@@ -156,6 +157,7 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
             self.set_follow_enabled(self._map_follow_enabled)
         self._terrain_active = terrain
         self._follow_button.configure(state='disabled' if state.busy else 'normal')
+        self._apply_layer_controls(state.layer_controls,terrain and not state.busy)
         if state.busy:
             self._loading_cover.configure(text='Loading Terrain…' if terrain else 'Loading map…')
             self._loading_cover.grid()
@@ -169,6 +171,30 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         else:
             self._zoom_text.set(f'{self._zoom_level:.1f}')
             self._dimension_text.set('2D' if self._pitch_rad > 0 else '3D')
+
+    def _apply_layer_controls(self, state: MapLayerControls, terrain: bool) -> None:
+        ui=self._theme_bundle.ui
+        values={control.action:control for control in state.controls}
+        for action,button in self._layer_buttons.items():
+            control=values.get(action)
+            available=terrain and control is not None and control.available
+            label=control.label if control else {
+                MapLayerAction.IMAGERY:'Imagery',MapLayerAction.BUILDINGS:'Buildings',
+                MapLayerAction.ROADS:'Roads',MapLayerAction.PLACES:'Places',
+                MapLayerAction.RELIEF:'Relief',MapLayerAction.HEIGHT:'Height 1×',
+                MapLayerAction.CUES:'Terrain cues',MapLayerAction.GRID:'Grid'}[action]
+            enabled=available and control.enabled
+            text=label if action is MapLayerAction.HEIGHT else f'{"●" if enabled else "○"} {label}'
+            button.configure(text=text,state='normal' if available else 'disabled',
+                             fg=ui.accent_primary if enabled else ui.control_text)
+
+    def _request_layer(self, action: MapLayerAction) -> None:
+        if self._map_platform is not None:
+            self._map_platform.request_layer(action)
+
+    def _reset_map_view(self) -> None:
+        if not self._terrain_camera('reset'):
+            self._recenter()
 
     @property
     def map_host_window_id(self) -> int:
@@ -209,7 +235,7 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
             return
         if state.expanded:
             self._map_controls.place(
-                relx=1.0, rely=0.0, anchor="ne", width=140, relheight=1.0,
+                relx=1.0, rely=0.0, anchor="ne", width=224, relheight=1.0,
             )
             self._map_controls.lift()
             self._map_controls_handle.place_forget()

@@ -36,7 +36,19 @@ check_command dbus-launch
 check_command xrandr
 
 if [[ " ${FEATURES[*]} " == *" browser "* ]]; then
-  check_command chromium
+  browser_command=''
+  for candidate in chromium-browser chromium google-chrome; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+      browser_command="$candidate"
+      break
+    fi
+  done
+  if [[ -n "$browser_command" ]]; then
+    check_command "$browser_command"
+  else
+    echo "[!] Browser missing; tried chromium-browser, chromium, google-chrome" >&2
+    fail=1
+  fi
 fi
 
 if python - <<'PY' >/dev/null 2>&1

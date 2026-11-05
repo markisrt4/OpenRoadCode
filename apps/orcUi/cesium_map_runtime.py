@@ -9,6 +9,7 @@ import time
 from collections import deque
 
 from ui.navigation import GeoPoint, MapMarkerSelectionSourceIf
+from ui.navigation.map_layer_controls import MapLayerAction, MapLayerControls
 from ui.navigation.cesium_viewer_state import CesiumViewerState
 from ui.navigation.map_platform_if import MapPlatform, MapPlatformState, ExplorationCameraAction
 from ui.navigation.poi_overlay_state import PoiOverlayState
@@ -222,6 +223,23 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
                 if self._current(generation):
                     self._state = replace(self._state, status=f'3D camera unavailable: {error}')
 
+    def request_layer(self, action):
+        action=MapLayerAction(action)
+        with self._lock:
+            if self._closed or self._state.busy or self._state.active is not MapPlatform.CESIUM:
+                return
+            self._worker.submit(self._layer,action,self._generation)
+
+    def _layer(self, action, generation):
+        if not self._current(generation):
+            return
+        try:
+            self._viewer.request_layer(action)
+        except Exception as error:
+            with self._lock:
+                if self._current(generation):
+                    self._state=replace(self._state,status=f'Map layer unavailable: {error}')
+
     def _current(self, generation):
         with self._lock:
             return not self._closed and self._host is not None and generation == self._generation
@@ -291,6 +309,11 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
                         if self._current(generation):
                             self._poi_selections.append(marker_id)
                 self._send_position(generation)
+                layers=self._viewer.layer_controls
+                if isinstance(layers,MapLayerControls):
+                    with self._lock:
+                        if self._current(generation):
+                            self._state=replace(self._state,layer_controls=layers)
                 self._poll_timeouts = 0
         except Exception as error:
             if isinstance(error, TimeoutError) and self._current(generation):

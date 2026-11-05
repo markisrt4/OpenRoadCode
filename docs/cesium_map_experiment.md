@@ -1073,3 +1073,27 @@ On Termux, check road/freeway lines, place labels, the Roads & places toggle,
 panning/following across tile boundaries, and closing ORC with Terrain active.
 Actual WebGL appearance, road-overlay performance and shutdown latency still need
 device validation; cloud checks use synthetic MVT/SQLite fixtures.
+
+
+## Unified ORC map controls
+
+The embedded Map and Terrain views now use one ORC-owned collapsible drawer with
+Cesium-inspired button grouping. Follow, recenter, north-up, 2D/3D, directional pan,
+zoom and tilt retain their existing semantic camera requests. Reset restores the
+initial Terrain view; in Map it uses the existing vehicle recenter behavior.
+Layers and Terrain options fold away, and the drawer scrolls in short windows
+without changing the native map host's geometry or its window ID.
+
+Terrain exposes imagery, buildings, roads, places, relief, height exaggeration,
+terrain cues and grid controls through immutable `MapLayerControls` snapshots.
+Unavailable layers are disabled. Those additional layer controls are disabled in
+regular Map mode until its renderer exposes corresponding capabilities. Imagery
+visibility also applies to subsequently streamed imagery, independently of
+terrain cues. Layer requests run on the existing serialized worker and discard
+stale generations; the Tk widgets never reach into browser/process objects.
+
+Embedded Terrain no longer shows a second browser controls panel. The standalone
+viewer retains its browser panel. No extra WebGL context, render-loop work or
+source download was added. Native X11 stacking, touch, drawer sizing, scroll and
+mode changes still require Termux device verification, as does GPU stability.
+The generated mockup was a styling reference, not a promise of new map imagery.

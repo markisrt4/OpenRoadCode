@@ -275,3 +275,27 @@ def test_repeated_browser_poll_timeouts_restore_map_with_reason(mounted,caplog):
     assert runtime.state.active is MapPlatform.MAPLIBRE
     assert 'browser timed out' in runtime.state.status
     assert '3D map returned to Map' in caplog.text
+
+
+def test_layer_state_and_requests_are_scoped_to_current_terrain_generation(mounted):
+    from ui.navigation.map_layer_controls import MapLayerAction, MapLayerControl, MapLayerControls
+    runtime,native,viewer=mounted
+    runtime._stop_tick.set()
+    runtime._ticker.join(timeout=2)
+    runtime.request_layer(MapLayerAction.BUILDINGS)
+    flush(runtime)
+    viewer.request_layer.assert_not_called()
+    explore(runtime)
+    viewer.layer_controls=MapLayerControls((MapLayerControl(MapLayerAction.BUILDINGS,'Buildings',True,False),))
+    runtime._worker.submit(runtime._tick,runtime._generation).result(timeout=3)
+    assert runtime.state.layer_controls==viewer.layer_controls
+    runtime.request_layer(MapLayerAction.BUILDINGS)
+    flush(runtime)
+    viewer.request_layer.assert_called_once_with(MapLayerAction.BUILDINGS)
+    stale=runtime._generation
+    runtime.request_platform(MapPlatform.MAPLIBRE)
+    flush(runtime)
+    assert not runtime.state.layer_controls.controls
+    viewer.request_layer.reset_mock()
+    runtime._layer(MapLayerAction.BUILDINGS,stale)
+    viewer.request_layer.assert_not_called()
