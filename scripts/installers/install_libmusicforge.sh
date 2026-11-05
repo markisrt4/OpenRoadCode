@@ -30,7 +30,12 @@ if [[ "${PREFIX:-}" == "/data/data/com.termux/files/usr" ]]; then
   python -m pip install --disable-pip-version-check --no-deps "$LIBMUSICFORGE_SOURCE"
 else
   echo "[*] Installing libMusicForge with audio analysis from $LIBMUSICFORGE_SOURCE..."
-  python -m pip install --disable-pip-version-check "${LIBMUSICFORGE_SOURCE}[analysis]"
+  if [[ "$LIBMUSICFORGE_SOURCE" == git+* ]]; then
+    # PEP 508 direct-reference syntax keeps extras separate from the VCS URL.
+    python -m pip install --disable-pip-version-check "libmusicforge[analysis] @ $LIBMUSICFORGE_SOURCE"
+  else
+    python -m pip install --disable-pip-version-check "${LIBMUSICFORGE_SOURCE}[analysis]"
+  fi
 fi
 
 python -c 'from musicforge.analysis import MusicAnalyzer; print("[+] libMusicForge analyzer:", MusicAnalyzer.__module__)'
