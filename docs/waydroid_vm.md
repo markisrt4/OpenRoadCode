@@ -63,6 +63,10 @@ launches ORC through `./runOrcUi`. It performs the following stages:
    configure the existing location provider and grant installed Waze location
    permissions. It does not remove a PIN/password; a secure-lock failure stops
    setup with an explanation.
+   Location setup checks the manager's pinned serial against live container eth0
+   instead of requiring the CLI status summary to repeat the IP. Its standalone
+   command also falls back to eth0 when status omits the address; it still requires
+   an authorized ADB device identified as Waydroid before changing permissions.
 8. Launch ORC with the selected Wayland socket and Android serial. Configuration
    happens before ORC loads its location-provider settings.
 

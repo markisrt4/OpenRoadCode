@@ -4,6 +4,7 @@
 """Explicit, reversible mock-location setup for the local Waydroid instance."""
 import argparse
 import json
+import ipaddress
 import os
 import re
 import subprocess
@@ -36,17 +37,31 @@ def save(path, value):
     temporary.replace(path)
 
 
+def local_serial(*, from_container=False):
+    """Use live eth0 when status omits its IP or a caller pins a verified device."""
+    if not from_container:
+        status = run(['waydroid', 'status'])
+        status = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', status)
+        match = re.search(r'^\s*IP address:\s*(\d+\.\d+\.\d+\.\d+)\s*$', status, re.MULTILINE)
+        if match is not None:
+            return str(ipaddress.IPv4Address(match[1])) + ':5555'
+    address = run(['sudo', '-n', 'waydroid', 'shell', '--', 'ip', '-4', 'addr', 'show', 'eth0'])
+    match = re.search(r'\binet\s+(\d+\.\d+\.\d+\.\d+)/\d+\b', address)
+    if match is None:
+        raise RuntimeError('The local Waydroid eth0 interface has no IPv4 address. Wait for Android networking, then retry.')
+    return str(ipaddress.IPv4Address(match[1])) + ':5555'
+
+
 def location_status():
     """Read only configuration and permission flags; never collect coordinates."""
     path = configuration_path()
     configuration = json.loads(path.read_text()) if path.exists() else {}
     report = {'configured': configuration.get('enabled') is True}
-    status = run(['waydroid', 'status'])
-    match = re.search(r'^\s*IP address:\s*(\d+\.\d+\.\d+\.\d+)\s*$', status, re.MULTILINE)
-    if match is None:
-        report['android_connection'] = 'Waydroid has no IP address'
+    try:
+        serial = local_serial()
+    except RuntimeError:
+        report['android_connection'] = 'Local Android address unavailable; run sudo -v for container inspection'
         return report
-    serial = match[1] + ':5555'
     report['configured_device_matches_session'] = configuration.get('serial') == serial
     report['android_connection'] = 'unavailable'
     try:
@@ -76,15 +91,14 @@ def setup(action, serial=None):
     previous = json.loads(path.read_text()) if path.exists() else None
     if action == 'disable' and previous is None:
         return
-    status = run(['waydroid', 'status'])
-    match = re.search(r'^\s*IP address:\s*(\d+\.\d+\.\d+\.\d+)\s*$', status, re.MULTILINE)
-    if match is None:
-        raise RuntimeError('Start the local Waydroid session and wait until it has an IP address.')
-    expected = match[1] + ':5555'
+    expected = local_serial(from_container=serial is not None)
     if serial is not None and serial != expected:
         raise RuntimeError('The selected ADB device does not match the local Waydroid session.')
+    if serial is None:
+        run(['adb', 'connect', expected])
     serial = expected
-    run(['waydroid', 'adb', 'connect'])
+    if run(['adb', '-s', serial, 'get-state']) != 'device':
+        raise RuntimeError('The local Waydroid ADB connection is not authorized/ready.')
     model = run(['adb', '-s', serial, 'shell', 'getprop', 'ro.product.model'])
     if 'waydroid' not in model.casefold():
         raise RuntimeError('The selected Android device is not identified as Waydroid.')

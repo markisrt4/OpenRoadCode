@@ -41,6 +41,8 @@ def test_status_reports_stale_device_and_denied_waze_permission_without_mutation
         calls.append(arguments)
         if arguments == ['waydroid', 'status']:
             return 'IP address: 192.168.240.112'
+        if arguments[-1] == 'get-state':
+            return 'device'
         if 'ro.product.model' in arguments:
             return 'WayDroid-x86_64-Device'
         if arguments[-2:] == ['id', '-u']:
@@ -71,6 +73,8 @@ def test_explicit_setup_saves_original_permission_and_disable_restores_it(tmp_pa
         calls.append(arguments)
         if arguments == ['waydroid', 'status']:
             return 'IP address: 192.168.240.112'
+        if arguments[-1] == 'get-state':
+            return 'device'
         if 'ro.product.model' in arguments:
             return 'WayDroid-x86_64-Device'
         if arguments[-1] == 'help':
@@ -105,9 +109,63 @@ def test_other_device_is_rejected_before_any_permission_changes(tmp_path, monkey
         calls.append(arguments)
         if arguments == ['waydroid', 'status']:
             return 'IP address: 192.168.240.112'
+        if arguments[-1] == 'get-state':
+            return 'device'
         return 'Android phone'
 
     monkeypatch.setattr(setup, 'run', run)
     with pytest.raises(RuntimeError, match='not identified as Waydroid'):
         setup.setup('enable')
     assert not any(command[0] == 'sudo' for command in calls)
+
+
+def test_vm_verified_serial_uses_live_container_ip_without_reconnecting_or_parsing_status(tmp_path, monkeypatch):
+    path = tmp_path / 'location.json'
+    monkeypatch.setattr(setup, 'configuration_path', lambda: path)
+    calls = []
+
+    def run(arguments):
+        calls.append(arguments)
+        assert arguments != ['waydroid', 'status']
+        if arguments[-5:] == ['ip', '-4', 'addr', 'show', 'eth0']:
+            return 'inet 192.168.240.123/24 brd 192.168.240.255 scope global eth0'
+        if arguments[-1] == 'get-state':
+            return 'device'
+        if 'ro.product.model' in arguments:
+            return 'WayDroid-x86_64-Device'
+        if arguments[-2:] == ['id', '-u']:
+            return '2000'
+        if arguments[-1] == 'help':
+            return 'add-test-provider set-test-provider-location'
+        if 'is-location-enabled' in arguments:
+            return 'false'
+        return 'MOCK_LOCATION: default'
+
+    monkeypatch.setattr(setup, 'run', run)
+    setup.setup('enable', '192.168.240.123:5555')
+    assert json.loads(path.read_text())['serial'] == '192.168.240.123:5555'
+    assert not any(command[:2] == ['adb', 'connect'] for command in calls)
+
+
+def test_live_container_address_still_rejects_a_different_explicit_device(tmp_path, monkeypatch):
+    monkeypatch.setattr(setup, 'configuration_path', lambda: tmp_path / 'location.json')
+    calls = []
+
+    def run(arguments):
+        calls.append(arguments)
+        return 'inet 192.168.240.112/24 scope global eth0'
+
+    monkeypatch.setattr(setup, 'run', run)
+    with pytest.raises(RuntimeError, match='does not match'):
+        setup.setup('enable', '192.168.240.123:5555')
+    assert len(calls) == 1
+
+
+def test_missing_status_ip_falls_back_to_local_container_without_guessing_an_address(monkeypatch):
+    def run(arguments):
+        if arguments == ['waydroid', 'status']:
+            return 'Session: RUNNING\nVendor type: MAINLINE'
+        return 'inet 192.168.240.123/24 scope global eth0'
+
+    monkeypatch.setattr(setup, 'run', run)
+    assert setup.local_serial() == '192.168.240.123:5555'
