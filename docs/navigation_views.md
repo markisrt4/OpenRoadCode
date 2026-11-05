@@ -49,6 +49,19 @@ reopen Waze after resizing ORC if a new display aspect ratio is needed.
 
 ## Device check
 
+Navigation panels, weather popups and Views previews release their owned Tk
+variables/images on the UI thread when destroyed. Keeping a retired widget in a
+callback must not leave Tcl finalization to a worker's later garbage collection.
+The shutdown regression test covers both normal screen teardown and root-window
+destruction before controller cleanup:
+
+```bash
+git switch feature/waze-live-map
+python -m pytest -q apps/orcUi/frontend/tk/unit_test/test_navigation_resource_cleanup.py apps/orcUi/composition/unit_test/test_startup_cleanup.py
+```
+
+Use an available X11 display to run the Tk resource-affinity test.
+
 On Termux with ADB connected, close ORC, update, then launch:
 
 ```bash

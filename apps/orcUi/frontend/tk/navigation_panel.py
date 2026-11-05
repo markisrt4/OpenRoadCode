@@ -308,7 +308,18 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
             self.close_radar_menu()
             self.close_places()
         finally:
-            super().destroy()
+            try:
+                super().destroy()
+            finally:
+                # Retired panels can survive in callbacks/cycles until a worker
+                # triggers GC. Their Tcl resources must be released now, on the
+                # UI thread, after the widgets using them have been destroyed.
+                for name in ('_zoom_text', '_dimension_text', '_shortcut_status',
+                             '_guidance_instruction', '_guidance_detail', '_classic_radar_var',
+                             '_earth_icon', '_earth_offline_icon', '_earth_button', '_poi_card'):
+                    if name in self.__dict__:
+                        setattr(self, name, None)
+                self._poi_action_buttons.clear()
 
     def _build(self) -> None:
         build_navigation_panel(self)

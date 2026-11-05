@@ -52,7 +52,7 @@ def test_core_factory_rolls_back_every_acquired_owner(failed):
 
 
 def test_application_start_failure_preserves_error_and_closes_once():
-    resources = {name: Mock() for name in ("core", "runtime", "radio", "games", "media", "weather")}
+    resources = {name: Mock() for name in ("core", "runtime", "radio", "games", "media", "weather", "waze_gestures")}
     composition = OrcUiComposition(**resources)
     startup = RuntimeError("ingress startup")
     resources["core"].start.side_effect = startup
@@ -64,7 +64,7 @@ def test_application_start_failure_preserves_error_and_closes_once():
     composition.close()
     resources["core"].app.shutdown.assert_called_once()
     resources["games"].shutdown.assert_called_once()
-    for name in ("media", "weather", "core", "runtime"):
+    for name in ("media", "weather", "core", "runtime", "waze_gestures"):
         resources[name].close.assert_called_once()
     resources["core"].lifecycle.execute_requested_action.assert_not_called()
 

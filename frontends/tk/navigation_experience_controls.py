@@ -283,4 +283,9 @@ class NavigationExperienceControls(tk.Frame, UiWidget):
             if self._poll_job is not None:
                 self.after_cancel(self._poll_job)
                 self._poll_job = None
-            self._drawer.destroy()
+            try:
+                self._drawer.destroy()
+            finally:
+                # Tcl widget destruction does not drop Python PhotoImage objects.
+                # Release them on this thread even if callbacks retain the frame.
+                self._previews.clear()

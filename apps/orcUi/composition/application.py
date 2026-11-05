@@ -94,6 +94,7 @@ class OrcUiComposition:
     waze: WazeComposition | None = None
     android_app_view: AndroidAppView | None = None
     waze_app_view: AndroidAppView | None = None
+    waze_gestures: WazeGestureController | None = None
 
     _closed: bool = field(default=False, init=False)
 
@@ -125,7 +126,7 @@ class OrcUiComposition:
         close_resources(
             self.app.shutdown,
             *(resource.close for resource in (
-                self.android_app_view, self.waze_app_view, self.waze, self.host_location, self.host_location_permission, self.location_sharing, self.host_location_session, self.performance_status, self.performance, self.vision, self.navigation,
+                self.waze_gestures, self.android_app_view, self.waze_app_view, self.waze, self.host_location, self.host_location_permission, self.location_sharing, self.host_location_session, self.performance_status, self.performance, self.vision, self.navigation,
                 self.navigation_places, self.radar_replay, self.weather_overlays,
             ) if resource is not None),
             self.radio.close,
@@ -456,6 +457,7 @@ def create_orc_ui_composition(
             waze=waze,
             android_app_view=android_app_view,
             waze_app_view=waze_app_view,
+            waze_gestures=waze_gestures,
         )
         cleanup.release()
         return composition
