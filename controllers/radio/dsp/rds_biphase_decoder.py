@@ -28,6 +28,7 @@ class RdsBiphaseDecoder:
         self._pending: int | None = None
         self._previous: int | None = None
         self.invalid_pairs = 0
+        self.total_pairs = 0
 
     def process(self, half_bits: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Return (decoded_bits, valid_mask), one entry per complete pair.
@@ -52,6 +53,7 @@ class RdsBiphaseDecoder:
                 continue
             first = self._pending
             self._pending = None
+            self.total_pairs += 1
             if first == sign:
                 self.invalid_pairs += 1
                 self._previous = None
