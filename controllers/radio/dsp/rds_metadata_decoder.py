@@ -35,6 +35,13 @@ class RdsMetadataDecoder:
         self._program_service: str | None = None
         self._radio_text: str | None = None
 
+    def lose_sync(self) -> None:
+        """Discard partial assemblies without erasing last-known station data."""
+        self._ps = [None] * 4
+        self._rt = [None] * 16
+        self._rt_ab = None
+        self._rt_variant = None
+
     @property
     def metadata(self) -> RdsMetadata:
         return RdsMetadata(self._pi, self._program_service, self._radio_text)
