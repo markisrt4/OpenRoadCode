@@ -13,7 +13,7 @@ from pathlib import Path
 import subprocess
 import time
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode, urlsplit, quote
+from urllib.parse import urlencode, urlsplit, urlunsplit, quote
 from urllib.request import urlopen
 
 from PIL import Image
@@ -26,6 +26,7 @@ from tools.map_builder.builder.terrain_artifact import package as package_terrai
 
 BOUNDS = PRESETS['rochester'][1]
 TNM = 'https://tnmaccess.nationalmap.gov/api/v1/products'
+PC = 'https://planetarycomputer.microsoft.com/api'
 MAX_SOURCE_BYTES = 1024 * 1024 * 1024
 MAX_FILE_BYTES = 512 * 1024 * 1024
 RIGHTS = {
@@ -62,9 +63,10 @@ def get_json(url, **parameters):
 
 def approved_url(url):
     parsed=urlsplit(url)
-    if (parsed.scheme!='https' or parsed.hostname!='prd-tnm.s3.amazonaws.com'
-            or not parsed.path.startswith('/StagedProducts/') or parsed.query or parsed.fragment):
-        raise ValueError(f'Source is not an approved public staged USGS file: {url}')
+    staged=parsed.hostname=='prd-tnm.s3.amazonaws.com' and parsed.path.startswith('/StagedProducts/')
+    mirror=parsed.hostname=='naipeuwest.blob.core.windows.net' and parsed.path.startswith('/naip/')
+    if parsed.scheme!='https' or not (staged or mirror) or parsed.query or parsed.fragment:
+        raise ValueError(f'Source is not an approved staged NAIP/3DEP file: {parsed.hostname}{parsed.path}')
     return url
 
 
@@ -130,20 +132,64 @@ def select_dem(catalog):
     return max(candidates,key=lambda item:str(item['record'].get('lastUpdated') or item['record'].get('publicationDate') or ''))
 
 
-def discover(output=None):
-    metadata=get_json(SERVICE,f='json')
-    if 'public domain' not in metadata.get('serviceDescription','').lower():
-        raise ValueError('NAIP service no longer declares public-domain source data')
-    imagery=get_json(SERVICE+'/query',f='json',where="State='MI' AND Category=1",
-                     geometry=','.join(map(str,BOUNDS)),geometryType='esriGeometryEnvelope',
-                     inSR=4326,spatialRel='esriSpatialRelIntersects',returnGeometry='false',outFields=CATALOG_FIELDS)
+def planetary_imagery():
+    collection=get_json(PC+'/stac/v1/collections/naip')
+    if not any('USDA' in provider.get('name','') and 'licensor' in provider.get('roles',[])
+               for provider in collection.get('providers',[])):
+        raise ValueError('Mirror NAIP collection no longer identifies USDA as licensor')
+    catalog=get_json(PC+'/stac/v1/search',collections='naip',bbox=','.join(map(str,BOUNDS)),limit=100)
+    if any(link.get('rel')=='next' for link in catalog.get('links',[])):
+        raise ValueError('Mirror catalog is incomplete within trial limits')
+    items=catalog.get('features',[])
+    if not items:raise ValueError('No NAIP mirror imagery in Rochester')
+    dated=[]
+    for item in items:
+        if item.get('collection')!='naip':raise ValueError('Unexpected mirror imagery collection')
+        date=item.get('properties',{}).get('datetime') or item.get('properties',{}).get('start_datetime') or ''
+        if not re.match(r'^20[0-9]{2}-',date):raise ValueError('Undated mirror NAIP item')
+        dated.append((int(date[:4]),item))
+    year=max(value[0] for value in dated)
+    selected=[]
+    for date,item in dated:
+        if date!=year:continue
+        asset=item['assets']['image']
+        url=approved_url(asset['href'])
+        if urlsplit(url).hostname!='naipeuwest.blob.core.windows.net':raise ValueError('Unexpected mirror storage')
+        selected.append({'url':url,'record':item})
+    selected=list({item['url']:item for item in selected}.values())
+    if not 1<=len(selected)<=12:raise ValueError('Mirror trial requires 1–12 NAIP files')
+    print(f'Mirror NAIP: {year} · {len(selected)} staged files',flush=True)
+    return selected,{'collection':collection,'catalog':catalog}
+
+
+def source_request_url(url):
+    if urlsplit(url).hostname!='naipeuwest.blob.core.windows.net':return url
+    signed=get_json(PC+'/sas/v1/sign',href=url)['href']
+    if urlunsplit(urlsplit(signed)._replace(query='',fragment=''))!=url:
+        raise ValueError('Mirror signing endpoint changed the requested file')
+    return signed
+
+
+def discover(output=None, imagery_source="usgs"):
+    if imagery_source=='planetary-computer':
+        selected,imagery=planetary_imagery()
+        metadata={'delivery':'Microsoft Planetary Computer public NAIP mirror','rights':RIGHTS['imagery'],
+                  'access_reference':'https://planetarycomputer.microsoft.com/docs/concepts/sas/'}
+    else:
+        metadata=get_json(SERVICE,f='json')
+        if 'public domain' not in metadata.get('serviceDescription','').lower():
+            raise ValueError('NAIP service no longer declares public-domain source data')
+        imagery=get_json(SERVICE+'/query',f='json',where="State='MI' AND Category=1",
+                         geometry=','.join(map(str,BOUNDS)),geometryType='esriGeometryEnvelope',
+                         inSR=4326,spatialRel='esriSpatialRelIntersects',returnGeometry='false',outFields=CATALOG_FIELDS)
+        selected=None
     terrain=get_json(TNM,bbox=','.join(map(str,BOUNDS)),
                      datasets='National Elevation Dataset (NED) 1/3 arc-second',max=100,outputFormat='JSON')
     if output is not None:
         write_json(output/'source-plan.json',{'source_catalogs':{'imagery':imagery,'terrain':terrain,'imagery_service':metadata}})
     return {'coverage':'rochester','bounds_deg':BOUNDS,'rights':RIGHTS,
             'discovered_at':datetime.now(timezone.utc).isoformat(),
-            'imagery':select_imagery(imagery),'terrain':[select_dem(terrain)],
+            'imagery':selected if selected is not None else select_imagery(imagery),'terrain':[select_dem(terrain)],
             'source_catalogs':{'imagery':imagery,'terrain':terrain,'imagery_service':metadata}}
 
 
@@ -162,8 +208,9 @@ def download_source(url, cache, remaining):
     for attempt in range(3):
         count=0
         try:
-            with urlopen(url,timeout=60) as response,temporary.open('wb') as output:
-                approved_url(response.geturl())
+            with urlopen(source_request_url(url),timeout=60) as response,temporary.open('wb') as output:
+                actual=urlunsplit(urlsplit(response.geturl())._replace(query='',fragment=''))
+                if approved_url(actual)!=url:raise ValueError('Staged source redirected to another file')
                 expected=int(response.headers.get('Content-Length',0))
                 if expected>min(remaining,MAX_FILE_BYTES):raise ValueError('Source exceeds trial transfer cap')
                 while chunk:=response.read(1024*1024):
@@ -249,13 +296,14 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--cache',type=Path,required=True)
+    parser.add_argument('--imagery-source',choices=('usgs','planetary-computer'),default='usgs')
     args=parser.parse_args()
     args.output.mkdir(parents=True,exist_ok=True)
     args.cache.mkdir(parents=True,exist_ok=True)
     started=time.monotonic()
     report={'status':'started','bounds_deg':BOUNDS,'source_payload_cap_bytes':MAX_SOURCE_BYTES}
     try:
-        plan=discover(args.output)
+        plan=discover(args.output,args.imagery_source)
         write_json(args.output/'source-plan.json',plan)
         files={};receipts={};remaining=MAX_SOURCE_BYTES
         for kind in ('imagery','terrain'):

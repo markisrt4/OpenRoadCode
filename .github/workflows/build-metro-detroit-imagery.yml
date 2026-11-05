@@ -33,6 +33,12 @@ on:
         type: choice
         default: all
         options: [overview, detail, all]
+      trial_imagery_source:
+        description: Rochester trial imagery delivery (same USDA NAIP dataset)
+        required: false
+        type: choice
+        default: usgs
+        options: [usgs, planetary-computer]
       release_tag:
         description: Optional release tag (defaults to metro-detroit-imagery-YYYYMMDD-runN)
         required: false
@@ -454,6 +460,7 @@ jobs:
     env:
       GDAL_CACHEMAX: '128'
       GDAL_NUM_THREADS: '1'
+      TRIAL_IMAGERY_SOURCE: ${{ inputs.trial_imagery_source || 'usgs' }}
     steps:
       - uses: actions/checkout@v6
       - name: Install build-host raster tools
@@ -471,7 +478,8 @@ jobs:
         run: |
           /usr/bin/python3 -m development.maps.static_tile_trial \
             --output build-output/rochester-static-trial \
-            --cache build-output/rochester-static-cache
+            --cache build-output/rochester-static-cache \
+            --imagery-source "$TRIAL_IMAGERY_SOURCE"
       - name: Preserve completed source files
         if: ${{ always() }}
         uses: actions/cache/save@v4
