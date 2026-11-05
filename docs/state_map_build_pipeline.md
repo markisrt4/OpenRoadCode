@@ -215,7 +215,7 @@ heights as ellipsoid altitudes. Catalog records and source raster metadata are
 retained. Incomplete imagery coverage or invalid elevations fail the trial.
 
 The trial permits at most 12 imagery files and one DEM, with 512 MiB per-file
-and 1 GiB combined source-payload limits. Downloads have three attempts and a
+and 1 GiB combined local source/crop-payload limits. Downloads have three attempts and a
 40-minute job deadline; retries can transfer additional bytes. Completed files
 are cached with URL/size/hash receipts. Partial-file transfers restart, and
 `force_rebuild=true` skips old source caches when a new acquisition is intended.
@@ -240,3 +240,40 @@ Source references:
 [TNMAccess API](https://tnmaccess.nationalmap.gov/api/v1/docs), and
 [3DEP products](https://www.usgs.gov/3d-elevation-program/about-3dep-products-services).
 The separate AWS NAIP mirror uses requester-pays access and is not used here.
+
+### Rochester source-access findings
+
+The first live trial (Actions run 42127306036) found that the current NAIP index
+returns EarthExplorer landing pages rather than direct files. Follow-up directory
+checks (run 42128007673) found no objects at the expected Michigan 2022 staged
+prefix. This is an observed access/layout limitation, not evidence that the
+imagery does not exist. These runs produced diagnostic artifacts, not map packs.
+
+The optional `trial_imagery_source=planetary-computer` selects Microsoft's public
+NAIP COG mirror for a separate trial. It validates the NAIP collection and USDA
+licensor identity, selects a dated year and retains the collection/item metadata.
+The build host requests a short-lived anonymous read URL from the documented
+signing API; signed URLs/tokens are not written to receipts or packs. Files are
+cached by their unsigned source URL and content hash. No account/subscription key
+is configured and the phone does not contact Microsoft. The 3DEP source stays the
+USGS staged GeoTIFF. Public access can still be throttled; this is not a guarantee
+of service availability or permission to substitute other imagery collections.
+
+```bash
+git switch navigation-cesium
+gh workflow run build-metro-detroit-imagery.yml --ref navigation-cesium \
+  -f build_target=rochester-static-trial \
+  -f trial_imagery_source=planetary-computer -f force_rebuild=false
+```
+
+References: [Microsoft's anonymous data-access documentation](https://planetarycomputer.microsoft.com/docs/concepts/sas/)
+and [NAIP collection metadata](https://planetarycomputer.microsoft.com/api/stac/v1/collections/naip).
+
+The mirror trial found four July 2022 NAIP COGs, but full-resolution whole-file
+transfers exceeded the small trial's payload cap. It now reads geographic crops
+from static COG files using HTTP range requests and caches self-contained local
+GeoTIFFs. No custom image-export service is invoked. Range-transfer byte counts
+are not yet instrumented; `cached_source_bytes` measures local crop/DEM storage,
+not total network traffic. Original acquisition dates, asset URLs and spatial
+metadata remain in the source plan. Temporary signed access URLs are redacted
+from GDAL diagnostics and never included in the published pack metadata.

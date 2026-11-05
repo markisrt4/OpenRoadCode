@@ -232,9 +232,43 @@ def download_source(url, cache, remaining):
         finally:temporary.unlink(missing_ok=True)
 
 
+def redact(text):
+    return re.sub(r'(https://[^\s?]+)\?[^\s]+',r'\1?[redacted]',str(text))
+
+
 def command(*args):
-    print('GDAL:',*map(str,args),flush=True)
-    subprocess.run(list(map(str,args)),check=True,timeout=600)
+    print('GDAL:',*[redact(arg) for arg in args],flush=True)
+    try:
+        result=subprocess.run(list(map(str,args)),capture_output=True,text=True,timeout=600)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError('GDAL trial processing timed out') from None
+    if result.returncode:
+        raise RuntimeError('GDAL failed: '+redact(result.stderr[-3000:]))
+    return result.stdout
+
+
+def crop_cog(url, cache, remaining):
+    """Read only the required COG blocks and cache a self-contained local crop."""
+    approved_url(url)
+    key=hashlib.sha256((url+str(BOUNDS)+'crop-v1').encode()).hexdigest()
+    target=cache/(key+'.tif');receipt=cache/(key+'.json')
+    if target.is_file() and receipt.is_file():
+        saved=json.loads(receipt.read_text())
+        if saved['url']==url and target.stat().st_size<=remaining and saved['sha256']==digest(target):
+            return target,saved
+    temporary=cache/(key+'.part.tif')
+    try:
+        signed=source_request_url(url)
+        command('gdalwarp','-overwrite','-wm','128','-t_srs','EPSG:4326','-te',*BOUNDS,
+                '-ts','4096','4096','-r','bilinear','-srcband','1','-srcband','2','-srcband','3',
+                '-dstalpha','-co','COMPRESS=DEFLATE','/vsicurl/'+signed,temporary)
+        if temporary.stat().st_size>min(remaining,MAX_FILE_BYTES):raise ValueError('COG crop exceeds trial cache cap')
+        saved={'url':url,'bytes':temporary.stat().st_size,'sha256':digest(temporary),
+               'method':'COG HTTP range crop; bytes measure cached crop, not network transfer',
+               'bounds_deg':BOUNDS,'downloaded_at':datetime.now(timezone.utc).isoformat()}
+        temporary.replace(target);write_json(receipt,saved)
+        return target,saved
+    finally:temporary.unlink(missing_ok=True)
 
 
 def process(plan, files, output):
@@ -244,14 +278,21 @@ def process(plan, files, output):
     sample_bounds=tuple(map(str,(west-dx/2,south-dy/2,east+dx/2,north+dy/2)))
     scratch=output/'processing'
     scratch.mkdir(parents=True,exist_ok=True)
-    images=[]
+    images=[];alpha_inputs=[]
     for index,source in enumerate(files['imagery']):
         vrt=scratch/f'rgb-{index}.vrt'
-        command('gdal_translate','-of','VRT','-b','1','-b','2','-b','3',source,vrt)
+        info=json.loads(command('gdalinfo','-json',source))
+        alpha=[band['band'] for band in info['bands'] if band.get('colorInterpretation')=='Alpha']
+        alpha_inputs.append(bool(alpha))
+        bands=[str(index) for index in [1,2,3]+alpha]
+        arguments=[value for band in bands for value in ('-b',band)]
+        command('gdal_translate','-of','VRT',*arguments,source,vrt)
         images.append(vrt)
+    if any(alpha_inputs) and not all(alpha_inputs):raise ValueError('Mixed alpha and RGB source layouts need review')
+    source_alpha=('-srcalpha',) if all(alpha_inputs) else ()
     mosaic=scratch/'imagery.tif'
     command('gdalwarp','-overwrite','-wm','128','-t_srs','EPSG:4326','-te',*bounds,
-            '-ts','4096','4096','-r','bilinear','-dstalpha','-of','GTiff',*images,mosaic)
+            '-ts','4096','4096','-r','bilinear',*source_alpha,'-dstalpha','-of','GTiff',*images,mosaic)
     imagery=output/'rochester-imagery'
     imagery.mkdir(exist_ok=True)
     with Image.open(mosaic) as image:
@@ -309,14 +350,16 @@ def main():
         for kind in ('imagery','terrain'):
             files[kind]=[];receipts[kind]=[]
             for item in plan[kind]:
-                path,receipt=download_source(item['url'],args.cache,remaining)
+                path,receipt=(crop_cog(item['url'],args.cache,remaining)
+                              if kind=='imagery' and args.imagery_source=='planetary-computer'
+                              else download_source(item['url'],args.cache,remaining))
                 remaining-=receipt['bytes']
                 info=subprocess.run(['gdalinfo','-json',str(path)],check=True,capture_output=True,text=True,timeout=60)
                 if len(info.stdout)>4*1024*1024:raise ValueError('Source raster metadata exceeds trial cap')
                 receipt={**receipt,'raster_info':json.loads(info.stdout)}
                 files[kind].append(path);receipts[kind].append(receipt)
         plan['download_receipts']=receipts
-        report.update(process(plan,files,args.output),status='validated',source_bytes=MAX_SOURCE_BYTES-remaining)
+        report.update(process(plan,files,args.output),status='validated',cached_source_bytes=MAX_SOURCE_BYTES-remaining)
     except Exception as error:
         report.update(status='failed',error=str(error))
         raise

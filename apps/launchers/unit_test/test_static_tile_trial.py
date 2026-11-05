@@ -90,3 +90,54 @@ def test_landing_page_resolves_only_names_verified_in_staged_directory(monkeypat
     assert module.staged_imagery_url(record)=='https://prd-tnm.s3.amazonaws.com/'+key
     with pytest.raises(ValueError,match='recognizable'):
         module.staged_imagery_url({**record,'Name':'unknown'})
+
+
+def test_public_mirror_selects_dated_naip_and_keeps_unsigned_source_identity(monkeypatch):
+    from development.maps import static_tile_trial as module
+    url='https://naipeuwest.blob.core.windows.net/naip/mi/2022/tile.tif'
+    collection={'providers':[{'name':'USDA Farm Service Agency','roles':['producer','licensor']}]}
+    catalog={'features':[{'id':'mi-fixture','collection':'naip','properties':{'datetime':'2022-07-30T00:00:00Z'},
+                         'assets':{'image':{'href':url}}}]}
+    monkeypatch.setattr(module,'get_json',lambda address,**kwargs:collection if address.endswith('/collections/naip') else catalog)
+    selected,evidence=module.planetary_imagery()
+    assert selected[0]['url']==url and '?' not in selected[0]['url']
+    assert evidence['collection']==collection
+    monkeypatch.setattr(module,'get_json',lambda *args,**kwargs:{'href':url+'?sig=fixture'})
+    assert module.source_request_url(url)==url+'?sig=fixture'
+    monkeypatch.setattr(module,'get_json',lambda *args,**kwargs:{'href':'https://other.example/tile.tif?sig=fixture'})
+    with pytest.raises(ValueError,match='changed'):module.source_request_url(url)
+
+
+def test_gdal_failures_and_timeouts_do_not_expose_temporary_access_urls(monkeypatch):
+    from types import SimpleNamespace
+    from development.maps import static_tile_trial as module
+    url='https://naipeuwest.blob.core.windows.net/naip/tile.tif?sig=fixture-secret'
+    monkeypatch.setattr(module.subprocess,'run',lambda *args,**kwargs:SimpleNamespace(returncode=1,stderr='failed '+url))
+    with pytest.raises(RuntimeError) as failure:module.command('gdalwarp',url)
+    assert 'fixture-secret' not in str(failure.value)
+    assert '[redacted]' in str(failure.value)
+
+
+def test_alpha_padded_cog_crops_mosaic_without_hiding_adjacent_tile(tmp_path):
+    if not shutil.which('gdal_create') or not shutil.which('gdalwarp'):
+        pytest.skip('GDAL build-host tools unavailable')
+    from PIL import Image
+    from development.maps.static_tile_trial import command
+    west,south,east,north=BOUNDS
+    split=(west+east)/2
+    crops=[]
+    for index,(left,right,color) in enumerate(((west,split,80),(split,east,160))):
+        source=tmp_path/f'part-{index}.tif';crop=tmp_path/f'crop-{index}.tif'
+        command('gdal_create','-of','GTiff','-outsize','16','16','-bands','3','-burn',color,
+                '-a_srs','EPSG:4326','-a_ullr',left,north,right,south,source)
+        command('gdalwarp','-overwrite','-t_srs','EPSG:4326','-te',*BOUNDS,
+                '-ts','64','64','-dstalpha',source,crop)
+        crops.append(crop)
+    dem=tmp_path/'dem.tif'
+    command('gdal_create','-of','GTiff','-outsize','16','16','-bands','1','-ot','Float32',
+            '-burn','200','-a_srs','EPSG:4326','-a_ullr','-84','43','-83','42',dem)
+    output=tmp_path/'output';output.mkdir()
+    process({'imagery':[],'terrain':[]},{'imagery':crops,'terrain':[dem]},output)
+    with Image.open(output/'rochester-imagery/imagery.jpg') as image:
+        assert 75<image.getpixel((1000,2000))[0]<85
+        assert 155<image.getpixel((3000,2000))[0]<165
