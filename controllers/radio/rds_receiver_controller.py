@@ -26,6 +26,7 @@ class RdsReceiverStatus:
     half_bit_samples_per_symbol: float
     locked_pair_phase: int | None
     phase_groups_found: tuple[int, int]
+    sync_confidence: int
 
 
 class RdsReceiverController:
@@ -58,6 +59,7 @@ class RdsReceiverController:
         self._locked_pair_phase = pair_phase
         self._bits_since_group = 0
         self._metadata = RdsMetadataDecoder()
+        self._sync_confidence = 0
 
     def reset(self) -> None:
         for stage in (self._fm, self._extractor, self._carrier,
@@ -66,6 +68,7 @@ class RdsReceiverController:
             stage.reset()
         self._locked_pair_phase = self._pair_phase
         self._bits_since_group = 0
+        self._sync_confidence = 0
 
     @property
     def status(self) -> RdsReceiverStatus:
@@ -77,6 +80,7 @@ class RdsReceiverController:
             half_bit_samples_per_symbol=self._timing.samples_per_symbol,
             locked_pair_phase=self._locked_pair_phase,
             phase_groups_found=tuple(stage.groups_found for stage in self._block_candidates),
+            sync_confidence=self._sync_confidence,
         )
 
     def process_iq(self, iq: np.ndarray) -> list[RdsGroup]:
@@ -103,12 +107,15 @@ class RdsReceiverController:
                             if item[0] == self._locked_pair_phase), None)
             if current is not None and current[2]:
                 self._bits_since_group = 0
+                self._sync_confidence = min(10, self._sync_confidence + len(current[2]))
             elif self._locked_pair_phase is not None:
                 self._bits_since_group += current[1] if current else 0
                 if self._bits_since_group >= self._loss_timeout_bits:
-                    self._locked_pair_phase = None
+                    self._sync_confidence = max(0, self._sync_confidence - 1)
                     self._bits_since_group = 0
-                    self._metadata.reset()
+                    if self._sync_confidence == 0:
+                        self._locked_pair_phase = None
+                        self._metadata.lose_sync()
             if self._locked_pair_phase is None:
                 winners = [item for item in candidates if item[2]]
                 if winners:
@@ -117,6 +124,7 @@ class RdsReceiverController:
                     self._biphase = self._biphases[winner[0]]
                     self._blocks = self._block_candidates[winner[0]]
                     self._bits_since_group = 0
+                    self._sync_confidence = max(1, min(10, len(winner[2])))
         selected = next((groups for phase, _, groups in candidates
                          if phase == self._locked_pair_phase), [])
         for group in selected:
