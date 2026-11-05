@@ -14,6 +14,8 @@ import time
 from dataclasses import asdict
 
 from controllers.radio.dsp.digital_downconverter import DigitalDownconverter
+from controllers.radio.dsp.fm_multiplex_discriminator import FmMultiplexDiscriminator
+from controllers.radio.dsp.rds_signal_diagnostics import RdsSignalDiagnostics
 from controllers.radio.rds_receiver_controller import RdsReceiverController
 from hardware_io.sdr.rtl_sdr_source import RtlSdrSource
 
@@ -64,6 +66,8 @@ def main(argv: list[str] | None = None) -> int:
 
     source = RtlSdrSource(device_index=args.device_index, acquisition_mode="async")
     downconverter = DigitalDownconverter()
+    discriminator = FmMultiplexDiscriminator()
+    signal_diagnostics = RdsSignalDiagnostics()
     receiver = RdsReceiverController()
     started = False
     previous_drops = 0
@@ -99,12 +103,16 @@ def main(argv: list[str] | None = None) -> int:
             drops = stats["dropped_blocks"]
             if drops > previous_drops:
                 downconverter.reset()
+                discriminator.reset()
+                signal_diagnostics.reset()
                 receiver.reset()
                 print(json.dumps({"event": "source_gap", "new_drops": drops - previous_drops}), flush=True)
             previous_drops = drops
             dsp_start = time.perf_counter()
             channel_iq = downconverter.process(block, args.frequency)
-            groups = receiver.process_iq(channel_iq)
+            multiplex = discriminator.process(channel_iq)
+            signal_diagnostics.update(multiplex)
+            groups = receiver.process_multiplex(multiplex)
             dsp_seconds += time.perf_counter() - dsp_start
             blocks += 1
             total_groups += len(groups)
@@ -130,6 +138,7 @@ def main(argv: list[str] | None = None) -> int:
             now = time.monotonic()
             if now >= report_at:
                 elapsed = max(now - start, 1e-9)
+                spectral = signal_diagnostics.snapshot()
                 if args.output == "json":
                     print(json.dumps({
                     "elapsed_s": round(elapsed, 2),
@@ -137,6 +146,7 @@ def main(argv: list[str] | None = None) -> int:
                     "groups_total": total_groups,
                     "groups_per_second": round(total_groups / elapsed, 3),
                     "rds": asdict(status),
+                    "signal": asdict(spectral) if spectral else None,
                     "source": stats,
                     "dsp_seconds_total": round(dsp_seconds, 3),
                     "dsp_utilization": round(dsp_seconds / elapsed, 3),
@@ -152,7 +162,12 @@ def main(argv: list[str] | None = None) -> int:
                         f"RadioText: {status.metadata.radio_text or 'Waiting...'}\n"
                         f"Groups: {total_groups} total | {report_groups / max(now - report_time, 1e-9):.2f}/s recent\n"
                         f"Invalid pairs: {status.invalid_pairs} | Carrier offset: {status.carrier_offset_hz:+.2f} Hz\n"
-                        f"DSP: {100 * dsp_seconds / elapsed:.1f}% | SDR drops: {drops}",
+                        f"DSP: {100 * dsp_seconds / elapsed:.1f}% | SDR drops: {drops}\n"
+                        + (f"Pilot 19k: {spectral.pilot_19khz_dbfs:.1f} dBFS | "
+                           f"RDS 57k band: {spectral.rds_57khz_band_dbfs:.1f} dBFS | "
+                           f"Adjacent: {spectral.adjacent_noise_dbfs:.1f} dBFS | "
+                           f"Contrast: {spectral.rds_to_adjacent_db:+.1f} dB"
+                           if spectral else "Spectrum: collecting samples..."),
                         flush=True,
                     )
                 report_groups = 0
