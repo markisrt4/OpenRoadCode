@@ -82,9 +82,9 @@ def test_explicit_setup_saves_original_permission_and_disable_restores_it(tmp_pa
         if arguments[-2:] == ['id', '-u']:
             return uid
         if 'get' in arguments:
-            return 'MOCK_LOCATION: default'
+            return 'MOCK_LOCATION: allow' if arguments[0] == 'adb' else 'MOCK_LOCATION: default'
         if 'is-location-enabled' in arguments:
-            return 'false'
+            return 'true' if any('set-location-enabled' in call for call in calls) else 'false'
         return ''
 
     monkeypatch.setattr(setup, 'run', run)
@@ -138,8 +138,8 @@ def test_vm_verified_serial_uses_live_container_ip_without_reconnecting_or_parsi
         if arguments[-1] == 'help':
             return 'add-test-provider set-test-provider-location'
         if 'is-location-enabled' in arguments:
-            return 'false'
-        return 'MOCK_LOCATION: default'
+            return 'true' if any('set-location-enabled' in call for call in calls) else 'false'
+        return 'MOCK_LOCATION: allow' if arguments[0] == 'adb' else 'MOCK_LOCATION: default'
 
     monkeypatch.setattr(setup, 'run', run)
     setup.setup('enable', '192.168.240.123:5555')
@@ -169,3 +169,33 @@ def test_missing_status_ip_falls_back_to_local_container_without_guessing_an_add
 
     monkeypatch.setattr(setup, 'run', run)
     assert setup.local_serial() == '192.168.240.123:5555'
+
+
+@pytest.mark.parametrize('permission,enabled,message', [
+    ('ignore', 'true', 'mock-location permission'),
+    ('allow', 'false', 'still disabled'),
+])
+def test_setup_does_not_report_success_when_android_ignores_settings(tmp_path, monkeypatch, permission, enabled, message):
+    path = tmp_path / 'location.json'
+    monkeypatch.setattr(setup, 'configuration_path', lambda: path)
+    monkeypatch.setattr(setup, 'local_serial', lambda **kwargs: '192.168.240.112:5555')
+
+    def run(arguments):
+        if arguments[-1] == 'get-state':
+            return 'device'
+        if 'ro.product.model' in arguments:
+            return 'WayDroid-x86_64-Device'
+        if arguments[-2:] == ['id', '-u']:
+            return '2000'
+        if arguments[-1] == 'help':
+            return 'add-test-provider set-test-provider-location'
+        if 'appops' in arguments and 'get' in arguments:
+            return 'MOCK_LOCATION: ' + (permission if arguments[0] == 'adb' else 'default')
+        if 'is-location-enabled' in arguments:
+            return enabled
+        return ''
+
+    monkeypatch.setattr(setup, 'run', run)
+    with pytest.raises(RuntimeError, match=message):
+        setup.setup('enable')
+    assert json.loads(path.read_text())['enabled'] is False

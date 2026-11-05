@@ -32,3 +32,27 @@ def test_wrong_device_is_rejected_before_any_location_change():
             provider.send_location(GeoPoint(0, 0), 50)
     assert run.call_count == 1
     assert not provider._owns_provider
+
+
+def test_android_restart_during_cleanup_recreates_provider_after_reconnection():
+    provider = WaydroidLocationProvider('192.168.240.112:5555')
+    commands = []
+    restarted = False
+
+    def run(arguments, **kwargs):
+        nonlocal restarted
+        commands.append(arguments)
+        if 'remove-test-provider' in arguments and not restarted:
+            restarted = True
+            raise subprocess.TimeoutExpired(arguments, 3)
+        return subprocess.CompletedProcess(arguments, 0, 'WayDroid-x86_64-Device', '')
+
+    with patch('apps.launchers.waydroid_location_provider.subprocess.run', side_effect=run):
+        provider.send_location(GeoPoint(0, 0), 50)
+        with pytest.raises(RuntimeError, match='connection failed'):
+            provider.clear_location()
+        provider.send_location(GeoPoint(0, 0), 50)
+        provider.clear_location()
+    assert sum('ro.product.model' in command for command in commands) == 2
+    assert sum('add-test-provider' in command for command in commands) == 2
+    assert not provider._owns_provider

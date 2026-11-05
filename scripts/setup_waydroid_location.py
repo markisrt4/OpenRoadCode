@@ -130,6 +130,11 @@ def setup(action, serial=None):
     save(path, previous)
     run(['sudo', 'waydroid', 'shell', '--', 'cmd', 'appops', 'set', uid, 'android:mock_location', 'allow'])
     run(['adb', '-s', serial, 'shell', 'cmd', 'location', 'set-location-enabled', 'true', '--user', '0'])
+    modes = run(['adb', '-s', serial, 'shell', 'cmd', 'appops', 'get', uid, 'android:mock_location'])
+    if not re.search(r'MOCK_LOCATION:\s*allow\b', modes, re.IGNORECASE):
+        raise RuntimeError('Android did not grant mock-location permission to the runtime ADB identity.')
+    if run(['adb', '-s', serial, 'shell', 'cmd', 'location', 'is-location-enabled', '--user', '0']) != 'true':
+        raise RuntimeError('Android location is still disabled after setup.')
     previous['enabled'] = True
     save(path, previous)
 

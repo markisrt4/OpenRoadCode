@@ -57,5 +57,9 @@ class WaydroidLocationProvider(AndroidLocationProviderIf):
 
     def clear_location(self):
         if self._owns_provider:
-            self._command('providers', 'remove-test-provider', 'gps')
-            self._owns_provider = False
+            try:
+                self._command('providers', 'remove-test-provider', 'gps')
+            finally:
+                # A disconnected/restarted Android may already have lost the
+                # provider. Revalidate the device and recreate it on retry.
+                self._owns_provider = False

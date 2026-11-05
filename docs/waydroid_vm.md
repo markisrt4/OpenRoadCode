@@ -67,6 +67,8 @@ launches ORC through `./runOrcUi`. It performs the following stages:
    instead of requiring the CLI status summary to repeat the IP. Its standalone
    command also falls back to eth0 when status omits the address; it still requires
    an authorized ADB device identified as Waydroid before changing permissions.
+   It reads back the location switch and mock-location permission through the
+   runtime ADB identity before marking location setup enabled.
 8. Launch ORC with the selected Wayland socket and Android serial. Configuration
    happens before ORC loads its location-provider settings.
 
@@ -76,6 +78,9 @@ connections are not globally disconnected and its server is not killed.
 
 Browser location consent or an actual GNSS source is still required for a fresh
 host position. Mock-location setup provides a transport, not a GPS measurement.
+If Android restarts or ADB drops during provider cleanup, ORC revalidates the
+configured device and recreates its GPS test provider on the next fresh fix after
+connectivity returns. It does not replay stale fixes or reconnect other devices.
 Reachability/ADB checks do not establish Internet/DNS or Play Store availability.
 The network repair runs before each startup; it is not a new system-wide firewall
 or boot service. Bridge ARP/filtering failures that persist stop startup instead
