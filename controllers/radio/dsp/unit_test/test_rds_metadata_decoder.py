@@ -69,6 +69,32 @@ class RdsMetadataDecoderTest(unittest.TestCase):
         decoder.process(rt(2, "\r   "))
         self.assertIsNone(decoder.metadata.radio_text)
 
+    def test_repeated_segments_filter_single_corruption(self):
+        decoder = RdsMetadataDecoder(ps_repetitions=2)
+        for i, segment in enumerate(("WO", "MC", "10", "4 ")):
+            decoder.process(ps(i, segment))
+        self.assertIsNone(decoder.metadata.program_service)
+        decoder.process(ps(0, "XX"))
+        for i, segment in enumerate(("WO", "MC", "10", "4 ")):
+            decoder.process(ps(i, segment))
+        self.assertIsNone(decoder.metadata.program_service)
+        self.assertEqual(decoder.process(ps(0, "WO")).program_service, "WOMC104")
+
+    def test_sync_loss_retains_published_metadata(self):
+        decoder = RdsMetadataDecoder(ps_repetitions=2)
+        for _ in range(2):
+            for i, segment in enumerate(("WO", "MC", "10", "4 ")):
+                decoder.process(ps(i, segment))
+        before = decoder.metadata
+        decoder.lose_sync()
+        self.assertEqual(decoder.metadata, before)
+        decoder.process(ps(0, "ZZ"))
+        self.assertEqual(decoder.metadata, before)
+
+    def test_invalid_repetition_count(self):
+        with self.assertRaises(ValueError):
+            RdsMetadataDecoder(ps_repetitions=0)
+
     def test_rejects_non_group(self):
         with self.assertRaises(TypeError):
             RdsMetadataDecoder().process(None)
