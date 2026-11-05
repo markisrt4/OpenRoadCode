@@ -395,7 +395,11 @@ def test_map_data_workflow_builds_resumable_split_release_assets():
     assert 'assemble-generic-state' in workflow
     assert 'The state input is required for generic-state' in workflow
     assert 'pattern: map-data-us-${{ needs.prepare-generic-state.outputs.state }}-*' in workflow
+    assert 'validation-states' in workflow
+    assert 'state: [OH, HI, CA, AK]' in workflow
+    assert 'uses: ./.github/workflows/build-state-map-data.yml' in workflow
     state_workflow = Path('.github/workflows/build-state-map-data.yml').read_text()
+    assert 'workflow_call:' in state_workflow
     assert 'development.maps.state_map_catalog' in state_workflow
     assert 'uses: ./.github/workflows/build-michigan-terrain.yml' in state_workflow
     assert 'max-parallel: 1' in state_workflow

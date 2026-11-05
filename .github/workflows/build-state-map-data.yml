@@ -18,6 +18,21 @@ on:
         required: false
         type: boolean
         default: false
+  workflow_call:
+    inputs:
+      state:
+        description: State name, postal abbreviation, or FIPS code
+        required: true
+        type: string
+      scope:
+        description: Coverage tier to build
+        required: true
+        type: string
+      force_rebuild:
+        description: Ignore matching artifact caches
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write

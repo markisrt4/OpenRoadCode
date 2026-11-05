@@ -151,6 +151,19 @@ and creates the same kind of per-state draft release. Once
 `build-state-map-data.yml` reaches the repository's default branch, dispatch the
 dedicated **Build state map data** workflow instead:
 
+To exercise the automatic catalog across representative state shapes and sizes,
+the registered workflow also provides one GitHub-hosted sequential validation
+batch. It builds Ohio, Hawaii, California, and Alaska in that order, stopping on
+the first failed state:
+
+```bash
+git switch navigation-cesium
+gh workflow run build-metro-detroit-imagery.yml \
+  --ref navigation-cesium \
+  -f build_target=validation-states \
+  -f force_rebuild=false
+```
+
 ```bash
 git switch navigation-cesium
 gh workflow run build-state-map-data.yml \

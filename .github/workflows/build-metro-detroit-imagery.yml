@@ -21,6 +21,7 @@ on:
           - mi-upper-east
           - michigan-all
           - generic-state
+          - validation-states
       state:
         description: State name, postal abbreviation, or FIPS code (generic-state only)
         required: false
@@ -305,7 +306,7 @@ jobs:
 
   michigan:
     name: Build Michigan terrain package
-    if: ${{ inputs.build_target != 'metro-detroit' && inputs.build_target != 'michigan-all' && inputs.build_target != 'generic-state' }}
+    if: ${{ inputs.build_target != 'metro-detroit' && inputs.build_target != 'michigan-all' && inputs.build_target != 'generic-state' && inputs.build_target != 'validation-states' }}
     uses: ./.github/workflows/build-michigan-terrain.yml
     with:
       coverage: ${{ inputs.build_target }}
@@ -425,3 +426,18 @@ jobs:
             --title "${STATE^^} offline map data · ${SCOPE}" \
             --notes "State-driven USGS NAIP imagery and 3DEP terrain. Inspect all coverage assets before publishing this draft release."
           echo "Draft release: $tag" >> "$GITHUB_STEP_SUMMARY"
+
+  validation-states:
+    name: Validate state pipeline · ${{ matrix.state }}
+    if: ${{ inputs.build_target == 'validation-states' }}
+    strategy:
+      fail-fast: true
+      max-parallel: 1
+      matrix:
+        state: [OH, HI, CA, AK]
+    uses: ./.github/workflows/build-state-map-data.yml
+    with:
+      state: ${{ matrix.state }}
+      scope: all
+      force_rebuild: ${{ inputs.force_rebuild }}
+    secrets: inherit
