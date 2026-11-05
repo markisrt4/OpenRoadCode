@@ -12,6 +12,7 @@
   let imageryStack;
   let boundaryOverlay;
   let roadOverlay;
+  let mapLayers;
   let poiOverlay;
   let routeOverlay;
   let terrainHillshade;
@@ -178,7 +179,7 @@
       viewer.scene.requestRender();
     };
     window.ORCExplorationCamera = action => {
-      if (action === 'recenter') { reset(); return true; }
+      if (action === 'recenter' || action === 'reset') { reset(); return true; }
       if (action === 'dimension') {
         const tilt = viewer.camera.pitch+Math.PI/2;
         tilted = tilt < .001;
@@ -306,6 +307,9 @@
         if (!closing) status.textContent = 'Imagery unavailable: '+error.message+' · reference globe remains usable';
       }
     }
+    mapLayers=window.ORCMapLayers(viewer,snapshot,document);
+    window.ORCMapLayerState=()=>mapLayers.state();
+    window.ORCMapLayerAction=action=>mapLayers.request(action);
   } catch (error) {
     window.ORCViewerError = error.message;
     status.textContent = 'Unable to render: '+error.message+' — use Return to ORC or the window close button';
@@ -330,5 +334,5 @@
     if (!/unavailable|Unable|stopped/i.test(statusText.textContent)) statusText.hidden = true;
     document.getElementById('tiles-status').hidden = true;
   }
-  window.addEventListener('pagehide', () => { roadOverlay?.destroy(); terrainHillshade?.destroy(); boundaryOverlay?.destroy(); imageryStack?.destroy(); tiledMap?.destroy(); if (viewer && !viewer.isDestroyed()) viewer.destroy(); });
+  window.addEventListener('pagehide', () => { mapLayers?.destroy(); roadOverlay?.destroy(); terrainHillshade?.destroy(); boundaryOverlay?.destroy(); imageryStack?.destroy(); tiledMap?.destroy(); if (viewer && !viewer.isDestroyed()) viewer.destroy(); });
 })();

@@ -26,6 +26,7 @@ from ui.navigation.map_platform_if import ExplorationCameraAction
 from ui.navigation.poi_overlay_state import PoiOverlayState
 from ui.navigation.route_overlay_state import RouteOverlayState
 from ui.navigation import GeoPoint
+from ui.navigation.map_layer_controls import MapLayerAction, MapLayerControl, MapLayerControls
 
 
 def _diagnostic(stage, **details):
@@ -62,6 +63,7 @@ class CesiumEmbeddedViewer:
         self._server = None
         self._size = None
         self._devtools = self._target = None
+        self.layer_controls = MapLayerControls()
         self._manual_revision = 0
         self._manual_pending = False
         self._poi_selection = None
@@ -208,6 +210,15 @@ class CesiumEmbeddedViewer:
         if result.get('exceptionDetails') or result.get('result', {}).get('value') is not True:
             raise RuntimeError('3D camera rejected the requested action')
 
+    def request_layer(self, action):
+        action = MapLayerAction(action)
+        if self._devtools is None:
+            raise RuntimeError('3D layers are not ready')
+        result = self._devtools.command(self._target,'Runtime.evaluate',{
+            'expression':f'window.ORCMapLayerAction({json.dumps(action.value)})','returnByValue':True})
+        if result.get('exceptionDetails') or result.get('result',{}).get('value') is not True:
+            raise RuntimeError('Map layer unavailable')
+
     def tick(self, size):
         if self._server is None or self._browser is None:
             raise RuntimeError('Embedded 3D map is not running')
@@ -219,9 +230,12 @@ class CesiumEmbeddedViewer:
             self._embedder.resize(*size)
             self._size = size
         result = self._devtools.command(self._target, 'Runtime.evaluate', {
-            'expression':'({revision:window.ORCManualCameraRevision||0,poi:window.ORCConsumePoiSelection?window.ORCConsumePoiSelection():null})',
+            'expression':'({revision:window.ORCManualCameraRevision||0,poi:window.ORCConsumePoiSelection?window.ORCConsumePoiSelection():null,controls:window.ORCMapLayerState?window.ORCMapLayerState():[]})',
             'returnByValue':True})
         value = result.get('result', {}).get('value', {})
+        self.layer_controls = MapLayerControls(tuple(MapLayerControl(
+            MapLayerAction(item['action']),str(item['label'])[:40],
+            item['available'] is True,item['enabled'] is True) for item in value.get('controls',[])))
         revision = value.get('revision', 0)
         if type(revision) is int and revision != self._manual_revision:
             self._manual_pending = True
@@ -278,6 +292,7 @@ class CesiumEmbeddedViewer:
         resources, self._resources = self._resources, None
         self._browser = self._server = self._size = None
         self._devtools = self._target = None
+        self.layer_controls = MapLayerControls()
         self._manual_revision = 0
         self._manual_pending = False
         self._poi_selection = None

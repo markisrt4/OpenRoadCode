@@ -262,3 +262,22 @@ def test_system_info_uses_browser_target_not_page_target():
     client._command=Mock(return_value={'gpu':{}})
     assert client.system_info()=={'gpu':{}}
     client._command.assert_called_once_with('ws://127.0.0.1:9223/browser/id','SystemInfo.getInfo',{})
+
+
+def test_layer_snapshot_and_semantic_requests_use_owned_browser(native):
+    from ui.navigation.map_layer_controls import MapLayerAction
+    native.viewer.open(state(),100,(640,320))
+    native.devtools.command.side_effect=None
+    native.devtools.command.return_value={'result':{'value':{'revision':0,'poi':None,'controls':[
+        {'action':'buildings','label':'Buildings','available':True,'enabled':False}]}}}
+    native.viewer.tick((640,320))
+    control=native.viewer.layer_controls.controls[0]
+    assert control.action is MapLayerAction.BUILDINGS
+    assert control.available and not control.enabled
+    native.devtools.command.return_value={'result':{'value':True}}
+    native.viewer.request_layer(MapLayerAction.BUILDINGS)
+    assert native.devtools.command.call_args.args[2]['expression']=='window.ORCMapLayerAction("buildings")'
+    native.viewer.close()
+    assert not native.viewer.layer_controls.controls
+    with pytest.raises(RuntimeError,match='not ready'):
+        native.viewer.request_layer(MapLayerAction.BUILDINGS)

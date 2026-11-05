@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from enum import Enum
 from typing import Protocol
+from ui.navigation.map_layer_controls import MapLayerAction, MapLayerControls
 
 
 class MapPlatform(str, Enum):
@@ -25,6 +26,7 @@ class ExplorationCameraAction(str, Enum):
     NORTH = 'north'
     RECENTER = 'recenter'
     DIMENSION = 'dimension'
+    RESET = 'reset'
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,6 +38,7 @@ class MapPlatformState:
     available_platforms: tuple[MapPlatform, ...] = (MapPlatform.MAPLIBRE, MapPlatform.EARTH)
     follow_enabled: bool = False
     position_available: bool = False
+    layer_controls: MapLayerControls = MapLayerControls()
 
 
 class MapPlatformControlIf(Protocol):
@@ -72,6 +75,10 @@ class MapPlatformControlIf(Protocol):
 
         @param enabled True to follow vehicle position, false for free exploration.
         """
+        ...
+
+    def request_layer(self, action: MapLayerAction) -> None:
+        """Toggle an available layer, or cycle its terrain height multiplier."""
         ...
 
     def resize(self, width: int, height: int, owner_window_id: int) -> None:

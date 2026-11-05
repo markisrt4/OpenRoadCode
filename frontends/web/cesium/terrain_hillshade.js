@@ -45,6 +45,7 @@ window.ORCTerrainHillshade = function(viewer,data,C,onError=()=>{}) {
         rectangle:C.Rectangle.fromRadians(tile.west_rad,tile.south_rad,tile.east_rad,tile.north_rad),
         credit:data.attribution||tile.attribution});
       if(disposed||viewer.isDestroyed()||!entry.wanted)return;
+      provider.orcLayerRole='terrain-cues';
       entry.layer=viewer.imageryLayers.addImageryProvider(provider);
       viewer.scene.requestRender();
     } catch(error) {if(!disposed)onError(error);} finally {entry.pending=false;}

@@ -82,7 +82,7 @@ class NavigationPanelControlTest(unittest.TestCase):
         label.return_value.winfo_reqheight.return_value = 18
         with patch.multiple(
             "apps.orcUi.frontend.tk.navigation_panel_layout.tk",
-            Frame=Mock(), Button=Mock(), Label=label, Menubutton=Mock(), Menu=Mock(), PhotoImage=Mock(), Toplevel=Mock(),
+            Frame=Mock(), Button=Mock(), Label=label, Canvas=Mock(), Scrollbar=Mock(), Menubutton=Mock(), Menu=Mock(), PhotoImage=Mock(), Toplevel=Mock(),
         ):
             build_navigation_panel(panel)
         panel._build_radar_controls.assert_called_once()
@@ -194,7 +194,7 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel.set_map_controls_drawer_state(MapControlsDrawerState(expanded=True))
 
         panel._map_controls.place.assert_called_once_with(
-            relx=1.0, rely=0.0, anchor="ne", width=140, relheight=1.0,
+            relx=1.0, rely=0.0, anchor="ne", width=224, relheight=1.0,
         )
         panel._map_controls.lift.assert_called_once_with()
         panel._map_host.grid_configure.assert_not_called()
@@ -386,6 +386,8 @@ def test_close_places_cancels_poll_and_debounce_and_rejects_late_callbacks():
 def test_embedded_platform_keeps_host_geometry_and_enables_follow():
     from ui.navigation.map_platform_if import MapPlatform, MapPlatformState
     panel = object.__new__(NavigationPanel)
+    panel._theme_bundle = Mock()
+    panel._layer_buttons = {}
     panel._platform_toggle = None
     panel._terrain_active = False
     panel._follow_enabled = True
@@ -425,6 +427,8 @@ def test_terrain_toolbar_routes_camera_actions_without_native_requests():
 def test_loading_cover_stays_above_map_until_ready():
     from ui.navigation.map_platform_if import MapPlatform, MapPlatformState
     panel = object.__new__(NavigationPanel)
+    panel._theme_bundle = Mock()
+    panel._layer_buttons = {}
     panel._platform_toggle = None
     panel._terrain_active = False
     panel._follow_enabled = True
@@ -440,3 +444,32 @@ def test_loading_cover_stays_above_map_until_ready():
     panel.apply_map_platform_state(MapPlatformState(active=MapPlatform.CESIUM,requested=MapPlatform.CESIUM,follow_enabled=True))
     panel._loading_cover.grid_remove.assert_called_once()
     panel.set_follow_enabled.assert_called_with(True)
+
+
+def test_layer_presentation_uses_reported_state_and_disables_native_map_options():
+    from ui.navigation.map_layer_controls import MapLayerAction, MapLayerControl, MapLayerControls
+    panel=object.__new__(NavigationPanel)
+    panel._theme_bundle=Mock()
+    button=Mock()
+    panel._layer_buttons={MapLayerAction.BUILDINGS:button}
+    state=MapLayerControls((MapLayerControl(MapLayerAction.BUILDINGS,'Buildings',True,True),))
+    panel._apply_layer_controls(state,True)
+    assert button.configure.call_args.kwargs['state']=='normal'
+    assert button.configure.call_args.kwargs['text']=='● Buildings'
+    panel._apply_layer_controls(state,False)
+    assert button.configure.call_args.kwargs['state']=='disabled'
+
+
+def test_reset_preserves_existing_native_recenter_and_routes_terrain_reset():
+    from ui.navigation.map_platform_if import MapPlatform
+    panel=object.__new__(NavigationPanel)
+    panel._map_platform=None
+    panel._recenter=Mock()
+    panel._reset_map_view()
+    panel._recenter.assert_called_once()
+    panel._recenter.reset_mock()
+    panel._map_platform=Mock()
+    panel._map_platform.state.requested=MapPlatform.CESIUM
+    panel._reset_map_view()
+    panel._recenter.assert_not_called()
+    assert panel._map_platform.request_camera.call_args.args[0].value=='reset'
