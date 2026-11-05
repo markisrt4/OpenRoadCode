@@ -77,3 +77,16 @@ def test_staged_rasters_produce_existing_installable_pack_format(tmp_path):
         descriptor=json.loads((output/f'rochester-{kind}.zip.json').read_text())
         assert descriptor['coverage']=='rochester'
         assert descriptor['build_revision']=='static-source-trial-v1'
+
+
+def test_landing_page_resolves_only_names_verified_in_staged_directory(monkeypatch):
+    from io import BytesIO
+    from development.maps import static_tile_trial as module
+    name='m_4208310_se_17_060_20220715'
+    key=f'StagedProducts/NAIP/mi_2022/42083/{name}_20230101.jp2'
+    xml=f'<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><IsTruncated>false</IsTruncated><Contents><Key>{key}</Key></Contents></ListBucketResult>'
+    monkeypatch.setattr(module,'urlopen',lambda *args,**kwargs:BytesIO(xml.encode()))
+    record={'Year':2022,'Name':name,'download_url':'https://earthexplorer.usgs.gov/download/options/naip/1'}
+    assert module.staged_imagery_url(record)=='https://prd-tnm.s3.amazonaws.com/'+key
+    with pytest.raises(ValueError,match='recognizable'):
+        module.staged_imagery_url({**record,'Name':'unknown'})

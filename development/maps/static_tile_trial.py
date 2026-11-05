@@ -7,11 +7,13 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import math
+import re
+import xml.etree.ElementTree as ET
 from pathlib import Path
 import subprocess
 import time
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import urlencode, urlsplit, quote
 from urllib.request import urlopen
 
 from PIL import Image
@@ -66,6 +68,35 @@ def approved_url(url):
     return url
 
 
+def staged_imagery_url(record):
+    url=record['download_url']
+    if urlsplit(url).hostname=='prd-tnm.s3.amazonaws.com':return approved_url(url)
+    if urlsplit(url).hostname!='earthexplorer.usgs.gov':return approved_url(url)
+    stems={Path(str(record.get(key) or '')).stem for key in ('Name','raster_name')}
+    stems={stem for stem in stems if re.fullmatch(r'm_[0-9]{7}_[a-z0-9_]+',stem.lower())}
+    if not stems:raise ValueError('NAIP catalog lacks a recognizable staged raster name')
+    cells={stem[2:7] for stem in stems}
+    if len(cells)!=1:raise ValueError('NAIP catalog raster names disagree on grid cell')
+    prefix=f'StagedProducts/NAIP/mi_{record["Year"]}/{next(iter(cells))}/'
+    address='https://prd-tnm.s3.amazonaws.com/?'+urlencode({'list-type':2,'prefix':prefix,'max-keys':1000})
+    print(f'Staged NAIP directory: {prefix}',flush=True)
+    with urlopen(address,timeout=60) as response:
+        raw=response.read(2*1024*1024+1)
+    if len(raw)>2*1024*1024:raise ValueError('Staged directory exceeds trial limit')
+    document=ET.fromstring(raw)
+    if document.findtext('{*}IsTruncated')=='true':raise ValueError('Staged NAIP directory is truncated')
+    matches=[]
+    for entry in document.findall('{*}Contents'):
+        key=entry.findtext('{*}Key') or ''
+        path=Path(key)
+        if key.startswith(prefix) and path.suffix.lower() in ('.jp2','.tif') and any(
+                path.stem==stem or path.stem.startswith(stem+'_') for stem in stems):
+            matches.append(key)
+    if not matches:raise ValueError(f'No matching staged NAIP file for catalog names {sorted(stems)}')
+    chosen=sorted(matches,key=lambda key:(Path(key).suffix.lower()=='.jp2',key))[-1]
+    return approved_url('https://prd-tnm.s3.amazonaws.com/'+quote(chosen,safe='/'))
+
+
 def select_imagery(catalog):
     if catalog.get('exceededTransferLimit'):raise ValueError('Trial catalog is incomplete')
     records=[feature['attributes'] for feature in catalog.get('features',[])]
@@ -73,7 +104,7 @@ def select_imagery(catalog):
              and 'naip' in (str(r.get('Name',''))+' '+str(r.get('download_url',''))).lower()]
     if not records:raise ValueError('No dated staged NAIP products found')
     year=max(r['Year'] for r in records)
-    selected={approved_url(r['download_url']):r for r in records if r['Year']==year and r.get('download_url')}
+    selected={staged_imagery_url(r):r for r in records if r['Year']==year and r.get('download_url')}
     if not selected or len(selected)>12:raise ValueError('Trial requires 1–12 dated NAIP files')
     return [{'url':url,'record':record} for url,record in sorted(selected.items())]
 
@@ -92,7 +123,7 @@ def select_dem(catalog):
     return max(candidates,key=lambda item:str(item['record'].get('lastUpdated') or item['record'].get('publicationDate') or ''))
 
 
-def discover():
+def discover(output=None):
     metadata=get_json(SERVICE,f='json')
     if 'public domain' not in metadata.get('serviceDescription','').lower():
         raise ValueError('NAIP service no longer declares public-domain source data')
@@ -101,6 +132,8 @@ def discover():
                      inSR=4326,spatialRel='esriSpatialRelIntersects',returnGeometry='false',outFields=CATALOG_FIELDS)
     terrain=get_json(TNM,bbox=','.join(map(str,BOUNDS)),
                      datasets='National Elevation Dataset (NED) 1/3 arc-second',max=100,outputFormat='JSON')
+    if output is not None:
+        write_json(output/'source-plan.json',{'source_catalogs':{'imagery':imagery,'terrain':terrain,'imagery_service':metadata}})
     return {'coverage':'rochester','bounds_deg':BOUNDS,'rights':RIGHTS,
             'discovered_at':datetime.now(timezone.utc).isoformat(),
             'imagery':select_imagery(imagery),'terrain':[select_dem(terrain)],
@@ -215,7 +248,7 @@ def main():
     started=time.monotonic()
     report={'status':'started','bounds_deg':BOUNDS,'source_payload_cap_bytes':MAX_SOURCE_BYTES}
     try:
-        plan=discover()
+        plan=discover(args.output)
         write_json(args.output/'source-plan.json',plan)
         files={};receipts={};remaining=MAX_SOURCE_BYTES
         for kind in ('imagery','terrain'):
