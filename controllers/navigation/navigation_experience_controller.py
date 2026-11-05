@@ -2,12 +2,13 @@
 from ui.navigation.navigation_experience_if import NavigationExperience, NavigationExperienceState
 from ui.navigation.map_platform_if import MapPlatform
 from ui.navigation.poi_models import TransitMode
+from ui.navigation.waze_gesture_if import WazeGestureState
 
 
 class NavigationExperienceController:
     def __init__(self, *, platform, navigation_state, open_map, open_waze,
                  waze_state, waze_available, saved_map, saved_waze,
-                 show_places, search_places, select_place, clear_places, close_waze, select_platform=None):
+                 show_places, search_places, select_place, clear_places, close_waze, select_platform=None, gestures=None):
         self._platform = platform
         self._navigation_state = navigation_state
         self._open_map, self._open_waze = open_map, open_waze
@@ -17,11 +18,13 @@ class NavigationExperienceController:
         self._select_place, self._clear_places = select_place, clear_places
         self._close_waze = close_waze
         self._select_platform = select_platform or platform.request_platform
+        self._gestures = gestures
 
     @property
     def state(self):
         platform = self._platform.state
         waze = self._waze_state()
+        gestures = self._gestures.state if self._gestures is not None else WazeGestureState()
         selected = (NavigationExperience.WAZE if self._navigation_state().selected == 'waze'
                     else NavigationExperience.TERRAIN if platform.requested is MapPlatform.CESIUM
                     else NavigationExperience.ROAD)
@@ -29,7 +32,10 @@ class NavigationExperienceController:
             terrain_available=MapPlatform.CESIUM in platform.available_platforms,
             waze_available=self._waze_available(), waze_running=waze.active,
             busy=platform.busy or waze.launching or waze.closing,
-            waze_loading=waze.launching)
+            waze_loading=waze.launching,
+            waze_gestures_available=gestures.available and selected is NavigationExperience.WAZE and waze.active,
+            waze_gestures_supported=self._gestures is not None,
+            waze_gesture_busy=gestures.busy, waze_gesture_status=gestures.status)
 
     def request_experience(self, experience):
         if self.state.busy:
@@ -69,3 +75,8 @@ class NavigationExperienceController:
 
     def request_close_waze(self):
         self._close_waze()
+
+    def request_waze_gesture(self, gesture):
+        state = self.state
+        if state.waze_gestures_available and not state.busy and self._gestures is not None:
+            self._gestures.request_gesture(gesture)

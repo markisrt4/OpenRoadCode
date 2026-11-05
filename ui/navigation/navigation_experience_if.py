@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Protocol
 
 from ui.navigation.poi_models import PoiCategory, PointOfInterest, TransitMode
+from ui.navigation.waze_gesture_if import WazeGesture
 
 
 class NavigationExperience(str, Enum):
@@ -20,6 +21,10 @@ class NavigationExperienceState:
     waze_running: bool = False
     busy: bool = False
     waze_loading: bool = False
+    waze_gestures_available: bool = False
+    waze_gestures_supported: bool = False
+    waze_gesture_busy: bool = False
+    waze_gesture_status: str = ''
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,3 +52,5 @@ class NavigationExperienceRequestHandlerIf(Protocol):
     def request_clear_places(self) -> None: ...
 
     def request_close_waze(self) -> None: ...
+
+    def request_waze_gesture(self, gesture: WazeGesture) -> None: ...

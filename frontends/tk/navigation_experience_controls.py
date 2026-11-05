@@ -6,6 +6,7 @@ from ui.navigation.navigation_experience_if import (
     NavigationExperience, NavigationExperienceRequestHandlerIf, NavigationPlacesDrawerState,
 )
 from ui.navigation.poi_models import PoiCategory, TransitMode
+from ui.navigation.waze_gesture_if import WazeGesture
 
 
 class NavigationExperienceControls(tk.Frame, UiWidget):
@@ -31,8 +32,11 @@ class NavigationExperienceControls(tk.Frame, UiWidget):
                 side=tk.LEFT, padx=(0, 4), pady=3)
         self.places_button = self._button(toolbar, 'PLACES ▾', handler.request_places)
         self.places_button.pack(side=tk.LEFT, padx=2, pady=3)
-        self.views_button = self._button(toolbar, '▱ VIEWS', lambda: self.toggle_drawer('views'))
-        self.views_button.pack(side=tk.RIGHT, padx=4, pady=3)
+        right = tk.Frame(toolbar, bg=ui.surface_alt)
+        right.pack(side=tk.RIGHT, padx=4)
+        self.views_button = self._button(right, '▱ VIEWS', lambda: self.toggle_drawer('views'))
+        self.views_button.pack(fill=tk.X, pady=3)
+        self.gestures_button = self._button(right, 'WAZE CONTROLS ▾', lambda: self.toggle_drawer('gestures'))
         self._loading_label = tk.Label(self, text='Loading Waze…', bg=ui.surface_alt,
             fg=ui.accent_primary, font=('Sans', 12, 'bold'), pady=6)
         self._drawer = tk.Frame(drawer_parent, bg=ui.surface_alt,
@@ -95,6 +99,33 @@ class NavigationExperienceControls(tk.Frame, UiWidget):
         self._status.pack(fill=tk.X, padx=12, pady=8)
         self._results = tk.Frame(self._places, bg=ui.surface_alt)
         self._results.pack(fill=tk.X)
+        self._gestures = tk.Frame(self._content, bg=ui.surface_alt)
+        tk.Label(self._gestures, text='Move the view', bg=ui.surface_alt, fg=ui.text,
+                 font=('Sans', 12, 'bold')).pack(pady=8)
+        arrows = tk.Frame(self._gestures, bg=ui.surface_alt)
+        arrows.pack(fill=tk.X, padx=10)
+        arrows.columnconfigure((0, 1, 2), weight=1)
+        self._gesture_buttons = {}
+        for text, action, row, col in (
+            ('↑', WazeGesture.PAN_UP, 0, 1), ('←', WazeGesture.PAN_LEFT, 1, 0),
+            ('→', WazeGesture.PAN_RIGHT, 1, 2), ('↓', WazeGesture.PAN_DOWN, 2, 1),
+        ):
+            button = self._button(arrows, text, lambda value=action: handler.request_waze_gesture(value))
+            button.configure(font=('Sans', 18, 'bold'), pady=8)
+            button.grid(row=row, column=col, sticky='ew', padx=2, pady=2)
+            self._gesture_buttons[action] = button
+        zoom = tk.Frame(self._gestures, bg=ui.surface_alt)
+        zoom.pack(fill=tk.X, padx=10, pady=10)
+        zoom.columnconfigure((0, 1), weight=1)
+        for column, (text, action) in enumerate((('ZOOM +', WazeGesture.ZOOM_IN), ('ZOOM −', WazeGesture.ZOOM_OUT))):
+            button = self._button(zoom, text, lambda value=action: handler.request_waze_gesture(value))
+            button.grid(row=0, column=column, sticky='ew', padx=2)
+            self._gesture_buttons[action] = button
+        self._gesture_status = tk.Label(self._gestures, bg=ui.surface_alt, fg=ui.text_muted,
+                                        wraplength=210, justify=tk.LEFT)
+        self._gesture_status.pack(fill=tk.X, padx=12, pady=8)
+        tk.Label(self._gestures, text='Use with Waze’s map visible.\nWaze may resume automatic following.',
+                 bg=ui.surface_alt, fg=ui.text_muted, wraplength=210, justify=tk.LEFT).pack(padx=12, pady=8)
         self.set_places_state(self._places_state)
         self.bind('<Destroy>', self._destroyed, add='+')
         self._poll()
@@ -148,6 +179,17 @@ class NavigationExperienceControls(tk.Frame, UiWidget):
                 NavigationExperience.ROAD: 'MAP', NavigationExperience.WAZE: 'WAZE',
                 NavigationExperience.TERRAIN: 'TERRAIN'}[state.selected])
             self._render_loading()
+            if state.waze_gestures_supported and state.selected is NavigationExperience.WAZE:
+                self.gestures_button.pack(fill=tk.X, pady=(0, 3))
+            else:
+                self.gestures_button.pack_forget()
+                if self._drawer_kind == 'gestures':
+                    self.close_drawer()
+            self.gestures_button.configure(state=tk.NORMAL if state.waze_gestures_available and not state.busy else tk.DISABLED)
+            for button in self._gesture_buttons.values():
+                button.configure(state=tk.NORMAL if state.waze_gestures_available and not state.waze_gesture_busy
+                                 and not state.busy else tk.DISABLED)
+            self._gesture_status.configure(text=state.waze_gesture_status)
         self._poll_job = self.after(500, self._poll)
 
     def set_surface_loading(self, loading: bool):
@@ -174,8 +216,9 @@ class NavigationExperienceControls(tk.Frame, UiWidget):
         self._drawer_kind = kind
         self._views.pack_forget()
         self._places.pack_forget()
-        (self._views if kind == 'views' else self._places).pack(fill=tk.BOTH, expand=True)
-        self._title.configure(text='Navigation views' if kind == 'views' else 'Places nearby')
+        self._gestures.pack_forget()
+        {'views': self._views, 'places': self._places, 'gestures': self._gestures}[kind].pack(fill=tk.BOTH, expand=True)
+        self._title.configure(text={'views': 'Navigation views', 'places': 'Places nearby', 'gestures': 'Waze controls'}[kind])
         width = max(230, min(310, int(self._drawer_parent.winfo_width() * .42)))
         self._drawer.configure(width=width)
         self._drawer_parent.grid_columnconfigure(self._drawer_column, minsize=width, weight=0)

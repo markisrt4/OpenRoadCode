@@ -2,6 +2,8 @@
 
 NAV remains the single rail destination. The navigation bar now contains Home,
 Work, Places and Views on both the ORC map and native Waze screen.
+The Termux scrcpy integration also has a Waze Controls tray for pan and pinch
+zoom; see [Embedded Waze gestures](waze_gestures.md) for behavior and device checks.
 
 Views opens a docked drawer with schematic preview tiles for Road map, Waze and
 3D terrain. The selected experience is highlighted; Waze shows a running/resume

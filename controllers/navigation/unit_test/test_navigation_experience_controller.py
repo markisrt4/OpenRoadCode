@@ -9,14 +9,14 @@ from ui.navigation.waze_request_handler_if import WazeSessionState
 from ui.navigation.poi_models import PoiCategory, TransitMode
 
 
-def controller(selected='map', *, terrain=True, session=None):
+def controller(selected='map', *, terrain=True, session=None, gestures=None):
     actions = {name: Mock() for name in ('open_map', 'open_waze', 'saved_map', 'saved_waze',
         'show_places', 'search_places', 'select_place', 'clear_places', 'close_waze', 'select_platform')}
     platform = Mock(state=MapPlatformState(available_platforms=(MapPlatform.MAPLIBRE, MapPlatform.CESIUM)
                                            if terrain else (MapPlatform.MAPLIBRE,)))
     view = NavigationExperienceController(platform=platform,
         navigation_state=lambda: NavigationViewState(selected),
-        waze_state=lambda: session or WazeSessionState(active=True), waze_available=lambda: True, **actions)
+        waze_state=lambda: session or WazeSessionState(active=True), waze_available=lambda: True, gestures=gestures, **actions)
     return view, actions, platform
 
 
@@ -37,6 +37,19 @@ def test_launching_waze_has_its_own_loading_state_not_just_generic_busy():
     view, _, platform = controller()
     platform.state = replace(platform.state, busy=True)
     assert view.state.busy and not view.state.waze_loading
+
+
+def test_gesture_requests_are_scoped_to_active_waze_not_the_orc_camera():
+    from ui.navigation.waze_gesture_if import WazeGesture, WazeGestureState
+    gestures = Mock(state=WazeGestureState(available=True))
+    view, actions, platform = controller(gestures=gestures)
+    view.request_waze_gesture(WazeGesture.ZOOM_IN)
+    gestures.request_gesture.assert_not_called()
+    view, actions, platform = controller('waze', gestures=gestures)
+    view.request_waze_gesture(WazeGesture.ZOOM_IN)
+    gestures.request_gesture.assert_called_once_with(WazeGesture.ZOOM_IN)
+    platform.request_platform.assert_not_called()
+    actions['open_waze'].assert_not_called()
 
 
 def test_terrain_from_waze_opens_map_before_selecting_platform():

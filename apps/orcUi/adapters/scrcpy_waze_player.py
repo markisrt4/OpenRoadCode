@@ -24,6 +24,7 @@ class ScrcpyWazePlayer:
         self._retain_session = retain_session
         self._log_path = None
         self._log_offset = 0
+        self._gesture_frame = self._gesture_display = None
         self.window_name = f'OpenRoadCode Waze Android {uuid4().hex}'
 
     def vertical_crop(self):
@@ -36,6 +37,12 @@ class ScrcpyWazePlayer:
         """Queue a deep link for the next owned virtual display, never the phone display."""
         with self._process_lock:
             self._pending_destination = uri
+
+    def gesture_surface(self):
+        with self._process_lock:
+            if self._process is None or self._process.poll() is not None or self._gesture_frame is None:
+                return None
+            return self._process, self.window_name, self._gesture_frame, self._gesture_display
 
     def play(self, target, *, display, window_position=None, window_size=None):
         del target, window_position
@@ -71,13 +78,15 @@ class ScrcpyWazePlayer:
         # coordinates would then become an offset inside ORC and clip the view.
         # The embedder owns placement; the viewer starts at the same local origin.
         command.extend(('--window-x=0', '--window-y=0'))
-        environment = dict(os.environ, DISPLAY=display, SDL_VIDEODRIVER='x11')
+        environment = dict(os.environ, DISPLAY=display, SDL_VIDEODRIVER='x11', SDL_MOUSE_AUTO_CAPTURE='0')
         log_path = Path(os.environ.get('TMPDIR') or tempfile.gettempdir()) / 'orc-scrcpy-waze.log'
         with log_path.open('ab') as log:
             log_offset = log.tell()
             process = subprocess.Popen(command, env=environment, stdout=log, stderr=subprocess.STDOUT)
         with self._process_lock:
             self._process = process
+            self._gesture_frame = (display_width, display_height)
+            self._gesture_display = display
             self._log_path, self._log_offset = log_path, log_offset
             uri, self._pending_destination = self._pending_destination, None
             cancelled = self._destination_cancel = Event()

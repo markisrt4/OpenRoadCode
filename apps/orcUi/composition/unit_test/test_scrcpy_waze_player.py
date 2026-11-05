@@ -50,10 +50,13 @@ def test_viewer_uses_native_waze_virtual_display_and_requested_x11(tmp_path, mon
         assert f'--window-title={player.window_name}' in command
         assert spawn.call_args.kwargs['env']['DISPLAY'] == ':1'
         assert spawn.call_args.kwargs['env']['SDL_VIDEODRIVER'] == 'x11'
+        assert spawn.call_args.kwargs['env']['SDL_MOUSE_AUTO_CAPTURE'] == '0'
+        assert player.gesture_surface()[1:] == (player.window_name, (1296, 720), ':1')
         player.request_theme_refresh()
         assert spawn.call_count == 1
         player.stop()
         player.stop()
+        assert player.gesture_surface() is None
         process.wait.assert_not_called()
         assert worker.call_count == 1
         worker.call_args.kwargs['target'](*worker.call_args.kwargs['args'])

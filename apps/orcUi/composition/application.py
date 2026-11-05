@@ -22,6 +22,8 @@ from controllers.navigation.location_sharing_controller import LocationSharingCo
 from controllers.navigation.map_favorites import MapFavorites
 from controllers.navigation.navigation_view_controller import NavigationViewController
 from controllers.navigation.navigation_experience_controller import NavigationExperienceController
+from controllers.navigation.waze_gesture_controller import WazeGestureController
+from apps.orcUi.adapters.scrcpy_waze_gestures import ScrcpyWazeGestures
 from ui.navigation.waze_request_handler_if import WazeSessionState
 from apps.launchers.waydroid_location_provider import WaydroidLocationProvider
 from controllers.weather.radar_palette import RadarPalette
@@ -276,6 +278,12 @@ def create_orc_ui_composition(
         android_app_view = None
         waze_app_view = None
         waze_native_launcher = None
+        waze_gestures = None
+        if scrcpy_enabled and not waydroid_enabled:
+            scrcpy_player = ScrcpyWazePlayer(retain_session=True)
+            scrcpy_embedder = X11WindowEmbedder()
+            waze_gestures = WazeGestureController(ScrcpyWazeGestures(scrcpy_player, scrcpy_embedder))
+            cleanup.callback(waze_gestures.close)
         waze = None
         navigation_view = NavigationViewController(open_map=lambda: app.navigate_to('NAVIGATION'),
             open_waze=lambda: waze.request_open_waze() if waze is not None else app.navigate_to('NAVIGATION'))
@@ -295,7 +303,7 @@ def create_orc_ui_composition(
             search_places=lambda category, transit: navigation.request_search_places(category, transit),
             select_place=lambda place: navigation.request_select_place(place),
             clear_places=lambda: navigation.request_clear_places(), close_waze=close_waze,
-            select_platform=lambda platform: navigation.request_map_platform(platform))
+            select_platform=lambda platform: navigation.request_map_platform(platform), gestures=waze_gestures)
         if waydroid_enabled:
             android_app_view = AndroidAppView(app, map_runtime=navigation_maps, map_platform=navigation_maps,
                                               map_presentation=core.map_camera,
@@ -307,13 +315,13 @@ def create_orc_ui_composition(
                 on_present=navigation_view.remember_waze, experience_handler=experiences)
             cleanup.callback(waze_app_view.close)
         elif scrcpy_enabled:
-            scrcpy_player = ScrcpyWazePlayer(retain_session=True)
             waze_app_view = AndroidAppView(app, map_runtime=navigation_maps, map_platform=navigation_maps,
                 map_presentation=core.map_camera, player=scrcpy_player,
-                window_embedder=X11WindowEmbedder(), preserve_external_window=False,
+                window_embedder=scrcpy_embedder, preserve_external_window=False,
                 screen_label='WAZE_NATIVE', navigation_label='NAVIGATION',
                 persistent_session=True, close_action=close_waze, saved_destination_action=saved_waze_destination,
-                on_present=navigation_view.remember_waze, experience_handler=experiences)
+                on_present=navigation_view.remember_waze, experience_handler=experiences,
+                visibility_changed=waze_gestures.set_visible)
             cleanup.callback(waze_app_view.close)
             waze_native_launcher = ScrcpyWazeLauncher(prepare_destination=scrcpy_player.prepare_destination,
                                                      stop_viewer=scrcpy_player.stop)

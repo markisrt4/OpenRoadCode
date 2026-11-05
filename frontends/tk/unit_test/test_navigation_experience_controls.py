@@ -129,3 +129,28 @@ def test_loading_label_covers_launch_and_native_attachment_then_disappears(layou
     root.update()
     assert not bar._loading_label.winfo_ismapped()
     handler.request_experience.assert_not_called()
+
+
+def test_waze_controls_emit_gestures_disable_while_busy_and_share_the_drawer(layout):
+    from ui.navigation.waze_gesture_if import WazeGesture
+    root, _, bar, handler = layout
+    handler.state = replace(handler.state, selected=NavigationExperience.WAZE,
+        waze_gestures_supported=True, waze_gestures_available=True)
+    bar.after_cancel(bar._poll_job)
+    bar._poll()
+    root.update()
+    assert bar.gestures_button.winfo_ismapped()
+    assert bar.gestures_button.winfo_rooty() >= bar.views_button.winfo_rooty() + bar.views_button.winfo_height()
+    bar.gestures_button.invoke()
+    root.update()
+    assert bar._gestures.winfo_ismapped() and not bar._views.winfo_ismapped()
+    bar._gesture_buttons[WazeGesture.PAN_UP].invoke()
+    handler.request_waze_gesture.assert_called_once_with(WazeGesture.PAN_UP)
+    handler.state = replace(handler.state, waze_gesture_busy=True)
+    bar.after_cancel(bar._poll_job)
+    bar._poll()
+    bar._gesture_buttons[WazeGesture.PAN_UP].invoke()
+    assert handler.request_waze_gesture.call_count == 1
+    bar.views_button.invoke()
+    root.update()
+    assert bar._views.winfo_ismapped() and not bar._gestures.winfo_ismapped()
