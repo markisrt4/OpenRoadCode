@@ -21,6 +21,7 @@ test('terrain cues restore the prior globe presentation when disabled',()=>{
   assert.equal(globe.enableLighting,true);
   assert.equal(globe.material.spacing,10);
   cues.setScale(3);
+  cues.setScale(4);
   assert.equal(globe.material.spacing,30);
   cues.setEnabled(false);
   assert.equal(globe.enableLighting,false);

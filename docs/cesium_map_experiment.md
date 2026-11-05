@@ -2,11 +2,10 @@
 
 Branch: `navigation-cesium`. Tracking: [MAR-22](https://linear.app/mark-russell/issue/MAR-22).
 
-Stage one checks the renderer without changing ORC navigation. It renders a local
-ellipsoid globe, procedural geographic grid, and a static Detroit marker. Around
-the marker, a synthetic 250-metre checkerboard grid, 250/500/1,000-metre distance
-rings, and labelled compass directions make camera movement visible. A yellow
-ground arrow points north; the footer reports camera height, tilt, and heading.
+Stage one checked the renderer without changing ORC navigation. The current
+viewer renders a local reference globe and destination marker. Early synthetic
+global and 250-metre diagnostic grids were removed once real imagery, borders,
+terrain cues, and navigation overlays supplied the necessary orientation.
 These reference graphics are not real streets or buildings. Without an installed imagery pack it has no aerial imagery. An optional terrain pack adds relative relief. Installed map packs can provide buildings, roads, and places. The embedded viewer consumes the existing navigation service's active route and guidance state to draw the route, destination, and current maneuver, and it can follow live GPS. Zoom, rotation/pan gestures, north-up, tilt, and reset are available. The
 viewer is an owned, isolated Chromium app window; Return to ORC, window close, or
 Ctrl+C stops only this experiment and its local server.
@@ -76,9 +75,8 @@ state/HTTP/lifecycle tests cover invalid destinations, asset isolation, authoriz
 close requests, and cleanup on browser startup failure. A cloud Chromium software-rendering probe initialized Cesium and its controls,
 exercised reset, and confirmed the Return to ORC request reached the launcher.
 The user has confirmed the baseline quality gate passes and scrolling is smooth
-on Termux/X11. Reference-grid rendering and control behavior still need device
-verification. Use zoom to change ring size and camera height, tilt to switch
-between overhead and angled squares, and reset after panning to restore Detroit.
+on Termux/X11. Use zoom to change camera height, tilt to switch between overhead
+and angled views, and reset after panning to restore Detroit.
 
 Next, qualify and prepare a bounded Detroit imagery layer, then terrain and
 buildings independently using [the dataset review](detroit_map_data_review.md).
@@ -213,10 +211,8 @@ the imagery's public-domain rights. Packs remain outside the code repository.
 
 ### Layer comparison controls
 
-The viewer now opens 1,500 m from the destination, with buildings visible and the
-synthetic reference grid hidden. Buildings and Grid buttons independently toggle
-their layers without rebuilding geometry or downloading anything. Highlighted
-buttons indicate visible layers. Buildings is disabled when no building pack is
+The viewer now opens 1,500 m from the destination, with buildings visible.
+Highlighted buttons indicate visible layers. Buildings is disabled when no building pack is
 installed. The attribution remains visible when buildings are hidden. Reset view
 restores the camera, preserving layer choices; `--distance-m` overrides the initial
 viewing distance. The control rail scrolls on short screens.
@@ -243,7 +239,7 @@ selecting another place. This stage is destination exploration, without live
 vehicle following, route overlays, or replacement of the normal MapLibre map.
 
 Device validation: open a downtown Detroit POI in NAV, choose 3D Map, toggle
-Buildings/Grid and return. Repeat in offline mode, then select a POI outside the
+Buildings and return. Repeat in offline mode, then select a POI outside the
 Detroit pack to confirm the coverage warning. Close ORC while a viewer is open
 and confirm its window also closes.
 
@@ -363,11 +359,11 @@ tile count, LOD count, and compressed bytes and rejects archives above 64 MiB.
 
 The optional **Terrain cues** control adds Cesium globe lighting, restrained
 10-metre contours, and a locally generated contrast hillshade over installed imagery. It changes presentation only: source
-elevations and the selected 1×/2×/3× relief scale are unchanged. Cues turn off
+elevations and the selected 1×/2×/3×/4× relief scale are unchanged. Cues turn off
 while Ground is Flat and return to their prior selection when Relief is restored.
 They default off to avoid extra GPU work on constrained virtual and mobile GPUs.
 Contour presentation remains equivalent to a 10-metre source interval: Cesium
-uses 10/20/30-metre rendered spacing at 1×/2×/3× so exaggeration does not create
+uses 10/20/30/40-metre rendered spacing at 1×/2×/3×/4× so exaggeration does not create
 three times as many lines. Hillshade generation uses fourfold slope contrast to reveal Michigan's subtle
 relief, attaches no more than six visible tiles, and caches each generated image;
 it does not exaggerate the terrain mesh or require another data download.
@@ -388,8 +384,10 @@ pack limit; elevation payloads remain ordinary validated JSON.
 
 Install the statewide overview or the shard containing the intended destination
 with `development.maps.install_terrain --coverage COVERAGE --pack-manifest URL
---yes`. An installed Metro Detroit pack takes precedence, followed by a matching
-Michigan detail shard and then the statewide overview. Each Michigan build is
+--yes`. The viewer composes installed Metro Detroit detail and the matching
+Michigan detail shard over the statewide overview. Terrain selection happens for
+each requested heightmap, so moving the camera outside Detroit falls back to
+statewide relief without reopening the viewer. Each Michigan build is
 independent. GitHub Actions builds the eight terrain rows as bounded matrix jobs,
 with no more than two rows running at once. Each row restores and saves its own
 validated `.download` tile cache, then passes successful tiles to a final assembly
@@ -432,21 +430,29 @@ its declared rectangle. Each image remains under the runtime's 20 MiB payload
 limit; source export evidence is retained in its archive.
 
 The Cesium presentation keeps rectangular imagery envelopes for useful
-cross-border context. A bundled Census cartographic-boundary overlay draws the
-50 states with unique thin muted dashes and emphasizes Michigan with a cyan
-dashed outline. Alaska and Hawaii remain at their actual globe locations; D.C.
-and territories are intentionally excluded. Coordinates
+cross-border context. Natural Earth 5.1.2 supplies compact worldwide country and
+disputed-boundary lines. Bundled Census geometry supplies internal boundaries
+shared by two U.S. states, while the country layer exclusively owns the national
+perimeter; this avoids competing independently simplified outlines. Michigan
+retains a cyan dashed outline for local emphasis. D.C. and territories are
+intentionally excluded from the state layer. Coordinates
 cross the toolkit-independent UI boundary in radians and the frontend clamps the
 lines to installed terrain. These are statistical boundaries, not survey-grade
 or navigation-authoritative borders. Shared state edges are deduplicated before
 they cross the UI contract so adjacent polygons do not brighten or disrupt the
-dash pattern. Transparent NAIP coverage gaps reveal the
-same blue reference globe used outside installed imagery instead of a black
-imagery-layer base. Neutral near-black JPEG padding is masked during regional
+dash pattern. A locally rendered Natural Earth land mask gives the offline
+reference globe muted green land and blue ocean without contacting a hosted map
+service. Installed aerial imagery remains above that reference layer, and
+transparent NAIP coverage gaps reveal it instead of a black imagery-layer base.
+Neutral near-black JPEG padding is masked during regional
 assembly while dark colored source pixels remain visible. Boundary source: U.S.
 Census Bureau generalized ACS 2024 `State_County` States 20M layer, retrieved
 2026-11-03:
 https://tigerweb.geo.census.gov/arcgis/rest/services/Generalized_ACS2024/State_County/MapServer/9
+Natural Earth sources are public domain 1:110m Admin-0 countries and boundary
+lines, plus physical lake polygons, version 5.1.2. The offline reference globe
+draws the lake polygons back over its green land mask so the Great Lakes and
+other major inland waters remain blue.
 
 After publishing a successful draft release, install both descriptors from the
 same tag and reopen the 3D viewer:
@@ -482,7 +488,7 @@ The test opens near the ski hill without Detroit imagery or buildings. Terrain
 ON/OFF switches between sampled ground and a flat ellipsoid without resetting the
 camera. With no imagery, 10 m contour lines help show the relief. The footer shows
 the sampled elevation range. Source sampling is coarse, so this is a terrain
-comparison rather than a detailed ski-trail map. Grid graphics, the destination marker and building bases follow the selected
+comparison rather than a detailed ski-trail map. The destination marker and building bases follow the selected
 relief scale and flatten with terrain disabled; building heights remain unchanged. Rendering and live USGS downloads require device
 validation. After downloading, this view works offline.
 
@@ -546,10 +552,10 @@ and viewing distance. Each step is 15% of the current distance to the visible
 centre, bounded to 25 m–100 km. If the centre points at sky and no ground can be
 picked, pan waits until ground is visible. Mouse pan and touch tilt still work.
 
-Relief cycles 1× / 2× / 3×; the default 1× uses actual relative elevations. The
-footer explicitly labels 2× and 3× as exaggerated. Source samples and the displayed
+Relief cycles 1× / 2× / 3× / 4×; the default 1× uses actual relative elevations. The
+footer explicitly labels 2× through 4× as exaggerated. Source samples and the displayed
 sampled elevation range remain unchanged. Imagery drapes over the new terrain;
-markers, local grid graphics and loaded building bases are refreshed, while
+markers and loaded building bases are refreshed, while
 building heights stay real. Terrain OFF disables the relief control and returns
 these overlays to flat ground. Reset view restores destination, initial tilt,
 and 1× relief. Contour spacing refers to displayed height, so exaggeration makes
@@ -817,6 +823,9 @@ pieces, including checked gap records, until the pack is successfully assembled.
 
 The optional Cesium road overlay limits detail to zoom 13 and covers the visible
 camera rectangle with at most six vector tiles, reducing zoom when necessary.
+Distance conditions progressively hide geometry by road class and hide road
+labels before statewide scale; motorway references remain visible farther out
+than primary and secondary labels.
 Roads and settlement names are separate
 controls; Places starts disabled, and its Cesium label entities are not created
 until enabled. Transportation-name placement paths supply labels but are never

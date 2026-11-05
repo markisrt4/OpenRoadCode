@@ -31,6 +31,8 @@ test('outside coverage and its outer edge return flat relief', () => {
   assert.equal(terrain.heightAt(0,.8),0);
 });
 test('renderer does not refine beyond the prototype terrain detail limit', () => {
+  assert.equal(terrain.provider.getLevelMaximumGeometricError(5),
+    4*10000/(2**5));
   assert.ok(terrain.provider.getLevelMaximumGeometricError(12)>0);
   assert.equal(terrain.provider.getLevelMaximumGeometricError(13),0);
 });
@@ -60,9 +62,22 @@ test('relief scale replaces cached meshes, keeps source elevations and flattens 
   terrain.setVisible(viewer,false);
   assert.equal(terrain.heightAt(.5,2/3),0);
   terrain.setVisible(viewer,true);
+  terrain.setScale(viewer,4);
+  assert.ok(Math.abs(terrain.heightAt(.5,2/3)-20)<1e-10);
   terrain.setScale(viewer,1);
   assert.ok(Math.abs(terrain.heightAt(.5,2/3)-5)<1e-10);
-  assert.throws(()=>terrain.setScale(viewer,4),/Terrain scale/);
+  assert.throws(()=>terrain.setScale(viewer,5),/Terrain scale/);
+});
+
+test('lazy terrain fetches only intersecting eligible payloads', async () => {
+  let requests=0;
+  context.fetch=async url=>{requests++;assert.equal(url,'/data/terrain/0');return {ok:true,json:async()=>({
+    width:4,height:4,heights_m:Array(16).fill(25),reference_height_m:10,vertical_datum:'NAVD88'})};};
+  const lazy=context.window.ORCLocalTerrain({tiles:[{...data,heights_m:undefined,url:'/data/terrain/0'}],attribution:'USGS'},C);
+  assert.equal(lazy.heightAt(.5,.5),0);
+  await lazy.provider.options.callback(0,0,8);
+  assert.equal(requests,1);
+  assert.equal(lazy.heightAt(.5,.5),10);
 });
 
 test('mosaic tiles retain relief at their shared edge', () => {

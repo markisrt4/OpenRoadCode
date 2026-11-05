@@ -10,6 +10,7 @@ import threading
 from urllib.parse import unquote, urlsplit
 
 from apps.launchers.cesium_sdk import require_sdk
+from apps.launchers.local_terrain_pack import LocalTerrainCatalog
 from ui.navigation.cesium_viewer_state import CesiumViewerState
 from ui.navigation.boundary_overlay_state import BoundaryOverlayState
 from ui.navigation.local_imagery_state import LocalImageryStackState
@@ -17,6 +18,8 @@ import sqlite3
 from tools.map_builder.builder.validate import ValidationError
 
 _WEB = Path(__file__).resolve().parents[2] / "frontends/web/cesium"
+_WORLD_LAND = Path(__file__).resolve().parents[2] / "resources/maps/world_land.geojson"
+_WORLD_LAKES = Path(__file__).resolve().parents[2] / "resources/maps/world_lakes.geojson"
 
 
 class CesiumViewerServer:
@@ -95,12 +98,31 @@ class _Handler(BaseHTTPRequestHandler):
                 document["imagery"] = self.owner._imagery.state.document()
                 document["imagery"]["url"] = "/data/imagery.jpg"
             if self.owner._terrain is not None:
-                document["terrain"] = self.owner._terrain.document()
+                if isinstance(self.owner._terrain, LocalTerrainCatalog):
+                    document["terrain"] = self.owner._terrain.state.document()
+                    for index, tile in enumerate(document["terrain"]["tiles"]):
+                        tile["url"] = f"/data/terrain/{index}"
+                else:
+                    document["terrain"] = self.owner._terrain.document()
             if self.owner._buildings is not None:
                 document["buildings"] = self.owner._buildings.document()
             if self.owner._tiles is not None:
                 document["map_tiles"] = self.owner._tiles.state.document()
             self._send(json.dumps(document).encode(), "application/json")
+            return
+        if path == "/data/world-land.geojson":
+            self._send(_WORLD_LAND.read_bytes(), "application/geo+json")
+            return
+        if path == "/data/world-lakes.geojson":
+            self._send(_WORLD_LAKES.read_bytes(), "application/geo+json")
+            return
+        if path.startswith('/data/terrain/') and isinstance(self.owner._terrain, LocalTerrainCatalog):
+            index = path.removeprefix('/data/terrain/')
+            if (not index.isascii() or not index.isdigit() or len(index) > 4
+                    or int(index) >= len(self.owner._terrain.payloads)):
+                self.send_error(404)
+                return
+            self._send(self.owner._terrain.payloads[int(index)].read_bytes(), 'application/json')
             return
         if path.startswith('/data/roads/') and self.owner._roads is not None:
             try:

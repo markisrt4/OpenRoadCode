@@ -3,12 +3,26 @@
 import hashlib
 import json
 import math
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from common.xdg_paths import openroadcode_data_dir
 from common.navigation_data import navigation_data_root
 from ui.navigation.local_imagery_state import LocalImageryState
-from ui.navigation.local_terrain_state import LocalTerrainMosaicState, LocalTerrainState
+from ui.navigation.local_terrain_state import (LocalTerrainCatalogState,
+    LocalTerrainMosaicState, LocalTerrainState, LocalTerrainTileIndexState)
+
+
+@dataclass(frozen=True, slots=True)
+class LocalTerrainCatalog:
+    """Validated local file sources paired with toolkit-independent metadata."""
+
+    state: LocalTerrainCatalogState
+    payloads: tuple[Path, ...]
+
+    def __post_init__(self):
+        if len(self.state.tiles) != len(self.payloads):
+            raise ValueError("Terrain catalog metadata and payload counts differ")
 
 
 def detroit_terrain_directory():
@@ -56,6 +70,84 @@ def preferred_terrain_directory(destination=None):
         if (directory/'manifest.json').is_file():
             return directory
     return detroit_terrain_directory()
+
+
+def load_preferred_terrain(destination=None):
+    """Compose local detail over the statewide overview for camera roaming."""
+    overview = regional_terrain_directory("michigan-overview")
+    preferred = preferred_terrain_directory(destination)
+    directories = []
+    # Metro remains useful when a trip starts elsewhere and the camera returns
+    # to Detroit. A destination shard, when present, sits between it and the
+    # statewide fallback.
+    for directory in (metro_detroit_terrain_directory(), preferred, overview):
+        if directory not in directories and (directory / "manifest.json").is_file():
+            directories.append(directory)
+    states = [load_terrain(directory) for directory in directories]
+    if not states:
+        return None
+    if len(states) == 1:
+        return states[0]
+    tiles = tuple(tile for state in states for tile in (
+        state.tiles if isinstance(state, LocalTerrainMosaicState) else (state,)))
+    return LocalTerrainMosaicState(
+        tiles,
+        "USGS 3DEP · The National Map",
+        max(state.maximum_zoom if isinstance(state, LocalTerrainMosaicState) else 13
+            for state in states),
+    )
+
+
+def load_installed_terrain_catalog():
+    """Index installed state tiers without retaining sample arrays in memory."""
+    from development.maps.terrain_regions import MICHIGAN_SHARDS
+    root = openroadcode_data_dir("map-packs")
+    installed = sorted(path for path in root.glob("*-terrain-active")
+                       if (path / "manifest.json").is_file()) if root.is_dir() else []
+    directories = []
+    for directory in installed:
+        coverage = directory.name.removesuffix("-terrain-active")
+        if coverage == "metro-detroit":
+            directories.append((directory, 4, 0))
+        elif coverage in MICHIGAN_SHARDS or "-detail-" in coverage:
+            directories.append((directory, 2, 7))
+        elif coverage.endswith("overview"):
+            directories.append((directory, 0, 0))
+    indexed = []
+    maximum_zoom = 13
+    for directory, priority, minimum_zoom in directories:
+        manifest_path = directory / "manifest.json"
+        if not manifest_path.is_file():
+            continue
+        manifest = json.loads(manifest_path.read_text())
+        maximum_zoom = max(maximum_zoom, int(manifest.get("maximum_zoom", 13)))
+        records = manifest.get("tiles") if manifest.get("schema") in (2, 3) else None
+        records = records or [{"path": ".", "detail_level": 0, "minimum_zoom": 0}]
+        if not 1 <= len(records) <= 64:
+            raise ValueError("Terrain mosaic requires 1–64 tiles")
+        for index, record in enumerate(records):
+            relative = Path(record["path"])
+            tile_root = (directory / relative).resolve()
+            if (relative.is_absolute() or ".." in relative.parts
+                    or not tile_root.is_relative_to(directory.resolve())):
+                raise ValueError("Terrain tile must remain inside its pack")
+            state = _load_single_terrain(tile_root,
+                detail_level=int(record.get("detail_level", 0)) + priority,
+                minimum_zoom=max(minimum_zoom, int(record.get("minimum_zoom", 0))))
+            tile_id = f"{directory.name}-{index}"
+            metadata = LocalTerrainTileIndexState(tile_id, state.coverage, state.width,
+                state.height, state.reference_height_m, state.vertical_datum,
+                state.detail_level, state.minimum_zoom)
+            indexed.append((metadata, tile_root / "terrain.json"))
+    if not indexed:
+        return None
+    lowest_detail = min(metadata.detail_level for metadata, _ in indexed)
+    baseline = [metadata.reference_height_m for metadata, _ in indexed
+                if metadata.detail_level == lowest_detail]
+    reference = sum(baseline) / len(baseline)
+    metadata = tuple(replace(item, reference_height_m=reference) for item, _ in indexed)
+    return LocalTerrainCatalog(LocalTerrainCatalogState(metadata,
+        maximum_zoom=maximum_zoom), tuple(path for _, path in indexed))
 
 
 def load_terrain(directory):

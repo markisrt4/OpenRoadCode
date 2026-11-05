@@ -15,6 +15,13 @@ from tools.map_builder.builder.map_3d import PRESETS
 from development.maps.terrain_regions import MICHIGAN_COVERAGES
 
 
+def _coverage(coverage):
+    if coverage in MICHIGAN_COVERAGES:
+        return MICHIGAN_COVERAGES[coverage]
+    from development.maps.state_map_catalog import coverage_definition
+    return coverage_definition(coverage)
+
+
 def terrain_tiles(bounds, divisions=4):
     west, south, east, north = bounds
     for row in range(divisions):
@@ -82,11 +89,9 @@ def build_metro_tile(cache: Path, *, tile: int) -> None:
 
 def build_michigan_row(cache: Path, *, coverage: str, row: int) -> None:
     """Build and validate one row of a Michigan pack's shared tile cache."""
-    if coverage not in MICHIGAN_COVERAGES:
-        raise ValueError(f"Not a Michigan terrain coverage: {coverage}")
+    title, bounds = _coverage(coverage)
     if row not in range(8):
         raise ValueError(f"Michigan terrain row must be 0-7, got {row}")
-    title, bounds = MICHIGAN_COVERAGES[coverage]
     cache = Path(cache)
     cache.mkdir(parents=True, exist_ok=True)
     definitions = _definitions(coverage, bounds)
@@ -103,7 +108,7 @@ def assemble(destination: Path, *, coverage: str, cache: Path,
              size: int | None = None) -> None:
     """Assemble a terrain pack from a complete cache without downloading tiles."""
     title, bounds = (COVERAGES[coverage] if coverage == "metro-detroit"
-                     else MICHIGAN_COVERAGES[coverage])
+                     else _coverage(coverage))
     destination = Path(destination)
     if destination.exists():
         load_terrain(destination)
@@ -141,7 +146,7 @@ def assemble(destination: Path, *, coverage: str, cache: Path,
 
 def build(destination: Path, *, coverage: str = "metro-detroit", size: int | None = None) -> None:
     title, bounds = (COVERAGES[coverage] if coverage == "metro-detroit"
-                     else MICHIGAN_COVERAGES[coverage])
+                     else _coverage(coverage))
     destination = Path(destination)
     if destination.exists():
         load_terrain(destination)
@@ -152,7 +157,7 @@ def build(destination: Path, *, coverage: str = "metro-detroit", size: int | Non
     def build_tile(item):
         return _build_tile(cache, title, item[0], len(definitions), item[1])
     indexed = list(enumerate(definitions, 1))
-    if coverage in MICHIGAN_COVERAGES:
+    if coverage != "metro-detroit":
         # Statewide grids generate many USGS sampling calls. Two concurrent
         # tiles are intentionally gentler on the public service and more stable
         # than the four-way prototype used for local builds.

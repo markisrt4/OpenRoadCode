@@ -11,9 +11,11 @@ class BoundaryRegionState:
     name: str
     emphasized: bool
     paths_rad: tuple[tuple[tuple[float, float], ...], ...]
+    kind: str = 'state'
 
     def __post_init__(self):
-        if not self.name.strip() or type(self.emphasized) is not bool:
+        if (not self.name.strip() or type(self.emphasized) is not bool
+                or self.kind not in {'country', 'disputed', 'state'}):
             raise ValueError('Boundary region needs a name and semantic emphasis')
         if not isinstance(self.paths_rad, tuple) or not 1 <= len(self.paths_rad) <= 512:
             raise ValueError('Boundary region needs a bounded immutable path collection')
@@ -31,7 +33,7 @@ class BoundaryRegionState:
             raise ValueError('Boundary region exceeds the presentation point limit')
 
     def document(self):
-        return {'name': self.name, 'emphasized': self.emphasized,
+        return {'name': self.name, 'kind': self.kind, 'emphasized': self.emphasized,
                 'paths_rad': self.paths_rad}
 
 

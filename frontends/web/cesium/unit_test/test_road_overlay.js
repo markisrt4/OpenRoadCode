@@ -32,10 +32,11 @@ test('road overlay bounds requests, labels roads and places, and prevents attach
   assert.equal(sources.length,1);
   assert.equal(sources[0].entities.values[1].label.text,'I-75');
   assert.equal(sources[0].entities.values[2].label.text,'Main Street');
-  assert.equal(sources[0].entities.values[2].label.distanceDisplayCondition.far,1000);
+  assert.equal(sources[0].entities.values[2].label.distanceDisplayCondition.far,20000);
   assert.equal(sources[0].entities.values.filter(entity=>entity.polyline).length,1,
     'local streets do not create extra ground-clamped geometry');
-  assert.equal(sources[0].entities.values[1].label.distanceDisplayCondition,undefined);
+  assert.equal(sources[0].entities.values[1].label.distanceDisplayCondition.far,90000);
+  assert.equal(sources[0].entities.values[0].polyline.distanceDisplayCondition.far,250000);
   overlay.roadsVisible=false;assert.equal(sources[0].show,false);
   overlay.placesVisible=true;
   await new Promise(resolve=>setImmediate(resolve));

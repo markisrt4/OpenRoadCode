@@ -19,6 +19,7 @@ on:
           - mi-lower-northeast
           - mi-upper-west
           - mi-upper-east
+          - michigan-all
       release_tag:
         description: Optional release tag (defaults to metro-detroit-imagery-YYYYMMDD-runN)
         required: false
@@ -293,9 +294,57 @@ jobs:
 
   michigan:
     name: Build Michigan terrain package
-    if: ${{ inputs.build_target != 'metro-detroit' }}
+    if: ${{ inputs.build_target != 'metro-detroit' && inputs.build_target != 'michigan-all' }}
     uses: ./.github/workflows/build-michigan-terrain.yml
     with:
       coverage: ${{ inputs.build_target }}
       force_rebuild: ${{ inputs.force_rebuild }}
     secrets: inherit
+
+  michigan-all:
+    name: Build Michigan detail ${{ matrix.coverage }}
+    if: ${{ inputs.build_target == 'michigan-all' }}
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        coverage:
+          - mi-lower-southwest
+          - mi-lower-southeast
+          - mi-lower-central-west
+          - mi-lower-central-east
+          - mi-lower-northwest
+          - mi-lower-northeast
+          - mi-upper-west
+          - mi-upper-east
+    uses: ./.github/workflows/build-michigan-terrain.yml
+    with:
+      coverage: ${{ matrix.coverage }}
+      force_rebuild: ${{ inputs.force_rebuild }}
+      publish_release: false
+    secrets: inherit
+
+  assemble-michigan-all:
+    name: Assemble draft Michigan detail release
+    needs: michigan-all
+    if: ${{ needs.michigan-all.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+      - name: Download checked state packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: map-data-mi-*
+          path: build-output/michigan-all
+          merge-multiple: true
+      - name: Create combined draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="michigan-map-data-detail-$(date -u +%Y%m%d)-run${GITHUB_RUN_NUMBER}"
+          gh release create "$tag" build-output/michigan-all/* \
+            --draft --target "$GITHUB_SHA" \
+            --title "Michigan offline map data · statewide detail" \
+            --notes "Eight independently resumable Michigan imagery and terrain shards. Install the statewide overview plus any or all detail assets."
+          echo "Draft release: $tag" >> "$GITHUB_STEP_SUMMARY"

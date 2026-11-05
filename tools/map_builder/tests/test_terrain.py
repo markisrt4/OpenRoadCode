@@ -386,3 +386,11 @@ def test_map_data_workflow_builds_resumable_split_release_assets():
     assert 'merge-multiple: true' in michigan
     assert 'development.maps.install_region' in michigan
     assert 'michigan-imagery-index.json' in michigan
+    assert 'publish_release:' in michigan
+    assert 'map-data-${{ inputs.coverage }}' in michigan
+    assert 'michigan-all' in workflow
+    assert 'assemble-michigan-all' in workflow
+    state_workflow = Path('.github/workflows/build-state-map-data.yml').read_text()
+    assert 'development.maps.state_map_catalog' in state_workflow
+    assert 'uses: ./.github/workflows/build-michigan-terrain.yml' in state_workflow
+    assert 'max-parallel: 1' in state_workflow

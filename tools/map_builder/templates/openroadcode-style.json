@@ -6,6 +6,18 @@
       "type": "vector",
       "url": "mbtiles://__OPENROADCODE_DATA_ROOT__/maps/vector/openroadcode.mbtiles"
     },
+    "country-boundaries": {
+      "type": "geojson",
+      "data": "file://__OPENROADCODE_DATA_ROOT__/maps/boundaries/world_country_boundaries.geojson"
+    },
+    "state-boundaries": {
+      "type": "geojson",
+      "data": "file://__OPENROADCODE_DATA_ROOT__/maps/boundaries/us_state_internal_boundaries.geojson"
+    },
+    "michigan-boundary": {
+      "type": "geojson",
+      "data": "file://__OPENROADCODE_DATA_ROOT__/maps/boundaries/us_state_boundaries.geojson"
+    },
     "route": {
       "type": "geojson",
       "data": {
@@ -136,42 +148,54 @@
       }
     },
     {
-      "id": "boundaries",
+      "id": "country-boundaries",
       "type": "line",
-      "source": "openroad",
-      "source-layer": "boundary",
-      "minzoom": 4,
+      "source": "country-boundaries",
       "paint": {
         "line-color": "#aaa49d",
-        "line-width": 1,
+        "line-width": 1.8,
+        "line-opacity": 0.75,
         "line-dasharray": [
-          3,
-          3
+          6,
+          2
         ]
       },
-      "filter": [
-        "!=",
-        [
-          "get",
-          "admin_level"
-        ],
-        4
-      ]
-    },
-    {
-      "id": "state-boundaries",
-      "type": "line",
-      "source": "openroad",
-      "source-layer": "boundary",
-      "minzoom": 4,
       "filter": [
         "==",
         [
           "get",
-          "admin_level"
+          "FEATURECLA"
         ],
-        4
+        "International boundary (verify)"
+      ]
+    },
+    {
+      "id": "disputed-boundaries",
+      "type": "line",
+      "source": "country-boundaries",
+      "filter": [
+        "!=",
+        [
+          "get",
+          "FEATURECLA"
+        ],
+        "International boundary (verify)"
       ],
+      "paint": {
+        "line-color": "#d5a84f",
+        "line-width": 1.5,
+        "line-opacity": 0.8,
+        "line-dasharray": [
+          3,
+          3
+        ]
+      }
+    },
+    {
+      "id": "state-boundaries",
+      "type": "line",
+      "source": "state-boundaries",
+      "minzoom": 3,
       "paint": {
         "line-color": "#54b948",
         "line-width": [
@@ -189,7 +213,34 @@
           12,
           2.2
         ],
-        "line-opacity": 0.9
+        "line-opacity": 0.78,
+        "line-dasharray": [
+          1,
+          2
+        ]
+      }
+    },
+    {
+      "id": "michigan-boundary",
+      "type": "line",
+      "source": "michigan-boundary",
+      "minzoom": 3,
+      "filter": [
+        "==",
+        [
+          "get",
+          "GEOID"
+        ],
+        "26"
+      ],
+      "paint": {
+        "line-color": "#59d8ff",
+        "line-width": 2.4,
+        "line-opacity": 0.92,
+        "line-dasharray": [
+          1,
+          2
+        ]
       }
     },
     {

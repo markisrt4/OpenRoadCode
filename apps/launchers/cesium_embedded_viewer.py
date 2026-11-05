@@ -15,7 +15,7 @@ from apps.launchers.cesium_sdk import sdk_directory
 from apps.launchers.cesium_viewer_server import CesiumViewerServer
 from apps.launchers.local_imagery_pack import LocalImageryPack, detroit_pack_directory, preferred_imagery_directory, load_imagery_stack
 from apps.launchers.state_boundary_overlay import load_state_boundary_overlay
-from apps.launchers.local_terrain_pack import load_terrain, preferred_terrain_directory
+from apps.launchers.local_terrain_pack import load_installed_terrain_catalog
 from apps.launchers.local_building_pack import load_buildings, detroit_building_directory
 from apps.launchers.local_map_tiles_pack import load_viewer_tiles, preferred_tiles_directory
 from apps.launchers.local_road_overlay import LocalRoadOverlay
@@ -76,12 +76,11 @@ class CesiumEmbeddedViewer:
             return
         imagery_layers = load_imagery_stack()
         imagery_dir = detroit_pack_directory() if imagery_layers else preferred_imagery_directory(state.destination)
-        terrain_dir = preferred_terrain_directory(state.destination)
         building_dir = detroit_building_directory()
         tile_dir = preferred_tiles_directory(state.destination)
         tiles = load_viewer_tiles(tile_dir) if tile_dir.exists() else None
         imagery = LocalImageryPack.load(imagery_dir) if not imagery_layers and imagery_dir.exists() and (tiles is None or not any(t.imagery_available for t in tiles.state.tiles)) else None
-        terrain = load_terrain(terrain_dir) if terrain_dir.exists() else None
+        terrain = load_installed_terrain_catalog()
         buildings = load_buildings(building_dir) if tiles is None and building_dir.exists() else None
         roads = LocalRoadOverlay.installed()
         display = os.environ.get('DISPLAY', ':1')

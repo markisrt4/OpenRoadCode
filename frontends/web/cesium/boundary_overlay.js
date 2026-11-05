@@ -3,13 +3,14 @@ window.ORCBoundaryOverlay = function(viewer,state,C) {
   if (!state?.regions?.length) return null;
   const source=new C.CustomDataSource('state-boundaries');
   for (const region of state.regions) for (const path of region.paths_rad) {
-    const color=C.Color.fromCssColorString(region.emphasized?'#59d8ff':'#e7eff6')
-      .withAlpha(region.emphasized ? .9 : .45);
+    const country=region.kind==='country',disputed=region.kind==='disputed';
+    const color=C.Color.fromCssColorString(region.emphasized?'#59d8ff':country?'#f1f5f8':disputed?'#ffca72':'#e7eff6')
+      .withAlpha(region.emphasized ? .9 : country ? .62 : disputed ? .7 : .45);
     source.entities.add({name:region.name,polyline:{
       positions:C.Cartesian3.fromRadiansArray(path.flat()),clampToGround:true,
-      width:region.emphasized?2.5:1.25,
+      width:region.emphasized?2.5:country?1.8:disputed?1.6:1.25,
       material:new C.PolylineDashMaterialProperty({
-        color,dashLength:12,dashPattern:0x000f
+        color,dashLength:country?18:12,dashPattern:disputed?0x00ff:country?0x0fff:0x000f
       })
     }});
   }

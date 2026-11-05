@@ -65,6 +65,12 @@ class MapThemeRuntimeTest(unittest.TestCase):
             document = json.loads(destination.read_text(encoding="utf-8"))
             layers = {layer["id"]: layer for layer in document["layers"]}
             self.assertEqual(layers["state-boundaries"]["paint"]["line-color"], "#54c96b")
+            self.assertEqual(layers["state-boundaries"]["paint"]["line-dasharray"], [1, 2])
+            self.assertEqual(layers["country-boundaries"]["paint"]["line-color"], "#dce8ef")
+            self.assertEqual(layers["michigan-boundary"]["paint"]["line-color"], "#59d8ff")
+            self.assertTrue((root / "maps/boundaries/us_state_boundaries.geojson").is_file())
+            self.assertTrue((root / "maps/boundaries/us_state_internal_boundaries.geojson").is_file())
+            self.assertTrue((root / "maps/boundaries/world_country_boundaries.geojson").is_file())
             self.assertEqual(layers["buildings"]["type"], "fill-extrusion")
             self.assertIn("fill-extrusion-color", layers["buildings"]["paint"])
             self.assertIn("poi-results", document["sources"])

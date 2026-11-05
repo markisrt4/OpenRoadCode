@@ -113,9 +113,42 @@ def test_server_exposes_boundary_contract_without_asset_paths(server):
     with urllib.request.urlopen(server.url+'config.json') as response:
         overlay = json.load(response)['boundary_overlay']
     assert [region['name'] for region in overlay['regions']] == [
+        'International boundaries', 'Disputed or indefinite boundaries',
         'United States state boundaries', 'Michigan']
-    assert overlay['regions'][1]['emphasized'] is True
-    assert 'path' not in json.dumps(overlay).lower()
+    assert overlay['regions'][3]['emphasized'] is True
+    assert 'source' not in json.dumps(overlay).lower()
+
+
+def test_server_exposes_bundled_world_land_without_a_remote_service(server):
+    with urllib.request.urlopen(server.url+'data/world-land.geojson') as response:
+        document = json.load(response)
+    assert document['type'] == 'FeatureCollection'
+    assert len(document['features']) > 150
+    with urllib.request.urlopen(server.url+'data/world-lakes.geojson') as response:
+        lakes = json.load(response)
+    assert lakes['type'] == 'FeatureCollection'
+    assert len(lakes['features']) > 10
+
+
+def test_server_exposes_lazy_terrain_metadata_and_bounded_payload_urls(server, tmp_path):
+    from apps.launchers.local_terrain_pack import LocalTerrainCatalog
+    from ui.navigation.local_imagery_state import LocalImageryState
+    from ui.navigation.local_terrain_state import (LocalTerrainCatalogState,
+                                                    LocalTerrainTileIndexState)
+    payload = tmp_path / 'terrain.json'
+    payload.write_text('{"width":2,"height":2,"heights_m":[1,2,3,4]}')
+    coverage = LocalImageryState('tile', 'USGS', -.1, .1, .1, .2)
+    tile = LocalTerrainTileIndexState('tile-0', coverage, 2, 2, 2, 'NAVD88')
+    server._terrain = LocalTerrainCatalog(LocalTerrainCatalogState((tile,)), (payload,))
+    with urllib.request.urlopen(server.url+'config.json') as response:
+        terrain = json.load(response)['terrain']
+    assert terrain['lazy'] is True
+    assert terrain['tiles'][0]['url'] == '/data/terrain/0'
+    assert 'heights_m' not in terrain['tiles'][0]
+    with urllib.request.urlopen(server.url+'data/terrain/0') as response:
+        assert json.load(response)['heights_m'] == [1, 2, 3, 4]
+    with pytest.raises(HTTPError):
+        urllib.request.urlopen(server.url+'data/terrain/1')
 
 
 def test_server_exposes_only_bounded_offline_road_tiles(server):

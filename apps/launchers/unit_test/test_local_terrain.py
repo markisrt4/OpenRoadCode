@@ -8,6 +8,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from apps.launchers import local_terrain_pack
 from apps.launchers.local_terrain_pack import load_terrain
 from development.maps import download_detroit_terrain as downloader
 from tools.map_builder.builder import terrain
@@ -116,3 +117,18 @@ def test_lod_mosaic_uses_overview_reference_and_exposes_detail_metadata(tmp_path
     assert document["maximum_zoom"] == 16
     assert {tile["detail_level"] for tile in document["tiles"]} == {0, 2}
     assert {tile["reference_height_m"] for tile in document["tiles"]} == {100}
+
+
+def test_preferred_terrain_composes_local_detail_over_statewide_fallback(tmp_path, monkeypatch):
+    metro = tmp_path / "metro"
+    overview = tmp_path / "overview"
+    _terrain_tile(metro, [-84, 42, -82, 43], [200, 210, 220, 230], 200)
+    _terrain_tile(overview, [-90.5, 41.7, -82.1, 48.3], [100, 110, 120, 130], 100)
+    monkeypatch.setattr(local_terrain_pack, "metro_detroit_terrain_directory", lambda: metro)
+    monkeypatch.setattr(local_terrain_pack, "regional_terrain_directory", lambda _coverage: overview)
+    monkeypatch.setattr(local_terrain_pack, "preferred_terrain_directory", lambda _destination: metro)
+
+    state = local_terrain_pack.load_preferred_terrain()
+
+    assert isinstance(state, LocalTerrainMosaicState)
+    assert [tile.coverage.title for tile in state.tiles] == ["metro", "overview"]

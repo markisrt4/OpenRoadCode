@@ -64,7 +64,11 @@
       contextOptions:{webgl:{powerPreference:'high-performance'}}
     });
     window.ORCViewerStage = 'local-layers';
-    const terrain = snapshot.terrain ? window.ORCLocalTerrain(snapshot.terrain,C) : null;
+    await window.ORCReferenceGlobeLayer(viewer,C);
+    if (closing || viewer.isDestroyed()) return;
+    const terrain = snapshot.terrain ? window.ORCLocalTerrain(snapshot.terrain,C,
+      [snapshot.longitude_rad,snapshot.latitude_rad]) : null;
+    if(terrain)await terrain.ready;
     if (terrain) {
       terrain.setScale(viewer, snapshot.terrain_scale);
       terrain.setVisible(viewer, snapshot.terrain_visible);
@@ -82,25 +86,6 @@
       label:{text:snapshot.label,font:'bold 16px sans-serif',pixelOffset:new C.Cartesian2(0,-26),
         fillColor:C.Color.WHITE,showBackground:true,backgroundColor:C.Color.BLACK.withAlpha(.8),
         backgroundPadding:new C.Cartesian2(7,5),disableDepthTestDistance:Number.POSITIVE_INFINITY}});
-    const references = new C.CustomDataSource('references');
-    references.show = snapshot.references_visible;
-    viewer.dataSources.add(references);
-    function rebuildReferences() {
-      references.entities.removeAll();
-      // Procedural geographic grid: no imagery, terrain service, or building data.
-      for (let lat = -60; lat <= 60; lat += 30) {
-        const points = [];
-        for (let lon = -180; lon <= 180; lon += 3) points.push(C.Cartesian3.fromDegrees(lon,lat));
-        references.entities.add({polyline:{positions:points,width:1,material:C.Color.WHITE.withAlpha(.18)}});
-      }
-      for (let lon = -180; lon < 180; lon += 30) {
-        const points = [];
-        for (let lat = -90; lat <= 90; lat += 3) points.push(C.Cartesian3.fromDegrees(lon,lat));
-        references.entities.add({polyline:{positions:points,width:1,material:C.Color.WHITE.withAlpha(.18)}});
-      }
-      window.ORCCesiumReferences(viewer, snapshot, C, terrain?.heightAt, references.entities);
-    }
-    rebuildReferences();
     const buildings = snapshot.buildings
       ? window.ORCLocalBuildings(viewer, snapshot.buildings, C, terrain?.heightAt)
       : null;
@@ -222,7 +207,7 @@
     const terrainCues = terrain ? window.ORCTerrainCues(viewer,C) : null;
     terrainHillshade = terrain ? window.ORCTerrainHillshade(viewer,snapshot.terrain,C,error=>{
       status.hidden=false;status.textContent='Terrain hillshade unavailable: '+error.message;
-    }) : null;
+    },terrain.loadTile) : null;
     let cuesVisible = Boolean(snapshot.terrain_shading_visible);
     cuesButton.disabled = !terrain || !terrainVisible;
     function updateTerrain() {
@@ -235,7 +220,6 @@
       target = C.Cartesian3.fromRadians(snapshot.longitude_rad, snapshot.latitude_rad,
         terrain.heightAt(snapshot.longitude_rad,snapshot.latitude_rad)+3);
       destinationMarker.position = target;
-      rebuildReferences();
       buildings?.refreshGround();
       tiledMap?.refreshGround();
       roadOverlay?.refreshGround();
@@ -257,12 +241,11 @@
     }
     if (terrain) {
       terrainButton.onclick = () => { terrainVisible = !terrainVisible; updateTerrain(); };
-      scaleButton.onclick = () => {terrainScale=terrainScale%3+1; updateTerrain();};
+      scaleButton.onclick = () => {terrainScale=terrainScale%4+1; updateTerrain();};
       cuesButton.onclick = () => {cuesVisible=!cuesVisible;updateTerrain();};
       updateTerrain();
     }
     bindVisibility('buildings', tiledMap || buildings?.source);
-    bindVisibility('references', references);
     reset();
     const imageCoverage = snapshot.imagery_layers?.[0] || snapshot.imagery || (snapshot.map_tiles?.tiles.some(t=>t.imagery_url) ? snapshot.map_tiles.coverage : null);
     const insideImagery = imageCoverage && snapshot.longitude_rad >= imageCoverage.west_rad

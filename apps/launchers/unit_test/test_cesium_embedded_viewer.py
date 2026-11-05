@@ -12,8 +12,9 @@ from ui.navigation.cesium_viewer_state import CesiumViewerState
 def native(tmp_path,monkeypatch):
     events=[]
     absent=tmp_path/'absent'
-    for name in ('preferred_imagery_directory','preferred_terrain_directory','detroit_building_directory','preferred_tiles_directory'):
+    for name in ('preferred_imagery_directory','detroit_building_directory','preferred_tiles_directory'):
         monkeypatch.setattr(module,name,lambda *args:absent)
+    monkeypatch.setattr(module,'load_installed_terrain_catalog',lambda *args:None)
     monkeypatch.setattr(module,'load_imagery_stack',lambda:())
     roads = Mock(name='roads')
     monkeypatch.setattr(module.LocalRoadOverlay, 'installed', lambda: roads)

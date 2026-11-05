@@ -12,6 +12,11 @@ on:
         required: false
         type: boolean
         default: false
+      publish_release:
+        description: Create a per-coverage draft release
+        required: false
+        type: boolean
+        default: true
   workflow_dispatch:
     inputs:
       coverage:
@@ -33,6 +38,11 @@ on:
         required: false
         type: boolean
         default: false
+      publish_release:
+        description: Create a per-coverage draft release
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -109,6 +119,8 @@ jobs:
             --output "build-output/${{ inputs.coverage }}-imagery.zip"
           python -m development.maps.imagery_regions \
             --output build-output/michigan-imagery-index.json
+          python -m development.maps.state_map_catalog \
+            --output build-output/state-map-catalog.json
       - name: Preserve reusable imagery package
         if: ${{ !inputs.force_rebuild && steps.imagery-artifact.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v4
@@ -117,6 +129,7 @@ jobs:
             build-output/${{ inputs.coverage }}-imagery.zip
             build-output/${{ inputs.coverage }}-imagery.zip.json
             build-output/michigan-imagery-index.json
+            build-output/state-map-catalog.json
           key: map-artifact-imagery-${{ inputs.coverage }}-${{ steps.identity.outputs.value }}
       - name: Upload checked imagery package
         uses: actions/upload-artifact@v4
@@ -217,7 +230,10 @@ jobs:
             --output "build-output/${{ inputs.coverage }}-terrain.zip"
           python -m development.maps.terrain_regions \
             --output build-output/michigan-terrain-index.json
+          python -m development.maps.state_map_catalog \
+            --output build-output/state-map-catalog.json
       - name: Create draft release
+        if: ${{ inputs.publish_release }}
         env:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
@@ -234,3 +250,15 @@ jobs:
             --draft --target "$GITHUB_SHA" \
             --title "Michigan offline map data · ${COVERAGE}" \
             --notes "Offline rectangular USGS imagery and 3DEP terrain shard. Inspect coverage, size, and rendering before publishing."
+      - name: Upload assembled map-data package
+        uses: actions/upload-artifact@v4
+        with:
+          name: map-data-${{ inputs.coverage }}
+          path: |
+            build-output/${{ inputs.coverage }}-terrain.zip*
+            build-output/imagery-artifacts/${{ inputs.coverage }}-imagery.zip*
+            build-output/michigan-terrain-index.json
+            build-output/imagery-artifacts/michigan-imagery-index.json
+            build-output/state-map-catalog.json
+          if-no-files-found: error
+          retention-days: 7

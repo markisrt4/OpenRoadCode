@@ -29,7 +29,9 @@ def build_revision(kind):
 def build_profile(kind, coverage):
     """Return output dimensions/layout that participate in reuse identity."""
     if kind == 'imagery':
-        return '8192x8192' if coverage in _MICHIGAN_COVERAGES else '4096x4096-detail'
+        return ('8192x8192' if coverage in _MICHIGAN_COVERAGES
+                or coverage.endswith('-overview') or '-detail-' in coverage
+                else '4096x4096-detail')
     if kind == 'terrain':
         return 'coverage-defined-tiled-grid'
     raise ValueError(f"Unsupported map artifact kind: {kind}")

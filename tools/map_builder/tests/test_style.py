@@ -18,6 +18,16 @@ class StyleTests(unittest.TestCase):
             install_style(TEMPLATE, destination)
             validate_style(destination)
 
+    def test_shared_political_boundary_sources_and_styles(self):
+        document = json.loads(TEMPLATE.read_text(encoding="utf-8"))
+        layers = {layer["id"]: layer for layer in document["layers"]}
+        self.assertEqual(document["sources"]["state-boundaries"]["type"], "geojson")
+        self.assertIn("us_state_internal_boundaries.geojson",
+                      document["sources"]["state-boundaries"]["data"])
+        self.assertEqual(document["sources"]["country-boundaries"]["type"], "geojson")
+        self.assertEqual(layers["state-boundaries"]["paint"]["line-dasharray"], [1, 2])
+        self.assertEqual(layers["michigan-boundary"]["filter"][-1], "26")
+
     def test_buildings_use_height_aware_3d_extrusions(self):
         document = json.loads(TEMPLATE.read_text(encoding="utf-8"))
         buildings = next(layer for layer in document["layers"] if layer["id"] == "buildings")

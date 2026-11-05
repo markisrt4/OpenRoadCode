@@ -19,12 +19,13 @@ from tools.map_builder.builder.map_3d import PRESETS
 from tools.map_builder.builder.map_3d_menu import choose_coverage
 from tools.map_builder.builder.terrain import download
 from development.maps.terrain_regions import MICHIGAN_COVERAGES
+from development.maps.state_map_catalog import coverage_definition
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     regional_coverages = ('metro-detroit',) + tuple(MICHIGAN_COVERAGES)
-    parser.add_argument('--coverage', choices=tuple(PRESETS) + regional_coverages)
+    parser.add_argument('--coverage')
     parser.add_argument('--output', type=Path, help='Override the device-owned pack directory')
     parser.add_argument('--yes', action='store_true', help='Skip confirmation; requires --coverage')
     parser.add_argument('--pack-manifest', help='HTTPS descriptor for a published terrain archive')
@@ -41,18 +42,18 @@ def main():
             print('Cancelled')
             return 0
         title, bounds = (COVERAGES[coverage] if coverage == 'metro-detroit' else
-                         MICHIGAN_COVERAGES[coverage] if coverage in MICHIGAN_COVERAGES else
-                         PRESETS[coverage])
+                         PRESETS[coverage] if coverage in PRESETS else
+                         coverage_definition(coverage))
         directories = {'detroit-downtown': detroit_terrain_directory,
                        'detroit-midtown': midtown_terrain_directory,
                        'pine-knob': pine_knob_terrain_directory}
         destination = args.output or (metro_detroit_terrain_directory() if coverage == 'metro-detroit'
-            else regional_terrain_directory(coverage) if coverage in MICHIGAN_COVERAGES
+            else regional_terrain_directory(coverage) if coverage not in PRESETS
             else directories[coverage]() if coverage in directories else openroadcode_data_dir('map-packs',coverage+'-terrain-v1'))
         print(f'Coverage: {title} · {bounds}')
         if coverage == 'metro-detroit':
             print('USGS 3DEP: streamed overview, 200 m-class regional, and focus-area LOD grids.')
-        elif coverage in MICHIGAN_COVERAGES:
+        elif coverage not in PRESETS:
             print('USGS 3DEP: 64 resumable 129×129 grids; rectangular coverage includes water and neighboring areas.')
         else:
             print('USGS 3DEP: one grid for the selected local coverage.')
@@ -75,7 +76,7 @@ def main():
             verify_archive(archive, descriptor)
             _install_archive(archive, destination)
             installed = destination
-        elif coverage in regional_coverages:
+        elif coverage == 'metro-detroit' or coverage not in PRESETS:
             target = args.build_only or destination
             build_regional_terrain(target, coverage=coverage)
         else:

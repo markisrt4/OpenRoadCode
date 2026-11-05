@@ -1,15 +1,14 @@
-"""Build one resumable row of a Michigan terrain package."""
+"""Build one resumable row of a state terrain package."""
 
 import argparse
 from pathlib import Path
 
 from development.maps.regional_terrain import build_michigan_row
-from development.maps.terrain_regions import MICHIGAN_COVERAGES
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--coverage", required=True, choices=tuple(MICHIGAN_COVERAGES))
+    parser.add_argument("--coverage", required=True)
     parser.add_argument("--row", required=True, type=int, choices=range(8))
     parser.add_argument("--cache", required=True, type=Path)
     args = parser.parse_args()

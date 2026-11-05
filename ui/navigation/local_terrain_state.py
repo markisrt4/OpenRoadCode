@@ -51,9 +51,9 @@ class LocalTerrainMosaicState:
     maximum_zoom: int = 13
 
     def __post_init__(self):
-        if (not 1 <= len(self.tiles) <= 64 or not self.attribution.strip()
+        if (not 1 <= len(self.tiles) <= 192 or not self.attribution.strip()
                 or type(self.maximum_zoom) is not int or not 1 <= self.maximum_zoom <= 18):
-            raise ValueError("Terrain mosaic requires 1–64 attributed tiles")
+            raise ValueError("Terrain mosaic requires 1–192 attributed tiles")
 
     def document(self):
         lowest_detail = min(tile.detail_level for tile in self.tiles)
@@ -71,3 +71,54 @@ class LocalTerrainMosaicState:
             "maximum_zoom": self.maximum_zoom,
             "display_mode": "relative-relief",
         }
+
+
+@dataclass(frozen=True, slots=True)
+class LocalTerrainTileIndexState:
+    """Metadata for one lazily transported terrain grid; samples stay adapter-owned."""
+
+    tile_id: str
+    coverage: LocalImageryState
+    width: int
+    height: int
+    reference_height_m: float
+    vertical_datum: str
+    detail_level: int = 0
+    minimum_zoom: int = 0
+
+    def __post_init__(self):
+        if (not self.tile_id or len(self.tile_id) > 120
+                or not 2 <= self.width <= 129 or not 2 <= self.height <= 129
+                or not math.isfinite(self.reference_height_m)
+                or not self.vertical_datum.strip()
+                or type(self.detail_level) is not int or not 0 <= self.detail_level <= 12
+                or type(self.minimum_zoom) is not int or not 0 <= self.minimum_zoom <= 18):
+            raise ValueError("Invalid lazy terrain tile metadata")
+
+    def document(self):
+        document = self.coverage.document()
+        document.update(tile_id=self.tile_id, width=self.width, height=self.height,
+                        reference_height_m=self.reference_height_m,
+                        vertical_datum=self.vertical_datum,
+                        detail_level=self.detail_level, minimum_zoom=self.minimum_zoom)
+        return document
+
+
+@dataclass(frozen=True, slots=True)
+class LocalTerrainCatalogState:
+    """Bounded metadata catalog for renderer-requested local terrain payloads."""
+
+    tiles: tuple[LocalTerrainTileIndexState, ...]
+    attribution: str = "USGS 3DEP · The National Map"
+    maximum_zoom: int = 16
+
+    def __post_init__(self):
+        if (not 1 <= len(self.tiles) <= 640 or len({tile.tile_id for tile in self.tiles}) != len(self.tiles)
+                or not self.attribution.strip() or type(self.maximum_zoom) is not int
+                or not 1 <= self.maximum_zoom <= 18):
+            raise ValueError("Terrain catalog requires 1–640 unique attributed tiles")
+
+    def document(self):
+        return {"tiles": [tile.document() for tile in self.tiles],
+                "attribution": self.attribution, "maximum_zoom": self.maximum_zoom,
+                "display_mode": "relative-relief", "lazy": True}
