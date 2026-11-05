@@ -32,8 +32,15 @@ git switch feature/waze-live-map
 bash development/debian/waydroid_vm.sh run
 ```
 
-One command checks/starts the runtime, configures it, verifies readiness and then
-launches ORC through `./runOrcUi`. It performs the following stages:
+This checks/starts the runtime, configures it and verifies readiness. It never
+launches ORC. Launch ORC separately when ready:
+
+```bash
+git switch feature/waze-live-map
+./runOrcUi
+```
+
+The Waydroid script performs the following stages:
 
 1. Reuse or start exactly one dedicated Weston X11 kiosk with `kiosk-shell.so`
    and `--idle-time=0`. Verify its live marker process and socket, and require one
@@ -69,8 +76,8 @@ launches ORC through `./runOrcUi`. It performs the following stages:
    an authorized ADB device identified as Waydroid before changing permissions.
    It reads back the location switch and mock-location permission through the
    runtime ADB identity before marking location setup enabled.
-8. Launch ORC with the selected Wayland socket and Android serial. Configuration
-   happens before ORC loads its location-provider settings.
+8. Return to the terminal with the configured runtime ready. Start ORC afterward
+   so it loads the updated location-provider settings.
 
 Run is repeatable: unchanged keys/rules aren't duplicated, ready processes are
 reused, and guest IP changes update ORC's location configuration. Existing ADB
@@ -97,7 +104,7 @@ git switch feature/waze-live-map
 bash development/debian/waydroid_vm.sh start
 ```
 
-`start` and `configure` both perform the same idempotent runtime/configuration
+`run`, `start` and `configure` perform the same idempotent runtime/configuration
 checks without launching ORC. Use `configure` after app installation, an Android
 restart or a guest-IP change. If a stage fails, it prints the failed operation;
 successfully started owned processes remain available for diagnosis or stop.

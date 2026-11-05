@@ -427,10 +427,7 @@ def main():
                 return
             if args.action == 'restart':
                 vm.restart()
-            serial = vm.configure()
-        if args.action == 'run':
-            environment = dict(vm.environment, ANDROID_SERIAL=serial, ORC_WAYDROID_PANEL='1')
-            raise SystemExit(subprocess.call([str(ROOT / 'runOrcUi')], cwd=ROOT, env=environment))
+            vm.configure()
     except KeyboardInterrupt:
         parser.exit(130, 'Interrupted. Use stop to release managed session/display processes.\n')
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:

@@ -13,6 +13,22 @@ import pytest
 from scripts import waydroid_vm as module
 
 
+@pytest.mark.parametrize('action', ['run', 'start', 'configure'])
+def test_runtime_commands_prepare_waydroid_without_launching_orc(tmp_path, monkeypatch, action):
+    runtime = Mock(runtime=tmp_path)
+    monkeypatch.setattr(module, 'WaydroidVM', lambda: runtime)
+    monkeypatch.setattr(module.os, 'geteuid', lambda: 1001)
+    monkeypatch.setattr('sys.argv', ['waydroid_vm', action])
+    run = Mock()
+    launch = Mock(side_effect=AssertionError('Runtime setup must not launch ORC'))
+    monkeypatch.setattr(module.subprocess, 'run', run)
+    monkeypatch.setattr(module.subprocess, 'call', launch)
+    module.main()
+    runtime.configure.assert_called_once_with()
+    run.assert_called_once_with(['sudo', '-v'], check=True)
+    launch.assert_not_called()
+
+
 class Commands:
     def __init__(self):
         self.calls = []
