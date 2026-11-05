@@ -21,7 +21,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install verification dependencies
-        run: python -m pip install pytest numpy scipy PyYAML requests tinycss2 ruff mypy
+        run: python -m pip install pytest numpy scipy PyYAML requests tinycss2 pyzmq ruff mypy
       - name: Focused architecture checks
         run: |
           python scripts/check_python_module_size.py
@@ -55,6 +55,6 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install quality gate dependencies
-        run: python -m pip install pytest numpy scipy PyYAML requests tinycss2 ruff mypy
+        run: python -m pip install pytest numpy scipy PyYAML requests tinycss2 pyzmq ruff mypy
       - name: Run portable full quality gate
         run: python scripts/quality_gate.py
