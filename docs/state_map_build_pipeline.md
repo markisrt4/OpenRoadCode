@@ -198,3 +198,45 @@ During branch development run focused tests. Before merge, the user runs:
 git switch navigation-cesium
 python scripts/quality_gate.py
 ```
+
+## Experimental Rochester staged-file trial
+
+`rochester-static-trial` in **Build regional map data** is isolated from the
+normal export-based builders. It queries the NAIP index for Rochester, selects
+one dated acquisition year, and downloads the referenced public USGS staged
+image files. TNMAccess locates a staged 1/3-arc-second 3DEP GeoTIFF covering the
+same bounds. No image-export or point-elevation requests are made.
+
+GDAL runs only on the Actions build host. It clips/reprojects RGB imagery to
+4096×4096 pixels and bilinearly samples a 129×129 terrain grid. Terrain samples
+are aligned to the existing pack's endpoint-based grid convention. The vertical
+datum is explicitly unresolved in this trial; do not treat relative rendered
+heights as ellipsoid altitudes. Catalog records and source raster metadata are
+retained. Incomplete imagery coverage or invalid elevations fail the trial.
+
+The trial permits at most 12 imagery files and one DEM, with 512 MiB per-file
+and 1 GiB combined source-payload limits. Downloads have three attempts and a
+40-minute job deadline; retries can transfer additional bytes. Completed files
+are cached with URL/size/hash receipts. Partial-file transfers restart, and
+`force_rebuild=true` skips old source caches when a new acquisition is intended.
+This is not a statewide bulk-download implementation.
+
+Successful output is two ZIPs in the existing phone-installable pack formats,
+each with its descriptor, plus `source-plan.json` and `trial-report.json`. Trial
+build identities differ from the production builder so its caches cannot reuse
+experimental output. Outputs are Actions artifacts retained for seven days;
+this job neither publishes a Release nor installs or activates data on a phone.
+Inspect quality and compare timing, transfer sizes, source years and relief
+against the current Rochester pack before changing production or publishing.
+
+```bash
+git switch navigation-cesium
+gh workflow run build-metro-detroit-imagery.yml --ref navigation-cesium \
+  -f build_target=rochester-static-trial -f force_rebuild=false
+```
+
+Source references:
+[USGS NAIP archive](https://www.usgs.gov/centers/eros/science/usgs-eros-archive-aerial-photography-national-agriculture-imagery-program-naip),
+[TNMAccess API](https://tnmaccess.nationalmap.gov/api/v1/docs), and
+[3DEP products](https://www.usgs.gov/3d-elevation-program/about-3dep-products-services).
+The separate AWS NAIP mirror uses requester-pays access and is not used here.

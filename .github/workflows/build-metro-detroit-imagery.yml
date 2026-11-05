@@ -10,6 +10,7 @@ on:
         default: metro-detroit
         options:
           - metro-detroit
+          - rochester-static-trial
           - michigan-overview
           - mi-lower-southwest
           - mi-lower-southeast
@@ -306,7 +307,7 @@ jobs:
 
   michigan:
     name: Build Michigan terrain package
-    if: ${{ inputs.build_target != 'metro-detroit' && inputs.build_target != 'michigan-all' && inputs.build_target != 'generic-state' && inputs.build_target != 'validation-states' }}
+    if: ${{ inputs.build_target != 'metro-detroit' && inputs.build_target != 'michigan-all' && inputs.build_target != 'generic-state' && inputs.build_target != 'validation-states' && inputs.build_target != 'rochester-static-trial' }}
     uses: ./.github/workflows/build-michigan-terrain.yml
     with:
       coverage: ${{ inputs.build_target }}
@@ -441,3 +442,51 @@ jobs:
       scope: all
       force_rebuild: ${{ inputs.force_rebuild }}
     secrets: inherit
+
+
+  rochester-static-trial:
+    name: Rochester staged-file trial (no export services)
+    if: ${{ inputs.build_target == 'rochester-static-trial' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    env:
+      GDAL_CACHEMAX: '128'
+      GDAL_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install build-host raster tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y gdal-bin python3-pil
+      - name: Restore completed staged files
+        if: ${{ !inputs.force_rebuild }}
+        uses: actions/cache/restore@v4
+        with:
+          path: build-output/rochester-static-cache
+          key: rochester-static-sources-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: rochester-static-sources-v1-
+      - name: Discover, download and process existing source tiles
+        run: |
+          /usr/bin/python3 -m development.maps.static_tile_trial \
+            --output build-output/rochester-static-trial \
+            --cache build-output/rochester-static-cache
+      - name: Preserve completed source files
+        if: ${{ always() }}
+        uses: actions/cache/save@v4
+        with:
+          path: build-output/rochester-static-cache
+          key: rochester-static-sources-v1-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Upload trial packs and evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: rochester-static-trial-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            build-output/rochester-static-trial/*.zip
+            build-output/rochester-static-trial/*.zip.json
+            build-output/rochester-static-trial/source-plan.json
+            build-output/rochester-static-trial/trial-report.json

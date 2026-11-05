@@ -1,0 +1,79 @@
+"""Fail closed on unreviewed sources and exercise the existing pack contract."""
+import json
+from pathlib import Path
+import shutil
+import subprocess
+
+import pytest
+from development.maps.static_tile_trial import (BOUNDS, approved_url, select_imagery,
+                                                select_dem, download_source, process)
+from apps.launchers.local_imagery_pack import LocalImageryPack
+from apps.launchers.local_terrain_pack import load_terrain
+
+
+def feature(year,url,name='NAIP Michigan'):
+    return {'attributes':{'Year':year,'download_url':url,'Name':name}}
+
+
+URL='https://prd-tnm.s3.amazonaws.com/StagedProducts/NAIP/MI/test.jp2'
+
+
+def test_source_selection_locks_year_and_rejects_incomplete_catalogs():
+    catalog={'features':[feature(2020,URL+'old'),feature(2022,URL),feature(2022,URL)]}
+    assert [item['url'] for item in select_imagery(catalog)]==[URL]
+    with pytest.raises(ValueError,match='incomplete'):
+        select_imagery({**catalog,'exceededTransferLimit':True})
+    with pytest.raises(ValueError,match='No dated'):
+        select_imagery({'features':[feature(None,URL)]})
+    with pytest.raises(ValueError):approved_url('https://unreviewed.example/tile.tif')
+    with pytest.raises(ValueError):approved_url('http://prd-tnm.s3.amazonaws.com/StagedProducts/test.tif')
+
+
+def test_terrain_source_must_contain_whole_trial_coverage():
+    item={'boundingBox':{'minX':-84,'minY':42,'maxX':-83,'maxY':43},
+          'downloadURL':'https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/test.tif'}
+    assert select_dem({'items':[item]})['url']==item['downloadURL']
+    with pytest.raises(ValueError):select_dem({'items':[{**item,'boundingBox':{}}]})
+
+
+def test_checked_source_cache_avoids_network_and_detects_tampering(tmp_path,monkeypatch):
+    import hashlib
+    from io import BytesIO
+    from development.maps import static_tile_trial as module
+    class Response(BytesIO):
+        headers={'Content-Length':'4','ETag':'fixture'}
+        def geturl(self):return URL
+    calls=[]
+    def fetch(*args,**kwargs):
+        calls.append(args);return Response(b'tile')
+    monkeypatch.setattr(module,'urlopen',fetch)
+    first,receipt=download_source(URL,tmp_path,10)
+    assert receipt['sha256']==hashlib.sha256(b'tile').hexdigest()
+    assert download_source(URL,tmp_path,10)[0]==first
+    assert len(calls)==1
+    first.write_bytes(b'evil')
+    download_source(URL,tmp_path,10)
+    assert len(calls)==2
+    with pytest.raises(ValueError,match='cap'):download_source(URL,tmp_path,2)
+
+
+def test_staged_rasters_produce_existing_installable_pack_format(tmp_path):
+    if not shutil.which('gdal_create') or not shutil.which('gdalwarp'):
+        pytest.skip('GDAL build-host tools unavailable')
+    image=tmp_path/'rgb.tif';dem=tmp_path/'dem.tif'
+    west,south,east,north=BOUNDS
+    subprocess.run(['gdal_create','-of','GTiff','-outsize','16','16','-bands','3',
+                    '-burn','80','-burn','120','-burn','160','-a_srs','EPSG:4326',
+                    '-a_ullr',str(west),str(north),str(east),str(south),str(image)],check=True)
+    subprocess.run(['gdal_create','-of','GTiff','-outsize','16','16','-bands','1','-ot','Float32',
+                    '-burn','200','-a_srs','EPSG:4326','-a_ullr','-84','43','-83','42',str(dem)],check=True)
+    output=tmp_path/'output';output.mkdir()
+    report=process({'imagery':[],'terrain':[]},{'imagery':[image],'terrain':[dem]},output)
+    assert report['terrain_range_m']==[200,200]
+    assert LocalImageryPack.load(output/'rochester-imagery').image.is_file()
+    terrain=load_terrain(output/'rochester-terrain')
+    assert terrain.width==129 and len(terrain.heights_m)==129*129
+    for kind in ('imagery','terrain'):
+        descriptor=json.loads((output/f'rochester-{kind}.zip.json').read_text())
+        assert descriptor['coverage']=='rochester'
+        assert descriptor['build_revision']=='static-source-trial-v1'
