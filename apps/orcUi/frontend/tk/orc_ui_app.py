@@ -33,8 +33,10 @@ class OrcUiApp(VolumeUiIf, UiWidget):
         *,
         lifecycle_handler: SystemLifecycleRequestHandlerIf,
         online_mode: OnlineModeIf | None = None,
+        application_name: str = 'OpenRoadCode',
     ) -> None:
         self._lifecycle_handler = lifecycle_handler
+        self._application_name = application_name
         self._theme_mode = ThemeMode.DARK
         self._theme = theme_bundle(self._theme_mode)
         ui = self._theme.ui
@@ -47,7 +49,7 @@ class OrcUiApp(VolumeUiIf, UiWidget):
         self._root = tk.Tk()
         with ResourceCleanup() as cleanup:
             cleanup.callback(self.shutdown)
-            self._root.title("OpenRoadCode")
+            self._root.title(self._application_name)
             target = installed_target()
             fullscreen = orcui_fullscreen_default()
             self._borderless = orcui_borderless_default() and not fullscreen
@@ -224,7 +226,8 @@ class OrcUiApp(VolumeUiIf, UiWidget):
         self._clear_content()
     def set_screen_title(self, title: str) -> None:
         title = title.strip()
-        self._root.title("OpenRoadCode" if not title else f"OpenRoadCode | {title}")
+        base = getattr(self, '_application_name', 'OpenRoadCode')
+        self._root.title(base if not title else f'{base} | {title}')
         if self._shell is not None:
             leaf = title.upper()
             if not leaf or leaf == self._active_nav:
@@ -441,7 +444,7 @@ class OrcUiApp(VolumeUiIf, UiWidget):
         if self._shell is not None:
             self._shell.set_back_action(None)
             self._shell.set_status("")
-        self._root.title("OpenRoadCode")
+        self._root.title(getattr(self, '_application_name', 'OpenRoadCode'))
     def _paint_nav(self) -> None:
         if self._shell is not None:
             self._shell.set_active_navigation(getattr(self, '_screen_navigation_labels', {}).get(self._active_nav, self._active_nav))

@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from common.resource_cleanup import ResourceCleanup, close_resources
 
 from apps.orcUi.core_runtime import MapRuntime, StateIngressRuntime
+from apps.orcUi.composition.window_title import application_name
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.presentation_state import OrcUiPresentationState
 from apps.orcUi.vehicle_configuration_state import VehicleConfigurationState
@@ -114,6 +115,7 @@ def create_core_composition() -> CoreComposition:
         app = OrcUiApp(
             lifecycle_handler=lifecycle,
             online_mode=OnlineModeController(),
+            application_name=application_name(),
         )
         cleanup.callback(app.shutdown)
         connectivity = ShellConnectivityController(app.online_mode, app, app.set_online_status, app.set_screen_status)

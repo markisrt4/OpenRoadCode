@@ -1,5 +1,11 @@
 # orcUi Architecture
 
+The composition resolves the checkout branch once at startup and injects the
+application name into the shell. Non-`master` branches appear as
+`OpenRoadCode [branch] | SCREEN`; master, detached HEAD and installed builds
+outside a checkout retain the normal name. Git is not queried by widgets or
+on screen changes. Restart ORC after switching branches to refresh the label.
+
 ## Saved destinations
 
 Home and Work use the existing places request contract and POI popup. A shortcut
