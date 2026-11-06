@@ -33,17 +33,17 @@ class ElmMonitorCaptureTest(unittest.TestCase):
         return device, fake
 
     def test_monitor_prompt_returns_capture(self):
-        device, fake = self._device([b"153 01 02\\r>"])
+        device, fake = self._device([b"153 01 02\r>"])
         result = device.capture_monitor()
         self.assertTrue(result.prompt_recovered)
         self.assertIn("153 01 02", result.raw)
-        self.assertEqual(fake.sent, [b"ATMA\\r"])
+        self.assertEqual(fake.sent, [b"ATMA\r"])
 
     def test_byte_limit_stops_monitor(self):
         device, fake = self._device([b"12345678", b">"])
         result = device.capture_monitor(max_bytes=8)
         self.assertTrue(result.byte_limit_reached)
-        self.assertEqual(fake.sent, [b"ATMA\\r", b"\\r"])
+        self.assertEqual(fake.sent, [b"ATMA\r", b"\r"])
 
     def test_unrecovered_monitor_disconnects(self):
         device, fake = self._device([b"1234"])
