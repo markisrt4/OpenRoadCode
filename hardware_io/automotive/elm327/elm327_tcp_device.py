@@ -126,7 +126,7 @@ class Elm327TcpDevice:
         limit_hit = False
         recovered = False
         try:
-            sock.sendall(b"ATMA\\r")
+            sock.sendall(b"ATMA\r")
             deadline = start + duration_seconds
             while time.monotonic() < deadline and len(data) < max_bytes:
                 try:
@@ -144,7 +144,7 @@ class Elm327TcpDevice:
             elapsed = time.monotonic() - start
             if not recovered:
                 # Any character stops ELM327 monitoring; CR is non-destructive.
-                sock.sendall(b"\\r")
+                sock.sendall(b"\r")
                 stop_deadline = time.monotonic() + recovery_seconds
                 while time.monotonic() < stop_deadline:
                     try:
