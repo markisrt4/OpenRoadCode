@@ -1,5 +1,21 @@
 # Repository instructions
 
+## ORC's Law: Inspect, Reuse, Extend
+
+**Before writing new code, understand what OpenRoadCode already provides.**
+
+1. **Inspect first.** Search existing modules, interfaces, controllers, adapters, schedulers, tests, and documentation before proposing new implementations.
+2. **Reuse what works.** Prefer existing abstractions and infrastructure over parallel implementations.
+3. **Extend before replacing.** When existing functionality is incomplete, extend it while preserving established contracts and behavior.
+4. **Respect architectural boundaries.** Keep hardware access, protocols, business logic, and presentation properly separated.
+5. **Avoid duplication.** Do not introduce competing schedulers, transports, parsers, managers, or services without demonstrating why the existing implementations are insufficient.
+6. **Preserve working behavior.** New capabilities must not silently disrupt existing features or performance characteristics.
+7. **Verify before declaring success.** Use appropriate tests and CI, following the repository's execution and cost policies.
+
+**Enforcement:** Before implementing a feature, identify the existing components reviewed, explain what can be reused, and justify any genuinely new abstraction.
+
+*ORC's Law: Inspect what exists. Reuse what works. Extend what's missing. Don't reinvent the wheel.*
+
 ## UI contracts are part of completing a feature
 
 - Before wiring new UI behavior, define or extend toolkit-independent state and
