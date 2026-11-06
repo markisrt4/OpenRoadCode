@@ -5,12 +5,21 @@ from __future__ import annotations
 
 import socket
 import time
+from dataclasses import dataclass
 
 from hardware_io.automotive.elm327.elm327_errors import (
     Elm327CommandError,
     Elm327ConnectionError,
 )
 from hardware_io.automotive.elm327.elm327_response import Elm327Response
+
+
+@dataclass(frozen=True, slots=True)
+class Elm327MonitorCapture:
+    raw: str
+    elapsed_seconds: float
+    prompt_recovered: bool
+    byte_limit_reached: bool
 
 
 class Elm327TcpDevice:
@@ -91,6 +100,80 @@ class Elm327TcpDevice:
             raise Elm327CommandError(
                 f"ELM327 command failed: {normalized_command}: {exc}"
             ) from exc
+
+    def capture_monitor(
+        self,
+        duration_seconds: float = 3.0,
+        *,
+        max_bytes: int = 262144,
+        recovery_seconds: float = 2.0,
+    ) -> Elm327MonitorCapture:
+        """Capture a bounded ATMA window on an exclusively owned connection.
+
+        Callers must stop other OBD requests before invoking this method.
+        A missing prompt invalidates the connection to prevent later commands
+        from being confused with a still-running monitor.
+        """
+        if self._socket is None:
+            raise Elm327ConnectionError("ELM327 device is not connected")
+        if duration_seconds <= 0 or max_bytes <= 0 or recovery_seconds <= 0:
+            raise ValueError("monitor limits must be positive")
+
+        sock = self._socket
+        self._drain_input()
+        data = bytearray()
+        start = time.monotonic()
+        limit_hit = False
+        recovered = False
+        try:
+            sock.sendall(b"ATMA\\r")
+            deadline = start + duration_seconds
+            while time.monotonic() < deadline and len(data) < max_bytes:
+                try:
+                    chunk = sock.recv(min(4096, max_bytes - len(data)))
+                except socket.timeout:
+                    continue
+                if not chunk:
+                    raise Elm327ConnectionError("ELM327 TCP bridge disconnected")
+                if b">" in chunk:
+                    data.extend(chunk.split(b">", 1)[0])
+                    recovered = True
+                    break
+                data.extend(chunk)
+            limit_hit = len(data) >= max_bytes
+            elapsed = time.monotonic() - start
+            if not recovered:
+                # Any character stops ELM327 monitoring; CR is non-destructive.
+                sock.sendall(b"\\r")
+                stop_deadline = time.monotonic() + recovery_seconds
+                while time.monotonic() < stop_deadline:
+                    try:
+                        chunk = sock.recv(4096)
+                    except socket.timeout:
+                        continue
+                    if not chunk:
+                        raise Elm327ConnectionError("ELM327 TCP bridge disconnected")
+                    if b">" in chunk:
+                        data.extend(chunk.split(b">", 1)[0])
+                        recovered = True
+                        break
+                    # Bound memory even if the adapter keeps flooding.
+                    remaining = max(0, max_bytes - len(data))
+                    data.extend(chunk[:remaining])
+            if not recovered:
+                raise Elm327CommandError(
+                    "ATMA did not return an ELM prompt after stop; "
+                    "connection closed to prevent command interleaving"
+                )
+            return Elm327MonitorCapture(
+                raw=data.decode("ascii", errors="replace"),
+                elapsed_seconds=elapsed,
+                prompt_recovered=True,
+                byte_limit_reached=limit_hit,
+            )
+        except (OSError, Elm327CommandError, Elm327ConnectionError):
+            self.disconnect()
+            raise
 
     def _initialize(self) -> None:
         for command in self.INITIALIZATION_COMMANDS:
