@@ -341,3 +341,49 @@ Download the successful `southfield-static-trial-<run-id>` Actions artifact, the
 use the existing imagery and terrain installers with `--coverage southfield`
 and their corresponding `--pack-file`. Viewing and device acceptance remain
 separate from build validation. This does not install building footprints.
+
+
+### Michigan staged-source regional test
+
+`build_target=michigan-staged` tests all eight existing Michigan detail regions
+using the static-file approach qualified in Rochester/Southfield. The old
+`michigan-all` export/sampling workflow remains available separately. This initial
+regional test creates Actions artifacts, not a published Release.
+
+- NAIP: paginated public mirror catalog, USDA licensor check, newest dated source
+  per named quarter-quad (or exact footprint when no tile name is available).
+  Older dates may remain in other footprints; provenance records actual dates.
+- Each source is cropped through GDAL HTTP range reads onto the final grid.
+  Regional imagery is 4096×4096, with transparent source gaps/water. This is
+  regional coverage, not street-level imagery. Existing local packs stay finer.
+- 3DEP: paginated staged-file discovery, multiple intersecting rasters, a common
+  endpoint-aligned 1025×1025 grid, split into at most 64 129×129 terrain tiles.
+  Invalid/missing terrain samples cause whole affected tiles to be omitted and
+  listed in `build-report.json`. No elevations are invented to hide gaps.
+- Complete image coverage of Michigan land has not yet been qualified. The
+  usable-image fraction includes water and neighboring envelopes and must not
+  be presented as a land-completeness percentage. Missing terrain tiles remain
+  visible limitations of the test, even when the pack validates.
+- Two regions run concurrently, each with two source crop workers. Completed
+  source crops use bounds/dimensions/source-based cache keys plus checksums.
+  Failed reruns restore completed crops and the discovery snapshot; force rebuild
+  starts a fresh source review. Source reads have bounded retries; failures are
+  not converted into approved gaps. Neither crop sizes nor cache bytes measure
+  actual network transfer. The build time and size must be observed, not assumed.
+- Runtime formats, installers, layer priorities and source-rights references are
+  unchanged. Vertical datum remains unresolved; viewing uses relative relief.
+
+Start the test:
+
+```bash
+git switch navigation-cesium
+gh workflow run build-metro-detroit-imagery.yml --ref navigation-cesium \
+  -f build_target=michigan-staged -f force_rebuild=false
+```
+
+Each successful region uploads `michigan-staged-<coverage>-<run-id>` containing
+imagery/terrain ZIPs, adjacent checksum descriptors, source plan and coverage
+report, retained for 14 days. Failed regions upload whatever evidence completed;
+inspect reports and job status before installation. Existing finished packs are
+not deleted or overwritten by failed builds. Device installs use the existing
+`--pack-file` interfaces with each region's coverage name.
