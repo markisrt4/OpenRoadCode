@@ -111,12 +111,12 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
             text="No radio active",
             bg=ui.surface,
             fg=ui.text,
-            font=("Sans", 16, "bold"),
+            font=("Sans", 17, "bold"),
             anchor="w",
             justify=tk.LEFT,
             wraplength=200,
         )
-        self._station.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=10, pady=(1, 1))
+        self._station.grid(row=2, column=0, columnspan=2, sticky="ew", padx=10, pady=(8, 2))
 
         self._detail = tk.Label(
             self,
@@ -126,7 +126,7 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
             font=("Sans", 9),
             anchor="w",
         )
-        self._detail.grid(row=3, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 4))
+        self._detail.grid(row=3, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 12))
 
         self._refresh()
 
