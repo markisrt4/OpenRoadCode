@@ -74,7 +74,7 @@ def build_home_screen(
     lower.grid_rowconfigure(0, weight=1)
     lower.grid_rowconfigure(1, weight=0, minsize=48 if visualizer_factory is not None else 0)
 
-    radio = panel(lower, "RADIO", ui.accent_warning, theme=theme)
+    radio = panel(lower, "RADIO", ui.accent_warning, theme=theme, icon="◉")
     radio.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
     if radio_factory is None:
         add_summary(
@@ -86,7 +86,7 @@ def build_home_screen(
     else:
         radio_factory(radio).pack(fill=tk.BOTH, expand=True)
 
-    media = panel(lower, "MEDIA", ui.accent_primary, theme=theme)
+    media = panel(lower, "MEDIA", ui.accent_primary, theme=theme, icon="♫")
     media.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
     if media_factory is None:
         add_summary(media, "No media", "Playback service", theme=theme)
