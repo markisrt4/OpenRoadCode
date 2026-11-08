@@ -4,7 +4,7 @@
 
 import tkinter as tk
 
-from ui.music_visualizer.music_visualizer_types import MusicCaptureState
+from ui.music_visualizer.music_visualizer_types import MusicCaptureState, MusicVisualizerSource
 
 
 class HomeSpectrumBar(tk.Frame):
@@ -37,7 +37,8 @@ class HomeSpectrumBar(tk.Frame):
         height = canvas.winfo_height()
         if width < 2 or height < 2:
             return
-        active = self._controller.capture_state() is MusicCaptureState.RUNNING
+        active = (self._controller.capture_state() is MusicCaptureState.RUNNING
+                  and self._controller.selected_source() is not MusicVisualizerSource.SIMULATED)
         frame = self._controller.latest_frame() if active else None
         spectrum = getattr(frame, "spectrum", None) if frame is not None else None
         if spectrum:
