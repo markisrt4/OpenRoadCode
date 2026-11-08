@@ -46,7 +46,9 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
             font=("Sans", 9, "bold"),
             anchor="w",
         )
+        # HOME card already provides the RADIO heading; show status only when on air.
         self._status.grid(row=0, column=0, sticky="ew", padx=10, pady=(3, 0))
+        self._status.grid_remove()
 
         source_shortcuts = tk.Frame(self, bg=ui.surface)
         source_shortcuts.grid(row=1, column=0, columnspan=2, sticky="ew", padx=7, pady=(2, 0))
@@ -57,7 +59,7 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
             source_shortcuts,
             text="ADS-B",
             command=on_open_adsb,
-            bg=ui.surface,
+            bg=ui.control_background,
             fg=ui.accent_warning,
             activebackground=ui.control_active,
             activeforeground="#ffffff",
@@ -66,7 +68,7 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
             highlightthickness=0,
             font=("Sans", 9, "bold"),
             padx=3,
-            pady=6,
+            pady=9,
         )
         self._adsb_button.grid(row=0, column=0, sticky="ew", padx=(0, 3))
 
@@ -74,7 +76,7 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
             source_shortcuts,
             text="RF",
             command=on_open_rf,
-            bg=ui.surface,
+            bg=ui.control_background,
             fg=ui.accent_success,
             activebackground=ui.control_active,
             activeforeground="#ffffff",
@@ -91,16 +93,16 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
             source_shortcuts,
             text="STREAM",
             command=on_open_streaming,
-            bg=ui.surface,
+            bg=ui.control_background,
             fg=ui.accent_primary,
             activebackground=ui.control_active,
             activeforeground="#ffffff",
             relief=tk.FLAT,
             bd=0,
             highlightthickness=0,
-            font=("Sans", 8, "bold"),
-            padx=6,
-            pady=3,
+            font=("Sans", 9, "bold"),
+            padx=3,
+            pady=9,
         )
         self._stream_button.grid(row=0, column=2, sticky="ew", padx=(3, 0))
 
@@ -148,6 +150,7 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
         playing = current is not None and state.is_playing
         if playing and current is not None:
             self._status.configure(text="● ON AIR • STREAM", fg=self._ui.accent_success)
+            self._status.grid()
             self._station.configure(text=current.name)
             details: list[str] = []
             if current.state:
@@ -159,7 +162,7 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
             self._detail.configure(text=" • ".join(details) or "Streaming radio")
             self._stream_button.configure(fg=self._ui.accent_success)
         else:
-            self._status.configure(text="RADIO", fg=self._ui.accent_primary)
+            self._status.grid_remove()
             self._station.configure(text="Radio idle")
             self._detail.configure(text="Select RF or STREAM above" if online else "Offline • RF available")
             self._stream_button.configure(fg=self._ui.accent_primary)
