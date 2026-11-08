@@ -4,10 +4,12 @@
 
 import tkinter as tk
 
+from ui.ui_widget import UiWidget
+
 from ui.music_visualizer.music_visualizer_types import MusicCaptureState, MusicVisualizerSource
 
 
-class HomeSpectrumBar(tk.Frame):
+class HomeSpectrumBar(tk.Frame, UiWidget):
     HEIGHT = 48
 
     def __init__(self, parent, *, controller, theme_bundle, on_open):
