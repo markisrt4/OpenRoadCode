@@ -10,6 +10,7 @@ from frontends.common.ui_callback_queue import UiCallbackQueue
 from ui.system.online_mode_if import OnlineModeIf
 from collections.abc import Callable
 from apps.orcUi.performance_status import PerformanceStatus
+from ui.system_diagnostics import SystemDiagnosticsSnapshot
 from apps.orcUi.orc_theme import toggle
 from ui.theme import ThemeMode
 from .power_dialog import PowerDialog
