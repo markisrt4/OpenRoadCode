@@ -30,6 +30,8 @@ class SettingsPanel(tk.Frame, UiWidget):
         theme_bundle: ThemeBundle | None = None,
         host_location_handler: HostLocationRequestHandlerIf | None = None,
         host_location_state: HostLocationState = HostLocationState(),
+        performance_overlay_enabled: Callable[[], bool] | None = None,
+        on_performance_overlay_changed: Callable[[bool], None] | None = None,
     ) -> None:
         self._theme_bundle = theme_bundle or packaged_theme_bundle(ThemeMode.DARK)
         ui = self._theme_bundle.ui
@@ -41,6 +43,8 @@ class SettingsPanel(tk.Frame, UiWidget):
         self._induction_var = tk.StringVar(value=vehicle_configuration.induction.value)
         self._unit_system = unit_system
         self._unit_system_var = tk.StringVar(value=unit_system.value)
+        self._on_performance_overlay_changed = on_performance_overlay_changed
+        self._performance_overlay_var = tk.BooleanVar(value=performance_overlay_enabled() if performance_overlay_enabled else False)
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
@@ -131,6 +135,22 @@ class SettingsPanel(tk.Frame, UiWidget):
                 anchor="w",
                 highlightthickness=0, bd=0, relief=tk.FLAT,
             ).grid(row=row, column=0, sticky="w", pady=2)
+
+        if on_performance_overlay_changed is not None:
+            tk.Label(display, text="Performance HUD", bg=ui.surface, fg=ui.text,
+                     font=("Sans", FONT_BODY + 1, "bold")).grid(
+                         row=3, column=0, sticky="w", padx=14, pady=(4, 2))
+            tk.Label(display, text="Show CPU, GPU and RAM over other screens.",
+                     bg=ui.surface, fg=ui.text_muted, font=("Sans", FONT_SMALL)).grid(
+                         row=4, column=0, sticky="w", padx=14, pady=(0, 12))
+            tk.Checkbutton(
+                display, text="Enabled", variable=self._performance_overlay_var,
+                command=lambda: self._on_performance_overlay_changed(
+                    self._performance_overlay_var.get()),
+                bg=ui.surface, fg=ui.text, selectcolor=ui.control_background,
+                activebackground=ui.surface, activeforeground=ui.text,
+                font=("Sans", FONT_CONTROL), highlightthickness=0, bd=0,
+            ).grid(row=3, column=1, rowspan=2, sticky="e", padx=14, pady=8)
 
         vehicle = tk.Frame(
             body,
