@@ -45,22 +45,36 @@ class HomeSpectrumBar(tk.Frame):
         else:
             values = (0.24, 0.40, 0.32, 0.62, 0.85, 0.56,
                       0.96, 0.72, 0.48, 0.68, 0.38, 0.54) * 3
+        # Reserve a dedicated label zone; spectrum never draws underneath text.
+        label_width = min(148, max(116, width * 0.34))
+        left = label_width + 8
+        right = max(left + 1, width - 8)
         count = len(values)
-        step = width / count
-        colors = ("#23d2ba", "#4291f5", "#a568ee")
-        for index, value in enumerate(values):
-            x = index * step
-            color = colors[min(2, index * 3 // count)]
-            bar_height = max(2, height * 0.78 * value)
+        step = (right - left) / count
+        palette = ((35, 210, 186), (66, 145, 245),
+                   (132, 206, 31), (241, 90, 22))
+
+        def color_at(position: float) -> str:
+            segment = min(len(palette) - 2, int(position * (len(palette) - 1)))
+            blend = position * (len(palette) - 1) - segment
+            start, end = palette[segment], palette[segment + 1]
+            rgb = tuple(round(a + (b - a) * blend) for a, b in zip(start, end))
             if not active:
-                bar_height *= 0.70
-            canvas.create_rectangle(x + step * 0.16, (height - bar_height) / 2,
-                                    x + step * 0.84, (height + bar_height) / 2,
-                                    fill=color if active else "#34516b", outline="")
-        if not active:
-            canvas.create_text(12, height / 2, anchor="w",
-                               text="Music visualizer  ›", fill="#e6edf5",
-                               font=("Sans", 10, "bold"))
+                base = (18, 32, 44)
+                rgb = tuple(round(base[i] * 0.40 + rgb[i] * 0.60) for i in range(3))
+            return "#" + "".join(f"{v:02x}" for v in rgb)
+
+        canvas.create_text(10, height / 2, anchor="w",
+                           text="Music visualizer  ›", fill="#e6edf5",
+                           font=("Sans", 9, "bold"))
+        for index, value in enumerate(values):
+            x = left + index * step
+            bar_height = max(2, height * (0.72 if active else 0.48) * value)
+            canvas.create_rectangle(
+                x + step * 0.14, (height - bar_height) / 2,
+                x + step * 0.86, (height + bar_height) / 2,
+                fill=color_at(index / max(1, count - 1)), outline="",
+            )
 
     def destroy(self):
         if self._job is not None:
