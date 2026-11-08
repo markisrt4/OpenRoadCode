@@ -109,7 +109,7 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
             font=("Sans", 16, "bold"),
             anchor="w",
             justify=tk.LEFT,
-            wraplength=500,
+            wraplength=200,
         )
         self._station.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=12, pady=(2, 4))
 
@@ -144,7 +144,7 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
         current = state.station
         playing = current is not None and state.is_playing
         if playing and current is not None:
-            self._status.configure(text="● STREAMING RADIO", fg=self._ui.accent_success)
+            self._status.configure(text="● ON AIR • STREAM", fg=self._ui.accent_success)
             self._station.configure(text=current.name)
             details: list[str] = []
             if current.state:
@@ -157,7 +157,7 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
             self._stream_button.configure(fg=self._ui.accent_success)
         else:
             self._status.configure(text="RADIO", fg=self._ui.accent_primary)
-            self._station.configure(text="No radio active")
-            self._detail.configure(text="Choose RF or streaming" if online else "Offline mode • RF available")
+            self._station.configure(text="Radio idle")
+            self._detail.configure(text="Select RF or STREAM above" if online else "Offline • RF available")
             self._stream_button.configure(fg=self._ui.accent_primary)
         self._after_id = self.after(750, self._refresh)
