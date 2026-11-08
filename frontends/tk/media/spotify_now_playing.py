@@ -30,8 +30,11 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         on_open: Callable[[], None],
         theme_bundle: Callable[[], ThemeBundle],
         online_allowed: Callable[[], bool] = lambda: True,
+        on_playback_changed: Callable[[bool], None] | None = None,
     ) -> None:
         self._online_allowed = online_allowed
+        self._on_playback_changed = on_playback_changed
+        self._last_playing: bool | None = None
         self._theme_provider = theme_bundle
         self._theme = theme_bundle()
         ui = self._theme.ui
@@ -138,6 +141,11 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         if current_theme != self._theme:
             self.set_theme_bundle(current_theme)
         state = presentation.media
+        playing = presentation.online and state.playback is PlaybackState.PLAYING
+        if playing != self._last_playing:
+            self._last_playing = playing
+            if self._on_playback_changed is not None:
+                self._on_playback_changed(playing)
         self._progress_fraction = (
             max(0.0, min(1.0, state.position_s / state.duration_s))
             if state.position_s is not None and state.duration_s is not None
