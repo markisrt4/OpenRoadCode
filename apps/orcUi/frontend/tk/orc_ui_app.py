@@ -13,6 +13,7 @@ from apps.orcUi.performance_status import PerformanceStatus
 from apps.orcUi.orc_theme import toggle
 from ui.theme import ThemeMode
 from .power_dialog import PowerDialog
+from .performance_overlay import PerformanceOverlay
 from .screen_builders import (
     build_placeholder,
 )
@@ -45,6 +46,8 @@ class OrcUiApp(VolumeUiIf, UiWidget):
         self._shell: OrcUiShellView | None = None
         self._power_dialog: PowerDialog | None = None
         self._root = tk.Tk()
+        self._performance_overlay = PerformanceOverlay(self._root)
+        self._root.bind_all("<Control-Shift-P>", self._toggle_performance_overlay)
         with ResourceCleanup() as cleanup:
             cleanup.callback(self.shutdown)
             self._root.title("OpenRoadCode")
@@ -191,6 +194,15 @@ class OrcUiApp(VolumeUiIf, UiWidget):
         """Return to the destination that opened Diagnostics."""
         self.navigate_to(self._diagnostics_return)
 
+    def _toggle_performance_overlay(self, _event=None) -> None:
+        self._performance_overlay.set_visible(not self._performance_overlay.visible)
+
+    def update_performance_overlay(self, snapshot) -> None:
+        self._performance_overlay.update(snapshot)
+
+    def toggle_performance_overlay(self) -> None:
+        self._toggle_performance_overlay()
+
     def set_performance_status(self, status: PerformanceStatus) -> None:
         """Present computing-unit health in persistent shell chrome."""
         if self._shell is not None:
@@ -305,6 +317,7 @@ class OrcUiApp(VolumeUiIf, UiWidget):
             *([active_screen.hide] if active_screen is not None else []),
             *([self._power_dialog.close] if self._power_dialog is not None else []),
             *([self._shell.close] if self._shell is not None else []),
+            self._performance_overlay.close,
             self._destroy_root,
         )
 
