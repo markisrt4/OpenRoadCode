@@ -36,6 +36,7 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(2, weight=1)
+        self.grid_columnconfigure(1, weight=0)
 
         self._status = tk.Label(
             self,
@@ -45,16 +46,16 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
             font=("Sans", 9, "bold"),
             anchor="w",
         )
-        self._status.grid(row=0, column=0, sticky="ew", padx=12, pady=(9, 0))
+        self._status.grid(row=0, column=0, sticky="ew", padx=10, pady=(3, 0))
 
         source_shortcuts = tk.Frame(self, bg=ui.surface)
-        source_shortcuts.grid(row=1, column=0, columnspan=2, sticky="ew", padx=10, pady=(4, 0))
+        source_shortcuts.grid(row=1, column=0, columnspan=2, sticky="ew", padx=7, pady=(2, 0))
         for column in range(3):
             source_shortcuts.grid_columnconfigure(column, weight=1)
 
         self._adsb_button = tk.Button(
             source_shortcuts,
-            text="✈  ADS-B",
+            text="ADS-B",
             command=on_open_adsb,
             bg=ui.surface,
             fg=ui.accent_warning,
@@ -64,14 +65,14 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
             bd=0,
             highlightthickness=0,
             font=("Sans", 9, "bold"),
-            padx=5,
-            pady=7,
+            padx=3,
+            pady=6,
         )
         self._adsb_button.grid(row=0, column=0, sticky="ew", padx=(0, 3))
 
         self._rf_button = tk.Button(
             source_shortcuts,
-            text="⌁  RF",
+            text="RF",
             command=on_open_rf,
             bg=ui.surface,
             fg=ui.accent_success,
@@ -80,15 +81,15 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
             relief=tk.FLAT,
             bd=0,
             highlightthickness=0,
-            font=("Sans", 8, "bold"),
-            padx=6,
-            pady=3,
+            font=("Sans", 9, "bold"),
+            padx=3,
+            pady=6,
         )
         self._rf_button.grid(row=0, column=1, sticky="ew", padx=3)
 
         self._stream_button = tk.Button(
             source_shortcuts,
-            text="◉  STREAM",
+            text="STREAM",
             command=on_open_streaming,
             bg=ui.surface,
             fg=ui.accent_primary,
@@ -113,7 +114,7 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
             justify=tk.LEFT,
             wraplength=200,
         )
-        self._station.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=12, pady=(2, 2))
+        self._station.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=10, pady=(1, 1))
 
         self._detail = tk.Label(
             self,
@@ -123,7 +124,7 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
             font=("Sans", 9),
             anchor="w",
         )
-        self._detail.grid(row=3, column=0, columnspan=2, sticky="ew", padx=12, pady=(0, 7))
+        self._detail.grid(row=3, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 4))
 
         self._refresh()
 
