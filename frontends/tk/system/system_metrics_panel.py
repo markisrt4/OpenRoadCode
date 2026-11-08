@@ -174,7 +174,7 @@ class SystemMetricsPanel(tk.Frame, UiWidget):
 
         ui = self._theme.ui
         for key, percent in (("cpu", snapshot.cpu_percent), ("memory", snapshot.memory_used_percent),
-                             ("storage", snapshot.disk_used_percent)):
+                             ("gpu", snapshot.gpu_percent)):
             self._values[key].configure(fg=pressure_color(ui, percent))
         headroom = snapshot.thermal_headroom_c
         self._values["temperature"].configure(fg=(ui.text_muted if headroom is None else
@@ -230,16 +230,6 @@ class SystemMetricsPanel(tk.Frame, UiWidget):
                 f"{snapshot.thermal_source_type or snapshot.thermal_zone or 'source unidentified'}\n"
                 f"{_number(snapshot.thermal_headroom_c, 0)}°C to trip · {snapshot.thermal_zone or '--'}\n"
                 f"throttle {throttle}"
-            )
-        )
-
-        self._values["storage"].configure(
-            text=_percent(snapshot.disk_used_percent)
-        )
-        self._values["storage_detail"].configure(
-            text=(
-                f"{_number(snapshot.disk_free_gb, 1)} GiB free\n"
-                f"{_number(snapshot.disk_total_gb, 1)} GiB total ({snapshot.disk_path})"
             )
         )
 
