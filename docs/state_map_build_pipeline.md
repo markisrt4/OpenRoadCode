@@ -435,3 +435,10 @@ python -m development.maps.install_buildings \
 The phone processes finished tiles, not the source PBF. Source coverage, height
 completeness, startup and pan performance still require device acceptance before
 extending building extraction statewide.
+
+
+Regional retry: `michigan-staged` accepts `staged_coverage=<coverage>` to rerun
+only an incomplete region. The default `all` retains the full matrix and Metro
+building stage; an individual retry leaves completed regions and buildings alone.
+Large-region NAIP discovery follows up to 300 bounded pages rather than the
+initial 100-page ceiling, still rejecting loops and unapproved pagination URLs.

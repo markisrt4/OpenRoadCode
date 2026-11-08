@@ -53,7 +53,7 @@ def discover_imagery(bounds, fetch=get_json):
     parameters = dict(collections='naip', bbox=','.join(map(str, bounds)), limit=100)
     seen = set()
     selected = {}
-    for _ in range(100):
+    for _ in range(300):
         key = (url, json.dumps(parameters, sort_keys=True))
         if key in seen:
             raise ValueError('Repeated NAIP catalog page')
@@ -85,7 +85,7 @@ def discover_imagery(bounds, fetch=get_json):
             raise ValueError('Unapproved NAIP pagination link')
         parameters = {}
     else:
-        raise ValueError('NAIP catalog exceeds 100-page build limit')
+        raise ValueError('NAIP catalog exceeds 300-page build limit')
     result = sorted(selected.values(), key=lambda item: (item['date'], item['url']))
     if not result:
         raise ValueError('No dated NAIP files in regional catalog')

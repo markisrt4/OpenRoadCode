@@ -137,3 +137,16 @@ def test_container_access_is_shared_and_never_written_to_crop_receipts(tmp_path,
         sources.crop_source(source,tmp_path,(0,0,1,1),100,'imagery')
     assert calls==[sources.PC+'/sas/v1/token/naipeuwest/naip']
     assert all('fixture-secret' not in path.read_text() for path in tmp_path.glob('*.json'))
+
+
+def test_large_region_catalog_is_not_truncated_at_the_old_city_scale_limit():
+    pages=[]
+    def fetch(url,**kwargs):
+        if url.endswith('/collections/naip'):
+            return {'providers':[{'name':'USDA','roles':['licensor']}]}
+        pages.append(url)
+        if len(pages)<=100:
+            return dict(features=[],links=[dict(rel='next',href=sources.PC+f'/stac/v1/search?page={len(pages)}')])
+        return dict(features=[item('2022-07-30')])
+    assert len(sources.discover_imagery((-84,42,-83,43),fetch))==1
+    assert len(pages)==101
