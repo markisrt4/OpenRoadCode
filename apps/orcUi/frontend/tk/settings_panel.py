@@ -116,25 +116,20 @@ class SettingsPanel(tk.Frame, UiWidget):
         ).grid(row=2, column=0, sticky="nw", padx=14, pady=(0, 12))
 
         unit_choices = tk.Frame(display, bg=ui.surface)
-        unit_choices.grid(row=1, column=1, rowspan=2, sticky="e", padx=14, pady=10)
-        for row, (label, unit_system_value) in enumerate(
+        unit_choices.grid(row=1, column=1, rowspan=2, sticky="e", padx=14, pady=8)
+        self._unit_buttons = {}
+        for row, (label, choice) in enumerate(
             (("Imperial", UnitSystem.IMPERIAL), ("Metric", UnitSystem.METRIC))
         ):
-            tk.Radiobutton(
-                unit_choices,
-                text=label,
-                variable=self._unit_system_var,
-                value=unit_system_value.value,
-                command=self._apply_unit_system,
-                bg=ui.surface,
-                fg=ui.text,
-                activebackground=ui.surface,
+            button = tk.Button(
+                unit_choices, text=label, width=12, height=2,
+                command=lambda value=choice: self._select_unit(value),
+                font=("Sans", FONT_CONTROL, "bold"), bd=0, relief=tk.FLAT,
                 activeforeground=ui.text,
-                selectcolor=ui.control_background,
-                font=("Sans", FONT_CONTROL),
-                anchor="w",
-                highlightthickness=0, bd=0, relief=tk.FLAT,
-            ).grid(row=row, column=0, sticky="w", pady=2)
+            )
+            button.grid(row=row, column=0, sticky="ew", pady=3)
+            self._unit_buttons[choice.value] = button
+        self._refresh_unit_buttons()
 
         if on_performance_overlay_changed is not None:
             tk.Label(display, text="Performance HUD", bg=ui.surface, fg=ui.text,
@@ -143,14 +138,13 @@ class SettingsPanel(tk.Frame, UiWidget):
             tk.Label(display, text="Show CPU, GPU and RAM over other screens.",
                      bg=ui.surface, fg=ui.text_muted, font=("Sans", FONT_SMALL)).grid(
                          row=4, column=0, sticky="w", padx=14, pady=(0, 12))
-            tk.Checkbutton(
-                display, text="Enabled", variable=self._performance_overlay_var,
-                command=lambda: self._on_performance_overlay_changed(
-                    self._performance_overlay_var.get()),
-                bg=ui.surface, fg=ui.text, selectcolor=ui.control_background,
-                activebackground=ui.surface, activeforeground=ui.text,
-                font=("Sans", FONT_CONTROL), highlightthickness=0, bd=0,
-            ).grid(row=3, column=1, rowspan=2, sticky="e", padx=14, pady=8)
+            self._hud_button = tk.Button(
+                display, width=12, height=2, bd=0, relief=tk.FLAT,
+                font=("Sans", FONT_CONTROL, "bold"),
+                command=self._toggle_hud,
+            )
+            self._hud_button.grid(row=3, column=1, rowspan=2, sticky="e", padx=14, pady=8)
+            self._refresh_hud_button()
 
         vehicle = tk.Frame(
             body,
@@ -185,24 +179,18 @@ class SettingsPanel(tk.Frame, UiWidget):
         ).grid(row=2, column=0, sticky="nw", padx=14, pady=(0, 12))
 
         choices = tk.Frame(vehicle, bg=ui.surface)
-        choices.grid(row=1, column=1, rowspan=2, sticky="e", padx=14, pady=10)
-
+        choices.grid(row=1, column=1, rowspan=2, sticky="e", padx=14, pady=8)
+        self._induction_buttons = {}
         for row, induction in enumerate(EngineInductionType):
-            tk.Radiobutton(
-                choices,
-                text=induction.display_name,
-                variable=self._induction_var,
-                value=induction.value,
-                command=self._apply_induction,
-                bg=ui.surface,
-                fg=ui.text,
-                activebackground=ui.surface,
+            button = tk.Button(
+                choices, text=induction.display_name, width=22, height=2,
+                command=lambda value=induction: self._select_induction(value),
+                font=("Sans", FONT_CONTROL, "bold"), bd=0, relief=tk.FLAT,
                 activeforeground=ui.text,
-                selectcolor=ui.control_background,
-                font=("Sans", FONT_CONTROL),
-                anchor="w",
-                highlightthickness=0, bd=0, relief=tk.FLAT,
-            ).grid(row=row, column=0, sticky="w", pady=2)
+            )
+            button.grid(row=row, column=0, sticky="ew", pady=3)
+            self._induction_buttons[induction.value] = button
+        self._refresh_induction_buttons()
 
         location = tk.Frame(body, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
         location.grid(row=0, column=0, sticky="ew", pady=4)
@@ -246,6 +234,45 @@ class SettingsPanel(tk.Frame, UiWidget):
     @property
     def unit_system(self) -> UnitSystem:
         return self._unit_system
+
+    def _style_choice(self, button: tk.Button, selected: bool) -> None:
+        ui = self._theme_bundle.ui
+        button.configure(
+            bg=ui.accent_primary if selected else ui.control_background,
+            fg="#ffffff" if selected else ui.control_text,
+            activebackground=ui.control_active,
+            activeforeground="#ffffff",
+        )
+
+    def _refresh_unit_buttons(self) -> None:
+        for value, button in self._unit_buttons.items():
+            self._style_choice(button, value == self._unit_system_var.get())
+
+    def _select_unit(self, value: UnitSystem) -> None:
+        self._unit_system_var.set(value.value)
+        self._refresh_unit_buttons()
+        self._apply_unit_system()
+
+    def _refresh_induction_buttons(self) -> None:
+        for value, button in self._induction_buttons.items():
+            self._style_choice(button, value == self._induction_var.get())
+
+    def _select_induction(self, value: EngineInductionType) -> None:
+        self._induction_var.set(value.value)
+        self._refresh_induction_buttons()
+        self._apply_induction()
+
+    def _refresh_hud_button(self) -> None:
+        enabled = self._performance_overlay_var.get()
+        self._hud_button.configure(text="ON" if enabled else "OFF")
+        self._style_choice(self._hud_button, enabled)
+
+    def _toggle_hud(self) -> None:
+        enabled = not self._performance_overlay_var.get()
+        self._performance_overlay_var.set(enabled)
+        self._refresh_hud_button()
+        if self._on_performance_overlay_changed is not None:
+            self._on_performance_overlay_changed(enabled)
 
     def _apply_unit_system(self) -> None:
         unit_system = UnitSystem(self._unit_system_var.get())
