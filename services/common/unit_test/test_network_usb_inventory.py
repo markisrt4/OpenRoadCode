@@ -19,8 +19,10 @@ class NetworkUsbInventoryTests(unittest.TestCase):
         response.status = 200
         response.read.return_value = payload
         response.__enter__.return_value = response
-        with patch.dict("os.environ", {"PREFIX": "/data/data/com.termux/files/usr"}), \\
-             patch("services.common.network_usb_inventory.urlopen", return_value=response):
+        with (
+            patch.dict("os.environ", {"PREFIX": "/data/data/com.termux/files/usr"}),
+            patch("services.common.network_usb_inventory.urlopen", return_value=response),
+        ):
             result = collect_inventory()
         self.assertEqual(result["source"], "android_companion_via_termux")
         self.assertEqual(result["networks"][0]["interface"], "wlan0")
