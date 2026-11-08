@@ -196,7 +196,8 @@ def main() -> int:
                 print("Relative relief in metres; source datum is preserved. Terrain payload capped at 2 MiB.")
             else:
                 print("Layer: buildings. Uses existing OSM sources; no download. Output size is known after extraction.")
-                print("Limit: 8 tiles, 10 MiB geometry each plus metadata; complex polygons are omitted.")
+                tiles = 1024 if coverage == "metro-detroit" else 8
+                print(f"Limit: {tiles} tiles, 10 MiB geometry each plus metadata; complex polygons are omitted.")
             if not args.yes and input("Build this optional pack now? [y/N] ").strip().lower() != 'y':
                 print("Cancelled")
                 return 0

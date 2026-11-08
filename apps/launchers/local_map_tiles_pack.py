@@ -9,7 +9,7 @@ import re
 from common.navigation_data import navigation_data_root
 from common.xdg_paths import openroadcode_data_dir
 from ui.navigation.local_imagery_state import LocalImageryState
-from ui.navigation.local_map_tiles_state import LocalMapTile, LocalMapTilesState
+from ui.navigation.local_map_tiles_state import LocalMapTile, LocalMapTilesState, MAX_MAP_TILES
 
 
 def detroit_tiles_directory():
@@ -18,6 +18,15 @@ def detroit_tiles_directory():
 
 def preferred_tiles_directory(destination=None):
     directory = navigation_data_root()/'maps/3d/packs'
+    # A regional pack permits streaming while panning between local cities.
+    for candidate in (openroadcode_data_dir('map-packs','metro-detroit-buildings-active'),
+                      directory/'metro-detroit'):
+        if not (candidate/'manifest.json').is_file():
+            continue
+        state = LocalMapTilesPack.load(candidate).state.coverage
+        if destination is None or (state.west_rad <= destination.longitude_rad <= state.east_rad
+                and state.south_rad <= destination.latitude_rad <= state.north_rad):
+            return candidate
     if destination is not None:
         for key in ('rochester','southfield'):
             for candidate in (directory/key,openroadcode_data_dir('map-packs',key+'-buildings-v1'),
@@ -53,7 +62,7 @@ class LocalMapTilesPack:
     def load(cls, directory):
         root = Path(directory).resolve()
         manifest = json.loads((root/'manifest.json').read_text())
-        if manifest.get('schema') != 1 or not 1 <= len(manifest['tiles']) <= 32:
+        if manifest.get('schema') != 1 or not 1 <= len(manifest['tiles']) <= MAX_MAP_TILES:
             raise ValueError('Unsupported or oversized tile pack')
         state = coverage(manifest['title'],manifest['attribution'],manifest['bounds_deg'])
         files, tiles = {}, []

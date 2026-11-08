@@ -22,6 +22,7 @@ on:
           - mi-upper-east
           - michigan-all
           - michigan-staged
+          - metro-detroit-buildings
           - generic-state
           - validation-states
       state:
@@ -320,7 +321,7 @@ jobs:
 
   michigan:
     name: Build Michigan terrain package
-    if: ${{ inputs.build_target != 'metro-detroit' && inputs.build_target != 'michigan-all' && inputs.build_target != 'michigan-staged' && inputs.build_target != 'generic-state' && inputs.build_target != 'validation-states' && inputs.build_target != 'rochester-static-trial' }}
+    if: ${{ inputs.build_target != 'metro-detroit' && inputs.build_target != 'michigan-all' && inputs.build_target != 'michigan-staged' && inputs.build_target != 'metro-detroit-buildings' && inputs.build_target != 'generic-state' && inputs.build_target != 'validation-states' && inputs.build_target != 'rochester-static-trial' }}
     uses: ./.github/workflows/build-michigan-terrain.yml
     with:
       coverage: ${{ inputs.build_target }}
@@ -574,3 +575,47 @@ jobs:
             build-output/staged/${{ matrix.coverage }}/*.zip.json
             build-output/staged/${{ matrix.coverage }}/source-plan.json
             build-output/staged/${{ matrix.coverage }}/build-report.json
+
+
+  metro-buildings:
+    name: Build Metro Detroit OSM buildings
+    if: ${{ inputs.build_target == 'metro-detroit-buildings' || inputs.build_target == 'michigan-staged' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install existing OSM extraction tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y osmium-tool python3-pytest
+      - name: Building pack and installer regressions
+        run: /usr/bin/python3 -m pytest apps/launchers/unit_test/test_regional_buildings.py -q
+      - uses: actions/cache/restore@v4
+        if: ${{ !inputs.force_rebuild }}
+        with:
+          path: build-output/building-source-cache
+          key: metro-osm-buildings-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: metro-osm-buildings-v1-
+      - name: Extract buildings from Michigan PBF and package
+        run: |
+          /usr/bin/python3 -m development.maps.build_regional_buildings \
+            --output build-output/metro-buildings \
+            --cache build-output/building-source-cache
+      - uses: actions/cache/save@v4
+        if: ${{ always() }}
+        with:
+          path: build-output/building-source-cache
+          key: metro-osm-buildings-v1-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Upload checked buildings and source report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: metro-detroit-buildings-${{ github.run_id }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            build-output/metro-buildings/*.zip
+            build-output/metro-buildings/*.zip.json
+            build-output/metro-buildings/buildings-report.json

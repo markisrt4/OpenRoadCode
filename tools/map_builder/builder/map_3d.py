@@ -8,12 +8,15 @@ import re
 import subprocess
 from tempfile import TemporaryDirectory
 
+from ui.navigation.local_map_tiles_state import MAX_MAP_TILES
+
 PRESETS = {
     'detroit-downtown': ('Detroit Downtown',(-83.065,42.315,-83.025,42.345)),
     'detroit-midtown': ('Detroit Downtown–Midtown',(-83.085,42.315,-83.025,42.375)),
     'pine-knob': ('Pine Knob · Clarkston',(-83.39,42.74,-83.365,42.765)),
     'rochester': ('Rochester test area',(-83.175,42.650,-83.110,42.705)),
     'southfield': ('Central Southfield test area',(-83.290,42.440,-83.220,42.505)),
+    'metro-detroit': ('Metro Detroit',(-83.75,42.0,-82.55,42.9)),
 }
 CREDIT = '© OpenStreetMap contributors · ODbL 1.0'
 
@@ -70,7 +73,9 @@ def build_pack(root, preset):
         raise ValueError(f'Pack already exists: {destination}; validate or explicitly remove it before rebuilding')
     destination.parent.mkdir(parents=True,exist_ok=True)
     west,south,east,north = bounds
-    buckets = {(row,col):{} for row in range(4) for col in range(2)}
+    rows,columns = (32,32) if preset == "metro-detroit" else (4,2)
+    buckets = {(row,col):{} for row in range(rows) for col in range(columns)}
+    height_counts = {key:0 for key in ("osm-height","levels-estimate","placeholder")}
     skipped = 0
     with TemporaryDirectory(dir=destination.parent,prefix='.build-3d-') as temporary:
         scratch = Path(temporary)
@@ -94,8 +99,8 @@ def build_pack(root, preset):
                     ring = building['ring_rad'][:-1]
                     lon = math.degrees(sum(p[0] for p in ring)/len(ring))
                     lat = math.degrees(sum(p[1] for p in ring)/len(ring))
-                    col = min(1,int((lon-west)/(east-west)*2))
-                    row = min(3,int((lat-south)/(north-south)*4))
+                    col = min(columns-1,int((lon-west)/(east-west)*columns))
+                    row = min(rows-1,int((lat-south)/(north-south)*rows))
                     props = feature.get('properties') or {}
                     identity = feature.get('id') or f"{props.get('@type')}:{props.get('@id')}"
                     if identity == 'None:None':
@@ -118,17 +123,20 @@ def build_pack(root, preset):
             tile_id = f'r{row}-c{col}'
             local = pack/tile_id
             local.mkdir()
-            content = json.dumps({'attribution':CREDIT,'buildings':list(features.values())}).encode()
+            for building in features.values():
+                height_counts[building['height_source']] += 1
+            content = json.dumps({'attribution':CREDIT,'buildings':list(features.values())},separators=(',',':')).encode()
             if len(content) > 10*1024*1024 or len(features) > 10000:
                 raise ValueError('Building tile exceeds runtime limits')
             (local/'buildings.json').write_bytes(content)
             records.append({'id':tile_id,'title':title,'attribution':CREDIT,
-                'bounds_deg':[west+(east-west)*col/2,south+(north-south)*row/4,
-                              west+(east-west)*(col+1)/2,south+(north-south)*(row+1)/4],
+                'bounds_deg':[west+(east-west)*col/columns,south+(north-south)*row/rows,
+                              west+(east-west)*(col+1)/columns,south+(north-south)*(row+1)/rows],
                 'buildings_count':len(features),'sha256':{'buildings.json':digest(local/'buildings.json')}})
         manifest = {'schema':1,'title':title+' buildings','attribution':CREDIT,'bounds_deg':bounds,
             'tiles':records,'layers':['buildings'],'generated_utc':datetime.now(timezone.utc).isoformat(),
             'license':'https://opendatacommons.org/licenses/odbl/1-0/', 'skipped_features':skipped,
+            'height_counts':height_counts, 'grid':[rows,columns],
             'sources':[{'file':source.name,'sha256':digest(source)} for source in sources]}
         (pack/'manifest.json').write_text(json.dumps(manifest,indent=2))
         validate_pack(pack)
@@ -141,7 +149,7 @@ def validate_pack(directory):
     manifest_path = root/'manifest.json'
     manifest = json.loads(manifest_path.read_text())
     terrain_only = manifest.get('layers') == ['terrain']
-    if manifest.get('schema') != 1 or not 0 <= len(manifest['tiles']) <= 32 or (not manifest['tiles'] and not terrain_only):
+    if manifest.get('schema') != 1 or not 0 <= len(manifest['tiles']) <= MAX_MAP_TILES or (not manifest['tiles'] and not terrain_only):
         raise ValueError('Unsupported 3D pack schema')
     west,south,east,north = manifest['bounds_deg']
     if not (-180 <= west < east <= 180 and -90 <= south < north <= 90):

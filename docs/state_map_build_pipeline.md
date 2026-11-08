@@ -389,3 +389,48 @@ report, retained for 14 days. Failed regions upload whatever evidence completed;
 inspect reports and job status before installation. Existing finished packs are
 not deleted or overwritten by failed builds. Device installs use the existing
 `--pack-file` interfaces with each region's coverage name.
+
+
+### Metro Detroit building stage
+
+The `michigan-staged` pipeline also builds an optional Metro Detroit building
+archive. Run `build_target=metro-detroit-buildings` to test only this stage.
+This stage uses the existing Geofabrik Michigan PBF download/cache and osmium
+extraction, not Overpass. It does not rebuild navigation, search or routing.
+
+Existing simple closed-way normalization and height classification are reused:
+`osm-height` is an OSM height tag (not a verified survey); `levels-estimate` uses
+3 metres per recorded floor; `placeholder` uses an explicit 9-metre fallback.
+Placeholder geometry remains hidden by existing viewer policy; floor estimates
+appear at close zoom. Complex polygons/courtyards and outlines crossing the
+outer coverage boundary are omitted and counted. Height counts, source PBF
+SHA-256, ODbL attribution, and license reference accompany the pack.
+
+The Metro envelope matches existing imagery bounds (-83.75, 42.0, -82.55, 42.9).
+A bounded 32×32 tile catalog replaces the city demo's 4×2 grid for this coverage
+only. Existing per-tile limits remain 10,000 outlines / 10 MiB; the renderer still
+keeps at most four nearby tiles and two loads active. Build fails rather than
+silently truncating overfull tiles. Archive cap is 64 MiB; extraction cap is
+512 MiB. Footprints and heights are not photorealistic building meshes.
+
+A successful stage uploads `metro-detroit-buildings-<run-id>` with the ZIP,
+adjacent checksum descriptor and `buildings-report.json`, retained for 14 days.
+No Release is published automatically. The existing ZIP verification and safe
+unpack routine are reused; a new validated device revision is activated with an
+atomic symlink change. Old revisions are retained and invalid archives cannot
+replace active data. The regional pack is selected ahead of city-sized building
+packs inside Metro Detroit, allowing continuous panning between cities; local
+imagery and terrain priorities remain unchanged.
+
+After downloading a successful stage artifact, install on Termux or Linux:
+
+```bash
+git switch navigation-cesium
+python -m development.maps.install_buildings \
+  --pack-file build-output/metro-buildings/metro-detroit-buildings.zip
+./runOrcUi
+```
+
+The phone processes finished tiles, not the source PBF. Source coverage, height
+completeness, startup and pan performance still require device acceptance before
+extending building extraction statewide.

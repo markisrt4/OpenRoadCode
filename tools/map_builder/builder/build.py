@@ -47,8 +47,8 @@ def _md5_file(path:Path)->str:
  with path.open("rb") as stream:
   for chunk in iter(lambda:stream.read(1024*1024),b""): digest.update(chunk)
  return digest.hexdigest().lower()
-def _download_and_verify(region:Region)->Path:
- cached=CACHE_ROOT/"pbf"/f"{region.safe_id}.osm.pbf"
+def _download_and_verify(region:Region,*,cache_root:Path|None=None)->Path:
+ cached=(cache_root if cache_root is not None else CACHE_ROOT)/"pbf"/f"{region.safe_id}.osm.pbf"
  try:
   with urlopen(Request(region.pbf_url+".md5",headers={"User-Agent":"OpenRoadCode-map-builder/1.0"}),timeout=30) as response: expected=response.read().decode("utf-8",errors="replace").split()[0].lower()
  except Exception as exc:
