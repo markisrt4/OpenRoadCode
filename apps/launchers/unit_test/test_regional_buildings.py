@@ -40,13 +40,13 @@ def artifact(tmp_path):
 def test_osm_pbf_becomes_bounded_installable_regional_buildings(artifact,tmp_path,monkeypatch):
     pack,archive,descriptor=artifact
     assert descriptor['buildings']==1 and descriptor['height_counts']['levels-estimate']==1
-    assert descriptor['tiles']==1024
+    assert descriptor['tiles']==256
     assert validate_pack(pack)['buildings']==1
     active=tmp_path/'device/metro-detroit-buildings-active'
     install(archive,destination=active)
     assert active.is_symlink()
     loaded=runtime.LocalMapTilesPack.load(active)
-    assert len(loaded.state.tiles)==1024
+    assert len(loaded.state.tiles)==256
     assert all(not tile.imagery_available for tile in loaded.state.tiles)
     assert sum(tile.buildings_count for tile in loaded.state.tiles)==1
     monkeypatch.setattr(runtime,'openroadcode_data_dir',lambda *args:active)
@@ -87,3 +87,21 @@ def test_source_selection_uses_official_url_instead_of_catalog_id_shape(region_i
     assert michigan_region([region]) is region
     with pytest.raises(ValueError,match='official Michigan'):
         michigan_region([])
+
+
+def test_dense_cells_subdivide_without_losing_geometry():
+    from tools.map_builder.builder.map_3d import partition_buildings
+    def building(lon,lat):
+        return dict(height_m=9,height_source='placeholder',ring_rad=[
+            [math.radians(lon),math.radians(lat)],
+            [math.radians(lon+.001),math.radians(lat)],
+            [math.radians(lon),math.radians(lat+.001)],
+            [math.radians(lon),math.radians(lat)]])
+    features={str(index):building(.1 if index%2 else .7,.1 if index%3 else .7)
+              for index in range(12000)}
+    cells=list(partition_buildings({(0,0):features},(0,0,1,1),1,1,adaptive=True))
+    assert len(cells)==4
+    assert sum(len(cell[2]) for cell in cells)==12000
+    assert all(len(cell[2])<=10000 for cell in cells)
+    with pytest.raises(ValueError,match='runtime limits'):
+        list(partition_buildings({(0,0):features},(0,0,1,1),1,1))

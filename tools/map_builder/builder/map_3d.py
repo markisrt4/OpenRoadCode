@@ -1,5 +1,6 @@
 """Optional offline building packs from existing OSM sources; no service queries."""
 from datetime import datetime, timezone
+from collections import deque
 import hashlib
 import json
 import math
@@ -62,6 +63,38 @@ def normalize(feature,bounds):
             'height_m':h,'height_source':source}
 
 
+def partition_buildings(buckets, bounds, rows, columns, *, adaptive=False):
+    """Split dense Metro cells without truncating outlines or raising GPU limits."""
+    west,south,east,north = bounds
+    pending = deque((f'r{row}-c{col}',
+        (west+(east-west)*col/columns,south+(north-south)*row/rows,
+         west+(east-west)*(col+1)/columns,south+(north-south)*(row+1)/rows),
+        list(features.values()),0) for (row,col),features in buckets.items())
+    emitted = 0
+    while pending:
+        tile_id,extent,features,depth = pending.popleft()
+        content = json.dumps({'attribution':CREDIT,'buildings':features},separators=(',',':')).encode()
+        if len(content) <= 10*1024*1024 and len(features) <= 10000:
+            emitted += 1
+            yield tile_id,extent,features,content
+            continue
+        if not adaptive or depth >= 6 or emitted+len(pending)+4 > MAX_MAP_TILES:
+            raise ValueError('Building tile exceeds runtime limits and bounded subdivision capacity')
+        w,s,e,n = extent
+        mid_x,mid_y = (w+e)/2,(s+n)/2
+        groups = [[] for _ in range(4)]
+        for building in features:
+            ring = building['ring_rad'][:-1]
+            lon = math.degrees(sum(point[0] for point in ring)/len(ring))
+            lat = math.degrees(sum(point[1] for point in ring)/len(ring))
+            groups[int(lat >= mid_y)*2+int(lon >= mid_x)].append(building)
+        for index,group in enumerate(groups):
+            row,col = divmod(index,2)
+            child = (mid_x if col else w,mid_y if row else s,
+                     e if col else mid_x,n if row else mid_y)
+            pending.append((tile_id+'-'+str(index),child,group,depth+1))
+
+
 def build_pack(root, preset):
     root = Path(root)
     title,bounds = PRESETS[preset]
@@ -73,7 +106,7 @@ def build_pack(root, preset):
         raise ValueError(f'Pack already exists: {destination}; validate or explicitly remove it before rebuilding')
     destination.parent.mkdir(parents=True,exist_ok=True)
     west,south,east,north = bounds
-    rows,columns = (32,32) if preset == "metro-detroit" else (4,2)
+    rows,columns = (16,16) if preset == "metro-detroit" else (4,2)
     buckets = {(row,col):{} for row in range(rows) for col in range(columns)}
     height_counts = {key:0 for key in ("osm-height","levels-estimate","placeholder")}
     skipped = 0
@@ -119,19 +152,15 @@ def build_pack(root, preset):
         pack = scratch/'pack'
         pack.mkdir()
         records = []
-        for (row,col),features in buckets.items():
-            tile_id = f'r{row}-c{col}'
+        for tile_id,tile_bounds,features,content in partition_buildings(
+                buckets,bounds,rows,columns,adaptive=preset == 'metro-detroit'):
             local = pack/tile_id
             local.mkdir()
-            for building in features.values():
+            for building in features:
                 height_counts[building['height_source']] += 1
-            content = json.dumps({'attribution':CREDIT,'buildings':list(features.values())},separators=(',',':')).encode()
-            if len(content) > 10*1024*1024 or len(features) > 10000:
-                raise ValueError('Building tile exceeds runtime limits')
             (local/'buildings.json').write_bytes(content)
             records.append({'id':tile_id,'title':title,'attribution':CREDIT,
-                'bounds_deg':[west+(east-west)*col/columns,south+(north-south)*row/rows,
-                              west+(east-west)*(col+1)/columns,south+(north-south)*(row+1)/rows],
+                'bounds_deg':tile_bounds,
                 'buildings_count':len(features),'sha256':{'buildings.json':digest(local/'buildings.json')}})
         manifest = {'schema':1,'title':title+' buildings','attribution':CREDIT,'bounds_deg':bounds,
             'tiles':records,'layers':['buildings'],'generated_utc':datetime.now(timezone.utc).isoformat(),

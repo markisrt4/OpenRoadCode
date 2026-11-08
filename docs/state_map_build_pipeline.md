@@ -403,14 +403,15 @@ Existing simple closed-way normalization and height classification are reused:
 3 metres per recorded floor; `placeholder` uses an explicit 9-metre fallback.
 Placeholder geometry remains hidden by existing viewer policy; floor estimates
 appear at close zoom. Complex polygons/courtyards and outlines crossing the
-outer coverage boundary are omitted and counted. Height counts, source PBF
+outer coverage boundary are omitted. Unsupported exported features are counted;
+building relations are outside the existing simple-way extraction contract. Height counts, source PBF
 SHA-256, ODbL attribution, and license reference accompany the pack.
 
 The Metro envelope matches existing imagery bounds (-83.75, 42.0, -82.55, 42.9).
-A bounded 32×32 tile catalog replaces the city demo's 4×2 grid for this coverage
-only. Existing per-tile limits remain 10,000 outlines / 10 MiB; the renderer still
-keeps at most four nearby tiles and two loads active. Build fails rather than
-silently truncating overfull tiles. Archive cap is 64 MiB; extraction cap is
+An initial 16×16 grid replaces the city demo's 4×2 grid for this coverage
+only. Dense cells subdivide automatically within a 1024-tile catalog cap. Existing per-tile limits remain 10,000 outlines / 10 MiB; the renderer still
+keeps at most four nearby tiles and two loads active. Build fails if bounded subdivision cannot
+fit the geometry; outlines are never silently truncated. Archive cap is 64 MiB; extraction cap is
 512 MiB. Footprints and heights are not photorealistic building meshes.
 
 A successful stage uploads `metro-detroit-buildings-<run-id>` with the ZIP,
