@@ -84,9 +84,10 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._artist_label.grid(row=1, column=0, sticky="ew")
         self._provider = tk.Frame(self._text, bg=ui.surface)
         self._provider.grid(row=2, column=0, sticky="w", pady=(6, 0))
-        self._spotify_icon = tk.Label(self._provider, text="◉", fg=GREEN, bg=ui.surface,
-                                      font=("Sans", 12, "bold"))
+        self._spotify_icon = tk.Canvas(self._provider, width=17, height=17,
+                                      bg=ui.surface, highlightthickness=0, bd=0)
         self._spotify_icon.pack(side=tk.LEFT, padx=(0, 4))
+        self._paint_spotify_icon()
         self._status_label = tk.Label(
             self._provider, textvariable=self._status, fg=GREEN, bg=ui.surface,
             font=("Sans", 8, "bold"), anchor="w",
@@ -141,7 +142,8 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._artist_label.configure(bg=ui.surface, fg=ui.text_muted)
         self._status_label.configure(bg=ui.surface, fg=GREEN)
         self._provider.configure(bg=ui.surface)
-        self._spotify_icon.configure(bg=ui.surface, fg=GREEN)
+        self._spotify_icon.configure(bg=ui.surface)
+        self._paint_spotify_icon()
         self._progress.configure(bg=ui.surface)
         self._footer.configure(bg=ui.surface)
         self._footer_text.configure(bg=ui.surface, fg=ui.accent_primary)
@@ -159,6 +161,22 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
             if child is self._controls:
                 continue
             self._bind_open(child)
+
+    def _paint_spotify_icon(self) -> None:
+        """Draw the familiar Spotify three-arc mark without image assets."""
+        import math
+
+        canvas = self._spotify_icon
+        canvas.delete("all")
+        canvas.create_oval(0, 0, 16, 16, fill=GREEN, outline="")
+        for radius, offset in ((11.5, 0), (9.5, 2), (7.5, 4)):
+            points = []
+            for index in range(17):
+                angle = math.radians(215 + index * 7.2)
+                points.extend((8 + radius * 0.5 * math.cos(angle),
+                               9 + offset * 0.3 + radius * 0.31 * math.sin(angle)))
+            canvas.create_line(*points, fill="#10271b", width=1.4,
+                               smooth=True, capstyle=tk.ROUND)
 
     def _resize_text_wrap(self, event: tk.Event) -> None:
         available = max(64, event.width - 4)
