@@ -95,7 +95,7 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
             self._footer, text="OPEN MEDIA ›", bg=ui.surface,
             fg=ui.accent_primary, font=("Sans", 8, "bold"), anchor="w",
         )
-        self._footer_text.pack(side=tk.LEFT)
+        self._footer_text.pack_forget()
         self._controls = tk.Frame(self._footer, bg=ui.surface)
         self._controls.pack(side=tk.RIGHT)
         self._previous = tk.Button(self._controls, text="⏮", command=self._previous_track,
@@ -110,9 +110,9 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         for button in (self._previous, self._toggle, self._next):
             button.pack(side=tk.LEFT, padx=(2, 0))
         self._update_controls()
-        self._progress = tk.Canvas(self._footer, height=6, bg=ui.surface,
+        self._progress = tk.Canvas(self, height=4, bg=ui.surface,
                                    highlightthickness=0, bd=0)
-        self._progress.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(7, 5), pady=0)
+        self._progress.pack(side=tk.BOTTOM, fill=tk.X, expand=False, padx=10, pady=(0, 2))
         self._progress.pack_forget()
         self._progress_fraction: float | None = None
         self._progress.bind("<Configure>", lambda _event: self._paint_progress())
