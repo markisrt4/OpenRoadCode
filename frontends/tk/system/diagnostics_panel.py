@@ -35,6 +35,13 @@ class DiagnosticsPanel(tk.Frame, UiWidget):
         tabs.add(sensors, text="Sensor telemetry")
         services = tk.Frame(tabs, bg=ui.background)
         tabs.add(services, text="Services")
+        inventory = tk.Frame(tabs, bg=ui.background)
+        tabs.add(inventory, text="Network & USB")
+        self._inventory_text = tk.Text(inventory, wrap=tk.WORD, height=18,
+                                       bg=ui.surface, fg=ui.text, relief=tk.FLAT)
+        self._inventory_text.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
+        self._inventory_text.insert("1.0", "Waiting for hardware inventory")
+        self._inventory_text.configure(state=tk.DISABLED)
         self._system = system
 
         self._cpu = self._label(workload, "Waiting for ORC process samples", 16)
@@ -113,6 +120,24 @@ class DiagnosticsPanel(tk.Frame, UiWidget):
     def apply_snapshot(self, snapshot: SystemDiagnosticsSnapshot) -> None:
         """Refresh tables using cached samples without sampling on the Tk thread."""
         self._system.apply_snapshot(snapshot)
+        inventory = snapshot.network_usb or {}
+        lines = ["Network inventory: " + inventory.get("networks_status", "waiting")]
+        for net in inventory.get("networks", []):
+            lines.append("  {}  {}  {} Mb/s".format(
+                net.get("interface", "?"), net.get("state") or "unknown",
+                net.get("speed_mbps") or "?"))
+        usb = inventory.get("usb_sysfs") or {}
+        lines.append("USB sysfs: " + usb.get("status", "waiting"))
+        for device in usb.get("devices", []):
+            lines.append("  {}:{}  {}  {} Mb/s".format(
+                device.get("vendor_id_hex"), device.get("product_id_hex"),
+                device.get("product") or device.get("sysfs_name"),
+                device.get("speed") or "?"))
+        lines.append("OS restrictions may hide devices; Ethernet does not prove USB backing.")
+        self._inventory_text.configure(state=tk.NORMAL)
+        self._inventory_text.delete("1.0", tk.END)
+        self._inventory_text.insert("1.0", "\\n".join(lines))
+        self._inventory_text.configure(state=tk.DISABLED)
         self._service_status.configure(text=snapshot.service_monitor_status)
         self._service_rows = {str(index): row for index, row in enumerate(snapshot.services)}
         service_selection = self._service_table.selection()
