@@ -52,7 +52,7 @@ def test_preview_cleanup_failure_does_not_skip_sessions_or_visualizer():
     preview = Mock()
     preview.close.side_effect = RuntimeError("preview failed")
     accounts, presentations, visualizer, runtime, video = (Mock() for _ in range(5))
-    composition = MediaComposition(video, Mock(), visualizer, runtime,
+    composition = MediaComposition(video, Mock(), None, visualizer, runtime,
         preview=preview, close_spotify_accounts=accounts,
         close_spotify_presentations=presentations)
     with pytest.raises(RuntimeError, match="preview failed"):
