@@ -41,7 +41,7 @@ class HomeSpectrumBar(tk.Frame):
                   and self._controller.selected_source() is not MusicVisualizerSource.SIMULATED)
         frame = self._controller.latest_frame() if active else None
         spectrum = getattr(frame, "spectrum", None) if frame is not None else None
-        if spectrum:
+        if active and spectrum:
             values = tuple(max(0.0, min(1.0, float(v))) for v in spectrum)
         else:
             values = (0.24, 0.40, 0.32, 0.62, 0.85, 0.56,
