@@ -57,7 +57,7 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
 
         self._adsb_button = tk.Button(
             source_shortcuts,
-            text="ADS-B",
+            text="✈  ADS-B",
             command=on_open_adsb,
             bg=ui.control_background,
             fg=ui.accent_warning,
@@ -67,14 +67,14 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
             bd=0,
             highlightthickness=0,
             font=("Sans", 9, "bold"),
-            padx=3,
-            pady=12,
+            padx=1,
+            pady=10,
         )
         self._adsb_button.grid(row=0, column=0, sticky="ew", padx=(0, 3))
 
         self._rf_button = tk.Button(
             source_shortcuts,
-            text="RF",
+            text="◉  RF",
             command=on_open_rf,
             bg=ui.control_background,
             fg=ui.accent_success,
@@ -91,7 +91,7 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
 
         self._stream_button = tk.Button(
             source_shortcuts,
-            text="STREAM",
+            text="♫  STREAM",
             command=on_open_streaming,
             bg=ui.control_background,
             fg=ui.accent_primary,
