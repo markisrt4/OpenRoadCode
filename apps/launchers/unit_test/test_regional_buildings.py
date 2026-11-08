@@ -76,3 +76,14 @@ def test_wrong_kind_cannot_activate_buildings(tmp_path,monkeypatch):
     with pytest.raises(ValueError,match='not a buildings'):
         installer.install(Path('fake.zip'),destination=tmp_path/'active')
     assert not (tmp_path/'active').exists()
+
+
+@pytest.mark.parametrize('region_id',['michigan','north-america/us/michigan'])
+def test_source_selection_uses_official_url_instead_of_catalog_id_shape(region_id):
+    from tools.map_builder.builder.geofabrik import Region
+    from development.maps.build_regional_buildings import michigan_region
+    region=Region(region_id,'Michigan',None,
+        'https://download.geofabrik.de/north-america/us/michigan-latest.osm.pbf')
+    assert michigan_region([region]) is region
+    with pytest.raises(ValueError,match='official Michigan'):
+        michigan_region([])

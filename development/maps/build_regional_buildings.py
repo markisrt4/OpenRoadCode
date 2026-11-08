@@ -12,6 +12,15 @@ from tools.map_builder.builder.map_3d import build_pack, digest
 from tools.map_builder.builder.building_artifact import package
 
 
+def michigan_region(regions):
+    # The live Geofabrik index uses short IDs; older ORC fixtures use paths.
+    address = 'https://download.geofabrik.de/north-america/us/michigan-latest.osm.pbf'
+    matches = [region for region in regions if region.pbf_url == address]
+    if len(matches) != 1:
+        raise ValueError('Geofabrik catalog must contain one official Michigan PBF URL')
+    return matches[0]
+
+
 def build(output, cache, source=None):
     output.mkdir(parents=True, exist_ok=True)
     started = time.monotonic()
@@ -20,7 +29,7 @@ def build(output, cache, source=None):
     try:
         if source is None:
             regions = fetch_index(cache/'geofabrik-index.json', refresh=True)
-            region = next(r for r in regions if r.id == 'north-america/us/michigan')
+            region = michigan_region(regions)
             source = _download_and_verify(region, cache_root=cache)
             report['source_url'] = region.pbf_url
         source = Path(source).resolve()
