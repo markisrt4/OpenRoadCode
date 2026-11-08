@@ -57,25 +57,28 @@ def test_checked_source_cache_avoids_network_and_detects_tampering(tmp_path,monk
     with pytest.raises(ValueError,match='cap'):download_source(URL,tmp_path,2)
 
 
-def test_staged_rasters_produce_existing_installable_pack_format(tmp_path):
+@pytest.mark.parametrize("coverage", ["rochester", "southfield"])
+def test_staged_rasters_produce_existing_installable_pack_format(tmp_path, coverage):
+    from tools.map_builder.builder.map_3d import PRESETS
     if not shutil.which('gdal_create') or not shutil.which('gdalwarp'):
         pytest.skip('GDAL build-host tools unavailable')
     image=tmp_path/'rgb.tif';dem=tmp_path/'dem.tif'
-    west,south,east,north=BOUNDS
+    west,south,east,north=PRESETS[coverage][1]
     subprocess.run(['gdal_create','-of','GTiff','-outsize','16','16','-bands','3',
                     '-burn','80','-burn','120','-burn','160','-a_srs','EPSG:4326',
                     '-a_ullr',str(west),str(north),str(east),str(south),str(image)],check=True)
     subprocess.run(['gdal_create','-of','GTiff','-outsize','16','16','-bands','1','-ot','Float32',
                     '-burn','200','-a_srs','EPSG:4326','-a_ullr','-84','43','-83','42',str(dem)],check=True)
     output=tmp_path/'output';output.mkdir()
-    report=process({'imagery':[],'terrain':[]},{'imagery':[image],'terrain':[dem]},output)
+    report=process({'coverage':coverage,'imagery':[],'terrain':[]},{'imagery':[image],'terrain':[dem]},output)
     assert report['terrain_range_m']==[200,200]
-    assert LocalImageryPack.load(output/'rochester-imagery').image.is_file()
-    terrain=load_terrain(output/'rochester-terrain')
+    assert LocalImageryPack.load(output/f'{coverage}-imagery').image.is_file()
+    terrain=load_terrain(output/f'{coverage}-terrain')
     assert terrain.width==129 and len(terrain.heights_m)==129*129
     for kind in ('imagery','terrain'):
-        descriptor=json.loads((output/f'rochester-{kind}.zip.json').read_text())
-        assert descriptor['coverage']=='rochester'
+        descriptor=json.loads((output/f'{coverage}-{kind}.zip.json').read_text())
+        assert descriptor['coverage']==coverage
+        assert json.loads((output/f'{coverage}-{kind}'/'manifest.json').read_text())['bounds_deg']==list(PRESETS[coverage][1])
         assert descriptor['build_revision']=='static-source-trial-v1'
 
 

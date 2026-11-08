@@ -324,3 +324,20 @@ Archive installation also migrates an older real terrain directory into a
 retained `.previous-terrain-*` backup before activating the new revision. If
 activation fails, it restores the original directory. Stop ORC before installing
 this update. This migration does not delete previous source packs.
+
+
+### Southfield staged-source trial
+
+The same bounded trial builder accepts `--coverage southfield`; Rochester remains
+the default. In Actions, select `build_target=rochester-static-trial`,
+`trial_coverage=southfield`, and `trial_imagery_source=planetary-computer`. The
+legacy target name is retained for compatibility. Outputs use Southfield preset
+bounds, metadata and filenames (`southfield-imagery.zip`, `southfield-terrain.zip`),
+with the same 4096×4096 imagery and 129×129 terrain quality settings. Source
+selection, rights checks, complete-image coverage checks and pack validation are
+shared with Rochester. Cropped source cache keys include bounds.
+
+Download the successful `southfield-static-trial-<run-id>` Actions artifact, then
+use the existing imagery and terrain installers with `--coverage southfield`
+and their corresponding `--pack-file`. Viewing and device acceptance remain
+separate from build validation. This does not install building footprints.

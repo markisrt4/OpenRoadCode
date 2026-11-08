@@ -1,4 +1,4 @@
-"""Experimental Rochester pack build from staged NAIP/3DEP files, not exports.
+"""Experimental local pack build from staged NAIP/3DEP files, not exports.
 
 GDAL is required on the build host only. Never installs or activates phone data.
 """
@@ -118,8 +118,8 @@ def select_imagery(catalog):
     return [{'url':url,'record':record} for url,record in sorted(selected.items())]
 
 
-def select_dem(catalog):
-    west,south,east,north=BOUNDS
+def select_dem(catalog, bounds=BOUNDS):
+    west,south,east,north=bounds
     candidates=[]
     for item in catalog.get('items',[]):
         box=item.get('boundingBox',{})
@@ -128,20 +128,20 @@ def select_dem(catalog):
             url=item.get('downloadURL','')
             if url.lower().endswith('.tif'):
                 candidates.append({'url':approved_url(url),'record':item})
-    if not candidates:raise ValueError('No staged DEM covering Rochester; source review required')
+    if not candidates:raise ValueError('No staged DEM covering selected coverage; source review required')
     return max(candidates,key=lambda item:str(item['record'].get('lastUpdated') or item['record'].get('publicationDate') or ''))
 
 
-def planetary_imagery():
+def planetary_imagery(bounds=BOUNDS):
     collection=get_json(PC+'/stac/v1/collections/naip')
     if not any('USDA' in provider.get('name','') and 'licensor' in provider.get('roles',[])
                for provider in collection.get('providers',[])):
         raise ValueError('Mirror NAIP collection no longer identifies USDA as licensor')
-    catalog=get_json(PC+'/stac/v1/search',collections='naip',bbox=','.join(map(str,BOUNDS)),limit=100)
+    catalog=get_json(PC+'/stac/v1/search',collections='naip',bbox=','.join(map(str,bounds)),limit=100)
     if any(link.get('rel')=='next' for link in catalog.get('links',[])):
         raise ValueError('Mirror catalog is incomplete within trial limits')
     items=catalog.get('features',[])
-    if not items:raise ValueError('No NAIP mirror imagery in Rochester')
+    if not items:raise ValueError('No NAIP mirror imagery in selected coverage')
     dated=[]
     for item in items:
         if item.get('collection')!='naip':raise ValueError('Unexpected mirror imagery collection')
@@ -170,9 +170,10 @@ def source_request_url(url):
     return signed
 
 
-def discover(output=None, imagery_source="usgs"):
+def discover(output=None, imagery_source="usgs", coverage="rochester"):
+    bounds=PRESETS[coverage][1]
     if imagery_source=='planetary-computer':
-        selected,imagery=planetary_imagery()
+        selected,imagery=planetary_imagery(bounds)
         metadata={'delivery':'Microsoft Planetary Computer public NAIP mirror','rights':RIGHTS['imagery'],
                   'access_reference':'https://planetarycomputer.microsoft.com/docs/concepts/sas/'}
     else:
@@ -180,16 +181,16 @@ def discover(output=None, imagery_source="usgs"):
         if 'public domain' not in metadata.get('serviceDescription','').lower():
             raise ValueError('NAIP service no longer declares public-domain source data')
         imagery=get_json(SERVICE+'/query',f='json',where="State='MI' AND Category=1",
-                         geometry=','.join(map(str,BOUNDS)),geometryType='esriGeometryEnvelope',
+                         geometry=','.join(map(str,bounds)),geometryType='esriGeometryEnvelope',
                          inSR=4326,spatialRel='esriSpatialRelIntersects',returnGeometry='false',outFields=CATALOG_FIELDS)
         selected=None
-    terrain=get_json(TNM,bbox=','.join(map(str,BOUNDS)),
+    terrain=get_json(TNM,bbox=','.join(map(str,bounds)),
                      datasets='National Elevation Dataset (NED) 1/3 arc-second',max=100,outputFormat='JSON')
     if output is not None:
         write_json(output/'source-plan.json',{'source_catalogs':{'imagery':imagery,'terrain':terrain,'imagery_service':metadata}})
-    return {'coverage':'rochester','bounds_deg':BOUNDS,'rights':RIGHTS,
+    return {'coverage':coverage,'bounds_deg':bounds,'rights':RIGHTS,
             'discovered_at':datetime.now(timezone.utc).isoformat(),
-            'imagery':selected if selected is not None else select_imagery(imagery),'terrain':[select_dem(terrain)],
+            'imagery':selected if selected is not None else select_imagery(imagery),'terrain':[select_dem(terrain,bounds)],
             'source_catalogs':{'imagery':imagery,'terrain':terrain,'imagery_service':metadata}}
 
 
@@ -247,10 +248,10 @@ def command(*args):
     return result.stdout
 
 
-def crop_cog(url, cache, remaining):
+def crop_cog(url, cache, remaining, bounds=BOUNDS):
     """Read only the required COG blocks and cache a self-contained local crop."""
     approved_url(url)
-    key=hashlib.sha256((url+str(BOUNDS)+'crop-v1').encode()).hexdigest()
+    key=hashlib.sha256((url+str(bounds)+'crop-v1').encode()).hexdigest()
     target=cache/(key+'.tif');receipt=cache/(key+'.json')
     if target.is_file() and receipt.is_file():
         saved=json.loads(receipt.read_text())
@@ -259,21 +260,24 @@ def crop_cog(url, cache, remaining):
     temporary=cache/(key+'.part.tif')
     try:
         signed=source_request_url(url)
-        command('gdalwarp','-overwrite','-wm','128','-t_srs','EPSG:4326','-te',*BOUNDS,
+        command('gdalwarp','-overwrite','-wm','128','-t_srs','EPSG:4326','-te',*bounds,
                 '-ts','4096','4096','-r','bilinear','-srcband','1','-srcband','2','-srcband','3',
                 '-dstalpha','-co','COMPRESS=DEFLATE','/vsicurl/'+signed,temporary)
         if temporary.stat().st_size>min(remaining,MAX_FILE_BYTES):raise ValueError('COG crop exceeds trial cache cap')
         saved={'url':url,'bytes':temporary.stat().st_size,'sha256':digest(temporary),
                'method':'COG HTTP range crop; bytes measure cached crop, not network transfer',
-               'bounds_deg':BOUNDS,'downloaded_at':datetime.now(timezone.utc).isoformat()}
+               'bounds_deg':bounds,'downloaded_at':datetime.now(timezone.utc).isoformat()}
         temporary.replace(target);write_json(receipt,saved)
         return target,saved
     finally:temporary.unlink(missing_ok=True)
 
 
 def process(plan, files, output):
-    west,south,east,north=BOUNDS
-    bounds=tuple(map(str,BOUNDS))
+    coverage=plan.get("coverage","rochester")
+    selected_bounds=PRESETS[coverage][1]
+    title=coverage.title()
+    west,south,east,north=selected_bounds
+    bounds=tuple(map(str,selected_bounds))
     dx,dy=(east-west)/128,(north-south)/128
     sample_bounds=tuple(map(str,(west-dx/2,south-dy/2,east+dx/2,north+dy/2)))
     scratch=output/'processing'
@@ -293,7 +297,7 @@ def process(plan, files, output):
     mosaic=scratch/'imagery.tif'
     command('gdalwarp','-overwrite','-wm','128','-t_srs','EPSG:4326','-te',*bounds,
             '-ts','4096','4096','-r','bilinear',*source_alpha,'-dstalpha','-of','GTiff',*images,mosaic)
-    imagery=output/'rochester-imagery'
+    imagery=output/f'{coverage}-imagery'
     imagery.mkdir(exist_ok=True)
     with Image.open(mosaic) as image:
         image.load()
@@ -301,8 +305,8 @@ def process(plan, files, output):
             raise ValueError('Source imagery does not cover the complete trial area; no pack published')
         with image.convert('RGB') as rgb:rgb.save(imagery/'imagery.jpg',quality=90,optimize=True)
     write_json(imagery/'manifest.json',{'schema':1,'image':'imagery.jpg','sha256':digest(imagery/'imagery.jpg'),
-        'title':'Rochester staged NAIP trial','attribution':'USDA NAIP / USGS · The National Map',
-        'bounds_deg':BOUNDS,'width':4096,'height':4096,'source_records':plan['imagery'],
+        'title':f'{title} staged NAIP trial','attribution':'USDA NAIP / USGS · The National Map',
+        'bounds_deg':selected_bounds,'width':4096,'height':4096,'source_records':plan['imagery'],
         'rights':'Public-domain USDA NAIP imagery','rights_reference':RIGHTS['imagery']})
     grid=scratch/'terrain.tif'
     command('gdalwarp','-overwrite','-wm','128','-t_srs','EPSG:4326','-te',*sample_bounds,
@@ -312,23 +316,23 @@ def process(plan, files, output):
     heights=[float(line.split()[2]) for line in xyz.read_text().splitlines()]
     if len(heights)!=129*129 or any(not math.isfinite(h) or not -500<=h<=9000 for h in heights):
         raise ValueError('Terrain has missing or invalid elevations')
-    terrain=output/'rochester-terrain'
+    terrain=output/f'{coverage}-terrain'
     terrain.mkdir(exist_ok=True)
     write_json(terrain/'terrain.json',{'width':129,'height':129,'heights_m':heights,
         'reference_height_m':heights[len(heights)//2],
         'vertical_datum':'USGS 3DEP source vertical datum not resolved by trial; not converted to ellipsoid'})
-    write_json(terrain/'manifest.json',{'schema':1,'title':'Rochester staged 3DEP trial',
-        'attribution':'USGS 3DEP · The National Map','bounds_deg':BOUNDS,
+    write_json(terrain/'manifest.json',{'schema':1,'title':f'{title} staged 3DEP trial',
+        'attribution':'USGS 3DEP · The National Map','bounds_deg':selected_bounds,
         'sha256':digest(terrain/'terrain.json'),'rights':'Public-domain USGS 3DEP',
         'rights_reference':RIGHTS['terrain'],'source_records':plan['terrain']})
     for root in (imagery,terrain):write_json(root/'source-plan.json',plan)
     LocalImageryPack.load(imagery)
     load_terrain(terrain)
     for kind,root,packager in (('imagery',imagery,package_imagery),('terrain',terrain,package_terrain)):
-        descriptor=packager(root,output/f'rochester-{kind}.zip','rochester')
+        descriptor=packager(root,output/f'{coverage}-{kind}.zip',coverage)
         descriptor.update(build_profile='static-source-trial-4096px-129grid',build_revision='static-source-trial-v1',
                           build_fingerprint=hashlib.sha256(json.dumps(plan,sort_keys=True).encode()).hexdigest())
-        write_json(output/f'rochester-{kind}.zip.json',descriptor)
+        write_json(output/f'{coverage}-{kind}.zip.json',descriptor)
     return {'imagery_bytes':(imagery/'imagery.jpg').stat().st_size,
             'terrain_range_m':[min(heights),max(heights)],'terrain_grid':[129,129]}
 
@@ -338,19 +342,21 @@ def main():
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--cache',type=Path,required=True)
     parser.add_argument('--imagery-source',choices=('usgs','planetary-computer'),default='usgs')
+    parser.add_argument('--coverage',choices=('rochester','southfield'),default='rochester')
     args=parser.parse_args()
+    bounds=PRESETS[args.coverage][1]
     args.output.mkdir(parents=True,exist_ok=True)
     args.cache.mkdir(parents=True,exist_ok=True)
     started=time.monotonic()
-    report={'status':'started','bounds_deg':BOUNDS,'source_payload_cap_bytes':MAX_SOURCE_BYTES}
+    report={'status':'started','coverage':args.coverage,'bounds_deg':bounds,'source_payload_cap_bytes':MAX_SOURCE_BYTES}
     try:
-        plan=discover(args.output,args.imagery_source)
+        plan=discover(args.output,args.imagery_source,args.coverage)
         write_json(args.output/'source-plan.json',plan)
         files={};receipts={};remaining=MAX_SOURCE_BYTES
         for kind in ('imagery','terrain'):
             files[kind]=[];receipts[kind]=[]
             for item in plan[kind]:
-                path,receipt=(crop_cog(item['url'],args.cache,remaining)
+                path,receipt=(crop_cog(item['url'],args.cache,remaining,bounds)
                               if kind=='imagery' and args.imagery_source=='planetary-computer'
                               else download_source(item['url'],args.cache,remaining))
                 remaining-=receipt['bytes']

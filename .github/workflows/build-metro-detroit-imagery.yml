@@ -33,8 +33,14 @@ on:
         type: choice
         default: all
         options: [overview, detail, all]
+      trial_coverage:
+        description: Local staged-file trial coverage
+        required: false
+        type: choice
+        default: rochester
+        options: [rochester, southfield]
       trial_imagery_source:
-        description: Rochester trial imagery delivery (same USDA NAIP dataset)
+        description: Local trial imagery delivery (same USDA NAIP dataset)
         required: false
         type: choice
         default: usgs
@@ -451,7 +457,7 @@ jobs:
 
 
   rochester-static-trial:
-    name: Rochester staged-file trial (no export services)
+    name: Local staged-file trial (no export services)
     if: ${{ inputs.build_target == 'rochester-static-trial' }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -464,13 +470,16 @@ jobs:
       GDAL_HTTP_MAX_RETRY: '2'
       GDAL_HTTP_RETRY_DELAY: '2'
       GDAL_HTTP_TIMEOUT: '60'
+      TRIAL_COVERAGE: ${{ inputs.trial_coverage || 'rochester' }}
       TRIAL_IMAGERY_SOURCE: ${{ inputs.trial_imagery_source || 'usgs' }}
     steps:
       - uses: actions/checkout@v6
       - name: Install build-host raster tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y gdal-bin python3-pil
+          sudo apt-get install -y gdal-bin python3-pil python3-pytest
+      - name: Check staged-source pack contracts
+        run: /usr/bin/python3 -m pytest apps/launchers/unit_test/test_static_tile_trial.py -q
       - name: Restore completed staged files
         if: ${{ !inputs.force_rebuild }}
         uses: actions/cache/restore@v4
@@ -481,6 +490,7 @@ jobs:
       - name: Discover, download and process existing source tiles
         run: |
           /usr/bin/python3 -m development.maps.static_tile_trial \
+            --coverage "$TRIAL_COVERAGE" \
             --output build-output/rochester-static-trial \
             --cache build-output/rochester-static-cache \
             --imagery-source "$TRIAL_IMAGERY_SOURCE"
@@ -494,7 +504,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: rochester-static-trial-${{ github.run_id }}
+          name: ${{ inputs.trial_coverage || 'rochester' }}-static-trial-${{ github.run_id }}
           retention-days: 7
           if-no-files-found: warn
           path: |
