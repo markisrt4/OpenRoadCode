@@ -5,6 +5,8 @@
 import ipaddress
 import tkinter as tk
 
+from ui.ui_widget import UiWidget
+
 from ui.theme import ThemeBundle
 
 
@@ -19,7 +21,7 @@ def primary_ip(addresses):
     return "No IPv4"
 
 
-class NetworkUsbPanel(tk.Frame):
+class NetworkUsbPanel(tk.Frame, UiWidget):
     def __init__(self, parent, *, theme: ThemeBundle):
         ui = theme.ui
         super().__init__(parent, bg=ui.background)
