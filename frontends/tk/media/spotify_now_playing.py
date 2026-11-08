@@ -41,6 +41,8 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         super().__init__(parent, bg=ui.surface, cursor="hand2")
         self._on_open = on_open
         self._closed = False
+        self._requests: SpotifyRequestHandler | None = None
+        self._playing = False
         self._title = tk.StringVar(value="Spotify • YouTube • Netflix")
         self._artist = tk.StringVar(value="Media hub")
         self._status = tk.StringVar(value="")
@@ -94,9 +96,23 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
             fg=ui.accent_primary, font=("Sans", 8, "bold"), anchor="w",
         )
         self._footer_text.pack(side=tk.LEFT)
+        self._controls = tk.Frame(self._footer, bg=ui.surface)
+        self._controls.pack(side=tk.RIGHT)
+        self._previous = tk.Button(self._controls, text="⏮", command=self._previous_track,
+            font=("Sans", 12, "bold"), width=3, padx=1, pady=3, relief=tk.FLAT, bd=0,
+            bg=ui.control_background, fg=ui.text, activebackground=ui.control_active)
+        self._toggle = tk.Button(self._controls, text="▶", command=self._toggle_playback,
+            font=("Sans", 12, "bold"), width=3, padx=1, pady=3, relief=tk.FLAT, bd=0,
+            bg=GREEN, fg="#ffffff", activebackground=ui.control_active)
+        self._next = tk.Button(self._controls, text="⏭", command=self._next_track,
+            font=("Sans", 12, "bold"), width=3, padx=1, pady=3, relief=tk.FLAT, bd=0,
+            bg=ui.control_background, fg=ui.text, activebackground=ui.control_active)
+        for button in (self._previous, self._toggle, self._next):
+            button.pack(side=tk.LEFT, padx=(2, 0))
+        self._update_controls()
         self._progress = tk.Canvas(self._footer, height=6, bg=ui.surface,
                                    highlightthickness=0, bd=0)
-        self._progress.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(10, 0), pady=0)
+        self._progress.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(7, 5), pady=0)
         self._progress.pack_forget()
         self._progress_fraction: float | None = None
         self._progress.bind("<Configure>", lambda _event: self._paint_progress())
@@ -121,12 +137,19 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._progress.configure(bg=ui.surface)
         self._footer.configure(bg=ui.surface)
         self._footer_text.configure(bg=ui.surface, fg=ui.accent_primary)
+        self._controls.configure(bg=ui.surface)
+        for button in (self._previous, self._next):
+            button.configure(bg=ui.control_background, fg=ui.text,
+                             activebackground=ui.control_active)
+        self._toggle.configure(activebackground=ui.control_active)
         if self._artwork_photo is None:
             self._art_label.configure(bg=ui.control_active, fg=GREEN)
 
     def _bind_open(self, widget: tk.Misc) -> None:
         widget.bind("<Button-1>", lambda _event: self._on_open())
         for child in widget.winfo_children():
+            if child is self._controls:
+                continue
             self._bind_open(child)
 
     def _resize_text_wrap(self, event: tk.Event) -> None:
@@ -145,8 +168,30 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
                 0, 0, width * self._progress_fraction, 5, fill=GREEN, outline="",
             )
 
+    def _update_controls(self) -> None:
+        enabled = self._requests is not None and self._online_allowed()
+        for button in (self._previous, self._toggle, self._next):
+            button.configure(state=tk.NORMAL if enabled else tk.DISABLED)
+        self._toggle.configure(text="Ⅱ" if self._playing else "▶")
+
+    def _previous_track(self) -> None:
+        if self._requests is not None:
+            self._requests.request_previous_track()
+
+    def _toggle_playback(self) -> None:
+        if self._requests is not None:
+            if self._playing:
+                self._requests.request_pause()
+            else:
+                self._requests.request_play()
+
+    def _next_track(self) -> None:
+        if self._requests is not None:
+            self._requests.request_next_track()
+
     def set_spotify_request_handler(self, handler: SpotifyRequestHandler | None) -> None:
-        """The home summary emits only its supplied navigation action."""
+        self._requests = handler
+        self._update_controls()
 
     def set_video_request_handler(self, handler: SpotifyVideoRequests | None) -> None:
         """Home summary has no video controls."""
@@ -159,6 +204,8 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
             self.set_theme_bundle(current_theme)
         state = presentation.media
         playing = presentation.online and state.playback is PlaybackState.PLAYING
+        self._playing = playing
+        self._update_controls()
         if playing != self._last_playing:
             self._last_playing = playing
             if self._on_playback_changed is not None:
