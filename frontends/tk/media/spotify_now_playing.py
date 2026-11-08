@@ -82,11 +82,17 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
             wraplength=128,
         )
         self._artist_label.grid(row=1, column=0, sticky="ew")
+        self._provider = tk.Frame(self._text, bg=ui.surface)
+        self._provider.grid(row=2, column=0, sticky="w", pady=(6, 0))
+        self._spotify_icon = tk.Label(self._provider, text="◉", fg=GREEN, bg=ui.surface,
+                                      font=("Sans", 12, "bold"))
+        self._spotify_icon.pack(side=tk.LEFT, padx=(0, 4))
         self._status_label = tk.Label(
             self._text, textvariable=self._status, fg=GREEN, bg=ui.surface,
-            font=("Sans", 7, "bold"), anchor="w",
+            font=("Sans", 8, "bold"), anchor="w",
         )
-        self._status_label.grid(row=2, column=0, sticky="ew", pady=(6, 0))
+        self._status_label.pack(side=tk.LEFT)
+        self._provider.grid_remove()
         self._text.bind("<Configure>", self._resize_text_wrap)
 
         self._footer = tk.Frame(self, bg=ui.surface)
@@ -134,6 +140,8 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._title_label.configure(bg=ui.surface, fg=ui.text)
         self._artist_label.configure(bg=ui.surface, fg=ui.text_muted)
         self._status_label.configure(bg=ui.surface, fg=GREEN)
+        self._provider.configure(bg=ui.surface)
+        self._spotify_icon.configure(bg=ui.surface, fg=GREEN)
         self._progress.configure(bg=ui.surface)
         self._footer.configure(bg=ui.surface)
         self._footer_text.configure(bg=ui.surface, fg=ui.accent_primary)
@@ -218,22 +226,21 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         if self._progress_fraction is None:
             self._progress.pack_forget()
         elif not self._progress.winfo_manager():
-            self._progress.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(10, 0), pady=0)
+            self._progress.pack(side=tk.BOTTOM, fill=tk.X, expand=False, padx=10, pady=(0, 2))
         self._paint_progress()
         self.configure(cursor="hand2" if presentation.online else "arrow")
         if not presentation.online:
             self._title.set("Streaming media unavailable")
             self._artist.set("Offline mode")
             self._status.set("")
+            self._provider.grid_remove()
             self._show_artwork_placeholder()
         elif state.playback in (PlaybackState.PLAYING, PlaybackState.PAUSED) and state.title:
             self._title.set(state.title)
             artist = state.artist or ""
             self._artist.set(artist)
-            self._status.set(
-                "Spotify • Playing" if state.playback is PlaybackState.PLAYING
-                else "Spotify • Paused"
-            )
+            self._status.set("Spotify · Playing" if playing else "Spotify · Paused")
+            self._provider.grid()
             self._art_loading.configure(text="LOADING" if presentation.artwork_loading else "")
             if presentation.artwork != self._artwork_payload:
                 self._artwork_payload = presentation.artwork
