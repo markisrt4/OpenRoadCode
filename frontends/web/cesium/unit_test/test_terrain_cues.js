@@ -21,11 +21,13 @@ test('terrain cues restore the prior globe presentation when disabled',()=>{
   assert.equal(globe.enableLighting,true);
   assert.equal(globe.material.spacing,10);
   cues.setScale(3);
-  cues.setScale(4);
   assert.equal(globe.material.spacing,30);
+  cues.setScale(4);
+  assert.equal(globe.material.spacing,40);
+  assert.throws(()=>cues.setScale(5),/scale/);
   cues.setEnabled(false);
   assert.equal(globe.enableLighting,false);
   assert.equal(globe.material,original);
-  assert.deepEqual(spacings,[10,30]);
-  assert.equal(renders,3);
+  assert.deepEqual(spacings,[10,30,40]);
+  assert.equal(renders,4);
 });

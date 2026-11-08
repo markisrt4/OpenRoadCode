@@ -5,7 +5,10 @@ const vm=require('node:vm');
 const path=require('node:path');
 const test=require('node:test');
 let now=0;
-const context={window:{},Date:{now:()=>now}};
+const context={window:{},Date:{now:()=>now},
+  fetch:async()=>({ok:true,json:async()=>({features:[]})}),
+  document:{createElement:()=>({width:0,height:0,getContext:()=>({fillRect(){}}),
+    toDataURL:()=> 'data:image/png;base64,reference'})}};
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../reference_globe_layer.js'),'utf8'),context);
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../local_imagery_layers.js'),'utf8'),context);
 test('regional background survives leaving detail and late loads cannot attach after close',async()=>{

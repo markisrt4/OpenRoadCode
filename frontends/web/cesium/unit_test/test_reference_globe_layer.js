@@ -19,6 +19,9 @@ test('blue base does not attach after viewer closes during image load',async()=>
   }};
   const viewer={isDestroyed:()=>destroyed,imageryLayers:{addImageryProvider(){attached++;}}};
   const pending=context.window.ORCReferenceGlobeLayer(viewer,C);
+  // The offline land/lake reads complete before the image-provider load starts.
+  await new Promise(done=>setImmediate(done));
+  assert.equal(typeof resolve,'function');
   destroyed=true;
   resolve({url:'base'});
   assert.equal(await pending,null);
