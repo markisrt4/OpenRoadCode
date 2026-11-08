@@ -215,6 +215,9 @@ class OrcUiCompositionTest(unittest.TestCase):
     ) -> None:
         runtime = create_runtime.return_value
         core = create_core.return_value
+        # Match the real startup state before the navigation service has a route.
+        core.route_request_handler.active_route = None
+        core.presentation.route_guidance = None
         app = core.app
         radio = configure_radio.return_value
         games = configure_games.return_value
