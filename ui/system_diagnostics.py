@@ -150,6 +150,7 @@ class SystemDiagnosticsSnapshot:
     sensor_monitor_status: str = "not_started"
     services: tuple[ServiceSocketSnapshot, ...] = ()
     service_monitor_status: str = "not_started"
+    network_usb: dict = field(default_factory=dict)
 
 
 class SystemDiagnosticsProviderIf(Protocol):
