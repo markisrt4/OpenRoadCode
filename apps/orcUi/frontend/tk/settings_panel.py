@@ -83,13 +83,25 @@ class SettingsPanel(tk.Frame, UiWidget):
         body.grid(row=1, column=0, sticky="nsew", padx=6, pady=(0, 6))
         body.grid_columnconfigure(0, weight=1)
 
+        page_nav = tk.Frame(body, bg=ui.background)
+        page_nav.grid(row=0, column=0, sticky="ew", pady=(0, 3))
+        page_nav.grid_columnconfigure(0, weight=1)
+        page_nav.grid_columnconfigure(1, weight=1)
+        self._page_buttons = {}
+        for column, (page, title) in enumerate((("display", "DISPLAY & LOCATION"), ("vehicle", "VEHICLE"))):
+            button = tk.Button(page_nav, text=title, height=2, bd=0, relief=tk.FLAT,
+                               font=("Sans", FONT_CONTROL, "bold"),
+                               command=lambda selected=page: self._show_settings_page(selected))
+            button.grid(row=0, column=column, sticky="ew", padx=3)
+            self._page_buttons[page] = button
+
         display = tk.Frame(
             body,
             bg=ui.surface,
             highlightthickness=1,
             highlightbackground=ui.border,
         )
-        display.grid(row=1, column=0, sticky="ew", pady=4)
+        display.grid(row=2, column=0, sticky="ew", pady=4)
         display.grid_columnconfigure(1, weight=1)
 
         tk.Label(
@@ -152,7 +164,7 @@ class SettingsPanel(tk.Frame, UiWidget):
             highlightthickness=1,
             highlightbackground=ui.border,
         )
-        vehicle.grid(row=2, column=0, sticky="ew", pady=4)
+        vehicle.grid(row=1, column=0, sticky="ew", pady=4)
         vehicle.grid_columnconfigure(1, weight=1)
 
         tk.Label(
@@ -193,7 +205,7 @@ class SettingsPanel(tk.Frame, UiWidget):
         self._refresh_induction_buttons()
 
         location = tk.Frame(body, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
-        location.grid(row=0, column=0, sticky="ew", pady=4)
+        location.grid(row=1, column=0, sticky="ew", pady=4)
         location.grid_columnconfigure(0, weight=1)
         tk.Label(location, text="LOCATION", bg=ui.surface, fg=ui.accent_primary,
                  font=("Sans", 10, "bold")).grid(row=0, column=0, sticky="w", padx=14, pady=(8, 2))
@@ -209,6 +221,17 @@ class SettingsPanel(tk.Frame, UiWidget):
             relief=tk.FLAT, font=("Sans", FONT_CONTROL, "bold"), padx=10, pady=6)
         self._location_button.grid(row=0, column=1, rowspan=2, padx=14, pady=8)
         self.set_host_location_state(host_location_state)
+        self._settings_pages = {"display": (location, display), "vehicle": (vehicle,)}
+        self._show_settings_page("display")
+
+    def _show_settings_page(self, page: str) -> None:
+        for frames in self._settings_pages.values():
+            for frame in frames:
+                frame.grid_remove()
+        for frame in self._settings_pages[page]:
+            frame.grid()
+        for name, button in self._page_buttons.items():
+            self._style_choice(button, name == page)
 
     def _share_host_location(self) -> None:
         if self._location_handler is not None:
