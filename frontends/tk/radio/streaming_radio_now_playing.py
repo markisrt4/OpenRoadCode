@@ -51,60 +51,28 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
         self._status.grid_remove()
 
         source_shortcuts = tk.Frame(self, bg=ui.surface)
-        source_shortcuts.grid(row=1, column=0, columnspan=2, sticky="ew", padx=9, pady=(4, 2))
+        source_shortcuts.grid(row=1, column=0, columnspan=2, sticky="ew", padx=9, pady=(5, 3))
         for column in range(3):
             source_shortcuts.grid_columnconfigure(column, weight=1)
 
-        self._adsb_button = tk.Button(
-            source_shortcuts,
-            text="✈  ADS-B",
-            command=on_open_adsb,
-            bg=ui.control_background,
-            fg=ui.accent_warning,
-            activebackground=ui.control_active,
-            activeforeground="#ffffff",
-            relief=tk.FLAT,
-            bd=0,
-            highlightthickness=0,
-            font=("Sans", 9, "bold"),
-            padx=1,
-            pady=10,
-        )
-        self._adsb_button.grid(row=0, column=0, sticky="ew", padx=(0, 3))
+        # Each source is one large touch target, with its icon above its label.
+        def source_button(column: int, icon: str, label: str, color: str,
+                          command: Callable[[], None]) -> tk.Button:
+            button = tk.Button(
+                source_shortcuts, text=f"{icon}\n{label}", command=command,
+                bg=ui.control_background, fg=color,
+                activebackground=ui.control_active, activeforeground="#ffffff",
+                relief=tk.FLAT, bd=0, highlightthickness=0,
+                font=("Sans", 10, "bold"), justify=tk.CENTER,
+                padx=1, pady=6,
+            )
+            button.grid(row=0, column=column, sticky="nsew",
+                        padx=(0, 3) if column == 0 else ((3, 0) if column == 2 else 3))
+            return button
 
-        self._rf_button = tk.Button(
-            source_shortcuts,
-            text="◉  RF",
-            command=on_open_rf,
-            bg=ui.control_background,
-            fg=ui.accent_success,
-            activebackground=ui.control_active,
-            activeforeground="#ffffff",
-            relief=tk.FLAT,
-            bd=0,
-            highlightthickness=0,
-            font=("Sans", 9, "bold"),
-            padx=3,
-            pady=12,
-        )
-        self._rf_button.grid(row=0, column=1, sticky="ew", padx=3)
-
-        self._stream_button = tk.Button(
-            source_shortcuts,
-            text="♫  STREAM",
-            command=on_open_streaming,
-            bg=ui.control_background,
-            fg=ui.accent_primary,
-            activebackground=ui.control_active,
-            activeforeground="#ffffff",
-            relief=tk.FLAT,
-            bd=0,
-            highlightthickness=0,
-            font=("Sans", 9, "bold"),
-            padx=3,
-            pady=12,
-        )
-        self._stream_button.grid(row=0, column=2, sticky="ew", padx=(3, 0))
+        self._adsb_button = source_button(0, "✈", "ADS-B", ui.accent_warning, on_open_adsb)
+        self._rf_button = source_button(1, "◉", "RF", ui.accent_success, on_open_rf)
+        self._stream_button = source_button(2, "♫", "STREAM", ui.accent_primary, on_open_streaming)
 
         self._station = tk.Label(
             self,
