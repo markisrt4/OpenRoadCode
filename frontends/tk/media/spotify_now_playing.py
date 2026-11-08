@@ -170,12 +170,12 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         canvas.delete("all")
         canvas.create_oval(0, 0, 16, 16, fill=GREEN, outline="")
         for radius, offset in ((11.5, 0), (9.5, 2), (7.5, 4)):
-            points = []
+            points: list[float] = []
             for index in range(17):
                 angle = math.radians(215 + index * 7.2)
                 points.extend((8 + radius * 0.5 * math.cos(angle),
                                9 + offset * 0.3 + radius * 0.31 * math.sin(angle)))
-            canvas.create_line(*points, fill="#10271b", width=1.4,
+            canvas.create_line(points, fill="#10271b", width=1.4,
                                smooth=True, capstyle=tk.ROUND)
 
     def _resize_text_wrap(self, event: tk.Event) -> None:
