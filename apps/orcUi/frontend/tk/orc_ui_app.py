@@ -194,14 +194,14 @@ class OrcUiApp(VolumeUiIf, UiWidget):
         """Return to the destination that opened Diagnostics."""
         self.navigate_to(self._diagnostics_return)
 
-    def _toggle_performance_overlay(self, _event=None) -> None:
+    def _toggle_performance_overlay(self, _event: tk.Event | None = None) -> None:
         self._performance_overlay.set_visible(not self._performance_overlay.visible)
 
-    def update_performance_overlay(self, snapshot) -> None:
+    def update_performance_overlay(self, snapshot: SystemDiagnosticsSnapshot) -> None:
         self._performance_overlay.update(snapshot)
 
     def performance_overlay_enabled(self) -> bool:
-        return self._performance_overlay.visible
+        return bool(self._performance_overlay.visible)
 
     def set_performance_overlay_enabled(self, enabled: bool) -> None:
         self._performance_overlay.set_visible(enabled)
