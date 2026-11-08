@@ -11,6 +11,7 @@ class HomeSpectrumBar(tk.Frame):
     HEIGHT = 48
 
     def __init__(self, parent, *, controller, theme_bundle, on_open):
+        self._theme_bundle = theme_bundle
         ui = theme_bundle().ui
         super().__init__(parent, bg=ui.surface, height=self.HEIGHT)
         self.grid_propagate(False)
@@ -32,6 +33,9 @@ class HomeSpectrumBar(tk.Frame):
         canvas = self._canvas
         if not canvas.winfo_exists():
             return
+        ui = self._theme_bundle().ui
+        self.configure(bg=ui.surface)
+        canvas.configure(bg=ui.surface)
         canvas.delete("all")
         width = canvas.winfo_width()
         height = canvas.winfo_height()
@@ -66,7 +70,7 @@ class HomeSpectrumBar(tk.Frame):
             return "#" + "".join(f"{v:02x}" for v in rgb)
 
         canvas.create_text(10, height / 2, anchor="w",
-                           text="Music visualizer  ›", fill="#e6edf5",
+                           text="Music visualizer  ›", fill=ui.text,
                            font=("Sans", 9, "bold"))
         for index, value in enumerate(values):
             x = left + index * step
