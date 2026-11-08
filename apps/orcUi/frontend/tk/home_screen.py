@@ -69,8 +69,8 @@ def build_home_screen(
 
     lower = tk.Frame(parent, bg=ui.background)
     lower.grid(row=1, column=0, sticky="nsew", padx=(0, 5), pady=(5, 0))
-    lower.grid_columnconfigure(0, weight=1)
-    lower.grid_columnconfigure(1, weight=1)
+    lower.grid_columnconfigure(0, weight=1, uniform="home_cards")
+    lower.grid_columnconfigure(1, weight=1, uniform="home_cards")
     lower.grid_rowconfigure(0, weight=1)
     lower.grid_rowconfigure(1, weight=0, minsize=48 if visualizer_factory is not None else 0)
 
