@@ -289,7 +289,7 @@ def create_orc_ui_composition(
             theme_bundle=lambda: theme_bundle(app.theme_mode),
             on_back=app.close_diagnostics,
         )
-        performance_status = PerformanceStatusPresenter(app, performance, app.set_performance_status)
+        performance_status = PerformanceStatusPresenter(app, performance, app.set_performance_status, on_sample=app.update_performance_overlay)
         cleanup.callback(performance_status.close)
         home.set_radio_factory(radio.home_factory)
         home.set_media_factory(media.home_factory)
