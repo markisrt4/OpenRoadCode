@@ -17,7 +17,7 @@ from ui.theme import ThemeBundle
 from ui.ui_widget import UiWidget
 
 GREEN = "#1DB954"
-ART_SIZE = 82
+ART_SIZE = 94
 
 
 class SpotifyNowPlaying(tk.Frame, UiWidget):
@@ -50,12 +50,12 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._artwork_photo: ImageTk.PhotoImage | None = None
         self._artwork_payload: bytes | None = None
         self._body = tk.Frame(self, bg=ui.surface)
-        self._body.pack(fill=tk.BOTH, expand=True, padx=10, pady=(3, 2))
+        self._body.pack(fill=tk.BOTH, expand=True, padx=9, pady=(1, 1))
         self._body.grid_columnconfigure(1, weight=1)
         self._body.grid_rowconfigure(0, weight=1)
 
         self._art_host = tk.Frame(self._body, bg=ui.surface)
-        self._art_host.grid(row=0, column=0, sticky="w", padx=(0, 10))
+        self._art_host.grid(row=0, column=0, sticky="w", padx=(0, 8))
         self._art_label = tk.Label(
             self._art_host, text="♫", fg=GREEN, bg=ui.control_active,
             font=("Sans", 23, "bold"), width=4, height=2, anchor="center",
@@ -96,7 +96,7 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._text.bind("<Configure>", self._resize_text_wrap)
 
         self._footer = tk.Frame(self, bg=ui.surface)
-        self._footer.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=(0, 5))
+        self._footer.pack(side=tk.BOTTOM, fill=tk.X, padx=9, pady=(0, 3))
         self._footer_text = tk.Label(
             self._footer, text="OPEN MEDIA ›", bg=ui.surface,
             fg=ui.accent_primary, font=("Sans", 8, "bold"), anchor="w",
@@ -105,7 +105,7 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._controls = tk.Frame(self._footer, bg=ui.surface)
         self._controls.pack(side=tk.RIGHT)
         self._previous = tk.Button(self._controls, text="⏮", command=self._previous_track,
-            font=("Sans", 12, "bold"), width=3, padx=1, pady=3, relief=tk.FLAT, bd=0,
+            font=("Sans", 13, "bold"), width=3, padx=2, pady=5, relief=tk.FLAT, bd=0,
             bg=ui.control_background, fg=ui.text, activebackground=ui.control_active)
         self._toggle = tk.Button(self._controls, text="▶", command=self._toggle_playback,
             font=("Sans", 12, "bold"), width=3, padx=1, pady=3, relief=tk.FLAT, bd=0,
