@@ -247,7 +247,7 @@ class SystemMetricsPanel(tk.Frame, UiWidget):
             ("cpu", snapshot.cpu_percent),
             ("memory", snapshot.memory_used_percent),
             ("temperature", snapshot.temperature_c),
-            ("process_cpu", snapshot.process_cpu_percent),
+            ("gpu", snapshot.gpu_percent),
         ):
             if snapshot.sampled_at_unix_s is not None and snapshot.sampled_at_unix_s != self._last_sample_time:
                 self._history[key].append((snapshot.sampled_at_unix_s, value))
