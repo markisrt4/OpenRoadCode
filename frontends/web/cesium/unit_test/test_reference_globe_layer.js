@@ -26,7 +26,7 @@ test('blue base does not attach after viewer closes during image load',async()=>
   resolve({url:'base'});
   assert.equal(await pending,null);
   assert.equal(attached,0);
-  assert.deepEqual(draw[0].slice(0,3),['fill','#174963']);
+  assert.deepEqual(draw[0],['fill','#174963',0,0,2048,1024]);
   assert.deepEqual(draw.at(-2),['land','#456f4e','evenodd']);
   assert.deepEqual(draw.at(-1),['land','#174963','evenodd']);
 });
