@@ -17,7 +17,7 @@ from ui.theme import ThemeBundle
 from ui.ui_widget import UiWidget
 
 GREEN = "#1DB954"
-ART_SIZE = 84
+ART_SIZE = 92
 
 
 class SpotifyNowPlaying(tk.Frame, UiWidget):
@@ -53,7 +53,7 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._body.grid_rowconfigure(0, weight=1)
 
         self._art_host = tk.Frame(self._body, bg=ui.surface)
-        self._art_host.grid(row=0, column=0, sticky="nw", padx=(0, 8))
+        self._art_host.grid(row=0, column=0, sticky="w", padx=(0, 9))
         self._art_label = tk.Label(
             self._art_host, text="♫", fg=GREEN, bg=ui.control_active,
             font=("Sans", 23, "bold"), width=4, height=2, anchor="center",
@@ -66,23 +66,26 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._art_loading.pack(pady=(2, 0))
 
         self._text = tk.Frame(self._body, bg=ui.surface)
-        self._text.grid(row=0, column=1, sticky="new")
+        self._text.grid(row=0, column=1, sticky="ew")
         self._text.grid_columnconfigure(0, weight=1)
         self._title_label = tk.Label(
             self._text, textvariable=self._title, fg=ui.text, bg=ui.surface,
-            font=("Sans", 12, "bold"), anchor="w", justify=tk.LEFT,
+            font=("Sans", 11, "bold"), anchor="w", justify=tk.LEFT,
+            wraplength=128,
         )
         self._title_label.grid(row=0, column=0, sticky="ew", pady=(0, 2))
         self._artist_label = tk.Label(
             self._text, textvariable=self._artist, fg=ui.text_muted, bg=ui.surface,
             font=("Sans", 9), anchor="w", justify=tk.LEFT,
+            wraplength=128,
         )
         self._artist_label.grid(row=1, column=0, sticky="ew")
         self._status_label = tk.Label(
             self._text, textvariable=self._status, fg=GREEN, bg=ui.surface,
             font=("Sans", 7, "bold"), anchor="w",
         )
-        self._status_label.grid(row=2, column=0, sticky="ew", pady=(3, 0))
+        self._status_label.grid(row=2, column=0, sticky="ew", pady=(8, 0))
+        self._text.bind("<Configure>", self._resize_text_wrap)
 
         self._progress = tk.Canvas(self, height=6, bg=ui.surface,
                                    highlightthickness=0, bd=0)
@@ -116,6 +119,11 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         widget.bind("<Button-1>", lambda _event: self._on_open())
         for child in widget.winfo_children():
             self._bind_open(child)
+
+    def _resize_text_wrap(self, event: tk.Event) -> None:
+        available = max(64, event.width - 4)
+        self._title_label.configure(wraplength=available)
+        self._artist_label.configure(wraplength=available)
 
     def _paint_progress(self) -> None:
         self._progress.delete("all")
@@ -163,9 +171,9 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
             self._status.set("")
             self._show_artwork_placeholder()
         elif state.playback in (PlaybackState.PLAYING, PlaybackState.PAUSED) and state.title:
-            self._title.set(state.title if len(state.title) <= 23 else state.title[:22] + "…")
+            self._title.set(state.title)
             artist = state.artist or ""
-            self._artist.set(artist if len(artist) <= 25 else artist[:24] + "…")
+            self._artist.set(artist)
             self._status.set(
                 "Spotify • Playing" if state.playback is PlaybackState.PLAYING
                 else "Spotify • Paused"
