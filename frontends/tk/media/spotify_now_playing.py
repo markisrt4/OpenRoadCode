@@ -17,7 +17,7 @@ from ui.theme import ThemeBundle
 from ui.ui_widget import UiWidget
 
 GREEN = "#1DB954"
-ART_SIZE = 92
+ART_SIZE = 82
 
 
 class SpotifyNowPlaying(tk.Frame, UiWidget):
@@ -48,12 +48,12 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._artwork_photo: ImageTk.PhotoImage | None = None
         self._artwork_payload: bytes | None = None
         self._body = tk.Frame(self, bg=ui.surface)
-        self._body.pack(fill=tk.BOTH, expand=True, padx=8, pady=(7, 4))
+        self._body.pack(fill=tk.BOTH, expand=True, padx=10, pady=(3, 2))
         self._body.grid_columnconfigure(1, weight=1)
         self._body.grid_rowconfigure(0, weight=1)
 
         self._art_host = tk.Frame(self._body, bg=ui.surface)
-        self._art_host.grid(row=0, column=0, sticky="w", padx=(0, 9))
+        self._art_host.grid(row=0, column=0, sticky="w", padx=(0, 10))
         self._art_label = tk.Label(
             self._art_host, text="♫", fg=GREEN, bg=ui.control_active,
             font=("Sans", 23, "bold"), width=4, height=2, anchor="center",
@@ -70,7 +70,7 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._text.grid_columnconfigure(0, weight=1)
         self._title_label = tk.Label(
             self._text, textvariable=self._title, fg=ui.text, bg=ui.surface,
-            font=("Sans", 11, "bold"), anchor="w", justify=tk.LEFT,
+            font=("Sans", 12, "bold"), anchor="w", justify=tk.LEFT,
             wraplength=128,
         )
         self._title_label.grid(row=0, column=0, sticky="ew", pady=(0, 2))
@@ -84,12 +84,19 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
             self._text, textvariable=self._status, fg=GREEN, bg=ui.surface,
             font=("Sans", 7, "bold"), anchor="w",
         )
-        self._status_label.grid(row=2, column=0, sticky="ew", pady=(8, 0))
+        self._status_label.grid(row=2, column=0, sticky="ew", pady=(6, 0))
         self._text.bind("<Configure>", self._resize_text_wrap)
 
-        self._progress = tk.Canvas(self, height=6, bg=ui.surface,
+        self._footer = tk.Frame(self, bg=ui.surface)
+        self._footer.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=(0, 5))
+        self._footer_text = tk.Label(
+            self._footer, text="OPEN MEDIA ›", bg=ui.surface,
+            fg=ui.accent_primary, font=("Sans", 8, "bold"), anchor="w",
+        )
+        self._footer_text.pack(side=tk.LEFT)
+        self._progress = tk.Canvas(self._footer, height=6, bg=ui.surface,
                                    highlightthickness=0, bd=0)
-        self._progress.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=(0, 7))
+        self._progress.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(10, 0), pady=0)
         self._progress.pack_forget()
         self._progress_fraction: float | None = None
         self._progress.bind("<Configure>", lambda _event: self._paint_progress())
@@ -112,6 +119,8 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._artist_label.configure(bg=ui.surface, fg=ui.text_muted)
         self._status_label.configure(bg=ui.surface, fg=GREEN)
         self._progress.configure(bg=ui.surface)
+        self._footer.configure(bg=ui.surface)
+        self._footer_text.configure(bg=ui.surface, fg=ui.accent_primary)
         if self._artwork_photo is None:
             self._art_label.configure(bg=ui.control_active, fg=GREEN)
 
@@ -162,7 +171,7 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         if self._progress_fraction is None:
             self._progress.pack_forget()
         elif not self._progress.winfo_manager():
-            self._progress.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=(0, 7))
+            self._progress.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(10, 0), pady=0)
         self._paint_progress()
         self.configure(cursor="hand2" if presentation.online else "arrow")
         if not presentation.online:
