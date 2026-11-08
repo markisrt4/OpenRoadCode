@@ -359,25 +359,8 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         return view
 
     def home_media_factory(parent: tk.Misc) -> tk.Widget:
-        if renderer != 'opengl':
-            return home_now_playing_factory(parent)
-        from frontends.tk.media.home_media_visualizer import HomeMediaVisualizer
-        view = HomeMediaVisualizer(
-            parent, controller=visualizer_runtime,
-            theme_bundle=lambda: theme_bundle(app.theme_mode),
-            now_playing_factory=home_now_playing_factory,
-            visualizer_factory=lambda owner: panel_options['panel_factory'](
-                owner, theme_bundle=theme_bundle(app.theme_mode),
-                simulate=selected_native_visualizer_source() is MusicVisualizerSource.SIMULATED,
-            ),
-            source=selected_native_visualizer_source(), on_open=visualizer.show,
-        )
-        retire_views.append(view.close)
-        def retire_home(event: tk.Event) -> None:
-            if event.widget is view and view.close in retire_views:
-                retire_views.remove(view.close)
-        view.bind('<Destroy>', retire_home, add='+')
-        return view
+        """Keep HOME focused on playback; the shared strip owns spectrum preview."""
+        return home_now_playing_factory(parent)
 
 
     def home_spectrum_factory(parent: tk.Misc) -> tk.Widget:
