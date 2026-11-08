@@ -72,7 +72,7 @@ def test_building_archive_rejects_path_traversal_before_activation(tmp_path):
 
 def test_wrong_kind_cannot_activate_buildings(tmp_path,monkeypatch):
     from development.maps import install_buildings as installer
-    monkeypatch.setattr(installer,'read_local_archive',lambda *args:({'kind':'terrain'},Path('fake.zip')))
+    monkeypatch.setattr(installer,'read_local_archive',lambda *args,**kwargs:({'kind':'terrain'},Path('fake.zip')))
     with pytest.raises(ValueError,match='not a buildings'):
         installer.install(Path('fake.zip'),destination=tmp_path/'active')
     assert not (tmp_path/'active').exists()
@@ -105,3 +105,14 @@ def test_dense_cells_subdivide_without_losing_geometry():
     assert all(len(cell[2])<=10000 for cell in cells)
     with pytest.raises(ValueError,match='runtime limits'):
         list(partition_buildings({(0,0):features},(0,0,1,1),1,1))
+
+
+def test_building_download_budget_does_not_raise_imagery_budget():
+    import json
+    from development.maps.prebuilt_imagery import validate_descriptor
+    from tools.map_builder.builder.building_artifact import MAX_ARCHIVE_BYTES
+    raw=json.dumps(dict(schema=1,coverage='metro-detroit',archive='metro-detroit-buildings.zip',
+                        bytes=65*1024*1024,sha256='a'*64))
+    with pytest.raises(ValueError,match='descriptor'):
+        validate_descriptor(raw,'metro-detroit')
+    assert validate_descriptor(raw,'metro-detroit',max_archive_bytes=MAX_ARCHIVE_BYTES)['bytes']==65*1024*1024

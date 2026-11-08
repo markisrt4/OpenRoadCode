@@ -411,7 +411,7 @@ The Metro envelope matches existing imagery bounds (-83.75, 42.0, -82.55, 42.9).
 An initial 16×16 grid replaces the city demo's 4×2 grid for this coverage
 only. Dense cells subdivide automatically within a 1024-tile catalog cap. Existing per-tile limits remain 10,000 outlines / 10 MiB; the renderer still
 keeps at most four nearby tiles and two loads active. Build fails if bounded subdivision cannot
-fit the geometry; outlines are never silently truncated. Archive cap is 64 MiB; extraction cap is
+fit the geometry; outlines are never silently truncated. Building archive cap is 128 MiB (imagery remains at 64 MiB); extraction cap is
 512 MiB. Footprints and heights are not photorealistic building meshes.
 
 A successful stage uploads `metro-detroit-buildings-<run-id>` with the ZIP,

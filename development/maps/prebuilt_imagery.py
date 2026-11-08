@@ -60,25 +60,25 @@ def read_descriptor(url, coverage):
     return descriptor, urllib.parse.urljoin(url, descriptor['archive'])
 
 
-def validate_descriptor(raw, coverage):
+def validate_descriptor(raw, coverage, *, max_archive_bytes=MAX_ARCHIVE_BYTES):
     descriptor = json.loads(raw)
     name = descriptor.get('archive', '')
     if (descriptor.get('schema') != 1 or descriptor.get('coverage') != coverage
             or not re.fullmatch(r'[a-zA-Z0-9_-]+\.zip', name)
             or type(descriptor.get('bytes')) is not int
-            or not 0 < descriptor['bytes'] <= MAX_ARCHIVE_BYTES
+            or not 0 < descriptor['bytes'] <= max_archive_bytes
             or not re.fullmatch(r'[a-f0-9]{64}', descriptor.get('sha256', ''))):
         raise ValueError('Invalid imagery artifact descriptor or coverage')
     return descriptor
 
 
-def read_local_archive(path, coverage):
+def read_local_archive(path, coverage, *, max_archive_bytes=MAX_ARCHIVE_BYTES):
     archive = Path(path).resolve()
     with archive.with_suffix(archive.suffix+'.json').open('rb') as source:
         raw = source.read(65537)
     if len(raw) > 65536:
         raise ValueError('Pack descriptor exceeds 64 KiB')
-    descriptor = validate_descriptor(raw, coverage)
+    descriptor = validate_descriptor(raw, coverage, max_archive_bytes=max_archive_bytes)
     if descriptor['archive'] != archive.name:
         raise ValueError('Descriptor names a different local archive')
     verify_archive(archive, descriptor)

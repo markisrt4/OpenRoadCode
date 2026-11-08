@@ -40,8 +40,10 @@ def build(output, cache, source=None):
             sources.mkdir(parents=True)
             (sources/source.name).symlink_to(source)
             pack = build_pack(dataset, 'metro-detroit')
-            descriptor = package(pack, output/'metro-detroit-buildings.zip', 'metro-detroit')
             manifest = json.loads((pack/'manifest.json').read_text())
+            report.update(height_counts=manifest['height_counts'], tiles=len(manifest['tiles']),
+                          skipped_features=manifest['skipped_features'])
+            descriptor = package(pack, output/'metro-detroit-buildings.zip', 'metro-detroit')
             report.update(status='validated', buildings=descriptor['buildings'],
                           tiles=descriptor['tiles'], archive_bytes=descriptor['bytes'],
                           height_counts=manifest['height_counts'], skipped_features=manifest['skipped_features'])

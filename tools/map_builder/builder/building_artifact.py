@@ -5,7 +5,8 @@ from pathlib import Path
 import zipfile
 
 from .map_3d import digest, validate_pack
-from .imagery_artifact import MAX_ARCHIVE_BYTES
+
+MAX_ARCHIVE_BYTES = 128*1024*1024
 
 MAX_UNPACKED_BYTES = 512*1024*1024
 
@@ -25,7 +26,7 @@ def package(root, output, coverage):
             for path in files:
                 archive.write(path, path.relative_to(root).as_posix())
         if temporary.stat().st_size > MAX_ARCHIVE_BYTES:
-            raise ValueError('Building archive exceeds 64 MiB download limit')
+            raise ValueError('Building archive exceeds 128 MiB download limit')
         manifest = json.loads((root/'manifest.json').read_text())
         descriptor = dict(schema=1, kind='buildings', coverage=coverage, archive=output.name,
             bytes=temporary.stat().st_size, sha256=digest(temporary), bounds_deg=validated['bounds_deg'],

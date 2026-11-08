@@ -8,11 +8,11 @@ from apps.launchers.local_map_tiles_pack import LocalMapTilesPack
 from common.xdg_paths import openroadcode_data_dir
 from development.maps.prebuilt_imagery import read_local_archive, unpack
 from tools.map_builder.builder.map_3d import PRESETS, validate_pack
-from tools.map_builder.builder.building_artifact import MAX_UNPACKED_BYTES
+from tools.map_builder.builder.building_artifact import MAX_UNPACKED_BYTES, MAX_ARCHIVE_BYTES
 
 
 def install(archive, *, destination=None):
-    descriptor, archive = read_local_archive(archive, 'metro-detroit')
+    descriptor, archive = read_local_archive(archive, 'metro-detroit', max_archive_bytes=MAX_ARCHIVE_BYTES)
     if descriptor.get('kind') != 'buildings':
         raise ValueError('Descriptor is not a buildings artifact')
     active = destination or openroadcode_data_dir('map-packs','metro-detroit-buildings-active')
