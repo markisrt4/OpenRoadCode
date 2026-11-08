@@ -17,7 +17,7 @@ from ui.theme import ThemeBundle
 from ui.ui_widget import UiWidget
 
 GREEN = "#1DB954"
-ART_SIZE = 72
+ART_SIZE = 84
 
 
 class SpotifyNowPlaying(tk.Frame, UiWidget):
@@ -45,12 +45,12 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._artwork_photo: ImageTk.PhotoImage | None = None
         self._artwork_payload: bytes | None = None
         self._body = tk.Frame(self, bg=ui.surface)
-        self._body.pack(fill=tk.BOTH, expand=True, padx=9, pady=(10, 5))
+        self._body.pack(fill=tk.BOTH, expand=True, padx=8, pady=(7, 4))
         self._body.grid_columnconfigure(1, weight=1)
         self._body.grid_rowconfigure(0, weight=1)
 
         self._art_host = tk.Frame(self._body, bg=ui.surface)
-        self._art_host.grid(row=0, column=0, sticky="nw", padx=(0, 12))
+        self._art_host.grid(row=0, column=0, sticky="nw", padx=(0, 8))
         self._art_label = tk.Label(
             self._art_host, text="♫", fg=GREEN, bg=ui.control_active,
             font=("Sans", 23, "bold"), width=4, height=2, anchor="center",
@@ -81,7 +81,7 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         )
         self._status_label.grid(row=2, column=0, sticky="ew", pady=(3, 0))
 
-        self._progress = tk.Canvas(self, height=5, bg=ui.surface,
+        self._progress = tk.Canvas(self, height=6, bg=ui.surface,
                                    highlightthickness=0, bd=0)
         self._progress.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=(0, 7))
         self._progress.pack_forget()
@@ -155,8 +155,9 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
             self._status.set("")
             self._show_artwork_placeholder()
         elif state.playback in (PlaybackState.PLAYING, PlaybackState.PAUSED) and state.title:
-            self._title.set(state.title)
-            self._artist.set(state.artist or "")
+            self._title.set(state.title if len(state.title) <= 23 else state.title[:22] + "…")
+            artist = state.artist or ""
+            self._artist.set(artist if len(artist) <= 25 else artist[:24] + "…")
             self._status.set(
                 "Spotify • Playing" if state.playback is PlaybackState.PLAYING
                 else "Spotify • Paused"
