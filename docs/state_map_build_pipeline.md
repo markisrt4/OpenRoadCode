@@ -353,6 +353,8 @@ regional test creates Actions artifacts, not a published Release.
 - NAIP: paginated public mirror catalog, USDA licensor check, newest dated source
   per named quarter-quad (or exact footprint when no tile name is available).
   Older dates may remain in other footprints; provenance records actual dates.
+- NAIP workers share a provider-issued container access token in memory only;
+  tokens never enter source plans, caches or packs.
 - Each source is cropped through GDAL HTTP range reads onto the final grid.
   Regional imagery is 4096×4096, with transparent source gaps/water. This is
   regional coverage, not street-level imagery. Existing local packs stay finer.

@@ -1,6 +1,9 @@
 """Bounded catalog discovery and resumable raster crops for regional builds."""
 
 import hashlib
+from datetime import datetime, timezone
+import threading
+import time
 import json
 import math
 import re
@@ -8,8 +11,31 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from development.maps.static_tile_trial import (
-    PC, TNM, approved_url, command, digest, get_json, source_request_url, write_json,
+    PC, TNM, approved_url, command, digest, get_json, write_json,
 )
+
+
+_TOKEN_LOCK = threading.Lock()
+_CONTAINER_TOKEN = None
+
+
+def source_request_url(url):
+    """Share a short-lived, memory-only public-container token across workers."""
+    approved_url(url)
+    if urlsplit(url).hostname != 'naipeuwest.blob.core.windows.net':
+        return url
+    global _CONTAINER_TOKEN
+    with _TOKEN_LOCK:
+        if _CONTAINER_TOKEN is None or _CONTAINER_TOKEN[0] <= time.time()+300:
+            response = get_json(PC+'/sas/v1/token/naipeuwest/naip')
+            expiry = datetime.fromisoformat(response['msft:expiry'].replace('Z', '+00:00'))
+            if expiry.tzinfo is None:
+                expiry = expiry.replace(tzinfo=timezone.utc)
+            if expiry.timestamp() <= time.time()+300 or not response.get('token'):
+                raise ValueError('NAIP public-container token is missing or expires too soon')
+            _CONTAINER_TOKEN = (expiry.timestamp(), response['token'].lstrip('?'))
+        token = _CONTAINER_TOKEN[1]
+    return url+'?'+token
 
 
 def intersect(a, b):

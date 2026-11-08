@@ -118,3 +118,22 @@ def test_staged_region_packs_load_in_existing_readers(tmp_path):
     terrain,info=builder.terrain_pack(tmp_path,coverage,[],[dem])
     assert info['terrain_tiles']==64 and not info['missing_terrain_tiles']
     assert len(load_terrain(terrain).tiles)==64
+
+
+def test_container_access_is_shared_and_never_written_to_crop_receipts(tmp_path,monkeypatch):
+    from datetime import datetime, timedelta, timezone
+    calls=[]
+    def fetch(url,**kwargs):
+        calls.append(url)
+        return {'msft:expiry':(datetime.now(timezone.utc)+timedelta(hours=1)).isoformat(),
+                'token':'sig=fixture-secret'}
+    monkeypatch.setattr(sources,'_CONTAINER_TOKEN',None)
+    monkeypatch.setattr(sources,'get_json',fetch)
+    def command(*args):Path(args[-1]).write_bytes(b'crop')
+    monkeypatch.setattr(sources,'command',command)
+    for number in range(2):
+        source=dict(url=f'https://naipeuwest.blob.core.windows.net/naip/tile{number}.tif',
+                    bounds_deg=(0,0,2,2))
+        sources.crop_source(source,tmp_path,(0,0,1,1),100,'imagery')
+    assert calls==[sources.PC+'/sas/v1/token/naipeuwest/naip']
+    assert all('fixture-secret' not in path.read_text() for path in tmp_path.glob('*.json'))
