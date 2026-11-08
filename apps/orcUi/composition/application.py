@@ -295,6 +295,7 @@ def create_orc_ui_composition(
         cleanup.callback(performance_status.close)
         home.set_radio_factory(radio.home_factory)
         home.set_media_factory(media.home_factory)
+        home.set_visualizer_factory(media.home_visualizer_factory)
         core.presentation.observe_vehicle(home.apply_vehicle_state)
         core.presentation.observe_trip(home.apply_trip_state)
         core.presentation.observe_position(home.apply_position_state)
