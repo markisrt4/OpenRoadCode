@@ -88,7 +88,7 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
                                       font=("Sans", 12, "bold"))
         self._spotify_icon.pack(side=tk.LEFT, padx=(0, 4))
         self._status_label = tk.Label(
-            self._text, textvariable=self._status, fg=GREEN, bg=ui.surface,
+            self._provider, textvariable=self._status, fg=GREEN, bg=ui.surface,
             font=("Sans", 8, "bold"), anchor="w",
         )
         self._status_label.pack(side=tk.LEFT)
