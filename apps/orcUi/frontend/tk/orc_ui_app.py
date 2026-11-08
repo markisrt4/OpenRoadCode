@@ -200,6 +200,12 @@ class OrcUiApp(VolumeUiIf, UiWidget):
     def update_performance_overlay(self, snapshot) -> None:
         self._performance_overlay.update(snapshot)
 
+    def performance_overlay_enabled(self) -> bool:
+        return self._performance_overlay.visible
+
+    def set_performance_overlay_enabled(self, enabled: bool) -> None:
+        self._performance_overlay.set_visible(enabled)
+
     def toggle_performance_overlay(self) -> None:
         self._toggle_performance_overlay()
 
