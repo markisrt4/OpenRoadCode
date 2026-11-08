@@ -591,7 +591,9 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y osmium-tool python3-pytest
       - name: Building pack and installer regressions
-        run: /usr/bin/python3 -m pytest apps/launchers/unit_test/test_regional_buildings.py -q
+        run: >-
+          /usr/bin/python3 -m pytest apps/launchers/unit_test/test_regional_buildings.py
+          tools/map_builder/tests/test_map_3d.py tools/map_builder/tests/test_build.py -q
       - uses: actions/cache/restore@v4
         if: ${{ !inputs.force_rebuild }}
         with:
