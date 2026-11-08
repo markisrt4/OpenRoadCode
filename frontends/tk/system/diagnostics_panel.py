@@ -20,7 +20,7 @@ from ui.ui_widget import UiWidget
 class DiagnosticsPanel(tk.Frame, UiWidget):
     """Show workload attribution first; keep host and telemetry health separate."""
 
-    def __init__(self, parent: tk.Misc, *, theme: ThemeBundle, on_back=None, on_toggle_overlay=None) -> None:
+    def __init__(self, parent: tk.Misc, *, theme: ThemeBundle, on_back=None) -> None:
         super().__init__(parent, bg=theme.ui.background)
         self._theme = theme
         self._last_sample_time = None
@@ -40,13 +40,6 @@ class DiagnosticsPanel(tk.Frame, UiWidget):
         tabs.add(inventory, text="Network & USB")
         self._inventory_panel = inventory
         self._system = system
-        if on_toggle_overlay is not None:
-            tk.Button(
-                system, text="TOGGLE PERFORMANCE HUD",
-                command=on_toggle_overlay, bg=ui.control_background,
-                fg=ui.control_text, relief=tk.FLAT,
-                font=("Sans", 10, "bold"), padx=8, pady=5,
-            ).grid(row=5, column=0, columnspan=4, sticky="ew", padx=5, pady=3)
 
         self._cpu = self._label(workload, "Waiting for ORC process samples", 16)
         self._memory = self._label(workload, "", 12)
