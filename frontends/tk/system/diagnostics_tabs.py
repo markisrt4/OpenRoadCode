@@ -11,12 +11,21 @@ from ui.ui_widget import UiWidget
 class DiagnosticsTabs(tk.Frame, UiWidget):
     """Keep Diagnostics navigation consistent with ORC shell controls."""
 
-    def __init__(self, parent, *, theme: ThemeBundle):
+    def __init__(self, parent, *, theme: ThemeBundle, on_back=None):
         super().__init__(parent, bg=theme.ui.background)
         self._ui = theme.ui
         self._pages = []
         self._controls = tk.Frame(self, bg=self._ui.background)
         self._controls.pack(fill=tk.X, pady=(0, 6))
+        self._on_back = on_back
+        if on_back is not None:
+            tk.Button(self._controls, text="‹ BACK", command=on_back,
+                      bg=self._ui.control_background, fg=self._ui.control_text,
+                      activebackground=self._ui.control_active,
+                      activeforeground=self._ui.control_text,
+                      relief=tk.FLAT, bd=0, highlightthickness=1,
+                      highlightbackground=self._ui.border, font=("Sans", 9, "bold"),
+                      padx=3, pady=6).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 3))
 
     def add(self, page, *, text: str) -> None:
         """Add a keyboard-focusable, theme-colored page selector."""
@@ -25,8 +34,8 @@ class DiagnosticsTabs(tk.Frame, UiWidget):
                            bg=self._ui.control_background, fg=self._ui.control_text,
                            activebackground=self._ui.control_active, activeforeground=self._ui.control_text,
                            relief=tk.FLAT, bd=0, highlightthickness=1, highlightbackground=self._ui.border,
-                           font=("Sans", 10, "bold"), padx=12, pady=8, cursor="hand2", takefocus=True)
-        button.pack(side=tk.LEFT, padx=(0, 5))
+                           font=("Sans", 9, "bold"), padx=3, pady=6, cursor="hand2", takefocus=True)
+        button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 3))
         self._pages.append((page, button))
         if index == 0:
             self._select(0)

@@ -116,3 +116,18 @@ def test_low_sample_rate_returns_empty_spectrum_safely() -> None:
     state = analyzer.analyze(np.zeros(_FFT_SIZE, dtype=np.float32), 60)
 
     assert state.spectrum == tuple(0.0 for _ in range(24))
+
+
+def test_precise_spectrum_keeps_actual_hz_and_absolute_amplitude():
+    analyzer = MusicAnalyzer()
+    hz = 43 * _SAMPLE_RATE_HZ / _FFT_SIZE
+    loud = analyzer.analyze(_tone(hz, .5), _SAMPLE_RATE_HZ)
+    quiet = analyzer.analyze(_tone(hz, .25), _SAMPLE_RATE_HZ)
+    peak = int(np.argmax(loud.spectrum_dbfs))
+    assert loud.spectrum_hz[peak] == pytest.approx(hz)
+    assert loud.spectrum_dbfs[peak] == pytest.approx(-6.0206, abs=.02)
+    assert quiet.spectrum_dbfs[peak] == pytest.approx(-12.0412, abs=.02)
+    silence = analyzer.analyze(np.zeros(_FFT_SIZE), _SAMPLE_RATE_HZ)
+    assert max(silence.spectrum_dbfs) == pytest.approx(-120, abs=.001)
+    slower = analyzer.analyze(_tone(hz), 24000)
+    assert slower.spectrum_hz[1] == 24000 / _FFT_SIZE

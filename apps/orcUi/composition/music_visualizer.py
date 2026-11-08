@@ -31,6 +31,15 @@ def selected_music_visualizer_source() -> MusicVisualizerSource:
         ) from exc
 
 
+def selected_native_visualizer_source() -> MusicVisualizerSource:
+    """Prefer consented phone playback on Termux unless explicitly overridden."""
+    android = (os.getenv('TERMUX_VERSION') or os.getenv('ANDROID_ROOT')
+               or os.getenv('PREFIX', '').startswith('/data/data/com.termux/'))
+    if android and 'OPENROAD_MUSIC_VISUALIZER_SOURCE' not in os.environ:
+        return MusicVisualizerSource.ANDROID_PLAYBACK
+    return selected_music_visualizer_source()
+
+
 def _pipewire_block_size() -> int:
     """Return the configured PipeWire capture block size."""
     raw = os.getenv("OPENROAD_MUSIC_VISUALIZER_BLOCK_SIZE", "2048")

@@ -109,6 +109,8 @@ class SystemDiagnosticsSnapshot:
     platform: str = ""
     sampled_at_unix_s: float | None = None
 
+    gpu_percent: float | None = None
+    gpu_detail: str = "GPU not sampled"
     cpu_percent: float | None = None
     cpu_unavailable_reason: str | None = None
     process_cpu_percent: float | None = None
@@ -150,6 +152,7 @@ class SystemDiagnosticsSnapshot:
     sensor_monitor_status: str = "not_started"
     services: tuple[ServiceSocketSnapshot, ...] = ()
     service_monitor_status: str = "not_started"
+    network_usb: dict = field(default_factory=dict)
 
 
 class SystemDiagnosticsProviderIf(Protocol):

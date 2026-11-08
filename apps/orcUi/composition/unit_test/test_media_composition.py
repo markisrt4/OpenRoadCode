@@ -17,7 +17,7 @@ def test_close_unsubscribes_and_releases_visualizer_runtime_even_if_hide_fails(h
     calls.attach_mock(visualizer, 'visualizer')
     calls.attach_mock(runtime, 'runtime')
     calls.attach_mock(video, 'video')
-    composition = MediaComposition(video, Mock(), visualizer, runtime, unsubscribe)
+    composition = MediaComposition(music_video_controller=video, home_factory=Mock(), home_visualizer_factory=None, visualizer=visualizer, visualizer_runtime=runtime, unsubscribe_online=unsubscribe)
     if hide_fails:
         visualizer.hide.side_effect = RuntimeError('window unavailable')
         with pytest.raises(RuntimeError, match='window unavailable'):
@@ -38,7 +38,7 @@ def test_account_cleanup_precedes_presentations_and_survives_failure():
     calls.attach_mock(visualizer, 'visualizer')
     calls.attach_mock(runtime, 'runtime')
     calls.attach_mock(video, 'video')
-    composition = MediaComposition(video, Mock(), visualizer, runtime,
+    composition = MediaComposition(video, Mock(), None, visualizer, runtime,
         close_spotify_accounts=accounts, close_spotify_presentations=presentations)
     with pytest.raises(RuntimeError, match="dialog unavailable"):
         composition.close()
@@ -52,7 +52,7 @@ def test_preview_cleanup_failure_does_not_skip_sessions_or_visualizer():
     preview = Mock()
     preview.close.side_effect = RuntimeError("preview failed")
     accounts, presentations, visualizer, runtime, video = (Mock() for _ in range(5))
-    composition = MediaComposition(video, Mock(), visualizer, runtime,
+    composition = MediaComposition(video, Mock(), None, visualizer, runtime,
         preview=preview, close_spotify_accounts=accounts,
         close_spotify_presentations=presentations)
     with pytest.raises(RuntimeError, match="preview failed"):

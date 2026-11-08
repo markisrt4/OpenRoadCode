@@ -78,7 +78,10 @@ class MapPlatformControlIf(Protocol):
         ...
 
     def request_layer(self, action: MapLayerAction) -> None:
-        """Toggle an available layer, or cycle its terrain height multiplier."""
+        """Toggle an available layer, or cycle its terrain height multiplier.
+
+        @param action Layer visibility toggle or terrain height cycle.
+        """
         ...
 
     def resize(self, width: int, height: int, owner_window_id: int) -> None:

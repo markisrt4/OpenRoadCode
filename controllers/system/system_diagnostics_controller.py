@@ -15,6 +15,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from ui.system_diagnostics import SystemDiagnosticsSnapshot, ThermalSourceSnapshot
+from controllers.system.gpu_sampler import GpuSampler
 
 _MIB = 1024.0 * 1024.0
 _GIB = 1024.0 * 1024.0 * 1024.0
@@ -32,6 +33,7 @@ class SystemDiagnosticsController:
         monotonic: Callable[[], float] = time.monotonic,
         process_time: Callable[[], float] = time.process_time,
     ) -> None:
+        self._gpu_sampler = GpuSampler(Path(sys_root) / "class/kgsl/kgsl-3d0/gpubusy")
         self._proc_root = Path(proc_root)
         self._sys_root = Path(sys_root)
         termux = bool(os.environ.get("TERMUX_VERSION")) or os.environ.get("PREFIX", "").startswith("/data/data/com.termux/files/usr")
@@ -49,6 +51,7 @@ class SystemDiagnosticsController:
 
     def snapshot(self) -> SystemDiagnosticsSnapshot:
         cpu_percent, per_core_percent = self._read_cpu_percentages()
+        gpu_percent, gpu_detail = self._gpu_sampler.sample()
         memory = self._read_memory()
 
         memory_total = memory.get("MemTotal")
@@ -80,6 +83,8 @@ class SystemDiagnosticsController:
             hostname=socket.gethostname(),
             platform=platform.system() + " " + platform.machine(),
             sampled_at_unix_s=time.time(),
+            gpu_percent=gpu_percent,
+            gpu_detail=gpu_detail,
             cpu_percent=cpu_percent,
             cpu_unavailable_reason=self._cpu_unavailable_reason,
             process_cpu_percent=process_cpu_percent,
