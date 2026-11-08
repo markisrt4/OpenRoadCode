@@ -5,6 +5,9 @@
 from __future__ import annotations
 
 import socket
+import os
+import json
+from urllib.request import urlopen
 import time
 from pathlib import Path
 
@@ -13,6 +16,23 @@ def _read(path: Path) -> str | None:
     try:
         return path.read_text(encoding="utf-8").strip()[:256]
     except (OSError, UnicodeError):
+        return None
+
+
+def _android_bridge_inventory() -> dict | None:
+    """Termux can ask the loopback-only Companion for Android-owned interfaces."""
+    try:
+        with urlopen("http://127.0.0.1:18766/network/diagnostics", timeout=0.4) as response:
+            if response.status != 200:
+                return None
+            raw = response.read(262145)
+        if len(raw) > 262144:
+            return None
+        report = json.loads(raw)
+        if not isinstance(report, dict) or not isinstance(report.get("networks"), list):
+            return None
+        return report
+    except (OSError, ValueError, TimeoutError):
         return None
 
 
@@ -80,9 +100,23 @@ def collect_inventory(*, sys_root: Path = Path("/sys")) -> dict:
         })
     if usb_entries and not readable:
         usb_status = "empty_or_restricted"
+    android = None
+    if sys_root == Path("/sys") and os.environ.get("PREFIX", "").startswith("/data/data/com.termux/"):
+        android = _android_bridge_inventory()
+    if android is not None:
+        # Android ConnectivityManager and UsbManager can see devices hidden from Termux.
+        return {
+            "timestamp_ms": int(time.time() * 1000),
+            "source": "android_companion_via_termux",
+            "networks_status": "android_api",
+            "networks": android.get("networks", [])[:128],
+            "usb_sysfs": android.get("usb_sysfs", {"status": "unavailable", "devices": []}),
+            "usb_devices": android.get("usb_devices", [])[:128],
+            "system_managed_networks": android.get("system_managed_networks", [])[:128],
+        }
     return {
         "timestamp_ms": int(time.time() * 1000),
-        "source": "orc_runtime",
+        "source": "termux_restricted" if os.environ.get("PREFIX", "").startswith("/data/data/com.termux/") else "orc_runtime",
         "networks_status": net_status,
         "networks": networks,
         "usb_sysfs": {"status": usb_status, "devices": devices},
