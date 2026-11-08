@@ -121,22 +121,47 @@ class DiagnosticsPanel(tk.Frame, UiWidget):
         """Refresh tables using cached samples without sampling on the Tk thread."""
         self._system.apply_snapshot(snapshot)
         inventory = snapshot.network_usb or {}
-        lines = ["Network inventory: " + inventory.get("networks_status", "waiting")]
-        for net in inventory.get("networks", []):
-            lines.append("  {}  {}  {} Mb/s".format(
-                net.get("interface", "?"), net.get("state") or "unknown",
-                net.get("speed_mbps") or "?"))
+        source = inventory.get("source", "waiting")
+        lines = ["NETWORK & USB", "Source: " + source, ""]
+        networks = inventory.get("networks", [])
+        lines.append("NETWORK INTERFACES (" + str(len(networks)) + ")")
+        lines.append("Status: " + inventory.get("networks_status", "waiting"))
+        for net in networks:
+            interface = net.get("interface") or "unknown"
+            transport = ", ".join(net.get("transports", []))
+            state = net.get("state") or ("active" if net.get("active") else "inactive")
+            lines.append("  " + interface + "  " + (transport or state))
+            addresses = net.get("addresses", [])
+            if addresses:
+                lines.append("    IP: " + ", ".join(str(addr) for addr in addresses))
+            if net.get("speed_mbps"):
+                lines.append("    Link: " + str(net["speed_mbps"]) + " Mb/s")
+        if not networks:
+            lines.append("  No interfaces visible to this runtime")
+        usb_devices = inventory.get("usb_devices", [])
         usb = inventory.get("usb_sysfs") or {}
-        lines.append("USB sysfs: " + usb.get("status", "waiting"))
-        for device in usb.get("devices", []):
-            lines.append("  {}:{}  {}  {} Mb/s".format(
+        sysfs_devices = usb.get("devices", [])
+        lines.extend(["", "USB HOST DEVICES (" + str(len(usb_devices)) + ")"])
+        for device in usb_devices:
+            lines.append("  {:04x}:{:04x}  {}  permission: {}".format(
+                int(device.get("vendor_id", 0)), int(device.get("product_id", 0)),
+                device.get("device_name", "USB device"),
+                "granted" if device.get("permission_granted") else "not granted"))
+        if not usb_devices:
+            lines.append("  No devices reported by Android USB host API")
+        lines.extend(["", "USB SYSFS (" + str(len(sysfs_devices)) + ")",
+                      "Status: " + usb.get("status", "waiting")])
+        for device in sysfs_devices:
+            lines.append("  {}:{}  {}".format(
                 device.get("vendor_id_hex"), device.get("product_id_hex"),
-                device.get("product") or device.get("sysfs_name"),
-                device.get("speed") or "?"))
-        lines.append("OS restrictions may hide devices; Ethernet does not prove USB backing.")
+                device.get("product") or device.get("sysfs_name")))
+        if source == "termux_restricted":
+            lines.extend(["", "Termux access is restricted. Start the Android Companion",
+                          "diagnostics service to obtain Android-managed network and USB data."])
+        lines.extend(["", "Ethernet transport does not establish USB backing."])
         self._inventory_text.configure(state=tk.NORMAL)
         self._inventory_text.delete("1.0", tk.END)
-        self._inventory_text.insert("1.0", "\n".join(lines))
+        self._inventory_text.insert("1.0", "\\n".join(lines))
         self._inventory_text.configure(state=tk.DISABLED)
         self._service_status.configure(text=snapshot.service_monitor_status)
         self._service_rows = {str(index): row for index, row in enumerate(snapshot.services)}
