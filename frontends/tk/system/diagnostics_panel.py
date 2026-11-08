@@ -19,13 +19,13 @@ from ui.ui_widget import UiWidget
 class DiagnosticsPanel(tk.Frame, UiWidget):
     """Show workload attribution first; keep host and telemetry health separate."""
 
-    def __init__(self, parent: tk.Misc, *, theme: ThemeBundle) -> None:
+    def __init__(self, parent: tk.Misc, *, theme: ThemeBundle, on_back=None) -> None:
         super().__init__(parent, bg=theme.ui.background)
         self._theme = theme
         self._last_sample_time = None
         self._history = deque(maxlen=120)
         ui = theme.ui
-        tabs = DiagnosticsTabs(self, theme=theme)
+        tabs = DiagnosticsTabs(self, theme=theme, on_back=on_back)
         tabs.pack(fill=tk.BOTH, expand=True)
         workload = tk.Frame(tabs, bg=ui.background)
         system = SystemMetricsPanel(tabs, theme=theme)
@@ -136,7 +136,7 @@ class DiagnosticsPanel(tk.Frame, UiWidget):
         lines.append("OS restrictions may hide devices; Ethernet does not prove USB backing.")
         self._inventory_text.configure(state=tk.NORMAL)
         self._inventory_text.delete("1.0", tk.END)
-        self._inventory_text.insert("1.0", "\\n".join(lines))
+        self._inventory_text.insert("1.0", "\n".join(lines))
         self._inventory_text.configure(state=tk.DISABLED)
         self._service_status.configure(text=snapshot.service_monitor_status)
         self._service_rows = {str(index): row for index, row in enumerate(snapshot.services)}
