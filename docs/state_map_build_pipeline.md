@@ -277,3 +277,50 @@ are not yet instrumented; `cached_source_bytes` measures local crop/DEM storage,
 not total network traffic. Original acquisition dates, asset URLs and spatial
 metadata remain in the source plan. Temporary signed access URLs are redacted
 from GDAL diagnostics and never included in the published pack metadata.
+
+### First successful Rochester COG trial (2026-11-08)
+
+[Actions run 42496879182](https://github.com/markisrt4/OpenRoadCode/actions/runs/42496879182)
+completed successfully on `eacdeaa8`. The script reported 40.95 seconds excluding
+runner setup, four 60-cm source NAIP tiles acquired on 2022-07-30, a complete
+4096×4096 RGB image (6,517,068 bytes), and 16,641 valid ground samples ranging
+from 210.91 to 282.46 metres. Those are source elevations; runtime still displays
+relative relief and does not resolve/convert the original vertical datum.
+
+Imagery and terrain archives are 6,538,261 and 128,693 bytes respectively. The
+combined Actions artifact is 6,682,920 bytes, ID `13623777678`, retained until
+2026-11-15. The agent downloaded it, verified the outer artifact and both inner
+archive checksums, validated packs with existing readers, and visually inspected
+a reduced-resolution image preview for obvious gaps. This does not establish
+better performance than an equivalent export build, street-level image quality
+in ORC, or Termux GPU stability. Range network bytes are unmeasured; the report's
+483,668,404 cached-source bytes are local crop/DEM storage.
+
+For device review, download the artifact with authenticated GitHub CLI; it
+extracts the two pack ZIPs and their adjacent descriptors. No USGS processing
+runs on the phone:
+
+```bash
+git switch navigation-cesium
+git pull --ff-only
+source venv-termux/bin/activate
+gh run download 42496879182 --repo markisrt4/OpenRoadCode \
+  --name rochester-static-trial-42496879182 \
+  --dir build-output/rochester-static-trial
+python -m development.maps.install_region --coverage rochester --update \
+  --pack-file build-output/rochester-static-trial/rochester-imagery.zip
+python -m development.maps.install_terrain --coverage rochester \
+  --pack-file build-output/rochester-static-trial/rochester-terrain.zip
+./runOrcUi
+```
+
+Reopen Terrain and zoom into Rochester. The streaming catalog includes the
+installer-owned Rochester/Southfield local terrain directories at close zoom,
+above regional focus grids; broad state/metro terrain remains the distant
+fallback. Source samples remain loaded only when requested through the existing
+loopback terrain transport. No production builder or published release changed.
+
+Archive installation also migrates an older real terrain directory into a
+retained `.previous-terrain-*` backup before activating the new revision. If
+activation fails, it restores the original directory. Stop ORC before installing
+this update. This migration does not delete previous source packs.

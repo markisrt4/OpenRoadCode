@@ -104,10 +104,16 @@ def load_installed_terrain_catalog():
     root = openroadcode_data_dir("map-packs")
     installed = sorted(path for path in root.glob("*-terrain-active")
                        if (path / "manifest.json").is_file()) if root.is_dir() else []
+    local_names={name+'-terrain-v1' for name in ('rochester','southfield')}
+    installed += [root/name for name in sorted(local_names) if (root/name/'manifest.json').is_file()]
     directories = []
     for directory in installed:
         coverage = directory.name.removesuffix("-terrain-active")
-        if coverage == "metro-detroit":
+        if directory.name in local_names:
+            # Explicit local packs take priority over regional focus grids at
+            # close zoom; they remain lazy sources in the existing catalog.
+            directories.append((directory, 7, 12))
+        elif coverage == "metro-detroit":
             directories.append((directory, 4, 0))
         elif coverage in MICHIGAN_SHARDS or "-detail-" in coverage:
             directories.append((directory, 2, 7))

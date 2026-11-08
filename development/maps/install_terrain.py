@@ -125,7 +125,20 @@ def _install_archive(archive: Path, active: Path) -> None:
         root.rename(revision)
     pending = active.parent / ('.active-terrain-' + uuid.uuid4().hex)
     pending.symlink_to(revision.name, target_is_directory=True)
-    pending.replace(active)
+    previous = None
+    if active.exists() and not active.is_symlink():
+        if not active.is_dir():
+            pending.unlink()
+            raise ValueError('Existing terrain path is not a pack directory')
+        previous = active.parent / ('.previous-terrain-' + uuid.uuid4().hex)
+        active.rename(previous)
+    try:
+        pending.replace(active)
+    except OSError:
+        if previous is not None:
+            previous.rename(active)
+        pending.unlink(missing_ok=True)
+        raise
 
 
 if __name__ == '__main__':
