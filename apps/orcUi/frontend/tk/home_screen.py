@@ -71,8 +71,8 @@ def build_home_screen(
     lower.grid(row=1, column=0, sticky="nsew", padx=(0, 5), pady=(5, 0))
     lower.grid_columnconfigure(0, weight=1)
     lower.grid_columnconfigure(1, weight=1)
-    lower.grid_rowconfigure(0, weight=3)
-    lower.grid_rowconfigure(1, weight=2 if visualizer_factory is not None else 0)
+    lower.grid_rowconfigure(0, weight=1)
+    lower.grid_rowconfigure(1, weight=0, minsize=48 if visualizer_factory is not None else 0)
 
     radio = panel(lower, "RADIO", ui.accent_warning, theme=theme)
     radio.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
