@@ -499,7 +499,7 @@ class LinearGauge(_ValueGauge):
             }[segment_color]
             color = segment_color if is_active else inactive_color
             if self._normal_segment_color is not None and segment_color == self._style.normal_value:
-                color = self._normal_segment_color if is_active else "#253849"
+                color = self._normal_segment_color if is_active else self._style.disabled_normal_value
             self.create_rectangle(
                 sx1,
                 y - bar_h / 2,
