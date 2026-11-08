@@ -31,6 +31,7 @@ class DiagnosticsScreen(TkScreen):
         theme_bundle: Callable[[], ThemeBundle],
         on_back: Callable[[], None] | None = None,
         history: Callable[[], tuple[SystemDiagnosticsSnapshot, ...]] | None = None,
+        on_toggle_overlay: Callable[[], None] | None = None,
     ) -> None:
         super().__init__(ScreenId("DIAGNOSTICS"))
         self._host = host
@@ -38,6 +39,7 @@ class DiagnosticsScreen(TkScreen):
         self._theme_bundle = theme_bundle
         self._on_back = on_back
         self._history = history
+        self._on_toggle_overlay = on_toggle_overlay
         self._panel: DiagnosticsPanel | None = None
         self._refresh_callback_id: object | None = None
 
@@ -50,6 +52,7 @@ class DiagnosticsScreen(TkScreen):
             self._host.screen_parent,
             theme=self._theme_bundle(),
             on_back=self._on_back,
+            on_toggle_overlay=self._on_toggle_overlay,
         )
         panel.pack(fill=tk.BOTH, expand=True)
         self._panel = panel
