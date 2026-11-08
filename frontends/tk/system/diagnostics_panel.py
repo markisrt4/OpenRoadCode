@@ -11,6 +11,7 @@ from collections import deque
 from ui.system_diagnostics import SystemDiagnosticsSnapshot
 from ui.theme import ThemeBundle
 from .diagnostics_tabs import DiagnosticsTabs
+from .network_usb_panel import NetworkUsbPanel
 from .diagnostics_table import DiagnosticsTable
 from .system_metrics_panel import SystemMetricsPanel, pressure_color
 from ui.ui_widget import UiWidget
@@ -35,13 +36,9 @@ class DiagnosticsPanel(tk.Frame, UiWidget):
         tabs.add(sensors, text="Sensor telemetry")
         services = tk.Frame(tabs, bg=ui.background)
         tabs.add(services, text="Services")
-        inventory = tk.Frame(tabs, bg=ui.background)
+        inventory = NetworkUsbPanel(tabs, theme=theme)
         tabs.add(inventory, text="Network & USB")
-        self._inventory_text = tk.Text(inventory, wrap=tk.WORD, height=18,
-                                       bg=ui.surface, fg=ui.text, relief=tk.FLAT)
-        self._inventory_text.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
-        self._inventory_text.insert("1.0", "Waiting for hardware inventory")
-        self._inventory_text.configure(state=tk.DISABLED)
+        self._inventory_panel = inventory
         self._system = system
 
         self._cpu = self._label(workload, "Waiting for ORC process samples", 16)
@@ -120,49 +117,7 @@ class DiagnosticsPanel(tk.Frame, UiWidget):
     def apply_snapshot(self, snapshot: SystemDiagnosticsSnapshot) -> None:
         """Refresh tables using cached samples without sampling on the Tk thread."""
         self._system.apply_snapshot(snapshot)
-        inventory = snapshot.network_usb or {}
-        source = inventory.get("source", "waiting")
-        lines = ["NETWORK & USB", "Source: " + source, ""]
-        networks = inventory.get("networks", [])
-        lines.append("NETWORK INTERFACES (" + str(len(networks)) + ")")
-        lines.append("Status: " + inventory.get("networks_status", "waiting"))
-        for net in networks:
-            interface = net.get("interface") or "unknown"
-            transport = ", ".join(net.get("transports", []))
-            state = net.get("state") or ("active" if net.get("active") else "inactive")
-            lines.append("  " + interface + "  " + (transport or state))
-            addresses = net.get("addresses", [])
-            if addresses:
-                lines.append("    IP: " + ", ".join(str(addr) for addr in addresses))
-            if net.get("speed_mbps"):
-                lines.append("    Link: " + str(net["speed_mbps"]) + " Mb/s")
-        if not networks:
-            lines.append("  No interfaces visible to this runtime")
-        usb_devices = inventory.get("usb_devices", [])
-        usb = inventory.get("usb_sysfs") or {}
-        sysfs_devices = usb.get("devices", [])
-        lines.extend(["", "USB HOST DEVICES (" + str(len(usb_devices)) + ")"])
-        for device in usb_devices:
-            lines.append("  {:04x}:{:04x}  {}  permission: {}".format(
-                int(device.get("vendor_id", 0)), int(device.get("product_id", 0)),
-                device.get("device_name", "USB device"),
-                "granted" if device.get("permission_granted") else "not granted"))
-        if not usb_devices:
-            lines.append("  No devices reported by Android USB host API")
-        lines.extend(["", "USB SYSFS (" + str(len(sysfs_devices)) + ")",
-                      "Status: " + usb.get("status", "waiting")])
-        for device in sysfs_devices:
-            lines.append("  {}:{}  {}".format(
-                device.get("vendor_id_hex"), device.get("product_id_hex"),
-                device.get("product") or device.get("sysfs_name")))
-        if source == "termux_restricted":
-            lines.extend(["", "Termux access is restricted. Start the Android Companion",
-                          "diagnostics service to obtain Android-managed network and USB data."])
-        lines.extend(["", "Ethernet transport does not establish USB backing."])
-        self._inventory_text.configure(state=tk.NORMAL)
-        self._inventory_text.delete("1.0", tk.END)
-        self._inventory_text.insert("1.0", "\\n".join(lines))
-        self._inventory_text.configure(state=tk.DISABLED)
+        self._inventory_panel.render(snapshot.network_usb or {})
         self._service_status.configure(text=snapshot.service_monitor_status)
         self._service_rows = {str(index): row for index, row in enumerate(snapshot.services)}
         service_selection = self._service_table.selection()
