@@ -416,6 +416,7 @@ fit the geometry; outlines are never silently truncated. Building archive cap is
 
 A successful stage uploads `metro-detroit-buildings-<run-id>` with the ZIP,
 adjacent checksum descriptor and `buildings-report.json`, retained for 14 days.
+The report is also printed in the job log for review without downloading geometry.
 No Release is published automatically. The existing ZIP verification and safe
 unpack routine are reused; a new validated device revision is activated with an
 atomic symlink change. Old revisions are retained and invalid archives cannot

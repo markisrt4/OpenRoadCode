@@ -53,6 +53,7 @@ def build(output, cache, source=None):
     finally:
         report['elapsed_seconds'] = round(time.monotonic()-started, 2)
         (output/'buildings-report.json').write_text(json.dumps(report, indent=2))
+        print('Building report: '+json.dumps(report, sort_keys=True), flush=True)
 
 
 def main():
