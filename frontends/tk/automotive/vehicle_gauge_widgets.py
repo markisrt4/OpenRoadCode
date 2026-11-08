@@ -405,6 +405,7 @@ class LinearGauge(_ValueGauge):
         caution_high: float | None = None,
         danger_high: float | None = None,
         icon: str | None = None,
+        normal_segment_color: str | None = None,
         precision: int = 0,
         style: VehicleGaugeTheme | None = None,
         width: int = 220,
@@ -418,6 +419,7 @@ class LinearGauge(_ValueGauge):
         self._caution_low, self._danger_low = caution_low, danger_low
         self._caution_high, self._danger_high = caution_high, danger_high
         self._icon, self._precision = icon, precision
+        self._normal_segment_color = normal_segment_color
         super().__init__(
             master,
             style=style or VEHICLE_GAUGE_THEME,
@@ -496,6 +498,8 @@ class LinearGauge(_ValueGauge):
                 self._style.danger_value: self._style.disabled_danger_value,
             }[segment_color]
             color = segment_color if is_active else inactive_color
+            if self._normal_segment_color is not None and segment_color == self._style.normal_value:
+                color = self._normal_segment_color if is_active else "#253849"
             self.create_rectangle(
                 sx1,
                 y - bar_h / 2,
