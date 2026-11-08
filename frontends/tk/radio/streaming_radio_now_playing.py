@@ -51,7 +51,7 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
         self._status.grid_remove()
 
         source_shortcuts = tk.Frame(self, bg=ui.surface)
-        source_shortcuts.grid(row=1, column=0, columnspan=2, sticky="ew", padx=7, pady=(2, 0))
+        source_shortcuts.grid(row=1, column=0, columnspan=2, sticky="ew", padx=9, pady=(4, 2))
         for column in range(3):
             source_shortcuts.grid_columnconfigure(column, weight=1)
 
@@ -68,7 +68,7 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
             highlightthickness=0,
             font=("Sans", 9, "bold"),
             padx=3,
-            pady=9,
+            pady=12,
         )
         self._adsb_button.grid(row=0, column=0, sticky="ew", padx=(0, 3))
 
@@ -85,7 +85,7 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
             highlightthickness=0,
             font=("Sans", 9, "bold"),
             padx=3,
-            pady=6,
+            pady=12,
         )
         self._rf_button.grid(row=0, column=1, sticky="ew", padx=3)
 
@@ -102,7 +102,7 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
             highlightthickness=0,
             font=("Sans", 9, "bold"),
             padx=3,
-            pady=9,
+            pady=12,
         )
         self._stream_button.grid(row=0, column=2, sticky="ew", padx=(3, 0))
 
@@ -111,12 +111,12 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
             text="No radio active",
             bg=ui.surface,
             fg=ui.text,
-            font=("Sans", 17, "bold"),
+            font=("Sans", 15, "bold"),
             anchor="w",
             justify=tk.LEFT,
             wraplength=200,
         )
-        self._station.grid(row=2, column=0, columnspan=2, sticky="ew", padx=10, pady=(8, 2))
+        self._station.grid(row=2, column=0, columnspan=2, sticky="ew", padx=12, pady=(0, 1))
 
         self._detail = tk.Label(
             self,
@@ -126,7 +126,7 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
             font=("Sans", 9),
             anchor="w",
         )
-        self._detail.grid(row=3, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 12))
+        self._detail.grid(row=3, column=0, columnspan=2, sticky="ew", padx=12, pady=(0, 9))
 
         self._refresh()
 
@@ -164,6 +164,6 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
         else:
             self._status.grid_remove()
             self._station.configure(text="Radio idle")
-            self._detail.configure(text="Select RF or STREAM above" if online else "Offline • RF available")
+            self._detail.configure(text="Choose a source to start listening" if online else "Offline • RF available")
             self._stream_button.configure(fg=self._ui.accent_primary)
         self._after_id = self.after(750, self._refresh)
