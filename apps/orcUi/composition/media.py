@@ -321,23 +321,24 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
     )
     app.register_screen("MEDIA", media_screen)
 
-    home_capture_owned = False
+    home_capture_attached = False
 
     def home_playback_changed(playing: bool) -> None:
-        """Use real audio capture for HOME only when playback is active."""
-        nonlocal home_capture_owned
+        """Share native audio capture with other views without stopping their session."""
+        nonlocal home_capture_attached
         if not isinstance(visualizer_runtime, MusicVisualizerController):
             return
         source = selected_native_visualizer_source()
         if source is MusicVisualizerSource.SIMULATED:
-            return  # Never portray simulated FFT as real playback.
-        if playing:
+            return  # Idle animation is not a measured spectrum.
+        if playing and not home_capture_attached:
+            home_capture_attached = True
+            visualizer_runtime.attach_view("home-playback")
             if visualizer_runtime.capture_state().value == "idle":
-                home_capture_owned = True
                 visualizer_runtime.start(source)
-        elif home_capture_owned:
-            home_capture_owned = False
-            visualizer_runtime.stop()
+        elif not playing and home_capture_attached:
+            home_capture_attached = False
+            visualizer_runtime.detach_view("home-playback")
 
     def home_now_playing_factory(parent: tk.Misc) -> tk.Widget:
         view = SpotifyNowPlaying(
