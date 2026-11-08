@@ -195,10 +195,16 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
             )
 
     def _update_controls(self) -> None:
+        # Presentation deactivation can run from Tk <Destroy>, after child buttons
+        # have already been removed by Tk. Never configure destroyed widgets.
+        if self._closed or not self.winfo_exists():
+            return
         enabled = self._requests is not None and self._online_allowed()
         for button in (self._previous, self._toggle, self._next):
-            button.configure(state=tk.NORMAL if enabled else tk.DISABLED)
-        self._toggle.configure(text="Ⅱ" if self._playing else "▶")
+            if button.winfo_exists():
+                button.configure(state=tk.NORMAL if enabled else tk.DISABLED)
+        if self._toggle.winfo_exists():
+            self._toggle.configure(text="Ⅱ" if self._playing else "▶")
 
     def _previous_track(self) -> None:
         if self._requests is not None:
