@@ -7,6 +7,10 @@ window.ORCLocalBuildings = function (viewer, data, C, heightAt = () => 0) {
   const entries = [];
   const counts = {'osm-height':0, 'levels-estimate':0, placeholder:0};
   for (const building of data.buildings) {
+    counts[building.height_source]++;
+    // Placeholder geometry is never shown; avoid allocating hidden Cesium
+    // entities for the many residential footprints lacking height metadata.
+    if (building.height_source === 'placeholder') continue;
     // Flat base sampled at the footprint centroid; coarse terrain is relative relief.
     const ring = building.ring_rad.slice(0,-1);
     const lon = ring.reduce((sum,p) => sum+p[0],0)/ring.length;
@@ -25,7 +29,6 @@ window.ORCLocalBuildings = function (viewer, data, C, heightAt = () => 0) {
       entity.polygon.height = base;
       entity.polygon.extrudedHeight = base+building.height_m;
     });
-    counts[building.height_source]++;
   }
   function applyDetail() {
     // Regional views are clearer without a carpet of block geometry. At city

@@ -401,7 +401,8 @@ extraction, not Overpass. It does not rebuild navigation, search or routing.
 Existing simple closed-way normalization and height classification are reused:
 `osm-height` is an OSM height tag (not a verified survey); `levels-estimate` uses
 3 metres per recorded floor; `placeholder` uses an explicit 9-metre fallback.
-Placeholder geometry remains hidden by existing viewer policy; floor estimates
+Placeholder geometry remains hidden by existing viewer policy and allocates no
+Cesium entities; floor estimates
 appear at close zoom. Complex polygons/courtyards and outlines crossing the
 outer coverage boundary are omitted. Unsupported exported features are counted;
 building relations are outside the existing simple-way extraction contract. Height counts, source PBF

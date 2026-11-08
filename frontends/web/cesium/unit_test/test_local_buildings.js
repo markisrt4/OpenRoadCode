@@ -42,11 +42,13 @@ test('building detail is distance-aware and generic placeholders stay hidden',()
   const viewer={dataSources:{add(){},remove(){}},cesiumWidget:{creditDisplay:{addStaticCredit(){}}},scene:{requestRender(){}},
     camera:{positionCartographic:{get height(){return cameraHeight;}},changed:{addEventListener(fn){changed=fn;return ()=>{};}}}};
   const ring=[[0,0],[1,0],[1,1],[0,0]];
-  context.window.ORCLocalBuildings(viewer,{buildings:[
+  const layer=context.window.ORCLocalBuildings(viewer,{buildings:[
     {ring_rad:ring,height_m:20,height_source:'osm-height'},
     {ring_rad:ring,height_m:12,height_source:'levels-estimate'},
     {ring_rad:ring,height_m:9,height_source:'placeholder'}]},C);
-  assert.deepEqual(entities.map(e=>e.show),[true,false,false]);
+  assert.equal(entities.length,2); // Hidden placeholders must not allocate entities.
+  assert.match(layer.label,/1 tagged, 1 floor estimates/);
+  assert.deepEqual(entities.map(e=>e.show),[true,false]);
   cameraHeight=2000;changed();
-  assert.deepEqual(entities.map(e=>e.show),[true,true,false]);
+  assert.deepEqual(entities.map(e=>e.show),[true,true]);
 });
