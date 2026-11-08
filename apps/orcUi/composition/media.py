@@ -360,6 +360,14 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         return view
 
 
+    def home_spectrum_factory(parent: tk.Misc) -> tk.Widget:
+        from frontends.tk.media.home_spectrum_bar import HomeSpectrumBar
+        return HomeSpectrumBar(
+            parent, controller=visualizer_runtime,
+            theme_bundle=lambda: theme_bundle(app.theme_mode),
+            on_open=visualizer.show,
+        )
+
     def mode_changed(online: bool) -> None:
         account_controller.network_changed()
         if not online:
@@ -383,7 +391,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         preview=preview,
         music_video_controller=music_video_controller,
         home_factory=home_now_playing_factory,
-        home_visualizer_factory=home_media_factory if renderer == 'opengl' else None,
+        home_visualizer_factory=home_spectrum_factory if renderer == 'opengl' else None,
         visualizer=visualizer,
         visualizer_runtime=visualizer_runtime,
         unsubscribe_online=unsubscribe_online,
