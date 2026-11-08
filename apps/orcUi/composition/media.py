@@ -348,7 +348,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
             theme_bundle=lambda: theme_bundle(app.theme_mode),
             on_playback_changed=home_playback_changed,
         )
-        session = create_presentation(rich=False)
+        session = create_presentation(rich=True)
         def retire(event: tk.Event) -> None:
             if event.widget is view:
                 home_playback_changed(False)
