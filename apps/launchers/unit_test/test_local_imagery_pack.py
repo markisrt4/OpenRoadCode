@@ -168,3 +168,21 @@ def test_road_overlay_is_disabled_in_viewer_configuration(server):
         document=json.load(response)
     assert document['roads_available'] is False
     assert server._roads is None
+
+
+def test_seven_installed_packs_can_be_mounted_as_metadata(tmp_path, monkeypatch, server):
+    from apps.launchers import local_imagery_pack as packs
+    from apps.launchers.unit_test.test_region_install import write_pack
+    from ui.navigation.local_imagery_state import LocalImageryStackState
+    directories=tuple(tmp_path/str(index) for index in range(7))
+    for index, directory in enumerate(directories):
+        write_pack(directory,title=f'Pack {index}',bounds=(-84,42,-82,44))
+    monkeypatch.setattr(packs,'installed_imagery_directories',lambda:directories)
+    server._imagery_layers=packs.load_imagery_stack()
+    server._imagery_stack=LocalImageryStackState(tuple(pack.state for pack in server._imagery_layers))
+    with urllib.request.urlopen(server.url+'config.json') as response:
+        layers=json.load(response)['imagery_layers']
+    assert len(layers)==7
+    assert layers[-1]['title']=='Pack 6'
+    with pytest.raises(ValueError,match='64'):
+        LocalImageryStackState((server._imagery_layers[0].state,)*65)

@@ -34,14 +34,14 @@ class LocalImageryState:
 
 @dataclass(frozen=True, slots=True)
 class LocalImageryStackState:
-    """Bounded offline layers ordered from regional background to finer detail."""
+    """Bounded offline catalog ordered from regional background to finer detail."""
 
     layers: tuple[LocalImageryState, ...] = ()
 
     def __post_init__(self):
-        if not isinstance(self.layers, tuple) or len(self.layers) > 6 or any(
+        if not isinstance(self.layers, tuple) or len(self.layers) > 64 or any(
                 not isinstance(layer, LocalImageryState) for layer in self.layers):
-            raise ValueError('Imagery stack must contain at most six immutable layers')
+            raise ValueError('Imagery stack must contain at most 64 immutable layers')
 
     def document(self):
         return [layer.document() for layer in self.layers]

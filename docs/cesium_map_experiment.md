@@ -1099,3 +1099,10 @@ viewer retains its browser panel. No extra WebGL context, render-loop work or
 source download was added. Native X11 stacking, touch, drawer sizing, page navigation and
 mode changes still require Termux device verification, as does GPU stability.
 The generated mockup was a styling reference, not a promise of new map imagery.
+
+
+Installed imagery catalogs support up to 64 immutable pack entries. The viewer
+keeps at most six imagery layers resident (plus the reference globe): the broad
+background and up to five finest visible detail packs. It unloads unneeded
+textures before attaching replacements and limits concurrent imagery loads to
+six. Installing a seventh local pack no longer blocks Terrain startup.

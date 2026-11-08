@@ -1,12 +1,14 @@
 'use strict';
 window.ORCLocalImageryLayers = async function(viewer, layers, C, onError=()=>{}) {
   if (!layers.length) return {destroy(){}};
+  const maximumActive=6;
   let disposed=false, lastCheck=0;
   const entries=layers.map(state=>({state,layer:null,pending:false,failed:false,wanted:false}));
   const grid=await window.ORCReferenceGlobeLayer(viewer,C);
   if (!grid) return {destroy(){disposed=true;}};
   async function attach(entry,index) {
-    if (entry.layer || entry.pending || entry.failed) return;
+    if (entry.layer || entry.pending || entry.failed ||
+        entries.filter(item=>item.pending).length>=maximumActive) return;
     entry.pending=true;
     try {
       const state=entry.state;
@@ -25,13 +27,19 @@ window.ORCLocalImageryLayers = async function(viewer, layers, C, onError=()=>{})
     if (disposed || (!force && now-lastCheck<500)) return;
     lastCheck=now;
     const view=viewer.camera.computeViewRectangle(viewer.scene.globe.ellipsoid);
-    entries.forEach((entry,index)=>{
+    // Catalog entries are metadata; keep only the finest visible detail plus
+    // the broad background resident. Release old textures before adding new ones.
+    const visible=entries.slice(1).filter(entry=>{
       const s=entry.state;
       const rectangle=C.Rectangle.fromRadians(s.west_rad,s.south_rad,s.east_rad,s.north_rad);
-      entry.wanted=index===0 || Boolean(view && C.Rectangle.intersection(view,rectangle));
-      if (entry.wanted) attach(entry,index);
-      else if (entry.layer) {viewer.imageryLayers.remove(entry.layer,true);entry.layer=null;}
+      return Boolean(view && C.Rectangle.intersection(view,rectangle));
     });
+    const wanted=new Set([entries[0],...visible.slice(-(maximumActive-1))]);
+    entries.forEach(entry=>{
+      entry.wanted=wanted.has(entry);
+      if (!entry.wanted && entry.layer) {viewer.imageryLayers.remove(entry.layer,true);entry.layer=null;}
+    });
+    entries.forEach((entry,index)=>{if(entry.wanted) attach(entry,index);});
   }
   entries[0].wanted=true;
   await attach(entries[0],0);
