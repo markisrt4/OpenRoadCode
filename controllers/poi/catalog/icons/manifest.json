@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "icons": {
+    "mcdonalds": {
+      "file": "mcdonalds.png",
+      "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/1bb2f6e6ea50f920de8d2f3d273ae48564a5eaee/icons/mcdonalds.svg",
+      "source_sha256": "35c203615d2d5d61184ea1f4ded91ebbf329a59e7e2d52e0a640f3b8fd8b740a",
+      "sha256": "6b34260b4aac12b4cf5f811018cb8e1583f741927cb64df70ecb78309031a6c7",
+      "license": "CC0-1.0",
+      "brand_website": "https://www.mcdonalds.com",
+      "usage_notes": "Brand trademark rights and guidelines still apply."
+    },
+    "burger-king": {
+      "file": "burger-king.png",
+      "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/1bb2f6e6ea50f920de8d2f3d273ae48564a5eaee/icons/burgerking.svg",
+      "source_sha256": "f5eaca1a07de55966d05662d77f4e038cb04511d3369b8578f764fc6d66fc102",
+      "sha256": "1fc08338ba36bcfa3140a20b309ced08ad5409c0047d8a180997725fd84c47c8",
+      "license": "CC0-1.0",
+      "brand_website": "https://www.bk.com",
+      "usage_notes": "Brand trademark rights and guidelines still apply."
+    },
+    "starbucks": {
+      "file": "starbucks.png",
+      "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/1bb2f6e6ea50f920de8d2f3d273ae48564a5eaee/icons/starbucks.svg",
+      "source_sha256": "b12ac9042b77a04d88f28e5be655719dd1e321b0b700ea5a280df4e1ca8c23c8",
+      "sha256": "36ae5d6226dcff5e433a69b3690af73d2780c6ce460a4a6d0cb28cd076da8195",
+      "license": "CC0-1.0",
+      "brand_website": "https://www.starbucks.com",
+      "usage_notes": "Brand trademark rights and guidelines still apply."
+    }
+  }
+}

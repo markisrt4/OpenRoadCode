@@ -510,3 +510,8 @@ should open the web destination. Select a POI with an OSM website and confirm
 WEBSITE opens on both platforms. During a slow launch the map should remain
 responsive and repeated clicks should not start additional launches. Switch
 OFFLINE and confirm neither online action can launch, while Navigate still works.
+
+## Business registry
+
+For NSI-backed business identity, approved search-result logos and the Android
+**OPEN / INSTALL APP** action, see [Business registry](business_registry.md).

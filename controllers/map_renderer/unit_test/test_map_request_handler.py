@@ -50,6 +50,19 @@ class FakeRenderer:
 
 
 class MapRequestHandlerTest(unittest.TestCase):
+    def test_business_icon_is_attached_only_to_explicit_search_results_and_replayed(self):
+        renderer = FakeRenderer()
+        handler = MapRequestHandler(renderer, center=GeoPoint(0, 0))
+        handler.request_poi_results((MapMarker('store', GeoPoint(0, 0), MapMarkerKind.SEARCH_RESULT,
+                                              'McDonald\'s', icon_id='mcdonalds'),), 'food')
+        properties = renderer.poi_results[-1]['features'][0]['properties']
+        self.assertEqual(properties['brand_icon'], 'business:mcdonalds')
+        self.assertTrue(properties['brand_icon_png'])
+        handler.refresh_renderer_state()
+        self.assertEqual(renderer.poi_results[-1]['features'][0]['properties'], properties)
+        handler.request_poi_results((), '')
+        self.assertEqual(renderer.poi_results[-1]['features'], [])
+
     def setUp(self) -> None:
         self.renderer = FakeRenderer()
         self.follow_changes: list[bool] = []

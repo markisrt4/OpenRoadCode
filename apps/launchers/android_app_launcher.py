@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import os
+import re
 from ui.navigation.android_app_view_if import AndroidAppViewRequestHandlerIf
 
 from apps.launchers.android_bridge_launcher import (
@@ -77,3 +78,32 @@ class AndroidAppLauncher:
 
         self.open_uri(uri)
         return "browser"
+
+    def open_android_app(self, package: str) -> str:
+        """Open an installed app or its listing in Android; never install silently."""
+        if not re.fullmatch(r'[a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z][a-zA-Z0-9_]*)+', package):
+            raise ValueError('Invalid Android package')
+        listing = 'https://play.google.com/store/apps/details?id=' + package
+        if self._is_native_android():
+            try:
+                (self._native or AndroidBridgeLauncher()).open_package_or_uri(package, listing)
+            except AndroidBridgeLauncherError as error:
+                raise AndroidAppLauncherError(str(error)) from error
+            return 'Android app or Google Play listing'
+        try:
+            apps = self._waydroid.list_apps()
+            installed = next((app for app in apps if app.package == package), None)
+            if installed is not None:
+                self._waydroid.launch_app(package)
+                if self._app_view is not None:
+                    self._app_view.request_show_android_app(installed.name, package)
+                return installed.name
+            store = next((app for app in apps if app.package == 'com.android.vending'), None)
+            if store is None:
+                raise AndroidAppLauncherError('This app is not installed. Enable Google Play in Waydroid, install it, then retry.')
+            self._waydroid.launch_uri('market://details?id=' + package)
+            if self._app_view is not None:
+                self._app_view.request_show_android_app('Google Play — install app', store.package)
+            return 'Google Play — review and install the app, then return to this POI'
+        except WaydroidLauncherError as error:
+            raise AndroidAppLauncherError(str(error)) from error

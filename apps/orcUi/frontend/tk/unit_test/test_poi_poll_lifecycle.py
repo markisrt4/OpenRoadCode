@@ -1,8 +1,47 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 from unittest.mock import Mock
+from types import SimpleNamespace
+import tkinter as tk
+import pytest
 
 from apps.orcUi.frontend.tk.navigation_places_controls import NavigationPlacesControls
+from apps.orcUi.frontend.tk.navigation_panel_layout import show_poi_card
+from controllers.poi.poi_enricher import enrich_poi
+from ui.navigation import GeoPoint
+from ui.navigation.poi_models import PoiActionKind, PoiCategory, PointOfInterest
+
+
+def test_poi_popup_exposes_install_action_through_existing_request_contract():
+    try:
+        root = tk.Tk()
+    except tk.TclError as error:
+        pytest.skip(f'X11 display unavailable: {error}')
+    try:
+        root.geometry('800x500')
+        panel = tk.Frame(root)
+        panel.pack(fill=tk.BOTH, expand=True)
+        panel._poi_card = None
+        panel._theme_bundle = SimpleNamespace(ui=SimpleNamespace(surface_alt='#101820',
+            accent_primary='#00aeef', text='#ffffff', text_muted='#aaaaaa',
+            control_background='#15212a', control_active='#263848', border='#39464f'))
+        panel.online_actions_allowed = True
+        panel._refresh_poi_action_buttons = Mock()
+        panel._execute_poi_action = Mock()
+        poi = enrich_poi(PointOfInterest('store', 'Panera Bread', PoiCategory.FOOD,
+                                       GeoPoint(0, 0), website='https://www.panerabread.com'))
+        show_poi_card(panel, poi)
+        root.update()
+        button = next(b for b in panel._poi_action_buttons if b.cget('text') == 'OPEN / INSTALL APP')
+        assert button.winfo_ismapped()
+        popup = panel._poi_card
+        assert button.winfo_rootx() + button.winfo_width() <= popup.winfo_rootx() + popup.winfo_width()
+        button.invoke()
+        requested_poi, action = panel._execute_poi_action.call_args.args
+        assert requested_poi.business_id == 'panera'
+        assert action.kind is PoiActionKind.OPEN_ANDROID_APP
+    finally:
+        root.destroy()
 
 
 def test_one_failed_poll_does_not_disable_future_poi_clicks():

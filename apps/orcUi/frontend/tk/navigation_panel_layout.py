@@ -261,7 +261,7 @@ def show_poi_card(panel, poi) -> None:
 
     width = 480
     other_actions = tuple(action for action in poi.actions
-                          if action.kind in {PoiActionKind.ORDER, PoiActionKind.OPEN_WEBSITE}
+                          if action.kind in {PoiActionKind.ORDER, PoiActionKind.OPEN_WEBSITE, PoiActionKind.OPEN_ANDROID_APP}
                           and action.provider_id != "google-earth-explore")
     height = 260 if other_actions else 210
     has_waze = panel.__dict__.get('_waze_handler') is not None
@@ -348,7 +348,7 @@ def show_poi_card(panel, poi) -> None:
         waze_button.pack(pady=4)
         panel._poi_action_buttons.append(waze_button)
     for action in other_actions:
-        if (action.kind in {PoiActionKind.ORDER, PoiActionKind.OPEN_WEBSITE}
+        if (action.kind in {PoiActionKind.ORDER, PoiActionKind.OPEN_WEBSITE, PoiActionKind.OPEN_ANDROID_APP}
                 and action.provider_id != "google-earth-explore"):
             button = tk.Button(
                 extra_buttons,

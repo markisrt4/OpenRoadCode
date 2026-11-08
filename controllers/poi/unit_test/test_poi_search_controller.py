@@ -85,7 +85,9 @@ def test_marker_selection_survives_navigation_session_remount():
     first = PoiSearchController(FakeMapPoiSource(), search_source=FakeSearchSource((poi,)),
                                 position_provider=lambda: poi.position, selection_cache=cache)
     first.search(PoiCategory.FOOD)
-    assert first.poll_search_result().pois == (poi,)
+    found = first.poll_search_result().pois
+    assert len(found) == 1 and found[0].poi_id == poi.poi_id
+    assert found[0].business_id == 'panera'
     first.close()
     click = RawMapClick(poi.position, 50, marker_id='panera', marker_index=0)
     second = PoiSearchController(FakeMapPoiSource(click=click),

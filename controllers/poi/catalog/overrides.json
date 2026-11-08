@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "businesses": {
+    "panera": {"domains": ["panerabread.com"], "aliases": ["Panera", "Saint Louis Bread Co", "St Louis Bread Co"]},
+    "mcdonalds": {"domains": ["mcdonalds.com"], "icon_id": "mcdonalds"},
+    "burger-king": {"domains": ["bk.com"], "icon_id": "burger-king"},
+    "starbucks": {"domains": ["starbucks.com"], "icon_id": "starbucks"}
+  }
+}

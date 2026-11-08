@@ -45,3 +45,12 @@ def test_order_reports_web_fallback_from_launcher() -> None:
     )
 
     assert status == "Opening order in uri"
+
+
+def test_android_app_action_uses_only_the_verified_mapping():
+    launcher = Mock()
+    launcher.open_android_app.return_value = 'Google Play'
+    executor = AndroidPoiActionExecutor(launcher)
+    status = executor.execute(_panera(), PoiAction(PoiActionKind.OPEN_ANDROID_APP, 'OPEN / INSTALL APP', provider_id='panera'))
+    launcher.open_android_app.assert_called_once_with('com.panera.bread')
+    assert status == 'Opening Google Play'

@@ -36,6 +36,7 @@ class PoiActionKind(Enum):
     ORDER = auto()
     OPEN_WEBSITE = auto()
     EXPLORE_3D = auto()
+    OPEN_ANDROID_APP = auto()
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,6 +65,8 @@ class PointOfInterest:
     address: str = ""
     brand_wikidata: str | None = None
     operator: str | None = None
+    business_id: str | None = None
+    icon_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

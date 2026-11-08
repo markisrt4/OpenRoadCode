@@ -163,6 +163,7 @@ class NavigationPlacesControls:
                     position=poi.position,
                     kind=MapMarkerKind.SEARCH_RESULT,
                     label=poi.name,
+                    icon_id=poi.icon_id,
                 )
                 for poi in result.pois
             )

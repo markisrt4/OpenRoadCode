@@ -1,0 +1,183 @@
+{
+  "schema_version": 1,
+  "businesses": {
+    "burger-king": {
+      "name": "Burger King",
+      "aliases": [
+        "Burger King"
+      ],
+      "wikidata": [
+        "Q177054"
+      ],
+      "categories": [
+        "food"
+      ],
+      "domains": [
+        "bk.com"
+      ],
+      "icon_id": "burger-king",
+      "location_set": {
+        "include": [
+          "001"
+        ],
+        "exclude": [
+          [
+            -88.3726,
+            39.4818,
+            32
+          ],
+          "au",
+          "by",
+          "cn",
+          "ge",
+          "jp",
+          "kr",
+          "kz",
+          "ru",
+          "tw"
+        ]
+      },
+      "source": {
+        "url": "https://github.com/osmlab/name-suggestion-index/blob/45fceb344eda88158e3068a5048671e9b3d86c8d/data/brands/amenity/fast_food.json",
+        "revision": "45fceb344eda88158e3068a5048671e9b3d86c8d",
+        "nsi_id": "burgerking-f206b9",
+        "license": "BSD-3-Clause"
+      }
+    },
+    "mcdonalds": {
+      "name": "McDonald's",
+      "aliases": [
+        "McDonald's"
+      ],
+      "wikidata": [
+        "Q38076"
+      ],
+      "categories": [
+        "food"
+      ],
+      "domains": [
+        "mcdonalds.com"
+      ],
+      "icon_id": "mcdonalds",
+      "location_set": {
+        "include": [
+          "001"
+        ],
+        "exclude": [
+          "ae",
+          "bh",
+          "by",
+          "cn",
+          "eg",
+          "fr",
+          "ge",
+          "il",
+          "iq",
+          "jo",
+          "jp",
+          "kr",
+          "kw",
+          "kz",
+          "lb",
+          "ma",
+          "no",
+          "om",
+          "ph",
+          "qa",
+          "ru",
+          "sa",
+          "sy",
+          "tn",
+          "tw",
+          "ua"
+        ]
+      },
+      "source": {
+        "url": "https://github.com/osmlab/name-suggestion-index/blob/45fceb344eda88158e3068a5048671e9b3d86c8d/data/brands/amenity/fast_food.json",
+        "revision": "45fceb344eda88158e3068a5048671e9b3d86c8d",
+        "nsi_id": "mcdonalds-d35a75",
+        "license": "BSD-3-Clause"
+      }
+    },
+    "panera": {
+      "name": "Panera Bread",
+      "aliases": [
+        "Panera",
+        "Panera Bread",
+        "Saint Louis Bread Co",
+        "St Louis Bread Co"
+      ],
+      "wikidata": [
+        "Q7130852"
+      ],
+      "categories": [
+        "food"
+      ],
+      "domains": [
+        "panerabread.com"
+      ],
+      "icon_id": null,
+      "location_set": {
+        "include": [
+          "ca",
+          "us"
+        ]
+      },
+      "source": {
+        "url": "https://github.com/osmlab/name-suggestion-index/blob/45fceb344eda88158e3068a5048671e9b3d86c8d/data/brands/amenity/fast_food.json",
+        "revision": "45fceb344eda88158e3068a5048671e9b3d86c8d",
+        "nsi_id": "panerabread-d2abf0",
+        "license": "BSD-3-Clause"
+      }
+    },
+    "starbucks": {
+      "name": "Starbucks",
+      "aliases": [
+        "Starbucks"
+      ],
+      "wikidata": [
+        "Q37158"
+      ],
+      "categories": [
+        "food"
+      ],
+      "domains": [
+        "starbucks.com"
+      ],
+      "icon_id": "starbucks",
+      "location_set": {
+        "include": [
+          "001"
+        ],
+        "exclude": [
+          "ae",
+          "bh",
+          "cn",
+          "dz",
+          "eg",
+          "iq",
+          "jo",
+          "jp",
+          "kr",
+          "kw",
+          "lb",
+          "ly",
+          "ma",
+          "om",
+          "qa",
+          "rs",
+          "ru",
+          "sa",
+          "tn",
+          "tw"
+        ]
+      },
+      "source": {
+        "url": "https://github.com/osmlab/name-suggestion-index/blob/45fceb344eda88158e3068a5048671e9b3d86c8d/data/brands/amenity/cafe.json",
+        "revision": "45fceb344eda88158e3068a5048671e9b3d86c8d",
+        "nsi_id": "starbucks-795f60",
+        "license": "BSD-3-Clause"
+      }
+    }
+  }
+}

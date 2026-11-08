@@ -60,12 +60,14 @@ class MapMarker:
     @param position Geographic marker position.
     @param kind Semantic marker category.
     @param label Optional user-visible marker label.
+    @param icon_id Optional registered business icon identifier; no image/file access in views.
     """
 
     marker_id: str
     position: GeoPoint
     kind: MapMarkerKind
     label: str | None = None
+    icon_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

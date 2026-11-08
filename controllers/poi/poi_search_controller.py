@@ -191,7 +191,7 @@ class PoiSearchController(PoiSearchControllerIf):
         try:
             result = self._offline_source().search(query)
             self._diagnostics.succeeded("database", self._search_operation_id)
-            return result
+            return tuple(enrich_poi(poi) for poi in result)
         except (sqlite3.Error, OSError) as error:
             self._diagnostics.failed("database", error, self._search_operation_id)
             self._visible_pois = ()

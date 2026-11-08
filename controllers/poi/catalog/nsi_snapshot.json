@@ -1,0 +1,170 @@
+{
+  "schema_version": 1,
+  "revision": "45fceb344eda88158e3068a5048671e9b3d86c8d",
+  "license": "BSD-3-Clause",
+  "items": [
+    {
+      "provider_id": "panera",
+      "path": "data/brands/amenity/fast_food.json",
+      "item": {
+        "displayName": "Panera Bread",
+        "id": "panerabread-d2abf0",
+        "locationSet": {
+          "include": [
+            "ca",
+            "us"
+          ]
+        },
+        "tags": {
+          "amenity": "fast_food",
+          "brand": "Panera Bread",
+          "brand:wikidata": "Q7130852",
+          "cuisine": "sandwich;bakery",
+          "name": "Panera Bread",
+          "short_name": "Panera",
+          "takeaway": "yes"
+        }
+      }
+    },
+    {
+      "provider_id": "mcdonalds",
+      "path": "data/brands/amenity/fast_food.json",
+      "item": {
+        "displayName": "McDonald's",
+        "id": "mcdonalds-d35a75",
+        "locationSet": {
+          "include": [
+            "001"
+          ],
+          "exclude": [
+            "ae",
+            "bh",
+            "by",
+            "cn",
+            "eg",
+            "fr",
+            "ge",
+            "il",
+            "iq",
+            "jo",
+            "jp",
+            "kr",
+            "kw",
+            "kz",
+            "lb",
+            "ma",
+            "no",
+            "om",
+            "ph",
+            "qa",
+            "ru",
+            "sa",
+            "sy",
+            "tn",
+            "tw",
+            "ua"
+          ]
+        },
+        "tags": {
+          "amenity": "fast_food",
+          "brand": "McDonald's",
+          "brand:wikidata": "Q38076",
+          "cuisine": "burger",
+          "name": "McDonald's",
+          "takeaway": "yes"
+        }
+      }
+    },
+    {
+      "provider_id": "burger-king",
+      "path": "data/brands/amenity/fast_food.json",
+      "item": {
+        "displayName": "Burger King",
+        "id": "burgerking-f206b9",
+        "locationSet": {
+          "include": [
+            "001"
+          ],
+          "exclude": [
+            [
+              -88.3726,
+              39.4818,
+              32
+            ],
+            "au",
+            "by",
+            "cn",
+            "ge",
+            "jp",
+            "kr",
+            "kz",
+            "ru",
+            "tw"
+          ]
+        },
+        "matchNames": [
+          "burger king brasil",
+          "burger king españa",
+          "burguer king"
+        ],
+        "note": "There is a non-branded Burger King in Mattoon, Illinois, USA, which is excluded. The chain is called 'Hungry Jacks' in Australia. See also #11097, #4817",
+        "tags": {
+          "amenity": "fast_food",
+          "brand": "Burger King",
+          "brand:wikidata": "Q177054",
+          "cuisine": "burger",
+          "name": "Burger King",
+          "takeaway": "yes"
+        }
+      }
+    },
+    {
+      "provider_id": "starbucks",
+      "path": "data/brands/amenity/cafe.json",
+      "item": {
+        "displayName": "Starbucks",
+        "id": "starbucks-795f60",
+        "locationSet": {
+          "include": [
+            "001"
+          ],
+          "exclude": [
+            "ae",
+            "bh",
+            "cn",
+            "dz",
+            "eg",
+            "iq",
+            "jo",
+            "jp",
+            "kr",
+            "kw",
+            "lb",
+            "ly",
+            "ma",
+            "om",
+            "qa",
+            "rs",
+            "ru",
+            "sa",
+            "tn",
+            "tw"
+          ]
+        },
+        "matchNames": [
+          "starbucks canada",
+          "starbucks uk"
+        ],
+        "tags": {
+          "amenity": "cafe",
+          "brand": "Starbucks",
+          "brand:wikidata": "Q37158",
+          "cuisine": "coffee_shop",
+          "name": "Starbucks",
+          "official_name": "Starbucks Coffee",
+          "takeaway": "yes"
+        }
+      }
+    }
+  ]
+}

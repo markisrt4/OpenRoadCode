@@ -14,6 +14,54 @@ from apps.launchers.waydroid_launcher import AndroidApp, WaydroidLauncherError
 from apps.launchers.desktop_browser_launcher import DesktopBrowserLauncherError
 
 
+@patch('apps.launchers.android_app_launcher.os.path.exists', return_value=False)
+def test_missing_business_app_opens_google_play_inside_waydroid_without_installing(_exists):
+    waydroid, browser, view = Mock(), Mock(), Mock()
+    waydroid.list_apps.return_value = (AndroidApp('Play Store', 'com.android.vending'),)
+    launcher = AndroidAppLauncher(waydroid=waydroid, browser=browser, app_view=view)
+    result = launcher.open_android_app('com.panera.bread')
+    waydroid.launch_uri.assert_called_once_with('market://details?id=com.panera.bread')
+    waydroid.launch_app.assert_not_called()
+    view.request_show_android_app.assert_called_once_with('Google Play — install app', 'com.android.vending')
+    browser.open_uri.assert_not_called()
+    assert 'review and install' in result
+
+
+@patch('apps.launchers.android_app_launcher.os.path.exists', return_value=False)
+def test_installed_business_app_resumes_normal_embedding_without_opening_store(_exists):
+    waydroid, view = Mock(), Mock()
+    waydroid.list_apps.return_value = (AndroidApp('Panera', 'com.panera.bread'),)
+    launcher = AndroidAppLauncher(waydroid=waydroid, app_view=view)
+    assert launcher.open_android_app('com.panera.bread') == 'Panera'
+    waydroid.launch_app.assert_called_once_with('com.panera.bread')
+    view.request_show_android_app.assert_called_once_with('Panera', 'com.panera.bread')
+    waydroid.launch_uri.assert_not_called()
+
+
+@patch('apps.launchers.android_app_launcher.os.path.exists', return_value=False)
+def test_missing_play_store_is_an_explicit_error_not_a_linux_browser_handoff(_exists):
+    waydroid, browser = Mock(), Mock()
+    waydroid.list_apps.return_value = ()
+    launcher = AndroidAppLauncher(waydroid=waydroid, browser=browser)
+    with pytest.raises(AndroidAppLauncherError, match='Enable Google Play'):
+        launcher.open_android_app('com.panera.bread')
+    browser.open_uri.assert_not_called()
+
+
+@patch('apps.launchers.android_app_launcher.os.path.exists', return_value=True)
+def test_termux_business_app_handoff_uses_existing_app_first_bridge_and_official_store_listing(_exists):
+    native = Mock()
+    launcher = AndroidAppLauncher(native=native)
+    launcher.open_android_app('com.panera.bread')
+    native.open_package_or_uri.assert_called_once_with('com.panera.bread', 'https://play.google.com/store/apps/details?id=com.panera.bread')
+
+
+def test_install_action_rejects_invalid_package_before_any_platform_handoff():
+    launcher = AndroidAppLauncher(native=Mock(), waydroid=Mock())
+    with pytest.raises(ValueError, match='Invalid Android package'):
+        launcher.open_android_app('com.example.app --bad-argument')
+
+
 @patch("apps.launchers.android_app_launcher.os.path.exists", return_value=False)
 def test_linux_launches_package_through_waydroid(_exists) -> None:
     waydroid = Mock()

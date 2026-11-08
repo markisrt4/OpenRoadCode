@@ -8,6 +8,8 @@
 #include "route_weather_style.hpp"
 #include "city_weather_style.hpp"
 #include "poi_hover_style.hpp"
+#include "poi_brand_style.hpp"
+#include "poi_brand_images.hpp"
 #include "orc_logging.hpp"
 #include <mbgl/map/map.hpp>
 #include <mbgl/renderer/renderer.hpp>
@@ -64,7 +66,7 @@ std::string loadStyleJson(const NavigationConfig& config) {
     std::string style{std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
     replaceAll(style, kDataRootToken, config.dataRoot);
     if (config.dataRoot != kLegacyDataRoot) replaceAll(style, kLegacyDataRoot, config.dataRoot);
-    return withCityWeatherStyle(withPoiHoverStyle(withRouteWeatherStyle(style)));
+    return withPoiBrandStyle(withCityWeatherStyle(withPoiHoverStyle(withRouteWeatherStyle(style))));
 }
 void setWeatherRaster(
     mbgl::style::Style& style,
@@ -382,6 +384,7 @@ int runRenderer() {
                 if (!source) continue;
                 auto* poiSource = static_cast<mbgl::style::GeoJSONSource*>(source);
                 try {
+                    loadPoiBrandImages(map.getStyle(), command->geojson);
                     poiSource->setGeoJSON(mapbox::geojson::parse(command->geojson));
                     view.setPoiResultsJson(command->geojson);
                     view.invalidate();

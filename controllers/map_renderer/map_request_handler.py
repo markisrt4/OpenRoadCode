@@ -9,6 +9,7 @@ import math
 import logging
 from collections.abc import Callable
 from common.logging.structured import event
+from controllers.poi.business_icons import icon_properties
 
 from ui.navigation import GeoPoint, MapMarker, MapRequestHandlerIf
 
@@ -140,6 +141,7 @@ class MapRequestHandler(MapRequestHandlerIf):
                         "id": marker.marker_id,
                         "name": marker.label or "",
                         "category": category,
+                        **icon_properties(marker.icon_id),
                     },
                 }
             )
