@@ -81,6 +81,11 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         )
         self._status_label.grid(row=2, column=0, sticky="ew", pady=(3, 0))
 
+        self._progress = tk.Canvas(self, height=5, bg=ui.surface,
+                                   highlightthickness=0, bd=0)
+        self._progress.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=(0, 7))
+        self._progress_fraction: float | None = None
+        self._progress.bind("<Configure>", lambda _event: self._paint_progress())
         self._bind_open(self)
 
     def destroy(self) -> None:
@@ -99,6 +104,7 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._title_label.configure(bg=ui.surface, fg=ui.text)
         self._artist_label.configure(bg=ui.surface, fg=ui.text_muted)
         self._status_label.configure(bg=ui.surface, fg=GREEN)
+        self._progress.configure(bg=ui.surface)
         if self._artwork_photo is None:
             self._art_label.configure(bg=ui.control_active, fg=GREEN)
 
@@ -106,6 +112,17 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         widget.bind("<Button-1>", lambda _event: self._on_open())
         for child in widget.winfo_children():
             self._bind_open(child)
+
+    def _paint_progress(self) -> None:
+        self._progress.delete("all")
+        width = self._progress.winfo_width()
+        if width <= 1:
+            return
+        self._progress.create_rectangle(0, 0, width, 5, fill=self._theme.ui.border, outline="")
+        if self._progress_fraction is not None:
+            self._progress.create_rectangle(
+                0, 0, width * self._progress_fraction, 5, fill=GREEN, outline="",
+            )
 
     def set_spotify_request_handler(self, handler: SpotifyRequestHandler | None) -> None:
         """The home summary emits only its supplied navigation action."""
@@ -120,16 +137,25 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         if current_theme != self._theme:
             self.set_theme_bundle(current_theme)
         state = presentation.media
+        self._progress_fraction = (
+            max(0.0, min(1.0, state.position_s / state.duration_s))
+            if state.position_s is not None and state.duration_s is not None
+            and state.duration_s > 0 else None
+        )
+        self._paint_progress()
         self.configure(cursor="hand2" if presentation.online else "arrow")
         if not presentation.online:
             self._title.set("Streaming media unavailable")
             self._artist.set("Offline mode")
             self._status.set("")
             self._show_artwork_placeholder()
-        elif state.playback is PlaybackState.PLAYING and state.title:
+        elif state.playback in (PlaybackState.PLAYING, PlaybackState.PAUSED) and state.title:
             self._title.set(state.title)
             self._artist.set(state.artist or "")
-            self._status.set("Spotify • Playing")
+            self._status.set(
+                "Spotify • Playing" if state.playback is PlaybackState.PLAYING
+                else "Spotify • Paused"
+            )
             self._art_loading.configure(text="LOADING" if presentation.artwork_loading else "")
             if presentation.artwork != self._artwork_payload:
                 self._artwork_payload = presentation.artwork
