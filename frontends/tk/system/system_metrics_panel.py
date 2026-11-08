@@ -31,9 +31,11 @@ class SystemMetricsPanel(tk.Frame, UiWidget):
             "memory": deque(maxlen=self._HISTORY_SAMPLES),
             "temperature": deque(maxlen=self._HISTORY_SAMPLES),
             "process_cpu": deque(maxlen=self._HISTORY_SAMPLES),
+            "gpu": deque(maxlen=self._HISTORY_SAMPLES),
         }
         self._graph_colors = {"cpu": ui.accent_primary, "memory": ui.accent_success,
-                              "temperature": ui.accent_warning, "process_cpu": ui.text_muted}
+                              "temperature": ui.accent_warning, "process_cpu": ui.text_muted,
+                              "gpu": ui.accent_primary}
         self._graphs: dict[str, tk.Canvas] = {}
         self._identity = tk.Label(self, text="Computing unit", bg=ui.background, fg=ui.text_muted, anchor="w")
         self._identity.grid(row=0, column=0, columnspan=4, sticky="ew", padx=5, pady=4)
@@ -45,7 +47,7 @@ class SystemMetricsPanel(tk.Frame, UiWidget):
         self._metric(0, "CPU", "cpu", "cpu_detail")
         self._metric(1, "MEMORY", "memory", "memory_detail")
         self._metric(2, "THERMAL", "temperature", "thermal_detail")
-        self._metric(3, "STORAGE", "storage", "storage_detail")
+        self._metric(3, "GPU", "gpu", "gpu_detail")
 
         trends = tk.Frame(
             self,
@@ -66,7 +68,7 @@ class SystemMetricsPanel(tk.Frame, UiWidget):
 
         for index, (key, label) in enumerate(
             (("cpu", "CPU"), ("memory", "RAM"),
-             ("temperature", "TEMP"), ("process_cpu", "PROCESS CPU"))
+             ("temperature", "TEMP"), ("gpu", "GPU"))
         ):
             card = tk.Frame(trends, bg=ui.surface)
             card.grid(row=index // 2, column=index % 2,
@@ -177,6 +179,9 @@ class SystemMetricsPanel(tk.Frame, UiWidget):
         headroom = snapshot.thermal_headroom_c
         self._values["temperature"].configure(fg=(ui.text_muted if headroom is None else
             ui.accent_danger if headroom <= 5 else ui.accent_warning if headroom <= 10 else ui.accent_success))
+        self._values["gpu"].configure(text=_percent(snapshot.gpu_percent),
+                                       fg=pressure_color(ui, snapshot.gpu_percent))
+        self._values["gpu_detail"].configure(text=snapshot.gpu_detail)
         self._values["cpu"].configure(text=_percent(snapshot.cpu_percent))
         core_text = ""
         if snapshot.per_core_percent:
