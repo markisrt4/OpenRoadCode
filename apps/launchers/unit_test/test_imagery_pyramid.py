@@ -40,7 +40,8 @@ def test_xyz_rows_convert_to_mbtiles_tms_and_missing_tiles_stay_missing(pyramid)
     pack=LocalImageryPyramidPack.load(pyramid)
     assert pack.tile(10,275,380).startswith(b'\x89PNG')
     assert pack.tile(10,276,380) is None
-    for address in ((9,1,1),(10,-1,1),(10,1024,1),(10,1,1024)):
+    assert pack.tile(9,1,1) is None
+    for address in ((17,1,1),(10,-1,1),(10,1024,1),(10,1,1024)):
         with pytest.raises(ValueError,match='address'):pack.tile(*address)
 
 
@@ -62,7 +63,7 @@ def test_server_serves_only_bounded_xyz_images_and_transparent_missing_coverage(
     with urllib.request.urlopen(server.url+'data/imagery-detail/0/10/276/380') as response:
         with Image.open(BytesIO(response.read())) as image:
             assert image.convert('RGBA').getpixel((0,0))[3]==0
-    for path in ('0/9/1/1','0/10/1024/1','1/10/275/380','0/10/../380'):
+    for path in ('0/17/1/1','0/10/1024/1','1/10/275/380','0/10/../380'):
         with pytest.raises(urllib.error.HTTPError):
             urllib.request.urlopen(server.url+'data/imagery-detail/'+path)
     with pytest.raises(urllib.error.HTTPError):
@@ -92,7 +93,8 @@ def test_gdal_produces_native_zoom_tiles_readable_by_runtime(tmp_path):
         '-a_srs','EPSG:4326','-a_ullr',west,north,east,south,source)
     root,report=raster_to_pyramid([source],tmp_path,coverage)
     pack=LocalImageryPyramidPack.load(root)
-    assert (pack.state.minimum_zoom,pack.state.maximum_zoom)==(10,16)
+    assert 10 <= pack.state.minimum_zoom <= 16
+    assert pack.state.maximum_zoom==16
     assert report['tile_count']>1
     assert 1 < report['target_ground_pixel_spacing_m'] < 2
     assert report['image_format']=='webp'

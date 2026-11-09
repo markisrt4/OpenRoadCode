@@ -13,9 +13,12 @@ window.ORCImageryPyramids = function(viewer, states, C) {
   // Coarse layers may complete after this controller; keep detail above them.
   const unbind=viewer.imageryLayers.layerAdded.addEventListener(raise);
   for(const state of states) {
+    // Small data extents may have no coarse stored levels. The local adapter
+    // returns transparent tiles below source coverage, avoiding a minimum-level
+    // rectangle spanning too many tiles during globe initialization.
     const provider=new C.UrlTemplateImageryProvider({url:state.url,
       rectangle:C.Rectangle.fromRadians(state.west_rad,state.south_rad,state.east_rad,state.north_rad),
-      tilingScheme:new C.WebMercatorTilingScheme(),minimumLevel:state.minimum_zoom,
+      tilingScheme:new C.WebMercatorTilingScheme(),minimumLevel:0,
       maximumLevel:state.maximum_zoom,tileWidth:state.tile_size,tileHeight:state.tile_size,
       credit:state.attribution});
     provider.orcLayerRole='imagery-detail';

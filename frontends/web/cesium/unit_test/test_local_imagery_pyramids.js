@@ -22,6 +22,7 @@ test('detail uses bounded native zoom tiles and stays above late coarse imagery'
   const detail=layers[0];
   assert.equal(detail.imageryProvider.options.tileWidth,256);
   assert.equal(detail.imageryProvider.options.maximumLevel,16);
+  assert.equal(detail.imageryProvider.options.minimumLevel,0);
   assert.equal(viewer.scene.globe.tileCacheSize,64);
   assert.equal(C.RequestScheduler.maximumRequestsPerServer,6);
   const coarse=viewer.imageryLayers.addImageryProvider({name:'late overview'});

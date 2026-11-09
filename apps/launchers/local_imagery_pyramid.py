@@ -63,9 +63,11 @@ class LocalImageryPyramidPack:
     def tile(self, zoom, x, y):
         """Read one XYZ tile, converting MBTiles' south-origin row internally."""
         if (any(type(value) is not int for value in (zoom,x,y))
-                or not self.state.minimum_zoom <= zoom <= self.state.maximum_zoom
+                or not 0 <= zoom <= self.state.maximum_zoom
                 or not 0 <= x < 2**zoom or not 0 <= y < 2**zoom):
             raise ValueError('Invalid offline imagery tile address')
+        if zoom < self.state.minimum_zoom:
+            return None
         with closing(_connect(self.database)) as connection:
             row = connection.execute('SELECT substr(tile_data,1,?) FROM tiles '
                 'WHERE zoom_level=? AND tile_column=? AND tile_row=? LIMIT 1',

@@ -455,7 +455,9 @@ The archive stores source dates and rights references; runtime makes no hosted
 imagery or signing requests.
 
 Build-host GDAL reprojects source crops into Web Mercator, 256×256 WebP tiles,
-zoom levels 10–16. Target ground spacing is approximately 1.8 m/pixel at the
+zoom levels up to 16; GDAL chooses the lowest useful stored overview level
+within the requested 10–16 range. Requests below stored coverage return
+transparent tiles so regional fallback remains visible. Target ground spacing is approximately 1.8 m/pixel at the
 pilot latitude; effective detail also depends on source and intermediate crop
 resolution. This is aerial photography, not a guarantee of current conditions.
 Source gaps stay transparent. Avoid interpreting a nominal pixel size as a

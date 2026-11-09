@@ -41,7 +41,7 @@ def raster_to_pyramid(crops, output, coverage):
     with closing(sqlite3.connect(database)) as connection:
         count, low, high = connection.execute('SELECT count(*),min(zoom_level),max(zoom_level) FROM tiles').fetchone()
         metadata = dict(connection.execute('SELECT name,value FROM metadata'))
-        if (low,high) != (MINIMUM_ZOOM,MAXIMUM_ZOOM):
+        if high != MAXIMUM_ZOOM or not MINIMUM_ZOOM <= low <= high:
             raise ValueError(f'Unexpected GDAL zoom coverage: {low}–{high}')
         for key,value in dict(minzoom=str(low),maxzoom=str(high)).items():
             connection.execute('DELETE FROM metadata WHERE name=?',(key,))
