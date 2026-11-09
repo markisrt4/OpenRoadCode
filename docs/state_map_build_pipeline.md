@@ -402,16 +402,22 @@ Closed ways and Osmium-assembled multipolygon relations share normalization and
 height classification:
 `osm-height` is an OSM height tag (not a verified survey); `levels-estimate` uses
 3 metres per recorded floor; `placeholder` uses an explicit 9-metre fallback.
-Placeholder geometry remains hidden by existing viewer policy and allocates no
-Cesium entities; floor estimates
-appear at close zoom. Relations preserve courtyard holes and emit one outline per
+Unknown heights appear as clearly labeled approximate 9 m blocks only below
+1,500 m camera altitude and within 2 km of the ground focus; floor estimates
+appear below 3,000 m. Tagged heights appear below 15,000 m. The renderer lazily
+allocates at most 512 entities per streamed tile (2,048 across four tiles),
+prioritizing tagged heights, then floors, then nearest approximate blocks. It
+reconciles after camera gestures and removes entities no longer needed. Relations preserve courtyard holes and emit one outline per
 separate outer component. Accepted relations suppress identical outer-member way
-outlines; invalid relations do not suppress usable ways. Building parts and
-outlines crossing the outer coverage boundary remain excluded. Geometry is bounded
+outlines; invalid relations do not suppress usable ways. Building parts retain their own heights and `min_height` / `building:min_level`
+base offsets. A whole-building outline containing an accepted part is retained
+as metadata but not extruded over its parts. Unmapped sections cannot be inferred
+from a parent maximum-height tag. Outlines crossing the coverage boundary remain excluded. Geometry is bounded
 to 64 components per source, 64 holes and 2,000 vertices per component.
-New tiled packs use geometry schema 2; updated readers retain schema 1 support.
+New tiled packs use geometry schema 3; updated readers retain schemas 1 and 2.
 Update ORC before installing a new pack. Reports include relation/courtyard counts,
-duplicate member removals, accepted Chrysler campus relation IDs/heights, source
+duplicate member removals, building-part/outline counts, accepted Chrysler campus
+component IDs/heights/base offsets, source
 PBF SHA-256, ODbL attribution, and license reference. Counts refer to component
 outlines, not unique physical buildings.
 

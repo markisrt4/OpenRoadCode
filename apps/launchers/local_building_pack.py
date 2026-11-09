@@ -14,7 +14,7 @@ def detroit_building_directory():
 def load_buildings(directory):
     root = Path(directory).resolve()
     manifest = json.loads((root / "manifest.json").read_text())
-    if manifest.get("schema") not in (1,2):
+    if manifest.get("schema") not in (1,2,3):
         raise ValueError("Unsupported building pack schema")
     payload = (root / "buildings.json").resolve()
     if not payload.is_relative_to(root) or payload.stat().st_size > 10*1024*1024:

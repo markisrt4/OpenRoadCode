@@ -31,7 +31,8 @@ def source_identity(feature):
 
 def normalize_components(feature, bounds):
     tags = feature.get('properties') or {}
-    if tags.get('building') in (None,'no'):
+    is_part = tags.get('building:part') not in (None,'no')
+    if tags.get('building') in (None,'no') and not is_part:
         return ()
     geometry = feature.get('geometry') or {}
     coordinates = geometry.get('coordinates') or []
@@ -56,12 +57,15 @@ def normalize_components(feature, bounds):
     identity = source_identity(feature)
     result = []
     try:
+        minimum = tags.get('min_height')
+        minimum = (float(str(minimum).strip().removesuffix(' m')) if minimum is not None
+                   else float(tags.get('building:min_level',0))*3)
         for index,polygon in enumerate(polygons):
             if not polygon:
                 return ()
-            source_id = f'{identity}#{index}' if identity.startswith('relation/') else ''
+            source_id = f'{identity}#{index}' if identity.startswith('relation/') or is_part else ''
             building = LocalBuilding(ring(polygon[0]),value,source,
-                                     tuple(ring(hole) for hole in polygon[1:]),source_id)
+                                     tuple(ring(hole) for hole in polygon[1:]),source_id,minimum,is_part)
             result.append(building.document())
     except (ValueError,TypeError,IndexError):
         # Do not flatten holes or silently publish a partial multipart feature.

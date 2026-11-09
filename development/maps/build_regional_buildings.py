@@ -25,7 +25,7 @@ def build(output, cache, source=None):
     output.mkdir(parents=True, exist_ok=True)
     started = time.monotonic()
     report = dict(status='started', coverage='metro-detroit',
-                  note='OSM ways and assembled multipolygon relations; courtyards preserved; building parts excluded')
+                  note='OSM ways and assembled multipolygon relations; courtyards and building parts preserved; unknown heights use approximate 9 m blocks at close zoom')
     try:
         if source is None:
             regions = fetch_index(cache/'geofabrik-index.json', refresh=True)
@@ -42,6 +42,8 @@ def build(output, cache, source=None):
             pack = build_pack(dataset, 'metro-detroit')
             manifest = json.loads((pack/'manifest.json').read_text())
             report.update(geometry_schema=manifest['schema'],
+                          part_components=manifest['part_components'],
+                          outlines_with_parts=manifest['outlines_with_parts'],
                           relation_components=manifest['relation_components'],
                           courtyard_components=manifest['courtyard_components'],
                           duplicate_member_ways_removed=manifest['duplicate_member_ways_removed'],
@@ -68,14 +70,15 @@ def site_components(pack, manifest):
     for tile in manifest['tiles']:
         data = json.loads((pack/tile['id']/'buildings.json').read_text())
         for building in data['buildings']:
-            if not building.get('source_id','').startswith('relation/'):
+            if not building.get('source_id'):
                 continue
             ring = building['ring_rad'][:-1]
             lon = math.degrees(sum(p[0] for p in ring)/len(ring))
             lat = math.degrees(sum(p[1] for p in ring)/len(ring))
             if -83.235 <= lon <= -83.224 and 42.651 <= lat <= 42.658:
                 result.append(dict(source_id=building['source_id'],height_m=building['height_m'],
-                                   height_source=building['height_source'],holes=len(building.get('holes_rad',()))))
+                                   height_source=building['height_source'],min_height_m=building.get('min_height_m',0),
+                                   is_part=building.get('is_part',False),outline_only=building.get('outline_only',False),holes=len(building.get('holes_rad',()))))
     return result
 
 

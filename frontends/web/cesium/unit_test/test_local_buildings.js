@@ -6,52 +6,60 @@ const path=require('node:path');
 const test=require('node:test');
 const context={window:{}};
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../local_buildings.js'),'utf8'),context);
-test('building bases follow relief changes while building height remains real',()=>{
-  let ground=10;
+const ring=[[0,0],[.00001,0],[.00001,.00001],[0,0]];
+function fixture(buildings,height=1000){
+  let cameraChanged,ground=10,removed=false;
   const entities=[];
-  let cameraHeight=1000;
-  let cameraChanged;
   const color={withAlpha(){return this;}};
-  const C={CustomDataSource:class {constructor(){this.entities={add:e=>{entities.push(e);return e;}};}},
-    PolygonHierarchy:class {constructor(positions,holes=[]){this.positions=positions;this.holes=holes;}},Cartesian3:{fromRadians:(x,y)=>({x,y})},
-    Color:{fromCssColorString:()=>color},Credit:class {}};
-  const viewer={dataSources:{add(){},remove(){}},cesiumWidget:{creditDisplay:{addStaticCredit(){}}},scene:{requestRender(){}},
-    camera:{positionCartographic:{get height(){return cameraHeight;}},changed:{addEventListener(fn){cameraChanged=fn;return ()=>{};}}}};
-  const data={buildings:[{ring_rad:[[0,0],[1,0],[1,1],[0,0]],holes_rad:[[[.6,.1],[.8,.1],[.8,.2],[.6,.1]]],height_m:20,height_source:'osm-height'}]};
-  const layer=context.window.ORCLocalBuildings(viewer,data,C,()=>ground);
-  assert.equal(entities[0].polygon.height,10);
-  assert.equal(entities[0].polygon.hierarchy.holes.length,1);
-  assert.deepEqual(Array.from(entities[0].polygon.hierarchy.holes[0].positions,p=>[p.x,p.y]),
-    [[.6,.1],[.8,.1],[.8,.2]]);
-  ground=30;
-  layer.refreshGround();
-  assert.equal(entities[0].polygon.height,30);
-  assert.equal(entities[0].polygon.extrudedHeight,50);
-  ground=0;
-  layer.refreshGround();
-  assert.equal(entities[0].polygon.extrudedHeight,20);
-  cameraHeight=20000;cameraChanged();
-  assert.equal(entities[0].show,false);
+  const C={CustomDataSource:class {constructor(){this.entities={
+    add:e=>{entities.push(e);return e;},remove:e=>entities.splice(entities.indexOf(e),1)};}},
+    PolygonHierarchy:class {constructor(positions,holes=[]){this.positions=positions;this.holes=holes;}},
+    Cartesian3:{fromRadians:(x,y)=>({x,y})},Color:{fromCssColorString:()=>color},Credit:class {}};
+  const camera={positionCartographic:{height,longitude:0,latitude:0},
+    moveEnd:{addEventListener(fn){cameraChanged=fn;return ()=>{cameraChanged=()=>{};};}}};
+  const viewer={dataSources:{add(){},remove(){removed=true;}},cesiumWidget:{creditDisplay:{addStaticCredit(){}}},
+    scene:{requestRender(){}},camera};
+  const layer=context.window.ORCLocalBuildings(viewer,{buildings},C,()=>ground);
+  return {entities,camera,layer,move:()=>cameraChanged(),setGround:value=>{ground=value;},get removed(){return removed;}};
+}
+function building(kind='osm-height',extra={}){return {ring_rad:ring,height_m:20,height_source:kind,...extra};}
+
+test('courtyards and elevated parts retain bottom and top heights through terrain changes',()=>{
+  const f=fixture([building('osm-height',{min_height_m:5,is_part:true,
+    holes_rad:[[[.000006,.000001],[.000008,.000001],[.000008,.000002],[.000006,.000001]]]})]);
+  const polygon=f.entities[0].polygon;
+  assert.equal(polygon.height,15);assert.equal(polygon.extrudedHeight,30);
+  assert.equal(polygon.hierarchy.holes.length,1);
+  assert.equal(polygon.hierarchy.holes[0].positions.length,3);
+  f.setGround(30);f.layer.refreshGround();
+  assert.equal(polygon.height,35);assert.equal(polygon.extrudedHeight,50);
+  f.camera.positionCartographic.height=20000;f.move();
+  assert.equal(f.entities.length,0);
 });
 
-test('building detail is distance-aware and generic placeholders stay hidden',()=>{
-  let cameraHeight=10000;
-  let changed;
-  const entities=[];
-  const color={withAlpha(){return this;}};
-  const C={CustomDataSource:class {constructor(){this.entities={add:e=>{entities.push(e);return e;}};}},
-    PolygonHierarchy:class {constructor(positions,holes=[]){this.positions=positions;this.holes=holes;}},Cartesian3:{fromRadians:(x,y)=>({x,y})},
-    Color:{fromCssColorString:()=>color},Credit:class {}};
-  const viewer={dataSources:{add(){},remove(){}},cesiumWidget:{creditDisplay:{addStaticCredit(){}}},scene:{requestRender(){}},
-    camera:{positionCartographic:{get height(){return cameraHeight;}},changed:{addEventListener(fn){changed=fn;return ()=>{};}}}};
-  const ring=[[0,0],[1,0],[1,1],[0,0]];
-  const layer=context.window.ORCLocalBuildings(viewer,{buildings:[
-    {ring_rad:ring,height_m:20,height_source:'osm-height'},
-    {ring_rad:ring,height_m:12,height_source:'levels-estimate'},
-    {ring_rad:ring,height_m:9,height_source:'placeholder'}]},C);
-  assert.equal(entities.length,2); // Hidden placeholders must not allocate entities.
-  assert.match(layer.label,/1 tagged, 1 floor estimates/);
-  assert.deepEqual(entities.map(e=>e.show),[true,false]);
-  cameraHeight=2000;changed();
-  assert.deepEqual(entities.map(e=>e.show),[true,true]);
+test('estimates appear close in and disappear without retained entities when zoomed out',()=>{
+  const f=fixture([building(),building('levels-estimate'),building('placeholder')],10000);
+  assert.equal(f.entities.length,1);
+  f.camera.positionCartographic.height=2000;f.move();assert.equal(f.entities.length,2);
+  f.camera.positionCartographic.height=1000;f.move();assert.equal(f.entities.length,3);
+  assert.match(f.layer.label,/1 approximate/);
+  f.camera.positionCartographic.longitude=.1;f.move();assert.equal(f.entities.length,2);
+  f.camera.positionCartographic.height=10000;f.move();assert.equal(f.entities.length,1);
+  f.layer.destroy();f.move();assert.equal(f.removed,true);
+});
+
+test('containing outline cannot occlude tower and wing parts',()=>{
+  const f=fixture([building('osm-height',{height_m:76,outline_only:true}),
+    building('osm-height',{height_m:76,is_part:true}),building('levels-estimate',{height_m:12,is_part:true})]);
+  assert.equal(f.entities.length,2);
+  assert.deepEqual(f.entities.map(e=>e.polygon.extrudedHeight),[86,22]);
+});
+
+test('dense residential tiles allocate at most 512 entities and prioritize height tags',()=>{
+  const dense=Array.from({length:10000},()=>building('placeholder'));
+  dense.push(building('osm-height',{height_m:76}));
+  const f=fixture(dense);
+  assert.equal(f.entities.length,512);
+  assert.equal(f.entities[0].polygon.extrudedHeight,86);
+  f.camera.positionCartographic.height=2000;f.move();assert.equal(f.entities.length,1);
 });

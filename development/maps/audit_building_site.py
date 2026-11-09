@@ -25,12 +25,10 @@ def classify(feature):
     bounds = (min(p[0] for p in points),min(p[1] for p in points),
               max(p[0] for p in points),max(p[1] for p in points))
     identity = str(feature.get('id') or '')
-    if properties.get('building') in (None,'no') and properties.get('building:part'):
-        reason = 'building part excluded by current building-way filter'
-    elif not normalize_components(feature,PRESETS['metro-detroit'][1]):
+    if not normalize_components(feature,PRESETS['metro-detroit'][1]):
         reason = 'complex footprint or unsupported geometry excluded'
     elif height(properties)[1] == 'placeholder':
-        reason = 'accepted footprint without height/floor tags; placeholder hidden'
+        reason = 'accepted footprint without height/floor tags; approximate height at close zoom'
     else:
         reason = 'accepted height-informed footprint; visibility/zoom must still be checked'
     return dict(id=identity,name=properties.get('name',''),geometry=geometry.get('type'),

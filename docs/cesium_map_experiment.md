@@ -193,8 +193,9 @@ The downloader never silently installs an incomplete server response.
 
 Coverage matches the Detroit imagery and terrain rectangle. This prototype uses
 OSM building ways and assembled multipolygon relations wholly inside that
-rectangle. Courtyards are preserved by the regional building pipeline. Building
-parts and boundary-crossing outlines remain omitted;
+rectangle. Courtyards and building parts are preserved by the regional building
+pipeline; parts provide separate top and base heights, while containing whole-building
+outlines are not extruded over them. Boundary-crossing outlines remain omitted;
 this is not a complete city model. Flat roofs and bases are a visual approximation.
 Bases use the coarse terrain's relative relief at each outline's centroid.
 
@@ -1116,3 +1117,8 @@ Containing tiles rank ahead of neighboring tiles with closer centroids, includin
 adaptive-size building cells. The four-active/two-pending limits remain unchanged.
 Distant geometry may still be excluded by this local-detail budget; this does
 not add statewide buildings or change height-tag/floor-estimate visibility rules.
+
+Regional building presentation now includes approximate 9 m blocks at close zoom
+for footprints without height tags. These are labeled estimates, with a lazy
+512-entity per-tile budget and four active tiles; see the state map build pipeline
+for zoom/distance limits. Schemas 1 and 2 remain readable alongside schema 3.

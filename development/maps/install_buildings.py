@@ -32,7 +32,7 @@ def install(archive, *, destination=None):
     finally:
         pending.unlink(missing_ok=True)
     print(f'Ready: {descriptor["buildings"]:,} building outlines. Reopen Terrain in ORC.')
-    print('Tagged heights and floor estimates retain separate classifications; placeholders remain hidden.')
+    print('Tagged heights and floor estimates retain separate classifications; unknown heights render as approximate blocks at close zoom.')
     return active
 
 

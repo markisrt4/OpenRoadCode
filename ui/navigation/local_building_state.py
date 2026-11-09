@@ -10,6 +10,9 @@ class LocalBuilding:
     height_source: str
     holes: tuple[tuple[tuple[float, float], ...], ...] = ()
     source_id: str = ""
+    min_height_m: float = 0.0
+    is_part: bool = False
+    outline_only: bool = False
 
     def __post_init__(self):
         rings = (self.ring, *self.holes)
@@ -33,6 +36,9 @@ class LocalBuilding:
             raise ValueError("Invalid building source identifier")
         if not math.isfinite(self.height_m) or not 1 <= self.height_m <= 1000:
             raise ValueError("Invalid building height")
+        if (not math.isfinite(self.min_height_m) or not 0 <= self.min_height_m < self.height_m
+                or type(self.is_part) is not bool or type(self.outline_only) is not bool):
+            raise ValueError("Invalid building base or part classification")
         if self.height_source not in ("osm-height", "levels-estimate", "placeholder"):
             raise ValueError("Unknown building height source")
 
@@ -43,7 +49,8 @@ class LocalBuilding:
             return cls(tuple(tuple(p) for p in building["ring_rad"]),
                        building["height_m"],building["height_source"],
                        tuple(tuple(tuple(p) for p in ring) for ring in building.get("holes_rad",())),
-                       building.get("source_id",""))
+                       building.get("source_id",""),building.get("min_height_m",0.0),
+                       building.get("is_part",False),building.get("outline_only",False))
         except (TypeError,KeyError) as error:
             raise ValueError("Invalid building document") from error
 
@@ -54,6 +61,12 @@ class LocalBuilding:
             result["holes_rad"] = self.holes
         if self.source_id:
             result["source_id"] = self.source_id
+        if self.min_height_m:
+            result["min_height_m"] = self.min_height_m
+        if self.is_part:
+            result["is_part"] = True
+        if self.outline_only:
+            result["outline_only"] = True
         return result
 
 

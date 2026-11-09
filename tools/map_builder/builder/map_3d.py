@@ -11,6 +11,7 @@ from tempfile import TemporaryDirectory
 
 from ui.navigation.local_map_tiles_state import MAX_MAP_TILES
 from ui.navigation.local_building_state import LocalBuilding
+from .building_parts import mark_part_outlines
 from .building_geometry import height, normalize, normalize_components, source_identity, ring_identity, outer_members
 
 PRESETS = {
@@ -84,7 +85,7 @@ def build_pack(root, preset):
             extract,filtered = scratch/f'{index}.osm.pbf',scratch/f'{index}-buildings.osm.pbf'
             subprocess.run(['osmium','extract','-b',','.join(map(str,bounds)),'-s','smart','-S','types=multipolygon',
                             str(source),'-o',str(extract)],check=True)
-            subprocess.run(['osmium','tags-filter',str(extract),'wr/building','-o',str(filtered)],check=True)
+            subprocess.run(['osmium','tags-filter',str(extract),'wr/building','wr/building:part','-o',str(filtered)],check=True)
             membership = subprocess.run(['osmium','cat','--object-type=relation','-f','opl',str(filtered)],
                                         check=True,capture_output=True,text=True)
             members.update(outer_members(membership.stdout))
@@ -130,10 +131,12 @@ def build_pack(root, preset):
             for identity,building in list(bucket.items()):
                 parents = candidates.get(identity.rsplit('#',1)[0],())
                 if any(ring_identity(parent['ring_rad']) == ring_identity(building['ring_rad'])
+                       and parent.get('is_part',False) == building.get('is_part',False)
                        and (parent['height_source'] != 'placeholder' or building['height_source'] == 'placeholder')
                        for parent in parents):
                     del bucket[identity]
                     duplicates += 1
+        part_outlines = mark_part_outlines(buckets)
         if not any(buckets.values()):
             raise ValueError('No supported building outlines in selected coverage; verify your source region')
         pack = scratch/'pack'
@@ -149,10 +152,12 @@ def build_pack(root, preset):
             records.append({'id':tile_id,'title':title,'attribution':CREDIT,
                 'bounds_deg':tile_bounds,
                 'buildings_count':len(features),'sha256':{'buildings.json':digest(local/'buildings.json')}})
-        manifest = {'schema':2,'title':title+' buildings','attribution':CREDIT,'bounds_deg':bounds,
+        manifest = {'schema':3,'title':title+' buildings','attribution':CREDIT,'bounds_deg':bounds,
             'tiles':records,'layers':['buildings'],'generated_utc':datetime.now(timezone.utc).isoformat(),
             'license':'https://opendatacommons.org/licenses/odbl/1-0/', 'skipped_features':skipped,
             'height_counts':height_counts, 'grid':[rows,columns],
+            'part_components':sum(bool(b.get('is_part')) for cell in buckets.values() for b in cell.values()),
+            'outlines_with_parts':part_outlines,
             'relation_components':sum(len(parts) for parts in accepted_relations.values()),
             'courtyard_components':sum(bool(b.get('holes_rad')) for cell in buckets.values() for b in cell.values()),
             'duplicate_member_ways_removed':duplicates,
@@ -168,7 +173,7 @@ def validate_pack(directory):
     manifest_path = root/'manifest.json'
     manifest = json.loads(manifest_path.read_text())
     terrain_only = manifest.get('layers') == ['terrain']
-    if manifest.get('schema') not in (1,2) or not 0 <= len(manifest['tiles']) <= MAX_MAP_TILES or (not manifest['tiles'] and not terrain_only):
+    if manifest.get('schema') not in (1,2,3) or not 0 <= len(manifest['tiles']) <= MAX_MAP_TILES or (not manifest['tiles'] and not terrain_only):
         raise ValueError('Unsupported 3D pack schema')
     west,south,east,north = manifest['bounds_deg']
     if not (-180 <= west < east <= 180 and -90 <= south < north <= 90):

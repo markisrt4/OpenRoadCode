@@ -62,7 +62,7 @@ def test_only_accepted_relations_suppress_matching_member_way(tmp_path,monkeypat
     monkeypatch.setitem(map_3d.PRESETS,'fixture',('Fixture',BOUNDS))
     pack=map_3d.build_pack(tmp_path,'fixture')
     manifest=json.loads((pack/'manifest.json').read_text())
-    assert manifest['schema']==2
+    assert manifest['schema']==3
     assert sum(t['buildings_count'] for t in manifest['tiles'])==1
     assert manifest['duplicate_member_ways_removed']==int(accepted)
     assert manifest['courtyard_components']==int(accepted)

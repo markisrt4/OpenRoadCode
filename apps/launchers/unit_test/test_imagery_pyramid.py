@@ -104,7 +104,7 @@ def test_complex_campus_and_missing_heights_have_distinct_explanations():
     from development.maps.audit_building_site import classify
     ring=[[-83.23,42.65],[-83.229,42.65],[-83.229,42.651],[-83.23,42.65]]
     feature=dict(id='w1',properties={'building':'yes'},geometry={'type':'Polygon','coordinates':[ring]})
-    assert 'placeholder hidden' in classify(feature)['reason']
+    assert 'approximate height' in classify(feature)['reason']
     feature['properties']['height']='50'
     assert 'height-informed' in classify(feature)['reason']
     feature['geometry']['coordinates'].append(ring)
