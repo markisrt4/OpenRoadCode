@@ -12,3 +12,7 @@
 
 PNG assets are normalized copies of the reviewed SVG sources. Existing
 navigation/Earth/3D artwork remains unchanged.
+
+The compact app-status indicator draws a four-color Google Play triangle and
+download/check/unknown/web badges with Tk canvas primitives; no external image
+service or new asset download is used. Google Play trademark rights apply.

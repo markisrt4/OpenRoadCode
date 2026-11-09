@@ -78,9 +78,17 @@ font families from `overrides.json`. Proprietary fonts are not bundled; when the
 are unavailable, the title uses the listed system fallback. A contrasting backing
 keeps brand-colored titles readable in both themes.
 
-Ordering cards check app availability in the background each time they open.
-They distinguish installed, not installed (website fallback), website-only, and
-unavailable status. A failed or ambiguous Android connection is never described
+Ordering cards check app availability in the background each time they open or
+regain focus. A compact icon beside ORDER replaces the status text: an app badge
+with a green check means installed, a Play triangle with a download badge means
+not installed, a globe means website-only ordering, and a neutral question mark
+means unavailable status. Hovering the indicator explains these states.
+The Play/download indicator is clickable when online and no launch is pending;
+it opens the curated app's Google Play listing using the existing app/store
+handoff. Google Play controls installation and user confirmation. This does not
+silently install or download APKs. Reopen the POI after installing to refresh its
+status. Store presence, device eligibility, region, and account requirements can
+still prevent installation; a known package is not a guarantee of availability. A failed or ambiguous Android connection is never described
 as an uninstalled app. The check does not launch apps or disable ORDER. Results
 are scoped to the current popup; closed/replaced cards ignore late responses.
 Attribution is recorded in the frontend assets directory.

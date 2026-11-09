@@ -31,6 +31,7 @@ def test_ordering_popup_has_one_business_action_through_existing_request_contrac
         panel.online_actions_allowed = True
         panel._refresh_poi_action_buttons = Mock()
         panel._execute_poi_action = Mock()
+        panel._add_tooltip = Mock()
         poi = enrich_poi(PointOfInterest('store', 'Panera Bread', PoiCategory.FOOD,
                                        GeoPoint(0, 0), website='https://www.panerabread.com'))
         show_poi_card(panel, poi)
@@ -40,6 +41,15 @@ def test_ordering_popup_has_one_business_action_through_existing_request_contrac
         assert button.winfo_ismapped()
         popup = panel._poi_card
         assert button.winfo_rootx() + button.winfo_width() <= popup.winfo_rootx() + popup.winfo_width()
+        from ui.navigation.poi_models import PoiAppAvailability
+        indicator = panel._poi_app_indicator
+        indicator.set_availability(PoiAppAvailability.NOT_INSTALLED)
+        indicator.invoke()
+        requested, store = panel._execute_poi_action.call_args.args
+        assert requested == poi
+        assert store.kind is PoiActionKind.OPEN_ANDROID_APP
+        assert store.provider_id == 'panera'
+        panel._execute_poi_action.reset_mock()
         button.invoke()
         requested_poi, action = panel._execute_poi_action.call_args.args
         assert requested_poi.business_id == 'panera'
@@ -112,7 +122,9 @@ def test_borderless_business_card_has_icon_distinct_navigation_and_bottom_close(
         assert icons[0].itemcget(icons[0].find_withtag('poi-title')[0], 'fill').lower() == poi.title_style.color.lower()
         assert buttons['CLOSE'].winfo_rooty() > buttons['ORDER'].winfo_rooty()
         assert buttons['CLOSE'].winfo_rooty() + buttons['CLOSE'].winfo_height() <= popup.winfo_rooty() + popup.winfo_height()
+        indicator = panel._poi_app_indicator
         buttons['CLOSE'].invoke()
+        assert indicator._icon is None
         assert not popup.winfo_exists()
         assert icons[0]._poi_icon is None
         assert buttons['ORDER']._action_icon is None
@@ -141,13 +153,8 @@ def test_leaving_navigation_during_poll_does_not_rearm_old_view():
     panel.after.assert_not_called()
 
 
-@pytest.mark.parametrize('availability,expected', [
-    ('INSTALLED', '● App installed'),
-    ('NOT_INSTALLED', '○ App not installed · opens website'),
-    ('UNKNOWN', 'App status unavailable'),
-    ('WEB_ONLY', 'Website ordering'),
-])
-def test_app_status_updates_only_the_current_live_card(availability, expected):
+@pytest.mark.parametrize('availability', ['INSTALLED', 'NOT_INSTALLED', 'UNKNOWN', 'WEB_ONLY'])
+def test_app_status_updates_only_the_current_live_card(availability):
     from ui.navigation.poi_models import PoiAppAvailability, PoiAppStatus
     from apps.orcUi.frontend.tk.navigation_poi_actions import poll_poi_app_status
     card, label, handler = Mock(), Mock(), Mock()
@@ -156,9 +163,37 @@ def test_app_status_updates_only_the_current_live_card(availability, expected):
         _poi_app_status_request=(7, 'store', card, label))
     handler.poll_app_status.return_value = PoiAppStatus(7, 'store', PoiAppAvailability[availability])
     poll_poi_app_status(panel)
-    assert label.configure.call_args.kwargs['text'] == expected
+    label.set_availability.assert_called_once_with(PoiAppAvailability[availability])
     label.reset_mock()
     panel._poi_app_status_request = (7, 'store', card, label)
     panel._poi_card = Mock()
     poll_poi_app_status(panel)
-    label.configure.assert_not_called()
+    label.set_availability.assert_not_called()
+
+
+def test_app_indicator_only_opens_store_when_missing_enabled_and_explicitly_clicked():
+    from apps.orcUi.frontend.tk.poi_app_indicator import PoiAppIndicator
+    from ui.navigation.poi_models import PoiAppAvailability
+    try:
+        root = tk.Tk()
+    except tk.TclError as error:
+        pytest.skip(f'X11 display unavailable: {error}')
+    try:
+        store = Mock()
+        indicator = PoiAppIndicator(root, icon=None, theme=theme_bundle(ThemeMode.DARK).ui, open_store=store)
+        for availability in PoiAppAvailability:
+            indicator.set_availability(availability)
+            store.assert_not_called()
+        for availability in (PoiAppAvailability.INSTALLED, PoiAppAvailability.UNKNOWN, PoiAppAvailability.WEB_ONLY):
+            indicator.set_availability(availability)
+            indicator.invoke()
+        store.assert_not_called()
+        indicator.set_availability(PoiAppAvailability.NOT_INSTALLED)
+        indicator.set_enabled(False)
+        indicator.invoke()
+        store.assert_not_called()
+        indicator.set_enabled(True)
+        indicator.invoke()
+        store.assert_called_once_with()
+    finally:
+        root.destroy()

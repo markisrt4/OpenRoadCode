@@ -7,9 +7,10 @@ import tkinter as tk
 
 from .navigation_earth_control import build_earth_control, build_poi_icon_button, load_poi_action_icon
 from .poi_card_header import PoiCardHeader
+from .poi_app_indicator import PoiAppIndicator
 from .navigation_poi_actions import request_poi_app_status
 
-from ui.navigation.poi_models import PoiActionKind
+from ui.navigation.poi_models import PoiAction, PoiActionKind
 
 
 def build_navigation_panel(panel) -> None:
@@ -382,11 +383,18 @@ def show_poi_card(panel, poi) -> None:
             panel._poi_action_buttons.append(button)
 
     panel._poi_app_status_request = None
-    if any(action.kind is PoiActionKind.ORDER for action in other_actions):
-        status = tk.Label(frame, text='Checking ordering app…', bg=ui.surface_alt,
-                          fg=ui.text_muted, font=('Sans', 9))
-        status.pack(pady=(4, 0))
-        request_poi_app_status(panel, poi, status)
+    panel._poi_app_indicator = None
+    order = next((action for action in other_actions if action.kind is PoiActionKind.ORDER), None)
+    if order is not None:
+        store_action = PoiAction(PoiActionKind.OPEN_ANDROID_APP, 'Google Play', provider_id=order.provider_id)
+        indicator = PoiAppIndicator(extra_buttons, icon=poi.icon, theme=ui,
+            open_store=lambda: panel._execute_poi_action(poi, store_action))
+        indicator.pack(side=tk.LEFT, padx=(4, 0))
+        panel._poi_app_indicator = indicator
+        panel._add_tooltip(indicator, 'Ordering app: green check = installed; Play/download = open store; ? = status unavailable; globe = website only')
+        request_poi_app_status(panel, poi, indicator)
+        popup.bind('<FocusIn>', lambda event: request_poi_app_status(panel, poi, indicator)
+                   if event.widget is popup and indicator.winfo_exists() else None, add='+')
 
     panel._refresh_poi_action_buttons()
     popup.update_idletasks()

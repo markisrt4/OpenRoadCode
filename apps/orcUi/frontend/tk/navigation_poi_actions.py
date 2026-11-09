@@ -11,7 +11,7 @@ def request_poi_app_status(panel, poi, label):
     handler = panel.__dict__.get('_places_handler')
     request_id = handler.request_app_status(poi) if handler is not None else None
     if type(request_id) is not int:
-        label.configure(text='App status unavailable')
+        label.set_availability(PoiAppAvailability.UNKNOWN)
         return
     panel._poi_app_status_request = (request_id, poi.poi_id, panel._poi_card, label)
 
@@ -28,14 +28,7 @@ def poll_poi_app_status(panel):
     card, label = pending[2:]
     if card is not panel._poi_card or not card.winfo_exists() or not label.winfo_exists():
         return
-    ui = panel._theme_bundle.ui
-    text, color = {
-        PoiAppAvailability.INSTALLED: ('● App installed', ui.accent_success),
-        PoiAppAvailability.NOT_INSTALLED: ('○ App not installed · opens website', ui.text_muted),
-        PoiAppAvailability.UNKNOWN: ('App status unavailable', ui.text_muted),
-        PoiAppAvailability.WEB_ONLY: ('Website ordering', ui.text_muted),
-    }[result.availability]
-    label.configure(text=text, fg=color)
+    label.set_availability(result.availability)
 
 
 def execute_poi_action(panel, poi, action) -> None:

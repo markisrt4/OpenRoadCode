@@ -216,6 +216,9 @@ class NavigationPlacesControls:
         self._waze_handler.request_navigate_waze(poi.position)
 
     def _refresh_poi_action_buttons(self) -> None:
+        indicator = self.__dict__.get('_poi_app_indicator')
+        if indicator is not None and indicator.winfo_exists():
+            indicator.set_enabled(self.online_actions_allowed and not self._poi_launching)
         waze = self.__dict__.get('_waze_button')
         if waze is not None and waze.winfo_exists():
             waze.configure(state=tk.NORMAL if self.online_actions_allowed else tk.DISABLED)
