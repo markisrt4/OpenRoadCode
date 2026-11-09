@@ -107,6 +107,9 @@ def test_borderless_business_card_has_icon_distinct_navigation_and_bottom_close(
         panel._navigate_to_poi.assert_called_once_with(poi)
         buttons['Waze'].invoke()
         panel._navigate_to_poi_with_waze.assert_called_once_with(poi)
+        assert buttons['CLOSE']._action_icon.width() > 0
+        assert not any(icons[0].itemcget(item, 'text') == 'PLACE DETAILS' for item in icons[0].find_all() if icons[0].type(item) == 'text')
+        assert icons[0].itemcget(icons[0].find_withtag('poi-title')[0], 'fill').lower() == poi.title_style.color.lower()
         assert buttons['CLOSE'].winfo_rooty() > buttons['ORDER'].winfo_rooty()
         assert buttons['CLOSE'].winfo_rooty() + buttons['CLOSE'].winfo_height() <= popup.winfo_rooty() + popup.winfo_height()
         buttons['CLOSE'].invoke()
@@ -136,3 +139,26 @@ def test_leaving_navigation_during_poll_does_not_rearm_old_view():
     panel._poll_poi_events_once.side_effect = close_during_poll
     NavigationPlacesControls._poll_poi_events(panel)
     panel.after.assert_not_called()
+
+
+@pytest.mark.parametrize('availability,expected', [
+    ('INSTALLED', '● App installed'),
+    ('NOT_INSTALLED', '○ App not installed · opens website'),
+    ('UNKNOWN', 'App status unavailable'),
+    ('WEB_ONLY', 'Website ordering'),
+])
+def test_app_status_updates_only_the_current_live_card(availability, expected):
+    from ui.navigation.poi_models import PoiAppAvailability, PoiAppStatus
+    from apps.orcUi.frontend.tk.navigation_poi_actions import poll_poi_app_status
+    card, label, handler = Mock(), Mock(), Mock()
+    panel = SimpleNamespace(_poi_card=card, _places_handler=handler,
+        _theme_bundle=theme_bundle(ThemeMode.DARK),
+        _poi_app_status_request=(7, 'store', card, label))
+    handler.poll_app_status.return_value = PoiAppStatus(7, 'store', PoiAppAvailability[availability])
+    poll_poi_app_status(panel)
+    assert label.configure.call_args.kwargs['text'] == expected
+    label.reset_mock()
+    panel._poi_app_status_request = (7, 'store', card, label)
+    panel._poi_card = Mock()
+    poll_poi_app_status(panel)
+    label.configure.assert_not_called()

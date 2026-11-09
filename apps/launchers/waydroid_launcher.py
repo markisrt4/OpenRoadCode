@@ -45,6 +45,9 @@ class WaydroidLauncher:
 
     def list_apps(self) -> tuple[AndroidApp, ...]:
         result = self._run("app", "list")
+        if any(message in (result.stdout + result.stderr).casefold() for message in
+               ('failed to access', 'not running', 'session is stopped', 'not initialized')):
+            raise WaydroidLauncherError('Waydroid app availability could not be read')
         apps: list[AndroidApp] = []
         name: str | None = None
         package: str | None = None

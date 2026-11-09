@@ -99,3 +99,12 @@ def test_all_generated_icon_references_are_approved_checksummed_assets():
     for business in BUSINESSES:
         if business.icon_id:
             assert icon_properties(business.icon_id)
+
+
+def test_title_branding_survives_legacy_overrides_and_unknown_brands_use_theme():
+    branded = enrich_poi(PointOfInterest('store', "McDonald's", PoiCategory.FOOD, GeoPoint(0, 0)))
+    assert branded.title_style.color == '#FBC817'
+    assert branded.title_style.font_families[0] == 'Speedee'
+    assert enrich_poi(branded) == branded
+    unknown = enrich_poi(PointOfInterest('cafe', 'Independent Cafe', PoiCategory.FOOD, GeoPoint(0, 0)))
+    assert unknown.title_style is None

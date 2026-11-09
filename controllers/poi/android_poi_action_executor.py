@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from controllers.poi.business_provider_catalog import get_business_provider
 from controllers.poi.poi_action_executor_if import PoiActionExecutorIf
-from ui.navigation.poi_models import (PoiAction, PoiActionKind, PointOfInterest)
+from ui.navigation.poi_models import (PoiAction, PoiActionKind, PointOfInterest, PoiAppAvailability)
 
 
 class AndroidPoiActionExecutor(PoiActionExecutorIf):
@@ -17,6 +17,18 @@ class AndroidPoiActionExecutor(PoiActionExecutorIf):
         if launcher is None:
             raise ValueError('A platform launcher must be injected')
         self._launcher = launcher
+
+    def app_availability(self, poi: PointOfInterest) -> PoiAppAvailability:
+        action = next((a for a in poi.actions if a.kind is PoiActionKind.ORDER), None)
+        provider = get_business_provider(action.provider_id) if action else None
+        if provider is None or not provider.android_package:
+            return PoiAppAvailability.WEB_ONLY
+        installed = self._launcher.package_installed(provider.android_package)
+        if installed is True:
+            return PoiAppAvailability.INSTALLED
+        if installed is False:
+            return PoiAppAvailability.NOT_INSTALLED
+        return PoiAppAvailability.UNKNOWN
 
     def execute(self, poi: PointOfInterest, action: PoiAction) -> str:
         del poi

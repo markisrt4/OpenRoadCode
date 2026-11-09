@@ -54,3 +54,17 @@ def test_android_app_action_uses_only_the_verified_mapping():
     status = executor.execute(_panera(), PoiAction(PoiActionKind.OPEN_ANDROID_APP, 'OPEN / INSTALL APP', provider_id='panera'))
     launcher.open_android_app.assert_called_once_with('com.panera.bread')
     assert status == 'Opening Google Play'
+
+
+def test_app_status_uses_curated_ordering_package_without_launching():
+    from dataclasses import replace
+    from ui.navigation.poi_models import PoiAppAvailability
+    launcher = Mock()
+    executor = AndroidPoiActionExecutor(launcher)
+    poi = replace(_panera(), actions=(PoiAction(PoiActionKind.ORDER, 'ORDER', provider_id='panera'),))
+    for value, expected in ((True, PoiAppAvailability.INSTALLED), (False, PoiAppAvailability.NOT_INSTALLED),
+                            (None, PoiAppAvailability.UNKNOWN)):
+        launcher.package_installed.return_value = value
+        assert executor.app_availability(poi) is expected
+    assert executor.app_availability(_panera()) is PoiAppAvailability.WEB_ONLY
+    launcher.open_package_or_uri.assert_not_called()

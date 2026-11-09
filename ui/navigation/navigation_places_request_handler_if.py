@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 from ui.navigation.map_ui_if import GeoPoint
-from ui.navigation.poi_models import PoiAction, PoiCategory, PoiSearchResult, PointOfInterest, TransitMode
+from ui.navigation.poi_models import PoiAction, PoiCategory, PoiSearchResult, PointOfInterest, TransitMode, PoiAppStatus
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,6 +115,21 @@ class NavigationPlacesRequestHandlerIf(ABC):
         """Consume a completed handoff.
 
         @return Completion or None."""
+        return None
+
+    def request_app_status(self, poi: PointOfInterest) -> int | None:
+        """Check ordering app availability without blocking presentation.
+
+        @param poi Selected place.
+        @return Request identifier, or None when checking is unavailable.
+        """
+        return None
+
+    def poll_app_status(self) -> PoiAppStatus | None:
+        """Consume an app availability observation.
+
+        @return Result scoped to a card request, or None while pending.
+        """
         return None
 
     @abstractmethod

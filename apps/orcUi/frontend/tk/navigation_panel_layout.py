@@ -7,6 +7,7 @@ import tkinter as tk
 
 from .navigation_earth_control import build_earth_control, build_poi_icon_button, load_poi_action_icon
 from .poi_card_header import PoiCardHeader
+from .navigation_poi_actions import request_poi_app_status
 
 from ui.navigation.poi_models import PoiActionKind
 
@@ -277,7 +278,7 @@ def show_poi_card(panel, poi) -> None:
     shell = tk.Frame(
         popup,
         bg=ui.surface_alt,
-        highlightthickness=1, highlightbackground=ui.accent_primary,
+        highlightthickness=2, highlightbackground=ui.accent_primary,
     )
     shell.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
 
@@ -295,17 +296,21 @@ def show_poi_card(panel, poi) -> None:
     else:
         details.append(poi.category.name.replace("_", " ").title())
 
-    header = PoiCardHeader(shell, title=poi.name, details='  •  '.join(details), icon=poi.icon, theme=ui)
+    header = PoiCardHeader(shell, title=poi.name, details='  •  '.join(details), icon=poi.icon,
+                           theme=ui, title_style=poi.title_style)
     header.pack(fill=tk.X)
     tk.Frame(shell, height=1, bg=ui.border).pack(fill=tk.X)
     frame = tk.Frame(shell, bg=ui.surface_alt, padx=12, pady=8)
     frame.pack(fill=tk.BOTH, expand=True)
 
-    close = tk.Button(frame, text='CLOSE', command=popup.destroy,
+    close_icon = load_poi_action_icon(frame, 'close.png', tk).subsample(2, 2)
+    close = tk.Button(frame, text='CLOSE', image=close_icon, compound=tk.LEFT, command=popup.destroy,
         bg=ui.control_background, fg=ui.text_muted, activebackground=ui.control_active,
         activeforeground=ui.text, relief=tk.FLAT, borderwidth=0,
         highlightthickness=1, highlightbackground=ui.border, highlightcolor=ui.accent_primary,
         font=('Sans', 10, 'bold'), pady=6)
+    close._action_icon = close_icon
+    close.bind('<Destroy>', lambda _event: setattr(close, '_action_icon', None))
     close.pack(side=tk.BOTTOM, fill=tk.X, pady=(10, 0))
     popup.bind('<Escape>', lambda _event: popup.destroy())
 
@@ -375,6 +380,13 @@ def show_poi_card(panel, poi) -> None:
             button.bind('<Destroy>', lambda _event, widget=button: setattr(widget, '_action_icon', None))
             button.pack(side=tk.LEFT, padx=4)
             panel._poi_action_buttons.append(button)
+
+    panel._poi_app_status_request = None
+    if any(action.kind is PoiActionKind.ORDER for action in other_actions):
+        status = tk.Label(frame, text='Checking ordering app…', bg=ui.surface_alt,
+                          fg=ui.text_muted, font=('Sans', 9))
+        status.pack(pady=(4, 0))
+        request_poi_app_status(panel, poi, status)
 
     panel._refresh_poi_action_buttons()
     popup.update_idletasks()

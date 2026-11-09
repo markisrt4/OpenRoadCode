@@ -72,7 +72,18 @@ ORC routing and **Waze** hands the destination to native Waze. Earth/3D Map are
 grouped separately under **EXPLORE**. Unknown/unapproved business icons are omitted
 from the card rather than fetched from an arbitrary site.
 Waze uses its own bundled brand mark, and ORDER has a shopping-bag icon in its
-primary action button. Attribution is recorded in the frontend assets directory.
+primary action button. Close includes an icon beside its label. The header omits
+redundant section labels and uses reviewed brand title colors and preferred local
+font families from `overrides.json`. Proprietary fonts are not bundled; when they
+are unavailable, the title uses the listed system fallback. A contrasting backing
+keeps brand-colored titles readable in both themes.
+
+Ordering cards check app availability in the background each time they open.
+They distinguish installed, not installed (website fallback), website-only, and
+unavailable status. A failed or ambiguous Android connection is never described
+as an uninstalled app. The check does not launch apps or disable ORDER. Results
+are scoped to the current popup; closed/replaced cards ignore late responses.
+Attribution is recorded in the frontend assets directory.
 Places-list results and map-marker selections receive the same Earth and local
 3D exploration actions before reaching the card, including independent businesses
 that have no brand/app registry entry. These actions are added without replacing

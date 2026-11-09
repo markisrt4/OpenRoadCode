@@ -27,9 +27,11 @@ class NavigationPlacesFactory(NavigationPlacesFactoryIf):
                  online_allowed: Callable[[], bool] = lambda: True, camera_observer=None, embedded_explore=None,
                  android_app_view=None, installed_apps=None):
         self._favorites = favorites if favorites is not None else MapFavorites()
+        platform_actions = AndroidPoiActionExecutor(AndroidAppLauncher(app_view=android_app_view,
+                                                                       installed_apps=installed_apps)) if actions is None else None
+        self._app_availability = platform_actions.app_availability if platform_actions is not None else None
         self._owned_3d = None if actions is not None else CesiumPoiActions(
-            EarthExplorationActions(AndroidPoiActionExecutor(AndroidAppLauncher(app_view=android_app_view,
-                                                                               installed_apps=installed_apps))),
+            EarthExplorationActions(platform_actions),
             embedded_explore=embedded_explore)
         self._actions = actions if actions is not None else self._owned_3d
         self._selection_cache = PoiSelectionCache()
@@ -47,6 +49,7 @@ class NavigationPlacesFactory(NavigationPlacesFactoryIf):
         self._favorites.load()
         session = NavigationPlacesController(self._search_factory(), self._favorites, self._actions,
                                              online_allowed=self._online_allowed, camera_observer=self._camera_observer,
+                                             app_availability=self._app_availability,
                                              local_3d_action=self._owned_3d.action_for if self._owned_3d is not None else None)
         self._sessions.add(session)
         return session

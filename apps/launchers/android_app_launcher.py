@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 import re
+import subprocess
 from ui.navigation.android_app_view_if import AndroidAppViewRequestHandlerIf
 from ui.navigation.installed_android_app_if import InstalledAndroidAppLauncherIf
 
@@ -46,6 +47,26 @@ class AndroidAppLauncher:
             if name is not None:
                 self._app_view.request_show_android_app(name, package)
                 return 'embedded Android app'
+        return None
+
+    def package_installed(self, package: str) -> bool | None:
+        """Read availability without opening an app; None means unverifiable."""
+        if not re.fullmatch(r'[a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z][a-zA-Z0-9_]*)+', package):
+            return None
+        if not self._is_native_android():
+            try:
+                return any(app.package == package for app in self._waydroid.list_apps())
+            except WaydroidLauncherError:
+                return None
+        try:
+            result = subprocess.run(['adb', 'shell', 'pm', 'path', package],
+                capture_output=True, text=True, timeout=5, check=False)
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if result.returncode == 0 and any(line.startswith('package:') for line in result.stdout.splitlines()):
+            return True
+        if result.returncode in (0, 1) and not result.stdout.strip() and not result.stderr.strip():
+            return False
         return None
 
     @staticmethod
