@@ -3,6 +3,7 @@
 from functools import partial
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import base64
 import mimetypes
 from pathlib import Path
 import secrets
@@ -25,9 +26,12 @@ _WORLD_LAKES = Path(__file__).resolve().parents[2] / "resources/maps/world_lakes
 class CesiumViewerServer:
     """Own the local origin, immutable view state, and bounded serving lifecycle."""
 
-    def __init__(self, sdk: Path, state: CesiumViewerState, *, imagery=None, imagery_layers=(), terrain=None, buildings=None, tiles=None, roads=None, boundaries=None):
+    def __init__(self, sdk: Path, state: CesiumViewerState, *, imagery=None, imagery_layers=(), terrain=None, buildings=None, tiles=None, roads=None, boundaries=None, imagery_pyramids=()):
         self._sdk = require_sdk(sdk)
         self._state = state
+        self._imagery_pyramids = tuple(imagery_pyramids)
+        if len(self._imagery_pyramids) > 8:
+            raise ValueError("At most eight offline imagery pyramids may be mounted")
         self._imagery = imagery
         self._imagery_layers = tuple(imagery_layers)
         self._imagery_stack = LocalImageryStackState(tuple(pack.state for pack in self._imagery_layers))
@@ -90,6 +94,9 @@ class _Handler(BaseHTTPRequestHandler):
             document['roads_max_zoom'] = self.owner._roads.max_zoom if self.owner._roads is not None else 14
             if self.owner._boundaries is not None:
                 document['boundary_overlay'] = self.owner._boundaries.document()
+            document['imagery_pyramids'] = [pack.state.document() for pack in self.owner._imagery_pyramids]
+            for index, layer in enumerate(document['imagery_pyramids']):
+                layer['url'] = f'/data/imagery-detail/{index}/{{z}}/{{x}}/{{y}}'
             if self.owner._imagery_layers:
                 document['imagery_layers'] = self.owner._imagery_stack.document()
                 for index, layer in enumerate(document['imagery_layers']):
@@ -134,9 +141,29 @@ class _Handler(BaseHTTPRequestHandler):
             except (ValueError,ValidationError,sqlite3.Error,OSError):
                 self.send_error(404,'Offline road tile unavailable')
             return
+        if path.startswith('/data/imagery-detail/'):
+            try:
+                parts = path.removeprefix('/data/imagery-detail/').split('/')
+                if len(parts) != 4 or any(not p.isascii() or not p.isdigit() or len(p)>6 for p in parts):
+                    raise ValueError('Invalid imagery tile URL')
+                index, zoom, x, y = map(int, parts)
+                if index >= len(self.owner._imagery_pyramids):
+                    raise ValueError('Unknown imagery pyramid')
+                pack = self.owner._imagery_pyramids[index]
+                content = pack.tile(zoom,x,y)
+                if content is None:
+                    # Valid address with no source coverage: show the underlying
+                    # overview instead of repeated tile errors or fabricated data.
+                    content = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=')
+                    self._send(content,'image/png')
+                else:
+                    self._send(content,'image/jpeg' if pack.state.image_format in ('jpg','jpeg') else 'image/'+pack.state.image_format)
+            except (ValueError,OSError,sqlite3.Error):
+                self.send_error(404,'Offline imagery tile unavailable')
+            return
         if path.startswith('/data/imagery/'):
             index = path.removeprefix('/data/imagery/')
-            if not index.isascii() or not index.isdigit() or len(index) > 1 or int(index) >= len(self.owner._imagery_layers):
+            if not index.isascii() or not index.isdigit() or len(index) > 2 or int(index) >= len(self.owner._imagery_layers):
                 self.send_error(404)
                 return
             image = self.owner._imagery_layers[int(index)].image

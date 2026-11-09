@@ -21,6 +21,7 @@ def native(monkeypatch, tmp_path):
     for name in ('detroit_pack_directory','preferred_imagery_directory','detroit_building_directory'):
         monkeypatch.setattr(module,name,lambda *args: tmp_path/'absent')
     monkeypatch.setattr(module,'load_installed_terrain_catalog',lambda *args:None)
+    monkeypatch.setattr(module,'installed_imagery_pyramids',lambda:())
     monkeypatch.setattr(module,'logging_file_path',lambda *args: tmp_path/'viewer.log')
     adapter = module.CesiumPoiActions(Mock())
     yield adapter, server, browser, server_factory, browser_factory

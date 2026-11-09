@@ -186,3 +186,12 @@ def test_seven_installed_packs_can_be_mounted_as_metadata(tmp_path, monkeypatch,
     assert layers[-1]['title']=='Pack 6'
     with pytest.raises(ValueError,match='64'):
         LocalImageryStackState((server._imagery_layers[0].state,)*65)
+
+
+def test_server_can_serve_coarse_layer_indices_above_nine(server,pack):
+    from ui.navigation.local_imagery_state import LocalImageryStackState
+    loaded=LocalImageryPack.load(pack)
+    server._imagery_layers=(loaded,)*12
+    server._imagery_stack=LocalImageryStackState((loaded.state,)*12)
+    with urllib.request.urlopen(server.url+'data/imagery/10') as response:
+        assert response.read()==loaded.image.read_bytes()

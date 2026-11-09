@@ -15,6 +15,7 @@ def native(tmp_path,monkeypatch):
     for name in ('preferred_imagery_directory','detroit_building_directory','preferred_tiles_directory'):
         monkeypatch.setattr(module,name,lambda *args:absent)
     monkeypatch.setattr(module,'load_installed_terrain_catalog',lambda *args:None)
+    monkeypatch.setattr(module,'installed_imagery_pyramids',lambda:())
     monkeypatch.setattr(module,'load_imagery_stack',lambda:())
     roads = Mock(name='roads')
     monkeypatch.setattr(module.LocalRoadOverlay, 'installed', lambda: roads)

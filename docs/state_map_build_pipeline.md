@@ -444,3 +444,50 @@ only an incomplete region. The default `all` retains the full matrix and Metro
 building stage; an individual retry leaves completed regions and buildings alone.
 Large-region NAIP discovery follows up to 300 bounded pages rather than the
 initial 100-page ceiling, still rejecting loops and unapproved pagination URLs.
+
+### High-detail imagery pilot
+
+`build_target=imagery-detail-pilot` builds Downtown–Midtown and an Auburn Hills
+campus-area envelope as separate offline MBTiles pyramids. Existing regional
+packs remain the lower-detail fallback. Each pilot reuses checked NAIP source
+discovery, shared memory-only access tokens, resumable crops and source receipts.
+The archive stores source dates and rights references; runtime makes no hosted
+imagery or signing requests.
+
+Build-host GDAL reprojects source crops into Web Mercator, 256×256 WebP tiles,
+zoom levels 10–16. Target ground spacing is approximately 1.8 m/pixel at the
+pilot latitude; effective detail also depends on source and intermediate crop
+resolution. This is aerial photography, not a guarantee of current conditions.
+Source gaps stay transparent. Avoid interpreting a nominal pixel size as a
+measurement of source accuracy.
+
+Finished archives and descriptors use `imagery-detail-<coverage>-<run-id>`
+Actions artifacts. Each database is checksum checked before activation and
+mounted read-only. The loopback server accepts only bounded XYZ tile addresses,
+converts to MBTiles TMS rows internally, and exposes no database or filesystem
+URLs. Missing source tiles return transparent images so regional imagery shows
+through. ZIP cap: 512 MiB; database cap: 2 GiB; individual images: 512 KiB.
+Only two known pilot coverage mounts are discovered on device.
+
+The existing Imagery control governs both overview and detail. Native Cesium
+zoom selection requests small tiles instead of loading whole-region textures.
+When detail is installed, globe cache target is 64 tiles and per-server request
+concurrency is six. This bounds the cache target, not a guarantee of total GPU
+memory; driver and device performance still require Termux testing. Coarse layers
+finishing later stay below detail, and detail layers/listeners are released on
+viewer closure. Statewide packs and previous revisions remain installed.
+
+After downloading a successful pilot artifact, activate its ZIP with:
+
+```bash
+git switch navigation-cesium
+python -m development.maps.install_imagery_detail --coverage auburn-hills \
+  --pack-file build-output/imagery-detail/auburn-hills-imagery-detail.zip
+./runOrcUi
+```
+
+Use `detroit-midtown` for the other pilot. The job also audits OSM building and
+building-part geometry around Chrysler Technology Center, comparing source
+features against current way-only/simple-footprint/height visibility rules.
+It prints and uploads `building-site-audit.json`; the audit changes no geometry
+or height policy by itself.

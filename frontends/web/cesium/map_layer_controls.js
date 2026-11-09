@@ -5,7 +5,7 @@ window.ORCMapLayers = function(viewer,snapshot,document) {
   const labels={imagery:'Imagery',buildings:'Buildings',roads:'Roads',places:'Places',terrain:'Relief',
     'terrain-scale':'Height','terrain-cues':'Terrain cues',references:'Grid'};
   let imageryVisible=true,disposed=false;
-  const imageryAvailable=Boolean(snapshot.imagery || snapshot.imagery_layers?.length || snapshot.map_tiles?.tiles.some(t=>t.imagery_url));
+  const imageryAvailable=Boolean(snapshot.imagery_pyramids?.length || snapshot.imagery || snapshot.imagery_layers?.length || snapshot.map_tiles?.tiles.some(t=>t.imagery_url));
   const remove=viewer.imageryLayers.layerAdded.addEventListener(layer=>{if(layer.imageryProvider?.orcLayerRole!=='terrain-cues')layer.show=imageryVisible;});
   function state() {
     return actions.map(action=>{

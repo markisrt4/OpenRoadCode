@@ -45,3 +45,24 @@ class LocalImageryStackState:
 
     def document(self):
         return [layer.document() for layer in self.layers]
+
+
+@dataclass(frozen=True, slots=True)
+class LocalImageryPyramidState:
+    """Coverage and zoom bounds for offline 256-pixel Web Mercator imagery."""
+
+    coverage: LocalImageryState
+    minimum_zoom: int
+    maximum_zoom: int
+    image_format: str
+
+    def __post_init__(self):
+        if (not isinstance(self.coverage, LocalImageryState)
+                or type(self.minimum_zoom) is not int or type(self.maximum_zoom) is not int
+                or not 0 <= self.minimum_zoom <= self.maximum_zoom <= 18
+                or self.image_format not in ('png', 'jpg', 'jpeg', 'webp')):
+            raise ValueError('Invalid offline imagery pyramid metadata')
+
+    def document(self):
+        return dict(self.coverage.document(), minimum_zoom=self.minimum_zoom,
+                    maximum_zoom=self.maximum_zoom, tile_size=256)

@@ -10,6 +10,7 @@
   let snapshot;
   let tiledMap;
   let imageryStack;
+  let imageryPyramids;
   let boundaryOverlay;
   let roadOverlay;
   let mapLayers;
@@ -265,6 +266,9 @@
       status.textContent = `Offline · ${coverageLabel}${snapshot.map_tiles.coverage.title} · ${terrainLabel} · ${buildingLabel}`;
       tiledMap.update();
     }
+    imageryPyramids = window.ORCImageryPyramids(viewer,snapshot.imagery_pyramids || [],C);
+    if(snapshot.imagery_pyramids?.length) status.textContent = `Offline · Detail imagery installed · ${terrainLabel} · ${buildingLabel}`;
+
     if (snapshot.imagery_layers?.length) {
       imageryStack = await window.ORCLocalImageryLayers(viewer,snapshot.imagery_layers,C,(error,layer)=>{
         status.hidden=false;
@@ -317,5 +321,5 @@
     if (!/unavailable|Unable|stopped/i.test(statusText.textContent)) statusText.hidden = true;
     document.getElementById('tiles-status').hidden = true;
   }
-  window.addEventListener('pagehide', () => { mapLayers?.destroy(); roadOverlay?.destroy(); terrainHillshade?.destroy(); boundaryOverlay?.destroy(); imageryStack?.destroy(); tiledMap?.destroy(); if (viewer && !viewer.isDestroyed()) viewer.destroy(); });
+  window.addEventListener('pagehide', () => { mapLayers?.destroy(); roadOverlay?.destroy(); terrainHillshade?.destroy(); boundaryOverlay?.destroy(); imageryPyramids?.destroy(); imageryStack?.destroy(); tiledMap?.destroy(); if (viewer && !viewer.isDestroyed()) viewer.destroy(); });
 })();
