@@ -87,3 +87,57 @@ test('building-only packs attach without requesting imagery',async()=>{
   assert.equal(readout.hidden,false,'Load errors stay visible in embedded mode');
   failed.destroy();
 });
+
+test('horizon tilt keeps ground-focused tiles and uses lower visible ground when center is sky',async()=>{
+  let view={west:0,south:0,east:.04,north:1};
+  let centerIsSky=false;
+  const loaded=[],destroyed=[],fractions=[];
+  const sources=[];
+  const C={CustomDataSource:class{constructor(){this.entities={add(){}};this.show=true;}},
+    Color:{TRANSPARENT:{},CYAN:{}},Credit:class{},
+    Cartographic:{fromCartesian:point=>point},
+    Rectangle:{fromRadians(){return {};},center:r=>({longitude:(r.west+r.east)/2,latitude:.5})}};
+  const viewer={dataSources:{add(s){sources.push(s);},remove(s){sources.splice(sources.indexOf(s),1);}},
+    cesiumWidget:{creditDisplay:{addStaticCredit(){}}},scene:{requestRender(){}},
+    camera:{computeViewRectangle:()=>view,positionCartographic:{longitude:0,latitude:.5},
+      moveEnd:{addEventListener(){return ()=>{};}}}};
+  const window={ORCCameraGroundAnchor(_viewer,_C,fraction=.5){
+    fractions.push(fraction);
+    return centerIsSky && fraction===.5 ? undefined : {longitude:.005,latitude:.5};
+  },ORCLocalBuildings(_viewer,data){
+    loaded.push(data.id);
+    const source={show:true};
+    return {source,destroy(){destroyed.push(data.id);}};
+  }};
+  const context={window,AbortController,setTimeout,clearTimeout,Map,Set,
+    document:{body:{classList:{contains:()=>false}},getElementById(){return {};}},
+    fetch:async url=>({ok:true,json:async()=>({id:url})})};
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../local_map_tiles.js'),'utf8'),context);
+  const tiles=Array.from({length:8},(_,i)=>{
+    const west=i<4 ? i*.01 : .5+(i-4)*.01;
+    return {id:String(i),west_rad:west,east_rad:west+.01,south_rad:0,north_rad:1,
+      imagery_url:null,buildings_url:'/b'+i};
+  });
+  const map=window.ORCLocalMapTiles(viewer,{coverage:{},tiles},C,undefined,true);
+  map.update();await tick();
+  assert.deepEqual(loaded,['/b0','/b1','/b2','/b3']);
+  view={west:0,south:0,east:1.2,north:1};
+  centerIsSky=true;fractions.length=0;
+  map.update();await tick();
+  assert.deepEqual(fractions,[.5,.75]);
+  assert.deepEqual(loaded,['/b0','/b1','/b2','/b3']);
+  assert.equal(destroyed.length,0,'Tilting must not evict nearby geometry for horizon tiles');
+  map.destroy();
+  assert.equal(destroyed.length,4);
+  // Adaptive cells can have distant centroids despite containing the focus.
+  loaded.length=0;centerIsSky=false;view={west:-1,south:0,east:1,north:1};
+  const adaptive=Array.from({length:4},(_,i)=>({id:'s'+i,west_rad:-(i+1)*.004,
+    east_rad:-i*.004,south_rad:0,north_rad:1,imagery_url:null,buildings_url:'/s'+i}));
+  adaptive.push({id:'big',west_rad:0,east_rad:1,south_rad:0,north_rad:1,
+    imagery_url:null,buildings_url:'/big'});
+  const other=window.ORCLocalMapTiles(viewer,{coverage:{},tiles:adaptive},C,undefined,true);
+  other.update();await tick();
+  assert.equal(loaded.length,4);
+  assert.ok(loaded.includes('/big'),'The containing tile wins over closer neighboring centroids');
+  other.destroy();
+});

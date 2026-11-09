@@ -1106,3 +1106,12 @@ keeps at most six imagery layers resident (plus the reference globe): the broad
 background and up to five finest visible detail packs. It unloads unneeded
 textures before attaching replacements and limits concurrent imagery loads to
 six. Installing a seventh local pack no longer blocks Terrain startup.
+
+Building streaming ranks the four nearby tiles around visible ground, using the
+same ground-anchor calculation as camera pan/tilt controls. If the center ray
+looks at sky, lower screen samples provide a visible-ground fallback. The center
+of the entire horizon-spanning rectangle is not a suitable local-detail anchor.
+Containing tiles rank ahead of neighboring tiles with closer centroids, including
+adaptive-size building cells. The four-active/two-pending limits remain unchanged.
+Distant geometry may still be excluded by this local-detail budget; this does
+not add statewide buildings or change height-tag/floor-estimate visibility rules.
