@@ -15,6 +15,10 @@ from ui.navigation.local_building_state import LocalBuilding
 from .building_parts import mark_part_outlines
 from .building_geometry import height, normalize, normalize_components, source_identity, ring_identity, outer_members
 
+# The existing terrain envelope starts at 41.7, slightly north of Michigan's
+# checked-in Census boundary (41.696089). Extend only building delivery bounds.
+BUILDING_BOUNDS = (MICHIGAN_BOUNDS[0],MICHIGAN_BOUNDS[1]-.01,*MICHIGAN_BOUNDS[2:])
+
 PRESETS = {
     'detroit-downtown': ('Detroit Downtown',(-83.065,42.315,-83.025,42.345)),
     'detroit-midtown': ('Detroit Downtown–Midtown',(-83.085,42.315,-83.025,42.375)),
@@ -22,7 +26,8 @@ PRESETS = {
     'rochester': ('Rochester test area',(-83.175,42.650,-83.110,42.705)),
     'southfield': ('Central Southfield test area',(-83.290,42.440,-83.220,42.505)),
     'metro-detroit': ('Metro Detroit',(-83.75,42.0,-82.55,42.9)),
-    **MICHIGAN_SHARDS,
+    **{key:(title,(w,BUILDING_BOUNDS[1] if s==MICHIGAN_BOUNDS[1] else s,e,n))
+       for key,(title,(w,s,e,n)) in MICHIGAN_SHARDS.items()},
 }
 CREDIT = '© OpenStreetMap contributors · ODbL 1.0'
 
@@ -68,7 +73,8 @@ def regional_owner(building):
     ring = building['ring_rad'][:-1]
     lon = math.degrees(sum(p[0] for p in ring)/len(ring))
     lat = math.degrees(sum(p[1] for p in ring)/len(ring))
-    return next((key for key,(_, (w,s,e,n)) in MICHIGAN_SHARDS.items()
+    return next((key for key in MICHIGAN_SHARDS
+                 for _,(w,s,e,n) in (PRESETS[key],)
                  if w <= lon <= e and s <= lat <= n),None)
 
 
@@ -108,7 +114,7 @@ def build_pack(root, preset):
                     if not line.strip():
                         continue
                     feature = json.loads(line.lstrip('\x1e'))
-                    buildings = normalize_components(feature,MICHIGAN_BOUNDS if regional else bounds)
+                    buildings = normalize_components(feature,BUILDING_BOUNDS if regional else bounds)
                     if not buildings:
                         skipped += 1
                         continue

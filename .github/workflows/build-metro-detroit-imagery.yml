@@ -637,7 +637,7 @@ jobs:
       fail-fast: false
       max-parallel: 2
       matrix:
-        coverage: [mi-lower-southwest, mi-lower-southeast, mi-lower-central-west, mi-lower-central-east, mi-lower-northwest, mi-lower-northeast, mi-upper-west, mi-upper-east]
+        coverage: ${{ fromJSON(inputs.staged_coverage != '' && inputs.staged_coverage != 'all' && format('["{0}"]', inputs.staged_coverage) || '["mi-lower-southwest","mi-lower-southeast","mi-lower-central-west","mi-lower-central-east","mi-lower-northwest","mi-lower-northeast","mi-upper-west","mi-upper-east"]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:

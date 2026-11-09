@@ -105,3 +105,10 @@ def test_overlapping_upper_and_lower_envelopes_have_deterministic_single_owner()
     point=[math.radians(-85.5),math.radians(45.8)]
     building={'ring_rad':[point,point,point,point]}
     assert map_3d.regional_owner(building)=='mi-lower-northwest'
+
+
+def test_southern_border_strip_is_included_without_changing_terrain_coverage():
+    point=[math.radians(-83.5),math.radians(41.697)]
+    assert map_3d.regional_owner({'ring_rad':[point]*4})=='mi-lower-southeast'
+    assert MICHIGAN_SHARDS['mi-lower-southeast'][1][1]==41.7
+    assert map_3d.PRESETS['mi-lower-southeast'][1][1]<41.696089

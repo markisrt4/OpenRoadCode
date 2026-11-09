@@ -8,7 +8,9 @@ remain the foundation. Navigation/search/routing remain separate products.
 
 ## 1. Michigan buildings: current implementation
 
-Use the eight existing Michigan regional envelopes. Each region reuses the
+Use the eight existing Michigan regional definitions, extending the two southern
+building envelopes from 41.7 to 41.69 to include the checked-in state boundary
+near 41.696089. Existing terrain/imagery bounds remain unchanged. Each region reuses the
 Michigan Geofabrik PBF and emits a checked building ZIP, descriptor, and report.
 Relations, courtyards, parts and base offsets use the same schema-3 geometry as
 Metro Detroit. A component belongs to the first matching region by centroid;
@@ -142,8 +144,8 @@ Rollout gates:
    explicit missing layers, and a rollback/promotion gate. Offline navigation
    remains usable when an optional imagery/terrain/building pack is absent.
 
-Before national fine terrain, build a paged spatial catalog so startup reads
-metadata and fetches only needed geometry/height tiles. Profile the present full
+Before national detail delivery, build a paged spatial catalog for all layers so startup reads
+metadata and fetches only needed geometry/height tiles and respect the current imagery stack layer limit. Profile the present full
 pack checksum scan on Termux; extend verification caching/lazy verification with
 integrity checks if measured startup cost warrants it. Do not silently remove
 verification to make it faster. Higher resolution should increase disk/network
