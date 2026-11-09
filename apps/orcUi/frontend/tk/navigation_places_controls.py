@@ -8,7 +8,7 @@ from ui.navigation import MapMarker, MapMarkerKind
 from ui.navigation.poi_models import PoiAction, PoiCategory, PointOfInterest, TransitMode
 from ui.navigation.route_types import TravelMode
 from .navigation_panel_layout import show_poi_card
-from .navigation_poi_actions import execute_poi_action, poll_poi_launch_results
+from .navigation_poi_actions import execute_poi_action, poll_poi_launch_results, poll_poi_app_status
 from ui.navigation.navigation_experience_if import NavigationPlacesDrawerState
 
 _POI_SEARCH_SETTLE_MS = 750
@@ -146,6 +146,7 @@ class NavigationPlacesControls:
 
     def _poll_poi_events_once(self) -> None:
         poll_poi_launch_results(self)
+        poll_poi_app_status(self)
         self._sync_renderer_camera()
         if self._places_handler.poll_camera_interaction():
             # Native mouse/touch gestures happen inside MapLibre, bypassing the

@@ -28,6 +28,8 @@ class BusinessEntity:
     wikidata: tuple[str, ...] = ()
     domains: tuple[str, ...] = ()
     icon_id: str | None = None
+    title_color: str | None = None
+    title_fonts: tuple[str, ...] = ('Sans',)
 
 
 def _normalize(value: str | None) -> str:
@@ -46,9 +48,11 @@ def _load_businesses(directory: Path = _CATALOG_DIR) -> tuple[BusinessEntity, ..
         if document.get('schema_version') != 1:
             raise ValueError('Unsupported brand registry schema')
         for provider_id, raw in document['businesses'].items():
+            title_style = raw.get('title_style') or {}
             businesses[provider_id] = BusinessEntity(provider_id, raw['name'], tuple(raw['aliases']),
                 frozenset(raw['categories']), frozenset(), tuple(raw['wikidata']),
-                tuple(raw.get('domains', [])), raw.get('icon_id'))
+                tuple(raw.get('domains', [])), raw.get('icon_id'), title_style.get('color'),
+                tuple(title_style.get('font_families', ['Sans'])))
 
     manual_ids = set()
     for path in sorted(directory.glob("*.toml")):
@@ -75,6 +79,8 @@ def _load_businesses(directory: Path = _CATALOG_DIR) -> tuple[BusinessEntity, ..
                                       | set(original.wikidata if original else ()))),
                 domains=original.domains if original else (),
                 icon_id=original.icon_id if original else None,
+                title_color=original.title_color if original else None,
+                title_fonts=original.title_fonts if original else ('Sans',),
             )
 
     return tuple(businesses.values())

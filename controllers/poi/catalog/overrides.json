@@ -1,9 +1,60 @@
 {
   "schema_version": 1,
   "businesses": {
-    "panera": {"domains": ["panerabread.com"], "aliases": ["Panera", "Saint Louis Bread Co", "St Louis Bread Co"]},
-    "mcdonalds": {"domains": ["mcdonalds.com"], "icon_id": "mcdonalds"},
-    "burger-king": {"domains": ["bk.com"], "icon_id": "burger-king"},
-    "starbucks": {"domains": ["starbucks.com"], "icon_id": "starbucks"}
+    "panera": {
+      "domains": [
+        "panerabread.com"
+      ],
+      "aliases": [
+        "Panera",
+        "Saint Louis Bread Co",
+        "St Louis Bread Co"
+      ]
+    },
+    "mcdonalds": {
+      "domains": [
+        "mcdonalds.com"
+      ],
+      "icon_id": "mcdonalds",
+      "title_style": {
+        "color": "#FBC817",
+        "font_families": [
+          "Speedee",
+          "Arial",
+          "DejaVu Sans",
+          "Sans"
+        ]
+      }
+    },
+    "burger-king": {
+      "domains": [
+        "bk.com"
+      ],
+      "icon_id": "burger-king",
+      "title_style": {
+        "color": "#D62300",
+        "font_families": [
+          "Flame",
+          "Georgia",
+          "DejaVu Serif",
+          "Serif"
+        ]
+      }
+    },
+    "starbucks": {
+      "domains": [
+        "starbucks.com"
+      ],
+      "icon_id": "starbucks",
+      "title_style": {
+        "color": "#006241",
+        "font_families": [
+          "SoDo Sans",
+          "Arial",
+          "DejaVu Sans",
+          "Sans"
+        ]
+      }
+    }
   }
 }

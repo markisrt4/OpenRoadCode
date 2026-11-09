@@ -39,6 +39,32 @@ class PoiActionKind(Enum):
     OPEN_ANDROID_APP = auto()
 
 
+class PoiAppAvailability(Enum):
+    """Observed ordering-app availability; unknown never means not installed."""
+
+    INSTALLED = auto()
+    NOT_INSTALLED = auto()
+    UNKNOWN = auto()
+    WEB_ONLY = auto()
+
+
+@dataclass(frozen=True, slots=True)
+class PoiAppStatus:
+    """Asynchronous app query result scoped to a particular card request."""
+
+    request_id: int
+    poi_id: str
+    availability: PoiAppAvailability
+
+
+@dataclass(frozen=True, slots=True)
+class PoiTitleStyle:
+    """Business title color and preferred locally available font families."""
+
+    color: str
+    font_families: tuple[str, ...] = ('Sans',)
+
+
 @dataclass(frozen=True, slots=True)
 class PoiAction:
     """Describe an action without prescribing how a platform executes it."""
@@ -76,6 +102,7 @@ class PointOfInterest:
     business_id: str | None = None
     icon_id: str | None = None
     icon: PoiIcon | None = None
+    title_style: PoiTitleStyle | None = None
 
 
 @dataclass(frozen=True, slots=True)

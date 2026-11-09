@@ -19,13 +19,13 @@ from controllers.navigation.map_favorites import MapFavorites
 from controllers.poi.poi_search_controller_if import PoiSearchControllerIf
 from controllers.poi.poi_action_executor_if import PoiActionExecutorIf
 from ui.navigation.navigation_places_request_handler_if import MapFavorite, NavigationPlacesRequestHandlerIf, NavigationCameraState, PlaceActionResult
-from ui.navigation.poi_models import PoiAction, PoiActionKind, PoiCategory, PoiSearchResult, PointOfInterest, TransitMode
+from ui.navigation.poi_models import PoiAction, PoiActionKind, PoiCategory, PoiSearchResult, PointOfInterest, TransitMode, PoiAppStatus, PoiAppAvailability
 
 
 class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
     """Own one search session while sharing durable favorites and action adapters."""
 
-    def __init__(self, search: PoiSearchControllerIf, favorites: MapFavorites, actions: PoiActionExecutorIf, *, online_allowed: Callable[[], bool] = lambda: True, camera_observer=None, local_3d_action=None):
+    def __init__(self, search: PoiSearchControllerIf, favorites: MapFavorites, actions: PoiActionExecutorIf, *, online_allowed: Callable[[], bool] = lambda: True, camera_observer=None, local_3d_action=None, app_availability=None):
         self._diagnostics = ComponentLog("navigation.poi.actions", "poi")
         self._search = search
         self._favorites = favorites
@@ -38,6 +38,58 @@ class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
         self._action_lock = threading.Lock()
         self._action_pending = False
         self._action_id = 0
+        self._app_availability = app_availability
+        self._app_status_results = SimpleQueue()
+        self._app_status_id = 0
+        self._app_status_pending = None
+        self._app_status_running = False
+
+    def request_app_status(self, poi: PointOfInterest) -> int | None:
+        with self._action_lock:
+            if self._closed or self._app_availability is None:
+                return None
+            self._app_status_id += 1
+            request_id = self._app_status_id
+            self._app_status_pending = (request_id, poi)
+            if self._app_status_running:
+                return request_id
+            self._app_status_running = True
+        try:
+            threading.Thread(target=self._check_app_status, name='poi-app-status', daemon=True).start()
+        except RuntimeError:
+            with self._action_lock:
+                self._app_status_running = False
+                pending, self._app_status_pending = self._app_status_pending, None
+                if not self._closed and pending is not None:
+                    failed_id, failed_poi = pending
+                    self._app_status_results.put(PoiAppStatus(failed_id, failed_poi.poi_id, PoiAppAvailability.UNKNOWN))
+        return request_id
+
+    def _check_app_status(self):
+        while True:
+            with self._action_lock:
+                pending, self._app_status_pending = self._app_status_pending, None
+                if self._closed or pending is None:
+                    self._app_status_running = False
+                    return
+            request_id, poi = pending
+            try:
+                availability = self._app_availability(poi)
+            except Exception:
+                availability = PoiAppAvailability.UNKNOWN
+            if not isinstance(availability, PoiAppAvailability):
+                availability = PoiAppAvailability.UNKNOWN
+            with self._action_lock:
+                if not self._closed and request_id == self._app_status_id:
+                    self._app_status_results.put(PoiAppStatus(request_id, poi.poi_id, availability))
+
+    def poll_app_status(self) -> PoiAppStatus | None:
+        if self._closed:
+            return None
+        try:
+            return self._app_status_results.get_nowait()
+        except Empty:
+            return None
 
     def favorite(self, key: str) -> MapFavorite | None:
         if self._closed:

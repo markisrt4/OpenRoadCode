@@ -37,6 +37,15 @@
           "tw"
         ]
       },
+      "title_style": {
+        "color": "#D62300",
+        "font_families": [
+          "Flame",
+          "Georgia",
+          "DejaVu Serif",
+          "Serif"
+        ]
+      },
       "source": {
         "url": "https://github.com/osmlab/name-suggestion-index/blob/45fceb344eda88158e3068a5048671e9b3d86c8d/data/brands/amenity/fast_food.json",
         "revision": "45fceb344eda88158e3068a5048671e9b3d86c8d",
@@ -92,6 +101,15 @@
           "ua"
         ]
       },
+      "title_style": {
+        "color": "#FBC817",
+        "font_families": [
+          "Speedee",
+          "Arial",
+          "DejaVu Sans",
+          "Sans"
+        ]
+      },
       "source": {
         "url": "https://github.com/osmlab/name-suggestion-index/blob/45fceb344eda88158e3068a5048671e9b3d86c8d/data/brands/amenity/fast_food.json",
         "revision": "45fceb344eda88158e3068a5048671e9b3d86c8d",
@@ -123,6 +141,7 @@
           "us"
         ]
       },
+      "title_style": null,
       "source": {
         "url": "https://github.com/osmlab/name-suggestion-index/blob/45fceb344eda88158e3068a5048671e9b3d86c8d/data/brands/amenity/fast_food.json",
         "revision": "45fceb344eda88158e3068a5048671e9b3d86c8d",
@@ -170,6 +189,15 @@
           "sa",
           "tn",
           "tw"
+        ]
+      },
+      "title_style": {
+        "color": "#006241",
+        "font_families": [
+          "SoDo Sans",
+          "Arial",
+          "DejaVu Sans",
+          "Sans"
         ]
       },
       "source": {

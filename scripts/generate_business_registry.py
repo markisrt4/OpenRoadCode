@@ -27,6 +27,12 @@ def generate(snapshot, overrides):
         if not re.fullmatch(r'Q[1-9][0-9]*', wikidata):
             raise ValueError('Invalid Wikidata identifier')
         manual = overrides['businesses'].get(key, {})
+        title_style = manual.get('title_style')
+        if title_style is not None and (not re.fullmatch(r'#[0-9a-fA-F]{6}', title_style.get('color', ''))
+                or not title_style.get('font_families')
+                or any(not isinstance(font, str) or not font or len(font) > 80
+                       for font in title_style['font_families'])):
+            raise ValueError('Invalid business title appearance')
         if any(not re.fullmatch(r'(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,63}', domain)
                for domain in manual.get('domains', [])):
             raise ValueError('Domains must be lowercase hostnames, not URLs or wildcard suffixes')
@@ -35,6 +41,7 @@ def generate(snapshot, overrides):
             'name': tags['brand'], 'aliases': sorted(aliases), 'wikidata': [wikidata],
             'categories': ['food'], 'domains': manual.get('domains', []),
             'icon_id': manual.get('icon_id'), 'location_set': item['locationSet'],
+            'title_style': title_style,
             'source': {'url': f'https://github.com/osmlab/name-suggestion-index/blob/{revision}/{entry["path"]}',
                        'revision': revision, 'nsi_id': item['id'], 'license': snapshot['license']},
         }

@@ -189,3 +189,25 @@ def test_android_bridge_errors_are_reported_as_launcher_errors(_exists, operatio
         getattr(launcher, operation)(*args)
 
     assert raised.value.__cause__ is error
+
+
+@pytest.mark.parametrize('code,stdout,stderr,expected', [
+    (0, 'package:/data/app/business.apk\n', '', True),
+    (1, '', '', False),
+    (1, '', 'adb: device unauthorized', None),
+    (1, '', 'adb: more than one device/emulator', None),
+])
+@patch('apps.launchers.android_app_launcher.os.path.exists', return_value=True)
+def test_package_availability_does_not_confuse_connection_failure_with_missing_app(_exists, code, stdout, stderr, expected):
+    result = Mock(returncode=code, stdout=stdout, stderr=stderr)
+    with patch('apps.launchers.android_app_launcher.subprocess.run', return_value=result) as run:
+        assert AndroidAppLauncher().package_installed('com.panera.bread') is expected
+    assert run.call_args.args[0] == ['adb', 'shell', 'pm', 'path', 'com.panera.bread']
+
+
+@patch('apps.launchers.android_app_launcher.os.path.exists', return_value=False)
+def test_waydroid_availability_unavailable_is_not_absent(_exists):
+    waydroid = Mock()
+    waydroid.list_apps.side_effect = WaydroidLauncherError('Session stopped')
+    assert AndroidAppLauncher(waydroid=waydroid).package_installed('com.panera.bread') is None
+    waydroid.launch_app.assert_not_called()
