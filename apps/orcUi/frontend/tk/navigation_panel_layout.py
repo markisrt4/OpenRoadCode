@@ -4,9 +4,9 @@
 """Tk widget construction helpers for the ORC navigation panel."""
 
 import tkinter as tk
-import base64
 
-from .navigation_earth_control import build_earth_control, build_poi_icon_button
+from .navigation_earth_control import build_earth_control, build_poi_icon_button, load_poi_action_icon
+from .poi_card_header import PoiCardHeader
 
 from ui.navigation.poi_models import PoiActionKind
 
@@ -274,37 +274,16 @@ def show_poi_card(panel, poi) -> None:
     y = max(8, min(y, panel.winfo_screenheight() - height - 8))
     popup.geometry(f"{width}x{height}+{x}+{y}")
 
-    frame = tk.Frame(
+    shell = tk.Frame(
         popup,
         bg=ui.surface_alt,
-        highlightthickness=0, padx=10, pady=8,
+        highlightthickness=1, highlightbackground=ui.accent_primary,
     )
-    frame.pack(fill=tk.BOTH, expand=True)
+    shell.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
 
-    header = tk.Frame(frame, bg=ui.surface_alt)
-    header.pack(fill=tk.X, pady=(2, 4))
     panel._earth_button = None
     earth_action = next((action for action in poi.actions
                          if action.provider_id == "google-earth-explore"), None)
-
-    if poi.icon is not None and poi.icon.media_type == 'image/png':
-        try:
-            image = tk.PhotoImage(master=header, data=base64.b64encode(poi.icon.data))
-            icon = tk.Label(header, image=image, bg=ui.surface_alt)
-            icon._poi_icon = image
-            icon.bind('<Destroy>', lambda _event, label=icon: setattr(label, '_poi_icon', None))
-            icon.pack(side=tk.LEFT, padx=(4, 10))
-        except tk.TclError:
-            pass  # Optional icon failure must not hide the place or its actions.
-
-    tk.Label(
-        header,
-        text=poi.name,
-        bg=ui.surface_alt,
-        fg=ui.text,
-        font=("Sans", 15, "bold"),
-        wraplength=350,
-    ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=12)
 
     details: list[str] = []
     if poi.brand and poi.brand.casefold() != poi.name.casefold():
@@ -316,14 +295,11 @@ def show_poi_card(panel, poi) -> None:
     else:
         details.append(poi.category.name.replace("_", " ").title())
 
-    tk.Label(
-        frame,
-        text="  •  ".join(details),
-        bg=ui.surface_alt,
-        fg=ui.text_muted,
-        font=("Sans", 9),
-        wraplength=440,
-    ).pack(pady=(0, 4))
+    header = PoiCardHeader(shell, title=poi.name, details='  •  '.join(details), icon=poi.icon, theme=ui)
+    header.pack(fill=tk.X)
+    tk.Frame(shell, height=1, bg=ui.border).pack(fill=tk.X)
+    frame = tk.Frame(shell, bg=ui.surface_alt, padx=12, pady=8)
+    frame.pack(fill=tk.BOTH, expand=True)
 
     close = tk.Button(frame, text='CLOSE', command=popup.destroy,
         bg=ui.control_background, fg=ui.text_muted, activebackground=ui.control_active,
@@ -346,7 +322,7 @@ def show_poi_card(panel, poi) -> None:
                           lambda: panel._navigate_to_poi(poi), tk)
     panel._poi_action_buttons = []
     if has_waze:
-        waze_button = build_poi_icon_button(panel, nav_buttons, 'navigate.png', 'Waze',
+        waze_button = build_poi_icon_button(panel, nav_buttons, 'waze.png', 'Waze',
                                            lambda: panel._navigate_to_poi_with_waze(poi), tk)
         panel._poi_action_buttons.append(waze_button)
     explore = tk.Frame(buttons, bg=ui.surface_alt)
@@ -373,26 +349,38 @@ def show_poi_card(panel, poi) -> None:
     for action in other_actions:
         if (action.kind in {PoiActionKind.ORDER, PoiActionKind.OPEN_WEBSITE, PoiActionKind.OPEN_ANDROID_APP}
                 and action.provider_id != "google-earth-explore"):
+            ordering = action.kind is PoiActionKind.ORDER
+            icon = load_poi_action_icon(extra_buttons, 'order.png', tk) if ordering else None
+            size = {'width': 180, 'height': 42, 'padx': 12} if ordering else {
+                'width': max(12, min(28, len(action.label) + 2)), 'height': 2}
             button = tk.Button(
                 extra_buttons,
                 text=action.label,
+                image=icon if icon is not None else '', compound=tk.LEFT,
                 state=tk.NORMAL if panel.online_actions_allowed else tk.DISABLED,
                 disabledforeground=ui.text_muted,
                 command=lambda selected=action: panel._execute_poi_action(poi, selected),
-                bg=ui.control_background,
-                fg=ui.accent_primary,
+                bg=ui.control_active if ordering else ui.control_background,
+                fg='#ffffff' if ordering else ui.accent_primary,
                 activebackground=ui.control_active,
                 activeforeground="#ffffff",
                 relief=tk.FLAT,
                 highlightthickness=1,
-                highlightbackground=ui.border,
-                font=("Sans", 10, "bold"),
-                width=max(12, min(28, len(action.label) + 2)),
-                height=2,
+                highlightbackground=ui.accent_primary if ordering else ui.border,
+                highlightcolor=ui.accent_primary,
+                font=("Sans", 11 if ordering else 10, "bold"),
+                **size,
             )
+            button._action_icon = icon
+            button.bind('<Destroy>', lambda _event, widget=button: setattr(widget, '_action_icon', None))
             button.pack(side=tk.LEFT, padx=4)
             panel._poi_action_buttons.append(button)
 
     panel._refresh_poi_action_buttons()
+    popup.update_idletasks()
+    # Keep the footer visible with larger text or a wrapped business name.
+    height = min(panel.winfo_screenheight() - 16, max(height, shell.winfo_reqheight() + 4))
+    y = max(8, min(y, panel.winfo_screenheight() - height - 8))
+    popup.geometry(f'{width}x{height}+{x}+{y}')
     popup.lift()
     popup.focus_force()

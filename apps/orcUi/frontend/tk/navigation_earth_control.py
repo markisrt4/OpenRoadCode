@@ -5,9 +5,14 @@ from pathlib import Path
 _ASSETS = Path(__file__).with_name("assets")
 
 
+def load_poi_action_icon(parent, filename, toolkit):
+    """Load one bundled presentation asset; business icons arrive via contracts."""
+    return toolkit.PhotoImage(master=parent, file=str(_ASSETS / filename))
+
+
 def build_poi_icon_button(panel, parent, filename, label, command, toolkit):
     ui = panel._theme_bundle.ui
-    icon = toolkit.PhotoImage(master=parent, file=str(_ASSETS / filename))
+    icon = load_poi_action_icon(parent, filename, toolkit)
     button = toolkit.Button(
         parent, image=icon, text=label, compound=toolkit.TOP, command=command,
         bg=ui.surface_alt, activebackground=ui.control_active,
@@ -15,6 +20,7 @@ def build_poi_icon_button(panel, parent, filename, label, command, toolkit):
         relief=toolkit.FLAT, borderwidth=0, highlightthickness=0,
         font=("Sans", 10, "bold"), padx=0, pady=2, width=88, height=72, takefocus=True)
     button._action_icon = icon
+    button.bind('<Destroy>', lambda _event: setattr(button, '_action_icon', None))
     button.pack(side=toolkit.LEFT, padx=4)
     return button
 

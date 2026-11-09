@@ -10,6 +10,8 @@ from apps.orcUi.frontend.tk.navigation_panel_layout import show_poi_card
 from controllers.poi.poi_enricher import enrich_poi
 from ui.navigation import GeoPoint
 from ui.navigation.poi_models import PoiActionKind, PoiCategory, PointOfInterest
+from ui.theme import ThemeMode
+from apps.orcUi.theme_runtime import theme_bundle
 
 
 def test_ordering_popup_has_one_business_action_through_existing_request_contract():
@@ -45,7 +47,8 @@ def test_ordering_popup_has_one_business_action_through_existing_request_contrac
         root.destroy()
 
 
-def test_borderless_business_card_has_icon_distinct_navigation_and_bottom_close():
+@pytest.mark.parametrize('mode', [ThemeMode.DARK, ThemeMode.LIGHT])
+def test_borderless_business_card_has_icon_distinct_navigation_and_bottom_close(mode):
     try:
         root = tk.Tk()
     except tk.TclError as error:
@@ -55,9 +58,7 @@ def test_borderless_business_card_has_icon_distinct_navigation_and_bottom_close(
         panel = tk.Frame(root)
         panel.pack(fill=tk.BOTH, expand=True)
         panel._poi_card = None
-        panel._theme_bundle = SimpleNamespace(ui=SimpleNamespace(surface_alt='#101820',
-            accent_primary='#00aeef', text='#ffffff', text_muted='#aaaaaa',
-            control_background='#15212a', control_active='#263848', border='#39464f'))
+        panel._theme_bundle = theme_bundle(mode)
         panel.online_actions_allowed = True
         panel._waze_handler = Mock()
         panel._refresh_poi_action_buttons = Mock()
@@ -77,9 +78,15 @@ def test_borderless_business_card_has_icon_distinct_navigation_and_bottom_close(
 
         widgets = tuple(descendants(popup))
         buttons = {w.cget('text'): w for w in widgets if isinstance(w, tk.Button)}
-        icons = [w for w in widgets if isinstance(w, tk.Label) and getattr(w, '_poi_icon', None)]
+        icons = [w for w in widgets if getattr(w, '_poi_icon', None)]
         assert len(icons) == 1
         assert icons[0]._poi_icon.width() == 64
+        gradient = icons[0].find_withtag('gradient')
+        assert gradient
+        assert icons[0].itemcget(gradient[0], 'fill') != icons[0].itemcget(gradient[-1], 'fill')
+        assert buttons['Waze']._action_icon.width() > 0
+        assert buttons['ORDER']._action_icon.width() > 0
+        assert buttons['ORDER'].cget('fg') != buttons['ORDER'].cget('bg')
         buttons['ORC Map'].invoke()
         panel._navigate_to_poi.assert_called_once_with(poi)
         buttons['Waze'].invoke()
@@ -89,6 +96,7 @@ def test_borderless_business_card_has_icon_distinct_navigation_and_bottom_close(
         buttons['CLOSE'].invoke()
         assert not popup.winfo_exists()
         assert icons[0]._poi_icon is None
+        assert buttons['ORDER']._action_icon is None
     finally:
         root.destroy()
 

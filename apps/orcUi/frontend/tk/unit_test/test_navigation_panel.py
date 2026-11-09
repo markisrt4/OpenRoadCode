@@ -82,11 +82,11 @@ def test_destination_popup_has_visible_themed_waze_action(name, source):
     panel.online_actions_allowed = True
     poi = PointOfInterest(name, name, PoiCategory.OTHER, GeoPoint(.7, -1.4), source_class=source)
     try:
-        with patch('apps.orcUi.frontend.tk.navigation_panel_layout.build_poi_icon_button'):
-            show_poi_card(panel, poi)
+        show_poi_card(panel, poi)
         root.update()
         button = panel._poi_action_buttons[0]
-        assert button.cget('text') == 'NAVIGATE WITH WAZE'
+        assert button.cget('text') == 'Waze'
+        assert button.cget('image')
         assert button.winfo_ismapped()
         assert button.winfo_rooty() + button.winfo_height() <= panel._poi_card.winfo_rooty() + panel._poi_card.winfo_height()
         assert button.cget('background') == panel._theme_bundle.ui.control_background

@@ -66,15 +66,20 @@ class EarthPoiControlTest(unittest.TestCase):
 
     def test_action_row_has_icons_above_labels_and_close_returns_to_map(self):
         earth = self.show()
-        buttons = [child for child in earth.master.winfo_children() if isinstance(child, tk.Button)]
-        self.assertEqual([button.cget("text") for button in buttons], ["Navigate", "Earth", "Close"])
-        self.assertEqual(len({button.winfo_y() for button in buttons}), 1)
-        for button in buttons:
+        def descendants(widget):
+            for child in widget.winfo_children():
+                yield child
+                yield from descendants(child)
+        buttons = {child.cget('text'): child for child in descendants(self.panel._poi_card)
+                   if isinstance(child, tk.Button)}
+        self.assertEqual(set(buttons), {'ORC Map', 'Earth', 'CLOSE'})
+        for button in (buttons['ORC Map'], buttons['Earth']):
             self.assertEqual(str(button.cget("compound")), "top")
             self.assertTrue(button.cget("image"))
             self.assertLessEqual(button.winfo_rooty()+button.winfo_height(),
                                  self.panel._poi_card.winfo_rooty()+self.panel._poi_card.winfo_height())
-        buttons[-1].invoke()
+        self.assertGreater(buttons['CLOSE'].winfo_rooty(), earth.winfo_rooty())
+        buttons['CLOSE'].invoke()
         self.assertFalse(earth.winfo_exists())
         self.assertTrue(self.panel._map_host.winfo_viewable())
         self.places.request_action.assert_not_called()

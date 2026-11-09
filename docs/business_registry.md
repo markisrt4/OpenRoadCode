@@ -64,12 +64,15 @@ Renderer restarts replay the current search results and their icon payloads.
 This rendering integration currently targets the native MapLibre map.
 
 Brand badges scale from about 29 pixels at wide zoom to 40 pixels at street zoom;
-labels and hover text move below the larger badge. POI cards use a borderless
-window, show the same approved business icon in the header, and put Close at the
+labels and hover text move below the larger badge. POI cards hide the native
+window title bar and use an accent border with a theme-colored gradient header.
+They show the same approved business icon beside the name, and put Close at the
 bottom (Escape also closes the card). Under **NAVIGATE WITH**, **ORC Map** starts
 ORC routing and **Waze** hands the destination to native Waze. Earth/3D Map are
 grouped separately under **EXPLORE**. Unknown/unapproved business icons are omitted
 from the card rather than fetched from an arbitrary site.
+Waze uses its own bundled brand mark, and ORDER has a shopping-bag icon in its
+primary action button. Attribution is recorded in the frontend assets directory.
 
 ## Open or install an app
 
