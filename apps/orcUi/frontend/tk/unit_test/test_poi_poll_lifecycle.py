@@ -45,6 +45,54 @@ def test_ordering_popup_has_one_business_action_through_existing_request_contrac
         root.destroy()
 
 
+def test_borderless_business_card_has_icon_distinct_navigation_and_bottom_close():
+    try:
+        root = tk.Tk()
+    except tk.TclError as error:
+        pytest.skip(f'X11 display unavailable: {error}')
+    try:
+        root.geometry('800x500')
+        panel = tk.Frame(root)
+        panel.pack(fill=tk.BOTH, expand=True)
+        panel._poi_card = None
+        panel._theme_bundle = SimpleNamespace(ui=SimpleNamespace(surface_alt='#101820',
+            accent_primary='#00aeef', text='#ffffff', text_muted='#aaaaaa',
+            control_background='#15212a', control_active='#263848', border='#39464f'))
+        panel.online_actions_allowed = True
+        panel._waze_handler = Mock()
+        panel._refresh_poi_action_buttons = Mock()
+        panel._execute_poi_action = Mock()
+        panel._navigate_to_poi = Mock()
+        panel._navigate_to_poi_with_waze = Mock()
+        poi = enrich_poi(PointOfInterest('store', "McDonald's", PoiCategory.FOOD, GeoPoint(0, 0)))
+        show_poi_card(panel, poi)
+        root.update()
+        popup = panel._poi_card
+        assert popup.overrideredirect()
+
+        def descendants(widget):
+            for child in widget.winfo_children():
+                yield child
+                yield from descendants(child)
+
+        widgets = tuple(descendants(popup))
+        buttons = {w.cget('text'): w for w in widgets if isinstance(w, tk.Button)}
+        icons = [w for w in widgets if isinstance(w, tk.Label) and getattr(w, '_poi_icon', None)]
+        assert len(icons) == 1
+        assert icons[0]._poi_icon.width() == 64
+        buttons['ORC Map'].invoke()
+        panel._navigate_to_poi.assert_called_once_with(poi)
+        buttons['Waze'].invoke()
+        panel._navigate_to_poi_with_waze.assert_called_once_with(poi)
+        assert buttons['CLOSE'].winfo_rooty() > buttons['ORDER'].winfo_rooty()
+        assert buttons['CLOSE'].winfo_rooty() + buttons['CLOSE'].winfo_height() <= popup.winfo_rooty() + popup.winfo_height()
+        buttons['CLOSE'].invoke()
+        assert not popup.winfo_exists()
+        assert icons[0]._poi_icon is None
+    finally:
+        root.destroy()
+
+
 def test_one_failed_poll_does_not_disable_future_poi_clicks():
     panel = Mock(_closed=False, _places_closed=False)
     panel.winfo_exists.return_value = True

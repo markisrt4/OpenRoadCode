@@ -6,7 +6,38 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from apps.orcUi.adapters.scrcpy_waze_player import ScrcpyWazePlayer
+from apps.orcUi.adapters.scrcpy_waze_player import ScrcpyWazePlayer, ScrcpyAppPlayer
+
+
+def test_business_viewer_uses_selected_package_and_does_not_stop_retained_waze(tmp_path, monkeypatch):
+    monkeypatch.setenv('TMPDIR', str(tmp_path))
+    waze = ScrcpyWazePlayer(retain_session=True)
+    business = ScrcpyAppPlayer(package='com.panera.bread')
+    with patch('apps.orcUi.adapters.scrcpy_waze_player.subprocess.Popen') as spawn, \
+            patch('apps.orcUi.adapters.scrcpy_waze_player.Thread'):
+        waze_process, business_process = Mock(), Mock()
+        waze_process.poll.return_value = business_process.poll.return_value = None
+        spawn.side_effect = [waze_process, business_process]
+        waze.play('android', display=':1')
+        business.prepare_package('com.mcdonalds.app')
+        business.play('android', display=':1')
+        assert '--start-app=com.waze' in spawn.call_args_list[0].args[0]
+        assert '--start-app=com.mcdonalds.app' in spawn.call_args_list[1].args[0]
+        assert waze.window_name != business.window_name
+        business.stop()
+        business_process.terminate.assert_called_once_with()
+        waze_process.terminate.assert_not_called()
+        assert waze.gesture_surface() is not None
+    assert (tmp_path / 'orc-scrcpy-app.log').exists()
+
+
+def test_retained_waze_viewer_cannot_be_reassigned_to_an_ordering_app():
+    player = ScrcpyWazePlayer(retain_session=True)
+    with pytest.raises(ValueError, match='cannot change apps'):
+        player.prepare_package('com.panera.bread')
+    business = ScrcpyAppPlayer(package='com.panera.bread')
+    with pytest.raises(ValueError, match='not configured'):
+        business.prepare_destination('https://www.panerabread.com')
 from apps.launchers.scrcpy_waze_launcher import ScrcpyWazeLauncher
 
 

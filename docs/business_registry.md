@@ -63,6 +63,14 @@ POIs are not globally replaced, and clearing a search clears its logo markers.
 Renderer restarts replay the current search results and their icon payloads.
 This rendering integration currently targets the native MapLibre map.
 
+Brand badges scale from about 29 pixels at wide zoom to 40 pixels at street zoom;
+labels and hover text move below the larger badge. POI cards use a borderless
+window, show the same approved business icon in the header, and put Close at the
+bottom (Escape also closes the card). Under **NAVIGATE WITH**, **ORC Map** starts
+ORC routing and **Waze** hands the destination to native Waze. Earth/3D Map are
+grouped separately under **EXPLORE**. Unknown/unapproved business icons are omitted
+from the card rather than fetched from an arbitrary site.
+
 ## Open or install an app
 
 For known ordering businesses, the POI card shows one **ORDER** action. It opens
@@ -84,9 +92,24 @@ ordering capability; it is not displayed alongside ORDER. Its two outcomes are:
 Waydroid must have a functioning Play Store, Internet access and any required
 account/device eligibility. Without the Play Store, ORC reports that requirement;
 it does not send the user to a Linux browser as though it were the Android store.
-On Termux, the existing Android Bridge performs the app-first handoff and uses
-the official HTTPS Play listing if the package is unavailable. Android controls
-the resulting foreground app/store/browser experience there.
+On Termux, installed curated business apps can now open inside ORC through
+scrcpy's native Android virtual display. This reuses the existing Waze display
+hosting but owns a separate player/window; it does not repurpose or stop the
+retained Waze route. The business app opens full-width with Back to map available.
+Leaving its view closes only that viewer, not Waze or unrelated Android apps.
+
+This needs the same working ADB connection and scrcpy virtual-display support as
+native Waze. It checks the selected device for the curated package before
+presenting the view, and starts the app on the new display rather than first
+moving it onto the phone's primary display. If ADB/app availability cannot be
+confirmed, the existing Android Bridge handoff remains the fallback. Explicit
+store actions also retain their official HTTPS Play listing fallback there.
+Apps that reject secondary displays or use protected surfaces need device-level
+validation; the bridge fallback does not guarantee an app will embed.
+
+Waydroid is the Linux-host integration, not a supported runtime inside ordinary
+Termux. The phone already runs Android, so this path uses its native applications
+directly and does not install a second Android OS.
 
 This action does not download APKs, accept terms, create accounts or install
 silently. Production provisioning of a selected app set is a separate concern;
@@ -131,6 +154,13 @@ git switch feature/waze-live-map
 python3 -m pytest -q controllers/poi/unit_test/test_business_registry.py controllers/poi/unit_test/test_poi_search_controller.py apps/launchers/unit_test/test_android_app_launcher.py controllers/map_renderer/unit_test/test_map_request_handler.py
 ```
 
+For the Termux business surface and card lifecycle (the Tk checks need X11):
+
+```bash
+git switch feature/waze-live-map
+python3 -m pytest -q apps/orcUi/composition/unit_test/test_business_apps.py apps/orcUi/composition/unit_test/test_scrcpy_waze_player.py apps/orcUi/composition/unit_test/test_android_app_view.py apps/orcUi/frontend/tk/unit_test/test_poi_poll_lifecycle.py
+```
+
 The native map renderer must be rebuilt with this commit to display logos.
 The updated binary logs `Business POI logo replacement enabled` at startup;
 this distinguishes it from a still-installed older renderer.
@@ -154,5 +184,10 @@ the search and leave/reopen navigation. For an ordering brand, confirm the card
 shows ORDER alone, opens the installed Android app, and falls back to the ordering
 website when the app is absent. Validate explicit app/store integrations separately
 when adding a brand without an ordering capability.
+On Termux, also test ORDER with ADB connected and a curated app installed: it
+should open inside ORC with its own window identity, leaving any Waze route
+running. Use Back to map, then resume Waze. Repeat with no ADB connection to
+confirm the normal Android handoff remains available. App-view diagnostics are
+in `$TMPDIR/orc-scrcpy-app.log`, separate from Waze's viewer log.
 Actual app installation/store behavior and GPU rendering require device tests;
 Python and C++ component tests cannot establish those results.

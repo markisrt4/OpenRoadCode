@@ -14,6 +14,28 @@ from apps.launchers.waydroid_launcher import AndroidApp, WaydroidLauncherError
 from apps.launchers.desktop_browser_launcher import DesktopBrowserLauncherError
 
 
+@patch('apps.launchers.android_app_launcher.os.path.exists', return_value=True)
+def test_termux_ordering_prefers_the_embedded_business_view_when_available(_exists):
+    native, view, installed = Mock(), Mock(), Mock()
+    installed.launch_installed_app.return_value = 'Panera Bread'
+    launcher = AndroidAppLauncher(native=native, app_view=view, installed_apps=installed)
+    assert launcher.open_package_or_uri('com.panera.bread', 'https://www.panerabread.com') == 'embedded Android app'
+    installed.launch_installed_app.assert_called_once_with('com.panera.bread')
+    view.request_show_android_app.assert_called_once_with('Panera Bread', 'com.panera.bread')
+    native.open_package_or_uri.assert_not_called()
+
+
+@patch('apps.launchers.android_app_launcher.os.path.exists', return_value=True)
+def test_termux_ordering_keeps_bridge_fallback_when_app_or_adb_is_unavailable(_exists):
+    native, view, installed = Mock(), Mock(), Mock()
+    installed.launch_installed_app.return_value = None
+    native.open_package_or_uri.return_value = 'Android'
+    launcher = AndroidAppLauncher(native=native, app_view=view, installed_apps=installed)
+    assert launcher.open_package_or_uri('com.panera.bread', 'https://www.panerabread.com') == 'Android'
+    native.open_package_or_uri.assert_called_once_with('com.panera.bread', 'https://www.panerabread.com')
+    view.request_show_android_app.assert_not_called()
+
+
 @patch('apps.launchers.android_app_launcher.os.path.exists', return_value=False)
 def test_missing_business_app_opens_google_play_inside_waydroid_without_installing(_exists):
     waydroid, browser, view = Mock(), Mock(), Mock()

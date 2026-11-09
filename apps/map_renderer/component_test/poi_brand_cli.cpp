@@ -57,6 +57,9 @@ int main(int argc, char** argv) {
         assert(std::string(layer["source"].GetString()) == "poi-results");
         assert(layer["minzoom"].GetInt() == 7);
         assert(layer["layout"]["icon-allow-overlap"].GetBool());
+        const auto& size = layer["layout"]["icon-size"];
+        assert(size.IsArray());
+        assert(32.0 * size[size.Size() - 1].GetDouble() >= 40.0);
     }
     assert(found);
     assert(fallbacks == 3);

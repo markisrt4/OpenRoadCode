@@ -25,7 +25,8 @@ inline std::string withPoiHoverStyle(const std::string& style) {
       "label":{"id":"poi-hover-label","type":"symbol","source":"poi-hover","minzoom":9,
         "layout":{"text-field":"{name}","text-font":["KlokanTech Noto Sans CJK Regular"],
                   "text-size":["interpolate",["linear"],["zoom"],9,10,13,12,16,14],
-                  "text-offset":[0,1.15],"text-anchor":"top",
+                  "text-offset":["case",["==",["get","brand_icon_ready"],true],
+                    ["literal",[0,2.1]],["literal",[0,1.15]]],"text-anchor":"top",
                   "text-allow-overlap":true,"text-ignore-placement":true},
         "paint":{"text-color":"#fffbd9","text-halo-color":"#101820",
                  "text-halo-width":2,"text-halo-blur":0}}

@@ -18,7 +18,7 @@ inline std::string withPoiBrandStyle(const std::string& style) {
     rapidjson::Document addition;
     addition.Parse(R"({"id":"poi-results-brand","type":"symbol","source":"poi-results","minzoom":7,
       "filter":["==",["get","brand_icon_ready"],true],"layout":{"icon-image":["get","brand_icon"],
-      "icon-size":["interpolate",["linear"],["zoom"],7,0.45,11,0.6,15,0.7],
+      "icon-size":["interpolate",["linear"],["zoom"],7,0.9,11,1.125,15,1.25],
       "icon-allow-overlap":true,"icon-ignore-placement":true}})");
     // Insert immediately before the result labels so labels stay legible.
     auto& allocator = document.GetAllocator();
@@ -34,6 +34,13 @@ inline std::string withPoiBrandStyle(const std::string& style) {
         rapidjson::Value copy; copy.CopyFrom(layer, allocator);
         if (copy.IsObject() && copy.HasMember("id") && copy["id"].IsString()) {
             const std::string id = copy["id"].GetString();
+            if (id == "poi-results-label" && copy.HasMember("layout") && copy["layout"].IsObject()) {
+                rapidjson::Document offset;
+                offset.Parse(R"(["case",["==",["get","brand_icon_ready"],true],["literal",[0,2.1]],["literal",[0,1.15]]])");
+                rapidjson::Value value; value.CopyFrom(offset, allocator);
+                if (copy["layout"].HasMember("text-offset")) copy["layout"]["text-offset"] = std::move(value);
+                else copy["layout"].AddMember("text-offset", value, allocator);
+            }
             if (id == "poi-results-badge" || id == "poi-results-glow" || id == "poi-results-icon") {
                 rapidjson::Document fallback;
                 fallback.Parse(R"(["!=",["get","brand_icon_ready"],true])");

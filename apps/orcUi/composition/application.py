@@ -40,6 +40,7 @@ from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
 from apps.orcUi.composition.tooltips import TooltipFactory
 from apps.orcUi.composition.waze import WazeComposition, configure_waze
 from apps.orcUi.composition.android_app_view import AndroidAppView
+from apps.orcUi.composition.business_apps import configure_termux_business_apps
 from apps.orcUi.adapters.scrcpy_waze_player import ScrcpyWazePlayer
 from apps.launchers.scrcpy_waze_launcher import ScrcpyWazeLauncher
 from frontends.x11.x11_window_embedder import X11WindowEmbedder
@@ -277,6 +278,7 @@ def create_orc_ui_composition(
         cleanup.callback(location_sharing.close)
         core.map_camera.observe_location(location_sharing.update_snapshot)
         android_app_view = None
+        installed_business_apps = None
         waze_app_view = None
         waze_native_launcher = None
         waze_gestures = None
@@ -316,6 +318,10 @@ def create_orc_ui_composition(
                 on_present=navigation_view.remember_waze, experience_handler=experiences)
             cleanup.callback(waze_app_view.close)
         elif scrcpy_enabled:
+            android_app_view, installed_business_apps = configure_termux_business_apps(app,
+                map_runtime=navigation_maps, map_platform=navigation_maps, map_presentation=core.map_camera)
+            if android_app_view is not None:
+                cleanup.callback(android_app_view.close)
             waze_app_view = AndroidAppView(app, map_runtime=navigation_maps, map_platform=navigation_maps,
                 map_presentation=core.map_camera, player=scrcpy_player,
                 window_embedder=scrcpy_embedder, preserve_external_window=False,
@@ -331,7 +337,7 @@ def create_orc_ui_composition(
             online_allowed=lambda: app.online_mode.online,
             camera_observer=core.map_camera.request_handler.observe_camera,
             embedded_explore=navigation_maps.request_explore,
-            android_app_view=android_app_view)
+            android_app_view=android_app_view, installed_apps=installed_business_apps)
         cleanup.callback(navigation_places.close)
         waze = configure_waze(app, runtime, android_app_view=waze_app_view,
                               native_launcher=waze_native_launcher,

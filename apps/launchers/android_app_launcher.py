@@ -7,6 +7,7 @@ from __future__ import annotations
 import os
 import re
 from ui.navigation.android_app_view_if import AndroidAppViewRequestHandlerIf
+from ui.navigation.installed_android_app_if import InstalledAndroidAppLauncherIf
 
 from apps.launchers.android_bridge_launcher import (
     AndroidBridgeLauncher,
@@ -31,11 +32,21 @@ class AndroidAppLauncher:
         waydroid: WaydroidLauncher | None = None,
         browser: DesktopBrowserLauncher | None = None,
         app_view: AndroidAppViewRequestHandlerIf | None = None,
+        installed_apps: InstalledAndroidAppLauncherIf | None = None,
     ) -> None:
         self._browser = browser or DesktopBrowserLauncher()
         self._native = native
         self._waydroid = waydroid or WaydroidLauncher()
         self._app_view = app_view
+        self._installed_apps = installed_apps
+
+    def _open_embedded_native_app(self, package: str | None) -> str | None:
+        if package and self._installed_apps is not None and self._app_view is not None:
+            name = self._installed_apps.launch_installed_app(package)
+            if name is not None:
+                self._app_view.request_show_android_app(name, package)
+                return 'embedded Android app'
+        return None
 
     @staticmethod
     def _is_native_android() -> bool:
@@ -58,6 +69,9 @@ class AndroidAppLauncher:
         if uri is None:
             raise ValueError("POI destination must be a valid HTTP or HTTPS URL")
         if self._is_native_android():
+            embedded = self._open_embedded_native_app(package)
+            if embedded:
+                return embedded
             try:
                 return (self._native or AndroidBridgeLauncher()).open_package_or_uri(
                     package, uri
@@ -85,6 +99,9 @@ class AndroidAppLauncher:
             raise ValueError('Invalid Android package')
         listing = 'https://play.google.com/store/apps/details?id=' + package
         if self._is_native_android():
+            embedded = self._open_embedded_native_app(package)
+            if embedded:
+                return embedded
             try:
                 (self._native or AndroidBridgeLauncher()).open_package_or_uri(package, listing)
             except AndroidBridgeLauncherError as error:

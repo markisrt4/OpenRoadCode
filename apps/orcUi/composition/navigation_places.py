@@ -25,10 +25,11 @@ class NavigationPlacesFactory(NavigationPlacesFactoryIf):
                  actions: PoiActionExecutorIf | None = None,
                  search_factory: Callable[[], PoiSearchControllerIf] | None = None,
                  online_allowed: Callable[[], bool] = lambda: True, camera_observer=None, embedded_explore=None,
-                 android_app_view=None):
+                 android_app_view=None, installed_apps=None):
         self._favorites = favorites if favorites is not None else MapFavorites()
         self._owned_3d = None if actions is not None else CesiumPoiActions(
-            EarthExplorationActions(AndroidPoiActionExecutor(AndroidAppLauncher(app_view=android_app_view))),
+            EarthExplorationActions(AndroidPoiActionExecutor(AndroidAppLauncher(app_view=android_app_view,
+                                                                               installed_apps=installed_apps))),
             embedded_explore=embedded_explore)
         self._actions = actions if actions is not None else self._owned_3d
         self._selection_cache = PoiSelectionCache()

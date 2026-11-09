@@ -4,6 +4,7 @@
 """Tk widget construction helpers for the ORC navigation panel."""
 
 import tkinter as tk
+import base64
 
 from .navigation_earth_control import build_earth_control, build_poi_icon_button
 
@@ -253,38 +254,48 @@ def show_poi_card(panel, poi) -> None:
 
     popup = tk.Toplevel(panel)
     popup.title(poi.name)
+    popup.overrideredirect(True)
     popup.configure(bg=ui.surface_alt)
     popup.transient(panel.winfo_toplevel())
     popup.resizable(False, False)
     popup.attributes("-topmost", True)
     panel._poi_card = popup
 
-    width = 480
+    width = min(480, panel.winfo_screenwidth() - 16)
     other_actions = tuple(action for action in poi.actions
                           if action.kind in {PoiActionKind.ORDER, PoiActionKind.OPEN_WEBSITE, PoiActionKind.OPEN_ANDROID_APP}
                           and action.provider_id != "google-earth-explore")
-    height = 260 if other_actions else 210
+    height = 330 if other_actions else 280
     has_waze = panel.__dict__.get('_waze_handler') is not None
-    if has_waze:
-        height += 46
     panel.update_idletasks()
     x = panel.winfo_rootx() + max(0, (panel.winfo_width() - width) // 2)
     y = panel.winfo_rooty() + max(0, (panel.winfo_height() - height) // 2)
+    x = max(8, min(x, panel.winfo_screenwidth() - width - 8))
+    y = max(8, min(y, panel.winfo_screenheight() - height - 8))
     popup.geometry(f"{width}x{height}+{x}+{y}")
 
     frame = tk.Frame(
         popup,
         bg=ui.surface_alt,
-        highlightthickness=2,
-        highlightbackground=ui.accent_primary,
+        highlightthickness=0, padx=10, pady=8,
     )
     frame.pack(fill=tk.BOTH, expand=True)
 
     header = tk.Frame(frame, bg=ui.surface_alt)
-    header.pack(fill=tk.X, pady=(10, 2))
+    header.pack(fill=tk.X, pady=(2, 4))
     panel._earth_button = None
     earth_action = next((action for action in poi.actions
                          if action.provider_id == "google-earth-explore"), None)
+
+    if poi.icon is not None and poi.icon.media_type == 'image/png':
+        try:
+            image = tk.PhotoImage(master=header, data=base64.b64encode(poi.icon.data))
+            icon = tk.Label(header, image=image, bg=ui.surface_alt)
+            icon._poi_icon = image
+            icon.bind('<Destroy>', lambda _event, label=icon: setattr(label, '_poi_icon', None))
+            icon.pack(side=tk.LEFT, padx=(4, 10))
+        except tk.TclError:
+            pass  # Optional icon failure must not hide the place or its actions.
 
     tk.Label(
         header,
@@ -312,41 +323,53 @@ def show_poi_card(panel, poi) -> None:
         fg=ui.text_muted,
         font=("Sans", 9),
         wraplength=440,
-    ).pack(pady=(0, 10))
+    ).pack(pady=(0, 4))
+
+    close = tk.Button(frame, text='CLOSE', command=popup.destroy,
+        bg=ui.control_background, fg=ui.text_muted, activebackground=ui.control_active,
+        activeforeground=ui.text, relief=tk.FLAT, borderwidth=0,
+        highlightthickness=1, highlightbackground=ui.border, highlightcolor=ui.accent_primary,
+        font=('Sans', 10, 'bold'), pady=6)
+    close.pack(side=tk.BOTTOM, fill=tk.X, pady=(10, 0))
+    popup.bind('<Escape>', lambda _event: popup.destroy())
 
     buttons = tk.Frame(frame, bg=ui.surface_alt)
     buttons.pack()
 
-    build_poi_icon_button(panel, buttons, "navigate.png", "Navigate",
+    navigate = tk.Frame(buttons, bg=ui.surface_alt)
+    navigate.pack(side=tk.LEFT, padx=(0, 8))
+    tk.Label(navigate, text='NAVIGATE WITH', bg=ui.surface_alt, fg=ui.text_muted,
+             font=('Sans', 8, 'bold')).pack()
+    nav_buttons = tk.Frame(navigate, bg=ui.surface_alt)
+    nav_buttons.pack()
+    build_poi_icon_button(panel, nav_buttons, "navigate.png", "ORC Map",
                           lambda: panel._navigate_to_poi(poi), tk)
-    if earth_action is not None:
-        build_earth_control(panel, buttons, poi, earth_action, tk)
-
+    panel._poi_action_buttons = []
+    if has_waze:
+        waze_button = build_poi_icon_button(panel, nav_buttons, 'navigate.png', 'Waze',
+                                           lambda: panel._navigate_to_poi_with_waze(poi), tk)
+        panel._poi_action_buttons.append(waze_button)
+    explore = tk.Frame(buttons, bg=ui.surface_alt)
+    explore.pack(side=tk.LEFT)
     local_action = next((a for a in poi.actions if a.kind is PoiActionKind.EXPLORE_3D), None)
+    if earth_action is not None or local_action is not None:
+        tk.Label(explore, text='EXPLORE', bg=ui.surface_alt, fg=ui.text_muted,
+                 font=('Sans', 8, 'bold')).pack()
+    explore_buttons = tk.Frame(explore, bg=ui.surface_alt)
+    explore_buttons.pack()
+    if earth_action is not None:
+        build_earth_control(panel, explore_buttons, poi, earth_action, tk)
+
     panel._local_3d_button = None
     if local_action is not None:
         panel._local_3d_button = build_poi_icon_button(
-            panel, buttons, "map_3d.png", "3D Map",
+            panel, explore_buttons, "map_3d.png", "3D Map",
             lambda: panel._execute_poi_action(poi, local_action), tk)
         panel._add_tooltip(panel._local_3d_button, "Offline 3D exploration; coverage depends on installed map packs")
-
-    build_poi_icon_button(panel, buttons, "close.png", "Close", popup.destroy, tk)
 
     extra_buttons = tk.Frame(frame, bg=ui.surface_alt)
     if other_actions:
         extra_buttons.pack(pady=(6, 0))
-    panel._poi_action_buttons = []
-    if has_waze:
-        waze_button = tk.Button(
-            frame, text='NAVIGATE WITH WAZE',
-            command=lambda: panel._navigate_to_poi_with_waze(poi),
-            bg=ui.control_background, fg=ui.accent_primary,
-            activebackground=ui.control_active, activeforeground=ui.text,
-            disabledforeground=ui.text_muted, relief=tk.FLAT,
-            highlightthickness=1, highlightbackground=ui.border,
-            font=('Sans', 10, 'bold'), padx=12, pady=6)
-        waze_button.pack(pady=4)
-        panel._poi_action_buttons.append(waze_button)
     for action in other_actions:
         if (action.kind in {PoiActionKind.ORDER, PoiActionKind.OPEN_WEBSITE, PoiActionKind.OPEN_ANDROID_APP}
                 and action.provider_id != "google-earth-explore"):

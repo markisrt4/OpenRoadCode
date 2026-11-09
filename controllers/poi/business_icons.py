@@ -12,6 +12,12 @@ import struct
 DIRECTORY = Path(__file__).with_name('catalog') / 'icons'
 
 
+def icon_bytes(icon_id: str | None) -> bytes | None:
+    """Supply the same approved image to cards and native map markers."""
+    properties = icon_properties(icon_id)
+    return base64.b64decode(properties['brand_icon_png']) if properties else None
+
+
 @lru_cache(maxsize=128)
 def icon_properties(icon_id: str | None) -> dict[str, str]:
     if not icon_id or not re.fullmatch(r'[a-z0-9-]{1,64}', icon_id):

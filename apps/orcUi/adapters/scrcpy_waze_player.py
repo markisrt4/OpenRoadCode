@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Own one scrcpy virtual-display viewer for native Waze on Termux X11."""
+"""Own scrcpy virtual-display viewers for native apps on Termux X11."""
 import os
 import logging
 import re
@@ -13,10 +13,14 @@ from uuid import uuid4
 from common.logging.structured import event
 
 
-class ScrcpyWazePlayer:
+class ScrcpyAppPlayer:
     window_class = None
 
-    def __init__(self, *, retain_session=False):
+    def __init__(self, *, package, app_name='Business app', retain_session=False):
+        if not re.fullmatch(r'[a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z][a-zA-Z0-9_]*)+', package):
+            raise ValueError('Invalid Android package')
+        self._package = package
+        self._window_prefix = f'OpenRoadCode {app_name} Android'
         self._process = None
         self._process_lock = Lock()
         self._pending_destination = None
@@ -25,7 +29,16 @@ class ScrcpyWazePlayer:
         self._log_path = None
         self._log_offset = 0
         self._gesture_frame = self._gesture_display = None
-        self.window_name = f'OpenRoadCode Waze Android {uuid4().hex}'
+        self.window_name = f'{self._window_prefix} {uuid4().hex}'
+
+    def prepare_package(self, package):
+        """Bind the next viewer on the UI thread before its screen is shown."""
+        if not re.fullmatch(r'[a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z][a-zA-Z0-9_]*)+', package):
+            raise ValueError('Invalid Android package')
+        with self._process_lock:
+            if self._retain_session and package != self._package:
+                raise ValueError('A retained navigation display cannot change apps')
+            self._package = package
 
     def vertical_crop(self):
         return (0, 0)
@@ -36,6 +49,8 @@ class ScrcpyWazePlayer:
     def prepare_destination(self, uri):
         """Queue a deep link for the next owned virtual display, never the phone display."""
         with self._process_lock:
+            if uri is not None and self._package != 'com.waze':
+                raise ValueError('Business app destination links are not configured')
             self._pending_destination = uri
 
     def gesture_surface(self):
@@ -59,7 +74,7 @@ class ScrcpyWazePlayer:
         self.stop()
         # An old viewer may still be tearing down while a new one starts.
         # Never let X11 discovery select that retired process's window.
-        self.window_name = f'OpenRoadCode Waze Android {uuid4().hex}'
+        self.window_name = f'{self._window_prefix} {uuid4().hex}'
         width, height = window_size or (1280, 720)
         # Match the host aspect ratio instead of letterboxing a fixed 16:9
         # display. Keep enough Android pixels for legible app layouts and use
@@ -71,7 +86,7 @@ class ScrcpyWazePlayer:
         renderer = os.environ.get('ORC_SCRCPY_RENDERER', 'opengl')
         if renderer not in ('opengl', 'opengles2', 'software'):
             raise ValueError('ORC_SCRCPY_RENDERER must be opengl, opengles2 or software')
-        command = ['scrcpy', f'--new-display={display_width}x{display_height}/240', '--start-app=com.waze',
+        command = ['scrcpy', f'--new-display={display_width}x{display_height}/240', f'--start-app={self._package}',
                    '--no-audio', '--window-borderless', f'--window-title={self.window_name}',
                    f'--render-driver={renderer}', f'--window-width={width}', f'--window-height={height}']
         # SDL may reapply its startup position after X11 reparenting. Desktop
@@ -79,7 +94,8 @@ class ScrcpyWazePlayer:
         # The embedder owns placement; the viewer starts at the same local origin.
         command.extend(('--window-x=0', '--window-y=0'))
         environment = dict(os.environ, DISPLAY=display, SDL_VIDEODRIVER='x11', SDL_MOUSE_AUTO_CAPTURE='0')
-        log_path = Path(os.environ.get('TMPDIR') or tempfile.gettempdir()) / 'orc-scrcpy-waze.log'
+        log_name = 'orc-scrcpy-waze.log' if self._package == 'com.waze' else 'orc-scrcpy-app.log'
+        log_path = Path(os.environ.get('TMPDIR') or tempfile.gettempdir()) / log_name
         with log_path.open('ab') as log:
             log_offset = log.tell()
             process = subprocess.Popen(command, env=environment, stdout=log, stderr=subprocess.STDOUT)
@@ -149,3 +165,10 @@ class ScrcpyWazePlayer:
         except subprocess.TimeoutExpired:
             process.kill()
             process.wait(timeout=2)
+
+
+class ScrcpyWazePlayer(ScrcpyAppPlayer):
+    """Keep Waze's retained route viewer separate from temporary business apps."""
+
+    def __init__(self, *, retain_session=False):
+        super().__init__(package='com.waze', app_name='Waze', retain_session=retain_session)

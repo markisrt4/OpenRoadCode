@@ -50,6 +50,14 @@ class PoiAction:
 
 
 @dataclass(frozen=True, slots=True)
+class PoiIcon:
+    """Validated business image bytes supplied to presentation without file access."""
+
+    data: bytes
+    media_type: str = 'image/png'
+
+
+@dataclass(frozen=True, slots=True)
 class PointOfInterest:
     """Describe a selected or discovered place independently of its renderer."""
 
@@ -67,6 +75,7 @@ class PointOfInterest:
     operator: str | None = None
     business_id: str | None = None
     icon_id: str | None = None
+    icon: PoiIcon | None = None
 
 
 @dataclass(frozen=True, slots=True)

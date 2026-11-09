@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Queue worker presentation requests and host the dedicated Weston surface."""
+"""Queue worker presentation requests and host the selected Android surface."""
 from threading import Lock
 from dataclasses import replace
 
@@ -18,7 +18,8 @@ class AndroidAppView(AndroidAppViewRequestHandlerIf):
                  player=None, window_embedder=None, preserve_external_window=True,
                  visibility_changed=None, screen_label='ANDROID_APP', navigation_label=None,
                  persistent_session=False, close_action=None, saved_destination_action=None,
-                 on_present=lambda: None, experience_handler=None):
+                 on_present=lambda: None, experience_handler=None,
+                 prepare_app=None, full_width_apps=False):
         self._app = app
         self._lock = Lock()
         self._closed = False
@@ -27,6 +28,8 @@ class AndroidAppView(AndroidAppViewRequestHandlerIf):
         self._screen_label = screen_label
         self._saved_destination_action = saved_destination_action
         self._on_present = on_present
+        self._prepare_app = prepare_app
+        self._full_width_apps = full_width_apps
         self._state = AndroidAppViewState()
         self._player = player if player is not None else WaydroidSurfacePlayer()
         self._screen = AndroidAppScreen(
@@ -51,7 +54,8 @@ class AndroidAppView(AndroidAppViewRequestHandlerIf):
             if not self._closed:
                 navigation_app = package == 'com.waze'
                 state = AndroidAppViewState(app_name.strip() or 'Android app', package,
-                    expanded=navigation_app, can_split=not navigation_app,
+                    expanded=navigation_app or self._full_width_apps,
+                    can_split=not navigation_app and not self._full_width_apps,
                     can_navigate_saved_destinations=navigation_app and self._saved_destination_action is not None,
                     navigation_mode_controls=navigation_app)
                 generation = self._generation
@@ -61,6 +65,8 @@ class AndroidAppView(AndroidAppViewRequestHandlerIf):
         if self._closed or generation != self._generation:
             return
         self._state = state
+        if self._prepare_app is not None:
+            self._prepare_app(state.package)
         self._screen.present(state)
         self._on_present()
         self._app.navigate_to(self._screen_label)

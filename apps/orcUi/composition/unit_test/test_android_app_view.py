@@ -6,6 +6,27 @@ import subprocess
 import pytest
 
 from apps.orcUi.composition.android_app_view import AndroidAppView
+
+
+def test_business_package_is_prepared_on_ui_dispatch_before_full_width_presentation():
+    app, prepare = Mock(), Mock()
+    events = []
+    prepare.side_effect = lambda package: events.append(('prepare', package))
+    with patch('apps.orcUi.composition.android_app_view.AndroidAppScreen') as screen:
+        screen.return_value.present.side_effect = lambda state: events.append(('present', state.package))
+        view = AndroidAppView(app, map_runtime=Mock(), map_platform=Mock(),
+                              prepare_app=prepare, full_width_apps=True)
+        view.request_show_android_app('Panera', 'com.panera.bread')
+        prepare.assert_not_called()
+        app.dispatch_ui.call_args.args[0]()
+        assert events == [('prepare', 'com.panera.bread'), ('present', 'com.panera.bread')]
+        state = screen.return_value.present.call_args.args[0]
+        assert state.expanded and not state.can_split
+        assert not state.navigation_mode_controls
+        view.close()
+        events.clear()
+        view.request_show_android_app('Panera', 'com.panera.bread')
+        assert not events
 from apps.orcUi.adapters.waydroid_surface_player import WaydroidSurfacePlayer
 from frontends.tk.media.browser_media_screen import BrowserMediaScreen
 from frontends.x11.x11_window_embedder import X11WindowEmbedder
