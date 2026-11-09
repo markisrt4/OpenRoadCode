@@ -51,3 +51,99 @@ def test_start_failure_releases_backend_and_reports_error():
         assert 'bridge consent required' in controller.presentation()[1]
     finally:
         controller.close()
+
+
+def test_home_and_full_visualizer_share_one_capture_and_preferences():
+    from ui.music_visualizer import VisualizerFrame
+    from ui.music_visualizer.music_visualizer_types import MusicVisualizerOptions, MusicVisualizationMode
+    released = Event()
+    session = Mock()
+    session.is_running = True
+    session.close.side_effect = released.set
+    factory = Mock(return_value=session)
+    controller = MusicVisualizerController(factory)
+    try:
+        controller.attach_view('full')
+        controller.start(MusicVisualizerSource.ANDROID_PLAYBACK)
+        controller._executor.submit(lambda: None).result(timeout=2)
+        controller.start(MusicVisualizerSource.ANDROID_PLAYBACK)
+        controller._executor.submit(lambda: None).result(timeout=2)
+        assert factory.call_count == 1
+        frame = VisualizerFrame(.3, .2, .1, .1, (.2,)*24)
+        controller._offer_frame(controller._generation, frame)
+        assert controller.latest_frame() is frame
+        assert controller.latest_frame() is frame
+        assert controller.presentation()[0] is frame
+        assert controller.latest_frame() is frame
+        options = MusicVisualizerOptions(mode=MusicVisualizationMode.NEON_RIBBON, drum_gain=.4)
+        controller.configure_visualizer(options)
+        controller.set_home_visualizer_enabled(True)
+        controller.detach_view('full')
+        controller.attach_view('home')
+        assert not released.wait(.35)
+        assert controller.visualizer_options() is options
+        assert controller.home_visualizer_enabled()
+        assert controller.selected_source() is MusicVisualizerSource.ANDROID_PLAYBACK
+        controller.detach_view('home')
+        assert released.wait(2)
+        assert controller.latest_frame() is None
+    finally:
+        controller.close()
+
+
+def test_close_cancels_navigation_handoff_and_ignores_late_audio():
+    controller = MusicVisualizerController(Mock())
+    controller.attach_view('home')
+    controller.detach_view('home')
+    controller.close()
+    controller._offer_frame(controller._generation - 1, Mock())
+    assert controller.latest_frame() is None
+    assert controller._detach_timer is None
+
+
+def test_capture_lifecycle_reports_pending_running_natural_stop_and_explicit_stop():
+    from ui.music_visualizer.music_visualizer_types import MusicCaptureState
+    entered, release = Event(), Event()
+    session = Mock(is_running=True)
+
+    def start():
+        entered.set()
+        assert release.wait(3)
+
+    session.start.side_effect = start
+    controller = MusicVisualizerController(lambda callback, source: session)
+    try:
+        assert controller.capture_state() is MusicCaptureState.IDLE
+        controller.start(MusicVisualizerSource.ANDROID_PLAYBACK)
+        assert entered.wait(3)
+        assert controller.capture_state() is MusicCaptureState.STARTING
+        release.set()
+        controller._executor.submit(lambda: None).result(timeout=3)
+        assert controller.capture_state() is MusicCaptureState.RUNNING
+        session.is_running = False
+        assert controller.capture_state() is MusicCaptureState.IDLE
+        controller.stop()
+        assert controller.capture_state() is MusicCaptureState.IDLE
+    finally:
+        release.set()
+        controller.close()
+
+
+def test_capture_failure_and_simulation_have_explicit_lifecycle_states():
+    from ui.music_visualizer.music_visualizer_types import MusicCaptureState
+    controller = MusicVisualizerController(Mock(side_effect=RuntimeError('unavailable')))
+    try:
+        controller.start(MusicVisualizerSource.ANDROID_PLAYBACK)
+        controller._executor.submit(lambda: None).result(timeout=3)
+        assert controller.capture_state() is MusicCaptureState.IDLE
+    finally:
+        controller.close()
+    simulation = MusicVisualizerController(lambda callback, source: None)
+    try:
+        simulation.start(MusicVisualizerSource.SIMULATED)
+        simulation._executor.submit(lambda: None).result(timeout=3)
+        assert simulation.capture_state() is MusicCaptureState.RUNNING
+        simulation.stop()
+        assert simulation.capture_state() is MusicCaptureState.IDLE
+    finally:
+        simulation.close()

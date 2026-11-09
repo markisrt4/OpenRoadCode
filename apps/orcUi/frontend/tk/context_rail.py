@@ -279,6 +279,7 @@ class ContextRail(tk.Frame, UiWidget):
             caution_high=225.0,
             danger_high=240.0,
             icon="coolant",
+            normal_segment_color="#36b8f5",
             precision=0,
             style=gauge_style,
             width=190,

@@ -133,6 +133,8 @@ def build_settings_screen(
     theme: ThemeBundle,
     host_location_handler: HostLocationRequestHandlerIf | None = None,
     host_location_state: HostLocationState = HostLocationState(),
+    performance_overlay_enabled: Callable[[], bool] | None = None,
+    on_performance_overlay_changed: Callable[[bool], None] | None = None,
 ) -> SettingsPanel:
     screen = SettingsPanel(
         parent,
@@ -144,6 +146,8 @@ def build_settings_screen(
         theme_bundle=theme,
         host_location_handler=host_location_handler,
         host_location_state=host_location_state,
+        performance_overlay_enabled=performance_overlay_enabled,
+        on_performance_overlay_changed=on_performance_overlay_changed,
     )
     screen.pack(fill=tk.BOTH, expand=True)
     return screen

@@ -70,6 +70,8 @@ class GradientControl(tk.Canvas, UiWidget):
                                   height * (index + 1) / 16 + 1, fill=color, outline="")
         self.create_text(width / 2, height / 2, text=self._text, font=self._font,
                          fill=self._active_foreground if self._hover else self._foreground)
-        if self.focus_get() is self:
+        # Native Tk dialogs create Tcl-only widgets (e.g. __tk__color), which
+        # focus_get() cannot resolve through Python's children dictionary.
+        if str(self.tk.call("focus", "-displayof", self._w)) == self._w:
             self.create_rectangle(2, 2, width - 3, height - 3,
                                   outline=self._foreground, width=1)

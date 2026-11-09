@@ -33,6 +33,7 @@ from services.common.service_manager_browser_pairing import (
 from services.common.service_manager_pairing import ServiceManagerPairing
 from services.common.service_manager_logs import serve_logs
 from services.common.system_performance_monitor import SystemPerformanceMonitor
+from services.common.network_usb_inventory import collect_inventory
 from services.termux.service_manager import RunitServiceManager, ServiceStatus
 
 DEFAULT_HOST = "127.0.0.1"
@@ -68,6 +69,9 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
             return
         if parts == ["logs"]:
             serve_logs(self, scope="Shared ORC log store")
+            return
+        if parts == ["network", "diagnostics"]:
+            self._json(HTTPStatus.OK, collect_inventory())
             return
         if parts == ["performance"]:
             monitor = self.performance_monitor

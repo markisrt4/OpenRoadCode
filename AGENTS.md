@@ -1,5 +1,21 @@
 # Repository instructions
 
+## ORC's Law: Inspect, Reuse, Extend
+
+**Before writing new code, understand what OpenRoadCode already provides.**
+
+1. **Inspect first.** Search existing modules, interfaces, controllers, adapters, schedulers, tests, and documentation before proposing new implementations.
+2. **Reuse what works.** Prefer existing abstractions and infrastructure over parallel implementations.
+3. **Extend before replacing.** When existing functionality is incomplete, extend it while preserving established contracts and behavior.
+4. **Respect architectural boundaries.** Keep hardware access, protocols, business logic, and presentation properly separated.
+5. **Avoid duplication.** Do not introduce competing schedulers, transports, parsers, managers, or services without demonstrating why the existing implementations are insufficient.
+6. **Preserve working behavior.** New capabilities must not silently disrupt existing features or performance characteristics.
+7. **Verify before declaring success.** Use appropriate tests and CI, following the repository's execution and cost policies.
+
+**Enforcement:** Before implementing a feature, identify the existing components reviewed, explain what can be reused, and justify any genuinely new abstraction.
+
+*ORC's Law: Inspect what exists. Reuse what works. Extend what's missing. Don't reinvent the wheel.*
+
 ## UI contracts are part of completing a feature
 
 - Before wiring new UI behavior, define or extend toolkit-independent state and
@@ -85,3 +101,46 @@ Explain the proposed scope and consequences first, then wait for the user's
 answer. Do not treat an unanswered preference question as authorization. Routine
 fixes within an agreed scope can proceed. Apply this preference in every Codex
 session working on this repository.
+
+## Confirm branch creation with the user
+
+- Before creating or switching to a new working branch for a task, ask the user
+  whether to open a new branch or continue on the current branch. Recommend a
+  descriptive branch name when a new branch would be appropriate.
+- Wait for explicit user approval before creating the branch. Do not treat a
+  general request to implement a feature as automatic permission to branch.
+- If the user chooses the existing branch, respect that choice and verify the
+  active branch before making changes. Never silently modify `master`.
+- This approval is separate from any required discussion of major changes.
+
+## Keep Linear feature issues current
+
+- For meaningful progress on a feature branch, find its corresponding Linear issue
+  and update the existing issue rather than creating a duplicate. Use the
+  repository-and-branch reference and linked PR to identify the issue; if no
+  confident match exists, report that instead of guessing.
+- Update Linear at substantial milestones: completed implementation slices,
+  significant design decisions, newly discovered blockers, validation results,
+  or material changes in scope. Do not post an update for every minor commit.
+- Maintain the issue's implementation checklist as the work evolves. Check off
+  items only when completed and supported by actual work or test evidence; add
+  newly discovered tasks without discarding prior context or history.
+- Distinguish tests actually run from tests pending or failing. Include concise
+  commit or PR references when useful, and preserve outstanding verification
+  steps in the issue.
+- Never mark an issue Done just because code was pushed or a PR was merged.
+  Leave final completion to explicit verification and user approval.
+- If Linear access is unavailable, report the pending update at handoff; do not
+  claim the issue was updated or block code progress solely on tracking.
+
+## Codex execution and CI cost policy
+
+- Do **not** run tests, lint, type checks, builds, quality gates, benchmarks, or validation scripts in the Codex cloud VM by default. This includes indirect invocations via Make, Gradle, npm, shell scripts, pre-commit hooks, or other wrappers.
+- Write and update meaningful tests alongside code changes, but delegate their execution to GitHub Actions. For device-dependent verification, give the user exact commands for their Linux, Raspberry Pi, or Android/Termux environment.
+- Read GitHub Actions logs, statuses, and downloadable reports to diagnose failures. Make targeted fixes and push them for CI to rerun. Do not rerun tests in the agent VM simply because CI fails.
+- Do not execute tests locally even when an existing repository instruction says to run focused checks. This section overrides such instructions for Codex cloud sessions. Static review of source and diffs without running validation tools is allowed.
+- Only run a check in the Codex VM if the user **explicitly authorizes that specific execution**. General requests such as 'fix it', 'verify', or 'make sure it works' are not authorization to consume Codex cloud execution for tests.
+- Clearly report which checks CI actually ran, which checks are pending, and which require physical hardware. Never imply unexecuted tests passed.
+- Do not install dependencies in the Codex VM solely to run checks, tests, builds, or other validation. Dependency installation needed for actual implementation must be justified separately.
+- Prefer concise CI failure summaries, JUnit XML artifacts, and the failing job's relevant log excerpt over reading entire workflow logs repeatedly.
+- Request or inspect the GitHub Actions result for the exact commit before declaring verification complete. Use the workflow's manually dispatched full gate before merge where configured; do not claim the full gate ran just because fast CI passed.

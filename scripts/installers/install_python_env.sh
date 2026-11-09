@@ -164,4 +164,7 @@ else
   echo "[*] All requested Python packages are already installed in the virtual environment."
 fi
 
+echo "[*] Installing shared music-analysis engine..."
+bash "$SCRIPT_DIR/install_libmusicforge.sh"
+
 deactivate

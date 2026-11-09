@@ -21,7 +21,8 @@ from apps.common.spotify_presentation_factory import create_spotify_presentation
 from apps.orcUi.adapters.managed_browser_media_player import ManagedBrowserMediaPlayer
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from frontends.tk.media.music_visualizer_screen import MusicVisualizerScreen
-from apps.orcUi.composition.music_visualizer import create_browser_visualizer, create_music_visualizer_session, selected_music_visualizer_source
+from ui.music_visualizer import MusicVisualizerSource
+from apps.orcUi.composition.music_visualizer import create_browser_visualizer, create_music_visualizer_session, selected_native_visualizer_source
 from apps.orcUi.adapters.music_visualizer_browser import MusicVisualizerBrowser, WINDOW_CLASS
 from controllers.audio.music_analysis.music_visualizer_controller import MusicVisualizerController
 from apps.orcUi.theme_runtime import theme_bundle
@@ -60,6 +61,7 @@ SPOTIFY_GREEN = "#1DB954"
 class MediaComposition:
     music_video_controller: MusicVideoController
     home_factory: Callable[[tk.Misc], tk.Widget]
+    home_visualizer_factory: Callable[[tk.Misc], tk.Widget] | None
     visualizer: MusicVisualizerScreen | BrowserMediaScreen
     visualizer_runtime: MusicVisualizerController | MusicVisualizerBrowser
     unsubscribe_online: Callable[[], None] = lambda: None
@@ -275,12 +277,22 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
     )
     retire_views.append(spotify_screen.hide)
 
-    if os.getenv("OPENROAD_MUSIC_VISUALIZER_RENDERER", "webgl").lower() == "tk":
+    renderer = os.getenv("OPENROAD_MUSIC_VISUALIZER_RENDERER", "opengl").lower()
+    if renderer in {"tk", "opengl"}:
+        panel_options = {}
+        if renderer == "opengl":
+            from functools import partial
+            from frontends.tk.media.native_music_visualizer import NativeMusicVisualizerPanel
+            from apps.orcUi.frontend.tk.ecu_gl_backend import load_gl_backend
+            panel_options["panel_factory"] = partial(NativeMusicVisualizerPanel, gl_backend=load_gl_backend)
         visualizer_runtime = MusicVisualizerController(create_music_visualizer_session)
         cleanup.callback(visualizer_runtime.close)
         visualizer = MusicVisualizerScreen(
             app, on_back=lambda: media_screen.show(), controller=visualizer_runtime,
-            initial_source=selected_music_visualizer_source(),
+            initial_source=selected_native_visualizer_source(),
+            native_controls=renderer == "opengl",
+            share_session=renderer == "opengl",
+            **panel_options,
             theme_bundle=lambda: theme_bundle(app.theme_mode),
         )
     else:
@@ -309,22 +321,56 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
     )
     app.register_screen("MEDIA", media_screen)
 
-    def home_media_factory(parent: tk.Misc) -> tk.Widget:
+    home_capture_attached = False
+
+    def home_playback_changed(playing: bool) -> None:
+        """Share native audio capture with other views without stopping their session."""
+        nonlocal home_capture_attached
+        if not isinstance(visualizer_runtime, MusicVisualizerController):
+            return
+        source = selected_native_visualizer_source()
+        if source is MusicVisualizerSource.SIMULATED:
+            return  # Idle animation is not a measured spectrum.
+        if playing and not home_capture_attached:
+            home_capture_attached = True
+            visualizer_runtime.attach_view("home-playback")
+            if visualizer_runtime.capture_state().value == "idle":
+                visualizer_runtime.start(source)
+        elif not playing and home_capture_attached:
+            home_capture_attached = False
+            visualizer_runtime.detach_view("home-playback")
+
+    def home_now_playing_factory(parent: tk.Misc) -> tk.Widget:
         view = SpotifyNowPlaying(
             parent,
             online_allowed=network_allowed,
             on_open=online_action(spotify_screen.show),
             theme_bundle=lambda: theme_bundle(app.theme_mode),
+            on_playback_changed=home_playback_changed,
         )
-        session = create_presentation(rich=False)
+        session = create_presentation(rich=True)
         def retire(event: tk.Event) -> None:
             if event.widget is view:
+                home_playback_changed(False)
                 session.close()
                 if session in presentations:
                     presentations.remove(session)
         view.bind("<Destroy>", retire, add="+")
         session.activate(view)
         return view
+
+    def home_media_factory(parent: tk.Misc) -> tk.Widget:
+        """Keep HOME focused on playback; the shared strip owns spectrum preview."""
+        return home_now_playing_factory(parent)
+
+
+    def home_spectrum_factory(parent: tk.Misc) -> tk.Widget:
+        from frontends.tk.media.home_spectrum_bar import HomeSpectrumBar
+        return HomeSpectrumBar(
+            parent, controller=visualizer_runtime,
+            theme_bundle=lambda: theme_bundle(app.theme_mode),
+            on_open=visualizer.show,
+        )
 
     def mode_changed(online: bool) -> None:
         account_controller.network_changed()
@@ -348,7 +394,8 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
     return MediaComposition(
         preview=preview,
         music_video_controller=music_video_controller,
-        home_factory=home_media_factory,
+        home_factory=home_now_playing_factory,
+        home_visualizer_factory=home_spectrum_factory if renderer == 'opengl' else None,
         visualizer=visualizer,
         visualizer_runtime=visualizer_runtime,
         unsubscribe_online=unsubscribe_online,
