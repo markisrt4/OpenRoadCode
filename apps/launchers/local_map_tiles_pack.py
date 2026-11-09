@@ -18,6 +18,12 @@ def detroit_tiles_directory():
 
 def preferred_tiles_directory(destination=None):
     directory = navigation_data_root()/'maps/3d/packs'
+    from apps.launchers.local_building_regions import installed_regions
+    regions = installed_regions()
+    if regions:
+        # The viewer mounts the full installed regional catalog, so selecting a
+        # different starting directory by destination would only repeat hashing.
+        return regions[0][1]
     # A regional pack permits streaming while panning between local cities.
     for candidate in (openroadcode_data_dir('map-packs','metro-detroit-buildings-active'),
                       directory/'metro-detroit'):
@@ -97,6 +103,10 @@ class LocalMapTilesPack:
 
 def load_viewer_tiles(directory):
     """Reuse matching previously downloaded aerial tiles with builder-owned geometry."""
+    from apps.launchers.local_building_regions import combined_buildings
+    regional = combined_buildings(Path(directory))
+    if regional is not None:
+        return regional
     pack = LocalMapTilesPack.load(directory)
     cached = detroit_tiles_directory()
     if any(t.imagery_available for t in pack.state.tiles) or not cached.exists() or cached.resolve() == Path(directory).resolve():

@@ -8,7 +8,7 @@ import time
 
 from tools.map_builder.builder.build import _download_and_verify
 from tools.map_builder.builder.geofabrik import fetch_index
-from tools.map_builder.builder.map_3d import build_pack, digest
+from tools.map_builder.builder.map_3d import build_pack, digest, PRESETS
 from tools.map_builder.builder.building_artifact import package
 
 
@@ -21,10 +21,10 @@ def michigan_region(regions):
     return matches[0]
 
 
-def build(output, cache, source=None):
+def build(output, cache, source=None, coverage='metro-detroit'):
     output.mkdir(parents=True, exist_ok=True)
     started = time.monotonic()
-    report = dict(status='started', coverage='metro-detroit',
+    report = dict(status='started', coverage=coverage,
                   note='OSM ways and assembled multipolygon relations; courtyards and building parts preserved; unknown heights use approximate 9 m blocks at close zoom')
     try:
         if source is None:
@@ -39,7 +39,7 @@ def build(output, cache, source=None):
             sources = dataset/'maps/source'
             sources.mkdir(parents=True)
             (sources/source.name).symlink_to(source)
-            pack = build_pack(dataset, 'metro-detroit')
+            pack = build_pack(dataset, coverage)
             manifest = json.loads((pack/'manifest.json').read_text())
             report.update(geometry_schema=manifest['schema'],
                           part_components=manifest['part_components'],
@@ -47,11 +47,12 @@ def build(output, cache, source=None):
                           relation_components=manifest['relation_components'],
                           courtyard_components=manifest['courtyard_components'],
                           duplicate_member_ways_removed=manifest['duplicate_member_ways_removed'],
-                          site_components=site_components(pack,manifest),
+                          site_components=site_components(pack,manifest) if coverage in ('metro-detroit','mi-lower-southeast') else [],
                           height_counts=manifest['height_counts'], tiles=len(manifest['tiles']),
                           skipped_features=manifest['skipped_features'])
-            descriptor = package(pack, output/'metro-detroit-buildings.zip', 'metro-detroit')
+            descriptor = package(pack, output/(coverage+'-buildings.zip'), coverage)
             report.update(status='validated', buildings=descriptor['buildings'],
+                          unpacked_bytes=descriptor['unpacked_bytes'],
                           tiles=descriptor['tiles'], archive_bytes=descriptor['bytes'],
                           height_counts=manifest['height_counts'], skipped_features=manifest['skipped_features'])
     except Exception as error:
@@ -84,11 +85,12 @@ def site_components(pack, manifest):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--coverage',choices=tuple(PRESETS),default='metro-detroit')
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--cache', type=Path, required=True)
     parser.add_argument('--source', type=Path, help='Reuse an existing local Michigan OSM PBF')
     args = parser.parse_args()
-    build(args.output, args.cache, args.source)
+    build(args.output, args.cache, args.source,args.coverage)
 
 
 if __name__ == '__main__':

@@ -23,6 +23,7 @@ on:
           - michigan-all
           - michigan-staged
           - metro-detroit-buildings
+          - michigan-buildings
           - imagery-detail-pilot
           - generic-state
           - validation-states
@@ -329,7 +330,7 @@ jobs:
 
   michigan:
     name: Build Michigan terrain package
-    if: ${{ inputs.build_target != 'metro-detroit' && inputs.build_target != 'michigan-all' && inputs.build_target != 'michigan-staged' && inputs.build_target != 'metro-detroit-buildings' && inputs.build_target != 'imagery-detail-pilot' && inputs.build_target != 'generic-state' && inputs.build_target != 'validation-states' && inputs.build_target != 'rochester-static-trial' }}
+    if: ${{ inputs.build_target != 'metro-detroit' && inputs.build_target != 'michigan-all' && inputs.build_target != 'michigan-staged' && inputs.build_target != 'metro-detroit-buildings' && inputs.build_target != 'michigan-buildings' && inputs.build_target != 'imagery-detail-pilot' && inputs.build_target != 'generic-state' && inputs.build_target != 'validation-states' && inputs.build_target != 'rochester-static-trial' }}
     uses: ./.github/workflows/build-michigan-terrain.yml
     with:
       coverage: ${{ inputs.build_target }}
@@ -585,7 +586,7 @@ jobs:
 
   metro-buildings:
     name: Build Metro Detroit OSM buildings
-    if: ${{ inputs.build_target == 'metro-detroit-buildings' || (inputs.build_target == 'michigan-staged' && (inputs.staged_coverage == '' || inputs.staged_coverage == 'all')) }}
+    if: ${{ inputs.build_target == 'metro-detroit-buildings' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -622,6 +623,58 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: metro-detroit-buildings-${{ github.run_id }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            build-output/metro-buildings/*.zip
+            build-output/metro-buildings/*.zip.json
+            build-output/metro-buildings/buildings-report.json
+
+  michigan-buildings:
+    name: Buildings ${{ matrix.coverage }}
+    if: ${{ inputs.build_target == 'michigan-buildings' || (inputs.build_target == 'michigan-staged' && (inputs.staged_coverage == '' || inputs.staged_coverage == 'all')) }}
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        coverage: [mi-lower-southwest, mi-lower-southeast, mi-lower-central-west, mi-lower-central-east, mi-lower-northwest, mi-lower-northeast, mi-upper-west, mi-upper-east]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install existing OSM extraction tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y osmium-tool python3-pytest
+      - name: Building pack and installer regressions
+        run: >-
+          /usr/bin/python3 -m pytest apps/launchers/unit_test/test_regional_buildings.py
+          apps/launchers/unit_test/test_michigan_buildings.py apps/launchers/unit_test/test_building_relations.py apps/launchers/unit_test/test_building_parts.py
+          tools/map_builder/tests/test_map_3d.py tools/map_builder/tests/test_build.py -q
+      - uses: actions/cache/restore@v4
+        if: ${{ !inputs.force_rebuild }}
+        with:
+          path: build-output/building-source-cache
+          key: metro-osm-buildings-v1-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.coverage }}
+          restore-keys: metro-osm-buildings-v1-
+      - name: Extract buildings from Michigan PBF and package
+        run: |
+          /usr/bin/python3 -m development.maps.build_regional_buildings \
+            --coverage ${{ matrix.coverage }} \
+            --output build-output/metro-buildings \
+            --cache build-output/building-source-cache
+      - uses: actions/cache/save@v4
+        if: ${{ always() }}
+        with:
+          path: build-output/building-source-cache
+          key: metro-osm-buildings-v1-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.coverage }}
+      - name: Upload checked buildings and source report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.coverage }}-buildings-${{ github.run_id }}
           retention-days: 14
           if-no-files-found: warn
           path: |

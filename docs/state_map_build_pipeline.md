@@ -454,7 +454,7 @@ extending building extraction statewide.
 
 Regional retry: `michigan-staged` accepts `staged_coverage=<coverage>` to rerun
 only an incomplete region. The default `all` retains the full matrix and Metro
-building stage; an individual retry leaves completed regions and buildings alone.
+building stages; an individual retry leaves completed regions and buildings alone.
 Large-region NAIP discovery follows up to 300 bounded pages rather than the
 initial 100-page ceiling, still rejecting loops and unapproved pagination URLs.
 
@@ -506,3 +506,32 @@ building-part geometry around Chrysler Technology Center, comparing source
 features against current way-only/simple-footprint/height visibility rules.
 It prints and uploads `building-site-audit.json`; the audit changes no geometry
 or height policy by itself.
+
+
+### Michigan-wide buildings and detail roadmap
+
+`build_target=michigan-buildings` builds the eight existing Michigan regions with
+OSM parts, courtyards and approximate heights. The full `michigan-staged` target
+also includes these building jobs. Metro-only builds remain available. Each
+regional ZIP has a 256 MiB download / 1 GiB extracted limit; individual geometry
+tile and rendering budgets are unchanged. The combined viewer catalog replaces
+Metro building presentation when Southeast is installed, preserving the old pack.
+
+After downloading all eight artifacts from the same successful run:
+
+```bash
+git switch navigation-cesium
+python -m development.maps.install_buildings --michigan-directory build-output/michigan-buildings
+```
+
+Individual regional installs use `--coverage mi-upper-west --pack-file ...`.
+Existing Metro commands retain their default coverage. The batch preflights all
+archives, then activates each region independently; earlier activations survive a
+later failure. Keep the adjacent `.zip.json` files. Bounds are planning envelopes;
+complete cross-boundary footprints are owned once by centroid and may extend over
+the pack edge. Download/install reports give actual compressed and installed sizes.
+
+See [Michigan detail and national delivery plan](map_expansion_plan.md) for imagery
+resolution tiers, terrain LOD requirements, source rights, storage estimates and
+the staged expansion to all 50 states. Higher-resolution and national delivery
+remain planned work; this change builds Michigan buildings.

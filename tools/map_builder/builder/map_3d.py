@@ -9,6 +9,7 @@ import re
 import subprocess
 from tempfile import TemporaryDirectory
 
+from development.maps.terrain_regions import MICHIGAN_BOUNDS, MICHIGAN_SHARDS
 from ui.navigation.local_map_tiles_state import MAX_MAP_TILES
 from ui.navigation.local_building_state import LocalBuilding
 from .building_parts import mark_part_outlines
@@ -21,6 +22,7 @@ PRESETS = {
     'rochester': ('Rochester test area',(-83.175,42.650,-83.110,42.705)),
     'southfield': ('Central Southfield test area',(-83.290,42.440,-83.220,42.505)),
     'metro-detroit': ('Metro Detroit',(-83.75,42.0,-82.55,42.9)),
+    **MICHIGAN_SHARDS,
 }
 CREDIT = '© OpenStreetMap contributors · ODbL 1.0'
 
@@ -62,6 +64,14 @@ def partition_buildings(buckets, bounds, rows, columns, *, adaptive=False):
             pending.append((tile_id+'-'+str(index),child,group,depth+1))
 
 
+def regional_owner(building):
+    ring = building['ring_rad'][:-1]
+    lon = math.degrees(sum(p[0] for p in ring)/len(ring))
+    lat = math.degrees(sum(p[1] for p in ring)/len(ring))
+    return next((key for key,(_, (w,s,e,n)) in MICHIGAN_SHARDS.items()
+                 if w <= lon <= e and s <= lat <= n),None)
+
+
 def build_pack(root, preset):
     root = Path(root)
     title,bounds = PRESETS[preset]
@@ -73,7 +83,8 @@ def build_pack(root, preset):
         raise ValueError(f'Pack already exists: {destination}; validate or explicitly remove it before rebuilding')
     destination.parent.mkdir(parents=True,exist_ok=True)
     west,south,east,north = bounds
-    rows,columns = (16,16) if preset == "metro-detroit" else (4,2)
+    regional = preset in MICHIGAN_SHARDS
+    rows,columns = (16,16) if preset == "metro-detroit" or regional else (4,2)
     buckets = {(row,col):{} for row in range(rows) for col in range(columns)}
     height_counts = {key:0 for key in ("osm-height","levels-estimate","placeholder")}
     skipped = 0
@@ -97,7 +108,7 @@ def build_pack(root, preset):
                     if not line.strip():
                         continue
                     feature = json.loads(line.lstrip('\x1e'))
-                    buildings = normalize_components(feature,bounds)
+                    buildings = normalize_components(feature,MICHIGAN_BOUNDS if regional else bounds)
                     if not buildings:
                         skipped += 1
                         continue
@@ -110,8 +121,8 @@ def build_pack(root, preset):
                         ring = building['ring_rad'][:-1]
                         lon = math.degrees(sum(p[0] for p in ring)/len(ring))
                         lat = math.degrees(sum(p[1] for p in ring)/len(ring))
-                        col = min(columns-1,int((lon-west)/(east-west)*columns))
-                        row = min(rows-1,int((lat-south)/(north-south)*rows))
+                        col = max(0,min(columns-1,int((lon-west)/(east-west)*columns)))
+                        row = max(0,min(rows-1,int((lat-south)/(north-south)*rows)))
                         buckets[row,col][f'{identity}#{component}'] = building
             except BaseException:
                 process.terminate()
@@ -136,14 +147,24 @@ def build_pack(root, preset):
                        for parent in parents):
                     del bucket[identity]
                     duplicates += 1
-        part_outlines = mark_part_outlines(buckets)
+        mark_part_outlines(buckets)
+        # Complete footprints may cross a regional edge. Assign each component
+        # once by centroid, using a stable order for overlapping UP/LP envelopes.
+        # Associate parts before filtering so a neighbor-owned part still prevents
+        # a parent extrusion from occluding it across the pack boundary.
+        if regional:
+            for bucket in buckets.values():
+                for identity,building in list(bucket.items()):
+                    if regional_owner(building) != preset:
+                        del bucket[identity]
+        part_outlines = sum(bool(b.get('outline_only')) for cell in buckets.values() for b in cell.values())
         if not any(buckets.values()):
             raise ValueError('No supported building outlines in selected coverage; verify your source region')
         pack = scratch/'pack'
         pack.mkdir()
         records = []
         for tile_id,tile_bounds,features,content in partition_buildings(
-                buckets,bounds,rows,columns,adaptive=preset == 'metro-detroit'):
+                buckets,bounds,rows,columns,adaptive=preset == 'metro-detroit' or regional):
             local = pack/tile_id
             local.mkdir()
             for building in features:
@@ -158,7 +179,9 @@ def build_pack(root, preset):
             'height_counts':height_counts, 'grid':[rows,columns],
             'part_components':sum(bool(b.get('is_part')) for cell in buckets.values() for b in cell.values()),
             'outlines_with_parts':part_outlines,
-            'relation_components':sum(len(parts) for parts in accepted_relations.values()),
+            'relation_components':sum(b.get('source_id','').startswith('relation/') for cell in buckets.values() for b in cell.values()),
+            'coverage':preset,
+            'ownership':'first matching Michigan region by component centroid' if regional else 'selected coverage',
             'courtyard_components':sum(bool(b.get('holes_rad')) for cell in buckets.values() for b in cell.values()),
             'duplicate_member_ways_removed':duplicates,
             'sources':[{'file':source.name,'sha256':digest(source)} for source in sources]}
