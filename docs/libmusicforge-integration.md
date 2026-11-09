@@ -54,7 +54,9 @@ copyright/license notices are retained in libMusicForge.
 Both `scripts/installers/install_python_env.sh` and `scripts/termux/install.sh`
 invoke `scripts/installers/install_libmusicforge.sh` in the selected virtual
 environment. By default the helper prefers a sibling `../libMusicForge`
-checkout and otherwise installs from GitHub. Set `LIBMUSICFORGE_SOURCE`
+checkout only when its metadata declares the analysis extra and its source tree
+contains `musicforge.analysis`. Otherwise it installs a verified GitHub revision
+(`7ca7cd444291ab02bea0e82df13bd05620634420`). Set `LIBMUSICFORGE_SOURCE`
 to override that source. On Termux, `python-numpy` must be visible inside
 the virtual environment; the helper avoids compiling NumPy with pip.
 The Termux environment check verifies that the shared analyzer imports.
@@ -65,8 +67,10 @@ For local development, install the sibling library in editable mode:
 python -m pip install -e ../libMusicForge --no-deps  # Termux, with python-numpy installed
 ```
 
-A normal installer run uses a non-editable installation, so subsequent library
-changes require reinstalling it. The core libMusicForge wheel excludes its
+A normal installer run uses a non-editable installation and explicitly replaces
+the existing package, even when both old and current revisions report version
+`0.1.0`. Subsequent library changes require reinstalling it. Explicit incompatible
+local overrides are rejected before pip runs; sibling checkouts are not modified. The core libMusicForge wheel excludes its
 standalone `component_test/` examples, which are run from its source checkout.
 
 ## Native visualizer checks
