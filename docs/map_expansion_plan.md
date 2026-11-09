@@ -10,7 +10,10 @@ remain the foundation. Navigation/search/routing remain separate products.
 
 Use the eight existing Michigan regional definitions, extending the two southern
 building envelopes from 41.7 to 41.69 to include the checked-in state boundary
-near 41.696089. Existing terrain/imagery bounds remain unchanged. Each region reuses the
+near 41.696089. Western Lower Peninsula building envelopes extend to -87.0
+(including New Buffalo), and Upper Peninsula building envelopes extend south
+to 45.0 (including Menominee). A CI test checks every vertex of the checked-in
+Michigan boundary. Existing terrain/imagery bounds remain unchanged. Each region reuses the
 Michigan Geofabrik PBF and emits a checked building ZIP, descriptor, and report.
 Relations, courtyards, parts and base offsets use the same schema-3 geometry as
 Metro Detroit. A component belongs to the first matching region by centroid;

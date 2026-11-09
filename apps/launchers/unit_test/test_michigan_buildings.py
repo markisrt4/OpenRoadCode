@@ -112,3 +112,19 @@ def test_southern_border_strip_is_included_without_changing_terrain_coverage():
     assert map_3d.regional_owner({'ring_rad':[point]*4})=='mi-lower-southeast'
     assert MICHIGAN_SHARDS['mi-lower-southeast'][1][1]==41.7
     assert map_3d.PRESETS['mi-lower-southeast'][1][1]<41.696089
+
+
+@pytest.mark.parametrize('lon,lat',[(-86.744,41.794),(-87.614,45.107)])
+def test_lake_michigan_coast_and_southern_upper_peninsula_are_covered(lon,lat):
+    point=[math.radians(lon),math.radians(lat)]
+    assert map_3d.regional_owner({'ring_rad':[point]*4}) is not None
+
+
+def test_every_checked_in_michigan_boundary_vertex_has_building_coverage():
+    from development.maps.state_map_catalog import _coordinates
+    source=Path(__file__).resolve().parents[3]/'resources/maps/us_state_boundaries.geojson'
+    document=json.loads(source.read_text())
+    feature=next(f for f in document['features'] if f['properties']['STUSAB']=='MI')
+    for lon,lat in _coordinates(feature['geometry']['coordinates']):
+        point=[math.radians(lon),math.radians(lat)]
+        assert map_3d.regional_owner({'ring_rad':[point]*4}) is not None,(lon,lat)

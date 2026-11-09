@@ -16,7 +16,8 @@ from .building_parts import mark_part_outlines
 from .building_geometry import height, normalize, normalize_components, source_identity, ring_identity, outer_members
 
 # The existing terrain envelope starts at 41.7, slightly north of Michigan's
-# checked-in Census boundary (41.696089). Extend only building delivery bounds.
+# checked-in Census boundary (41.696089). Coastal/UP delivery edges below also
+# include New Buffalo and Menominee. Existing terrain/imagery bounds stay intact.
 BUILDING_BOUNDS = (MICHIGAN_BOUNDS[0],MICHIGAN_BOUNDS[1]-.01,*MICHIGAN_BOUNDS[2:])
 
 PRESETS = {
@@ -26,8 +27,10 @@ PRESETS = {
     'rochester': ('Rochester test area',(-83.175,42.650,-83.110,42.705)),
     'southfield': ('Central Southfield test area',(-83.290,42.440,-83.220,42.505)),
     'metro-detroit': ('Metro Detroit',(-83.75,42.0,-82.55,42.9)),
-    **{key:(title,(w,BUILDING_BOUNDS[1] if s==MICHIGAN_BOUNDS[1] else s,e,n))
-       for key,(title,(w,s,e,n)) in MICHIGAN_SHARDS.items()},
+    **{key:(title,(
+        -87.0 if w == -86.5 else w,  # Lake Michigan coast, including New Buffalo.
+        BUILDING_BOUNDS[1] if s==MICHIGAN_BOUNDS[1] else 45.0 if key.startswith('mi-upper-') else s,
+        e,n)) for key,(title,(w,s,e,n)) in MICHIGAN_SHARDS.items()},
 }
 CREDIT = '© OpenStreetMap contributors · ODbL 1.0'
 
