@@ -51,10 +51,18 @@ class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
             self._search.search(category, transit_mode)
 
     def poll_search_result(self) -> PoiSearchResult | None:
-        return None if self._closed else self._search.poll_search_result()
+        result = None if self._closed else self._search.poll_search_result()
+        if not isinstance(result, PoiSearchResult):
+            return result
+        # The Places drawer opens these values directly. Give it the same
+        # capabilities as a marker selection instead of relying on map clicks.
+        return replace(result, pois=tuple(self._with_exploration_actions(poi) for poi in result.pois))
 
     def poll_selected(self) -> PointOfInterest | None:
         poi = None if self._closed else self._search.poll_selected()
+        return self._with_exploration_actions(poi)
+
+    def _with_exploration_actions(self, poi):
         if not isinstance(poi, PointOfInterest):
             return poi
         latitude = math.degrees(poi.position.latitude_rad)

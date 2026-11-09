@@ -9,7 +9,8 @@ from apps.orcUi.frontend.tk.navigation_places_controls import NavigationPlacesCo
 from apps.orcUi.frontend.tk.navigation_panel_layout import show_poi_card
 from controllers.poi.poi_enricher import enrich_poi
 from ui.navigation import GeoPoint
-from ui.navigation.poi_models import PoiActionKind, PoiCategory, PointOfInterest
+from ui.navigation.poi_models import PoiAction, PoiActionKind, PoiCategory, PointOfInterest, PoiSearchResult
+from controllers.poi.navigation_places_controller import NavigationPlacesController
 from ui.theme import ThemeMode
 from apps.orcUi.theme_runtime import theme_bundle
 
@@ -49,6 +50,7 @@ def test_ordering_popup_has_one_business_action_through_existing_request_contrac
 
 @pytest.mark.parametrize('mode', [ThemeMode.DARK, ThemeMode.LIGHT])
 def test_borderless_business_card_has_icon_distinct_navigation_and_bottom_close(mode):
+    controller = None
     try:
         root = tk.Tk()
     except tk.TclError as error:
@@ -65,7 +67,13 @@ def test_borderless_business_card_has_icon_distinct_navigation_and_bottom_close(
         panel._execute_poi_action = Mock()
         panel._navigate_to_poi = Mock()
         panel._navigate_to_poi_with_waze = Mock()
+        panel._add_tooltip = Mock()
         poi = enrich_poi(PointOfInterest('store', "McDonald's", PoiCategory.FOOD, GeoPoint(0, 0)))
+        search = Mock()
+        search.poll_search_result.return_value = PoiSearchResult(PoiCategory.FOOD, 1, 0, 0, 0, 0, pois=(poi,))
+        local = PoiAction(PoiActionKind.EXPLORE_3D, '3D Map', provider_id='local-3d')
+        controller = NavigationPlacesController(search, Mock(), Mock(), local_3d_action=lambda value: local)
+        poi = controller.poll_search_result().pois[0]
         show_poi_card(panel, poi)
         root.update()
         popup = panel._poi_card
@@ -87,6 +95,14 @@ def test_borderless_business_card_has_icon_distinct_navigation_and_bottom_close(
         assert buttons['Waze']._action_icon.width() > 0
         assert buttons['ORDER']._action_icon.width() > 0
         assert buttons['ORDER'].cget('fg') != buttons['ORDER'].cget('bg')
+        for label in ('Earth', '3D Map'):
+            assert buttons[label].winfo_ismapped()
+            assert buttons[label].winfo_rootx() + buttons[label].winfo_width() <= popup.winfo_rootx() + popup.winfo_width()
+        earth = next(a for a in poi.actions if a.provider_id == 'google-earth-explore')
+        buttons['Earth'].invoke()
+        panel._execute_poi_action.assert_any_call(poi, earth)
+        buttons['3D Map'].invoke()
+        panel._execute_poi_action.assert_any_call(poi, local)
         buttons['ORC Map'].invoke()
         panel._navigate_to_poi.assert_called_once_with(poi)
         buttons['Waze'].invoke()
@@ -98,6 +114,8 @@ def test_borderless_business_card_has_icon_distinct_navigation_and_bottom_close(
         assert icons[0]._poi_icon is None
         assert buttons['ORDER']._action_icon is None
     finally:
+        if controller is not None:
+            controller.close()
         root.destroy()
 
 

@@ -73,6 +73,10 @@ grouped separately under **EXPLORE**. Unknown/unapproved business icons are omit
 from the card rather than fetched from an arbitrary site.
 Waze uses its own bundled brand mark, and ORDER has a shopping-bag icon in its
 primary action button. Attribution is recorded in the frontend assets directory.
+Places-list results and map-marker selections receive the same Earth and local
+3D exploration actions before reaching the card, including independent businesses
+that have no brand/app registry entry. These actions are added without replacing
+ordering/website actions or the business icon.
 
 ## Open or install an app
 

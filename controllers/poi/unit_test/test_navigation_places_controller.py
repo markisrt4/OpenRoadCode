@@ -7,7 +7,7 @@ import pytest
 
 from controllers.poi.navigation_places_controller import NavigationPlacesController
 from ui.navigation.navigation_places_request_handler_if import MapFavorite, NavigationPlacesRequestHandlerIf
-from ui.navigation.poi_models import PoiAction, PoiActionKind, PoiCategory, TransitMode, PointOfInterest
+from ui.navigation.poi_models import PoiAction, PoiActionKind, PoiCategory, TransitMode, PointOfInterest, PoiSearchResult
 from ui.navigation import GeoPoint
 
 
@@ -166,3 +166,28 @@ def test_local_3d_action_is_selected_and_allowed_offline():
     assert controller.execute(selected,action) is executor.execute.return_value
     with pytest.raises(ValueError,match='Offline mode'):
         controller.execute(selected,PoiAction(PoiActionKind.OPEN_WEBSITE,'Website'))
+
+
+@pytest.mark.parametrize('name,business_action', [
+    ("McDonald's", PoiAction(PoiActionKind.ORDER, 'ORDER', provider_id='mcdonalds')),
+    ('Independent Cafe', PoiAction(PoiActionKind.OPEN_WEBSITE, 'WEBSITE', uri='https://example.com')),
+])
+def test_places_list_and_map_marker_preserve_same_exploration_and_business_actions(name, business_action):
+    poi = PointOfInterest('store', name, PoiCategory.FOOD, GeoPoint(.7, -1.4), actions=(business_action,))
+    original = PoiSearchResult(PoiCategory.FOOD, 1, 40, -81, 41, -80, pois=(poi,))
+    search, executor = Mock(), Mock()
+    search.poll_search_result.return_value = original
+    search.poll_selected.return_value = poi
+    local = PoiAction(PoiActionKind.EXPLORE_3D, '3D Map', provider_id='local-3d')
+    controller = NavigationPlacesController(search, Mock(), executor, local_3d_action=lambda value: local)
+    listed = controller.poll_search_result().pois[0]
+    selected = controller.poll_selected()
+    assert listed == selected
+    assert listed.actions[0] is business_action
+    assert sum(action.provider_id == 'google-earth-explore' for action in listed.actions) == 1
+    assert sum(action.kind is PoiActionKind.EXPLORE_3D for action in listed.actions) == 1
+    assert original.pois[0].actions == (business_action,)
+    search.poll_search_result.return_value = controller.poll_search_result()
+    assert controller.poll_search_result().pois == (listed,)
+    executor.execute.assert_not_called()
+    controller.close()
