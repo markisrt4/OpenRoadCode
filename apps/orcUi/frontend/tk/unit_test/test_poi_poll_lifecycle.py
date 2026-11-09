@@ -12,7 +12,7 @@ from ui.navigation import GeoPoint
 from ui.navigation.poi_models import PoiActionKind, PoiCategory, PointOfInterest
 
 
-def test_poi_popup_exposes_install_action_through_existing_request_contract():
+def test_ordering_popup_has_one_business_action_through_existing_request_contract():
     try:
         root = tk.Tk()
     except tk.TclError as error:
@@ -32,14 +32,15 @@ def test_poi_popup_exposes_install_action_through_existing_request_contract():
                                        GeoPoint(0, 0), website='https://www.panerabread.com'))
         show_poi_card(panel, poi)
         root.update()
-        button = next(b for b in panel._poi_action_buttons if b.cget('text') == 'OPEN / INSTALL APP')
+        assert [b.cget('text') for b in panel._poi_action_buttons] == ['ORDER']
+        button = panel._poi_action_buttons[0]
         assert button.winfo_ismapped()
         popup = panel._poi_card
         assert button.winfo_rootx() + button.winfo_width() <= popup.winfo_rootx() + popup.winfo_width()
         button.invoke()
         requested_poi, action = panel._execute_poi_action.call_args.args
         assert requested_poi.business_id == 'panera'
-        assert action.kind is PoiActionKind.OPEN_ANDROID_APP
+        assert action.kind is PoiActionKind.ORDER
     finally:
         root.destroy()
 

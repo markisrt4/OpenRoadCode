@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 #include <rapidjson/document.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
 #include <algorithm>
 #include <cstdint>
 #include <optional>
@@ -58,4 +60,26 @@ inline std::vector<std::pair<std::string, std::string>> poiBrandImages(const std
         images.emplace_back(id, *data);
     }
     return images;
+}
+
+template <class ImageAvailable>
+inline std::string withPoiBrandAvailability(const std::string& geojson, ImageAvailable available) {
+    rapidjson::Document document;
+    document.Parse(geojson.c_str());
+    if (!document.IsObject() || !document.HasMember("features") || !document["features"].IsArray()) return geojson;
+    for (auto& feature : document["features"].GetArray()) {
+        if (!feature.IsObject() || !feature.HasMember("properties") || !feature["properties"].IsObject()) continue;
+        auto& properties = feature["properties"];
+        bool ready = false;
+        if (properties.HasMember("brand_icon") && properties["brand_icon"].IsString()) {
+            const std::string id = properties["brand_icon"].GetString();
+            ready = id.rfind("business:", 0) == 0 && available(id);
+        }
+        if (properties.HasMember("brand_icon_ready")) properties["brand_icon_ready"].SetBool(ready);
+        else properties.AddMember("brand_icon_ready", ready, document.GetAllocator());
+    }
+    rapidjson::StringBuffer buffer;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    document.Accept(writer);
+    return buffer.GetString();
 }

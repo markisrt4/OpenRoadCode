@@ -17,6 +17,7 @@ def enrich_poi(poi: PointOfInterest) -> PointOfInterest:
     """Return a POI with actions derived from known place metadata."""
     actions: list[PoiAction] = []
     brand = poi.brand
+    ordering = False
 
     website = valid_website(poi.website)
     business = resolve_business(brand=poi.brand, name=poi.name,
@@ -24,7 +25,9 @@ def enrich_poi(poi: PointOfInterest) -> PointOfInterest:
                                 website=website, category=poi.category.name.casefold())
     if business is not None:
         brand = business.brand
-        if "order" in business.capabilities:
+        provider = get_business_provider(business.provider_id)
+        if "order" in business.capabilities and provider is not None and provider.order_url:
+            ordering = True
             actions.append(
                 PoiAction(
                     PoiActionKind.ORDER,
@@ -32,11 +35,10 @@ def enrich_poi(poi: PointOfInterest) -> PointOfInterest:
                     provider_id=business.provider_id,
                 )
             )
-        provider = get_business_provider(business.provider_id)
-        if provider is not None and provider.android_package:
+        if not ordering and provider is not None and provider.android_package:
             actions.append(PoiAction(PoiActionKind.OPEN_ANDROID_APP, 'OPEN / INSTALL APP', provider_id=business.provider_id))
 
-    if website:
+    if website and not ordering:
         actions.append(PoiAction(PoiActionKind.OPEN_WEBSITE, "WEBSITE", uri=website))
     return replace(poi, brand=brand, website=website, actions=tuple(actions),
                    business_id=business.provider_id if business else None,

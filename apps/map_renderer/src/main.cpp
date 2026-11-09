@@ -221,6 +221,8 @@ int runRenderer() {
     std::string styleJson;
     try {
         styleJson = loadStyleJson(config);
+        orc::log("INFO", "map_renderer.pois", "pois.brand_icons.enabled",
+                 "Business POI logo replacement enabled");
     } catch (const std::exception& error) {
         orc::log("CRITICAL", "map_renderer.lifecycle", "style.failed", "Failed to load navigation style");
         return 1;
@@ -384,9 +386,9 @@ int runRenderer() {
                 if (!source) continue;
                 auto* poiSource = static_cast<mbgl::style::GeoJSONSource*>(source);
                 try {
-                    loadPoiBrandImages(map.getStyle(), command->geojson);
-                    poiSource->setGeoJSON(mapbox::geojson::parse(command->geojson));
-                    view.setPoiResultsJson(command->geojson);
+                    const auto results = preparePoiBrandResults(map.getStyle(), command->geojson);
+                    poiSource->setGeoJSON(mapbox::geojson::parse(results));
+                    view.setPoiResultsJson(results);
                     view.invalidate();
                 } catch (const std::exception& error) {
                     orc::log("ERROR", "map_renderer.pois", "pois.failed", "Failed to apply POI GeoJSON");

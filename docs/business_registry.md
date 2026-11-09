@@ -55,15 +55,24 @@ unresolved when ambiguous until geographic matching is implemented.
 SQLite POI results already carry brand Wikidata, operator and website when those
 columns exist. Older databases still work through exact brand/name matching.
 The resolver runs before search markers are presented, not only when a card is
-opened. Search logos appear at native-map zoom 13 and above with collision
-handling; the category badges remain underneath as a fallback. Ordinary base-map
+opened. Search logos replace the category circle/glyph at the same zoom levels
+as search badges (zoom 7 and above). Logos are not suppressed by label placement.
+Only a successfully loaded native image hides the circle/glyph; an unknown or
+failed image keeps the category fallback. Ordinary base-map
 POIs are not globally replaced, and clearing a search clears its logo markers.
 Renderer restarts replay the current search results and their icon payloads.
 This rendering integration currently targets the native MapLibre map.
 
 ## Open or install an app
 
-The POI card's **OPEN / INSTALL APP** action has two outcomes:
+For known ordering businesses, the POI card shows one **ORDER** action. It opens
+the installed Android app when available, otherwise the configured ordering
+website. It does not also show **OPEN / INSTALL APP** and **WEBSITE** as competing
+ways to order. A business without an ordering integration still gets its website
+action when one is known. Opening an app is not a verified store-specific handoff.
+
+The separate app/store capability remains available to integrations without an
+ordering capability; it is not displayed alongside ORDER. Its two outcomes are:
 
 1. Installed app: launch it through the existing Android integration. On
    Waydroid, show it in ORC's Android container.
@@ -82,7 +91,7 @@ the resulting foreground app/store/browser experience there.
 This action does not download APKs, accept terms, create accounts or install
 silently. Production provisioning of a selected app set is a separate concern;
 Play licensing, CPU compatibility and region restrictions still apply. The
-existing **ORDER** action retains its app-first/web-fallback behavior.
+**ORDER** action retains its app-first/web-fallback behavior.
 
 ## Generate and validate offline
 
@@ -123,6 +132,17 @@ python3 -m pytest -q controllers/poi/unit_test/test_business_registry.py control
 ```
 
 The native map renderer must be rebuilt with this commit to display logos.
+The updated binary logs `Business POI logo replacement enabled` at startup;
+this distinguishes it from a still-installed older renderer.
+On an already configured Termux build, close ORC and update only the renderer:
+
+```bash
+git switch feature/waze-live-map
+git pull --ff-only
+bash development/termux/build_navigation_stack.sh --renderer-only
+./runOrcUi
+```
+
 The normal navigation-stack build/install workflows pick up the new headers;
 there are no new runtime library dependencies. The C++ component check is
 `apps/map_renderer/component_test/poi_brand_cli.cpp`; it takes a search GeoJSON
@@ -130,8 +150,9 @@ fixture with the three approved image payloads, then the map-style path.
 
 On the VM, search food near a covered business. At street zoom, check the logo,
 click it and confirm its card still identifies the correct store. Clear/repeat
-the search and leave/reopen navigation. Test the app action with the package
-installed, and with it absent but Google Play installed. Confirm the store opens
-inside ORC, cancel safely, then test installation and reopening from the POI.
+the search and leave/reopen navigation. For an ordering brand, confirm the card
+shows ORDER alone, opens the installed Android app, and falls back to the ordering
+website when the app is absent. Validate explicit app/store integrations separately
+when adding a brand without an ordering capability.
 Actual app installation/store behavior and GPU rendering require device tests;
 Python and C++ component tests cannot establish those results.

@@ -64,8 +64,21 @@ def test_branded_search_results_have_one_shared_identity_for_logo_and_actions():
     poi = PointOfInterest('store', 'Unhelpful display name', PoiCategory.FOOD, GeoPoint(0, 0), brand_wikidata='Q38076')
     enriched = enrich_poi(poi)
     assert enriched.business_id == enriched.icon_id == 'mcdonalds'
-    assert any(action.kind is PoiActionKind.OPEN_ANDROID_APP and action.provider_id == enriched.business_id for action in enriched.actions)
+    assert [(action.kind, action.provider_id) for action in enriched.actions] == [(PoiActionKind.ORDER, enriched.business_id)]
     assert enrich_poi(enriched) == enriched
+
+
+def test_ordering_is_one_intent_even_when_the_poi_also_has_a_website():
+    poi = enrich_poi(PointOfInterest('panera', 'Panera Bread', PoiCategory.FOOD,
+                                    GeoPoint(0, 0), website='https://www.panerabread.com'))
+    assert [action.kind for action in poi.actions] == [PoiActionKind.ORDER]
+    assert poi.website == 'https://www.panerabread.com'
+
+
+def test_independent_business_still_has_its_website_action():
+    poi = enrich_poi(PointOfInterest('cafe', 'Independent Cafe', PoiCategory.FOOD,
+                                    GeoPoint(0, 0), website='https://example.com'))
+    assert [action.kind for action in poi.actions] == [PoiActionKind.OPEN_WEBSITE]
 
 
 def test_icon_only_brands_do_not_get_guessed_android_packages():

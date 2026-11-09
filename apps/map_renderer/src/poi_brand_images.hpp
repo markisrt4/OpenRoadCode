@@ -7,7 +7,7 @@
 #include <mbgl/util/image.hpp>
 #include <memory>
 
-inline void loadPoiBrandImages(mbgl::style::Style& style, const std::string& geojson) {
+inline std::string preparePoiBrandResults(mbgl::style::Style& style, const std::string& geojson) {
     for (const auto& [id, data] : poiBrandImages(geojson)) {
         if (style.getImage(id)) continue;
         try {
@@ -16,4 +16,7 @@ inline void loadPoiBrandImages(mbgl::style::Style& style, const std::string& geo
             // Keep the category badge when an optional logo cannot be decoded.
         }
     }
+    return withPoiBrandAvailability(geojson, [&style](const std::string& id) {
+        return style.getImage(id).has_value();
+    });
 }
