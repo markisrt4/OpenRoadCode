@@ -81,3 +81,27 @@ python -m apps.orcUi.component_test.home_music_visualizer_cli
 These use synthetic analysis/capture and do not validate Android playback
 permissions or hardware GPU compatibility. See `docs/music_visualizer.md`
 for device-specific checks.
+
+
+## Startup dependency check
+
+Normal `./runOrcUi` startup checks that the required `musicforge.analysis` analyzer,
+interface and state types import before loading application composition. A missing
+package, missing analysis dependency, or incompatible analysis API produces a
+short setup message and exit code 2, rather than the composition traceback. Help
+and ECU renderer diagnostics remain available independently of the audio library.
+No packages are installed automatically during UI startup.
+
+The recovery message names the exact selected Python interpreter. The existing
+installer accepts `PYTHON` so a repair targets the same interpreter even if a
+different environment is activated. For a Linux checkout using `venv`:
+
+```bash
+git switch navigation-cesium
+source venv/bin/activate
+PYTHON="$VIRTUAL_ENV/bin/python" bash scripts/installers/install_libmusicforge.sh
+./runOrcUi
+```
+
+On Termux, activate `venv-termux` instead; the existing system NumPy policy in the
+installer still applies.

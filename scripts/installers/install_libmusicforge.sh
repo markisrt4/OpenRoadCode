@@ -9,6 +9,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 LIBMUSICFORGE_SOURCE="${LIBMUSICFORGE_SOURCE:-}"
+libmusicforge_python="${PYTHON:-python}"
 if [[ -z "$LIBMUSICFORGE_SOURCE" ]]; then
   if [[ -f "$PROJECT_ROOT/../libMusicForge/pyproject.toml" ]]; then
     LIBMUSICFORGE_SOURCE="$PROJECT_ROOT/../libMusicForge"
@@ -20,22 +21,22 @@ fi
 if [[ "${PREFIX:-}" == "/data/data/com.termux/files/usr" ]]; then
   # Termux provides a compatible NumPy through pkg install python-numpy.
   # Never ask pip to compile NumPy against Android's libc.
-  python -c 'import numpy' || {
+  "$libmusicforge_python" -c 'import numpy' || {
     echo "[!] Termux NumPy is unavailable. Install with: pkg install python-numpy" >&2
     echo "[!] The virtual environment must use --system-site-packages." >&2
     exit 1
   }
   echo "[*] Installing libMusicForge from $LIBMUSICFORGE_SOURCE (Termux system NumPy)..."
-  python -m pip install --disable-pip-version-check httpx
-  python -m pip install --disable-pip-version-check --no-deps "$LIBMUSICFORGE_SOURCE"
+  "$libmusicforge_python" -m pip install --disable-pip-version-check httpx
+  "$libmusicforge_python" -m pip install --disable-pip-version-check --no-deps "$LIBMUSICFORGE_SOURCE"
 else
   echo "[*] Installing libMusicForge with audio analysis from $LIBMUSICFORGE_SOURCE..."
   if [[ "$LIBMUSICFORGE_SOURCE" == git+* ]]; then
     # PEP 508 direct-reference syntax keeps extras separate from the VCS URL.
-    python -m pip install --disable-pip-version-check "libmusicforge[analysis] @ $LIBMUSICFORGE_SOURCE"
+    "$libmusicforge_python" -m pip install --disable-pip-version-check "libmusicforge[analysis] @ $LIBMUSICFORGE_SOURCE"
   else
-    python -m pip install --disable-pip-version-check "${LIBMUSICFORGE_SOURCE}[analysis]"
+    "$libmusicforge_python" -m pip install --disable-pip-version-check "${LIBMUSICFORGE_SOURCE}[analysis]"
   fi
 fi
 
-python -c 'from musicforge.analysis import MusicAnalyzer; print("[+] libMusicForge analyzer:", MusicAnalyzer.__module__)'
+"$libmusicforge_python" -c 'from musicforge.analysis import MusicAnalyzer; print("[+] libMusicForge analyzer:", MusicAnalyzer.__module__)'
