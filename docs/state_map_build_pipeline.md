@@ -398,15 +398,22 @@ archive. Run `build_target=metro-detroit-buildings` to test only this stage.
 This stage uses the existing Geofabrik Michigan PBF download/cache and osmium
 extraction, not Overpass. It does not rebuild navigation, search or routing.
 
-Existing simple closed-way normalization and height classification are reused:
+Closed ways and Osmium-assembled multipolygon relations share normalization and
+height classification:
 `osm-height` is an OSM height tag (not a verified survey); `levels-estimate` uses
 3 metres per recorded floor; `placeholder` uses an explicit 9-metre fallback.
 Placeholder geometry remains hidden by existing viewer policy and allocates no
 Cesium entities; floor estimates
-appear at close zoom. Complex polygons/courtyards and outlines crossing the
-outer coverage boundary are omitted. Unsupported exported features are counted;
-building relations are outside the existing simple-way extraction contract. Height counts, source PBF
-SHA-256, ODbL attribution, and license reference accompany the pack.
+appear at close zoom. Relations preserve courtyard holes and emit one outline per
+separate outer component. Accepted relations suppress identical outer-member way
+outlines; invalid relations do not suppress usable ways. Building parts and
+outlines crossing the outer coverage boundary remain excluded. Geometry is bounded
+to 64 components per source, 64 holes and 2,000 vertices per component.
+New tiled packs use geometry schema 2; updated readers retain schema 1 support.
+Update ORC before installing a new pack. Reports include relation/courtyard counts,
+duplicate member removals, accepted Chrysler campus relation IDs/heights, source
+PBF SHA-256, ODbL attribution, and license reference. Counts refer to component
+outlines, not unique physical buildings.
 
 The Metro envelope matches existing imagery bounds (-83.75, 42.0, -82.55, 42.9).
 An initial 16×16 grid replaces the city demo's 4×2 grid for this coverage

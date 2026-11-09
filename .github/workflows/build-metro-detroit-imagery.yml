@@ -599,6 +599,7 @@ jobs:
       - name: Building pack and installer regressions
         run: >-
           /usr/bin/python3 -m pytest apps/launchers/unit_test/test_regional_buildings.py
+          apps/launchers/unit_test/test_building_relations.py
           tools/map_builder/tests/test_map_3d.py tools/map_builder/tests/test_build.py -q
       - uses: actions/cache/restore@v4
         if: ${{ !inputs.force_rebuild }}

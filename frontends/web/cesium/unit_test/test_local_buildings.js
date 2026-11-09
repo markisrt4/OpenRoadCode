@@ -13,13 +13,16 @@ test('building bases follow relief changes while building height remains real',(
   let cameraChanged;
   const color={withAlpha(){return this;}};
   const C={CustomDataSource:class {constructor(){this.entities={add:e=>{entities.push(e);return e;}};}},
-    PolygonHierarchy:class {},Cartesian3:{fromRadians:(x,y)=>({x,y})},
+    PolygonHierarchy:class {constructor(positions,holes=[]){this.positions=positions;this.holes=holes;}},Cartesian3:{fromRadians:(x,y)=>({x,y})},
     Color:{fromCssColorString:()=>color},Credit:class {}};
   const viewer={dataSources:{add(){},remove(){}},cesiumWidget:{creditDisplay:{addStaticCredit(){}}},scene:{requestRender(){}},
     camera:{positionCartographic:{get height(){return cameraHeight;}},changed:{addEventListener(fn){cameraChanged=fn;return ()=>{};}}}};
-  const data={buildings:[{ring_rad:[[0,0],[1,0],[1,1],[0,0]],height_m:20,height_source:'osm-height'}]};
+  const data={buildings:[{ring_rad:[[0,0],[1,0],[1,1],[0,0]],holes_rad:[[[.6,.1],[.8,.1],[.8,.2],[.6,.1]]],height_m:20,height_source:'osm-height'}]};
   const layer=context.window.ORCLocalBuildings(viewer,data,C,()=>ground);
   assert.equal(entities[0].polygon.height,10);
+  assert.equal(entities[0].polygon.hierarchy.holes.length,1);
+  assert.deepEqual(Array.from(entities[0].polygon.hierarchy.holes[0].positions,p=>[p.x,p.y]),
+    [[.6,.1],[.8,.1],[.8,.2]]);
   ground=30;
   layer.refreshGround();
   assert.equal(entities[0].polygon.height,30);
@@ -37,7 +40,7 @@ test('building detail is distance-aware and generic placeholders stay hidden',()
   const entities=[];
   const color={withAlpha(){return this;}};
   const C={CustomDataSource:class {constructor(){this.entities={add:e=>{entities.push(e);return e;}};}},
-    PolygonHierarchy:class {},Cartesian3:{fromRadians:(x,y)=>({x,y})},
+    PolygonHierarchy:class {constructor(positions,holes=[]){this.positions=positions;this.holes=holes;}},Cartesian3:{fromRadians:(x,y)=>({x,y})},
     Color:{fromCssColorString:()=>color},Credit:class {}};
   const viewer={dataSources:{add(){},remove(){}},cesiumWidget:{creditDisplay:{addStaticCredit(){}}},scene:{requestRender(){}},
     camera:{positionCartographic:{get height(){return cameraHeight;}},changed:{addEventListener(fn){changed=fn;return ()=>{};}}}};

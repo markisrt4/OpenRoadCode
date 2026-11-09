@@ -10,6 +10,8 @@ import subprocess
 from tempfile import TemporaryDirectory
 
 from ui.navigation.local_map_tiles_state import MAX_MAP_TILES
+from ui.navigation.local_building_state import LocalBuilding
+from .building_geometry import height, normalize, normalize_components, source_identity, ring_identity, outer_members
 
 PRESETS = {
     'detroit-downtown': ('Detroit Downtown',(-83.065,42.315,-83.025,42.345)),
@@ -25,42 +27,6 @@ CREDIT = '© OpenStreetMap contributors · ODbL 1.0'
 def digest(path):
     with path.open('rb') as stream:
         return hashlib.file_digest(stream,'sha256').hexdigest()
-
-
-def height(tags):
-    for key,source,scale in (('height','osm-height',1),('building:levels','levels-estimate',3)):
-        try:
-            value = float(str(tags.get(key,'')).strip().removesuffix(' m'))*scale
-            if math.isfinite(value) and 1 <= value <= 1000:
-                return value,source
-        except ValueError:
-            pass
-    return 9.0,'placeholder'
-
-
-def normalize(feature,bounds):
-    tags = feature.get('properties') or {}
-    if tags.get('building') in (None,'no'):
-        return None
-    geometry = feature.get('geometry') or {}
-    rings = geometry.get('coordinates') or []
-    # Osmium exports simple way areas as single-part MultiPolygons too.
-    kind = geometry.get('type')
-    if kind == 'MultiPolygon' and len(rings) == 1:
-        rings = rings[0]
-        kind = 'Polygon'
-    # Courtyards and multiple separate parts still require a richer contract.
-    if kind != 'Polygon' or len(rings) != 1:
-        return None
-    ring = rings[0]
-    if not 4 <= len(ring) <= 2000 or ring[0] != ring[-1]:
-        return None
-    west,south,east,north = bounds
-    if any(len(p) < 2 or not (west <= p[0] <= east and south <= p[1] <= north) for p in ring):
-        return None
-    h,source = height(tags)
-    return {'ring_rad':[[math.radians(p[0]),math.radians(p[1])] for p in ring],
-            'height_m':h,'height_source':source}
 
 
 def partition_buildings(buckets, bounds, rows, columns, *, adaptive=False):
@@ -110,13 +76,18 @@ def build_pack(root, preset):
     buckets = {(row,col):{} for row in range(rows) for col in range(columns)}
     height_counts = {key:0 for key in ("osm-height","levels-estimate","placeholder")}
     skipped = 0
+    members, accepted_relations = {}, {}
+    duplicates = 0
     with TemporaryDirectory(dir=destination.parent,prefix='.build-3d-') as temporary:
         scratch = Path(temporary)
         for index,source in enumerate(sources):
             extract,filtered = scratch/f'{index}.osm.pbf',scratch/f'{index}-buildings.osm.pbf'
-            subprocess.run(['osmium','extract','-b',','.join(map(str,bounds)),'-s','complete_ways',
+            subprocess.run(['osmium','extract','-b',','.join(map(str,bounds)),'-s','smart','-S','types=multipolygon',
                             str(source),'-o',str(extract)],check=True)
-            subprocess.run(['osmium','tags-filter',str(extract),'w/building','-o',str(filtered)],check=True)
+            subprocess.run(['osmium','tags-filter',str(extract),'wr/building','-o',str(filtered)],check=True)
+            membership = subprocess.run(['osmium','cat','--object-type=relation','-f','opl',str(filtered)],
+                                        check=True,capture_output=True,text=True)
+            members.update(outer_members(membership.stdout))
             command = ['osmium','export',str(filtered),'--geometry-types=polygon',
                        '--add-unique-id=type_id','--attributes=type,id','-f','geojsonseq','-o','-']
             process = subprocess.Popen(command,stdout=subprocess.PIPE,text=True)
@@ -125,20 +96,22 @@ def build_pack(root, preset):
                     if not line.strip():
                         continue
                     feature = json.loads(line.lstrip('\x1e'))
-                    building = normalize(feature,bounds)
-                    if building is None:
+                    buildings = normalize_components(feature,bounds)
+                    if not buildings:
                         skipped += 1
                         continue
-                    ring = building['ring_rad'][:-1]
-                    lon = math.degrees(sum(p[0] for p in ring)/len(ring))
-                    lat = math.degrees(sum(p[1] for p in ring)/len(ring))
-                    col = min(columns-1,int((lon-west)/(east-west)*columns))
-                    row = min(rows-1,int((lat-south)/(north-south)*rows))
-                    props = feature.get('properties') or {}
-                    identity = feature.get('id') or f"{props.get('@type')}:{props.get('@id')}"
-                    if identity == 'None:None':
+                    identity = source_identity(feature)
+                    if not identity:
                         raise ValueError('OSM export lacks stable feature identity')
-                    buckets[row,col][str(identity)] = building
+                    if identity.startswith('relation/'):
+                        accepted_relations[identity] = buildings
+                    for component,building in enumerate(buildings):
+                        ring = building['ring_rad'][:-1]
+                        lon = math.degrees(sum(p[0] for p in ring)/len(ring))
+                        lat = math.degrees(sum(p[1] for p in ring)/len(ring))
+                        col = min(columns-1,int((lon-west)/(east-west)*columns))
+                        row = min(rows-1,int((lat-south)/(north-south)*rows))
+                        buckets[row,col][f'{identity}#{component}'] = building
             except BaseException:
                 process.terminate()
                 raise
@@ -147,8 +120,22 @@ def build_pack(root, preset):
                 code = process.wait()
             if code:
                 raise RuntimeError(f'osmium export failed ({code})')
+        # Remove only identical outer-member ways of accepted relations. Keep a
+        # height-informed way if its parent has no usable height metadata.
+        candidates = {}
+        for identity,components in accepted_relations.items():
+            for way in members.get(identity,()):
+                candidates.setdefault(way,[]).extend(components)
+        for bucket in buckets.values():
+            for identity,building in list(bucket.items()):
+                parents = candidates.get(identity.rsplit('#',1)[0],())
+                if any(ring_identity(parent['ring_rad']) == ring_identity(building['ring_rad'])
+                       and (parent['height_source'] != 'placeholder' or building['height_source'] == 'placeholder')
+                       for parent in parents):
+                    del bucket[identity]
+                    duplicates += 1
         if not any(buckets.values()):
-            raise ValueError('No simple building outlines in selected coverage; verify your source region')
+            raise ValueError('No supported building outlines in selected coverage; verify your source region')
         pack = scratch/'pack'
         pack.mkdir()
         records = []
@@ -162,10 +149,13 @@ def build_pack(root, preset):
             records.append({'id':tile_id,'title':title,'attribution':CREDIT,
                 'bounds_deg':tile_bounds,
                 'buildings_count':len(features),'sha256':{'buildings.json':digest(local/'buildings.json')}})
-        manifest = {'schema':1,'title':title+' buildings','attribution':CREDIT,'bounds_deg':bounds,
+        manifest = {'schema':2,'title':title+' buildings','attribution':CREDIT,'bounds_deg':bounds,
             'tiles':records,'layers':['buildings'],'generated_utc':datetime.now(timezone.utc).isoformat(),
             'license':'https://opendatacommons.org/licenses/odbl/1-0/', 'skipped_features':skipped,
             'height_counts':height_counts, 'grid':[rows,columns],
+            'relation_components':sum(len(parts) for parts in accepted_relations.values()),
+            'courtyard_components':sum(bool(b.get('holes_rad')) for cell in buckets.values() for b in cell.values()),
+            'duplicate_member_ways_removed':duplicates,
             'sources':[{'file':source.name,'sha256':digest(source)} for source in sources]}
         (pack/'manifest.json').write_text(json.dumps(manifest,indent=2))
         validate_pack(pack)
@@ -178,7 +168,7 @@ def validate_pack(directory):
     manifest_path = root/'manifest.json'
     manifest = json.loads(manifest_path.read_text())
     terrain_only = manifest.get('layers') == ['terrain']
-    if manifest.get('schema') != 1 or not 0 <= len(manifest['tiles']) <= MAX_MAP_TILES or (not manifest['tiles'] and not terrain_only):
+    if manifest.get('schema') not in (1,2) or not 0 <= len(manifest['tiles']) <= MAX_MAP_TILES or (not manifest['tiles'] and not terrain_only):
         raise ValueError('Unsupported 3D pack schema')
     west,south,east,north = manifest['bounds_deg']
     if not (-180 <= west < east <= 180 and -90 <= south < north <= 90):
@@ -216,13 +206,7 @@ def validate_pack(directory):
         if not data.get('attribution') or len(data['buildings']) != tile['buildings_count'] or len(data['buildings']) > 10000:
             raise ValueError('Building attribution/count mismatch')
         for building in data['buildings']:
-            ring = building['ring_rad']
-            if not 4 <= len(ring) <= 2000 or ring[0] != ring[-1]:
-                raise ValueError('Invalid building ring')
-            if any(len(p)!=2 or not (-math.pi <= p[0] <= math.pi and -math.pi/2 <= p[1] <= math.pi/2) for p in ring):
-                raise ValueError('Invalid building coordinates')
-            if not 1 <= building['height_m'] <= 1000 or building['height_source'] not in ('osm-height','levels-estimate','placeholder'):
-                raise ValueError('Invalid building height')
+            LocalBuilding.from_document(building)
         total += len(data['buildings'])
     for file in root.rglob('*'):
         if file.is_file():

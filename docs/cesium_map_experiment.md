@@ -192,8 +192,9 @@ service can still be unavailable; retry later if all attempts fail.
 The downloader never silently installs an incomplete server response.
 
 Coverage matches the Detroit imagery and terrain rectangle. This prototype uses
-simple closed OSM building ways wholly inside that rectangle. Multipolygon
-relations, courtyards, building parts, and boundary-crossing outlines are omitted;
+OSM building ways and assembled multipolygon relations wholly inside that
+rectangle. Courtyards are preserved by the regional building pipeline. Building
+parts and boundary-crossing outlines remain omitted;
 this is not a complete city model. Flat roofs and bases are a visual approximation.
 Bases use the coarse terrain's relative relief at each outline's centroid.
 

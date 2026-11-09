@@ -11,7 +11,7 @@ from development.maps.build_regional_buildings import michigan_region
 from development.maps.state_map_catalog import _coordinates
 from tools.map_builder.builder.build import _download_and_verify
 from tools.map_builder.builder.geofabrik import fetch_index
-from tools.map_builder.builder.map_3d import normalize, PRESETS, height, digest
+from tools.map_builder.builder.map_3d import normalize_components, PRESETS, height, digest
 
 SITE_BOUNDS = (-83.26,42.635,-83.21,42.67)
 
@@ -25,11 +25,9 @@ def classify(feature):
     bounds = (min(p[0] for p in points),min(p[1] for p in points),
               max(p[0] for p in points),max(p[1] for p in points))
     identity = str(feature.get('id') or '')
-    if properties.get('@type') == 'relation' or identity.startswith('r'):
-        reason = 'relation excluded by current way-only extractor'
-    elif properties.get('building') in (None,'no') and properties.get('building:part'):
+    if properties.get('building') in (None,'no') and properties.get('building:part'):
         reason = 'building part excluded by current building-way filter'
-    elif normalize(feature,PRESETS['metro-detroit'][1]) is None:
+    elif not normalize_components(feature,PRESETS['metro-detroit'][1]):
         reason = 'complex footprint or unsupported geometry excluded'
     elif height(properties)[1] == 'placeholder':
         reason = 'accepted footprint without height/floor tags; placeholder hidden'
@@ -52,7 +50,7 @@ def audit(output, cache):
         root = Path(temporary)
         extract,filtered = root/'site.osm.pbf',root/'buildings.osm.pbf'
         subprocess.run(['osmium','extract','-b',','.join(map(str,SITE_BOUNDS)),
-                        '-s','complete_ways',str(source),'-o',str(extract)],check=True)
+                        '-s','smart','-S','types=multipolygon',str(source),'-o',str(extract)],check=True)
         subprocess.run(['osmium','tags-filter',str(extract),'wr/building','wr/building:part',
                         '-o',str(filtered)],check=True)
         command = ['osmium','export',str(filtered),'--geometry-types=polygon',

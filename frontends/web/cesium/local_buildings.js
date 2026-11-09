@@ -19,7 +19,9 @@ window.ORCLocalBuildings = function (viewer, data, C, heightAt = () => 0) {
     const color = building.height_source === 'osm-height' ? '#c7d3d8'
       : building.height_source === 'levels-estimate' ? '#aebcc2' : '#87969c';
     const entity = source.entities.add({polygon:{
-      hierarchy:new C.PolygonHierarchy(ring.map(p => C.Cartesian3.fromRadians(p[0],p[1]))),
+      hierarchy:new C.PolygonHierarchy(ring.map(p => C.Cartesian3.fromRadians(p[0],p[1])),
+        (building.holes_rad || []).map(hole => new C.PolygonHierarchy(
+          hole.slice(0,-1).map(p => C.Cartesian3.fromRadians(p[0],p[1]))))),
       height:base, extrudedHeight:base+building.height_m,
       material:C.Color.fromCssColorString(color).withAlpha(.72), outline:false
     }});

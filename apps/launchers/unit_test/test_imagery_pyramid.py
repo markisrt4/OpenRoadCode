@@ -110,7 +110,9 @@ def test_complex_campus_and_missing_heights_have_distinct_explanations():
     feature['geometry']['coordinates'].append(ring)
     assert 'complex footprint' in classify(feature)['reason']
     feature['id']='r1'
-    assert 'relation excluded' in classify(feature)['reason']
+    assert 'complex footprint' in classify(feature)['reason']
+    feature['geometry']['coordinates'].pop()
+    assert 'height-informed' in classify(feature)['reason']
 
 
 def test_detail_browser_layers_stay_above_late_overviews_and_cleanup():

@@ -25,7 +25,7 @@ def build(output, cache, source=None):
     output.mkdir(parents=True, exist_ok=True)
     started = time.monotonic()
     report = dict(status='started', coverage='metro-detroit',
-                  note='Simple closed OSM ways; complex polygons and courtyards omitted')
+                  note='OSM ways and assembled multipolygon relations; courtyards preserved; building parts excluded')
     try:
         if source is None:
             regions = fetch_index(cache/'geofabrik-index.json', refresh=True)
@@ -41,7 +41,12 @@ def build(output, cache, source=None):
             (sources/source.name).symlink_to(source)
             pack = build_pack(dataset, 'metro-detroit')
             manifest = json.loads((pack/'manifest.json').read_text())
-            report.update(height_counts=manifest['height_counts'], tiles=len(manifest['tiles']),
+            report.update(geometry_schema=manifest['schema'],
+                          relation_components=manifest['relation_components'],
+                          courtyard_components=manifest['courtyard_components'],
+                          duplicate_member_ways_removed=manifest['duplicate_member_ways_removed'],
+                          site_components=site_components(pack,manifest),
+                          height_counts=manifest['height_counts'], tiles=len(manifest['tiles']),
                           skipped_features=manifest['skipped_features'])
             descriptor = package(pack, output/'metro-detroit-buildings.zip', 'metro-detroit')
             report.update(status='validated', buildings=descriptor['buildings'],
@@ -54,6 +59,24 @@ def build(output, cache, source=None):
         report['elapsed_seconds'] = round(time.monotonic()-started, 2)
         (output/'buildings-report.json').write_text(json.dumps(report, indent=2))
         print('Building report: '+json.dumps(report, sort_keys=True), flush=True)
+
+
+def site_components(pack, manifest):
+    """Report accepted Chrysler campus relation geometry for source review."""
+    import math
+    result = []
+    for tile in manifest['tiles']:
+        data = json.loads((pack/tile['id']/'buildings.json').read_text())
+        for building in data['buildings']:
+            if not building.get('source_id','').startswith('relation/'):
+                continue
+            ring = building['ring_rad'][:-1]
+            lon = math.degrees(sum(p[0] for p in ring)/len(ring))
+            lat = math.degrees(sum(p[1] for p in ring)/len(ring))
+            if -83.235 <= lon <= -83.224 and 42.651 <= lat <= 42.658:
+                result.append(dict(source_id=building['source_id'],height_m=building['height_m'],
+                                   height_source=building['height_source'],holes=len(building.get('holes_rad',()))))
+    return result
 
 
 def main():

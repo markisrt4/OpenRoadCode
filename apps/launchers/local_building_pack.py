@@ -14,7 +14,7 @@ def detroit_building_directory():
 def load_buildings(directory):
     root = Path(directory).resolve()
     manifest = json.loads((root / "manifest.json").read_text())
-    if manifest.get("schema") != 1:
+    if manifest.get("schema") not in (1,2):
         raise ValueError("Unsupported building pack schema")
     payload = (root / "buildings.json").resolve()
     if not payload.is_relative_to(root) or payload.stat().st_size > 10*1024*1024:
@@ -23,6 +23,5 @@ def load_buildings(directory):
     if hashlib.sha256(content).hexdigest() != manifest["sha256"]:
         raise ValueError("Building checksum mismatch")
     data = json.loads(content)
-    return LocalBuildingState(tuple(LocalBuilding(tuple(tuple(p) for p in b["ring_rad"]),
-                              b["height_m"], b["height_source"]) for b in data["buildings"]),
+    return LocalBuildingState(tuple(LocalBuilding.from_document(b) for b in data["buildings"]),
                               data["attribution"])

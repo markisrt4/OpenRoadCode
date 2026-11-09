@@ -62,7 +62,7 @@ class LocalMapTilesPack:
     def load(cls, directory):
         root = Path(directory).resolve()
         manifest = json.loads((root/'manifest.json').read_text())
-        if manifest.get('schema') != 1 or not 1 <= len(manifest['tiles']) <= MAX_MAP_TILES:
+        if manifest.get('schema') not in (1,2) or not 1 <= len(manifest['tiles']) <= MAX_MAP_TILES:
             raise ValueError('Unsupported or oversized tile pack')
         state = coverage(manifest['title'],manifest['attribution'],manifest['bounds_deg'])
         files, tiles = {}, []

@@ -31,6 +31,7 @@ def package(root, output, coverage):
         descriptor = dict(schema=1, kind='buildings', coverage=coverage, archive=output.name,
             bytes=temporary.stat().st_size, sha256=digest(temporary), bounds_deg=validated['bounds_deg'],
             buildings=validated['buildings'], tiles=validated['tiles'],
+            geometry_schema=manifest['schema'],
             height_counts=manifest.get('height_counts', {}),
             license='ODbL-1.0', license_url='https://opendatacommons.org/licenses/odbl/1-0/')
         temporary.replace(output)
