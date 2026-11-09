@@ -61,10 +61,14 @@ else
   echo "[*] Installing libMusicForge with audio analysis from $LIBMUSICFORGE_SOURCE..."
   if [[ "$LIBMUSICFORGE_SOURCE" == git+* ]]; then
     # PEP 508 direct-reference syntax keeps extras separate from the VCS URL.
-    "$libmusicforge_python" -m pip install --disable-pip-version-check --force-reinstall "libmusicforge[analysis] @ $LIBMUSICFORGE_SOURCE"
+    libmusicforge_requirement="libmusicforge[analysis] @ $LIBMUSICFORGE_SOURCE"
   else
-    "$libmusicforge_python" -m pip install --disable-pip-version-check --force-reinstall "${LIBMUSICFORGE_SOURCE}[analysis]"
+    libmusicforge_requirement="${LIBMUSICFORGE_SOURCE}[analysis]"
   fi
+  # Resolve extras without forcing already-satisfied NumPy/HTTP dependencies.
+  # Then replace only the library, whose unchanged 0.1.0 version is ambiguous.
+  "$libmusicforge_python" -m pip install --disable-pip-version-check --upgrade "$libmusicforge_requirement"
+  "$libmusicforge_python" -m pip install --disable-pip-version-check --force-reinstall --no-deps "$LIBMUSICFORGE_SOURCE"
 fi
 
 "$libmusicforge_python" -c 'from musicforge.analysis import MusicAnalyzer, MusicAnalyzerIf, MusicAnalysisState, PercussionActivity; print("[+] libMusicForge analyzer:", MusicAnalyzer.__module__)'

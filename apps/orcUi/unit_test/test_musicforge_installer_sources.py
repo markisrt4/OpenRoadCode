@@ -58,7 +58,8 @@ def test_stale_sibling_falls_back_to_verified_remote_without_changing_checkout(i
     assert 'Skipping incompatible sibling' in result.stderr
     command=calls.read_text()
     assert 'libMusicForge.git@7ca7cd444291ab02bea0e82df13bd05620634420' in command
-    assert '--force-reinstall' in command
+    forced=[line for line in command.splitlines() if '--force-reinstall' in line]
+    assert len(forced)==1 and '--no-deps' in forced[0]
     assert (sibling/'pyproject.toml').read_bytes()==previous
 
 

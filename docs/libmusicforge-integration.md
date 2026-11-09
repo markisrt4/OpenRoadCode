@@ -69,7 +69,9 @@ python -m pip install -e ../libMusicForge --no-deps  # Termux, with python-numpy
 
 A normal installer run uses a non-editable installation and explicitly replaces
 the existing package, even when both old and current revisions report version
-`0.1.0`. Subsequent library changes require reinstalling it. Explicit incompatible
+`0.1.0`. Forced replacement applies only to libMusicForge; its analysis
+dependencies are resolved normally rather than forcibly reinstalled. Subsequent
+library changes require reinstalling it. Explicit incompatible
 local overrides are rejected before pip runs; sibling checkouts are not modified. The core libMusicForge wheel excludes its
 standalone `component_test/` examples, which are run from its source checkout.
 
