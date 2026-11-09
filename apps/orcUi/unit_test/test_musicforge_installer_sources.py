@@ -78,7 +78,9 @@ def test_compatible_sibling_still_supports_local_library_development(installer):
     result=run()
     assert result.returncode==0,result.stderr
     command=calls.read_text()
-    assert str(sibling)+'[analysis]' in command
+    requirement=next(line for line in command.splitlines() if ' --upgrade ' in line).split(' --upgrade ',1)[1]
+    assert requirement.endswith('[analysis]')
+    assert Path(requirement.removesuffix('[analysis]')).resolve()==sibling.resolve()
     assert 'git+https://' not in command
 
 
