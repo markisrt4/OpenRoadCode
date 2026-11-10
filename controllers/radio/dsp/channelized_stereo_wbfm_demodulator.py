@@ -8,14 +8,20 @@ import numpy as np
 
 from controllers.radio.dsp.fm_multiplex_discriminator import FmMultiplexDiscriminator
 from controllers.radio.dsp.fm_stereo_decoder import FmStereoDecoder
+from controllers.radio.rds_receiver_controller import RdsReceiverController
 
 
 class ChannelizedStereoWbfmDemodulator:
     """Independent, resettable stereo path; mono WFM remains unchanged."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, rds_enabled: bool = False) -> None:
+        self._rds = RdsReceiverController() if rds_enabled else None
         self._multiplex = FmMultiplexDiscriminator()
         self._stereo = FmStereoDecoder()
+
+    @property
+    def rds_status(self):
+        return self._rds.status if self._rds is not None else None
 
     @property
     def stereo_locked(self) -> bool:
@@ -28,6 +34,11 @@ class ChannelizedStereoWbfmDemodulator:
     def reset(self) -> None:
         self._multiplex.reset()
         self._stereo.reset()
+        if self._rds is not None:
+            self._rds.reset()
 
     def process(self, iq: np.ndarray) -> np.ndarray:
-        return self._stereo.process(self._multiplex.process(iq))
+        multiplex = self._multiplex.process(iq)
+        if self._rds is not None:
+            self._rds.process_multiplex(multiplex)
+        return self._stereo.process(multiplex)
