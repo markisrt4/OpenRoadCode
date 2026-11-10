@@ -31,11 +31,11 @@ class ChannelizedStereoWbfmDemodulator:
     def stereo_blend(self) -> float:
         return self._stereo.stereo_blend
 
-    def reset(self) -> None:
+    def reset(self, *, preserve_metadata: bool = False) -> None:
         self._multiplex.reset()
         self._stereo.reset()
         if self._rds is not None:
-            self._rds.reset()
+            self._rds.reset(preserve_metadata=preserve_metadata)
 
     def process(self, iq: np.ndarray) -> np.ndarray:
         multiplex = self._multiplex.process(iq)
