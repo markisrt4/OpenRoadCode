@@ -1,0 +1,24 @@
+name: Map pack menu checks
+on:
+  push:
+    paths:
+      - tools/map_builder/builder/map_pack_menu.py
+      - tools/map_builder/tests/test_map_pack_menu.py
+      - tools/map_builder/scripts/run-builder.sh
+      - .github/workflows/map-pack-menu.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  menu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pytest
+      - run: python -m pytest tools/map_builder/tests/test_map_pack_menu.py -q
+      - name: Host entry cancels without needing Docker
+        run: |
+          printf '\n' | CONTAINER_ENGINE=missing-engine bash tools/map_builder/scripts/run-builder.sh packs
