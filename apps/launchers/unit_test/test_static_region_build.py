@@ -150,3 +150,18 @@ def test_large_region_catalog_is_not_truncated_at_the_old_city_scale_limit():
         return dict(features=[item('2022-07-30')])
     assert len(sources.discover_imagery((-84,42,-83,43),fetch))==1
     assert len(pages)==101
+
+
+def test_z17_acquisition_splits_into_aligned_cells_without_raising_crop_budget(tmp_path,monkeypatch):
+    calls=[]
+    def crop(item,cache,bounds,size,kind):
+        calls.append((bounds,size,kind))
+        return tmp_path/str(len(calls)),{'cell':bounds}
+    monkeypatch.setattr(builder,'crop_source',crop)
+    source={'bounds_deg':(0,0,2,2),'url':'source'}
+    paths,receipts=builder.source_crops([source],tmp_path,(0,0,2,2),8192,'imagery')
+    assert len(paths)==len(receipts)==4
+    assert {entry[0] for entry in calls}=={(0,0,1,1),(1,0,2,1),(0,1,1,2),(1,1,2,2)}
+    assert all(size==4096 and (bounds[2]-bounds[0])/size==2/8192 for bounds,size,_ in calls)
+    with pytest.raises(ValueError,match='Unreviewed'):
+        builder.source_crops([source],tmp_path,(0,0,2,2),16384,'imagery')

@@ -18,7 +18,7 @@ from apps.launchers.local_imagery_pack import LocalImageryPack
 from apps.launchers.local_terrain_pack import load_terrain
 from development.maps.regional_imagery import _save_overview
 from development.maps.regional_terrain import terrain_tiles
-from development.maps.static_region_sources import crop_source, discover_imagery, discover_terrain
+from development.maps.static_region_sources import crop_source, discover_imagery, discover_terrain, intersect
 from development.maps.static_tile_trial import RIGHTS, command, digest, write_json
 from development.maps.terrain_regions import MICHIGAN_SHARDS
 from tools.map_builder.builder.imagery_artifact import package as package_imagery
@@ -27,6 +27,20 @@ from tools.map_builder.builder.terrain_artifact import package as package_terrai
 
 def source_crops(sources, cache, bounds, size, kind):
     cache.mkdir(parents=True, exist_ok=True)
+    if size>4096:
+        if size!=8192 or kind!='imagery':
+            raise ValueError('Unreviewed source crop dimensions')
+        # Keep z17 sampling without producing a single huge source intermediate.
+        # Child cells share the same pixel lattice; each stays under the existing
+        # 4096-pixel acquisition profile and 64 MiB source-crop ceiling.
+        crops,receipts=[],[]
+        for index,(_,cell) in enumerate(terrain_tiles(bounds,2),1):
+            selected=[item for item in sources if intersect(item['bounds_deg'],cell)]
+            print(f'Imagery source cell {index}/4',flush=True)
+            if selected:
+                paths,saved=source_crops(selected,cache,cell,4096,kind)
+                crops.extend(paths);receipts.extend(saved)
+        return crops,receipts
     def crop(item):
         return crop_source(item, cache, bounds, size, kind)
     results = []
@@ -163,7 +177,7 @@ def build(output, cache, coverage):
             # DEM cells include half a sample beyond the public coverage to keep
             # every tile edge on the same endpoint sample lattice.
             west, south, east, north = bounds
-            dx, dy = (east-west)/(size-1), (north-south)/(size-1)
+            dx, dy = (east-west)/1024, (north-south)/1024
             crop_bounds = bounds if kind == 'imagery' else (west-dx/2, south-dy/2, east+dx/2, north+dy/2)
             crops, receipts = source_crops(plan[kind], cache/kind, crop_bounds,
                                           4096 if kind == 'imagery' else 1025, kind)

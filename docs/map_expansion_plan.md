@@ -176,7 +176,9 @@ Auburn Hills and Rochester. It produces imagery and terrain independently:
 
 - Imagery uses z17 Web Mercator / 256 px MBTiles, about 0.88 m per pixel near
   Detroit. Source crops use an 8192-pixel lattice instead of the earlier 4096
-  lattice. Source acquisition dates/native GSD are reported separately; this
+  lattice, assembled from four aligned 4096-pixel acquisition cells so the
+  existing 64 MiB source-crop limit remains in force. Source acquisition
+  dates/native GSD are reported separately; this
   profile does not invent finer source detail or change imagery dates.
 - Terrain uses staged USGS 3DEP 1/3 arc-second data (roughly 10 m source spacing).
   Endpoint-aligned grids are split into at most 64 existing 129×129 tiles;
