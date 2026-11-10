@@ -41,9 +41,12 @@ class MultiModeRadioReceiver:
     }
 
     def __init__(self, *, input_rate_hz: int = 2_400_000,
-                 stereo_wfm: bool = False) -> None:
+                 stereo_wfm: bool = False, rds_wfm: bool = False) -> None:
+        if rds_wfm and not stereo_wfm:
+            raise ValueError("rds_wfm requires stereo_wfm multiplex pipeline")
         self._manager = VirtualReceiverManager(input_rate_hz=input_rate_hz)
         self._stereo_wfm = stereo_wfm
+        self._rds_wfm = rds_wfm
         self._decoders: dict[str, object] = {}
         self._configs: dict[str, RadioChannel] = {}
         self._telemetry: dict[str, ChannelRfTelemetry] = {}
@@ -51,6 +54,12 @@ class MultiModeRadioReceiver:
     @property
     def telemetry(self) -> dict[str, ChannelRfTelemetry]:
         return dict(self._telemetry)
+
+    @property
+    def rds_status(self):
+        return {name: decoder.rds_status for name, decoder in self._decoders.items()
+                if isinstance(decoder, ChannelizedStereoWbfmDemodulator)
+                and decoder.rds_status is not None}
 
     @property
     def channels(self) -> tuple[RadioChannel, ...]:
@@ -72,7 +81,9 @@ class MultiModeRadioReceiver:
         decoder_type = (ChannelizedStereoWbfmDemodulator
                         if mode == "WFM" and self._stereo_wfm
                         else self._DEMODULATORS[mode])
-        self._decoders[config.name] = decoder_type()
+        self._decoders[config.name] = (decoder_type(rds_enabled=self._rds_wfm)
+                                       if decoder_type is ChannelizedStereoWbfmDemodulator
+                                       else decoder_type())
 
     def remove_channel(self, name: str) -> None:
         self._manager.remove_channel(name)
