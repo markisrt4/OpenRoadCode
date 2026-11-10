@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from collections import deque
+
 import numpy as np
 
 
@@ -29,6 +31,18 @@ class RdsBiphaseDecoder:
         self._previous: int | None = None
         self.invalid_pairs = 0
         self.total_pairs = 0
+        self._recent_pairs = deque(maxlen=2048)
+
+    @property
+    def recent_invalid_pair_fraction(self) -> float | None:
+        """Invalid-pair fraction across the most recent 2048 complete pairs."""
+        if not self._recent_pairs:
+            return None
+        return sum(self._recent_pairs) / len(self._recent_pairs)
+
+    @property
+    def recent_pair_count(self) -> int:
+        return len(self._recent_pairs)
 
     def process(self, half_bits: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Return (decoded_bits, valid_mask), one entry per complete pair.
@@ -56,10 +70,12 @@ class RdsBiphaseDecoder:
             self.total_pairs += 1
             if first == sign:
                 self.invalid_pairs += 1
+                self._recent_pairs.append(1)
                 self._previous = None
                 bits.append(0)
                 valid.append(False)
                 continue
+            self._recent_pairs.append(0)
             # Differential encoding is applied to the biphase bit stream.
             encoded = first ^ int(self._invert)
             if self._previous is None:
