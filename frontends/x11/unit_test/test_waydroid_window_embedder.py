@@ -33,7 +33,7 @@ def test_new_resize_and_clear_cancel_old_workers():
     embedder = WaydroidWindowEmbedder()
     embedder._window_id = 42
     first = embedder._resize_cancel
-    with patch('frontends.x11.waydroid_window_embedder.Thread'), \
+    with patch('apps.orcUi.adapters.waydroid_window_embedder.Thread'), \
             patch('frontends.x11.x11_window_embedder.X11WindowEmbedder.resize'):
         embedder.resize(566, 538)
         second = embedder._resize_cancel
@@ -86,3 +86,8 @@ def test_hide_during_property_query_cannot_resize_the_old_surface():
             patch('frontends.x11.x11_window_embedder.X11WindowEmbedder.resize') as resize:
         embedder._settle(cancelled, (1132, 538), (0, 48))
     resize.assert_not_called()
+
+
+def test_legacy_import_preserves_the_application_adapter_type():
+    from apps.orcUi.adapters.waydroid_window_embedder import WaydroidWindowEmbedder as Adapter
+    assert WaydroidWindowEmbedder is Adapter
