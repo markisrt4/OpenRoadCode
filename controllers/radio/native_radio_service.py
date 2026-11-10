@@ -119,7 +119,7 @@ class NativeRadioService:
                                self._last_dropped_blocks is not None and
                                dropped > self._last_dropped_blocks)
             if gap or dropped_changed:
-                self.receiver.reset()
+                self.receiver.reset(preserve_metadata=True)
                 self._discontinuities += 1
             dsp_start = time.perf_counter()
             try:
