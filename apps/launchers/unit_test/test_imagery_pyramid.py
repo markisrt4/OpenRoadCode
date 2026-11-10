@@ -82,7 +82,8 @@ def test_detail_installer_keeps_previous_revision_on_invalid_archive(pyramid,tmp
     assert active.resolve()==previous
 
 
-def test_gdal_produces_native_zoom_tiles_readable_by_runtime(tmp_path):
+@pytest.mark.parametrize("zoom",[16,17])
+def test_gdal_produces_native_zoom_tiles_readable_by_runtime(tmp_path,zoom):
     if not shutil.which('gdal_create'):
         pytest.skip('GDAL only required on build host')
     coverage='detroit-midtown'
@@ -91,12 +92,12 @@ def test_gdal_produces_native_zoom_tiles_readable_by_runtime(tmp_path):
     command('gdal_create','-of','GTiff','-outsize',32,32,'-bands',4,
         '-burn',80,'-burn',120,'-burn',160,'-burn',255,
         '-a_srs','EPSG:4326','-a_ullr',west,north,east,south,source)
-    root,report=raster_to_pyramid([source],tmp_path,coverage)
+    root,report=raster_to_pyramid([source],tmp_path,coverage,maximum_zoom=zoom)
     pack=LocalImageryPyramidPack.load(root)
     assert 10 <= pack.state.minimum_zoom <= 16
-    assert pack.state.maximum_zoom==16
+    assert pack.state.maximum_zoom==zoom
     assert report['tile_count']>1
-    assert 1 < report['target_ground_pixel_spacing_m'] < 2
+    assert (1 if zoom==16 else .8) < report['target_ground_pixel_spacing_m'] < (2 if zoom==16 else 1)
     assert report['image_format']=='webp'
 
 
@@ -121,3 +122,10 @@ def test_detail_browser_layers_stay_above_late_overviews_and_cleanup():
     path=Path(__file__).resolve().parents[3]/'frontends/web/cesium/unit_test/test_local_imagery_pyramids.js'
     result=subprocess.run([node,'--test',str(path)],capture_output=True,text=True,timeout=20)
     assert result.returncode==0,result.stdout+result.stderr
+
+
+def test_unreviewed_imagery_zoom_rejected_before_acquisition(tmp_path):
+    from development.maps.build_imagery_detail import build
+    with pytest.raises(ValueError,match='Reviewed detail zoom'):
+        build(tmp_path/'out',tmp_path/'cache','detroit-midtown',maximum_zoom=18)
+    assert not (tmp_path/'cache').exists()

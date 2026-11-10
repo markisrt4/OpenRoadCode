@@ -25,6 +25,7 @@ on:
           - metro-detroit-buildings
           - michigan-buildings
           - imagery-detail-pilot
+          - michigan-detail-pilot
           - generic-state
           - validation-states
       state:
@@ -330,7 +331,7 @@ jobs:
 
   michigan:
     name: Build Michigan terrain package
-    if: ${{ inputs.build_target != 'metro-detroit' && inputs.build_target != 'michigan-all' && inputs.build_target != 'michigan-staged' && inputs.build_target != 'metro-detroit-buildings' && inputs.build_target != 'michigan-buildings' && inputs.build_target != 'imagery-detail-pilot' && inputs.build_target != 'generic-state' && inputs.build_target != 'validation-states' && inputs.build_target != 'rochester-static-trial' }}
+    if: ${{ inputs.build_target != 'metro-detroit' && inputs.build_target != 'michigan-all' && inputs.build_target != 'michigan-staged' && inputs.build_target != 'metro-detroit-buildings' && inputs.build_target != 'michigan-buildings' && inputs.build_target != 'imagery-detail-pilot' && inputs.build_target != 'michigan-detail-pilot' && inputs.build_target != 'generic-state' && inputs.build_target != 'validation-states' && inputs.build_target != 'rochester-static-trial' }}
     uses: ./.github/workflows/build-michigan-terrain.yml
     with:
       coverage: ${{ inputs.build_target }}
@@ -685,7 +686,7 @@ jobs:
 
   imagery-detail:
     name: Detail imagery ${{ matrix.coverage }}
-    if: ${{ inputs.build_target == 'imagery-detail-pilot' }}
+    if: ${{ inputs.build_target == 'imagery-detail-pilot' || inputs.build_target == 'michigan-detail-pilot' }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -694,7 +695,7 @@ jobs:
       fail-fast: false
       max-parallel: 2
       matrix:
-        coverage: [detroit-midtown, auburn-hills]
+        coverage: ${{ fromJSON(inputs.build_target == 'michigan-detail-pilot' && '["detroit-midtown","auburn-hills","rochester"]' || '["detroit-midtown","auburn-hills"]') }}
     env:
       GDAL_CACHEMAX: '128'
       GDAL_NUM_THREADS: '1'
@@ -715,19 +716,22 @@ jobs:
         if: ${{ !inputs.force_rebuild }}
         with:
           path: build-output/detail-cache/${{ matrix.coverage }}
-          key: naip-detail-v1-${{ matrix.coverage }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: naip-detail-v1-${{ matrix.coverage }}-
+          key: naip-detail-v2-${{ matrix.coverage }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            naip-detail-v2-${{ matrix.coverage }}-
+            naip-detail-v1-${{ matrix.coverage }}-
       - name: Build offline native zoom tiles
         run: |
           /usr/bin/python3 -m development.maps.build_imagery_detail \
             --coverage "$COVERAGE" \
+            --maximum-zoom ${{ inputs.build_target == 'michigan-detail-pilot' && '17' || '16' }} \
             --output "build-output/detail/$COVERAGE" \
             --cache "build-output/detail-cache/$COVERAGE"
       - uses: actions/cache/save@v4
         if: ${{ always() }}
         with:
           path: build-output/detail-cache/${{ matrix.coverage }}
-          key: naip-detail-v1-${{ matrix.coverage }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: naip-detail-v2-${{ matrix.coverage }}-${{ github.run_id }}-${{ github.run_attempt }}
       - uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
@@ -737,6 +741,62 @@ jobs:
             build-output/detail/${{ matrix.coverage }}/*.zip
             build-output/detail/${{ matrix.coverage }}/*.zip.json
             build-output/detail/${{ matrix.coverage }}/detail-report.json
+
+  terrain-detail:
+    name: Detail terrain ${{ matrix.coverage }}
+    if: ${{ inputs.build_target == 'michigan-detail-pilot' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        coverage: [detroit-midtown, auburn-hills, rochester]
+    env:
+      GDAL_CACHEMAX: '128'
+      GDAL_NUM_THREADS: '1'
+      GDAL_DISABLE_READDIR_ON_OPEN: EMPTY_DIR
+      GDAL_HTTP_MAX_RETRY: '2'
+      GDAL_HTTP_RETRY_DELAY: '2'
+      GDAL_HTTP_TIMEOUT: '60'
+      COVERAGE: ${{ matrix.coverage }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install build-host raster tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y gdal-bin python3-pil python3-pytest
+      - name: Offline pyramid and source-audit regressions
+        run: /usr/bin/python3 -m pytest apps/launchers/unit_test/test_terrain_detail.py apps/launchers/unit_test/test_static_region_build.py -q
+      - uses: actions/cache/restore@v4
+        if: ${{ !inputs.force_rebuild }}
+        with:
+          path: build-output/terrain-detail-cache/${{ matrix.coverage }}
+          key: terrain-detail-v1-${{ matrix.coverage }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            terrain-detail-v1-${{ matrix.coverage }}-
+      - name: Build offline native zoom tiles
+        run: |
+          /usr/bin/python3 -m development.maps.build_terrain_detail \
+            --coverage "$COVERAGE-detail-10m" \
+            --output "build-output/terrain-detail/$COVERAGE" \
+            --cache "build-output/terrain-detail-cache/$COVERAGE"
+      - uses: actions/cache/save@v4
+        if: ${{ always() }}
+        with:
+          path: build-output/terrain-detail-cache/${{ matrix.coverage }}
+          key: terrain-detail-v1-${{ matrix.coverage }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: terrain-detail-${{ matrix.coverage }}-${{ github.run_id }}
+          retention-days: 14
+          path: |
+            build-output/terrain-detail/${{ matrix.coverage }}/*.zip
+            build-output/terrain-detail/${{ matrix.coverage }}/*.zip.json
+            build-output/terrain-detail/${{ matrix.coverage }}/terrain-detail-report.json
 
   building-site-audit:
     name: Inspect Chrysler campus OSM geometry

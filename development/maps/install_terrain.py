@@ -19,6 +19,7 @@ from tools.map_builder.builder.map_3d import PRESETS
 from tools.map_builder.builder.map_3d_menu import choose_coverage
 from tools.map_builder.builder.terrain import download
 from development.maps.terrain_regions import MICHIGAN_COVERAGES
+from development.maps.detail_coverages import TERRAIN_DETAILS
 from development.maps.state_map_catalog import coverage_definition
 
 
@@ -41,19 +42,21 @@ def main():
         if coverage is None:
             print('Cancelled')
             return 0
-        title, bounds = (COVERAGES[coverage] if coverage == 'metro-detroit' else
-                         PRESETS[coverage] if coverage in PRESETS else
-                         coverage_definition(coverage))
+        title,bounds = (TERRAIN_DETAILS[coverage] if coverage in TERRAIN_DETAILS else
+                        MICHIGAN_COVERAGES[coverage] if coverage in MICHIGAN_COVERAGES else
+                        COVERAGES[coverage] if coverage == 'metro-detroit' else
+                        PRESETS[coverage] if coverage in PRESETS else coverage_definition(coverage))
+        regional = coverage in MICHIGAN_COVERAGES or coverage in TERRAIN_DETAILS or coverage not in PRESETS
         directories = {'detroit-downtown': detroit_terrain_directory,
                        'detroit-midtown': midtown_terrain_directory,
                        'pine-knob': pine_knob_terrain_directory}
         destination = args.output or (metro_detroit_terrain_directory() if coverage == 'metro-detroit'
-            else regional_terrain_directory(coverage) if coverage not in PRESETS
+            else regional_terrain_directory(coverage) if regional
             else directories[coverage]() if coverage in directories else openroadcode_data_dir('map-packs',coverage+'-terrain-v1'))
         print(f'Coverage: {title} · {bounds}')
         if coverage == 'metro-detroit':
             print('USGS 3DEP: streamed overview, 200 m-class regional, and focus-area LOD grids.')
-        elif coverage not in PRESETS:
+        elif regional:
             print('USGS 3DEP: 64 resumable 129×129 grids; rectangular coverage includes water and neighboring areas.')
         else:
             print('USGS 3DEP: one grid for the selected local coverage.')
@@ -74,9 +77,11 @@ def main():
             archive = source if isinstance(source, Path) else fetch_archive(
                 source, descriptor, destination.with_name(destination.name + '.artifacts'))
             verify_archive(archive, descriptor)
-            _install_archive(archive, destination)
+            _install_archive(archive, destination,expected_bounds=bounds)
             installed = destination
-        elif coverage == 'metro-detroit' or coverage not in PRESETS:
+        elif coverage in TERRAIN_DETAILS:
+            raise ValueError('Detail terrain requires a finished --pack-file artifact from GitHub Actions')
+        elif coverage == 'metro-detroit' or regional:
             target = args.build_only or destination
             build_regional_terrain(target, coverage=coverage)
         else:
@@ -95,7 +100,7 @@ def main():
         return 1
 
 
-def _install_archive(archive: Path, active: Path) -> None:
+def _install_archive(archive: Path, active: Path, *, expected_bounds=None) -> None:
     active.parent.mkdir(parents=True, exist_ok=True)
     revision = active.parent / ('.terrain-' + uuid.uuid4().hex)
     with TemporaryDirectory(dir=active.parent, prefix='.terrain-unpack-') as temporary:
@@ -122,6 +127,11 @@ def _install_archive(archive: Path, active: Path) -> None:
                         while chunk := incoming.read(65536):
                             outgoing.write(chunk)
         load_terrain(root)
+        if expected_bounds is not None:
+            import json
+            actual=json.loads((root/'manifest.json').read_text())['bounds_deg']
+            if len(actual)!=4 or any(abs(a-b)>1e-9 for a,b in zip(actual,expected_bounds)):
+                raise ValueError('Terrain archive bounds differ from requested coverage')
         root.rename(revision)
     pending = active.parent / ('.active-terrain-' + uuid.uuid4().hex)
     pending.symlink_to(revision.name, target_is_directory=True)

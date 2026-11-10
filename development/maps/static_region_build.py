@@ -74,14 +74,15 @@ def imagery_pack(root, coverage, sources, crops, *, pixels=4096):
                              imagery_pixels=[pixels, pixels])
 
 
-def split_terrain(heights, size, root, coverage):
+def split_terrain(heights, size, root, coverage, *, bounds=None, divisions=8, title=None):
     """Emit endpoint-aligned 129x129 children; reject incomplete children."""
-    title, bounds = MICHIGAN_SHARDS[coverage]
-    if size != 1025 or len(heights) != size*size:
-        raise ValueError('Regional terrain requires an endpoint-aligned 1025 grid')
+    title = title or MICHIGAN_SHARDS.get(coverage,(coverage,None))[0]
+    bounds = bounds or MICHIGAN_SHARDS[coverage][1]
+    if not 1 <= divisions <= 8 or size != divisions*128+1 or len(heights) != size*size:
+        raise ValueError('Regional terrain requires an endpoint-aligned grid with 1–8 divisions')
     records, gaps = [], []
-    for index, (tile_id, tile_bounds) in enumerate(terrain_tiles(bounds, 8)):
-        row, column = divmod(index, 8)
+    for index, (tile_id, tile_bounds) in enumerate(terrain_tiles(bounds, divisions)):
+        row, column = divmod(index, divisions)
         samples = [heights[(row*128+y)*size+column*128+x] for y in range(129) for x in range(129)]
         if any(not math.isfinite(value) or not -500 <= value <= 9000 for value in samples):
             gaps.append(dict(id=tile_id, bounds_deg=tile_bounds, reason='Missing/invalid staged DEM samples'))
@@ -102,10 +103,12 @@ def split_terrain(heights, size, root, coverage):
     return records, gaps
 
 
-def terrain_pack(root, coverage, sources, crops):
-    title, bounds = MICHIGAN_SHARDS[coverage]
+def terrain_pack(root, coverage, sources, crops, *, bounds=None, title=None, divisions=8):
+    if bounds is None:
+        title,bounds = MICHIGAN_SHARDS[coverage]
+    size=divisions*128+1
     west, south, east, north = bounds
-    dx, dy = (east-west)/1024, (north-south)/1024
+    dx, dy = (east-west)/(size-1), (north-south)/(size-1)
     sample_bounds = (west-dx/2, south-dy/2, east+dx/2, north+dy/2)
     scratch = root/'processing'
     scratch.mkdir(parents=True, exist_ok=True)
@@ -116,14 +119,14 @@ def terrain_pack(root, coverage, sources, crops):
             '-input_file_list', listing, vrt)
     grid = scratch/'terrain.tif'
     command('gdalwarp', '-overwrite', '-wm', '128', '-t_srs', 'EPSG:4326',
-            '-te', *sample_bounds, '-ts', '1025', '1025', '-r', 'bilinear',
+            '-te', *sample_bounds, '-ts', str(size), str(size), '-r', 'bilinear',
             '-ot', 'Float32', '-dstnodata', '-9999', vrt, grid)
     xyz = scratch/'terrain.xyz'
     command('gdal_translate', '-of', 'XYZ', grid, xyz)
     heights = [float(line.split()[2]) for line in xyz.read_text().splitlines()]
     destination = root/f'{coverage}-terrain'
     destination.mkdir(exist_ok=True)
-    records, gaps = split_terrain(heights, 1025, destination, coverage)
+    records, gaps = split_terrain(heights, size, destination, coverage,bounds=bounds,divisions=divisions,title=title)
     write_json(destination/'manifest.json', dict(schema=3, layers=['terrain'],
         title=title+' staged 3DEP regional relief', bounds_deg=bounds,
         attribution='USGS 3DEP · The National Map', tiles=records, maximum_zoom=16,
@@ -131,7 +134,7 @@ def terrain_pack(root, coverage, sources, crops):
         rights='Public-domain USGS 3DEP', rights_reference=RIGHTS['terrain']))
     load_terrain(destination)
     return destination, dict(terrain_tiles=len(records), missing_terrain_tiles=gaps,
-                             terrain_grid=[1025, 1025])
+                             terrain_grid=[size, size])
 
 
 def build(output, cache, coverage):
@@ -160,7 +163,7 @@ def build(output, cache, coverage):
             # DEM cells include half a sample beyond the public coverage to keep
             # every tile edge on the same endpoint sample lattice.
             west, south, east, north = bounds
-            dx, dy = (east-west)/1024, (north-south)/1024
+            dx, dy = (east-west)/(size-1), (north-south)/(size-1)
             crop_bounds = bounds if kind == 'imagery' else (west-dx/2, south-dy/2, east+dx/2, north+dy/2)
             crops, receipts = source_crops(plan[kind], cache/kind, crop_bounds,
                                           4096 if kind == 'imagery' else 1025, kind)

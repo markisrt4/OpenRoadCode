@@ -13,10 +13,9 @@ from ui.navigation.local_imagery_state import LocalImageryState, LocalImageryPyr
 
 MAX_TILE_BYTES = 512*1024
 MAX_DATABASE_BYTES = 2*1024*1024*1024
-PILOT_BOUNDS = {
-    'detroit-midtown': (-83.085, 42.315, -83.025, 42.375),
-    'auburn-hills': (-83.27, 42.625, -83.195, 42.695),
-}
+from development.maps.detail_coverages import DETAIL_BOUNDS
+
+PILOT_BOUNDS = DETAIL_BOUNDS
 
 
 def _connect(database):

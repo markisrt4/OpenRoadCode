@@ -168,3 +168,31 @@ use, not the number of simultaneously resident GPU resources.
   potential higher-resolution imagery source requiring product-specific review.
 - [USGS Alaska 5 m DEM collection](https://catalog.data.gov/dataset/5-meter-alaska-digital-elevation-models-dems-usgs-national-map-3dep-downloadable-data-coll):
   distinct Alaska terrain product.
+
+## First Michigan detail build
+
+The `michigan-detail-pilot` workflow target builds Downtown–Midtown Detroit,
+Auburn Hills and Rochester. It produces imagery and terrain independently:
+
+- Imagery uses z17 Web Mercator / 256 px MBTiles, about 0.88 m per pixel near
+  Detroit. Source crops use an 8192-pixel lattice instead of the earlier 4096
+  lattice. Source acquisition dates/native GSD are reported separately; this
+  profile does not invent finer source detail or change imagery dates.
+- Terrain uses staged USGS 3DEP 1/3 arc-second data (roughly 10 m source spacing).
+  Endpoint-aligned grids are split into at most 64 existing 129×129 tiles;
+  output sampling intervals are reported per axis and are no greater than 10 m
+  for these bounded pilots. This can oversample the source and does not increase
+  its accuracy. Higher-detail catalog priority is 7 with minimum zoom 13;
+  coarser installed terrain remains available outside the pilot areas.
+- Existing 512 MiB imagery archive / 2 GiB database, 64 MiB terrain archive and
+  terrain child-grid limits remain. Missing source coverage is reported; it is
+  not fabricated. Terrain is still relative relief with unresolved source-to-
+  ellipsoid vertical datum conversion.
+
+Actions artifacts contain ZIPs plus adjacent checksum descriptors and reports.
+Install imagery with `development.maps.install_imagery_detail`; install terrain
+with `development.maps.install_terrain` and coverage names
+`detroit-midtown-detail-10m`, `auburn-hills-detail-10m`, `rochester-detail-10m`.
+The new imagery revisions replace the existing pilot links safely; terrain uses
+separate active links, preserving prior regional data. Reopen Terrain after
+installation. This is a city pilot, not statewide high-resolution imagery.

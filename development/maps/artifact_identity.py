@@ -33,7 +33,7 @@ def build_profile(kind, coverage):
                 or coverage.endswith('-overview') or '-detail-' in coverage
                 else '4096x4096-detail')
     if kind == 'terrain':
-        return 'coverage-defined-tiled-grid'
+        return 'staged-3dep-10m-class-endpoint129-v1' if coverage.endswith('-detail-10m') else 'coverage-defined-tiled-grid'
     raise ValueError(f"Unsupported map artifact kind: {kind}")
 
 
