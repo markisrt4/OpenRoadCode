@@ -144,3 +144,11 @@ session working on this repository.
 - Do not install dependencies in the Codex VM solely to run checks, tests, builds, or other validation. Dependency installation needed for actual implementation must be justified separately.
 - Prefer concise CI failure summaries, JUnit XML artifacts, and the failing job's relevant log excerpt over reading entire workflow logs repeatedly.
 - Request or inspect the GitHub Actions result for the exact commit before declaring verification complete. Use the workflow's manually dispatched full gate before merge where configured; do not claim the full gate ran just because fast CI passed.
+
+## Asynchronous CI and draft PR policy
+
+- Open draft PRs early for work in progress when useful, and continue committing without waiting for every CI run.
+- GitHub Actions owns automated unit tests, lint, packaging, and builds. Do not run installs, builds, or tests in Codex unless explicitly requested; hardware-dependent verification remains local.
+- Do not poll or block on CI after routine commits. Inspect results when diagnosing failures, preparing review, or requesting merge.
+- Draft PRs get fast unit tests; full quality checks run when marked ready for review and on subsequent ready-PR updates.
+- Verify required checks for the latest commit before declaring merge-ready. Never merge with failing required checks or without explicit authorization.
