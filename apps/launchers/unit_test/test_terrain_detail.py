@@ -52,7 +52,7 @@ def test_gdal_detail_grid_packages_installs_and_gets_local_catalog_priority(tmp_
     pack,metrics=terrain_pack(tmp_path,key,[],[source],bounds=bounds,title=title,divisions=1)
     manifest=json.loads((pack/'manifest.json').read_text())
     for tile in manifest['tiles']:tile.update(detail_level=5,minimum_zoom=13)
-    manifest['maximum_zoom']=18
+    manifest['maximum_zoom']=16
     (pack/'manifest.json').write_text(json.dumps(manifest))
     assert metrics['missing_terrain_tiles']==[]
     assert all(h==pytest.approx(230) for h in runtime.load_terrain(pack).tiles[0].heights_m)
@@ -65,6 +65,7 @@ def test_gdal_detail_grid_packages_installs_and_gets_local_catalog_priority(tmp_
     assert active.resolve()==previous
     monkeypatch.setattr(runtime,'openroadcode_data_dir',lambda *parts:tmp_path/'device')
     catalog=runtime.load_installed_terrain_catalog()
+    assert catalog.state.maximum_zoom==16
     assert len(catalog.state.tiles)==1
     assert catalog.state.tiles[0].detail_level==7
     assert catalog.state.tiles[0].minimum_zoom==13

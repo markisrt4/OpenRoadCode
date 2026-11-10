@@ -185,7 +185,9 @@ Auburn Hills and Rochester. It produces imagery and terrain independently:
   output sampling intervals are reported per axis and are no greater than 10 m
   for these bounded pilots. This can oversample the source and does not increase
   its accuracy. Higher-detail catalog priority is 7 with minimum zoom 13;
-  coarser installed terrain remains available outside the pilot areas.
+  coarser installed terrain remains available outside the pilot areas. Terrain
+  mesh refinement stays capped at level 16, independently of z17 imagery,
+  avoiding extra subdivision beyond this source spacing.
 - Existing 512 MiB imagery archive / 2 GiB database, 64 MiB terrain archive and
   terrain child-grid limits remain. Missing source coverage is reported; it is
   not fabricated. Terrain is still relative relief with unresolved source-to-

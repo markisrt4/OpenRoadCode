@@ -48,13 +48,13 @@ def build(output,cache,coverage):
         manifest=json.loads((pack/'manifest.json').read_text())
         for tile in manifest['tiles']:
             tile.update(detail_level=5,minimum_zoom=13)
-        manifest.update(maximum_zoom=18,source_product='USGS 3DEP 1/3 arc-second (~10 m)',
+        manifest.update(maximum_zoom=16,source_product='USGS 3DEP 1/3 arc-second (~10 m)',
                         sample_spacing_m=spacing,build_profile='staged-3dep-10m-class-v1')
         write_json(pack/'manifest.json',manifest)
         write_json(pack/'source-plan.json',plan);write_json(pack/'source-receipts.json',receipts)
         load_terrain(pack)
         descriptor=package(pack,output/(coverage+'-terrain.zip'),coverage)
-        report.update(metrics,status='validated',sample_spacing_m=spacing,
+        report.update(metrics,status='validated',sample_spacing_m=spacing,maximum_terrain_zoom=16,
                       source_product=manifest['source_product'],archive_bytes=descriptor['bytes'],
                       source_dates=sorted({item['date'] for item in plan['terrain']}),
                       source_date_note='Catalog update/publication dates; not established survey acquisition dates',
