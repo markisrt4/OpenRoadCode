@@ -8,17 +8,17 @@ business ID, so an icon and an Android action refer to the same identity.
 
 | Brand | Identity | Bundled logo | Android mapping |
 | --- | --- | --- | --- |
-| Panera Bread | NSI / Q7130852 | Category fallback | com.panera.bread |
+| Panera Bread | NSI / Q7130852 | Yes | com.panera.bread |
 | McDonald's | NSI / Q38076 | Yes | com.mcdonalds.app |
-| Burger King | NSI / Q177054 | Yes | None yet |
+| Burger King | NSI / Q177054 | Yes | com.emn8.mobilem8.nativeapp.bk |
 | Starbucks | NSI / Q37158 | Yes | None yet |
 
 Package mappings are the existing curated ORC integrations, not packages inferred
-from a brand name. McDonald's mapping is the US app; store availability and
+from a brand name. McDonald's and Burger King's mappings are US apps; store availability and
 eligibility vary by region/device. Opening an app does **not** select the physical
 store. Store-specific deep links need separate verification before being added.
 
-Panera deliberately retains its category marker until an approved icon is added.
+Panera now uses its bundled wordmark on search markers and in the place card.
 Unknown businesses and missing/corrupt assets also retain category markers.
 There is no runtime favicon crawler or third-party favicon service in this first
 version. That can be added separately after the bundled path is validated.
@@ -42,7 +42,11 @@ All registry files are under `controllers/poi/catalog/`:
 The NSI subset includes its BSD-3-Clause license. The initial SVG sources come
 from a pinned Simple Icons commit with its CC0 license; trademark rights and
 brand usage guidelines still apply. The normalized PNG hashes are separate from
-the source SVG hashes. A new icon needs a reviewed source and rights metadata.
+the source SVG hashes. Panera's wordmark comes from the pinned `hlxsites/panera`
+site repository; its Apache-2.0 source license is bundled as
+`icons/PANERA-SOURCE-LICENSE.txt`. Panera trademark rights still apply. The source
+SVG is normalized onto the same white circular badge as the other brands.
+A new icon needs a reviewed source and rights metadata.
 
 Matching prefers brand Wikidata IDs, then exact official website domains
 (including subdomains), then exact normalized brand/operator/name aliases.
@@ -101,7 +105,8 @@ ordering/website actions or the business icon.
 
 For known ordering businesses, the POI card shows one **ORDER** action. It opens
 the installed Android app when available, otherwise the configured ordering
-website. It does not also show **OPEN / INSTALL APP** and **WEBSITE** as competing
+website. Burger King uses the official US app package and `https://www.bk.com/menu`
+as its web fallback; app/store launch and ordering still need device validation. It does not also show **OPEN / INSTALL APP** and **WEBSITE** as competing
 ways to order. A business without an ordering integration still gets its website
 action when one is known. Opening an app is not a verified store-specific handoff.
 

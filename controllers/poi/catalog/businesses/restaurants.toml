@@ -23,3 +23,11 @@ aliases = [
 ]
 categories = ["food"]
 capabilities = ["order"]
+
+[business.burger-king]
+name = "Burger King"
+# https://www.wikidata.org/wiki/Q177054
+wikidata = ["Q177054"]
+aliases = ["Burger King"]
+categories = ["food"]
+capabilities = ["order"]

@@ -27,6 +27,15 @@
       "license": "CC0-1.0",
       "brand_website": "https://www.starbucks.com",
       "usage_notes": "Brand trademark rights and guidelines still apply."
+    },
+    "panera": {
+      "file": "panera.png",
+      "source": "https://raw.githubusercontent.com/hlxsites/panera/94c980384caf25cf45848982e1b1b4fe433b41f8/icons/logo.svg",
+      "source_sha256": "dcc29db2c40f5936d8fe0416971af1ae366efe493f0a96d1bd8cf6a6d2f82537",
+      "sha256": "bd25d4a74c25c5e3c4fd36c368278158aca2b487009c24a076713ea18e9ea614",
+      "license": "Apache-2.0",
+      "brand_website": "https://www.panerabread.com",
+      "usage_notes": "Panera wordmark from the pinned hlxsites/panera site source. Source repository license is bundled in PANERA-SOURCE-LICENSE.txt; brand trademark rights and guidelines still apply. Normalized onto a white circular badge, without changing wordmark colors."
     }
   }
 }

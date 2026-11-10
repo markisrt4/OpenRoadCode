@@ -68,3 +68,14 @@ def test_app_status_uses_curated_ordering_package_without_launching():
         assert executor.app_availability(poi) is expected
     assert executor.app_availability(_panera()) is PoiAppAvailability.WEB_ONLY
     launcher.open_package_or_uri.assert_not_called()
+
+
+def test_burger_king_order_uses_official_us_package_and_web_fallback():
+    from controllers.poi.poi_enricher import enrich_poi
+    launcher = Mock()
+    launcher.open_package_or_uri.return_value = 'app'
+    poi = enrich_poi(PointOfInterest('bk', 'Burger King', PoiCategory.FOOD, GeoPoint(0, 0)))
+    action, = poi.actions
+    assert AndroidPoiActionExecutor(launcher).execute(poi, action) == 'Opening order in app'
+    launcher.open_package_or_uri.assert_called_once_with(
+        'com.emn8.mobilem8.nativeapp.bk', 'https://www.bk.com/menu')

@@ -10,6 +10,11 @@
       "package": "com.mcdonalds.app",
       "source": "https://play.google.com/store/apps/details?id=com.mcdonalds.app",
       "verification": "Existing ORC package mapping; US app. Device availability and regional eligibility are determined by Google Play."
+    },
+    "burger-king": {
+      "package": "com.emn8.mobilem8.nativeapp.bk",
+      "source": "https://play.google.com/store/apps/details?id=com.emn8.mobilem8.nativeapp.bk",
+      "verification": "Official BURGER KING US Google Play listing. Store availability and ordering depend on region/device; app launch does not select a physical store. Device handoff validation pending."
     }
   }
 }

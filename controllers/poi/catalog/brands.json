@@ -134,7 +134,7 @@
       "domains": [
         "panerabread.com"
       ],
-      "icon_id": null,
+      "icon_id": "panera",
       "location_set": {
         "include": [
           "ca",

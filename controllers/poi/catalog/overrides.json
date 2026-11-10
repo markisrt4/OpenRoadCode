@@ -9,7 +9,8 @@
         "Panera",
         "Saint Louis Bread Co",
         "St Louis Bread Co"
-      ]
+      ],
+      "icon_id": "panera"
     },
     "mcdonalds": {
       "domains": [

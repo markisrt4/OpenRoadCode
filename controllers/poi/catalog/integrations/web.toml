@@ -5,3 +5,6 @@ order = "https://www.panerabread.com/en-us/start-an-order.html"
 
 [integration.mcdonalds]
 order = "https://www.mcdonalds.com/us/en-us.html"
+
+[integration.burger-king]
+order = "https://www.bk.com/menu"

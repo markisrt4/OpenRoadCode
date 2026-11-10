@@ -89,7 +89,7 @@ def test_icon_only_brands_do_not_get_guessed_android_packages():
 
 
 def test_missing_or_invalid_icon_keeps_category_fallback_without_reading_arbitrary_files():
-    assert icon_properties('panera') == {}
+    assert icon_properties('unknown-brand') == {}
     assert icon_properties('../../etc/passwd') == {}
     assert icon_properties(None) == {}
     assert icon_properties('mcdonalds')['brand_icon'] == 'business:mcdonalds'
@@ -108,3 +108,28 @@ def test_title_branding_survives_legacy_overrides_and_unknown_brands_use_theme()
     assert enrich_poi(branded) == branded
     unknown = enrich_poi(PointOfInterest('cafe', 'Independent Cafe', PoiCategory.FOOD, GeoPoint(0, 0)))
     assert unknown.title_style is None
+
+
+@pytest.mark.parametrize('metadata', [
+    {'name': 'Burger King'},
+    {'name': 'Local restaurant', 'brand_wikidata': 'Q177054'},
+    {'name': 'Local restaurant', 'website': 'https://www.bk.com/menu'},
+])
+def test_burger_king_has_one_order_intent_and_keeps_its_logo(metadata):
+    poi = enrich_poi(PointOfInterest('bk', category=PoiCategory.FOOD,
+                                    position=GeoPoint(0, 0), **metadata))
+    assert poi.business_id == poi.icon_id == 'burger-king'
+    assert [(a.kind, a.provider_id) for a in poi.actions] == [(PoiActionKind.ORDER, 'burger-king')]
+    assert poi.icon is not None
+    assert enrich_poi(poi) == poi
+
+
+def test_panera_supplies_the_same_bundled_logo_to_map_and_card():
+    import base64
+    from controllers.poi.business_icons import icon_bytes
+    poi = enrich_poi(PointOfInterest('panera', 'Panera Bread', PoiCategory.FOOD, GeoPoint(0, 0)))
+    marker = icon_properties('panera')
+    assert poi.business_id == poi.icon_id == 'panera'
+    assert marker['brand_icon'] == 'business:panera'
+    assert poi.icon.data == icon_bytes('panera') == base64.b64decode(marker['brand_icon_png'])
+    assert [a.kind for a in poi.actions] == [PoiActionKind.ORDER]
