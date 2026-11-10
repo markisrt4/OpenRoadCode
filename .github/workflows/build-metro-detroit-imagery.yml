@@ -26,6 +26,7 @@ on:
           - michigan-buildings
           - imagery-detail-pilot
           - michigan-detail-pilot
+          - michigan-statewide-detail
           - generic-state
           - validation-states
       state:
@@ -331,7 +332,7 @@ jobs:
 
   michigan:
     name: Build Michigan terrain package
-    if: ${{ inputs.build_target != 'metro-detroit' && inputs.build_target != 'michigan-all' && inputs.build_target != 'michigan-staged' && inputs.build_target != 'metro-detroit-buildings' && inputs.build_target != 'michigan-buildings' && inputs.build_target != 'imagery-detail-pilot' && inputs.build_target != 'michigan-detail-pilot' && inputs.build_target != 'generic-state' && inputs.build_target != 'validation-states' && inputs.build_target != 'rochester-static-trial' }}
+    if: ${{ inputs.build_target != 'metro-detroit' && inputs.build_target != 'michigan-all' && inputs.build_target != 'michigan-staged' && inputs.build_target != 'metro-detroit-buildings' && inputs.build_target != 'michigan-buildings' && inputs.build_target != 'imagery-detail-pilot' && inputs.build_target != 'michigan-detail-pilot' && inputs.build_target != 'michigan-statewide-detail' && inputs.build_target != 'generic-state' && inputs.build_target != 'validation-states' && inputs.build_target != 'rochester-static-trial' }}
     uses: ./.github/workflows/build-michigan-terrain.yml
     with:
       coverage: ${{ inputs.build_target }}
@@ -824,3 +825,12 @@ jobs:
           name: building-site-audit-${{ github.run_id }}
           retention-days: 14
           path: build-output/building-site-audit/*.json
+
+
+  statewide-detail:
+    name: Michigan statewide detail delivery
+    if: ${{ inputs.build_target == 'michigan-statewide-detail' }}
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/michigan-statewide-detail.yml

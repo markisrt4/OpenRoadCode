@@ -203,7 +203,8 @@ installation. This is a city pilot, not statewide high-resolution imagery.
 
 ## Statewide detail delivery implementation
 
-`michigan-statewide-detail.yml` prepares the **whole state**, selecting Web
+`build_target=michigan-statewide-detail` on the existing regional workflow calls
+`michigan-statewide-detail.yml` to prepare the **whole state**, selecting Web
 Mercator z10 delivery cells that intersect the checked-in Michigan polygons.
 Each worker builds up to three cells; at most two workers run concurrently.
 Imagery is z16 (roughly 1.6–1.8 m pixels across Michigan), while terrain is sampled
