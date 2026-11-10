@@ -110,8 +110,17 @@ def discover_terrain(bounds, fetch=get_json):
             url = approved_url(url)
             date = str(item.get('lastUpdated') or item.get('publicationDate') or '')
             footprint = tuple(round(v, 5) for v in box)
-            if date >= selected.get(footprint, {}).get('date', ''):
-                selected[footprint] = dict(url=url, bounds_deg=box, date=date, record=item)
+            candidate=dict(url=url,bounds_deg=box,date=date,record=item)
+            def rank(record):
+                # Historical records can have newer metadata edits than the
+                # current DEM. Those edits do not mean a newer elevation survey.
+                address=record['url']
+                current='/current/' in address
+                historical='/historical/' in address
+                publication=str(record['record'].get('publicationDate') or record['date'])
+                return (2 if current else 0 if historical else 1,publication,record['date'],address)
+            if footprint not in selected or rank(candidate)>rank(selected[footprint]):
+                selected[footprint]=candidate
         total = int(page.get('total', len(items)))
         if offset + len(items) >= total:
             break

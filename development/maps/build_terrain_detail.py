@@ -34,12 +34,12 @@ def build(output,cache,coverage):
         w,s,e,n=bounds;dx,dy=(e-w)/(size-1),(n-s)/(size-1)
         source_bounds=(w-dx/2,s-dy/2,e+dx/2,n+dy/2)
         path=cache/'source-plan.json'
-        if path.is_file():
-            plan=json.loads(path.read_text())
+        plan=json.loads(path.read_text()) if path.is_file() else {}
+        if plan.get("plan_revision")==2:
             if plan.get('coverage')!=coverage or plan.get('bounds_deg')!=list(bounds):
                 raise ValueError('Cached terrain detail plan coverage mismatch')
         else:
-            plan=dict(coverage=coverage,bounds_deg=bounds,terrain=discover_terrain(source_bounds))
+            plan=dict(coverage=coverage,bounds_deg=bounds,plan_revision=2,terrain=discover_terrain(source_bounds))
             write_json(path,plan)
         # One extra sample aligns endpoint centers; crop dimensions are part of
         # the existing cache key. Sources remain public staged files, not exports.
@@ -56,7 +56,9 @@ def build(output,cache,coverage):
         descriptor=package(pack,output/(coverage+'-terrain.zip'),coverage)
         report.update(metrics,status='validated',sample_spacing_m=spacing,
                       source_product=manifest['source_product'],archive_bytes=descriptor['bytes'],
-                      source_dates=sorted({item['date'] for item in plan['terrain']}))
+                      source_dates=sorted({item['date'] for item in plan['terrain']}),
+                      source_date_note='Catalog update/publication dates; not established survey acquisition dates',
+                      source_urls=[item['url'] for item in plan['terrain']])
     except Exception as error:
         report.update(status='failed',error=str(error));raise
     finally:

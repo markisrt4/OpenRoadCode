@@ -165,3 +165,17 @@ def test_z17_acquisition_splits_into_aligned_cells_without_raising_crop_budget(t
     assert all(size==4096 and (bounds[2]-bounds[0])/size==2/8192 for bounds,size,_ in calls)
     with pytest.raises(ValueError,match='Unreviewed'):
         builder.source_crops([source],tmp_path,(0,0,2,2),16384,'imagery')
+
+
+def test_current_dem_wins_over_recent_metadata_edit_on_historical_dem():
+    base='https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/'
+    def fetch(url,**kwargs):
+        return dict(total=2,items=[
+            dict(boundingBox=dict(minX=-84,minY=42,maxX=-83,maxY=43),
+                 downloadURL=base+'current/n43w084/USGS_13_n43w084.tif',
+                 publicationDate='2024-01-01',lastUpdated='2024-01-01'),
+            dict(boundingBox=dict(minX=-84,minY=42,maxX=-83,maxY=43),
+                 downloadURL=base+'historical/n43w084/USGS_13_n43w084_20190412.tif',
+                 publicationDate='2019-04-12',lastUpdated='2026-09-24')])
+    records=sources.discover_terrain((-83.9,42.1,-83.1,42.9),fetch)
+    assert len(records)==1 and '/current/' in records[0]['url']
