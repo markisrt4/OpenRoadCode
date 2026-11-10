@@ -51,6 +51,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--tuner-agc", action="store_true")
     parser.add_argument("--stereo", action="store_true",
                         help="enable experimental WFM stereo decoding and output")
+    parser.add_argument("--rds", action="store_true",
+                        help="decode RDS alongside stereo WFM; requires --stereo")
     parser.add_argument("--device-index", type=int, default=0)
     parser.add_argument("--seconds", type=float, default=30.0)
     parser.add_argument("--listen", help="channel to play (default first channel)")
@@ -86,7 +88,9 @@ def configuration(args: argparse.Namespace, parser: argparse.ArgumentParser):
         parser.error("--listen must name a configured channel")
     if args.stereo and any(channel.mode.upper() != "WFM" for channel in channels):
         parser.error("--stereo currently requires WFM-only channels")
-    receiver = MultiModeRadioReceiver(stereo_wfm=args.stereo)
+    if args.rds and not args.stereo:
+        parser.error("--rds requires --stereo")
+    receiver = MultiModeRadioReceiver(stereo_wfm=args.stereo, rds_wfm=args.rds)
     for channel in channels:
         try:
             receiver.add_channel(channel)
@@ -109,6 +113,7 @@ def main(argv: list[str] | None = None) -> int:
         "listen": None if args.no_audio else listen,
         "device_index": args.device_index,
         "stereo": args.stereo,
+        "rds": args.rds,
         "gain_db": None if args.tuner_agc else args.gain,
         "dry_run": args.dry_run,
         "rf_warmup_seconds": args.rf_warmup_seconds,
@@ -178,6 +183,7 @@ def main(argv: list[str] | None = None) -> int:
                     "source": source.get_acquisition_stats(),
                     "dsp": asdict(monitor.snapshot()),
                     "rf_channels": {name: asdict(value) for name, value in receiver.telemetry.items()},
+                    "rds_channels": {name: asdict(value) for name, value in receiver.rds_status.items()},
                     "rf_telemetry_note": "spectral peak-to-median contrast; not calibrated RF SNR",
                     "recovery": asdict(recovery.status),
                     "tuner": {
