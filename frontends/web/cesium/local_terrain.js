@@ -1,4 +1,4 @@
-/* Cesium presentation adapter for coarse local relief, never absolute-height conversion. */
+/* Local relief with bounded detail paging; never absolute-height conversion. */
 'use strict';
 window.ORCLocalTerrain = function (data, C, initialPoint=null) {
   let scale = 1;

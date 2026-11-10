@@ -39,16 +39,21 @@ def install(directory,*,allow_partial=False,destination=None):
         x,y=parse_cell(key)
         if any(abs(a-b)>1e-9 for a,b in zip(cell['bounds_deg'],bounds(x,y))):
             raise ValueError('Detail plan bounds mismatch')
-    available={};descriptors={}
+    candidates={}
+    for path in directory.rglob('mi-z10-*.zip'):
+        key=path.stem
+        if key not in expected:raise ValueError(f'Unexpected detail archive: {key}')
+        if key in candidates:raise ValueError(f'Duplicate cell archive: {key}')
+        candidates[key]=path
+    total_bytes=sum(path.stat().st_size for path in candidates.values())
+    available={};descriptors={};verified_bytes=0
     # No active pointers change until every supplied archive passes preflight.
-    for key in expected:
-        files=list(directory.rglob(key+'.zip'))
-        if len(files)>1:raise ValueError(f'Duplicate cell archive: {key}')
-        if files:
-            descriptor,archive=read_local_archive(files[0],key,max_archive_bytes=MAX_CELL_ARCHIVE)
-            if descriptor.get('profile')!=PROFILE or descriptor.get('kind')!='michigan-detail-cell':
-                raise ValueError('Wrong statewide detail cell descriptor')
-            available[key]=archive;descriptors[key]=descriptor
+    for number,(key,path) in enumerate(candidates.items(),1):
+        descriptor,archive=read_local_archive(path,key,max_archive_bytes=MAX_CELL_ARCHIVE)
+        if descriptor.get('profile')!=PROFILE or descriptor.get('kind')!='michigan-detail-cell':
+            raise ValueError('Wrong statewide detail cell descriptor')
+        available[key]=archive;descriptors[key]=descriptor;verified_bytes+=descriptor['bytes']
+        print(f'Verify: {number}/{len(candidates)} cells · {verified_bytes/1048576:.1f}/{total_bytes/1048576:.1f} MiB · {verified_bytes*100/total_bytes:.0f}%',flush=True)
     if not available or (not allow_partial and len(available)!=len(expected)):
         raise ValueError(f'Found {len(available)}/{len(expected)} cells; finish downloads or use --allow-partial')
     root=destination or openroadcode_data_dir('map-packs','michigan-detail')
