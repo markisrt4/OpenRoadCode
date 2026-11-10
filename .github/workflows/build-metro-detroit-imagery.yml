@@ -29,6 +29,10 @@ on:
           - michigan-statewide-detail
           - generic-state
           - validation-states
+      detail_resume_run:
+        description: Optional previous statewide detail run for resuming completed cells
+        required: false
+        type: string
       state:
         description: State name, postal abbreviation, or FIPS code (generic-state only)
         required: false
@@ -834,3 +838,5 @@ jobs:
       contents: read
       actions: read
     uses: ./.github/workflows/michigan-statewide-detail.yml
+    with:
+      resume_run: ${{ inputs.detail_resume_run || '' }}

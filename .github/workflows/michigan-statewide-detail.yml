@@ -1,7 +1,16 @@
 name: Build Michigan statewide detail
 on:
   workflow_dispatch:
+    inputs:
+      resume_run:
+        description: Optional previous run containing completed cell archives
+        type: string
+        default: ''
   workflow_call:
+    inputs:
+      resume_run:
+        type: string
+        default: ''
 permissions:
   contents: read
   actions: read
@@ -68,6 +77,14 @@ jobs:
         continue-on-error: true
         with:
           name: mi-detail-batch-${{ matrix.batch }}-${{ github.run_id }}
+          path: build-output/statewide
+      - uses: actions/download-artifact@v4
+        if: ${{ inputs.resume_run != '' }}
+        continue-on-error: true
+        with:
+          name: mi-detail-batch-${{ matrix.batch }}-${{ inputs.resume_run }}
+          run-id: ${{ inputs.resume_run }}
+          github-token: ${{ github.token }}
           path: build-output/statewide
       - name: Build three independently resumable detail cells
         run: /usr/bin/python3 -m development.maps.build_statewide_detail --plan build-output/plan/statewide-plan.json --batch "$BATCH" --output build-output/statewide

@@ -90,7 +90,9 @@ def batch(plan,batch_id,output):
         archive=output/(cell['id']+'.zip');descriptor=archive.with_suffix('.zip.json')
         if archive.is_file() and descriptor.is_file():
             saved=json.loads(descriptor.read_text())
-            if saved.get('profile')==PROFILE and saved.get('sha256')==digest(archive):
+            if (saved.get('profile')==PROFILE and saved.get('coverage')==cell['id']
+                    and saved.get('bounds_deg')==cell['bounds_deg'] and saved.get('bytes')==archive.stat().st_size
+                    and saved.get('sha256')==digest(archive)):
                 print('Reusing verified completed cell',flush=True);continue
         try:reports.append(build_cell(cell,output))
         except Exception as error:

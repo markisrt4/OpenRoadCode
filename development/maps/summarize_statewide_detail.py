@@ -16,7 +16,7 @@ def summarize(plan,directory):
     gaps=[]
     for path in Path(directory).rglob('*-report.json'):
         report=json.loads(path.read_text())
-        if report.get('profile')!=PROFILE or report.get('id') not in expected:continue
+        if report.get('profile')!=PROFILE or report.get('id') not in expected or report.get('status')!='validated':continue
         missing=report.get('terrain',{}).get('missing_terrain_tiles',[])
         if missing or not report.get('imagery_available') or not report.get('terrain_available'):
             gaps.append(dict(id=report['id'],imagery_available=report.get('imagery_available'),
