@@ -46,7 +46,7 @@ jobs:
           PY
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: orc-unit-test-results
           path: unit-test-results.xml

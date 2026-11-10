@@ -72,7 +72,7 @@ jobs:
             --output build-output/artifacts/metro-detroit-imagery.zip
 
       - name: Upload inspection copy
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.release.outputs.tag }}
           path: |
