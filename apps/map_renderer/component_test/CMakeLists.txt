@@ -43,7 +43,9 @@ target_include_directories(openroadcode-logging-contract-test PRIVATE
 target_link_libraries(openroadcode-logging-contract-test PRIVATE spdlog::spdlog)
 
 include(CTest)
+add_executable(openroadcode-embedded-resize-test embedded_resize_cli.cpp)
 if(BUILD_TESTING)
+    add_test(NAME embedded-resize COMMAND openroadcode-embedded-resize-test)
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
     add_test(NAME logging-contract
         COMMAND ${Python3_EXECUTABLE}

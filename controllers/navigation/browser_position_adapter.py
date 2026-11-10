@@ -28,12 +28,17 @@ class BrowserPositionAdapter:
         if not -180.0 <= longitude <= 180.0:
             raise ValueError("longitude must be between -180 and 180")
 
+        altitude = _number(payload.get("altitude"), "altitude")
+        accuracy = _number(payload.get("accuracy"), "accuracy")
+        if accuracy is not None and accuracy < 0:
+            raise ValueError("accuracy must not be negative")
+
         return PositionState(
             latitude_deg=latitude,
             longitude_deg=longitude,
-            altitude_m=_number(payload.get("altitude"), "altitude"),
-            accuracy_m=_number(payload.get("accuracy"), "accuracy"),
-            fix_mode=3,
+            altitude_m=altitude,
+            accuracy_m=accuracy,
+            fix_mode=3 if altitude is not None else 2,
             source="browser",
         )
 

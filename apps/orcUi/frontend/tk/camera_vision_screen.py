@@ -91,7 +91,7 @@ class CameraVisionScreen(TkScreen, VisionUiIf):
         panel.grid_rowconfigure(0, weight=1)
         panel.grid_columnconfigure(0, weight=1)
         self._canvas = tk.Canvas(
-            panel, bg="#000000", highlightthickness=1, highlightbackground=theme.border
+            panel, bg="#000000", highlightthickness=1, highlightcolor=theme.border, highlightbackground=theme.border
         )
         self._canvas.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
 
@@ -119,6 +119,7 @@ class CameraVisionScreen(TkScreen, VisionUiIf):
                 activeforeground="#ffffff",
                 relief=tk.FLAT,
                 bd=0,
+                highlightthickness=0,
                 pady=7,
             ).pack(fill=tk.X, padx=8, pady=2)
 
@@ -131,6 +132,7 @@ class CameraVisionScreen(TkScreen, VisionUiIf):
             activeforeground="#ffffff",
             relief=tk.FLAT,
             bd=0,
+            highlightthickness=0,
             pady=7,
         )
         self._ai_button.pack(fill=tk.X, padx=8, pady=(12, 2))

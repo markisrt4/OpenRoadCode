@@ -22,6 +22,13 @@ optional so radio processing is not consuming resources when it is not needed.
 The service manager is intentionally lightweight and can remain running while
 the core stack is stopped.
 
+The service manager configures the shared ORC logger at startup. Service actions,
+normalized status changes, input-health changes, and failures use
+`runtime.services.runit`; HTTP server lifecycle uses `runtime.services.http`.
+Repeated unchanged status checks stay quiet at INFO. See the
+[runtime logging guide](../../common/logging/README.md#runtime-and-service-management)
+for live viewing and the separate Linux service-account store.
+
 Only the service manager starts automatically after installation. Core and
 ADS-B definitions include runit's `down` marker so opening Termux does not
 unexpectedly consume routing, radio, or sensor resources.

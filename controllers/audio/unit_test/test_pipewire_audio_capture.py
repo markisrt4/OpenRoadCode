@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 import io
+from unittest.mock import Mock, patch
 
 import numpy as np
 
@@ -13,7 +14,6 @@ def test_pipewire_capture_uses_raw_float32_stdout():
 
     assert capture._build_command() == [
         "pw-record",
-        "--raw",
         "--format",
         "f32",
         "--rate",
@@ -30,6 +30,22 @@ def test_pipewire_capture_includes_explicit_target():
     command = capture._build_command()
 
     assert command[-3:] == ["--target", "alsa_output.test", "-"]
+
+
+def test_pipewire_capture_resolves_default_sink_monitor():
+    with patch("controllers.audio.capture.pipewire_audio_capture.subprocess.run") as run:
+        run.return_value = Mock(stdout="alsa_output.usb-speaker\n")
+
+        assert PipewireAudioCapture._default_sink_monitor() == (
+            "alsa_output.usb-speaker.monitor"
+        )
+
+    run.assert_called_once_with(
+        ["pactl", "get-default-sink"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
 
 
 class _ShortReadStream:

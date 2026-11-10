@@ -6,9 +6,10 @@ from __future__ import annotations
 import tkinter as tk
 from collections.abc import Callable
 from typing import Any
+from ui.ui_widget import UiWidget
 
 
-class WeatherMenuPanel(tk.Frame):
+class WeatherMenuPanel(tk.Frame, UiWidget):
     """Weather feature menu containing dashboard and NOAA radio actions."""
 
     def __init__(

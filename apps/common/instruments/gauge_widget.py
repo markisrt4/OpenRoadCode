@@ -6,9 +6,10 @@ import tkinter as tk
 
 from apps.common.instruments.gauge_config import GaugeConfig
 from apps.common.instruments.gauge_style  import GaugeStyle
+from ui.ui_widget import UiWidget
 
 
-class GaugeWidget(tk.Canvas):
+class GaugeWidget(tk.Canvas, UiWidget):
     """Render a single analog-style telemetry gauge on a Tk canvas."""
     def __init__(
         self,

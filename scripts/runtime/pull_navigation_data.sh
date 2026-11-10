@@ -13,6 +13,7 @@ SOURCE="${NAVIGATION_DATA_SOURCE:-}"
 SSH_OPTS="${NAVIGATION_DATA_SSH_OPTS:-}"
 DRY_RUN=0
 FORCE=0
+INTERACTIVE=0
 NO_RESTART=0
 
 usage() {
@@ -28,6 +29,7 @@ to $DATA_ROOT. The previous deployed dataset is retained at $BACKUP_ROOT.
 Options:
   --source SOURCE      rsync/SSH source (or set NAVIGATION_DATA_SOURCE)
   --dry-run            show rsync changes without modifying data
+  --interactive  review dataset and choose optional 3D packs before installing
   --force              deploy even when the remote dataset is older or already installed
   --no-restart         do not restart/start valhalla.service after promotion
   -h, --help           show this help
@@ -43,6 +45,7 @@ while (( $# > 0 )); do
     --source)
       shift; SOURCE="${1:?--source requires a value}" ;;
     --dry-run) DRY_RUN=1 ;;
+    --interactive) INTERACTIVE=1 ;;
     --force) FORCE=1 ;;
     --no-restart) NO_RESTART=1 ;;
     -h|--help) usage; exit 0 ;;
@@ -69,8 +72,9 @@ fi
 printf -v rsync_shell '%q ' "${rsync_ssh[@]}"
 rsync_shell="${rsync_shell% }"
 
+selection_file="$(mktemp)"
 remote_manifest="$(mktemp)"
-trap 'rm -f "$remote_manifest"' EXIT
+trap 'rm -f "$remote_manifest" "$selection_file"' EXIT
 
 remote_host="${SOURCE%%:*}"
 remote_path="${SOURCE#*:}"
@@ -84,6 +88,31 @@ fi
 echo "[*] Checking remote navigation-data manifest"
 "${rsync_ssh[@]}" "$remote_host" "cat -- '$remote_manifest_path'" > "$remote_manifest"
 [[ -s "$remote_manifest" ]] || { echo "Remote build-manifest.json is empty" >&2; exit 1; }
+
+selection_args=(--all)
+if (( INTERACTIVE )); then selection_args=(); fi
+if PYTHONPATH="$PROJECT_ROOT${PYTHONPATH:+:$PYTHONPATH}" python3 -m tools.map_builder.builder.install_3d choose \
+    --manifest "$remote_manifest" --selection "$selection_file" "${selection_args[@]}"; then
+  :
+else
+  selection_status=$?
+  if (( selection_status == 3 )); then exit 0; fi
+  exit "$selection_status"
+fi
+rsync_reuse=()
+if [[ -d "$DATA_ROOT" ]]; then rsync_reuse=("--copy-dest=$DATA_ROOT"); fi
+rsync_3d_filters=()
+while IFS= read -r pack_id; do
+  [[ -n "$pack_id" ]] || continue
+  rsync_3d_filters+=("--include=/maps/3d/packs/$pack_id/***")
+done < <(python3 -c 'import json,sys; print("\n".join(json.load(open(sys.argv[1]))["packs"]))' "$selection_file")
+rsync_3d_filters+=("--exclude=/maps/3d/packs/*")
+selection_matches=0
+if PYTHONPATH="$PROJECT_ROOT${PYTHONPATH:+:$PYTHONPATH}" python3 -m tools.map_builder.builder.install_3d validate \
+    --root "$DATA_ROOT" --selection "$selection_file" >/dev/null 2>&1; then
+  selection_matches=1
+fi
+
 
 relation="$(
 python3 - "$remote_manifest" "$DATA_ROOT/build-manifest.json" <<'PY'
@@ -130,7 +159,7 @@ elif [[ "$relation" == "older" ]]; then
   echo "[!] Remote dataset is older; --force permits this intentional downgrade."
 fi
 
-if (( ! FORCE )) && [[ -f "$DATA_ROOT/build-manifest.json" ]] \
+if (( ! FORCE && ! INTERACTIVE && selection_matches )) && [[ -f "$DATA_ROOT/build-manifest.json" ]] \
     && cmp -s "$remote_manifest" "$DATA_ROOT/build-manifest.json"     && [[ -s "$DATA_ROOT/maps/search/openroadcode-search.sqlite" ]]; then
   echo "[+] Navigation data already match the remote build manifest; refreshing software-owned map style."
   DATA_ROOT="$DATA_ROOT" bash "$PROJECT_ROOT/scripts/runtime/install_navigation_style.sh"
@@ -141,15 +170,16 @@ if (( DRY_RUN )); then
   echo "[*] Dry-run pull from $SOURCE"
   rsync -aH --delete --dry-run --itemize-changes \
     -e "$rsync_shell" \
-    --exclude='maps/routes/' \
+    --exclude='maps/routes/' --exclude=cesium/ --exclude=map-packs/ "${rsync_3d_filters[@]}" "${rsync_reuse[@]}" \
     "$SOURCE" "$STAGING_ROOT/"
   exit 0
 fi
 
 echo "[*] Preparing staging directory: $STAGING_ROOT"
-sudo rm -rf "$STAGING_ROOT"
 sudo mkdir -p "$STAGING_ROOT/maps/routes"
 sudo chown -R "$(id -u):$(id -g)" "$STAGING_ROOT"
+PYTHONPATH="$PROJECT_ROOT${PYTHONPATH:+:$PYTHONPATH}" python3 -m tools.map_builder.builder.install_3d stage \
+  --root "$STAGING_ROOT" --selection "$selection_file"
 
 # Preserve locally generated route artifacts in staging so promotion cannot
 # erase them. They remain vehicle-owned rather than map-builder-owned.
@@ -157,10 +187,18 @@ if [[ -d "$DATA_ROOT/maps/routes" ]]; then
   rsync -a "$DATA_ROOT/maps/routes/" "$STAGING_ROOT/maps/routes/"
 fi
 
+# SDK and experiment packs are device-owned, outside the navigation build contract.
+for local_dir in cesium map-packs; do
+  if [[ -d "$DATA_ROOT/$local_dir" ]]; then
+    mkdir -p "$STAGING_ROOT/$local_dir"
+    rsync --archive "$DATA_ROOT/$local_dir/" "$STAGING_ROOT/$local_dir/"
+  fi
+done
+
 echo "[*] Pulling navigation data from $SOURCE"
 rsync -aH --delete-delay --itemize-changes \
   -e "$rsync_shell" \
-  --exclude='maps/routes/' \
+  --exclude='maps/routes/' --exclude=cesium/ --exclude=map-packs/ "${rsync_3d_filters[@]}" "${rsync_reuse[@]}" \
   "$SOURCE" "$STAGING_ROOT/"
 
 # Validation deliberately checks the deployment contract rather than trusting
@@ -190,6 +228,11 @@ if ! find "$STAGING_ROOT" -maxdepth 4 -type f \
   echo "No recognizable map/routing artifact found in staged dataset" >&2
   exit 1
 fi
+
+echo "[*] Validating optional 3D packs"
+PYTHONPATH="$PROJECT_ROOT${PYTHONPATH:+:$PYTHONPATH}" python3 -m tools.map_builder.builder.install_3d validate \
+  --root "$STAGING_ROOT" --selection "$selection_file"
+cp "$selection_file" "$STAGING_ROOT/installed-3d-selection.json"
 
 echo "[*] Promoting staged dataset"
 sudo rm -rf "$BACKUP_ROOT"

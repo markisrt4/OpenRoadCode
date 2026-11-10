@@ -6,6 +6,7 @@ from __future__ import annotations
 import tkinter as tk
 from dataclasses import dataclass
 from typing import Any, Callable
+from ui.ui_widget import UiWidget
 
 
 @dataclass(frozen=True)
@@ -18,7 +19,7 @@ class ScannerBandTileSpec:
     detail: str
 
 
-class ScannerBandSelectionPanel(tk.Frame):
+class ScannerBandSelectionPanel(tk.Frame, UiWidget):
     """Render the grid of selectable scanner bands."""
     def __init__(
         self,

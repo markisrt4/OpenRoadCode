@@ -5,9 +5,10 @@ from __future__ import annotations
 
 import tkinter as tk
 from collections.abc import Callable
+from ui.ui_widget import UiWidget
 
 
-class BrowserReturnOverlay:
+class BrowserReturnOverlay(UiWidget):
     """Borderless return button displayed above a panel browser window."""
 
     def __init__(
@@ -60,6 +61,7 @@ class BrowserReturnOverlay:
             cursor="hand2",
             padx=14,
             pady=8,
+            highlightthickness=0,
         ).pack()
         window.lift()
         self._window = window

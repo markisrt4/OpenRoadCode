@@ -63,3 +63,12 @@ unsupported shutter override and excessive motion blur.
 
 The profile controller shells out to `v4l2-ctl`, which is installed by
 `development/debian/setup_camera_perception.sh`.
+
+## Structured logging
+
+`vision.camera` records open/close and capture failure/recovery;
+`vision.camera.controls` records profile transitions and control failures/recovery.
+Normal capture and already-applied profiles remain DEBUG. Records include only
+fixed stages, state and exception type, never frames, device paths or control
+command output. Parent vision operation IDs are retained. See the
+[device validation guide](../../common/logging/DEVICE_VALIDATION.md).

@@ -6,6 +6,8 @@
 import time
 import tkinter as tk
 
+from ui import UiWidget
+
 from ui.automotive.engine_visual_state import EngineUpdateRates
 from .shell_metrics import FONT_SMALL
 
@@ -40,7 +42,7 @@ class RateCounter:
         return rates
 
 
-class EcuRateLabel(tk.Label):
+class EcuRateLabel(tk.Label, UiWidget):
     """Refresh once a second independently of animation's pause state."""
 
     def __init__(self, parent, *, counter, theme):

@@ -50,6 +50,21 @@ else
 fi
 
 if [[ -x "$VENV_DIR/bin/python" ]]; then
+  if ! "$VENV_DIR/bin/python" -c 'from musicforge.analysis import MusicAnalyzer; import numpy; print("[+] libMusicForge analyzer and NumPy imports succeeded")'; then
+    echo "[!] libMusicForge analyzer unavailable in $VENV_DIR" >&2
+    fail=1
+  fi
+  if [[ " ${FEATURES[*]} " == *" development "* ]]; then
+    echo "[*] Ruff is optional on Termux; the quality gate skips it when unavailable."
+    for quality_tool in pytest mypy; do
+      if "$VENV_DIR/bin/python" -m "$quality_tool" --version; then
+        echo "[+] $quality_tool available in $VENV_DIR"
+      else
+        echo "[!] $quality_tool missing from $VENV_DIR" >&2
+        fail=1
+      fi
+    done
+  fi
   if [[ " ${FEATURES[*]} " == *" web-ui "* ]] && ! "$VENV_DIR/bin/python" -m pip show Flask >/dev/null 2>&1; then
     echo "[!] Flask           missing from $VENV_DIR" >&2
     fail=1

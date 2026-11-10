@@ -54,10 +54,11 @@ class PerformanceStatusPresenter:
     """Refresh shell status from the existing cache without another sampler."""
 
     def __init__(self, host, provider: SystemDiagnosticsProviderIf,
-                 present: Callable[[PerformanceStatus], None], *, clock: Callable[[], float] = time.monotonic) -> None:
+                 present: Callable[[PerformanceStatus], None], *, on_sample: Callable[[SystemDiagnosticsSnapshot], None] | None = None, clock: Callable[[], float] = time.monotonic) -> None:
         self._host = host
         self._provider = provider
         self._present = present
+        self._on_sample = on_sample
         self._clock = clock
         self._active = False
         self._callback_id = None
@@ -94,6 +95,8 @@ class PerformanceStatusPresenter:
                 self._sample_time = sample.sampled_at_unix_s
                 self._changed_at = now
             status = performance_status(sample, stale=now - self._changed_at > 3)
+            if self._on_sample is not None:
+                self._on_sample(sample)
         except Exception:
             status = PerformanceStatus()
         self._present(status)

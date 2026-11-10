@@ -10,9 +10,10 @@ import tkinter as tk
 
 from ui.theme import ThemeBundle
 from .shell_metrics import FONT_SMALL
+from ui.ui_widget import UiWidget
 
 
-class RollIndicator(tk.Canvas):
+class RollIndicator(tk.Canvas, UiWidget):
     """Automotive-style lateral tilt indicator."""
 
     def __init__(self, parent: tk.Misc, *, theme: ThemeBundle) -> None:
@@ -89,7 +90,7 @@ class RollIndicator(tk.Canvas):
         )
 
 
-class PitchIndicator(tk.Canvas):
+class PitchIndicator(tk.Canvas, UiWidget):
     """Vertical incline indicator with a centered zero datum."""
 
     def __init__(self, parent: tk.Misc, *, theme: ThemeBundle) -> None:

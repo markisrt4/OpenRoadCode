@@ -19,12 +19,9 @@ from apps.carUi.screens.youtube_screen import YouTubeScreen
 from apps.carUi.screens.vehicle_gauges_screen import VehicleGaugesScreen
 from apps.common.uiTheme import LIGHTING_PANEL_THEME
 from apps.common.uiTheme.uiTheme import CAR_UI_THEME
-from apps.common.uiTheme.spotify import SPOTIFY_PANEL_THEME
+from apps.carUi.composition.spotify import create_spotify_screen
 from controllers.lighting import LightingPresenter
-from controllers.audio import MediaVolumeHandler
-from controllers.spotify import SpotifyMediaPresenter
 from frontends.tk.lighting import LightingScreen
-from frontends.tk.media import SpotifyScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from services.navigation.zeromq_navigation_request_handler import ZeroMqNavigationRequestHandler
 
@@ -52,13 +49,7 @@ class TkCarUiScreenFactory:
         lighting.set_lighting_request_handler(lighting_presenter)
         lighting.set_activation_callback(lighting_presenter.connect)
 
-        spotify = SpotifyScreen(self._host, theme=SPOTIFY_PANEL_THEME, back_action=lambda: self._show_menu("media"), image_cache=dependencies.spotify_image_cache, lyrics_client=dependencies.spotify_lyrics_client, music_video_controller=dependencies.spotify_music_video_controller)
-        spotify_presenter = SpotifyMediaPresenter(backend=dependencies.spotify_controller, media_ui=spotify, fallback_volume_handler=MediaVolumeHandler(dependencies.audio_controller))
-        spotify.set_playback_request_handler(spotify_presenter)
-        spotify.set_track_request_handler(spotify_presenter)
-        spotify.set_seek_request_handler(spotify_presenter)
-        spotify.set_volume_request_handler(spotify_presenter)
-        spotify.set_state_loader(spotify_presenter.read_state)
+        spotify = create_spotify_screen(self._host, dependencies, lambda: self._show_menu("media"))
 
         netflix = NetflixScreen(self._host, player=dependencies.netflix_player, display=dependencies.media_display or runtime.remote_display, colors=CAR_UI_THEME["colors"], back_action=lambda: self._show_menu("media"))
         youtube = YouTubeScreen(self._host, player=dependencies.youtube_player, display=dependencies.media_display or runtime.remote_display, colors=CAR_UI_THEME["colors"], back_action=lambda: self._show_menu("media"))

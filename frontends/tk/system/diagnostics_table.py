@@ -5,9 +5,10 @@
 
 import tkinter as tk
 from tkinter import font
+from ui.ui_widget import UiWidget
 
 
-class DiagnosticsTable(tk.Frame):
+class DiagnosticsTable(tk.Frame, UiWidget):
     """Small selectable list retaining full row values for detail views."""
 
     def __init__(self, parent, *, theme, columns, visible):

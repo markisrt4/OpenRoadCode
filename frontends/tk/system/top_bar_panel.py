@@ -9,9 +9,10 @@ from os import PathLike
 from typing import Any
 
 from ui.system import TopBarUiIf
+from ui.ui_widget import UiWidget
 
 
-class TopBarPanel(tk.Frame, TopBarUiIf):
+class TopBarPanel(tk.Frame, TopBarUiIf, UiWidget):
     """Render Car UI navigation, title, telemetry, and shell actions."""
     def __init__(
         self,
@@ -250,6 +251,7 @@ class TopBarPanel(tk.Frame, TopBarUiIf):
             "activebackground": active_background,
             "activeforeground": active_foreground,
             "bd": border_width,
+            "highlightthickness": 0,
             "padx": padx,
             "pady": pady,
             "cursor": self._layout["cursor"],

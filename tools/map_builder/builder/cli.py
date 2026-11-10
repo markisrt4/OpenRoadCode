@@ -10,8 +10,10 @@ import json
 import os
 from pathlib import Path
 import sys
+import subprocess
 import time
 
+from .map_3d import PRESETS
 from .build import OUTPUT_ROOT, _write_manifest, build_regions
 from .geofabrik import fetch_index, resolve_region_ids
 from .selection import load_region_ids, save_region_ids
@@ -152,11 +154,17 @@ def parse_args() -> argparse.Namespace:
         "--regions",
         help="comma-separated Geofabrik IDs describing the validated output",
     )
+    validate.add_argument("--installed-regions", action="store_true",
+                          help="recover region IDs from installed source PBF filenames")
     validate.add_argument(
         "--write-manifest",
         action="store_true",
-        help="write a fresh manifest after successful validation; requires --regions",
+        help="write a fresh manifest after successful validation; requires --regions or --installed-regions",
     )
+    map3d = sub.add_parser("3d", help="build optional 3D buildings from installed navigation sources")
+    map3d.add_argument("--coverage", choices=tuple(PRESETS))
+    map3d.add_argument("--layer", choices=("buildings","terrain"), default="buildings", help="optional offline layer to build")
+    map3d.add_argument("--yes", action="store_true", help="confirm non-interactive 3D build; requires --coverage")
     sub.add_parser("list", help="list selectable Geofabrik region IDs")
     return parser.parse_args()
 
@@ -165,7 +173,75 @@ def main() -> int:
     args = parse_args()
     command = args.command or "tui"
     try:
+        if command == "3d":
+            from .map_3d import PRESETS, build_pack
+            from .map_3d_menu import choose_coverage
+            if args.yes and not args.coverage:
+                raise ValueError("--yes requires --coverage")
+            coverage = args.coverage or choose_coverage(layer=getattr(args, 'layer', 'buildings'))
+            if coverage is None:
+                print("Cancelled")
+                return 0
+            previous_path = OUTPUT_ROOT / "build-manifest.json"
+            previous_bytes = previous_path.read_bytes()
+            previous = json.loads(previous_bytes)
+            if previous.get("schema") != 2:
+                raise ValueError("Build a validated schema-2 navigation dataset before adding 3D packs")
+            baseline = validate_output(OUTPUT_ROOT, service_smoke=False)
+            layer = getattr(args, 'layer', 'buildings')
+            pack_id = coverage if layer == 'buildings' else coverage+'-terrain'
+            print(f"Coverage: {PRESETS[coverage][0]} · {PRESETS[coverage][1]}")
+            if layer == 'terrain':
+                print("Layer: terrain. Downloads 65×65 USGS 3DEP samples; Internet required on the build host.")
+                print("Relative relief in metres; source datum is preserved. Terrain payload capped at 2 MiB.")
+            else:
+                print("Layer: buildings. Uses existing OSM sources; no download. Output size is known after extraction.")
+                print("Limit: 8 tiles, 10 MiB geometry each plus metadata; complex polygons are omitted.")
+            if not args.yes and input("Build this optional pack now? [y/N] ").strip().lower() != 'y':
+                print("Cancelled")
+                return 0
+            existing = OUTPUT_ROOT/'maps/3d/packs'/pack_id
+            if existing.exists():
+                from .map_3d import validate_pack
+                record = validate_pack(existing)
+                if (previous.get('map_3d') or {}).get(pack_id) != record:
+                    raise ValueError('Existing 3D pack is not certified by the dataset manifest; validate it before publishing')
+                print(f"Reusing certified {layer} pack: {format_size(record['bytes'])}")
+                return 0
+            # A complete dataset must not retain a valid old certificate while being changed.
+            previous_path.unlink()
+            try:
+                if layer == 'terrain':
+                    from .terrain import download
+                    download(existing, coverage)
+                    destination = existing
+                else:
+                    destination = build_pack(OUTPUT_ROOT, coverage)
+                result = validate_output(OUTPUT_ROOT, service_smoke=False)
+            except BaseException:
+                # Extraction only touches temporary files. Restore the certificate
+                # only after proving that the original dataset is unchanged.
+                if not existing.exists() and validate_output(OUTPUT_ROOT, service_smoke=False) == baseline:
+                    previous_path.write_bytes(previous_bytes)
+                raise
+            # Preserve region/search metadata while certifying all new artifacts.
+            previous['validation'] = result
+            previous['map_3d'] = result['map_3d']
+            previous['deployable_bytes'] = sum(p.stat().st_size for p in OUTPUT_ROOT.rglob('*') if p.is_file() and p.name != 'build-manifest.json')
+            previous['generated_unix'] = max(int(time.time()),previous.get('generated_unix',0)+1)
+            temporary = previous_path.with_suffix('.tmp')
+            temporary.write_text(json.dumps(previous,indent=2))
+            temporary.replace(previous_path)
+            record = result['map_3d'][pack_id]
+            print(f"3D {layer} pack built: {format_size(record['bytes'])} at {destination}")
+            print("Publish and pull using the existing navigation deployment tools.")
+            return 0
         if command == "validate":
+            if args.installed_regions:
+                if args.regions:
+                    raise ValueError("Choose --regions or --installed-regions, not both")
+                args.regions = ','.join(p.name.removesuffix('.osm.pbf').replace('__','/')
+                    for p in sorted((OUTPUT_ROOT/'maps/source').glob('*.osm.pbf')))
             if args.write_manifest and not args.regions:
                 raise ValueError("--write-manifest requires --regions")
             result = validate_output(OUTPUT_ROOT, service_smoke=args.service_smoke)
@@ -245,12 +321,15 @@ def main() -> int:
         else:
             print_build_summary(selected, elapsed)
         return 0
-    except (ValueError, ValidationError, RuntimeError) as exc:
+    except (OSError, ValueError, ValidationError, RuntimeError, subprocess.SubprocessError) as exc:
         print("\n========================================", file=sys.stderr)
         print(" OpenRoadCode navigation data: FAIL", file=sys.stderr)
         print("========================================", file=sys.stderr)
         print(f"  Reason: {exc}", file=sys.stderr)
         return 2
+    except EOFError:
+        print("Cancelled", file=sys.stderr)
+        return 0
     except KeyboardInterrupt:
         print("\nCancelled", file=sys.stderr)
         return 130

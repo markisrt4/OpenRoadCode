@@ -17,6 +17,8 @@ import time
 import os
 import tkinter as tk
 
+from ui import UiWidget
+
 _LOG = logging.getLogger(__name__)
 
 
@@ -54,7 +56,7 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None, on_frame
             on_unavailable(str(exc))
         return None
 
-    class EngineGL(OpenGLFrame):
+    class EngineGL(OpenGLFrame, UiWidget):
         def __init__(self):
             self.phase = 0.0
             self.analysis = None

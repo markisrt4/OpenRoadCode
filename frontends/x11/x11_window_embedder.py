@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 import shutil
 import subprocess
 import time
@@ -37,6 +38,7 @@ class X11WindowEmbedder(WindowEmbedderIf):
         window_name: str | None = None,
         window_class: str | None = None,
         relax_size_hints: bool = False,
+        cancelled: Callable[[], bool] | None = None,
     ) -> int:
         """Find, hide, reparent, size, and map an X11 client inside the host."""
         if not self.supported():
@@ -45,6 +47,8 @@ class X11WindowEmbedder(WindowEmbedderIf):
         deadline = time.monotonic() + self._timeout_seconds
         last_error: subprocess.SubprocessError | None = None
         while time.monotonic() < deadline:
+            if cancelled is not None and cancelled():
+                raise RuntimeError("Native embedding was cancelled")
             window_id = self._find_by_process(process_id)
             if window_id is None and window_class:
                 window_id = self._find_by_class(window_class)

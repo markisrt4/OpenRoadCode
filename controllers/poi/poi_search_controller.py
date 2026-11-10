@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import logging
 
-from common.logging.structured import event
+from common.logging.structured import current_operation
+from common.logging.diagnostics import ComponentLog, diagnostic_action
 import math
 import sqlite3
 from collections.abc import Callable
@@ -24,7 +25,6 @@ from controllers.poi.sqlite_poi_search_source import SqlitePoiSearchSource
 from protocols.map_renderer.map_poi_source import MapPoiSource, RawMapPoi
 from ui.navigation import GeoPoint
 
-_LOG = logging.getLogger("navigation.poi")
 
 _EARTH_RADIUS_M = 6_378_137.0
 _NEARBY_RADIUS_M = 20_000.0
@@ -37,6 +37,8 @@ class PoiSearchController(PoiSearchControllerIf):
     """Discover POIs offline while keeping renderer selection independent."""
 
     def __init__(self, source: MapPoiSource | None = None, *, search_source: PoiSearchSourceIf | None = None, position_provider: Callable[[], GeoPoint | None] | None = None) -> None:
+        self._diagnostics = ComponentLog("navigation.poi", "poi")
+        self._search_operation_id = None
         self._source = source or MapPoiSource()
         self._search_source = search_source
         self._owns_search_source = search_source is None
@@ -46,7 +48,9 @@ class PoiSearchController(PoiSearchControllerIf):
         self._pending_search_result: PoiSearchResult | None = None
         self._visible_pois: tuple[PointOfInterest, ...] = ()
 
+    @diagnostic_action("search")
     def search(self, category: PoiCategory, transit_mode: TransitMode = TransitMode.ALL) -> None:
+        self._search_operation_id = current_operation()
         self._active_category = category
         self._pending_search_result = None
         self._visible_pois = ()
@@ -87,21 +91,20 @@ class PoiSearchController(PoiSearchControllerIf):
         click = poll_click()
         if click is None:
             return None
-        _LOG.debug("Resolving click against %d POIs radius_m=%.1f marker_id=%r marker_index=%r",
-                   len(self._visible_pois), click.selection_radius_m, click.marker_id, click.marker_index)
+        self._diagnostics.emit(logging.DEBUG, "selection_resolving", self._search_operation_id)
         if click.marker_index is not None:
             if 0 <= click.marker_index < len(self._visible_pois):
                 poi = self._visible_pois[click.marker_index]
                 if click.marker_id is None or poi.poi_id == click.marker_id:
-                    _LOG.debug("Selected by marker index %s: %r", click.marker_index, poi.name)
+                    self._diagnostics.emit(logging.DEBUG, "selected", self._search_operation_id, stage="marker_index")
                     return enrich_poi(poi)
-            _LOG.debug("Marker index mismatch index=%r id=%r", click.marker_index, click.marker_id)
+            self._diagnostics.emit(logging.DEBUG, "selection_mismatch", self._search_operation_id, stage="marker_index")
         if click.marker_id is not None:
             for poi in self._visible_pois:
                 if poi.poi_id == click.marker_id:
-                    _LOG.debug("Selected by marker id: %r", poi.name)
+                    self._diagnostics.emit(logging.DEBUG, "selected", self._search_operation_id, stage="marker_id")
                     return enrich_poi(poi)
-            _LOG.debug("Marker id not found: %r", click.marker_id)
+            self._diagnostics.emit(logging.DEBUG, "selection_mismatch", self._search_operation_id, stage="marker_id")
         nearest: PointOfInterest | None = None
         nearest_distance_m = click.selection_radius_m
         for poi in self._visible_pois:
@@ -110,9 +113,9 @@ class PoiSearchController(PoiSearchControllerIf):
                 nearest = poi
                 nearest_distance_m = distance_m
         if nearest is None:
-            _LOG.debug("Click matched no visible POI")
+            self._diagnostics.emit(logging.DEBUG, "selection_missed", self._search_operation_id)
             return None
-        _LOG.debug("Selected %r distance_m=%.1f", nearest.name, nearest_distance_m)
+        self._diagnostics.emit(logging.DEBUG, "selected", self._search_operation_id, stage="nearest")
         return enrich_poi(nearest)
 
     def poll_camera_state(self):
@@ -148,12 +151,13 @@ class PoiSearchController(PoiSearchControllerIf):
                     if pois is None:
                         result, self._pending_search_result = self._pending_search_result, None
                         return result
-                    event(_LOG, logging.INFO, "poi.search.completed", "POI search completed",
-                          category=category.name.casefold(), result_count=len(pois))
-                    _LOG.debug("Search bounds=%.6f,%.6f,%.6f,%.6f",
-                               viewport.west, viewport.south, viewport.east, viewport.north)
+                    self._diagnostics.emit(logging.INFO, "search.completed",
+                                           self._search_operation_id, category=category.name.casefold(),
+                                           result_count=len(pois))
                     self._visible_pois = pois
                     self._pending_search_result = _result_for(category, pois)
+                else:
+                    self._diagnostics.emit(logging.DEBUG, "result_discarded", self._search_operation_id)
                 # Replies arriving after clear(), or from an older category, are
                 # deliberately consumed and discarded instead of redrawing POIs.
 
@@ -175,9 +179,11 @@ class PoiSearchController(PoiSearchControllerIf):
 
     def _search_pois(self, query: PoiSearchQuery) -> tuple[PointOfInterest, ...] | None:
         try:
-            return self._offline_source().search(query)
+            result = self._offline_source().search(query)
+            self._diagnostics.succeeded("database", self._search_operation_id)
+            return result
         except (sqlite3.Error, OSError) as error:
-            logging.getLogger(__name__).warning("POI database search failed: %s", error)
+            self._diagnostics.failed("database", error, self._search_operation_id)
             self._visible_pois = ()
             self._pending_search_result = PoiSearchResult(
                 category=query.category, count=0, south=0, west=0, north=0, east=0,
@@ -188,8 +194,7 @@ class PoiSearchController(PoiSearchControllerIf):
     def _offline_source(self) -> PoiSearchSourceIf:
         if self._search_source is None:
             database = search_database_path()
-            event(_LOG, logging.INFO, "poi.index.opening", "Opening POI search index",
-                  database_path=str(database))
+            self._diagnostics.emit(logging.DEBUG, "index_opening", self._search_operation_id)
             self._search_source = SqlitePoiSearchSource(database)
         return self._search_source
 

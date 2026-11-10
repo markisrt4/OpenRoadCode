@@ -3,6 +3,7 @@
 
 """Semantic request handler and lifecycle for the three map-weather features."""
 
+from common.resource_cleanup import close_resources
 from ui.ui_dispatcher_if import UiDispatcherIf
 from ui.weather.weather_overlay_request_handler_if import WeatherOverlayRequestHandlerIf
 
@@ -75,13 +76,7 @@ class WeatherOverlayController(WeatherOverlayRequestHandlerIf):
         """Release all overlay controllers when the composition shuts down."""
         if self._closed:
             return
-        self.request_navigation_visible(False)
         self._closed = True
+        self._visible = False
         self._generation += 1
-        try:
-            self._city.close()
-        finally:
-            try:
-                self._model.close()
-            finally:
-                self._route.close()
+        close_resources(self._city.close, self._model.close, self._route.close)

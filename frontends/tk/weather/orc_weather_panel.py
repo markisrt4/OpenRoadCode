@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import datetime
 import tkinter as tk
+import logging
 
 from common.units import (
     UnitSystem,
@@ -19,6 +20,7 @@ from common.units import (
 )
 from ui.theme import ThemeBundle
 from ui.weather import WeatherRequestHandlerIf, WeatherUiIf, WeatherUiState
+from ui.ui_widget import UiWidget
 
 
 def weather_symbol(condition: str, *, nighttime: bool = False) -> str:
@@ -62,7 +64,7 @@ def weather_accent(condition: str, theme: ThemeBundle) -> str:
     return ui.text_muted
 
 
-class OrcWeatherPanel(tk.Frame, WeatherUiIf):
+class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
     """Render weather as a glanceable, touch-friendly automotive dashboard."""
 
     def __init__(
@@ -104,6 +106,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
             padx=12,
             pady=6,
             font=("Sans", 9, "bold"),
+            highlightthickness=0, bd=0, relief=tk.FLAT,
         )
         self._weather_radio.grid(row=0, column=1, rowspan=2, padx=(8, 6))
         self._refresh = tk.Button(
@@ -113,12 +116,14 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
             padx=12,
             pady=6,
             font=("Sans", 9, "bold"),
+            highlightthickness=0, bd=0, relief=tk.FLAT,
         )
         self._refresh.grid(row=0, column=2, rowspan=2)
         self._radar_map = tk.Button(
             self._header, text="RADAR MAP", command=self._request_radar_map,
             padx=12, pady=6, font=("Sans", 9, "bold"),
             state=tk.NORMAL if on_radar_map is not None else tk.DISABLED,
+            highlightthickness=0, bd=0, relief=tk.FLAT,
         )
         self._radar_map.grid(row=0, column=3, rowspan=2, padx=(6, 0))
 
@@ -229,9 +234,10 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
                 activeforeground=ui.text,
                 relief=tk.FLAT,
                 bd=0,
+                highlightthickness=0,
             )
 
-        self._hero.configure(bg=ui.surface, highlightbackground=ui.border)
+        self._hero.configure(bg=ui.surface, highlightcolor=ui.border, highlightbackground=ui.border)
         for widget in (self._symbol, self._temperature, self._condition, self._summary):
             widget.configure(bg=ui.surface)
         self._symbol.configure(fg=ui.accent_primary)
@@ -241,7 +247,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         self._metrics.configure(bg=ui.surface)
 
         for card, title, value in self._metric_cards:
-            card.configure(bg=ui.surface_alt, highlightbackground=ui.border)
+            card.configure(bg=ui.surface_alt, highlightcolor=ui.border, highlightbackground=ui.border)
             title.configure(bg=ui.surface_alt, fg=ui.text_muted)
             value.configure(bg=ui.surface_alt, fg=ui.text)
 
@@ -258,8 +264,12 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
             self._on_radar_map()
 
     def _request_weather_radio(self) -> None:
+        logger = logging.getLogger("orc.radio.noaa")
+        logger.info("NOAA button pressed")
         if self._on_weather_radio is not None:
             self._on_weather_radio()
+        else:
+            logger.warning("NOAA button has no action binding")
 
     def _render(self) -> None:
         state = self._state
@@ -376,7 +386,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         ui = theme.ui
         accent = weather_accent(detail, theme)
         cell = tk.Frame(
-            parent, bg=ui.surface, bd=0, highlightthickness=1, highlightbackground=ui.border
+            parent, bg=ui.surface, bd=0, highlightthickness=1, highlightcolor=ui.border, highlightbackground=ui.border
         )
         cell.grid(
             row=0,

@@ -16,7 +16,48 @@ from controllers.navigation.simulated_position_source import SimulatedPositionSo
 from controllers.route_planning.route_planning_types import RouteResult
 
 _MAX_REQUEST_BYTES = 16_384
-_LOCATION_PAGE = b"""<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'><title>OpenRoadCode Position</title><body><h1>OpenRoadCode Position</h1><button id=start>Share location</button><pre id=status>Waiting to start.</pre><script>const s=document.querySelector('#status');document.querySelector('#start').onclick=()=>navigator.geolocation.watchPosition(async p=>{const c=p.coords;const r=await fetch('/position',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({latitude:c.latitude,longitude:c.longitude,altitude:c.altitude,speed:c.speed,heading:c.heading,accuracy:c.accuracy})});s.textContent=r.ok?`${c.latitude.toFixed(6)}, ${c.longitude.toFixed(6)}`:await r.text();},e=>s.textContent=e.message,{enableHighAccuracy:true,maximumAge:1000,timeout:15000});</script></body>"""
+_LOCATION_PAGE = b"""<!doctype html>
+<meta name=viewport content='width=device-width,initial-scale=1'>
+<title>OpenRoadCode Host Location</title>
+<body><h1>OpenRoadCode Host Location</h1>
+<p>Share this computer's location with ORC when bridge/GPS location is unavailable.
+Accuracy depends on your browser and host. Keep this page open while sharing.</p>
+<button id=start>Share host location</button><button id=stop disabled>Stop sharing</button>
+<pre id=status>Not sharing.</pre><script>
+const status=document.querySelector('#status'), start=document.querySelector('#start'),
+      stop=document.querySelector('#stop');
+let generation=0, timer=null, pending=null;
+function stopSharing(message='Not sharing.') {
+  generation++; clearTimeout(timer); pending?.abort(); pending=null;
+  start.disabled=false; stop.disabled=true; status.textContent=message;
+}
+function locate(current) {
+  if(current!==generation) return;
+  navigator.geolocation.getCurrentPosition(async p=>{
+    if(current!==generation) return;
+    const c=p.coords; pending=new AbortController();
+    try {
+      const r=await fetch('/position',{method:'POST',signal:pending.signal,
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({latitude:c.latitude,longitude:c.longitude,
+          altitude:c.altitude,accuracy:c.accuracy})});
+      if(current!==generation) return;
+      if(!r.ok) throw new Error(await r.text());
+      status.textContent=`Sharing ${c.latitude.toFixed(6)}, ${c.longitude.toFixed(6)}
+Accuracy: ${c.accuracy.toFixed(0)} m. Bridge/GPS takes priority when available.`;
+      timer=setTimeout(()=>locate(current),5000);
+    } catch(e) { if(current===generation) stopSharing(e.message); }
+  },e=>{ if(current===generation) stopSharing(e.message); },
+    {enableHighAccuracy:true,maximumAge:1000,timeout:15000});
+}
+start.onclick=()=>{
+  if(!navigator.geolocation) { status.textContent='Browser location is unavailable.'; return; }
+  start.disabled=true; stop.disabled=false; status.textContent='Waiting for browser location permission...';
+  locate(++generation);
+};
+stop.onclick=()=>stopSharing();
+window.addEventListener('pagehide',()=>stopSharing());
+</script></body>"""
 
 
 class _BrowserPositionHttpServer(ThreadingHTTPServer):
@@ -66,6 +107,14 @@ class BrowserPositionSource(PositionSourceIf, RouteSimulationIf):
             def do_POST(self) -> None:
                 if self.path != "/position":
                     self.send_error(404)
+                    return
+                origin = self.headers.get("Origin")
+                allowed_origins = {
+                    f"http://localhost:{source.port}",
+                    f"http://{source._host}:{source.port}",
+                }
+                if origin is not None and origin not in allowed_origins:
+                    self.send_error(403, "location must be shared from this server's page")
                     return
                 try:
                     length = int(self.headers.get("Content-Length", "0"))

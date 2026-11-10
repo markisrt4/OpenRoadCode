@@ -11,8 +11,23 @@ from apps.orcUi.composition.music_visualizer import (
 )
 
 
-def test_visualizer_source_defaults_to_simulated(monkeypatch):
+def test_visualizer_source_defaults_to_pipewire_on_linux(monkeypatch):
     monkeypatch.delenv("OPENROAD_MUSIC_VISUALIZER_SOURCE", raising=False)
+    monkeypatch.setattr("apps.orcUi.composition.music_visualizer.sys.platform", "linux")
+    monkeypatch.setattr("apps.orcUi.composition.music_visualizer.shutil.which", lambda _name: "/usr/bin/pw-record")
+    assert selected_music_visualizer_source() is MusicVisualizerSource.PIPEWIRE
+
+
+def test_visualizer_source_defaults_to_simulated_without_pipewire(monkeypatch):
+    monkeypatch.delenv("OPENROAD_MUSIC_VISUALIZER_SOURCE", raising=False)
+    monkeypatch.setattr("apps.orcUi.composition.music_visualizer.shutil.which", lambda _name: None)
+    assert selected_music_visualizer_source() is MusicVisualizerSource.SIMULATED
+
+
+def test_visualizer_source_does_not_select_pipewire_on_termux(monkeypatch):
+    monkeypatch.delenv("OPENROAD_MUSIC_VISUALIZER_SOURCE", raising=False)
+    monkeypatch.setenv("TERMUX_VERSION", "test")
+    monkeypatch.setattr("apps.orcUi.composition.music_visualizer.shutil.which", lambda _name: "/usr/bin/pw-record")
     assert selected_music_visualizer_source() is MusicVisualizerSource.SIMULATED
 
 
@@ -83,3 +98,17 @@ def test_explicit_browser_source_choice_is_preserved_on_termux(monkeypatch):
         assert host._session.state()['source'] is None
     finally:
         host.close()
+
+
+def test_browser_visualizer_construction_failure_stops_analysis(monkeypatch):
+    from unittest.mock import Mock
+    import pytest
+    from apps.orcUi.composition.music_visualizer import create_browser_visualizer
+    from ui.theme import ThemeMode
+    session = Mock()
+    monkeypatch.setattr('controllers.audio.music_analysis.music_analysis_session.MusicAnalysisSession', lambda _sources: session)
+    monkeypatch.setattr('apps.launchers.browser_launcher.BrowserKioskLauncher', Mock)
+    monkeypatch.setattr('apps.orcUi.adapters.music_visualizer_browser.MusicVisualizerBrowser', Mock(side_effect=RuntimeError("host failed")))
+    with pytest.raises(RuntimeError, match="host failed"):
+        create_browser_visualizer(Mock(theme_mode=ThemeMode.DARK))
+    session.stop.assert_called_once_with()

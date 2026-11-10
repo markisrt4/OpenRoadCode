@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from pathlib import Path
 
 try:
@@ -34,16 +35,19 @@ class StreamingRadioFavorites:
         self._legacy_path = legacy_path or (
             xdg_config_home() / "openroadcode" / "streaming_radio.toml"
         )
+        self._lock = threading.RLock()
         self._station_ids: tuple[str, ...] = ()
         self.load()
 
     @property
     def station_ids(self) -> frozenset[str]:
-        return frozenset(self._station_ids)
+        with self._lock:
+            return frozenset(self._station_ids)
 
     @property
     def ordered_station_ids(self) -> tuple[str, ...]:
-        return self._station_ids
+        with self._lock:
+            return self._station_ids
 
     def load(self) -> None:
         payload = self._storage.get(self.CACHE_KEY)
@@ -59,22 +63,23 @@ class StreamingRadioFavorites:
         self._station_ids = ()
 
     def toggle(self, station_id: str) -> bool:
-        normalized = station_id.strip()
-        if not normalized:
-            raise ValueError("station_id cannot be empty")
+        with self._lock:
+            normalized = station_id.strip()
+            if not normalized:
+                raise ValueError("station_id cannot be empty")
 
-        updated = list(self._station_ids)
-        if normalized in updated:
-            updated.remove(normalized)
-            favorite = False
-        else:
-            updated.append(normalized)
-            favorite = True
+            updated = list(self._station_ids)
+            if normalized in updated:
+                updated.remove(normalized)
+                favorite = False
+            else:
+                updated.append(normalized)
+                favorite = True
 
-        serialized = tuple(updated)
-        self._save(serialized)
-        self._station_ids = serialized
-        return favorite
+            serialized = tuple(updated)
+            self._save(serialized)
+            self._station_ids = serialized
+            return favorite
 
     def _save(self, station_ids: tuple[str, ...]) -> None:
         payload = json.dumps(

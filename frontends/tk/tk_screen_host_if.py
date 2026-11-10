@@ -55,12 +55,21 @@ class TkScreenHostIf(Protocol):
         """
         ...
 
+    def dispatch_ui(self, callback: Callable[[], None]) -> None:
+        """Enqueue work from any thread; discard submissions after host shutdown.
+
+        @param callback Work to invoke on the frontend thread.
+        """
+        ...
+
     def schedule_ui_callback(
         self,
         delay_ms: int,
         callback: Callable[[], None],
     ) -> object:
-        """Schedule work on the Tk event-loop thread.
+        """Schedule a timer from the Tk event-loop thread only.
+
+        Workers must use dispatch_ui() instead.
 
         @param delay_ms Non-negative delay in milliseconds.
         @param callback Work to invoke after the delay.

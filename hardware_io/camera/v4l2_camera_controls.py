@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from common.logging.diagnostics import ComponentLog, diagnostic_action
+
 import subprocess
 from dataclasses import dataclass
 from enum import Enum
@@ -64,6 +66,7 @@ class V4L2CameraProfileController(CameraControlsIf):
     """
 
     def __init__(self, device: str = "/dev/video0") -> None:
+        self._diagnostics = ComponentLog("vision.camera.controls", "camera")
         self._device = device
         self._current_profile: V4L2CameraProfile | None = None
 
@@ -73,6 +76,7 @@ class V4L2CameraProfileController(CameraControlsIf):
             return None
         return CameraProfile(self._current_profile.value)
 
+    @diagnostic_action("profile")
     def apply(self, profile: CameraProfile) -> None:
         selected = V4L2CameraProfile(CameraProfile(profile).value)
         if selected is self._current_profile:
@@ -90,6 +94,7 @@ class V4L2CameraProfileController(CameraControlsIf):
         self._set_control("gamma", values.gamma)
         self._set_control("backlight_compensation", values.backlight_compensation)
         self._current_profile = selected
+        self._diagnostics.changed("profile", selected.value)
 
     def invalidate(self) -> None:
         """Forget cached profile state after the device is reopened or reset."""

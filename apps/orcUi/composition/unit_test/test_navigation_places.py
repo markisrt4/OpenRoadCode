@@ -51,3 +51,21 @@ def test_remount_reloads_saved_places_updated_by_another_store(tmp_path):
     assert second.favorite('home').name == 'Updated home'
     assert second.favorite('home').position == GeoPoint(0.7, -1.4)
     factory.close()
+
+
+def test_default_local_3d_action_uses_composition_injected_embedding():
+    from ui.navigation import GeoPoint
+    from ui.navigation.poi_models import PoiAction, PoiActionKind
+    from types import SimpleNamespace
+    embedded = Mock()
+    factory = NavigationPlacesFactory(favorites=Mock(),search_factory=Mock,
+                                      embedded_explore=embedded)
+    try:
+        session = factory.create()
+        poi = SimpleNamespace(position=GeoPoint(.7,-1.4),name='Place')
+        action = factory._owned_3d.action_for(poi)
+        assert action.kind is PoiActionKind.EXPLORE_3D
+        assert 'embedded' in factory._owned_3d.execute(poi,action)
+        assert embedded.call_args.args[0].label == 'Place'
+    finally:
+        factory.close()

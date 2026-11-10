@@ -14,6 +14,8 @@ from controllers.navigation import NavigationController
 from controllers.navigation.simulated_navigation_sensor import SimulatedNavigationSensor
 from controllers.navigation.simulated_position_source import SimulatedPositionSource
 from controllers.navigation.route_playback_position_source import RoutePlaybackPositionSource
+from controllers.navigation.fallback_position_source import FallbackPositionSource
+from controllers.navigation.browser_position_source import BrowserPositionSource
 from controllers.navigation.route_simulation_if import RouteSimulationIf
 from services.navigation import navigation_service_cli
 from services.navigation.navigation_service_cli import build_controller
@@ -70,6 +72,63 @@ def test_android_live_position_source_supports_local_route_playback() -> None:
     source = navigation_service_cli._build_position_source(config)
     assert isinstance(source, RoutePlaybackPositionSource)
     assert isinstance(source, RouteSimulationIf)
+
+
+def test_desktop_android_source_offers_loopback_browser_fallback(monkeypatch) -> None:
+    monkeypatch.setattr(navigation_service_cli, "_host_location_fallback_available", lambda: True)
+    monkeypatch.setenv("OPENROADCODE_BROWSER_POSITION_PORT", "9876")
+    source = navigation_service_cli._build_position_source(
+        NavigationServiceRuntimeConfig(gps=GpsInputConfig(device="android"))
+    )
+    assert isinstance(source._live_source, FallbackPositionSource)
+    assert source._live_source._fallback.url == 'http://localhost:9876/'
+
+
+def test_termux_keeps_bridge_source_without_browser_listener(monkeypatch) -> None:
+    from controllers.navigation.android_position_source import AndroidPositionSource
+    monkeypatch.setattr(navigation_service_cli, "_host_location_fallback_available", lambda: False)
+    source = navigation_service_cli._build_position_source(
+        NavigationServiceRuntimeConfig(gps=GpsInputConfig(device="android"))
+    )
+    assert isinstance(source._live_source, AndroidPositionSource)
+
+
+def test_desktop_fallback_ignores_saved_rpi_build_target(monkeypatch) -> None:
+    monkeypatch.setattr(navigation_service_cli.sys, "platform", "linux")
+    monkeypatch.delenv("TERMUX_VERSION", raising=False)
+    monkeypatch.delenv("PREFIX", raising=False)
+    monkeypatch.setenv("OPENROAD_INSTALL_TARGET", "rpi5")
+    monkeypatch.setattr(navigation_service_cli.Path, "read_text", lambda *args, **kwargs: "")
+    source = navigation_service_cli._build_position_source(
+        NavigationServiceRuntimeConfig(gps=GpsInputConfig(device="android"))
+    )
+    assert isinstance(source._live_source, FallbackPositionSource)
+
+
+def test_actual_pi_hardware_does_not_offer_desktop_listener(monkeypatch) -> None:
+    monkeypatch.setattr(navigation_service_cli.sys, "platform", "linux")
+    monkeypatch.delenv("TERMUX_VERSION", raising=False)
+    monkeypatch.delenv("PREFIX", raising=False)
+    monkeypatch.setenv("OPENROAD_INSTALL_TARGET", "linux-dev")
+    monkeypatch.setattr(navigation_service_cli.Path, "read_text",
+                        lambda *args, **kwargs: "Raspberry Pi 5 Model B Rev 1.0\0")
+    assert not navigation_service_cli._host_location_fallback_available()
+
+
+def test_actual_termux_runtime_does_not_offer_desktop_listener(monkeypatch) -> None:
+    monkeypatch.setattr(navigation_service_cli.sys, "platform", "linux")
+    monkeypatch.setenv("PREFIX", "/data/data/com.termux/files/usr")
+    monkeypatch.setenv("OPENROAD_INSTALL_TARGET", "linux-dev")
+    assert not navigation_service_cli._host_location_fallback_available()
+
+
+def test_browser_only_source_is_accepted_by_configuration_and_composition(tmp_path) -> None:
+    from config.service_runtime_config import ServiceRuntimeConfigParser
+    configuration = tmp_path / 'runtime.toml'
+    configuration.write_text('[services.navigation.inputs.gps]\nsource = "browser"\n')
+    config = ServiceRuntimeConfigParser(configuration).load().navigation
+    assert config.gps.source == 'browser'
+    assert isinstance(navigation_service_cli._build_position_source(config), BrowserPositionSource)
 
 
 def test_build_controller_supports_device_imu_with_simulated_gps(monkeypatch) -> None:

@@ -7,9 +7,10 @@ import tkinter as tk
 from collections.abc import Callable
 
 from frontends.tk.media.spotify_services_if import BrowserMediaPlayerIf
+from ui.ui_widget import UiWidget
 
 
-class YouTubePanel(tk.Frame):
+class YouTubePanel(tk.Frame, UiWidget):
     """Car UI controls for YouTube browsing and search."""
 
     def __init__(
@@ -66,9 +67,16 @@ class YouTubePanel(tk.Frame):
             card,
             textvariable=self._target,
             font=("DejaVu Sans", 14),
-            bg="#ffffff",
-            fg="#111111",
-            insertbackground="#111111",
+            bg=self._colors["tile_bg"],
+            fg=self._colors["tile_title"],
+            insertbackground=self._colors["tile_title"],
+            selectbackground=self._colors["tile_accent"],
+            selectforeground=self._colors["tile_title"],
+            relief=tk.FLAT,
+            bd=0,
+            highlightthickness=1,
+            highlightbackground=self._colors["tile_bg"],
+            highlightcolor=self._colors["tile_accent"],
         )
         entry.pack(fill="x", padx=28, ipady=10)
         entry.bind("<Return>", lambda _event: self._open())
@@ -118,6 +126,7 @@ class YouTubePanel(tk.Frame):
             cursor="hand2",
             padx=20,
             pady=12,
+            highlightthickness=0, bd=0,
         )
 
     def _open(self) -> None:

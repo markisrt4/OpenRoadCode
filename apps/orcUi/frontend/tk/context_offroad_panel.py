@@ -13,9 +13,10 @@ from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from ui.theme import ThemeBundle
 from .offroad_widgets import PitchIndicator, RollIndicator
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
+from ui.ui_widget import UiWidget
 
 
-class ContextOffroadPanel(tk.Frame):
+class ContextOffroadPanel(tk.Frame, UiWidget):
     """Render compact GPS, heading, and attitude information."""
 
     def __init__(

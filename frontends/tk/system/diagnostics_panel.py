@@ -11,20 +11,22 @@ from collections import deque
 from ui.system_diagnostics import SystemDiagnosticsSnapshot
 from ui.theme import ThemeBundle
 from .diagnostics_tabs import DiagnosticsTabs
+from .network_usb_panel import NetworkUsbPanel
 from .diagnostics_table import DiagnosticsTable
 from .system_metrics_panel import SystemMetricsPanel, pressure_color
+from ui.ui_widget import UiWidget
 
 
-class DiagnosticsPanel(tk.Frame):
+class DiagnosticsPanel(tk.Frame, UiWidget):
     """Show workload attribution first; keep host and telemetry health separate."""
 
-    def __init__(self, parent: tk.Misc, *, theme: ThemeBundle) -> None:
+    def __init__(self, parent: tk.Misc, *, theme: ThemeBundle, on_back=None) -> None:
         super().__init__(parent, bg=theme.ui.background)
         self._theme = theme
         self._last_sample_time = None
         self._history = deque(maxlen=120)
         ui = theme.ui
-        tabs = DiagnosticsTabs(self, theme=theme)
+        tabs = DiagnosticsTabs(self, theme=theme, on_back=on_back)
         tabs.pack(fill=tk.BOTH, expand=True)
         workload = tk.Frame(tabs, bg=ui.background)
         system = SystemMetricsPanel(tabs, theme=theme)
@@ -34,6 +36,9 @@ class DiagnosticsPanel(tk.Frame):
         tabs.add(sensors, text="Sensor telemetry")
         services = tk.Frame(tabs, bg=ui.background)
         tabs.add(services, text="Services")
+        inventory = NetworkUsbPanel(tabs, theme=theme)
+        tabs.add(inventory, text="Network & USB")
+        self._inventory_panel = inventory
         self._system = system
 
         self._cpu = self._label(workload, "Waiting for ORC process samples", 16)
@@ -112,6 +117,7 @@ class DiagnosticsPanel(tk.Frame):
     def apply_snapshot(self, snapshot: SystemDiagnosticsSnapshot) -> None:
         """Refresh tables using cached samples without sampling on the Tk thread."""
         self._system.apply_snapshot(snapshot)
+        self._inventory_panel.render(snapshot.network_usb or {})
         self._service_status.configure(text=snapshot.service_monitor_status)
         self._service_rows = {str(index): row for index, row in enumerate(snapshot.services)}
         service_selection = self._service_table.selection()

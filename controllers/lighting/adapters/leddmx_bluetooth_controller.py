@@ -4,7 +4,11 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import threading
+
+from common.logging.diagnostics import ComponentLog
+from common.logging.structured import current_operation, operation
 from collections.abc import Coroutine
 from concurrent.futures import Future
 from typing import Any
@@ -49,7 +53,9 @@ class LedDmxBluetoothController(LightingControllerIf):
         *,
         config: LedDmxBluetoothConfig | None = None,
     ) -> None:
+        self._diagnostics = ComponentLog("lighting.bluetooth", "lighting")
         if BleakClient is None or BleakScanner is None:
+            self._diagnostics.failed("availability", reason="dependency_missing")
             raise BleakUnavailableError(
                 "bleak is not installed. Install with: pip install bleak"
             )
@@ -100,8 +106,14 @@ class LedDmxBluetoothController(LightingControllerIf):
             name="LedDmxBleLoop",
             daemon=True,
         )
-        self._thread.start()
-        self._loop_ready.wait(timeout=5.0)
+        with self._diagnostics.action("loop_start"):
+            try:
+                self._thread.start()
+            except Exception:
+                self._loop.close()
+                raise
+        if not self._loop_ready.wait(timeout=5.0):
+            self._diagnostics.failed("loop_ready", reason="timeout")
 
     @property
     def is_connected(self) -> bool:
@@ -123,8 +135,8 @@ class LedDmxBluetoothController(LightingControllerIf):
 
         try:
             self.disconnect().result(timeout=2.0)
-        except Exception:
-            pass
+        except Exception as error:
+            self._diagnostics.failed("close", error)
 
         self._closed = True
         if self._loop.is_running():
@@ -137,6 +149,7 @@ class LedDmxBluetoothController(LightingControllerIf):
             self._thread.join(timeout=2.0)
 
         self._update_state(connected=False)
+        self._diagnostics.changed("lifecycle", "closed")
 
     def set_power(self, enabled: bool) -> Future[None]:
         return self._submit(
@@ -214,11 +227,25 @@ class LedDmxBluetoothController(LightingControllerIf):
 
     def _submit(self, coroutine: Coroutine[Any, Any, None]) -> Future[None]:
         if self._closed:
+            coroutine.close()
+            self._diagnostics.failed("submit", reason="closed")
             future: Future[None] = Future()
             future.set_exception(RuntimeError("lighting controller is closed"))
             return future
 
-        return asyncio.run_coroutine_threadsafe(coroutine, self._loop)
+        with operation(current_operation()) as operation_id:
+            command = self._run_command(coroutine, operation_id)
+            try:
+                return asyncio.run_coroutine_threadsafe(command, self._loop)
+            except Exception as error:
+                command.close()
+                coroutine.close()
+                self._diagnostics.failed("submit", error)
+                raise
+
+    async def _run_command(self, coroutine, operation_id):
+        with self._diagnostics.action("command", operation_id):
+            await coroutine
 
     def _run_loop(self) -> None:
         asyncio.set_event_loop(self._loop)
@@ -318,7 +345,7 @@ class LedDmxBluetoothController(LightingControllerIf):
             try:
                 await client.connect()
                 if self._client_has_leddmx_characteristic(client):
-                    print(f"[Lighting] Found LEDDMX controller: {device.address} ({name}, RSSI={rssi})")
+                    self._diagnostics.emit(logging.DEBUG, "device_found")
                     return client
 
                 await client.disconnect()
@@ -381,6 +408,8 @@ class LedDmxBluetoothController(LightingControllerIf):
     def _update_state(self, **changes: object) -> None:
         with self._state_lock:
             self._state = self._state.updated(**changes)
+            connected = self._state.connected
+        self._diagnostics.changed("connection", connected)
 
     async def _write(self, packet: bytes) -> None:
         await self._ensure_loop_objects()
@@ -396,8 +425,11 @@ class LedDmxBluetoothController(LightingControllerIf):
                     packet,
                     response=self._write_with_response,
                 )
-            except Exception:
+            except Exception as error:
+                self._diagnostics.failed("write", error)
+                self._diagnostics.emit(logging.DEBUG, "reconnecting")
                 self._connected = False
+                self._update_state(connected=False)
                 if self._client.is_connected:
                     await self._client.disconnect()
 
@@ -410,6 +442,7 @@ class LedDmxBluetoothController(LightingControllerIf):
                     response=self._write_with_response,
                 )
 
+            self._diagnostics.succeeded("write")
             self._connected = bool(self._client.is_connected)
             self._update_state(connected=self._connected)
             if self._command_delay_seconds > 0:

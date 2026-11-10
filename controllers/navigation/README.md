@@ -1,5 +1,11 @@
 # Navigation Controller
 
+Home/Work installer setup and TOML compatibility are described in
+[saved destinations](../../docs/saved_destinations.md). DestinationSetupController
+resolves local address candidates through a supplied geocoder and saves only
+confirmed SI positions. The default MapFavorites store overlays user TOML while
+retaining existing JSON favorites.
+
 The `controllers.navigation` package converts motion-sensor measurements into
 a higher-level vehicle motion state. `NavigationController` provides:
 
@@ -380,3 +386,21 @@ stops an existing renderer when its parent window changes and forgets stopped
 host IDs. This prevents a live process from remaining attached to a destroyed
 window. Returning to Navigation manually is no longer required to restore it.
 Theme/remount regression tests cover lifecycle ordering and obsolete hosts.
+
+## Earth, GPS and POI diagnostics
+
+`navigation.earth.*` records browser/camera requests, bridge installation and
+delivery failures/recovery; `navigation.earth` records waiting/ready, follow and
+tracking transitions. Routine ticks remain DEBUG. `ORC_EARTH_TRACE=1` now emits a
+sanitized DEBUG bridge sample instead of printing GPS coordinates.
+
+`navigation.poi` correlates searches with offline database failures/recovery and
+accepted viewport results. `navigation.poi.actions` carries operation IDs through
+action workers and records discarded completions after close.
+`navigation.earth.exploration` records the ordinary browser launch boundary.
+`navigation.gps` retains operation IDs in its reader thread and reports connection
+and reader lifecycle plus read/callback failures without raw gpsd reports.
+
+New records exclude coordinates, place names/IDs, database paths, URLs, browser
+endpoints and exception messages. See the
+[device validation guide](../../common/logging/DEVICE_VALIDATION.md).

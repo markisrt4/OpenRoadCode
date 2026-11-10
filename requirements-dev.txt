@@ -1,0 +1,4 @@
+# Development and CI tooling; runtime installers do not consume this file.
+pytest
+ruff
+mypy==1.19.1

@@ -76,7 +76,7 @@ def _prepare_output_dirs(clean:bool)->None:
   # touching generated output so a failed rebuild can never leave an old
   # manifest beside a partially replaced dataset.
   (OUTPUT_ROOT/"build-manifest.json").unlink(missing_ok=True)
-  for relative in ("maps/vector","maps/styles","maps/glyphs","maps/source","maps/poi","maps/search","valhalla"):
+  for relative in ("maps/vector","maps/styles","maps/glyphs","maps/source","maps/poi","maps/search","maps/3d","valhalla"):
    target=OUTPUT_ROOT/relative
    if target.exists(): shutil.rmtree(target)
  for relative in ("maps/vector","maps/styles","maps/glyphs","maps/source","maps/search","maps/routes","valhalla/tiles"): (OUTPUT_ROOT/relative).mkdir(parents=True,exist_ok=True)
@@ -125,7 +125,8 @@ def _build_valhalla(pbf:Path):
  with timezones.open("wb") as output:subprocess.run(["valhalla_build_timezones"],check=True,stdout=output)
  run(["valhalla_build_admins","-c",str(config),str(pbf)]); run(["valhalla_build_tiles","-c",str(config),str(pbf)]); run(["valhalla_build_extract","-c",str(config),"-v"])
 def _write_manifest(regions,validation,search_counts):
- manifest={"schema":2,"generated_unix":int(time.time()),"regions":[asdict(r) for r in regions],"validation":validation,"search_index":{"counts":search_counts,"path":"maps/search/openroadcode-search.sqlite"},"tools":{}}
+ manifest={"schema":2,"generated_unix":int(time.time()),"regions":[asdict(r) for r in regions],"validation":validation,"map_3d":validation.get("map_3d",{}),"search_index":{"counts":search_counts,"path":"maps/search/openroadcode-search.sqlite"},"tools":{}}
+ manifest["deployable_bytes"] = sum(p.stat().st_size for p in OUTPUT_ROOT.rglob("*") if p.is_file() and p.name != "build-manifest.json")
  for tool in ("tilemaker","valhalla_service","osmium"):
   result=subprocess.run([tool,"--version"],text=True,capture_output=True,check=False); manifest["tools"][tool]=(result.stdout or result.stderr).strip().splitlines()[0]
  (OUTPUT_ROOT/"build-manifest.json").write_text(json.dumps(manifest,indent=2)+"\n",encoding="utf-8")

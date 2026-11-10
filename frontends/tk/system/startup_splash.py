@@ -13,6 +13,7 @@ from os import PathLike
 from typing import Generic, TypeVar
 
 from frontends.tk.runtime import apply_fullscreen
+from ui.ui_widget import UiWidget
 
 
 T = TypeVar("T")
@@ -38,7 +39,7 @@ StartupStatusCallback = Callable[
 ]
 
 
-class StartupSplash(Generic[T]):
+class StartupSplash(Generic[T], UiWidget):
     """Display startup progress while application dependencies initialize."""
 
     def __init__(

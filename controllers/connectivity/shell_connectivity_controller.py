@@ -101,4 +101,3 @@ class ShellConnectivityController:
                 self._internet_next_probe -= 1
         self._paint_online_mode()
         self._callback_id = self._dispatcher.schedule_ui_callback(1000, self._poll_internet_status)
-

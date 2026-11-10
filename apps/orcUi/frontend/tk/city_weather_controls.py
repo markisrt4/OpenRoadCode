@@ -26,7 +26,7 @@ class CityWeatherControls:
                        command=lambda: handler.request_city_enabled(self._enabled.get()),
                        bg=ui.control_background, fg=ui.text, selectcolor=ui.background,
                        activebackground=ui.control_background, activeforeground=ui.text,
-                       font=("Sans", FONT_CONTROL)).pack(anchor="w", pady=4)
+                       font=("Sans", FONT_CONTROL), highlightthickness=0, bd=0, relief=tk.FLAT).pack(anchor="w", pady=4)
         fields = self._row(parent)
         for value, text in (("temperature", "Temp"), ("wind", "Wind speed"), ("precipitation", "Precip total")):
             self._radio(fields, self._kind, value, text)
@@ -42,10 +42,10 @@ class CityWeatherControls:
         self._time = self._label(parent, "")
         buttons = self._row(parent)
         self._play = tk.Button(buttons, text="Play", command=lambda: handler.request_city_playback(not self._state.playing),
-                               bg=ui.control_active, fg=ui.text, relief=tk.FLAT, padx=8, pady=4)
+                               bg=ui.control_active, fg=ui.text, relief=tk.FLAT, padx=8, pady=4, highlightthickness=0, bd=0)
         self._play.pack(side=tk.LEFT)
         self._refresh = tk.Button(buttons, text="Refresh cities", command=handler.request_city_refresh,
-                                  bg=ui.control_background, fg=ui.text, relief=tk.FLAT, padx=8, pady=4)
+                                  bg=ui.control_background, fg=ui.text, relief=tk.FLAT, padx=8, pady=4, highlightthickness=0, bd=0)
         self._refresh.pack(side=tk.RIGHT)
         self._status = self._label(parent, "")
         self._label(parent, "Recent history shows estimated weather. Precipitation includes rain and melted snow.\nPan or zoom to choose cities · Weather data provider: Open-Meteo")
@@ -60,7 +60,7 @@ class CityWeatherControls:
         tk.Radiobutton(parent, text=text, variable=variable, value=value, command=self._select,
                        bg=self._ui.control_background, fg=self._ui.text, selectcolor=self._ui.background,
                        activebackground=self._ui.control_background, activeforeground=self._ui.text,
-                       font=("Sans", FONT_CONTROL)).pack(side=tk.LEFT)
+                       font=("Sans", FONT_CONTROL), highlightthickness=0, bd=0, relief=tk.FLAT).pack(side=tk.LEFT)
 
     def _label(self, parent, text):
         label = tk.Label(parent, text=text, bg=self._ui.control_background, fg=self._ui.text,

@@ -42,6 +42,7 @@ class OrcUiCompositionTest(unittest.TestCase):
         games = Mock()
         weather = Mock()
         vision = Mock()
+        progress = Mock()
         composition = OrcUiComposition(
             core=core,
             runtime=runtime,
@@ -50,6 +51,7 @@ class OrcUiCompositionTest(unittest.TestCase):
             games=games,
             weather=weather,
             vision=vision,
+            startup_progress=progress,
         )
 
         composition.run()
@@ -57,6 +59,13 @@ class OrcUiCompositionTest(unittest.TestCase):
         app.schedule_ui_callback.assert_called_once_with(1500, runtime.start_background_apps)
         core.start.assert_called_once_with()
         app.run.assert_called_once_with()
+        self.assertEqual(
+            progress.call_args_list,
+            [
+                call("runtime_start", "Starting background runtimes…"),
+                call("ready", "OpenRoadCode UI ready"),
+            ],
+        )
         games.shutdown.assert_called_once_with()
         media.close.assert_called_once_with()
         weather.close.assert_called_once_with()
@@ -213,7 +222,8 @@ class OrcUiCompositionTest(unittest.TestCase):
         media = configure_media.return_value
         weather = configure_weather.return_value
 
-        composition = create_orc_ui_composition()
+        progress = Mock()
+        composition = create_orc_ui_composition(progress=progress)
 
         self.assertIs(composition.runtime, runtime)
         self.assertIs(composition.core, core)
@@ -256,6 +266,19 @@ class OrcUiCompositionTest(unittest.TestCase):
         self.assertTrue(callable(unit_system))
         app.set_initial_destination.assert_called_once_with("HOME")
         app.set_settings_action.assert_called_once()
+        self.assertEqual(
+            [entry.args[0] for entry in progress.call_args_list],
+            [
+                "application_runtime",
+                "core",
+                "radio",
+                "games",
+                "vision",
+                "media",
+                "weather",
+                "screens",
+            ],
+        )
 
     @patch("apps.orcUi.composition.application.configure_radio")
     @patch("apps.orcUi.composition.application.create_core_composition")

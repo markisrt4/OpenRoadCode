@@ -162,3 +162,143 @@ The included tests cover Geofabrik region parsing/selection rules, MapLibre styl
 ## Attribution
 
 Generated datasets are based on OpenStreetMap/Geofabrik data and use open-source tilemaker, Valhalla, and glyph assets. Downstream applications must preserve the applicable licenses and attribution requirements.
+
+## Optional 3D buildings and interactive installation
+
+Terrain is also available as a separate optional pack through this workflow.
+For a direct **Termux download without Docker**, use
+`bash development/termux/install_terrain.sh` after switching to
+`navigation-cesium`; see [the device install steps](../../docs/cesium_map_experiment.md#shared-builder-and-terminal-install-menu).
+On the **map build host**, use:
+
+```bash
+git switch navigation-cesium
+git pull --ff-only
+bash tools/map_builder/scripts/run-builder.sh 3d --layer terrain
+```
+
+Choose **2** for Detroit Downtown–Midtown and confirm. The stage downloads a
+65×65 USGS 3DEP grid, preserves raw source responses and datum metadata, and
+certifies the new `detroit-midtown-terrain` pack. It does not rebuild buildings,
+map tiles or routing. A failed download leaves no partial installed pack and
+restores the original build certificate when the dataset is unchanged.
+The source elevations are in metres; rendering uses relative relief rather
+than claiming a conversion to ellipsoid heights. This is coarse ground relief,
+not a survey or topo-contour layer.
+If the image service returns token errors 498/499, the stage falls back to public
+USGS EPQS with a 33×33 grid and two concurrent point queries. The installed
+manifest records the actual source, sample grid and datum availability. The
+fallback is slower; it does not require credentials.
+
+Publish with the existing command:
+
+```bash
+git switch navigation-cesium
+bash tools/map_builder/scripts/deploy-to-srv.sh
+```
+
+The existing interactive pull menu lists terrain separately from buildings;
+select both to install both. The viewer prefers the deployed Downtown–Midtown
+terrain pack, falling back to the earlier downtown prototype when absent.
+
+
+After building the normal navigation dataset, reuse its installed OSM PBFs to
+create optional Cesium-compatible building packs. This does not contact Overpass
+or rebuild vector tiles/routing. The first stage offers downtown Detroit and the
+Downtown–Midtown corridor, using eight bounded building tiles per pack. Imagery and
+terrain generation are future builder stages; this command does not download them.
+
+From the repository root, on the map-build host:
+
+```bash
+git switch navigation-cesium
+git pull --ff-only
+bash tools/map_builder/scripts/run-builder.sh 3d
+```
+
+The menu selects coverage, describes the available layer and output limits, then
+asks for confirmation. Geometry size is known after extraction. For automation:
+
+```bash
+git switch navigation-cesium
+bash tools/map_builder/scripts/run-builder.sh 3d --coverage detroit-midtown --yes
+```
+
+The existing `osmium` toolchain extracts building ways from `maps/source/*.osm.pbf`.
+Simple closed polygons use tagged heights, floor-count estimates, or marked 9 m
+placeholders. Courtyards and multipolygons are omitted and counted. Packs retain
+source filenames/SHA-256 values and ODbL attribution. They live under
+`maps/3d/packs/<coverage>/`, with tile geometry and checksums in each pack manifest.
+The dataset's `build-manifest.json` certifies optional packs and reports payload
+size. Failed builds cannot retain a valid certificate for changed artifacts.
+An existing certified pack is reused. A clean base-data rebuild removes generated
+3D packs; run the optional stage again before publishing.
+
+Publish using the existing tool, then select optional packs while pulling to Termux
+(replace `USER@MAP_HOST` with your actual SSH map-build host):
+
+```bash
+git switch navigation-cesium
+bash tools/map_builder/scripts/deploy-to-srv.sh
+```
+
+On the phone, from its checkout:
+
+```bash
+git switch navigation-cesium
+git pull --ff-only
+bash development/termux/pull_navigation_data.sh --interactive USER@MAP_HOST
+```
+
+The install menu shows the remote regions, optional pack layers, coverage and
+exact pack size. New manifests also report base dataset size. Map/search/routing
+remain one base dataset; optional 3D packs can be included or omitted independently.
+Cancellation leaves installed data unchanged. Only chosen pack directories are
+transferred. Staging retains partial transfers for retries, reuses unchanged base files from
+the installed dataset with rsync `--copy-dest`, and all chosen pack
+files are checked against the build certificate before activation. The remote
+manifest remains the catalog of available packs; `installed-3d-selection.json`
+records the installed subset. Device-owned `cesium/` and `map-packs/` folders are
+preserved during updates.
+
+Linux deployment supports the same menu:
+
+```bash
+git switch navigation-cesium
+bash scripts/runtime/pull_navigation_data.sh --interactive --source USER@MAP_HOST:/srv/openroadcode
+```
+
+The viewer prefers a deployed Midtown pack, then another installed builder pack,
+then the prototype XDG pack. Matching previously downloaded prototype imagery
+can be paired with builder-owned geometry without copying it into the dataset.
+Otherwise the original downtown image is retained if installed, and the viewer
+reports missing imagery coverage. The SDK still requires its separate one-time
+installation. Building data is usable offline without imagery or terrain.
+
+If an earlier failed optional build removed the navigation manifest, recover it
+without compiling maps or routing again. This validates the existing dataset and
+recovers region IDs from its source PBF filenames:
+
+```bash
+git switch navigation-cesium
+bash tools/map_builder/scripts/run-builder.sh validate --write-manifest --installed-regions
+```
+
+New optional-build failures restore the prior certificate only when revalidation
+proves the original dataset remains unchanged. Single-part Osmium MultiPolygons
+are supported as ordinary outlines; holes and multi-part geometry remain omitted.
+
+### Optional prebuilt regional imagery
+
+Validated local imagery can be packaged for HTTPS distribution without changing
+or rebuilding the base navigation dataset:
+
+```bash
+git switch navigation-cesium
+python -m tools.map_builder.builder.imagery_artifact --coverage metro-detroit --pack build-output/metro-detroit-imagery --output build-output/artifacts/metro-detroit-imagery.zip
+```
+
+This produces an archive and a size/checksum descriptor; it does not publish them.
+See `docs/cesium_map_experiment.md` for source building, device installation,
+resume, and activation. A finished imagery pack is required; this command does
+not turn a failed USGS export into an artifact.

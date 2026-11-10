@@ -21,7 +21,7 @@ def test_hidden_screen_discards_failure_and_close_disconnects():
     with patch('controllers.weather.weather_screen_controller.threading.Thread'):
         controller.set_visible(True)
     controller._refresh(controller._generation)
-    callback = dispatcher.schedule_ui_callback.call_args.args[1]
+    callback = dispatcher.dispatch_ui.call_args.args[0]
     controller.set_visible(False)
     view.reset_mock()
     callback()
@@ -38,7 +38,7 @@ def test_visible_failure_stops_loading_and_preserves_forecast():
     with patch('controllers.weather.weather_screen_controller.threading.Thread'):
         controller.set_visible(True)
     controller._refresh(controller._generation)
-    dispatcher.schedule_ui_callback.call_args.args[1]()
+    dispatcher.dispatch_ui.call_args.args[0]()
     view.set_loading.assert_called_with(False)
     view.set_weather_status.assert_called_with('Weather unavailable: offline')
     view.set_weather_state.assert_not_called()
@@ -57,7 +57,7 @@ def test_cached_fallback_is_labelled_stale_and_keeps_weather_visible():
     with patch('controllers.weather.weather_screen_controller.threading.Thread'):
         controller.set_visible(True)
     controller._refresh(controller._generation)
-    dispatcher.schedule_ui_callback.call_args.args[1]()
+    dispatcher.dispatch_ui.call_args.args[0]()
     assert view.set_weather_state.call_args.args[0].current.temperature_k == 283.15
     view.set_weather_status.assert_called_with('Weather: showing saved data (20 min old); refresh unavailable')
 

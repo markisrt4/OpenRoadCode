@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 import logging
+import threading
 
 from common.logging.structured import current_operation, event, operation
 
@@ -27,14 +28,14 @@ class MusicVideoController:
         music_video: MusicVideoIf,
         *, network_allowed: Callable[[], bool] = lambda: True,
     ) -> None:
+        self._video_operation_lock = threading.Lock()
         self._network_allowed = network_allowed
         self._spotify_controller = spotify_controller
         self._music_video = music_video
 
         self._spotify_resume_position_ms = 0
         self._spotify_was_playing = False
-        self._prepared_query: MusicVideoQuery | None = None
-        self._prepared_video: MusicVideo | None = None
+        self._prepared_match: tuple[MusicVideoQuery | None, MusicVideo | None] = (None, None)
 
     def current_track_has_video(self) -> bool:
         """Find and cache a video match for the current Spotify track.
@@ -45,20 +46,22 @@ class MusicVideoController:
             return False
         query = self._current_query()
         if query is None:
-            self._prepared_query = None
-            self._prepared_video = None
+            self._prepared_match = (None, None)
             return False
-        if query != self._prepared_query:
-            self._prepared_query = query
-            self._prepared_video = self._find_video(query)
-        return self._prepared_video is not None
+        prepared_query, video = self._prepared_match
+        if query != prepared_query:
+            video = self._find_video(query)
+            self._prepared_match = (query, video)
+        return video is not None
 
-    def watch_current_track(self) -> bool:
+    def watch_current_track(self, *, is_current: Callable[[], bool] = lambda: True,
+                            restore_allowed: Callable[[], bool] = lambda: True) -> bool:
         """Find and play a video for the current Spotify track."""
         with operation(current_operation()):
             event(LOGGER, logging.INFO, "video.requested", "Music video requested")
             try:
-                started = self._watch_current_track()
+                with self._video_operation_lock:
+                    started = self._watch_current_track(is_current, restore_allowed)
             except Exception as error:
                 event(
                     LOGGER,
@@ -76,21 +79,20 @@ class MusicVideoController:
             )
             return started
 
-    def _watch_current_track(self) -> bool:
-        if not self._network_allowed():
+    def _watch_current_track(self, is_current: Callable[[], bool] = lambda: True,
+                             restore_allowed: Callable[[], bool] = lambda: True) -> bool:
+        if not self._network_allowed() or not is_current():
             return False
         state = self._spotify_controller.current_state()
         query = SpotifyMusicVideoMapper.create_query(state)
         if query is None:
             return False
 
-        if query != self._prepared_query:
-            self._prepared_query = query
-            self._prepared_video = self._find_video(query)
-        video = self._prepared_video
-
-        if video is None:
+        prepared_query, prepared_video = self._prepared_match
+        video = prepared_video if query == prepared_query else self._find_video(query)
+        if video is None or not self._network_allowed() or not is_current():
             return False
+        self._prepared_match = (query, video)
 
         self._spotify_resume_position_ms = max(0, state.progress_ms or 0)
         self._spotify_was_playing = state.is_playing
@@ -98,17 +100,27 @@ class MusicVideoController:
         if self._spotify_was_playing:
             self._spotify_controller.pause()
 
+        if not is_current():
+            if restore_allowed():
+                self._restore_spotify_after_start_failure()
+            return False
+
         try:
             started = self._music_video.play_video(
                 video,
                 position_ms=self._spotify_resume_position_ms,
             )
         except Exception:
-            self._restore_spotify_after_start_failure()
+            if restore_allowed():
+                self._restore_spotify_after_start_failure()
             raise
 
+        if started and not is_current():
+            self._music_video.stop_video()
+            started = False
         if not started:
-            self._restore_spotify_after_start_failure()
+            if restore_allowed():
+                self._restore_spotify_after_start_failure()
 
         return started
 
@@ -130,11 +142,14 @@ class MusicVideoController:
             if active:
                 event(LOGGER, logging.INFO, "video.stopped", "Music video stopped")
 
-    def return_to_spotify(self) -> None:
+    def return_to_spotify(self, *, is_current: Callable[[], bool] = lambda: True) -> None:
         """Stop the video and restore the saved Spotify playback state."""
         with operation(current_operation()):
             try:
-                self._return_to_spotify()
+                with self._video_operation_lock:
+                    if not is_current():
+                        return
+                    self._return_to_spotify(is_current)
             except Exception as error:
                 event(
                     LOGGER,
@@ -146,11 +161,15 @@ class MusicVideoController:
                 raise
             event(LOGGER, logging.INFO, "video.return_completed", "Spotify playback state restored")
 
-    def _return_to_spotify(self) -> None:
+    def _return_to_spotify(self, is_current: Callable[[], bool] = lambda: True) -> None:
         self.stop_video()
+        if not is_current():
+            return
 
         self._spotify_controller.seek_to_position_ms(self._spotify_resume_position_ms)
 
+        if not is_current():
+            return
         if self._spotify_was_playing:
             self._spotify_controller.play()
         else:

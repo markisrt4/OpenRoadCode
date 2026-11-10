@@ -14,9 +14,10 @@ from frontends.tk.automotive import DEFAULT_GAUGES, ShifterGauge
 from frontends.tk.automotive.vehicle_gauge_theme import vehicle_gauge_theme_from_style_sheet
 from frontends.tk.automotive.vehicle_gauge_widgets import RoundGauge
 from ui.theme import ThemeBundle
+from ui.ui_widget import UiWidget
 
 
-class PerformancePanel(tk.Frame):
+class PerformancePanel(tk.Frame, UiWidget):
     """Render the primary live-driving gauges and gear indicator."""
 
     _GAUGE_IDS = ("rpm", "boost", "speed", "throttle")

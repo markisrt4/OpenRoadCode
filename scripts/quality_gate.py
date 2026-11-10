@@ -43,9 +43,17 @@ def _run_ruff() -> bool:
     return _run("Ruff", [sys.executable, "-m", "ruff", "check", "."])
 
 
+def _run_ui_types() -> bool:
+    if _is_termux() and importlib.util.find_spec('mypy') is None:
+        print('\n[SKIP] Strict UI contract types: mypy unavailable on Termux; required in Linux/CI', flush=True)
+        return True
+    return _run('Strict UI contract types', [sys.executable, 'scripts/check_ui_types.py'])
+
+
 def main() -> int:
     checks = (
         _run_ruff(),
+        _run_ui_types(),
         _run(
             "orcUi module-size architecture check",
             [sys.executable, "scripts/check_python_module_size.py"],

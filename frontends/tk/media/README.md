@@ -10,6 +10,15 @@ The media navigation bar provides navigation between the hub, Spotify, YouTube, 
 
 ## Spotify
 
+The hub's Spotify header presents cached now-playing title, artist, and 56-pixel
+album artwork through `ui/media/media_preview_if.py`. With no track, it shows a
+Spotify placeholder. `MediaPreviewController` shares the existing service and
+image cache through composition, loads PNG artwork on its own worker, suppresses
+obsolete requests and shutdown completions, and honors offline policy. Tk only
+decodes returned bytes and renders them; it ignores stale artwork, cancels polling
+on hide/destroy, and rebuilds from the active theme. Existing Remote, Play Here,
+account, and setup actions remain available. No extra card row is introduced.
+
 `SpotifyStateService` owns the shared background controller used by Home and Media. It serializes Web API access, caches now-playing state, and keeps network/control operations off the Tk event thread.
 
 The Media landing card offers two entry paths:
@@ -18,6 +27,16 @@ The Media landing card offers two entry paths:
 - **PLAY HERE** starts the ORC local Web Playback SDK device, transfers playback to it, and opens the same Spotify UI.
 
 The Spotify screen also exposes **Liked Songs** and **Recently Played**. Collection retrieval runs on a worker thread and selecting a returned track queues playback through the shared Spotify service.
+
+Now Playing reserves the available height for album art, metadata, and lyrics:
+Media return sits beside Disconnect in the setup row. Watch Video (with a
+code-drawn YouTube icon) and Visualizer share the lower utility row. Watch Video
+uses 13-point text centered between equal side columns; device status aligns
+right. The panel omits duplicate volume controls in favor of the persistent
+shell volume widget. Previous, Pause/Play, Next, and ±10-second controls have
+taller raised bezels. Compact ±10-second controls use
+the existing relative seek contract; the same service supports 30-second seeks
+without a new API. The library view retains its existing navigation bar.
 
 Because library/history permissions were added after the original playback integration, existing users must reauthorize Spotify once so the cached token includes the new scopes.
 
@@ -36,6 +55,24 @@ Termux remains REMOTE-only because its current Chromium environment does not pro
 ## Media hub and YouTube Music
 
 The Media landing page is a four-card hub for Spotify, YouTube, YouTube Music, and Netflix. Provider identity colors are accents, not replacement theme surfaces: card backgrounds, text, and ordinary controls continue to follow the active ORC light/dark theme.
+
+The left column groups music services and a compact Music Visualizer tile below
+YouTube Music; video services occupy the right column. The visualizer tile uses
+a responsive teal, blue, and violet spectrum illustration and remains available
+offline. The illustration is decorative; live visualization opens through the
+existing visualizer action. It redraws on allocation changes without animation
+timers or audio subscriptions. Provider brand colors
+stay in their logos, with neutral action buttons and muted Coming Soon text for
+YouTube Music. Provider
+headers add a soft green, crimson, coral, or burgundy wash that fades from the
+larger logo into the theme surface. Hover highlights the card edge subtly;
+neither treatment changes provider actions or loads bitmap assets. Provider
+cards use consistent compact logos, titles, descriptions that wrap to their
+allocated width, and action buttons. Spotify groups app setup and account access
+in one secondary row inside the card body, separate from Remote and Play Here.
+These controls emit `SpotifyAccountSession` requests and retain offline restrictions;
+composition owns account workers and the configuration dialog.
+The online hub clears its footer status on entry; the offline explanation remains.
 
 YouTube Music is intentionally advertised ahead of its runtime integration. Selecting it opens a dedicated **Coming Soon** screen. It must not construct a managed browser player or reference an `youtube_music` application-runtime key until that launcher is actually registered. This keeps the planned feature visible without creating a false runtime dependency.
 

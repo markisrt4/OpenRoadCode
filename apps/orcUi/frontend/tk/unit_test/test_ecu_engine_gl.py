@@ -32,17 +32,12 @@ def test_forced_canvas_does_not_require_gl_or_tk(monkeypatch):
 
 
 def test_missing_backend_falls_back_without_creating_widgets(monkeypatch):
-    import builtins
-
-    original_import = builtins.__import__
-
-    def without_gl(name, *args, **kwargs):
-        if name == "pyopengltk":
-            raise ImportError("optional dependency not installed")
-        return original_import(name, *args, **kwargs)
+    def unavailable():
+        raise ImportError("optional dependency not installed")
 
     monkeypatch.delenv("OPENROAD_ECU_RENDERER", raising=False)
-    monkeypatch.setattr(builtins, "__import__", without_gl)
+    # Android loads pyopengltk.linux through importlib, bypassing __import__.
+    monkeypatch.setattr("apps.orcUi.frontend.tk.ecu_gl_backend.load_gl_backend", unavailable)
     assert create_engine_gl(None, theme=None, on_failure=None) is None
 
 

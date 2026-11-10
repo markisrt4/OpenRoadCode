@@ -54,6 +54,31 @@ investing heavily in an implementation. Explain the problem, the proposed
 direction, affected hardware or services, and how the result could be tested.
 That gives everyone a chance to compare maps before the convoy sets off.
 
+## ORC's Law
+
+Before introducing a new abstraction, subsystem, or integration, search the
+repository for prior art.
+
+> **ORC's Law:** OpenRoadCode has an unusual tendency to contain part of the
+> thing you are about to build.
+
+ORC's Law does not imply that the feature is complete, correct, documented,
+connected, or even remembered by its original author. Existing work may be an
+interface, an abandoned experiment, a test utility, an implementation that was
+never wired into the application, or simply enough code to change the right
+design direction.
+
+Treat repository archaeology as part of design work. Search related interfaces,
+controllers, services, protocols, hardware adapters, tests, configuration, and
+documentation before creating a new boundary. Reuse or extend an existing
+abstraction when it already expresses the responsibility cleanly; do not preserve
+old code merely to satisfy the law.
+
+In less formal terms:
+
+> **Search first. Design second. Implement third. Discover Mark wrote half of
+> it six months ago.**
+
 ## Setting up a development environment
 
 Copy the clone URL from the GitHub repository, then enter the project
@@ -89,6 +114,22 @@ When an installer has created the project environment, activate it with:
 ```bash
 source venv/bin/activate
 ```
+
+Install the separate development tools after creating the runtime environment:
+
+```bash
+python -m pip install -r requirements-dev.txt
+```
+
+The development manifest includes pinned mypy for the strict UI contract check.
+Runtime and device installers do not consume this manifest. Run that check alone
+with `python scripts/check_ui_types.py`, or run it with the other required checks
+using `python scripts/quality_gate.py`. Missing mypy fails the gate with an install
+instruction; it is not silently skipped. CI uses the same manifest and type gate.
+The rollout currently includes routing, dispatch, the ORC shell, and Games
+contracts, presentation, orchestration, and composition, plus the migrated
+streaming-radio path; its exact scope is in
+`pyproject.toml`.
 
 Many parts of the project can be developed without vehicle hardware. Prefer
 mock, stub, simulation, or unconfigured implementations when working on

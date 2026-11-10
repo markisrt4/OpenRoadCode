@@ -7,9 +7,10 @@ import tkinter as tk
 from collections.abc import Callable
 
 from frontends.tk.media.spotify_services_if import BrowserMediaPlayerIf
+from ui.ui_widget import UiWidget
 
 
-class NetflixPanel(tk.Frame):
+class NetflixPanel(tk.Frame, UiWidget):
     """Car UI controls for direct Netflix URL playback."""
 
     def __init__(
@@ -105,6 +106,7 @@ class NetflixPanel(tk.Frame):
             cursor="hand2",
             padx=20,
             pady=12,
+            highlightthickness=0, bd=0,
         )
 
     def _open(self) -> None:

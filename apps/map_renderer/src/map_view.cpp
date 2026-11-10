@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Mark G. Russell
 // SPDX-License-Identifier: MIT
 #include "map_view.hpp"
+#include "embedded_resize.hpp"
 #include "weather_city_hit.hpp"
 #include "orc_logging.hpp"
 #include "map_renderer_frontend.hpp"
@@ -20,6 +21,7 @@
 #include <X11/Xlib.h>
 #endif
 #include <algorithm>
+#include <chrono>
 #include <cctype>
 #include <cmath>
 #include <cstdlib>
@@ -84,16 +86,50 @@ void logPoiSample(const mbgl::Feature& feature, std::size_t index) {
     }
 }
 #if defined(__linux__)
-void embedInX11Parent(GLFWwindow* window) {
+Window configuredX11Parent() {
     const char* value = std::getenv("OPENROADCODE_MAP_PARENT_WINDOW");
     if (!value || !*value)
-        return;
+        return 0;
     char* end = nullptr;
     const unsigned long parentId = std::strtoul(value, &end, 0);
-    if (end == value || *end != '\0' || parentId == 0) {
-        orc::log("WARNING", "map_renderer.view", "window.parent_invalid", "Invalid X11 parent window configuration");
-        return;
+    return end != value && *end == '\0' ? static_cast<Window>(parentId) : 0;
+}
+std::optional<EmbeddedResizePlan> fitToX11Parent(
+    GLFWwindow* window, EmbeddedSize mapSize = {}, EmbeddedSize framebufferSize = {},
+    bool force = false) {
+    const auto now = std::chrono::steady_clock::now();
+    static auto lastCheck = now - std::chrono::milliseconds(100);
+    if (!force && now - lastCheck < std::chrono::milliseconds(100))
+        return std::nullopt;
+    lastCheck = now;
+    const Window parent = configuredX11Parent();
+    Display* display = glfwGetX11Display();
+    const Window child = glfwGetX11Window(window);
+    if (!display || parent == 0 || child == 0)
+        return std::nullopt;
+    XWindowAttributes attributes{};
+    XWindowAttributes childAttributes{};
+    if (!XGetWindowAttributes(display, parent, &attributes) ||
+        !XGetWindowAttributes(display, child, &childAttributes))
+        return std::nullopt;
+    const auto plan = planEmbeddedResize(
+        {attributes.width, attributes.height},
+        {childAttributes.width, childAttributes.height}, mapSize, framebufferSize);
+    if (!plan)
+        return std::nullopt;
+    if (plan->resizeWindow || childAttributes.x != 0 || childAttributes.y != 0) {
+        // Query and resize the actual native child, independently of GLFW's
+        // ConfigureNotify cache. X11 window and framebuffer sizes are pixels.
+        XMoveResizeWindow(display, child, 0, 0, attributes.width, attributes.height);
+        XSync(display, False);
+        glfwPollEvents();
     }
+    return plan;
+}
+void embedInX11Parent(GLFWwindow* window) {
+    const Window parentId = configuredX11Parent();
+    if (parentId == 0)
+        return;
     Display* display = glfwGetX11Display();
     const Window child = glfwGetX11Window(window);
     if (!display || child == 0) {
@@ -105,12 +141,10 @@ void embedInX11Parent(GLFWwindow* window) {
         orc::log("ERROR", "map_renderer.view", "window.parent_unavailable", "X11 parent window unavailable");
         return;
     }
-    XReparentWindow(display, child, static_cast<Window>(parentId), 0, 0);
-    XResizeWindow(
-        display, child, static_cast<unsigned int>(a.width), static_cast<unsigned int>(a.height));
+    XReparentWindow(display, child, parentId, 0, 0);
     XMapWindow(display, child);
     XFlush(display);
-    glfwSetWindowSize(window, a.width, a.height);
+    fitToX11Parent(window, {}, {}, true);
     {
         std::ostringstream details;
         details << "[map_renderer] embedded in X11 parent " << parentId << " size=" << a.width << 'x'
@@ -235,7 +269,7 @@ void MapView::setShouldClose() {
 }
 void MapView::onWindowResize(GLFWwindow* window, int w, int h) {
     auto* v = static_cast<MapView*>(glfwGetWindowUserPointer(window));
-    if (!v)
+    if (!v || w < 1 || h < 1)
         return;
     v->width = w;
     v->height = h;
@@ -244,7 +278,7 @@ void MapView::onWindowResize(GLFWwindow* window, int w, int h) {
 }
 void MapView::onFramebufferResize(GLFWwindow* window, int w, int h) {
     auto* v = static_cast<MapView*>(glfwGetWindowUserPointer(window));
-    if (!v)
+    if (!v || !v->backend || w < 1 || h < 1)
         return;
     v->backend->setSize({static_cast<uint32_t>(w), static_cast<uint32_t>(h)});
     v->invalidate();
@@ -532,6 +566,25 @@ void MapView::run() {
             return;
         }
         glfwPollEvents();
+#if defined(__linux__)
+        const auto framebuffer = backend->getSize();
+        const auto resize = fitToX11Parent(
+            window, {width, height},
+            {static_cast<int>(framebuffer.width), static_cast<int>(framebuffer.height)});
+        if (resize && (resize->resizeWindow || resize->resizeMap || resize->resizeFramebuffer)) {
+            // Callback delivery is best-effort for a reparented GLFW window.
+            // Reconcile both MapLibre sizes even if the native child already fits.
+            onWindowResize(window, resize->target.width, resize->target.height);
+            onFramebufferResize(window, resize->target.width, resize->target.height);
+            invalidate();
+            std::ostringstream details;
+            details << "parent=" << resize->target.width << 'x' << resize->target.height
+                    << " native_resize=" << resize->resizeWindow
+                    << " map_resize=" << resize->resizeMap
+                    << " framebuffer_resize=" << resize->resizeFramebuffer;
+            orc::log("DEBUG", "map_renderer.view", "window.resize_synced", details.str());
+        }
+#endif
         if (updateCallback)
             updateCallback();
         render();

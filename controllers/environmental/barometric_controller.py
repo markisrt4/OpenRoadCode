@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from common.logging.diagnostics import ComponentLog, diagnostic_action
+
 import math
 import time
 from collections import deque
@@ -54,6 +56,7 @@ class BarometricController(BarometricControllerIf):
                 "vertical_speed_window_size must be at least two"
             )
 
+        self._diagnostics = ComponentLog("environmental.barometric", "sensor")
         self._sensor = sensor
         self._sea_level_pressure_pa = sea_level_pressure_pa
         self._vertical_speed_window_size = vertical_speed_window_size
@@ -104,6 +107,7 @@ class BarometricController(BarometricControllerIf):
         with self._lock:
             return self._latest_state
 
+    @diagnostic_action("start")
     def start(self) -> None:
         """Start the barometric source and reset calculated state."""
 
@@ -113,10 +117,12 @@ class BarometricController(BarometricControllerIf):
 
             self._sensor.connect()
             self._started = True
+            self._diagnostics.changed("lifecycle", "started")
             self._relative_altitude_reference_m = None
             self._altitude_history.clear()
             self._latest_state = None
 
+    @diagnostic_action("stop")
     def stop(self) -> None:
         """Stop the barometric source."""
 
@@ -128,8 +134,10 @@ class BarometricController(BarometricControllerIf):
                 self._sensor.disconnect()
             finally:
                 self._started = False
+                self._diagnostics.changed("lifecycle", "stopped")
                 self._altitude_history.clear()
 
+    @diagnostic_action("read")
     def read_state(self) -> BarometricState:
         """Read the source and calculate barometric state.
 
@@ -172,6 +180,7 @@ class BarometricController(BarometricControllerIf):
             self._latest_state = state
             return state
 
+    @diagnostic_action("reference")
     def set_sea_level_pressure_pa(self, pressure_pa: float) -> None:
         """Set the reference pressure used for absolute altitude.
 
@@ -187,6 +196,7 @@ class BarometricController(BarometricControllerIf):
             self._altitude_history.clear()
             self._latest_state = None
 
+    @diagnostic_action("calibrate")
     def calibrate_altitude(
         self,
         known_altitude_m: float,
@@ -229,6 +239,7 @@ class BarometricController(BarometricControllerIf):
 
             return sea_level_pressure_pa
 
+    @diagnostic_action("reset")
     def reset_relative_altitude(self) -> None:
         """Set the current altitude as the relative-altitude zero point."""
 

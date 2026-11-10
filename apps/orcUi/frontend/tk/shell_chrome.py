@@ -102,6 +102,7 @@ def build_top_bar(
         activeforeground=ui.accent_danger,
         relief=tk.FLAT,
         bd=0,
+        highlightthickness=0,
         width=3,
         font=("Sans", FONT_POWER, "bold"),
         cursor="hand2",

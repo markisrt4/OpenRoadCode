@@ -11,7 +11,9 @@ class UiDispatcherIf(Protocol):
     """Schedule callbacks without exposing a concrete frontend event loop."""
 
     def dispatch_ui(self, callback: Callable[[], None]) -> None:
-        """Arrange for work to run on the frontend thread.
+        """Enqueue work from any thread without calling frontend toolkit functions.
+
+        Closed dispatchers discard submissions; callbacks already running finish.
 
         @param callback Work to invoke on the frontend thread.
         """
@@ -20,7 +22,10 @@ class UiDispatcherIf(Protocol):
     def schedule_ui_callback(
         self, delay_ms: int, callback: Callable[[], None]
     ) -> object:
-        """Run work after a delay and return a cancellation token.
+        """Schedule a timer on the frontend thread and return a cancellation token.
+
+        Call this from the frontend thread only. Worker completions use
+        dispatch_ui(). Closed dispatchers return an inert token.
 
         @param delay_ms Non-negative scheduling delay in milliseconds.
         @param callback Work to invoke after the delay.
@@ -29,7 +34,7 @@ class UiDispatcherIf(Protocol):
         ...
 
     def cancel_ui_callback(self, callback_id: object) -> None:
-        """Cancel a previously scheduled callback when it is still pending.
+        """Cancel pending work from the frontend thread; inert tokens are harmless.
 
         @param callback_id Token returned by schedule_ui_callback().
         """

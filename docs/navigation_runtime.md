@@ -219,3 +219,15 @@ A reboot test is required before treating startup changes as deployment-ready.
 - Startup dependencies must be explicit in systemd rather than relying on timing delays.
 - Service endpoints remain stable and configuration-driven.
 - Runtime services must be independently restartable and observable through journald.
+
+Terrain orientation labels use the installed offline vector map, including local streets at zoom 13 and above. Names accept the same `name:latin` field as the regular map. City labels also read zoom-10 parent tiles when detailed tiles omit them. The toolbar toggle names the view it opens (Terrain from Map, Map from Terrain). Terrain/building packs are selected when the viewer opens; camera movement does not yet switch those packs.
+
+The embedded Terrain watchdog tolerates two consecutive browser polling timeouts; a successful poll resets that budget. Three consecutive timeouts or a confirmed process/X11 failure returns to Map with a logged reason. Browser output is in `cesium-embedded.log`; capture the ORC launcher output too when diagnosing an unexpected fallback.
+
+Terrain street labels appear within 1 km of the camera; distant streets in tilted views stay hidden. City and freeway labels remain eligible farther out. Cesium handles distance visibility directly; no repeated screen-projection or label visibility mutations run after rendering. Road labels are capped at eight per tile, and local streets add labels without extra ground-clamped road geometry. Zooming changes label visibility even when the same vector tiles stay loaded.
+
+The Terrain road/place overlay is temporarily disabled for all viewer launches while investigating repeated Termux:X11 crashes. Its Roads control is disabled. Regular Map labels and installed imagery, terrain and building packs are unchanged. This isolation step does not establish the GPU/X11 crash cause.
+
+For embedded Terrain crash diagnosis, `OPENROAD_CESIUM_RENDERER=software ./runOrcUi` requests Chromium ANGLE SwiftShader WebGL, disables Vulkan and GPU compositing, and leaves the normal launch unchanged. This diagnostic is slower and requires Chromium to ship SwiftShader. It isolates the browser rendering backend, not every native ORC/X11 graphics path; Android process kills and memory pressure still require device evidence.
+
+Embedded Terrain writes flushed JSON stage records to `cesium-stages.log` alongside `cesium-embedded.log`. Records include requested backend/flags, attachment, Chromium browser-target `SystemInfo.getInfo` GPU attributes before navigation (when available), page initialization stages, first-frame readiness and startup failure. Diagnostics create no extra WebGL context and missing diagnostic support does not block launch.

@@ -5,62 +5,60 @@
 
 from __future__ import annotations
 
-import queue
-import threading
+import io
 import tkinter as tk
 from collections.abc import Callable
-from pathlib import Path
 
-from PIL import ImageTk
+from PIL import Image, ImageOps, ImageTk
 
-from controllers.image import ImageCache
-from controllers.spotify.spotify_state_service import SpotifyStateService
+from ui.media.spotify_presentation_if import SpotifyPresentationState, SpotifyVideoRequests, SpotifyRequestHandler
 from ui.media import PlaybackState
 from ui.theme import ThemeBundle
+from ui.ui_widget import UiWidget
 
 GREEN = "#1DB954"
-ART_SIZE = 64
+ART_SIZE = 94
 
 
-class SpotifyNowPlaying(tk.Frame):
+class SpotifyNowPlaying(tk.Frame, UiWidget):
     """Render shared Spotify state and cached artwork without network work in Tk."""
 
     def __init__(
         self,
         parent: tk.Widget,
         *,
-        service: SpotifyStateService,
         on_open: Callable[[], None],
         theme_bundle: Callable[[], ThemeBundle],
         online_allowed: Callable[[], bool] = lambda: True,
+        on_playback_changed: Callable[[bool], None] | None = None,
     ) -> None:
         self._online_allowed = online_allowed
+        self._on_playback_changed = on_playback_changed
+        self._last_playing: bool | None = None
         self._theme_provider = theme_bundle
         self._theme = theme_bundle()
         ui = self._theme.ui
         super().__init__(parent, bg=ui.surface, cursor="hand2")
-        self._service = service
         self._on_open = on_open
         self._closed = False
+        self._requests: SpotifyRequestHandler | None = None
+        self._playing = False
         self._title = tk.StringVar(value="Spotify • YouTube • Netflix")
         self._artist = tk.StringVar(value="Media hub")
         self._status = tk.StringVar(value="")
         self._artwork_uri: str | None = None
         self._artwork_photo: ImageTk.PhotoImage | None = None
-        self._art_results: queue.SimpleQueue[tuple[str, object | None]] = queue.SimpleQueue()
-        cache_dir = Path.home() / ".cache" / "openroadcode" / "spotify-artwork"
-        self._image_cache = ImageCache(max_entries=16, cache_directory=cache_dir)
-
+        self._artwork_payload: bytes | None = None
         self._body = tk.Frame(self, bg=ui.surface)
-        self._body.pack(fill=tk.BOTH, expand=True, padx=10, pady=(7, 8))
+        self._body.pack(fill=tk.BOTH, expand=True, padx=9, pady=(1, 1))
         self._body.grid_columnconfigure(1, weight=1)
         self._body.grid_rowconfigure(0, weight=1)
 
         self._art_host = tk.Frame(self._body, bg=ui.surface)
-        self._art_host.grid(row=0, column=0, sticky="nw", padx=(0, 9))
+        self._art_host.grid(row=0, column=0, sticky="w", padx=(0, 8))
         self._art_label = tk.Label(
             self._art_host, text="♫", fg=GREEN, bg=ui.control_active,
-            font=("Sans", 20, "bold"), width=4, height=2, anchor="center",
+            font=("Sans", 23, "bold"), width=4, height=2, anchor="center",
         )
         self._art_label.pack()
         self._art_loading = tk.Label(
@@ -70,26 +68,62 @@ class SpotifyNowPlaying(tk.Frame):
         self._art_loading.pack(pady=(2, 0))
 
         self._text = tk.Frame(self._body, bg=ui.surface)
-        self._text.grid(row=0, column=1, sticky="new")
+        self._text.grid(row=0, column=1, sticky="ew")
         self._text.grid_columnconfigure(0, weight=1)
         self._title_label = tk.Label(
             self._text, textvariable=self._title, fg=ui.text, bg=ui.surface,
-            font=("Sans", 11, "bold"), anchor="w", justify=tk.LEFT,
+            font=("Sans", 12, "bold"), anchor="w", justify=tk.LEFT,
+            wraplength=128,
         )
         self._title_label.grid(row=0, column=0, sticky="ew", pady=(0, 2))
         self._artist_label = tk.Label(
             self._text, textvariable=self._artist, fg=ui.text_muted, bg=ui.surface,
-            font=("Sans", 8), anchor="w", justify=tk.LEFT,
+            font=("Sans", 9), anchor="w", justify=tk.LEFT,
+            wraplength=128,
         )
         self._artist_label.grid(row=1, column=0, sticky="ew")
+        self._provider = tk.Frame(self._text, bg=ui.surface)
+        self._provider.grid(row=2, column=0, sticky="w", pady=(6, 0))
+        self._spotify_icon = tk.Canvas(self._provider, width=17, height=17,
+                                      bg=ui.surface, highlightthickness=0, bd=0)
+        self._spotify_icon.pack(side=tk.LEFT, padx=(0, 4))
+        self._paint_spotify_icon()
         self._status_label = tk.Label(
-            self._text, textvariable=self._status, fg=GREEN, bg=ui.surface,
-            font=("Sans", 7, "bold"), anchor="w",
+            self._provider, textvariable=self._status, fg=GREEN, bg=ui.surface,
+            font=("Sans", 8, "bold"), anchor="w",
         )
-        self._status_label.grid(row=2, column=0, sticky="ew", pady=(3, 0))
+        self._status_label.pack(side=tk.LEFT)
+        self._provider.grid_remove()
+        self._text.bind("<Configure>", self._resize_text_wrap)
 
+        self._footer = tk.Frame(self, bg=ui.surface)
+        self._footer.pack(side=tk.BOTTOM, fill=tk.X, padx=9, pady=(0, 3))
+        self._footer_text = tk.Label(
+            self._footer, text="OPEN MEDIA ›", bg=ui.surface,
+            fg=ui.accent_primary, font=("Sans", 8, "bold"), anchor="w",
+        )
+        self._footer_text.pack_forget()
+        self._controls = tk.Frame(self._footer, bg=ui.surface)
+        self._controls.pack(side=tk.RIGHT)
+        self._previous = tk.Button(self._controls, text="⏮", command=self._previous_track,
+            font=("Sans", 13, "bold"), width=3, padx=2, pady=5, relief=tk.FLAT, bd=0,
+            bg=ui.control_background, fg=ui.text, activebackground=ui.control_active)
+        self._toggle = tk.Button(self._controls, text="▶", command=self._toggle_playback,
+            font=("Sans", 12, "bold"), width=3, padx=1, pady=3, relief=tk.FLAT, bd=0,
+            bg=GREEN, fg="#ffffff", activebackground=ui.control_active)
+        self._next = tk.Button(self._controls, text="⏭", command=self._next_track,
+            font=("Sans", 12, "bold"), width=3, padx=1, pady=3, relief=tk.FLAT, bd=0,
+            bg=ui.control_background, fg=ui.text, activebackground=ui.control_active)
+        for button in (self._previous, self._toggle, self._next):
+            button.pack(side=tk.LEFT, padx=(2, 0))
+        self._update_controls()
+        self._progress = tk.Canvas(self, height=4, bg=ui.surface,
+                                   highlightthickness=0, bd=0)
+        self._progress.pack(side=tk.BOTTOM, fill=tk.X, expand=False, padx=10, pady=(0, 2))
+        self._progress.pack_forget()
+        self._progress_fraction: float | None = None
+        self._progress.bind("<Configure>", lambda _event: self._paint_progress())
         self._bind_open(self)
-        self._refresh()
 
     def destroy(self) -> None:
         self._closed = True
@@ -107,76 +141,154 @@ class SpotifyNowPlaying(tk.Frame):
         self._title_label.configure(bg=ui.surface, fg=ui.text)
         self._artist_label.configure(bg=ui.surface, fg=ui.text_muted)
         self._status_label.configure(bg=ui.surface, fg=GREEN)
+        self._provider.configure(bg=ui.surface)
+        self._spotify_icon.configure(bg=ui.surface)
+        self._paint_spotify_icon()
+        self._progress.configure(bg=ui.surface)
+        self._footer.configure(bg=ui.surface)
+        self._footer_text.configure(bg=ui.surface, fg=ui.accent_primary)
+        self._controls.configure(bg=ui.surface)
+        for button in (self._previous, self._next):
+            button.configure(bg=ui.control_background, fg=ui.text,
+                             activebackground=ui.control_active)
+        self._toggle.configure(activebackground=ui.control_active)
         if self._artwork_photo is None:
             self._art_label.configure(bg=ui.control_active, fg=GREEN)
 
-    def _bind_open(self, widget: tk.Widget) -> None:
+    def _bind_open(self, widget: tk.Misc) -> None:
         widget.bind("<Button-1>", lambda _event: self._on_open())
         for child in widget.winfo_children():
+            if child is self._controls:
+                continue
             self._bind_open(child)
 
-    def _refresh(self) -> None:
+    def _paint_spotify_icon(self) -> None:
+        """Draw the familiar Spotify three-arc mark without image assets."""
+        import math
+
+        canvas = self._spotify_icon
+        canvas.delete("all")
+        canvas.create_oval(0, 0, 16, 16, fill=GREEN, outline="")
+        for radius, offset in ((11.5, 0), (9.5, 2), (7.5, 4)):
+            points: list[float] = []
+            for index in range(17):
+                angle = math.radians(215 + index * 7.2)
+                points.extend((8 + radius * 0.5 * math.cos(angle),
+                               9 + offset * 0.3 + radius * 0.31 * math.sin(angle)))
+            canvas.create_line(points, fill="#10271b", width=1.4,
+                               smooth=True, capstyle=tk.ROUND)
+
+    def _resize_text_wrap(self, event: tk.Event) -> None:
+        available = max(64, event.width - 4)
+        self._title_label.configure(wraplength=available)
+        self._artist_label.configure(wraplength=available)
+
+    def _paint_progress(self) -> None:
+        self._progress.delete("all")
+        width = self._progress.winfo_width()
+        if width <= 1:
+            return
+        self._progress.create_rectangle(0, 0, width, 5, fill=self._theme.ui.border, outline="")
+        if self._progress_fraction is not None:
+            self._progress.create_rectangle(
+                0, 0, width * self._progress_fraction, 5, fill=GREEN, outline="",
+            )
+
+    def _update_controls(self) -> None:
+        # Presentation deactivation can run from Tk <Destroy>, after child buttons
+        # have already been removed by Tk. Never configure destroyed widgets.
+        if self._closed or not self.winfo_exists():
+            return
+        enabled = self._requests is not None and self._online_allowed()
+        for button in (self._previous, self._toggle, self._next):
+            if button.winfo_exists():
+                button.configure(state=tk.NORMAL if enabled else tk.DISABLED)
+        if self._toggle.winfo_exists():
+            self._toggle.configure(text="Ⅱ" if self._playing else "▶")
+
+    def _previous_track(self) -> None:
+        if self._requests is not None:
+            self._requests.request_previous_track()
+
+    def _toggle_playback(self) -> None:
+        if self._requests is not None:
+            if self._playing:
+                self._requests.request_pause()
+            else:
+                self._requests.request_play()
+
+    def _next_track(self) -> None:
+        if self._requests is not None:
+            self._requests.request_next_track()
+
+    def set_spotify_request_handler(self, handler: SpotifyRequestHandler | None) -> None:
+        self._requests = handler
+        self._update_controls()
+
+    def set_video_request_handler(self, handler: SpotifyVideoRequests | None) -> None:
+        """Home summary has no video controls."""
+
+    def set_spotify_state(self, presentation: SpotifyPresentationState) -> None:
         if self._closed:
             return
         current_theme = self._theme_provider()
         if current_theme != self._theme:
             self.set_theme_bundle(current_theme)
-        self.configure(cursor="hand2" if self._online_allowed() else "arrow")
-        self._apply_artwork_result()
-        state = self._service.latest_state()
-        if not self._online_allowed():
+        state = presentation.media
+        playing = presentation.online and state.playback is PlaybackState.PLAYING
+        self._playing = playing
+        self._update_controls()
+        if playing != self._last_playing:
+            self._last_playing = playing
+            if self._on_playback_changed is not None:
+                self._on_playback_changed(playing)
+        self._progress_fraction = (
+            max(0.0, min(1.0, state.position_s / state.duration_s))
+            if state.position_s is not None and state.duration_s is not None
+            and state.duration_s > 0 else None
+        )
+        if self._progress_fraction is None:
+            self._progress.pack_forget()
+        elif not self._progress.winfo_manager():
+            self._progress.pack(side=tk.BOTTOM, fill=tk.X, expand=False, padx=10, pady=(0, 2))
+        self._paint_progress()
+        self.configure(cursor="hand2" if presentation.online else "arrow")
+        if not presentation.online:
             self._title.set("Streaming media unavailable")
             self._artist.set("Offline mode")
             self._status.set("")
-            self.configure(cursor="arrow")
+            self._provider.grid_remove()
             self._show_artwork_placeholder()
-        elif state.playback is PlaybackState.PLAYING and state.title:
+        elif state.playback in (PlaybackState.PLAYING, PlaybackState.PAUSED) and state.title:
             self._title.set(state.title)
-            self._artist.set(state.artist or "")
-            self._status.set("Spotify • Playing")
-            if state.artwork_uri and state.artwork_uri != self._artwork_uri:
-                self._load_artwork(state.artwork_uri)
+            artist = state.artist or ""
+            self._artist.set(artist)
+            self._status.set("Spotify · Playing" if playing else "Spotify · Paused")
+            self._provider.grid()
+            self._art_loading.configure(text="LOADING" if presentation.artwork_loading else "")
+            if presentation.artwork != self._artwork_payload:
+                self._artwork_payload = presentation.artwork
+                self._artwork_photo = None
+                self._art_label.configure(image="", text="♫", width=4, height=2)
+                if presentation.artwork:
+                    try:
+                        with Image.open(io.BytesIO(presentation.artwork)) as source:
+                            image = ImageOps.fit(source, (ART_SIZE, ART_SIZE))
+                            try:
+                                self._artwork_photo = ImageTk.PhotoImage(image)
+                            finally:
+                                image.close()
+                        self._art_label.configure(image=self._artwork_photo, text="", width=ART_SIZE, height=ART_SIZE)
+                    except (OSError, ValueError):
+                        pass
         else:
             self._title.set("Spotify • YouTube • Netflix")
             self._artist.set("Media hub")
             self._status.set("")
             self._show_artwork_placeholder()
-        self.after(500, self._refresh)
-
-    def _load_artwork(self, uri: str) -> None:
-        if not self._online_allowed():
-            return
-        self._artwork_uri = uri
-        self._artwork_photo = None
-        self._art_label.configure(image="", text="♫", width=4, height=2)
-        self._art_loading.configure(text="LOADING")
-
-        def worker() -> None:
-            try:
-                image = (self._image_cache.get(uri, width=ART_SIZE, height=ART_SIZE)
-                         if self._online_allowed() else None)
-            except Exception:
-                image = None
-            self._art_results.put((uri, image))
-
-        threading.Thread(target=worker, name="orcui-home-artwork", daemon=True).start()
-
-    def _apply_artwork_result(self) -> None:
-        while True:
-            try:
-                uri, image = self._art_results.get_nowait()
-            except queue.Empty:
-                return
-            if uri != self._artwork_uri:
-                continue
-            self._art_loading.configure(text="")
-            if image is None:
-                continue
-            self._artwork_photo = ImageTk.PhotoImage(image)
-            self._art_label.configure(image=self._artwork_photo, text="", width=ART_SIZE, height=ART_SIZE)
 
     def _show_artwork_placeholder(self) -> None:
-        self._artwork_uri = None
+        self._artwork_payload = None
         self._artwork_photo = None
         self._art_loading.configure(text="")
         self._art_label.configure(image="", text="♫", width=4, height=2)

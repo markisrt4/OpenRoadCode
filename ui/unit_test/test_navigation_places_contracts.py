@@ -38,7 +38,8 @@ def test_hide_and_close_release_session_once():
 def test_invalid_panel_binding_fails_before_tk_initialization():
     from apps.orcUi.frontend.tk.navigation_panel import NavigationPanel
     with pytest.raises(TypeError, match='NavigationPlacesRequestHandlerIf'):
-        NavigationPanel(Mock(), map_request_handler=Mock(), places_handler=object())
+        NavigationPanel(Mock(), map_request_handler=Mock(), places_handler=object(),
+                        drawer_handler=Mock())
 
 
 def test_invalid_factory_result_is_rejected_before_panel_construction():

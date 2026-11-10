@@ -1,5 +1,21 @@
 # Repository instructions
 
+## ORC's Law: Inspect, Reuse, Extend
+
+**Before writing new code, understand what OpenRoadCode already provides.**
+
+1. **Inspect first.** Search existing modules, interfaces, controllers, adapters, schedulers, tests, and documentation before proposing new implementations.
+2. **Reuse what works.** Prefer existing abstractions and infrastructure over parallel implementations.
+3. **Extend before replacing.** When existing functionality is incomplete, extend it while preserving established contracts and behavior.
+4. **Respect architectural boundaries.** Keep hardware access, protocols, business logic, and presentation properly separated.
+5. **Avoid duplication.** Do not introduce competing schedulers, transports, parsers, managers, or services without demonstrating why the existing implementations are insufficient.
+6. **Preserve working behavior.** New capabilities must not silently disrupt existing features or performance characteristics.
+7. **Verify before declaring success.** Use appropriate tests and CI, following the repository's execution and cost policies.
+
+**Enforcement:** Before implementing a feature, identify the existing components reviewed, explain what can be reused, and justify any genuinely new abstraction.
+
+*ORC's Law: Inspect what exists. Reuse what works. Extend what's missing. Don't reinvent the wheel.*
+
 ## UI contracts are part of completing a feature
 
 - Before wiring new UI behavior, define or extend toolkit-independent state and
@@ -8,6 +24,12 @@
 - Widgets implement presentation contracts and emit requests through handler
   contracts. Do not call concrete controllers, providers, service clients, or
   transports from widgets. Do not inspect their private state.
+- New presentation widgets inherit `ui.UiWidget`, directly or through
+  `ScreenUiIf`/`TkScreen`. This toolkit-independent marker signals the same policy;
+  it adds no lifecycle or dependency injection machinery. Widgets consume supplied
+  contracts; composition constructs and wires concrete dependencies. Concrete
+  rendering may use its frontend toolkit, while shared state and request contracts
+  remain toolkit-independent.
 - Controllers own business logic, workers, caching, retry, playback, and stale
   callback handling. Controllers must not import GUI frameworks or frontends.
 - Composition roots construct dependencies, bind contracts, and own cleanup.
@@ -16,9 +38,14 @@
 - Add meaningful contract and behavior tests alongside the feature, including
   hide/close and stale completion behavior when asynchronous work is involved.
   Update the affected documentation in the same change.
-- Run `python scripts/quality_gate.py` before declaring a feature complete. It
-  includes automatic project-wide dependency checks and stricter weather checks.
-  New frontend files are discovered automatically.
+- During branch development, run tests and static checks relevant to the changed
+  code and affected contracts. Do not rerun the full quality gate for every fix
+  or feature batch. The user runs `python scripts/quality_gate.py` locally at the
+  end of branch development, before the branch is declared ready to merge. Do not
+  run the full gate or broad test suites unless the user explicitly asks. The
+  gate includes automatic project-wide dependency checks and stricter weather
+  checks; new frontend files are discovered automatically. Report focused checks
+  separately and mark full validation pending until the user supplies results.
 - `scripts/ui_boundary_exceptions.json` records exact pre-existing dependencies,
   not permission for new ones. Do not regenerate, expand, or add exceptions merely
   to make CI pass. Fix new violations. When removing old dependencies, shrink the
@@ -33,8 +60,37 @@
 
 Use the existing checkout in the task environment; do not create a worktree unless
 requested. Preserve unrelated user changes. Use the repository-supported setup
-and test commands. For device instructions, switch to the intended branch before
-pulling or testing.
+and test commands. Whenever providing repository command-line instructions to the
+user, always begin with `git switch <branch_name>`, replacing `<branch_name>` with
+the actual intended branch. Include this command even if the user is already on
+that branch, and place it before pulling, installing, running, or testing.
+When providing instructions to launch ORC UI, use `./runOrcUi` rather than
+`python -m apps.orcUi` so the repository launcher handles startup setup.
+
+## Keep agent usage economical
+
+- Keep responses and progress updates brief. Summarize results instead of dumping
+  logs, and read only the files and output needed for the task.
+- Use focused checks when necessary to resolve a specific uncertainty or failure.
+  Avoid repeating passing checks unless subsequent changes affect their coverage.
+  For documentation-only changes, review the diff; do not run test suites.
+- Continue adding meaningful tests for behavior changes, but leave their broad
+  execution and the full quality gate to the user. Clearly distinguish checks
+  actually run from checks still pending; never claim unrun tests passed.
+- Provide the exact local validation command and any necessary device steps at
+  handoff. When diagnosing user-run failures, request the failing check and relevant
+  error excerpt rather than the entire log.
+- Resolve material UI and workflow choices before substantial implementation.
+  Apply routine fixes autonomously within the agreed scope.
+
+## Termux device commands
+
+- Begin user-facing command blocks with `git switch <branch_name>`, using the actual intended branch.
+- Use Termux's `$TMPDIR` for temporary files; do not assume `/tmp` exists.
+- When asking the user to paste diagnostic output, provide a command that copies
+  the relevant output with `termux-clipboard-set`. Keep clipboard output focused
+  on the requested evidence. Use `termux-clipboard-get` when reading clipboard
+  content is needed.
 
 ## Discuss major changes before implementation
 
@@ -45,3 +101,46 @@ Explain the proposed scope and consequences first, then wait for the user's
 answer. Do not treat an unanswered preference question as authorization. Routine
 fixes within an agreed scope can proceed. Apply this preference in every Codex
 session working on this repository.
+
+## Confirm branch creation with the user
+
+- Before creating or switching to a new working branch for a task, ask the user
+  whether to open a new branch or continue on the current branch. Recommend a
+  descriptive branch name when a new branch would be appropriate.
+- Wait for explicit user approval before creating the branch. Do not treat a
+  general request to implement a feature as automatic permission to branch.
+- If the user chooses the existing branch, respect that choice and verify the
+  active branch before making changes. Never silently modify `master`.
+- This approval is separate from any required discussion of major changes.
+
+## Keep Linear feature issues current
+
+- For meaningful progress on a feature branch, find its corresponding Linear issue
+  and update the existing issue rather than creating a duplicate. Use the
+  repository-and-branch reference and linked PR to identify the issue; if no
+  confident match exists, report that instead of guessing.
+- Update Linear at substantial milestones: completed implementation slices,
+  significant design decisions, newly discovered blockers, validation results,
+  or material changes in scope. Do not post an update for every minor commit.
+- Maintain the issue's implementation checklist as the work evolves. Check off
+  items only when completed and supported by actual work or test evidence; add
+  newly discovered tasks without discarding prior context or history.
+- Distinguish tests actually run from tests pending or failing. Include concise
+  commit or PR references when useful, and preserve outstanding verification
+  steps in the issue.
+- Never mark an issue Done just because code was pushed or a PR was merged.
+  Leave final completion to explicit verification and user approval.
+- If Linear access is unavailable, report the pending update at handoff; do not
+  claim the issue was updated or block code progress solely on tracking.
+
+## Codex execution and CI cost policy
+
+- Do **not** run tests, lint, type checks, builds, quality gates, benchmarks, or validation scripts in the Codex cloud VM by default. This includes indirect invocations via Make, Gradle, npm, shell scripts, pre-commit hooks, or other wrappers.
+- Write and update meaningful tests alongside code changes, but delegate their execution to GitHub Actions. For device-dependent verification, give the user exact commands for their Linux, Raspberry Pi, or Android/Termux environment.
+- Read GitHub Actions logs, statuses, and downloadable reports to diagnose failures. Make targeted fixes and push them for CI to rerun. Do not rerun tests in the agent VM simply because CI fails.
+- Do not execute tests locally even when an existing repository instruction says to run focused checks. This section overrides such instructions for Codex cloud sessions. Static review of source and diffs without running validation tools is allowed.
+- Only run a check in the Codex VM if the user **explicitly authorizes that specific execution**. General requests such as 'fix it', 'verify', or 'make sure it works' are not authorization to consume Codex cloud execution for tests.
+- Clearly report which checks CI actually ran, which checks are pending, and which require physical hardware. Never imply unexecuted tests passed.
+- Do not install dependencies in the Codex VM solely to run checks, tests, builds, or other validation. Dependency installation needed for actual implementation must be justified separately.
+- Prefer concise CI failure summaries, JUnit XML artifacts, and the failing job's relevant log excerpt over reading entire workflow logs repeatedly.
+- Request or inspect the GitHub Actions result for the exact commit before declaring verification complete. Use the workflow's manually dispatched full gate before merge where configured; do not claim the full gate ran just because fast CI passed.

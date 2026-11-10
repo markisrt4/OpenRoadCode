@@ -6,8 +6,63 @@
 from __future__ import annotations
 
 import tkinter as tk
+import math
 
 from ui.theme import ThemeBundle
+
+
+def draw_source_scene(canvas: tk.Canvas, *, icon_kind: str, accent: str,
+                      theme: ThemeBundle, width: int, height: int) -> None:
+    """Illustrate RF reception or internet stations without live telemetry."""
+    canvas.delete("all")
+    if width < 2 or height < 2:
+        return
+    ui = theme.ui
+    base = canvas.winfo_rgb(ui.surface)
+    tint = canvas.winfo_rgb(accent)
+    for index in range(32):
+        amount = 0.22 * (1 - index / 31)
+        color = "#" + "".join(f"{round((a + (b - a) * amount) / 257):02x}"
+                              for a, b in zip(base, tint))
+        canvas.create_rectangle(width * index / 32, 0,
+                                width * (index + 1) / 32 + 1, height,
+                                fill=color, outline="")
+    sx, sy = width / 360, height / 96
+
+    def line(points, **kwargs):
+        canvas.create_line(*(value * (sx if index % 2 == 0 else sy)
+                             for index, value in enumerate(points)), **kwargs)
+
+    if icon_kind == "rf":
+        line((35, 69, 48, 28, 61, 69, 35, 69), fill=ui.text, width=2)
+        line((41, 51, 55, 51, 38, 61, 58, 61), fill=ui.text_muted, width=1)
+        for radius in (13, 23, 33):
+            canvas.create_arc((48 - radius) * sx, (28 - radius) * sy,
+                              (48 + radius) * sx, (28 + radius) * sy,
+                              start=25, extent=130, style=tk.ARC,
+                              outline=accent, width=2)
+        points = []
+        for index in range(100):
+            x = 102 + index * 2.35
+            envelope = math.exp(-((index - 48) / 26) ** 2)
+            y = 45 + math.sin(index * 0.6) * 23 * envelope
+            points.extend((x, y))
+        line(points, fill=accent, width=2, smooth=True)
+        caption = "AIRWAVES  ›  SDR  ›  AUDIO"
+    else:
+        canvas.create_oval(22 * sx, 12 * sy, 74 * sx, 64 * sy,
+                           outline=accent, width=2)
+        canvas.create_oval(36 * sx, 12 * sy, 60 * sx, 64 * sy,
+                           outline=ui.text_muted, width=1)
+        line((22, 38, 74, 38), fill=ui.text_muted, width=1)
+        for x, y in ((150, 24), (216, 48), (300, 22), (319, 60)):
+            line((78, 38, x, y), fill=ui.border, width=2)
+            canvas.create_oval((x - 6) * sx, (y - 6) * sy,
+                               (x + 6) * sx, (y + 6) * sy,
+                               fill=accent, outline="")
+        caption = "INTERNET  ›  STATION  ›  AUDIO"
+    canvas.create_text(12 * sx, 83 * sy, text=caption, anchor="w",
+                       fill=ui.text_muted, font=("Sans", 9, "bold"))
 
 
 def draw_source_icon(

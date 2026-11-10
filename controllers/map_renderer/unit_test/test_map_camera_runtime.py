@@ -17,6 +17,7 @@ from ui.navigation import GeoPoint
 def _camera_runtime():
     runtime = _runtime_for_filter()
     runtime._renderer_client = Mock()
+    runtime._position_observers = []
     runtime._current_position = GeoPoint(0.0, 0.0)
     runtime._course_reference = runtime._current_position
     runtime._motion_course_available = False
@@ -35,7 +36,7 @@ def _motion(speed, course=None, *, cached=False):
 
 def _position(latitude, longitude):
     return SimpleNamespace(data=SimpleNamespace(
-        latitude_rad=latitude, longitude_rad=longitude, altitude_m=None,
+        latitude_rad=latitude, longitude_rad=longitude, altitude_m=None, fix_mode=3, is_cached=False,
     ))
 
 
@@ -141,3 +142,16 @@ def test_renderer_restart_does_not_invent_missing_vehicle_position():
     runtime._current_position = None
     runtime.refresh_renderer_position()
     runtime._renderer_client.set_position.assert_not_called()
+
+
+@pytest.mark.parametrize('cached,fix_mode,latitude', [(False,3,.7),(True,3,.7),(False,1,.7),(False,3,None)])
+def test_live_position_observer_excludes_cached_or_missing_fixes(cached,fix_mode,latitude):
+    runtime = _camera_runtime()
+    observer = Mock()
+    runtime.observe_position(observer)
+    message = _position(latitude,-1.4)
+    message.data.is_cached = cached
+    message.data.fix_mode = fix_mode
+    runtime._on_position_message(message)
+    expected = GeoPoint(.7,-1.4) if not cached and fix_mode == 3 and latitude is not None else None
+    observer.assert_called_once_with(expected)

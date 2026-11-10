@@ -4,6 +4,7 @@
 """City weather must stay separate from radar and reject obsolete viewport results."""
 
 from unittest.mock import Mock
+from unittest.mock import patch
 
 from common.units.unit_system import UnitSystem
 from controllers.weather.city_weather import CityWeatherHours, WeatherCity
@@ -32,6 +33,19 @@ def component():
 def weather():
     return (CityWeatherHours(CITY, tuple(ANCHOR + h * 3600 for h in range(-24, 25)),
                              (0,) * 49, (16.09344,) * 49, (25.4,) * 49),)
+
+
+def test_city_query_timeout_reports_transport_failure_and_retries():
+    ui = component()
+    ui.enabled = True
+    ui._pending_id = 1
+    ui._last_query = 0
+    with patch('controllers.weather.city_weather_overlay_controller.monotonic', return_value=11):
+        ui._poll(ui._poll_generation)
+    assert 'check the map renderer and message bus' in ui.status
+    assert 'rebuild' not in ui.status
+    ui.native.search_weather_cities.assert_called_once()
+    ui._host.schedule_ui_callback.assert_called_once()
 
 
 def test_label_field_and_units_change_locally_without_resetting_radar_route_or_camera():

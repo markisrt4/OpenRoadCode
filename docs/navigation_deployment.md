@@ -246,3 +246,77 @@ If a data promotion causes Valhalla to fail, `pull_navigation_data.sh` attempts 
 - Do not let map-data synchronization overwrite vehicle-local configuration.
 - Treat `build-manifest.json` as the deployment identity and validation boundary.
 - Preserve runtime-generated route/debug data across map updates.
+# Runtime style ownership and city-weather diagnostics
+
+The native dataset publisher repairs ownership of
+`/srv/openroadcode/maps/styles/openroadcode.json` after rsync. ORC rewrites this
+file to apply its theme, so the runtime account needs write access. Local
+publication defaults to the invoking account (or `SUDO_USER`); remote publication
+uses the SSH login account. `OPENROADCODE_RUNTIME_USER` overrides the account
+on the machine performing the repair. The remaining map dataset does not need
+to be writable by ORC.
+
+If a previously installed style is still read-only, ORC logs the repair command
+and retains that style instead of crashing during theme setup. The map theme
+cannot change until permissions are repaired.
+
+A city-weather query timeout means Python received no matching
+`map.weather.cities` reply within ten seconds. It does not detect a renderer
+version. Check that the native renderer and message bus are running and that
+their endpoints match the UI configuration. If the installed native executable
+predates `search_weather_cities`, rebuild/install it; pulling Python source alone
+does not update `/opt/openroadcode/navigation/bin/openroadcode-map-renderer`.
+
+## Desktop host location fallback
+
+Desktop Linux navigation services offer browser geolocation alongside device
+GPS. Eligibility checks the actual runtime and Pi hardware model, rather than
+the saved install/build target: a desktop configured to build for `rpi5` still
+offers the listener. In ORC, open **Settings → Share host location** to launch
+the permission page using your default browser, including Firefox. Settings
+checks the local service first and reports a stopped service or browser-launch
+failure without blocking the UI. Browser permission remains a browser prompt;
+ORC does not grant it or assume that opening the page means location is shared.
+Leaving Settings cancels pending checks and stale UI completions. The page is
+an ordinary browser tab and stays open when you return to ORC.
+
+Alternatively, open
+<http://localhost:8765/> **on the computer running the navigation service**, click
+**Share host location**, and allow the browser's location permission. The page
+shows reported accuracy and must remain open. It does not request location until
+you click Share. Stop sharing or closing the page stops further browser updates;
+it does not erase the map's last known position.
+
+The service prefers valid, uncached bridge/GPS fixes received within the last
+ten seconds. When those stop, fresh browser reports can take over. A new bridge
+fix immediately regains priority. Browser location retains its `browser` source
+and accuracy; it provides position only, not vehicle motion or inertial data.
+Host/browser location can be approximate, require Internet access, or be
+unavailable; permission alone does not guarantee a fix. No IP-location provider
+or paid API is added by ORC. The browser may use its own location service.
+
+Update and restart an installed desktop navigation service:
+
+```bash
+git switch navigation-cesium
+git pull --ff-only
+sudo systemctl restart openroadcode-navigation.service
+```
+
+For a foreground navigation service instead, stop the installed service first
+to avoid duplicate publishers/listeners, then run:
+
+```bash
+git switch navigation-cesium
+bash scripts/runtime/start_navigation_service.sh --profile local
+```
+
+The permission page prints its URL at startup. `OPENROADCODE_BROWSER_POSITION_PORT`
+can change the default port; the listener is bound to loopback. An occupied port
+logs a warning and does not disable working bridge/GPS input. Termux and vehicle
+Pi hardware keep their existing device sources. On Termux, Settings disables
+browser sharing and explains that location uses the Android sensor bridge.
+The parser also accepts explicit
+`services.navigation.inputs.gps.source = "browser"` for compositions that do not
+apply a device-source profile overlay. Route playback remains separate and
+continues to suppress both live sources until simulation ends.

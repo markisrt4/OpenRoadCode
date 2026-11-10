@@ -23,7 +23,7 @@ if [[ ! -d "$DATA_ROOT/maps" ]]; then
   exit 0
 fi
 
-RUNTIME_USER="${SUDO_USER:-${USER:-$(id -un)}}"
+RUNTIME_USER="${OPENROADCODE_RUNTIME_USER:-${SUDO_USER:-$(id -un)}}"
 RUNTIME_GROUP="$(id -gn "$RUNTIME_USER")"
 
 # Keep the complete style path traversable by the non-root ORC runtime user.

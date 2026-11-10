@@ -22,9 +22,10 @@ from ui.automotive.engine_analysis import (EngineAnalysis, EngineLoadLevel, Engi
 from ui.automotive.vehicle_configuration import (VehicleConfiguration)
 from frontends.tk.automotive import OffroadDashboardPanel
 from ui.theme import ThemeBundle, ThemeMode
+from ui.ui_widget import UiWidget
 
 
-class VehiclePanel(tk.Frame):
+class VehiclePanel(tk.Frame, UiWidget):
     """ORC driving dashboard backed by reusable automotive instruments."""
 
     _TABS = ("PERFORMANCE", "HEALTH", "ECU", "OFF-ROAD", "TRIP")
@@ -100,6 +101,7 @@ class VehiclePanel(tk.Frame):
                 bd=0,
                 font=("Sans", 9, "bold"),
                 pady=5,
+                highlightthickness=0,
             )
             button.grid(row=0, column=column, sticky="ew", padx=(0, 4))
             self._view_buttons[name] = button

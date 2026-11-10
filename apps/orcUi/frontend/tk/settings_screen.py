@@ -14,6 +14,7 @@ from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from ui.screen_ui_if import ScreenId
 from ui.theme import ThemeBundle
+from ui.navigation.host_location_ui_if import HostLocationRequestHandlerIf, HostLocationState
 
 from .screen_builders import build_settings_screen
 
@@ -36,6 +37,8 @@ class SettingsScreen(TkScreen):
         unit_system: Callable[[], UnitSystem],
         on_unit_system_changed: Callable[[UnitSystem], None],
         on_back: Callable[[], None],
+        performance_overlay_enabled: Callable[[], bool] | None = None,
+        on_performance_overlay_changed: Callable[[bool], None] | None = None,
     ) -> None:
         super().__init__(self.SCREEN_ID)
         self._host = host
@@ -46,6 +49,24 @@ class SettingsScreen(TkScreen):
         self._unit_system = unit_system
         self._on_unit_system_changed = on_unit_system_changed
         self._on_back = on_back
+        self._performance_overlay_enabled = performance_overlay_enabled
+        self._on_performance_overlay_changed = on_performance_overlay_changed
+        self._host_location_handler: HostLocationRequestHandlerIf | None = None
+        self._host_location_state = HostLocationState()
+        self._panel = None
+
+    def set_host_location_request_handler(self, handler: HostLocationRequestHandlerIf) -> None:
+        self._host_location_handler = handler
+
+    def set_host_location_state(self, state: HostLocationState) -> None:
+        self._host_location_state = state
+        if self._panel is not None:
+            self._panel.set_host_location_state(state)
+
+    def hide(self) -> None:
+        self._panel = None
+        if self._host_location_handler is not None:
+            self._host_location_handler.hide()
 
     def set_theme_mode(self, _mode: object) -> None:
         """Rebuild active Settings content using the host's current theme."""
@@ -59,7 +80,10 @@ class SettingsScreen(TkScreen):
         if self._telemetry_profile_request is not None:
             self._telemetry_profile_request(AutomotiveTelemetryProfile.BACKGROUND)
 
-        build_settings_screen(
+        self._panel = None
+        if self._host_location_handler is not None:
+            self._host_location_handler.show()
+        self._panel = build_settings_screen(
             self._host.screen_parent,
             vehicle_configuration=self._vehicle_configuration(),
             on_vehicle_configuration_changed=self._on_vehicle_configuration_changed,
@@ -67,4 +91,8 @@ class SettingsScreen(TkScreen):
             on_unit_system_changed=self._on_unit_system_changed,
             on_back=self._on_back,
             theme=self._theme_bundle(),
+            host_location_handler=self._host_location_handler,
+            host_location_state=self._host_location_state,
+            performance_overlay_enabled=self._performance_overlay_enabled,
+            on_performance_overlay_changed=self._on_performance_overlay_changed,
         )

@@ -9,6 +9,9 @@ import json
 import os
 import shutil
 import subprocess
+import threading
+import logging
+from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 from pathlib import Path
 
 from apps.launchers.adsb_launcher import ADSBLauncher
@@ -38,19 +41,38 @@ class OrcUiAdsbControl:
 
     def __init__(self, launcher: ADSBLauncher | None = None) -> None:
         self._simulation_tracking = False
+        self._stop_thread = None
         if launcher is not None:
             self._launcher = launcher
             return
         applications = ApplicationsConfigParser(_applications_path()).load()
         config = applications.app("adsb")
+        url = config.url or "http://127.0.0.1/tar1090"
+        parts = urlsplit(url)
+        query = dict(parse_qsl(parts.query))
+        query.setdefault("sidebarWidth", "25%")
+        if _is_termux():
+            query.setdefault("baseMap", "osm")
+            query.setdefault("nowebgl", "1")
         self._launcher = ADSBLauncher(
-            url=config.url or "http://127.0.0.1/tar1090",
+            url=urlunsplit(parts._replace(query=urlencode(query))),
             data_source=config.adsb_data_source.value if config.adsb_data_source is not None else "rtlsdr",
         )
+        if _is_termux():
+            # Reparented GPU surfaces have rendered corrupt blocks on Termux:X11.
+            self._launcher.browser.extra_arguments += (
+                "--use-gl=angle", "--use-angle=swiftshader",
+                "--enable-unsafe-swiftshader", "--disable-gpu-compositing",
+                "--ozone-platform=x11",
+            )
 
     @property
     def running(self) -> bool:
         return self._launcher.is_running()
+
+    @property
+    def simulation(self) -> bool:
+        return self._launcher.data_source == "simulation"
 
     @property
     def tracking(self) -> bool:
@@ -92,7 +114,13 @@ class OrcUiAdsbControl:
                 if not acquired:
                     return False
             from apps.launchers.adsb_launcher import _set_systemd_service_state
-            _set_systemd_service_state(self._launcher.readsb_service, "start")
+            if not _set_systemd_service_state(self._launcher.readsb_service, "start"):
+                if self._launcher.resource_manager is not None:
+                    self._launcher.resource_manager.release(self._launcher.owner_name)
+                raise RuntimeError(
+                    f"systemd unit {self._launcher.readsb_service}.service is unavailable "
+                    "or cannot be started without interactive authorization"
+                )
             return self.tracking
         from apps.launchers.adsb_launcher import _set_systemd_service_state
         _set_systemd_service_state(self._launcher.readsb_service, "stop")
@@ -117,11 +145,22 @@ class OrcUiAdsbControl:
         self._launcher.configure_browser_window(position=position, size=size)
 
     def launch(self, display: str) -> None:
+        if self._stop_thread is not None and self._stop_thread.is_alive():
+            raise RuntimeError("ADS-B dashboard is still closing; try again shortly")
         self._launcher.launch(display)
         if self._launcher.data_source != "rtlsdr":
             self._simulation_tracking = True
 
     def stop(self, display: str) -> None:
-        self._launcher.stop(display)
-        if self._launcher.data_source != "rtlsdr":
-            self._simulation_tracking = False
+        """Close browser/service resources without waiting on the Tk thread."""
+        if self._stop_thread is not None and self._stop_thread.is_alive():
+            return
+        self._simulation_tracking = False
+        def close():
+            try:
+                self._launcher.stop(display)
+            except (OSError, RuntimeError, ValueError):
+                logging.getLogger(__name__).exception("ADS-B cleanup failed")
+        # A non-daemon worker finishes cleanup even if ORC exits immediately.
+        self._stop_thread = threading.Thread(target=close, name="adsb-close", daemon=False)
+        self._stop_thread.start()

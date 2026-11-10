@@ -11,8 +11,10 @@ from ui.ui_action import UiAction
 from ui.ui_dispatcher_if import UiDispatcherIf
 from ui.ui_event_handler_if import UiEventHandlerIf
 from ui.ui_if import UiIf
+from ui.ui_widget import UiWidget
 
 __all__ = [
+    "UiWidget",
     "IconId",
     "ScreenId",
     "ScreenNavigatorIf",

@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from common.logging.diagnostics import ComponentLog, diagnostic_action
+
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +15,7 @@ class YoloModelReadiness:
     """Ensure the configured Ultralytics model is available locally."""
 
     def __init__(self, model_name: str = "yolo11n.pt") -> None:
+        self._diagnostics = ComponentLog("vision.model", "vision")
         self._model_name = model_name
         self._model: Any | None = None
 
@@ -26,6 +29,7 @@ class YoloModelReadiness:
             raise RuntimeError("YOLO model has not been prepared")
         return self._model
 
+    @diagnostic_action("model_load")
     def prepare(self) -> Any:
         """Load the model now, triggering any first-run download before Tk starts."""
         if self._model is not None:
@@ -43,6 +47,7 @@ class YoloModelReadiness:
         # them when missing. Doing that here keeps network/disk work out of the
         # Tk callback that activates VISION.
         self._model = YOLO(self._model_name)
+        self._diagnostics.changed("model", "ready")
         return self._model
 
     def local_file_exists(self) -> bool:

@@ -125,7 +125,7 @@ class _Worker:
         self.stops += 1
 
 
-def _controller(camera, worker=None):
+def _controller(camera, worker=None, *, prepare_model=None):
     dispatcher, ui, controls = _Dispatcher(), _Ui(), _Controls()
     controller = VisionController(
         dispatcher,
@@ -135,6 +135,7 @@ def _controller(camera, worker=None):
         CameraFrameProcessor(CameraMode.DAY),
         worker or _Worker(),
         source_label="test-camera",
+        prepare_model=prepare_model,
     )
     return controller, dispatcher, ui, controls
 
@@ -157,6 +158,31 @@ def test_hide_invalidates_queued_active_state_and_releases_camera() -> None:
     assert all(state.lifecycle is not VisionLifecycle.RUNNING for state in ui.states[1:])
     assert not camera.is_open
     assert controls.restores >= 1
+
+
+def test_hide_during_lazy_model_load_discards_completion_before_camera_open() -> None:
+    """Do not open hardware when a lazy model finishes after the screen hides."""
+    loading = threading.Event()
+    release = threading.Event()
+
+    def prepare_model() -> None:
+        loading.set()
+        release.wait(2.0)
+
+    camera = _Camera()
+    controller, dispatcher, ui, _controls = _controller(
+        camera,
+        prepare_model=prepare_model,
+    )
+    controller.request_activate()
+    _wait(loading)
+
+    controller.request_deactivate()
+    release.set()
+    dispatcher.run_all()
+
+    assert not camera.open_attempted.is_set()
+    assert ui.states[-1].lifecycle is VisionLifecycle.INACTIVE
 
 
 def test_frame_is_published_as_immutable_rgb_state_with_tracks() -> None:

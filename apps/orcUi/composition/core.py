@@ -7,7 +7,9 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+from common.resource_cleanup import ResourceCleanup, close_resources
 
 from apps.orcUi.core_runtime import MapRuntime, StateIngressRuntime
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
@@ -53,6 +55,8 @@ class CoreComposition:
     volume: SystemVolumeHandler
     connectivity: ShellConnectivityController | None = None
 
+    _closed: bool = field(default=False, init=False)
+
     def start(self) -> None:
         if self.connectivity is not None:
             self.connectivity.start()
@@ -62,110 +66,113 @@ class CoreComposition:
         self.trip_runtime.start()
 
     def close(self) -> None:
-        if self.connectivity is not None:
-            self.connectivity.close()
-        try:
-            self.trip_runtime.close()
-        finally:
-            try:
-                self.state_ingress.close()
-            finally:
-                try:
-                    self.trip_publisher.close()
-                finally:
-                    try:
-                        self.telemetry_profile_publisher.close()
-                    finally:
-                        try:
-                            self.route_request_handler.close()
-                        finally:
-                            try:
-                                self.map_camera.close()
-                            finally:
-                                self.map_runtime.stop()
+        if self._closed:
+            return
+        self._closed = True
+        close_resources(
+            self.app.shutdown,
+            *([self.connectivity.close] if self.connectivity is not None else []),
+            self.trip_runtime.close,
+            self.state_ingress.close,
+            self.trip_publisher.close,
+            self.telemetry_profile_publisher.close,
+            self.route_request_handler.close,
+            self.map_camera.close,
+            self.map_runtime.stop,
+        )
 
 
 def create_core_composition() -> CoreComposition:
     """Create the selected frontend shell and inject runtime-facing dependencies."""
-    map_runtime = MapRuntime()
-    map_camera = MapCameraRuntime(
-        zoom_level=16.5,
-        pitch_rad=math.radians(45.0),
-        follow_enabled=True,
-    )
-    route_request_handler = NavigationRouteRequestHandler(NavigationCommandClient())
-    lifecycle = SystemLifecycleController()
-    presentation = OrcUiPresentationState()
-    runtime_config = ServiceRuntimeConfigParser(DEFAULT_RUNTIME_CONFIG).load()
-    vehicle_settings = VehicleSettingsStore(default=runtime_config.vehicle)
-    vehicle_configuration = VehicleConfigurationState(
-        vehicle_settings.load(),
-        save=vehicle_settings.save,
-    )
-    telemetry_profile_publisher = ZeroMqPublisher(LOCAL_PUBLISHER_ENDPOINT)
-    telemetry_profile_requests = AutomotiveTelemetryProfileRequestPublisher(
-        telemetry_profile_publisher,
-        source="orc-ui",
-    )
-    telemetry_profile_request = telemetry_profile_requests.publish
-    map_runtime.set_theme(ThemeMode.DARK)
-    try:
+    with ResourceCleanup() as cleanup:
+        map_runtime = MapRuntime()
+        cleanup.callback(map_runtime.stop)
+        map_camera = MapCameraRuntime(
+            zoom_level=16.5,
+            pitch_rad=math.radians(45.0),
+            follow_enabled=True,
+        )
+        cleanup.callback(map_camera.close)
+        route_request_handler = NavigationRouteRequestHandler(NavigationCommandClient())
+        cleanup.callback(route_request_handler.close)
+        lifecycle = SystemLifecycleController()
+        presentation = OrcUiPresentationState()
+        runtime_config = ServiceRuntimeConfigParser(DEFAULT_RUNTIME_CONFIG).load()
+        vehicle_settings = VehicleSettingsStore(default=runtime_config.vehicle)
+        vehicle_configuration = VehicleConfigurationState(
+            vehicle_settings.load(),
+            save=vehicle_settings.save,
+        )
+        telemetry_profile_publisher = ZeroMqPublisher(LOCAL_PUBLISHER_ENDPOINT)
+        cleanup.callback(telemetry_profile_publisher.close)
+        telemetry_profile_requests = AutomotiveTelemetryProfileRequestPublisher(
+            telemetry_profile_publisher,
+            source="orc-ui",
+        )
+        telemetry_profile_request = telemetry_profile_requests.publish
+        map_runtime.set_theme(ThemeMode.DARK)
         app = OrcUiApp(
             lifecycle_handler=lifecycle,
             online_mode=OnlineModeController(),
         )
-    except Exception:
-        route_request_handler.close()
-        telemetry_profile_publisher.close()
-        map_camera.close()
-        raise
-    connectivity = ShellConnectivityController(app.online_mode, app, app.set_online_status, app.set_screen_status)
-    app.set_connectivity_handler(connectivity.toggle)
-    volume = SystemVolumeHandler(
-        audio_controller=PipewireAudioController(),
-        volume_ui=app,
-        set_status=app.set_screen_status,
-    )
-    app.set_volume_request_handler(volume)
-    state_ingress = StateIngressRuntime(
-        schedule_ui=app.schedule_ui_callback,
-        apply_vehicle_state=presentation.apply_vehicle,
-        apply_engine_analysis=presentation.apply_engine_analysis,
-        apply_trip_state=presentation.apply_trip,
-        apply_position_state=presentation.apply_position,
-        apply_attitude_state=presentation.apply_attitude,
-        apply_route_guidance_state=presentation.apply_route_guidance,
-        apply_weather_alert=presentation.apply_weather_alert,
-        vehicle_configuration=vehicle_configuration.configuration,
-    )
-    vehicle_configuration.observe(state_ingress.set_vehicle_configuration)
-    fuel_config = runtime_config.automotive.fuel
-    trip_tracker = TripTracker(
-        fuel_model=FuelModel(
-            engine_displacement_m3=fuel_config.engine_displacement_l / 1000.0,
-            volumetric_efficiency=fuel_config.volumetric_efficiency,
+        cleanup.callback(app.shutdown)
+        connectivity = ShellConnectivityController(app.online_mode, app, app.set_online_status, app.set_screen_status)
+        cleanup.callback(connectivity.close)
+        app.set_connectivity_handler(connectivity.toggle)
+        volume = SystemVolumeHandler(
+            audio_controller=PipewireAudioController(),
+            volume_ui=app,
+            set_status=app.set_screen_status,
         )
-    )
-    trip_publisher = ZeroMqPublisher(LOCAL_PUBLISHER_ENDPOINT)
-    trip_runtime = TripRuntime(
-        ZeroMqSubscriber(LOCAL_SUBSCRIBER_ENDPOINT),
-        trip_publisher,
-        tracker=trip_tracker,
-        publish_source="orc-ui-trip-runtime",
-    )
-    return CoreComposition(
-        app=app,
-        presentation=presentation,
-        vehicle_configuration=vehicle_configuration,
-        map_runtime=map_runtime,
-        map_camera=map_camera,
-        route_request_handler=route_request_handler,
-        telemetry_profile_request=telemetry_profile_request,
-        state_ingress=state_ingress,
-        trip_runtime=trip_runtime,
-        trip_publisher=trip_publisher,
-        telemetry_profile_publisher=telemetry_profile_publisher,
-        lifecycle=lifecycle,
-        volume=volume,
-        connectivity=connectivity,
-    )
+        app.set_volume_request_handler(volume)
+        state_ingress = StateIngressRuntime(
+            schedule_ui=app.schedule_ui_callback,
+            apply_vehicle_state=presentation.apply_vehicle,
+            apply_engine_analysis=presentation.apply_engine_analysis,
+            apply_trip_state=presentation.apply_trip,
+            apply_position_state=presentation.apply_position,
+            apply_attitude_state=presentation.apply_attitude,
+            apply_route_guidance_state=presentation.apply_route_guidance,
+            apply_weather_alert=presentation.apply_weather_alert,
+            vehicle_configuration=vehicle_configuration.configuration,
+        )
+        cleanup.callback(state_ingress.close)
+        vehicle_configuration.observe(state_ingress.set_vehicle_configuration)
+        fuel_config = runtime_config.automotive.fuel
+        trip_tracker = TripTracker(
+            fuel_model=FuelModel(
+                engine_displacement_m3=fuel_config.engine_displacement_l / 1000.0,
+                volumetric_efficiency=fuel_config.volumetric_efficiency,
+            )
+        )
+        trip_publisher = ZeroMqPublisher(LOCAL_PUBLISHER_ENDPOINT)
+        cleanup.callback(trip_publisher.close)
+        with ResourceCleanup() as acquired:
+            trip_subscriber = ZeroMqSubscriber(LOCAL_SUBSCRIBER_ENDPOINT)
+            acquired.callback(trip_subscriber.close)
+            trip_runtime = TripRuntime(
+                trip_subscriber,
+                trip_publisher,
+                tracker=trip_tracker,
+                publish_source="orc-ui-trip-runtime",
+            )
+            cleanup.callback(trip_runtime.close)
+            acquired.release()
+        composition = CoreComposition(
+            app=app,
+            presentation=presentation,
+            vehicle_configuration=vehicle_configuration,
+            map_runtime=map_runtime,
+            map_camera=map_camera,
+            route_request_handler=route_request_handler,
+            telemetry_profile_request=telemetry_profile_request,
+            state_ingress=state_ingress,
+            trip_runtime=trip_runtime,
+            trip_publisher=trip_publisher,
+            telemetry_profile_publisher=telemetry_profile_publisher,
+            lifecycle=lifecycle,
+            volume=volume,
+            connectivity=connectivity,
+        )
+        cleanup.release()
+        return composition
