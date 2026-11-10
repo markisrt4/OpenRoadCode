@@ -1,5 +1,8 @@
 name: Build Michigan statewide detail
 on:
+  push:
+    branches: [navigation-cesium]
+    paths: [development/maps/statewide-build-request.json]
   workflow_dispatch:
     inputs:
       resume_run:
@@ -18,10 +21,16 @@ concurrency:
   group: michigan-statewide-detail
   cancel-in-progress: false
 jobs:
+  verify:
+    uses: ./.github/workflows/python-unit-tests.yml
+    with:
+      full_gate: true
   plan:
+    needs: verify
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
+      resume_run: ${{ steps.request.outputs.resume_run }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v5
@@ -32,6 +41,22 @@ jobs:
           python -m pip install pytest Pillow ruff
           python -m ruff check development/maps/statewide_detail_plan.py development/maps/build_statewide_detail.py development/maps/install_statewide_detail.py development/maps/summarize_statewide_detail.py apps/launchers/local_statewide_detail.py
           python -m pytest apps/launchers/unit_test/test_statewide_detail.py -q
+      - id: request
+        name: Read the authorized build request
+        env:
+          RESUME_INPUT: ${{ inputs.resume_run || '' }}
+        run: |
+          python - <<'PYREQUEST'
+          import json, os
+          from pathlib import Path
+          resume=os.environ.get('RESUME_INPUT','')
+          if os.environ['GITHUB_EVENT_NAME']=='push':
+              resume=str(json.loads(Path('development/maps/statewide-build-request.json').read_text()).get('resume_run',''))
+          if resume and not resume.isdigit():
+              raise SystemExit('Resume run must be a numeric Actions run ID')
+          with open(os.environ['GITHUB_OUTPUT'],'a') as output:
+              output.write('resume_run='+resume+'\n')
+          PYREQUEST
       - id: plan
         name: Plan all Michigan land-intersecting delivery cells
         run: python -m development.maps.statewide_detail_plan --output build-output/statewide-plan.json --github-output "$GITHUB_OUTPUT"
@@ -79,11 +104,11 @@ jobs:
           name: mi-detail-batch-${{ matrix.batch }}-${{ github.run_id }}
           path: build-output/statewide
       - uses: actions/download-artifact@v4
-        if: ${{ inputs.resume_run != '' }}
+        if: ${{ needs.plan.outputs.resume_run != '' }}
         continue-on-error: true
         with:
-          name: mi-detail-batch-${{ matrix.batch }}-${{ inputs.resume_run }}
-          run-id: ${{ inputs.resume_run }}
+          name: mi-detail-batch-${{ matrix.batch }}-${{ needs.plan.outputs.resume_run }}
+          run-id: ${{ needs.plan.outputs.resume_run }}
           github-token: ${{ github.token }}
           path: build-output/statewide
       - name: Build three independently resumable detail cells

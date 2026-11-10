@@ -3,6 +3,11 @@ on:
   pull_request:
   push:
     branches: [master]
+  workflow_call:
+    inputs:
+      full_gate:
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       full_gate:
@@ -48,7 +53,7 @@ jobs:
           path: unit-test-results.xml
           if-no-files-found: ignore
   full:
-    if: github.event_name == 'workflow_dispatch' && inputs.full_gate
+    if: inputs.full_gate
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:

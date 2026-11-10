@@ -73,6 +73,13 @@ def plan():
     if not cells or len(cells)>768:raise ValueError('Michigan detail plan exceeds reviewed cell count')
     batches=[dict(id=str(i//3),cells=cells[i:i+3]) for i in range(0,len(cells),3)]
     if len(batches)>256:raise ValueError('Detail matrix exceeds Actions batch limit')
+    # Keep cell/batch IDs stable for resume, but make useful city previews first.
+    priority=[cell_id(*xy(lon,lat)) for lon,lat in [(-83.05,42.33),(-85.67,42.96),
+              (-84.55,42.73),(-85.62,44.76),(-87.4,46.54)]]
+    def order(batch):
+        keys={c['id'] for c in batch['cells']}
+        return next((i for i,key in enumerate(priority) if key in keys),len(priority)),int(batch['id'])
+    batches.sort(key=order)
     return dict(schema=1,kind='michigan-detail-plan',profile=PROFILE,root_zoom=ROOT_ZOOM,
                 imagery_zoom=IMAGE_ZOOM,terrain_spacing_m=TERRAIN_SPACING_M,cells=cells,batches=batches)
 

@@ -22,6 +22,7 @@ def test_statewide_plan_covers_reviewed_cities_and_stays_within_batch_limits():
     document=plan();keys={c['id'] for c in document['cells']}
     assert len(keys)==len(document['cells']) and len(document['batches'])<=256
     assert all(len(b['cells'])<=3 for b in document['batches'])
+    assert cell_id(*xy(-83.05,42.33)) in {c['id'] for c in document['batches'][0]['cells']}
     for lon,lat in [(-83.05,42.33),(-85.67,42.96),(-85.62,44.76),(-87.4,46.54),(-87.61,45.11),(-86.74,41.79)]:
         assert cell_id(*xy(lon,lat)) in keys
     for cell in document['cells']:assert cell['bounds_deg']==bounds(cell['x'],cell['y'])
