@@ -19,7 +19,7 @@ permissions:
   actions: read
 concurrency:
   group: michigan-statewide-detail
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 jobs:
   verify:
     uses: ./.github/workflows/python-unit-tests.yml
@@ -86,11 +86,29 @@ jobs:
       GDAL_HTTP_TIMEOUT: '60'
     steps:
       - uses: actions/checkout@v6
+      - uses: actions/cache/restore@v4
+        id: apt-cache
+        with:
+          path: .cache/gdal-apt
+          key: statewide-gdal-apt-ubuntu24-v1
       - name: Install raster tools with bounded package-server timeouts
         timeout-minutes: 6
         run: |
+          for source_file in /etc/apt/apt-mirrors.txt /etc/apt/sources.list /etc/apt/sources.list.d/ubuntu.sources; do
+            if [ -f "$source_file" ]; then
+              sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g;s|http://archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' "$source_file"
+            fi
+          done
+          mkdir -p .cache/gdal-apt
+          apt_cache="$GITHUB_WORKSPACE/.cache/gdal-apt"
           sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
-          sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y gdal-bin python3-pil python3-pytest
+          sudo apt-get -o Dir::Cache::archives="$apt_cache" -o APT::Keep-Downloaded-Packages=true -o Binary::apt::APT::Keep-Downloaded-Packages=true -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y gdal-bin python3-pil python3-pytest
+          sudo chmod -R a+rX .cache/gdal-apt
+      - uses: actions/cache/save@v4
+        if: ${{ steps.apt-cache.outputs.cache-hit != 'true' }}
+        with:
+          path: .cache/gdal-apt
+          key: statewide-gdal-apt-ubuntu24-v1
       - name: Statewide pack, paging and source regressions
         run: /usr/bin/python3 -m pytest apps/launchers/unit_test/test_statewide_detail.py apps/launchers/unit_test/test_static_region_build.py -q
       - uses: actions/download-artifact@v4
