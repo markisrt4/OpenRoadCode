@@ -1,6 +1,7 @@
 name: OpenRoadCode CI
 on:
   pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
   push:
     branches: [master]
   workflow_dispatch:
@@ -9,6 +10,9 @@ on:
         description: Run the full portable quality gate
         type: boolean
         default: false
+concurrency:
+  group: orc-fast-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
