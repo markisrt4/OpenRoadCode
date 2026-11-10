@@ -99,12 +99,15 @@ class MultiModeRadioReceiver:
         self._decoders[name].reset()
         self._telemetry.pop(name, None)
 
-    def reset(self) -> None:
-        """Reset after a source gap, RF retune or discontinuous recording."""
+    def reset(self, *, preserve_metadata: bool = False) -> None:
+        """Reset DSP state; optionally retain published RDS station metadata."""
         self._manager.reset()
         self._telemetry.clear()
         for decoder in self._decoders.values():
-            decoder.reset()
+            if isinstance(decoder, ChannelizedStereoWbfmDemodulator):
+                decoder.reset(preserve_metadata=preserve_metadata)
+            else:
+                decoder.reset()
 
     def process(self, block: IqBlock) -> dict[str, np.ndarray]:
         """Return 48 kHz float32 PCM; stereo WFM yields (frames, 2)."""
