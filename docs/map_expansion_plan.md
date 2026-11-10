@@ -235,3 +235,45 @@ The legacy terrain metadata cap is now 768 to accommodate the existing statewide
 statewide fine grids are paged separately rather than counted against that cap.
 Terrain mesh refinement remains capped at level 16. Source rights and relative-
 relief/vertical-datum limitations are the same as the validated pilots.
+
+## Coverage-first delivery: interactive entry (November 2026)
+
+The revised strategy is nationwide coarse terrain, optional state/regional
+roads/search/routing, and independently optional regional buildings, detailed
+terrain and imagery. Nationwide terrain is **not yet built, sized or certified**.
+Do not extrapolate the dense Michigan imagery build into a required nationwide
+installation. First measure a coarse baseline including Alaska/Hawaii, record
+source coverage/datum/rights, and verify runtime budgets before publishing it.
+Cross-state offline routing remains an explicit acceptance test.
+
+Reuse the existing installer rather than creating another activation mechanism:
+
+```bash
+git switch navigation-cesium
+bash tools/map_builder/scripts/run-builder.sh packs
+```
+
+This host-side entry works without Docker, using the selected Python environment
+(`PYTHON` overrides `python3`). It currently delegates to the existing Metro
+Detroit release imagery installer, terrain descriptor installer, and Michigan
+buildings installer. Their checksum checks, confirmations and revision retention
+remain authoritative. It never silently falls back to downloading source rasters.
+It is an initial entry point, **not yet a unified release catalog**: release tags,
+coverage IDs and descriptor URLs are still supplied by the user. Sizes, installed
+status and updates remain with the individual installers until shared catalog
+metadata is implemented. No unknown size is represented as zero.
+
+The same entry can explicitly request existing regional Actions targets on the
+checked-out branch, using GitHub CLI authentication and repository permission.
+Generic state requests are restricted to overview imagery/terrain; they do not
+claim to build navigation data. A final prompt names the repository/branch and
+warns that build size is unknown and Actions resources are consumed. Dispatch is
+separate from installation: monitor Actions, download the finished artifacts or
+published release, then install. Normal installs must reuse published packs;
+they must not dispatch builds automatically. The costly Michigan statewide
+imagery experiment is deliberately not offered as a default menu target.
+
+Next slices: published pack discovery with per-layer sizes and local revision
+status; coarse nationwide terrain measurement; independent layer build targets;
+verified national/state navigation delivery and cross-boundary routing; storage
+budgets and removal controls. These remain pending, not implied by this menu.

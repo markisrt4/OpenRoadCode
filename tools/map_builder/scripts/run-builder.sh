@@ -6,6 +6,12 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONTAINER_ENGINE="${CONTAINER_ENGINE:-docker}"
 
+# Device-side pack installation and cloud dispatch do not need a container.
+if [[ "${1:-}" == "packs" ]]; then
+  cd "$ROOT/../.."
+  exec "${PYTHON:-python3}" -m tools.map_builder.builder.map_pack_menu
+fi
+
 if ! command -v "$CONTAINER_ENGINE" >/dev/null 2>&1; then
   echo "Container engine not found: $CONTAINER_ENGINE" >&2
   exit 1
