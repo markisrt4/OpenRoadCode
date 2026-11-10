@@ -30,6 +30,8 @@ class RdsReceiverStatus:
     selected_invalid_pairs: int
     selected_total_pairs: int
     selected_invalid_pair_fraction: float | None
+    selected_recent_invalid_pair_fraction: float | None
+    selected_recent_pair_count: int
 
 
 class RdsReceiverController:
@@ -65,11 +67,14 @@ class RdsReceiverController:
         self._metadata = RdsMetadataDecoder(ps_repetitions=ps_repetitions)
         self._sync_confidence = 0
 
-    def reset(self) -> None:
+    def reset(self, *, preserve_metadata: bool = False) -> None:
         for stage in (self._fm, self._extractor, self._carrier,
-                      self._timing, *self._biphases, *self._block_candidates,
-                      self._metadata):
+                      self._timing, *self._biphases, *self._block_candidates):
             stage.reset()
+        if preserve_metadata:
+            self._metadata.lose_sync()
+        else:
+            self._metadata.reset()
         self._locked_pair_phase = self._pair_phase
         self._bits_since_group = 0
         self._sync_confidence = 0
@@ -94,6 +99,12 @@ class RdsReceiverController:
                 self._biphases[self._locked_pair_phase].total_pairs
                 if self._locked_pair_phase is not None and
                 self._biphases[self._locked_pair_phase].total_pairs else None),
+            selected_recent_invalid_pair_fraction=(
+                self._biphases[self._locked_pair_phase].recent_invalid_pair_fraction
+                if self._locked_pair_phase is not None else None),
+            selected_recent_pair_count=(
+                self._biphases[self._locked_pair_phase].recent_pair_count
+                if self._locked_pair_phase is not None else 0),
         )
 
     def process_iq(self, iq: np.ndarray) -> list[RdsGroup]:
