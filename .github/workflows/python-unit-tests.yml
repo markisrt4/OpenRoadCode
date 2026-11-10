@@ -2,7 +2,7 @@ name: OpenRoadCode CI
 on:
   pull_request:
   push:
-    branches: [master]
+    branches: [master, feature/waze-live-map]
   workflow_dispatch:
     inputs:
       full_gate:

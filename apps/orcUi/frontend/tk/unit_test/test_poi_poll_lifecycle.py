@@ -171,7 +171,7 @@ def test_app_status_updates_only_the_current_live_card(availability):
     label.set_availability.assert_not_called()
 
 
-def test_app_indicator_only_opens_store_when_missing_enabled_and_explicitly_clicked():
+def test_app_indicator_opens_store_for_missing_or_unknown_only_when_explicitly_clicked():
     from apps.orcUi.frontend.tk.poi_app_indicator import PoiAppIndicator
     from ui.navigation.poi_models import PoiAppAvailability
     try:
@@ -184,11 +184,19 @@ def test_app_indicator_only_opens_store_when_missing_enabled_and_explicitly_clic
         for availability in PoiAppAvailability:
             indicator.set_availability(availability)
             store.assert_not_called()
-        for availability in (PoiAppAvailability.INSTALLED, PoiAppAvailability.UNKNOWN, PoiAppAvailability.WEB_ONLY):
+        for availability in (PoiAppAvailability.INSTALLED, PoiAppAvailability.WEB_ONLY):
             indicator.set_availability(availability)
             indicator.invoke()
         store.assert_not_called()
         indicator.set_availability(PoiAppAvailability.NOT_INSTALLED)
+        indicator.set_enabled(False)
+        indicator.invoke()
+        store.assert_not_called()
+        indicator.set_enabled(True)
+        indicator.invoke()
+        store.assert_called_once_with()
+        store.reset_mock()
+        indicator.set_availability(PoiAppAvailability.UNKNOWN)
         indicator.set_enabled(False)
         indicator.invoke()
         store.assert_not_called()

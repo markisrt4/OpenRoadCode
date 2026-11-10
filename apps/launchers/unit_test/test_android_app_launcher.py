@@ -202,7 +202,8 @@ def test_package_availability_does_not_confuse_connection_failure_with_missing_a
     result = Mock(returncode=code, stdout=stdout, stderr=stderr)
     with patch('apps.launchers.android_app_launcher.subprocess.run', return_value=result) as run:
         assert AndroidAppLauncher().package_installed('com.panera.bread') is expected
-    assert run.call_args.args[0] == ['adb', 'shell', 'pm', 'path', 'com.panera.bread']
+    expected_command = ['/system/bin/pm', 'path', 'com.panera.bread'] if expected is True else ['adb', 'shell', 'pm', 'path', 'com.panera.bread']
+    assert run.call_args.args[0] == expected_command
 
 
 @patch('apps.launchers.android_app_launcher.os.path.exists', return_value=False)
@@ -211,3 +212,20 @@ def test_waydroid_availability_unavailable_is_not_absent(_exists):
     waydroid.list_apps.side_effect = WaydroidLauncherError('Session stopped')
     assert AndroidAppLauncher(waydroid=waydroid).package_installed('com.panera.bread') is None
     waydroid.launch_app.assert_not_called()
+
+
+@patch('apps.launchers.android_app_launcher.os.path.exists', return_value=True)
+def test_local_positive_package_lookup_does_not_require_adb(_exists):
+    result = Mock(returncode=0, stdout='package:/data/app/panera/base.apk\n', stderr='')
+    with patch('apps.launchers.android_app_launcher.subprocess.run', return_value=result) as run:
+        assert AndroidAppLauncher().package_installed('com.panera.bread') is True
+    assert run.call_count == 1
+    assert run.call_args.args[0] == ['/system/bin/pm', 'path', 'com.panera.bread']
+
+
+@patch('apps.launchers.android_app_launcher.os.path.exists', return_value=True)
+def test_filtered_local_package_lookup_is_not_proof_the_app_is_missing(_exists):
+    local = Mock(returncode=1, stdout='', stderr='')
+    offline = Mock(returncode=1, stdout='', stderr='adb: no devices/emulators found')
+    with patch('apps.launchers.android_app_launcher.subprocess.run', side_effect=[local, offline]):
+        assert AndroidAppLauncher().package_installed('com.panera.bread') is None

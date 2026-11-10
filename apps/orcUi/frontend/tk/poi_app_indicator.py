@@ -33,24 +33,27 @@ class PoiAppIndicator(tk.Canvas, UiWidget):
 
     def set_enabled(self, enabled):
         self._enabled = enabled
-        self.configure(cursor='hand2' if enabled and self._availability is PoiAppAvailability.NOT_INSTALLED else '')
+        self.configure(cursor='hand2' if enabled and self._availability in {PoiAppAvailability.NOT_INSTALLED, PoiAppAvailability.UNKNOWN} else '')
 
     def invoke(self):
-        if self._enabled and self._availability is PoiAppAvailability.NOT_INSTALLED:
+        if self._enabled and self._availability in {PoiAppAvailability.NOT_INSTALLED, PoiAppAvailability.UNKNOWN}:
             self._open_store()
 
     def set_availability(self, availability):
         self._availability = availability
         self.delete('all')
         color = self._theme.text_muted
-        if availability is PoiAppAvailability.NOT_INSTALLED:
+        if availability in {PoiAppAvailability.NOT_INSTALLED, PoiAppAvailability.UNKNOWN}:
             # Play's four-color triangle with an explicit download badge.
             self.create_polygon(12, 8, 30, 24, 12, 40, fill='#00c4ff', outline='')
             self.create_polygon(12, 8, 35, 20, 30, 24, fill='#00d26a', outline='')
             self.create_polygon(30, 24, 35, 20, 42, 24, 35, 28, fill='#ffcf00', outline='')
             self.create_polygon(12, 40, 30, 24, 35, 28, fill='#ff384b', outline='')
             self.create_oval(34, 30, 53, 48, fill=self._theme.surface_alt, outline=color)
-            self.create_line(43, 33, 43, 42, fill=color, width=2, arrow=tk.LAST)
+            if availability is PoiAppAvailability.UNKNOWN:
+                self.create_text(43, 39, text='?', fill=color, font=('Sans', 10, 'bold'))
+            else:
+                self.create_line(43, 33, 43, 42, fill=color, width=2, arrow=tk.LAST)
         elif availability is PoiAppAvailability.INSTALLED:
             if self._icon is not None:
                 self.create_image(24, 24, image=self._icon)

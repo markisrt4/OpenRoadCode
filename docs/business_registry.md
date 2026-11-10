@@ -50,7 +50,10 @@ A new icon needs a reviewed source and rights metadata.
 
 Matching prefers brand Wikidata IDs, then exact official website domains
 (including subdomains), then exact normalized brand/operator/name aliases.
-Category mismatches are rejected; ambiguous matches return no business.
+Explicit category mismatches are rejected; ambiguous matches return no business.
+An uncategorized map POI (OTHER) can still resolve through an exact known identity;
+missing classification alone must not remove ORDER. A bundled logo does not imply
+an ordering integration: Starbucks remains logo-only until its ordering record is added.
 The resolver does not do substring/fuzzy matching or derive package names.
 NSI's full geographic rules are retained as provenance but are not interpreted
 by this initial four-brand resolver. Additional regional identities must remain
@@ -85,15 +88,19 @@ keeps brand-colored titles readable in both themes.
 Ordering cards check app availability in the background each time they open or
 regain focus. A compact icon beside ORDER replaces the status text: an app badge
 with a green check means installed, a Play triangle with a download badge means
-not installed, a globe means website-only ordering, and a neutral question mark
-means unavailable status. Hovering the indicator explains these states.
-The Play/download indicator is clickable when online and no launch is pending;
-it opens the curated app's Google Play listing using the existing app/store
-handoff. Google Play controls installation and user confirmation. This does not
+not installed, a globe means website-only ordering, and a Play icon with a question
+badge means unavailable status. Hovering the indicator explains these states.
+The Play/download and Play/question indicators are clickable when online and no
+launch is pending. They use the existing app/store handoff: open the app if it is
+available, otherwise its official Play listing. An inconclusive check must not
+remove the user's app/store shortcut. Google Play controls installation and user confirmation. This does not
 silently install or download APKs. Reopen the POI after installing to refresh its
 status. Store presence, device eligibility, region, and account requirements can
 still prevent installation; a known package is not a guarantee of availability. A failed or ambiguous Android connection is never described
-as an uninstalled app. The check does not launch apps or disable ORDER. Results
+as an uninstalled app. On Termux, a positive local PackageManager lookup can
+confirm installation without ADB; a filtered/failed local lookup falls back to
+ADB, and remains unknown if that cannot verify it. Embedding still needs ADB.
+The check does not launch apps or disable ORDER. Results
 are scoped to the current popup; closed/replaced cards ignore late responses.
 Attribution is recorded in the frontend assets directory.
 Places-list results and map-marker selections receive the same Earth and local

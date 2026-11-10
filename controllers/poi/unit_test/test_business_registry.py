@@ -133,3 +133,20 @@ def test_panera_supplies_the_same_bundled_logo_to_map_and_card():
     assert marker['brand_icon'] == 'business:panera'
     assert poi.icon.data == icon_bytes('panera') == base64.b64decode(marker['brand_icon_png'])
     assert [a.kind for a in poi.actions] == [PoiActionKind.ORDER]
+
+
+@pytest.mark.parametrize('name,provider', [
+    ('Panera Bread', 'panera'),
+    ("McDonald's", 'mcdonalds'),
+    ('Burger King', 'burger-king'),
+])
+def test_exact_ordering_brand_survives_an_uncategorized_map_selection(name, provider):
+    poi = enrich_poi(PointOfInterest('map-place', name, PoiCategory.OTHER, GeoPoint(0, 0)))
+    assert poi.business_id == provider
+    assert [(a.kind, a.provider_id) for a in poi.actions] == [(PoiActionKind.ORDER, provider)]
+
+
+def test_unknown_uncategorized_place_does_not_gain_an_order_action():
+    poi = enrich_poi(PointOfInterest('map-place', 'Independent store', PoiCategory.OTHER, GeoPoint(0, 0)))
+    assert poi.business_id is None
+    assert poi.actions == ()

@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from tools.map_builder.builder.web_urls import valid_website
-from ui.navigation.poi_models import (PoiAction, PoiActionKind, PointOfInterest, PoiIcon, PoiTitleStyle)
+from ui.navigation.poi_models import (PoiAction, PoiActionKind, PointOfInterest, PoiIcon, PoiTitleStyle, PoiCategory)
 from controllers.poi.business_catalog import resolve_business
 from controllers.poi.business_provider_catalog import get_business_provider
 from controllers.poi.business_icons import icon_bytes
@@ -23,7 +23,7 @@ def enrich_poi(poi: PointOfInterest) -> PointOfInterest:
     website = valid_website(poi.website)
     business = resolve_business(brand=poi.brand, name=poi.name,
                                 brand_wikidata=poi.brand_wikidata, operator=poi.operator,
-                                website=website, category=poi.category.name.casefold())
+                                website=website, category=None if poi.category is PoiCategory.OTHER else poi.category.name.casefold())
     if business is not None:
         brand = business.brand
         provider = get_business_provider(business.provider_id)

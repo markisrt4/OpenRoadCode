@@ -391,7 +391,7 @@ def show_poi_card(panel, poi) -> None:
             open_store=lambda: panel._execute_poi_action(poi, store_action))
         indicator.pack(side=tk.LEFT, padx=(4, 0))
         panel._poi_app_indicator = indicator
-        panel._add_tooltip(indicator, 'Ordering app: green check = installed; Play/download = open store; ? = status unavailable; globe = website only')
+        panel._add_tooltip(indicator, 'Ordering app: green check = installed; Play/download = not installed; Play/? = check unavailable. Click Play to open the app or its store listing. Globe = website only.')
         request_poi_app_status(panel, poi, indicator)
         popup.bind('<FocusIn>', lambda event: request_poi_app_status(panel, poi, indicator)
                    if event.widget is popup and indicator.winfo_exists() else None, add='+')

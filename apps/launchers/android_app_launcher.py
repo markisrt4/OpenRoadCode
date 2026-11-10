@@ -58,6 +58,16 @@ class AndroidAppLauncher:
                 return any(app.package == package for app in self._waydroid.list_apps())
             except WaydroidLauncherError:
                 return None
+        # A positive local PackageManager answer needs no wireless ADB session.
+        # Android may filter results for the Termux UID: a local negative is
+        # inconclusive, so only the existing shell/ADB query can prove absence.
+        try:
+            local = subprocess.run(['/system/bin/pm', 'path', package],
+                capture_output=True, text=True, timeout=2, check=False)
+            if local.returncode == 0 and any(line.startswith('package:') for line in local.stdout.splitlines()):
+                return True
+        except (OSError, subprocess.SubprocessError):
+            pass
         try:
             result = subprocess.run(['adb', 'shell', 'pm', 'path', package],
                 capture_output=True, text=True, timeout=5, check=False)
