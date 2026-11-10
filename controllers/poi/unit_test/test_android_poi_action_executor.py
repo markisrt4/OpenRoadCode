@@ -79,3 +79,14 @@ def test_burger_king_order_uses_official_us_package_and_web_fallback():
     assert AndroidPoiActionExecutor(launcher).execute(poi, action) == 'Opening order in app'
     launcher.open_package_or_uri.assert_called_once_with(
         'com.emn8.mobilem8.nativeapp.bk', 'https://www.bk.com/menu')
+
+
+def test_starbucks_order_uses_official_app_and_menu_fallback():
+    from controllers.poi.poi_enricher import enrich_poi
+    launcher = Mock()
+    launcher.open_package_or_uri.return_value = 'app'
+    poi = enrich_poi(PointOfInterest('coffee', 'Starbucks', PoiCategory.FOOD, GeoPoint(0, 0)))
+    action, = poi.actions
+    assert AndroidPoiActionExecutor(launcher).execute(poi, action) == 'Opening order in app'
+    launcher.open_package_or_uri.assert_called_once_with(
+        'com.starbucks.mobilecard', 'https://www.starbucks.com/menu')

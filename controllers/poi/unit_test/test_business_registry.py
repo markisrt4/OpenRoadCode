@@ -81,11 +81,11 @@ def test_independent_business_still_has_its_website_action():
     assert [action.kind for action in poi.actions] == [PoiActionKind.OPEN_WEBSITE]
 
 
-def test_icon_only_brands_do_not_get_guessed_android_packages():
+def test_starbucks_has_an_explicit_ordering_integration():
     poi = PointOfInterest('coffee', 'Starbucks', PoiCategory.FOOD, GeoPoint(0, 0))
     enriched = enrich_poi(poi)
     assert enriched.business_id == enriched.icon_id == 'starbucks'
-    assert not any(action.kind is PoiActionKind.OPEN_ANDROID_APP for action in enriched.actions)
+    assert [(action.kind, action.provider_id) for action in enriched.actions] == [(PoiActionKind.ORDER, 'starbucks')]
 
 
 def test_missing_or_invalid_icon_keeps_category_fallback_without_reading_arbitrary_files():
@@ -139,6 +139,7 @@ def test_panera_supplies_the_same_bundled_logo_to_map_and_card():
     ('Panera Bread', 'panera'),
     ("McDonald's", 'mcdonalds'),
     ('Burger King', 'burger-king'),
+    ('Starbucks', 'starbucks'),
 ])
 def test_exact_ordering_brand_survives_an_uncategorized_map_selection(name, provider):
     poi = enrich_poi(PointOfInterest('map-place', name, PoiCategory.OTHER, GeoPoint(0, 0)))

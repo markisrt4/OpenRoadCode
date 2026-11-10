@@ -15,6 +15,11 @@
       "package": "com.emn8.mobilem8.nativeapp.bk",
       "source": "https://play.google.com/store/apps/details?id=com.emn8.mobilem8.nativeapp.bk",
       "verification": "Official BURGER KING US Google Play listing. Store availability and ordering depend on region/device; app launch does not select a physical store. Device handoff validation pending."
+    },
+    "starbucks": {
+      "package": "com.starbucks.mobilecard",
+      "source": "https://play.google.com/store/apps/details?id=com.starbucks.mobilecard",
+      "verification": "Official Starbucks US Android app referenced by starbucks.com/download-app. Region, account, and participating-store requirements apply. App launch does not select a physical store; device handoff verification pending."
     }
   }
 }

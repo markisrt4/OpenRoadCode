@@ -11,10 +11,10 @@ business ID, so an icon and an Android action refer to the same identity.
 | Panera Bread | NSI / Q7130852 | Yes | com.panera.bread |
 | McDonald's | NSI / Q38076 | Yes | com.mcdonalds.app |
 | Burger King | NSI / Q177054 | Yes | com.emn8.mobilem8.nativeapp.bk |
-| Starbucks | NSI / Q37158 | Yes | None yet |
+| Starbucks | NSI / Q37158 | Yes | com.starbucks.mobilecard |
 
 Package mappings are the existing curated ORC integrations, not packages inferred
-from a brand name. McDonald's and Burger King's mappings are US apps; store availability and
+from a brand name. McDonald's, Burger King's, and Starbucks' mappings are US apps; store availability and
 eligibility vary by region/device. Opening an app does **not** select the physical
 store. Store-specific deep links need separate verification before being added.
 
@@ -52,8 +52,8 @@ Matching prefers brand Wikidata IDs, then exact official website domains
 (including subdomains), then exact normalized brand/operator/name aliases.
 Explicit category mismatches are rejected; ambiguous matches return no business.
 An uncategorized map POI (OTHER) can still resolve through an exact known identity;
-missing classification alone must not remove ORDER. A bundled logo does not imply
-an ordering integration: Starbucks remains logo-only until its ordering record is added.
+missing classification alone must not remove ORDER. All four currently tracked restaurant brands have explicit ordering integrations;
+adding a logo for a new business still does not automatically add ordering.
 The resolver does not do substring/fuzzy matching or derive package names.
 NSI's full geographic rules are retained as provenance but are not interpreted
 by this initial four-brand resolver. Additional regional identities must remain
@@ -86,7 +86,7 @@ are unavailable, the title uses the listed system fallback. A contrasting backin
 keeps brand-colored titles readable in both themes.
 
 Ordering cards check app availability in the background each time they open or
-regain focus. A compact icon beside ORDER replaces the status text: an app badge
+regain focus. A compact icon centered below ORDER replaces the status text: an app badge
 with a green check means installed, a Play triangle with a download badge means
 not installed, a globe means website-only ordering, and a Play icon with a question
 badge means unavailable status. Hovering the indicator explains these states.

@@ -387,9 +387,9 @@ def show_poi_card(panel, poi) -> None:
     order = next((action for action in other_actions if action.kind is PoiActionKind.ORDER), None)
     if order is not None:
         store_action = PoiAction(PoiActionKind.OPEN_ANDROID_APP, 'Google Play', provider_id=order.provider_id)
-        indicator = PoiAppIndicator(extra_buttons, icon=poi.icon, theme=ui,
+        indicator = PoiAppIndicator(frame, icon=poi.icon, theme=ui,
             open_store=lambda: panel._execute_poi_action(poi, store_action))
-        indicator.pack(side=tk.LEFT, padx=(4, 0))
+        indicator.pack(pady=(6, 0))
         panel._poi_app_indicator = indicator
         panel._add_tooltip(indicator, 'Ordering app: green check = installed; Play/download = not installed; Play/? = check unavailable. Click Play to open the app or its store listing. Globe = website only.')
         request_poi_app_status(panel, poi, indicator)

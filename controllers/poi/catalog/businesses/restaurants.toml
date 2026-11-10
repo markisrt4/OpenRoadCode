@@ -31,3 +31,11 @@ wikidata = ["Q177054"]
 aliases = ["Burger King"]
 categories = ["food"]
 capabilities = ["order"]
+
+[business.starbucks]
+name = "Starbucks"
+# https://www.wikidata.org/wiki/Q37158
+wikidata = ["Q37158"]
+aliases = ["Starbucks", "Starbucks Coffee"]
+categories = ["food"]
+capabilities = ["order"]

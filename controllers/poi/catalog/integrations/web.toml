@@ -8,3 +8,6 @@ order = "https://www.mcdonalds.com/us/en-us.html"
 
 [integration.burger-king]
 order = "https://www.bk.com/menu"
+
+[integration.starbucks]
+order = "https://www.starbucks.com/menu"

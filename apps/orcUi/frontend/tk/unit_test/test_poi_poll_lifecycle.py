@@ -123,6 +123,10 @@ def test_borderless_business_card_has_icon_distinct_navigation_and_bottom_close(
         assert buttons['CLOSE'].winfo_rooty() > buttons['ORDER'].winfo_rooty()
         assert buttons['CLOSE'].winfo_rooty() + buttons['CLOSE'].winfo_height() <= popup.winfo_rooty() + popup.winfo_height()
         indicator = panel._poi_app_indicator
+        assert indicator.winfo_rooty() >= buttons['ORDER'].winfo_rooty() + buttons['ORDER'].winfo_height()
+        indicator_center = indicator.winfo_rootx() + indicator.winfo_width() / 2
+        order_center = buttons['ORDER'].winfo_rootx() + buttons['ORDER'].winfo_width() / 2
+        assert abs(indicator_center - order_center) <= 2
         buttons['CLOSE'].invoke()
         assert indicator._icon is None
         assert not popup.winfo_exists()
