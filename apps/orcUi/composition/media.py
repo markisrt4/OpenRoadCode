@@ -61,6 +61,7 @@ SPOTIFY_GREEN = "#1DB954"
 class MediaComposition:
     music_video_controller: MusicVideoController
     home_factory: Callable[[tk.Misc], tk.Widget]
+    home_visualizer_factory: Callable[[tk.Misc], tk.Widget] | None
     visualizer: MusicVisualizerScreen | BrowserMediaScreen
     visualizer_runtime: MusicVisualizerController | MusicVisualizerBrowser
     unsubscribe_online: Callable[[], None] = lambda: None
@@ -320,16 +321,37 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
     )
     app.register_screen("MEDIA", media_screen)
 
+    home_capture_attached = False
+
+    def home_playback_changed(playing: bool) -> None:
+        """Share native audio capture with other views without stopping their session."""
+        nonlocal home_capture_attached
+        if not isinstance(visualizer_runtime, MusicVisualizerController):
+            return
+        source = selected_native_visualizer_source()
+        if source is MusicVisualizerSource.SIMULATED:
+            return  # Idle animation is not a measured spectrum.
+        if playing and not home_capture_attached:
+            home_capture_attached = True
+            visualizer_runtime.attach_view("home-playback")
+            if visualizer_runtime.capture_state().value == "idle":
+                visualizer_runtime.start(source)
+        elif not playing and home_capture_attached:
+            home_capture_attached = False
+            visualizer_runtime.detach_view("home-playback")
+
     def home_now_playing_factory(parent: tk.Misc) -> tk.Widget:
         view = SpotifyNowPlaying(
             parent,
             online_allowed=network_allowed,
             on_open=online_action(spotify_screen.show),
             theme_bundle=lambda: theme_bundle(app.theme_mode),
+            on_playback_changed=home_playback_changed,
         )
-        session = create_presentation(rich=False)
+        session = create_presentation(rich=True)
         def retire(event: tk.Event) -> None:
             if event.widget is view:
+                home_playback_changed(False)
                 session.close()
                 if session in presentations:
                     presentations.remove(session)
@@ -338,26 +360,17 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         return view
 
     def home_media_factory(parent: tk.Misc) -> tk.Widget:
-        if renderer != 'opengl':
-            return home_now_playing_factory(parent)
-        from frontends.tk.media.home_media_visualizer import HomeMediaVisualizer
-        view = HomeMediaVisualizer(
+        """Keep HOME focused on playback; the shared strip owns spectrum preview."""
+        return home_now_playing_factory(parent)
+
+
+    def home_spectrum_factory(parent: tk.Misc) -> tk.Widget:
+        from frontends.tk.media.home_spectrum_bar import HomeSpectrumBar
+        return HomeSpectrumBar(
             parent, controller=visualizer_runtime,
             theme_bundle=lambda: theme_bundle(app.theme_mode),
-            now_playing_factory=home_now_playing_factory,
-            visualizer_factory=lambda owner: panel_options['panel_factory'](
-                owner, theme_bundle=theme_bundle(app.theme_mode),
-                simulate=selected_native_visualizer_source() is MusicVisualizerSource.SIMULATED,
-            ),
-            source=selected_native_visualizer_source(), on_open=visualizer.show,
+            on_open=visualizer.show,
         )
-        retire_views.append(view.close)
-        def retire_home(event: tk.Event) -> None:
-            if event.widget is view and view.close in retire_views:
-                retire_views.remove(view.close)
-        view.bind('<Destroy>', retire_home, add='+')
-        return view
-
 
     def mode_changed(online: bool) -> None:
         account_controller.network_changed()
@@ -381,7 +394,8 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
     return MediaComposition(
         preview=preview,
         music_video_controller=music_video_controller,
-        home_factory=home_media_factory,
+        home_factory=home_now_playing_factory,
+        home_visualizer_factory=home_spectrum_factory if renderer == 'opengl' else None,
         visualizer=visualizer,
         visualizer_runtime=visualizer_runtime,
         unsubscribe_online=unsubscribe_online,

@@ -277,6 +277,8 @@ def create_orc_ui_composition(
             unit_system=unit_system,
             on_unit_system_changed=set_unit_system,
             on_back=lambda: app.navigate_to("HOME"),
+            performance_overlay_enabled=app.performance_overlay_enabled,
+            on_performance_overlay_changed=app.set_performance_overlay_enabled,
         )
         permission = HostLocationPermission()
         host_location = HostLocationSettingsController(app, settings, permission, available=permission.available)
@@ -289,10 +291,11 @@ def create_orc_ui_composition(
             theme_bundle=lambda: theme_bundle(app.theme_mode),
             on_back=app.close_diagnostics,
         )
-        performance_status = PerformanceStatusPresenter(app, performance, app.set_performance_status)
+        performance_status = PerformanceStatusPresenter(app, performance, app.set_performance_status, on_sample=app.update_performance_overlay)
         cleanup.callback(performance_status.close)
         home.set_radio_factory(radio.home_factory)
         home.set_media_factory(media.home_factory)
+        home.set_visualizer_factory(media.home_visualizer_factory)
         core.presentation.observe_vehicle(home.apply_vehicle_state)
         core.presentation.observe_trip(home.apply_trip_state)
         core.presentation.observe_position(home.apply_position_state)

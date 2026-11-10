@@ -18,6 +18,7 @@ from controllers.system.orc_process_sampler import OrcProcessSampler
 from controllers.system.service_socket_sampler import ServiceSocketSampler
 from services.common.sensor_health_monitor import SensorHealthMonitor
 from services.common.termux_battery_monitor import TermuxBatteryMonitor
+from services.common.network_usb_inventory import collect_inventory
 from ui.system_diagnostics import SystemDiagnosticsSnapshot, OrcWorkloadSnapshot
 
 LOGGER = logging.getLogger("runtime.performance")
@@ -50,6 +51,8 @@ class SystemPerformanceMonitor:
         self._error: str | None = None
         self._failures: dict[str, str] = {}
         self._operation_id: str | None = None
+        self._inventory: dict = {}
+        self._inventory_last = 0.0
 
     def start(self) -> None:
         """Start sampling in a worker; never perform firmware calls on the UI thread."""
@@ -140,8 +143,16 @@ class SystemPerformanceMonitor:
                     service_status = f"unavailable ({type(error).__name__})"
                 else:
                     self._observe_failure("services")
+                if started - self._inventory_last >= 10:
+                    try:
+                        self._inventory = collect_inventory()
+                    except Exception as error:
+                        self._observe_failure("inventory", error)
+                        self._inventory = {"networks_status": "unavailable", "networks": [],
+                                           "usb_sysfs": {"status": "unavailable", "devices": []}}
+                    self._inventory_last = started
                 sample = replace(
-                    sample, workload=workload, sensors=self._sensor_monitor.snapshots(),
+                    sample, network_usb=self._inventory, workload=workload, sensors=self._sensor_monitor.snapshots(),
                     sensor_monitor_status=self._sensor_monitor.status,
                     services=services, service_monitor_status=service_status,
                     battery=self._battery_monitor.snapshot(),

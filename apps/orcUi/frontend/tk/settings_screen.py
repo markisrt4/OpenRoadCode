@@ -37,6 +37,8 @@ class SettingsScreen(TkScreen):
         unit_system: Callable[[], UnitSystem],
         on_unit_system_changed: Callable[[UnitSystem], None],
         on_back: Callable[[], None],
+        performance_overlay_enabled: Callable[[], bool] | None = None,
+        on_performance_overlay_changed: Callable[[bool], None] | None = None,
     ) -> None:
         super().__init__(self.SCREEN_ID)
         self._host = host
@@ -47,6 +49,8 @@ class SettingsScreen(TkScreen):
         self._unit_system = unit_system
         self._on_unit_system_changed = on_unit_system_changed
         self._on_back = on_back
+        self._performance_overlay_enabled = performance_overlay_enabled
+        self._on_performance_overlay_changed = on_performance_overlay_changed
         self._host_location_handler: HostLocationRequestHandlerIf | None = None
         self._host_location_state = HostLocationState()
         self._panel = None
@@ -89,4 +93,6 @@ class SettingsScreen(TkScreen):
             theme=self._theme_bundle(),
             host_location_handler=self._host_location_handler,
             host_location_state=self._host_location_state,
+            performance_overlay_enabled=self._performance_overlay_enabled,
+            on_performance_overlay_changed=self._on_performance_overlay_changed,
         )
