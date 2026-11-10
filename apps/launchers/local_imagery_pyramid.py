@@ -79,7 +79,9 @@ class LocalImageryPyramidPack:
 
 
 def installed_imagery_pyramids():
-    packs = []
+    from apps.launchers.local_statewide_detail import installed_index,StatewideImagery
+    index=installed_index()
+    packs = [StatewideImagery(index)] if index is not None else []
     for coverage in PILOT_BOUNDS:
         directory = openroadcode_data_dir('map-packs',coverage+'-imagery-detail-active')
         if (directory/'manifest.json').is_file():

@@ -13,7 +13,7 @@ from apps.launchers.local_imagery_pyramid import installed_imagery_pyramids
 from apps.launchers.local_imagery_pack import LocalImageryPack, preferred_imagery_directory, load_imagery_stack
 from apps.launchers.cesium_viewer_server import CesiumViewerServer
 from apps.launchers.state_boundary_overlay import load_state_boundary_overlay
-from apps.launchers.local_terrain_pack import load_preferred_terrain, load_terrain
+from apps.launchers.local_terrain_pack import load_installed_terrain_catalog, load_terrain
 from apps.launchers.local_building_pack import load_buildings, detroit_building_directory
 from apps.launchers.local_map_tiles_pack import load_viewer_tiles, preferred_tiles_directory
 from common.logging.logging_paths import logging_file_path
@@ -74,7 +74,7 @@ def main():
         imagery = None if imagery_layers or (tiles is not None and any(t.imagery_available for t in tiles.state.tiles)) or args.no_imagery or (args.imagery is None and not directory.exists()) else LocalImageryPack.load(directory)
         terrain = (None if args.no_terrain else
                    load_terrain(args.terrain) if args.terrain is not None else
-                   load_preferred_terrain(state.destination))
+                   load_installed_terrain_catalog())
         building_dir = args.buildings or detroit_building_directory()
         buildings = None if tiles is not None or args.no_buildings or (args.buildings is None and not building_dir.exists()) else load_buildings(building_dir)
         return run(state, args.sdk, args.display, imagery_pyramids=() if args.no_imagery else installed_imagery_pyramids(), imagery=imagery, imagery_layers=imagery_layers, terrain=terrain, buildings=buildings, tiles=tiles)

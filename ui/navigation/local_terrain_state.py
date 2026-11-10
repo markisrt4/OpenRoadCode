@@ -113,12 +113,26 @@ class LocalTerrainCatalogState:
     maximum_zoom: int = 16
 
     def __post_init__(self):
-        if (not 1 <= len(self.tiles) <= 640 or len({tile.tile_id for tile in self.tiles}) != len(self.tiles)
+        if (not 1 <= len(self.tiles) <= 768 or len({tile.tile_id for tile in self.tiles}) != len(self.tiles)
                 or not self.attribution.strip() or type(self.maximum_zoom) is not int
                 or not 1 <= self.maximum_zoom <= 18):
-            raise ValueError("Terrain catalog requires 1–640 unique attributed tiles")
+            raise ValueError("Terrain catalog requires 1–768 unique attributed tiles")
 
     def document(self):
         return {"tiles": [tile.document() for tile in self.tiles],
                 "attribution": self.attribution, "maximum_zoom": self.maximum_zoom,
                 "display_mode": "relative-relief", "lazy": True}
+
+
+@dataclass(frozen=True, slots=True)
+class LocalPagedTerrainState(LocalTerrainCatalogState):
+    """Existing baseline tiles plus a bounded, renderer-requested detail index."""
+    def __post_init__(self):
+        if self.tiles:
+            super(LocalPagedTerrainState,self).__post_init__()
+        elif not self.attribution.strip() or type(self.maximum_zoom) is not int or not 1 <= self.maximum_zoom <= 18:
+            raise ValueError("Invalid paged terrain baseline")
+
+    def document(self):
+        return {**super(LocalPagedTerrainState,self).document(),
+                "page_url":"/data/terrain-page/{z}/{x}/{y}"}

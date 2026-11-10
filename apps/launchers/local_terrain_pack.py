@@ -146,14 +146,16 @@ def load_installed_terrain_catalog():
                 state.detail_level, state.minimum_zoom)
             indexed.append((metadata, tile_root / "terrain.json"))
     if not indexed:
-        return None
+        from apps.launchers.local_statewide_detail import paged_terrain
+        return paged_terrain(None)
     lowest_detail = min(metadata.detail_level for metadata, _ in indexed)
     baseline = [metadata.reference_height_m for metadata, _ in indexed
                 if metadata.detail_level == lowest_detail]
     reference = sum(baseline) / len(baseline)
     metadata = tuple(replace(item, reference_height_m=reference) for item, _ in indexed)
-    return LocalTerrainCatalog(LocalTerrainCatalogState(metadata,
-        maximum_zoom=maximum_zoom), tuple(path for _, path in indexed))
+    from apps.launchers.local_statewide_detail import paged_terrain
+    return paged_terrain(LocalTerrainCatalog(LocalTerrainCatalogState(metadata,
+        maximum_zoom=maximum_zoom), tuple(path for _, path in indexed)))
 
 
 def load_terrain(directory):

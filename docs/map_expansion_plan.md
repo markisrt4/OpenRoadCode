@@ -200,3 +200,37 @@ with `development.maps.install_terrain` and coverage names
 The new imagery revisions replace the existing pilot links safely; terrain uses
 separate active links, preserving prior regional data. Reopen Terrain after
 installation. This is a city pilot, not statewide high-resolution imagery.
+
+## Statewide detail delivery implementation
+
+`michigan-statewide-detail.yml` prepares the **whole state**, selecting Web
+Mercator z10 delivery cells that intersect the checked-in Michigan polygons.
+Each worker builds up to three cells; at most two workers run concurrently.
+Imagery is z16 (roughly 1.6–1.8 m pixels across Michigan), while terrain is sampled
+at up to 30 m from the public ~10 m 3DEP product. The earlier z17/10 m city pilots
+remain higher-resolution overlays. This is the regional tier in the roadmap,
+not a claim of statewide sub-metre photography.
+
+A cell contains one bounded MBTiles pyramid and one existing <=64-child terrain
+mosaic. Image DB/individual grid limits remain unchanged; combined cell archives
+are capped at 600 MiB. Completed cell archives survive a failed batch; failed-job
+reruns restore them and rebuild only missing/invalid cells. Catalog records and
+reports identify source dates, omitted terrain children, empty layers, byte sizes
+and checksums. Cells crossing the political border can include neighboring areas.
+
+Download `mi-detail-plan-<run>` and `mi-detail-batch-*-<run>` artifacts. The new
+`development.maps.install_statewide_detail --directory <downloads>` verifies all
+planned archives before activating a small catalog. `--allow-partial` supports
+reviewing completed batches while the whole-state run continues. Cell revisions
+are immutable and shared between catalog revisions; old catalogs/cells are retained.
+Runtime opens and verifies only requested imagery databases (four cached). One
+statewide imagery provider replaces hundreds of separate layers. Terrain uses
+renderer-requested geographic pages (<=64 grids/page, four cached pages), with 32
+validated payloads cached on the server, and falls back to installed coarse data.
+No full-state fine elevation arrays or thousands of layers are loaded at startup.
+
+The legacy terrain metadata cap is now 768 to accommodate the existing statewide
+64-tile overview, eight 64-tile regions, Metro tier and three city pilots together;
+statewide fine grids are paged separately rather than counted against that cap.
+Terrain mesh refinement remains capped at level 16. Source rights and relative-
+relief/vertical-datum limitations are the same as the validated pilots.

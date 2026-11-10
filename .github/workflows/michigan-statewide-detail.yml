@@ -1,0 +1,117 @@
+name: Build Michigan statewide detail
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: michigan-statewide-detail
+  cancel-in-progress: false
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify the statewide catalog and paging contract before launching workers
+        run: |
+          python -m pip install pytest Pillow ruff
+          python -m ruff check development/maps/statewide_detail_plan.py development/maps/build_statewide_detail.py development/maps/install_statewide_detail.py development/maps/summarize_statewide_detail.py apps/launchers/local_statewide_detail.py
+          python -m pytest apps/launchers/unit_test/test_statewide_detail.py -q
+      - id: plan
+        name: Plan all Michigan land-intersecting delivery cells
+        run: python -m development.maps.statewide_detail_plan --output build-output/statewide-plan.json --github-output "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mi-detail-plan-${{ github.run_id }}
+          path: build-output/statewide-plan.json
+          overwrite: true
+          retention-days: 14
+  cells:
+    name: Michigan detail batch ${{ matrix.batch }}
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        batch: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      BATCH: ${{ matrix.batch }}
+      GDAL_CACHEMAX: '128'
+      GDAL_NUM_THREADS: '1'
+      GDAL_DISABLE_READDIR_ON_OPEN: EMPTY_DIR
+      GDAL_HTTP_MAX_RETRY: '2'
+      GDAL_HTTP_RETRY_DELAY: '2'
+      GDAL_HTTP_TIMEOUT: '60'
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install raster tools with bounded package-server timeouts
+        timeout-minutes: 6
+        run: |
+          sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y gdal-bin python3-pil python3-pytest
+      - name: Statewide pack, paging and source regressions
+        run: /usr/bin/python3 -m pytest apps/launchers/unit_test/test_statewide_detail.py apps/launchers/unit_test/test_static_region_build.py -q
+      - uses: actions/download-artifact@v4
+        with:
+          name: mi-detail-plan-${{ github.run_id }}
+          path: build-output/plan
+      - uses: actions/download-artifact@v4
+        if: ${{ github.run_attempt > 1 }}
+        continue-on-error: true
+        with:
+          name: mi-detail-batch-${{ matrix.batch }}-${{ github.run_id }}
+          path: build-output/statewide
+      - name: Build three independently resumable detail cells
+        run: /usr/bin/python3 -m development.maps.build_statewide_detail --plan build-output/plan/statewide-plan.json --batch "$BATCH" --output build-output/statewide
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mi-detail-batch-${{ matrix.batch }}-${{ github.run_id }}
+          overwrite: true
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            build-output/statewide/*.zip
+            build-output/statewide/*.zip.json
+            build-output/statewide/*report.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mi-detail-reports-${{ matrix.batch }}-${{ github.run_id }}
+          overwrite: true
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            build-output/statewide/*.zip.json
+            build-output/statewide/*-report.json
+  summary:
+    needs: [plan, cells]
+    if: always() && needs.plan.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v4
+        with:
+          name: mi-detail-plan-${{ github.run_id }}
+          path: build-output/plan
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: mi-detail-reports-*-${{ github.run_id }}
+          path: build-output/reports
+      - name: Review complete cells, source gaps and download/install sizes
+        run: python -m development.maps.summarize_statewide_detail --plan build-output/plan/statewide-plan.json --directory build-output/reports --output build-output/statewide-summary.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mi-detail-summary-${{ github.run_id }}
+          overwrite: true
+          retention-days: 14
+          path: build-output/statewide-summary.json

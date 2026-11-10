@@ -12,6 +12,7 @@ from urllib.parse import unquote, urlsplit
 
 from apps.launchers.cesium_sdk import require_sdk
 from apps.launchers.local_terrain_pack import LocalTerrainCatalog
+from apps.launchers.local_statewide_detail import PagedTerrainCatalog
 from ui.navigation.cesium_viewer_state import CesiumViewerState
 from ui.navigation.boundary_overlay_state import BoundaryOverlayState
 from ui.navigation.local_imagery_state import LocalImageryStackState
@@ -122,6 +123,19 @@ class _Handler(BaseHTTPRequestHandler):
             return
         if path == "/data/world-lakes.geojson":
             self._send(_WORLD_LAKES.read_bytes(), "application/geo+json")
+            return
+        if path.startswith('/data/terrain-page/') and isinstance(self.owner._terrain,PagedTerrainCatalog):
+            try:
+                parts=path.removeprefix('/data/terrain-page/').split('/')
+                if len(parts)!=3 or any(not p.isascii() or not p.isdigit() or len(p)>6 for p in parts):
+                    raise ValueError('Invalid terrain page address')
+                document=self.owner._terrain.page(*(int(p) for p in parts))
+                self._send(json.dumps(document).encode(),'application/json')
+            except (ValueError,OSError,KeyError):self.send_error(404)
+            return
+        if path.startswith('/data/terrain-chunk/') and isinstance(self.owner._terrain,PagedTerrainCatalog):
+            try:self._send(self.owner._terrain.chunk(path.removeprefix('/data/terrain-chunk/')),'application/json')
+            except (ValueError,OSError,KeyError):self.send_error(404)
             return
         if path.startswith('/data/terrain/') and isinstance(self.owner._terrain, LocalTerrainCatalog):
             index = path.removeprefix('/data/terrain/')

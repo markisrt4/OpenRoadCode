@@ -164,7 +164,7 @@ def test_z17_acquisition_splits_into_aligned_cells_without_raising_crop_budget(t
     assert {entry[0] for entry in calls}=={(0,0,1,1),(1,0,2,1),(0,1,1,2),(1,1,2,2)}
     assert all(size==4096 and (bounds[2]-bounds[0])/size==2/8192 for bounds,size,_ in calls)
     with pytest.raises(ValueError,match='Unreviewed'):
-        builder.source_crops([source],tmp_path,(0,0,2,2),16384,'imagery')
+        builder.source_crops([source],tmp_path,(0,0,2,2),32768,'imagery')
 
 
 def test_current_dem_wins_over_recent_metadata_edit_on_historical_dem():

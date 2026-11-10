@@ -13,11 +13,11 @@ from development.maps.static_tile_trial import write_json
 from tools.map_builder.builder.terrain_artifact import package
 
 
-def grid_definition(bounds):
+def grid_definition(bounds,spacing_m=10):
     w,s,e,n=bounds
     width=(e-w)*111320*math.cos(math.radians((s+n)/2))
     height=(n-s)*111320
-    divisions=max(1,math.ceil(max(width,height)/(128*10)))
+    divisions=max(1,math.ceil(max(width,height)/(128*spacing_m)))
     if divisions>8:
         raise ValueError('Detail coverage too large for bounded 64-tile terrain pack')
     return divisions,dict(longitude_m=width/(128*divisions),latitude_m=height/(128*divisions))

@@ -4,7 +4,38 @@ window.ORCLocalTerrain = function (data, C, initialPoint=null) {
   let scale = 1;
   let visible = true;
   const scheme = new C.GeographicTilingScheme();
-  const tiles = (data.tiles || [data]).slice().sort((a,b)=>(b.detail_level||0)-(a.detail_level||0));
+  const rank=(a,b)=>(b.detail_level||0)-(a.detail_level||0)
+    || ((a.east_rad-a.west_rad)*(a.north_rad-a.south_rad)/((a.width-1)*(a.height-1))
+      -(b.east_rad-b.west_rad)*(b.north_rad-b.south_rad)/((b.width-1)*(b.height-1)));
+  const baseline=(data.tiles || [data]).slice().sort(rank);
+  let tiles=baseline.slice();
+  const pages=new Map();
+  const pendingPages=new Map();
+  let detailEntries=new Map();
+  async function loadPage(x,y,level){
+    if(!data.page_url || level<12)return;
+    const key=`${level}/${x}/${y}`;
+    if(pages.has(key)){
+      const value=pages.get(key);pages.delete(key);pages.set(key,value);return;
+    }
+    if(pendingPages.has(key))return pendingPages.get(key);
+    const url=data.page_url.replace('{z}',level).replace('{x}',x).replace('{y}',y);
+    const request=fetch(url).then(response=>{
+      if(!response.ok)throw Error('Offline terrain detail page unavailable');
+      return response.json();
+    }).then(page=>{
+      if(!Array.isArray(page.tiles)||page.tiles.length>64)throw Error('Invalid terrain detail page');
+      pages.set(key,page.tiles);
+      while(pages.size>4)pages.delete(pages.keys().next().value);
+      const retained=new Map();
+      for(const docs of pages.values())for(const doc of docs){
+        if(typeof doc.id!=='string'||!doc.url)throw Error('Invalid terrain detail entry');
+        retained.set(doc.id,detailEntries.get(doc.id)||doc);
+      }
+      detailEntries=retained;tiles=[...detailEntries.values(),...baseline].sort(rank);
+    }).finally(()=>pendingPages.delete(key));
+    pendingPages.set(key,request);return request;
+  }
   async function loadTile(tile) {
     if(tile.heights_m)return tile;
     if(!tile.pending)tile.pending=fetch(tile.url).then(response=>{
@@ -19,8 +50,8 @@ window.ORCLocalTerrain = function (data, C, initialPoint=null) {
     });
     return tile.pending;
   }
-  function tileAt(longitude,latitude,zoom=Infinity) {
-    return tiles.find(item=>(item.minimum_zoom||0)<=zoom
+  function tileAt(longitude,latitude,zoom=Infinity,catalog=tiles) {
+    return catalog.find(item=>(item.minimum_zoom||0)<=zoom
       && longitude>=item.west_rad&&longitude<=item.east_rad
       && latitude>=item.south_rad&&latitude<=item.north_rad);
   }
@@ -39,11 +70,11 @@ window.ORCLocalTerrain = function (data, C, initialPoint=null) {
       (at(row+1,col)*(1-fx)+at(row+1,col+1)*fx)*fy;
     // Fade the boundary to the zero-relief outside region to avoid vertical seams.
     // A single pack fades at its outer boundary. Mosaic tile edges stay continuous.
-    const margin = tiles.length === 1 ? Math.min(x,y,tile.width-1-x,tile.height-1-y) : 1;
+    const margin = !data.page_url && tiles.length === 1 ? Math.min(x,y,tile.width-1-x,tile.height-1-y) : 1;
     return scale*value*Math.min(1,Math.max(0,margin));
   }
-  function sampledHeightAt(longitude, latitude, zoom=Infinity) {
-    const tile = tiles.find(item => item.heights_m && (item.minimum_zoom||0)<=zoom
+  function sampledHeightAt(longitude, latitude, zoom=Infinity,catalog=tiles) {
+    const tile = catalog.find(item => item.heights_m && (item.minimum_zoom||0)<=zoom
       && longitude>=item.west_rad && longitude<=item.east_rad
       && latitude>=item.south_rad && latitude<=item.north_rad);
     return tile ? sample(tile,longitude,latitude) : 0;
@@ -55,18 +86,20 @@ window.ORCLocalTerrain = function (data, C, initialPoint=null) {
     const provider = new C.CustomHeightmapTerrainProvider({width:33,height:33,tilingScheme:scheme,
       credit:data.attribution,
       callback:async (x,y,level) => {
+        await loadPage(x,y,level);
+        const catalog=tiles.slice();
         const rectangle=scheme.tileXYToRectangle(x,y,level);
         const wanted=new Set();
         for(let row=0;row<33;row++)for(let col=0;col<33;col++){
           const tile=tileAt(rectangle.west+(rectangle.east-rectangle.west)*col/32,
-            rectangle.north-(rectangle.north-rectangle.south)*row/32,level);
+            rectangle.north-(rectangle.north-rectangle.south)*row/32,level,catalog);
           if(tile)wanted.add(tile);
         }
         await Promise.all([...wanted].map(loadTile));
         const buffer=new Float32Array(33*33);
         for (let row=0;row<33;row++) for (let col=0;col<33;col++) {
           buffer[row*33+col]=sampledHeightAt(rectangle.west+(rectangle.east-rectangle.west)*col/32,
-            rectangle.north-(rectangle.north-rectangle.south)*row/32,level);
+            rectangle.north-(rectangle.north-rectangle.south)*row/32,level,catalog);
         }
         return buffer;
       }

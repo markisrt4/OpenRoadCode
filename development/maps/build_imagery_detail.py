@@ -19,11 +19,11 @@ MINIMUM_ZOOM = 10
 MAXIMUM_ZOOM = 16
 
 
-def raster_to_pyramid(crops, output, coverage, *, maximum_zoom=MAXIMUM_ZOOM):
+def raster_to_pyramid(crops, output, coverage, *, maximum_zoom=MAXIMUM_ZOOM, bounds=None):
     if maximum_zoom not in (16,17):
         raise ValueError("Reviewed detail zoom must be 16 or 17")
     """Reuse aligned source crops; GDAL generates standard Web Mercator MBTiles."""
-    bounds = PILOT_BOUNDS[coverage]
+    bounds = bounds or PILOT_BOUNDS[coverage]
     scratch = output/'processing'
     scratch.mkdir(parents=True, exist_ok=True)
     listing = scratch/'sources.txt'
