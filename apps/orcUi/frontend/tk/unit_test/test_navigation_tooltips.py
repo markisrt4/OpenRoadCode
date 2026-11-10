@@ -64,6 +64,7 @@ def test_navigation_screen_closes_tooltips_when_unmounted(method):
     panel._waze_handler = None
     panel._experience_handler = None
     screen._panel = panel
+    screen._map_platform = None
     screen._radar_handler = None
     screen._route_weather = None
     screen._close_places_session = Mock()
