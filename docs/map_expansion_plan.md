@@ -277,3 +277,25 @@ Next slices: published pack discovery with per-layer sizes and local revision
 status; coarse nationwide terrain measurement; independent layer build targets;
 verified national/state navigation delivery and cross-boundary routing; storage
 budgets and removal controls. These remain pending, not implied by this menu.
+
+### Geographic selection redesign
+
+The `packs` entry now keeps an additive in-session basket: nationwide terrain,
+statewide navigation and multiple regional detail choices can coexist. Michigan
+shows major areas first: Metro Detroit, Ann Arbor/Southeast, Lansing/Mid-Michigan,
+Grand Rapids/West, Northern Lower and Upper Peninsula. Within Metro Detroit,
+Customize smaller areas contains Downtown–Midtown, Rochester/Auburn Hills and
+Southfield. These are presentation groups, not new artifact boundaries or claims
+of finished coverage. Another-state entry reuses the existing 50-state catalog.
+
+Toggle layers in each area; Enter returns without clearing other selections.
+Review offers published Metro Detroit imagery/terrain discovery using `latest`
+without release-tag or URL prompts. Descriptor sizes are fetched before the
+installation confirmation, and the existing verified installers own activation.
+Other choices remain pending where published-download integration is unavailable.
+Errors do not silently switch to source builds. Nationwide basic terrain remains
+explicitly planned. Cloud requests are a separate confirmed action listing the
+actual existing build bundles; selected geographic layers do not imply that
+those bundles exactly match the basket. Exact choices are deduplicated, but coarse
+or unpublished parent selections never suppress finer regional detail. Completed
+installations persist; the basket itself is not yet persisted across invocations.
