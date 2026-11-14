@@ -14,6 +14,7 @@ SERVICES=(
     openroadcode-navigation
     openroadcode-automotive
     openroadcode-adsb
+    openroadcode-sdrforge
 )
 LEGACY_SERVICES=(openroadcode-broker)
 
@@ -117,6 +118,8 @@ echo "OpenRoadCode Termux services installed."
 echo "The service manager stays available as the lightweight local control plane."
 echo "Start the core stack with:"
 echo "  $SCRIPT_DIR/manage_core.sh start"
+echo "Optional SDRForge (starts with simulated IQ by default):"
+echo "  sv up openroadcode-sdrforge"
 echo "Optional ADS-B:"
 echo "  sv up openroadcode-adsb"
 echo
