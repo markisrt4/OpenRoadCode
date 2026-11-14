@@ -48,6 +48,7 @@ class RunitServiceManager:
         "openroadcode-navigation",
         "openroadcode-automotive",
         "openroadcode-adsb",
+        "openroadcode-sdrforge",
     )
     CORE_STACK = (
         "openroadcode-message-broker",
@@ -58,6 +59,7 @@ class RunitServiceManager:
     PROFILE_CONFIGS = {
         "openroadcode-navigation": ("local", "remote", "simulated"),
         "openroadcode-automotive": ("local", "remote", "simulated"),
+        "openroadcode-sdrforge": ("local", "simulated"),
     }
     PROFILE_LABELS = {
         "local": "Android Bridge",
