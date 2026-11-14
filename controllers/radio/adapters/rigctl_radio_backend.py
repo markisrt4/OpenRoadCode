@@ -66,7 +66,7 @@ class RigctlRadioBackend(RadioBackendIf):
             return None
 
         value = response.strip()
-        return value or None
+        # Unsupported Hamlib levels are protocol errors, not RF measurements.\n        if not value or value.startswith("RPRT "):\n            return None\n        return value
 
 
 # Temporary compatibility alias while existing call sites migrate.
