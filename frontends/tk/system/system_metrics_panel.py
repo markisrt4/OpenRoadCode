@@ -90,6 +90,13 @@ class SystemMetricsPanel(tk.Frame, UiWidget):
         self._battery = tk.Label(self, text="", bg=ui.surface, fg=ui.text_muted,
                                  anchor="w", font=("Sans", 11, "bold"), padx=10, pady=6)
         self._battery.grid(row=4, column=0, columnspan=4, sticky="ew", padx=5, pady=4)
+        self._io = tk.Label(self, text="Storage and network: waiting for samples",
+                            bg=ui.background, fg=ui.text_muted, anchor="w",
+                            justify=tk.LEFT, font=("Sans", 10))
+        self._io.grid(row=5, column=0, columnspan=4, sticky="ew", padx=5, pady=2)
+        self._uptime = tk.Label(self, text="", bg=ui.background,
+                                fg=ui.text_muted, anchor="w", font=("Sans", 9))
+        self._uptime.grid(row=6, column=0, columnspan=4, sticky="ew", padx=5, pady=2)
 
     def _metric(
         self,
@@ -167,6 +174,18 @@ class SystemMetricsPanel(tk.Frame, UiWidget):
         else:
             self._battery.grid()
         self._identity.configure(text=f"{snapshot.hostname or 'Computing unit'}   {snapshot.platform}")
+        self._io.configure(text=(
+            f"STORAGE  {_percent(snapshot.disk_used_percent)} used · "
+            f"{_number(snapshot.disk_free_gb, 1)} / {_number(snapshot.disk_total_gb, 1)} GiB free/total"
+            f" · read {_rate(snapshot.disk_read_bytes_per_second)} · write {_rate(snapshot.disk_write_bytes_per_second)}"
+            f"\\nNETWORK  RX {_rate(snapshot.network_receive_bytes_per_second)}"
+            f" · TX {_rate(snapshot.network_transmit_bytes_per_second)}"
+        ))
+        self._uptime.configure(text=(
+            "Uptime: " + ("unavailable" if snapshot.uptime_seconds is None
+                          else f"{snapshot.uptime_seconds / 3600:.1f} hours")
+            + " · Host counters; -- means unavailable"
+        ))
         self._process.configure(text=(
             f"This process (PID {snapshot.process_id or '--'}): "
             f"{_percent(snapshot.process_cpu_percent)} CPU   ·   100% = one core; excludes other processes"
@@ -317,3 +336,11 @@ def pressure_color(ui, percent: float | None) -> str:
     if percent is None:
         return ui.text_muted
     return ui.accent_danger if percent >= 95 else ui.accent_warning if percent >= 80 else ui.accent_success
+
+def _rate(value: float | None) -> str:
+    """Render sampled byte rates; unavailable is never zero."""
+    if value is None:
+        return "--"
+    if value >= 1024 * 1024:
+        return f"{value / (1024 * 1024):.1f} MiB/s"
+    return f"{value / 1024:.1f} KiB/s"
