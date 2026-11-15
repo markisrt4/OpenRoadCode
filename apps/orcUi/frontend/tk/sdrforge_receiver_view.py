@@ -21,7 +21,7 @@ class SdrForgeReceiverView(tk.Frame):
         super().__init__(parent, bg=theme.ui.background)
         self._theme = theme
         self._bins: tuple[float, ...] = ()
-        self._history: deque[tuple[float, ...]] = deque(maxlen=80)
+        self._history: deque[tuple[float, ...]] = deque(maxlen=180)
         self._station = "--"
         self._frequency_hz = 0
         self._radio_text = ""
@@ -95,7 +95,7 @@ class SdrForgeReceiverView(tk.Frame):
         compact = h < 230
         info_height = 38 if compact else 60
         plot_height = max(12, h - info_height)
-        spectrum_height = max(8, int(plot_height * 0.48))
+        spectrum_height = max(8, int(plot_height * 0.38))
         if self._bins:
             n = len(self._bins)
             points = []
@@ -107,15 +107,21 @@ class SdrForgeReceiverView(tk.Frame):
                 canvas.create_line(*points, fill="#20c7ff", width=2, smooth=False)
             history = list(self._history)
             available = max(1, plot_height - spectrum_height)
-            # Draw coarse horizontal runs rather than one Tk item per pixel.
-            # A 1280-wide waterfall would otherwise create ~100k canvas items.
-            step = max(2, w // 240)
-            for row, values in enumerate(reversed(history[-available:])):
-                y = spectrum_height + row
-                for x in range(0, w, step):
-                    value = values[min(len(values) - 1, int(x * len(values) / w))]
-                    canvas.create_line(x, y, min(w, x + step), y,
-                                       fill=self._waterfall_color(value))
+            # Fill the waterfall area by scaling the available history to its
+            # height. Use coarse tiles to bound Tk canvas object count.
+            x_step = max(3, (w + 199) // 200)
+            y_step = max(2, (available + 89) // 90)
+            for y_offset in range(0, available, y_step):
+                history_index = min(len(history) - 1,
+                                    y_offset * len(history) // available)
+                values = history[-1 - history_index]
+                y = spectrum_height + y_offset
+                for x in range(0, w, x_step):
+                    value = values[min(len(values) - 1, x * len(values) // w)]
+                    canvas.create_rectangle(
+                        x, y, min(w, x + x_step), min(plot_height, y + y_step),
+                        fill=self._waterfall_color(value), outline="",
+                    )
         else:
             canvas.create_text(w / 2, plot_height / 2, text="Waiting for spectrum…",
                                fill=ui.text_muted, font=("Sans", 10))
