@@ -187,20 +187,22 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
             if resources.closed:
                 raise RuntimeError("Radio composition is closed")
             radio = RadioProfileController()
+            native_sdrforge = os.environ.get("ORC_SDRFORGE_UI_PREVIEW") == "1"
+            source = (SdrForgeTelemetrySubscriber(
+                os.environ.get("SDRFORGE_ZMQ_ENDPOINT", "tcp://127.0.0.1:5571")
+            ) if native_sdrforge else None)
             session = ReceiverSession(
                 radio, SDRPPControl(), SDRTelemetryMonitor(radio), runtime.radio,
                 adsb, X11WindowEmbedder(), display=os.environ.get("DISPLAY", ":1"),
                 run_work=resources.run_rf, run_ui=app.dispatch_ui,
                 on_close=lambda: resources.rf_sessions.discard(session),
+                spectrum_source=source,
             )
             with ResourceCleanup() as rollback:
                 rollback.callback(session.close)
                 resources.rf_sessions.add(session)
-                source = (SdrForgeTelemetrySubscriber(
-                    os.environ.get("SDRFORGE_ZMQ_ENDPOINT", "tcp://127.0.0.1:5571")
-                ) if os.environ.get("ORC_SDRFORGE_UI_PREVIEW") == "1" else None)
                 panel = RadioPanel(parent, session=session, theme=theme,
-                                   spectrum_source=source)
+                                   native_sdrforge=native_sdrforge)
                 rollback.release()
             return panel
 
