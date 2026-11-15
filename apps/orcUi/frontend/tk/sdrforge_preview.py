@@ -7,7 +7,8 @@ import math
 import tkinter as tk
 
 from apps.orcUi.frontend.tk.sdrforge_receiver_view import SdrForgeReceiverView
-from ui.theme import theme_bundle, ThemeMode
+from apps.orcUi.theme_runtime import theme_bundle
+from ui.theme import ThemeMode
 
 
 def main() -> None:
