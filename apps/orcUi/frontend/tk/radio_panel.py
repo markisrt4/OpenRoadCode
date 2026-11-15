@@ -302,13 +302,14 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             self._active_group = profile.group
         self._paint_groups()
         self.set_station(state.station.label, state.station.frequency_hz, state.station.mode_name)
-        self._metadata_label.configure(text=state.telemetry.rds)
+        self._metadata_label.configure(text=state.telemetry.radio_text or state.telemetry.rds)
         if self._sdrforge_view is not None and state.view != "adsb":
             self._sdrforge_view.place(relx=0, rely=0, relwidth=1, relheight=1)
             self._sdrforge_view.set_station(
                 frequency_hz=state.station.frequency_hz,
-                name=state.station.label,
-                radio_text=state.telemetry.rds,
+                name=state.telemetry.station_name or state.station.label,
+                radio_text=state.telemetry.radio_text or state.telemetry.rds,
+                stereo=state.telemetry.stereo_locked is True,
                 signal=state.telemetry.signal_db,
             )
         signal = "--" if state.telemetry.signal_db is None else f"{state.telemetry.signal_db:.1f} dB"
