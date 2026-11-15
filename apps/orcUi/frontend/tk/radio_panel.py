@@ -58,6 +58,31 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         )
         self._host.grid(row=0, column=0, sticky="nsew")
         self._host.bind("<Configure>", self._on_host_resize)
+        self._receiver_sidebar = None
+        if native_sdrforge:
+            self._receiver_sidebar = tk.Frame(
+                self._body, bg=ui.surface, width=210,
+                highlightthickness=1, highlightbackground=ui.border)
+            self._receiver_sidebar.grid(row=0, column=1, sticky="ns", padx=(6, 0))
+            self._receiver_sidebar.grid_propagate(False)
+            tk.Label(self._receiver_sidebar, text="QUICK TUNING", bg=ui.surface,
+                     fg=ui.text, font=("Sans", 12, "bold"), pady=14).pack(fill=tk.X)
+            for title, callback in (
+                ("◀  Tune down", self._tune_down),
+                ("Tune up  ▶", self._tune_up),
+                ("◀  Previous station", self._previous_preset),
+                ("Next station  ▶", self._next_preset),
+            ):
+                tk.Button(self._receiver_sidebar, text=title, command=callback,
+                          bg=ui.control_background, fg=ui.text,
+                          activebackground=ui.accent_primary,
+                          relief=tk.FLAT, bd=0, pady=12,
+                          font=("Sans", 10, "bold")).pack(fill=tk.X, padx=8, pady=4)
+            tk.Label(self._receiver_sidebar,
+                     text="Favorites below\nAdvanced settings above",
+                     bg=ui.surface, fg=ui.text_muted, justify=tk.CENTER,
+                     font=("Sans", 9), pady=12).pack(fill=tk.X)
+
         self._sdrforge_view: SdrForgeReceiverView | None = None
         self._sdrforge_after_id: str | None = None
         if native_sdrforge:
@@ -204,6 +229,8 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._groups.configure(bg=ui.surface, highlightbackground=ui.border)
         self._body.configure(bg=ui.background)
         self._host.configure(bg=ui.background, highlightbackground=ui.border)
+        if self._receiver_sidebar is not None:
+            self._receiver_sidebar.configure(bg=ui.surface, highlightbackground=ui.border)
         self._telemetry_overlay.configure(bg=ui.surface_alt, highlightbackground=ui.border)
         self._signal_label.configure(bg=ui.surface_alt, fg=ui.text)
         self._snr_label.configure(bg=ui.surface_alt, fg=ui.accent_success)
