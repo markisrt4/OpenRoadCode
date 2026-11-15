@@ -39,6 +39,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._drawer_open = False
         self._drawer: tk.Frame | None = None
         self._display_buttons: dict[str, tk.Button] = {}
+        self._favorites_signature = None
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
@@ -341,9 +342,13 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
     def _render_favorites(self, state: RfRadioState) -> None:
         """One-touch station presets for the active radio profile."""
         ui = self._theme.ui
+        profile = next((p for p in state.profiles if p.key == state.station.profile_key), None)
+        signature = (profile.key, tuple(p.label for p in profile.presets[:6])) if profile else None
+        if signature == self._favorites_signature:
+            return
+        self._favorites_signature = signature
         for child in self._favorites.winfo_children():
             child.destroy()
-        profile = next((p for p in state.profiles if p.key == state.station.profile_key), None)
         if profile is None:
             return
         for preset in profile.presets[:6]:
