@@ -95,7 +95,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._controls.grid_columnconfigure(2, weight=1)
         tk.Button(
             self._controls,
-            text="‹ PRESET",
+            text="◀  PRESET",
             command=self._previous_preset,
             bg=ui.surface,
             fg=ui.text,
@@ -109,7 +109,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         ).grid(row=0, column=0, rowspan=3, sticky="ns")
         tk.Button(
             self._controls,
-            text="− TUNE",
+            text="− 0.1 MHz",
             command=self._tune_down,
             bg=ui.surface,
             fg=ui.text_muted,
@@ -124,11 +124,11 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         center = tk.Frame(self._controls, bg=ui.surface)
         center.grid(row=0, column=2, rowspan=3, sticky="ew")
         self._station_label = tk.Label(
-            center, text="NO PRESET", bg=ui.surface, fg=ui.text, font=("Sans", 11, "bold")
+            center, text="FM RADIO", bg=ui.surface, fg=ui.text, font=("Sans", 15, "bold")
         )
         self._station_label.pack()
         self._frequency_label = tk.Label(
-            center, text="--.- MHz", bg=ui.surface, fg=ui.text_muted, font=("Monospace", 9)
+            center, text="--.--- MHz", bg=ui.surface, fg=ui.text_muted, font=("Monospace", 9)
         )
         self._frequency_label.pack()
         self._metadata_label = tk.Label(
@@ -137,7 +137,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._metadata_label.pack()
         tk.Button(
             self._controls,
-            text="TUNE +",
+            text="+ 0.1 MHz",
             command=self._tune_up,
             bg=ui.surface,
             fg=ui.text_muted,
@@ -151,7 +151,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         ).grid(row=0, column=3, rowspan=3, sticky="ns")
         tk.Button(
             self._controls,
-            text="PRESET ›",
+            text="PRESET  ▶",
             command=self._next_preset,
             bg=ui.surface,
             fg=ui.text,
@@ -164,7 +164,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             highlightthickness=0,
         ).grid(row=0, column=4, rowspan=3, sticky="ns")
 
-        self._launch_status = tk.Label(self._host, text="Loading SDR++…", bg=ui.background,
+        self._launch_status = tk.Label(self._host, text="Connecting to radio…", bg=ui.background,
                                        fg=ui.text, font=("Sans", 20, "bold"))
         self._session.bind(self)
         self._schedule_telemetry_refresh()
