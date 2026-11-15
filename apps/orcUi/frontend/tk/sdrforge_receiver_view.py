@@ -86,59 +86,86 @@ class SdrForgeReceiverView(tk.Frame):
             ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2, pady=3)
 
     def _render(self) -> None:
+        """Render a receiver dashboard, not a bare FFT debug canvas."""
         canvas = self._canvas
         canvas.delete("all")
         w, h = canvas.winfo_width(), canvas.winfo_height()
-        if w < 30 or h < 30:
+        if w < 80 or h < 90:
             return
         ui = self._theme.ui
-        compact = h < 230
-        info_height = 38 if compact else 60
-        plot_height = max(12, h - info_height)
-        spectrum_height = max(8, int(plot_height * 0.38))
-        canvas.create_line(0, spectrum_height, w, spectrum_height,
-                           fill=ui.border, width=1)
+        compact = h < 260
+        header = 54 if compact else 80
+        footer = 30 if compact else 44
+        scale = 22
+        spectrum_top = header + scale
+        plot_bottom = h - footer
+        spectrum_height = max(20, int((plot_bottom - spectrum_top) * 0.38))
+        waterfall_top = spectrum_top + spectrum_height
+        waterfall_height = max(1, plot_bottom - waterfall_top)
+
+        canvas.create_rectangle(0, 0, w, header, fill=ui.surface, outline="")
+        canvas.create_text(14, 10 if compact else 15, anchor="nw",
+                           text="FM  /  SDRFORGE", fill=ui.text_muted,
+                           font=("Sans", 9, "bold"))
+        frequency = f"{self._frequency_hz / 1e6:.1f}" if self._frequency_hz else "--.-"
+        canvas.create_text(14, header - 8, anchor="sw",
+                           text=f"{frequency} MHz", fill=ui.text,
+                           font=("Sans", 19 if compact else 28, "bold"))
+        canvas.create_text(w - 14, 12, anchor="ne",
+                           text=self._station, fill=ui.text,
+                           font=("Sans", 11 if compact else 15, "bold"))
+        canvas.create_text(w - 14, header - 8, anchor="se",
+                           text="● STEREO" if self._stereo else "MONO / NO LOCK",
+                           fill=ui.accent_success if self._stereo else ui.text_muted,
+                           font=("Sans", 9, "bold"))
+
+        # Scale labels represent relative FFT position until the spectrum
+        # contract supplies center frequency and bin spacing.
+        canvas.create_rectangle(0, header, w, spectrum_top,
+                                fill=ui.background, outline="")
+        for i in range(5):
+            x = 10 + (w - 20) * i / 4
+            canvas.create_line(x, spectrum_top - 5, x, spectrum_top,
+                               fill=ui.border)
+            canvas.create_text(x, header + 5, anchor="n",
+                               text=f"{i * 25}%", fill=ui.text_muted,
+                               font=("Monospace", 8))
+        for i in range(1, 4):
+            y = spectrum_top + spectrum_height * i / 4
+            canvas.create_line(0, y, w, y, fill=ui.border, dash=(2, 6))
         if self._bins:
-            n = len(self._bins)
             points = []
             for i, value in enumerate(self._bins):
-                x = i * (w - 1) / max(1, n - 1)
-                y = spectrum_height * (1.0 - value)
+                x = i * (w - 1) / max(1, len(self._bins) - 1)
+                y = spectrum_top + (spectrum_height - 2) * (1.0 - value)
                 points.extend((x, y))
             if len(points) >= 4:
-                canvas.create_line(*points, fill=ui.accent_primary, width=2, smooth=False)
+                canvas.create_line(*points, fill=ui.accent_primary, width=2)
             history = list(self._history)
-            available = max(1, plot_height - spectrum_height)
-            # Fill the waterfall area by scaling the available history to its
-            # height. Use coarse tiles to bound Tk canvas object count.
             x_step = max(3, (w + 199) // 200)
-            y_step = max(2, (available + 89) // 90)
-            for y_offset in range(0, available, y_step):
-                history_index = min(len(history) - 1,
-                                    y_offset * len(history) // available)
-                values = history[-1 - history_index]
-                y = spectrum_height + y_offset
+            y_step = max(2, (waterfall_height + 89) // 90)
+            for offset in range(0, waterfall_height, y_step):
+                idx = min(len(history) - 1,
+                          offset * len(history) // waterfall_height)
+                values = history[-1 - idx]
+                y = waterfall_top + offset
                 for x in range(0, w, x_step):
                     value = values[min(len(values) - 1, x * len(values) // w)]
                     canvas.create_rectangle(
-                        x, y, min(w, x + x_step), min(plot_height, y + y_step),
-                        fill=self._waterfall_color(value), outline="",
-                    )
+                        x, y, min(w, x + x_step),
+                        min(plot_bottom, y + y_step),
+                        fill=self._waterfall_color(value), outline="")
         else:
-            canvas.create_text(w / 2, plot_height / 2, text="Waiting for spectrum…",
-                               fill=ui.text_muted, font=("Sans", 10))
-        canvas.create_rectangle(0, plot_height, w, h, fill=ui.surface, outline=ui.border)
-        canvas.create_text(10, plot_height + (12 if compact else 18), anchor="w",
-                           text=self._station,
-                           fill=ui.text, font=("Sans", 11 if compact else 14, "bold"))
-        if self._stereo:
-            canvas.create_text(w - 10, plot_height + (12 if compact else 18), anchor="e",
-                               text="STEREO", fill=ui.accent_success,
-                               font=("Sans", 9, "bold"))
-        detail = self._radio_text
-        if detail:
-            canvas.create_text(10, h - 7, anchor="sw", text=detail[:90],
-                               fill=ui.text_muted, font=("Sans", 9))
+            canvas.create_text(w / 2, spectrum_top + spectrum_height / 2,
+                               text="Waiting for spectrum telemetry",
+                               fill=ui.text_muted, font=("Sans", 11))
+        canvas.create_line(0, waterfall_top, w, waterfall_top,
+                           fill=ui.border)
+        canvas.create_rectangle(0, plot_bottom, w, h,
+                                fill=ui.surface, outline=ui.border)
+        canvas.create_text(12, plot_bottom + footer / 2, anchor="w",
+                           text=(self._radio_text or "RDS text unavailable")[:90],
+                           fill=ui.text_muted, font=("Sans", 10))
 
     @staticmethod
     def _waterfall_color(value: float) -> str:
