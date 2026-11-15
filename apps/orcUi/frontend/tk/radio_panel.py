@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 import tkinter as tk
 from .sdrforge_receiver_view import SdrForgeReceiverView
+from .sdrforge_telemetry import SdrForgeTelemetrySubscriber
 from ui.radio.rf_radio_if import RadioAction, RadioHost, RadioRequest, RfRadioSession, RfRadioState
 from ui.radio.radio_profile_state import RadioProfileState
 from ui.theme import ThemeBundle
@@ -56,9 +57,16 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._host.grid(row=0, column=0, sticky="nsew")
         self._host.bind("<Configure>", self._on_host_resize)
         self._sdrforge_view: SdrForgeReceiverView | None = None
+        self._sdrforge_telemetry: SdrForgeTelemetrySubscriber | None = None
+        self._sdrforge_after_id: str | None = None
         if os.environ.get("ORC_SDRFORGE_UI_PREVIEW") == "1":
             self._sdrforge_view = SdrForgeReceiverView(self._host, theme=theme)
             self._sdrforge_view.place(relx=0, rely=0, relwidth=1, relheight=1)
+            self._sdrforge_telemetry = SdrForgeTelemetrySubscriber(
+                os.environ.get("SDRFORGE_ZMQ_ENDPOINT", "tcp://127.0.0.1:5571")
+            )
+            self._sdrforge_telemetry.start()
+            self._poll_sdrforge_spectrum()
 
         self._telemetry_overlay = tk.Frame(
             self._host, bg=ui.surface_alt, highlightthickness=1, highlightbackground=ui.border
@@ -166,7 +174,19 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._session.bind(self)
         self._schedule_telemetry_refresh()
 
+    def _poll_sdrforge_spectrum(self) -> None:
+        if self._sdrforge_telemetry is not None and self._sdrforge_view is not None:
+            bins = self._sdrforge_telemetry.latest_spectrum()
+            if bins is not None:
+                self._sdrforge_view.set_spectrum(bins)
+            self._sdrforge_after_id = self.after(100, self._poll_sdrforge_spectrum)
+
     def destroy(self) -> None:
+        if self._sdrforge_after_id is not None:
+            self.after_cancel(self._sdrforge_after_id)
+            self._sdrforge_after_id = None
+        if self._sdrforge_telemetry is not None:
+            self._sdrforge_telemetry.close()
         if self._telemetry_after_id is not None:
             try:
                 self.after_cancel(self._telemetry_after_id)
