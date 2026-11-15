@@ -9,6 +9,7 @@ from threading import Lock, RLock
 from controllers.radio.radio_profile_controller import RadioProfileController
 from controllers.sdr.sdrpp_control import SDRPPControl
 from controllers.sdr.sdr_telemetry_monitor import SDRTelemetryMonitor
+from ui.radio.sdrforge_spectrum_if import SpectrumSourceIf, SpectrumPresentationIf
 from ui.radio.rf_radio_if import (
     AircraftPresentation, RadioAction, RadioApplication, RadioHost, RadioNativeSurface,
     RadioRequest, RfProfile, RfRadioState, RfRadioUi,
@@ -27,7 +28,9 @@ class ReceiverSession:
                  aircraft: AircraftPresentation, surface: RadioNativeSurface, *,
                  display: str, run_work: Callable[[Callable[[], None]], None],
                  run_ui: Callable[[Callable[[], None]], None],
-                 on_close: Callable[[], None] = lambda: None) -> None:
+                 on_close: Callable[[], None] = lambda: None,
+                 spectrum_source: SpectrumSourceIf | None = None) -> None:
+        self._spectrum_source = spectrum_source
         self._radio = radio
         self._control = control
         self._telemetry = telemetry
@@ -57,7 +60,21 @@ class ReceiverSession:
             if self._closed:
                 raise RuntimeError("Receiver session is closed")
             self._view = view
+        if self._spectrum_source is not None:
+            self._spectrum_source.start()
         view.set_radio_state(self._state)
+
+    def refresh_spectrum(self) -> None:
+        """Transfer latest immutable spectrum state to the UI, never the transport."""
+        with self._lock:
+            if self._closed or not self._active or self._spectrum_source is None:
+                return
+            view = self._view
+        if view is None:
+            return
+        snapshot = self._spectrum_source.latest_spectrum()
+        if snapshot is not None and isinstance(view, SpectrumPresentationIf):
+            view.set_spectrum_presentation(snapshot)
 
     def request(self, request: RadioRequest) -> None:
         with self._lock:
@@ -226,6 +243,8 @@ class ReceiverSession:
             self._view = None
         # Detach before Tk destroys the host. A launch already in progress must
         # finish first; generation retirement prevents any later reattachment.
+        if self._spectrum_source is not None:
+            self._spectrum_source.close()
         with self._native_lock:
             self._cleanup_native()
 
