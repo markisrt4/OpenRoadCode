@@ -95,7 +95,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._controls.grid_columnconfigure(2, weight=1)
         tk.Button(
             self._controls,
-            text="◀  PRESET",
+            text="◀  STATION",
             command=self._previous_preset,
             bg=ui.surface,
             fg=ui.text,
@@ -109,7 +109,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         ).grid(row=0, column=0, rowspan=3, sticky="ns")
         tk.Button(
             self._controls,
-            text="− 0.1 MHz",
+            text="◀  TUNE",
             command=self._tune_down,
             bg=ui.surface,
             fg=ui.text_muted,
@@ -137,7 +137,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._metadata_label.pack()
         tk.Button(
             self._controls,
-            text="+ 0.1 MHz",
+            text="TUNE  ▶",
             command=self._tune_up,
             bg=ui.surface,
             fg=ui.text_muted,
@@ -151,7 +151,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         ).grid(row=0, column=3, rowspan=3, sticky="ns")
         tk.Button(
             self._controls,
-            text="PRESET  ▶",
+            text="STATION  ▶",
             command=self._next_preset,
             bg=ui.surface,
             fg=ui.text,
@@ -164,6 +164,9 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             highlightthickness=0,
         ).grid(row=0, column=4, rowspan=3, sticky="ns")
 
+        self._favorites = tk.Frame(self, bg=ui.surface)
+        if native_sdrforge:
+            self._favorites.grid(row=3, column=0, sticky="ew", pady=(4, 0))
         self._launch_status = tk.Label(self._host, text="Connecting to radio…", bg=ui.background,
                                        fg=ui.text, font=("Sans", 20, "bold"))
         self._session.bind(self)
@@ -203,6 +206,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._signal_label.configure(bg=ui.surface_alt, fg=ui.text)
         self._snr_label.configure(bg=ui.surface_alt, fg=ui.accent_success)
         self._controls.configure(bg=ui.surface, highlightbackground=ui.border)
+        self._favorites.configure(bg=ui.surface)
         for child in self._controls.winfo_children():
             if isinstance(child, tk.Button):
                 child.configure(
@@ -301,6 +305,8 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         elif profile is not None:
             self._active_group = profile.group
         self._paint_groups()
+        if self._sdrforge_view is not None:
+            self._render_favorites(state)
         self.set_station(state.station.label, state.station.frequency_hz, state.station.mode_name)
         self._metadata_label.configure(text=state.telemetry.radio_text or state.telemetry.rds)
         if self._sdrforge_view is not None and state.view != "adsb":
@@ -331,6 +337,30 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             self._telemetry_overlay.place(relx=1.0, x=-8, y=8, anchor="ne")
         self._controls_button.configure(state=tk.DISABLED if state.view == "adsb" else tk.NORMAL)
         self._refresh_display_controls()
+
+    def _render_favorites(self, state: RfRadioState) -> None:
+        """One-touch station presets for the active radio profile."""
+        ui = self._theme.ui
+        for child in self._favorites.winfo_children():
+            child.destroy()
+        profile = next((p for p in state.profiles if p.key == state.station.profile_key), None)
+        if profile is None:
+            return
+        for preset in profile.presets[:6]:
+            tk.Button(
+                self._favorites, text=preset.label,
+                command=lambda p=preset, key=profile.key: self._session.request(
+                    RadioRequest(RadioAction.PRESET, key=key, preset=p)),
+                bg=ui.control_background, fg=ui.text,
+                activebackground=ui.accent_primary, relief=tk.FLAT,
+                bd=0, padx=8, pady=10,
+            ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2)
+        tk.Button(
+            self._favorites, text="☆ SAVE",
+            command=lambda group=profile.group: self._add_current_preset(group),
+            bg=ui.surface_alt, fg=ui.text, relief=tk.FLAT,
+            bd=0, padx=8, pady=10,
+        ).pack(side=tk.RIGHT, padx=2)
 
     def _schedule_telemetry_refresh(self) -> None:
         self._session.request(RadioRequest(RadioAction.REFRESH))
