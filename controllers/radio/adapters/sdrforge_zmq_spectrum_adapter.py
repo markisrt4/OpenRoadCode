@@ -12,6 +12,7 @@ import threading
 from queue import Empty, Queue
 from typing import Any
 from ui.radio.sdrforge_spectrum_if import SpectrumPresentation
+from ui.radio.rf_radio_if import RadioTelemetry
 
 LOG = logging.getLogger(__name__)
 
@@ -37,12 +38,34 @@ def spectrum_bins(topic: str, payload: dict[str, Any]) -> tuple[float, ...] | No
     return values
 
 
+def receiver_telemetry(topic: str, payload: dict[str, Any]) -> RadioTelemetry | None:
+    """Map the SDRForge receiver snapshot to ORC's existing radio contract."""
+    if topic != "receiver":
+        return None
+    frequency = payload.get("channel_frequency_hz")
+    if not isinstance(frequency, (int, float)) or isinstance(frequency, bool):
+        return None
+    if not math.isfinite(frequency) or frequency <= 0:
+        return None
+    rds = payload.get("rds")
+    if rds is not None and not isinstance(rds, dict):
+        return None
+    rds = rds or {}
+    name = rds.get("program_service") or rds.get("ps") or ""
+    radio_text = rds.get("radio_text") or rds.get("rt") or ""
+    if not isinstance(name, str) or not isinstance(radio_text, str):
+        return None
+    label = radio_text.strip() or name.strip()
+    return RadioTelemetry(frequency_hz=int(frequency), rds=label[:256])
+
+
 class SdrForgeTelemetrySubscriber:
     """Bounded latest-only telemetry queue, safe to poll from the Tk thread."""
 
     def __init__(self, endpoint: str = "tcp://127.0.0.1:5571") -> None:
         self.endpoint = endpoint
         self._queue: Queue[SpectrumPresentation] = Queue(maxsize=1)
+        self._receiver_queue: Queue[RadioTelemetry] = Queue(maxsize=1)
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
 
@@ -57,6 +80,12 @@ class SdrForgeTelemetrySubscriber:
     def latest_spectrum(self) -> SpectrumPresentation | None:
         try:
             return self._queue.get_nowait()
+        except Empty:
+            return None
+
+    def latest_receiver(self) -> RadioTelemetry | None:
+        try:
+            return self._receiver_queue.get_nowait()
         except Empty:
             return None
 
@@ -77,6 +106,7 @@ class SdrForgeTelemetrySubscriber:
             socket.setsockopt(zmq.LINGER, 0)
             socket.setsockopt(zmq.RCVHWM, 2)
             socket.setsockopt(zmq.SUBSCRIBE, b"spectrum ")
+            socket.setsockopt(zmq.SUBSCRIBE, b"receiver ")
             socket.connect(self.endpoint)
             poller = zmq.Poller()
             poller.register(socket, zmq.POLLIN)
@@ -92,7 +122,15 @@ class SdrForgeTelemetrySubscriber:
                     payload = envelope.get("payload")
                     if not isinstance(payload, dict):
                         continue
-                    bins = spectrum_bins(topic.decode("ascii"), payload)
+                    topic_name = topic.decode("ascii")
+                    if topic_name == "receiver":
+                        receiver = receiver_telemetry(topic_name, payload)
+                        if receiver is not None:
+                            if self._receiver_queue.full():
+                                self._receiver_queue.get_nowait()
+                            self._receiver_queue.put_nowait(receiver)
+                        continue
+                    bins = spectrum_bins(topic_name, payload)
                     if bins is None:
                         continue
                     if self._queue.full():
