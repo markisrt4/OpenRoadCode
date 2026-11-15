@@ -96,6 +96,8 @@ class SdrForgeReceiverView(tk.Frame):
         info_height = 38 if compact else 60
         plot_height = max(12, h - info_height)
         spectrum_height = max(8, int(plot_height * 0.38))
+        canvas.create_line(0, spectrum_height, w, spectrum_height,
+                           fill=ui.border, width=1)
         if self._bins:
             n = len(self._bins)
             points = []
@@ -104,7 +106,7 @@ class SdrForgeReceiverView(tk.Frame):
                 y = spectrum_height * (1.0 - value)
                 points.extend((x, y))
             if len(points) >= 4:
-                canvas.create_line(*points, fill="#20c7ff", width=2, smooth=False)
+                canvas.create_line(*points, fill=ui.accent_primary, width=2, smooth=False)
             history = list(self._history)
             available = max(1, plot_height - spectrum_height)
             # Fill the waterfall area by scaling the available history to its
@@ -129,7 +131,11 @@ class SdrForgeReceiverView(tk.Frame):
         canvas.create_text(10, plot_height + (12 if compact else 18), anchor="w",
                            text=self._station,
                            fill=ui.text, font=("Sans", 11 if compact else 14, "bold"))
-        detail = self._radio_text or ("Stereo" if self._stereo else "")
+        if self._stereo:
+            canvas.create_text(w - 10, plot_height + (12 if compact else 18), anchor="e",
+                               text="STEREO", fill=ui.accent_success,
+                               font=("Sans", 9, "bold"))
+        detail = self._radio_text
         if detail:
             canvas.create_text(10, h - 7, anchor="sw", text=detail[:90],
                                fill=ui.text_muted, font=("Sans", 9))
