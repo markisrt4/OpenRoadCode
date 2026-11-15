@@ -1,0 +1,50 @@
+# SPDX-License-Identifier: MIT
+"""Hardware-independent contract checks for the SDRForge REST radio adapter."""
+
+from __future__ import annotations
+
+import unittest
+from unittest.mock import patch
+
+from controllers.radio.adapters.sdrforge_rest_radio_backend import SdrForgeRestRadioBackend
+
+
+class SdrForgeRestRadioBackendTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.backend = SdrForgeRestRadioBackend()
+
+    def test_receiver_snapshot_maps_to_radio_contract(self) -> None:
+        snapshot = {
+            "frequency_hz": 104300000, "mode": "WFM",
+            "bandwidth_hz": 200000, "signal_strength": -35.0,
+            "snr": 24.0, "rds": "WOMC",
+        }
+        with patch.object(self.backend, "_request", return_value=snapshot) as request:
+            self.assertEqual(self.backend.get_frequency(), 104300000)
+            self.assertEqual(self.backend.get_signal_strength(), -35.0)
+            self.assertEqual(self.backend.get_snr(), 24.0)
+            self.assertEqual(self.backend.get_rds(), "WOMC")
+        self.assertEqual(request.call_count, 4)
+
+    def test_control_paths_match_sdrforge_v1(self) -> None:
+        with patch.object(self.backend, "_request", return_value={"ok": True}) as request:
+            self.backend.start()
+            self.backend.set_frequency(94700000)
+            self.backend.set_mode("wfm", 200000)
+            self.backend.stop()
+        self.assertEqual([call.args for call in request.call_args_list], [
+            ("/v1/receiver/start", {}),
+            ("/v1/receiver/frequency", {"frequency_hz": 94700000}),
+            ("/v1/receiver/mode", {"mode": "WFM", "bandwidth_hz": 200000}),
+            ("/v1/receiver/stop", {}),
+        ])
+
+    def test_invalid_frequency_does_not_call_service(self) -> None:
+        with patch.object(self.backend, "_request") as request:
+            with self.assertRaises(ValueError):
+                self.backend.set_frequency(0)
+            request.assert_not_called()
+
+
+if __name__ == "__main__":
+    unittest.main()
