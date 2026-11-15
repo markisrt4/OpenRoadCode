@@ -55,8 +55,15 @@ def receiver_telemetry(topic: str, payload: dict[str, Any]) -> RadioTelemetry | 
     radio_text = rds.get("radio_text") or rds.get("rt") or ""
     if not isinstance(name, str) or not isinstance(radio_text, str):
         return None
-    label = radio_text.strip() or name.strip()
-    return RadioTelemetry(frequency_hz=int(frequency), rds=label[:256])
+    name = name.strip()[:64]
+    radio_text = radio_text.strip()[:256]
+    stereo = payload.get("stereo_locked")
+    if stereo is not None and not isinstance(stereo, bool):
+        return None
+    return RadioTelemetry(
+        frequency_hz=int(frequency), rds=radio_text or name,
+        station_name=name, radio_text=radio_text, stereo_locked=stereo,
+    )
 
 
 class SdrForgeTelemetrySubscriber:
