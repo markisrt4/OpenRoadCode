@@ -16,9 +16,9 @@ LOG = logging.getLogger(__name__)
 
 def spectrum_bins(topic: str, payload: dict[str, Any]) -> tuple[float, ...] | None:
     """Extract display bins without assuming a single producer topic spelling."""
-    if "spectrum" not in topic.lower() and "fft" not in topic.lower():
+    if topic != "spectrum":
         return None
-    raw = payload.get("bins", payload.get("magnitudes", payload.get("spectrum")))
+    raw = payload.get("power_db", payload.get("bins", payload.get("magnitudes")))
     if not isinstance(raw, list) or not raw:
         return None
     try:
@@ -72,7 +72,7 @@ class SdrForgeTelemetrySubscriber:
         try:
             socket.setsockopt(zmq.LINGER, 0)
             socket.setsockopt(zmq.RCVHWM, 2)
-            socket.setsockopt(zmq.SUBSCRIBE, b"")
+            socket.setsockopt(zmq.SUBSCRIBE, b"spectrum ")
             socket.connect(self.endpoint)
             poller = zmq.Poller()
             poller.register(socket, zmq.POLLIN)
