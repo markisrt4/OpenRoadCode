@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,6 +27,7 @@ class SpectrumSourceIf(Protocol):
     def close(self) -> None: ...
 
 
+@runtime_checkable
 class SpectrumPresentationIf(Protocol):
     """Frontend receives only validated, immutable spectrum snapshots."""
 
