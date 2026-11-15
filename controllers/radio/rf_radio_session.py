@@ -72,6 +72,12 @@ class ReceiverSession:
             view = self._view
         if view is None:
             return
+        receiver_reader = getattr(self._spectrum_source, "latest_receiver", None)
+        if receiver_reader is not None:
+            receiver = receiver_reader()
+            if receiver is not None:
+                self._state = replace(self._state, telemetry=receiver)
+                view.set_radio_state(self._state)
         snapshot = self._spectrum_source.latest_spectrum()
         if snapshot is not None and isinstance(view, SpectrumPresentationIf):
             view.set_spectrum_presentation(snapshot)
