@@ -55,6 +55,7 @@ class SdrForgeReceiverView(tk.Frame):
         self._radio_text = radio_text
         self._stereo = stereo
         self._signal = signal
+        self._render_presets()
         self._render()
 
     def set_spectrum(self, bins: Sequence[float]) -> None:
@@ -106,19 +107,21 @@ class SdrForgeReceiverView(tk.Frame):
                 canvas.create_line(*points, fill="#20c7ff", width=2, smooth=False)
             history = list(self._history)
             available = max(1, plot_height - spectrum_height)
+            # Draw coarse horizontal runs rather than one Tk item per pixel.
+            # A 1280-wide waterfall would otherwise create ~100k canvas items.
+            step = max(2, w // 240)
             for row, values in enumerate(reversed(history[-available:])):
                 y = spectrum_height + row
-                for x in range(w):
+                for x in range(0, w, step):
                     value = values[min(len(values) - 1, int(x * len(values) / w))]
-                    color = self._waterfall_color(value)
-                    canvas.create_line(x, y, x + 1, y, fill=color)
+                    canvas.create_line(x, y, min(w, x + step), y,
+                                       fill=self._waterfall_color(value))
         else:
             canvas.create_text(w / 2, plot_height / 2, text="Waiting for spectrum…",
                                fill=ui.text_muted, font=("Sans", 10))
         canvas.create_rectangle(0, plot_height, w, h, fill=ui.surface, outline=ui.border)
-        frequency = f"{self._frequency_hz / 1e6:.3f} MHz" if self._frequency_hz else "--.- MHz"
         canvas.create_text(10, plot_height + (12 if compact else 18), anchor="w",
-                           text=f"{self._station}   {frequency}",
+                           text=self._station,
                            fill=ui.text, font=("Sans", 11 if compact else 14, "bold"))
         detail = self._radio_text or ("Stereo" if self._stereo else "")
         if detail:
