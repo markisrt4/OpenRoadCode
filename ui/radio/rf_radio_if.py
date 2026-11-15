@@ -26,6 +26,9 @@ class RadioTelemetry:
     signal_db: float | None = None
     snr_db: float | None = None
     rds: str = ""
+    station_name: str = ""
+    radio_text: str = ""
+    stereo_locked: bool | None = None
 
 
 @dataclass(frozen=True)
