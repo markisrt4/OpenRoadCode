@@ -30,12 +30,16 @@ class SpectrumContractTest(unittest.TestCase):
         self.assertIsNone(spectrum_bins("spectrum", {"power_db": []}))
         self.assertIsNone(spectrum_bins("spectrum", {"power_db": ["oops"]}))
         self.assertIsNone(spectrum_bins("spectrum", {"power_db": [float("nan")]}))
+        self.assertIsNone(spectrum_bins("spectrum", {"power_db": [float("inf")]}))
+        self.assertIsNone(spectrum_bins("spectrum", {"power_db": ["-inf"]}))
 
     def test_subscriber_empty_and_idempotent_close(self) -> None:
         source = SdrForgeTelemetrySubscriber()
         self.assertIsNone(source.latest_spectrum())
         source.close()
         source.close()
+        with self.assertRaises(RuntimeError):
+            source.start()
 
 
 if __name__ == "__main__":
