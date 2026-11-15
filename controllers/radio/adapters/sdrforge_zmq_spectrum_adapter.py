@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import threading
 from queue import Empty, Queue
 from typing import Any
@@ -16,17 +17,17 @@ LOG = logging.getLogger(__name__)
 
 
 def spectrum_bins(topic: str, payload: dict[str, Any]) -> tuple[float, ...] | None:
-    """Extract display bins without assuming a single producer topic spelling."""
+    """Normalize libSDRForge power_db bins for a frontend-neutral snapshot."""
     if topic != "spectrum":
         return None
-    raw = payload.get("power_db", payload.get("bins", payload.get("magnitudes")))
+    raw = payload.get("power_db")
     if not isinstance(raw, list) or not raw:
         return None
     try:
         values = tuple(float(value) for value in raw)
     except (ValueError, TypeError):
         return None
-    if not all(-1e12 < value < 1e12 for value in values):
+    if not all(math.isfinite(value) for value in values):
         return None
     # dB magnitudes and normalized linear bins both occur in receiver APIs.
     if min(values) < 0 or max(values) > 1:
@@ -48,6 +49,8 @@ class SdrForgeTelemetrySubscriber:
     def start(self) -> None:
         if self._thread is not None:
             return
+        if self._stop.is_set():
+            raise RuntimeError("Closed SDRForge telemetry source cannot be restarted")
         self._thread = threading.Thread(target=self._run, name="orc-sdrforge-zmq", daemon=True)
         self._thread.start()
 
