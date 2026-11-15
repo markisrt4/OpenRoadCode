@@ -26,8 +26,11 @@ class RadioGroupMenuMixin(RadioPresentationFrame):
 
     def _build_group_bar(self) -> None:
         ui = self._theme.ui
+        driving = getattr(self, "_driving_radio", False)
         for name, label in MAIN_GROUPS:
-            command = partial(self._show_group_menu, name)
+            command = partial(self.select_group, name) if driving else partial(self._show_group_menu, name)
+            if driving:
+                label = {"FM": "♫  FM", "WEATHER": "☁  WEATHER", "AIR": "✈  AIR", "HAM": "⌁  HAM", "SCANNER": "⌁  SCAN"}[name]
             button = tk.Button(
                 self._groups,
                 text=label,
@@ -40,14 +43,14 @@ class RadioGroupMenuMixin(RadioPresentationFrame):
                 bd=0,
                 font=("Sans", FONT_CONTROL, "bold"),
                 padx=9,
-                pady=7,
+                pady=12 if driving else 7,
                 highlightthickness=0,
             )
             button.pack(side=tk.LEFT, fill=tk.X, expand=True)
             self._group_buttons[name] = button
         self._controls_button = tk.Button(
             self._groups,
-            text="☰ CONTROLS",
+            text="⚙ ADVANCED" if driving else "☰ CONTROLS",
             command=self._toggle_drawer,
             bg=ui.surface,
             fg=ui.text,
@@ -57,7 +60,7 @@ class RadioGroupMenuMixin(RadioPresentationFrame):
             bd=0,
             font=("Sans", FONT_CONTROL, "bold"),
             padx=12,
-            pady=7,
+            pady=12 if driving else 7,
             highlightthickness=0,
         )
         self._controls_button.pack(side=tk.RIGHT)
