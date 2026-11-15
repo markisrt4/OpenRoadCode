@@ -25,6 +25,7 @@ from config.radio_config_manager import load_radio_config
 from controllers.radio.radio_controller import RadioController
 from ui.radio.radio_types import (RadioMode, RadioPreset, RadioRange)
 from controllers.radio.adapters.rigctl_radio_backend import RigctlRadioBackend
+from controllers.radio.adapters.sdrforge_rest_radio_backend import SdrForgeRestRadioBackend
 from controllers.sdr.sdr_resource_manager import SDRResourceManager
 from protocols.rigctl.rigctl_client import RigctlClient
 
@@ -100,7 +101,12 @@ def _build_radio_runtime(*, stack: RadioStackConfig, config: RuntimeConfig, reso
 
 
 def _build_backend(*, backend_type: str, config: RuntimeConfig):
-    builders: dict[str, Callable[[], object]] = {"rigctl": lambda: RigctlRadioBackend(RigctlClient(host=config.rigctl.host, port=config.rigctl.port))}
+    builders: dict[str, Callable[[], object]] = {
+        "rigctl": lambda: RigctlRadioBackend(RigctlClient(host=config.rigctl.host, port=config.rigctl.port)),
+        "sdrforge_rest": lambda: SdrForgeRestRadioBackend(
+            base_url=os.getenv("SDRFORGE_REST_URL", "http://127.0.0.1:5570")
+        ),
+    }
     try:
         return builders[backend_type]()
     except KeyError as exc:
