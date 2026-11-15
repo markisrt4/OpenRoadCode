@@ -10,6 +10,7 @@ import logging
 import threading
 from queue import Empty, Queue
 from typing import Any
+from ui.radio.sdrforge_spectrum_if import SpectrumPresentation
 
 LOG = logging.getLogger(__name__)
 
@@ -40,7 +41,7 @@ class SdrForgeTelemetrySubscriber:
 
     def __init__(self, endpoint: str = "tcp://127.0.0.1:5571") -> None:
         self.endpoint = endpoint
-        self._queue: Queue[tuple[float, ...]] = Queue(maxsize=1)
+        self._queue: Queue[SpectrumPresentation] = Queue(maxsize=1)
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
 
@@ -50,7 +51,7 @@ class SdrForgeTelemetrySubscriber:
         self._thread = threading.Thread(target=self._run, name="orc-sdrforge-zmq", daemon=True)
         self._thread.start()
 
-    def latest_spectrum(self) -> tuple[float, ...] | None:
+    def latest_spectrum(self) -> SpectrumPresentation | None:
         try:
             return self._queue.get_nowait()
         except Empty:
@@ -96,7 +97,7 @@ class SdrForgeTelemetrySubscriber:
                             self._queue.get_nowait()
                         except Empty:
                             pass
-                    self._queue.put_nowait(bins)
+                    self._queue.put_nowait(SpectrumPresentation(bins))
                 except (ValueError, TypeError, KeyError, json.JSONDecodeError):
                     LOG.debug("Ignoring malformed SDRForge telemetry", exc_info=True)
                 except zmq.Again:
