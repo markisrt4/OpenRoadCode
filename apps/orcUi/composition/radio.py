@@ -28,6 +28,7 @@ from controllers.radio.rf_radio_session import ReceiverSession
 from controllers.sdr.sdrpp_control import SDRPPControl
 from controllers.sdr.sdr_telemetry_monitor import SDRTelemetryMonitor
 from apps.orcUi.frontend.tk.radio_panel import RadioPanel
+from apps.orcUi.frontend.tk.sdrforge_telemetry import SdrForgeTelemetrySubscriber
 from controllers.radio.radio_profile_controller import RadioProfileController
 from controllers.radio.streaming_radio_favorites import StreamingRadioFavorites
 from controllers.radio.streaming_radio_browser import StreamingRadioBrowser
@@ -195,7 +196,11 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
             with ResourceCleanup() as rollback:
                 rollback.callback(session.close)
                 resources.rf_sessions.add(session)
-                panel = RadioPanel(parent, session=session, theme=theme)
+                source = (SdrForgeTelemetrySubscriber(
+                    os.environ.get("SDRFORGE_ZMQ_ENDPOINT", "tcp://127.0.0.1:5571")
+                ) if os.environ.get("ORC_SDRFORGE_UI_PREVIEW") == "1" else None)
+                panel = RadioPanel(parent, session=session, theme=theme,
+                                   spectrum_source=source)
                 rollback.release()
             return panel
 
