@@ -28,7 +28,7 @@ from controllers.radio.rf_radio_session import ReceiverSession
 from controllers.sdr.sdrpp_control import SDRPPControl
 from controllers.sdr.sdr_telemetry_monitor import SDRTelemetryMonitor
 from apps.orcUi.frontend.tk.radio_panel import RadioPanel
-from apps.orcUi.frontend.tk.sdrforge_telemetry import SdrForgeTelemetrySubscriber
+from controllers.radio.adapters.sdrforge_zmq_spectrum_adapter import SdrForgeTelemetrySubscriber
 from controllers.radio.radio_profile_controller import RadioProfileController
 from controllers.radio.streaming_radio_favorites import StreamingRadioFavorites
 from controllers.radio.streaming_radio_browser import StreamingRadioBrowser
