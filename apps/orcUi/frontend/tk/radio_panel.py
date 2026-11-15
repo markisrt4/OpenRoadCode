@@ -29,6 +29,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         native_sdrforge: bool = False,
     ) -> None:
         self._theme = theme
+        self._driving_radio = native_sdrforge
         ui = theme.ui
         super().__init__(parent, bg=ui.background)
         self._session = session
@@ -268,7 +269,9 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._active_group = name
         self._paint_groups()
         profiles = tuple(p for p in self._state.profiles if p.group == name)
-        if profiles:
+        if name == "AIR" and not profiles:
+            self._show_adsb()
+        elif profiles:
             self._session.request(RadioRequest(RadioAction.PROFILE, key=profiles[0].key))
 
     def set_station(self, label: str, frequency_hz: int, mode_name: str | None = None) -> None:
