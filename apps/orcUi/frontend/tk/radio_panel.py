@@ -5,7 +5,9 @@
 
 from __future__ import annotations
 
+import os
 import tkinter as tk
+from .sdrforge_receiver_view import SdrForgeReceiverView
 from ui.radio.rf_radio_if import RadioAction, RadioHost, RadioRequest, RfRadioSession, RfRadioState
 from ui.radio.radio_profile_state import RadioProfileState
 from ui.theme import ThemeBundle
@@ -53,6 +55,10 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         )
         self._host.grid(row=0, column=0, sticky="nsew")
         self._host.bind("<Configure>", self._on_host_resize)
+        self._sdrforge_view: SdrForgeReceiverView | None = None
+        if os.environ.get("ORC_SDRFORGE_UI_PREVIEW") == "1":
+            self._sdrforge_view = SdrForgeReceiverView(self._host, theme=theme)
+            self._sdrforge_view.place(relx=0, rely=0, relwidth=1, relheight=1)
 
         self._telemetry_overlay = tk.Frame(
             self._host, bg=ui.surface_alt, highlightthickness=1, highlightbackground=ui.border
@@ -207,10 +213,8 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             activeforeground=ui.accent_success,
         )
         self._paint_groups()
-
-
-
-
+        if self._sdrforge_view is not None:
+            self._sdrforge_view.set_theme_bundle(theme)
 
     def _native_host(self) -> RadioHost:
         self.update_idletasks()
@@ -220,7 +224,8 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
 
     def launch(self) -> None:
         """Request RF startup without accessing a launcher from Tk."""
-        self._session.request(RadioRequest(RadioAction.LAUNCH, host=self._native_host()))
+        if self._sdrforge_view is None:
+            self._session.request(RadioRequest(RadioAction.LAUNCH, host=self._native_host()))
 
     def show_adsb(self) -> None:
         self._show_adsb()
@@ -228,6 +233,8 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
     def _show_adsb(self) -> None:
         self._active_group = "AIR:ADSB"
         self._paint_groups()
+        if self._sdrforge_view is not None:
+            self._sdrforge_view.place_forget()
         self._session.request(RadioRequest(RadioAction.ADSB, host=self._native_host(),
                               color_scheme="light" if sum(self.winfo_rgb(self._theme.ui.background)) > 3 * 32767 else "dark"))
 
@@ -281,6 +288,14 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._paint_groups()
         self.set_station(state.station.label, state.station.frequency_hz, state.station.mode_name)
         self._metadata_label.configure(text=state.telemetry.rds)
+        if self._sdrforge_view is not None and state.view != "adsb":
+            self._sdrforge_view.place(relx=0, rely=0, relwidth=1, relheight=1)
+            self._sdrforge_view.set_station(
+                frequency_hz=state.station.frequency_hz,
+                name=state.station.label,
+                radio_text=state.telemetry.rds,
+                signal=state.telemetry.signal_db,
+            )
         signal = "--" if state.telemetry.signal_db is None else f"{state.telemetry.signal_db:.1f} dB"
         snr = "--" if state.telemetry.snr_db is None else f"{state.telemetry.snr_db:.1f} dB"
         self._signal_label.configure(text=f"SIGNAL {signal}")
@@ -306,6 +321,8 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._telemetry_after_id = self.after(500, self._schedule_telemetry_refresh)
 
     def _on_host_resize(self, event: tk.Event) -> None:
+        if self._sdrforge_view is not None:
+            return
         self._session.request(RadioRequest(RadioAction.RESIZE, host=RadioHost(
             int(self._host.winfo_id()), int(self.winfo_toplevel().winfo_id()),
             max(1, event.width), max(1, event.height))))
