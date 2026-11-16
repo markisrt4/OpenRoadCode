@@ -264,6 +264,10 @@ class ReceiverSession:
             if self._radio.active_profile_key != request.key:
                 self._radio.select_profile(request.key)
             self._radio.tune_preset(request.preset)
+        elif action is RadioAction.TUNE_FREQUENCY:
+            if request.frequency_hz is None:
+                raise ValueError("tune frequency request requires frequency_hz")
+            self._radio.tune_frequency(request.frequency_hz)
         elif action is RadioAction.ADD_PRESET:
             self._radio.catalog.add_user_preset(request.key, label=request.label,
                                                frequency_hz=self._radio.state.frequency_hz)
