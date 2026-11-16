@@ -48,6 +48,7 @@ if OpenGLFrame is not None:
         def __init__(self, parent, **kwargs):
             super().__init__(parent, **kwargs)
             self._bins: tuple[float, ...] = ()
+            self._peaks: tuple[float, ...] = ()
             self._history: tuple[tuple[float, ...], ...] = ()
             self._palette = "classic"
             self._ready = False
@@ -61,8 +62,10 @@ if OpenGLFrame is not None:
             GL.glClearColor(0.012, 0.035, 0.075, 1.0)
 
         def update_data(self, bins: Sequence[float],
-                        history: Sequence[Sequence[float]], palette: str) -> None:
+                        history: Sequence[Sequence[float]], palette: str,
+                        peaks: Sequence[float] = ()) -> None:
             self._bins = tuple(bins)
+            self._peaks = tuple(peaks)
             self._history = tuple(tuple(row) for row in history)
             self._palette = palette
             if self._ready and self.winfo_exists():
@@ -105,7 +108,7 @@ if OpenGLFrame is not None:
                         continue
                     y_top = split * (1.0 - row_idx / rows)
                     y_bottom = split * (1.0 - (row_idx + 1) / rows)
-                    columns = min(len(row), 128)
+                    columns = min(len(row), max(128, min(w, 512)))
                     for col in range(columns):
                         v = row[col * len(row) // columns]
                         GL.glColor3f(*self._color(v, self._palette))
@@ -121,6 +124,14 @@ if OpenGLFrame is not None:
                 GL.glBegin(GL.GL_LINE_STRIP)
                 for i, value in enumerate(self._bins):
                     GL.glVertex2f(i / max(1, len(self._bins)-1),
+                                  split + .38 * max(0., min(1., value)))
+                GL.glEnd()
+            if self._peaks:
+                GL.glColor3f(.4, .95, .5)
+                GL.glLineWidth(1)
+                GL.glBegin(GL.GL_LINE_STRIP)
+                for i, value in enumerate(self._peaks):
+                    GL.glVertex2f(i / max(1, len(self._peaks)-1),
                                   split + .38 * max(0., min(1., value)))
                 GL.glEnd()
             GL.glColor3f(.4, .95, .5)
