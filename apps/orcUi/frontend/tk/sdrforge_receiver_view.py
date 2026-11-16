@@ -35,6 +35,8 @@ class SdrForgeReceiverView(tk.Frame):
         self._peak_bins: tuple[float, ...] = ()
         self._center_frequency_hz: int | None = None
         self._sample_rate_hz: int | None = None
+        self._db_floor: float | None = None
+        self._db_ceiling: float | None = None
         self._history: deque[tuple[float, ...]] = deque(maxlen=self._visualization.waterfall_rows)
         self._station = "--"
         self._mode = ""
@@ -78,9 +80,25 @@ class SdrForgeReceiverView(tk.Frame):
 
     def set_spectrum(self, bins: Sequence[float], *,
                      center_frequency_hz: int | None = None,
-                     sample_rate_hz: int | None = None) -> None:
+                     sample_rate_hz: int | None = None,
+                     power_db: Sequence[float] | None = None) -> None:
         """Smooth display bins while retaining the raw waterfall history."""
         raw = tuple(max(0.0, min(1.0, float(x))) for x in bins)
+        if power_db is not None and len(power_db) == len(raw) and raw:
+            # Robust percentile-based range, stable across individual spikes.
+            ordered = sorted(float(value) for value in power_db)
+            noise = ordered[int((len(ordered) - 1) * 0.20)]
+            upper = ordered[int((len(ordered) - 1) * 0.98)]
+            target_floor = noise - 6.0
+            target_ceiling = max(target_floor + 25.0, upper + 6.0)
+            if self._db_floor is None or self._db_ceiling is None:
+                self._db_floor, self._db_ceiling = target_floor, target_ceiling
+            else:
+                self._db_floor = 0.9 * self._db_floor + 0.1 * target_floor
+                self._db_ceiling = 0.9 * self._db_ceiling + 0.1 * target_ceiling
+            span = max(1.0, self._db_ceiling - self._db_floor)
+            raw = tuple(max(0.0, min(1.0, (float(value) - self._db_floor) / span))
+                        for value in power_db)
         self._center_frequency_hz = center_frequency_hz
         self._sample_rate_hz = sample_rate_hz
         if len(self._bins) == len(raw):
@@ -169,6 +187,10 @@ class SdrForgeReceiverView(tk.Frame):
         for i in range(1, 4):
             y = spectrum_top + spectrum_height * i / 4
             canvas.create_line(0, y, w, y, fill=ui.border, dash=(2, 6))
+            if self._db_floor is not None and self._db_ceiling is not None:
+                level = self._db_ceiling - (self._db_ceiling - self._db_floor) * i / 4
+                canvas.create_text(7, y - 2, anchor="sw", text=f"{level:.0f} dB",
+                                   fill=ui.text_muted, font=("Monospace", 8))
         if self._bins and self._gl_surface is None:
             points = []
             for i, value in enumerate(self._bins):
