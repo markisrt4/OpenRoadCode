@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import replace
-from threading import Lock, RLock
+from threading import Event, Lock, RLock
+from time import sleep
 
 from controllers.radio.radio_profile_controller import RadioProfileController
 from controllers.sdr.sdrpp_control import SDRPPControl
@@ -47,6 +48,7 @@ class ReceiverSession:
         self._closed = False
         self._active = True
         self._refresh_pending = False
+        self._scan_cancel = Event()
         self._view: RfRadioUi | None = None
         self._host: RadioHost | None = None
         self._native_view = "none"
@@ -81,6 +83,11 @@ class ReceiverSession:
             view.set_spectrum_presentation(snapshot)
 
     def request(self, request: RadioRequest) -> None:
+        if request.action is RadioAction.STOP_SCAN:
+            self._scan_cancel.set()
+            return
+        if request.action is RadioAction.SCAN:
+            self._scan_cancel.clear()
         with self._lock:
             if self._closed or not self._active:
                 return
@@ -174,6 +181,9 @@ class ReceiverSession:
             if self._current(generation) and request.action is RadioAction.LAUNCH:
                 self._read_controls()
             return
+        if action is RadioAction.SCAN:
+            self._scan(generation)
+            return
         if action is RadioAction.RESIZE:
             if self._host is not None:
                 with self._native_lock:
@@ -216,6 +226,51 @@ class ReceiverSession:
                               profiles=self._profiles(), error="")
         self._read_controls()
 
+    def _scan(self, generation: int) -> None:
+        """Sweep the configured band and find local signal-strength peaks."""
+        band = self._radio.scan_range
+        if band is None:
+            raise ValueError("No frequency range configured for this band")
+        low, high, step = band
+        count = (high - low) // step + 1
+        if count > 3000:
+            raise ValueError("Scan exceeds 3000 channels; narrow the range")
+        original = self._radio.state.frequency_hz
+        samples: list[tuple[int, float]] = []
+        self._state = replace(self._state, scanning=True,
+                              scan_progress="Scanning", scan_hits=())
+        self._publish(generation)
+        try:
+            for index in range(count):
+                if self._scan_cancel.is_set() or not self._current(generation):
+                    break
+                frequency = low + index * step
+                strength = self._radio.scan_tune(frequency)
+                if strength is not None:
+                    samples.append((frequency, strength))
+                if index % 10 == 0:
+                    self._state = replace(self._state,
+                        scan_progress=f"Scanning {index + 1}/{count}")
+                    self._publish(generation)
+                sleep(.06)
+            if samples:
+                floor = min(v for _, v in samples)
+                threshold = floor + 6.0
+                hits = tuple(f for i, (f, v) in enumerate(samples)
+                             if v >= threshold
+                             and (i == 0 or v >= samples[i-1][1])
+                             and (i == len(samples)-1 or v >= samples[i+1][1]))
+                message = f"Found {len(hits)} signals"
+            else:
+                hits = ()
+                message = "Signal strength unavailable"
+            self._state = replace(self._state, scan_hits=hits, scan_progress=message)
+        finally:
+            self._radio.scan_tune(original)
+            self._state = replace(self._state, station=self._radio.state,
+                                  scanning=False)
+            self._publish(generation)
+
     def _read_controls(self) -> None:
         try:
             self._state = replace(self._state, waterfall=self._control.waterfall_visible(),
@@ -239,6 +294,7 @@ class ReceiverSession:
                     self._native_view = "none"
 
     def deactivate(self) -> None:
+        self._scan_cancel.set()
         with self._lock:
             if not self._active:
                 return
