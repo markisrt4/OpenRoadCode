@@ -51,6 +51,9 @@ class RfRadioState:
     bandplan: bool = False
     fft_hold: bool = False
     themes: tuple[str, ...] = ()
+    scanning: bool = False
+    scan_progress: str = ""
+    scan_hits: tuple[int, ...] = ()
 
 
 class RadioAction(Enum):
@@ -67,6 +70,8 @@ class RadioAction(Enum):
     BANDPLAN = "bandplan"
     FFT_HOLD = "fft_hold"
     AUTO_RANGE = "auto_range"
+    SCAN = "scan"
+    STOP_SCAN = "stop_scan"
     THEME = "theme"
     REFRESH = "refresh"
     RESIZE = "resize"
