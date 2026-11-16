@@ -149,8 +149,18 @@ class SdrForgeTelemetrySubscriber:
                     rate = payload.get("sample_rate_hz")
                     center = center if type(center) is int and center > 0 else None
                     rate = rate if type(rate) is int and rate > 0 else None
+                    raw_power = payload.get("power_db")
+                    power_db = None
+                    if isinstance(raw_power, list) and len(raw_power) == len(bins):
+                        try:
+                            candidate = tuple(float(value) for value in raw_power)
+                            if all(math.isfinite(value) for value in candidate):
+                                power_db = candidate
+                        except (TypeError, ValueError):
+                            pass
                     self._queue.put_nowait(SpectrumPresentation(
                         bins, center_frequency_hz=center, sample_rate_hz=rate,
+                        power_db=power_db,
                     ))
                 except (ValueError, TypeError, KeyError, json.JSONDecodeError):
                     LOG.debug("Ignoring malformed SDRForge telemetry", exc_info=True)
