@@ -52,6 +52,7 @@ class RfRadioState:
     fft_hold: bool = False
     themes: tuple[str, ...] = ()
     playing: bool = True
+    receiver_running: bool = False
     scanning: bool = False
     scan_progress: str = ""
     scan_hits: tuple[int, ...] = ()
@@ -75,6 +76,8 @@ class RadioAction(Enum):
     STOP_SCAN = "stop_scan"
     PLAY = "play"
     PAUSE = "pause"
+    START_RECEIVER = "start_receiver"
+    STOP_RECEIVER = "stop_receiver"
     THEME = "theme"
     REFRESH = "refresh"
     RESIZE = "resize"
