@@ -375,7 +375,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         """One-touch station presets for the active radio profile."""
         ui = self._theme.ui
         profile = next((p for p in state.profiles if p.key == state.station.profile_key), None)
-        signature = (profile.key, tuple((p.label, p.frequency_hz) for p in profile.presets[:6]), state.station.frequency_hz) if profile else None
+        signature = (profile.key, tuple((p.label, p.frequency_hz) for p in profile.presets), state.station.frequency_hz, self._preset_page) if profile else None
         if signature == self._favorites_signature:
             return
         self._favorites_signature = signature
@@ -383,7 +383,16 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             child.destroy()
         if profile is None:
             return
-        for preset in profile.presets[:6]:
+        max_page = max(0, (len(profile.presets) - 1) // self._preset_page_size)
+        self._preset_page = min(self._preset_page, max_page)
+        tk.Button(
+            self._favorites, text="◀", state=tk.NORMAL if self._preset_page else tk.DISABLED,
+            command=lambda: self._change_preset_page(-1),
+            bg=ui.control_background, fg=ui.text, relief=tk.FLAT,
+            bd=0, padx=12, pady=10,
+        ).pack(side=tk.LEFT, padx=2)
+        start = self._preset_page * self._preset_page_size
+        for preset in profile.presets[start:start + self._preset_page_size]:
             tk.Button(
                 self._favorites, text=preset.label,
                 command=lambda p=preset, key=profile.key: self._session.request(
@@ -393,11 +402,27 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                 bd=0, padx=8, pady=8,
             ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2)
         tk.Button(
+            self._favorites, text="▶",
+            state=tk.NORMAL if self._preset_page < max_page else tk.DISABLED,
+            command=lambda: self._change_preset_page(1),
+            bg=ui.control_background, fg=ui.text, relief=tk.FLAT,
+            bd=0, padx=12, pady=10,
+        ).pack(side=tk.LEFT, padx=2)
+        tk.Button(
             self._favorites, text="☆ SAVE",
             command=lambda group=profile.group: self._add_current_preset(group),
             bg=ui.surface_alt, fg=ui.text, relief=tk.FLAT,
             bd=0, padx=8, pady=10,
         ).pack(side=tk.RIGHT, padx=2)
+
+    def _change_preset_page(self, delta: int) -> None:
+        profile = next((p for p in self._state.profiles
+                        if p.key == self._state.station.profile_key), None)
+        if profile is None:
+            return
+        max_page = max(0, (len(profile.presets) - 1) // self._preset_page_size)
+        self._preset_page = max(0, min(max_page, self._preset_page + delta))
+        self._render_favorites(self._state)
 
     def _schedule_telemetry_refresh(self) -> None:
         self._session.request(RadioRequest(RadioAction.REFRESH))
