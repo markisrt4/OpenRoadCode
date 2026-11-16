@@ -198,6 +198,22 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             for tile_column in range(2):
                 self._subcategory_strip.grid_columnconfigure(tile_column, weight=1,
                                                                uniform="bands")
+            self._station_info = tk.Frame(self._receiver_controls, bg=ui.surface)
+            self._station_info.grid(row=1, column=0, columnspan=2,
+                                    sticky="nsew", padx=8, pady=4)
+            self._info_title = tk.Label(self._station_info, text="RDS  •  WAITING",
+                                        bg=ui.surface, fg=ui.accent_primary,
+                                        font=("Sans", 10, "bold"), anchor="w")
+            self._info_title.pack(fill=tk.X)
+            self._info_name = tk.Label(self._station_info, text="No station ID",
+                                       bg=ui.surface, fg=ui.text,
+                                       font=("Sans", 13, "bold"), anchor="w")
+            self._info_name.pack(fill=tk.X)
+            self._info_text = tk.Label(self._station_info, text="Waiting for RDS data",
+                                       bg=ui.surface, fg=ui.text_muted,
+                                       font=("Sans", 9), anchor="nw", justify="left",
+                                       wraplength=245)
+            self._info_text.pack(fill=tk.X)
             self._bands_heading = tk.Label(self._receiver_controls, text="BANDS", bg=ui.surface,
                      fg=ui.accent_primary, font=("Sans", 11, "bold"),
                      anchor="w", padx=10, pady=2)
@@ -466,6 +482,27 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         if self._receiver_controls is not None:
             self._receiver_mode_label.configure(text="MODE  " + (state.station.mode_name or "--"))
             self._receiver_signal_label.configure(text=state.scan_progress or ("SIGNAL  " + signal))
+            if self._sdrforge_view is not None:
+                group = self._active_group.split(":", 1)[0]
+                if group in ("FM", "WEATHER"):
+                    self._subcategory_strip.grid_remove()
+                    self._station_info.grid()
+                    name = state.telemetry.station_name.strip()
+                    text = (state.telemetry.radio_text or state.telemetry.rds or "").strip()
+                    if group == "FM":
+                        self._info_title.configure(text="RDS  •  " + (
+                            "RECEIVING" if name or text else "WAITING"))
+                        self._info_name.configure(text=name or "No station ID")
+                        self._info_text.configure(text=text or "Waiting for RDS data")
+                    else:
+                        self._info_title.configure(text="NOAA WEATHER RADIO")
+                        self._info_name.configure(text=state.station.label)
+                        self._info_text.configure(text="Weather broadcast • " +
+                            ("Stereo" if state.telemetry.stereo_locked else "Mono"))
+                else:
+                    self._station_info.grid_remove()
+                    self._subcategory_strip.grid()
+
             self._scan_button.set_text("STOP SCAN" if state.scanning else "SCAN BAND")
             self._scan_button.set_selected(state.scanning)
         self._snr_label.configure(text=f"SNR {snr}")
