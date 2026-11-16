@@ -463,8 +463,8 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         if self._receiver_controls is not None:
             self._receiver_mode_label.configure(text="MODE  " + (state.station.mode_name or "--"))
             self._receiver_signal_label.configure(text=state.scan_progress or ("SIGNAL  " + signal))
-            self._scan_button.configure(text="STOP SCAN" if state.scanning else "SCAN BAND",
-                                        bg=self._theme.ui.accent_danger if state.scanning else self._theme.ui.accent_primary)
+            self._scan_button.configure(text="STOP SCAN" if state.scanning else "SCAN BAND")
+            self._scan_button.set_selected(state.scanning)
         self._snr_label.configure(text=f"SNR {snr}")
         if state.loading or state.error:
             self._launch_status.configure(text=state.error or "Loading radio…",
@@ -510,8 +510,8 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             self._favorites, text="◀", state=tk.NORMAL if self._preset_page else tk.DISABLED,
             command=lambda: self._change_preset_page(-1),
             bg=ui.control_background, fg=ui.text, relief=tk.FLAT,
-            bd=0, padx=12, pady=10,
-        ).pack(side=tk.LEFT, padx=2)
+            bd=0, padx=14, pady=13, font=("Sans", 11, "bold"),
+        ).pack(side=tk.LEFT, padx=3)
         start = self._preset_page * self._preset_page_size
         for preset in profile.presets[start:start + self._preset_page_size]:
             tk.Button(
@@ -520,8 +520,9 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                     RadioRequest(RadioAction.PRESET, key=key, preset=p)),
                 bg=ui.accent_primary if preset.frequency_hz == state.station.frequency_hz else ui.control_background,
                 fg=ui.text, activebackground=ui.accent_primary, relief=tk.FLAT,
-                bd=0, padx=8, pady=8,
-            ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2)
+                bd=0, padx=10, pady=13, font=("Sans", 10, "bold"),
+                highlightthickness=1, highlightbackground=ui.border,
+            ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=3)
         tk.Button(
             self._favorites, text="▶",
             state=tk.NORMAL if self._preset_page < max_page else tk.DISABLED,
@@ -533,8 +534,9 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             self._favorites, text="☆ SAVE",
             command=lambda group=profile.group: self._add_current_preset(group),
             bg=ui.surface_alt, fg=ui.text, relief=tk.FLAT,
-            bd=0, padx=8, pady=10,
-        ).pack(side=tk.RIGHT, padx=2)
+            bd=0, padx=12, pady=13, font=("Sans", 10, "bold"),
+            highlightthickness=1, highlightbackground=ui.border,
+        ).pack(side=tk.RIGHT, padx=3)
 
     def _change_preset_page(self, delta: int) -> None:
         profile = next((p for p in self._state.profiles
