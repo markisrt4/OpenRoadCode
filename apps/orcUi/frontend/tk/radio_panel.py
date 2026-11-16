@@ -38,6 +38,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._session = session
         self._telemetry_after_id: str | None = None
         self._active_group = "FM"
+        self._pending_group: str | None = None
         self._state = RfRadioState(RadioProfileState("", 0, "", "", ""), ())
         self._group_buttons: dict[str, tk.Button] = {}
         self._drawer_open = False
@@ -380,6 +381,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         if name not in RADIO_GROUPS:
             raise ValueError(f"Unknown radio group: {name}")
         self._active_group = name
+        self._pending_group = name
         self._paint_groups()
         if self._sdrforge_view is not None:
             self._render_subcategory_tiles(self._state)
@@ -426,7 +428,9 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         if state.view == "adsb":
             self._active_group = "AIR:ADSB"
         elif profile is not None:
-            self._active_group = profile.group
+            if self._pending_group is None or profile.group == self._pending_group:
+                self._active_group = profile.group
+                self._pending_group = None
         self._paint_groups()
         if self._sdrforge_view is not None:
             self._render_subcategory_tiles(state)
