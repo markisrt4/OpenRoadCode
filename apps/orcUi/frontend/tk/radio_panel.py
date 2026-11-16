@@ -191,7 +191,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             self._receiver_controls.grid_propagate(False)
             self._receiver_controls.grid_rowconfigure(1, minsize=132)
             for col in (0, 1):
-                self._receiver_controls.grid_columnconfigure(col, weight=1)
+                self._receiver_controls.grid_columnconfigure(col, weight=1, uniform="tuning")
             self._subcategory_strip = tk.Frame(self._receiver_controls, bg=ui.surface)
             self._subcategory_strip.grid(row=1, column=0, columnspan=2,
                                          sticky="new", padx=5, pady=(0, 4))
@@ -229,7 +229,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                 ("Station  ▶", self._next_preset, 4, 1),
             ):
                 AutomotiveRadioButton(self._receiver_controls, text=label,
-                                      command=callback, height=46,
+                                      command=callback, height=44,
                                       background=ui.control_background,
                                       accent=ui.accent_primary,
                                       foreground=ui.text, border=ui.border).grid(
@@ -237,9 +237,14 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                                           padx=2, pady=2)
             self._scan_button = AutomotiveRadioButton(
                 self._receiver_controls, text="SCAN BAND", command=self._toggle_scan,
-                height=36, background=ui.control_background,
+                height=44, background=ui.control_background,
                 accent=ui.accent_primary, foreground=ui.text, border=ui.border)
-            self._scan_button.grid(row=5, column=0, columnspan=2, sticky="ew", padx=5, pady=2)
+            self._scan_button.grid(row=5, column=0, sticky="nsew", padx=2, pady=2)
+            self._play_button = AutomotiveRadioButton(
+                self._receiver_controls, text="Ⅱ PAUSE", command=self._toggle_play,
+                height=44, background=ui.control_background,
+                accent=ui.accent_primary, foreground=ui.text, border=ui.border)
+            self._play_button.grid(row=5, column=1, sticky="nsew", padx=2, pady=2)
             self._receiver_mode_label = tk.Label(
                 self._receiver_controls, text="MODE  --", bg=ui.surface,
                 fg=ui.text_muted, font=("Sans", 9), anchor="w", padx=8, pady=2)
@@ -439,6 +444,10 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
     def detach_sdrpp(self, parent_window_id: int) -> None:
         self.deactivate()
 
+    def _toggle_play(self) -> None:
+        action = RadioAction.PAUSE if self._state.playing else RadioAction.PLAY
+        self._session.request(RadioRequest(action))
+
     def _toggle_scan(self) -> None:
         action = RadioAction.STOP_SCAN if self._state.scanning else RadioAction.SCAN
         self._session.request(RadioRequest(action))
@@ -508,6 +517,8 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                     self._station_info.grid_remove()
                     self._subcategory_strip.grid()
 
+            self._play_button.set_text("Ⅱ PAUSE" if state.playing else "▶ PLAY")
+            self._play_button.set_selected(not state.playing)
             self._scan_button.set_text("STOP SCAN" if state.scanning else "SCAN BAND")
             self._scan_button.set_selected(state.scanning)
         self._snr_label.configure(text=f"SNR {snr}")
