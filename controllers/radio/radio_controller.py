@@ -69,9 +69,11 @@ class RadioController(RadioControllerIf):
         if self._started:
             return self.current_frequency_hz
 
-        self.backend.start()
+        shared_receiver = getattr(self.backend, "shared_receiver", False)
+        if not shared_receiver:
+            self.backend.start()
         try:
-            if getattr(self.backend, "shared_receiver", False):
+            if shared_receiver:
                 # Attaching to SDRForge must not overwrite another client's tune.
                 frequency_hz = self.backend.get_frequency()
                 if frequency_hz <= 0:
@@ -83,7 +85,8 @@ class RadioController(RadioControllerIf):
                     self.current_frequency_hz = self.radio_range.start_frequency_hz
                 frequency_hz = self.set_frequency(self.current_frequency_hz)
         except Exception:
-            self.backend.stop()
+            if not shared_receiver:
+                self.backend.stop()
             raise
 
         self._started = True
@@ -95,7 +98,8 @@ class RadioController(RadioControllerIf):
             return
 
         try:
-            self.backend.stop()
+            if not getattr(self.backend, "shared_receiver", False):
+                self.backend.stop()
         finally:
             self._started = False
 
