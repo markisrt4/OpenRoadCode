@@ -68,7 +68,7 @@ class SdrForgeReceiverView(tk.Frame):
         self._mode = mode.upper()
         self._frequency_hz = frequency_hz
         self._station = name or "--"
-        self._radio_text = radio_text if self._mode in ("WFM", "FM") else ""
+        self._radio_text = radio_text if (self._mode in ("WFM", "FM") or 76_000_000 <= frequency_hz <= 108_000_000) else ""
         self._stereo = stereo
         self._signal = signal
         self._schedule_render()
@@ -108,7 +108,7 @@ class SdrForgeReceiverView(tk.Frame):
         ui = self._theme.ui
         compact = h < 260
         header = 54 if compact else 80
-        footer = (24 if compact else 32) if self._mode in ("WFM", "FM") and self._radio_text else 0
+        footer = (24 if compact else 32) if (self._mode in ("WFM", "FM") or 76_000_000 <= self._frequency_hz <= 108_000_000) and self._radio_text else 0
         scale = 22
         spectrum_top = header + scale
         plot_bottom = h - footer
@@ -189,15 +189,22 @@ class SdrForgeReceiverView(tk.Frame):
                                fill=ui.text_muted, font=("Sans", 10))
 
     def _station_title(self) -> str:
-        """Only show a real station label, never a second frequency."""
+        """Only display station metadata, not the preset's frequency or channel."""
         station = self._station.strip()
-        if station in ("", "--"):
+        if not station or station == "--":
             return ""
-        frequency_only = r"^(?:\\d{2,4}(?:\\.\\d{1,6})?\\s*(?:MHz|kHz|Hz)?|FM\\s+Radio)$"
-        if re.fullmatch(frequency_only, station, flags=re.IGNORECASE):
+        # A preset can be called "88.1 MHz", "88.1 FM", or "FM 88.1".
+        # Those are tuning labels, not station names.
+        numeric = r"\\d{2,4}(?:\\.\\d{1,6})?"
+        if re.fullmatch(rf"(?:FM\\s*)?{numeric}\\s*(?:MHz|kHz|Hz|FM)?", station, re.I):
             return ""
-        title = re.sub(r"\\b\\d{2,4}\\.\\d{1,6}\\s*(?:MHz|kHz|Hz)?\\b", "", station, flags=re.IGNORECASE).strip(" -/")
-        return title
+        if re.fullmatch(rf"FM\\s+{numeric}", station, re.I):
+            return ""
+        # Also reject a label matching the tuned frequency, regardless of units.
+        for divisor in (1_000_000, 1_000, 1):
+            if re.fullmatch(rf"{self._frequency_hz / divisor:g}\\s*(?:MHz|kHz|Hz|FM)?", station, re.I):
+                return ""
+        return station
 
     @staticmethod
     def _waterfall_color(value: float) -> str:
