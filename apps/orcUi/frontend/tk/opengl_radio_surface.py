@@ -52,6 +52,7 @@ if OpenGLFrame is not None:
             self._history: tuple[tuple[float, ...], ...] = ()
             self._palette = "classic"
             self._ready = False
+            self._waterfall_texture = None
 
         def tkCreateContext(self):
             return _create_glx_context(super().tkCreateContext)
@@ -59,6 +60,7 @@ if OpenGLFrame is not None:
         def initgl(self):
             self._ready = True
             GL.glDisable(GL.GL_DEPTH_TEST)
+            self._waterfall_texture = GL.glGenTextures(1)
             GL.glClearColor(0.012, 0.035, 0.075, 1.0)
 
         def update_data(self, bins: Sequence[float],
@@ -99,25 +101,44 @@ if OpenGLFrame is not None:
             # Upper 38% spectrum, lower 62% waterfall.
             split = .62
             history = self._history
-            if history:
-                rows = min(len(history), 64)
-                GL.glBegin(GL.GL_QUADS)
+            if history and self._waterfall_texture is not None:
+                # A single GPU texture replaces thousands of per-cell quads.
+                rows = min(len(history), 128)
+                columns = min(max(128, w), 512)
+                pixels = bytearray(rows * columns * 3)
                 for row_idx in range(rows):
-                    row = history[-1-row_idx]
+                    row = history[-1 - row_idx]
                     if not row:
                         continue
-                    y_top = split * (1.0 - row_idx / rows)
-                    y_bottom = split * (1.0 - (row_idx + 1) / rows)
-                    columns = min(len(row), max(128, min(w, 512)))
                     for col in range(columns):
-                        v = row[col * len(row) // columns]
-                        GL.glColor3f(*self._color(v, self._palette))
-                        x0, x1 = col / columns, (col + 1) / columns
-                        GL.glVertex2f(x0, y_bottom)
-                        GL.glVertex2f(x1, y_bottom)
-                        GL.glVertex2f(x1, y_top)
-                        GL.glVertex2f(x0, y_top)
+                        rgb = self._color(row[col * len(row) // columns], self._palette)
+                        pos = (row_idx * columns + col) * 3
+                        pixels[pos:pos + 3] = bytes(
+                            max(0, min(255, int(component * 255))) for component in rgb
+                        )
+                GL.glEnable(GL.GL_TEXTURE_2D)
+                GL.glBindTexture(GL.GL_TEXTURE_2D, self._waterfall_texture)
+                GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)
+                GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
+                GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
+                GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE)
+                GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE)
+                GL.glTexImage2D(
+                    GL.GL_TEXTURE_2D, 0, GL.GL_RGB, columns, rows, 0,
+                    GL.GL_RGB, GL.GL_UNSIGNED_BYTE, bytes(pixels),
+                )
+                GL.glColor3f(1.0, 1.0, 1.0)
+                GL.glBegin(GL.GL_QUADS)
+                for x, y, u, v in (
+                    (0.0, 0.0, 0.0, 1.0),
+                    (1.0, 0.0, 1.0, 1.0),
+                    (1.0, split, 1.0, 0.0),
+                    (0.0, split, 0.0, 0.0),
+                ):
+                    GL.glTexCoord2f(u, v)
+                    GL.glVertex2f(x, y)
                 GL.glEnd()
+                GL.glDisable(GL.GL_TEXTURE_2D)
             if self._bins:
                 GL.glColor3f(.04, .77, 1.0)
                 GL.glLineWidth(2)
