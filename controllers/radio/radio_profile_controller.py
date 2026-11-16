@@ -65,6 +65,11 @@ class RadioProfileController:
             return None
         return (band.min_frequency_hz, band.max_frequency_hz, self._radio.current_mode.step_hz)
 
+    def tune_frequency(self, frequency_hz: int) -> RadioProfileState:
+        self._ensure_started()
+        self._radio.set_frequency(frequency_hz)
+        return self.state
+
     def scan_tune(self, frequency_hz: int) -> float | None:
         self._ensure_started()
         self._radio.set_frequency(frequency_hz)
