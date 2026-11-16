@@ -189,12 +189,12 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                 highlightthickness=1, highlightbackground=ui.border)
             self._receiver_controls.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
             self._receiver_controls.grid_propagate(False)
-            self._receiver_controls.grid_rowconfigure(1, minsize=108)
+            self._receiver_controls.grid_rowconfigure(1, minsize=132)
             for col in (0, 1):
                 self._receiver_controls.grid_columnconfigure(col, weight=1)
             self._subcategory_strip = tk.Frame(self._receiver_controls, bg=ui.surface)
             self._subcategory_strip.grid(row=1, column=0, columnspan=2,
-                                         sticky="n", padx=5, pady=(0, 4))
+                                         sticky="new", padx=5, pady=(0, 4))
             for tile_column in range(2):
                 self._subcategory_strip.grid_columnconfigure(tile_column, weight=1,
                                                                uniform="bands")
@@ -213,7 +213,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                 ("Station  ▶", self._next_preset, 4, 1),
             ):
                 AutomotiveRadioButton(self._receiver_controls, text=label,
-                                      command=callback, height=32,
+                                      command=callback, height=46,
                                       background=ui.control_background,
                                       accent=ui.accent_primary,
                                       foreground=ui.text, border=ui.border).grid(
@@ -337,8 +337,9 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                 self._bands_heading.grid()
                 self._subcategory_strip.grid()
             else:
-                self._bands_heading.grid_remove()
-                self._subcategory_strip.grid_remove()
+                # Keep the reserved band bay mapped so tuning never moves.
+                self._bands_heading.grid()
+                self._subcategory_strip.grid()
         for index, profile in enumerate(profiles if show_bands else ()):
             row, col = divmod(index, 2)
             selected = profile.key == state.station.profile_key
@@ -346,7 +347,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                 self._subcategory_strip, text=profile.label,
                 command=lambda key=profile.key: self._session.request(
                     RadioRequest(RadioAction.PROFILE, key=key)),
-                selected=selected, height=34, background=ui.control_background,
+                selected=selected, height=40, background=ui.control_background,
                 accent=ui.accent_primary, foreground=ui.text, border=ui.border,
             ).grid(row=row, column=col, sticky="nsew", padx=2, pady=1)
             self._subcategory_strip.grid_columnconfigure(col, weight=1, uniform="profiles")
