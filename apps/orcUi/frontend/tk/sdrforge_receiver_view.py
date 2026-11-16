@@ -16,6 +16,7 @@ from collections import deque
 from collections.abc import Sequence
 
 from ui.theme import ThemeBundle
+from .opengl_radio_surface import OpenGLRadioSurface, available as opengl_available
 
 
 class SdrForgeReceiverView(tk.Frame):
@@ -26,8 +27,8 @@ class SdrForgeReceiverView(tk.Frame):
         super().__init__(parent, bg=theme.ui.background)
         self._theme = theme
         self._visualization = visualization or RadioVisualizationConfig()
-        # No OpenGL Tk surface is implemented yet. Auto reliably uses Canvas.
-        self._renderer = select_renderer(self._visualization, opengl_available=False)
+        self._renderer = select_renderer(self._visualization, opengl_available=opengl_available())
+        self._gl_surface = None
         self._last_spectrum_draw = 0.0
         self._draw_pending = False
         self._bins: tuple[float, ...] = ()
@@ -46,6 +47,9 @@ class SdrForgeReceiverView(tk.Frame):
         self._canvas = tk.Canvas(self, bg=theme.ui.background, bd=0, highlightthickness=0)
         self._canvas.grid(row=0, column=0, sticky="nsew")
         self._canvas.bind("<Configure>", lambda _event: self._schedule_render())
+        if self._renderer is RadioRenderer.OPENGL:
+            self._gl_surface = OpenGLRadioSurface(self, width=320, height=180)
+            self._gl_surface.place(x=0, y=80, relwidth=1, height=180)
         # Preset navigation belongs to RadioPanel, not inside the spectrum.
 
     def set_theme_bundle(self, theme: ThemeBundle) -> None:
@@ -111,6 +115,9 @@ class SdrForgeReceiverView(tk.Frame):
         spectrum_height = max(20, int((plot_bottom - spectrum_top) * 0.38))
         waterfall_top = spectrum_top + spectrum_height
         waterfall_height = max(1, plot_bottom - waterfall_top)
+        if self._gl_surface is not None:
+            self._gl_surface.place(x=0, y=spectrum_top, relwidth=1, height=max(1, plot_bottom-spectrum_top))
+            self._gl_surface.update_data(self._bins, tuple(self._history), self._visualization.palette)
 
         canvas.create_rectangle(0, 0, w, header, fill=ui.surface, outline="")
         canvas.create_rectangle(0, 0, 5, header, fill=ui.accent_primary, outline="")
@@ -143,7 +150,7 @@ class SdrForgeReceiverView(tk.Frame):
         for i in range(1, 4):
             y = spectrum_top + spectrum_height * i / 4
             canvas.create_line(0, y, w, y, fill=ui.border, dash=(2, 6))
-        if self._bins:
+        if self._bins and self._gl_surface is None:
             points = []
             for i, value in enumerate(self._bins):
                 x = i * (w - 1) / max(1, len(self._bins) - 1)
@@ -168,7 +175,7 @@ class SdrForgeReceiverView(tk.Frame):
                         min(plot_bottom, y + y_step),
                         fill=self._waterfall_color(value) if self._visualization.palette == "classic"
                         else ("#" + f"{int(value * 255):02x}" * 3), outline="")
-        else:
+        elif self._gl_surface is None:
             canvas.create_text(w / 2, spectrum_top + spectrum_height / 2,
                                text="Waiting for spectrum telemetry",
                                fill=ui.text_muted, font=("Sans", 11))
