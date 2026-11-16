@@ -7,7 +7,27 @@ No receiver or transport logic belongs here.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from frontends.tk.media.native_music_visualizer import _create_glx_context
+from contextlib import redirect_stdout
+import io
+import logging
+
+_LOG = logging.getLogger(__name__)
+_GLX_PROGRESS = ("GLX version:", "Screen is ", "Number of FBconfigs",
+                 "Got a matching visual:", "Is Direct?:", "Done making a first context")
+
+
+def _create_glx_context(create):
+    output = io.StringIO()
+    try:
+        with redirect_stdout(output):
+            return create()
+    finally:
+        for line in output.getvalue().splitlines():
+            if line.startswith(_GLX_PROGRESS):
+                _LOG.debug("Radio GLX: %s", line)
+            elif line.strip():
+                _LOG.warning("Radio GLX: %s", line)
+
 
 try:
     from pyopengltk import OpenGLFrame
