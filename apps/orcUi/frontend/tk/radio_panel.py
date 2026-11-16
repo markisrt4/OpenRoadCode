@@ -188,7 +188,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                 highlightthickness=1, highlightbackground=ui.border)
             self._receiver_controls.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
             self._receiver_controls.grid_propagate(False)
-            self._receiver_controls.grid_rowconfigure(1, minsize=116)
+            self._receiver_controls.grid_rowconfigure(1, minsize=88)
             for col in (0, 1):
                 self._receiver_controls.grid_columnconfigure(col, weight=1)
             self._subcategory_strip = tk.Frame(self._receiver_controls, bg=ui.surface)
@@ -212,20 +212,20 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                 ("Station  ▶", self._next_preset, 4, 1),
             ):
                 AutomotiveRadioButton(self._receiver_controls, text=label,
-                                      command=callback, height=40,
+                                      command=callback, height=32,
                                       background=ui.control_background,
                                       accent=ui.accent_primary,
                                       foreground=ui.text, border=ui.border).grid(
                                           row=row, column=col, sticky="nsew",
-                                          padx=4, pady=4)
+                                          padx=2, pady=2)
             self._scan_button = tk.Button(self._receiver_controls, text="SCAN BAND",
                 command=self._toggle_scan, bg=ui.accent_primary, fg=ui.text,
-                relief=tk.FLAT, bd=0, font=("Sans", 10, "bold"), pady=5)
+                relief=tk.FLAT, bd=0, font=("Sans", 10, "bold"), pady=2)
             self._scan_button.grid(row=5, column=0, columnspan=2, sticky="ew", padx=5, pady=2)
             self._receiver_mode_label = tk.Label(
                 self._receiver_controls, text="MODE  --", bg=ui.surface,
-                fg=ui.text_muted, font=("Sans", 10), anchor="w", padx=12, pady=8)
-            self._receiver_mode_label.grid(row=6, column=0, columnspan=2, sticky="ew")
+                fg=ui.text_muted, font=("Sans", 9), anchor="w", padx=8, pady=2)
+            self._receiver_mode_label.grid_remove()  # Mode remains in telemetry, not a duplicate row.
             self._receiver_signal_label = tk.Label(
                 self._receiver_controls, text="SIGNAL  --", bg=ui.surface,
                 fg=ui.text_muted, font=("Sans", 10), anchor="w", padx=12, pady=8)
@@ -336,9 +336,9 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                 self._subcategory_strip, text=profile.label,
                 command=lambda key=profile.key: self._session.request(
                     RadioRequest(RadioAction.PROFILE, key=key)),
-                selected=selected, height=34, background=ui.control_background,
+                selected=selected, height=26, background=ui.control_background,
                 accent=ui.accent_primary, foreground=ui.text, border=ui.border,
-            ).grid(row=row, column=col, sticky="nsew", padx=3, pady=3)
+            ).grid(row=row, column=col, sticky="nsew", padx=2, pady=1)
             self._subcategory_strip.grid_columnconfigure(col, weight=1, uniform="profiles")
         if group == "AIR":
             row, col = divmod(len(profiles), 2)
