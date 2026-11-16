@@ -8,10 +8,12 @@ spectrum bins, keeping transport and DSP outside Tk's UI thread.
 from __future__ import annotations
 
 import tkinter as tk
+from dataclasses import replace
 import re
 from time import monotonic
 
-from ui.radio.radio_visualization_config import RadioRenderer, RadioVisualizationConfig, select_renderer
+from ui.radio.radio_visualization_config import (RadioRenderer, RadioVisualizationConfig, select_renderer,
+    load_rf_visualization_settings)
 from collections import deque
 from collections.abc import Sequence
 
@@ -27,6 +29,17 @@ class SdrForgeReceiverView(tk.Frame):
         super().__init__(parent, bg=theme.ui.background)
         self._theme = theme
         self._visualization = visualization or RadioVisualizationConfig()
+        overrides = load_rf_visualization_settings()
+        try:
+            self._visualization = replace(
+                self._visualization,
+                renderer=RadioRenderer(str(overrides.get("renderer", self._visualization.renderer.value))),
+                max_fps=int(overrides.get("max_fps", self._visualization.max_fps)),
+                waterfall_rows=int(overrides.get("waterfall_rows", self._visualization.waterfall_rows)),
+                palette=str(overrides.get("palette", self._visualization.palette)),
+            )
+        except (TypeError, ValueError):
+            pass
         self._renderer = select_renderer(self._visualization, opengl_available=opengl_available())
         self._gl_surface = None
         self._last_spectrum_draw = 0.0
