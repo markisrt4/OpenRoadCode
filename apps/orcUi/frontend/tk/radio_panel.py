@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import tkinter as tk
 from .sdrforge_receiver_view import SdrForgeReceiverView
+from .automotive_radio_button import AutomotiveRadioButton
 from ui.radio.sdrforge_spectrum_if import SpectrumPresentation
 from ui.radio.radio_visualization_config import RadioVisualizationConfig
 from ui.radio.rf_radio_if import RadioAction, RadioHost, RadioRequest, RfRadioSession, RfRadioState
@@ -209,11 +210,13 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                 ("◀  Station", self._previous_preset, 4, 0),
                 ("Station  ▶", self._next_preset, 4, 1),
             ):
-                tk.Button(self._receiver_controls, text=label, command=callback,
-                          bg=ui.control_background, fg=ui.text,
-                          activebackground=ui.accent_primary, relief=tk.FLAT,
-                          bd=0, font=("Sans", 10, "bold"), padx=2, pady=12).grid(
-                              row=row, column=col, sticky="nsew", padx=3, pady=3)
+                AutomotiveRadioButton(self._receiver_controls, text=label,
+                                      command=callback, height=56,
+                                      background=ui.control_background,
+                                      accent=ui.accent_primary,
+                                      foreground=ui.text, border=ui.border).grid(
+                                          row=row, column=col, sticky="nsew",
+                                          padx=4, pady=4)
             self._receiver_mode_label = tk.Label(
                 self._receiver_controls, text="MODE  --", bg=ui.surface,
                 fg=ui.text_muted, font=("Sans", 10), anchor="w", padx=12, pady=8)
@@ -315,15 +318,13 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         for index, profile in enumerate(profiles):
             row, col = divmod(index, 2)
             selected = profile.key == state.station.profile_key
-            tk.Button(
+            AutomotiveRadioButton(
                 self._subcategory_strip, text=profile.label,
                 command=lambda key=profile.key: self._session.request(
                     RadioRequest(RadioAction.PROFILE, key=key)),
-                bg=ui.accent_primary if selected else ui.control_background,
-                fg=ui.text, activebackground=ui.accent_primary,
-                activeforeground=ui.text, relief=tk.FLAT, bd=0,
-                font=("Sans", 11, "bold"), padx=5, pady=14,
-            ).grid(row=row, column=col, sticky="nsew", padx=2, pady=2)
+                selected=selected, height=52, background=ui.control_background,
+                accent=ui.accent_primary, foreground=ui.text, border=ui.border,
+            ).grid(row=row, column=col, sticky="nsew", padx=3, pady=3)
             self._subcategory_strip.grid_columnconfigure(col, weight=1, uniform="profiles")
         if group == "AIR":
             row, col = divmod(len(profiles), 2)
