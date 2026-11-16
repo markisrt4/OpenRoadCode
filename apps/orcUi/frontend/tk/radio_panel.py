@@ -8,6 +8,7 @@ from __future__ import annotations
 import tkinter as tk
 from .sdrforge_receiver_view import SdrForgeReceiverView
 from ui.radio.sdrforge_spectrum_if import SpectrumPresentation
+from ui.radio.radio_visualization_config import RadioVisualizationConfig
 from ui.radio.rf_radio_if import RadioAction, RadioHost, RadioRequest, RfRadioSession, RfRadioState
 from ui.radio.radio_profile_state import RadioProfileState
 from ui.theme import ThemeBundle
@@ -27,6 +28,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         session: RfRadioSession,
         theme: ThemeBundle,
         native_sdrforge: bool = False,
+        visualization: RadioVisualizationConfig | None = None,
     ) -> None:
         self._theme = theme
         self._driving_radio = native_sdrforge
@@ -63,7 +65,8 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._sdrforge_view: SdrForgeReceiverView | None = None
         self._sdrforge_after_id: str | None = None
         if native_sdrforge:
-            self._sdrforge_view = SdrForgeReceiverView(self._host, theme=theme)
+            self._sdrforge_view = SdrForgeReceiverView(self._host, theme=theme,
+                                                      visualization=visualization)
             self._sdrforge_view.place(relx=0, rely=0, relwidth=1, relheight=1)
             self._poll_sdrforge_spectrum()
 
