@@ -264,7 +264,11 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
 
     def set_spectrum_presentation(self, snapshot: SpectrumPresentation) -> None:
         if self._sdrforge_view is not None:
-            self._sdrforge_view.set_spectrum(snapshot.bins)
+            self._sdrforge_view.set_spectrum(
+                snapshot.bins,
+                center_frequency_hz=snapshot.center_frequency_hz,
+                sample_rate_hz=snapshot.sample_rate_hz,
+            )
 
     def destroy(self) -> None:
         if self._sdrforge_after_id is not None:
