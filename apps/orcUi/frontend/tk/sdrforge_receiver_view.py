@@ -128,7 +128,7 @@ class SdrForgeReceiverView(tk.Frame):
                            text=f"{frequency} MHz", fill=ui.text,
                            font=("Sans", 25 if compact else 35, "bold"))
         canvas.create_text(w - 14, 12, anchor="ne",
-                           text=(re.sub(r"\b\d{2,3}\.\d{1,3}(?:\s*MHz)?\b", "", self._station).strip(" -/") or self._station)[:28], width=max(80, w // 2 - 18), justify="right", fill=ui.text,
+                           text=self._station_title()[:28], width=max(80, w // 2 - 18), justify="right", fill=ui.text,
                            font=("Sans", 11 if compact else 15, "bold"))
         if self._mode in ("WFM", "FM"):
             canvas.create_text(w - 14, header - 8, anchor="se",
@@ -187,6 +187,17 @@ class SdrForgeReceiverView(tk.Frame):
             canvas.create_text(12, plot_bottom + footer / 2, anchor="w",
                                text=self._radio_text[:90],
                                fill=ui.text_muted, font=("Sans", 10))
+
+    def _station_title(self) -> str:
+        """Only show a real station label, never a second frequency."""
+        station = self._station.strip()
+        if station in ("", "--"):
+            return ""
+        frequency_only = r"^(?:\\d{2,4}(?:\\.\\d{1,6})?\\s*(?:MHz|kHz|Hz)?|FM\\s+Radio)$"
+        if re.fullmatch(frequency_only, station, flags=re.IGNORECASE):
+            return ""
+        title = re.sub(r"\\b\\d{2,4}\\.\\d{1,6}\\s*(?:MHz|kHz|Hz)?\\b", "", station, flags=re.IGNORECASE).strip(" -/")
+        return title
 
     @staticmethod
     def _waterfall_color(value: float) -> str:
