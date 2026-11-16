@@ -8,6 +8,9 @@ spectrum bins, keeping transport and DSP outside Tk's UI thread.
 from __future__ import annotations
 
 import tkinter as tk
+from time import monotonic
+
+from ui.radio.radio_visualization_config import RadioRenderer, RadioVisualizationConfig, select_renderer
 from collections import deque
 from collections.abc import Sequence
 
@@ -17,11 +20,16 @@ from ui.theme import ThemeBundle
 class SdrForgeReceiverView(tk.Frame):
     """Responsive native receiver visualization for the ORC radio panel."""
 
-    def __init__(self, parent: tk.Misc, *, theme: ThemeBundle) -> None:
+    def __init__(self, parent: tk.Misc, *, theme: ThemeBundle,
+                 visualization: RadioVisualizationConfig | None = None) -> None:
         super().__init__(parent, bg=theme.ui.background)
         self._theme = theme
+        self._visualization = visualization or RadioVisualizationConfig()
+        # No OpenGL Tk surface is implemented yet. Auto reliably uses Canvas.
+        self._renderer = select_renderer(self._visualization, opengl_available=False)
+        self._last_spectrum_draw = 0.0
         self._bins: tuple[float, ...] = ()
-        self._history: deque[tuple[float, ...]] = deque(maxlen=180)
+        self._history: deque[tuple[float, ...]] = deque(maxlen=self._visualization.waterfall_rows)
         self._station = "--"
         self._frequency_hz = 0
         self._radio_text = ""
@@ -63,7 +71,10 @@ class SdrForgeReceiverView(tk.Frame):
         self._bins = tuple(max(0.0, min(1.0, float(x))) for x in bins)
         if self._bins:
             self._history.append(self._bins)
-        self._render()
+        now = monotonic()
+        if now - self._last_spectrum_draw >= 1.0 / self._visualization.max_fps:
+            self._last_spectrum_draw = now
+            self._render()
 
     def set_presets(self, presets: Sequence[tuple[str, int]], on_tune=None) -> None:
         self._presets = tuple(presets)
@@ -154,7 +165,8 @@ class SdrForgeReceiverView(tk.Frame):
                     canvas.create_rectangle(
                         x, y, min(w, x + x_step),
                         min(plot_bottom, y + y_step),
-                        fill=self._waterfall_color(value), outline="")
+                        fill=self._waterfall_color(value) if self._visualization.palette == "classic"
+                        else ("#" + f"{int(value * 255):02x}" * 3), outline="")
         else:
             canvas.create_text(w / 2, spectrum_top + spectrum_height / 2,
                                text="Waiting for spectrum telemetry",
