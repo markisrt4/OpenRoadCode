@@ -67,6 +67,7 @@ class RadioAction(Enum):
     NEXT = "next"
     TUNE_DOWN = "tune_down"
     TUNE_UP = "tune_up"
+    TUNE_FREQUENCY = "tune_frequency"
     ADD_PRESET = "add_preset"
     WATERFALL = "waterfall"
     BANDPLAN = "bandplan"
@@ -91,6 +92,7 @@ class RadioRequest:
     preset: RadioProfilePreset | None = None
     host: RadioHost | None = None
     color_scheme: str = "dark"
+    frequency_hz: int | None = None
 
 
 class RfRadioUi(Protocol):
