@@ -189,7 +189,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                 highlightthickness=1, highlightbackground=ui.border)
             self._receiver_controls.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
             self._receiver_controls.grid_propagate(False)
-            self._receiver_controls.grid_rowconfigure(1, minsize=88)
+            self._receiver_controls.grid_rowconfigure(1, minsize=108)
             for col in (0, 1):
                 self._receiver_controls.grid_columnconfigure(col, weight=1)
             self._subcategory_strip = tk.Frame(self._receiver_controls, bg=ui.surface)
@@ -198,7 +198,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             for tile_column in range(2):
                 self._subcategory_strip.grid_columnconfigure(tile_column, weight=1,
                                                                uniform="bands")
-            tk.Label(self._receiver_controls, text="BANDS", bg=ui.surface,
+            self._bands_heading = tk.Label(self._receiver_controls, text="BANDS", bg=ui.surface,
                      fg=ui.accent_primary, font=("Sans", 11, "bold"),
                      anchor="w", padx=10, pady=2).grid(
                          row=0, column=0, columnspan=2, sticky="ew")
@@ -219,9 +219,10 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                                       foreground=ui.text, border=ui.border).grid(
                                           row=row, column=col, sticky="nsew",
                                           padx=2, pady=2)
-            self._scan_button = tk.Button(self._receiver_controls, text="SCAN BAND",
-                command=self._toggle_scan, bg=ui.accent_primary, fg=ui.text,
-                relief=tk.FLAT, bd=0, font=("Sans", 10, "bold"), pady=2)
+            self._scan_button = AutomotiveRadioButton(
+                self._receiver_controls, text="SCAN BAND", command=self._toggle_scan,
+                height=36, background=ui.control_background,
+                accent=ui.accent_primary, foreground=ui.text, border=ui.border)
             self._scan_button.grid(row=5, column=0, columnspan=2, sticky="ew", padx=5, pady=2)
             self._receiver_mode_label = tk.Label(
                 self._receiver_controls, text="MODE  --", bg=ui.surface,
@@ -330,14 +331,22 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         for child in self._subcategory_strip.winfo_children():
             child.destroy()
         ui = self._theme.ui
-        for index, profile in enumerate(profiles):
+        show_bands = group not in ("FM", "WEATHER")
+        if self._receiver_controls is not None:
+            if show_bands:
+                self._bands_heading.grid()
+                self._subcategory_strip.grid()
+            else:
+                self._bands_heading.grid_remove()
+                self._subcategory_strip.grid_remove()
+        for index, profile in enumerate(profiles if show_bands else ()):
             row, col = divmod(index, 2)
             selected = profile.key == state.station.profile_key
             AutomotiveRadioButton(
                 self._subcategory_strip, text=profile.label,
                 command=lambda key=profile.key: self._session.request(
                     RadioRequest(RadioAction.PROFILE, key=key)),
-                selected=selected, height=26, background=ui.control_background,
+                selected=selected, height=34, background=ui.control_background,
                 accent=ui.accent_primary, foreground=ui.text, border=ui.border,
             ).grid(row=row, column=col, sticky="nsew", padx=2, pady=1)
             self._subcategory_strip.grid_columnconfigure(col, weight=1, uniform="profiles")
