@@ -200,8 +200,8 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                                                                uniform="bands")
             self._bands_heading = tk.Label(self._receiver_controls, text="BANDS", bg=ui.surface,
                      fg=ui.accent_primary, font=("Sans", 11, "bold"),
-                     anchor="w", padx=10, pady=2).grid(
-                         row=0, column=0, columnspan=2, sticky="ew")
+                     anchor="w", padx=10, pady=2)
+            self._bands_heading.grid(row=0, column=0, columnspan=2, sticky="ew")
             tk.Label(self._receiver_controls, text="TUNING", bg=ui.surface,
                      fg=ui.accent_primary, font=("Sans", 10, "bold"),
                      anchor="w", padx=10, pady=2).grid(
