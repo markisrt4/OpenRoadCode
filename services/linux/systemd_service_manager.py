@@ -222,12 +222,22 @@ class SystemdServiceManager:
         check: bool = True,
     ) -> subprocess.CompletedProcess[str]:
         user_unit = unit in SystemdServiceManager.USER_SERVICE_UNITS
-        command = [SYSTEMCTL_BIN]
         if user_unit:
-            command.append("--user")
-        command.extend((action, unit, *extra))
-        if action in PRIVILEGED_ACTIONS and not user_unit:
-            command = ["sudo", "-n", *command]
+            # A root-owned helper enforces the fixed unit and configured user.
+            # Do not pass arbitrary caller-supplied arguments to the helper.
+            if action not in {"start", "stop", "restart", "is-active", "show"}:
+                raise ValueError(f"Unsupported SDRForge action: {action}")
+            if action == "show" and extra != (
+                "--property=ActiveState,SubState,UnitFileState", "--value"
+            ):
+                raise ValueError("Unsupported SDRForge show arguments")
+            if action != "show" and extra:
+                raise ValueError("Unexpected SDRForge arguments")
+            command = ["sudo", "-n", "/usr/local/sbin/orc-sdrforge-user-service", action]
+        else:
+            command = [SYSTEMCTL_BIN, action, unit, *extra]
+            if action in PRIVILEGED_ACTIONS:
+                command = ["sudo", "-n", *command]
         service = next(
             (
                 name
