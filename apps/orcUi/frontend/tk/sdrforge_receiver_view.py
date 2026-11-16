@@ -8,6 +8,7 @@ spectrum bins, keeping transport and DSP outside Tk's UI thread.
 from __future__ import annotations
 
 import tkinter as tk
+import re
 from time import monotonic
 
 from ui.radio.radio_visualization_config import RadioRenderer, RadioVisualizationConfig, select_renderer
@@ -108,7 +109,7 @@ class SdrForgeReceiverView(tk.Frame):
                            text=f"{frequency} MHz", fill=ui.text,
                            font=("Sans", 25 if compact else 35, "bold"))
         canvas.create_text(w - 14, 12, anchor="ne",
-                           text=self._station[:28], width=max(80, w // 2 - 18), justify="right", fill=ui.text,
+                           text=(re.sub(r"\\b\\d{2,3}\\.\\d{1,3}(?:\\s*MHz)?\\b", "", self._station).strip(" -/") or self._station)[:28], width=max(80, w // 2 - 18), justify="right", fill=ui.text,
                            font=("Sans", 11 if compact else 15, "bold"))
         if self._mode in ("WFM", "FM"):
             canvas.create_text(w - 14, header - 8, anchor="se",
