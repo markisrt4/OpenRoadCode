@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
+from pathlib import Path
 from enum import Enum
 
 
@@ -37,3 +39,20 @@ def select_renderer(config: RadioVisualizationConfig, *, opengl_available: bool)
             raise RuntimeError("OpenGL radio renderer is unavailable on this display")
         return RadioRenderer.OPENGL
     return RadioRenderer.OPENGL if opengl_available else RadioRenderer.TK
+
+RF_SETTINGS_PATH = Path.home() / ".config" / "openroadcode" / "rf_visualization.json"
+
+
+def load_rf_visualization_settings() -> dict[str, object]:
+    """Load optional user overrides without preventing the radio from starting."""
+    try:
+        value = json.loads(RF_SETTINGS_PATH.read_text(encoding="utf-8"))
+        return value if isinstance(value, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_rf_visualization_settings(values: dict[str, object]) -> None:
+    """Persist advanced RF display preferences for the next radio view."""
+    RF_SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    RF_SETTINGS_PATH.write_text(json.dumps(values, indent=2) + "\n", encoding="utf-8")
