@@ -6,7 +6,7 @@ Run from the repository root: python -m component_test.adsb_overlay_cli
 import argparse
 import time
 from controllers.adsb.aircraft_overlay_controller import AircraftOverlayController
-from controllers.adsb.simulated_aircraft import simulated_aircraft
+from controllers.adsb.aircraft_snapshot_adapter import aircraft_from_snapshot
 from frontends.common.map_aircraft_overlay_ui import MapAircraftOverlayUi
 from protocols.map_renderer.map_renderer_client import MapRendererClient
 
@@ -26,6 +26,11 @@ def main(argv=None):
     if not -90 < args.latitude < 90 or not -180 <= args.longitude <= 180:
         parser.error("invalid center latitude/longitude")
 
+    try:
+        from sdrforge.adsb.simulation import simulated_aircraft
+    except ImportError as exc:
+        parser.error('Install libSDRForge in this environment: pip install -e ../libSDRForge')
+
     with_client = MapRendererClient(endpoint=args.endpoint)
     try:
         controller = AircraftOverlayController(MapAircraftOverlayUi(with_client))
@@ -42,7 +47,7 @@ def main(argv=None):
                 elapsed, args.aircraft, center_lat=args.latitude,
                 center_lon=args.longitude,
             )
-            controller.set_aircraft(snapshot)
+            controller.set_aircraft(aircraft_from_snapshot(snapshot))
             print(f"t={elapsed:6.1f}s aircraft={len(snapshot)}", flush=True)
             next_tick += interval
             if next_tick < now:
