@@ -47,18 +47,17 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._preset_page_size = 4
 
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(2 if native_sdrforge else 1, weight=1)
+        self.grid_rowconfigure(1, weight=1)
         self._groups = tk.Frame(
             self, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border
         )
         self._groups.grid(row=0, column=0, sticky="ew", pady=(0, 3))
         self._subcategory_strip = tk.Frame(self, bg=ui.surface)
         self._subcategory_signature = None
-        if native_sdrforge:
-            self._subcategory_strip.grid(row=1, column=0, sticky="ew", pady=(0, 3))
+
         self._build_group_bar()
         self._body = tk.Frame(self, bg=ui.background)
-        self._body.grid(row=2 if native_sdrforge else 1, column=0, sticky="nsew")
+        self._body.grid(row=1, column=0, sticky="nsew")
         self._body.grid_columnconfigure(0, weight=1)
         self._body.grid_rowconfigure(0, weight=1)
         self._host = tk.Frame(
@@ -102,7 +101,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._controls = tk.Frame(
             self, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border
         )
-        self._controls.grid(row=3 if native_sdrforge else 2, column=0, sticky="ew", pady=(2, 0))
+        self._controls.grid(row=2, column=0, sticky="ew", pady=(2, 0))
         for column in range(5):
             self._controls.grid_columnconfigure(column, weight=1 if native_sdrforge else (1 if column == 2 else 0))
         tk.Button(
@@ -182,23 +181,33 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._receiver_controls = None
         if native_sdrforge:
             self._controls.grid_remove()
-            self._body.grid_columnconfigure(1, weight=0, minsize=226)
+            self._body.grid_columnconfigure(1, weight=0, minsize=270)
             self._receiver_controls = tk.Frame(
-                self._body, bg=ui.surface, width=226,
+                self._body, bg=ui.surface, width=270,
                 highlightthickness=1, highlightbackground=ui.border)
             self._receiver_controls.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
             self._receiver_controls.grid_propagate(False)
             for col in (0, 1):
                 self._receiver_controls.grid_columnconfigure(col, weight=1)
+            self._subcategory_strip = tk.Frame(self._receiver_controls, bg=ui.surface)
+            self._subcategory_strip.grid(row=1, column=0, columnspan=2,
+                                         sticky="ew", padx=5, pady=(0, 8))
+            for tile_column in range(2):
+                self._subcategory_strip.grid_columnconfigure(tile_column, weight=1,
+                                                               uniform="bands")
+            tk.Label(self._receiver_controls, text="BANDS", bg=ui.surface,
+                     fg=ui.accent_primary, font=("Sans", 11, "bold"),
+                     anchor="w", padx=10, pady=6).grid(
+                         row=0, column=0, columnspan=2, sticky="ew")
             tk.Label(self._receiver_controls, text="TUNING", bg=ui.surface,
                      fg=ui.accent_primary, font=("Sans", 10, "bold"),
                      anchor="w", padx=10, pady=7).grid(
-                         row=0, column=0, columnspan=2, sticky="ew")
+                         row=2, column=0, columnspan=2, sticky="ew")
             for label, callback, row, col in (
-                ("◀  Tune", self._tune_down, 1, 0),
-                ("Tune  ▶", self._tune_up, 1, 1),
-                ("◀  Station", self._previous_preset, 2, 0),
-                ("Station  ▶", self._next_preset, 2, 1),
+                ("◀  Tune", self._tune_down, 3, 0),
+                ("Tune  ▶", self._tune_up, 3, 1),
+                ("◀  Station", self._previous_preset, 4, 0),
+                ("Station  ▶", self._next_preset, 4, 1),
             ):
                 tk.Button(self._receiver_controls, text=label, command=callback,
                           bg=ui.control_background, fg=ui.text,
@@ -208,15 +217,15 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             self._receiver_mode_label = tk.Label(
                 self._receiver_controls, text="MODE  --", bg=ui.surface,
                 fg=ui.text_muted, font=("Sans", 10), anchor="w", padx=12, pady=8)
-            self._receiver_mode_label.grid(row=3, column=0, columnspan=2, sticky="ew")
+            self._receiver_mode_label.grid(row=5, column=0, columnspan=2, sticky="ew")
             self._receiver_signal_label = tk.Label(
                 self._receiver_controls, text="SIGNAL  --", bg=ui.surface,
                 fg=ui.text_muted, font=("Sans", 10), anchor="w", padx=12, pady=8)
-            self._receiver_signal_label.grid(row=4, column=0, columnspan=2, sticky="ew")
+            self._receiver_signal_label.grid(row=6, column=0, columnspan=2, sticky="ew")
 
         self._favorites = tk.Frame(self, bg=ui.surface)
         if native_sdrforge:
-            self._favorites.grid(row=4, column=0, sticky="ew", pady=(2, 0))
+            self._favorites.grid(row=3, column=0, sticky="ew", pady=(2, 0))
         self._launch_status = tk.Label(self._host, text="Connecting to radio…", bg=ui.background,
                                        fg=ui.text, font=("Sans", 20, "bold"))
         self._session.bind(self)
@@ -304,7 +313,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             child.destroy()
         ui = self._theme.ui
         for index, profile in enumerate(profiles):
-            row, col = divmod(index, 3 if len(profiles) > 4 else max(1, len(profiles)))
+            row, col = divmod(index, 2)
             selected = profile.key == state.station.profile_key
             tk.Button(
                 self._subcategory_strip, text=profile.label,
@@ -313,11 +322,11 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                 bg=ui.accent_primary if selected else ui.control_background,
                 fg=ui.text, activebackground=ui.accent_primary,
                 activeforeground=ui.text, relief=tk.FLAT, bd=0,
-                font=("Sans", 11, "bold"), padx=10, pady=9,
+                font=("Sans", 11, "bold"), padx=5, pady=14,
             ).grid(row=row, column=col, sticky="nsew", padx=2, pady=2)
             self._subcategory_strip.grid_columnconfigure(col, weight=1, uniform="profiles")
         if group == "AIR":
-            row, col = divmod(len(profiles), 3 if len(profiles) > 4 else max(1, len(profiles)))
+            row, col = divmod(len(profiles), 2)
             tk.Button(
                 self._subcategory_strip, text="ADS-B MAP",
                 command=self._show_adsb, bg=ui.control_background, fg=ui.text,
@@ -429,15 +438,12 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         else:
             self._launch_status.place_forget()
         if state.view == "adsb":
-            self._subcategory_strip.grid_remove()
             if self._receiver_controls is not None:
                 self._receiver_controls.grid_remove()
             self._controls.grid_remove()
             self._favorites.grid_remove()
             self._telemetry_overlay.place_forget()
         else:
-            if self._sdrforge_view is not None:
-                self._subcategory_strip.grid()
             if self._receiver_controls is not None:
                 self._receiver_controls.grid()
             if self._sdrforge_view is None:
