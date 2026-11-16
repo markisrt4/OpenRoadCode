@@ -132,7 +132,8 @@ class SdrForgeReceiverView(tk.Frame):
         waterfall_height = max(1, plot_bottom - waterfall_top)
         if self._gl_surface is not None:
             self._gl_surface.place(x=0, y=spectrum_top, relwidth=1, height=max(1, plot_bottom-spectrum_top))
-            self._gl_surface.update_data(self._bins, tuple(self._history), self._visualization.palette)
+            self._gl_surface.update_data(self._bins, tuple(self._history),
+                                         self._visualization.palette, self._peak_bins)
 
         canvas.create_rectangle(0, 0, w, header, fill=ui.surface, outline="")
         canvas.create_rectangle(0, 0, 5, header, fill=ui.accent_primary, outline="")
