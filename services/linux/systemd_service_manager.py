@@ -50,7 +50,9 @@ class SystemdServiceManager:
         "openroadcode-navigation": "openroadcode-navigation.service",
         "openroadcode-automotive": "openroadcode-automotive.service",
         "openroadcode-adsb": "readsb.service",
+        "openroadcode-sdrforge": "libsdrforge.service",
     }
+    USER_SERVICE_UNITS = frozenset({"libsdrforge.service"})
     SERVICES = tuple(SERVICE_UNITS)
     CORE_STACK = (
         "openroadcode-message-broker",
@@ -219,8 +221,12 @@ class SystemdServiceManager:
         *extra: str,
         check: bool = True,
     ) -> subprocess.CompletedProcess[str]:
-        command = [SYSTEMCTL_BIN, action, unit, *extra]
-        if action in PRIVILEGED_ACTIONS:
+        user_unit = unit in SystemdServiceManager.USER_SERVICE_UNITS
+        command = [SYSTEMCTL_BIN]
+        if user_unit:
+            command.append("--user")
+        command.extend((action, unit, *extra))
+        if action in PRIVILEGED_ACTIONS and not user_unit:
             command = ["sudo", "-n", *command]
         service = next(
             (
