@@ -175,23 +175,40 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             highlightthickness=0,
         ).grid(row=0, column=4, rowspan=3, sticky="nsew" if native_sdrforge else "ns")
 
+        self._receiver_controls = None
         if native_sdrforge:
-            for widget in list(self._controls.winfo_children()):
-                if isinstance(widget, tk.Button):
-                    widget.destroy()
-            for col in range(5):
-                self._controls.grid_columnconfigure(col, weight=1 if col < 2 else 0)
-            for label, action, row, col in (
-                ("◀  TUNE", self._tune_down, 0, 0),
-                ("TUNE  ▶", self._tune_up, 0, 1),
-                ("◀  STATION", self._previous_preset, 1, 0),
-                ("STATION  ▶", self._next_preset, 1, 1),
+            self._controls.grid_remove()
+            self._body.grid_columnconfigure(1, weight=0, minsize=226)
+            self._receiver_controls = tk.Frame(
+                self._body, bg=ui.surface, width=226,
+                highlightthickness=1, highlightbackground=ui.border)
+            self._receiver_controls.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
+            self._receiver_controls.grid_propagate(False)
+            for col in (0, 1):
+                self._receiver_controls.grid_columnconfigure(col, weight=1)
+            tk.Label(self._receiver_controls, text="TUNING", bg=ui.surface,
+                     fg=ui.text, font=("Sans", 13, "bold"),
+                     anchor="w", padx=12, pady=12).grid(
+                         row=0, column=0, columnspan=2, sticky="ew")
+            for label, callback, row, col in (
+                ("◀  Tune", self._tune_down, 1, 0),
+                ("Tune  ▶", self._tune_up, 1, 1),
+                ("◀  Station", self._previous_preset, 2, 0),
+                ("Station  ▶", self._next_preset, 2, 1),
             ):
-                tk.Button(self._controls, text=label, command=action,
+                tk.Button(self._receiver_controls, text=label, command=callback,
                           bg=ui.control_background, fg=ui.text,
                           activebackground=ui.accent_primary, relief=tk.FLAT,
-                          bd=0, padx=12, pady=9, font=("Sans", 11, "bold")
-                          ).grid(row=row, column=col, sticky="nsew", padx=3, pady=2)
+                          bd=0, font=("Sans", 10, "bold"), padx=2, pady=15).grid(
+                              row=row, column=col, sticky="nsew", padx=3, pady=3)
+            self._receiver_mode_label = tk.Label(
+                self._receiver_controls, text="MODE  --", bg=ui.surface,
+                fg=ui.text_muted, font=("Sans", 10), anchor="w", padx=12, pady=8)
+            self._receiver_mode_label.grid(row=3, column=0, columnspan=2, sticky="ew")
+            self._receiver_signal_label = tk.Label(
+                self._receiver_controls, text="SIGNAL  --", bg=ui.surface,
+                fg=ui.text_muted, font=("Sans", 10), anchor="w", padx=12, pady=8)
+            self._receiver_signal_label.grid(row=4, column=0, columnspan=2, sticky="ew")
 
         self._favorites = tk.Frame(self, bg=ui.surface)
         if native_sdrforge:
@@ -235,6 +252,8 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._signal_label.configure(bg=ui.surface_alt, fg=ui.text)
         self._snr_label.configure(bg=ui.surface_alt, fg=ui.accent_success)
         self._controls.configure(bg=ui.surface, highlightbackground=ui.border)
+        if self._receiver_controls is not None:
+            self._receiver_controls.configure(bg=ui.surface, highlightbackground=ui.border)
         self._favorites.configure(bg=ui.surface)
         for child in self._controls.winfo_children():
             if isinstance(child, tk.Button):
@@ -348,10 +367,14 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                 radio_text=state.telemetry.radio_text or state.telemetry.rds,
                 stereo=state.telemetry.stereo_locked is True,
                 signal=state.telemetry.signal_db,
+                mode=state.station.mode_name,
             )
         signal = "--" if state.telemetry.signal_db is None else f"{state.telemetry.signal_db:.1f} dB"
         snr = "--" if state.telemetry.snr_db is None else f"{state.telemetry.snr_db:.1f} dB"
         self._signal_label.configure(text=f"SIGNAL {signal}")
+        if self._receiver_controls is not None:
+            self._receiver_mode_label.configure(text="MODE  " + (state.station.mode_name or "--"))
+            self._receiver_signal_label.configure(text="SIGNAL  " + signal)
         self._snr_label.configure(text=f"SNR {snr}")
         if state.loading or state.error:
             self._launch_status.configure(text=state.error or "Loading radio…",
@@ -365,7 +388,8 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             self._favorites.grid_remove()
             self._telemetry_overlay.place_forget()
         else:
-            self._controls.grid()
+            if self._sdrforge_view is None:
+                self._controls.grid()
             if self._sdrforge_view is not None:
                 self._favorites.grid()
                 self._telemetry_overlay.place_forget()  # Receiver header owns status.
