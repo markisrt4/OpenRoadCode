@@ -272,6 +272,15 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             self._receiver_controls.configure(bg=ui.surface, highlightbackground=ui.border)
         self._favorites.configure(bg=ui.surface)
         self._subcategory_strip.configure(bg=ui.surface)
+        if self._receiver_controls is not None:
+            for child in self._receiver_controls.winfo_children():
+                if isinstance(child, AutomotiveRadioButton):
+                    child.set_palette(background=ui.control_background,
+                                      accent=ui.accent_primary,
+                                      foreground=ui.text, border=ui.border)
+                elif isinstance(child, tk.Label):
+                    child.configure(bg=ui.surface, fg=ui.text)
+
         self._subcategory_signature = None
         if self._sdrforge_view is not None:
             self._render_subcategory_tiles(self._state)
