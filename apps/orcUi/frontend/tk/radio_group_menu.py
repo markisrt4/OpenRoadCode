@@ -28,9 +28,9 @@ class RadioGroupMenuMixin(RadioPresentationFrame):
         ui = self._theme.ui
         driving = getattr(self, "_driving_radio", False)
         for name, label in MAIN_GROUPS:
-            command = partial(self._show_group_menu, name)
+            command = partial(self.select_group, name) if driving else partial(self._show_group_menu, name)
             if driving:
-                label = {"FM": "♫ FM ▾", "WEATHER": "☁ WEATHER ▾", "AIR": "✈ AIR ▾", "HAM": "⌁ HAM ▾", "SCANNER": "⌁ SCAN ▾"}[name]
+                label = {"FM": "♫ FM", "WEATHER": "☁ WEATHER", "AIR": "✈ AIR", "HAM": "⌁ HAM", "SCANNER": "⌁ SCAN"}[name]
             button = tk.Button(
                 self._groups,
                 text=label,
