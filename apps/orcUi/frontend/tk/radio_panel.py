@@ -186,29 +186,41 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             self._receiver_controls.grid_propagate(False)
             for col in (0, 1):
                 self._receiver_controls.grid_columnconfigure(col, weight=1)
-            tk.Label(self._receiver_controls, text="TUNING", bg=ui.surface,
-                     fg=ui.text, font=("Sans", 13, "bold"),
-                     anchor="w", padx=12, pady=12).grid(
+            tk.Label(self._receiver_controls, text="BAND / CHANNEL", bg=ui.surface,
+                     fg=ui.accent_primary, font=("Sans", 10, "bold"),
+                     anchor="w", padx=10, pady=7).grid(
                          row=0, column=0, columnspan=2, sticky="ew")
+            self._profile_button = tk.Button(
+                self._receiver_controls, text="Select band  ▾",
+                command=self._show_native_profile_menu,
+                bg=ui.control_background, fg=ui.text,
+                activebackground=ui.accent_primary, relief=tk.FLAT, bd=0,
+                font=("Sans", 11, "bold"), pady=12, wraplength=195)
+            self._profile_button.grid(row=1, column=0, columnspan=2,
+                                      sticky="ew", padx=5, pady=(0, 7))
+            tk.Label(self._receiver_controls, text="TUNING", bg=ui.surface,
+                     fg=ui.accent_primary, font=("Sans", 10, "bold"),
+                     anchor="w", padx=10, pady=7).grid(
+                         row=2, column=0, columnspan=2, sticky="ew")
             for label, callback, row, col in (
-                ("◀  Tune", self._tune_down, 1, 0),
-                ("Tune  ▶", self._tune_up, 1, 1),
-                ("◀  Station", self._previous_preset, 2, 0),
-                ("Station  ▶", self._next_preset, 2, 1),
+                ("◀  Tune", self._tune_down, 3, 0),
+                ("Tune  ▶", self._tune_up, 3, 1),
+                ("◀  Station", self._previous_preset, 4, 0),
+                ("Station  ▶", self._next_preset, 4, 1),
             ):
                 tk.Button(self._receiver_controls, text=label, command=callback,
                           bg=ui.control_background, fg=ui.text,
                           activebackground=ui.accent_primary, relief=tk.FLAT,
-                          bd=0, font=("Sans", 10, "bold"), padx=2, pady=15).grid(
+                          bd=0, font=("Sans", 10, "bold"), padx=2, pady=12).grid(
                               row=row, column=col, sticky="nsew", padx=3, pady=3)
             self._receiver_mode_label = tk.Label(
                 self._receiver_controls, text="MODE  --", bg=ui.surface,
                 fg=ui.text_muted, font=("Sans", 10), anchor="w", padx=12, pady=8)
-            self._receiver_mode_label.grid(row=3, column=0, columnspan=2, sticky="ew")
+            self._receiver_mode_label.grid(row=5, column=0, columnspan=2, sticky="ew")
             self._receiver_signal_label = tk.Label(
                 self._receiver_controls, text="SIGNAL  --", bg=ui.surface,
                 fg=ui.text_muted, font=("Sans", 10), anchor="w", padx=12, pady=8)
-            self._receiver_signal_label.grid(row=4, column=0, columnspan=2, sticky="ew")
+            self._receiver_signal_label.grid(row=6, column=0, columnspan=2, sticky="ew")
 
         self._favorites = tk.Frame(self, bg=ui.surface)
         if native_sdrforge:
@@ -283,6 +295,24 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         if self._sdrforge_view is not None:
             self._sdrforge_view.set_theme_bundle(theme)
 
+    def _show_native_profile_menu(self) -> None:
+        """Expose all subcategories as a single large, direct-selection menu."""
+        group = self._active_group.split(":", 1)[0]
+        profiles = tuple(p for p in self._state.profiles if p.group == group)
+        menu = tk.Menu(self, tearoff=False, bg=self._theme.ui.surface,
+                       fg=self._theme.ui.text, font=("Sans", 13),
+                       activebackground=self._theme.ui.accent_primary)
+        for profile in profiles:
+            menu.add_command(
+                label=("●  " if profile.key == self._state.station.profile_key else "    ") + profile.label,
+                command=lambda key=profile.key: self._session.request(
+                    RadioRequest(RadioAction.PROFILE, key=key)))
+        if group == "AIR":
+            menu.add_separator()
+            menu.add_command(label="Aircraft map (ADS-B)", command=self._show_adsb)
+        if profiles or group == "AIR":
+            self._popup_menu(menu, self._profile_button)
+
     def _native_host(self) -> RadioHost:
         self.update_idletasks()
         return RadioHost(int(self._host.winfo_id()), int(self.winfo_toplevel().winfo_id()),
@@ -355,6 +385,8 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         elif profile is not None:
             self._active_group = profile.group
         self._paint_groups()
+        if self._receiver_controls is not None:
+            self._profile_button.configure(text=(profile.label + "  ▾") if profile else "Select band  ▾")
         if self._sdrforge_view is not None:
             self._render_favorites(state)
         self.set_station(state.station.label, state.station.frequency_hz, state.station.mode_name)
