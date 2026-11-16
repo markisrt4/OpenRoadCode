@@ -12,10 +12,16 @@ class SpectrumPresentation:
     """Normalized immutable display bins, independent of transport and Tk."""
 
     bins: tuple[float, ...]
+    center_frequency_hz: int | None = None
+    sample_rate_hz: int | None = None
 
     def __post_init__(self) -> None:
         if not self.bins or any(not 0.0 <= value <= 1.0 for value in self.bins):
             raise ValueError("spectrum bins must be nonempty and normalized")
+        if self.center_frequency_hz is not None and self.center_frequency_hz <= 0:
+            raise ValueError("center frequency must be positive")
+        if self.sample_rate_hz is not None and self.sample_rate_hz <= 0:
+            raise ValueError("sample rate must be positive")
 
 
 class SpectrumSourceIf(Protocol):
