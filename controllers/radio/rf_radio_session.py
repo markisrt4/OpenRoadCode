@@ -192,8 +192,8 @@ class ReceiverSession:
                 self._read_controls()
             return
         if action in (RadioAction.PLAY, RadioAction.PAUSE):
-            endpoint = "start" if action is RadioAction.PLAY else "stop"
-            request_url = f"http://127.0.0.1:5570/v1/receiver/{endpoint}"
+            endpoint = "unmute" if action is RadioAction.PLAY else "mute"
+            request_url = f"http://127.0.0.1:5570/v1/audio/{endpoint}"
             try:
                 with urllib.request.urlopen(
                     urllib.request.Request(request_url, data=b"", method="POST"),
