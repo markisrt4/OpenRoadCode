@@ -1,6 +1,11 @@
 """Aircraft controller and deterministic simulation tests."""
 from controllers.adsb.aircraft_overlay_controller import AircraftOverlayController
-from controllers.adsb.simulated_aircraft import simulated_aircraft
+from ui.adsb.aircraft_overlay_state import AircraftPoint
+from ui.navigation.map_ui_if import GeoPoint
+
+
+def simulated_aircraft(elapsed_s, count):
+    return tuple(AircraftPoint(f'{0xA00000 + i:06X}', GeoPoint(elapsed_s / 1000, i / 1000)) for i in range(count))
 
 
 class View:
