@@ -70,20 +70,14 @@ class AutomotiveRadioButton(tk.Canvas):
             return
         r = min(12, h // 4)
         fill = self._accent if self._selected else self._background
-        edge = self._accent if self._selected or self._hover else self._border
-        # Rounded outline, filled center and corners.
+        edge = self._accent if self._hover and not self._selected else self._background
+        # Solid rounded tile: avoid overlapping oval/rectangle seams and heavy outlines.
         self.create_rectangle(r, 2, w-r, h-2, fill=fill, outline="")
         self.create_rectangle(2, r, w-2, h-r, fill=fill, outline="")
         for x in (r+2, w-r-2):
             for y in (r+2, h-r-2):
                 self.create_oval(x-r, y-r, x+r, y+r, fill=fill, outline="")
-        self.create_line(r, 2, w-r, 2, fill=edge, width=2)
-        self.create_line(r, h-2, w-r, h-2, fill=edge, width=2)
-        self.create_line(2, r, 2, h-r, fill=edge, width=2)
-        self.create_line(w-2, r, w-2, h-r, fill=edge, width=2)
-        if self._selected:
-            self.create_rectangle(9, 10, 13, h-10, fill=self._foreground, outline="")
         if self._hover and not self._selected:
-            self.create_line(12, h-6, w-12, h-6, fill=self._accent, width=2)
+            self.create_line(10, h-3, w-10, h-3, fill=edge, width=2)
         self.create_text(w/2, h/2, text=self._text, fill=self._foreground,
                          font=("Sans", self._font_size, "bold"), width=max(20, w-18))
