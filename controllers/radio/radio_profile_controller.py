@@ -58,6 +58,24 @@ class RadioProfileController:
         if start or was_started: self._radio.start()
         return self.state
 
+    @property
+    def scan_range(self) -> tuple[int, int, int] | None:
+        band = self._radio.radio_range
+        if band is None:
+            return None
+        return (band.min_frequency_hz, band.max_frequency_hz, self._radio.current_mode.step_hz)
+
+    def scan_tune(self, frequency_hz: int) -> float | None:
+        self._ensure_started()
+        self._radio.set_frequency(frequency_hz)
+        value = self._radio.get_signal_strength()
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
     def tune_preset(self, preset: RadioProfilePreset) -> RadioProfileState:
         domain_preset = RadioPreset(preset.label, preset.frequency_hz, RadioMode(preset.mode_name, preset.bandwidth, preset.step_hz))
         self._ensure_started(); self._radio.tune_preset(domain_preset); return self.state
