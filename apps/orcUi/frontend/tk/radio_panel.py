@@ -333,6 +333,8 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         ui = self._theme.ui
         show_bands = group not in ("FM", "WEATHER")
         if self._receiver_controls is not None:
+            self._bands_heading.configure(text="BANDS" if show_bands else "")
+        if self._receiver_controls is not None:
             if show_bands:
                 self._bands_heading.grid()
                 self._subcategory_strip.grid()
