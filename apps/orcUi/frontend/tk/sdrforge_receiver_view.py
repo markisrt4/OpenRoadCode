@@ -29,6 +29,7 @@ class SdrForgeReceiverView(tk.Frame):
         # No OpenGL Tk surface is implemented yet. Auto reliably uses Canvas.
         self._renderer = select_renderer(self._visualization, opengl_available=False)
         self._last_spectrum_draw = 0.0
+        self._draw_pending = False
         self._bins: tuple[float, ...] = ()
         self._history: deque[tuple[float, ...]] = deque(maxlen=self._visualization.waterfall_rows)
         self._station = "--"
@@ -44,14 +45,14 @@ class SdrForgeReceiverView(tk.Frame):
         self.grid_rowconfigure(0, weight=1)
         self._canvas = tk.Canvas(self, bg=theme.ui.background, bd=0, highlightthickness=0)
         self._canvas.grid(row=0, column=0, sticky="nsew")
-        self._canvas.bind("<Configure>", lambda _event: self._render())
+        self._canvas.bind("<Configure>", lambda _event: self._schedule_render())
         # Preset navigation belongs to RadioPanel, not inside the spectrum.
 
     def set_theme_bundle(self, theme: ThemeBundle) -> None:
         self._theme = theme
         self.configure(bg=theme.ui.background)
         self._canvas.configure(bg=theme.ui.background)
-        self._render()
+        self._schedule_render()
 
     def set_station(self, *, frequency_hz: int, name: str = "",
                     radio_text: str = "", stereo: bool = False,
@@ -66,7 +67,7 @@ class SdrForgeReceiverView(tk.Frame):
         self._radio_text = radio_text if self._mode in ("WFM", "FM") else ""
         self._stereo = stereo
         self._signal = signal
-        self._render()
+        self._schedule_render()
 
     def set_spectrum(self, bins: Sequence[float]) -> None:
         """Accept normalized display magnitudes from 0.0 to 1.0."""
@@ -76,11 +77,22 @@ class SdrForgeReceiverView(tk.Frame):
         now = monotonic()
         if now - self._last_spectrum_draw >= 1.0 / self._visualization.max_fps:
             self._last_spectrum_draw = now
-            self._render()
+            self._schedule_render()
 
     def set_presets(self, presets: Sequence[tuple[str, int]], on_tune=None) -> None:
         self._presets = tuple(presets)
         self._on_tune = on_tune
+
+    def _schedule_render(self) -> None:
+        """Coalesce telemetry and layout updates into one idle-time draw."""
+        if not self._draw_pending:
+            self._draw_pending = True
+            self.after_idle(self._flush_render)
+
+    def _flush_render(self) -> None:
+        self._draw_pending = False
+        if self.winfo_exists():
+            self._render()
 
     def _render(self) -> None:
         """Render a receiver dashboard, not a bare FFT debug canvas."""
