@@ -73,7 +73,7 @@ if OpenGLFrame is not None:
             split = .62
             history = self._history
             if history:
-                rows = min(len(history), 180)
+                rows = min(len(history), 64)
                 GL.glBegin(GL.GL_QUADS)
                 for row_idx in range(rows):
                     row = history[-1-row_idx]
@@ -81,7 +81,7 @@ if OpenGLFrame is not None:
                         continue
                     y_top = split * (1.0 - row_idx / rows)
                     y_bottom = split * (1.0 - (row_idx + 1) / rows)
-                    columns = min(len(row), 256)
+                    columns = min(len(row), 128)
                     for col in range(columns):
                         v = row[col * len(row) // columns]
                         GL.glColor3f(*self._color(v, self._palette))
