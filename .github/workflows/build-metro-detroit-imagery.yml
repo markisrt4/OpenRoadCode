@@ -26,9 +26,19 @@ on:
           - michigan-buildings
           - imagery-detail-pilot
           - michigan-detail-pilot
+          - selected-detail
           - michigan-statewide-detail
           - generic-state
           - validation-states
+      detail_coverage:
+        description: Selected local area (used by the interactive installer)
+        type: choice
+        options: [detroit-midtown, auburn-hills, rochester]
+      detail_layers:
+        description: Selected detail layers
+        type: choice
+        default: both
+        options: [imagery, terrain, both]
       detail_resume_run:
         description: Optional previous statewide detail run for resuming completed cells
         required: false
@@ -76,7 +86,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: regional-map-data-${{ inputs.build_target }}
+  group: regional-map-data-${{ inputs.build_target }}-${{ inputs.detail_coverage }}-${{ inputs.detail_layers }}
   cancel-in-progress: false
 
 jobs:
@@ -336,7 +346,7 @@ jobs:
 
   michigan:
     name: Build Michigan terrain package
-    if: ${{ inputs.build_target != 'metro-detroit' && inputs.build_target != 'michigan-all' && inputs.build_target != 'michigan-staged' && inputs.build_target != 'metro-detroit-buildings' && inputs.build_target != 'michigan-buildings' && inputs.build_target != 'imagery-detail-pilot' && inputs.build_target != 'michigan-detail-pilot' && inputs.build_target != 'michigan-statewide-detail' && inputs.build_target != 'generic-state' && inputs.build_target != 'validation-states' && inputs.build_target != 'rochester-static-trial' }}
+    if: ${{ inputs.build_target != 'metro-detroit' && inputs.build_target != 'michigan-all' && inputs.build_target != 'michigan-staged' && inputs.build_target != 'metro-detroit-buildings' && inputs.build_target != 'michigan-buildings' && inputs.build_target != 'selected-detail' && inputs.build_target != 'imagery-detail-pilot' && inputs.build_target != 'michigan-detail-pilot' && inputs.build_target != 'michigan-statewide-detail' && inputs.build_target != 'generic-state' && inputs.build_target != 'validation-states' && inputs.build_target != 'rochester-static-trial' }}
     uses: ./.github/workflows/build-michigan-terrain.yml
     with:
       coverage: ${{ inputs.build_target }}
@@ -689,9 +699,35 @@ jobs:
             build-output/metro-buildings/buildings-report.json
 
 
+  plan-detail:
+    if: ${{ contains(fromJSON('["imagery-detail-pilot","michigan-detail-pilot","selected-detail"]'), inputs.build_target) }}
+    runs-on: ubuntu-latest
+    outputs:
+      coverage: ${{ steps.plan.outputs.coverage }}
+      layers: ${{ steps.plan.outputs.layers }}
+      zoom: ${{ steps.plan.outputs.zoom }}
+    steps:
+      - uses: actions/checkout@v6
+      - id: plan
+        env:
+          TARGET: ${{ inputs.build_target }}
+          COVERAGE: ${{ inputs.detail_coverage }}
+          LAYERS: ${{ inputs.detail_layers }}
+        run: |
+          python - <<'PYPLAN'
+          import json, os
+          from tools.map_builder.builder.map_pack_builds import detail_matrix
+          coverage, layers, zoom = detail_matrix(os.environ['TARGET'], os.environ['COVERAGE'], os.environ['LAYERS'])
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('coverage=' + json.dumps(coverage) + '\n')
+              output.write('layers=' + layers + '\n')
+              output.write('zoom=' + str(zoom) + '\n')
+          PYPLAN
+
   imagery-detail:
     name: Detail imagery ${{ matrix.coverage }}
-    if: ${{ inputs.build_target == 'imagery-detail-pilot' || inputs.build_target == 'michigan-detail-pilot' }}
+    needs: plan-detail
+    if: ${{ needs.plan-detail.outputs.layers == 'imagery' || needs.plan-detail.outputs.layers == 'both' }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -700,7 +736,7 @@ jobs:
       fail-fast: false
       max-parallel: 2
       matrix:
-        coverage: ${{ fromJSON(inputs.build_target == 'michigan-detail-pilot' && '["detroit-midtown","auburn-hills","rochester"]' || '["detroit-midtown","auburn-hills"]') }}
+        coverage: ${{ fromJSON(needs.plan-detail.outputs.coverage) }}
     env:
       GDAL_CACHEMAX: '128'
       GDAL_NUM_THREADS: '1'
@@ -729,7 +765,7 @@ jobs:
         run: |
           /usr/bin/python3 -m development.maps.build_imagery_detail \
             --coverage "$COVERAGE" \
-            --maximum-zoom ${{ inputs.build_target == 'michigan-detail-pilot' && '17' || '16' }} \
+            --maximum-zoom ${{ needs.plan-detail.outputs.zoom }} \
             --output "build-output/detail/$COVERAGE" \
             --cache "build-output/detail-cache/$COVERAGE"
       - uses: actions/cache/save@v4
@@ -749,7 +785,8 @@ jobs:
 
   terrain-detail:
     name: Detail terrain ${{ matrix.coverage }}
-    if: ${{ inputs.build_target == 'michigan-detail-pilot' }}
+    needs: plan-detail
+    if: ${{ needs.plan-detail.outputs.layers == 'terrain' || needs.plan-detail.outputs.layers == 'both' }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -758,7 +795,7 @@ jobs:
       fail-fast: false
       max-parallel: 2
       matrix:
-        coverage: [detroit-midtown, auburn-hills, rochester]
+        coverage: ${{ fromJSON(needs.plan-detail.outputs.coverage) }}
     env:
       GDAL_CACHEMAX: '128'
       GDAL_NUM_THREADS: '1'

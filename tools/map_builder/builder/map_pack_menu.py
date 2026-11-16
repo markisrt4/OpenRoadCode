@@ -9,12 +9,6 @@ import sys
 REPOSITORY = 'markisrt4/OpenRoadCode'
 WORKFLOW = 'build-metro-detroit-imagery.yml'
 ROOT = Path(__file__).resolve().parents[3]
-BUILD_TARGETS = (
-    ('Metro Detroit imagery and terrain', 'metro-detroit'),
-    ('Michigan buildings (eight regions)', 'michigan-buildings'),
-    ('Detroit / Auburn Hills / Rochester detail pilot', 'michigan-detail-pilot'),
-    ('State overview imagery and terrain (not roads/routing)', 'generic-state'),
-)
 
 
 def choose(title, labels):
@@ -30,44 +24,45 @@ def choose(title, labels):
         print('Choose one of the listed numbers.')
 
 
-def build_command(target, branch, state=None):
-    """Keep workflow selection explicit; never infer a costly statewide build."""
-    if target not in {value for _, value in BUILD_TARGETS}:
-        raise ValueError('Unsupported build target')
+def build_command(request, branch):
     if not branch or branch.startswith('-'):
         raise ValueError('Select a checked-out feature branch')
-    command = ['gh', 'workflow', 'run', WORKFLOW, '--repo', REPOSITORY,
-               '--ref', branch, '-f', 'build_target=' + target]
-    if target == 'generic-state':
-        from development.maps.state_map_catalog import state_plan
-        abbreviation = state_plan(state or '')['abbreviation']
-        command += ['-f', 'state=' + abbreviation, '-f', 'scope=overview']
-    return command
+    return ['gh', 'workflow', 'run', WORKFLOW, '--repo', REPOSITORY,
+            '--ref', branch, '-f', 'build_target=' + request.target,
+            *[part for key, value in request.fields for part in ('-f', key + '=' + value)]]
 
 
-def request_build():
-    if not shutil.which('gh'):
-        print('GitHub CLI (gh) is required only for requesting builds. No build requested.')
-        return 1
-    selection = choose('Request an existing GitHub Actions build', [label for label, _ in BUILD_TARGETS])
-    if selection is None:
+def request_build(selected):
+    from .map_pack_builds import plan_builds
+    from .map_pack_selection import AREAS, LAYERS
+    requests, unavailable = plan_builds(selected)
+    print('\nBuild your selected maps')
+    for item in sorted(selected):
+        print(f'  {AREAS.get(item.area, item.area)} · {LAYERS[item.layer]}')
+    for item in unavailable:
+        print(f'Not buildable separately yet: {AREAS.get(item.area, item.area)} · {LAYERS[item.layer]}')
+    if not requests:
+        print('No matching build is supported yet. Existing maps are unchanged.')
         return 0
-    target = BUILD_TARGETS[selection][1]
-    state = input('State name or abbreviation: ').strip() if target == 'generic-state' else None
-    branch = subprocess.run(['git', 'branch', '--show-current'], cwd=ROOT,
-                            check=True, capture_output=True, text=True).stdout.strip()
-    command = build_command(target, branch, state)
-    print(f'Repository: {REPOSITORY} · branch: {branch}')
-    print('Build size is unknown until processing finishes. This consumes Actions resources.')
-    print('Builds do not install data. Finished packs must be downloaded and verified separately.')
-    if input('Request this cloud build? [y/N] ').strip().lower() != 'y':
+    print('Only supported layers above will be requested; unavailable selections remain pending.')
+    print('Rochester / Auburn Hills detail uses both local coverage packs, not the whole Metro area.')
+    print('Build sizes are unknown. Existing maps and prior runs are retained.')
+    print('Temporary build downloads expire after 14 days; these are not permanent published packs.')
+    if input(f'Request {len(requests)} matching build(s)? [y/N] ').strip().lower() != 'y':
         print('Cancelled; no build requested.')
         return 0
+    if not shutil.which('gh'):
+        print('GitHub CLI (gh) is needed to request builds. No build requested.')
+        return 1
+    branch = subprocess.run(['git', 'branch', '--show-current'], cwd=ROOT,
+                            check=True, capture_output=True, text=True).stdout.strip()
+    commands = [build_command(request, branch) for request in requests]
     subprocess.run(['gh', 'auth', 'status'], check=True, cwd=ROOT)
-    subprocess.run(command, check=True, cwd=ROOT)
-    print(f'Build requested. Monitor: https://github.com/{REPOSITORY}/actions')
+    for index, command in enumerate(commands, 1):
+        subprocess.run(command, check=True, cwd=ROOT)
+        print(f'Requested {index}/{len(commands)} builds.')
+    print(f'Build requests submitted. Monitor: https://github.com/{REPOSITORY}/actions')
     return 0
-
 
 
 def edit_layers(selected, area, title):
@@ -123,13 +118,13 @@ def review(selected):
     print('Other regional packs may require a build; selecting an area does not start one.')
     action = choose('Review actions', (
         'Check published Metro Detroit downloads for selected layers',
-        'Request a cloud build — review available build bundles',
+        'Build selected maps',
         'Return to selections',
     ))
     if action == 0:
         install_published(effective)
     elif action == 1:
-        request_build()
+        request_build(effective)
 
 
 def install_published(selected):

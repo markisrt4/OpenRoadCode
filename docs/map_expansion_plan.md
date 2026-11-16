@@ -299,3 +299,28 @@ actual existing build bundles; selected geographic layers do not imply that
 those bundles exactly match the basket. Exact choices are deduplicated, but coarse
 or unpublished parent selections never suppress finer regional detail. Completed
 installations persist; the basket itself is not yet persisted across invocations.
+
+### Selection-driven build requests
+
+The build action now uses the current basket; the internal workflow/pilot chooser
+has been removed. Supported exact requests currently include Metro Detroit or
+statewide Michigan buildings and local detailed terrain/imagery for Downtown–
+Midtown and Rochester/Auburn Hills. The combined Rochester/Auburn Hills choice
+emits two local coverages. Selecting both layers combines them into one request
+per coverage; statewide buildings subsume the separate Metro buildings request.
+Unsupported selections are reported and left pending. A final confirmation
+summarizes the basket before any authentication or dispatch occurs.
+
+The existing regional workflow now accepts an allowlisted selected-detail area
+and imagery/terrain/both choice. Its existing raster builders, caches, checksummed
+artifacts and 14-day retention are reused. Existing pilot dispatches retain their
+previous coverage and zoom profiles. Different local requests use separate
+concurrency groups so one pending area does not replace another.
+
+This removes workflow selection; it does not yet provide a complete installed/
+published artifact catalog. Published Metro downloads remain a separate review
+action. Requesting a build remains explicit and may process data already present
+elsewhere; source caches can be reused, but automatic freshness/reuse across all
+published and installed layers is still pending. No release is overwritten or
+published by the new selected-detail action; each run retains its own temporary
+artifacts until expiration. Permanent versioned pack publication remains pending.
