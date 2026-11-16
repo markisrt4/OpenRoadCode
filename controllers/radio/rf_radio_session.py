@@ -6,6 +6,8 @@ from collections.abc import Callable
 from dataclasses import replace
 from threading import Event, Lock, RLock
 from time import sleep
+import urllib.request
+import urllib.error
 
 from controllers.radio.radio_profile_controller import RadioProfileController
 from controllers.sdr.sdrpp_control import SDRPPControl
@@ -188,6 +190,21 @@ class ReceiverSession:
             self._launch(request, generation)
             if self._current(generation) and request.action is RadioAction.LAUNCH:
                 self._read_controls()
+            return
+        if action in (RadioAction.PLAY, RadioAction.PAUSE):
+            endpoint = "start" if action is RadioAction.PLAY else "stop"
+            request_url = f"http://127.0.0.1:5570/v1/receiver/{endpoint}"
+            try:
+                with urllib.request.urlopen(
+                    urllib.request.Request(request_url, data=b"", method="POST"),
+                    timeout=6.0,
+                ) as response:
+                    if response.status != 200:
+                        raise RuntimeError(f"SDRForge {endpoint} returned {response.status}")
+            except urllib.error.HTTPError as exc:
+                raise RuntimeError(f"SDRForge {endpoint} failed: HTTP {exc.code}") from exc
+            self._state = replace(self._state, playing=action is RadioAction.PLAY,
+                                  error="")
             return
         if action is RadioAction.SCAN:
             self._scan(generation)
