@@ -112,3 +112,23 @@ def test_unsupported_basket_never_requests_build(monkeypatch):
     monkeypatch.setattr(menu.subprocess, 'run', run)
     assert menu.request_build({Selection('southfield', 4)}) == 0
     run.assert_not_called()
+
+
+def test_check_all_is_idempotent_and_preserves_other_areas(monkeypatch):
+    from tools.map_builder.builder.map_pack_selection import Selection, LAYERS
+    answers = iter(['6', '6', ''])
+    monkeypatch.setattr('builtins.input', lambda _: next(answers))
+    selected = {Selection('us', 1), Selection('metro-detroit', 2)}
+    menu.edit_layers(selected, 'metro-detroit', 'Metro Detroit')
+    assert selected == {Selection('us', 1)} | {
+        Selection('metro-detroit', layer) for layer in range(len(LAYERS))}
+
+
+def test_clear_all_only_removes_current_area(monkeypatch):
+    from tools.map_builder.builder.map_pack_selection import Selection, LAYERS
+    answers = iter(['7', ''])
+    monkeypatch.setattr('builtins.input', lambda _: next(answers))
+    selected = {Selection('us', 1)} | {
+        Selection('metro-detroit', layer) for layer in range(len(LAYERS))}
+    menu.edit_layers(selected, 'metro-detroit', 'Metro Detroit')
+    assert selected == {Selection('us', 1)}

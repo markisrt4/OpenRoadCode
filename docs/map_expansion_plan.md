@@ -324,3 +324,6 @@ elsewhere; source caches can be reused, but automatic freshness/reuse across all
 published and installed layers is still pending. No release is overwritten or
 published by the new selected-detail action; each run retains its own temporary
 artifacts until expiration. Permanent versioned pack publication remains pending.
+
+Layer checklists offer **Check all** and **Clear all** for the current area.
+They preserve selections in other areas and do not download or dispatch builds.

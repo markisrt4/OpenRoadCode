@@ -70,10 +70,16 @@ def edit_layers(selected, area, title):
     while True:
         labels = [f"[{'x' if Selection(area, i) in selected else ' '}] {label}"
                   for i, label in enumerate(LAYERS)]
-        answer = choose(title + ' — toggle layers; Enter returns', labels)
+        answer = choose(title + ' — toggle layers; Enter returns',
+                        [*labels, 'Check all', 'Clear all'])
         if answer is None:
             return
-        toggle(selected, area, answer)
+        if answer == len(LAYERS):
+            selected.update(Selection(area, layer) for layer in range(len(LAYERS)))
+        elif answer == len(LAYERS) + 1:
+            selected.difference_update(Selection(area, layer) for layer in range(len(LAYERS)))
+        else:
+            toggle(selected, area, answer)
 
 
 def edit_michigan(selected):
