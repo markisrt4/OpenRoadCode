@@ -384,10 +384,14 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         else:
             self._launch_status.place_forget()
         if state.view == "adsb":
+            if self._receiver_controls is not None:
+                self._receiver_controls.grid_remove()
             self._controls.grid_remove()
             self._favorites.grid_remove()
             self._telemetry_overlay.place_forget()
         else:
+            if self._receiver_controls is not None:
+                self._receiver_controls.grid()
             if self._sdrforge_view is None:
                 self._controls.grid()
             if self._sdrforge_view is not None:
