@@ -84,7 +84,8 @@ class RadioProfileController:
     def tune_up(self) -> RadioProfileState: self._ensure_started(); self._radio.frequency_up(); return self.state
     def tune_down(self) -> RadioProfileState: self._ensure_started(); self._radio.frequency_down(); return self.state
     def refresh(self) -> RadioProfileState:
-        if self._radio.is_started: self._radio.refresh_frequency()
+        # A shared rigctl receiver may be active even if this controller never started it.
+        self._radio.refresh_frequency()
         return self.state
     def _ensure_started(self) -> None:
         if not self._radio.is_started: self._radio.start()
