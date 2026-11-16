@@ -28,6 +28,7 @@ class AutomotiveRadioButton(tk.Canvas):
         self.bind("<Configure>", lambda _event: self._paint())
         self.bind("<Enter>", self._enter)
         self.bind("<Leave>", self._leave)
+        self.bind("<ButtonPress-1>", lambda _event: self.focus_set())
         self.bind("<ButtonRelease-1>", self._activate)
         self.bind("<Return>", self._activate)
         self.bind("<space>", self._activate)
@@ -76,5 +77,7 @@ class AutomotiveRadioButton(tk.Canvas):
         self.create_line(w-2, r, w-2, h-r, fill=edge, width=2)
         if self._selected:
             self.create_rectangle(9, 10, 13, h-10, fill=self._foreground, outline="")
+        if self._hover and not self._selected:
+            self.create_line(12, h-6, w-12, h-6, fill=self._accent, width=2)
         self.create_text(w/2, h/2, text=self._text, fill=self._foreground,
                          font=("Sans", self._font_size, "bold"), width=max(20, w-18))
