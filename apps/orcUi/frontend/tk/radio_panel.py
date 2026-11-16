@@ -94,7 +94,8 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             self, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border
         )
         self._controls.grid(row=2, column=0, sticky="ew", pady=(2, 0))
-        self._controls.grid_columnconfigure(2, weight=1)
+        for column in range(5):
+            self._controls.grid_columnconfigure(column, weight=1 if native_sdrforge else (1 if column == 2 else 0))
         tk.Button(
             self._controls,
             text="◀  STATION",
@@ -108,7 +109,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             padx=12,
             pady=12 if native_sdrforge else 7,
             highlightthickness=0,
-        ).grid(row=0, column=0, rowspan=3, sticky="ns")
+        ).grid(row=0, column=0, rowspan=3, sticky="nsew" if native_sdrforge else "ns")
         tk.Button(
             self._controls,
             text="◀  TUNE",
@@ -122,7 +123,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             padx=10,
             pady=12 if native_sdrforge else 7,
             highlightthickness=0,
-        ).grid(row=0, column=1, rowspan=3, sticky="ns")
+        ).grid(row=0, column=1, rowspan=3, sticky="nsew" if native_sdrforge else "ns")
         center = tk.Frame(self._controls, bg=ui.surface)
         center.grid(row=0, column=2, rowspan=3, sticky="ew")
         self._station_label = tk.Label(
@@ -139,6 +140,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._metadata_label.pack()
         if native_sdrforge:
             center.grid_remove()  # Frequency and station already appear in the receiver header.
+            self._controls.grid_columnconfigure(2, weight=0, minsize=0)
         tk.Button(
             self._controls,
             text="TUNE  ▶",
@@ -152,7 +154,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             padx=10,
             pady=7,
             highlightthickness=0,
-        ).grid(row=0, column=3, rowspan=3, sticky="ns")
+        ).grid(row=0, column=3, rowspan=3, sticky="nsew" if native_sdrforge else "ns")
         tk.Button(
             self._controls,
             text="STATION  ▶",
@@ -166,7 +168,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             padx=12,
             pady=7,
             highlightthickness=0,
-        ).grid(row=0, column=4, rowspan=3, sticky="ns")
+        ).grid(row=0, column=4, rowspan=3, sticky="nsew" if native_sdrforge else "ns")
 
         self._favorites = tk.Frame(self, bg=ui.surface)
         if native_sdrforge:
