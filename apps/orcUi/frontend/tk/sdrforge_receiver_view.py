@@ -114,6 +114,8 @@ class SdrForgeReceiverView(tk.Frame):
         waterfall_height = max(1, plot_bottom - waterfall_top)
 
         canvas.create_rectangle(0, 0, w, header, fill=ui.surface, outline="")
+        canvas.create_rectangle(0, 0, 5, header, fill=ui.accent_primary, outline="")
+        canvas.create_line(0, header - 1, w, header - 1, fill=ui.accent_primary, width=2)
 
         frequency = f"{self._frequency_hz / 1e6:.1f}" if self._frequency_hz else "--.-"
         canvas.create_text(14, header - 8, anchor="sw",
@@ -149,7 +151,9 @@ class SdrForgeReceiverView(tk.Frame):
                 y = spectrum_top + (spectrum_height - 2) * (1.0 - value)
                 points.extend((x, y))
             if len(points) >= 4:
+                canvas.create_line(*points, fill=ui.surface_alt, width=5)
                 canvas.create_line(*points, fill=ui.accent_primary, width=2)
+                canvas.create_line(w / 2, spectrum_top, w / 2, plot_bottom, fill=ui.accent_success, width=1)
             history = list(self._history)
             x_step = max(3, (w + 199) // 200)
             y_step = max(2, (waterfall_height + 89) // 90)
