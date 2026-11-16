@@ -32,6 +32,9 @@ class SdrForgeReceiverView(tk.Frame):
         self._last_spectrum_draw = 0.0
         self._draw_pending = False
         self._bins: tuple[float, ...] = ()
+        self._peak_bins: tuple[float, ...] = ()
+        self._center_frequency_hz: int | None = None
+        self._sample_rate_hz: int | None = None
         self._history: deque[tuple[float, ...]] = deque(maxlen=self._visualization.waterfall_rows)
         self._station = "--"
         self._mode = ""
@@ -73,11 +76,23 @@ class SdrForgeReceiverView(tk.Frame):
         self._signal = signal
         self._schedule_render()
 
-    def set_spectrum(self, bins: Sequence[float]) -> None:
-        """Accept normalized display magnitudes from 0.0 to 1.0."""
-        self._bins = tuple(max(0.0, min(1.0, float(x))) for x in bins)
-        if self._bins:
-            self._history.append(self._bins)
+    def set_spectrum(self, bins: Sequence[float], *,
+                     center_frequency_hz: int | None = None,
+                     sample_rate_hz: int | None = None) -> None:
+        """Smooth display bins while retaining the raw waterfall history."""
+        raw = tuple(max(0.0, min(1.0, float(x))) for x in bins)
+        self._center_frequency_hz = center_frequency_hz
+        self._sample_rate_hz = sample_rate_hz
+        if len(self._bins) == len(raw):
+            self._bins = tuple(0.40 * value + 0.60 * old
+                               for value, old in zip(raw, self._bins))
+            self._peak_bins = tuple(max(value, peak - 0.012)
+                                    for value, peak in zip(self._bins, self._peak_bins))
+        else:
+            self._bins = raw
+            self._peak_bins = raw
+        if raw:
+            self._history.append(raw)
         now = monotonic()
         if now - self._last_spectrum_draw >= 1.0 / self._visualization.max_fps:
             self._last_spectrum_draw = now
@@ -136,16 +151,19 @@ class SdrForgeReceiverView(tk.Frame):
                                fill=ui.accent_success if self._stereo else ui.text_muted,
                                font=("Sans", 9, "bold"))
 
-        # Scale labels represent relative FFT position until the spectrum
-        # contract supplies center frequency and bin spacing.
         canvas.create_rectangle(0, header, w, spectrum_top,
                                 fill=ui.background, outline="")
         for i in range(5):
             x = 10 + (w - 20) * i / 4
             canvas.create_line(x, spectrum_top - 5, x, spectrum_top,
                                fill=ui.border)
+            if self._center_frequency_hz and self._sample_rate_hz:
+                hz = self._center_frequency_hz + (i / 4 - 0.5) * self._sample_rate_hz
+                label = f"{hz / 1_000_000:.3f}"
+            else:
+                label = f"{i * 25}%"
             canvas.create_text(x, header + 5, anchor="n",
-                               text=f"{i * 25}%", fill=ui.text_muted,
+                               text=label, fill=ui.text_muted,
                                font=("Monospace", 8))
         for i in range(1, 4):
             y = spectrum_top + spectrum_height * i / 4
@@ -159,6 +177,11 @@ class SdrForgeReceiverView(tk.Frame):
             if len(points) >= 4:
                 canvas.create_line(*points, fill=ui.surface_alt, width=5)
                 canvas.create_line(*points, fill=ui.accent_primary, width=2)
+                peaks = []
+                for i, value in enumerate(self._peak_bins):
+                    peaks.extend((i * (w - 1) / max(1, len(self._peak_bins) - 1),
+                                  spectrum_top + (spectrum_height - 2) * (1.0 - value)))
+                canvas.create_line(*peaks, fill=ui.accent_success, width=1)
                 canvas.create_line(w / 2, spectrum_top, w / 2, plot_bottom, fill=ui.accent_success, width=1)
             history = list(self._history)
             x_step = max(4, (w + 95) // 96)
