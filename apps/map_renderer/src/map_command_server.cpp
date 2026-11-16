@@ -60,7 +60,7 @@ std::optional<MapCommand> MapCommandServer::parseCommand(const std::string& payl
     if (document.HasMember("operation_id") && document["operation_id"].IsString())
         command.operationId = document["operation_id"].GetString();
 
-    if (command.command == "set_route" || command.command == "set_poi_results" || command.command == "set_route_weather" || command.command == "set_city_weather") {
+    if (command.command == "set_route" || command.command == "set_poi_results" || command.command == "set_route_weather" || command.command == "set_city_weather" || command.command == "set_aircraft") {
         if (!document.HasMember("geojson") || !document["geojson"].IsObject()) return std::nullopt;
         rapidjson::StringBuffer buffer;
         rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
