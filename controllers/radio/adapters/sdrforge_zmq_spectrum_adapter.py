@@ -145,7 +145,13 @@ class SdrForgeTelemetrySubscriber:
                             self._queue.get_nowait()
                         except Empty:
                             pass
-                    self._queue.put_nowait(SpectrumPresentation(bins))
+                    center = payload.get("center_frequency_hz")
+                    rate = payload.get("sample_rate_hz")
+                    center = center if type(center) is int and center > 0 else None
+                    rate = rate if type(rate) is int and rate > 0 else None
+                    self._queue.put_nowait(SpectrumPresentation(
+                        bins, center_frequency_hz=center, sample_rate_hz=rate,
+                    ))
                 except (ValueError, TypeError, KeyError, json.JSONDecodeError):
                     LOG.debug("Ignoring malformed SDRForge telemetry", exc_info=True)
                 except zmq.Again:
