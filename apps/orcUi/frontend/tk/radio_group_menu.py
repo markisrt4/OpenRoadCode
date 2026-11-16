@@ -30,7 +30,7 @@ class RadioGroupMenuMixin(RadioPresentationFrame):
         for name, label in MAIN_GROUPS:
             command = partial(self.select_group, name) if driving else partial(self._show_group_menu, name)
             if driving:
-                label = {"FM": "♫ FM", "WEATHER": "☁ WEATHER", "AIR": "✈ AIR", "HAM": "⌁ HAM", "SCANNER": "⌁ SCAN"}[name]
+                label = {"FM": "♫ FM", "WEATHER": "☁ WEATHER", "AIR": "✈ AIR", "HAM": "⌁ HAM", "SCANNER": "⌁ SCANNER"}[name]
             button = tk.Button(
                 self._groups,
                 text=label,
