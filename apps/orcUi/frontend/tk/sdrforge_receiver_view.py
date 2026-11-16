@@ -45,15 +45,13 @@ class SdrForgeReceiverView(tk.Frame):
         self._canvas.grid(row=0, column=0, sticky="nsew")
         self._canvas.bind("<Configure>", lambda _event: self._render())
         self._preset_frame = tk.Frame(self, bg=theme.ui.surface)
-        self._preset_frame.grid(row=1, column=0, sticky="ew")
-        self._render_presets()
+        # Preset navigation belongs to RadioPanel, not inside the spectrum.
 
     def set_theme_bundle(self, theme: ThemeBundle) -> None:
         self._theme = theme
         self.configure(bg=theme.ui.background)
         self._canvas.configure(bg=theme.ui.background)
         self._preset_frame.configure(bg=theme.ui.surface)
-        self._render_presets()
         self._render()
 
     def set_station(self, *, frequency_hz: int, name: str = "",
@@ -62,10 +60,9 @@ class SdrForgeReceiverView(tk.Frame):
         self._mode = mode.upper()
         self._frequency_hz = frequency_hz
         self._station = name or "--"
-        self._radio_text = radio_text
+        self._radio_text = radio_text if self._mode == "WFM" else ""
         self._stereo = stereo
         self._signal = signal
-        self._render_presets()
         self._render()
 
     def set_spectrum(self, bins: Sequence[float]) -> None:
