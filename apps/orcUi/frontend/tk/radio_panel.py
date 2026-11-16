@@ -41,6 +41,8 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._drawer: tk.Frame | None = None
         self._display_buttons: dict[str, tk.Button] = {}
         self._favorites_signature = None
+        self._preset_page = 0
+        self._preset_page_size = 4
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
@@ -169,6 +171,24 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             pady=7,
             highlightthickness=0,
         ).grid(row=0, column=4, rowspan=3, sticky="nsew" if native_sdrforge else "ns")
+
+        if native_sdrforge:
+            for widget in list(self._controls.winfo_children()):
+                if isinstance(widget, tk.Button):
+                    widget.destroy()
+            for col in range(5):
+                self._controls.grid_columnconfigure(col, weight=1 if col < 2 else 0)
+            for label, action, row, col in (
+                ("◀  TUNE", self._tune_down, 0, 0),
+                ("TUNE  ▶", self._tune_up, 0, 1),
+                ("◀  STATION", self._previous_preset, 1, 0),
+                ("STATION  ▶", self._next_preset, 1, 1),
+            ):
+                tk.Button(self._controls, text=label, command=action,
+                          bg=ui.control_background, fg=ui.text,
+                          activebackground=ui.accent_primary, relief=tk.FLAT,
+                          bd=0, padx=12, pady=9, font=("Sans", 11, "bold")
+                          ).grid(row=row, column=col, sticky="nsew", padx=3, pady=2)
 
         self._favorites = tk.Frame(self, bg=ui.surface)
         if native_sdrforge:
