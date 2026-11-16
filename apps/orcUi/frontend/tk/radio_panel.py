@@ -268,6 +268,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                 snapshot.bins,
                 center_frequency_hz=snapshot.center_frequency_hz,
                 sample_rate_hz=snapshot.sample_rate_hz,
+                power_db=snapshot.power_db,
             )
 
     def destroy(self) -> None:
