@@ -194,7 +194,11 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
                 max_fps=int(os.environ.get("ORC_RADIO_MAX_FPS", "10")),
                 palette=os.environ.get("ORC_RADIO_PALETTE", "classic").lower(),
             )
-            native_sdrforge = os.environ.get("ORC_SDRFORGE_UI_PREVIEW") == "1"
+            # SDRForge is the default RF presentation. Legacy SDR++ embedding is
+            # opt-in only, so a normal Linux launch never requires its X11 window.
+            native_sdrforge = os.environ.get("ORC_SDRFORGE_UI_PREVIEW", "1").lower() not in (
+                "0", "false", "no",
+            )
             source = (SdrForgeTelemetrySubscriber(
                 os.environ.get("SDRFORGE_ZMQ_ENDPOINT", "tcp://127.0.0.1:5571")
             ) if native_sdrforge else None)
