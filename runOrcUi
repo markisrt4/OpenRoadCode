@@ -14,7 +14,7 @@ if [[ -n "${TERMUX_VERSION:-}" || "${PREFIX:-}" == *com.termux* ]]; then
     default_venv="$PROJECT_ROOT/venv-termux"
 else
     export DISPLAY=:0
-    default_venv="$PROJECT_ROOT/venv"
+    default_venv="$PROJECT_ROOT/.venv"
 fi
 
 # Honor an explicit interpreter or activated environment before the local venv.
@@ -24,8 +24,27 @@ elif [[ -n "${VIRTUAL_ENV:-}" && -x "$VIRTUAL_ENV/bin/python" ]]; then
     python_bin="$VIRTUAL_ENV/bin/python"
 elif [[ -x "$default_venv/bin/python" ]]; then
     python_bin="$default_venv/bin/python"
+elif [[ -x "$PROJECT_ROOT/venv/bin/python" ]]; then
+    python_bin="$PROJECT_ROOT/venv/bin/python"
 else
-    python_bin=python3
+    echo "[!] No Python virtual environment found for OpenRoadCode." >&2
+    echo "    Activate a venv or create one with: python3 -m venv .venv" >&2
+    echo "    Install ORC dependencies using the repository installer." >&2
+    exit 1
+fi
+
+# Require an actual venv even when PYTHON overrides interpreter selection.
+if ! "$python_bin" -c 'import sys; raise SystemExit(0 if sys.prefix != sys.base_prefix else 1)' 2>/dev/null; then
+    echo "[!] Selected Python is not running in a virtual environment: $python_bin" >&2
+    exit 1
+fi
+
+# Fail early with a useful dependency diagnostic instead of a deep UI traceback.
+if ! "$python_bin" -c 'import requests, tinycss2' 2>/dev/null; then
+    echo "[!] Missing required ORC UI dependencies in $python_bin (requests/tinycss2)." >&2
+    echo "    Install the base and desktop-ui Python packages using the ORC installer." >&2
+    echo "    Quick repair: \"$python_bin\" -m pip install requests tinycss2" >&2
+    exit 1
 fi
 
 # Diagnose with exactly the interpreter and display used by the launcher.
