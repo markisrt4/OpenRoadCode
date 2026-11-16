@@ -76,6 +76,13 @@ class ReceiverSession:
             return
         receiver = self._spectrum_source.latest_receiver()
         if receiver is not None:
+            # Spectrum telemetry may omit RDS fields between decoder updates.
+            # Preserve the last decoded text only while tuned to the same station.
+            previous = self._state.telemetry
+            if (receiver.frequency_hz == previous.frequency_hz
+                    and not (receiver.radio_text or receiver.station_name or receiver.rds)):
+                receiver = replace(receiver, radio_text=previous.radio_text,
+                                   station_name=previous.station_name, rds=previous.rds)
             self._state = replace(self._state, telemetry=receiver)
             view.set_radio_state(self._state)
         snapshot = self._spectrum_source.latest_spectrum()
