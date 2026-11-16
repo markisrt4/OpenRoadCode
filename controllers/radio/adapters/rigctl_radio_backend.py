@@ -13,6 +13,8 @@ from ..radio_backend_if import RadioBackendIf
 class RigctlRadioBackend(RadioBackendIf):
     """Adapt the rigctl protocol client to the radio backend contract."""
 
+    shared_receiver = True
+
     def __init__(self, client: RigctlClient) -> None:
         self._client = client
 
