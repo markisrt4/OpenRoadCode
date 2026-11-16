@@ -218,14 +218,18 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                                       foreground=ui.text, border=ui.border).grid(
                                           row=row, column=col, sticky="nsew",
                                           padx=4, pady=4)
+            self._scan_button = tk.Button(self._receiver_controls, text="SCAN BAND",
+                command=self._toggle_scan, bg=ui.accent_primary, fg=ui.text,
+                relief=tk.FLAT, bd=0, font=("Sans", 10, "bold"), pady=5)
+            self._scan_button.grid(row=5, column=0, columnspan=2, sticky="ew", padx=5, pady=2)
             self._receiver_mode_label = tk.Label(
                 self._receiver_controls, text="MODE  --", bg=ui.surface,
                 fg=ui.text_muted, font=("Sans", 10), anchor="w", padx=12, pady=8)
-            self._receiver_mode_label.grid(row=5, column=0, columnspan=2, sticky="ew")
+            self._receiver_mode_label.grid(row=6, column=0, columnspan=2, sticky="ew")
             self._receiver_signal_label = tk.Label(
                 self._receiver_controls, text="SIGNAL  --", bg=ui.surface,
                 fg=ui.text_muted, font=("Sans", 10), anchor="w", padx=12, pady=8)
-            self._receiver_signal_label.grid(row=6, column=0, columnspan=2, sticky="ew")
+            self._receiver_signal_label.grid(row=7, column=0, columnspan=2, sticky="ew")
 
         self._favorites = tk.Frame(self, bg=ui.surface)
         if native_sdrforge:
@@ -400,6 +404,10 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
     def detach_sdrpp(self, parent_window_id: int) -> None:
         self.deactivate()
 
+    def _toggle_scan(self) -> None:
+        action = RadioAction.STOP_SCAN if self._state.scanning else RadioAction.SCAN
+        self._session.request(RadioRequest(action))
+
     def _previous_preset(self) -> None:
         self._session.request(RadioRequest(RadioAction.PREVIOUS))
 
@@ -441,7 +449,9 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._signal_label.configure(text=f"SIGNAL {signal}")
         if self._receiver_controls is not None:
             self._receiver_mode_label.configure(text="MODE  " + (state.station.mode_name or "--"))
-            self._receiver_signal_label.configure(text="SIGNAL  " + signal)
+            self._receiver_signal_label.configure(text=state.scan_progress or ("SIGNAL  " + signal))
+            self._scan_button.configure(text="STOP SCAN" if state.scanning else "SCAN BAND",
+                                        bg=self._theme.ui.accent_danger if state.scanning else self._theme.ui.accent_primary)
         self._snr_label.configure(text=f"SNR {snr}")
         if state.loading or state.error:
             self._launch_status.configure(text=state.error or "Loading radio…",
