@@ -224,10 +224,10 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                      anchor="w", padx=10, pady=2).grid(
                          row=2, column=0, columnspan=2, sticky="ew")
             for label, callback, row, col in (
-                ("◀  Tune", self._tune_down, 3, 0),
-                ("Tune  ▶", self._tune_up, 3, 1),
-                ("◀  Station", self._previous_preset, 4, 0),
-                ("Station  ▶", self._next_preset, 4, 1),
+                ("◀  − STEP", self._tune_down, 3, 0),
+                ("+ STEP  ▶", self._tune_up, 3, 1),
+                ("◀  PRESET", self._previous_preset, 4, 0),
+                ("PRESET  ▶", self._next_preset, 4, 1),
             ):
                 AutomotiveRadioButton(self._receiver_controls, text=label,
                                       command=callback, height=44,
@@ -389,12 +389,12 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             self._subcategory_strip.grid_columnconfigure(col, weight=1, uniform="profiles")
         if group == "AIR":
             row, col = divmod(len(profiles), 2)
-            tk.Button(
+            AutomotiveRadioButton(
                 self._subcategory_strip, text="ADS-B MAP",
-                command=self._show_adsb, bg=ui.control_background, fg=ui.text,
-                activebackground=ui.accent_primary, relief=tk.FLAT, bd=0,
-                font=("Sans", 10, "bold"), padx=8, pady=12,
-            ).grid(row=row, column=col, sticky="nsew", padx=2, pady=2)
+                command=self._show_adsb, selected=self._active_group == "AIR:ADSB",
+                height=40, background=ui.control_background,
+                accent=ui.accent_primary, foreground=ui.text, border=ui.border,
+            ).grid(row=row, column=col, sticky="nsew", padx=2, pady=1)
             self._subcategory_strip.grid_columnconfigure(col, weight=1, uniform="profiles")
 
     def _native_host(self) -> RadioHost:
