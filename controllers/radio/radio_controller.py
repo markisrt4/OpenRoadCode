@@ -71,14 +71,12 @@ class RadioController(RadioControllerIf):
 
         self.backend.start()
         try:
-            self.set_mode(self.default_mode)
-
-            if self.radio_range is not None:
-                self.current_frequency_hz = (
-                    self.radio_range.start_frequency_hz
-                )
-
-            frequency_hz = self.set_frequency(self.current_frequency_hz)
+            # A shared rigctl backend may already be tuned by another client.
+            # Joining it must not overwrite the receiver's authoritative tune.
+            frequency_hz = self.backend.get_frequency()
+            if frequency_hz <= 0:
+                raise ValueError("backend returned a non-positive frequency")
+            self.current_frequency_hz = frequency_hz
         except Exception:
             self.backend.stop()
             raise
