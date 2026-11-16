@@ -73,6 +73,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             self._sdrforge_view = SdrForgeReceiverView(self._host, theme=theme,
                                                       visualization=visualization)
             self._sdrforge_view.place(relx=0, rely=0, relwidth=1, relheight=1)
+            self._sdrforge_view.set_spectrum_tune_handler(self._tune_spectrum_frequency)
             self._poll_sdrforge_spectrum()
 
         self._telemetry_overlay = tk.Frame(
@@ -469,6 +470,11 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
 
     def _next_preset(self) -> None:
         self._session.request(RadioRequest(RadioAction.NEXT))
+
+    def _tune_spectrum_frequency(self, frequency_hz: int) -> None:
+        if self._active_group == "FM":
+            self._session.request(RadioRequest(
+                RadioAction.TUNE_FREQUENCY, frequency_hz=frequency_hz))
 
     def _tune_down(self) -> None:
         self._session.request(RadioRequest(RadioAction.TUNE_DOWN))
