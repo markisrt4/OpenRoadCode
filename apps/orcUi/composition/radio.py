@@ -25,6 +25,7 @@ from apps.orcUi.theme_runtime import theme_bundle
 from controllers.radio.adapters.radio_browser_directory import RadioBrowserDirectory
 from controllers.radio.weather_radio import play_weather_radio
 from controllers.radio.rf_radio_session import ReceiverSession
+from ui.radio.radio_visualization_config import RadioRenderer, RadioVisualizationConfig
 from controllers.sdr.sdrpp_control import SDRPPControl
 from controllers.sdr.sdr_telemetry_monitor import SDRTelemetryMonitor
 from apps.orcUi.frontend.tk.radio_panel import RadioPanel
@@ -187,6 +188,12 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
             if resources.closed:
                 raise RuntimeError("Radio composition is closed")
             radio = RadioProfileController()
+            visualization = RadioVisualizationConfig(
+                renderer=RadioRenderer(os.environ.get("ORC_RADIO_RENDERER", "auto").lower()),
+                waterfall_rows=int(os.environ.get("ORC_RADIO_WATERFALL_ROWS", "180")),
+                max_fps=int(os.environ.get("ORC_RADIO_MAX_FPS", "10")),
+                palette=os.environ.get("ORC_RADIO_PALETTE", "classic").lower(),
+            )
             native_sdrforge = os.environ.get("ORC_SDRFORGE_UI_PREVIEW") == "1"
             source = (SdrForgeTelemetrySubscriber(
                 os.environ.get("SDRFORGE_ZMQ_ENDPOINT", "tcp://127.0.0.1:5571")
@@ -202,7 +209,8 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
                 rollback.callback(session.close)
                 resources.rf_sessions.add(session)
                 panel = RadioPanel(parent, session=session, theme=theme,
-                                   native_sdrforge=native_sdrforge)
+                                   native_sdrforge=native_sdrforge,
+                                   visualization=visualization)
                 rollback.release()
             return panel
 
