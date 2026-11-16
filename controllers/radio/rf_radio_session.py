@@ -6,6 +6,7 @@ from collections.abc import Callable
 from dataclasses import replace
 from threading import Event, Lock, RLock
 from time import sleep
+import json
 import urllib.request
 import urllib.error
 
@@ -191,6 +192,20 @@ class ReceiverSession:
             if self._current(generation) and request.action is RadioAction.LAUNCH:
                 self._read_controls()
             return
+        if action in (RadioAction.START_RECEIVER, RadioAction.STOP_RECEIVER):
+            endpoint = "start" if action is RadioAction.START_RECEIVER else "stop"
+            with urllib.request.urlopen(
+                urllib.request.Request(
+                    f"http://127.0.0.1:5570/v1/receiver/{endpoint}",
+                    data=b"", method="POST",
+                ), timeout=6.0,
+            ) as response:
+                if response.status != 200:
+                    raise RuntimeError(f"SDRForge receiver {endpoint} failed")
+            self._state = replace(self._state,
+                                  receiver_running=action is RadioAction.START_RECEIVER,
+                                  error="")
+            return
         if action in (RadioAction.PLAY, RadioAction.PAUSE):
             endpoint = "unmute" if action is RadioAction.PLAY else "mute"
             request_url = f"http://127.0.0.1:5570/v1/audio/{endpoint}"
@@ -219,6 +234,21 @@ class ReceiverSession:
             # Rigctl is the authoritative receiver state, including external
             # changes made by Android. Do not retune during a refresh.
             if self._native_view != "adsb":
+                try:
+                    with urllib.request.urlopen(
+                        "http://127.0.0.1:5570/v1/receiver", timeout=1.5,
+                    ) as response:
+                        status = json.load(response)
+                    with urllib.request.urlopen(
+                        "http://127.0.0.1:5570/v1/audio", timeout=1.5,
+                    ) as response:
+                        audio_status = json.load(response)
+                    self._state = replace(
+                        self._state, receiver_running=bool(status.get("running", False)),
+                        playing=not bool(audio_status.get("muted", False)),
+                    )
+                except (OSError, ValueError, RuntimeError):
+                    pass
                 self._state = replace(self._state, station=self._radio.refresh())
             if self._native_view == "sdrpp":
                 self._state = replace(self._state, telemetry=self._telemetry.read_state(
