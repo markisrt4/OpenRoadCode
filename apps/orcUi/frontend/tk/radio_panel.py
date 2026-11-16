@@ -304,7 +304,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             child.destroy()
         ui = self._theme.ui
         for index, profile in enumerate(profiles):
-            row, col = divmod(index, 3)
+            row, col = divmod(index, 3 if len(profiles) > 4 else max(1, len(profiles)))
             selected = profile.key == state.station.profile_key
             tk.Button(
                 self._subcategory_strip, text=profile.label,
@@ -313,11 +313,11 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                 bg=ui.accent_primary if selected else ui.control_background,
                 fg=ui.text, activebackground=ui.accent_primary,
                 activeforeground=ui.text, relief=tk.FLAT, bd=0,
-                font=("Sans", 10, "bold"), padx=8, pady=12,
+                font=("Sans", 11, "bold"), padx=10, pady=9,
             ).grid(row=row, column=col, sticky="nsew", padx=2, pady=2)
             self._subcategory_strip.grid_columnconfigure(col, weight=1, uniform="profiles")
         if group == "AIR":
-            row, col = divmod(len(profiles), 3)
+            row, col = divmod(len(profiles), 3 if len(profiles) > 4 else max(1, len(profiles)))
             tk.Button(
                 self._subcategory_strip, text="ADS-B MAP",
                 command=self._show_adsb, bg=ui.control_background, fg=ui.text,
