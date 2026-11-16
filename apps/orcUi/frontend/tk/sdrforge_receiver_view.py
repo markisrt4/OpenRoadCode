@@ -55,10 +55,14 @@ class SdrForgeReceiverView(tk.Frame):
     def set_station(self, *, frequency_hz: int, name: str = "",
                     radio_text: str = "", stereo: bool = False,
                     signal: float | None = None, mode: str = "") -> None:
+        presentation = (frequency_hz, name, radio_text, stereo, signal, mode)
+        if getattr(self, "_last_presentation", None) == presentation:
+            return
+        self._last_presentation = presentation
         self._mode = mode.upper()
         self._frequency_hz = frequency_hz
         self._station = name or "--"
-        self._radio_text = radio_text if self._mode == "WFM" else ""
+        self._radio_text = radio_text if self._mode in ("WFM", "FM") else ""
         self._stereo = stereo
         self._signal = signal
         self._render()
@@ -87,7 +91,7 @@ class SdrForgeReceiverView(tk.Frame):
         ui = self._theme.ui
         compact = h < 260
         header = 54 if compact else 80
-        footer = (24 if compact else 32) if self._mode == "WFM" and self._radio_text else 0
+        footer = (24 if compact else 32) if self._mode in ("WFM", "FM") and self._radio_text else 0
         scale = 22
         spectrum_top = header + scale
         plot_bottom = h - footer
@@ -106,7 +110,7 @@ class SdrForgeReceiverView(tk.Frame):
         canvas.create_text(w - 14, 12, anchor="ne",
                            text=self._station[:28], width=max(80, w // 2 - 18), justify="right", fill=ui.text,
                            font=("Sans", 11 if compact else 15, "bold"))
-        if self._mode == "WFM":
+        if self._mode in ("WFM", "FM"):
             canvas.create_text(w - 14, header - 8, anchor="se",
                                text="● STEREO" if self._stereo else "MONO",
                                fill=ui.accent_success if self._stereo else ui.text_muted,
