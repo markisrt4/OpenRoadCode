@@ -58,31 +58,6 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         )
         self._host.grid(row=0, column=0, sticky="nsew")
         self._host.bind("<Configure>", self._on_host_resize)
-        self._receiver_sidebar = None
-        if native_sdrforge:
-            self._receiver_sidebar = tk.Frame(
-                self._body, bg=ui.surface, width=210,
-                highlightthickness=1, highlightbackground=ui.border)
-            self._receiver_sidebar.grid(row=0, column=1, sticky="ns", padx=(6, 0))
-            self._receiver_sidebar.grid_propagate(False)
-            tk.Label(self._receiver_sidebar, text="QUICK TUNING", bg=ui.surface,
-                     fg=ui.text, font=("Sans", 12, "bold"), pady=14).pack(fill=tk.X)
-            for title, callback in (
-                ("◀  Tune down", self._tune_down),
-                ("Tune up  ▶", self._tune_up),
-                ("◀  Previous station", self._previous_preset),
-                ("Next station  ▶", self._next_preset),
-            ):
-                tk.Button(self._receiver_sidebar, text=title, command=callback,
-                          bg=ui.control_background, fg=ui.text,
-                          activebackground=ui.accent_primary,
-                          relief=tk.FLAT, bd=0, pady=12,
-                          font=("Sans", 10, "bold")).pack(fill=tk.X, padx=8, pady=4)
-            tk.Label(self._receiver_sidebar,
-                     text="Favorites below\nAdvanced settings above",
-                     bg=ui.surface, fg=ui.text_muted, justify=tk.CENTER,
-                     font=("Sans", 9), pady=12).pack(fill=tk.X)
-
         self._sdrforge_view: SdrForgeReceiverView | None = None
         self._sdrforge_after_id: str | None = None
         if native_sdrforge:
@@ -118,7 +93,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._controls = tk.Frame(
             self, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border
         )
-        self._controls.grid(row=2, column=0, sticky="ew", pady=(6, 0))
+        self._controls.grid(row=2, column=0, sticky="ew", pady=(2, 0))
         self._controls.grid_columnconfigure(2, weight=1)
         tk.Button(
             self._controls,
@@ -131,7 +106,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             relief=tk.FLAT,
             bd=0,
             padx=12,
-            pady=7,
+            pady=12 if native_sdrforge else 7,
             highlightthickness=0,
         ).grid(row=0, column=0, rowspan=3, sticky="ns")
         tk.Button(
@@ -145,7 +120,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             relief=tk.FLAT,
             bd=0,
             padx=10,
-            pady=7,
+            pady=12 if native_sdrforge else 7,
             highlightthickness=0,
         ).grid(row=0, column=1, rowspan=3, sticky="ns")
         center = tk.Frame(self._controls, bg=ui.surface)
@@ -162,6 +137,8 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             center, text="", bg=ui.surface, fg=ui.accent_success, font=("Sans", FONT_SMALL)
         )
         self._metadata_label.pack()
+        if native_sdrforge:
+            center.grid_remove()  # Frequency and station already appear in the receiver header.
         tk.Button(
             self._controls,
             text="TUNE  ▶",
@@ -193,7 +170,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
 
         self._favorites = tk.Frame(self, bg=ui.surface)
         if native_sdrforge:
-            self._favorites.grid(row=3, column=0, sticky="ew", pady=(4, 0))
+            self._favorites.grid(row=3, column=0, sticky="ew", pady=(2, 0))
         self._launch_status = tk.Label(self._host, text="Connecting to radio…", bg=ui.background,
                                        fg=ui.text, font=("Sans", 20, "bold"))
         self._session.bind(self)
@@ -229,8 +206,6 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._groups.configure(bg=ui.surface, highlightbackground=ui.border)
         self._body.configure(bg=ui.background)
         self._host.configure(bg=ui.background, highlightbackground=ui.border)
-        if self._receiver_sidebar is not None:
-            self._receiver_sidebar.configure(bg=ui.surface, highlightbackground=ui.border)
         self._telemetry_overlay.configure(bg=ui.surface_alt, highlightbackground=ui.border)
         self._signal_label.configure(bg=ui.surface_alt, fg=ui.text)
         self._snr_label.configure(bg=ui.surface_alt, fg=ui.accent_success)
@@ -362,10 +337,15 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             self._launch_status.place_forget()
         if state.view == "adsb":
             self._controls.grid_remove()
+            self._favorites.grid_remove()
             self._telemetry_overlay.place_forget()
         else:
             self._controls.grid()
-            self._telemetry_overlay.place(relx=1.0, x=-8, y=8, anchor="ne")
+            if self._sdrforge_view is not None:
+                self._favorites.grid()
+                self._telemetry_overlay.place_forget()  # Receiver header owns status.
+            else:
+                self._telemetry_overlay.place(relx=1.0, x=-8, y=8, anchor="ne")
         self._controls_button.configure(state=tk.DISABLED if state.view == "adsb" else tk.NORMAL)
         self._refresh_display_controls()
 
@@ -373,7 +353,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         """One-touch station presets for the active radio profile."""
         ui = self._theme.ui
         profile = next((p for p in state.profiles if p.key == state.station.profile_key), None)
-        signature = (profile.key, tuple(p.label for p in profile.presets[:6])) if profile else None
+        signature = (profile.key, tuple((p.label, p.frequency_hz) for p in profile.presets[:6]), state.station.frequency_hz) if profile else None
         if signature == self._favorites_signature:
             return
         self._favorites_signature = signature
@@ -386,9 +366,9 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                 self._favorites, text=preset.label,
                 command=lambda p=preset, key=profile.key: self._session.request(
                     RadioRequest(RadioAction.PRESET, key=key, preset=p)),
-                bg=ui.control_background, fg=ui.text,
-                activebackground=ui.accent_primary, relief=tk.FLAT,
-                bd=0, padx=8, pady=10,
+                bg=ui.accent_primary if preset.frequency_hz == state.station.frequency_hz else ui.control_background,
+                fg=ui.text, activebackground=ui.accent_primary, relief=tk.FLAT,
+                bd=0, padx=8, pady=8,
             ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2)
         tk.Button(
             self._favorites, text="☆ SAVE",
