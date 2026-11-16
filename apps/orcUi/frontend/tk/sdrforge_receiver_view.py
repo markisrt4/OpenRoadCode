@@ -141,8 +141,8 @@ class SdrForgeReceiverView(tk.Frame):
                 canvas.create_line(*points, fill=ui.accent_primary, width=2)
                 canvas.create_line(w / 2, spectrum_top, w / 2, plot_bottom, fill=ui.accent_success, width=1)
             history = list(self._history)
-            x_step = max(3, (w + 199) // 200)
-            y_step = max(2, (waterfall_height + 89) // 90)
+            x_step = max(4, (w + 95) // 96)
+            y_step = max(3, (waterfall_height + 47) // 48)
             for offset in range(0, waterfall_height, y_step):
                 idx = min(len(history) - 1,
                           offset * len(history) // waterfall_height)
