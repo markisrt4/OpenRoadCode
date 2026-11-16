@@ -46,16 +46,34 @@ class SdrForgeReceiverView(tk.Frame):
         self._signal: float | None = None
         self._presets: tuple[tuple[str, int], ...] = ()
         self._on_tune = None
+        self._on_spectrum_tune = None
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
         self._canvas = tk.Canvas(self, bg=theme.ui.background, bd=0, highlightthickness=0)
         self._canvas.grid(row=0, column=0, sticky="nsew")
         self._canvas.bind("<Configure>", lambda _event: self._schedule_render())
+        self._canvas.bind("<Button-1>", self._handle_spectrum_click)
         if self._renderer is RadioRenderer.OPENGL:
             self._gl_surface = OpenGLRadioSurface(self, width=320, height=180)
             self._gl_surface.place(x=0, y=80, relwidth=1, height=180)
+            self._gl_surface.bind("<Button-1>", self._handle_spectrum_click)
         # Preset navigation belongs to RadioPanel, not inside the spectrum.
+
+    def set_spectrum_tune_handler(self, handler) -> None:
+        """Receive frequency selections without coupling the widget to radio control."""
+        self._on_spectrum_tune = handler
+
+    def _handle_spectrum_click(self, event) -> None:
+        if not self._on_spectrum_tune or not self._center_frequency_hz or not self._sample_rate_hz:
+            return
+        width = max(1, event.widget.winfo_width())
+        position = max(0.0, min(1.0, event.x / width))
+        hz = self._center_frequency_hz + (position - 0.5) * self._sample_rate_hz
+        # US FM broadcast channels are spaced 200 kHz with odd-tenth MHz centers.
+        snapped = round((hz - 87_900_000) / 200_000) * 200_000 + 87_900_000
+        if 87_900_000 <= snapped <= 107_900_000:
+            self._on_spectrum_tune(int(snapped))
 
     def set_theme_bundle(self, theme: ThemeBundle) -> None:
         self._theme = theme
