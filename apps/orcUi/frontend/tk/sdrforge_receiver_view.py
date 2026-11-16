@@ -44,14 +44,12 @@ class SdrForgeReceiverView(tk.Frame):
         self._canvas = tk.Canvas(self, bg=theme.ui.background, bd=0, highlightthickness=0)
         self._canvas.grid(row=0, column=0, sticky="nsew")
         self._canvas.bind("<Configure>", lambda _event: self._render())
-        self._preset_frame = tk.Frame(self, bg=theme.ui.surface)
         # Preset navigation belongs to RadioPanel, not inside the spectrum.
 
     def set_theme_bundle(self, theme: ThemeBundle) -> None:
         self._theme = theme
         self.configure(bg=theme.ui.background)
         self._canvas.configure(bg=theme.ui.background)
-        self._preset_frame.configure(bg=theme.ui.surface)
         self._render()
 
     def set_station(self, *, frequency_hz: int, name: str = "",
@@ -78,22 +76,6 @@ class SdrForgeReceiverView(tk.Frame):
     def set_presets(self, presets: Sequence[tuple[str, int]], on_tune=None) -> None:
         self._presets = tuple(presets)
         self._on_tune = on_tune
-        self._render_presets()
-
-    def _render_presets(self) -> None:
-        for child in self._preset_frame.winfo_children():
-            child.destroy()
-        ui = self._theme.ui
-        for name, hz in self._presets[:6]:
-            selected = hz == self._frequency_hz
-            tk.Button(
-                self._preset_frame, text=f"{hz / 1e6:.1f}  {name}",
-                command=lambda frequency=hz: self._on_tune(frequency) if self._on_tune else None,
-                state=tk.NORMAL if self._on_tune else tk.DISABLED,
-                bg=ui.accent_primary if selected else ui.control_background,
-                fg=ui.text, activebackground=ui.accent_primary,
-                relief=tk.FLAT, padx=5, pady=4,
-            ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2, pady=3)
 
     def _render(self) -> None:
         """Render a receiver dashboard, not a bare FFT debug canvas."""
@@ -117,12 +99,12 @@ class SdrForgeReceiverView(tk.Frame):
         canvas.create_rectangle(0, 0, 5, header, fill=ui.accent_primary, outline="")
         canvas.create_line(0, header - 1, w, header - 1, fill=ui.accent_primary, width=2)
 
-        frequency = f"{self._frequency_hz / 1e6:.1f}" if self._frequency_hz else "--.-"
+        frequency = f"{self._frequency_hz / 1e6:.3f}".rstrip("0").rstrip(".") if self._frequency_hz else "--.-"
         canvas.create_text(14, header - 8, anchor="sw",
                            text=f"{frequency} MHz", fill=ui.text,
-                           font=("Sans", 19 if compact else 28, "bold"))
+                           font=("Sans", 25 if compact else 35, "bold"))
         canvas.create_text(w - 14, 12, anchor="ne",
-                           text=self._station, fill=ui.text,
+                           text=self._station[:28], width=max(80, w // 2 - 18), justify="right", fill=ui.text,
                            font=("Sans", 11 if compact else 15, "bold"))
         if self._mode == "WFM":
             canvas.create_text(w - 14, header - 8, anchor="se",
@@ -174,7 +156,7 @@ class SdrForgeReceiverView(tk.Frame):
                                text="Waiting for spectrum telemetry",
                                fill=ui.text_muted, font=("Sans", 11))
         canvas.create_line(0, waterfall_top, w, waterfall_top,
-                           fill=ui.border)
+                           fill=ui.accent_primary, width=2)
         if footer:
             canvas.create_rectangle(0, plot_bottom, w, h,
                                     fill=ui.surface, outline=ui.border)
