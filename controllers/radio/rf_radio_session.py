@@ -8,6 +8,7 @@ from threading import Event, Lock, RLock
 from time import sleep
 
 from controllers.radio.radio_profile_controller import RadioProfileController
+from controllers.radio.radio_controller import format_frequency
 from controllers.sdr.sdrpp_control import SDRPPControl
 from controllers.sdr.sdr_telemetry_monitor import SDRTelemetryMonitor
 from ui.radio.sdrforge_spectrum_if import SpectrumSourceIf, SpectrumPresentationIf
@@ -83,7 +84,18 @@ class ReceiverSession:
                     and not (receiver.radio_text or receiver.station_name or receiver.rds)):
                 receiver = replace(receiver, radio_text=previous.radio_text,
                                    station_name=previous.station_name, rds=previous.rds)
-            self._state = replace(self._state, telemetry=receiver)
+            station = self._state.station
+            if receiver.frequency_hz > 0 and receiver.frequency_hz != station.frequency_hz:
+                # SDRForge may have been tuned by Android or another rigctl client.
+                # Mirror the shared receiver without sending a tuning command back.
+                label = format_frequency(receiver.frequency_hz)
+                profile = self._radio.catalog.profile(station.profile_key)
+                for preset in profile.presets:
+                    if preset.frequency_hz == receiver.frequency_hz:
+                        label = preset.label
+                        break
+                station = replace(station, frequency_hz=receiver.frequency_hz, label=label)
+            self._state = replace(self._state, telemetry=receiver, station=station)
             view.set_radio_state(self._state)
         snapshot = self._spectrum_source.latest_spectrum()
         if snapshot is not None and isinstance(view, SpectrumPresentationIf):
@@ -198,6 +210,10 @@ class ReceiverSession:
                         self._surface.resize(self._host.width, self._host.height)
             return
         if action is RadioAction.REFRESH:
+            # Rigctl is the authoritative receiver state, including external
+            # changes made by Android. Do not retune during a refresh.
+            if self._native_view != "adsb":
+                self._state = replace(self._state, station=self._radio.refresh())
             if self._native_view == "sdrpp":
                 self._state = replace(self._state, telemetry=self._telemetry.read_state(
                     include_rds=self._radio.active_profile_key == "fm_radio"))
