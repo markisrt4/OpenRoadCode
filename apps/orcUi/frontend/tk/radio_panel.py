@@ -241,7 +241,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                 accent=ui.accent_primary, foreground=ui.text, border=ui.border)
             self._scan_button.grid(row=5, column=0, sticky="nsew", padx=2, pady=2)
             self._play_button = AutomotiveRadioButton(
-                self._receiver_controls, text="Ⅱ PAUSE", command=self._toggle_play,
+                self._receiver_controls, text="🔇 MUTE", command=self._toggle_play,
                 height=44, background=ui.control_background,
                 accent=ui.accent_primary, foreground=ui.text, border=ui.border)
             self._play_button.grid(row=5, column=1, sticky="nsew", padx=2, pady=2)
@@ -517,7 +517,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                     self._station_info.grid_remove()
                     self._subcategory_strip.grid()
 
-            self._play_button.set_text("Ⅱ PAUSE" if state.playing else "▶ PLAY")
+            self._play_button.set_text("MUTE" if state.playing else "UNMUTE")
             self._play_button.set_selected(not state.playing)
             self._scan_button.set_text("STOP SCAN" if state.scanning else "SCAN BAND")
             self._scan_button.set_selected(state.scanning)
