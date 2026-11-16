@@ -245,6 +245,13 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                 height=44, background=ui.control_background,
                 accent=ui.accent_primary, foreground=ui.text, border=ui.border)
             self._play_button.grid(row=5, column=1, sticky="nsew", padx=2, pady=2)
+            self._receiver_power_button = AutomotiveRadioButton(
+                self._receiver_controls, text="▶ START SDR",
+                command=self._toggle_receiver_power,
+                height=44, background=ui.control_background,
+                accent=ui.accent_primary, foreground=ui.text, border=ui.border)
+            self._receiver_power_button.grid(
+                row=6, column=0, columnspan=2, sticky="nsew", padx=2, pady=2)
             self._receiver_mode_label = tk.Label(
                 self._receiver_controls, text="MODE  --", bg=ui.surface,
                 fg=ui.text_muted, font=("Sans", 9), anchor="w", padx=8, pady=2)
@@ -444,6 +451,11 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
     def detach_sdrpp(self, parent_window_id: int) -> None:
         self.deactivate()
 
+    def _toggle_receiver_power(self) -> None:
+        action = (RadioAction.STOP_RECEIVER if self._state.receiver_running
+                  else RadioAction.START_RECEIVER)
+        self._session.request(RadioRequest(action))
+
     def _toggle_play(self) -> None:
         action = RadioAction.PAUSE if self._state.playing else RadioAction.PLAY
         self._session.request(RadioRequest(action))
@@ -517,6 +529,9 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                     self._station_info.grid_remove()
                     self._subcategory_strip.grid()
 
+            self._receiver_power_button.set_text(
+                "■ STOP SDR" if state.receiver_running else "▶ START SDR")
+            self._receiver_power_button.set_selected(state.receiver_running)
             self._play_button.set_text("MUTE" if state.playing else "UNMUTE")
             self._play_button.set_selected(not state.playing)
             self._scan_button.set_text("STOP SCAN" if state.scanning else "SCAN BAND")
