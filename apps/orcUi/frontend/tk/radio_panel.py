@@ -188,11 +188,12 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                 highlightthickness=1, highlightbackground=ui.border)
             self._receiver_controls.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
             self._receiver_controls.grid_propagate(False)
+            self._receiver_controls.grid_rowconfigure(1, minsize=190)
             for col in (0, 1):
                 self._receiver_controls.grid_columnconfigure(col, weight=1)
             self._subcategory_strip = tk.Frame(self._receiver_controls, bg=ui.surface)
             self._subcategory_strip.grid(row=1, column=0, columnspan=2,
-                                         sticky="ew", padx=5, pady=(0, 8))
+                                         sticky="n", padx=5, pady=(0, 4))
             for tile_column in range(2):
                 self._subcategory_strip.grid_columnconfigure(tile_column, weight=1,
                                                                uniform="bands")
@@ -376,6 +377,8 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             raise ValueError(f"Unknown radio group: {name}")
         self._active_group = name
         self._paint_groups()
+        if self._sdrforge_view is not None:
+            self._render_subcategory_tiles(self._state)
         profiles = tuple(p for p in self._state.profiles if p.group == name)
         if name == "AIR" and not profiles:
             self._show_adsb()
