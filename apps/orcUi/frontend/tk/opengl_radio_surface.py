@@ -128,7 +128,9 @@ if OpenGLFrame is not None:
             GL.glVertex2f(.5, 0.)
             GL.glVertex2f(.5, 1.)
             GL.glEnd()
-            GL.glFlush()
+            # pyopengltk uses a double-buffered GLX drawable. glFlush only
+            # submits commands; it does not present the back buffer.
+            self.tkSwapBuffers()
 else:
     class OpenGLRadioSurface:
         def __init__(self, *args, **kwargs):
