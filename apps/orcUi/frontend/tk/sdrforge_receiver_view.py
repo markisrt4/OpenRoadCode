@@ -31,6 +31,7 @@ class SdrForgeReceiverView(tk.Frame):
         self._bins: tuple[float, ...] = ()
         self._history: deque[tuple[float, ...]] = deque(maxlen=self._visualization.waterfall_rows)
         self._station = "--"
+        self._mode = ""
         self._frequency_hz = 0
         self._radio_text = ""
         self._stereo = False
@@ -57,7 +58,8 @@ class SdrForgeReceiverView(tk.Frame):
 
     def set_station(self, *, frequency_hz: int, name: str = "",
                     radio_text: str = "", stereo: bool = False,
-                    signal: float | None = None) -> None:
+                    signal: float | None = None, mode: str = "") -> None:
+        self._mode = mode.upper()
         self._frequency_hz = frequency_hz
         self._station = name or "--"
         self._radio_text = radio_text
@@ -106,7 +108,7 @@ class SdrForgeReceiverView(tk.Frame):
         ui = self._theme.ui
         compact = h < 260
         header = 54 if compact else 80
-        footer = 30 if compact else 44
+        footer = (24 if compact else 32) if self._mode == "WFM" and self._radio_text else 0
         scale = 22
         spectrum_top = header + scale
         plot_bottom = h - footer
@@ -115,9 +117,7 @@ class SdrForgeReceiverView(tk.Frame):
         waterfall_height = max(1, plot_bottom - waterfall_top)
 
         canvas.create_rectangle(0, 0, w, header, fill=ui.surface, outline="")
-        canvas.create_text(14, 10 if compact else 15, anchor="nw",
-                           text="FM  /  SDRFORGE", fill=ui.text_muted,
-                           font=("Sans", 9, "bold"))
+
         frequency = f"{self._frequency_hz / 1e6:.1f}" if self._frequency_hz else "--.-"
         canvas.create_text(14, header - 8, anchor="sw",
                            text=f"{frequency} MHz", fill=ui.text,
@@ -125,10 +125,11 @@ class SdrForgeReceiverView(tk.Frame):
         canvas.create_text(w - 14, 12, anchor="ne",
                            text=self._station, fill=ui.text,
                            font=("Sans", 11 if compact else 15, "bold"))
-        canvas.create_text(w - 14, header - 8, anchor="se",
-                           text="● STEREO" if self._stereo else "MONO / NO LOCK",
-                           fill=ui.accent_success if self._stereo else ui.text_muted,
-                           font=("Sans", 9, "bold"))
+        if self._mode == "WFM":
+            canvas.create_text(w - 14, header - 8, anchor="se",
+                               text="● STEREO" if self._stereo else "MONO",
+                               fill=ui.accent_success if self._stereo else ui.text_muted,
+                               font=("Sans", 9, "bold"))
 
         # Scale labels represent relative FFT position until the spectrum
         # contract supplies center frequency and bin spacing.
@@ -173,11 +174,12 @@ class SdrForgeReceiverView(tk.Frame):
                                fill=ui.text_muted, font=("Sans", 11))
         canvas.create_line(0, waterfall_top, w, waterfall_top,
                            fill=ui.border)
-        canvas.create_rectangle(0, plot_bottom, w, h,
-                                fill=ui.surface, outline=ui.border)
-        canvas.create_text(12, plot_bottom + footer / 2, anchor="w",
-                           text=(self._radio_text or "RDS text unavailable")[:90],
-                           fill=ui.text_muted, font=("Sans", 10))
+        if footer:
+            canvas.create_rectangle(0, plot_bottom, w, h,
+                                    fill=ui.surface, outline=ui.border)
+            canvas.create_text(12, plot_bottom + footer / 2, anchor="w",
+                               text=self._radio_text[:90],
+                               fill=ui.text_muted, font=("Sans", 10))
 
     @staticmethod
     def _waterfall_color(value: float) -> str:
