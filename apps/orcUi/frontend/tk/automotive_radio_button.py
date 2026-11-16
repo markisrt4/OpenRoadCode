@@ -34,6 +34,12 @@ class AutomotiveRadioButton(tk.Canvas):
         self.bind("<space>", self._activate)
         self.configure(takefocus=1)
 
+    def set_text(self, text: str) -> None:
+        """Update the label of this canvas-backed control."""
+        if self._text != text:
+            self._text = text
+            self._paint()
+
     def set_selected(self, selected: bool) -> None:
         self._selected = selected
         self._paint()
