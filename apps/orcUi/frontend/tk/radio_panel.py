@@ -463,7 +463,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         if self._receiver_controls is not None:
             self._receiver_mode_label.configure(text="MODE  " + (state.station.mode_name or "--"))
             self._receiver_signal_label.configure(text=state.scan_progress or ("SIGNAL  " + signal))
-            self._scan_button.configure(text="STOP SCAN" if state.scanning else "SCAN BAND")
+            self._scan_button.set_text("STOP SCAN" if state.scanning else "SCAN BAND")
             self._scan_button.set_selected(state.scanning)
         self._snr_label.configure(text=f"SNR {snr}")
         if state.loading or state.error:
