@@ -7,6 +7,7 @@ No receiver or transport logic belongs here.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from frontends.tk.media.native_music_visualizer import _create_glx_context
 
 try:
     from pyopengltk import OpenGLFrame
@@ -30,6 +31,9 @@ if OpenGLFrame is not None:
             self._history: tuple[tuple[float, ...], ...] = ()
             self._palette = "classic"
             self._ready = False
+
+        def tkCreateContext(self):
+            return _create_glx_context(super().tkCreateContext)
 
         def initgl(self):
             self._ready = True
