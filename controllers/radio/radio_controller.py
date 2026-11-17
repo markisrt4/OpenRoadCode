@@ -115,8 +115,9 @@ class RadioController(RadioControllerIf):
 
     def set_mode(self, mode: RadioMode) -> RadioMode:
         """Set and return the active demodulation mode."""
-        self.backend.set_mode(mode.name, mode.bandwidth)
-        self.current_mode = mode
+        if mode != self.current_mode:
+            self.backend.set_mode(mode.name, mode.bandwidth)
+            self.current_mode = mode
         return mode
 
     def tune_preset(self, preset: RadioPreset) -> RadioPreset:
