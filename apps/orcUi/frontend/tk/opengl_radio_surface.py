@@ -107,8 +107,8 @@ if OpenGLFrame is not None:
                 # The texture is linearly filtered by OpenGL; converting
                 # hundreds of thousands of Python RGB components per frame
                 # wastes CPU without improving the displayed resolution.
-                rows = min(len(history), 96)
-                columns = min(max(128, w), 256)
+                rows = min(len(history), 128)
+                columns = min(max(128, w), 512)
                 lut = self._palette_lut.get(self._palette)
                 if lut is None:
                     lut = tuple(bytes(int(component * 255)
