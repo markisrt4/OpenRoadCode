@@ -20,6 +20,7 @@ class AutomotiveRadioButton(tk.Canvas):
         self._command = command
         self._selected = selected
         self._hover = False
+        self._enabled = True
         self._background = background
         self._accent = accent
         self._foreground = foreground
@@ -33,6 +34,12 @@ class AutomotiveRadioButton(tk.Canvas):
         self.bind("<Return>", self._activate)
         self.bind("<space>", self._activate)
         self.configure(takefocus=1)
+
+    def set_enabled(self, enabled: bool) -> None:
+        """Disable pointer and keyboard activation and dim the control."""
+        self._enabled = enabled
+        self.configure(cursor="hand2" if enabled else "arrow", takefocus=1 if enabled else 0)
+        self._paint()
 
     def set_text(self, text: str) -> None:
         """Update the label of this canvas-backed control."""
@@ -52,7 +59,7 @@ class AutomotiveRadioButton(tk.Canvas):
         self._paint()
 
     def _enter(self, _event: tk.Event) -> None:
-        self._hover = True
+        self._hover = self._enabled
         self._paint()
 
     def _leave(self, _event: tk.Event) -> None:
@@ -60,7 +67,7 @@ class AutomotiveRadioButton(tk.Canvas):
         self._paint()
 
     def _activate(self, _event: tk.Event) -> None:
-        if self._command:
+        if self._enabled and self._command:
             self._command()
 
     def _paint(self) -> None:
@@ -77,7 +84,8 @@ class AutomotiveRadioButton(tk.Canvas):
         for x in (r+2, w-r-2):
             for y in (r+2, h-r-2):
                 self.create_oval(x-r, y-r, x+r, y+r, fill=fill, outline="")
-        if self._hover and not self._selected:
+        if self._hover and self._enabled and not self._selected:
             self.create_line(10, h-3, w-10, h-3, fill=edge, width=2)
-        self.create_text(w/2, h/2, text=self._text, fill=self._foreground,
+        self.create_text(w/2, h/2, text=self._text,
+                         fill=self._foreground if self._enabled else self._border,
                          font=("Sans", self._font_size, "bold"), width=max(20, w-18))
