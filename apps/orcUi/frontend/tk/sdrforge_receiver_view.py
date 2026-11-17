@@ -131,7 +131,7 @@ class SdrForgeReceiverView(tk.Frame):
         scale = (len(row) - 1) / self._sample_rate_hz
         length = min(len(row), 512)
         return tuple(
-            row[index] if 0 <= index < length else 0.0
+            row[index] if 0 <= index < len(row) else 0.0
             for index in (
                 round((viewport.frequency_at(i / max(1, length - 1)) - source_start) * scale)
                 for i in range(length)
