@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import replace
-from threading import Event, Lock, RLock
+from threading import Event, Lock, RLock, Thread
 from time import sleep
 import json
 import urllib.request
@@ -52,6 +52,7 @@ class ReceiverSession:
         self._active = True
         self._refresh_pending = False
         self._scan_cancel = Event()
+        self._owns_receiver = False
         self._view: RfRadioUi | None = None
         self._host: RadioHost | None = None
         self._native_view = "none"
@@ -202,6 +203,7 @@ class ReceiverSession:
             ) as response:
                 if response.status != 200:
                     raise RuntimeError(f"SDRForge receiver {endpoint} failed")
+            self._owns_receiver = action is RadioAction.START_RECEIVER
             self._state = replace(self._state,
                                   receiver_running=action is RadioAction.START_RECEIVER,
                                   error="")
@@ -371,12 +373,33 @@ class ReceiverSession:
         with self._native_lock:
             self._cleanup_native()
 
+    def _release_owned_receiver(self) -> None:
+        if not self._owns_receiver:
+            return
+        self._owns_receiver = False
+
+        def stop_owned() -> None:
+            try:
+                with urllib.request.urlopen(
+                    urllib.request.Request(
+                        "http://127.0.0.1:5570/v1/receiver/stop",
+                        data=b"", method="POST"),
+                    timeout=5.0,
+                ):
+                    pass
+            except (OSError, urllib.error.HTTPError):
+                pass
+
+        # Never block the Tk shutdown path on USB acquisition teardown.
+        Thread(target=stop_owned, name="orc-sdrforge-stop", daemon=True).start()
+
     def close(self) -> None:
         with self._lock:
             if self._closed:
                 return
             self._closed = True
         try:
+            self._release_owned_receiver()
             self.deactivate()
         finally:
             self._on_close()
