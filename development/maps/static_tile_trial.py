@@ -19,7 +19,7 @@ from urllib.request import urlopen
 from PIL import Image
 from apps.launchers.local_imagery_pack import LocalImageryPack
 from apps.launchers.local_terrain_pack import load_terrain
-from development.maps.download_detroit_imagery import SERVICE, CATALOG_FIELDS
+from development.maps.download_detroit_imagery import SERVICE, CATALOG_FIELDS, retry_request
 from tools.map_builder.builder.map_3d import PRESETS
 from tools.map_builder.builder.imagery_artifact import package as package_imagery
 from tools.map_builder.builder.terrain_artifact import package as package_terrain
@@ -45,20 +45,25 @@ def write_json(path, data):
     path.write_text(json.dumps(data,indent=2))
 
 
+def read_source_metadata(address, *, limit, timeout=60):
+    """Retry transient connection AND response-read failures using shared policy."""
+    def read():
+        with urlopen(address, timeout=timeout) as response:
+            raw = response.read(limit + 1)
+        if len(raw) > limit:
+            raise ValueError('Source metadata exceeds bounded response limit')
+        return raw
+    return retry_request(read, stage='source metadata', attempts=6)
+
+
 def get_json(url, **parameters):
     print(f'Catalog: {url}',flush=True)
     address=url+('?' + urlencode(parameters) if parameters else '')
-    for attempt in range(3):
-        try:
-            with urlopen(address,timeout=30) as response:
-                raw=response.read(4*1024*1024+1)
-            if len(raw)>4*1024*1024:raise ValueError('Catalog exceeds trial limit')
-            data=json.loads(raw)
-            if isinstance(data,dict) and data.get('error'):raise ValueError(f'Catalog error: {data["error"]}')
-            return data
-        except (URLError,TimeoutError):
-            if attempt==2:raise
-            time.sleep(2**attempt)
+    raw = read_source_metadata(address, limit=4*1024*1024, timeout=30)
+    data=json.loads(raw)
+    if isinstance(data,dict) and data.get('error'):
+        raise ValueError(f'Catalog error: {data["error"]}')
+    return data
 
 
 def approved_url(url):
@@ -82,9 +87,7 @@ def staged_imagery_url(record):
     prefix=f'StagedProducts/NAIP/mi_{record["Year"]}/{next(iter(cells))}/'
     address='https://prd-tnm.s3.amazonaws.com/?'+urlencode({'list-type':2,'prefix':prefix,'max-keys':1000})
     print(f'Staged NAIP directory: {prefix}',flush=True)
-    with urlopen(address,timeout=60) as response:
-        raw=response.read(2*1024*1024+1)
-    if len(raw)>2*1024*1024:raise ValueError('Staged directory exceeds trial limit')
+    raw = read_source_metadata(address, limit=2*1024*1024)
     document=ET.fromstring(raw)
     if document.findtext('{*}IsTruncated')=='true':raise ValueError('Staged NAIP directory is truncated')
     matches=[]
@@ -97,8 +100,7 @@ def staged_imagery_url(record):
     if not matches:
         state_prefix=f'StagedProducts/NAIP/mi_{record["Year"]}/'
         address='https://prd-tnm.s3.amazonaws.com/?'+urlencode({'list-type':2,'prefix':state_prefix,'delimiter':'/','max-keys':1000})
-        with urlopen(address,timeout=60) as response:
-            listing=ET.fromstring(response.read(2*1024*1024))
+        listing=ET.fromstring(read_source_metadata(address, limit=2*1024*1024))
         folders=[item.findtext('{*}Prefix') for item in listing.findall('{*}CommonPrefixes')]
         keys=[item.findtext('{*}Key') for item in document.findall('{*}Contents')]
         raise ValueError(f'No matching staged NAIP file for catalog names {sorted(stems)}; directory keys={keys[:8]}; state folders={folders[:12]}')

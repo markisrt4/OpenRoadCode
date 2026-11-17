@@ -383,3 +383,14 @@ validation does not certify complete geographic coverage. This evidence permits
 a first 50-state build, not a claim that all 50 already work. The registered
 regional Actions entry now passes `national_scope` to the reusable workflow.
 US basket requests select all states while retaining the three-probe gate.
+
+### Transient metadata retry correction
+
+Staged source directory listings and catalog JSON reads now share the existing
+`retry_request` policy: six total attempts for 429/500/502/503/504, network timeout
+and incomplete-response failures, with logged backoff and Retry-After support.
+The retry includes opening and reading the response, closes each failed response,
+and retains existing response-size ceilings. Permanent HTTP errors such as 404,
+malformed metadata and validation errors are not retried. This happens in the
+current Actions worker; completed cell archives are untouched. Already-running
+jobs use their checked-out revision and do not acquire this fix automatically.
