@@ -13,7 +13,7 @@ import re
 from time import monotonic
 
 from ui.radio.radio_visualization_config import (RadioRenderer, RadioVisualizationConfig, select_renderer,
-    load_rf_visualization_settings)
+    load_rf_visualization_settings, save_rf_visualization_settings)
 from collections import deque
 from collections.abc import Sequence
 
@@ -40,6 +40,7 @@ class SdrForgeReceiverView(tk.Frame):
             )
         except (TypeError, ValueError):
             pass
+        self._recenter_on_tune = overrides.get("recenter_on_tune", True) is not False
         self._renderer = select_renderer(self._visualization, opengl_available=opengl_available())
         self._gl_surface = None
         self._last_spectrum_draw = 0.0
@@ -67,11 +68,32 @@ class SdrForgeReceiverView(tk.Frame):
         self._canvas.grid(row=0, column=0, sticky="nsew")
         self._canvas.bind("<Configure>", lambda _event: self._schedule_render())
         self._canvas.bind("<Button-1>", self._handle_spectrum_click)
+        self._canvas.bind("<Button-3>", self._show_spectrum_menu)
         if self._renderer is RadioRenderer.OPENGL:
             self._gl_surface = OpenGLRadioSurface(self, width=320, height=180)
             self._gl_surface.place(x=0, y=80, relwidth=1, height=180)
             self._gl_surface.bind("<Button-1>", self._handle_spectrum_click)
+            self._gl_surface.bind("<Button-3>", self._show_spectrum_menu)
         # Preset navigation belongs to RadioPanel, not inside the spectrum.
+
+    def _show_spectrum_menu(self, event) -> None:
+        """Allow changing the click-to-recenter preference in the RF view."""
+        menu = tk.Menu(self, tearoff=False)
+        enabled = tk.BooleanVar(value=self._recenter_on_tune)
+        menu.add_checkbutton(
+            label="Recenter on Tune", variable=enabled,
+            command=lambda: self._set_recenter_on_tune(enabled.get()),
+        )
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+
+    def _set_recenter_on_tune(self, enabled: bool) -> None:
+        self._recenter_on_tune = bool(enabled)
+        settings = load_rf_visualization_settings()
+        settings["recenter_on_tune"] = self._recenter_on_tune
+        save_rf_visualization_settings(settings)
 
     def set_spectrum_tune_handler(self, handler) -> None:
         """Receive frequency selections without coupling the widget to radio control."""
@@ -86,7 +108,11 @@ class SdrForgeReceiverView(tk.Frame):
         # US FM broadcast channels are spaced 200 kHz with odd-tenth MHz centers.
         snapped = round((hz - 87_900_000) / 200_000) * 200_000 + 87_900_000
         if 87_900_000 <= snapped <= 107_900_000:
-            self._on_spectrum_tune(int(snapped))
+            # The backend currently tunes and recenters as one operation.
+            # Keep the preference visible, but do not pretend a fixed-center
+            # click is supported until the receiver exposes offset tuning.
+            if self._recenter_on_tune:
+                self._on_spectrum_tune(int(snapped))
 
     def set_theme_bundle(self, theme: ThemeBundle) -> None:
         self._theme = theme
