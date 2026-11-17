@@ -245,8 +245,19 @@ class SettingsPanel(tk.Frame, UiWidget):
             tk.Label(rf, text=label, bg=ui.surface, fg=ui.text,
                      font=("Sans", FONT_BODY)).grid(row=row, column=0,
                      sticky="w", padx=14, pady=6)
-            tk.OptionMenu(rf, variable, *options).grid(
-                row=row, column=1, sticky="ew", padx=14, pady=6)
+            selector = tk.OptionMenu(rf, variable, *options)
+            selector.configure(bg=ui.control_background, fg=ui.control_text,
+                               activebackground=ui.control_active,
+                               activeforeground=ui.text, relief=tk.FLAT, bd=0,
+                               highlightthickness=0, indicatoron=False,
+                               font=("Sans", FONT_CONTROL, "bold"),
+                               anchor="w", padx=12, pady=7)
+            selector["menu"].configure(
+                bg=ui.surface_alt, fg=ui.text,
+                activebackground=ui.accent_primary,
+                activeforeground="#ffffff",
+                font=("Sans", FONT_CONTROL), bd=0)
+            selector.grid(row=row, column=1, sticky="ew", padx=14, pady=6)
         self._rf_saved_label = tk.Label(
             rf, text="Changes apply when the radio view is reopened.",
             bg=ui.surface, fg=ui.text_muted, font=("Sans", FONT_SMALL))
