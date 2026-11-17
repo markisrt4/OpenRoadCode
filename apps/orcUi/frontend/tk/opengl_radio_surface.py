@@ -166,6 +166,20 @@ if OpenGLFrame is not None:
                     GL.glVertex2f(i / max(1, len(self._peaks)-1),
                                   split + .38 * max(0., min(1., value)))
                 GL.glEnd()
+            # Frequency grid aligns with the five labels above the plot.
+            # Draw after the waterfall so the guides remain visible through
+            # both the spectrum and the historical signal display.
+            GL.glLineWidth(1)
+            GL.glEnable(GL.GL_LINE_STIPPLE)
+            GL.glLineStipple(1, 0x1111)
+            GL.glColor3f(.30, .42, .53)
+            GL.glBegin(GL.GL_LINES)
+            for i in range(5):
+                x = i / 4.0
+                GL.glVertex2f(x, 0.0)
+                GL.glVertex2f(x, 1.0)
+            GL.glEnd()
+            GL.glDisable(GL.GL_LINE_STIPPLE)
             GL.glColor3f(.4, .95, .5)
             GL.glBegin(GL.GL_LINES)
             GL.glVertex2f(.5, 0.)
