@@ -14,7 +14,7 @@ def test_dispatch_uses_selected_request():
 
 
 def test_cancel_does_not_spawn_process(monkeypatch):
-    monkeypatch.setattr('builtins.input', lambda _: '')
+    monkeypatch.setattr('builtins.input', lambda _: 'b')
     run = Mock()
     monkeypatch.setattr(menu.subprocess, 'run', run)
     assert menu.main() == 0
@@ -64,7 +64,7 @@ def test_metro_children_not_top_level_regions():
 
 
 def test_basket_survives_returning_between_areas(monkeypatch):
-    answers = iter(['1', 'y', '2', '1', '1', '', '', '4', '', ''])
+    answers = iter(['1', 'y', '2', '1', '1', '', 'b', '4', 'b', 'b'])
     monkeypatch.setattr('builtins.input', lambda _: next(answers))
     from tools.map_builder.builder.map_pack_selection import Selection
     review = Mock()
@@ -86,10 +86,10 @@ def test_build_plan_matches_layers_and_deduplicates():
     from tools.map_builder.builder.map_pack_selection import Selection
     requests, unsupported = plan_builds({Selection('mi', 2), Selection('metro-detroit', 2),
                                          Selection('auburn-hills', 3), Selection('us', 1)})
-    assert len(requests) == 3  # statewide buildings + two local terrain packs
+    assert len(requests) == 4  # statewide buildings, US baseline, two local terrain packs
     assert not any(r.target == 'metro-detroit-buildings' for r in requests)
     assert {dict(r.fields).get('detail_layers') for r in requests if r.fields} == {'terrain'}
-    assert unsupported == (Selection('us', 1),)
+    assert unsupported == ()
 
 
 @pytest.mark.parametrize('coverage,layers', [('southfield', 'terrain'), ('auburn-hills', 'roads')])
@@ -132,3 +132,51 @@ def test_clear_all_only_removes_current_area(monkeypatch):
         Selection('metro-detroit', layer) for layer in range(len(LAYERS))}
     menu.edit_layers(selected, 'metro-detroit', 'Metro Detroit')
     assert selected == {Selection('us', 1)}
+
+
+def test_blank_in_navigation_does_not_cancel(monkeypatch):
+    answers = iter(['', '2'])
+    monkeypatch.setattr('builtins.input', lambda _: next(answers))
+    assert menu.choose('Areas', ['Michigan', 'US']) == 1
+
+
+def test_enter_confirms_layer_checklist(monkeypatch):
+    from tools.map_builder.builder.map_pack_selection import Selection
+    answers = iter(['1', ''])
+    monkeypatch.setattr('builtins.input', lambda _: next(answers))
+    selected = set()
+    menu.edit_layers(selected, 'mi', 'Michigan')
+    assert selected == {Selection('mi', 0)}
+
+
+def test_national_request_includes_all_fifty_states():
+    from development.maps.state_map_catalog import catalog_document
+    from development.maps.build_us_terrain import definitions
+    from tools.map_builder.builder.map_pack_builds import plan_builds
+    from tools.map_builder.builder.map_pack_selection import Selection
+    requests, unavailable = plan_builds({Selection('us', 1)})
+    assert len(requests) == 1 and requests[0].target == 'us-coarse-terrain'
+    assert not unavailable
+    states = catalog_document()['states']
+    assert len(states) == 50
+    assert {'AK', 'HI'} <= {state['abbreviation'] for state in states}
+    for state in states:
+        _, regions = definitions(state['abbreviation'])
+        assert regions
+        for region in regions:
+            west, south, east, north = region['bounds_deg']
+            assert -180 <= west < east <= 180
+            assert -90 <= south < north <= 90
+
+
+def test_national_failure_report_is_not_validated(tmp_path, monkeypatch):
+    from development.maps import build_us_terrain as builder
+    import json
+    def fail(*args, **kwargs):
+        raise RuntimeError('No source coverage')
+    monkeypatch.setattr(builder, 'download_bounds', fail)
+    with pytest.raises(RuntimeError):
+        builder.build('HI', tmp_path/'out', tmp_path/'cache')
+    report = json.loads((tmp_path/'out/us-terrain-report.json').read_text())
+    assert report['status'] == 'failed'
+    assert not list((tmp_path/'out').glob('*.zip'))

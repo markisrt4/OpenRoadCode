@@ -15,7 +15,9 @@ def plan_builds(selected):
     unavailable = []
     details = {}
     for item in effective_selection(selected):
-        if item.layer == 2 and item.area in ('mi', 'metro-detroit'):
+        if item.area == 'us' and item.layer == 1:
+            requests.add(BuildRequest('us-coarse-terrain'))
+        elif item.layer == 2 and item.area in ('mi', 'metro-detroit'):
             # Statewide supersedes the same building product in the Metro subset.
             if item.area == 'metro-detroit' and any(
                     value.area == 'mi' and value.layer == 2 for value in selected):

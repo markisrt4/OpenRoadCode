@@ -9,6 +9,8 @@ on:
       - tools/map_builder/tests/test_map_pack_menu.py
       - tools/map_builder/scripts/run-builder.sh
       - .github/workflows/map-pack-menu.yml
+      - .github/workflows/us-coarse-terrain.yml
+      - development/maps/build_us_terrain.py
   workflow_dispatch:
 permissions:
   contents: read
@@ -24,4 +26,4 @@ jobs:
       - run: python -m pytest tools/map_builder/tests/test_map_pack_menu.py -q
       - name: Host entry cancels without needing Docker
         run: |
-          printf '\n' | CONTAINER_ENGINE=missing-engine bash tools/map_builder/scripts/run-builder.sh packs
+          printf 'b\n' | CONTAINER_ENGINE=missing-engine bash tools/map_builder/scripts/run-builder.sh packs

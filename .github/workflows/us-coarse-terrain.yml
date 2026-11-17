@@ -1,0 +1,60 @@
+name: Build US coarse terrain
+on:
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+concurrency:
+  group: us-coarse-terrain
+  cancel-in-progress: false
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      states: ${{ steps.plan.outputs.states }}
+    steps:
+      - uses: actions/checkout@v6
+      - id: plan
+        run: |
+          python - <<'PY'
+          import json, os
+          from development.maps.state_map_catalog import catalog_document
+          states = [state['abbreviation'] for state in catalog_document()['states']]
+          assert len(states) == 50 and 'AK' in states and 'HI' in states
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('states=' + json.dumps(states) + '\n')
+          PY
+  state:
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        state: ${{ fromJSON(needs.plan.outputs.states) }}
+    env:
+      STATE: ${{ matrix.state }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/cache/restore@v4
+        with:
+          path: build-output/us-terrain-cache
+          key: us-coarse-state-33-v1-${{ matrix.state }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: us-coarse-state-33-v1-${{ matrix.state }}-
+      - name: Build and validate coarse terrain only
+        run: >-
+          python -m development.maps.build_us_terrain --state "$STATE"
+          --output build-output/us-terrain --cache build-output/us-terrain-cache
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: build-output/us-terrain-cache
+          key: us-coarse-state-33-v1-${{ matrix.state }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: us-coarse-terrain-${{ matrix.state }}-${{ github.run_id }}
+          path: build-output/us-terrain/
+          retention-days: 14
+          if-no-files-found: error

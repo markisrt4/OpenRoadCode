@@ -27,6 +27,7 @@ on:
           - imagery-detail-pilot
           - michigan-detail-pilot
           - selected-detail
+          - us-coarse-terrain
           - michigan-statewide-detail
           - generic-state
           - validation-states
@@ -346,7 +347,7 @@ jobs:
 
   michigan:
     name: Build Michigan terrain package
-    if: ${{ inputs.build_target != 'metro-detroit' && inputs.build_target != 'michigan-all' && inputs.build_target != 'michigan-staged' && inputs.build_target != 'metro-detroit-buildings' && inputs.build_target != 'michigan-buildings' && inputs.build_target != 'selected-detail' && inputs.build_target != 'imagery-detail-pilot' && inputs.build_target != 'michigan-detail-pilot' && inputs.build_target != 'michigan-statewide-detail' && inputs.build_target != 'generic-state' && inputs.build_target != 'validation-states' && inputs.build_target != 'rochester-static-trial' }}
+    if: ${{ inputs.build_target != 'metro-detroit' && inputs.build_target != 'michigan-all' && inputs.build_target != 'michigan-staged' && inputs.build_target != 'metro-detroit-buildings' && inputs.build_target != 'michigan-buildings' && inputs.build_target != 'us-coarse-terrain' && inputs.build_target != 'selected-detail' && inputs.build_target != 'imagery-detail-pilot' && inputs.build_target != 'michigan-detail-pilot' && inputs.build_target != 'michigan-statewide-detail' && inputs.build_target != 'generic-state' && inputs.build_target != 'validation-states' && inputs.build_target != 'rochester-static-trial' }}
     uses: ./.github/workflows/build-michigan-terrain.yml
     with:
       coverage: ${{ inputs.build_target }}
@@ -877,3 +878,7 @@ jobs:
     uses: ./.github/workflows/michigan-statewide-detail.yml
     with:
       resume_run: ${{ inputs.detail_resume_run || '' }}
+
+  us-coarse-terrain:
+    if: ${{ inputs.build_target == 'us-coarse-terrain' }}
+    uses: ./.github/workflows/us-coarse-terrain.yml

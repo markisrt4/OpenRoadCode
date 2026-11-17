@@ -327,3 +327,24 @@ artifacts until expiration. Permanent versioned pack publication remains pending
 
 Layer checklists offer **Check all** and **Clear all** for the current area.
 They preserve selections in other areas and do not download or dispatch builds.
+
+### National coarse-terrain build and menu confirmation
+
+Enter now confirms the current layer checklist. Navigation menus require an
+explicit number or B to go back (Q also backs out); a blank navigation response
+no longer silently exits. Checking layers still does not itself dispatch work.
+
+The US basic-terrain basket choice now dispatches a real 50-state terrain-only
+workflow, using the checked state catalog, including Hawaii and Alaska's split
+antimeridian envelopes. Each state requests a coarse 33×33 grid per envelope
+through the existing USGS 3DEP sampler, retains source responses and checksums,
+and produces terrain archives compatible with the existing installer. This is a
+very coarse baseline (spacing varies by state), not detailed terrain, imagery,
+roads or routing. Two workers run concurrently; cached validated grids resume.
+
+Every state uploads a report on success or failure. Missing USGS elevations,
+water/no-data responses, datum conflicts and network errors fail the affected
+state rather than inventing heights or claiming national coverage. A successful
+subset must not be advertised as the complete US. The first real run measures
+source feasibility as well as pack sizes; full source coverage is not yet proven.
+Artifacts expire after 14 days; versioned permanent publication remains pending.

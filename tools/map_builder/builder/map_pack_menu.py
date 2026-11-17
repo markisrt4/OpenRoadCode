@@ -11,14 +11,19 @@ WORKFLOW = 'build-metro-detroit-imagery.yml'
 ROOT = Path(__file__).resolve().parents[3]
 
 
-def choose(title, labels):
+def choose(title, labels, *, confirm=False):
     print('\n' + title)
     for index, label in enumerate(labels, 1):
         print(f'  {index}. {label}')
     while True:
-        answer = input('Choose a number (Enter cancels): ').strip()
-        if not answer:
+        answer = input('Number, Enter confirms, B back: ' if confirm else 'Number, B back: ').strip()
+        if answer.lower() in ('b', 'q'):
             return None
+        if not answer:
+            if confirm:
+                return None
+            print('Choose a number, or B to go back.')
+            continue
         if answer.isascii() and answer.isdigit() and 1 <= int(answer) <= len(labels):
             return int(answer) - 1
         print('Choose one of the listed numbers.')
@@ -70,8 +75,8 @@ def edit_layers(selected, area, title):
     while True:
         labels = [f"[{'x' if Selection(area, i) in selected else ' '}] {label}"
                   for i, label in enumerate(LAYERS)]
-        answer = choose(title + ' — toggle layers; Enter returns',
-                        [*labels, 'Check all', 'Clear all'])
+        answer = choose(title + ' — toggle layers; Enter confirms',
+                        [*labels, 'Check all', 'Clear all'], confirm=True)
         if answer is None:
             return
         if answer == len(LAYERS):
@@ -118,7 +123,7 @@ def review(selected):
         print(f'  {AREAS.get(item.area, item.area)} · {LAYERS[item.layer]}')
     if len(effective) < len(selected):
         print('Overlapping layers are included under their larger selected area.')
-    print('Nationwide basic terrain is planned; no downloadable pack exists yet.')
+    print('Nationwide basic terrain builds all 50 states; a complete validated pack is not yet available.')
     print('Roads/search/routing still use the existing navigation builder.')
     print('Download and installed sizes are unknown until published descriptors are checked.')
     print('Other regional packs may require a build; selecting an area does not start one.')
@@ -178,7 +183,7 @@ def main():
                 return 0
             if answer == 0:
                 from .map_pack_selection import Selection, toggle
-                print('Nationwide basic terrain is planned, not available for installation yet.')
+                print('Nationwide basic terrain can be requested at review; includes Alaska and Hawaii.')
                 current = Selection('us', 1) in selected
                 if input(f"{'Remove' if current else 'Add'} to selection? [y/N] ").strip().lower() == 'y':
                     toggle(selected, 'us', 1)
@@ -186,8 +191,8 @@ def main():
                 edit_michigan(selected)
             elif answer == 2:
                 from development.maps.state_map_catalog import state_plan
-                value = input('State name or abbreviation (Enter returns): ').strip()
-                if value:
+                value = input('State name or abbreviation (B returns): ').strip()
+                if value and value.lower() != 'b':
                     state = state_plan(value)
                     if state['abbreviation'] == 'MI':
                         edit_michigan(selected)
