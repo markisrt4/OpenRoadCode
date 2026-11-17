@@ -129,7 +129,7 @@ class SdrForgeReceiverView(tk.Frame):
             return tuple(row)
         source_start = self._center_frequency_hz - self._sample_rate_hz / 2
         scale = (len(row) - 1) / self._sample_rate_hz
-        length = len(row)
+        length = min(len(row), 512)
         return tuple(
             row[index] if 0 <= index < length else 0.0
             for index in (
@@ -254,7 +254,7 @@ class SdrForgeReceiverView(tk.Frame):
         waterfall_height = max(1, plot_bottom - waterfall_top)
         display_bins = self._viewport_row(self._bins)
         display_peaks = self._viewport_row(self._peak_bins)
-        display_history = tuple(self._viewport_row(row) for row in self._history)
+        display_history = tuple(self._viewport_row(row) for row in list(self._history)[-128:])
         if self._gl_surface is not None:
             self._gl_surface.place(x=0, y=spectrum_top, relwidth=1, height=max(1, plot_bottom-spectrum_top))
             self._gl_surface.update_data(display_bins, display_history,
