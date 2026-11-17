@@ -193,6 +193,10 @@ class SdrForgeReceiverView(tk.Frame):
                            text=f"{frequency} MHz", fill=ui.text,
                            font=("Sans", 25 if compact else 35, "bold"))
         station_title = self._station_title()
+        # Preset labels like "90.9 MHz" are not station identities.
+        tuned_mhz = f"{self._frequency_hz / 1_000_000:g}"
+        if station_title.upper().replace("MHZ", "").replace("FM", "").strip() == tuned_mhz:
+            station_title = ""
         if station_title:
             canvas.create_text(14, 12, anchor="nw",
                                text=station_title[:28], width=max(80, w // 3),
