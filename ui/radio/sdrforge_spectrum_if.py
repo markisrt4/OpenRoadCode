@@ -46,3 +46,40 @@ class SpectrumPresentationIf(Protocol):
     """Frontend receives only validated, immutable spectrum snapshots."""
 
     def set_spectrum_presentation(self, snapshot: SpectrumPresentation) -> None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class SpectrumViewport:
+    """Frequency window independent of receiver tuning and transport."""
+
+    center_hz: float
+    span_hz: float
+    recenter_on_tune: bool = True
+
+    def frequency_at(self, position: float) -> float:
+        """Map normalized horizontal position to displayed frequency."""
+        return self.center_hz + (position - 0.5) * self.span_hz
+
+    def pan(self, fraction: float) -> "SpectrumViewport":
+        """Shift the viewport by a fraction of its visible bandwidth."""
+        from dataclasses import replace
+        return replace(self, center_hz=self.center_hz + fraction * self.span_hz)
+
+    def zoom(self, factor: float, *, min_span_hz: float = 100_000,
+             max_span_hz: float | None = None) -> "SpectrumViewport":
+        """Zoom without changing the receiver's tuned frequency."""
+        from dataclasses import replace
+        if not math.isfinite(factor) or factor <= 0:
+            raise ValueError("zoom factor must be finite and positive")
+        span = max(min_span_hz, self.span_hz * factor)
+        if max_span_hz is not None:
+            span = min(span, max_span_hz)
+        return replace(self, span_hz=span)
+
+
+class SpectrumViewportControlIf(Protocol):
+    """Frontend-neutral viewport operations; none retune the receiver."""
+
+    def pan_spectrum(self, fraction: float) -> None: ...
+    def zoom_spectrum(self, factor: float) -> None: ...
+    def set_recenter_on_tune(self, enabled: bool) -> None: ...
