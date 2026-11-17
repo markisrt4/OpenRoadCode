@@ -373,3 +373,13 @@ start. The installer currently requests the pilot by default. Do not enable a
 national default until source gaps, file sizes, runtime catalog limits, regional
 installation and representative device views have been reviewed. Older sampling
 caches use a different profile and are not reused.
+
+### Initial raster probes reviewed
+
+Run 44143930025 validated all three representative probes: Colorado 64/64
+children (5,318,262 archive bytes), Alaska 64/64 (6,306,705 bytes), Hawaii 58/64
+(5,062,130 bytes). Hawaii's six missing children remain explicit source gaps;
+validation does not certify complete geographic coverage. This evidence permits
+a first 50-state build, not a claim that all 50 already work. The registered
+regional Actions entry now passes `national_scope` to the reusable workflow.
+US basket requests select all states while retaining the three-probe gate.

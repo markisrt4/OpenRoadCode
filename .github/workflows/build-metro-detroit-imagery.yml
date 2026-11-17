@@ -40,6 +40,11 @@ on:
         type: choice
         default: both
         options: [imagery, terrain, both]
+      national_scope:
+        description: US terrain rollout scope (all reruns source probes before state builds)
+        type: choice
+        default: pilot
+        options: [pilot, all]
       detail_resume_run:
         description: Optional previous statewide detail run for resuming completed cells
         required: false
@@ -882,3 +887,5 @@ jobs:
   us-coarse-terrain:
     if: ${{ inputs.build_target == 'us-coarse-terrain' }}
     uses: ./.github/workflows/us-coarse-terrain.yml
+    with:
+      scope: ${{ inputs.national_scope || 'pilot' }}

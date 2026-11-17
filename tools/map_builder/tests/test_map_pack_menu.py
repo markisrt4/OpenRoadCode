@@ -88,7 +88,7 @@ def test_build_plan_matches_layers_and_deduplicates():
                                          Selection('auburn-hills', 3), Selection('us', 1)})
     assert len(requests) == 4  # statewide buildings, US baseline, two local terrain packs
     assert not any(r.target == 'metro-detroit-buildings' for r in requests)
-    assert {dict(r.fields).get('detail_layers') for r in requests if r.fields} == {'terrain'}
+    assert {dict(r.fields).get('detail_layers') for r in requests if r.target == 'selected-detail'} == {'terrain'}
     assert unsupported == ()
 
 
@@ -156,6 +156,7 @@ def test_national_request_includes_all_fifty_states():
     from tools.map_builder.builder.map_pack_selection import Selection
     requests, unavailable = plan_builds({Selection('us', 1)})
     assert len(requests) == 1 and requests[0].target == 'us-coarse-terrain'
+    assert dict(requests[0].fields) == {'national_scope': 'all'}
     assert not unavailable
     states = catalog_document()['states']
     assert len(states) == 50

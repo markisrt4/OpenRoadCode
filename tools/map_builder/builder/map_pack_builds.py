@@ -16,7 +16,7 @@ def plan_builds(selected):
     details = {}
     for item in effective_selection(selected):
         if item.area == 'us' and item.layer == 1:
-            requests.add(BuildRequest('us-coarse-terrain'))
+            requests.add(BuildRequest('us-coarse-terrain', (('national_scope', 'all'),)))
         elif item.layer == 2 and item.area in ('mi', 'metro-detroit'):
             # Statewide supersedes the same building product in the Metro subset.
             if item.area == 'metro-detroit' and any(
