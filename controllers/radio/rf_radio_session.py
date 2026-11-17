@@ -201,7 +201,7 @@ class ReceiverSession:
                     data=b"", method="POST",
                 ), timeout=6.0,
             ) as response:
-                if response.status != 200:
+                if response.status not in (200, 202):
                     raise RuntimeError(f"SDRForge receiver {endpoint} failed")
             self._owns_receiver = action is RadioAction.START_RECEIVER
             self._state = replace(self._state,
