@@ -249,9 +249,11 @@ class ReceiverSession:
                         "http://127.0.0.1:5570/v1/audio", timeout=1.5,
                     ) as response:
                         audio_status = json.load(response)
+                    startup_error = status.get("startup_error")
                     self._state = replace(
                         self._state, receiver_running=bool(status.get("running", False)),
                         playing=not bool(audio_status.get("muted", False)),
+                        error=str(startup_error) if startup_error else self._state.error,
                     )
                 except (OSError, ValueError, RuntimeError):
                     pass
