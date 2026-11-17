@@ -309,6 +309,39 @@ class SettingsPanel(tk.Frame, UiWidget):
                                 "vehicle": (vehicle,), "rf": (rf,)}
         self._show_settings_page("display")
 
+    def _load_rf_hardware(self) -> None:
+        """Fetch authoritative SDRForge settings without blocking the Tk loop."""
+        import json
+        import threading
+        import urllib.request
+
+        self._rf_hardware_status.configure(text="Loading receiver configuration...")
+
+        def worker() -> None:
+            try:
+                with urllib.request.urlopen(
+                    "http://127.0.0.1:5570/v1/rf/config", timeout=3.0
+                ) as response:
+                    config = json.load(response)
+                gain = config.get("gain_db")
+                ppm = config.get("ppm_correction", 0)
+                agc = config.get("rtl_agc_enabled", False)
+                def apply() -> None:
+                    self._rf_gain.set("" if gain is None else str(gain))
+                    self._rf_ppm.set(str(ppm))
+                    self._rf_agc.set(bool(agc))
+                    self._rf_hardware_status.configure(
+                        text="Receiver settings loaded from SDRForge.")
+                self.after(0, apply)
+            except (OSError, ValueError, TypeError) as exc:
+                try:
+                    self.after(0, lambda: self._rf_hardware_status.configure(
+                        text=f"Unable to read SDRForge settings: {exc}"))
+                except RuntimeError:
+                    pass
+
+        threading.Thread(target=worker, name="orc-rf-config-read", daemon=True).start()
+
     def _apply_rf_hardware(self) -> None:
         import json
         import threading
@@ -364,6 +397,8 @@ class SettingsPanel(tk.Frame, UiWidget):
             frame.grid()
         for name, button in self._page_buttons.items():
             self._style_choice(button, name == page)
+        if page == "rf":
+            self._load_rf_hardware()
 
     def _share_host_location(self) -> None:
         if self._location_handler is not None:
