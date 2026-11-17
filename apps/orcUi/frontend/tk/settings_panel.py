@@ -258,6 +258,43 @@ class SettingsPanel(tk.Frame, UiWidget):
                 activeforeground="#ffffff",
                 font=("Sans", FONT_CONTROL), bd=0)
             selector.grid(row=row, column=1, sticky="ew", padx=14, pady=6)
+        tk.Label(rf, text="RECEIVER • RTL-SDR", bg=ui.surface,
+                 fg=ui.accent_primary, font=("Sans", 11, "bold")).grid(
+                     row=7, column=0, columnspan=2, sticky="w", padx=14, pady=(16, 8))
+        self._rf_gain = tk.StringVar(value="29.7")
+        self._rf_ppm = tk.StringVar(value="0")
+        self._rf_agc = tk.BooleanVar(value=False)
+        for row, label, variable in (
+            (8, "Tuner gain (dB; blank = auto)", self._rf_gain),
+            (9, "Frequency correction (PPM)", self._rf_ppm),
+        ):
+            tk.Label(rf, text=label, bg=ui.surface, fg=ui.text,
+                     font=("Sans", FONT_BODY)).grid(
+                         row=row, column=0, sticky="w", padx=14, pady=5)
+            tk.Entry(rf, textvariable=variable, bg=ui.control_background,
+                     fg=ui.control_text, insertbackground=ui.text,
+                     relief=tk.FLAT, font=("Sans", FONT_CONTROL)).grid(
+                         row=row, column=1, sticky="ew", padx=14, pady=5)
+        tk.Checkbutton(rf, text="RTL digital AGC", variable=self._rf_agc,
+                       bg=ui.surface, fg=ui.text, selectcolor=ui.control_background,
+                       activebackground=ui.surface,
+                       activeforeground=ui.text).grid(
+                           row=10, column=0, columnspan=2, sticky="w", padx=14)
+        tk.Label(rf, text="WBFM sample rate: 2.4 Msps (fixed). Stop SDR before applying hardware changes.",
+                 bg=ui.surface, fg=ui.text_muted,
+                 font=("Sans", FONT_SMALL)).grid(
+                     row=11, column=0, columnspan=2, sticky="w", padx=14, pady=6)
+        self._rf_hardware_status = tk.Label(rf, text="", bg=ui.surface,
+                 fg=ui.text_muted, font=("Sans", FONT_SMALL))
+        self._rf_hardware_status.grid(row=12, column=0, columnspan=2,
+                                     sticky="w", padx=14)
+        tk.Button(rf, text="APPLY RECEIVER SETTINGS",
+                  command=self._apply_rf_hardware,
+                  bg=ui.control_background, fg=ui.control_text,
+                  activebackground=ui.control_active, relief=tk.FLAT,
+                  font=("Sans", FONT_CONTROL, "bold")).grid(
+                      row=13, column=0, columnspan=2,
+                      sticky="ew", padx=14, pady=8)
         self._rf_saved_label = tk.Label(
             rf, text="Changes apply when the radio view is reopened.",
             bg=ui.surface, fg=ui.text_muted, font=("Sans", FONT_SMALL))
@@ -271,6 +308,44 @@ class SettingsPanel(tk.Frame, UiWidget):
         self._settings_pages = {"display": (location, display),
                                 "vehicle": (vehicle,), "rf": (rf,)}
         self._show_settings_page("display")
+
+    def _apply_rf_hardware(self) -> None:
+        import json
+        import threading
+        import urllib.request
+
+        try:
+            gain = self._rf_gain.get().strip()
+            payload = {
+                "sample_rate_hz": 2400000,
+                "gain_db": None if not gain else float(gain),
+                "ppm_correction": int(self._rf_ppm.get()),
+                "rtl_agc_enabled": self._rf_agc.get(),
+            }
+        except ValueError:
+            self._rf_hardware_status.configure(text="Invalid gain or PPM value")
+            return
+        self._rf_hardware_status.configure(text="Applying receiver settings...")
+
+        def worker() -> None:
+            try:
+                request = urllib.request.Request(
+                    "http://127.0.0.1:5570/v1/rf/config",
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(request, timeout=5) as response:
+                    response.read()
+                message = "Receiver settings applied. Start SDR to use them."
+            except Exception as exc:
+                message = f"Receiver settings not applied: {exc}"
+            try:
+                self.after(0, lambda: self._rf_hardware_status.configure(text=message))
+            except RuntimeError:
+                pass
+
+        threading.Thread(target=worker, name="orc-rf-config", daemon=True).start()
 
     def _save_rf_settings(self) -> None:
         save_rf_visualization_settings({
