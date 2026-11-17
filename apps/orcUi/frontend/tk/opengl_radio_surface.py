@@ -53,6 +53,7 @@ if OpenGLFrame is not None:
             self._palette = "classic"
             self._ready = False
             self._waterfall_texture = None
+            self._palette_lut: dict[str, tuple[bytes, ...]] = {}
 
         def tkCreateContext(self):
             return _create_glx_context(super().tkCreateContext)
@@ -103,19 +104,29 @@ if OpenGLFrame is not None:
             history = self._history
             if history and self._waterfall_texture is not None:
                 # A single GPU texture replaces thousands of per-cell quads.
-                rows = min(len(history), 128)
-                columns = min(max(128, w), 512)
+                # The texture is linearly filtered by OpenGL; converting
+                # hundreds of thousands of Python RGB components per frame
+                # wastes CPU without improving the displayed resolution.
+                rows = min(len(history), 96)
+                columns = min(max(128, w), 256)
+                lut = self._palette_lut.get(self._palette)
+                if lut is None:
+                    lut = tuple(bytes(int(component * 255)
+                                      for component in self._color(i / 255.0, self._palette))
+                                for i in range(256))
+                    self._palette_lut[self._palette] = lut
                 pixels = bytearray(rows * columns * 3)
                 for row_idx in range(rows):
                     row = history[-1 - row_idx]
                     if not row:
                         continue
+                    row_len = len(row)
+                    offset = row_idx * columns * 3
                     for col in range(columns):
-                        rgb = self._color(row[col * len(row) // columns], self._palette)
-                        pos = (row_idx * columns + col) * 3
-                        pixels[pos:pos + 3] = bytes(
-                            max(0, min(255, int(component * 255))) for component in rgb
-                        )
+                        value = row[col * row_len // columns]
+                        index = max(0, min(255, int(value * 255)))
+                        pos = offset + col * 3
+                        pixels[pos:pos + 3] = lut[index]
                 GL.glEnable(GL.GL_TEXTURE_2D)
                 GL.glBindTexture(GL.GL_TEXTURE_2D, self._waterfall_texture)
                 GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)
