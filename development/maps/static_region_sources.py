@@ -8,6 +8,7 @@ import json
 import math
 import re
 from pathlib import Path
+from urllib.error import HTTPError
 from urllib.parse import urlsplit
 
 from development.maps.static_tile_trial import (
@@ -43,7 +44,36 @@ def intersect(a, b):
     return result if result[0] < result[2] and result[1] < result[3] else None
 
 
-def discover_imagery(bounds, fetch=get_json):
+def discover_imagery(bounds, fetch=get_json, *, _depth=0):
+    """Partition persistently slow catalog pages; never accept partial discovery."""
+    try:
+        return _discover_imagery(bounds, fetch)
+    except HTTPError as error:
+        if error.code not in (429, 500, 502, 503, 504) or _depth >= 2:
+            raise
+        print(f'NAIP catalog remains unavailable; splitting footprint at depth {_depth+1}', flush=True)
+    west, south, east, north = bounds
+    middle_x, middle_y = (west+east)/2, (south+north)/2
+    selected = {}
+    for child in ((west,south,middle_x,middle_y), (middle_x,south,east,middle_y),
+                  (west,middle_y,middle_x,north), (middle_x,middle_y,east,north)):
+        try:
+            records = discover_imagery(child, fetch, _depth=_depth+1)
+        except ValueError as error:
+            if str(error).startswith('No dated NAIP files'):
+                continue
+            raise
+        for record in records:
+            tile = re.match(r'(m_[0-9]{7}_[a-z]{2}_[0-9]{2})_', Path(urlsplit(record['url']).path).name)
+            footprint = tile[1] if tile else tuple(round(value,5) for value in record['bounds_deg'])
+            if record['date'] > selected.get(footprint, {}).get('date', ''):
+                selected[footprint] = record
+    if not selected:
+        raise ValueError('No dated NAIP files in regional catalog')
+    return sorted(selected.values(), key=lambda record: (record['date'], record['url']))
+
+
+def _discover_imagery(bounds, fetch=get_json):
     """Follow bounded STAC pages; retain newest dated NAIP per source footprint."""
     collection = fetch(PC + '/stac/v1/collections/naip')
     if not any('USDA' in p.get('name', '') and 'licensor' in p.get('roles', [])

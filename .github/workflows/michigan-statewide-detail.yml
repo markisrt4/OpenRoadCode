@@ -29,7 +29,8 @@ jobs:
     needs: verify
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.plan.outputs.matrix }}
+      matrix: ${{ steps.resume.outputs.matrix || steps.plan.outputs.matrix }}
+      has_work: ${{ steps.resume.outputs.has_work || 'true' }}
       resume_run: ${{ steps.request.outputs.resume_run }}
     steps:
       - uses: actions/checkout@v6
@@ -40,7 +41,7 @@ jobs:
         run: |
           python -m pip install pytest Pillow ruff
           python -m ruff check development/maps/statewide_detail_plan.py development/maps/build_statewide_detail.py development/maps/install_statewide_detail.py development/maps/summarize_statewide_detail.py apps/launchers/local_statewide_detail.py
-          python -m pytest apps/launchers/unit_test/test_statewide_detail.py -q
+          python -m pytest apps/launchers/unit_test/test_statewide_detail.py apps/launchers/unit_test/test_static_region_build.py -q
       - id: request
         name: Read the authorized build request
         env:
@@ -60,15 +61,44 @@ jobs:
       - id: plan
         name: Plan all Michigan land-intersecting delivery cells
         run: python -m development.maps.statewide_detail_plan --output build-output/statewide-plan.json --github-output "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v4
+        if: steps.request.outputs.resume_run != ''
+        continue-on-error: true
+        with:
+          pattern: mi-detail-reports-*-${{ steps.request.outputs.resume_run }}
+          run-id: ${{ steps.request.outputs.resume_run }}
+          github-token: ${{ github.token }}
+          path: build-output/resume-reports
+      - uses: actions/download-artifact@v4
+        if: steps.request.outputs.resume_run != ''
+        continue-on-error: true
+        with:
+          name: mi-detail-summary-${{ steps.request.outputs.resume_run }}
+          run-id: ${{ steps.request.outputs.resume_run }}
+          github-token: ${{ github.token }}
+          path: build-output/resume-summary
+      - id: resume
+        if: steps.request.outputs.resume_run != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESUME_RUN: ${{ steps.request.outputs.resume_run }}
+        run: >-
+          python -m development.maps.resume_statewide_detail
+          --plan build-output/statewide-plan.json --directory build-output/resume-reports
+          --run "$RESUME_RUN" --inherited build-output/resume-summary/statewide-delivery.json
+          --output build-output/resume-delivery.json --github-output "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
           name: mi-detail-plan-${{ github.run_id }}
-          path: build-output/statewide-plan.json
+          path: |
+            build-output/statewide-plan.json
+            build-output/resume-delivery.json
           overwrite: true
           retention-days: 14
   cells:
     name: Michigan detail batch ${{ matrix.batch }}
     needs: plan
+    if: needs.plan.outputs.has_work != 'false'
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     strategy:
@@ -109,8 +139,6 @@ jobs:
         with:
           path: .cache/gdal-apt
           key: statewide-gdal-apt-ubuntu24-v1
-      - name: Statewide pack, paging and source regressions
-        run: /usr/bin/python3 -m pytest apps/launchers/unit_test/test_statewide_detail.py apps/launchers/unit_test/test_static_region_build.py -q
       - uses: actions/download-artifact@v4
         with:
           name: mi-detail-plan-${{ github.run_id }}
@@ -167,12 +195,22 @@ jobs:
         with:
           pattern: mi-detail-reports-*-${{ github.run_id }}
           path: build-output/reports
+      - name: Retain prior artifact references and add newly completed cells
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.run_id }}
+        run: >-
+          python -m development.maps.resume_statewide_detail --plan build-output/plan/statewide-plan.json
+          --directory build-output/reports --run "$RUN_ID"
+          --inherited build-output/plan/resume-delivery.json --output build-output/statewide-delivery.json
       - name: Review complete cells, source gaps and download/install sizes
-        run: python -m development.maps.summarize_statewide_detail --plan build-output/plan/statewide-plan.json --directory build-output/reports --output build-output/statewide-summary.json
+        run: python -m development.maps.summarize_statewide_detail --plan build-output/plan/statewide-plan.json --directory build-output/reports --output build-output/statewide-summary.json --delivery build-output/statewide-delivery.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: mi-detail-summary-${{ github.run_id }}
           overwrite: true
           retention-days: 14
-          path: build-output/statewide-summary.json
+          path: |
+            build-output/statewide-summary.json
+            build-output/statewide-delivery.json

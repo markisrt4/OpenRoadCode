@@ -179,3 +179,29 @@ def test_current_dem_wins_over_recent_metadata_edit_on_historical_dem():
                  publicationDate='2019-04-12',lastUpdated='2026-09-24')])
     records=sources.discover_terrain((-83.9,42.1,-83.1,42.9),fetch)
     assert len(records)==1 and '/current/' in records[0]['url']
+
+
+def test_persistent_catalog_timeout_subdivides_without_losing_sources():
+    from urllib.error import HTTPError
+    searches = []
+    def fetch(url, **kwargs):
+        if url.endswith('/collections/naip'):
+            return {'providers': [{'name': 'USDA', 'roles': ['licensor']}]}
+        box = tuple(map(float, kwargs['bbox'].split(',')))
+        searches.append(box)
+        if box == (-84, 42, -83, 43):
+            raise HTTPError(url, 504, 'slow catalog', {}, None)
+        return {'features': [item('2022-07-30')]}
+    records = sources.discover_imagery((-84, 42, -83, 43), fetch)
+    assert len(searches) == 5
+    assert len(records) == 1
+
+
+def test_subdivided_catalog_failure_is_not_partial_success():
+    from urllib.error import HTTPError
+    def fetch(url, **kwargs):
+        if url.endswith('/collections/naip'):
+            return {'providers': [{'name': 'USDA', 'roles': ['licensor']}]}
+        raise HTTPError(url, 504, 'unavailable', {}, None)
+    with pytest.raises(HTTPError):
+        sources.discover_imagery((-84, 42, -83, 43), fetch)

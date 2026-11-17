@@ -394,3 +394,27 @@ and retains existing response-size ceilings. Permanent HTTP errors such as 404,
 malformed metadata and validation errors are not retried. This happens in the
 current Actions worker; completed cell archives are untouched. Already-running
 jobs use their checked-out revision and do not acquire this fix automatically.
+
+### Efficient detail resume and slow catalog pages
+
+Resume planning reads small descriptor artifacts and checks that their referenced
+batch artifacts are live. Only batches with missing cells start raster workers;
+completed batch ZIPs are not copied into the new run. Regressions run once in
+preflight, rather than in every worker. Persistent transient imagery catalog
+failures split the footprint into smaller complete queries (bounded to two
+subdivision levels); a failed child still fails discovery, never partial success.
+
+The summary now includes `statewide-delivery.json`, mapping each cell to its
+original run/artifact and checksum. It may reference several runs. Referenced
+artifacts retain their original expiration dates; this is not permanent release
+storage. An expired or missing artifact schedules its cells for rebuilding.
+Planning trusts validated receipts; archive checksums are verified on download
+and installation. Completeness still does not certify gap-free source coverage.
+
+For reference-based deliveries, download the summary and matching plan artifacts,
+then use `development.maps.download_statewide_detail --delivery <path to
+statewide-delivery.json> --output <directory>` to fetch each required batch once,
+verify its selected cells and collect them without duplicate archive paths.
+Place the matching `statewide-plan.json` in that directory and use the existing
+`install_statewide_detail` installer. Generic `gh run download` of only the newest
+run will no longer contain all inherited raster ZIPs.

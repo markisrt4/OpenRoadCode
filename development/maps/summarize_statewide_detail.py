@@ -6,8 +6,8 @@ from pathlib import Path
 from development.maps.statewide_detail_plan import PROFILE
 
 
-def summarize(plan,directory):
-    expected={c['id'] for c in plan['cells']};found={}
+def summarize(plan,directory,delivery=None):
+    expected={c['id'] for c in plan['cells']};found={key:row['descriptor'] for key,row in (delivery or {}).get('cells',{}).items()}
     for path in Path(directory).rglob('*.zip.json'):
         descriptor=json.loads(path.read_text());key=descriptor.get('coverage')
         if descriptor.get('profile')!=PROFILE or key not in expected:raise ValueError('Unexpected detail descriptor')
@@ -30,7 +30,9 @@ def summarize(plan,directory):
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--plan',type=Path,required=True)
     parser.add_argument('--directory',type=Path,required=True);parser.add_argument('--output',type=Path,required=True)
-    args=parser.parse_args();report=summarize(json.loads(args.plan.read_text()),args.directory)
+    parser.add_argument('--delivery',type=Path)
+    args=parser.parse_args();report=summarize(json.loads(args.plan.read_text()),args.directory,
+        json.loads(args.delivery.read_text()) if args.delivery else None)
     args.output.parent.mkdir(parents=True,exist_ok=True);args.output.write_text(json.dumps(report,indent=2))
     print('Statewide detail summary: '+json.dumps(report,sort_keys=True),flush=True)
     if not report['complete']:raise SystemExit('Statewide detail is incomplete; retry failed batches')

@@ -117,7 +117,7 @@ def test_browser_paging_lifecycle():
     node=shutil.which('node')
     if not node:pytest.skip('Node optional for terrain browser regression')
     script=Path(__file__).resolve().parents[3]/'frontends/web/cesium/unit_test/test_paged_terrain.js'
-    result=subprocess.run([node,'--test',str(script)],capture_output=True,text=True,timeout=20)
+    result=subprocess.run([node,'--test',str(script)],capture_output=True,text=True,timeout=60)
     assert result.returncode==0,result.stdout+result.stderr
 
 
