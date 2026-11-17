@@ -13,10 +13,11 @@ import re
 from time import monotonic
 
 from ui.radio.radio_visualization_config import (RadioRenderer, RadioVisualizationConfig, select_renderer,
-    load_rf_visualization_settings)
+    load_rf_visualization_settings, save_rf_visualization_settings)
 from collections import deque
 from collections.abc import Sequence
 
+from ui.radio.sdrforge_spectrum_if import SpectrumViewport
 from ui.theme import ThemeBundle
 from .opengl_radio_surface import OpenGLRadioSurface, available as opengl_available
 
@@ -48,6 +49,8 @@ class SdrForgeReceiverView(tk.Frame):
         self._peak_bins: tuple[float, ...] = ()
         self._center_frequency_hz: int | None = None
         self._sample_rate_hz: int | None = None
+        self._viewport: SpectrumViewport | None = None
+        self._recenter_on_tune = overrides.get("recenter_on_tune", True) is not False
         self._db_floor: float | None = None
         self._db_ceiling: float | None = None
         self._history: deque[tuple[float, ...]] = deque(maxlen=self._visualization.waterfall_rows)
@@ -71,7 +74,69 @@ class SdrForgeReceiverView(tk.Frame):
             self._gl_surface = OpenGLRadioSurface(self, width=320, height=180)
             self._gl_surface.place(x=0, y=80, relwidth=1, height=180)
             self._gl_surface.bind("<Button-1>", self._handle_spectrum_click)
+        self._spectrum_controls = tk.Frame(self, bg=theme.ui.surface)
+        for label, callback in (
+            ("◀", lambda: self.pan_spectrum(-0.20)),
+            ("−", lambda: self.zoom_spectrum(1.5)),
+            ("+", lambda: self.zoom_spectrum(1 / 1.5)),
+            ("▶", lambda: self.pan_spectrum(0.20)),
+        ):
+            tk.Button(self._spectrum_controls, text=label, command=callback,
+                      bg=theme.ui.surface, fg=theme.ui.text,
+                      relief=tk.FLAT, bd=0, padx=4, pady=2,
+                      font=("Sans", 11, "bold")).pack(side="left")
+        self._recenter_button = tk.Button(
+            self._spectrum_controls, command=self._toggle_recenter,
+            bg=theme.ui.surface, fg=theme.ui.text, relief=tk.FLAT,
+            bd=0, padx=5, pady=2, font=("Sans", 9, "bold"))
+        self._recenter_button.pack(side="left")
+        self._update_recenter_button()
+        self._spectrum_controls.place(relx=1, x=-8, y=7, anchor="ne")
         # Preset navigation belongs to RadioPanel, not inside the spectrum.
+
+    def _update_recenter_button(self) -> None:
+        self._recenter_button.configure(
+            text="CENTER ●" if self._recenter_on_tune else "CENTER ○")
+
+    def _toggle_recenter(self) -> None:
+        self.set_recenter_on_tune(not self._recenter_on_tune)
+
+    def set_recenter_on_tune(self, enabled: bool) -> None:
+        self._recenter_on_tune = bool(enabled)
+        if self._viewport is not None:
+            self._viewport = replace(self._viewport, recenter_on_tune=bool(enabled))
+        settings = load_rf_visualization_settings()
+        settings["recenter_on_tune"] = bool(enabled)
+        save_rf_visualization_settings(settings)
+        self._update_recenter_button()
+        self._schedule_render()
+
+    def pan_spectrum(self, fraction: float) -> None:
+        if self._viewport is not None:
+            self._viewport = self._viewport.pan(fraction)
+            self._schedule_render()
+
+    def zoom_spectrum(self, factor: float) -> None:
+        if self._viewport is not None:
+            self._viewport = self._viewport.zoom(
+                factor, max_span_hz=float(self._sample_rate_hz or self._viewport.span_hz))
+            self._schedule_render()
+
+    def _viewport_row(self, row: Sequence[float]) -> tuple[float, ...]:
+        """Project source FFT values into the visible frequency window."""
+        viewport = self._viewport
+        if not row or viewport is None or not self._center_frequency_hz or not self._sample_rate_hz:
+            return tuple(row)
+        source_start = self._center_frequency_hz - self._sample_rate_hz / 2
+        scale = (len(row) - 1) / self._sample_rate_hz
+        length = len(row)
+        return tuple(
+            row[index] if 0 <= index < length else 0.0
+            for index in (
+                round((viewport.frequency_at(i / max(1, length - 1)) - source_start) * scale)
+                for i in range(length)
+            )
+        )
 
     def set_spectrum_tune_handler(self, handler) -> None:
         """Receive frequency selections without coupling the widget to radio control."""
@@ -82,7 +147,8 @@ class SdrForgeReceiverView(tk.Frame):
             return
         width = max(1, event.widget.winfo_width())
         position = max(0.0, min(1.0, event.x / width))
-        hz = self._center_frequency_hz + (position - 0.5) * self._sample_rate_hz
+        hz = (self._viewport.frequency_at(position) if self._viewport is not None
+              else self._center_frequency_hz + (position - 0.5) * self._sample_rate_hz)
         # US FM broadcast channels are spaced 200 kHz with odd-tenth MHz centers.
         snapped = round((hz - 87_900_000) / 200_000) * 200_000 + 87_900_000
         if 87_900_000 <= snapped <= 107_900_000:
@@ -130,8 +196,15 @@ class SdrForgeReceiverView(tk.Frame):
             span = max(1.0, self._db_ceiling - self._db_floor)
             raw = tuple(max(0.0, min(1.0, (float(value) - self._db_floor) / span))
                         for value in power_db)
+        previous_center = self._center_frequency_hz
         self._center_frequency_hz = center_frequency_hz
         self._sample_rate_hz = sample_rate_hz
+        if center_frequency_hz is not None and sample_rate_hz is not None:
+            if self._viewport is None:
+                self._viewport = SpectrumViewport(
+                    float(center_frequency_hz), float(sample_rate_hz), self._recenter_on_tune)
+            elif previous_center != center_frequency_hz and self._recenter_on_tune:
+                self._viewport = replace(self._viewport, center_hz=float(center_frequency_hz))
         if len(self._bins) == len(raw):
             self._bins = tuple(0.40 * value + 0.60 * old
                                for value, old in zip(raw, self._bins))
@@ -179,10 +252,13 @@ class SdrForgeReceiverView(tk.Frame):
         spectrum_height = max(20, int((plot_bottom - spectrum_top) * 0.38))
         waterfall_top = spectrum_top + spectrum_height
         waterfall_height = max(1, plot_bottom - waterfall_top)
+        display_bins = self._viewport_row(self._bins)
+        display_peaks = self._viewport_row(self._peak_bins)
+        display_history = tuple(self._viewport_row(row) for row in self._history)
         if self._gl_surface is not None:
             self._gl_surface.place(x=0, y=spectrum_top, relwidth=1, height=max(1, plot_bottom-spectrum_top))
-            self._gl_surface.update_data(self._bins, tuple(self._history),
-                                         self._visualization.palette, self._peak_bins)
+            self._gl_surface.update_data(display_bins, display_history,
+                                         self._visualization.palette, display_peaks)
 
         canvas.create_rectangle(0, 0, w, header, fill=ui.surface, outline="")
         canvas.create_rectangle(0, 0, 5, header, fill=ui.accent_primary, outline="")
@@ -215,7 +291,7 @@ class SdrForgeReceiverView(tk.Frame):
             canvas.create_line(x, spectrum_top - 5, x, spectrum_top,
                                fill=ui.border)
             if self._center_frequency_hz and self._sample_rate_hz:
-                hz = self._center_frequency_hz + (i / 4 - 0.5) * self._sample_rate_hz
+                hz = (self._viewport.frequency_at(i / 4) if self._viewport is not None else self._center_frequency_hz + (i / 4 - 0.5) * self._sample_rate_hz)
                 label = f"{hz / 1_000_000:.3f}"
             else:
                 label = f"{i * 25}%"
@@ -229,22 +305,22 @@ class SdrForgeReceiverView(tk.Frame):
                 level = self._db_ceiling - (self._db_ceiling - self._db_floor) * i / 4
                 canvas.create_text(7, y - 2, anchor="sw", text=f"{level:.0f} dB",
                                    fill=ui.text_muted, font=("Monospace", 8))
-        if self._bins and self._gl_surface is None:
+        if display_bins and self._gl_surface is None:
             points = []
-            for i, value in enumerate(self._bins):
-                x = i * (w - 1) / max(1, len(self._bins) - 1)
+            for i, value in enumerate(display_bins):
+                x = i * (w - 1) / max(1, len(display_bins) - 1)
                 y = spectrum_top + (spectrum_height - 2) * (1.0 - value)
                 points.extend((x, y))
             if len(points) >= 4:
                 canvas.create_line(*points, fill=ui.surface_alt, width=5)
                 canvas.create_line(*points, fill=ui.accent_primary, width=2)
                 peaks = []
-                for i, value in enumerate(self._peak_bins):
-                    peaks.extend((i * (w - 1) / max(1, len(self._peak_bins) - 1),
+                for i, value in enumerate(display_peaks):
+                    peaks.extend((i * (w - 1) / max(1, len(display_peaks) - 1),
                                   spectrum_top + (spectrum_height - 2) * (1.0 - value)))
                 canvas.create_line(*peaks, fill=ui.accent_success, width=1)
                 canvas.create_line(w / 2, spectrum_top, w / 2, plot_bottom, fill=ui.accent_success, width=1)
-            history = list(self._history)
+            history = list(display_history)
             x_step = max(4, (w + 95) // 96)
             y_step = max(3, (waterfall_height + 47) // 48)
             for offset in range(0, waterfall_height, y_step):
