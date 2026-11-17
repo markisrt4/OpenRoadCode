@@ -189,12 +189,15 @@ class SdrForgeReceiverView(tk.Frame):
         canvas.create_line(0, header - 1, w, header - 1, fill=ui.accent_primary, width=2)
 
         frequency = f"{self._frequency_hz / 1e6:.3f}".rstrip("0").rstrip(".") if self._frequency_hz else "--.-"
-        canvas.create_text(14, header - 8, anchor="sw",
+        canvas.create_text(w / 2, header - 8, anchor="s",
                            text=f"{frequency} MHz", fill=ui.text,
                            font=("Sans", 25 if compact else 35, "bold"))
-        canvas.create_text(w - 14, 12, anchor="ne",
-                           text=self._station_title()[:28], width=max(80, w // 2 - 18), justify="right", fill=ui.text,
-                           font=("Sans", 11 if compact else 15, "bold"))
+        station_title = self._station_title()
+        if station_title:
+            canvas.create_text(14, 12, anchor="nw",
+                               text=station_title[:28], width=max(80, w // 3),
+                               justify="left", fill=ui.text,
+                               font=("Sans", 11 if compact else 15, "bold"))
         if self._mode in ("WFM", "FM"):
             canvas.create_text(w - 14, header - 8, anchor="se",
                                text="● STEREO" if self._stereo else "MONO",
