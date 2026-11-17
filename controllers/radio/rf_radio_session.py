@@ -205,8 +205,11 @@ class ReceiverSession:
                     raise RuntimeError(f"SDRForge receiver {endpoint} failed")
             # SDRForge is shared: leaving this UI must not stop acquisition.
             self._owns_receiver = False
+            # HTTP 202 means startup was accepted, not that acquisition is running.
+            # Periodic REST refresh will report the actual receiver state.
             self._state = replace(self._state,
-                                  receiver_running=action is RadioAction.START_RECEIVER,
+                                  receiver_running=False if action is RadioAction.STOP_RECEIVER
+                                  else self._state.receiver_running,
                                   error="")
             return
         if action in (RadioAction.PLAY, RadioAction.PAUSE):
