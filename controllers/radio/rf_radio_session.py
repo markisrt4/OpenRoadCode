@@ -258,7 +258,9 @@ class ReceiverSession:
                 except (OSError, ValueError, RuntimeError):
                     pass
                 try:
-                    self._state = replace(self._state, station=self._radio.refresh(), error="")
+                    # A successful rigctl frequency read must not erase a
+                    # receiver startup failure reported by REST.
+                    self._state = replace(self._state, station=self._radio.refresh())
                 except (OSError, RuntimeError, ValueError):
                     # Preserve the last valid station during transient rigctl failures.
                     # REST remains authoritative for acquisition state.
