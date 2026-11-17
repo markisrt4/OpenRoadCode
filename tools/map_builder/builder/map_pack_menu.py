@@ -123,7 +123,7 @@ def review(selected):
         print(f'  {AREAS.get(item.area, item.area)} · {LAYERS[item.layer]}')
     if len(effective) < len(selected):
         print('Overlapping layers are included under their larger selected area.')
-    print('Nationwide basic terrain builds all 50 states; a complete validated pack is not yet available.')
+    print('Nationwide terrain currently runs three raster-source probes before the 50-state rollout.')
     print('Roads/search/routing still use the existing navigation builder.')
     print('Download and installed sizes are unknown until published descriptors are checked.')
     print('Other regional packs may require a build; selecting an area does not start one.')
@@ -183,7 +183,7 @@ def main():
                 return 0
             if answer == 0:
                 from .map_pack_selection import Selection, toggle
-                print('Nationwide basic terrain can be requested at review; includes Alaska and Hawaii.')
+                print('US terrain source probes can be requested at review: mainland, Alaska and Hawaii.')
                 current = Selection('us', 1) in selected
                 if input(f"{'Remove' if current else 'Add'} to selection? [y/N] ").strip().lower() == 'y':
                     toggle(selected, 'us', 1)

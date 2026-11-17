@@ -174,9 +174,30 @@ def test_national_failure_report_is_not_validated(tmp_path, monkeypatch):
     import json
     def fail(*args, **kwargs):
         raise RuntimeError('No source coverage')
-    monkeypatch.setattr(builder, 'download_bounds', fail)
+    monkeypatch.setattr(builder, 'raster_region', fail)
     with pytest.raises(RuntimeError):
         builder.build('HI', tmp_path/'out', tmp_path/'cache')
     report = json.loads((tmp_path/'out/us-terrain-report.json').read_text())
     assert report['status'] == 'failed'
     assert not list((tmp_path/'out').glob('*.zip'))
+
+
+def test_national_probe_profile_uses_three_separate_envelopes():
+    from development.maps.build_us_terrain import PROBES, PROFILE
+    assert set(PROBES) == {'CO', 'AK', 'HI'}
+    assert PROFILE == 'us-staged-1arc-coarse-v1'
+    for west, south, east, north in PROBES.values():
+        assert east-west == 1 and north-south == 1
+
+
+def test_coarse_discovery_keeps_existing_detail_default():
+    from development.maps.static_region_sources import discover_terrain
+    calls = []
+    def fetch(*args, **kwargs):
+        calls.append(kwargs)
+        return {'items': [{'boundingBox': {'minX': 0, 'minY': 0, 'maxX': 1, 'maxY': 1},
+                           'downloadURL': 'https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/1/TIFF/current/dem.tif'}], 'total': 1}
+    discover_terrain((0, 0, 1, 1), fetch=fetch)
+    discover_terrain((0, 0, 1, 1), fetch=fetch, dataset='National Elevation Dataset (NED) 1 arc-second')
+    assert '1/3' in calls[0]['datasets']
+    assert '1 arc-second' in calls[1]['datasets']

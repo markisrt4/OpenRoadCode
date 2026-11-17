@@ -92,11 +92,14 @@ def discover_imagery(bounds, fetch=get_json):
     return result
 
 
-def discover_terrain(bounds, fetch=get_json):
+def discover_terrain(bounds, fetch=get_json, *, dataset='National Elevation Dataset (NED) 1/3 arc-second'):
+    if dataset not in ('National Elevation Dataset (NED) 1/3 arc-second',
+                        'National Elevation Dataset (NED) 1 arc-second'):
+        raise ValueError('Unsupported staged terrain product')
     selected = {}
     for offset in range(0, 2000, 100):
         page = fetch(TNM, bbox=','.join(map(str, bounds)),
-                     datasets='National Elevation Dataset (NED) 1/3 arc-second',
+                     datasets=dataset,
                      max=100, offset=offset, outputFormat='JSON')
         items = page.get('items', [])
         for item in items:

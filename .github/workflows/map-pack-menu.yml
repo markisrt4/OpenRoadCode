@@ -11,6 +11,7 @@ on:
       - .github/workflows/map-pack-menu.yml
       - .github/workflows/us-coarse-terrain.yml
       - development/maps/build_us_terrain.py
+      - development/maps/static_region_sources.py
   workflow_dispatch:
 permissions:
   contents: read

@@ -348,3 +348,28 @@ state rather than inventing heights or claiming national coverage. A successful
 subset must not be advertised as the complete US. The first real run measures
 source feasibility as well as pack sizes; full source coverage is not yet proven.
 Artifacts expire after 14 days; versioned permanent publication remains pending.
+
+### National raster correction
+
+The national builder now reuses `discover_terrain`, `source_crops`, `terrain_pack`
+and the existing checked terrain artifact packager. Coarse discovery selects the
+USGS staged **1 arc-second** product; the existing 1/3 arc-second detail default
+and all callers retain their previous behavior. Bounded GDAL range reads create
+cached aligned crops with SHA receipts. There are no elevation point-sampling or
+ImageServer export calls in this path.
+
+Each state envelope uses an endpoint-aligned 1025×1025 grid split into at most
+64 existing 129×129 children. Output sampling varies by envelope; this does not
+claim native resolution beyond the source. Incomplete children are omitted and
+listed in `missing_terrain_tiles`; `coverage_complete` stays false if any are
+missing. Coastal water is not silently assigned invented elevations. A state with
+no complete children fails. Source dates retain publication/update semantics;
+source datum remains unresolved relative relief as in the existing terrain path.
+
+The workflow defaults to **pilot**: one-degree Colorado, Alaska and Hawaii source
+probes. Probe archives are diagnostic and are not state install packs. All-state
+mode additionally requires those three jobs to pass before state workers can
+start. The installer currently requests the pilot by default. Do not enable a
+national default until source gaps, file sizes, runtime catalog limits, regional
+installation and representative device views have been reviewed. Older sampling
+caches use a different profile and are not reused.

@@ -1,7 +1,16 @@
 name: Build US coarse terrain
 on:
   workflow_dispatch:
+    inputs:
+      scope:
+        type: choice
+        default: pilot
+        options: [pilot, all]
   workflow_call:
+    inputs:
+      scope:
+        type: string
+        default: pilot
 permissions:
   contents: read
 concurrency:
@@ -24,8 +33,52 @@ jobs:
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
               output.write('states=' + json.dumps(states) + '\n')
           PY
-  state:
+  probe:
     needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        state: [CO, AK, HI]
+    env:
+      GDAL_CACHEMAX: '128'
+      GDAL_NUM_THREADS: '1'
+      GDAL_DISABLE_READDIR_ON_OPEN: EMPTY_DIR
+      GDAL_HTTP_TIMEOUT: '60'
+      GDAL_HTTP_MAX_RETRY: '2'
+      STATE: ${{ matrix.state }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install existing raster build dependencies
+        run: |
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 update -qq
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 install -y gdal-bin python3-pil
+      - uses: actions/cache/restore@v4
+        with:
+          path: build-output/us-raster-probe-cache
+          key: us-staged-1arc-v1-probe-${{ matrix.state }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: us-staged-1arc-v1-probe-${{ matrix.state }}-
+      - name: Validate representative staged raster source
+        run: >-
+          /usr/bin/python3 -m development.maps.build_us_terrain --state "$STATE" --probe
+          --output build-output/us-probe --cache build-output/us-raster-probe-cache
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: build-output/us-raster-probe-cache
+          key: us-staged-1arc-v1-probe-${{ matrix.state }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: us-raster-probe-${{ matrix.state }}-${{ github.run_id }}
+          path: build-output/us-probe/
+          retention-days: 14
+          if-no-files-found: error
+  state:
+    needs: [plan, probe]
+    if: inputs.scope == 'all'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     strategy:
@@ -34,23 +87,32 @@ jobs:
       matrix:
         state: ${{ fromJSON(needs.plan.outputs.states) }}
     env:
+      GDAL_CACHEMAX: '128'
+      GDAL_NUM_THREADS: '1'
+      GDAL_DISABLE_READDIR_ON_OPEN: EMPTY_DIR
+      GDAL_HTTP_TIMEOUT: '60'
+      GDAL_HTTP_MAX_RETRY: '2'
       STATE: ${{ matrix.state }}
     steps:
       - uses: actions/checkout@v6
+      - name: Install existing raster build dependencies
+        run: |
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 update -qq
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 install -y gdal-bin python3-pil
       - uses: actions/cache/restore@v4
         with:
           path: build-output/us-terrain-cache
-          key: us-coarse-state-33-v1-${{ matrix.state }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: us-coarse-state-33-v1-${{ matrix.state }}-
+          key: us-staged-1arc-v1-${{ matrix.state }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: us-staged-1arc-v1-${{ matrix.state }}-
       - name: Build and validate coarse terrain only
         run: >-
-          python -m development.maps.build_us_terrain --state "$STATE"
+          /usr/bin/python3 -m development.maps.build_us_terrain --state "$STATE"
           --output build-output/us-terrain --cache build-output/us-terrain-cache
       - uses: actions/cache/save@v4
         if: always()
         with:
           path: build-output/us-terrain-cache
-          key: us-coarse-state-33-v1-${{ matrix.state }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: us-staged-1arc-v1-${{ matrix.state }}-${{ github.run_id }}-${{ github.run_attempt }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
