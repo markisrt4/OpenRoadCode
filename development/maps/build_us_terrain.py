@@ -79,7 +79,6 @@ def build(identifier, output, cache, *, probe=False):
     started = time.monotonic()
     try:
         for region in regions:
-            key = region['coverage']
             report['regions'].append(raster_region(region, state['name']+' coarse baseline', output, cache))
         report['status'] = 'validated'
         report['coverage_complete'] = all(not region['missing_terrain_tiles'] for region in report['regions'])
