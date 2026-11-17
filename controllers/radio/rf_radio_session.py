@@ -391,7 +391,7 @@ class ReceiverSession:
                 pass
 
         # Never block the Tk shutdown path on USB acquisition teardown.
-        Thread(target=stop_owned, name="orc-sdrforge-stop", daemon=True).start()
+        Thread(target=stop_owned, name="orc-sdrforge-stop", daemon=False).start()
 
     def close(self) -> None:
         with self._lock:
