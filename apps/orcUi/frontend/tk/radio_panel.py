@@ -45,6 +45,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._drawer: tk.Frame | None = None
         self._display_buttons: dict[str, tk.Button] = {}
         self._live_rf_buttons: list[AutomotiveRadioButton] = []
+        self._receiver_start_pending = False
         self._favorites_signature = None
         self._preset_page = 0
         self._preset_page_size = 4
@@ -225,7 +226,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                      anchor="w", padx=10, pady=2).grid(
                          row=2, column=0, columnspan=2, sticky="ew")
             for label, callback, row, col in (
-                ("◀  − STEP", self._tune_down, 3, 0),
+                ("◀  STEP −", self._tune_down, 3, 0),
                 ("+ STEP  ▶", self._tune_up, 3, 1),
                 ("◀  PRESET", self._previous_preset, 4, 0),
                 ("PRESET  ▶", self._next_preset, 4, 1),
@@ -459,6 +460,12 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self.deactivate()
 
     def _toggle_receiver_power(self) -> None:
+        if self._receiver_start_pending:
+            return
+        if not self._state.receiver_running:
+            self._receiver_start_pending = True
+            self._receiver_power_button.set_text("STARTING SDR…")
+            self._receiver_power_button.set_enabled(False)
         action = (RadioAction.STOP_RECEIVER if self._state.receiver_running
                   else RadioAction.START_RECEIVER)
         self._session.request(RadioRequest(action))
@@ -502,6 +509,8 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
 
     def set_radio_state(self, state: RfRadioState) -> None:
         self._state = state
+        if state.receiver_running or state.error:
+            self._receiver_start_pending = False
         profile = next((p for p in state.profiles if p.key == state.station.profile_key), None)
         if state.view == "adsb":
             self._active_group = "AIR:ADSB"
@@ -556,7 +565,9 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             for button in self._live_rf_buttons:
                 button.set_enabled(state.receiver_running and not state.loading and not state.error)
             self._receiver_power_button.set_text(
-                "■ STOP SDR" if state.receiver_running else "▶ START SDR")
+                "STARTING SDR…" if self._receiver_start_pending else
+                ("■ STOP SDR" if state.receiver_running else "▶ START SDR"))
+            self._receiver_power_button.set_enabled(not self._receiver_start_pending)
             self._receiver_power_button.set_selected(state.receiver_running)
             self._play_button.set_text("MUTE" if state.playing else "UNMUTE")
             self._play_button.set_selected(not state.playing)
