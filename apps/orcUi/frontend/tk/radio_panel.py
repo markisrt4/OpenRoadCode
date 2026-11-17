@@ -44,6 +44,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._drawer_open = False
         self._drawer: tk.Frame | None = None
         self._display_buttons: dict[str, tk.Button] = {}
+        self._live_rf_buttons: list[AutomotiveRadioButton] = []
         self._favorites_signature = None
         self._preset_page = 0
         self._preset_page_size = 4
@@ -229,23 +230,28 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                 ("◀  PRESET", self._previous_preset, 4, 0),
                 ("PRESET  ▶", self._next_preset, 4, 1),
             ):
-                AutomotiveRadioButton(self._receiver_controls, text=label,
+                button = AutomotiveRadioButton(self._receiver_controls, text=label,
                                       command=callback, height=44,
                                       background=ui.control_background,
                                       accent=ui.accent_primary,
-                                      foreground=ui.text, border=ui.border).grid(
-                                          row=row, column=col, sticky="nsew",
-                                          padx=2, pady=2)
+                                      foreground=ui.text, border=ui.border)
+                button.grid(row=row, column=col, sticky="nsew", padx=2, pady=2)
+                button.set_enabled(False)
+                self._live_rf_buttons.append(button)
             self._scan_button = AutomotiveRadioButton(
                 self._receiver_controls, text="SCAN BAND", command=self._toggle_scan,
                 height=44, background=ui.control_background,
                 accent=ui.accent_primary, foreground=ui.text, border=ui.border)
             self._scan_button.grid(row=5, column=0, sticky="nsew", padx=2, pady=2)
+            self._scan_button.set_enabled(False)
+            self._live_rf_buttons.append(self._scan_button)
             self._play_button = AutomotiveRadioButton(
                 self._receiver_controls, text="🔇 MUTE", command=self._toggle_play,
                 height=44, background=ui.control_background,
                 accent=ui.accent_primary, foreground=ui.text, border=ui.border)
             self._play_button.grid(row=5, column=1, sticky="nsew", padx=2, pady=2)
+            self._play_button.set_enabled(False)
+            self._live_rf_buttons.append(self._play_button)
             self._receiver_power_button = AutomotiveRadioButton(
                 self._receiver_controls, text="▶ START SDR",
                 command=self._toggle_receiver_power,
@@ -458,28 +464,40 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._session.request(RadioRequest(action))
 
     def _toggle_play(self) -> None:
+        if self._sdrforge_view is not None and not self._state.receiver_running:
+            return
         action = RadioAction.PAUSE if self._state.playing else RadioAction.PLAY
         self._session.request(RadioRequest(action))
 
     def _toggle_scan(self) -> None:
+        if self._sdrforge_view is not None and not self._state.receiver_running:
+            return
         action = RadioAction.STOP_SCAN if self._state.scanning else RadioAction.SCAN
         self._session.request(RadioRequest(action))
 
     def _previous_preset(self) -> None:
+        if self._sdrforge_view is not None and not self._state.receiver_running:
+            return
         self._session.request(RadioRequest(RadioAction.PREVIOUS))
 
     def _next_preset(self) -> None:
+        if self._sdrforge_view is not None and not self._state.receiver_running:
+            return
         self._session.request(RadioRequest(RadioAction.NEXT))
 
     def _tune_spectrum_frequency(self, frequency_hz: int) -> None:
-        if self._active_group == "FM":
+        if self._active_group == "FM" and self._state.receiver_running:
             self._session.request(RadioRequest(
                 RadioAction.TUNE_FREQUENCY, frequency_hz=frequency_hz))
 
     def _tune_down(self) -> None:
+        if self._sdrforge_view is not None and not self._state.receiver_running:
+            return
         self._session.request(RadioRequest(RadioAction.TUNE_DOWN))
 
     def _tune_up(self) -> None:
+        if self._sdrforge_view is not None and not self._state.receiver_running:
+            return
         self._session.request(RadioRequest(RadioAction.TUNE_UP))
 
     def set_radio_state(self, state: RfRadioState) -> None:
@@ -535,6 +553,8 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                     self._station_info.grid_remove()
                     self._subcategory_strip.grid()
 
+            for button in self._live_rf_buttons:
+                button.set_enabled(state.receiver_running and not state.loading and not state.error)
             self._receiver_power_button.set_text(
                 "■ STOP SDR" if state.receiver_running else "▶ START SDR")
             self._receiver_power_button.set_selected(state.receiver_running)
