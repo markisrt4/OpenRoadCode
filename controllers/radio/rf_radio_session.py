@@ -203,7 +203,8 @@ class ReceiverSession:
             ) as response:
                 if response.status not in (200, 202):
                     raise RuntimeError(f"SDRForge receiver {endpoint} failed")
-            self._owns_receiver = action is RadioAction.START_RECEIVER
+            # SDRForge is shared: leaving this UI must not stop acquisition.
+            self._owns_receiver = False
             self._state = replace(self._state,
                                   receiver_running=action is RadioAction.START_RECEIVER,
                                   error="")
@@ -251,7 +252,12 @@ class ReceiverSession:
                     )
                 except (OSError, ValueError, RuntimeError):
                     pass
-                self._state = replace(self._state, station=self._radio.refresh())
+                try:
+                    self._state = replace(self._state, station=self._radio.refresh(), error="")
+                except (OSError, RuntimeError, ValueError):
+                    # Preserve the last valid station during transient rigctl failures.
+                    # REST remains authoritative for acquisition state.
+                    pass
             if self._native_view == "sdrpp":
                 self._state = replace(self._state, telemetry=self._telemetry.read_state(
                     include_rds=self._radio.active_profile_key == "fm_radio"))
