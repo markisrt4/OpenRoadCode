@@ -535,3 +535,27 @@ See [Michigan detail and national delivery plan](map_expansion_plan.md) for imag
 resolution tiers, terrain LOD requirements, source rights, storage estimates and
 the staged expansion to all 50 states. Higher-resolution and national delivery
 remain planned work; this change builds Michigan buildings.
+
+
+## Download the successful national terrain states
+
+```bash
+git switch navigation-cesium
+git pull --ff-only
+python -m development.maps.download_us_terrain --run 44150040908 \
+  --directory build-output/us-terrain \
+  --reuse-directory build-output/us-terrain-retry
+```
+
+The host tool uses authenticated GitHub CLI, reads successful state jobs (not
+probe jobs), checks artifact availability, verifies existing ZIP size/SHA/kind/
+bounds using the existing descriptor reader, and downloads missing states one
+at a time. Interrupted transfers retry up to three times per state, then move
+on; rerunning skips verified completed states. This is state-level recovery,
+not byte-range continuation of an individual Actions artifact. ZIPs, descriptors
+and reports are retained; processing directories are not copied into the result.
+Existing directories and original reusable downloads are preserved. GitHub still
+transfers intermediate files included in the original outer artifact; publication
+of lean release assets remains pending. This downloads only: it does not activate
+national terrain or supply imagery/roads. Full national viewer loading remains
+pending. Failed AK/HI builds are excluded from this run's successful-state set.
