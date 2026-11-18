@@ -23,7 +23,7 @@ def install(directory, *, destination=None, allow_partial=False):
         if key not in definitions:
             continue
         descriptor, archive = read_local_archive(path, key, max_archive_bytes=MAX_ARCHIVE_BYTES)
-        if descriptor.get('kind') != 'terrain' or descriptor.get('bounds_deg') != definitions[key][1]:
+        if descriptor.get('kind') != 'terrain' or descriptor.get('bounds_deg') != list(definitions[key][1]):
             raise ValueError('Wrong terrain kind or coverage: '+key)
         if key in archives:
             if archives[key][0]['sha256'] != descriptor['sha256']:
