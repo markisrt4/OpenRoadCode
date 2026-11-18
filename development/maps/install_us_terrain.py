@@ -22,11 +22,13 @@ def install(directory, *, destination=None, allow_partial=False):
         key = path.name.removesuffix('-terrain.zip')
         if key not in definitions:
             continue
-        if key in archives:
-            raise ValueError('Duplicate national terrain archive: '+key)
         descriptor, archive = read_local_archive(path, key, max_archive_bytes=MAX_ARCHIVE_BYTES)
         if descriptor.get('kind') != 'terrain' or descriptor.get('bounds_deg') != definitions[key][1]:
             raise ValueError('Wrong terrain kind or coverage: '+key)
+        if key in archives:
+            if archives[key][0]['sha256'] != descriptor['sha256']:
+                raise ValueError('Conflicting national terrain archives: '+key)
+            continue
         archives[key] = (descriptor, archive)
     if not archives or (not allow_partial and expected-set(archives)):
         raise ValueError('Expected all 48 continental states; missing '+', '.join(sorted(expected-set(archives))))

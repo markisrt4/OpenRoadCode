@@ -64,3 +64,16 @@ def test_combined_index_preserves_detail_priority_and_rejects_unknown_chunks():
     combined=CombinedTerrainIndex(Index(),National())
     assert [row['id'] for row in combined.page(12,0,0,0)['tiles']]==['regional-detail','national']
     with pytest.raises(ValueError):CombinedTerrainIndex(None,National()).chunk('unknown')
+
+
+def test_identical_retained_download_copies_do_not_block_install(tmp_path):
+    import shutil
+    source=fixture(tmp_path)
+    duplicate=source/'earlier-copy'
+    duplicate.mkdir()
+    for path in list(source.glob('*.zip*')):
+        shutil.copy2(path,duplicate/path.name)
+    destination=tmp_path/'managed'
+    install(source,destination=destination,allow_partial=True)
+    catalog=json.loads((destination/'active/catalog.json').read_text())
+    assert len(catalog['tiles'])==1

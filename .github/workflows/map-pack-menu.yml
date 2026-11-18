@@ -19,7 +19,7 @@ on:
       - frontends/web/cesium/reference_globe_layer.js
       - frontends/web/cesium/map_layer_controls.js
       - frontends/web/cesium/unit_test/test_reference_globe_layer.js
-      - frontends/web/cesium/unit_test/test_map_layer_controls.js frontends/web/cesium/unit_test/test_paged_terrain.js
+      - frontends/web/cesium/unit_test/test_map_layer_controls.js
       - tools/map_builder/builder/map_pack_menu.py
       - tools/map_builder/builder/map_pack_selection.py
       - tools/map_builder/builder/map_pack_builds.py
