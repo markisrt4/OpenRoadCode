@@ -89,8 +89,7 @@ def test_simulated_imu_and_device_gps_can_be_composed(monkeypatch):
 
     assert isinstance(controller._sensor, SimulatedNavigationSensor)
     assert isinstance(controller._gps_source, RoutePlaybackPositionSource)
-    assert isinstance(controller._gps_source._live_source, FallbackPositionSource)
-    assert isinstance(controller._gps_source._live_source._primary, _FakeGpsAdapter)
+    assert isinstance(controller._gps_source._live_source, _FakeGpsAdapter)
 
 
 def test_device_imu_and_simulated_gps_can_be_composed(monkeypatch):
@@ -109,8 +108,7 @@ def test_device_imu_and_device_gps_can_be_composed(monkeypatch):
 
     assert isinstance(controller._sensor, _FakeMotionAdapter)
     assert isinstance(controller._gps_source, RoutePlaybackPositionSource)
-    assert isinstance(controller._gps_source._live_source, FallbackPositionSource)
-    assert isinstance(controller._gps_source._live_source._primary, _FakeGpsAdapter)
+    assert isinstance(controller._gps_source._live_source, _FakeGpsAdapter)
 
 def test_simulated_gps_uses_configured_speed_and_course():
     config = _config("simulation", "simulation")
@@ -148,3 +146,15 @@ def test_termux_keeps_android_bridge_as_live_position_source(monkeypatch):
     assert isinstance(source, RoutePlaybackPositionSource)
     assert isinstance(source._live_source, AndroidPositionSource)
     assert source._live_source._client._base_url == 'http://127.0.0.1:8766'
+
+
+def test_enabled_host_fallback_wraps_device_gps(monkeypatch):
+    _patch_devices(monkeypatch)
+    monkeypatch.setattr(navigation_service_cli, '_host_location_fallback_available', lambda: True)
+    fallback = object()
+    source = navigation_service_cli._build_position_source(
+        _config('simulation', 'device'), host_location_source=fallback)
+    assert isinstance(source, RoutePlaybackPositionSource)
+    assert isinstance(source._live_source, FallbackPositionSource)
+    assert isinstance(source._live_source._primary, _FakeGpsAdapter)
+    assert source._live_source._fallback is fallback
