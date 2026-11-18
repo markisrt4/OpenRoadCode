@@ -3,7 +3,7 @@
 window.ORCMapLayers = function(viewer,snapshot,document) {
   const actions=['imagery','buildings','roads','places','terrain','terrain-scale','terrain-cues','references'];
   const labels={imagery:'Imagery',buildings:'Buildings',roads:'Roads',places:'Places',terrain:'Relief',
-    'terrain-scale':'Height','terrain-cues':'Terrain cues',references:'Grid'};
+    'terrain-scale':'Height','terrain-cues':'Contours / shade',references:'Grid'};
   let imageryVisible=true,disposed=false;
   const imageryAvailable=Boolean(snapshot.imagery_pyramids?.length || snapshot.imagery || snapshot.imagery_layers?.length || snapshot.map_tiles?.tiles.some(t=>t.imagery_url));
   const isImagery=layer=>!['terrain-cues','reference-globe'].includes(layer.imageryProvider?.orcLayerRole);

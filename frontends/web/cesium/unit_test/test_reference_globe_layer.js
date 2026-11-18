@@ -39,3 +39,32 @@ test('offline opaque reference loads once without canvas and stays at bottom',as
   assert.equal(await scope.window.ORCReferenceGlobeLayer(viewer,C),layer);
   assert.equal(requested,1);assert.equal(attached,1);
 });
+
+
+test('uses local SDK natural-color overview without a remote imagery service',async()=>{
+  let fallback=0;
+  const C={buildModuleUrl:value=>'/cesium/'+value,
+    TileMapServiceImageryProvider:{fromUrl:async(url,options)=>{
+      assert.equal(url,'/cesium/Assets/Textures/NaturalEarthII');
+      assert.equal(options.maximumLevel,2);assert.equal(options.fileExtension,'jpg');
+      return {name:'natural-earth'};
+    }},SingleTileImageryProvider:{fromUrl:async()=>{fallback++;}}};
+  const viewer={isDestroyed:()=>false,imageryLayers:{addImageryProvider(provider,index){
+    assert.equal(provider.name,'natural-earth');assert.equal(provider.orcLayerRole,'reference-globe');
+    assert.equal(index,0);return provider;
+  }}};
+  await context().window.ORCReferenceGlobeLayer(viewer,C);
+  assert.equal(fallback,0);
+});
+
+test('missing SDK overview keeps the local opaque fallback usable',async()=>{
+  let fallback=0;
+  const C={buildModuleUrl:value=>'/cesium/'+value,Rectangle:{fromRadians:()=>({})},
+    TileMapServiceImageryProvider:{fromUrl:async()=>{throw Error('missing overview');}},
+    SingleTileImageryProvider:{fromUrl:async url=>{
+      fallback++;assert.equal(url,'/data/world-reference.png');return {};
+    }}};
+  const viewer={isDestroyed:()=>false,imageryLayers:{addImageryProvider:provider=>provider}};
+  await context().window.ORCReferenceGlobeLayer(viewer,C);
+  assert.equal(fallback,1);
+});

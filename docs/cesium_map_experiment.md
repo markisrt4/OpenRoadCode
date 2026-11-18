@@ -1143,3 +1143,20 @@ per polygon, with independent multipolygon members. CI checks actual US interior
 Lake Michigan and ocean pixels, and local PNG transport. Rebuild the asset in
 Actions when source polygons change. This removes the live canvas dependency;
 confirmation of the reported ocean-blue US still requires a Termux device test.
+
+### Offline overview imagery
+
+The global reference now prefers the pinned SDK's existing NaturalEarthII TMS
+assets (`Assets/Textures/NaturalEarthII`, levels0–2). These provide low-resolution
+natural-color land cover/shaded relief, not detailed satellite photographs. All
+requests stay on the local SDK origin; no ion account or online imagery provider
+is introduced. The small opaque PNG remains a setup-failure fallback. Both paths
+use the protected reference-layer role and a single bottom imagery layer, so
+regional image layers stay above the world background.
+
+The optional Terrain cues control is labelled **Contours / shade**, making its
+10-metre contour lines distinct from terrain source-grid artifacts. Its state
+and defaults are unchanged. For visual checks use Height1× and turn this overlay
+off before judging seams in flat areas. Report rectangular gaps separately:
+source gaps, coarse mesh LOD and page boundaries need their own diagnosis, and
+are not established as fixed by the reference imagery change.
