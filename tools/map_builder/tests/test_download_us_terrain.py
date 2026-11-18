@@ -64,3 +64,25 @@ def test_tampered_archive_is_downloaded_again(tmp_path, monkeypatch):
     downloader.fetch_state('123', 'CO', output, [])
     assert run.call_count == 1
     assert archive.read_bytes() == b'validated-transport'
+
+
+def test_older_gh_pagination_without_slurp(monkeypatch):
+    responses = [json.dumps({'jobs': [{'name':str(i)} for i in range(100)]}),
+                 json.dumps({'jobs': [{'name':'last'}]})]
+    call = Mock(side_effect=responses)
+    monkeypatch.setattr(downloader.subprocess, 'check_output', call)
+    result = downloader.pages('123', 'jobs', 'jobs')
+    assert len(result) == 101
+    assert result[-1]['name'] == 'last'
+    for args, _ in call.call_args_list:
+        assert '--slurp' not in args[0]
+        assert '--paginate' not in args[0]
+    assert call.call_args_list[0].args[0][-1].endswith('page=1')
+    assert call.call_args_list[1].args[0][-1].endswith('page=2')
+
+
+def test_empty_github_listing_stops_after_one_page(monkeypatch):
+    call = Mock(return_value=json.dumps({'artifacts': []}))
+    monkeypatch.setattr(downloader.subprocess, 'check_output', call)
+    assert downloader.pages('123', 'artifacts', 'artifacts') == []
+    assert call.call_count == 1

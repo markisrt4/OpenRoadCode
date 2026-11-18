@@ -16,9 +16,19 @@ REPOSITORY = 'markisrt4/OpenRoadCode'
 
 
 def pages(run, resource, field):
-    result = subprocess.check_output(['gh', 'api', '--paginate', '--slurp',
-        f'repos/{REPOSITORY}/actions/runs/{run}/{resource}?per_page=100'], text=True)
-    return [item for page in json.loads(result) for item in page[field]]
+    # Use explicit pages: older distro gh releases do not support --slurp.
+    items = []
+    for page in range(1, 101):
+        result = subprocess.check_output(['gh', 'api',
+            f'repos/{REPOSITORY}/actions/runs/{run}/{resource}?per_page=100&page={page}'], text=True)
+        document = json.loads(result)
+        rows = document[field]
+        if not isinstance(rows, list) or len(rows) > 100:
+            raise ValueError('Unexpected GitHub page shape')
+        items.extend(rows)
+        if len(rows) < 100:
+            return items
+    raise ValueError('GitHub listing exceeds 100-page safety limit')
 
 
 def successful_states(jobs):

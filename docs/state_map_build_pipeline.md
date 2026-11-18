@@ -559,3 +559,6 @@ transfers intermediate files included in the original outer artifact; publicatio
 of lean release assets remains pending. This downloads only: it does not activate
 national terrain or supply imagery/roads. Full national viewer loading remains
 pending. Failed AK/HI builds are excluded from this run's successful-state set.
+
+The US downloader requests explicit API pages and works with older distribution
+GitHub CLI releases that lack `gh api --slurp`; no CLI upgrade is required.
