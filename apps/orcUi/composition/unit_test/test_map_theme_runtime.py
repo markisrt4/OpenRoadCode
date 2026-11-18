@@ -65,6 +65,8 @@ class MapThemeRuntimeTest(unittest.TestCase):
             document = json.loads(destination.read_text(encoding="utf-8"))
             layers = {layer["id"]: layer for layer in document["layers"]}
             self.assertEqual(layers["state-boundaries"]["paint"]["line-color"], "#54c96b")
+            self.assertEqual(layers["state-boundaries"]["minzoom"], 0)
+            self.assertIn('us_state_boundaries.geojson', document['sources']['state-boundaries']['data'])
             self.assertEqual(layers["state-boundaries"]["paint"]["line-dasharray"], [1, 2])
             self.assertEqual(layers["country-boundaries"]["paint"]["line-color"], "#dce8ef")
             self.assertEqual(layers["michigan-boundary"]["paint"]["line-color"], "#59d8ff")

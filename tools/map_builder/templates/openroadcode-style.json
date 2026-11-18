@@ -12,7 +12,7 @@
     },
     "state-boundaries": {
       "type": "geojson",
-      "data": "file://__OPENROADCODE_DATA_ROOT__/maps/boundaries/us_state_internal_boundaries.geojson"
+      "data": "file://__OPENROADCODE_DATA_ROOT__/maps/boundaries/us_state_boundaries.geojson"
     },
     "michigan-boundary": {
       "type": "geojson",
@@ -195,7 +195,7 @@
       "id": "state-boundaries",
       "type": "line",
       "source": "state-boundaries",
-      "minzoom": 3,
+      "minzoom": 0,
       "paint": {
         "line-color": "#54b948",
         "line-width": [
@@ -206,8 +206,10 @@
           [
             "zoom"
           ],
-          4,
-          1,
+          0,
+          0.6,
+          3,
+          1.0,
           8,
           1.6,
           12,
@@ -224,7 +226,7 @@
       "id": "michigan-boundary",
       "type": "line",
       "source": "michigan-boundary",
-      "minzoom": 3,
+      "minzoom": 0,
       "filter": [
         "==",
         [

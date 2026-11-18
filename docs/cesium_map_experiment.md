@@ -1160,3 +1160,13 @@ and defaults are unchanged. For visual checks use Height1× and turn this overla
 off before judging seams in flat areas. Report rectangular gaps separately:
 source gaps, coarse mesh LOD and page boundaries need their own diagnosis, and
 are not established as fixed by the reference imagery change.
+
+### Political outlines in 2D Map mode
+
+MapLibre's existing state-boundary layer now uses the bundled full 50-state
+Census polygons, including exterior coastlines and island outlines, rather than
+only shared internal edges. State outlines and Michigan emphasis are visible
+from zoom0 with a thin zoom-scaled line. The existing theme palette, local file
+sources, runtime style installer and road/route layer order remain unchanged.
+Restart ORC after updating the code to regenerate the installed style. This is a
+style-only deployment; rebuilding map tiles or downloading terrain is unnecessary.
