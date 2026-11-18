@@ -562,3 +562,39 @@ pending. Failed AK/HI builds are excluded from this run's successful-state set.
 
 The US downloader requests explicit API pages and works with older distribution
 GitHub CLI releases that lack `gh api --slurp`; no CLI upgrade is required.
+
+## Activate downloaded national terrain (initial 48-state test)
+
+Close ORC first. From the same Python environment used for ORC:
+
+```bash
+git switch navigation-cesium
+git pull --ff-only
+python -m development.maps.install_us_terrain --directory build-output/us-terrain
+OPENROAD_CESIUM_RENDERER=hardware-override ./runOrcUi
+```
+
+The installer requires the 48 continental-state ZIP/descriptor pairs by default;
+AK/HI are not claimed. `--allow-partial` permits a smaller test selection. All
+supplied archives are checked for size/SHA/kind/bounds before activation, and the
+existing safe terrain unpacker validates geometry. Only the national catalog is
+atomically replaced after successful unpack/validation; old revisions and existing
+Michigan/local packs remain. Re-running reuses validated revisions. Partial
+installs merge states rather than removing already installed national coverage.
+Storage uses the normal user-owned map-packs directory; no sudo or Docker.
+
+The runtime reuses the local terrain page/chunk transport and frontend page LRU.
+National metadata is separate from the 768-tile baseline catalog. Geographic
+pages start at zoom8 and include at most64 nearby grids; national payload caching
+is limited to8 chunks and checks their hashes. Michigan detailed pages retain
+higher priority, and take space first within combined64-grid responses. At dense
+overlapping envelopes, a page can truncate coarse entries until closer zooms;
+`truncated` is explicit. The map stays on its reference globe below paged LOD.
+National-only terrain retains a lower mesh refinement ceiling. This is relative
+relief; no new ellipsoid-height conversion is claimed.
+
+VM acceptance: enable Terrain/Relief, disable Follow to pan, zoom into Colorado
+and vary tilt/Height to see relief. Pan into neighboring states and back to
+Michigan; verify existing detail still appears. Zoomed-out land remains the
+bundled reference texture. National imagery, roads/labels/routing and AK/HI are
+not installed by this command. Check startup/close stability before Termux use.

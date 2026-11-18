@@ -143,6 +143,11 @@ def installed_index():
 
 def paged_terrain(baseline):
     index=installed_index()
-    if index is None:return baseline
-    state=LocalPagedTerrainState(baseline.state.tiles if baseline else (),maximum_zoom=16)
+    from apps.launchers.local_us_terrain import installed_national_index, CombinedTerrainIndex
+    national=installed_national_index()
+    if index is None and national is None:return baseline
+    maximum_zoom=16 if index is not None else baseline.state.maximum_zoom if baseline else 10
+    if national is not None:index=CombinedTerrainIndex(index,national)
+    state=LocalPagedTerrainState(baseline.state.tiles if baseline else (),maximum_zoom=maximum_zoom,
+                                page_minimum_zoom=8 if national else 12)
     return PagedTerrainCatalog(state,baseline.payloads if baseline else (),index)

@@ -13,7 +13,7 @@ window.ORCLocalTerrain = function (data, C, initialPoint=null) {
   const pendingPages=new Map();
   let detailEntries=new Map();
   async function loadPage(x,y,level){
-    if(!data.page_url || level<12)return;
+    if(!data.page_url || level<(data.page_minimum_zoom??12))return;
     const key=`${level}/${x}/${y}`;
     if(pages.has(key)){
       const value=pages.get(key);pages.delete(key);pages.set(key,value);return;

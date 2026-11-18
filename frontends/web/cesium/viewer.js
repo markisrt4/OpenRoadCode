@@ -260,7 +260,7 @@
     const coverageLabel = outsideTiles ? 'Selected place outside installed 3D coverage · '
       : imageCoverage && !insideImagery ? 'Selected place outside installed imagery coverage · ' : '';
     const terrainTiles = snapshot.terrain?.tiles || (snapshot.terrain ? [snapshot.terrain] : []);
-    const terrainLabel = terrain ? `relative relief (${terrainTiles.length} grid${terrainTiles.length===1?'':'s'})` : 'terrain not installed';
+    const terrainLabel = terrain ? snapshot.terrain?.page_url ? 'relative relief (nearby grids loaded on demand)' : `relative relief (${terrainTiles.length} grid${terrainTiles.length===1?'':'s'})` : 'terrain not installed';
     status.textContent = `Offline reference globe · imagery not installed · ${terrainLabel} · ${buildingLabel}`;
     if (tiledMap) {
       status.textContent = `Offline · ${coverageLabel}${snapshot.map_tiles.coverage.title} · ${terrainLabel} · ${buildingLabel}`;

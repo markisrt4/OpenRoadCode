@@ -127,7 +127,11 @@ class LocalTerrainCatalogState:
 @dataclass(frozen=True, slots=True)
 class LocalPagedTerrainState(LocalTerrainCatalogState):
     """Existing baseline tiles plus a bounded, renderer-requested detail index."""
+    page_minimum_zoom: int = 12
+
     def __post_init__(self):
+        if type(self.page_minimum_zoom) is not int or not 0 <= self.page_minimum_zoom <= 18:
+            raise ValueError("Invalid terrain page minimum zoom")
         if self.tiles:
             super(LocalPagedTerrainState,self).__post_init__()
         elif not self.attribution.strip() or type(self.maximum_zoom) is not int or not 1 <= self.maximum_zoom <= 18:
@@ -135,4 +139,5 @@ class LocalPagedTerrainState(LocalTerrainCatalogState):
 
     def document(self):
         return {**super(LocalPagedTerrainState,self).document(),
-                "page_url":"/data/terrain-page/{z}/{x}/{y}"}
+                "page_url":"/data/terrain-page/{z}/{x}/{y}",
+                "page_minimum_zoom":self.page_minimum_zoom}
