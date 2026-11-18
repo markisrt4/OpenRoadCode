@@ -75,7 +75,7 @@ class NationalTerrainIndex:
             selected.append(state.document() | dict(url='/data/terrain-chunk/us-'+key))
         # Dense overlapping state envelopes may exceed the transport budget.
         # Closer zooms narrow the page and expose the remaining grids.
-        selected.sort(key=lambda row: abs((row['west_rad']+row['east_rad'])/2-math.radians((west+east)/2))
+        selected.sort(key=lambda row: abs((row['west_rad']+row['east_rad'])/2-math.radians((west+east)/2)))
         return {'tiles': selected[:64], 'truncated': len(selected)>64}
 
 
