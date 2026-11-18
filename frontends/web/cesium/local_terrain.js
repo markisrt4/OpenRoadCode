@@ -29,8 +29,9 @@ window.ORCLocalTerrain = function (data, C, initialPoint=null) {
       while(pages.size>4)pages.delete(pages.keys().next().value);
       const retained=new Map();
       for(const docs of pages.values())for(const doc of docs){
-        if(typeof doc.id!=='string'||!doc.url)throw Error('Invalid terrain detail entry');
-        retained.set(doc.id,detailEntries.get(doc.id)||doc);
+        const identity=doc.tile_id??doc.id;
+        if(typeof identity!=='string'||!doc.url)throw Error('Invalid terrain detail entry');
+        retained.set(identity,detailEntries.get(identity)||doc);
       }
       detailEntries=retained;tiles=[...detailEntries.values(),...baseline].sort(rank);
     }).finally(()=>pendingPages.delete(key));

@@ -4,14 +4,14 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const path=require('node:path');
 const test=require('node:test');
-function fixture(minimumZoom=12){
+function fixture(minimumZoom=12,semanticId=false){
   const calls=[];
   const base={west_rad:0,south_rad:0,east_rad:1,north_rad:1,width:2,height:2,
     heights_m:[10,10,10,10],reference_height_m:10,detail_level:0};
   const context={window:{},fetch:async url=>{
     calls.push(url);
     if(url.startsWith('/page/'))return {ok:true,json:async()=>({tiles:[{
-      ...base,heights_m:undefined,id:url,url:'/chunk/'+url,detail_level:7,minimum_zoom:minimumZoom}]})};
+      ...base,heights_m:undefined,...(semanticId?{tile_id:url}:{id:url}),url:'/chunk/'+url,detail_level:7,minimum_zoom:minimumZoom}]})};
     return {ok:true,json:async()=>({width:2,height:2,heights_m:[40,40,40,40]})};
   }};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../local_terrain.js'),'utf8'),context);
@@ -45,7 +45,7 @@ test('loading cached data after hiding cannot reactivate terrain',async()=>{
 
 
 test('national terrain pages start at their declared coarse zoom',async()=>{
-  const {layer,calls}=fixture(8);
+  const {layer,calls}=fixture(8,true);
   assert.equal((await layer.provider.callback(0,0,7))[0],0);
   assert.equal(calls.length,0);
   assert.equal((await layer.provider.callback(0,0,8))[0],30);
