@@ -2,6 +2,8 @@ name: Map pack menu checks
 on:
   push:
     paths:
+      - development/maps/build_reference_globe.py
+      - resources/maps/world_reference.png
       - frontends/web/cesium/reference_globe_layer.js
       - frontends/web/cesium/map_layer_controls.js
       - frontends/web/cesium/unit_test/test_reference_globe_layer.js
@@ -40,3 +42,9 @@ jobs:
       - name: Host entry cancels without needing Docker
         run: |
           printf 'b\n' | CONTAINER_ENGINE=missing-engine bash tools/map_builder/scripts/run-builder.sh packs
+      - name: Generate offline globe reference asset
+        run: python -m development.maps.build_reference_globe --output world_reference.png
+      - uses: actions/upload-artifact@v4
+        with:
+          name: world-reference-image
+          path: world_reference.png
