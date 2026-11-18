@@ -1132,3 +1132,14 @@ itself establish the cause of every blank-region screenshot: center the US in th
 view and compare imagery on/off when checking device rendering. A source-geometry
 regression covers US interior points, Mexico, South America and open ocean using
 the actual bundled polygons.
+
+
+The world reference is now a checked-in opaque 2048×1024 PNG (~31 KiB), generated
+from the same bundled Natural Earth land/lake polygons by
+`development.maps.build_reference_globe` in Actions. The viewer serves it locally
+at `/data/world-reference.png`; startup no longer rasterizes country paths or
+reads a canvas back through the Termux graphics stack. Polygon holes are applied
+per polygon, with independent multipolygon members. CI checks actual US interior,
+Lake Michigan and ocean pixels, and local PNG transport. Rebuild the asset in
+Actions when source polygons change. This removes the live canvas dependency;
+confirmation of the reported ocean-blue US still requires a Termux device test.

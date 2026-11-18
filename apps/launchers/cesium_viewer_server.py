@@ -21,6 +21,7 @@ from tools.map_builder.builder.validate import ValidationError
 
 _WEB = Path(__file__).resolve().parents[2] / "frontends/web/cesium"
 _WORLD_LAND = Path(__file__).resolve().parents[2] / "resources/maps/world_land.geojson"
+_WORLD_REFERENCE = Path(__file__).resolve().parents[2] / "resources/maps/world_reference.png"
 _WORLD_LAKES = Path(__file__).resolve().parents[2] / "resources/maps/world_lakes.geojson"
 
 
@@ -117,6 +118,9 @@ class _Handler(BaseHTTPRequestHandler):
             if self.owner._tiles is not None:
                 document["map_tiles"] = self.owner._tiles.state.document()
             self._send(json.dumps(document).encode(), "application/json")
+            return
+        if path == "/data/world-reference.png":
+            self._send(_WORLD_REFERENCE.read_bytes(), "image/png")
             return
         if path == "/data/world-land.geojson":
             self._send(_WORLD_LAND.read_bytes(), "application/geo+json")

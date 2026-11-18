@@ -120,6 +120,9 @@ def test_server_exposes_boundary_contract_without_asset_paths(server):
 
 
 def test_server_exposes_bundled_world_land_without_a_remote_service(server):
+    with urllib.request.urlopen(server.url+'data/world-reference.png') as response:
+        assert response.headers['Content-Type'] == 'image/png'
+        assert response.read(8) == b'\x89PNG\r\n\x1a\n'
     with urllib.request.urlopen(server.url+'data/world-land.geojson') as response:
         document = json.load(response)
     assert document['type'] == 'FeatureCollection'
