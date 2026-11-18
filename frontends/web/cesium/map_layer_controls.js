@@ -6,7 +6,8 @@ window.ORCMapLayers = function(viewer,snapshot,document) {
     'terrain-scale':'Height','terrain-cues':'Terrain cues',references:'Grid'};
   let imageryVisible=true,disposed=false;
   const imageryAvailable=Boolean(snapshot.imagery_pyramids?.length || snapshot.imagery || snapshot.imagery_layers?.length || snapshot.map_tiles?.tiles.some(t=>t.imagery_url));
-  const remove=viewer.imageryLayers.layerAdded.addEventListener(layer=>{if(layer.imageryProvider?.orcLayerRole!=='terrain-cues')layer.show=imageryVisible;});
+  const isImagery=layer=>!['terrain-cues','reference-globe'].includes(layer.imageryProvider?.orcLayerRole);
+  const remove=viewer.imageryLayers.layerAdded.addEventListener(layer=>{if(isImagery(layer))layer.show=imageryVisible;});
   function state() {
     return actions.map(action=>{
       const button=document.getElementById(action);
@@ -20,7 +21,7 @@ window.ORCMapLayers = function(viewer,snapshot,document) {
     if(!state().find(item=>item.action===action).available)return false;
     if(action==='imagery') {
       imageryVisible=!imageryVisible;
-      for(let i=0;i<viewer.imageryLayers.length;i++){const layer=viewer.imageryLayers.get(i);if(layer.imageryProvider?.orcLayerRole!=='terrain-cues')layer.show=imageryVisible;}
+      for(let i=0;i<viewer.imageryLayers.length;i++){const layer=viewer.imageryLayers.get(i);if(isImagery(layer))layer.show=imageryVisible;}
       viewer.scene.requestRender();
     } else {
       const button=document.getElementById(action);

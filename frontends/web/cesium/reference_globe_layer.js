@@ -34,6 +34,7 @@ window.ORCReferenceGlobeLayer = async function(viewer,C) {
     const provider=await C.SingleTileImageryProvider.fromUrl(canvas.toDataURL('image/png'),{
     rectangle:C.Rectangle.fromRadians(-Math.PI,-Math.PI/2,Math.PI,Math.PI/2)
     });
+    provider.orcLayerRole='reference-globe';
     if (viewer.isDestroyed()) return null;
     return viewer.imageryLayers.addImageryProvider(provider,0);
   })();

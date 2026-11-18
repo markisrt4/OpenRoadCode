@@ -1122,3 +1122,13 @@ Regional building presentation now includes approximate 9 m blocks at close zoom
 for footprints without height tags. These are labeled estimates, with a lazy
 512-entity per-tile budget and four active tiles; see the state map build pipeline
 for zoom/distance limits. Schemas 1 and 2 remain readable alongside schema 3.
+
+The bundled world-land/world-lake reference is independent of downloaded imagery
+and terrain. Turning Imagery off hides optional image layers but retains that
+world background (including the continental US); terrain cues remain separately
+controlled. The reference provider is explicitly tagged so late layer attachment
+also preserves visibility. This fixes a layer-control defect, but does not by
+itself establish the cause of every blank-region screenshot: center the US in the
+view and compare imagery on/off when checking device rendering. A source-geometry
+regression covers US interior points, Mexico, South America and open ocean using
+the actual bundled polygons.

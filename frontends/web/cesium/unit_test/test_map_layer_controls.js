@@ -7,7 +7,8 @@ const test=require('node:test');
 test('layer controls report availability, use shared handlers, and hide late imagery without rendering callbacks',()=>{
   let added,removed=false,closed=false;
   const hillshade={show:true,imageryProvider:{orcLayerRole:'terrain-cues'}};
-  const layers=[{show:true},hillshade];
+  const reference={show:true,imageryProvider:{orcLayerRole:'reference-globe'}};
+  const layers=[{show:true},hillshade,reference];
   const viewer={isDestroyed:()=>closed,scene:{requestRender(){}},imageryLayers:{
     get length(){return layers.length;},get:index=>layers[index],
     layerAdded:{addEventListener(callback){added=callback;return()=>{removed=true;};}}}};
@@ -29,6 +30,9 @@ test('layer controls report availability, use shared handlers, and hide late ima
   assert.equal(layers[0].show,false);
   assert.equal(hillshade.show,true,'terrain cues remain independently controlled');
   const lateCues={show:true,imageryProvider:{orcLayerRole:'terrain-cues'}};added(lateCues);assert.equal(lateCues.show,true);
+  assert.equal(reference.show,true,'world land remains visible with local imagery off');
+  const lateReference={show:true,imageryProvider:{orcLayerRole:'reference-globe'}};
+  added(lateReference);assert.equal(lateReference.show,true);
   const late={show:true};added(late);assert.equal(late.show,false);
   assert.equal(controls.request('anything-else'),false);
   controls.destroy();assert.equal(removed,true);
