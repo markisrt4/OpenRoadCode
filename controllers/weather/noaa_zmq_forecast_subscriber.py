@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import logging
-from threading import Event, Thread
+from threading import Event, Lock, Thread
 from typing import Any, Callable
 
 from controllers.weather.noaa_weather_event_adapter import (
@@ -35,6 +35,7 @@ class NoaaZmqForecastSubscriber:
         self._poll_timeout_ms = poll_timeout_ms
         self._context_factory = context_factory
         self._stop = Event()
+        self._lifecycle_lock = Lock()
         self._thread: Thread | None = None
         self.received = 0
         self.rejected = 0
@@ -46,19 +47,25 @@ class NoaaZmqForecastSubscriber:
         return self._thread is not None and self._thread.is_alive()
 
     def start(self) -> None:
-        """Start the subscriber worker once."""
-        if self._thread is not None:
-            raise RuntimeError("NOAA subscriber cannot be restarted")
-        self._thread = Thread(target=self._run, name="orc-noaa-rf", daemon=True)
-        self._thread.start()
+        """Start or restart the subscriber worker safely."""
+        with self._lifecycle_lock:
+            if self.running:
+                return
+            self._stop.clear()
+            self.last_error = None
+            self._thread = Thread(target=self._run, name="orc-noaa-rf", daemon=True)
+            self._thread.start()
 
     def stop(self, timeout: float = 5.0) -> None:
         """Request shutdown and wait for the worker to release its socket."""
-        self._stop.set()
-        if self._thread is not None:
-            self._thread.join(timeout)
-            if self._thread.is_alive():
-                raise RuntimeError("NOAA subscriber failed to stop")
+        with self._lifecycle_lock:
+            self._stop.set()
+            thread = self._thread
+            if thread is not None:
+                thread.join(timeout)
+                if thread.is_alive():
+                    raise RuntimeError("NOAA subscriber failed to stop")
+                self._thread = None
 
     def _run(self) -> None:
         try:
