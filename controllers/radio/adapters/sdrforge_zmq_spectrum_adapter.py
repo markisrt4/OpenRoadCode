@@ -25,11 +25,15 @@ def spectrum_bins(topic: str, payload: dict[str, Any]) -> tuple[float, ...] | No
     if not isinstance(raw, list) or not raw:
         return None
     try:
-        values = tuple(float(value) for value in raw)
+        finite_values = tuple(float(value) for value in raw if value is not None)
     except (ValueError, TypeError):
         return None
-    if not all(math.isfinite(value) for value in values):
+    if not finite_values or not all(math.isfinite(value) for value in finite_values):
         return None
+    # SDRForge serializes nonfinite FFT bins as null. Preserve the row by
+    # replacing those bins with its measured noise floor, not by dropping it.
+    floor_value = min(finite_values)
+    values = tuple(floor_value if value is None else float(value) for value in raw)
     # dB magnitudes and normalized linear bins both occur in receiver APIs.
     if min(values) < 0 or max(values) > 1:
         floor, ceiling = min(values), max(values)
@@ -153,9 +157,11 @@ class SdrForgeTelemetrySubscriber:
                     power_db = None
                     if isinstance(raw_power, list) and len(raw_power) == len(bins):
                         try:
-                            candidate = tuple(float(value) for value in raw_power)
-                            if all(math.isfinite(value) for value in candidate):
-                                power_db = candidate
+                            finite = tuple(float(value) for value in raw_power if value is not None)
+                            if finite and all(math.isfinite(value) for value in finite):
+                                noise_floor = min(finite)
+                                power_db = tuple(noise_floor if value is None else float(value)
+                                                 for value in raw_power)
                         except (TypeError, ValueError):
                             pass
                     self._queue.put_nowait(SpectrumPresentation(
