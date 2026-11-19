@@ -215,6 +215,7 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
                 run_work=resources.run_rf, run_ui=app.dispatch_ui,
                 on_close=lambda: resources.rf_sessions.discard(session),
                 spectrum_source=source,
+                native_sdrforge=native_sdrforge,
             )
             with ResourceCleanup() as rollback:
                 rollback.callback(session.close)
