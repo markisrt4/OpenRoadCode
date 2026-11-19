@@ -82,3 +82,22 @@ def test_native_power_button_reflects_backend_starting_state():
     panel._session.request.assert_not_called()
     panel._toggle_receiver_power()
     panel._session.request.assert_not_called()
+
+
+    # Acquisition completed: power control switches to STOP.
+    running = RfRadioState(panel._state.station, (), receiver_running=True)
+    panel.set_radio_state(running)
+    panel._receiver_power_button.set_text.assert_called_with("■ STOP SDR")
+    panel._receiver_power_button.set_enabled.assert_called_with(True)
+    panel._toggle_receiver_power()
+    assert panel._session.request.call_args.args[0].action is RadioAction.STOP_RECEIVER
+
+    # After shutdown, a new explicit start is permitted.
+    stopped = RfRadioState(panel._state.station, (), receiver_running=False)
+    panel.set_radio_state(stopped)
+    panel._receiver_power_button.set_text.assert_called_with("▶ START SDR")
+    panel._receiver_power_button.set_enabled.assert_called_with(True)
+    panel._session.request.reset_mock()
+    panel._toggle_receiver_power()
+    assert panel._session.request.call_args.args[0].action is RadioAction.START_RECEIVER
+    panel._receiver_power_button.set_enabled.assert_called_with(False)
