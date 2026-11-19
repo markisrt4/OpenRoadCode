@@ -12,6 +12,7 @@ from tools.map_builder.builder.cli import (
     directory_size,
     format_duration,
     format_size,
+    national_freeway_region,
     reusable_build_for_regions,
 )
 
@@ -36,6 +37,12 @@ class BuildSummaryFormattingTests(unittest.TestCase):
 
             self.assertEqual(directory_size(root), 16)
 
+    def test_national_freeway_region_accepts_live_and_legacy_catalog_ids(self):
+        live = SimpleNamespace(id="us")
+        legacy = SimpleNamespace(id="north-america/us")
+        self.assertIs(national_freeway_region([live]), live)
+        self.assertIs(national_freeway_region([legacy]), legacy)
+
 
 class ReusableBuildTests(unittest.TestCase):
     def test_reuses_matching_validated_regions_regardless_of_order(self):
@@ -57,6 +64,10 @@ class ReusableBuildTests(unittest.TestCase):
                 SimpleNamespace(id="north-america/us/michigan"),
                 SimpleNamespace(id="north-america/us/ohio"),
             ]
+            freeway_region = SimpleNamespace(id="north-america/us")
+            manifest = json.loads((root / "build-manifest.json").read_text())
+            manifest["national_freeways"] = {"source_region": {"id": "north-america/us"}}
+            (root / "build-manifest.json").write_text(json.dumps(manifest))
             validation = {"mbtiles": {"tiles": 1}}
             with patch(
                 "tools.map_builder.builder.cli.validate_output",
@@ -64,6 +75,7 @@ class ReusableBuildTests(unittest.TestCase):
             ) as validate:
                 result = reusable_build_for_regions(
                     selected,
+                    freeway_region=freeway_region,
                     root=root,
                     service_smoke=False,
                 )
@@ -84,9 +96,11 @@ class ReusableBuildTests(unittest.TestCase):
                 encoding="utf-8",
             )
             selected = [SimpleNamespace(id="north-america/us/ohio")]
+            freeway_region = SimpleNamespace(id="north-america/us")
             with patch("tools.map_builder.builder.cli.validate_output") as validate:
                 result = reusable_build_for_regions(
                     selected,
+                    freeway_region=freeway_region,
                     root=root,
                     service_smoke=False,
                 )
@@ -107,12 +121,17 @@ class ReusableBuildTests(unittest.TestCase):
                 encoding="utf-8",
             )
             selected = [SimpleNamespace(id="north-america/us/michigan")]
+            freeway_region = SimpleNamespace(id="north-america/us")
+            manifest = json.loads((root / "build-manifest.json").read_text())
+            manifest["national_freeways"] = {"source_region": {"id": "north-america/us"}}
+            (root / "build-manifest.json").write_text(json.dumps(manifest))
             with patch(
                 "tools.map_builder.builder.cli.validate_output",
                 side_effect=RuntimeError("bad output"),
             ):
                 result = reusable_build_for_regions(
                     selected,
+                    freeway_region=freeway_region,
                     root=root,
                     service_smoke=False,
                 )
@@ -149,13 +168,14 @@ class Optional3DRecoveryTests(unittest.TestCase):
                 (sources/f'north-america__us__{state}.osm.pbf').write_bytes(b'fixture')
             args=SimpleNamespace(command='validate',installed_regions=True,regions=None,
                                  write_manifest=True,service_smoke=False,refresh_index=False,json=False)
+            freeway_region=SimpleNamespace(id='north-america/us')
             with (patch.object(cli,'parse_args',return_value=args),
                   patch.object(cli,'OUTPUT_ROOT',root),
                   patch.object(cli,'validate_output',return_value={'source_pbfs':2}),
-                  patch.object(cli,'fetch_index',return_value=[]),
+                  patch.object(cli,'fetch_index',return_value=[freeway_region]),
                   patch.object(cli,'resolve_region_ids',return_value=[Mock(),Mock()]) as resolve,
                   patch.object(cli,'_write_manifest') as write,
                   patch.object(cli,'print_validation_summary')):
                 self.assertEqual(cli.main(),0)
                 self.assertEqual(resolve.call_args.args[1],['north-america/us/michigan','north-america/us/ohio'])
-                write.assert_called_once()
+                write.assert_called_once_with(resolve.return_value, {'source_pbfs':2}, {}, freeway_region)

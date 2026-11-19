@@ -32,6 +32,21 @@ class StyleTests(unittest.TestCase):
         asset = TEMPLATE.parents[3]/'resources/maps/us_state_boundaries.geojson'
         self.assertEqual(len(json.loads(asset.read_text())['features']), 50)
 
+    def test_national_reference_land_and_freeways_are_layered_below_boundaries(self):
+        document = json.loads(TEMPLATE.read_text(encoding="utf-8"))
+        sources = document["sources"]
+        layers = {layer["id"]: layer for layer in document["layers"]}
+        order = [layer["id"] for layer in document["layers"]]
+        self.assertIn("world_land.geojson", sources["reference-land"]["data"])
+        self.assertIn("world_lakes.geojson", sources["reference-lakes"]["data"])
+        self.assertIn("us-freeways.mbtiles", sources["national-freeways"]["url"])
+        self.assertEqual(layers["motorways"]["source"], "national-freeways")
+        self.assertEqual(layers["motorways-casing"]["source"], "national-freeways")
+        self.assertLess(order.index("reference-land"), order.index("state-boundaries"))
+        self.assertLess(order.index("reference-lakes"), order.index("state-boundaries"))
+        self.assertTrue((TEMPLATE.parents[3] / "resources/maps/world_land.geojson").is_file())
+        self.assertTrue((TEMPLATE.parents[3] / "resources/maps/world_lakes.geojson").is_file())
+
     def test_buildings_use_height_aware_3d_extrusions(self):
         document = json.loads(TEMPLATE.read_text(encoding="utf-8"))
         buildings = next(layer for layer in document["layers"] if layer["id"] == "buildings")

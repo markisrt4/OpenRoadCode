@@ -229,7 +229,7 @@ def validate_vector_tiles(db, tile_count):
     return {"checked": checked, "features": features, "decoder": "builtin-mvt"}
 
 
-def validate_mbtiles(path):
+def validate_mbtiles(path, required_layers=frozenset({"transportation", "transportation_name"})):
     if not path.is_file() or path.stat().st_size == 0:
         raise ValidationError(f"Missing/empty MBTiles: {path}")
     with sqlite3.connect(path) as db:
@@ -246,7 +246,7 @@ def validate_mbtiles(path):
         for item in json.loads(metadata.get("json", "{}")).get("vector_layers", [])
         if isinstance(item, dict)
     }
-    missing = {"transportation", "transportation_name"} - layers
+    missing = set(required_layers) - layers
     if missing:
         raise ValidationError("MBTiles missing required layer(s): " + ", ".join(sorted(missing)))
     return {
@@ -256,12 +256,12 @@ def validate_mbtiles(path):
     }
 
 
-def validate_style(path, available_layers=None):
+def validate_style(path, available_layers=None, national_layers=None):
     data = json.loads(path.read_text(encoding="utf-8"))
     sources = data.get("sources") or {}
     if data.get("version") != 8:
         raise ValidationError("Style is not MapLibre/Mapbox Style Spec version 8")
-    for source in ("openroad", "route", "vehicle"):
+    for source in ("openroad", "national-freeways", "route", "vehicle"):
         if source not in sources:
             raise ValidationError(f"Style missing source: {source}")
     for source in ("vehicle", "route"):
@@ -277,6 +277,18 @@ def validate_style(path, available_layers=None):
         if missing:
             raise ValidationError(
                 "Style references unavailable MBTiles layer(s): " + ", ".join(sorted(missing))
+            )
+    if national_layers is not None:
+        referenced = {
+            layer.get("source-layer")
+            for layer in data.get("layers", [])
+            if layer.get("source") == "national-freeways" and layer.get("source-layer")
+        }
+        missing = referenced - set(national_layers)
+        if missing:
+            raise ValidationError(
+                "Style references unavailable national freeway layer(s): "
+                + ", ".join(sorted(missing))
             )
 
 
@@ -380,21 +392,24 @@ def validate_output(root, *, service_smoke=False):
     for pbf in pbfs:
         validate_pbf(pbf)
     mbtiles = root / "maps/vector/openroadcode.mbtiles"
+    national_freeways = root / "maps/vector/us-freeways.mbtiles"
     style = root / "maps/styles/openroadcode.json"
     valhalla = root / "valhalla"
     search_index = root / "maps/search/openroadcode-search.sqlite"
     result = {
         "source_pbfs": len(pbfs),
         "mbtiles": validate_mbtiles(mbtiles),
+        "national_freeways": validate_mbtiles(national_freeways),
         "glyph_files": validate_glyphs(root / "maps/glyphs"),
         "search_index": validate_search_index(search_index),
         "valhalla": validate_valhalla(valhalla, service_smoke=service_smoke),
     }
-    validate_style(style, result["mbtiles"]["layers"])
+    validate_style(style, result["mbtiles"]["layers"], result["national_freeways"]["layers"])
     from .map_3d import validate_packs
     result["map_3d"] = validate_packs(root)
     result["checksums"] = {
         "mbtiles": sha256(mbtiles),
+        "national_freeways": sha256(national_freeways),
         "style": sha256(style),
         "valhalla_extract": sha256(valhalla / "tiles.tar"),
         "search_index": sha256(search_index),

@@ -15,13 +15,22 @@ import time
 
 from .map_3d import PRESETS
 from .build import OUTPUT_ROOT, _write_manifest, build_regions
-from .geofabrik import fetch_index, resolve_region_ids
+from .geofabrik import fetch_index, region_map, resolve_region_ids
 from .selection import load_region_ids, save_region_ids
 from .tui import select_regions
 from .validate import ValidationError, validate_output
 
 INDEX_PATH = Path(os.environ.get("OPENROAD_GEOFABRIK_INDEX", "/cache/geofabrik-index-v1-nogeom.json"))
 SELECTION_PATH = Path(os.environ.get("OPENROAD_SELECTION_PATH", "/cache/selected-regions.json"))
+
+
+def national_freeway_region(regions):
+    """Resolve the US parent extract across current and legacy Geofabrik IDs."""
+    mapping = region_map(regions)
+    for region_id in ("us", "north-america/us"):
+        if region_id in mapping:
+            return mapping[region_id]
+    raise ValueError("Geofabrik catalog is missing the United States extract for national freeways")
 
 
 def format_duration(seconds: float) -> str:
@@ -68,6 +77,7 @@ def print_validation_summary(result: dict, root: Path) -> None:
     valhalla = result["valhalla"]
     output_size = directory_size(root)
     mbtiles_path = root / "maps/vector/openroadcode.mbtiles"
+    freeways_path = root / "maps/vector/us-freeways.mbtiles"
     style_path = root / "maps/styles/openroadcode.json"
     extract_path = root / "valhalla/tiles.tar"
 
@@ -77,8 +87,10 @@ def print_validation_summary(result: dict, root: Path) -> None:
     print(f"  Deployable size:       {format_size(output_size)} ({output_size:,} bytes)")
     print(f"  Source PBF files:      {result['source_pbfs']}")
     print(f"  MBTiles size:          {format_size(mbtiles_path.stat().st_size)}")
+    print(f"  US freeways size:      {format_size(freeways_path.stat().st_size)}")
     print(f"  Vector tiles:          {mbtiles['tiles']:,}")
     print(f"  Vector layers:         {len(mbtiles['layers'])}")
+    print(f"  US freeway tiles:      {result['national_freeways']['tiles']:,}")
     print(f"  Glyph files:           {result['glyph_files']:,}")
     print(f"  Style:                 {style_path.name}")
     print(f"  Valhalla tile files:   {valhalla['tile_files']:,}")
@@ -90,7 +102,7 @@ def print_validation_summary(result: dict, root: Path) -> None:
     print(f"  Output:                {root}")
 
 
-def reusable_build_for_regions(selected, *, root: Path, service_smoke: bool) -> dict | None:
+def reusable_build_for_regions(selected, *, freeway_region, root: Path, service_smoke: bool) -> dict | None:
     """Return validation data when an existing build matches the requested regions."""
     manifest_path = root / "build-manifest.json"
     if not manifest_path.is_file():
@@ -109,6 +121,10 @@ def reusable_build_for_regions(selected, *, root: Path, service_smoke: bool) -> 
     requested_ids = sorted(region.id for region in selected)
     if existing_ids != requested_ids:
         return None
+    freeway = manifest.get("national_freeways") or {}
+    source = freeway.get("source_region") or {}
+    if source.get("id") != freeway_region.id:
+        return None
 
     try:
         return validate_output(root, service_smoke=service_smoke)
@@ -116,23 +132,28 @@ def reusable_build_for_regions(selected, *, root: Path, service_smoke: bool) -> 
         return None
 
 
-def run_build(selected, *, clean: bool, service_smoke: bool) -> tuple[dict, float]:
+def run_build(selected, *, freeway_region, clean: bool, service_smoke: bool) -> tuple[dict, float]:
     started = time.monotonic()
-    result = build_regions(selected, clean=clean, service_smoke=service_smoke)
+    result = build_regions(
+        selected, freeway_region=freeway_region, clean=clean, service_smoke=service_smoke
+    )
     return result, time.monotonic() - started
 
 
-def build_or_reuse(selected, *, clean: bool, service_smoke: bool, force: bool) -> tuple[dict, float, bool]:
+def build_or_reuse(selected, *, freeway_region, clean: bool, service_smoke: bool, force: bool) -> tuple[dict, float, bool]:
     if not force:
         result = reusable_build_for_regions(
             selected,
+            freeway_region=freeway_region,
             root=OUTPUT_ROOT,
             service_smoke=service_smoke,
         )
         if result is not None:
             print("Existing validated build matches requested regions; reusing it.")
             return result, 0.0, True
-    result, elapsed = run_build(selected, clean=clean, service_smoke=service_smoke)
+    result, elapsed = run_build(
+        selected, freeway_region=freeway_region, clean=clean, service_smoke=service_smoke
+    )
     return result, elapsed, False
 
 
@@ -248,6 +269,7 @@ def main() -> int:
             result = validate_output(OUTPUT_ROOT, service_smoke=args.service_smoke)
             if args.write_manifest:
                 regions = fetch_index(INDEX_PATH, refresh=args.refresh_index)
+                freeway_region = national_freeway_region(regions)
                 selected = resolve_region_ids(
                     regions,
                     [x.strip() for x in args.regions.split(",") if x.strip()],
@@ -265,13 +287,14 @@ def main() -> int:
                         search_counts = (previous.get("search_index") or {}).get("counts") or {}
                     except (OSError, json.JSONDecodeError, TypeError):
                         pass
-                _write_manifest(selected, result, search_counts)
+                _write_manifest(selected, result, search_counts, freeway_region)
                 print(f"Wrote validated manifest: {OUTPUT_ROOT / 'build-manifest.json'}")
             if args.json:
                 print(json.dumps(result, indent=2))
             print_validation_summary(result, OUTPUT_ROOT)
             return 0
         regions = fetch_index(INDEX_PATH, refresh=args.refresh_index)
+        freeway_region = national_freeway_region(regions)
         if command == "list":
             for region in regions:
                 print(f"{region.id}\t{region.name}")
@@ -280,6 +303,7 @@ def main() -> int:
             selected = resolve_region_ids(regions, [x.strip() for x in args.regions.split(",") if x.strip()])
             result, elapsed, reused = build_or_reuse(
                 selected,
+                freeway_region=freeway_region,
                 clean=not args.no_clean,
                 service_smoke=not args.no_service_smoke,
                 force=args.force,
@@ -312,6 +336,7 @@ def main() -> int:
             return 0
         result, elapsed, reused = build_or_reuse(
             selected,
+            freeway_region=freeway_region,
             clean=True,
             service_smoke=True,
             force=getattr(args, "force", False),

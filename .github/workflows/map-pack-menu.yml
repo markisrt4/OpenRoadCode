@@ -8,6 +8,12 @@ on:
       - frontends/web/cesium/terrain_cues.js
       - frontends/web/cesium/unit_test/test_terrain_cues.js
       - tools/map_builder/templates/openroadcode-style.json
+      - tools/map_builder/builder/build.py
+      - tools/map_builder/builder/cli.py
+      - tools/map_builder/builder/validate.py
+      - tools/map_builder/tests/test_build.py
+      - tools/map_builder/tests/test_cli.py
+      - tools/map_builder/tests/test_validate.py
       - tools/map_builder/tests/test_style.py
       - apps/orcUi/composition/unit_test/test_map_theme_runtime.py
       - development/maps/install_us_terrain.py
@@ -56,7 +62,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install pytest Pillow
-      - run: python -m pytest tools/map_builder/tests/test_map_pack_menu.py tools/map_builder/tests/test_source_metadata_retry.py tools/map_builder/tests/test_statewide_resume.py apps/launchers/unit_test/test_static_region_build.py tools/map_builder/tests/test_reference_globe_image.py apps/launchers/unit_test/test_local_imagery_pack.py tools/map_builder/tests/test_download_us_terrain.py tools/map_builder/tests/test_us_terrain_install.py tools/map_builder/tests/test_terrain_mesh_sampler.py apps/launchers/unit_test/test_statewide_detail.py tools/map_builder/tests/test_style.py apps/orcUi/composition/unit_test/test_map_theme_runtime.py -q
+      - run: python -m pytest tools/map_builder/tests/test_build.py tools/map_builder/tests/test_cli.py tools/map_builder/tests/test_validate.py tools/map_builder/tests/test_map_pack_menu.py tools/map_builder/tests/test_source_metadata_retry.py tools/map_builder/tests/test_statewide_resume.py apps/launchers/unit_test/test_static_region_build.py tools/map_builder/tests/test_reference_globe_image.py apps/launchers/unit_test/test_local_imagery_pack.py tools/map_builder/tests/test_download_us_terrain.py tools/map_builder/tests/test_us_terrain_install.py tools/map_builder/tests/test_terrain_mesh_sampler.py apps/launchers/unit_test/test_statewide_detail.py tools/map_builder/tests/test_style.py apps/orcUi/composition/unit_test/test_map_theme_runtime.py -q
       - name: Offline globe reference and layer visibility regressions
         run: node --test frontends/web/cesium/unit_test/test_reference_globe_layer.js frontends/web/cesium/unit_test/test_map_layer_controls.js frontends/web/cesium/unit_test/test_paged_terrain.js frontends/web/cesium/unit_test/test_terrain_cues.js
       - name: Host entry cancels without needing Docker

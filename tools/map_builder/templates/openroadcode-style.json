@@ -6,6 +6,18 @@
       "type": "vector",
       "url": "mbtiles://__OPENROADCODE_DATA_ROOT__/maps/vector/openroadcode.mbtiles"
     },
+    "national-freeways": {
+      "type": "vector",
+      "url": "mbtiles://__OPENROADCODE_DATA_ROOT__/maps/vector/us-freeways.mbtiles"
+    },
+    "reference-land": {
+      "type": "geojson",
+      "data": "file://__OPENROADCODE_DATA_ROOT__/maps/boundaries/world_land.geojson"
+    },
+    "reference-lakes": {
+      "type": "geojson",
+      "data": "file://__OPENROADCODE_DATA_ROOT__/maps/boundaries/world_lakes.geojson"
+    },
     "country-boundaries": {
       "type": "geojson",
       "data": "file://__OPENROADCODE_DATA_ROOT__/maps/boundaries/world_country_boundaries.geojson"
@@ -46,6 +58,24 @@
       "type": "background",
       "paint": {
         "background-color": "#f3f1eb"
+      }
+    },
+    {
+      "id": "reference-land",
+      "type": "fill",
+      "source": "reference-land",
+      "paint": {
+        "fill-color": "#dfe7d5",
+        "fill-opacity": 1
+      }
+    },
+    {
+      "id": "reference-lakes",
+      "type": "fill",
+      "source": "reference-lakes",
+      "paint": {
+        "fill-color": "#a8d4eb",
+        "fill-opacity": 1
       }
     },
     {
@@ -544,7 +574,7 @@
     {
       "id": "motorways-casing",
       "type": "line",
-      "source": "openroad",
+      "source": "national-freeways",
       "source-layer": "transportation",
       "minzoom": 4,
       "filter": [
@@ -569,7 +599,7 @@
     {
       "id": "motorways",
       "type": "line",
-      "source": "openroad",
+      "source": "national-freeways",
       "source-layer": "transportation",
       "minzoom": 4,
       "filter": [
@@ -701,12 +731,13 @@
     {
       "id": "road-refs-major",
       "type": "symbol",
-      "source": "openroad",
+      "source": "national-freeways",
       "source-layer": "transportation_name",
       "minzoom": 8,
       "filter": [
-        "has",
-        "ref"
+        "all",
+        ["has", "ref"],
+        ["in", ["get", "class"], ["literal", ["motorway", "trunk"]]]
       ],
       "layout": {
         "symbol-placement": "line",
@@ -723,11 +754,39 @@
       }
     },
     {
+      "id": "freeway-labels-national",
+      "type": "symbol",
+      "source": "national-freeways",
+      "source-layer": "transportation_name",
+      "minzoom": 7,
+      "filter": [
+        "in",
+        ["get", "class"],
+        ["literal", ["motorway", "trunk"]]
+      ],
+      "layout": {
+        "symbol-placement": "line",
+        "text-field": "{name:latin}",
+        "text-font": ["KlokanTech Noto Sans CJK Regular"],
+        "text-size": 11
+      },
+      "paint": {
+        "text-color": "#373431",
+        "text-halo-color": "#fff",
+        "text-halo-width": 2
+      }
+    },
+    {
       "id": "road-labels",
       "type": "symbol",
       "source": "openroad",
       "source-layer": "transportation_name",
       "minzoom": 9,
+      "filter": [
+        "all",
+        ["!=", ["get", "class"], "motorway"],
+        ["!=", ["get", "class"], "trunk"]
+      ],
       "layout": {
         "symbol-placement": "line",
         "text-field": "{name:latin}",

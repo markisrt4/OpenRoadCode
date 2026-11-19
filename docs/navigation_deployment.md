@@ -18,6 +18,7 @@ OpenRoadCode deliberately separates navigation software, vehicle-local configura
     maps/
         ├── search/openroadcode-search.sqlite
         ├── vector/openroadcode.mbtiles
+        ├── vector/us-freeways.mbtiles
         └── styles/openroadcode.json
     valhalla/
 ```

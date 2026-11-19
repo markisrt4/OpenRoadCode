@@ -46,6 +46,11 @@ Before starting an expensive build, the builder checks `build-output/build-manif
 ./scripts/run-builder.sh build --regions north-america/us/michigan
 ```
 
+US builds also create a nationwide freeway overview. The cached Geofabrik US
+extract is filtered to motorways, trunks, and their links before tile generation;
+it is not copied into the deployable dataset and does not expand Valhalla routing
+or POI coverage beyond the selected detailed regions.
+
 Multiple regions are comma separated:
 
 ```bash
@@ -76,6 +81,7 @@ build-output/
 ├── maps/
 │   ├── source/
 │   ├── vector/openroadcode.mbtiles
+│   ├── vector/us-freeways.mbtiles
 │   ├── glyphs/
 │   ├── search/openroadcode-search.sqlite
 │   ├── styles/openroadcode.json
@@ -101,7 +107,11 @@ style changes to regenerate the installed style.
 
 ## Validation
 
-Validation runs automatically after a build. It checks source PBFs with osmium, MBTiles SQLite integrity and required vector layers, style JSON and runtime sources, glyph presence, Valhalla databases/tiles/extract, an optional `valhalla_service /status` smoke test, and SHA-256 checksums for key artifacts.
+Validation runs automatically after a build. It checks source PBFs with osmium,
+both regional and nationwide-freeway MBTiles for SQLite integrity and required
+vector layers, style JSON and runtime sources, glyph presence, Valhalla
+databases/tiles/extract, an optional `valhalla_service /status` smoke test, and
+SHA-256 checksums for key artifacts.
 
 Run validation again with:
 

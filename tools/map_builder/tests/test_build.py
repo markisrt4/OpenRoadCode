@@ -8,7 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from tools.map_builder.builder.build import BuildError, _download_and_verify, _merge_for_build, _parse_bbox, _prepare_output_dirs
+from tools.map_builder.builder.build import BuildError, _build_national_freeways, _download_and_verify, _merge_for_build, _parse_bbox, _prepare_output_dirs
 
 
 class BoundingBoxTests(unittest.TestCase):
@@ -149,6 +149,32 @@ class GeofabrikCacheTests(unittest.TestCase):
                     "MD5 mismatch for freshly downloaded us/michigan",
                 ):
                     _download_and_verify(region)
+
+
+class NationalFreewayBuildTests(unittest.TestCase):
+    def test_filters_national_extract_before_vector_tiling(self):
+        region = SimpleNamespace(id="north-america/us")
+        source = Path("/cache/us.osm.pbf")
+        with (
+            tempfile.TemporaryDirectory() as tmpdir,
+            patch("tools.map_builder.builder.build.SCRATCH_ROOT", Path(tmpdir)),
+            patch("tools.map_builder.builder.build.OUTPUT_ROOT", Path(tmpdir) / "output"),
+            patch("tools.map_builder.builder.build._download_and_verify", return_value=source),
+            patch("tools.map_builder.builder.build.run") as run,
+            patch("tools.map_builder.builder.build._build_vector_tiles") as build_tiles,
+        ):
+            _build_national_freeways(region)
+
+        filtered = Path(tmpdir) / "us-freeways.osm.pbf"
+        self.assertEqual(
+            run.call_args_list[0].args[0],
+            ["osmium", "tags-filter", "--overwrite", "-o", str(filtered), str(source),
+             "w/highway=motorway,motorway_link,trunk,trunk_link"],
+        )
+        build_tiles.assert_called_once_with(
+            filtered, Path(tmpdir) / "output/maps/vector/us-freeways.mbtiles",
+            "tilemaker-freeways-store",
+        )
 
 
 if __name__ == "__main__":

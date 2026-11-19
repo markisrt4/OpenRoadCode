@@ -61,10 +61,15 @@ class MapThemeRuntimeTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             (root / "maps" / "styles").mkdir(parents=True)
+            (root / "maps" / "vector").mkdir(parents=True)
+            (root / "maps" / "vector" / "us-freeways.mbtiles").touch()
             destination = install_map_style(ThemeMode.DARK, root)
             document = json.loads(destination.read_text(encoding="utf-8"))
             layers = {layer["id"]: layer for layer in document["layers"]}
             self.assertEqual(layers["state-boundaries"]["paint"]["line-color"], "#54c96b")
+            self.assertEqual(layers["reference-land"]["paint"]["fill-color"], "#18372b")
+            self.assertEqual(layers["reference-lakes"]["paint"]["fill-color"], "#103f56")
+            self.assertEqual(layers["motorways"]["source"], "national-freeways")
             self.assertEqual(layers["state-boundaries"]["minzoom"], 0)
             self.assertIn('us_state_boundaries.geojson', document['sources']['state-boundaries']['data'])
             self.assertEqual(layers["state-boundaries"]["paint"]["line-dasharray"], [1, 2])
@@ -73,10 +78,25 @@ class MapThemeRuntimeTest(unittest.TestCase):
             self.assertTrue((root / "maps/boundaries/us_state_boundaries.geojson").is_file())
             self.assertTrue((root / "maps/boundaries/us_state_internal_boundaries.geojson").is_file())
             self.assertTrue((root / "maps/boundaries/world_country_boundaries.geojson").is_file())
+            self.assertTrue((root / "maps/boundaries/world_land.geojson").is_file())
+            self.assertTrue((root / "maps/boundaries/world_lakes.geojson").is_file())
             self.assertEqual(layers["buildings"]["type"], "fill-extrusion")
             self.assertIn("fill-extrusion-color", layers["buildings"]["paint"])
             self.assertIn("poi-results", document["sources"])
             self.assertIn("poi-results-icon", layers)
+
+    def test_missing_national_freeways_preserves_regional_motorways(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "maps" / "styles").mkdir(parents=True)
+            document = json.loads(install_map_style(ThemeMode.DARK, root).read_text())
+            layers = {layer["id"]: layer for layer in document["layers"]}
+            self.assertNotIn("national-freeways", document["sources"])
+            self.assertNotIn("freeway-labels-national", layers)
+            self.assertEqual(layers["motorways"]["source"], "openroad")
+            self.assertEqual(layers["road-refs-major"]["source"], "openroad")
+            self.assertEqual(layers["road-refs-major"]["filter"], ["has", "ref"])
+            self.assertNotIn("filter", layers["road-labels"])
 
     def test_radar_locator_rings_follow_vehicle_above_radar_and_below_marker(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

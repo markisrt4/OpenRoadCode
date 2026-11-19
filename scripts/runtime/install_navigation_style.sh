@@ -38,7 +38,30 @@ sudo install -d -m 0755 "$BOUNDARY_DESTINATION"
 sudo chmod 0755   "$DATA_ROOT"   "$DATA_ROOT/maps"   "$(dirname -- "$STYLE_DESTINATION")"
 
 sudo install   -o "$RUNTIME_USER"   -g "$RUNTIME_GROUP"   -m 0644   "$STYLE_TEMPLATE"   "$STYLE_DESTINATION"
-for boundary in us_state_boundaries.geojson us_state_internal_boundaries.geojson world_country_boundaries.geojson; do
+if [[ ! -s "$DATA_ROOT/maps/vector/us-freeways.mbtiles" ]]; then
+  echo "[!] National freeway tiles are not installed; retaining regional freeway rendering"
+  python3 - "$STYLE_DESTINATION" <<'PY'
+import json
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+document = json.loads(path.read_text(encoding="utf-8"))
+document.get("sources", {}).pop("national-freeways", None)
+layers = [layer for layer in document.get("layers", [])
+          if layer.get("id") != "freeway-labels-national"]
+for layer in layers:
+    if layer.get("source") == "national-freeways":
+        layer["source"] = "openroad"
+    if layer.get("id") == "road-refs-major":
+        layer["filter"] = ["has", "ref"]
+    elif layer.get("id") == "road-labels":
+        layer.pop("filter", None)
+document["layers"] = layers
+path.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
+PY
+fi
+for boundary in us_state_boundaries.geojson us_state_internal_boundaries.geojson world_country_boundaries.geojson world_land.geojson world_lakes.geojson; do
   sudo install -o "$RUNTIME_USER" -g "$RUNTIME_GROUP" -m 0644 \
     "$BOUNDARY_SOURCE/$boundary" "$BOUNDARY_DESTINATION/$boundary"
 done

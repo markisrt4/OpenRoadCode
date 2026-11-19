@@ -107,14 +107,24 @@ def _merge_for_build(pbfs):
  run(["osmium","time-filter","--overwrite","-o",str(merged),str(history)])
  run(["osmium","fileinfo","-e",str(merged)])
  return merged,_pbf_bbox(merged)
-def _build_maplibre_data(tilemaker_input,bbox=None):
- output=OUTPUT_ROOT/"maps/vector/openroadcode.mbtiles"; output.unlink(missing_ok=True); store=SCRATCH_ROOT/"tilemaker-store"
+def _build_vector_tiles(tilemaker_input:Path,output:Path,store_name:str,bbox=None)->None:
+ output.unlink(missing_ok=True); store=SCRATCH_ROOT/store_name
  if store.exists():shutil.rmtree(store)
  store.mkdir(parents=True); command=["tilemaker","--input",str(tilemaker_input),"--output",str(output),"--config",str(TILEMAKER_CONFIG),"--process",str(TILEMAKER_PROCESS),"--store",str(store)]
  if bbox: command.extend(["--bbox",bbox])
- run(command); install_style(STYLE_TEMPLATE,OUTPUT_ROOT/"maps/styles/openroadcode.json"); glyph_dest=OUTPUT_ROOT/"maps/glyphs/KlokanTech Noto Sans CJK Regular"
+ run(command)
+def _build_maplibre_data(tilemaker_input,bbox=None):
+ _build_vector_tiles(tilemaker_input,OUTPUT_ROOT/"maps/vector/openroadcode.mbtiles","tilemaker-store",bbox)
+ install_style(STYLE_TEMPLATE,OUTPUT_ROOT/"maps/styles/openroadcode.json"); glyph_dest=OUTPUT_ROOT/"maps/glyphs/KlokanTech Noto Sans CJK Regular"
  if glyph_dest.exists():shutil.rmtree(glyph_dest)
  shutil.copytree(GLYPH_SOURCE,glyph_dest)
+def _build_national_freeways(region:Region)->None:
+ source=_download_and_verify(region); filtered=SCRATCH_ROOT/"us-freeways.osm.pbf"
+ filtered.unlink(missing_ok=True)
+ run(["osmium","tags-filter","--overwrite","-o",str(filtered),str(source),
+      "w/highway=motorway,motorway_link,trunk,trunk_link"])
+ run(["osmium","fileinfo","-e",str(filtered)])
+ _build_vector_tiles(filtered,OUTPUT_ROOT/"maps/vector/us-freeways.mbtiles","tilemaker-freeways-store")
 def _build_valhalla(pbf:Path):
  root=OUTPUT_ROOT/"valhalla"; tiles=root/"tiles"
  if tiles.exists():shutil.rmtree(tiles)
@@ -124,14 +134,15 @@ def _build_valhalla(pbf:Path):
  with config.open("w",encoding="utf-8") as output:subprocess.run(cmd,check=True,stdout=output)
  with timezones.open("wb") as output:subprocess.run(["valhalla_build_timezones"],check=True,stdout=output)
  run(["valhalla_build_admins","-c",str(config),str(pbf)]); run(["valhalla_build_tiles","-c",str(config),str(pbf)]); run(["valhalla_build_extract","-c",str(config),"-v"])
-def _write_manifest(regions,validation,search_counts):
+def _write_manifest(regions,validation,search_counts,freeway_region:Region|None=None):
  manifest={"schema":2,"generated_unix":int(time.time()),"regions":[asdict(r) for r in regions],"validation":validation,"map_3d":validation.get("map_3d",{}),"search_index":{"counts":search_counts,"path":"maps/search/openroadcode-search.sqlite"},"tools":{}}
+ if freeway_region is not None: manifest["national_freeways"]={"source_region":asdict(freeway_region),"path":"maps/vector/us-freeways.mbtiles"}
  manifest["deployable_bytes"] = sum(p.stat().st_size for p in OUTPUT_ROOT.rglob("*") if p.is_file() and p.name != "build-manifest.json")
  for tool in ("tilemaker","valhalla_service","osmium"):
   result=subprocess.run([tool,"--version"],text=True,capture_output=True,check=False); manifest["tools"][tool]=(result.stdout or result.stderr).strip().splitlines()[0]
  (OUTPUT_ROOT/"build-manifest.json").write_text(json.dumps(manifest,indent=2)+"\n",encoding="utf-8")
-def build_regions(regions:list[Region],*,clean:bool=True,service_smoke:bool=True)->dict:
+def build_regions(regions:list[Region],*,freeway_region:Region,clean:bool=True,service_smoke:bool=True)->dict:
  if not regions:raise BuildError("No regions selected")
  _prepare_output_dirs(clean=clean); cached=[_download_and_verify(r) for r in regions]; installed=_install_sources(regions,cached); build_input,bbox=_merge_for_build(installed)
  search_counts=build_search_index(build_input,OUTPUT_ROOT/"maps/search/openroadcode-search.sqlite"); print(f"Built search index: {search_counts}",flush=True)
- _build_maplibre_data(build_input,bbox); _build_valhalla(build_input); validation=validate_output(OUTPUT_ROOT,service_smoke=service_smoke); _write_manifest(regions,validation,search_counts); return validation
+ _build_maplibre_data(build_input,bbox); _build_national_freeways(freeway_region); _build_valhalla(build_input); validation=validate_output(OUTPUT_ROOT,service_smoke=service_smoke); _write_manifest(regions,validation,search_counts,freeway_region); return validation
