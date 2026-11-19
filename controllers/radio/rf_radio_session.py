@@ -16,7 +16,7 @@ from controllers.sdr.sdr_telemetry_monitor import SDRTelemetryMonitor
 from ui.radio.sdrforge_spectrum_if import SpectrumSourceIf, SpectrumPresentationIf
 from ui.radio.rf_radio_if import (
     AircraftPresentation, RadioAction, RadioApplication, RadioHost, RadioNativeSurface,
-    RadioRequest, RfProfile, RfRadioState, RfRadioUi,
+    RadioRequest, RadioTelemetry, RfProfile, RfRadioState, RfRadioUi,
 )
 
 
@@ -58,6 +58,13 @@ class ReceiverSession:
         self._host: RadioHost | None = None
         self._native_view = "none"
         self._state = RfRadioState(radio.state, self._profiles())
+
+    def _set_station(self, station) -> None:
+        """Invalidate telemetry when rigctl or a local request changes station."""
+        if station.frequency_hz != self._state.station.frequency_hz:
+            self._state = replace(self._state, station=station, telemetry=RadioTelemetry())
+        else:
+            self._state = replace(self._state, station=station)
 
     def _profiles(self) -> tuple[RfProfile, ...]:
         return tuple(RfProfile(p.key, p.label, p.group, p.presets) for p in self._radio.catalog.profiles)
@@ -288,7 +295,7 @@ class ReceiverSession:
                 try:
                     # A successful rigctl frequency read must not erase a
                     # receiver startup failure reported by REST.
-                    self._state = replace(self._state, station=self._radio.refresh())
+                    self._set_station(self._radio.refresh())
                 except (OSError, RuntimeError, ValueError):
                     # Preserve the last valid station during transient rigctl failures.
                     # REST remains authoritative for acquisition state.
@@ -328,8 +335,8 @@ class ReceiverSession:
                 RadioAction.AUTO_RANGE: self._control.auto_range,
             }
             operations[action]()
-        self._state = replace(self._state, station=self._radio.state,
-                              profiles=self._profiles(), error="")
+        self._set_station(self._radio.state)
+        self._state = replace(self._state, profiles=self._profiles(), error="")
         self._read_controls()
 
     def _scan(self, generation: int) -> None:
