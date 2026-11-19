@@ -256,3 +256,35 @@ def test_sdrforge_same_frequency_preserves_rds_between_updates(receiver):
     assert state.telemetry.radio_text == "Current song"
     assert state.telemetry.rds == "LIVE"
     assert state.telemetry.mode == "WFM"
+
+
+def test_rest_running_status_wins_over_delayed_zmq_stop(receiver):
+    r = receiver
+    source = Mock()
+    r.session._spectrum_source = source
+    r.session._rest_receiver_running = True
+    source.latest_receiver.return_value = RadioTelemetry(
+        frequency_hz=100_000_000, mode="WFM", receiver_running=False)
+    source.latest_spectrum.return_value = None
+
+    r.session.refresh_spectrum()
+
+    state = r.view.set_radio_state.call_args.args[0]
+    assert state.receiver_running is True
+    assert state.telemetry.receiver_running is False
+
+
+def test_rest_stopped_status_wins_over_delayed_zmq_start(receiver):
+    r = receiver
+    source = Mock()
+    r.session._spectrum_source = source
+    r.session._rest_receiver_running = False
+    source.latest_receiver.return_value = RadioTelemetry(
+        frequency_hz=100_000_000, mode="WFM", receiver_running=True)
+    source.latest_spectrum.return_value = None
+
+    r.session.refresh_spectrum()
+
+    state = r.view.set_radio_state.call_args.args[0]
+    assert state.receiver_running is False
+    assert state.telemetry.receiver_running is True
