@@ -128,7 +128,7 @@ class SdrForgeReceiverView(tk.Frame):
         if not row or viewport is None or not self._center_frequency_hz or not self._sample_rate_hz:
             return tuple(row)
         source_start = self._center_frequency_hz - self._sample_rate_hz / 2
-        scale = (len(row) - 1) / self._sample_rate_hz
+        scale = len(row) / self._sample_rate_hz
         length = min(len(row), 512)
         return tuple(
             row[index] if 0 <= index < len(row) else 0.0
@@ -197,6 +197,20 @@ class SdrForgeReceiverView(tk.Frame):
             raw = tuple(max(0.0, min(1.0, (float(value) - self._db_floor) / span))
                         for value in power_db)
         previous_center = self._center_frequency_hz
+        previous_rate = self._sample_rate_hz
+        geometry_changed = (
+            (previous_center is not None and center_frequency_hz != previous_center)
+            or (previous_rate is not None and sample_rate_hz != previous_rate)
+            or (bool(self._bins) and len(self._bins) != len(raw))
+        )
+        if geometry_changed:
+            # Old rows represent different absolute frequencies; never display
+            # them beneath a newly tuned spectrum or reuse their peak hold.
+            self._history.clear()
+            self._bins = ()
+            self._peak_bins = ()
+            self._db_floor = None
+            self._db_ceiling = None
         self._center_frequency_hz = center_frequency_hz
         self._sample_rate_hz = sample_rate_hz
         if center_frequency_hz is not None and sample_rate_hz is not None:
