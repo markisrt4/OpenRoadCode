@@ -13,7 +13,9 @@ window.ORCTerrainCues = function (viewer, C) {
     // Globe materials also run over lakes and oceans. Locate this fragment in
     // the bundled opaque land/lake reference rather than treating all relief
     // as land. The source is an overview mask, not a shoreline survey.
-    const normal='czm_geodeticSurfaceNormal((czm_inverseView*vec4(-materialInput.positionToEyeEC,1.0)).xyz,vec3(0.0),czm_ellipsoidInverseRadiiSquared)';
+    // WGS84 inverse-radii-squared ratio, rescaled to avoid tiny constants.
+    // The globe-only uniform is not exposed inside composed fabric materials.
+    const normal='czm_geodeticSurfaceNormal((czm_inverseView*vec4(-materialInput.positionToEyeEC,1.0)).xyz,vec3(0.0),vec3(1.0,1.0,1.0067394967422765))';
     const uv=`czm_ellipsoidTextureCoordinates(${normal})`;
     const water=`texture(waterReference,${uv})`;
     return new C.Material({fabric:{
