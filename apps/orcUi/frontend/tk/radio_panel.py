@@ -10,7 +10,7 @@ from .sdrforge_receiver_view import SdrForgeReceiverView
 from .automotive_radio_button import AutomotiveRadioButton
 from ui.radio.sdrforge_spectrum_if import SpectrumPresentation
 from ui.radio.radio_visualization_config import RadioVisualizationConfig
-from ui.radio.rf_radio_if import RadioAction, RadioHost, RadioRequest, RfRadioSession, RfRadioState
+from ui.radio.rf_radio_if import RadioAction, RadioHost, RadioRequest, RfRadioSession, RfRadioState, receiver_mode_mismatch
 from ui.radio.radio_profile_state import RadioProfileState
 from ui.theme import ThemeBundle
 from .shell_metrics import FONT_SMALL
@@ -540,7 +540,15 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         snr = "--" if state.telemetry.snr_db is None else f"{state.telemetry.snr_db:.1f} dB"
         self._signal_label.configure(text=f"SIGNAL {signal}")
         if self._receiver_controls is not None:
-            self._receiver_mode_label.configure(text="MODE  " + (state.station.mode_name or "--"))
+            mismatch = receiver_mode_mismatch(state)
+            observed = state.telemetry.mode
+            requested = state.station.mode_name or "--"
+            mode_text = (f"MODE  {requested}  ≠  {observed}" if mismatch
+                         else f"MODE  {requested}")
+            self._receiver_mode_label.configure(
+                text=mode_text,
+                fg=self._theme.ui.accent_danger if mismatch else self._theme.ui.text,
+            )
             self._receiver_signal_label.configure(text=state.scan_progress or ("SIGNAL  " + signal))
             if self._sdrforge_view is not None:
                 group = self._active_group.split(":", 1)[0]
