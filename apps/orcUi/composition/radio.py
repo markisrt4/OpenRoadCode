@@ -17,7 +17,6 @@ from concurrent.futures import ThreadPoolExecutor
 from apps.orcUi.application_runtime import OrcUiApplicationRuntime
 from common.resource_cleanup import ResourceCleanup, close_resources
 
-from apps.launchers.sdrpp_launcher import sync_sdrpp_theme
 from apps.orcUi.adapters.adsb_control import OrcUiAdsbControl
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.radio_entry_panel import RadioEntryPanel
@@ -140,6 +139,8 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
                 if os.environ.get("ORC_SDRFORGE_UI_PREVIEW", "1").lower() in (
                     "0", "false", "no",
                 ):
+                    from apps.launchers.sdrpp_launcher import sync_sdrpp_theme
+
                     sync_sdrpp_theme("Light" if mode is ThemeMode.LIGHT else "Dark")
             resources.run_rf(work)
 
