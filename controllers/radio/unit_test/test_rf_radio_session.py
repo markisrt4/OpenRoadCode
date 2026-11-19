@@ -731,7 +731,7 @@ def test_native_refresh_tracks_receiver_lifecycle(receiver, monkeypatch, running
     )
 
 
-def test_stale_zmq_running_flag_is_suppressed_after_rest_stop(receiver):
+def test_stale_zmq_running_flag_is_diagnostic_only_after_rest_stop(receiver):
     r = receiver
     r.session._rest_receiver_running = False
     r.session._state = replace(r.session._state, receiver_running=False)
@@ -744,7 +744,8 @@ def test_stale_zmq_running_flag_is_suppressed_after_rest_stop(receiver):
     r.session.refresh_spectrum()
     state = r.view.set_radio_state.call_args.args[0]
     assert state.receiver_running is False
-    assert state.telemetry.receiver_running is False
+    # Preserve the raw delayed ZMQ flag for diagnostics, not UI authority.
+    assert state.telemetry.receiver_running is True
     assert state.telemetry.rds == ""
 
 
