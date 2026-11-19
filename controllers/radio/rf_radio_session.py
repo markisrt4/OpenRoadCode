@@ -53,6 +53,7 @@ class ReceiverSession:
         self._refresh_pending = False
         self._scan_cancel = Event()
         self._owns_receiver = False
+        self._rest_receiver_running: bool | None = None
         self._view: RfRadioUi | None = None
         self._host: RadioHost | None = None
         self._native_view = "none"
@@ -101,9 +102,13 @@ class ReceiverSession:
                 # An old receiver message must not override a newly tuned station.
                 receiver = replace(receiver, mode=None, bandwidth_hz=None,
                                    receiver_running=None)
-            running = (self._state.receiver_running
-                       if receiver.receiver_running is None
-                       else receiver.receiver_running)
+            # REST owns acquisition state once a successful status read arrives.
+            # ZMQ can report an older start/stop event after that REST snapshot.
+            running = (self._rest_receiver_running
+                       if self._rest_receiver_running is not None
+                       else (self._state.receiver_running
+                             if receiver.receiver_running is None
+                             else receiver.receiver_running))
             self._state = replace(self._state, telemetry=receiver,
                                   receiver_running=running)
             view.set_radio_state(self._state)
@@ -224,6 +229,11 @@ class ReceiverSession:
             self._owns_receiver = False
             # HTTP 202 means startup was accepted, not that acquisition is running.
             # Periodic REST refresh will report the actual receiver state.
+            if action is RadioAction.STOP_RECEIVER:
+                self._rest_receiver_running = False
+            else:
+                # A 202 Accepted response does not establish running state.
+                self._rest_receiver_running = None
             self._state = replace(self._state,
                                   receiver_running=False if action is RadioAction.STOP_RECEIVER
                                   else self._state.receiver_running,
@@ -267,6 +277,7 @@ class ReceiverSession:
                     ) as response:
                         audio_status = json.load(response)
                     startup_error = status.get("startup_error")
+                    self._rest_receiver_running = bool(status.get("running", False))
                     self._state = replace(
                         self._state, receiver_running=bool(status.get("running", False)),
                         playing=not bool(audio_status.get("muted", False)),
