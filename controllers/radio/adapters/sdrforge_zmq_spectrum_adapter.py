@@ -81,6 +81,37 @@ def receiver_telemetry(topic: str, payload: dict[str, Any]) -> RadioTelemetry | 
     )
 
 
+class ReceiverSequenceFilter:
+    """Reject reordered receiver messages within a publisher lifetime."""
+
+    def __init__(self) -> None:
+        self._stream_id: str | None = None
+        self._sequence = -1
+        self._retired_streams: set[str] = set()
+
+    def accept(self, payload: dict[str, Any]) -> bool:
+        """Accept legacy payloads and strictly increasing sequenced updates."""
+        stream_id = payload.get("stream_id")
+        sequence = payload.get("sequence")
+        if stream_id is None and sequence is None:
+            # Legacy publisher: no ordering information available.
+            return True
+        if (not isinstance(stream_id, str) or not stream_id
+                or type(sequence) is not int or sequence < 1):
+            return False
+        if stream_id in self._retired_streams:
+            return False
+        if stream_id != self._stream_id:
+            if self._stream_id is not None:
+                self._retired_streams.add(self._stream_id)
+            self._stream_id = stream_id
+            self._sequence = -1
+        if sequence <= self._sequence:
+            return False
+        self._sequence = sequence
+        return True
+
+
 class SdrForgeTelemetrySubscriber:
     """Bounded latest-only telemetry queue, safe to poll from the Tk thread."""
 
@@ -88,6 +119,7 @@ class SdrForgeTelemetrySubscriber:
         self.endpoint = endpoint
         self._queue: Queue[SpectrumPresentation] = Queue(maxsize=1)
         self._receiver_queue: Queue[RadioTelemetry] = Queue(maxsize=1)
+        self._receiver_order = ReceiverSequenceFilter()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
 
@@ -147,7 +179,7 @@ class SdrForgeTelemetrySubscriber:
                     topic_name = topic.decode("ascii")
                     if topic_name == "receiver":
                         receiver = receiver_telemetry(topic_name, payload)
-                        if receiver is not None:
+                        if receiver is not None and self._receiver_order.accept(payload):
                             if self._receiver_queue.full():
                                 self._receiver_queue.get_nowait()
                             self._receiver_queue.put_nowait(receiver)
