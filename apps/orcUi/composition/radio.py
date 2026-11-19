@@ -134,7 +134,12 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
     with ResourceCleanup() as cleanup:
         def sync_theme(mode: ThemeMode) -> None:
             def work() -> None:
-                sync_sdrpp_theme("Light" if mode is ThemeMode.LIGHT else "Dark")
+                # Native SDRForge uses the ORC theme directly. Only the
+                # explicitly selected legacy SDR++ window needs synchronization.
+                if os.environ.get("ORC_SDRFORGE_UI_PREVIEW", "1").lower() in (
+                    "0", "false", "no",
+                ):
+                    sync_sdrpp_theme("Light" if mode is ThemeMode.LIGHT else "Dark")
             resources.run_rf(work)
 
         resources = StreamingRadioResources(app.cancel_ui_callback)
