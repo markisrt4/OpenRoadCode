@@ -577,3 +577,32 @@ def test_spectrum_recovery_requires_current_frequency_and_running(receiver):
     source.latest_spectrum.return_value = fresh
     r.session.refresh_spectrum()
     assert view.frames == [fresh]
+
+
+def test_native_receiver_does_not_require_legacy_telemetry(receiver, monkeypatch):
+    """Native SDRForge status refresh works with no SDR++ telemetry client."""
+    r = receiver
+    r.session._telemetry = None
+    r.session._native_view = "none"
+    monkeypatch.setattr(
+        "controllers.radio.rf_radio_session.urllib.request.urlopen",
+        Mock(side_effect=OSError("REST temporarily unavailable")),
+    )
+    r.radio.refresh.return_value = r.radio.state
+    r.session._perform(RadioRequest(RadioAction.REFRESH), r.session._generation)
+    assert r.session._telemetry is None
+    assert r.session._state.station.frequency_hz == 100_000_000
+
+
+def test_legacy_refresh_tolerates_missing_optional_monitor(receiver, monkeypatch):
+    """Missing legacy telemetry must not crash a receiver refresh."""
+    r = receiver
+    r.session._telemetry = None
+    r.session._native_view = "sdrpp"
+    monkeypatch.setattr(
+        "controllers.radio.rf_radio_session.urllib.request.urlopen",
+        Mock(side_effect=OSError("REST temporarily unavailable")),
+    )
+    r.radio.refresh.return_value = r.radio.state
+    r.session._perform(RadioRequest(RadioAction.REFRESH), r.session._generation)
+    assert r.session._state.station.frequency_hz == 100_000_000
