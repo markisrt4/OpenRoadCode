@@ -56,12 +56,7 @@ class RadioProfileController:
         self._profile_key = profile_key
         self._radio = self._build_controller(config)
         if start or was_started:
-            self._radio.start()
-            # SDRForge is shared: attaching intentionally preserves frequency,
-            # but selecting a profile must still apply its demodulation mode.
-            if getattr(self._radio.backend, "shared_receiver", False):
-                mode = self._radio.current_mode
-                self._radio.backend.set_mode(mode.name, mode.bandwidth)
+            self._ensure_started()
         return self.state
 
     @property
@@ -99,7 +94,14 @@ class RadioProfileController:
         self._radio.refresh_frequency()
         return self.state
     def _ensure_started(self) -> None:
-        if not self._radio.is_started: self._radio.start()
+        if self._radio.is_started:
+            return
+        self._radio.start()
+        # The shared SDRForge receiver retains its previous DSP mode when
+        # a new ORC controller attaches. Apply the selected profile explicitly.
+        if getattr(self._radio.backend, "shared_receiver", False):
+            mode = self._radio.current_mode
+            self._radio.backend.set_mode(mode.name, mode.bandwidth)
 
     def _build_controller(self, config) -> RadioController:
         presets = [RadioPreset(item.label, item.frequency_hz, RadioMode(item.mode.name, item.mode.bandwidth, item.mode.step_hz)) for item in config.presets]
