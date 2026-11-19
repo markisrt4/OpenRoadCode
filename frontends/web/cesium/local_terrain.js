@@ -83,7 +83,8 @@ window.ORCLocalTerrain = function (data, C, initialPoint=null) {
       && longitude>=item.west_rad && longitude<=item.east_rad
       && latitude>=item.south_rad && latitude<=item.north_rad);
     if(!available.length)return 0;
-    const tile=available[0];
+    const evaluate=index=>{
+    const tile=available[index];
     const value=sample(tile,longitude,latitude);
     if(!data.page_url)return value;
     const dx=(tile.east_rad-tile.west_rad)/(tile.width-1);
@@ -105,11 +106,14 @@ window.ORCLocalTerrain = function (data, C, initialPoint=null) {
     }
     // Only exposed edges fade; shared fine-grid edges stay at source height.
     // Raw elevations are untouched. Blend into the next available coarse grid.
+    if(weight>=1)return value;
     const t=weight*weight*(3-2*weight);
-    const fallback=available.find(other=>other!==tile && ((other.detail_level||0)<(tile.detail_level||0)
+    const fallback=available.findIndex((other,next)=>next>index && ((other.detail_level||0)<(tile.detail_level||0)
       || (other.east_rad-other.west_rad)*(other.north_rad-other.south_rad)/((other.width-1)*(other.height-1))>area*1.1));
-    const lower=fallback?sample(fallback,longitude,latitude):0;
+    const lower=fallback>=0?evaluate(fallback):0;
     return lower+(value-lower)*t;
+    };
+    return evaluate(0);
   }
   function heightAt(longitude, latitude) {
     return visible ? sampledHeightAt(longitude, latitude) : 0;
