@@ -83,10 +83,17 @@ class ReceiverSession:
             # Spectrum telemetry may omit RDS fields between decoder updates.
             # Preserve the last decoded text only while tuned to the same station.
             previous = self._state.telemetry
-            if (receiver.frequency_hz == previous.frequency_hz
+            if (receiver.receiver_running is not False
+                    and receiver.frequency_hz == previous.frequency_hz
+                    and receiver.frequency_hz == self._state.station.frequency_hz
                     and not (receiver.radio_text or receiver.station_name or receiver.rds)):
                 receiver = replace(receiver, radio_text=previous.radio_text,
                                    station_name=previous.station_name, rds=previous.rds)
+            elif (receiver.receiver_running is False
+                  or receiver.frequency_hz != self._state.station.frequency_hz):
+                # A stopped or previously tuned receiver must not advertise
+                # station identity from an earlier listening session.
+                receiver = replace(receiver, radio_text="", station_name="", rds="")
             # Preserve the requested profile mode. Replacing it with ZMQ's
             # observed mode would hide mismatches and corrupt profile state.
             station = self._state.station
