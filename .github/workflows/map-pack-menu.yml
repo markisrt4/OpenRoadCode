@@ -2,6 +2,7 @@ name: Map pack menu checks
 on:
   push:
     paths:
+      - tools/map_builder/tests/test_terrain_material_browser.py
       - frontends/web/cesium/terrain_cues.js
       - frontends/web/cesium/unit_test/test_terrain_cues.js
       - tools/map_builder/templates/openroadcode-style.json
@@ -65,3 +66,9 @@ jobs:
         with:
           name: world-reference-image
           path: world_reference.png
+      - name: Install pinned SDK for real material compilation check
+        run: |
+          command -v google-chrome
+          python -m development.maps.install_cesium
+      - name: Check lake-aware contour material in Chromium
+        run: python -m pytest tools/map_builder/tests/test_terrain_material_browser.py -q
