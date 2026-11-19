@@ -34,6 +34,19 @@ class RadioTelemetry:
     receiver_running: bool | None = None
 
 
+def receiver_mode_mismatch(state: "RfRadioState") -> bool:
+    """True only for a running, same-frequency, contradictory receiver mode."""
+    observed = state.telemetry
+    expected = state.station.mode_name.upper()
+    canonical = "WFM" if expected == "FM" else expected
+    return (
+        observed.receiver_running is True
+        and observed.frequency_hz == state.station.frequency_hz
+        and observed.mode is not None
+        and canonical != observed.mode
+    )
+
+
 @dataclass(frozen=True)
 class RfProfile:
     key: str
