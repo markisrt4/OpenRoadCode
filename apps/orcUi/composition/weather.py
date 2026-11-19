@@ -28,6 +28,7 @@ from controllers.weather import (
 from controllers.weather.environmental_radar_injection_controller import EnvironmentalRadarInjectionController
 from controllers.weather.providers.hrrr_radar_provider import HrrrRadarProvider
 from controllers.weather.weather_screen_controller import WeatherScreenController
+from controllers.weather.noaa_rf_weather_service import NoaaRfWeatherService
 from frontends.tk.weather import WeatherScreen
 from hardware_io.android import AndroidSensorBridgeClient
 from services.navigation.navigation_service_cli import DEFAULT_RUNTIME_CONFIG
@@ -43,6 +44,7 @@ class WeatherComposition:
     radar_tiles: RadarTileService
     radar_injection: EnvironmentalRadarInjectionController
     screen_controller: WeatherScreenController
+    noaa_rf: NoaaRfWeatherService | None = None
 
     _closed: bool = field(default=False, init=False)
 
@@ -50,7 +52,11 @@ class WeatherComposition:
         if self._closed:
             return
         self._closed = True
-        close_resources(self.screen_controller.close, self.radar_tiles.close)
+        close_resources(
+            self.screen_controller.close,
+            self.radar_tiles.close,
+            *([self.noaa_rf.stop] if self.noaa_rf is not None else []),
+        )
 
     def select_radar_source(self, forecast: bool) -> None:
         """Select observed radar or experimental NOAA HRRR CONUS forecasts."""
@@ -66,6 +72,7 @@ def configure_weather(
     on_radar_map: Callable[[], None] | None = None,
     on_weather_status: Callable[[str], None] | None = None,
     map_renderer=None,
+    noaa_rf_factory: Callable[[OpenMeteoWeatherProvider], NoaaRfWeatherService] | None = None,
 ) -> WeatherComposition:
     """Compose GPS-backed Open-Meteo Weather with shared display preferences."""
     with ResourceCleanup() as cleanup:
@@ -77,12 +84,19 @@ def configure_weather(
             name="Configured fallback",
             source="runtime-config",
         )
-        controller = WeatherController(
-            OpenMeteoWeatherProvider(timeout_seconds=5.0),
-            network_allowed=lambda: app.online_mode.online,
-            location_provider=GpsdWeatherLocationProvider(),
-            fallback_location=fallback_location,
-        )
+        online_provider = OpenMeteoWeatherProvider(timeout_seconds=5.0)
+        noaa_rf = noaa_rf_factory(online_provider) if noaa_rf_factory is not None else None
+        controller_kwargs = {
+            "network_allowed": lambda: app.online_mode.online,
+            "location_provider": GpsdWeatherLocationProvider(),
+            "fallback_location": fallback_location,
+        }
+        if noaa_rf is None:
+            controller = WeatherController(online_provider, **controller_kwargs)
+        else:
+            noaa_rf.start()
+            cleanup.callback(noaa_rf.stop)
+            controller = noaa_rf.make_controller(**controller_kwargs)
         def publish_weather_status(state) -> None:
             if on_weather_status is None:
                 return
@@ -133,6 +147,7 @@ def configure_weather(
             radar=radar,
             radar_tiles=radar_tiles,
             radar_injection=radar_injection,
+            noaa_rf=noaa_rf,
         )
         cleanup.release()
         return composition
