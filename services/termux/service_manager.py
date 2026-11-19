@@ -9,7 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path
 import json
 import subprocess
-from urllib.request import urlopen
+import time
+from urllib.request import Request, urlopen
 
 from services.common.service_logging import (
     ServiceStatusLog,
@@ -168,6 +169,58 @@ class RunitServiceManager:
             raise ValueError("RTL-SDR restart requires Android-authorized USB handoff")
         self._sv("restart", name)
         return self.status(name)
+
+    @service_action(COMPONENT, "switch_sdrforge_source")
+    def switch_sdrforge_source(self, source: str) -> dict[str, str]:
+        """Switch server ownership; USB startup must be requested by Android."""
+        if source not in {"simulated", "local"}:
+            raise ValueError(f"Unsupported SDRForge source: {source}")
+        name = "openroadcode-sdrforge"
+        current = self._sdrforge_source()
+        if source == "local":
+            if current == "rtl_sdr":
+                return {"source": "rtl_sdr", "state": "ready"}
+            self._sv("down", name)
+            self._wait_sdrforge_source(None)
+            return {"source": "rtl_sdr", "state": "usb_handoff_required"}
+        if current == "rtl_sdr":
+            # Only the locally running hardware server is eligible for this
+            # graceful shutdown. Never kill arbitrary PIDs or supervised servers.
+            self._sv("down", name)
+            request = Request(
+                "http://127.0.0.1:5570/v1/server/shutdown",
+                data=b"",
+                method="POST",
+            )
+            with urlopen(request, timeout=3) as response:
+                if response.status != 200:
+                    raise RuntimeError("SDRForge hardware shutdown was rejected")
+            self._wait_sdrforge_source(None)
+        elif current not in (None, "simulated"):
+            raise RuntimeError(f"Unrecognized SDRForge source: {current}")
+        self.set_profile(name, "simulated")
+        self._sv("up", name)
+        self._wait_sdrforge_source("simulated")
+        return {"source": "simulated", "state": "ready"}
+
+    @staticmethod
+    def _sdrforge_source() -> str | None:
+        try:
+            with urlopen("http://127.0.0.1:5570/v1/receiver", timeout=0.7) as response:
+                source = json.load(response).get("source_type")
+                if source not in ("simulated", "rtl_sdr"):
+                    raise RuntimeError("SDRForge did not report a recognized source")
+                return source
+        except OSError:
+            return None
+
+    @classmethod
+    def _wait_sdrforge_source(cls, expected: str | None) -> None:
+        for _ in range(40):
+            if cls._sdrforge_source() == expected:
+                return
+            time.sleep(0.25)
+        raise RuntimeError(f"SDRForge did not transition to {expected or 'stopped'}")
 
     @service_action(COMPONENT, "start_core")
     def start_core(self) -> tuple[ServiceStatus, ...]:
