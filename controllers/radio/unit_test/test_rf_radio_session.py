@@ -393,3 +393,54 @@ def test_accepted_restart_does_not_claim_acquisition_is_running(receiver, monkey
     assert r.session._rest_receiver_running is None
     assert r.session._state.receiver_running is False
     assert r.session._state.telemetry == RadioTelemetry()
+
+
+def test_stopped_rest_does_not_resurrect_cached_rds(receiver):
+    r = receiver
+    source = Mock()
+    r.session._spectrum_source = source
+    r.session._rest_receiver_running = False
+    r.session._state = replace(
+        r.session._state,
+        telemetry=RadioTelemetry(
+            frequency_hz=100_000_000, receiver_running=True,
+            station_name="OLD", radio_text="OLD TEXT", rds="OLD"),
+    )
+    source.latest_receiver.return_value = RadioTelemetry(
+        frequency_hz=100_000_000, receiver_running=True)
+    source.latest_spectrum.return_value = None
+
+    r.session.refresh_spectrum()
+
+    state = r.view.set_radio_state.call_args.args[0]
+    assert state.receiver_running is False
+    assert state.telemetry.rds == ""
+    assert state.telemetry.radio_text == ""
+    assert state.telemetry.station_name == ""
+    assert state.telemetry.receiver_running is True
+
+
+def test_profile_mode_change_on_same_frequency_invalidates_telemetry(receiver):
+    r = receiver
+    r.session._state = replace(
+        r.session._state,
+        telemetry=RadioTelemetry(
+            frequency_hz=100_000_000, mode="WFM", receiver_running=True,
+            station_name="OLD", rds="OLD"),
+    )
+    station = replace(r.session._state.station, mode_name="NFM", profile_key="weather")
+    r.session._set_station(station)
+    assert r.session._state.station.mode_name == "NFM"
+    assert r.session._state.telemetry == RadioTelemetry()
+
+
+def test_profile_change_with_same_mode_and_frequency_invalidates_telemetry(receiver):
+    r = receiver
+    r.session._state = replace(
+        r.session._state,
+        telemetry=RadioTelemetry(
+            frequency_hz=100_000_000, mode="WFM", receiver_running=True),
+    )
+    station = replace(r.session._state.station, profile_key="alternate")
+    r.session._set_station(station)
+    assert r.session._state.telemetry == RadioTelemetry()
