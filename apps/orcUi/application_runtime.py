@@ -14,9 +14,8 @@ from pathlib import Path
 from apps.common.spotify_controller_factory import create_spotify_controller
 from apps.launchers.browser_app_factory import BrowserApplicationFactory
 from apps.launchers.google_earth_launcher import GoogleEarthLauncher
-from apps.launchers.managed_sdrpp_launcher import ManagedSDRPPLauncher
-from apps.launchers.sdrpp_launcher import SDRPPProfile
 from apps.orcUi.media_application_service import MediaApplicationService
+from apps.orcUi.native_radio_application_service import NativeRadioApplicationService
 from apps.orcUi.radio_application_service import ManagedRadioApplicationService
 from config.application_config import ApplicationsConfigParser
 from config.radio_config_manager import load_radio_config
@@ -35,7 +34,7 @@ class OrcUiApplicationRuntime:
     """Managed application services composed for the ORC frontend."""
 
     manager: AppRuntimeManager
-    radio: ManagedRadioApplicationService
+    radio: ManagedRadioApplicationService | NativeRadioApplicationService
     streaming_radio: StreamingRadioController
     media: MediaApplicationService
     earth: GoogleEarthLauncher | None = None
@@ -63,13 +62,24 @@ def create_orc_ui_application_runtime() -> OrcUiApplicationRuntime:
         manager = AppRuntimeManager(config, remote_display=fallback_display)
 
         cleanup.callback(manager.stop_all)
-        sdrpp_app = config.app("sdrpp")
-        sdrpp = ManagedSDRPPLauncher(
-            profile=_default_sdrpp_profile(),
-            fullscreen=sdrpp_app.fullscreen,
-            embedded=not sdrpp_app.fullscreen,
+        native_sdrforge = os.environ.get("ORC_SDRFORGE_UI_PREVIEW", "1").lower() not in (
+            "0", "false", "no",
         )
-        manager.register("sdrpp", sdrpp)
+        if native_sdrforge:
+            radio = NativeRadioApplicationService()
+        else:
+            from apps.launchers.managed_sdrpp_launcher import ManagedSDRPPLauncher
+
+            sdrpp_app = config.app("sdrpp")
+            sdrpp = ManagedSDRPPLauncher(
+                profile=_default_sdrpp_profile(),
+                fullscreen=sdrpp_app.fullscreen,
+                embedded=not sdrpp_app.fullscreen,
+            )
+            manager.register("sdrpp", sdrpp)
+            radio = ManagedRadioApplicationService(
+                manager, sdrpp, fullscreen=sdrpp_app.fullscreen,
+            )
 
         browser_factory = BrowserApplicationFactory(config)
         manager.register("youtube", browser_factory.create("youtube"))
@@ -80,11 +90,6 @@ def create_orc_ui_application_runtime() -> OrcUiApplicationRuntime:
         if earth is not None:
             manager.register("google_earth", earth)
 
-        radio = ManagedRadioApplicationService(
-            manager,
-            sdrpp,
-            fullscreen=sdrpp_app.fullscreen,
-        )
         cleanup.callback(radio.close)
         streaming_radio = StreamingRadioController(MpvStreamingAudioPlayer())
         cleanup.callback(streaming_radio.close)
@@ -109,7 +114,8 @@ def _applications_config_path() -> Path:
     return TERMUX_APPLICATIONS_CONFIG_PATH if _is_termux() else APPLICATIONS_CONFIG_PATH
 
 
-def _default_sdrpp_profile() -> SDRPPProfile:
+def _default_sdrpp_profile():
+    from apps.launchers.sdrpp_launcher import SDRPPProfile
     catalog = RadioProfileCatalog()
     profile = (
         catalog.profile("fm_radio")
