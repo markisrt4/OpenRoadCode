@@ -8,7 +8,7 @@ from __future__ import annotations
 import socket
 
 SDRPP_MODE_MAP = {
-    "NFM": "FM",
+    "NFM": "NFM",
     "FM": "FM",
     "WFM": "WFM",
     "AM": "AM",
