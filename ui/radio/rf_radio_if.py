@@ -29,6 +29,9 @@ class RadioTelemetry:
     station_name: str = ""
     radio_text: str = ""
     stereo_locked: bool | None = None
+    mode: str | None = None
+    bandwidth_hz: int | None = None
+    receiver_running: bool | None = None
 
 
 @dataclass(frozen=True)
