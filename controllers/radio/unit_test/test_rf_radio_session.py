@@ -696,3 +696,65 @@ def test_native_rest_reconnection_clears_outage_error(receiver, monkeypatch):
     state = r.view.set_radio_state.call_args.args[0]
     assert state.receiver_running is True
     assert state.error == ""
+
+
+@pytest.mark.parametrize("running,starting", [
+    (False, False), (False, True), (True, False),
+])
+def test_native_refresh_tracks_receiver_lifecycle(receiver, monkeypatch, running, starting):
+    import json
+    from io import BytesIO
+
+    r = receiver
+    r.session._native_sdrforge = True
+    r.session._native_view = "none"
+    calls = []
+
+    def urlopen(request, timeout=1.5):
+        calls.append(request)
+        payload = (
+            {"muted": False} if request.endswith("/v1/audio")
+            else {"running": running, "starting": starting, "startup_error": None}
+        )
+        return BytesIO(json.dumps(payload).encode())
+
+    monkeypatch.setattr(
+        "controllers.radio.rf_radio_session.urllib.request.urlopen", urlopen
+    )
+    r.radio.refresh.return_value = r.session._state.station
+    r.session._perform(RadioRequest(RadioAction.REFRESH), r.session._generation)
+    assert r.session._state.receiver_running is running
+    assert r.session._state.receiver_starting is (starting and not running)
+    assert not any(
+        isinstance(call, str) and call.endswith("/v1/receiver/start")
+        for call in calls
+    )
+
+
+def test_stale_zmq_running_flag_is_suppressed_after_rest_stop(receiver):
+    r = receiver
+    r.session._rest_receiver_running = False
+    r.session._state = replace(r.session._state, receiver_running=False)
+    source = Mock()
+    source.latest_receiver.return_value = RadioTelemetry(
+        frequency_hz=100_000_000, receiver_running=True, rds="STALE"
+    )
+    source.latest_spectrum.return_value = None
+    r.session._spectrum_source = source
+    r.session.refresh_spectrum()
+    state = r.view.set_radio_state.call_args.args[0]
+    assert state.receiver_running is False
+    assert state.telemetry.receiver_running is False
+    assert state.telemetry.rds == ""
+
+
+def test_native_close_never_stops_shared_receiver(receiver, monkeypatch):
+    r = receiver
+    r.session._native_sdrforge = True
+    r.session._owns_receiver = False
+    requests = Mock()
+    monkeypatch.setattr(
+        "controllers.radio.rf_radio_session.urllib.request.urlopen", requests
+    )
+    r.session.close()
+    requests.assert_not_called()
