@@ -25,9 +25,7 @@ from controllers.radio.adapters.radio_browser_directory import RadioBrowserDirec
 from controllers.radio.weather_radio import play_weather_radio
 from controllers.radio.rf_radio_session import ReceiverSession
 from ui.radio.radio_visualization_config import RadioRenderer, RadioVisualizationConfig
-from controllers.sdr.sdrpp_control import SDRPPControl
 from controllers.radio.native_radio_control import NativeRadioControl
-from controllers.sdr.sdr_telemetry_monitor import SDRTelemetryMonitor
 from apps.orcUi.frontend.tk.radio_panel import RadioPanel
 from controllers.radio.adapters.sdrforge_zmq_spectrum_adapter import SdrForgeTelemetrySubscriber
 from controllers.radio.radio_profile_controller import RadioProfileController
@@ -209,9 +207,18 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
             source = (SdrForgeTelemetrySubscriber(
                 os.environ.get("SDRFORGE_ZMQ_ENDPOINT", "tcp://127.0.0.1:5571")
             ) if native_sdrforge else None)
+            if native_sdrforge:
+                display_control = NativeRadioControl()
+                legacy_telemetry = None
+            else:
+                # SDR++ dependencies are loaded only for explicit legacy mode.
+                from controllers.sdr.sdrpp_control import SDRPPControl
+                from controllers.sdr.sdr_telemetry_monitor import SDRTelemetryMonitor
+
+                display_control = SDRPPControl()
+                legacy_telemetry = SDRTelemetryMonitor(radio)
             session = ReceiverSession(
-                radio, NativeRadioControl() if native_sdrforge else SDRPPControl(),
-                None if native_sdrforge else SDRTelemetryMonitor(radio), runtime.radio,
+                radio, display_control, legacy_telemetry, runtime.radio,
                 adsb, X11WindowEmbedder(), display=os.environ.get("DISPLAY", ":1"),
                 run_work=resources.run_rf, run_ui=app.dispatch_ui,
                 on_close=lambda: resources.rf_sessions.discard(session),
