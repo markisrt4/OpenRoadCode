@@ -204,6 +204,20 @@ class SdrForgeReceiverView(tk.Frame):
         self._signal = signal
         self._schedule_render()
 
+    def clear_spectrum(self) -> None:
+        """Discard stale FFT, peak hold, and waterfall after receiver stop."""
+        self._bins = ()
+        self._peak_bins = ()
+        self._history.clear()
+        self._db_floor = None
+        self._db_ceiling = None
+        self._center_frequency_hz = None
+        self._sample_rate_hz = None
+        self._viewport = None
+        if self._gl_surface is not None:
+            self._gl_surface.update_data((), ())
+        self._schedule_render()
+
     def set_spectrum(self, bins: Sequence[float], *,
                      center_frequency_hz: int | None = None,
                      sample_rate_hz: int | None = None,
