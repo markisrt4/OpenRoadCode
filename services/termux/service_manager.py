@@ -48,6 +48,7 @@ class RunitServiceManager:
         "openroadcode-navigation",
         "openroadcode-automotive",
         "openroadcode-adsb",
+        "openroadcode-sdrforge",
     )
     CORE_STACK = (
         "openroadcode-message-broker",
@@ -58,6 +59,7 @@ class RunitServiceManager:
     PROFILE_CONFIGS = {
         "openroadcode-navigation": ("local", "remote", "simulated"),
         "openroadcode-automotive": ("local", "remote", "simulated"),
+        "openroadcode-sdrforge": ("local", "simulated"),
     }
     PROFILE_LABELS = {
         "local": "Android Bridge",
@@ -122,6 +124,11 @@ class RunitServiceManager:
             raise ValueError(f"Service does not support profiles: {name}")
         if profile not in profiles:
             raise ValueError(f"Unsupported profile for {name}: {profile}")
+        if name == "openroadcode-sdrforge" and profile == "local":
+            raise ValueError(
+                "RTL-SDR requires Android-authorized USB handoff; "
+                "direct runit startup is not supported yet"
+            )
 
         was_running = self.status(name).state == "running"
         PROFILE_DIR.mkdir(parents=True, exist_ok=True)
