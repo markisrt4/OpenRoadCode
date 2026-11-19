@@ -20,9 +20,7 @@ def valid_event():
         "forecast_areas": [],
         "forecast_revision": 1,
         "forecast_cycle": 0,
-        "completed_forecast": {
-            "forecast": {"period": "tonight", "conditions": "cloudy"}
-        },
+        "completed_forecast": {"forecast": {"period": "tonight", "conditions": "cloudy"}},
     }
 
 
