@@ -37,3 +37,39 @@ def test_tune_button_emits_a_semantic_request():
     request = panel._session.request.call_args.args[0]
     assert request.action is RadioAction.TUNE_UP
     assert request.host is None
+
+
+def test_native_power_button_reflects_backend_starting_state():
+    panel = presentation()
+    panel._sdrforge_view = Mock()
+    panel._last_receiver_running = False
+    panel._receiver_start_pending = False
+    panel._receiver_controls = Mock()
+    panel._receiver_mode_label = Mock()
+    panel._receiver_signal_label = Mock()
+    panel._receiver_power_button = Mock()
+    panel._play_button = Mock()
+    panel._scan_button = Mock()
+    panel._live_rf_buttons = []
+    panel._active_group = "OTHER"
+    panel._subcategory_strip = Mock()
+    panel._station_info = Mock()
+    panel._favorites = Mock()
+    panel._pending_group = None
+    panel._render_subcategory_tiles = Mock()
+    panel._render_favorites = Mock()
+    panel._theme.ui.accent_success = "green"
+    panel._theme.ui.accent_primary = "blue"
+    panel._theme.ui.surface = "black"
+    panel._state = RfRadioState(
+        RadioProfileState("Station", 100_000_000, "WFM", "fm_radio", "FM"), ()
+    )
+    state = RfRadioState(
+        panel._state.station, (), receiver_starting=True
+    )
+    panel.set_radio_state(state)
+    panel._receiver_power_button.set_text.assert_called_with("STARTING SDR…")
+    panel._receiver_power_button.set_enabled.assert_called_with(False)
+    panel._session.request.assert_not_called()
+    panel._toggle_receiver_power()
+    panel._session.request.assert_not_called()
