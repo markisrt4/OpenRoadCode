@@ -55,7 +55,13 @@ class RadioProfileController:
         config = load_radio_config(profile.config_path)
         self._profile_key = profile_key
         self._radio = self._build_controller(config)
-        if start or was_started: self._radio.start()
+        if start or was_started:
+            self._radio.start()
+            # SDRForge is shared: attaching intentionally preserves frequency,
+            # but selecting a profile must still apply its demodulation mode.
+            if getattr(self._radio.backend, "shared_receiver", False):
+                mode = self._radio.current_mode
+                self._radio.backend.set_mode(mode.name, mode.bandwidth)
         return self.state
 
     @property
