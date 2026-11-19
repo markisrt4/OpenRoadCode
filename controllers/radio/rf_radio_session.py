@@ -341,10 +341,20 @@ class ReceiverSession:
                     self._state = replace(
                         self._state, receiver_running=self._rest_receiver_running,
                         playing=not bool(audio_status.get("muted", False)),
-                        error=str(startup_error) if startup_error else self._state.error,
+                        error=(str(startup_error) if startup_error else
+                               "" if self._state.error.startswith("SDRForge service unavailable:")
+                               else self._state.error),
                     )
-                except (OSError, ValueError, RuntimeError):
-                    pass
+                except (OSError, ValueError, RuntimeError) as exc:
+                    if self._native_sdrforge:
+                        # REST is authoritative for acquisition. A disconnected
+                        # service must not leave the last receiver marked running.
+                        self._rest_receiver_running = False
+                        self._state = replace(
+                            self._state, receiver_running=False,
+                            telemetry=RadioTelemetry(),
+                            error=f"SDRForge service unavailable: {exc}",
+                        )
                 try:
                     # A successful rigctl frequency read must not erase a
                     # receiver startup failure reported by REST.
