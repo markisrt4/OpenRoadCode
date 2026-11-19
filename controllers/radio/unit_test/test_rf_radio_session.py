@@ -367,7 +367,8 @@ def test_receiver_stop_clears_old_station_and_ignores_late_zmq(receiver, monkeyp
     assert state.telemetry.radio_text == ""
     assert state.telemetry.rds == ""
     assert state.telemetry.mode is None
-    assert state.telemetry.receiver_running is False
+    # Preserve the raw delayed ZMQ report for diagnostics; REST owns UI state.
+    assert state.telemetry.receiver_running is True
 
 
 def test_accepted_restart_does_not_claim_acquisition_is_running(receiver, monkeypatch):
