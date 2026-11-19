@@ -3,6 +3,9 @@ from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import shutil
+import json
+import math
+from types import SimpleNamespace
 import re
 import subprocess
 import threading
@@ -44,16 +47,63 @@ setInterval(()=>{try{viewer.render();}catch(error){document.body.dataset.result=
 </script></body></html>'''
 
 
-def test_lake_contour_material_compiles_in_chromium(tmp_path):
+RELIEF_HTML = b'''<!doctype html><html><head><script>window.CESIUM_BASE_URL='/';</script>
+<script src="/Cesium.js"></script><script src="/local_terrain.js"></script>
+<style>html,body,#map{width:100%;height:100%;margin:0}</style></head>
+<body data-result="pending"><div id="map"></div><script>
+(async()=>{try {
+const C=Cesium,viewer=new C.Viewer('map',{baseLayer:false,geocoder:false,animation:false,timeline:false,
+ skyBox:false,skyAtmosphere:false,homeButton:false,baseLayerPicker:false,navigationHelpButton:false,useDefaultRenderLoop:false});
+viewer.scene.renderError.addEventListener((scene,error)=>{document.body.dataset.result='FAIL: '+error.message;});
+const terrain=window.ORCLocalTerrain({tiles:[],mesh_url:'/mesh/{z}/{x}/{y}',maximum_zoom:16},C,
+ [C.Math.toRadians(-88.5),C.Math.toRadians(47.5)]);
+await terrain.ready;terrain.setScale(viewer,4);terrain.setVisible(viewer,true);
+viewer.scene.globe.showGroundAtmosphere=false;viewer.scene.fog.enabled=false;
+viewer.camera.lookAt(C.Cartesian3.fromDegrees(-88.5,47.5,1600),new C.HeadingPitchRange(0,-Math.PI/4,16000));
+let frames=0;
+viewer.scene.postRender.addEventListener(()=>{
+ if(++frames<40||!viewer.scene.globe.tilesLoaded||document.body.dataset.result.startsWith('FAIL'))return;
+ const peak=viewer.scene.globe.getHeight(C.Cartographic.fromDegrees(-88.5,47.5));
+ const lower=viewer.scene.globe.getHeight(C.Cartographic.fromDegrees(-88.58,47.5));
+ if(peak===undefined||lower===undefined)return;
+ document.body.dataset.result=peak>1450&&peak-lower>600?'PASS':'FAIL: rendered relief '+JSON.stringify({peak,lower});
+});
+setInterval(()=>{try{viewer.render();}catch(error){document.body.dataset.result='FAIL: '+error.message;}},50);
+}catch(error){document.body.dataset.result='FAIL: '+error.message;}})();
+</script></body></html>'''
+
+
+def relief_sampler():
+    from apps.launchers.terrain_mesh_sampler import TerrainMeshSampler, TerrainSource
+    from ui.navigation.local_imagery_state import LocalImageryState
+    from ui.navigation.local_terrain_state import LocalTerrainState
+    bounds=tuple(map(math.radians,(-89,47,-88,48)))
+    heights=tuple(100+300*math.exp(-((row-64)**2+(col-64)**2)/100)
+                  for row in range(129) for col in range(129))
+    state=LocalTerrainState(LocalImageryState('UP hill','test',*bounds),129,129,heights,0,'source')
+    source=TerrainSource('hill',bounds,129,129,7,lambda:state)
+    class Index:
+        def point_sources(self,x,y):return [source] if source.supports(x,y) else []
+    return TerrainMeshSampler(SimpleNamespace(state=SimpleNamespace(tiles=()),payloads=(),index=Index()))
+
+
+@pytest.mark.parametrize('scenario',['water-material','rendered-relief'])
+def test_local_terrain_in_chromium(tmp_path, scenario):
     chrome = shutil.which('google-chrome') or shutil.which('chromium')
     sdk = sdk_directory()
     if not chrome or not (sdk/'Cesium.js').is_file():
         pytest.skip('Requires installed Chromium and pinned Cesium SDK')
     seen = []
+    sampler=relief_sampler() if scenario=='rendered-relief' else None
     class Handler(SimpleHTTPRequestHandler):
         def do_GET(self):
             if self.path == '/test.html':
-                body, mime = HTML, 'text/html'
+                body, mime = (RELIEF_HTML if sampler else HTML), 'text/html'
+            elif self.path.startswith('/mesh/') and sampler:
+                body,mime=json.dumps(sampler.mesh(*map(int,self.path.split('/')[2:]))).encode(),'application/json'
+                seen.append('mesh')
+            elif self.path == '/local_terrain.js':
+                body,mime=(ROOT/'frontends/web/cesium/local_terrain.js').read_bytes(),'text/javascript'
             elif self.path == '/terrain_cues.js':
                 body, mime = (ROOT/'frontends/web/cesium/terrain_cues.js').read_bytes(), 'text/javascript'
             elif self.path == '/data/world-reference.png':
@@ -70,10 +120,10 @@ def test_lake_contour_material_compiles_in_chromium(tmp_path):
     try:
         result = subprocess.run([chrome,'--headless','--no-sandbox','--disable-dev-shm-usage',
             '--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader',
-            '--user-data-dir='+str(tmp_path/'profile'),'--virtual-time-budget=12000','--dump-dom',
+            '--user-data-dir='+str(tmp_path/'profile'),'--virtual-time-budget=20000','--dump-dom',
             f'http://127.0.0.1:{server.server_port}/test.html'],capture_output=True,text=True,timeout=60)
         status=re.search(r'data-result="([^"]+)"',result.stdout)
         assert status and status[1]=='PASS', (status[1] if status else 'No browser result')+result.stderr[-1000:]
-        assert seen, 'Actual material texture was never requested'
+        assert ('mesh' if sampler else 'water-mask') in seen, 'Actual terrain transport/texture was never requested'
     finally:
         server.shutdown();server.server_close();worker.join(timeout=5)

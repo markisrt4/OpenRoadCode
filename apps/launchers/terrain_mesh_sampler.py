@@ -23,6 +23,16 @@ class TerrainSource:
         w,s,e,n = self.bounds
         return (e-w)*(n-s)/((self.width-1)*(self.height-1))
 
+    @property
+    def support_bounds(self):
+        w,s,e,n = self.bounds
+        dx,dy = 2*(e-w)/(self.width-1),2*(n-s)/(self.height-1)
+        return w-dx,s-dy,e+dx,n+dy
+
+    def supports(self, x, y):
+        w,s,e,n = self.support_bounds
+        return w <= x <= e and s <= y <= n
+
     def contains(self, x, y):
         w,s,e,n = self.bounds
         return w <= x <= e and s <= y <= n
@@ -31,7 +41,7 @@ class TerrainSource:
 def buckets(rows):
     result = {}
     for row in rows:
-        w,s,e,n = (math.degrees(value) for value in row.bounds)
+        w,s,e,n = (math.degrees(value) for value in row.support_bounds)
         for x in range(math.floor(w),math.floor(e)+1):
             for y in range(math.floor(s),math.floor(n)+1):
                 result.setdefault((x,y),[]).append(row)
@@ -54,7 +64,7 @@ class TerrainMeshSampler:
 
     def sources(self, x, y):
         rows = [row for row in self.baseline.get((math.floor(math.degrees(x)),math.floor(math.degrees(y))),())
-                if row.contains(x,y)]
+                if row.supports(x,y)]
         if self.index is not None:
             rows.extend(self.index.point_sources(x,y))
         return sorted(rows,key=lambda row:(-row.priority,row.area,row.key))
@@ -70,29 +80,42 @@ class TerrainMeshSampler:
 
     def value(self, x, y):
         rows = self.sources(x,y)
-        def evaluate(index):
-            if index>=len(rows):return self.reference
-            source = rows[index]; grid = self.grid(source)
-            w,s,e,n = source.bounds
-            dx,dy=(e-w)/(grid.width-1),(n-s)/(grid.height-1)
+        # Blend across both sides of a source border, including adjacent packs
+        # with different edge samples. Keeping each side unchanged at the exact
+        # edge preserves a discontinuity even when mesh LODs agree there.
+        def smooth(value):
+            value=max(0,min(1,value))
+            return value*value*(3-2*value)
+
+        def contribution(source):
+            w,s,e,n=source.bounds
+            dx,dy=(e-w)/(source.width-1),(n-s)/(source.height-1)
             col,row=(x-w)/dx,(n-y)/dy
-            left=max(0,min(grid.width-2,math.floor(col)))
-            top=max(0,min(grid.height-2,math.floor(row)))
+            band=min(2,(source.width-1)*.1,(source.height-1)*.1)
+            weight=1
+            for distance in (col,source.width-1-col,row,source.height-1-row):
+                weight*=smooth((distance+band)/(2*band))
+            if not weight:return 0,0
+            grid=self.grid(source)
+            col=max(0,min(grid.width-1,col));row=max(0,min(grid.height-1,row))
+            left=min(grid.width-2,math.floor(col));top=min(grid.height-2,math.floor(row))
             fx,fy=col-left,row-top
             at=lambda r,c:grid.heights_m[r*grid.width+c]
             value=(at(top,left)*(1-fx)+at(top,left+1)*fx)*(1-fy)+(at(top+1,left)*(1-fx)+at(top+1,left+1)*fx)*fy
-            band=min(2,(grid.width-1)*.1,(grid.height-1)*.1);weight=1
-            for distance,a,b in ((col,w-dx*.01,y),(grid.width-1-col,e+dx*.01,y),
-                                 (grid.height-1-row,x,s-dy*.01),(row,x,n+dy*.01)):
-                if distance>=band:continue
-                neighbors=self.sources(a,b)
-                if not any(other.priority>=source.priority and other.area<=source.area*1.1 for other in neighbors):
-                    weight=min(weight,max(0,distance/band))
-            if weight>=1:return value
-            lower=next((i for i in range(index+1,len(rows)) if rows[i].priority<source.priority or rows[i].area>source.area*1.1),len(rows))
-            fraction=weight*weight*(3-2*weight)
-            return evaluate(lower)*(1-fraction)+value*fraction
-        return evaluate(0)
+            return value,weight
+
+        def evaluate(candidates):
+            if not candidates:return self.reference
+            first=candidates[0]
+            peers=[source for source in candidates if source.priority==first.priority and source.area<=first.area*1.1]
+            lower=[source for source in candidates if source not in peers]
+            values=[contribution(source) for source in peers]
+            total=sum(weight for _,weight in values)
+            if not total:return evaluate(lower)
+            value=sum(height*weight for height,weight in values)/total
+            if total>=1:return value
+            return value*total+evaluate(lower)*(1-total)
+        return evaluate(rows)
 
     def mesh(self, zoom, x, y):
         if any(type(v) is not int for v in (zoom,x,y)) or not 0<=zoom<=16 or not 0<=x<2**(zoom+1) or not 0<=y<2**zoom:

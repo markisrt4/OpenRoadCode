@@ -106,6 +106,30 @@ test('canonical mesh transport keeps source heights and applies exaggeration onc
   const viewer={scene:{requestRender(){}}};layer.setScale(viewer,4);
   assert.equal((await layer.provider.callback(0,0,12))[0],320);
   assert.equal(calls.length,2);
+  assert.equal(layer.provider.getLevelMaximumGeometricError(10),4);
+  assert.equal(layer.sourceReliefM,0);
   assert.equal(layer.heightAt(.5,.5),320);
   layer.setVisible(viewer,false);assert.equal(layer.heightAt(.5,.5),0);
+});
+
+
+test('canonical mesh loading defers excess requests without returning flat geometry',async()=>{
+  const resolve=[];
+  const scope={window:{},fetch:()=>new Promise(done=>resolve.push(()=>done({ok:true,
+    json:async()=>({width:33,height:33,heights_m:Array.from({length:1089},(_,i)=>100+i/33),reference_height_m:0})})))};
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../local_terrain.js'),'utf8'),scope);
+  const C={GeographicTilingScheme:class {tileXYToRectangle(){return {west:0,south:0,east:1,north:1};}},
+    CustomHeightmapTerrainProvider:class {constructor(options){this.callback=options.callback;}getLevelMaximumGeometricError(){return 1;}},
+    EllipsoidTerrainProvider:class {}};
+  const layer=scope.window.ORCLocalTerrain({tiles:[],mesh_url:'/mesh/{z}/{x}/{y}'},C);
+  const pending=Array.from({length:4},(_,x)=>layer.provider.callback(x,0,12));
+  assert.equal(layer.provider.callback(4,0,12),undefined);
+  assert.equal(resolve.length,4);
+  resolve.splice(0).forEach(done=>done());
+  const buffers=await Promise.all(pending);
+  assert.ok(buffers.every(buffer=>buffer[1088]>130));
+  assert.ok(layer.sourceReliefM>32);
+  const retry=layer.provider.callback(4,0,12);
+  assert.ok(retry instanceof Promise||typeof retry.then==='function');
+  resolve.splice(0).forEach(done=>done());await retry;
 });

@@ -1208,3 +1208,17 @@ side. Camera/marker height reads use the finest locally cached mesh, and startup
 preloads the destination mesh. The existing page/chunk path remains for legacy
 view states and auxiliary presentation, with its original budgets. This does not
 claim a resolution of source-datum differences or missing survey coverage.
+
+
+Terrain mesh border and loading regression follow-up: source lookup includes a
+halo of two source samples, including adjoining Michigan root cells. Equal
+priority/resolution grids cross-fade only in that narrow border; their interior
+relief is retained. Missing coverage blends into a lower-priority source or the
+existing reference plane, and this remains relative relief rather than a datum
+conversion. Cesium mesh callbacks defer excess work with its supported undefined
+return (four requests maximum), instead of queuing unlimited local mesh jobs.
+Geometric error scales with height exaggeration, so 4× relief also refines its
+geometry. CI now renders a synthetic UP hill through the actual Python mesh
+endpoint and browser provider, and checks rendered peak/low elevations at 4×;
+this supplements source continuity tests and the lake contour pixel test. Actual
+Keweenaw source coverage and the user's VM/device view still need verification.

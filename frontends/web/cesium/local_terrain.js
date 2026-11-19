@@ -152,11 +152,17 @@ window.ORCLocalTerrain = function (data, C, initialPoint=null) {
   function createProvider() {
     const provider = new C.CustomHeightmapTerrainProvider({width:33,height:33,tilingScheme:scheme,
       credit:data.attribution,
-      callback:async (x,y,level) => {
+      callback:(x,y,level) => {
         if(data.mesh_url){
-          const mesh=await requestMesh(x,y,level);
-          return Float32Array.from(mesh.heights_m,height=>scale*(height-mesh.reference_height_m));
+          const key=`${level}/${x}/${y}`;
+          // CustomHeightmapTerrainProvider retries an undefined return. Bound
+          // CPU/file work and leave localhost connections free for imagery.
+          if(pendingMeshes.size>=4&&!pendingMeshes.has(key)&&!meshes.has(key))return undefined;
+          return requestMesh(x,y,level).then(mesh=>
+            Float32Array.from(mesh.heights_m,height=>scale*(height-mesh.reference_height_m)));
+
         }
+        return (async()=>{
         const ownPage=await loadPage(x,y,level);
         const rectangle=scheme.tileXYToRectangle(x,y,level);
         const catalog=[...ownPage,...baseline].filter(tile=>tile.west_rad<=rectangle.east
@@ -176,6 +182,7 @@ window.ORCLocalTerrain = function (data, C, initialPoint=null) {
             rectangle.north-(rectangle.north-rectangle.south)*row/32,level,catalog);
         }
         return buffer;
+        })();
       }
     });
     const geometricError=provider.getLevelMaximumGeometricError.bind(provider);
@@ -185,7 +192,7 @@ window.ORCLocalTerrain = function (data, C, initialPoint=null) {
     // pack. Keep enough refinement pressure for statewide relief to contribute
     // vertices before the camera reaches street scale.
     provider.getLevelMaximumGeometricError=level => level>=maximumZoom ? 0 :
-      geometricError(level)*(level<6?4:1);
+      geometricError(level)*scale*(level<6?4:1);
     return provider;
   }
   let provider = createProvider();
@@ -207,7 +214,7 @@ window.ORCLocalTerrain = function (data, C, initialPoint=null) {
   return {get provider(){return provider;},heightAt,setVisible,setScale,loadTile,ready,
     get sourceReliefM(){
       let minimum=Infinity,maximum=-Infinity;
-      for(const tile of tiles)for(const height of tile.heights_m||[]){minimum=Math.min(minimum,height);maximum=Math.max(maximum,height);}
+      for(const tile of data.mesh_url?meshes.values():tiles)for(const height of tile.heights_m||[]){minimum=Math.min(minimum,height);maximum=Math.max(maximum,height);}
       return Number.isFinite(minimum)?maximum-minimum:0;
     }};
 };

@@ -69,7 +69,7 @@ class NationalTerrainIndex:
                     tuple(math.radians(value) for value in row['bounds_deg']),row['width'],row['height'],0,
                     lambda key=key:self.state(key)) for key,row in self.rows.items()])
             candidates=self._point_buckets.get((math.floor(math.degrees(longitude)),math.floor(math.degrees(latitude))),())
-        return [source for source in candidates if source.contains(longitude,latitude)]
+        return [source for source in candidates if source.supports(longitude,latitude)]
 
     def page(self, zoom, x, y, reference):
         if any(type(v) is not int for v in (zoom,x,y)) or not 0 <= zoom <= 16 or not 0 <= x < 2**(zoom+1) or not 0 <= y < 2**zoom:

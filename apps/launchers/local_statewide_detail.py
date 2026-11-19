@@ -93,24 +93,34 @@ class StatewideDetailIndex:
 
     def point_sources(self,longitude,latitude):
         from apps.launchers.terrain_mesh_sampler import TerrainSource
-        key=cell_id(*xy(math.degrees(longitude),math.degrees(latitude)))
-        if key not in self.cells:return []
-        directory,manifest=self.cells[key]
-        if not manifest.get('terrain_available'):return []
-        with self._lock:
-            if key not in self._mosaics:
-                self._mosaics[key]=json.loads((directory/'terrain/manifest.json').read_text())
-            self._mosaics.move_to_end(key)
-            mosaic=self._mosaics[key]
-            while len(self._mosaics)>8:self._mosaics.popitem(last=False)
+        lon,lat=math.degrees(longitude),math.degrees(latitude)
+        column,row=xy(lon,lat)
+        w,s,e,n=bounds(column,row)
+        # A root can have 1–8 subdivisions. Two samples of the widest child
+        # cover every possible blending halo, including an adjoining root.
+        dx,dy=2*(e-w)/128,2*(n-s)/128
+        left,top=xy(lon-dx,lat+dy);right,bottom=xy(lon+dx,lat-dy)
         rows=[]
-        for index,record in enumerate(mosaic['tiles']):
-            bounds=tuple(math.radians(value) for value in record['bounds_deg'])
-            a,b,c,d=bounds
-            if a<=longitude<=c and b<=latitude<=d:
-                identity=key+'--'+str(index)
-                rows.append(TerrainSource('mi-point-'+identity,bounds,129,129,7,
-                                          lambda identity=identity:self._chunk(identity)[1]))
+        for y in range(top,bottom+1):
+            for x in range(left,right+1):
+                key=cell_id(x,y)
+                if key not in self.cells:continue
+                directory,manifest=self.cells[key]
+                if not manifest.get('terrain_available'):continue
+                with self._lock:
+                    if key not in self._mosaics:
+                        mosaic=json.loads((directory/'terrain/manifest.json').read_text())
+                        sources=[]
+                        for index,record in enumerate(mosaic['tiles']):
+                            identity=key+'--'+str(index)
+                            sources.append(TerrainSource('mi-point-'+identity,
+                                tuple(math.radians(value) for value in record['bounds_deg']),129,129,7,
+                                lambda identity=identity:self._chunk(identity)[1]))
+                        self._mosaics[key]=tuple(sources)
+                    self._mosaics.move_to_end(key)
+                    sources=self._mosaics[key]
+                    while len(self._mosaics)>8:self._mosaics.popitem(last=False)
+                rows.extend(source for source in sources if source.supports(longitude,latitude))
         return rows
 
     def page(self,zoom,x,y,reference):

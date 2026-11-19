@@ -141,3 +141,16 @@ def test_terrain_baseline_budget_fits_statewide_overview_regions_and_city_pilots
     coverage=LocalImageryState('Test','USGS',0,0,.1,.1)
     tiles=tuple(LocalTerrainTileIndexState(str(i),coverage,129,129,0,'relative') for i in range(709))
     assert len(LocalTerrainCatalogState(tiles).tiles)==709
+
+
+def test_point_source_halo_reaches_across_root_cell_border_without_loading_grids(cell_archive,tmp_path):
+    downloads,key,x,y=cell_archive
+    index=index_for(downloads,tmp_path/'device')
+    west,south,east,north=bounds(x,y)
+    lon=math.radians(east+(east-west)/256)
+    lat=math.radians((south+north)/2)
+    assert cell_id(*xy(math.degrees(lon),math.degrees(lat)))!=key
+    rows=index.point_sources(lon,lat)
+    assert len(rows)==1 and rows[0].supports(lon,lat)
+    assert not index._terrain
+    assert index.point_sources(math.radians(east+(east-west)/10),lat)==[]
