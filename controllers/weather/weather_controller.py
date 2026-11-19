@@ -12,6 +12,7 @@ import time
 from typing import Protocol
 
 from controllers.weather.weather_provider_if import WeatherProviderIf
+from controllers.weather.weather_source_selector import WeatherSourceSelector
 from controllers.weather.weather_state import WeatherLocation, WeatherState
 from controllers.weather.weather_logging import WeatherLog
 from common.logging.structured import current_operation, operation
@@ -32,9 +33,11 @@ class WeatherController:
         fallback_location: WeatherLocation | None = None,
         clock: Callable[[], float] = time.time,
         network_allowed: Callable[[], bool] = lambda: True,
+        source_selector: WeatherSourceSelector | None = None,
     ) -> None:
         self._network_allowed = network_allowed
         self._provider = provider
+        self._source_selector = source_selector
         self._location_provider = location_provider
         self._fallback_location = fallback_location
         self._clock = clock
@@ -50,7 +53,7 @@ class WeatherController:
 
     def refresh(self) -> WeatherState:
         operation_id = self._log.requested()
-        if not self._network_allowed():
+        if self._source_selector is None and not self._network_allowed():
             if self._last_state is not None:
                 self._log.emit(logging.DEBUG, "weather.cache_used", "Offline weather cache used", operation_id)
                 return self._last_state
@@ -59,7 +62,14 @@ class WeatherController:
         with operation(operation_id):
             try:
                 location = self._resolve_location()
-                state = self._provider.refresh(location)
+                if self._source_selector is not None:
+                    state = self._source_selector.select(
+                        location,
+                        network_allowed=self._network_allowed(),
+                        cached=self._last_state,
+                    )
+                else:
+                    state = self._provider.refresh(location)
             except Exception as error:
                 self._log.failed(error, operation_id)
                 raise
