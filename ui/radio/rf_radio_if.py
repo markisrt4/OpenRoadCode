@@ -69,6 +69,7 @@ class RfRadioState:
     themes: tuple[str, ...] = ()
     playing: bool = True
     receiver_running: bool = False
+    receiver_starting: bool = False
     scanning: bool = False
     scan_progress: str = ""
     scan_hits: tuple[int, ...] = ()
