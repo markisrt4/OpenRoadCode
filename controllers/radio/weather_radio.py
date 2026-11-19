@@ -26,7 +26,7 @@ def play_weather_radio(radio: RadioProfileController, application: RadioApplicat
                 radio.select_profile(profile.key)
             station = radio.tune_preset(profile.presets[0])
             if native_sdrforge:
-                _ensure_native_receiver_started()
+                _ensure_native_receiver_started(cancelled=cancelled)
             return station
         except (OSError, RuntimeError, ValueError):
             if attempt == 24:
@@ -35,7 +35,7 @@ def play_weather_radio(radio: RadioProfileController, application: RadioApplicat
     return None
 
 
-def _ensure_native_receiver_started() -> None:
+def _ensure_native_receiver_started(*, cancelled: Callable[[], bool]) -> None:
     """Start shared SDRForge acquisition only when REST reports it stopped.
 
     An HTTP 202 acknowledges startup, not successful RF acquisition. The
@@ -44,11 +44,29 @@ def _ensure_native_receiver_started() -> None:
     endpoint = "http://127.0.0.1:5570/v1/receiver"
     with urllib.request.urlopen(endpoint, timeout=2.0) as response:
         status = json.load(response)
-    if status.get("running") or status.get("starting"):
+    if status.get("running"):
         return
-    with urllib.request.urlopen(
-        urllib.request.Request(endpoint + "/start", data=b"", method="POST"),
-        timeout=6.0,
-    ) as response:
-        if response.status not in (200, 202):
-            raise RuntimeError(f"SDRForge receiver start returned HTTP {response.status}")
+    if status.get("startup_error") and not status.get("starting"):
+        raise RuntimeError(f"SDRForge receiver failed: {status['startup_error']}")
+    if not status.get("starting"):
+        with urllib.request.urlopen(
+            urllib.request.Request(endpoint + "/start", data=b"", method="POST"),
+            timeout=6.0,
+        ) as response:
+            if response.status not in (200, 202):
+                raise RuntimeError(f"SDRForge receiver start returned HTTP {response.status}")
+    for _ in range(20):
+        if cancelled():
+            return
+        with urllib.request.urlopen(endpoint, timeout=2.0) as response:
+            status = json.load(response)
+        if status.get("running"):
+            return
+        if status.get("startup_error"):
+            raise RuntimeError(f"SDRForge receiver failed: {status['startup_error']}")
+        if not status.get("starting"):
+            raise RuntimeError("SDRForge receiver stopped before becoming ready")
+        sleep(0.25)
+    raise RuntimeError("SDRForge receiver startup timed out after 5 seconds")
+
+
