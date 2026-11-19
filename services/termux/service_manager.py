@@ -142,12 +142,16 @@ class RunitServiceManager:
             encoding="utf-8",
         )
         if was_running:
-            self._sv("restart", name)
+            if name == "openroadcode-sdrforge" and self.profile(name) == "local":
+            raise ValueError("RTL-SDR restart requires Android-authorized USB handoff")
+        self._sv("restart", name)
         return self.status(name)
 
     @service_action(COMPONENT, "start")
     def start(self, name: str) -> ServiceStatus:
         self._validate(name)
+        if name == "openroadcode-sdrforge" and self.profile(name) == "local":
+            raise ValueError("RTL-SDR startup requires Android-authorized USB handoff")
         self._sv("up", name)
         return self.status(name)
 
