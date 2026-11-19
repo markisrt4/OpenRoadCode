@@ -19,6 +19,12 @@ from .radio_group_menu import MAIN_GROUPS, RadioGroupMenuMixin
 
 RADIO_GROUPS = tuple(name for name, _ in MAIN_GROUPS)
 
+def receiver_sidebar_width(panel_width: int) -> int:
+    """Reserve room for the FFT while scaling the controls on smaller windows."""
+    return max(240, min(320, panel_width // 4))
+
+
+
 class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
     """Automotive controls wrapped around embedded SDR++ and ADS-B views."""
 
@@ -189,6 +195,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             # Keep a generous FFT viewport at 1280x720 while allowing smaller
             # windowed launches to retain usable tuning controls.
             self._body.grid_columnconfigure(1, weight=0, minsize=320)
+            self.bind("<Configure>", self._resize_receiver_sidebar, add="+")
             self._receiver_controls = tk.Frame(
                 self._body, bg=ui.surface, width=320,
                 highlightthickness=1, highlightbackground=ui.border)
@@ -279,6 +286,16 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                                        fg=ui.text, font=("Sans", 20, "bold"))
         self._session.bind(self)
         self._schedule_telemetry_refresh()
+
+    def _resize_receiver_sidebar(self, event: tk.Event) -> None:
+        """Keep the waterfall dominant as the radio panel is resized."""
+        if event.widget is not self or self._receiver_controls is None:
+            return
+        width = receiver_sidebar_width(event.width)
+        if self._receiver_controls.winfo_reqwidth() != width:
+            self._receiver_controls.configure(width=width)
+            self._body.grid_columnconfigure(1, minsize=width)
+            self._info_text.configure(wraplength=max(180, width - 32))
 
     def _poll_sdrforge_spectrum(self) -> None:
         if self._sdrforge_view is not None:
