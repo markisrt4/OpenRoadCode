@@ -30,3 +30,34 @@ def test_native_radio_service_does_not_launch_external_window():
     service.close()
     with pytest.raises(RuntimeError, match="no external window"):
         service.window_process_id(timeout_seconds=1)
+
+
+def test_native_radio_composition_has_no_eager_legacy_control_imports():
+    """Loading the native radio composition must not require SDR++ modules."""
+    source = Path(__file__).resolve().parents[3] / "apps/orcUi/composition/radio.py"
+    tree = ast.parse(source.read_text(encoding="utf-8"))
+    eager_imports = {
+        node.module
+        for node in tree.body
+        if isinstance(node, ast.ImportFrom)
+    }
+    assert "controllers.sdr.sdrpp_control" not in eager_imports
+    assert "controllers.sdr.sdr_telemetry_monitor" not in eager_imports
+
+
+def test_legacy_controls_are_imported_only_inside_fallback_branch():
+    """Keep the optional SDR++ path available without eager initialization."""
+    source = Path(__file__).resolve().parents[3] / "apps/orcUi/composition/radio.py"
+    tree = ast.parse(source.read_text(encoding="utf-8"))
+    imports = [
+        node.module for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom)
+        and node.module in {
+            "controllers.sdr.sdrpp_control",
+            "controllers.sdr.sdr_telemetry_monitor",
+        }
+    ]
+    assert sorted(imports) == [
+        "controllers.sdr.sdr_telemetry_monitor",
+        "controllers.sdr.sdrpp_control",
+    ]
