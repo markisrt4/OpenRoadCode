@@ -199,6 +199,8 @@ class RunitServiceManager:
             self._wait_sdrforge_source(None)
         elif current not in (None, "simulated"):
             raise RuntimeError(f"Unrecognized SDRForge source: {current}")
+        if current == "simulated":
+            return {"source": "simulated", "state": "ready"}
         self.set_profile(name, "simulated")
         self._sv("up", name)
         self._wait_sdrforge_source("simulated")
