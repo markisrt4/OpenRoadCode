@@ -215,7 +215,7 @@ class SdrForgeReceiverView(tk.Frame):
         self._sample_rate_hz = None
         self._viewport = None
         if self._gl_surface is not None:
-            self._gl_surface.update_data((), ())
+            self._gl_surface.update_data((), (), self._visualization.palette)
         self._schedule_render()
 
     def set_spectrum(self, bins: Sequence[float], *,
