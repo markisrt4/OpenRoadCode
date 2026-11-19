@@ -25,6 +25,11 @@ class SpectrumContractTest(unittest.TestCase):
         bins = spectrum_bins("spectrum", {"power_db": [-90, -50, -10]})
         self.assertEqual(bins, (0.0, 0.5, 1.0))
 
+    def test_json_null_power_bins_use_measured_noise_floor(self) -> None:
+        bins = spectrum_bins("spectrum", {"power_db": [-90.0, None, -10.0]})
+        self.assertEqual(bins, (0.0, 0.0, 1.0))
+        self.assertIsNone(spectrum_bins("spectrum", {"power_db": [None, None]}))
+
     def test_malformed_spectrum_is_ignored(self) -> None:
         self.assertIsNone(spectrum_bins("receiver", {"power_db": [0, 1]}))
         self.assertIsNone(spectrum_bins("spectrum", {"power_db": []}))
