@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import json
+import socket
 import subprocess
 import time
 from urllib.request import Request, urlopen
@@ -214,11 +215,22 @@ class RunitServiceManager:
         except OSError:
             return None
 
+    @staticmethod
+    def _sdrforge_ports_free() -> bool:
+        for port in (5570, 5571, 4532):
+            try:
+                with socket.socket() as probe:
+                    probe.bind(("127.0.0.1", port))
+            except OSError:
+                return False
+        return True
+
     @classmethod
     def _wait_sdrforge_source(cls, expected: str | None) -> None:
         for _ in range(40):
             if cls._sdrforge_source() == expected:
-                return
+                if expected is not None or cls._sdrforge_ports_free():
+                    return
             time.sleep(0.25)
         raise RuntimeError(f"SDRForge did not transition to {expected or 'stopped'}")
 
