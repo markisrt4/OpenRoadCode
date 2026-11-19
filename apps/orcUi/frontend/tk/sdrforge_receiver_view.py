@@ -63,6 +63,7 @@ class SdrForgeReceiverView(tk.Frame):
         self._presets: tuple[tuple[str, int], ...] = ()
         self._on_tune = None
         self._on_spectrum_tune = None
+        self._tune_range: tuple[int, int, int] | None = None
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -142,6 +143,10 @@ class SdrForgeReceiverView(tk.Frame):
         """Receive frequency selections without coupling the widget to radio control."""
         self._on_spectrum_tune = handler
 
+    def set_tuning_range(self, tuning_range: tuple[int, int, int] | None) -> None:
+        """Use the active profile's band limits and tuning step."""
+        self._tune_range = tuning_range
+
     def _handle_spectrum_click(self, event) -> None:
         if not self._on_spectrum_tune or not self._center_frequency_hz or not self._sample_rate_hz:
             return
@@ -149,9 +154,13 @@ class SdrForgeReceiverView(tk.Frame):
         position = max(0.0, min(1.0, event.x / width))
         hz = (self._viewport.frequency_at(position) if self._viewport is not None
               else self._center_frequency_hz + (position - 0.5) * self._sample_rate_hz)
-        # US FM broadcast channels are spaced 200 kHz with odd-tenth MHz centers.
-        snapped = round((hz - 87_900_000) / 200_000) * 200_000 + 87_900_000
-        if 87_900_000 <= snapped <= 107_900_000:
+        if self._tune_range is None:
+            return
+        low, high, step = self._tune_range
+        if step <= 0 or high < low or not low <= hz <= high:
+            return
+        snapped = low + round((hz - low) / step) * step
+        if low <= snapped <= high:
             self._on_spectrum_tune(int(snapped))
 
     def set_theme_bundle(self, theme: ThemeBundle) -> None:
