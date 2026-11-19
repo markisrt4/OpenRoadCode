@@ -84,34 +84,34 @@ window.ORCLocalTerrain = function (data, C, initialPoint=null) {
       && latitude>=item.south_rad && latitude<=item.north_rad);
     if(!available.length)return 0;
     const evaluate=index=>{
-    const tile=available[index];
-    const value=sample(tile,longitude,latitude);
-    if(!data.page_url)return value;
-    const dx=(tile.east_rad-tile.west_rad)/(tile.width-1);
-    const dy=(tile.north_rad-tile.south_rad)/(tile.height-1);
-    const area=dx*dy;
-    let weight=1;
-    const band=Math.min(2,(tile.width-1)*.1,(tile.height-1)*.1);
-    const probes=[[(longitude-tile.west_rad)/dx,tile.west_rad-dx*.01,latitude],
-      [(tile.east_rad-longitude)/dx,tile.east_rad+dx*.01,latitude],
-      [(latitude-tile.south_rad)/dy,longitude,tile.south_rad-dy*.01],
-      [(tile.north_rad-latitude)/dy,longitude,tile.north_rad+dy*.01]];
-    for(const [distance,x,y] of probes){
-      if(distance>=band)continue;
-      const neighbor=catalog.some(other=>other!==tile && (other.minimum_zoom||0)<=zoom
-        && (other.detail_level||0)>=(tile.detail_level||0)
-        && (other.east_rad-other.west_rad)*(other.north_rad-other.south_rad)/((other.width-1)*(other.height-1))<=area*1.1
-        && x>=other.west_rad && x<=other.east_rad && y>=other.south_rad && y<=other.north_rad);
-      if(!neighbor)weight=Math.min(weight,Math.max(0,distance/band));
-    }
-    // Only exposed edges fade; shared fine-grid edges stay at source height.
-    // Raw elevations are untouched. Blend into the next available coarse grid.
-    if(weight>=1)return value;
-    const t=weight*weight*(3-2*weight);
-    const fallback=available.findIndex((other,next)=>next>index && ((other.detail_level||0)<(tile.detail_level||0)
-      || (other.east_rad-other.west_rad)*(other.north_rad-other.south_rad)/((other.width-1)*(other.height-1))>area*1.1));
-    const lower=fallback>=0?evaluate(fallback):0;
-    return lower+(value-lower)*t;
+      const tile=available[index];
+      const value=sample(tile,longitude,latitude);
+      if(!data.page_url)return value;
+      const dx=(tile.east_rad-tile.west_rad)/(tile.width-1);
+      const dy=(tile.north_rad-tile.south_rad)/(tile.height-1);
+      const area=dx*dy;
+      let weight=1;
+      const band=Math.min(2,(tile.width-1)*.1,(tile.height-1)*.1);
+      const probes=[[(longitude-tile.west_rad)/dx,tile.west_rad-dx*.01,latitude],
+        [(tile.east_rad-longitude)/dx,tile.east_rad+dx*.01,latitude],
+        [(latitude-tile.south_rad)/dy,longitude,tile.south_rad-dy*.01],
+        [(tile.north_rad-latitude)/dy,longitude,tile.north_rad+dy*.01]];
+      for(const [distance,x,y] of probes){
+        if(distance>=band)continue;
+        const neighbor=catalog.some(other=>other!==tile && (other.minimum_zoom||0)<=zoom
+          && (other.detail_level||0)>=(tile.detail_level||0)
+          && (other.east_rad-other.west_rad)*(other.north_rad-other.south_rad)/((other.width-1)*(other.height-1))<=area*1.1
+          && x>=other.west_rad && x<=other.east_rad && y>=other.south_rad && y<=other.north_rad);
+        if(!neighbor)weight=Math.min(weight,Math.max(0,distance/band));
+      }
+      // Only exposed edges fade; shared fine-grid edges stay at source height.
+      // Raw elevations are untouched. Blend into the next available coarse grid.
+      if(weight>=1)return value;
+      const t=weight*weight*(3-2*weight);
+      const fallback=available.findIndex((other,next)=>next>index && ((other.detail_level||0)<(tile.detail_level||0)
+        || (other.east_rad-other.west_rad)*(other.north_rad-other.south_rad)/((other.width-1)*(other.height-1))>area*1.1));
+      const lower=fallback>=0?evaluate(fallback):0;
+      return lower+(value-lower)*t;
     };
     return evaluate(0);
   }

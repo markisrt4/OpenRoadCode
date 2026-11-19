@@ -4,10 +4,10 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const path=require('node:path');
 const test=require('node:test');
-function fixture(minimumZoom=12,semanticId=false,distinctPages=false,neighbor=false){
+function fixture(minimumZoom=12,semanticId=false,distinctPages=false,neighbor=false,baseHeight=10){
   const calls=[];
   const base={west_rad:0,south_rad:0,east_rad:1,north_rad:1,width:2,height:2,
-    heights_m:[10,10,10,10],reference_height_m:10,detail_level:0};
+    heights_m:[baseHeight,baseHeight,baseHeight,baseHeight],reference_height_m:10,detail_level:0};
   const context={window:{},fetch:async url=>{
     calls.push(url);
     if(url.startsWith('/page/')){
@@ -79,4 +79,12 @@ test('shared fine-grid edges retain source height instead of fading into a trenc
   const {layer}=fixture(8,true,false,true);
   const buffer=await layer.provider.callback(0,0,8);
   assert.equal(buffer[16*33+32],30);
+});
+
+
+test('coincident fine and coarse coverage edges blend through both levels',async()=>{
+  const {layer}=fixture(8,true,false,false,20);
+  const buffer=await layer.provider.callback(0,0,8);
+  assert.equal(buffer[16*33],0);
+  assert.equal(buffer[16*33+16],30);
 });

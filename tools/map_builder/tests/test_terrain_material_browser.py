@@ -20,7 +20,8 @@ const viewer=new Cesium.Viewer('map',{baseLayer:false,geocoder:false,animation:f
   skyBox:false,skyAtmosphere:false,homeButton:false,baseLayerPicker:false,navigationHelpButton:false,useDefaultRenderLoop:false});
 viewer.scene.renderError.addEventListener((scene,error)=>{document.body.dataset.result='FAIL: '+error.message;});
 viewer.camera.lookAt(Cesium.Cartesian3.fromDegrees(-83,44),new Cesium.HeadingPitchRange(0,-Math.PI/2,1000000));
-window.ORCTerrainCues(viewer,Cesium).setEnabled(true);
+const cues=window.ORCTerrainCues(viewer,Cesium);
+cues.setEnabled(true);cues.setScale(4);
 let frames=0;
 viewer.scene.postRender.addEventListener(()=>{
  if(++frames>30&&viewer.scene.globe.tilesLoaded&&!document.body.dataset.result.startsWith('FAIL'))document.body.dataset.result='PASS';
