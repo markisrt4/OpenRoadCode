@@ -36,9 +36,7 @@ def event(area=None):
         "source_frequency_hz": 162550000,
         "forecast_cycle": 0,
         "forecast_revision": 1,
-        "completed_forecast": {
-            "forecast": {"period": "tonight", "conditions": "mostly cloudy"}
-        },
+        "completed_forecast": {"forecast": {"period": "tonight", "conditions": "mostly cloudy"}},
     }
 
 
