@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
-
 import pytest
 
 from controllers.weather.weather_source_selector import WeatherSourceSelector
