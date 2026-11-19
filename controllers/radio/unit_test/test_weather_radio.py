@@ -170,3 +170,34 @@ def test_native_weather_reports_async_startup_failure(monkeypatch):
         play_weather_radio(
             radio, application, cancelled=lambda: False, native_sdrforge=True
         )
+
+
+def test_native_startup_failure_does_not_retune_or_retry(monkeypatch):
+    radio, application = Mock(), Mock()
+    radio.active_profile_key = "weather_band"
+    radio.catalog.profile.return_value.key = "weather_band"
+    radio.catalog.profile.return_value.presets = (Mock(),)
+    start = Mock(side_effect=RuntimeError("USB disconnected"))
+    pause = Mock()
+    monkeypatch.setattr("controllers.radio.weather_radio._ensure_native_receiver_started", start)
+    monkeypatch.setattr("controllers.radio.weather_radio.sleep", pause)
+
+    with pytest.raises(RuntimeError, match="USB disconnected"):
+        play_weather_radio(radio, application, cancelled=lambda: False, native_sdrforge=True)
+    radio.tune_preset.assert_called_once()
+    start.assert_called_once()
+    pause.assert_not_called()
+
+
+def test_native_cancelled_during_startup_does_not_claim_playing(monkeypatch):
+    radio, application = Mock(), Mock()
+    radio.active_profile_key = "weather_band"
+    radio.catalog.profile.return_value.key = "weather_band"
+    radio.catalog.profile.return_value.presets = (Mock(),)
+    monkeypatch.setattr(
+        "controllers.radio.weather_radio._ensure_native_receiver_started",
+        Mock(return_value=False),
+    )
+    assert play_weather_radio(
+        radio, application, cancelled=lambda: False, native_sdrforge=True
+    ) is None
