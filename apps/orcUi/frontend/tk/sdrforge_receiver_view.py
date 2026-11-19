@@ -47,6 +47,8 @@ class SdrForgeReceiverView(tk.Frame):
         self._draw_pending = False
         self._bins: tuple[float, ...] = ()
         self._peak_bins: tuple[float, ...] = ()
+        self._waterfall_enabled = True
+        self._peak_hold_enabled = False
         self._center_frequency_hz: int | None = None
         self._sample_rate_hz: int | None = None
         self._viewport: SpectrumViewport | None = None
@@ -204,6 +206,24 @@ class SdrForgeReceiverView(tk.Frame):
         self._signal = signal
         self._schedule_render()
 
+    def set_display_controls(self, *, waterfall: bool, peak_hold: bool) -> None:
+        """Apply native radio display preferences to the actual renderer."""
+        waterfall = bool(waterfall)
+        peak_hold = bool(peak_hold)
+        if self._waterfall_enabled == waterfall and self._peak_hold_enabled == peak_hold:
+            return
+        self._waterfall_enabled = waterfall
+        if peak_hold and not self._peak_hold_enabled:
+            self._peak_bins = self._bins
+        self._peak_hold_enabled = peak_hold
+        self._schedule_render()
+
+    def auto_range(self) -> None:
+        """Discard the previous dB range and recompute it on the next FFT."""
+        self._db_floor = None
+        self._db_ceiling = None
+        self._schedule_render()
+
     def clear_spectrum(self) -> None:
         """Discard stale FFT, peak hold, and waterfall after receiver stop."""
         self._bins = ()
@@ -265,12 +285,12 @@ class SdrForgeReceiverView(tk.Frame):
         if len(self._bins) == len(raw):
             self._bins = tuple(0.40 * value + 0.60 * old
                                for value, old in zip(raw, self._bins))
-            self._peak_bins = tuple(max(value, peak - 0.012)
-                                    for value, peak in zip(self._bins, self._peak_bins))
+            self._peak_bins = (tuple(max(value, peak) for value, peak in zip(self._bins, self._peak_bins))
+                               if self._peak_hold_enabled else self._bins)
         else:
             self._bins = raw
             self._peak_bins = raw
-        if raw:
+        if raw and self._waterfall_enabled:
             self._history.append(raw)
         now = monotonic()
         if now - self._last_spectrum_draw >= 1.0 / self._visualization.max_fps:
@@ -320,8 +340,9 @@ class SdrForgeReceiverView(tk.Frame):
         waterfall_top = spectrum_top + spectrum_height
         waterfall_height = max(1, plot_bottom - waterfall_top)
         display_bins = self._viewport_row(self._bins)
-        display_peaks = self._viewport_row(self._peak_bins)
-        display_history = tuple(self._viewport_row(row) for row in list(self._history)[-128:])
+        display_peaks = self._viewport_row(self._peak_bins) if self._peak_hold_enabled else ()
+        display_history = (tuple(self._viewport_row(row) for row in list(self._history)[-128:])
+                           if self._waterfall_enabled else ())
         if self._gl_surface is not None:
             self._gl_surface.place(x=0, y=spectrum_top, relwidth=1, height=max(1, plot_bottom-spectrum_top))
             self._gl_surface.update_data(display_bins, display_history,
@@ -392,14 +413,15 @@ class SdrForgeReceiverView(tk.Frame):
                 for i, value in enumerate(display_peaks):
                     peaks.extend((i * (w - 1) / max(1, len(display_peaks) - 1),
                                   spectrum_top + (spectrum_height - 2) * (1.0 - value)))
-                canvas.create_line(*peaks, fill=ui.accent_success, width=1)
+                if len(peaks) >= 4:
+                    canvas.create_line(*peaks, fill=ui.accent_success, width=1)
                 canvas.create_line(w / 2, spectrum_top, w / 2, plot_bottom, fill=ui.accent_success, width=1)
             history = list(display_history)
             # Bound Tk canvas primitives on the 1280x720 touch display. A
             # 64x36 waterfall uses at most 2304 rectangles per refresh.
             x_step = max(4, (w + 63) // 64)
             y_step = max(3, (waterfall_height + 35) // 36)
-            if history:
+            if self._waterfall_enabled and history:
                 for offset in range(0, waterfall_height, y_step):
                     idx = min(len(history) - 1,
                               offset * len(history) // waterfall_height)
@@ -418,8 +440,9 @@ class SdrForgeReceiverView(tk.Frame):
             canvas.create_text(w / 2, spectrum_top + spectrum_height / 2,
                                text="Waiting for spectrum telemetry",
                                fill=ui.text_muted, font=("Sans", 11))
-        canvas.create_line(0, waterfall_top, w, waterfall_top,
-                           fill=ui.accent_primary, width=2)
+        if self._waterfall_enabled:
+            canvas.create_line(0, waterfall_top, w, waterfall_top,
+                               fill=ui.accent_primary, width=2)
         if footer:
             canvas.create_rectangle(0, plot_bottom, w, h,
                                     fill=ui.surface, outline=ui.border)
