@@ -53,6 +53,7 @@ if OpenGLFrame is not None:
             self._palette = "classic"
             self._ready = False
             self._waterfall_texture = None
+            self._texture_size: tuple[int, int] | None = None
             self._palette_lut: dict[str, tuple[bytes, ...]] = {}
 
         def tkCreateContext(self):
@@ -62,6 +63,7 @@ if OpenGLFrame is not None:
             self._ready = True
             GL.glDisable(GL.GL_DEPTH_TEST)
             self._waterfall_texture = GL.glGenTextures(1)
+            self._texture_size = None
             GL.glClearColor(0.012, 0.035, 0.075, 1.0)
 
         def update_data(self, bins: Sequence[float],
@@ -134,10 +136,19 @@ if OpenGLFrame is not None:
                 GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
                 GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE)
                 GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE)
-                GL.glTexImage2D(
-                    GL.GL_TEXTURE_2D, 0, GL.GL_RGB, columns, rows, 0,
-                    GL.GL_RGB, GL.GL_UNSIGNED_BYTE, bytes(pixels),
-                )
+                # Allocate storage only when dimensions change. Subsequent
+                # frames update the existing GPU texture without reallocating.
+                if self._texture_size != (columns, rows):
+                    GL.glTexImage2D(
+                        GL.GL_TEXTURE_2D, 0, GL.GL_RGB, columns, rows, 0,
+                        GL.GL_RGB, GL.GL_UNSIGNED_BYTE, bytes(pixels),
+                    )
+                    self._texture_size = (columns, rows)
+                else:
+                    GL.glTexSubImage2D(
+                        GL.GL_TEXTURE_2D, 0, 0, 0, columns, rows,
+                        GL.GL_RGB, GL.GL_UNSIGNED_BYTE, bytes(pixels),
+                    )
                 GL.glColor3f(1.0, 1.0, 1.0)
                 GL.glBegin(GL.GL_QUADS)
                 for x, y, u, v in (
