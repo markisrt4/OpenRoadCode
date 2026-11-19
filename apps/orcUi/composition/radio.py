@@ -27,6 +27,7 @@ from controllers.radio.weather_radio import play_weather_radio
 from controllers.radio.rf_radio_session import ReceiverSession
 from ui.radio.radio_visualization_config import RadioRenderer, RadioVisualizationConfig
 from controllers.sdr.sdrpp_control import SDRPPControl
+from controllers.radio.native_radio_control import NativeRadioControl
 from controllers.sdr.sdr_telemetry_monitor import SDRTelemetryMonitor
 from apps.orcUi.frontend.tk.radio_panel import RadioPanel
 from controllers.radio.adapters.sdrforge_zmq_spectrum_adapter import SdrForgeTelemetrySubscriber
@@ -208,7 +209,8 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
                 os.environ.get("SDRFORGE_ZMQ_ENDPOINT", "tcp://127.0.0.1:5571")
             ) if native_sdrforge else None)
             session = ReceiverSession(
-                radio, SDRPPControl(), SDRTelemetryMonitor(radio), runtime.radio,
+                radio, NativeRadioControl() if native_sdrforge else SDRPPControl(),
+                SDRTelemetryMonitor(radio), runtime.radio,
                 adsb, X11WindowEmbedder(), display=os.environ.get("DISPLAY", ":1"),
                 run_work=resources.run_rf, run_ui=app.dispatch_ui,
                 on_close=lambda: resources.rf_sessions.discard(session),
