@@ -76,6 +76,7 @@ class SdrForgeReceiverView(tk.Frame):
             self._gl_surface.place(x=0, y=80, relwidth=1, height=180)
             self._gl_surface.bind("<Button-1>", self._handle_spectrum_click)
         # Keep spectrum navigation in its own band, away from the MHz heading.
+        self._spectrum_toolbar_visible = True
         self._spectrum_controls = tk.Frame(self, bg=theme.ui.surface)
         self._spectrum_buttons = []
         for label, callback in (
@@ -97,7 +98,17 @@ class SdrForgeReceiverView(tk.Frame):
             relief=tk.FLAT, bd=0, padx=6, pady=3, font=("Sans", 9, "bold"))
         self._recenter_button.pack(side="left", padx=(4, 2))
         self._update_recenter_button()
+        self._toolbar_toggle = tk.Button(
+            self, text="HIDE ◀", command=self._toggle_spectrum_toolbar,
+            bg=theme.ui.control_background, fg=theme.ui.text,
+            relief=tk.FLAT, bd=0, padx=6, pady=3,
+            font=("Sans", 9, "bold"))
         # Preset navigation belongs to RadioPanel, not inside the spectrum.
+
+    def _toggle_spectrum_toolbar(self) -> None:
+        """Toggle controls without hiding the button that restores them."""
+        self._spectrum_toolbar_visible = not self._spectrum_toolbar_visible
+        self._schedule_render()
 
     def _update_recenter_button(self) -> None:
         self._recenter_button.configure(
@@ -173,7 +184,7 @@ class SdrForgeReceiverView(tk.Frame):
         self.configure(bg=theme.ui.background)
         self._canvas.configure(bg=theme.ui.background)
         self._spectrum_controls.configure(bg=theme.ui.surface)
-        for button in (*self._spectrum_buttons, self._recenter_button):
+        for button in (*self._spectrum_buttons, self._recenter_button, self._toolbar_toggle):
             button.configure(bg=theme.ui.control_background, fg=theme.ui.text)
         self._update_recenter_button()
         self._schedule_render()
@@ -281,7 +292,15 @@ class SdrForgeReceiverView(tk.Frame):
         toolbar_height = 34
         scale = 22
         spectrum_top = header + toolbar_height + scale
-        self._spectrum_controls.place(relx=1, x=-8, y=header + 2, anchor="ne")
+        self._toolbar_toggle.configure(
+            text="HIDE ◀" if self._spectrum_toolbar_visible else "SHOW ▶")
+        self._toolbar_toggle.place(x=8, y=header + 2, anchor="nw")
+        if self._spectrum_toolbar_visible:
+            self._spectrum_controls.place(
+                x=self._toolbar_toggle.winfo_reqwidth() + 14,
+                y=header + 2, anchor="nw")
+        else:
+            self._spectrum_controls.place_forget()
         plot_bottom = h - footer
         spectrum_height = max(20, int((plot_bottom - spectrum_top) * 0.38))
         waterfall_top = spectrum_top + spectrum_height
