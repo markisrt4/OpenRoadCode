@@ -62,7 +62,9 @@ class ReceiverSession:
 
     def _set_station(self, station: RadioProfileState) -> None:
         """Invalidate telemetry when rigctl or a local request changes station."""
-        if station.frequency_hz != self._state.station.frequency_hz:
+        if (station.frequency_hz != self._state.station.frequency_hz
+                or station.mode_name != self._state.station.mode_name
+                or station.profile_key != self._state.station.profile_key):
             self._state = replace(self._state, station=station, telemetry=RadioTelemetry())
         else:
             self._state = replace(self._state, station=station)
@@ -98,13 +100,15 @@ class ReceiverSession:
             # Spectrum telemetry may omit RDS fields between decoder updates.
             # Preserve the last decoded text only while tuned to the same station.
             previous = self._state.telemetry
-            if (receiver.receiver_running is not False
+            if (self._rest_receiver_running is not False
+                    and receiver.receiver_running is not False
                     and receiver.frequency_hz == previous.frequency_hz
                     and receiver.frequency_hz == self._state.station.frequency_hz
                     and not (receiver.radio_text or receiver.station_name or receiver.rds)):
                 receiver = replace(receiver, radio_text=previous.radio_text,
                                    station_name=previous.station_name, rds=previous.rds)
-            elif (receiver.receiver_running is False
+            elif (self._rest_receiver_running is False
+                  or receiver.receiver_running is False
                   or receiver.frequency_hz != self._state.station.frequency_hz):
                 # A stopped or previously tuned receiver must not advertise
                 # station identity from an earlier listening session.
