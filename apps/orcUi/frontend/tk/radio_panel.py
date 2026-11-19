@@ -186,6 +186,8 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._receiver_controls = None
         if native_sdrforge:
             self._controls.grid_remove()
+            # Keep a generous FFT viewport at 1280x720 while allowing smaller
+            # windowed launches to retain usable tuning controls.
             self._body.grid_columnconfigure(1, weight=0, minsize=320)
             self._receiver_controls = tk.Frame(
                 self._body, bg=ui.surface, width=320,
@@ -264,6 +266,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                 self._receiver_controls, text="MODE  --", bg=ui.surface,
                 fg=ui.text_muted, font=("Sans", 9), anchor="w", padx=8, pady=2)
             self._receiver_mode_label.grid(row=8, column=0, columnspan=2, sticky="ew")
+            # This row is informational; no new controls or scrollbars are needed.
             self._receiver_signal_label = tk.Label(
                 self._receiver_controls, text="SIGNAL  --", bg=ui.surface,
                 fg=ui.text_muted, font=("Sans", 10), anchor="w", padx=12, pady=8)
