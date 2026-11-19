@@ -330,3 +330,65 @@ def test_external_rigctl_retune_invalidates_previous_mode(receiver):
 
     assert r.session._state.station.frequency_hz == 102_500_000
     assert r.session._state.telemetry == RadioTelemetry()
+
+
+def test_receiver_stop_clears_old_station_and_ignores_late_zmq(receiver, monkeypatch):
+    r = receiver
+    from unittest.mock import MagicMock
+
+    response = MagicMock()
+    response.__enter__.return_value.status = 200
+    monkeypatch.setattr(
+        "controllers.radio.rf_radio_session.urllib.request.urlopen",
+        lambda *args, **kwargs: response,
+    )
+    source = Mock()
+    r.session._spectrum_source = source
+    r.session._state = replace(
+        r.session._state,
+        receiver_running=True,
+        telemetry=RadioTelemetry(
+            frequency_hz=100_000_000, mode="WFM", receiver_running=True,
+            station_name="OLD", radio_text="Old song", rds="OLD"),
+    )
+
+    r.session._perform(RadioRequest(RadioAction.STOP_RECEIVER), r.session._generation)
+    assert r.session._state.receiver_running is False
+    assert r.session._state.telemetry == RadioTelemetry()
+
+    source.latest_receiver.return_value = RadioTelemetry(
+        frequency_hz=100_000_000, mode="WFM", receiver_running=True,
+        station_name="OLD", radio_text="Old song", rds="OLD")
+    source.latest_spectrum.return_value = None
+    r.session.refresh_spectrum()
+    state = r.view.set_radio_state.call_args.args[0]
+    assert state.receiver_running is False
+    assert state.telemetry.station_name == ""
+    assert state.telemetry.radio_text == ""
+    assert state.telemetry.rds == ""
+    assert state.telemetry.mode is None
+    assert state.telemetry.receiver_running is False
+
+
+def test_accepted_restart_does_not_claim_acquisition_is_running(receiver, monkeypatch):
+    r = receiver
+    from unittest.mock import MagicMock
+
+    response = MagicMock()
+    response.__enter__.return_value.status = 202
+    monkeypatch.setattr(
+        "controllers.radio.rf_radio_session.urllib.request.urlopen",
+        lambda *args, **kwargs: response,
+    )
+    r.session._rest_receiver_running = False
+    r.session._state = replace(
+        r.session._state,
+        receiver_running=False,
+        telemetry=RadioTelemetry(
+            frequency_hz=100_000_000, station_name="OLD", rds="OLD"),
+    )
+
+    r.session._perform(RadioRequest(RadioAction.START_RECEIVER), r.session._generation)
+    assert r.session._rest_receiver_running is None
+    assert r.session._state.receiver_running is False
+    assert r.session._state.telemetry == RadioTelemetry()
