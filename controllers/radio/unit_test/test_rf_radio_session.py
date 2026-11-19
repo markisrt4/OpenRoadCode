@@ -629,3 +629,70 @@ def test_native_launch_preserves_adsb_embedding_path(receiver):
     r.aircraft.launch.assert_called_once()
     r.surface.embed.assert_called_once()
     r.application.present.assert_not_called()
+
+
+def test_native_rest_outage_clears_running_state_and_stale_telemetry(receiver, monkeypatch):
+    r = receiver
+    r.session._native_sdrforge = True
+    r.session._state = replace(
+        r.session._state,
+        receiver_running=True,
+        telemetry=RadioTelemetry(
+            frequency_hz=100_000_000, station_name="OLD", rds="OLD",
+        ),
+    )
+
+    def unavailable(*_args, **_kwargs):
+        raise ConnectionRefusedError("connection refused")
+
+    monkeypatch.setattr(
+        "controllers.radio.rf_radio_session.urllib.request.urlopen", unavailable
+    )
+    r.session.request(RadioRequest(RadioAction.REFRESH))
+    r.work.pop()()
+    r.ui.pop()()
+    state = r.view.set_radio_state.call_args.args[0]
+    assert state.receiver_running is False
+    assert state.telemetry.station_name == ""
+    assert state.telemetry.rds == ""
+    assert "SDRForge service unavailable:" in state.error
+    assert "connection refused" in state.error
+
+
+def test_native_rest_reconnection_clears_outage_error(receiver, monkeypatch):
+    r = receiver
+    r.session._native_sdrforge = True
+    r.session._state = replace(
+        r.session._state,
+        receiver_running=False,
+        error="SDRForge service unavailable: connection refused",
+    )
+
+    class Response:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self):
+            import json
+            return json.dumps(self.payload).encode()
+
+    def connected(url, timeout):
+        if url.endswith("/v1/audio"):
+            return Response({"muted": False})
+        return Response({"running": True, "startup_error": None})
+
+    monkeypatch.setattr(
+        "controllers.radio.rf_radio_session.urllib.request.urlopen", connected
+    )
+    r.session.request(RadioRequest(RadioAction.REFRESH))
+    r.work.pop()()
+    r.ui.pop()()
+    state = r.view.set_radio_state.call_args.args[0]
+    assert state.receiver_running is True
+    assert state.error == ""
