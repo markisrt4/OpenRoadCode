@@ -210,7 +210,7 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
             ) if native_sdrforge else None)
             session = ReceiverSession(
                 radio, NativeRadioControl() if native_sdrforge else SDRPPControl(),
-                SDRTelemetryMonitor(radio), runtime.radio,
+                None if native_sdrforge else SDRTelemetryMonitor(radio), runtime.radio,
                 adsb, X11WindowEmbedder(), display=os.environ.get("DISPLAY", ":1"),
                 run_work=resources.run_rf, run_ui=app.dispatch_ui,
                 on_close=lambda: resources.rf_sessions.discard(session),
