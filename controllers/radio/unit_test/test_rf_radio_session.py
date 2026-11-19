@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Receiver requests, UI dispatch, retirement, and native cleanup contracts."""
+from dataclasses import replace
 from threading import Event, Thread
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -178,3 +179,80 @@ def test_telemetry_monitor_keeps_numeric_measurements_and_legacy_formatting():
     assert state == RadioTelemetry(100_000_000, -43.25, 18.5, "STATION")
     assert monitor.read().signal == "-43.2 dB"
     assert monitor.read_state().rds == ""
+
+
+def test_sdrforge_stop_clears_stale_rds_without_changing_profile(receiver):
+    r = receiver
+    source = Mock()
+    r.session._spectrum_source = source
+    r.session._state = replace(
+        r.session._state,
+        telemetry=RadioTelemetry(
+            frequency_hz=100_000_000, station_name="OLD FM",
+            radio_text="Old song", rds="OLD", receiver_running=True),
+        receiver_running=True,
+    )
+    source.latest_receiver.return_value = RadioTelemetry(
+        frequency_hz=100_000_000, receiver_running=False)
+    source.latest_spectrum.return_value = None
+
+    r.session.refresh_spectrum()
+
+    state = r.view.set_radio_state.call_args.args[0]
+    assert state.station.mode_name == "WFM"
+    assert state.telemetry.station_name == ""
+    assert state.telemetry.radio_text == ""
+    assert state.telemetry.rds == ""
+    assert state.receiver_running is False
+
+
+def test_sdrforge_old_frequency_cannot_replace_new_station_identity(receiver):
+    r = receiver
+    source = Mock()
+    r.session._spectrum_source = source
+    r.session._state = replace(
+        r.session._state,
+        telemetry=RadioTelemetry(
+            frequency_hz=100_000_000, station_name="CURRENT",
+            radio_text="Current song", rds="CURRENT"),
+    )
+    source.latest_receiver.return_value = RadioTelemetry(
+        frequency_hz=99_500_000, station_name="STALE",
+        radio_text="Old song", rds="STALE", mode="NFM",
+        bandwidth_hz=12_500, receiver_running=True)
+    source.latest_spectrum.return_value = None
+
+    r.session.refresh_spectrum()
+
+    state = r.view.set_radio_state.call_args.args[0]
+    assert state.station.frequency_hz == 100_000_000
+    assert state.station.mode_name == "WFM"
+    assert state.telemetry.station_name == ""
+    assert state.telemetry.radio_text == ""
+    assert state.telemetry.rds == ""
+    assert state.telemetry.mode is None
+    assert state.telemetry.bandwidth_hz is None
+    assert state.telemetry.receiver_running is None
+
+
+def test_sdrforge_same_frequency_preserves_rds_between_updates(receiver):
+    r = receiver
+    source = Mock()
+    r.session._spectrum_source = source
+    r.session._state = replace(
+        r.session._state,
+        telemetry=RadioTelemetry(
+            frequency_hz=100_000_000, station_name="LIVE",
+            radio_text="Current song", rds="LIVE", receiver_running=True),
+    )
+    source.latest_receiver.return_value = RadioTelemetry(
+        frequency_hz=100_000_000, mode="WFM", receiver_running=True)
+    source.latest_spectrum.return_value = None
+
+    r.session.refresh_spectrum()
+
+    state = r.view.set_radio_state.call_args.args[0]
+    assert state.telemetry.station_name == "LIVE"
+    assert state.telemetry.radio_text == "Current song"
+    assert state.telemetry.rds == "LIVE"
+    assert state.telemetry.mode == "WFM"
