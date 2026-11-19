@@ -45,7 +45,7 @@ class MapThemeRuntimeTest(unittest.TestCase):
 
             self.assertEqual(destination, data_root / "maps" / "styles" / "openroadcode.json")
             style = destination.read_text(encoding="utf-8")
-            self.assertIn('"background-color":"#0b151b"', style)
+            self.assertIn('"background-color":"#103f56"', style)
             self.assertIn('"farmland","#2d3f35"', style)
             self.assertIn('"fill-color":"#103f56"', style)
             self.assertIn('"line-color":"#4c8297"', style)
@@ -69,17 +69,13 @@ class MapThemeRuntimeTest(unittest.TestCase):
             self.assertEqual(layers["state-boundaries"]["paint"]["line-color"], "#54c96b")
             self.assertEqual(layers["reference-land"]["paint"]["fill-color"], "#18372b")
             self.assertEqual(layers["reference-lakes"]["paint"]["fill-color"], "#103f56")
-            self.assertEqual(layers["motorways"]["source"], "national-freeways")
+            self.assertEqual(layers["national-motorways"]["source"], "national-freeways")
+            self.assertEqual(layers["motorways"]["source"], "openroad")
             self.assertEqual(layers["state-boundaries"]["minzoom"], 0)
             self.assertIn('us_state_boundaries.geojson', document['sources']['state-boundaries']['data'])
             self.assertEqual(layers["state-boundaries"]["paint"]["line-dasharray"], [1, 2])
             self.assertEqual(layers["country-boundaries"]["paint"]["line-color"], "#dce8ef")
             self.assertEqual(layers["michigan-boundary"]["paint"]["line-color"], "#59d8ff")
-            self.assertTrue((root / "maps/boundaries/us_state_boundaries.geojson").is_file())
-            self.assertTrue((root / "maps/boundaries/us_state_internal_boundaries.geojson").is_file())
-            self.assertTrue((root / "maps/boundaries/world_country_boundaries.geojson").is_file())
-            self.assertTrue((root / "maps/boundaries/world_land.geojson").is_file())
-            self.assertTrue((root / "maps/boundaries/world_lakes.geojson").is_file())
             self.assertEqual(layers["buildings"]["type"], "fill-extrusion")
             self.assertIn("fill-extrusion-color", layers["buildings"]["paint"])
             self.assertIn("poi-results", document["sources"])
@@ -93,6 +89,7 @@ class MapThemeRuntimeTest(unittest.TestCase):
             layers = {layer["id"]: layer for layer in document["layers"]}
             self.assertNotIn("national-freeways", document["sources"])
             self.assertNotIn("freeway-labels-national", layers)
+            self.assertNotIn("national-motorways", layers)
             self.assertEqual(layers["motorways"]["source"], "openroad")
             self.assertEqual(layers["road-refs-major"]["source"], "openroad")
             self.assertEqual(layers["road-refs-major"]["filter"], ["has", "ref"])
@@ -126,6 +123,7 @@ class MapThemeRuntimeTest(unittest.TestCase):
             style = destination.read_text(encoding="utf-8")
             self.assertIn('"school","#c9e4e2"', style)
             self.assertIn('"fill-color":"#a9dcb7"', style)
+            self.assertIn('"background-color":"#75bee3"', style)
 
 
 if __name__ == "__main__":

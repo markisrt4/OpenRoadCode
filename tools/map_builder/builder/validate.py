@@ -18,6 +18,15 @@ class ValidationError(RuntimeError):
     """Raised when generated navigation data fails validation."""
 
 
+REFERENCE_MAP_FILES = (
+    "us_state_boundaries.geojson",
+    "us_state_internal_boundaries.geojson",
+    "world_country_boundaries.geojson",
+    "world_land.geojson",
+    "world_lakes.geojson",
+)
+
+
 def _run(cmd):
     return subprocess.run(cmd, text=True, capture_output=True, check=True)
 
@@ -34,6 +43,23 @@ def validate_pbf(path):
     if not path.is_file() or path.stat().st_size == 0:
         raise ValidationError(f"Missing/empty OSM PBF: {path}")
     _run(["osmium", "fileinfo", "-e", str(path)])
+
+
+def validate_reference_maps(path):
+    result = {}
+    for name in REFERENCE_MAP_FILES:
+        asset = path / name
+        if not asset.is_file() or asset.stat().st_size == 0:
+            raise ValidationError(f"Missing/empty reference map asset: {asset}")
+        try:
+            document = json.loads(asset.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValidationError(f"Invalid reference map asset: {asset}") from exc
+        features = document.get("features") if isinstance(document, dict) else None
+        if not isinstance(document, dict) or document.get("type") != "FeatureCollection" or not isinstance(features, list) or not features:
+            raise ValidationError(f"Reference map asset is not a non-empty FeatureCollection: {asset}")
+        result[name] = {"features": len(features), "sha256": sha256(asset)}
+    return result
 
 
 def _read_varint(data: bytes, offset: int) -> tuple[int, int]:
@@ -400,6 +426,7 @@ def validate_output(root, *, service_smoke=False):
         "source_pbfs": len(pbfs),
         "mbtiles": validate_mbtiles(mbtiles),
         "national_freeways": validate_mbtiles(national_freeways),
+        "reference_maps": validate_reference_maps(root / "maps/boundaries"),
         "glyph_files": validate_glyphs(root / "maps/glyphs"),
         "search_index": validate_search_index(search_index),
         "valhalla": validate_valhalla(valhalla, service_smoke=service_smoke),
@@ -414,4 +441,6 @@ def validate_output(root, *, service_smoke=False):
         "valhalla_extract": sha256(valhalla / "tiles.tar"),
         "search_index": sha256(search_index),
     }
+    for name, record in result["reference_maps"].items():
+        result["checksums"][f"reference_{name}"] = record["sha256"]
     return result

@@ -5,9 +5,12 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+import tempfile
 import unittest
 
-from tools.map_builder.builder.validate import _decode_vector_tile, _validate_geometry
+from tools.map_builder.builder.validate import REFERENCE_MAP_FILES, ValidationError, _decode_vector_tile, _validate_geometry, validate_reference_maps
 
 
 def _varint(value: int) -> bytes:
@@ -111,6 +114,25 @@ class VectorTileValidationTest(unittest.TestCase):
             {"layers": 1, "features": 1},
             _decode_vector_tile(tile),
         )
+
+
+class ReferenceMapValidationTest(unittest.TestCase):
+    def test_accepts_complete_nonempty_reference_map_set(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in REFERENCE_MAP_FILES:
+                (root / name).write_text(json.dumps({
+                    "type": "FeatureCollection",
+                    "features": [{"type": "Feature", "properties": {}, "geometry": None}],
+                }))
+            result = validate_reference_maps(root)
+            self.assertEqual(set(result), set(REFERENCE_MAP_FILES))
+            self.assertTrue(all(record["features"] == 1 for record in result.values()))
+
+    def test_rejects_missing_reference_map_asset(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValidationError, "Missing/empty reference map asset"):
+                validate_reference_maps(Path(directory))
 
 
 if __name__ == "__main__":
