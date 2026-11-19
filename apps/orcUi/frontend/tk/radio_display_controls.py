@@ -157,7 +157,10 @@ class RadioDisplayControlsMixin(RadioPresentationFrame):
         self._session.request(RadioRequest(RadioAction.FFT_HOLD))
 
     def _auto_range(self) -> None:
-        self._session.request(RadioRequest(RadioAction.AUTO_RANGE))
+        if getattr(self, "_sdrforge_view", None) is not None:
+            self.auto_range_spectrum()
+        else:
+            self._session.request(RadioRequest(RadioAction.AUTO_RANGE))
 
     def _refresh_display_controls(self) -> None:
         for key, label, enabled in (
