@@ -186,9 +186,9 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._receiver_controls = None
         if native_sdrforge:
             self._controls.grid_remove()
-            self._body.grid_columnconfigure(1, weight=0, minsize=270)
+            self._body.grid_columnconfigure(1, weight=0, minsize=320)
             self._receiver_controls = tk.Frame(
-                self._body, bg=ui.surface, width=270,
+                self._body, bg=ui.surface, width=320,
                 highlightthickness=1, highlightbackground=ui.border)
             self._receiver_controls.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
             self._receiver_controls.grid_propagate(False)
@@ -215,7 +215,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             self._info_text = tk.Label(self._station_info, text="Waiting for RDS data",
                                        bg=ui.surface, fg=ui.text_muted,
                                        font=("Sans", 9), anchor="nw", justify="left",
-                                       wraplength=245)
+                                       wraplength=288)
             self._info_text.pack(fill=tk.X)
             self._bands_heading = tk.Label(self._receiver_controls, text="BANDS", bg=ui.surface,
                      fg=ui.accent_primary, font=("Sans", 11, "bold"),
@@ -263,7 +263,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             self._receiver_mode_label = tk.Label(
                 self._receiver_controls, text="MODE  --", bg=ui.surface,
                 fg=ui.text_muted, font=("Sans", 9), anchor="w", padx=8, pady=2)
-            self._receiver_mode_label.grid_remove()  # Mode remains in telemetry, not a duplicate row.
+            self._receiver_mode_label.grid(row=8, column=0, columnspan=2, sticky="ew")
             self._receiver_signal_label = tk.Label(
                 self._receiver_controls, text="SIGNAL  --", bg=ui.surface,
                 fg=ui.text_muted, font=("Sans", 10), anchor="w", padx=12, pady=8)
