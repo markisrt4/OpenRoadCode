@@ -1188,3 +1188,23 @@ contour alpha. The reference mask is coarse overview geometry, so exact shorelin
 remain approximate. This does not flatten water elevations or claim to correct
 all DEM source/datum discontinuities. VM/Termux full-tilt views remain acceptance
 checks after automated concurrency, edge-transition and material-contract tests.
+
+### Consistent height sampling across mesh levels
+
+Further Keweenaw/full-tilt artifacts exposed a separate issue: source selection
+changed at mesh-level thresholds, allowing adjacent parent/child meshes to assign
+different heights to shared coordinates. Catalog-backed terrain now uses one
+canonical local sampler through the existing viewer server's
+`/data/terrain-mesh/{z}/{x}/{y}` route. It reuses installed baseline, national and
+Michigan grids and their validators; source priority depends on location and
+resolution, not the requesting mesh's zoom. Shared dyadic sample coordinates
+resolve the same height at every LOD. All meshes use one display reference; raw
+source elevations and files remain unchanged.
+
+Spatial metadata buckets avoid scanning the full national catalog per sample.
+Parsed source grids and generated meshes are bounded to32 and8 entries; the
+browser retains8 unscaled33×33 meshes. Exaggeration is applied once on the browser
+side. Camera/marker height reads use the finest locally cached mesh, and startup
+preloads the destination mesh. The existing page/chunk path remains for legacy
+view states and auxiliary presentation, with its original budgets. This does not
+claim a resolution of source-datum differences or missing survey coverage.

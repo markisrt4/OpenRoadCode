@@ -38,6 +38,8 @@ class CesiumViewerServer:
         self._imagery_layers = tuple(imagery_layers)
         self._imagery_stack = LocalImageryStackState(tuple(pack.state for pack in self._imagery_layers))
         self._terrain = terrain
+        self._mesh_lock=threading.RLock()
+        self._mesh_owner=self._mesh_sampler=None
         self._buildings = buildings
         self._tiles = tiles
         self._roads = roads
@@ -89,6 +91,21 @@ class _Handler(BaseHTTPRequestHandler):
             self.send_error(403)
             return
         path = unquote(urlsplit(self.path).path)
+        if path.startswith('/data/terrain-mesh/') and isinstance(self.owner._terrain, LocalTerrainCatalog):
+            try:
+                parts=path.removeprefix('/data/terrain-mesh/').split('/')
+                if len(parts)!=3 or any(not value.isascii() or not value.isdigit() or len(value)>6 for value in parts):
+                    raise ValueError('Invalid terrain mesh address')
+                from apps.launchers.terrain_mesh_sampler import TerrainMeshSampler
+                with self.owner._mesh_lock:
+                    if self.owner._mesh_owner is not self.owner._terrain:
+                        self.owner._mesh_sampler=TerrainMeshSampler(self.owner._terrain)
+                        self.owner._mesh_owner=self.owner._terrain
+                    sampler=self.owner._mesh_sampler
+                self._send(json.dumps(sampler.mesh(*map(int,parts))).encode(),'application/json')
+            except (ValueError,OSError,KeyError):
+                self.send_error(404,'Offline terrain mesh unavailable')
+            return
         if path == "/config.json":
             document = self.owner._state.document()
             document["close_token"] = self.owner._token
@@ -109,6 +126,7 @@ class _Handler(BaseHTTPRequestHandler):
             if self.owner._terrain is not None:
                 if isinstance(self.owner._terrain, LocalTerrainCatalog):
                     document["terrain"] = self.owner._terrain.state.document()
+                    document["terrain"]["mesh_url"] = "/data/terrain-mesh/{z}/{x}/{y}"
                     for index, tile in enumerate(document["terrain"]["tiles"]):
                         tile["url"] = f"/data/terrain/{index}"
                 else:

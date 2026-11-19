@@ -88,3 +88,24 @@ test('coincident fine and coarse coverage edges blend through both levels',async
   assert.equal(buffer[16*33],0);
   assert.equal(buffer[16*33+16],30);
 });
+
+
+test('canonical mesh transport keeps source heights and applies exaggeration once',async()=>{
+  const calls=[];
+  const scope={window:{},fetch:async url=>{
+    calls.push(url);return {ok:true,json:async()=>({width:33,height:33,
+      heights_m:Array(1089).fill(100),reference_height_m:20})};
+  }};
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../local_terrain.js'),'utf8'),scope);
+  const C={GeographicTilingScheme:class {tileXYToRectangle(){return {west:0,south:0,east:1,north:1};}},
+    CustomHeightmapTerrainProvider:class {constructor(options){this.callback=options.callback;}getLevelMaximumGeometricError(){return 1;}},
+    EllipsoidTerrainProvider:class {}};
+  const layer=scope.window.ORCLocalTerrain({tiles:[],mesh_url:'/mesh/{z}/{x}/{y}'},C);
+  assert.equal((await layer.provider.callback(0,0,11))[0],80);
+  assert.equal((await layer.provider.callback(0,0,12))[0],80);
+  const viewer={scene:{requestRender(){}}};layer.setScale(viewer,4);
+  assert.equal((await layer.provider.callback(0,0,12))[0],320);
+  assert.equal(calls.length,2);
+  assert.equal(layer.heightAt(.5,.5),320);
+  layer.setVisible(viewer,false);assert.equal(layer.heightAt(.5,.5),0);
+});

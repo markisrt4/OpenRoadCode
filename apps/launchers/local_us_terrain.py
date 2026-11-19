@@ -50,11 +50,26 @@ class NationalTerrainIndex:
                 state = _load_single_terrain(directory)
                 if state.width != row['width'] or state.height != row['height']:
                     raise ValueError('National terrain dimensions mismatch')
-                cached = (stamp, content); self.cache[key] = cached
+                cached = (stamp, content, state); self.cache[key] = cached
             self.cache.move_to_end(key)
             while len(self.cache) > 8:
                 self.cache.popitem(last=False)
             return cached[1]
+
+    def state(self,key):
+        with self.lock:
+            self.chunk(key)
+            return self.cache[key][2]
+
+    def point_sources(self,longitude,latitude):
+        from apps.launchers.terrain_mesh_sampler import TerrainSource, buckets
+        with self.lock:
+            if not hasattr(self,'_point_buckets'):
+                self._point_buckets=buckets([TerrainSource('national-'+key,
+                    tuple(math.radians(value) for value in row['bounds_deg']),row['width'],row['height'],0,
+                    lambda key=key:self.state(key)) for key,row in self.rows.items()])
+            candidates=self._point_buckets.get((math.floor(math.degrees(longitude)),math.floor(math.degrees(latitude))),())
+        return [source for source in candidates if source.contains(longitude,latitude)]
 
     def page(self, zoom, x, y, reference):
         if any(type(v) is not int for v in (zoom,x,y)) or not 0 <= zoom <= 16 or not 0 <= x < 2**(zoom+1) or not 0 <= y < 2**zoom:
@@ -91,6 +106,10 @@ class CombinedTerrainIndex:
         if self.detail is None:
             raise ValueError('Unknown terrain chunk')
         return self.detail.chunk(key)
+
+    def point_sources(self,longitude,latitude):
+        detail=self.detail.point_sources(longitude,latitude) if self.detail else []
+        return detail+self.national.point_sources(longitude,latitude)
 
     def page(self, zoom, x, y, reference):
         detail = self.detail.page(zoom,x,y,reference)['tiles'] if self.detail else []

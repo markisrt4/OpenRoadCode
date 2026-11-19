@@ -22,7 +22,7 @@ class StatewideDetailIndex:
         rows=document.get('cells',[])
         if document.get('profile')!=PROFILE or not 1<=len(rows)<=768:
             raise ValueError('Invalid statewide detail catalog')
-        self.cells={};self._images=OrderedDict();self._terrain=OrderedDict();self._lock=threading.RLock()
+        self.cells={};self._images=OrderedDict();self._terrain=OrderedDict();self._mosaics=OrderedDict();self._lock=threading.RLock()
         for row in rows:
             key=row.get('id','');digest=row.get('sha256','')
             if not re.fullmatch(r'mi-z10-[0-9]{1,4}-[0-9]{1,4}',key) or not re.fullmatch('[a-f0-9]{64}',digest) or key in self.cells:
@@ -90,6 +90,28 @@ class StatewideDetailIndex:
             return cached
 
     def chunk(self,key):return self._chunk(key)[2]
+
+    def point_sources(self,longitude,latitude):
+        from apps.launchers.terrain_mesh_sampler import TerrainSource
+        key=cell_id(*xy(math.degrees(longitude),math.degrees(latitude)))
+        if key not in self.cells:return []
+        directory,manifest=self.cells[key]
+        if not manifest.get('terrain_available'):return []
+        with self._lock:
+            if key not in self._mosaics:
+                self._mosaics[key]=json.loads((directory/'terrain/manifest.json').read_text())
+            self._mosaics.move_to_end(key)
+            mosaic=self._mosaics[key]
+            while len(self._mosaics)>8:self._mosaics.popitem(last=False)
+        rows=[]
+        for index,record in enumerate(mosaic['tiles']):
+            bounds=tuple(math.radians(value) for value in record['bounds_deg'])
+            a,b,c,d=bounds
+            if a<=longitude<=c and b<=latitude<=d:
+                identity=key+'--'+str(index)
+                rows.append(TerrainSource('mi-point-'+identity,bounds,129,129,7,
+                                          lambda identity=identity:self._chunk(identity)[1]))
+        return rows
 
     def page(self,zoom,x,y,reference):
         if any(type(v) is not int for v in (zoom,x,y)) or not 0<=zoom<=16 or not 0<=x<2**(zoom+1) or not 0<=y<2**zoom:

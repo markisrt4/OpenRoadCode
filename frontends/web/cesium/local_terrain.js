@@ -11,6 +11,7 @@ window.ORCLocalTerrain = function (data, C, initialPoint=null) {
   let tiles=baseline.slice();
   const pages=new Map();
   const pendingPages=new Map();
+  const meshes=new Map(),pendingMeshes=new Map();
   let detailEntries=new Map();
   async function loadPage(x,y,level){
     if(!data.page_url || level<(data.page_minimum_zoom??12))return [];
@@ -41,6 +42,26 @@ window.ORCLocalTerrain = function (data, C, initialPoint=null) {
     }).finally(()=>pendingPages.delete(key));
     pendingPages.set(key,request);return request;
   }
+  async function requestMesh(x,y,level){
+    const key=`${level}/${x}/${y}`;
+    if(meshes.has(key)){const value=meshes.get(key);meshes.delete(key);meshes.set(key,value);return value;}
+    if(pendingMeshes.has(key))return pendingMeshes.get(key);
+    const url=data.mesh_url.replace('{z}',level).replace('{x}',x).replace('{y}',y);
+    const pending=fetch(url).then(response=>{
+      if(!response.ok)throw Error('Offline terrain mesh unavailable');
+      return response.json();
+    }).then(payload=>{
+      if(payload.width!==33||payload.height!==33||!Array.isArray(payload.heights_m)
+        ||payload.heights_m.length!==1089||!payload.heights_m.every(Number.isFinite)
+        ||!Number.isFinite(payload.reference_height_m))throw Error('Invalid offline terrain mesh');
+      const rectangle=scheme.tileXYToRectangle(x,y,level);
+      const mesh={...payload,west_rad:rectangle.west,south_rad:rectangle.south,
+        east_rad:rectangle.east,north_rad:rectangle.north,mesh:true};
+      meshes.set(key,mesh);while(meshes.size>8)meshes.delete(meshes.keys().next().value);
+      return mesh;
+    }).finally(()=>pendingMeshes.delete(key));
+    pendingMeshes.set(key,pending);return pending;
+  }
   async function loadTile(tile) {
     if(tile.heights_m)return tile;
     if(!tile.pending)tile.pending=fetch(tile.url).then(response=>{
@@ -64,7 +85,10 @@ window.ORCLocalTerrain = function (data, C, initialPoint=null) {
     const tile=tileAt(longitude,latitude,zoom);
     return tile ? loadTile(tile) : null;
   }
-  const ready=initialPoint?loadAt(initialPoint[0],initialPoint[1]):Promise.resolve();
+  const ready=initialPoint&&data.mesh_url?requestMesh(
+    Math.min(2**13-1,Math.max(0,Math.floor((initialPoint[0]+Math.PI)/(2*Math.PI)*2**13))),
+    Math.min(2**12-1,Math.max(0,Math.floor((Math.PI/2-initialPoint[1])/Math.PI*2**12))),12)
+    :initialPoint?loadAt(initialPoint[0],initialPoint[1]):Promise.resolve();
   function sample(tile,longitude,latitude) {
     const x = (longitude-tile.west_rad)/(tile.east_rad-tile.west_rad)*(tile.width-1);
     const y = (tile.north_rad-latitude)/(tile.north_rad-tile.south_rad)*(tile.height-1);
@@ -75,7 +99,7 @@ window.ORCLocalTerrain = function (data, C, initialPoint=null) {
       (at(row+1,col)*(1-fx)+at(row+1,col+1)*fx)*fy;
     // Fade the boundary to the zero-relief outside region to avoid vertical seams.
     // A single pack fades at its outer boundary. Mosaic tile edges stay continuous.
-    const margin = !data.page_url && tiles.length === 1 ? Math.min(x,y,tile.width-1-x,tile.height-1-y) : 1;
+    const margin = !tile.mesh && !data.page_url && tiles.length === 1 ? Math.min(x,y,tile.width-1-x,tile.height-1-y) : 1;
     return scale*value*Math.min(1,Math.max(0,margin));
   }
   function sampledHeightAt(longitude, latitude, zoom=Infinity,catalog=tiles) {
@@ -116,12 +140,23 @@ window.ORCLocalTerrain = function (data, C, initialPoint=null) {
     return evaluate(0);
   }
   function heightAt(longitude, latitude) {
+    if(data.mesh_url){
+      if(!visible)return 0;
+      const matching=[...meshes.values()].filter(mesh=>longitude>=mesh.west_rad&&longitude<=mesh.east_rad
+        &&latitude>=mesh.south_rad&&latitude<=mesh.north_rad).sort((a,b)=>
+          (a.east_rad-a.west_rad)*(a.north_rad-a.south_rad)-(b.east_rad-b.west_rad)*(b.north_rad-b.south_rad));
+      return matching.length?sample(matching[0],longitude,latitude):0;
+    }
     return visible ? sampledHeightAt(longitude, latitude) : 0;
   }
   function createProvider() {
     const provider = new C.CustomHeightmapTerrainProvider({width:33,height:33,tilingScheme:scheme,
       credit:data.attribution,
       callback:async (x,y,level) => {
+        if(data.mesh_url){
+          const mesh=await requestMesh(x,y,level);
+          return Float32Array.from(mesh.heights_m,height=>scale*(height-mesh.reference_height_m));
+        }
         const ownPage=await loadPage(x,y,level);
         const rectangle=scheme.tileXYToRectangle(x,y,level);
         const catalog=[...ownPage,...baseline].filter(tile=>tile.west_rad<=rectangle.east

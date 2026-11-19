@@ -91,6 +91,9 @@ def test_loopback_page_and_chunks_use_si_metadata_and_deny_arbitrary_paths(serve
     # Cesium GeographicTilingScheme has 2^(z+1) longitude cells and 2^z rows.
     lon,lat=-83.05,42.33;z=12;x=int((lon+180)/360*2**(z+1));y=int((90-lat)/180*2**z)
     with urllib.request.urlopen(server.url+f'data/terrain-page/{z}/{x}/{y}') as response:page=json.load(response)
+    with urllib.request.urlopen(server.url+f'data/terrain-mesh/{z}/{x}/{y}') as response:mesh=json.load(response)
+    assert mesh['width']==33 and mesh['height']==33
+    assert mesh['heights_m'][16*33+16]==pytest.approx(230)
     assert len(page['tiles'])==1
     metadata=page['tiles'][0]
     assert metadata['west_rad']==pytest.approx(math.radians(bounds(*xy(lon,lat))[0]))
