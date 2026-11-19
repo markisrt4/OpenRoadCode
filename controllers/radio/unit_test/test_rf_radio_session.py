@@ -606,3 +606,26 @@ def test_legacy_refresh_tolerates_missing_optional_monitor(receiver, monkeypatch
     r.radio.refresh.return_value = r.radio.state
     r.session._perform(RadioRequest(RadioAction.REFRESH), r.session._generation)
     assert r.session._state.station.frequency_hz == 100_000_000
+
+
+def test_native_launch_never_starts_or_embeds_sdrpp(receiver):
+    r = receiver
+    r.session._native_sdrforge = True
+    r.session.request(RadioRequest(RadioAction.LAUNCH))
+    r.work.pop(0)()
+    r.application.present.assert_not_called()
+    r.application.window_process_id.assert_not_called()
+    r.surface.embed.assert_not_called()
+    assert r.session._state.view == "none"
+    assert not r.session._state.loading
+
+
+def test_native_launch_preserves_adsb_embedding_path(receiver):
+    r = receiver
+    r.session._native_sdrforge = True
+    r.session.request(RadioRequest(
+        RadioAction.ADSB, host=RadioHost(10, 20, 800, 400)))
+    r.work.pop(0)()
+    r.aircraft.launch.assert_called_once()
+    r.surface.embed.assert_called_once()
+    r.application.present.assert_not_called()
