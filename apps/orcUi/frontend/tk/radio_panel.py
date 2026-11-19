@@ -52,6 +52,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._display_buttons: dict[str, tk.Button] = {}
         self._live_rf_buttons: list[AutomotiveRadioButton] = []
         self._receiver_start_pending = False
+        self._last_receiver_running: bool | None = None
         self._favorites_signature = None
         self._preset_page = 0
         self._preset_page_size = 4
@@ -534,6 +535,11 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._session.request(RadioRequest(RadioAction.TUNE_UP))
 
     def set_radio_state(self, state: RfRadioState) -> None:
+        if (self._sdrforge_view is not None
+                and state.receiver_running is False
+                and self._last_receiver_running is not False):
+            self._sdrforge_view.clear_spectrum()
+        self._last_receiver_running = state.receiver_running
         self._state = state
         if state.receiver_running or state.error:
             self._receiver_start_pending = False
