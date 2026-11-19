@@ -759,3 +759,100 @@ def test_native_close_never_stops_shared_receiver(receiver, monkeypatch):
     )
     r.session.close()
     requests.assert_not_called()
+
+
+def test_native_receiver_full_simulated_lifecycle(receiver, monkeypatch):
+    """Start, fail, reconnect, stop and recover without RF hardware or Tk."""
+    import json
+    from io import BytesIO
+
+    r = receiver
+    r.session._native_sdrforge = True
+    r.session._native_view = "none"
+    source = Mock()
+    r.session._spectrum_source = source
+    source.latest_spectrum.return_value = None
+    source.latest_receiver.return_value = None
+    status = {"running": False, "starting": False, "startup_error": None}
+    offline = {"value": False}
+    starts = []
+
+    class Response(BytesIO):
+        status = 202
+
+    def urlopen(request, timeout=1.5):
+        if offline["value"]:
+            raise ConnectionRefusedError("connection refused")
+        url = request if isinstance(request, str) else request.full_url
+        if url.endswith("/v1/receiver/start"):
+            starts.append(url)
+            status.update(running=False, starting=True, startup_error=None)
+            return Response(b"{}")
+        if url.endswith("/v1/receiver/stop"):
+            status.update(running=False, starting=False, startup_error=None)
+            return Response(b"{}")
+        payload = {"muted": False} if url.endswith("/v1/audio") else status
+        return Response(json.dumps(payload).encode())
+
+    monkeypatch.setattr(
+        "controllers.radio.rf_radio_session.urllib.request.urlopen", urlopen
+    )
+    r.radio.refresh.return_value = r.session._state.station
+
+    def execute(action):
+        r.session.request(RadioRequest(action))
+        r.work.pop(0)()
+        r.ui.pop(0)()
+        return r.view.set_radio_state.call_args.args[0]
+
+    assert not execute(RadioAction.REFRESH).receiver_running
+    assert len(starts) == 0
+
+    accepted = execute(RadioAction.START_RECEIVER)
+    assert not accepted.receiver_running
+    assert accepted.receiver_starting
+    assert len(starts) == 1
+
+    starting = execute(RadioAction.REFRESH)
+    assert starting.receiver_starting
+    assert not starting.receiver_running
+
+    status.update(running=False, starting=False, startup_error="USB disconnected")
+    failed = execute(RadioAction.REFRESH)
+    assert not failed.receiver_starting
+    assert not failed.receiver_running
+    assert "USB disconnected" in failed.error
+
+    offline["value"] = True
+    unavailable = execute(RadioAction.REFRESH)
+    assert not unavailable.receiver_running
+    assert not unavailable.receiver_starting
+    assert "service unavailable" in unavailable.error
+
+    offline["value"] = False
+    status.update(running=False, starting=False, startup_error=None)
+    recovered = execute(RadioAction.REFRESH)
+    assert recovered.error == ""
+    assert not recovered.receiver_running
+    assert len(starts) == 1  # Recovery never restarts shared acquisition.
+
+    status.update(running=True, starting=False)
+    running = execute(RadioAction.REFRESH)
+    assert running.receiver_running
+    assert not running.receiver_starting
+    source.latest_receiver.return_value = RadioTelemetry(
+        frequency_hz=100_000_000, mode="WFM", receiver_running=True,
+        station_name="LIVE", rds="LIVE"
+    )
+    r.session.refresh_spectrum()
+    assert r.session._state.telemetry.station_name == "LIVE"
+
+    stopped = execute(RadioAction.STOP_RECEIVER)
+    assert not stopped.receiver_running
+    assert not stopped.receiver_starting
+    assert stopped.telemetry == RadioTelemetry()
+    r.session.refresh_spectrum()
+    assert not r.session._state.receiver_running
+    assert r.session._state.telemetry.station_name == ""
+    assert r.session._state.telemetry.receiver_running is True
+    assert len(starts) == 1
