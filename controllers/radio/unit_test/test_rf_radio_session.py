@@ -288,3 +288,45 @@ def test_rest_stopped_status_wins_over_delayed_zmq_start(receiver):
     state = r.view.set_radio_state.call_args.args[0]
     assert state.receiver_running is False
     assert state.telemetry.receiver_running is True
+
+
+def test_local_retune_immediately_invalidates_old_receiver_telemetry(receiver):
+    r = receiver
+    r.session._state = replace(
+        r.session._state,
+        telemetry=RadioTelemetry(
+            frequency_hz=100_000_000, mode="NFM",
+            station_name="OLD", radio_text="Old track", receiver_running=True),
+    )
+    new_station = replace(r.session._state.station, frequency_hz=101_100_000)
+    r.session._set_station(new_station)
+
+    state = r.session._state
+    assert state.station.frequency_hz == 101_100_000
+    assert state.telemetry == RadioTelemetry()
+
+
+def test_same_frequency_station_refresh_preserves_live_telemetry(receiver):
+    r = receiver
+    live = RadioTelemetry(
+        frequency_hz=100_000_000, mode="WFM",
+        station_name="LIVE", receiver_running=True)
+    r.session._state = replace(r.session._state, telemetry=live)
+    r.session._set_station(r.session._state.station)
+    assert r.session._state.telemetry == live
+
+
+def test_external_rigctl_retune_invalidates_previous_mode(receiver):
+    r = receiver
+    r.session._state = replace(
+        r.session._state,
+        telemetry=RadioTelemetry(
+            frequency_hz=100_000_000, mode="NFM", receiver_running=True),
+    )
+    r.radio.refresh.return_value = replace(
+        r.session._state.station, frequency_hz=102_500_000)
+    r.session._native_view = "none"
+    r.session._perform(RadioRequest(RadioAction.REFRESH), r.session._generation)
+
+    assert r.session._state.station.frequency_hz == 102_500_000
+    assert r.session._state.telemetry == RadioTelemetry()
