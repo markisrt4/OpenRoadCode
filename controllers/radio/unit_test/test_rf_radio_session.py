@@ -444,3 +444,80 @@ def test_profile_change_with_same_mode_and_frequency_invalidates_telemetry(recei
     station = replace(r.session._state.station, profile_key="alternate")
     r.session._set_station(station)
     assert r.session._state.telemetry == RadioTelemetry()
+
+
+def test_usb_disconnect_rest_outage_and_reconnect_lifecycle(receiver, monkeypatch):
+    """Exercise acquisition recovery without hardware, sockets, or Tk."""
+    import json
+    from io import BytesIO
+
+    r = receiver
+    source = Mock()
+    r.session._spectrum_source = source
+    r.session._native_view = "none"
+    status = {"running": True}
+    outage = {"active": False}
+
+    def urlopen(request, timeout=1.5):
+        if outage["active"]:
+            raise OSError("SDRForge temporarily unreachable")
+        url = request if isinstance(request, str) else request.full_url
+        data = ({"muted": False} if url.endswith("/v1/audio") else status)
+        return BytesIO(json.dumps(data).encode())
+
+    monkeypatch.setattr(
+        "controllers.radio.rf_radio_session.urllib.request.urlopen", urlopen)
+    r.radio.refresh.return_value = r.session._state.station
+    source.latest_spectrum.return_value = None
+
+    # Healthy FM acquisition with decoded station metadata.
+    r.session._perform(RadioRequest(RadioAction.REFRESH), r.session._generation)
+    source.latest_receiver.return_value = RadioTelemetry(
+        frequency_hz=100_000_000, mode="WFM", receiver_running=True,
+        station_name="LIVE FM", radio_text="Now playing", rds="LIVE FM")
+    r.session.refresh_spectrum()
+    assert r.session._state.receiver_running is True
+    assert r.session._state.telemetry.station_name == "LIVE FM"
+
+    # USB loss: REST is reachable but reports acquisition stopped.
+    status["running"] = False
+    status["startup_error"] = "USB disconnected"
+    r.session._perform(RadioRequest(RadioAction.REFRESH), r.session._generation)
+    assert r.session._state.receiver_running is False
+    assert r.session._state.telemetry == RadioTelemetry()
+    assert "USB disconnected" in r.session._state.error
+
+    # A delayed ZMQ packet cannot revive RDS or override REST.
+    r.session.refresh_spectrum()
+    assert r.session._state.receiver_running is False
+    assert r.session._state.telemetry.station_name == ""
+    assert r.session._state.telemetry.radio_text == ""
+
+    # Both transports are temporarily unavailable; last known station survives.
+    outage["active"] = True
+    r.radio.refresh.side_effect = OSError("rigctl offline")
+    r.session._perform(RadioRequest(RadioAction.REFRESH), r.session._generation)
+    assert r.session._state.station.frequency_hz == 100_000_000
+    assert r.session._state.receiver_running is False
+
+    # Acquisition and rigctl recover, including an external retune.
+    outage["active"] = False
+    status.clear()
+    status["running"] = True
+    r.radio.refresh.side_effect = None
+    r.radio.refresh.return_value = replace(
+        r.session._state.station, frequency_hz=162_550_000,
+        mode_name="NFM", profile_key="weather")
+    r.session._perform(RadioRequest(RadioAction.REFRESH), r.session._generation)
+    assert r.session._state.receiver_running is True
+    assert r.session._state.station.frequency_hz == 162_550_000
+    assert r.session._state.telemetry == RadioTelemetry()
+
+    # The first fresh NFM snapshot becomes the only station identity.
+    source.latest_receiver.return_value = RadioTelemetry(
+        frequency_hz=162_550_000, mode="NFM", receiver_running=True)
+    r.session.refresh_spectrum()
+    assert r.session._state.telemetry.mode == "NFM"
+    assert r.session._state.telemetry.station_name == ""
+    assert r.session._state.telemetry.rds == ""
+    assert r.session._state.receiver_running is True
