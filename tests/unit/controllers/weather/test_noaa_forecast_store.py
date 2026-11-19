@@ -53,14 +53,17 @@ def test_reception_age_does_not_claim_forecast_validity():
     assert store.age_seconds() == 15.0
 
 
-@pytest.mark.parametrize("mutation", [
-    lambda e: e.update(event="invalid"),
-    lambda e: e.update(forecast_area=12),
-    lambda e: e.update(forecast_revision=-1),
-    lambda e: e["completed_forecast"]["forecast"].update(period=""),
-    lambda e: e["completed_forecast"]["forecast"].update(high_f=float("nan")),
-    lambda e: e["completed_forecast"]["forecast"].update(precipitation_chance_percent=120),
-])
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        lambda e: e.update(event="invalid"),
+        lambda e: e.update(forecast_area=12),
+        lambda e: e.update(forecast_revision=-1),
+        lambda e: e["completed_forecast"]["forecast"].update(period=""),
+        lambda e: e["completed_forecast"]["forecast"].update(high_f=float("nan")),
+        lambda e: e["completed_forecast"]["forecast"].update(precipitation_chance_percent=120),
+    ],
+)
 def test_invalid_events_do_not_replace_snapshot(mutation):
     store = NoaaForecastStore()
     original = store.ingest(event())

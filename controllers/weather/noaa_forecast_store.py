@@ -72,6 +72,7 @@ class NoaaForecastStore:
             if isinstance(value, bool) or not isinstance(value, (int, float)):
                 raise ValueError(f"{key} must be numeric or null")
             from math import isfinite
+
             if not isfinite(value):
                 raise ValueError(f"{key} must be finite")
             return float(value)

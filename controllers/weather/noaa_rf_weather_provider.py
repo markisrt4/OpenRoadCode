@@ -64,7 +64,8 @@ class NoaaRfWeatherProvider(WeatherProviderIf):
             temperature_high_k=fahrenheit_to_kelvin(snapshot.high_f),
             temperature_low_k=fahrenheit_to_kelvin(snapshot.low_f),
             precipitation_probability=(
-                None if snapshot.precipitation_chance_percent is None
+                None
+                if snapshot.precipitation_chance_percent is None
                 else snapshot.precipitation_chance_percent / 100.0
             ),
         )

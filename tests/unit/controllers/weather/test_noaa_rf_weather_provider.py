@@ -18,13 +18,15 @@ def forecast(area="Macomb County", *, boundary=False):
         "forecast_cycle": 1,
         "forecast_revision": 2,
         "cycle_boundary_suspected": boundary,
-        "completed_forecast": {"forecast": {
-            "period": "tonight",
-            "conditions": "mostly cloudy",
-            "low_f": 32,
-            "high_f": None,
-            "precipitation_chance_percent": 40,
-        }},
+        "completed_forecast": {
+            "forecast": {
+                "period": "tonight",
+                "conditions": "mostly cloudy",
+                "low_f": 32,
+                "high_f": None,
+                "precipitation_chance_percent": 40,
+            }
+        },
     }
 
 
@@ -36,7 +38,8 @@ def test_verified_area_maps_named_period_without_inventing_current_conditions():
     store = NoaaForecastStore(clock=lambda: 100.0)
     store.ingest(forecast())
     provider = NoaaRfWeatherProvider(
-        store, area_matches=lambda area, loc: area == "Macomb County",
+        store,
+        area_matches=lambda area, loc: area == "Macomb County",
         clock=lambda: 110.0,
     )
     assert isinstance(provider, WeatherProviderIf)
@@ -50,17 +53,21 @@ def test_verified_area_maps_named_period_without_inventing_current_conditions():
     assert state.text_periods[0].precipitation_probability == pytest.approx(0.4)
 
 
-@pytest.mark.parametrize("area,boundary,matched,now", [
-    (None, False, True, 110.0),
-    ("Other County", False, False, 110.0),
-    ("Macomb County", True, True, 110.0),
-    ("Macomb County", False, True, 4000.0),
-])
+@pytest.mark.parametrize(
+    "area,boundary,matched,now",
+    [
+        (None, False, True, 110.0),
+        ("Other County", False, False, 110.0),
+        ("Macomb County", True, True, 110.0),
+        ("Macomb County", False, True, 4000.0),
+    ],
+)
 def test_rejects_unverified_or_stale_forecast(area, boundary, matched, now):
     store = NoaaForecastStore(clock=lambda: 100.0)
     store.ingest(forecast(area, boundary=boundary))
     provider = NoaaRfWeatherProvider(
-        store, area_matches=lambda _area, _location: matched,
+        store,
+        area_matches=lambda _area, _location: matched,
         clock=lambda: now,
     )
     with pytest.raises(RuntimeError):
