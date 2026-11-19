@@ -521,3 +521,59 @@ def test_usb_disconnect_rest_outage_and_reconnect_lifecycle(receiver, monkeypatc
     assert r.session._state.telemetry.station_name == ""
     assert r.session._state.telemetry.rds == ""
     assert r.session._state.receiver_running is True
+
+
+def test_spectrum_frames_are_suppressed_while_rest_reports_stopped(receiver):
+    from ui.radio.sdrforge_spectrum_if import SpectrumPresentation
+
+    r = receiver
+    source = Mock()
+    r.session._spectrum_source = source
+    r.session._rest_receiver_running = False
+    r.session._state = replace(r.session._state, receiver_running=False)
+    source.latest_receiver.return_value = None
+    source.latest_spectrum.return_value = SpectrumPresentation(
+        bins=(0.1, 0.9), center_frequency_hz=100_000_000)
+    # Mock is not a SpectrumPresentationIf, so register a protocol-compliant
+    # concrete test view to verify no spectrum presentation occurs.
+    class View:
+        def __init__(self):
+            self.frames = []
+        def set_radio_state(self, state):
+            self.state = state
+        def set_spectrum_presentation(self, snapshot):
+            self.frames.append(snapshot)
+
+    view = View()
+    r.session._view = view
+    r.session.refresh_spectrum()
+    assert view.frames == []
+
+
+def test_spectrum_recovery_requires_current_frequency_and_running(receiver):
+    from ui.radio.sdrforge_spectrum_if import SpectrumPresentation
+
+    r = receiver
+    source = Mock()
+    r.session._spectrum_source = source
+    r.session._rest_receiver_running = True
+    r.session._state = replace(r.session._state, receiver_running=True)
+    source.latest_receiver.return_value = None
+    class View:
+        def __init__(self):
+            self.frames = []
+        def set_radio_state(self, state):
+            self.state = state
+        def set_spectrum_presentation(self, snapshot):
+            self.frames.append(snapshot)
+
+    view = View()
+    r.session._view = view
+    old = SpectrumPresentation(bins=(0.2, 0.8), center_frequency_hz=94_700_000)
+    fresh = SpectrumPresentation(bins=(0.4, 0.6), center_frequency_hz=100_000_000)
+    source.latest_spectrum.return_value = old
+    r.session.refresh_spectrum()
+    assert view.frames == []
+    source.latest_spectrum.return_value = fresh
+    r.session.refresh_spectrum()
+    assert view.frames == [fresh]
