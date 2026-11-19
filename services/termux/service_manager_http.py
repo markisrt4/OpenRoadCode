@@ -107,6 +107,9 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
         if not self._authenticate():
             return
         try:
+            if len(parts) == 3 and parts[:2] == ["sdrforge", "source"]:
+                self._json(HTTPStatus.OK, self.manager.switch_sdrforge_source(parts[2]))
+                return
             if parts == ["stack", "core", "start"]:
                 statuses = self.manager.start_core()
             elif parts == ["stack", "core", "stop"]:
@@ -123,7 +126,7 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
             else:
                 self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})
                 return
-        except (ValueError, subprocess.SubprocessError) as exc:
+        except (ValueError, RuntimeError, OSError, subprocess.SubprocessError) as exc:
             self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
             return
         self._json(HTTPStatus.OK, _payload(statuses))
