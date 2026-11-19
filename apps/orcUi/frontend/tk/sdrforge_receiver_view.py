@@ -292,7 +292,14 @@ class SdrForgeReceiverView(tk.Frame):
                                text=station_title[:28], width=max(80, w // 3),
                                justify="left", fill=ui.text,
                                font=("Sans", 11 if compact else 15, "bold"))
-        if self._mode in ("WFM", "FM"):
+        # Demodulation is determined by the active radio profile, never
+        # selected independently in the spectrum UI.
+        mode = "WFM" if self._mode in ("FM", "WFM") else self._mode
+        if mode in ("WFM", "NFM", "AM"):
+            canvas.create_text(w - 14, 12, anchor="ne",
+                               text=f"MODE  {mode}", fill=ui.accent_primary,
+                               font=("Sans", 11 if compact else 13, "bold"))
+        if mode == "WFM":
             canvas.create_text(w - 14, header - 8, anchor="se",
                                text="● STEREO" if self._stereo else "MONO",
                                fill=ui.accent_success if self._stereo else ui.text_muted,
