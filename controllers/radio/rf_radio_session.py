@@ -13,6 +13,7 @@ import urllib.error
 from controllers.radio.radio_profile_controller import RadioProfileController
 from controllers.sdr.sdrpp_control import SDRPPControl
 from controllers.sdr.sdr_telemetry_monitor import SDRTelemetryMonitor
+from ui.radio.radio_profile_state import RadioProfileState
 from ui.radio.sdrforge_spectrum_if import SpectrumSourceIf, SpectrumPresentationIf
 from ui.radio.rf_radio_if import (
     AircraftPresentation, RadioAction, RadioApplication, RadioHost, RadioNativeSurface,
@@ -59,7 +60,7 @@ class ReceiverSession:
         self._native_view = "none"
         self._state = RfRadioState(radio.state, self._profiles())
 
-    def _set_station(self, station) -> None:
+    def _set_station(self, station: RadioProfileState) -> None:
         """Invalidate telemetry when rigctl or a local request changes station."""
         if station.frequency_hz != self._state.station.frequency_hz:
             self._state = replace(self._state, station=station, telemetry=RadioTelemetry())
