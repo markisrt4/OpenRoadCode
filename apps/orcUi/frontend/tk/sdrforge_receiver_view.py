@@ -181,21 +181,6 @@ class SdrForgeReceiverView(tk.Frame):
                      power_db: Sequence[float] | None = None) -> None:
         """Smooth display bins while retaining the raw waterfall history."""
         raw = tuple(max(0.0, min(1.0, float(x))) for x in bins)
-        if power_db is not None and len(power_db) == len(raw) and raw:
-            # Robust percentile-based range, stable across individual spikes.
-            ordered = sorted(float(value) for value in power_db)
-            noise = ordered[int((len(ordered) - 1) * 0.20)]
-            upper = ordered[int((len(ordered) - 1) * 0.98)]
-            target_floor = noise - 6.0
-            target_ceiling = max(target_floor + 25.0, upper + 6.0)
-            if self._db_floor is None or self._db_ceiling is None:
-                self._db_floor, self._db_ceiling = target_floor, target_ceiling
-            else:
-                self._db_floor = 0.9 * self._db_floor + 0.1 * target_floor
-                self._db_ceiling = 0.9 * self._db_ceiling + 0.1 * target_ceiling
-            span = max(1.0, self._db_ceiling - self._db_floor)
-            raw = tuple(max(0.0, min(1.0, (float(value) - self._db_floor) / span))
-                        for value in power_db)
         previous_center = self._center_frequency_hz
         previous_rate = self._sample_rate_hz
         geometry_changed = (
@@ -211,6 +196,21 @@ class SdrForgeReceiverView(tk.Frame):
             self._peak_bins = ()
             self._db_floor = None
             self._db_ceiling = None
+        if power_db is not None and len(power_db) == len(raw) and raw:
+            # Robust percentile-based range, stable across individual spikes.
+            ordered = sorted(float(value) for value in power_db)
+            noise = ordered[int((len(ordered) - 1) * 0.20)]
+            upper = ordered[int((len(ordered) - 1) * 0.98)]
+            target_floor = noise - 6.0
+            target_ceiling = max(target_floor + 25.0, upper + 6.0)
+            if self._db_floor is None or self._db_ceiling is None:
+                self._db_floor, self._db_ceiling = target_floor, target_ceiling
+            else:
+                self._db_floor = 0.9 * self._db_floor + 0.1 * target_floor
+                self._db_ceiling = 0.9 * self._db_ceiling + 0.1 * target_ceiling
+            span = max(1.0, self._db_ceiling - self._db_floor)
+            raw = tuple(max(0.0, min(1.0, (float(value) - self._db_floor) / span))
+                        for value in power_db)
         self._center_frequency_hz = center_frequency_hz
         self._sample_rate_hz = sample_rate_hz
         if center_frequency_hz is not None and sample_rate_hz is not None:
