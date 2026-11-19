@@ -11,6 +11,15 @@ from ui.radio.rf_radio_if import RadioAction, RadioTelemetry, RfRadioState
 def presentation():
     panel = RadioPanel.__new__(RadioPanel)
     panel._session = Mock()
+    # __new__ deliberately skips Tk initialization. Supply the minimal
+    # constructor state required by the legacy and native presentation paths.
+    panel._sdrforge_view = None
+    panel._last_receiver_running = None
+    panel._receiver_start_pending = False
+    panel._receiver_controls = None
+    panel._state = RfRadioState(
+        RadioProfileState("Station", 100_000_000, "WFM", "fm_radio", "FM"), ()
+    )
     panel._theme = SimpleNamespace(ui=SimpleNamespace(text="white", text_muted="gray", accent_danger="red"))
     for name in ("_station_label", "_frequency_label", "_metadata_label", "_signal_label",
                  "_snr_label", "_launch_status", "_controls", "_telemetry_overlay", "_controls_button",
