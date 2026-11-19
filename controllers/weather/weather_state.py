@@ -81,6 +81,17 @@ class DailyForecast:
 
 
 @dataclass(frozen=True, slots=True)
+class TextForecastPeriod:
+    """Named forecast period without an invented calendar date."""
+
+    label: str
+    conditions: str | None = None
+    temperature_high_k: float | None = None
+    temperature_low_k: float | None = None
+    precipitation_probability: float | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class WeatherState:
     latitude: float
     longitude: float
@@ -91,3 +102,4 @@ class WeatherState:
     current: CurrentWeather
     hourly: tuple[HourlyForecast, ...] = ()
     daily: tuple[DailyForecast, ...] = ()
+    text_periods: tuple[TextForecastPeriod, ...] = ()
