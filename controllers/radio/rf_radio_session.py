@@ -345,8 +345,9 @@ class ReceiverSession:
                         self._state, receiver_running=running,
                         receiver_starting=starting,
                         playing=not bool(audio_status.get("muted", False)),
-                        error=(str(startup_error) if startup_error else
-                               "" if self._state.error.startswith("SDRForge service unavailable:")
+                        error=(f"SDRForge startup failed: {startup_error}" if startup_error else
+                               "" if (self._state.error.startswith("SDRForge service unavailable:")
+                                      or self._state.error.startswith("SDRForge startup failed:"))
                                else self._state.error),
                     )
                 except (OSError, ValueError, RuntimeError) as exc:
