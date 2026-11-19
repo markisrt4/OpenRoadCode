@@ -53,7 +53,9 @@ def test_reception_age_does_not_claim_forecast_validity():
     assert store.age_seconds() == 15.0
 
 
-@pytest.mark.parametrize("mutation", [
+@pytest.mark.parametrize(
+    "mutation",
+    [
     lambda e: e.update(event="invalid"),
     lambda e: e.update(forecast_area=12),
     lambda e: e.update(forecast_revision=-1),
