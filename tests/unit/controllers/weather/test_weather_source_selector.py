@@ -57,9 +57,7 @@ def test_offline_uses_rf_before_cache():
     online = StubProvider(state("online"))
     rf = StubProvider(state("noaa_rf"))
     selector = WeatherSourceSelector(online, rf)
-    result = selector.select(
-        location(), network_allowed=False, cached=state("cache")
-    )
+    result = selector.select(location(), network_allowed=False, cached=state("cache"))
     assert result.source.provider_id == "noaa_rf"
     assert online.calls == 0
 
