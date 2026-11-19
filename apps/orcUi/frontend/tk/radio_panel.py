@@ -360,6 +360,12 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             activeforeground=ui.accent_success,
         )
         self._paint_groups()
+        if self._receiver_controls is not None:
+            # Reapply dynamic warning colors after a light/dark theme switch.
+            self._receiver_mode_label.configure(
+                fg=ui.accent_danger if receiver_mode_mismatch(self._state)
+                else ui.text_muted,
+            )
         if self._sdrforge_view is not None:
             self._sdrforge_view.set_theme_bundle(theme)
 
