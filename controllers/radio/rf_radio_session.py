@@ -131,7 +131,13 @@ class ReceiverSession:
                                   receiver_running=running)
             view.set_radio_state(self._state)
         snapshot = self._spectrum_source.latest_spectrum()
-        if snapshot is not None and isinstance(view, SpectrumPresentationIf):
+        if (snapshot is not None
+                and self._rest_receiver_running is not False
+                and self._state.receiver_running
+                and (snapshot.center_frequency_hz is None
+                     or snapshot.center_frequency_hz == self._state.station.frequency_hz)
+                and isinstance(view, SpectrumPresentationIf)):
+            # Ignore queued FFT frames after a stop or external retune.
             view.set_spectrum_presentation(snapshot)
 
     def request(self, request: RadioRequest) -> None:
