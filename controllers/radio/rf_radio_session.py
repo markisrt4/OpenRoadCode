@@ -53,7 +53,9 @@ class ReceiverSession:
                  display: str, run_work: Callable[[Callable[[], None]], None],
                  run_ui: Callable[[Callable[[], None]], None],
                  on_close: Callable[[], None] = lambda: None,
-                 spectrum_source: SpectrumSourceIf | None = None) -> None:
+                 spectrum_source: SpectrumSourceIf | None = None,
+                 native_sdrforge: bool = False) -> None:
+        self._native_sdrforge = native_sdrforge
         self._spectrum_source = spectrum_source
         self._radio = radio
         self._control = control
@@ -208,6 +210,17 @@ class ReceiverSession:
         self._run_ui(deliver)
 
     def _launch(self, request: RadioRequest, generation: int) -> None:
+        if request.action is RadioAction.LAUNCH and self._native_sdrforge:
+            # The native Tk receiver already exists; never launch or embed SDR++.
+            # ADS-B still uses the existing native-window lifecycle.
+            with self._native_lock:
+                if not self._current(generation):
+                    return
+                if self._native_view == "adsb":
+                    self._cleanup_native()
+                self._native_view = "none"
+            self._state = replace(self._state, view="none", loading=False, error="")
+            return
         host = self._host
         if host is None:
             raise ValueError("A native host is required")
