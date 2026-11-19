@@ -335,20 +335,25 @@ class SdrForgeReceiverView(tk.Frame):
                 canvas.create_line(*peaks, fill=ui.accent_success, width=1)
                 canvas.create_line(w / 2, spectrum_top, w / 2, plot_bottom, fill=ui.accent_success, width=1)
             history = list(display_history)
-            x_step = max(4, (w + 95) // 96)
-            y_step = max(3, (waterfall_height + 47) // 48)
-            for offset in range(0, waterfall_height, y_step):
-                idx = min(len(history) - 1,
-                          offset * len(history) // waterfall_height)
-                values = history[-1 - idx]
-                y = waterfall_top + offset
-                for x in range(0, w, x_step):
-                    value = values[min(len(values) - 1, x * len(values) // w)]
-                    canvas.create_rectangle(
-                        x, y, min(w, x + x_step),
-                        min(plot_bottom, y + y_step),
-                        fill=self._waterfall_color(value) if self._visualization.palette == "classic"
-                        else ("#" + f"{int(value * 255):02x}" * 3), outline="")
+            # Bound Tk canvas primitives on the 1280x720 touch display. A
+            # 64x36 waterfall uses at most 2304 rectangles per refresh.
+            x_step = max(4, (w + 63) // 64)
+            y_step = max(3, (waterfall_height + 35) // 36)
+            if history:
+                for offset in range(0, waterfall_height, y_step):
+                    idx = min(len(history) - 1,
+                              offset * len(history) // waterfall_height)
+                    values = history[-1 - idx]
+                    if not values:
+                        continue
+                    y = waterfall_top + offset
+                    for x in range(0, w, x_step):
+                        value = values[min(len(values) - 1, x * len(values) // w)]
+                        canvas.create_rectangle(
+                            x, y, min(w, x + x_step),
+                            min(plot_bottom, y + y_step),
+                            fill=self._waterfall_color(value) if self._visualization.palette == "classic"
+                            else ("#" + f"{int(value * 255):02x}" * 3), outline="")
         elif self._gl_surface is None:
             canvas.create_text(w / 2, spectrum_top + spectrum_height / 2,
                                text="Waiting for spectrum telemetry",
