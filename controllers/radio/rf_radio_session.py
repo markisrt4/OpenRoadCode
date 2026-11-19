@@ -94,7 +94,7 @@ class ReceiverSession:
             if self._rest_receiver_running is False:
                 receiver = replace(receiver, station_name="", radio_text="",
                                    rds="", mode=None, bandwidth_hz=None,
-                                   stereo_locked=None, receiver_running=False)
+                                   stereo_locked=None)
             # Spectrum telemetry may omit RDS fields between decoder updates.
             # Preserve the last decoded text only while tuned to the same station.
             previous = self._state.telemetry
