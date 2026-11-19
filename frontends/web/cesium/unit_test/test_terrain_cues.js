@@ -23,7 +23,12 @@ test('terrain cues restore the prior globe presentation when disabled',()=>{
       assert.match(fabric.components.alpha,/czm_ellipsoidTextureCoordinates/);
       assert.match(fabric.components.alpha,/czm_inverseView/);
       spacings.push(fabric.materials.contours.uniforms.spacing);
-      Object.assign(this,contour,{spacing:fabric.materials.contours.uniforms.spacing});
+      Object.assign(this,contour);
+      let spacing=fabric.materials.contours.uniforms.spacing;
+      const uniforms={};
+      Object.defineProperty(uniforms,'spacing',{get:()=>spacing,set:value=>{spacing=value;spacings.push(value);}});
+      this.materials={contours:{uniforms}};
+      Object.defineProperty(this,'spacing',{get:()=>spacing});
     }
   },Color:{fromCssColorString(value){assert.equal(value,'#69a7bd');return {withAlpha(value){assert.equal(value,.46);return 'color';}}}}};
   const cues=context.window.ORCTerrainCues(viewer,C);

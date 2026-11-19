@@ -37,8 +37,7 @@ window.ORCTerrainCues = function (viewer, C) {
     if(![1,2,3,4].includes(value))throw new Error('Terrain cue scale must be 1, 2, 3 or 4');
     if(scale===value)return;
     scale=value;
-    contours=createContours();
-    if(enabled)globe.material=contours;
+    contours.materials.contours.uniforms.spacing=10*scale;
     viewer.scene.requestRender();
   }
   return {get enabled(){return enabled;},setEnabled,setScale};
