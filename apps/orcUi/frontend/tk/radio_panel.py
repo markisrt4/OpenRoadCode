@@ -534,6 +534,11 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             return
         self._session.request(RadioRequest(RadioAction.TUNE_UP))
 
+    def auto_range_spectrum(self) -> None:
+        """Reset native spectrum scaling without contacting SDR++."""
+        if self._sdrforge_view is not None:
+            self._sdrforge_view.auto_range()
+
     def set_radio_state(self, state: RfRadioState) -> None:
         if (self._sdrforge_view is not None
                 and state.receiver_running is False
@@ -541,6 +546,9 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             self._sdrforge_view.clear_spectrum()
         self._last_receiver_running = state.receiver_running
         self._state = state
+        if self._sdrforge_view is not None:
+            self._sdrforge_view.set_display_controls(
+                waterfall=state.waterfall, peak_hold=state.fft_hold)
         if state.receiver_running or state.error:
             self._receiver_start_pending = False
         profile = next((p for p in state.profiles if p.key == state.station.profile_key), None)
