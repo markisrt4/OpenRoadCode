@@ -19,7 +19,8 @@ test('terrain cues restore the prior globe presentation when disabled',()=>{
       const fabric=options.fabric;
       assert.equal(fabric.materials.contours.type,'ElevationContour');
       assert.equal(fabric.uniforms.waterReference,'/data/world-reference.png');
-      assert.match(fabric.components.alpha,/materialInput.waterMask/);
+      assert.match(fabric.components.alpha,/providerWaterMask\*materialInput.waterMask/);
+      assert.equal(fabric.uniforms.providerWaterMask,0);
       assert.match(fabric.components.alpha,/czm_ellipsoidTextureCoordinates/);
       assert.match(fabric.components.alpha,/czm_inverseView/);
       spacings.push(fabric.materials.contours.uniforms.spacing);

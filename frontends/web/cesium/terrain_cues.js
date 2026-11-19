@@ -20,10 +20,11 @@ window.ORCTerrainCues = function (viewer, C) {
     const water=`texture(waterReference,${uv})`;
     return new C.Material({fabric:{
       type:'ORCLandContours',
-      uniforms:{waterReference:'/data/world-reference.png'},
+      uniforms:{waterReference:'/data/world-reference.png',
+        providerWaterMask:viewer.terrainProvider?.hasWaterMask?1.0:0.0},
       materials:{contours:{type:'ElevationContour',uniforms:{color,spacing:10*scale,width:1.0}}},
       components:{diffuse:'contours.diffuse',emission:'contours.emission',
-        alpha:`contours.alpha*(1.0-max(materialInput.waterMask,step(${water}.g,${water}.b)))`}
+        alpha:`contours.alpha*(1.0-max(providerWaterMask*materialInput.waterMask,step(${water}.g,${water}.b)))`}
     }});
 
   }
