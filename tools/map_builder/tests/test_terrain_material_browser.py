@@ -19,12 +19,20 @@ try {
 const viewer=new Cesium.Viewer('map',{baseLayer:false,geocoder:false,animation:false,timeline:false,
   skyBox:false,skyAtmosphere:false,homeButton:false,baseLayerPicker:false,navigationHelpButton:false,useDefaultRenderLoop:false});
 viewer.scene.renderError.addEventListener((scene,error)=>{document.body.dataset.result='FAIL: '+error.message;});
-viewer.camera.lookAt(Cesium.Cartesian3.fromDegrees(-83,44),new Cesium.HeadingPitchRange(0,-Math.PI/2,1000000));
+viewer.camera.lookAt(Cesium.Cartesian3.fromDegrees(-87,44),new Cesium.HeadingPitchRange(0,-Math.PI/2,1000000));
+viewer.scene.globe.baseColor=Cesium.Color.fromCssColorString('#174963');
+viewer.scene.globe.showGroundAtmosphere=false;viewer.scene.fog.enabled=false;
+viewer.scene.light=new Cesium.DirectionalLight({direction:viewer.camera.directionWC.clone()});
 const cues=window.ORCTerrainCues(viewer,Cesium);
 cues.setEnabled(true);cues.setScale(4);
-let frames=0;
+let frames=0,water=null,finished=false;
 viewer.scene.postRender.addEventListener(()=>{
- if(++frames>30&&viewer.scene.globe.tilesLoaded&&!document.body.dataset.result.startsWith('FAIL'))document.body.dataset.result='PASS';
+ if(finished||++frames<=40||!viewer.scene.globe.tilesLoaded||document.body.dataset.result.startsWith('FAIL'))return;
+ const context=viewer.scene.context||viewer.scene._context;
+ const pixel=Array.from(context.readPixels({x:Math.floor(viewer.canvas.width/2),y:Math.floor(viewer.canvas.height/2),width:1,height:1}));
+ if(!water){water=pixel;frames=0;viewer.camera.lookAt(Cesium.Cartesian3.fromDegrees(-98,38),new Cesium.HeadingPitchRange(0,-Math.PI/2,1000000));return;}
+ finished=true;
+ document.body.dataset.result=pixel[1]>water[1]+8?'PASS':'FAIL: lake/land contour pixels '+JSON.stringify({water,land:pixel});
 });
 setInterval(()=>{try{viewer.render();}catch(error){document.body.dataset.result='FAIL: '+error.message;}},50);
 } catch(error){document.body.dataset.result='FAIL: '+error.message;}
