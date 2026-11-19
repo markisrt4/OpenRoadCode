@@ -4,6 +4,7 @@
 
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$ROOT/../.." && pwd)"
 CONTAINER_ENGINE="${CONTAINER_ENGINE:-docker}"
 
 # Device-side pack installation and cloud dispatch do not need a container.
@@ -21,6 +22,8 @@ mkdir -p "$ROOT/build-output" "$ROOT/.cache" "$ROOT/.scratch"
 exec "$CONTAINER_ENGINE" run --rm -it \
   --network host \
   --env PYTHONDONTWRITEBYTECODE=1 \
+  --env PYTHONPATH=/opt/openroadcode-source:/opt/openroadcode-map-builder \
+  --mount "type=bind,src=$REPO_ROOT,dst=/opt/openroadcode-source,readonly" \
   --mount "type=bind,src=$ROOT/build-output,dst=/srv/openroadcode" \
   --mount "type=bind,src=$ROOT/.cache,dst=/cache" \
   --mount "type=bind,src=$ROOT/.scratch,dst=/scratch" \

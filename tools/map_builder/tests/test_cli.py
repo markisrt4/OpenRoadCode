@@ -43,6 +43,15 @@ class BuildSummaryFormattingTests(unittest.TestCase):
         self.assertIs(national_freeway_region([live]), live)
         self.assertIs(national_freeway_region([legacy]), legacy)
 
+    def test_container_runner_mounts_shared_repository_packages_read_only(self):
+        runner = Path(__file__).parents[1] / "scripts/run-builder.sh"
+        script = runner.read_text(encoding="utf-8")
+        self.assertIn("dst=/opt/openroadcode-source,readonly", script)
+        self.assertIn(
+            "PYTHONPATH=/opt/openroadcode-source:/opt/openroadcode-map-builder",
+            script,
+        )
+
 
 class ReusableBuildTests(unittest.TestCase):
     def test_reuses_matching_validated_regions_regardless_of_order(self):

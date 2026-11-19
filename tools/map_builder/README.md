@@ -28,7 +28,11 @@ cd tools/map_builder
 ./scripts/run-builder.sh tui
 ```
 
-The runner bind-mounts the local `builder/` and `templates/` directories into the container, so Python, TUI, and style-template edits are available immediately. Rebuild the image only after changing the Dockerfile, toolchain versions, or container-installed dependencies.
+The runner bind-mounts the repository read-only for shared `development`, `ui`,
+and `apps` contracts, plus the local `builder/` and `templates/` directories at
+their container paths. Python, TUI, shared-contract, and style-template edits are
+therefore available immediately. Rebuild the image only after changing the
+Dockerfile, toolchain versions, or container-installed dependencies.
 
 Controls: Up/Down and PageUp/PageDown navigate, Right expands or collapses a region group, Left collapses or moves to its parent, Space selects, `/` searches, `c` clears the search, Enter accepts the selected regions, and `q` quits. `b` also accepts the selection. Parent/child region combinations are rejected to prevent duplicate map data.
 
@@ -43,7 +47,7 @@ Before starting an expensive build, the builder checks `build-output/build-manif
 ## Non-interactive build
 
 ```bash
-./scripts/run-builder.sh build --regions north-america/us/michigan
+./scripts/run-builder.sh build --regions us/michigan
 ```
 
 US builds also create a nationwide freeway overview. The cached Geofabrik US
@@ -54,13 +58,13 @@ or POI coverage beyond the selected detailed regions.
 Multiple regions are comma separated:
 
 ```bash
-./scripts/run-builder.sh build --regions north-america/us/michigan,north-america/us/ohio
+./scripts/run-builder.sh build --regions us/michigan,us/ohio
 ```
 
 Normal non-interactive builds also reuse matching validated output. Force a rebuild with:
 
 ```bash
-./scripts/run-builder.sh build --regions north-america/us/michigan --force
+./scripts/run-builder.sh build --regions us/michigan --force
 ```
 
 After a successful interactive or non-interactive build, the builder reports the selected region names, their combined source PBF size, total deployable output size, elapsed build time, and output path. When an existing build is reused, it reports that result and prints the validation summary instead.
