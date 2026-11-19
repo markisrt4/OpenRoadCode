@@ -89,6 +89,12 @@ class ReceiverSession:
             return
         receiver = self._spectrum_source.latest_receiver()
         if receiver is not None:
+            # A delayed packet from a previous acquisition must not resurrect
+            # RDS or observed mode after REST confirms the receiver stopped.
+            if self._rest_receiver_running is False:
+                receiver = replace(receiver, station_name="", radio_text="",
+                                   rds="", mode=None, bandwidth_hz=None,
+                                   stereo_locked=None, receiver_running=False)
             # Spectrum telemetry may omit RDS fields between decoder updates.
             # Preserve the last decoded text only while tuned to the same station.
             previous = self._state.telemetry
@@ -242,9 +248,11 @@ class ReceiverSession:
             else:
                 # A 202 Accepted response does not establish running state.
                 self._rest_receiver_running = None
+            # Neither a completed stop nor an accepted restart may carry the
+            # previous acquisition's station identity into the next session.
             self._state = replace(self._state,
-                                  receiver_running=False if action is RadioAction.STOP_RECEIVER
-                                  else self._state.receiver_running,
+                                  receiver_running=False,
+                                  telemetry=RadioTelemetry(),
                                   error="")
             return
         if action in (RadioAction.PLAY, RadioAction.PAUSE):
@@ -286,8 +294,10 @@ class ReceiverSession:
                         audio_status = json.load(response)
                     startup_error = status.get("startup_error")
                     self._rest_receiver_running = bool(status.get("running", False))
+                    if not self._rest_receiver_running:
+                        self._state = replace(self._state, telemetry=RadioTelemetry())
                     self._state = replace(
-                        self._state, receiver_running=bool(status.get("running", False)),
+                        self._state, receiver_running=self._rest_receiver_running,
                         playing=not bool(audio_status.get("muted", False)),
                         error=str(startup_error) if startup_error else self._state.error,
                     )
