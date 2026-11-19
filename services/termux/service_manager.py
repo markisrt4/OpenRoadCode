@@ -92,7 +92,9 @@ class RunitServiceManager:
             profile_labels=(
                 {"local": "RTL-SDR USB", "simulated": "Simulated"}
                 if name == "openroadcode-sdrforge"
-                else dict(self.PROFILE_LABELS) if self.available_profiles(name) else None
+                else dict(self.PROFILE_LABELS)
+                if self.available_profiles(name)
+                else None
             ),
             input_state=input_state,
             input_detail=input_detail,
