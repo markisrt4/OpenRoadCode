@@ -64,9 +64,20 @@ def receiver_telemetry(topic: str, payload: dict[str, Any]) -> RadioTelemetry | 
     stereo = payload.get("stereo_locked")
     if stereo is not None and not isinstance(stereo, bool):
         return None
+    mode = payload.get("mode")
+    bandwidth = payload.get("bandwidth_hz")
+    running = payload.get("running")
+    # Older SDRForge builds do not provide these optional status fields.
+    if mode is not None and mode not in ("WFM", "NFM", "AM"):
+        return None
+    if bandwidth is not None and (type(bandwidth) is not int or bandwidth <= 0):
+        return None
+    if running is not None and type(running) is not bool:
+        return None
     return RadioTelemetry(
         frequency_hz=int(frequency), rds=radio_text or name,
         station_name=name, radio_text=radio_text, stereo_locked=stereo,
+        mode=mode, bandwidth_hz=bandwidth, receiver_running=running,
     )
 
 
