@@ -493,7 +493,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._session.request(RadioRequest(RadioAction.NEXT))
 
     def _tune_spectrum_frequency(self, frequency_hz: int) -> None:
-        if self._active_group == "FM" and self._state.receiver_running:
+        if self._state.receiver_running and self._state.view != "adsb":
             self._session.request(RadioRequest(
                 RadioAction.TUNE_FREQUENCY, frequency_hz=frequency_hz))
 
@@ -526,6 +526,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self.set_station(state.station.label, state.station.frequency_hz, state.station.mode_name)
         self._metadata_label.configure(text=state.telemetry.radio_text or state.telemetry.rds)
         if self._sdrforge_view is not None and state.view != "adsb":
+            self._sdrforge_view.set_tuning_range(self._session.scan_range)
             self._sdrforge_view.place(relx=0, rely=0, relwidth=1, relheight=1)
             self._sdrforge_view.set_station(
                 frequency_hz=state.station.frequency_hz,
