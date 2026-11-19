@@ -75,29 +75,34 @@ class SdrForgeReceiverView(tk.Frame):
             self._gl_surface = OpenGLRadioSurface(self, width=320, height=180)
             self._gl_surface.place(x=0, y=80, relwidth=1, height=180)
             self._gl_surface.bind("<Button-1>", self._handle_spectrum_click)
+        # Keep spectrum navigation in its own band, away from the MHz heading.
         self._spectrum_controls = tk.Frame(self, bg=theme.ui.surface)
+        self._spectrum_buttons = []
         for label, callback in (
             ("◀", lambda: self.pan_spectrum(-0.20)),
             ("−", lambda: self.zoom_spectrum(1.5)),
             ("+", lambda: self.zoom_spectrum(1 / 1.5)),
             ("▶", lambda: self.pan_spectrum(0.20)),
         ):
-            tk.Button(self._spectrum_controls, text=label, command=callback,
-                      bg=theme.ui.surface, fg=theme.ui.text,
-                      relief=tk.FLAT, bd=0, padx=4, pady=2,
-                      font=("Sans", 11, "bold")).pack(side="left")
+            button = tk.Button(
+                self._spectrum_controls, text=label, command=callback,
+                bg=theme.ui.control_background, fg=theme.ui.text,
+                relief=tk.FLAT, bd=0, width=3, padx=2, pady=3,
+                font=("Sans", 10, "bold"))
+            button.pack(side="left", padx=2)
+            self._spectrum_buttons.append(button)
         self._recenter_button = tk.Button(
             self._spectrum_controls, command=self._toggle_recenter,
-            bg=theme.ui.surface, fg=theme.ui.text, relief=tk.FLAT,
-            bd=0, padx=5, pady=2, font=("Sans", 9, "bold"))
-        self._recenter_button.pack(side="left")
+            bg=theme.ui.control_background, fg=theme.ui.text,
+            relief=tk.FLAT, bd=0, padx=6, pady=3, font=("Sans", 9, "bold"))
+        self._recenter_button.pack(side="left", padx=(4, 2))
         self._update_recenter_button()
-        self._spectrum_controls.place(relx=1, x=-8, y=7, anchor="ne")
         # Preset navigation belongs to RadioPanel, not inside the spectrum.
 
     def _update_recenter_button(self) -> None:
         self._recenter_button.configure(
-            text="CENTER ●" if self._recenter_on_tune else "CENTER ○")
+            text="CENTER ●" if self._recenter_on_tune else "CENTER ○",
+            fg=self._theme.ui.accent_primary if self._recenter_on_tune else self._theme.ui.text)
 
     def _toggle_recenter(self) -> None:
         self.set_recenter_on_tune(not self._recenter_on_tune)
@@ -167,6 +172,10 @@ class SdrForgeReceiverView(tk.Frame):
         self._theme = theme
         self.configure(bg=theme.ui.background)
         self._canvas.configure(bg=theme.ui.background)
+        self._spectrum_controls.configure(bg=theme.ui.surface)
+        for button in (*self._spectrum_buttons, self._recenter_button):
+            button.configure(bg=theme.ui.control_background, fg=theme.ui.text)
+        self._update_recenter_button()
         self._schedule_render()
 
     def set_station(self, *, frequency_hz: int, name: str = "",
@@ -269,8 +278,10 @@ class SdrForgeReceiverView(tk.Frame):
         compact = h < 260
         header = 54 if compact else 80
         footer = (24 if compact else 32) if (self._mode in ("WFM", "FM") or 76_000_000 <= self._frequency_hz <= 108_000_000) and self._radio_text else 0
+        toolbar_height = 34
         scale = 22
-        spectrum_top = header + scale
+        spectrum_top = header + toolbar_height + scale
+        self._spectrum_controls.place(relx=1, x=-8, y=header + 2, anchor="ne")
         plot_bottom = h - footer
         spectrum_height = max(20, int((plot_bottom - spectrum_top) * 0.38))
         waterfall_top = spectrum_top + spectrum_height
@@ -314,7 +325,7 @@ class SdrForgeReceiverView(tk.Frame):
                                fill=ui.accent_success if self._stereo else ui.text_muted,
                                font=("Sans", 9, "bold"))
 
-        canvas.create_rectangle(0, header, w, spectrum_top,
+        canvas.create_rectangle(0, header + toolbar_height, w, spectrum_top,
                                 fill=ui.background, outline="")
         for i in range(5):
             x = 10 + (w - 20) * i / 4
@@ -325,7 +336,7 @@ class SdrForgeReceiverView(tk.Frame):
                 label = f"{hz / 1_000_000:.3f}"
             else:
                 label = f"{i * 25}%"
-            canvas.create_text(x, header + 5, anchor="n",
+            canvas.create_text(x, header + toolbar_height + 5, anchor="n",
                                text=label, fill=ui.text_muted,
                                font=("Monospace", 8))
         for i in range(1, 4):
