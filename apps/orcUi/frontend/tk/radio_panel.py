@@ -487,7 +487,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self.deactivate()
 
     def _toggle_receiver_power(self) -> None:
-        if self._receiver_start_pending:
+        if self._receiver_start_pending or self._state.receiver_starting:
             return
         if not self._state.receiver_running:
             self._receiver_start_pending = True
@@ -549,7 +549,9 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         if self._sdrforge_view is not None:
             self._sdrforge_view.set_display_controls(
                 waterfall=state.waterfall, peak_hold=state.fft_hold)
-        if state.receiver_running or state.error:
+        # The backend's starting flag takes precedence over the local click
+        # latch. Keep the button disabled until acquisition succeeds or fails.
+        if state.receiver_running or state.receiver_starting or state.error:
             self._receiver_start_pending = False
         profile = next((p for p in state.profiles if p.key == state.station.profile_key), None)
         if state.view == "adsb":
@@ -613,10 +615,11 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
 
             for button in self._live_rf_buttons:
                 button.set_enabled(state.receiver_running and not state.loading and not state.error)
+            starting = state.receiver_starting or self._receiver_start_pending
             self._receiver_power_button.set_text(
-                "STARTING SDR…" if self._receiver_start_pending else
+                "STARTING SDR…" if starting else
                 ("■ STOP SDR" if state.receiver_running else "▶ START SDR"))
-            self._receiver_power_button.set_enabled(not self._receiver_start_pending)
+            self._receiver_power_button.set_enabled(not starting)
             self._receiver_power_button.set_selected(state.receiver_running)
             self._play_button.set_text("MUTE" if state.playing else "UNMUTE")
             self._play_button.set_selected(not state.playing)
