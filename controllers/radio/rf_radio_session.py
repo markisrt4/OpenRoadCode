@@ -117,7 +117,7 @@ class ReceiverSession:
             if self._rest_receiver_running is False:
                 receiver = replace(receiver, station_name="", radio_text="",
                                    rds="", mode=None, bandwidth_hz=None,
-                                   stereo_locked=None)
+                                   stereo_locked=None, receiver_running=False)
             # Spectrum telemetry may omit RDS fields between decoder updates.
             # Preserve the last decoded text only while tuned to the same station.
             previous = self._state.telemetry
@@ -294,6 +294,7 @@ class ReceiverSession:
             # previous acquisition's station identity into the next session.
             self._state = replace(self._state,
                                   receiver_running=False,
+                                  receiver_starting=action is RadioAction.START_RECEIVER,
                                   telemetry=RadioTelemetry(),
                                   error="")
             return
@@ -335,11 +336,14 @@ class ReceiverSession:
                     ) as response:
                         audio_status = json.load(response)
                     startup_error = status.get("startup_error")
-                    self._rest_receiver_running = bool(status.get("running", False))
+                    running = bool(status.get("running", False))
+                    starting = bool(status.get("starting", False)) and not running
+                    self._rest_receiver_running = running
                     if not self._rest_receiver_running:
                         self._state = replace(self._state, telemetry=RadioTelemetry())
                     self._state = replace(
-                        self._state, receiver_running=self._rest_receiver_running,
+                        self._state, receiver_running=running,
+                        receiver_starting=starting,
                         playing=not bool(audio_status.get("muted", False)),
                         error=(str(startup_error) if startup_error else
                                "" if self._state.error.startswith("SDRForge service unavailable:")
@@ -352,7 +356,7 @@ class ReceiverSession:
                         self._rest_receiver_running = False
                         self._state = replace(
                             self._state, receiver_running=False,
-                            telemetry=RadioTelemetry(),
+                            receiver_starting=False, telemetry=RadioTelemetry(),
                             error=f"SDRForge service unavailable: {exc}",
                         )
                 try:
