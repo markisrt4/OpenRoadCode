@@ -68,7 +68,7 @@ class ReceiverSession:
             self._view = view
         if self._spectrum_source is not None:
             self._spectrum_source.start()
-        view.set_radio_state(self._state)
+        view.set_radio_state(replace(self._state, tuning_range=self._radio.scan_range))
 
     def refresh_spectrum(self) -> None:
         """Transfer latest immutable spectrum state to the UI, never the transport."""
@@ -136,7 +136,7 @@ class ReceiverSession:
             return self._active and not self._closed and self._generation == generation
 
     def _publish(self, generation: int) -> None:
-        state = self._state
+        state = replace(self._state, tuning_range=self._radio.scan_range)
         def deliver() -> None:
             if self._current(generation) and self._view is not None:
                 self._view.set_radio_state(state)
