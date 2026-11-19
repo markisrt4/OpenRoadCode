@@ -97,6 +97,8 @@ class StatewideDetailIndex:
         if zoom<12:return {'tiles':[]}
         w=x/2**(zoom+1)*360-180;e=(x+1)/2**(zoom+1)*360-180
         n=90-y/2**zoom*180;s=90-(y+1)/2**zoom*180
+        px=(e-w)/32;py=(n-s)/32
+        w=max(-180,w-px);e=min(180,e+px);s=max(-90,s-py);n=min(90,n+py)
         left,top=xy(w,n);right,bottom=xy(e,s)
         selected=[]
         for row in range(top,bottom+1):

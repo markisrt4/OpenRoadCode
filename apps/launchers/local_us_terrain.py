@@ -63,6 +63,8 @@ class NationalTerrainIndex:
             return {'tiles': []}
         west=x/2**(zoom+1)*360-180; east=(x+1)/2**(zoom+1)*360-180
         north=90-y/2**zoom*180; south=90-(y+1)/2**zoom*180
+        px=(east-west)/32;py=(north-south)/32
+        west=max(-180,west-px);east=min(180,east+px);south=max(-90,south-py);north=min(90,north+py)
         selected = []
         for key, row in self.rows.items():
             a,b,c,d = row['bounds_deg']

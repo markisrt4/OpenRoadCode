@@ -10,7 +10,20 @@ window.ORCTerrainCues = function (viewer, C) {
   let scale=1;
   let contours;
   function createContours() {
-    return C.Material.fromType('ElevationContour',{color,spacing:10*scale,width:1.0});
+    // Globe materials also run over lakes and oceans. Locate this fragment in
+    // the bundled opaque land/lake reference rather than treating all relief
+    // as land. The source is an overview mask, not a shoreline survey.
+    const normal='czm_geodeticSurfaceNormal((czm_inverseView*vec4(-materialInput.positionToEyeEC,1.0)).xyz,vec3(0.0),czm_ellipsoidInverseRadiiSquared)';
+    const uv=`czm_ellipsoidTextureCoordinates(${normal})`;
+    const water=`texture(waterReference,${uv})`;
+    return new C.Material({fabric:{
+      type:'ORCLandContours',
+      uniforms:{waterReference:'/data/world-reference.png'},
+      materials:{contours:{type:'ElevationContour',uniforms:{color,spacing:10*scale,width:1.0}}},
+      components:{diffuse:'contours.diffuse',emission:'contours.emission',
+        alpha:`contours.alpha*(1.0-max(materialInput.waterMask,step(${water}.g,${water}.b)))`}
+    }});
+
   }
   contours=createContours();
   let enabled = false;

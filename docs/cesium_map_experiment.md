@@ -1170,3 +1170,21 @@ from zoom0 with a thin zoom-scaled line. The existing theme palette, local file
 sources, runtime style installer and road/route layer order remain unchanged.
 Restart ORC after updating the code to regenerate the installed style. This is a
 style-only deployment; rebuilding map tiles or downloading terrain is unnecessary.
+
+### Paged terrain seams and contour water masking
+
+Each terrain callback now retains the metadata returned for its own geographic
+page. It does not sample whichever pages remain in the shared four-page LRU after
+concurrent requests complete. A small metadata halo includes adjacent grids at
+mesh edges. Exposed detail edges blend over at most two source samples into
+available coarser coverage (or the reference plane at a genuine coverage gap);
+shared same-resolution grid edges retain source heights. This is display blending,
+not a modification of archived elevation samples or a vertical-datum conversion.
+
+Contours now compose Cesium's existing ElevationContour material with the bundled
+opaque world land/lake image and any provider water mask. Fragment positions are
+converted to geodetic-normal texture coordinates; ocean/lake pixels suppress
+contour alpha. The reference mask is coarse overview geometry, so exact shorelines
+remain approximate. This does not flatten water elevations or claim to correct
+all DEM source/datum discontinuities. VM/Termux full-tilt views remain acceptance
+checks after automated concurrency, edge-transition and material-contract tests.

@@ -13,10 +13,11 @@ window.ORCLocalTerrain = function (data, C, initialPoint=null) {
   const pendingPages=new Map();
   let detailEntries=new Map();
   async function loadPage(x,y,level){
-    if(!data.page_url || level<(data.page_minimum_zoom??12))return;
+    if(!data.page_url || level<(data.page_minimum_zoom??12))return [];
     const key=`${level}/${x}/${y}`;
     if(pages.has(key)){
-      const value=pages.get(key);pages.delete(key);pages.set(key,value);return;
+      const value=pages.get(key);pages.delete(key);pages.set(key,value);
+      return value.map(doc=>detailEntries.get(doc.tile_id??doc.id)||doc);
     }
     if(pendingPages.has(key))return pendingPages.get(key);
     const url=data.page_url.replace('{z}',level).replace('{x}',x).replace('{y}',y);
@@ -34,6 +35,9 @@ window.ORCLocalTerrain = function (data, C, initialPoint=null) {
         retained.set(identity,detailEntries.get(identity)||doc);
       }
       detailEntries=retained;tiles=[...detailEntries.values(),...baseline].sort(rank);
+      // Return strong references to this request's page. Other requests may
+      // evict it from the global LRU before this callback starts sampling.
+      return page.tiles.map(doc=>retained.get(doc.tile_id??doc.id)||doc);
     }).finally(()=>pendingPages.delete(key));
     pendingPages.set(key,request);return request;
   }
@@ -75,10 +79,37 @@ window.ORCLocalTerrain = function (data, C, initialPoint=null) {
     return scale*value*Math.min(1,Math.max(0,margin));
   }
   function sampledHeightAt(longitude, latitude, zoom=Infinity,catalog=tiles) {
-    const tile = catalog.find(item => item.heights_m && (item.minimum_zoom||0)<=zoom
+    const available=catalog.filter(item=>item.heights_m && (item.minimum_zoom||0)<=zoom
       && longitude>=item.west_rad && longitude<=item.east_rad
       && latitude>=item.south_rad && latitude<=item.north_rad);
-    return tile ? sample(tile,longitude,latitude) : 0;
+    if(!available.length)return 0;
+    const tile=available[0];
+    const value=sample(tile,longitude,latitude);
+    if(!data.page_url)return value;
+    const dx=(tile.east_rad-tile.west_rad)/(tile.width-1);
+    const dy=(tile.north_rad-tile.south_rad)/(tile.height-1);
+    const area=dx*dy;
+    let weight=1;
+    const band=Math.min(2,(tile.width-1)*.1,(tile.height-1)*.1);
+    const probes=[[(longitude-tile.west_rad)/dx,tile.west_rad-dx*.01,latitude],
+      [(tile.east_rad-longitude)/dx,tile.east_rad+dx*.01,latitude],
+      [(latitude-tile.south_rad)/dy,longitude,tile.south_rad-dy*.01],
+      [(tile.north_rad-latitude)/dy,longitude,tile.north_rad+dy*.01]];
+    for(const [distance,x,y] of probes){
+      if(distance>=band)continue;
+      const neighbor=catalog.some(other=>other!==tile && (other.minimum_zoom||0)<=zoom
+        && (other.detail_level||0)>=(tile.detail_level||0)
+        && (other.east_rad-other.west_rad)*(other.north_rad-other.south_rad)/((other.width-1)*(other.height-1))<=area*1.1
+        && x>=other.west_rad && x<=other.east_rad && y>=other.south_rad && y<=other.north_rad);
+      if(!neighbor)weight=Math.min(weight,Math.max(0,distance/band));
+    }
+    // Only exposed edges fade; shared fine-grid edges stay at source height.
+    // Raw elevations are untouched. Blend into the next available coarse grid.
+    const t=weight*weight*(3-2*weight);
+    const fallback=available.find(other=>other!==tile && ((other.detail_level||0)<(tile.detail_level||0)
+      || (other.east_rad-other.west_rad)*(other.north_rad-other.south_rad)/((other.width-1)*(other.height-1))>area*1.1));
+    const lower=fallback?sample(fallback,longitude,latitude):0;
+    return lower+(value-lower)*t;
   }
   function heightAt(longitude, latitude) {
     return visible ? sampledHeightAt(longitude, latitude) : 0;
@@ -87,14 +118,17 @@ window.ORCLocalTerrain = function (data, C, initialPoint=null) {
     const provider = new C.CustomHeightmapTerrainProvider({width:33,height:33,tilingScheme:scheme,
       credit:data.attribution,
       callback:async (x,y,level) => {
-        await loadPage(x,y,level);
-        const catalog=tiles.slice();
+        const ownPage=await loadPage(x,y,level);
         const rectangle=scheme.tileXYToRectangle(x,y,level);
+        const catalog=[...ownPage,...baseline].filter(tile=>tile.west_rad<=rectangle.east
+          && tile.east_rad>=rectangle.west && tile.south_rad<=rectangle.north
+          && tile.north_rad>=rectangle.south).sort(rank);
         const wanted=new Set();
         for(let row=0;row<33;row++)for(let col=0;col<33;col++){
-          const tile=tileAt(rectangle.west+(rectangle.east-rectangle.west)*col/32,
-            rectangle.north-(rectangle.north-rectangle.south)*row/32,level,catalog);
-          if(tile)wanted.add(tile);
+          const longitude=rectangle.west+(rectangle.east-rectangle.west)*col/32;
+          const latitude=rectangle.north-(rectangle.north-rectangle.south)*row/32;
+          for(const tile of catalog)if((tile.minimum_zoom||0)<=level && longitude>=tile.west_rad
+            && longitude<=tile.east_rad && latitude>=tile.south_rad && latitude<=tile.north_rad)wanted.add(tile);
         }
         await Promise.all([...wanted].map(loadTile));
         const buffer=new Float32Array(33*33);

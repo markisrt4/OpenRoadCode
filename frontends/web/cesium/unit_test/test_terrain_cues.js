@@ -14,8 +14,18 @@ test('terrain cues restore the prior globe presentation when disabled',()=>{
   const globe={enableLighting:false,material:original};
   const viewer={scene:{globe,requestRender(){renders++;}}};
   const spacings=[];
-  const C={Material:{fromType(type,options){assert.equal(type,'ElevationContour');spacings.push(options.spacing);return {...contour,spacing:options.spacing};}},
-    Color:{fromCssColorString(value){assert.equal(value,'#69a7bd');return {withAlpha(value){assert.equal(value,.46);return 'color';}}}}};
+  const C={Material:class {
+    constructor(options){
+      const fabric=options.fabric;
+      assert.equal(fabric.materials.contours.type,'ElevationContour');
+      assert.equal(fabric.uniforms.waterReference,'/data/world-reference.png');
+      assert.match(fabric.components.alpha,/materialInput.waterMask/);
+      assert.match(fabric.components.alpha,/czm_ellipsoidTextureCoordinates/);
+      assert.match(fabric.components.alpha,/czm_inverseView/);
+      spacings.push(fabric.materials.contours.uniforms.spacing);
+      Object.assign(this,contour,{spacing:fabric.materials.contours.uniforms.spacing});
+    }
+  },Color:{fromCssColorString(value){assert.equal(value,'#69a7bd');return {withAlpha(value){assert.equal(value,.46);return 'color';}}}}};
   const cues=context.window.ORCTerrainCues(viewer,C);
   cues.setEnabled(true);
   assert.equal(globe.enableLighting,true);

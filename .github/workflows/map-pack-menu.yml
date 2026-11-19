@@ -2,6 +2,8 @@ name: Map pack menu checks
 on:
   push:
     paths:
+      - frontends/web/cesium/terrain_cues.js
+      - frontends/web/cesium/unit_test/test_terrain_cues.js
       - tools/map_builder/templates/openroadcode-style.json
       - tools/map_builder/tests/test_style.py
       - apps/orcUi/composition/unit_test/test_map_theme_runtime.py
@@ -53,7 +55,7 @@ jobs:
       - run: python -m pip install pytest Pillow
       - run: python -m pytest tools/map_builder/tests/test_map_pack_menu.py tools/map_builder/tests/test_source_metadata_retry.py tools/map_builder/tests/test_statewide_resume.py apps/launchers/unit_test/test_static_region_build.py tools/map_builder/tests/test_reference_globe_image.py apps/launchers/unit_test/test_local_imagery_pack.py tools/map_builder/tests/test_download_us_terrain.py tools/map_builder/tests/test_us_terrain_install.py apps/launchers/unit_test/test_statewide_detail.py tools/map_builder/tests/test_style.py apps/orcUi/composition/unit_test/test_map_theme_runtime.py -q
       - name: Offline globe reference and layer visibility regressions
-        run: node --test frontends/web/cesium/unit_test/test_reference_globe_layer.js frontends/web/cesium/unit_test/test_map_layer_controls.js frontends/web/cesium/unit_test/test_paged_terrain.js
+        run: node --test frontends/web/cesium/unit_test/test_reference_globe_layer.js frontends/web/cesium/unit_test/test_map_layer_controls.js frontends/web/cesium/unit_test/test_paged_terrain.js frontends/web/cesium/unit_test/test_terrain_cues.js
       - name: Host entry cancels without needing Docker
         run: |
           printf 'b\n' | CONTAINER_ENGINE=missing-engine bash tools/map_builder/scripts/run-builder.sh packs
