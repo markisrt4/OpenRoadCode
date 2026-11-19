@@ -25,17 +25,19 @@ def play_weather_radio(radio: RadioProfileController, application: RadioApplicat
             if radio.active_profile_key != profile.key:
                 radio.select_profile(profile.key)
             station = radio.tune_preset(profile.presets[0])
-            if native_sdrforge:
-                _ensure_native_receiver_started(cancelled=cancelled)
-            return station
+            break
         except (OSError, RuntimeError, ValueError):
             if attempt == 24:
                 raise
             sleep(0.25)
-    return None
+    if cancelled():
+        return None
+    if native_sdrforge and not _ensure_native_receiver_started(cancelled=cancelled):
+        return None
+    return station
 
 
-def _ensure_native_receiver_started(*, cancelled: Callable[[], bool]) -> None:
+def _ensure_native_receiver_started(*, cancelled: Callable[[], bool]) -> bool:
     """Start shared SDRForge acquisition only when REST reports it stopped.
 
     An HTTP 202 acknowledges startup, not successful RF acquisition. The
@@ -45,7 +47,7 @@ def _ensure_native_receiver_started(*, cancelled: Callable[[], bool]) -> None:
     with urllib.request.urlopen(endpoint, timeout=2.0) as response:
         status = json.load(response)
     if status.get("running"):
-        return
+        return True
     if status.get("startup_error") and not status.get("starting"):
         raise RuntimeError(f"SDRForge receiver failed: {status['startup_error']}")
     if not status.get("starting"):
@@ -57,11 +59,11 @@ def _ensure_native_receiver_started(*, cancelled: Callable[[], bool]) -> None:
                 raise RuntimeError(f"SDRForge receiver start returned HTTP {response.status}")
     for _ in range(20):
         if cancelled():
-            return
+            return False
         with urllib.request.urlopen(endpoint, timeout=2.0) as response:
             status = json.load(response)
         if status.get("running"):
-            return
+            return True
         if status.get("startup_error"):
             raise RuntimeError(f"SDRForge receiver failed: {status['startup_error']}")
         if not status.get("starting"):
