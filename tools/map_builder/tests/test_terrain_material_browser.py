@@ -3,6 +3,7 @@ from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import shutil
+import re
 import subprocess
 import threading
 
@@ -16,14 +17,15 @@ HTML = b'''<!doctype html><html><head><script>window.CESIUM_BASE_URL='/';</scrip
 <body data-result="pending"><div id="map"></div><script>
 try {
 const viewer=new Cesium.Viewer('map',{baseLayer:false,geocoder:false,animation:false,timeline:false,
-  skyBox:false,skyAtmosphere:false,homeButton:false,baseLayerPicker:false,navigationHelpButton:false});
+  skyBox:false,skyAtmosphere:false,homeButton:false,baseLayerPicker:false,navigationHelpButton:false,useDefaultRenderLoop:false});
 viewer.scene.renderError.addEventListener((scene,error)=>{document.body.dataset.result='FAIL: '+error.message;});
 viewer.camera.lookAt(Cesium.Cartesian3.fromDegrees(-83,44),new Cesium.HeadingPitchRange(0,-Math.PI/2,1000000));
 window.ORCTerrainCues(viewer,Cesium).setEnabled(true);
 let frames=0;
 viewer.scene.postRender.addEventListener(()=>{
- if(++frames>30&&!document.body.dataset.result.startsWith('FAIL'))document.body.dataset.result='PASS';
+ if(++frames>30&&viewer.scene.globe.tilesLoaded&&!document.body.dataset.result.startsWith('FAIL'))document.body.dataset.result='PASS';
 });
+setInterval(()=>{try{viewer.render();}catch(error){document.body.dataset.result='FAIL: '+error.message;}},50);
 } catch(error){document.body.dataset.result='FAIL: '+error.message;}
 </script></body></html>'''
 
@@ -56,7 +58,8 @@ def test_lake_contour_material_compiles_in_chromium(tmp_path):
             '--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader',
             '--user-data-dir='+str(tmp_path/'profile'),'--virtual-time-budget=12000','--dump-dom',
             f'http://127.0.0.1:{server.server_port}/test.html'],capture_output=True,text=True,timeout=60)
-        assert 'data-result="PASS"' in result.stdout, result.stdout[-3000:]+result.stderr[-2000:]
+        status=re.search(r'data-result="([^"]+)"',result.stdout)
+        assert status and status[1]=='PASS', (status[1] if status else 'No browser result')+result.stderr[-1000:]
         assert seen, 'Actual material texture was never requested'
     finally:
         server.shutdown();server.server_close();worker.join(timeout=5)
