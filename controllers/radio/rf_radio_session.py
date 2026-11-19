@@ -87,17 +87,18 @@ class ReceiverSession:
                     and not (receiver.radio_text or receiver.station_name or receiver.rds)):
                 receiver = replace(receiver, radio_text=previous.radio_text,
                                    station_name=previous.station_name, rds=previous.rds)
-            # Rigctl remains authoritative for tuning. ZMQ reports the actual
-            # demodulator, but only apply it to the displayed tuned station.
+            # Preserve the requested profile mode. Replacing it with ZMQ's
+            # observed mode would hide mismatches and corrupt profile state.
             station = self._state.station
-            if (receiver.mode is not None
-                    and receiver.frequency_hz == station.frequency_hz):
-                station = replace(station, mode_name=receiver.mode)
+            if receiver.frequency_hz != station.frequency_hz:
+                # An old receiver message must not override a newly tuned station.
+                receiver = replace(receiver, mode=None, bandwidth_hz=None,
+                                   receiver_running=None)
             running = (self._state.receiver_running
                        if receiver.receiver_running is None
                        else receiver.receiver_running)
             self._state = replace(self._state, telemetry=receiver,
-                                  station=station, receiver_running=running)
+                                  receiver_running=running)
             view.set_radio_state(self._state)
         snapshot = self._spectrum_source.latest_spectrum()
         if snapshot is not None and isinstance(view, SpectrumPresentationIf):
