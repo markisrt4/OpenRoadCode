@@ -11,14 +11,33 @@ import urllib.request
 import urllib.error
 
 from controllers.radio.radio_profile_controller import RadioProfileController
-from controllers.sdr.sdrpp_control import SDRPPControl
-from controllers.sdr.sdr_telemetry_monitor import SDRTelemetryMonitor
+from typing import Protocol
 from ui.radio.radio_profile_state import RadioProfileState
 from ui.radio.sdrforge_spectrum_if import SpectrumSourceIf, SpectrumPresentationIf
 from ui.radio.rf_radio_if import (
     AircraftPresentation, RadioAction, RadioApplication, RadioHost, RadioNativeSurface,
     RadioRequest, RadioTelemetry, RfProfile, RfRadioState, RfRadioUi,
 )
+
+
+class RadioDisplayControlIf(Protocol):
+    """Presentation controls shared by native and legacy RF implementations."""
+
+    def set_theme(self, theme: str) -> object: ...
+    def toggle_waterfall(self) -> object: ...
+    def toggle_bandplan(self) -> object: ...
+    def toggle_fft_hold(self) -> object: ...
+    def auto_range(self) -> object: ...
+    def waterfall_visible(self) -> bool: ...
+    def bandplan_visible(self) -> bool: ...
+    def fft_hold_enabled(self) -> bool: ...
+    def themes(self) -> tuple[str, ...]: ...
+
+
+class LegacyRadioTelemetryIf(Protocol):
+    """Optional SDR++ telemetry, used only for an embedded legacy window."""
+
+    def read_state(self, *, include_rds: bool) -> RadioTelemetry: ...
 
 
 class ReceiverSession:
@@ -28,8 +47,8 @@ class ReceiverSession:
     so an in-flight embed finishes and detaches before another session can launch.
     """
 
-    def __init__(self, radio: RadioProfileController, control: SDRPPControl,
-                 telemetry: SDRTelemetryMonitor, application: RadioApplication,
+    def __init__(self, radio: RadioProfileController, control: RadioDisplayControlIf,
+                 telemetry: LegacyRadioTelemetryIf | None, application: RadioApplication,
                  aircraft: AircraftPresentation, surface: RadioNativeSurface, *,
                  display: str, run_work: Callable[[Callable[[], None]], None],
                  run_ui: Callable[[Callable[[], None]], None],
@@ -321,7 +340,7 @@ class ReceiverSession:
                     # Preserve the last valid station during transient rigctl failures.
                     # REST remains authoritative for acquisition state.
                     pass
-            if self._native_view == "sdrpp":
+            if self._native_view == "sdrpp" and self._telemetry is not None:
                 self._state = replace(self._state, telemetry=self._telemetry.read_state(
                     include_rds=self._radio.active_profile_key == "fm_radio"))
             return
