@@ -124,21 +124,38 @@ class SdrForgeReceiverView(tk.Frame):
         self._recenter_on_tune = bool(enabled)
         if self._viewport is not None:
             self._viewport = replace(self._viewport, recenter_on_tune=bool(enabled))
+            if enabled and self._center_frequency_hz is not None:
+                self._viewport = replace(self._viewport, center_hz=float(self._center_frequency_hz))
+            self._constrain_viewport()
         settings = load_rf_visualization_settings()
         settings["recenter_on_tune"] = bool(enabled)
         save_rf_visualization_settings(settings)
         self._update_recenter_button()
         self._schedule_render()
 
+    def _constrain_viewport(self) -> None:
+        """Keep the visible FFT window inside the actual sampled RF band."""
+        viewport = self._viewport
+        if viewport is None or self._center_frequency_hz is None or not self._sample_rate_hz:
+            return
+        rate = float(self._sample_rate_hz)
+        span = min(viewport.span_hz, rate)
+        margin = (rate - span) / 2
+        center = max(self._center_frequency_hz - margin,
+                     min(self._center_frequency_hz + margin, viewport.center_hz))
+        self._viewport = replace(viewport, center_hz=center, span_hz=span)
+
     def pan_spectrum(self, fraction: float) -> None:
         if self._viewport is not None:
             self._viewport = self._viewport.pan(fraction)
+            self._constrain_viewport()
             self._schedule_render()
 
     def zoom_spectrum(self, factor: float) -> None:
         if self._viewport is not None:
             self._viewport = self._viewport.zoom(
                 factor, max_span_hz=float(self._sample_rate_hz or self._viewport.span_hz))
+            self._constrain_viewport()
             self._schedule_render()
 
     def _viewport_row(self, row: Sequence[float]) -> tuple[float, ...]:
@@ -282,6 +299,7 @@ class SdrForgeReceiverView(tk.Frame):
                     float(center_frequency_hz), float(sample_rate_hz), self._recenter_on_tune)
             elif previous_center != center_frequency_hz and self._recenter_on_tune:
                 self._viewport = replace(self._viewport, center_hz=float(center_frequency_hz))
+            self._constrain_viewport()
         if len(self._bins) == len(raw):
             self._bins = tuple(0.40 * value + 0.60 * old
                                for value, old in zip(raw, self._bins))
