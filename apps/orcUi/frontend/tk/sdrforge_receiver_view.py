@@ -124,8 +124,8 @@ class SdrForgeReceiverView(tk.Frame):
         self._recenter_on_tune = bool(enabled)
         if self._viewport is not None:
             self._viewport = replace(self._viewport, recenter_on_tune=bool(enabled))
-            if enabled and self._center_frequency_hz is not None:
-                self._viewport = replace(self._viewport, center_hz=float(self._center_frequency_hz))
+            if enabled and self._frequency_hz:
+                self._viewport = replace(self._viewport, center_hz=float(self._frequency_hz))
             self._constrain_viewport()
         settings = load_rf_visualization_settings()
         settings["recenter_on_tune"] = bool(enabled)
@@ -237,6 +237,9 @@ class SdrForgeReceiverView(tk.Frame):
         self._radio_text = radio_text if (self._mode in ("WFM", "FM") or 76_000_000 <= frequency_hz <= 108_000_000) else ""
         self._stereo = stereo
         self._signal = signal
+        if self._recenter_on_tune and self._viewport is not None and frequency_hz:
+            self._viewport = replace(self._viewport, center_hz=float(frequency_hz))
+            self._constrain_viewport()
         self._schedule_render()
 
     def set_display_controls(self, *, waterfall: bool, peak_hold: bool) -> None:
@@ -314,7 +317,7 @@ class SdrForgeReceiverView(tk.Frame):
                 self._viewport = SpectrumViewport(
                     float(center_frequency_hz), float(sample_rate_hz), self._recenter_on_tune)
             elif previous_center != center_frequency_hz and self._recenter_on_tune:
-                self._viewport = replace(self._viewport, center_hz=float(center_frequency_hz))
+                self._viewport = replace(self._viewport, center_hz=float(self._frequency_hz or center_frequency_hz))
             self._constrain_viewport()
         if len(self._bins) == len(raw):
             self._bins = tuple(0.40 * value + 0.60 * old
