@@ -147,7 +147,9 @@ class SdrForgeReceiverView(tk.Frame):
 
     def pan_spectrum(self, fraction: float) -> None:
         if self._viewport is not None:
-            self._viewport = self._viewport.pan(fraction)
+            self._recenter_on_tune = False
+            self._update_recenter_button()
+            self._viewport = replace(self._viewport.pan(fraction), recenter_on_tune=False)
             self._constrain_viewport()
             self._schedule_render()
 
@@ -185,6 +187,15 @@ class SdrForgeReceiverView(tk.Frame):
     def _handle_spectrum_click(self, event) -> None:
         if not self._on_spectrum_tune or not self._center_frequency_hz or not self._sample_rate_hz:
             return
+        # The header, controls and station footer are not tuning targets.
+        if event.widget is self._canvas:
+            h = self._canvas.winfo_height()
+            header = 54 if h < 260 else 80
+            if event.y < header + 34 + 22:
+                return
+            footer = (24 if h < 260 else 32) if self._radio_text and (self._mode in ("WFM", "FM") or 76_000_000 <= self._frequency_hz <= 108_000_000) else 0
+            if event.y >= h - footer:
+                return
         width = max(1, event.widget.winfo_width())
         position = max(0.0, min(1.0, event.x / width))
         hz = (self._viewport.frequency_at(position) if self._viewport is not None
@@ -196,7 +207,12 @@ class SdrForgeReceiverView(tk.Frame):
             return
         snapped = low + round((hz - low) / step) * step
         if low <= snapped <= high:
+            self._recenter_on_tune = False
+            if self._viewport is not None:
+                self._viewport = replace(self._viewport, recenter_on_tune=False)
+            self._update_recenter_button()
             self._on_spectrum_tune(int(snapped))
+            self._schedule_render()
 
     def set_theme_bundle(self, theme: ThemeBundle) -> None:
         self._theme = theme
@@ -364,7 +380,8 @@ class SdrForgeReceiverView(tk.Frame):
         if self._gl_surface is not None:
             self._gl_surface.place(x=0, y=spectrum_top, relwidth=1, height=max(1, plot_bottom-spectrum_top))
             self._gl_surface.update_data(display_bins, display_history,
-                                         self._visualization.palette, display_peaks)
+                                         self._visualization.palette, display_peaks,
+                                         tuned_position=self._tuned_position())
 
         canvas.create_rectangle(0, 0, w, header, fill=ui.surface, outline="")
         canvas.create_rectangle(0, 0, 5, header, fill=ui.accent_primary, outline="")
@@ -433,7 +450,7 @@ class SdrForgeReceiverView(tk.Frame):
                                   spectrum_top + (spectrum_height - 2) * (1.0 - value)))
                 if len(peaks) >= 4:
                     canvas.create_line(*peaks, fill=ui.accent_success, width=1)
-                canvas.create_line(w / 2, spectrum_top, w / 2, plot_bottom, fill=ui.accent_success, width=1)
+
             history = list(display_history)
             # Bound Tk canvas primitives on the 1280x720 touch display. A
             # 64x36 waterfall uses at most 2304 rectangles per refresh.
@@ -458,6 +475,12 @@ class SdrForgeReceiverView(tk.Frame):
             canvas.create_text(w / 2, spectrum_top + spectrum_height / 2,
                                text="Waiting for spectrum telemetry",
                                fill=ui.text_muted, font=("Sans", 11))
+        if self._gl_surface is None:
+            position = self._tuned_position()
+            if position is not None:
+                x = position * (w - 1)
+                canvas.create_line(x, spectrum_top, x, plot_bottom,
+                                   fill=ui.accent_success, width=2)
         if self._waterfall_enabled:
             canvas.create_line(0, waterfall_top, w, waterfall_top,
                                fill=ui.accent_primary, width=2)
@@ -467,6 +490,14 @@ class SdrForgeReceiverView(tk.Frame):
             canvas.create_text(12, plot_bottom + footer / 2, anchor="w",
                                text=self._radio_text[:90],
                                fill=ui.text_muted, font=("Sans", 10))
+
+    def _tuned_position(self) -> float | None:
+        """Map the actual tuned frequency onto the visible FFT window."""
+        viewport = self._viewport
+        if viewport is None or not self._frequency_hz or viewport.span_hz <= 0:
+            return None
+        position = 0.5 + (self._frequency_hz - viewport.center_hz) / viewport.span_hz
+        return position if 0.0 <= position <= 1.0 else None
 
     def _station_title(self) -> str:
         """Only display station metadata, not the preset's frequency or channel."""
