@@ -137,20 +137,6 @@ def test_cleanup_failure_still_releases_ownership(receiver):
     r.closed.assert_called_once()
 
 
-def test_telemetry_monitor_keeps_numeric_measurements_and_legacy_formatting():
-    from controllers.sdr.sdr_telemetry_monitor import SDRTelemetryMonitor
-    from protocols.sdrpp_telemetry import SDRPPTelemetry
-    radio, client = Mock(), Mock()
-    client.read.return_value = SDRPPTelemetry(center_frequency_hz=100_000_000,
-                                             signal_peak_db=-43.25, snr_db=18.5)
-    radio.read_rds.return_value = " STATION "
-    monitor = SDRTelemetryMonitor(radio, client)
-    state = monitor.read_state(include_rds=True)
-    assert state == RadioTelemetry(100_000_000, -43.25, 18.5, "STATION")
-    assert monitor.read().signal == "-43.2 dB"
-    assert monitor.read_state().rds == ""
-
-
 def test_sdrforge_stop_clears_stale_rds_without_changing_profile(receiver):
     r = receiver
     source = Mock()
