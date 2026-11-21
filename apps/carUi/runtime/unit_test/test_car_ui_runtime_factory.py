@@ -59,6 +59,23 @@ class RadioRuntimeFactoryTest(unittest.TestCase):
         runtime = build_car_ui_runtime(self._config())
         self.assertEqual(":9", runtime.remote_display); self.assertEqual(":4", runtime.auxiliary_display); self.assertEqual(3, len(runtime.rotary_encoders.devices)); self.assertIn("fm_radio", runtime.radios); self.assertEqual(1, len(runtime.radios)); rigctl_client.assert_called_once_with(host="127.0.0.1", port=4532); rigctl_backend.assert_called_once(); radio_controller.assert_called_once(); sdrpp_launcher.assert_called_once()
 
+    @patch("apps.carUi.runtime.car_ui_runtime_factory.SDRResourceManager")
+    @patch("apps.carUi.runtime.car_ui_runtime_factory.SdrForgeServiceLauncher")
+    @patch("apps.carUi.runtime.car_ui_runtime_factory.load_radio_config")
+    def test_sdrforge_launcher_uses_shared_rest_endpoint(
+        self, load_radio_config, service_launcher, resource_manager
+    ) -> None:
+        load_radio_config.return_value = FakeRadioConfig(
+            label="FM Radio", default_mode=FakeMode(), presets=()
+        )
+        runtime = build_car_ui_runtime(
+            self._config(launcher="sdrforge")
+        )
+        service_launcher.assert_called_once_with(
+            base_url="http://127.0.0.1:5570"
+        )
+        self.assertIs(runtime.radios.get("fm_radio").launcher, service_launcher.return_value)
+
     @patch("apps.carUi.runtime.car_ui_runtime_factory.GoogleEarthLauncher")
     @patch("apps.carUi.runtime.car_ui_runtime_factory.BrowserApplicationFactory")
     @patch("apps.carUi.runtime.car_ui_runtime_factory.SDRResourceManager")
