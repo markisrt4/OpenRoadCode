@@ -20,6 +20,19 @@ class SdrForgeRestRadioBackend(RadioBackendIf):
         self._timeout = timeout
 
     def _request(self, path: str, body: dict[str, object] | None = None) -> dict:
+        # Read-only requests may be retried after a transient restart. A POST
+        # may have succeeded before its response was lost: never replay it.
+        if body is None and path != "/v1/health":
+            try:
+                return self._request_once(path, body)
+            except RuntimeError as exc:
+                if not isinstance(exc.__cause__, (URLError, TimeoutError, OSError)):
+                    raise
+                self.wait_until_ready(timeout=3.0)
+                return self._request_once(path, body)
+        return self._request_once(path, body)
+
+    def _request_once(self, path: str, body: dict[str, object] | None = None) -> dict:
         data = None if body is None else json.dumps(body).encode("utf-8")
         request = Request(
             self._base_url + path,
@@ -41,7 +54,10 @@ class SdrForgeRestRadioBackend(RadioBackendIf):
         wait_for_sdrforge_ready(self._base_url, timeout=timeout)
 
     def health(self) -> bool:
-        return self._request("/v1/health").get("status") == "ok"
+        try:
+            return self._request("/v1/health").get("status") == "ok"
+        except RuntimeError:
+            return False
 
     def receiver_status(self) -> dict:
         return self._request("/v1/receiver")
