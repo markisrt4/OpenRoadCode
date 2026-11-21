@@ -1,4 +1,14 @@
-# SDR++ retirement audit (in progress)
+# SDR++ retirement audit
+
+## Current status
+
+Source retirement has been implemented on `feature/sdrforge-native-spectrum`. Legacy launchers, telemetry/control clients, C++ modules, installation scripts and the unreferenced deprecated FM panel have been removed. Native SDRForge provides REST (5570), ZeroMQ (5571) and Rigctl (4532). Generic X11 and Rigctl tooling and negative regression guards remain.
+
+The local regression run reported 766 passed, 2 failed, 19 skipped and 43 subtests passed; both outdated assertions were corrected and the affected suites subsequently reported 32 passed. Final post-cleanup regression, installer and hardware acceptance remain pending. The later source reference audit found no callers of the deprecated FM panel and no active references to the retired interfaces.
+
+The inventory below is historical, not a list of remaining implementation blockers.
+
+## Historical inventory
 
 This inventory identifies migration work before deleting SDR++ code. It is based on the
 current `feature/sdrforge-rigctl-cli` integration and repository code-search results.
@@ -57,7 +67,7 @@ Do not reset, replace, or wholesale merge it with any of the branches below.
 Branch retirement must not remove files from the current integration branch.
 Remote branch deletion requires explicit verification that no unique desired work or open PR depends on the branch.
 
-### Current SDR++ blockers confirmed in integration branch
+### Historical SDR++ blockers (resolved in source)
 
 - `apps/orcUi/composition/radio.py` retains the legacy SDR++ fallback, theme synchronization, and X11 embedding path.
 - `controllers/radio/rf_radio_session.py` still handles SDR++ embedding and legacy telemetry.
