@@ -70,7 +70,7 @@ def test_hiding_radio_retires_streaming_panel_before_detaching_native_window():
     embedder, panel = Mock(), Mock()
     events = []
     panel.deactivate.side_effect = lambda: events.append("deactivate")
-    panel.detach_sdrpp.side_effect = lambda parent: events.append("detach")
+    panel.detach_native_client.side_effect = lambda parent: events.append("detach")
     embedder.clear.side_effect = lambda: events.append("clear")
     screen = RadioScreen(
         Mock(), theme_bundle=Mock(), theme_mode=lambda: ThemeMode.DARK,
