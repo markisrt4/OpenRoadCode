@@ -15,7 +15,6 @@ from dataclasses import dataclass, field
 from concurrent.futures import ThreadPoolExecutor
 
 from apps.orcUi.application_runtime import OrcUiApplicationRuntime
-from apps.orcUi.native_radio_application_service import NativeRadioApplicationService
 from common.resource_cleanup import ResourceCleanup, close_resources
 
 from apps.orcUi.adapters.adsb_control import OrcUiAdsbControl
@@ -267,7 +266,7 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
                     state = play_weather_radio(
                         RadioProfileController(), runtime.radio,
                         cancelled=lambda: resources.closed,
-                        native_sdrforge=isinstance(runtime.radio, NativeRadioApplicationService),
+                        native_sdrforge=True,
                     )
                     if state is None:
                         logger.info("NOAA request cancelled")
