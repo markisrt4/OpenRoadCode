@@ -9,7 +9,7 @@ import pytest
 
 from controllers.radio.rf_radio_session import ReceiverSession
 from controllers.radio.radio_profile_controller import RadioProfileController
-from controllers.sdr.sdrpp_control import SDRPPControl
+from controllers.radio.native_radio_control import NativeRadioControl
 from ui.radio.radio_profile_state import RadioProfileState
 from ui.radio.rf_radio_if import AircraftPresentation, RadioAction, RadioHost, RadioRequest, RadioTelemetry
 
@@ -20,17 +20,16 @@ def receiver():
     radio.state = RadioProfileState("FM", 100_000_000, "WFM", "fm_radio", "FM")
     radio.active_profile_key = "fm_radio"
     radio.catalog.profiles = (SimpleNamespace(key="fm_radio", label="FM", group="FM", presets=()),)
-    control, telemetry, application, aircraft, surface = Mock(spec=SDRPPControl), Mock(), Mock(), Mock(spec=AircraftPresentation), Mock()
+    control, application, aircraft, surface = Mock(spec=NativeRadioControl), Mock(), Mock(spec=AircraftPresentation), Mock()
     control.themes.return_value = ("Light", "Dark")
     control.waterfall_visible.return_value = True
     control.bandplan_visible.return_value = False
     control.fft_hold_enabled.return_value = False
     application.fullscreen = False
     application.window_process_id.return_value = 123
-    telemetry.read_state.return_value = RadioTelemetry(signal_db=-43.5, snr_db=20, rds="STATION")
     work, ui = [], []
     closed = Mock()
-    session = ReceiverSession(radio, control, telemetry, application, aircraft, surface,
+    session = ReceiverSession(radio, control, application, aircraft, surface,
                               display=":1", run_work=work.append, run_ui=ui.append, on_close=closed)
     view = Mock()
     session.bind(view)
@@ -42,24 +41,16 @@ def launch(r):
     r.work.pop(0)()
 
 
-def test_launch_and_measurements_are_dispatched_as_immutable_values(receiver):
+def test_native_launch_dispatches_immutable_state(receiver):
     r = receiver
     launch(r)
-    r.application.present.assert_called_once()
-    assert r.surface.embed.call_args.args == (123, 10, 800, 400)
-    # Worker completion does not call the GUI directly.
+    r.application.present.assert_not_called()
+    r.surface.embed.assert_not_called()
     assert r.view.set_radio_state.call_count == 1
     for deliver in r.ui:
         deliver()
-    assert r.view.set_radio_state.call_args.args[0].view == "sdrpp"
-    r.session.request(RadioRequest(RadioAction.REFRESH))
-    r.session.request(RadioRequest(RadioAction.REFRESH))
-    assert len(r.work) == 1
-    r.work.pop()()
-    r.ui[-1]()
     state = r.view.set_radio_state.call_args.args[0]
-    assert state.telemetry.signal_db == -43.5
-    assert state.telemetry.rds == "STATION"
+    assert state.view == "none"
     assert state.themes == ("Light", "Dark")
     assert not hasattr(state.profiles[0], "config_path")
 
@@ -94,27 +85,6 @@ def test_queued_launch_and_delivery_are_dropped_after_close(receiver):
         r.session.bind(Mock())
 
 
-def test_late_application_launch_cannot_embed_in_destroyed_host(receiver):
-    r = receiver
-    entered, release = Event(), Event()
-    def present():
-        entered.set()
-        assert release.wait(2)
-    r.application.present.side_effect = present
-    r.session.request(RadioRequest(RadioAction.LAUNCH, host=RadioHost(10, 20, 800, 400)))
-    thread = Thread(target=r.work.pop())
-    thread.start()
-    assert entered.wait(2)
-    r.session.close()
-    release.set()
-    thread.join(2)
-    assert not thread.is_alive()
-    r.surface.embed.assert_not_called()
-    for deliver in r.ui:
-        deliver()
-    assert r.view.set_radio_state.call_count == 1
-
-
 def test_embedding_is_cancelled_and_detached_before_close_returns(receiver):
     r = receiver
     entered, retired = Event(), Event()
@@ -127,7 +97,7 @@ def test_embedding_is_cancelled_and_detached_before_close_returns(receiver):
         assert cancelled()
         raise RuntimeError("cancelled")
     r.surface.embed.side_effect = embed
-    r.session.request(RadioRequest(RadioAction.LAUNCH, host=RadioHost(10, 20, 800, 400)))
+    r.session.request(RadioRequest(RadioAction.ADSB, host=RadioHost(10, 20, 800, 400)))
     worker = Thread(target=r.work.pop())
     worker.start()
     assert entered.wait(2)
@@ -582,7 +552,6 @@ def test_spectrum_recovery_requires_current_frequency_and_running(receiver):
 def test_native_receiver_does_not_require_legacy_telemetry(receiver, monkeypatch):
     """Native SDRForge status refresh works with no SDR++ telemetry client."""
     r = receiver
-    r.session._telemetry = None
     r.session._native_view = "none"
     monkeypatch.setattr(
         "controllers.radio.rf_radio_session.urllib.request.urlopen",
@@ -590,27 +559,12 @@ def test_native_receiver_does_not_require_legacy_telemetry(receiver, monkeypatch
     )
     r.radio.refresh.return_value = r.radio.state
     r.session._perform(RadioRequest(RadioAction.REFRESH), r.session._generation)
-    assert r.session._telemetry is None
-    assert r.session._state.station.frequency_hz == 100_000_000
-
-
-def test_legacy_refresh_tolerates_missing_optional_monitor(receiver, monkeypatch):
-    """Missing legacy telemetry must not crash a receiver refresh."""
-    r = receiver
-    r.session._telemetry = None
-    r.session._native_view = "sdrpp"
-    monkeypatch.setattr(
-        "controllers.radio.rf_radio_session.urllib.request.urlopen",
-        Mock(side_effect=OSError("REST temporarily unavailable")),
-    )
-    r.radio.refresh.return_value = r.radio.state
-    r.session._perform(RadioRequest(RadioAction.REFRESH), r.session._generation)
+    assert not hasattr(r.session, "_telemetry")
     assert r.session._state.station.frequency_hz == 100_000_000
 
 
 def test_native_launch_never_starts_or_embeds_sdrpp(receiver):
     r = receiver
-    r.session._native_sdrforge = True
     r.session.request(RadioRequest(RadioAction.LAUNCH))
     r.work.pop(0)()
     r.application.present.assert_not_called()
@@ -622,7 +576,6 @@ def test_native_launch_never_starts_or_embeds_sdrpp(receiver):
 
 def test_native_launch_preserves_adsb_embedding_path(receiver):
     r = receiver
-    r.session._native_sdrforge = True
     r.session.request(RadioRequest(
         RadioAction.ADSB, host=RadioHost(10, 20, 800, 400)))
     r.work.pop(0)()
@@ -633,7 +586,6 @@ def test_native_launch_preserves_adsb_embedding_path(receiver):
 
 def test_native_rest_outage_clears_running_state_and_stale_telemetry(receiver, monkeypatch):
     r = receiver
-    r.session._native_sdrforge = True
     r.session._state = replace(
         r.session._state,
         receiver_running=True,
@@ -661,7 +613,6 @@ def test_native_rest_outage_clears_running_state_and_stale_telemetry(receiver, m
 
 def test_native_rest_reconnection_clears_outage_error(receiver, monkeypatch):
     r = receiver
-    r.session._native_sdrforge = True
     r.session._state = replace(
         r.session._state,
         receiver_running=False,
@@ -706,7 +657,6 @@ def test_native_refresh_tracks_receiver_lifecycle(receiver, monkeypatch, running
     from io import BytesIO
 
     r = receiver
-    r.session._native_sdrforge = True
     r.session._native_view = "none"
     calls = []
 
@@ -751,7 +701,6 @@ def test_stale_zmq_running_flag_is_diagnostic_only_after_rest_stop(receiver):
 
 def test_native_close_never_stops_shared_receiver(receiver, monkeypatch):
     r = receiver
-    r.session._native_sdrforge = True
     r.session._owns_receiver = False
     requests = Mock()
     monkeypatch.setattr(
@@ -767,7 +716,6 @@ def test_native_receiver_full_simulated_lifecycle(receiver, monkeypatch):
     from io import BytesIO
 
     r = receiver
-    r.session._native_sdrforge = True
     r.session._native_view = "none"
     source = Mock()
     r.session._spectrum_source = source
