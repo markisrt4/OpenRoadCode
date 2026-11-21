@@ -59,6 +59,8 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._scan_selected: set[int] = set()
         self._scan_signature: tuple[int, ...] | None = None
         self._scan_drag_y: int | None = None
+        self._scan_dragged = False
+        self._scan_dismissed = False
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
@@ -537,11 +539,13 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         action = RadioAction.STOP_SCAN if self._state.scanning else RadioAction.SCAN
         if action is RadioAction.SCAN:
             self._scan_signature = None
+            self._scan_dismissed = False
             self._scan_selected.clear()
         self._session.request(RadioRequest(action))
 
     def _close_scan_results(self) -> None:
         self._scan_signature = None
+        self._scan_dismissed = True
         self._scan_selected.clear()
         self._scan_card.grid_remove()
         self._show_radio_info()
@@ -557,12 +561,14 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
 
     def _scan_touch_start(self, event: tk.Event) -> None:
         self._scan_drag_y = event.y
+        self._scan_dragged = False
 
     def _scan_touch_move(self, event: tk.Event) -> None:
         if self._scan_drag_y is None:
             return
         delta = self._scan_drag_y - event.y
-        if abs(delta) >= 3:
+        if abs(delta) >= 6:
+            self._scan_dragged = True
             self._scan_canvas.yview_scroll(int(delta / 12) or (1 if delta > 0 else -1), "units")
             self._scan_drag_y = event.y
 
@@ -573,6 +579,8 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._scan_scroll(-1 if event.delta > 0 else 1)
 
     def _toggle_scan_hit(self, frequency: int) -> None:
+        if self._scan_dragged:
+            return
         if frequency in self._scan_selected:
             self._scan_selected.remove(frequency)
         else:
@@ -696,7 +704,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             self._receiver_signal_label.configure(text=state.scan_progress or ("SIGNAL  " + signal))
             if self._sdrforge_view is not None:
                 group = self._active_group.split(":", 1)[0]
-                if state.scanning or (self._scan_signature is not None and state.scan_hits):
+                if not self._scan_dismissed and (state.scanning or state.scan_hits):
                     self._station_info.grid_remove()
                     self._subcategory_strip.grid_remove()
                     self._scan_card.grid()
