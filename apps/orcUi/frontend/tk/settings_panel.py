@@ -13,6 +13,7 @@ from ui.theme import ThemeBundle, ThemeMode
 from ui.navigation.host_location_ui_if import HostLocationRequestHandlerIf, HostLocationState
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
 from ui.ui_widget import UiWidget
+from ui.radio.rf_hardware_config_if import RfHardwareConfigIf
 from ui.radio.radio_visualization_config import (load_rf_visualization_settings,
     save_rf_visualization_settings)
 
@@ -31,6 +32,7 @@ class SettingsPanel(tk.Frame, UiWidget):
         on_back: Callable[[], None],
         theme_bundle: ThemeBundle | None = None,
         host_location_handler: HostLocationRequestHandlerIf | None = None,
+        rf_hardware_config: RfHardwareConfigIf | None = None,
         host_location_state: HostLocationState = HostLocationState(),
         performance_overlay_enabled: Callable[[], bool] | None = None,
         on_performance_overlay_changed: Callable[[bool], None] | None = None,
@@ -41,6 +43,7 @@ class SettingsPanel(tk.Frame, UiWidget):
         self._on_changed = on_vehicle_configuration_changed
         self._on_unit_system_changed = on_unit_system_changed
         self._on_back = on_back
+        self._rf_hardware_config = rf_hardware_config
         self._vehicle_configuration = vehicle_configuration
         self._induction_var = tk.StringVar(value=vehicle_configuration.induction.value)
         self._unit_system = unit_system
@@ -309,44 +312,41 @@ class SettingsPanel(tk.Frame, UiWidget):
                                 "vehicle": (vehicle,), "rf": (rf,)}
         self._show_settings_page("display")
 
-    def _load_rf_hardware(self) -> None:
-        """Fetch authoritative SDRForge settings without blocking the Tk loop."""
-        import json
-        import threading
-        import urllib.request
+    def _rf_status(self, message: str) -> None:
+        """Schedule status updates on Tk's presentation thread."""
+        try:
+            self.after(0, lambda: self._rf_hardware_status.configure(text=message))
+        except RuntimeError:
+            pass
 
+    def _load_rf_hardware(self) -> None:
+        """Request receiver settings through the injected RF configuration port."""
+        if self._rf_hardware_config is None:
+            self._rf_hardware_status.configure(text="Receiver configuration unavailable.")
+            return
         self._rf_hardware_status.configure(text="Loading receiver configuration...")
 
-        def worker() -> None:
+        def loaded(config) -> None:
+            def apply() -> None:
+                self._rf_gain.set("" if config.get("gain_db") is None
+                                  else str(config["gain_db"]))
+                self._rf_ppm.set(str(config.get("ppm_correction", 0)))
+                self._rf_agc.set(bool(config.get("rtl_agc_enabled", False)))
+                self._rf_hardware_status.configure(
+                    text="Receiver settings loaded from SDRForge.")
             try:
-                with urllib.request.urlopen(
-                    "http://127.0.0.1:5570/v1/rf/config", timeout=3.0
-                ) as response:
-                    config = json.load(response)
-                gain = config.get("gain_db")
-                ppm = config.get("ppm_correction", 0)
-                agc = config.get("rtl_agc_enabled", False)
-                def apply() -> None:
-                    self._rf_gain.set("" if gain is None else str(gain))
-                    self._rf_ppm.set(str(ppm))
-                    self._rf_agc.set(bool(agc))
-                    self._rf_hardware_status.configure(
-                        text="Receiver settings loaded from SDRForge.")
                 self.after(0, apply)
-            except (OSError, ValueError, TypeError) as exc:
-                try:
-                    self.after(0, lambda: self._rf_hardware_status.configure(
-                        text=f"Unable to read SDRForge settings: {exc}"))
-                except RuntimeError:
-                    pass
+            except RuntimeError:
+                pass
 
-        threading.Thread(target=worker, name="orc-rf-config-read", daemon=True).start()
+        self._rf_hardware_config.load(
+            loaded, lambda message: self._rf_status(
+                f"Unable to read SDRForge settings: {message}"))
 
     def _apply_rf_hardware(self) -> None:
-        import json
-        import threading
-        import urllib.request
-
+        if self._rf_hardware_config is None:
+            self._rf_hardware_status.configure(text="Receiver configuration unavailable.")
+            return
         try:
             gain = self._rf_gain.get().strip()
             payload = {
@@ -359,26 +359,12 @@ class SettingsPanel(tk.Frame, UiWidget):
             self._rf_hardware_status.configure(text="Invalid gain or PPM value")
             return
         self._rf_hardware_status.configure(text="Applying receiver settings...")
-
-        def worker() -> None:
-            try:
-                request = urllib.request.Request(
-                    "http://127.0.0.1:5570/v1/rf/config",
-                    data=json.dumps(payload).encode("utf-8"),
-                    headers={"Content-Type": "application/json"},
-                    method="POST",
-                )
-                with urllib.request.urlopen(request, timeout=5) as response:
-                    response.read()
-                message = "Receiver settings applied. Start SDR to use them."
-            except Exception as exc:
-                message = f"Receiver settings not applied: {exc}"
-            try:
-                self.after(0, lambda: self._rf_hardware_status.configure(text=message))
-            except RuntimeError:
-                pass
-
-        threading.Thread(target=worker, name="orc-rf-config", daemon=True).start()
+        self._rf_hardware_config.apply(
+            payload,
+            lambda: self._rf_status(
+                "Receiver settings applied. Start SDR to use them."),
+            lambda message: self._rf_status(
+                f"Receiver settings not applied: {message}"))
 
     def _save_rf_settings(self) -> None:
         save_rf_visualization_settings({
