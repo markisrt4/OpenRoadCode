@@ -17,42 +17,47 @@ its composition root owns the local geocoder and whiptail adapter. See
 
 OpenRoadCode deliberately separates semantic UI contracts, reusable behavior, reusable frontend rendering, application-specific presentation, host/platform adapters, and application composition so that a feature can be presented by Tk, web, Android, or another frontend without moving its controller logic into the application shell.
 
-## Application-wide error presentation
+## Application-wide notifications
 
-The integrated Tk shell owns application-level error dialogs in
-`apps/orcUi/frontend/tk/error_dialog.py`. `OrcUiApp.show_error(title, message)`
-is the entry point for presenting a recoverable or fatal error without writing
-error text into the radio spectrum, waterfall, browser viewport, or other
-embedded native surface. The dialog is a separate, themed `tk.Toplevel`
-window, is non-blocking, and has an explicit **DISMISS** control. A new error
-replaces the previous dialog rather than stacking windows. Call it from the Tk
-UI thread.
+Notifications are semantic events, not widget commands. The toolkit-independent
+contract lives in `ui/notification_if.py`: an immutable `Notification` carries
+`code`, `title`, `message`, `severity` (`info`, `warning`, `error`,
+`critical`), and `source`. A `NotificationSinkIf.publish(notification)`
+accepts these events. Controllers and adapters must not import Tkinter or draw
+errors into a native spectrum, waterfall, or browser surface.
 
-Application adapters should report failures through semantic presentation
-callbacks wired by composition, rather than importing Tk widgets. In
-particular, a failed ADS-B browser launch or unreachable local map service
-should be reported by the application shell, not by rendering the browser
-error page over the RF display. A failed ADS-B map does not imply an SDRForge
-receiver failure: the map service (typically port 8081) and SDRForge REST
-service (typically port 5570) are independent.
+The application composition injects `app.notification_sink` into the radio
+receiver session. ADS-B and RF launch failures publish distinct stable codes
+(`adsb.launch_failed` and `radio.launch_failed`). The composition-owned
+`apps/orcUi/notification_dispatcher.py` logs **every** notification,
+deduplicates on-screen delivery by source and code for five seconds, and
+schedules the presenter on the UI thread using `OrcUiApp.dispatch_ui`.
+Logging and deduplication are independent: repeated errors remain in logs.
 
-The current implementation routes RF and ADS-B launch exceptions from
-`ReceiverSession` through a composition-injected `on_error` callback to
-`OrcUiApp.show_error`. The session dispatches the callback on the Tk UI
-thread and clears the legacy inline error for these launch failures.
-`ADSBLauncher` already checks dashboard reachability before launching its
-browser, so an unreachable local map is rejected before embedding an error
-page. Transient toast notices and severity-specific presentation remain
-follow-up work; callers must not assume those behaviors already exist.
+The Tk application owns `apps/orcUi/frontend/tk/error_dialog.py`. It uses a
+separate themed, dismissible `tk.Toplevel`, never inline native content.
+The current presenter uses this dialog for all severities; severity-specific
+toasts, modal priority, and notification history are future enhancements.
+`OrcUiApp.show_error(title, message)` remains available for older callers,
+but new integrations should publish structured notifications.
 
-Example from application-shell UI code:
+Example from a controller with an injected `notification_sink`:
 
 ```python
-app.show_error(
-    "ADS-B Map Unavailable",
-    "The local ADS-B map service could not be reached.",
-)
+from ui.notification_if import Notification, NotificationSeverity
+
+notification_sink.publish(Notification(
+    code="adsb.launch_failed",
+    title="ADS-B Map Unavailable",
+    message="The local ADS-B map service could not be reached.",
+    severity=NotificationSeverity.ERROR,
+    source="adsb",
+))
 ```
+
+The ADS-B launcher checks dashboard reachability before embedding its browser.
+Its map service (typically port 8081) is independent of SDRForge REST (typically
+port 5570). Failure to reach the former must not be reported as an RF failure.
 
 ## Tk control chrome
 
