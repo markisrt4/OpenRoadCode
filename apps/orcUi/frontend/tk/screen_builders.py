@@ -30,6 +30,7 @@ from ui.navigation.navigation_places_request_handler_if import NavigationPlacesR
 
 from .navigation_panel import NavigationPanel
 from .settings_panel import SettingsPanel
+from ui.radio.rf_hardware_config_if import RfHardwareConfigIf
 from .shell_content import panel
 from .vehicle_panel import VehiclePanel
 
@@ -127,6 +128,7 @@ def build_settings_screen(
     theme: ThemeBundle,
     host_location_handler: HostLocationRequestHandlerIf | None = None,
     host_location_state: HostLocationState = HostLocationState(),
+    rf_hardware_config: RfHardwareConfigIf | None = None,
     performance_overlay_enabled: Callable[[], bool] | None = None,
     on_performance_overlay_changed: Callable[[bool], None] | None = None,
 ) -> SettingsPanel:
@@ -140,6 +142,7 @@ def build_settings_screen(
         theme_bundle=theme,
         host_location_handler=host_location_handler,
         host_location_state=host_location_state,
+        rf_hardware_config=rf_hardware_config,
         performance_overlay_enabled=performance_overlay_enabled,
         on_performance_overlay_changed=on_performance_overlay_changed,
     )
