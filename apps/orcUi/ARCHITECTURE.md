@@ -36,10 +36,14 @@ error page over the RF display. A failed ADS-B map does not imply an SDRForge
 receiver failure: the map service (typically port 8081) and SDRForge REST
 service (typically port 5570) are independent.
 
-The current implementation provides a reusable dismissible dialog and the
-shell entry point. Automatic ADS-B failure routing, transient toast notices,
-severity-specific presentation, and cross-thread dispatch are follow-up
-integration work; callers must not assume those behaviors already exist.
+The current implementation routes RF and ADS-B launch exceptions from
+`ReceiverSession` through a composition-injected `on_error` callback to
+`OrcUiApp.show_error`. The session dispatches the callback on the Tk UI
+thread and clears the legacy inline error for these launch failures.
+`ADSBLauncher` already checks dashboard reachability before launching its
+browser, so an unreachable local map is rejected before embedding an error
+page. Transient toast notices and severity-specific presentation remain
+follow-up work; callers must not assume those behaviors already exist.
 
 Example from application-shell UI code:
 
