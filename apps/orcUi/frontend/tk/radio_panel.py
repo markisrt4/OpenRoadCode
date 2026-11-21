@@ -61,6 +61,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._scan_drag_y: int | None = None
         self._scan_dragged = False
         self._scan_dismissed = False
+        self._scan_requested = False
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
@@ -547,6 +548,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             return
         action = RadioAction.STOP_SCAN if self._state.scanning else RadioAction.SCAN
         if action is RadioAction.SCAN:
+            self._scan_requested = True
             self._scan_signature = None
             self._scan_dismissed = False
             self._scan_selected.clear()
@@ -555,6 +557,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
     def _close_scan_results(self) -> None:
         self._scan_signature = None
         self._scan_dismissed = True
+        self._scan_requested = False
         self._scan_selected.clear()
         self._scan_card.place_forget()
         self._show_radio_info()
@@ -728,7 +731,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             self._receiver_signal_label.configure(text=state.scan_progress or ("SIGNAL  " + signal))
             if self._sdrforge_view is not None:
                 group = self._active_group.split(":", 1)[0]
-                if not self._scan_dismissed and (state.scanning or state.scan_hits):
+                if not self._scan_dismissed and (self._scan_requested or state.scanning or state.scan_hits):
                     self._station_info.grid_remove()
                     self._subcategory_strip.grid_remove()
                     self._scan_card.place(relx=1.0, rely=0, relheight=1.0,
