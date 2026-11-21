@@ -583,11 +583,12 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
 
     def _scan_touch_end(self, event: tk.Event) -> None:
         if not self._scan_dragged:
-            item = self._scan_canvas.find_closest(
-                self._scan_canvas.canvasx(event.x),
-                self._scan_canvas.canvasy(event.y))
+            x = self._scan_canvas.canvasx(event.x)
+            y = self._scan_canvas.canvasy(event.y)
+            # A tap on empty space must not select the nearest station.
+            item = self._scan_canvas.find_overlapping(x, y, x, y)
             if item:
-                tags = self._scan_canvas.gettags(item[0])
+                tags = self._scan_canvas.gettags(item[-1])
                 for tag in tags:
                     if tag.startswith("frequency_"):
                         self._toggle_scan_hit(int(tag.removeprefix("frequency_")))
