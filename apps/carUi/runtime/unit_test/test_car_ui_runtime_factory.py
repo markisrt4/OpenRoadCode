@@ -66,7 +66,9 @@ class RadioRuntimeFactoryTest(unittest.TestCase):
         self, load_radio_config, service_launcher, resource_manager
     ) -> None:
         load_radio_config.return_value = FakeRadioConfig(
-            label="FM Radio", default_mode=FakeMode(), presets=()
+            label="FM Radio",
+            default_mode=FakeMode(),
+            presets=(FakePreset("97.1 FM", 97_100_000, FakeMode()),),
         )
         runtime = build_car_ui_runtime(
             self._config(launcher="sdrforge")
