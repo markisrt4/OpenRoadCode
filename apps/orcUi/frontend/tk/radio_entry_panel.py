@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Top-level radio chooser and SDR++ presentation handoff for orcUi."""
+"""Top-level radio chooser and native radio presentation handoff for orcUi."""
 
 from __future__ import annotations
 
@@ -116,7 +116,7 @@ class RadioEntryPanel(tk.Frame, UiWidget):
         self._set_location("AIRBAND")
 
     def open_adsb(self) -> None:
-        """Present the ADS-B aircraft dashboard without starting SDR++ first."""
+        """Present the ADS-B aircraft dashboard without starting the RF receiver first."""
         self._chooser.grid_remove()
         if self._streaming_page is not None and self._streaming_page.winfo_exists():
             self._streaming_page.deactivate()
@@ -332,6 +332,6 @@ class RadioEntryPanel(tk.Frame, UiWidget):
         self._radio_panel.grid(row=0, column=0, sticky="nsew")
         self._radio_panel.launch()
 
-    def detach_sdrpp(self, parent_window_id: int) -> None:
+    def detach_native_client(self, parent_window_id: int) -> None:
         if self._radio_panel is not None:
             self._radio_panel.deactivate()
