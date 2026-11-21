@@ -12,6 +12,7 @@ from pathlib import Path
 from config.radio_config_manager import (RadioConfig, RadioModeConfig, RadioRangeConfig,
     RadioPresetConfig, RadioTileConfig, load_radio_config)
 from controllers.radio.sdrforge_radio_catalog_client import SdrforgeRadioCatalogClient
+from controllers.radio.sdrforge_readiness import SdrforgeNotReadyError
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _RADIO_ROOT = _PROJECT_ROOT / "config" / "radio"
@@ -81,7 +82,7 @@ class RadioProfileCatalog:
                     item.key, item.label, item.group,
                     _RADIO_ROOT / f"{item.key}.json", presets,
                 )
-        except (OSError, ValueError, KeyError, TypeError, IndexError):
+        except (OSError, ValueError, KeyError, TypeError, IndexError, SdrforgeNotReadyError):
             return False
         self._remote_configs = configs
         self._profiles = profiles
