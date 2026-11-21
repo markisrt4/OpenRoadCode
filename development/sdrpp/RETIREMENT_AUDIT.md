@@ -39,3 +39,28 @@ git ls-files | grep -Ei 'sdrpp|sdr_plus_plus'
 Before each deletion: remove imports and composition wiring, update targeted unit
 tests, run full relevant test suites on Ubuntu runners, then validate native
 spectrum/waterfall reset and real USB disconnect/reconnect on hardware.
+
+## Branch consolidation decision (2026-11-21)
+
+The authoritative integration branch is `feature/sdrforge-native-spectrum`.
+Do not reset, replace, or wholesale merge it with any of the branches below.
+
+| Branch | Disposition | Evidence / constraints |
+| --- | --- | --- |
+| `feature/sdrforge-spectrum-ui` | Eligible for retirement | The spectrum normalizer and its unit-test file have identical Git blob SHAs on the integration branch; review its `AGENTS.md` change separately before deletion if needed. |
+| `feature/sdrforge-managed-termux` | Eligible for retirement after final service-test review | Current runit launcher explicitly requires Android-authorized USB handoff for real hardware and uses the radio-region wrapper; current service manager has source-switching and readiness handling. Do not restore older direct hardware startup. |
+| `native-sdr-radio` | Legacy, retirement candidate | ORC-native DSP and RDS implementations preceded the independent libSDRForge library. Do not reintroduce duplicate DSP into ORC. |
+| `feature/libsdrforge-extraction-plan` | Legacy, retirement candidate | Exactly one documentation commit ahead of `native-sdr-radio`, containing the historical extraction plan. Preserve that document before branch deletion if historical context is required. |
+| `android-rtl-tcp-source` | Legacy, retirement candidate | Contains old SDR++ RTL USB proxy experiments. Current design uses Android USB authorization and Termux libSDRForge acquisition. Review non-SDR changes before deleting this branch. |
+| `feature/noaa-rf-weather-provider` | **Excluded** | Separate recent NOAA RF weather work. Do not merge, delete, or alter as part of this retirement. |
+
+Branch retirement must not remove files from the current integration branch.
+Remote branch deletion requires explicit verification that no unique desired work or open PR depends on the branch.
+
+### Current SDR++ blockers confirmed in integration branch
+
+- `apps/orcUi/composition/radio.py` retains the legacy SDR++ fallback, theme synchronization, and X11 embedding path.
+- `controllers/radio/rf_radio_session.py` still handles SDR++ embedding and legacy telemetry.
+- `apps/carUi/radio/radio_session_controller.py` still imports `SDRTelemetryMonitor` and uses legacy rigctl readiness wording.
+
+Keep these components until their consumers have migrated to native SDRForge contracts and regression coverage.
