@@ -100,6 +100,11 @@ class SdrForgeReceiverView(tk.Frame):
             relief=tk.FLAT, bd=0, padx=6, pady=3, font=("Sans", 9, "bold"))
         self._recenter_button.pack(side="left", padx=(4, 2))
         self._update_recenter_button()
+        # Secondary status belongs with the spectrum tools, not the MHz heading.
+        self._mode_label = tk.Label(
+            self._spectrum_controls, text="", bg=theme.ui.surface,
+            fg=theme.ui.text_muted, font=("Sans", 9))
+        self._mode_label.pack(side="right", padx=(8, 10))
         self._toolbar_toggle = tk.Button(
             self, text="HIDE ◀", command=self._toggle_spectrum_toolbar,
             bg=theme.ui.control_background, fg=theme.ui.text,
@@ -407,10 +412,8 @@ class SdrForgeReceiverView(tk.Frame):
         # Demodulation is determined by the active radio profile, never
         # selected independently in the spectrum UI.
         mode = "WFM" if self._mode in ("FM", "WFM") else self._mode
-        if mode in ("WFM", "NFM", "AM"):
-            canvas.create_text(w - 14, 12, anchor="ne",
-                               text=f"MODE  {mode}", fill=ui.accent_primary,
-                               font=("Sans", 11 if compact else 13, "bold"))
+        self._mode_label.configure(
+            text=f"MODE {mode}" if mode else "")
         if mode == "WFM":
             canvas.create_text(w - 14, header - 8, anchor="se",
                                text="● STEREO" if self._stereo else "MONO",
