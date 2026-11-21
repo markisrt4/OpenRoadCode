@@ -12,6 +12,7 @@ import urllib.error
 
 from controllers.radio.radio_profile_controller import RadioProfileController
 from typing import Protocol
+from ui.notification_if import Notification, NotificationSeverity, NotificationSinkIf
 from ui.radio.radio_profile_state import RadioProfileState
 from ui.radio.sdrforge_spectrum_if import SpectrumSourceIf, SpectrumPresentationIf
 from ui.radio.rf_radio_if import (
@@ -55,7 +56,7 @@ class ReceiverSession:
                  on_close: Callable[[], None] = lambda: None,
                  spectrum_source: SpectrumSourceIf | None = None,
                  native_sdrforge: bool = False,
-                 on_error: Callable[[str, str], None] | None = None) -> None:
+                 notification_sink: NotificationSinkIf | None = None) -> None:
         self._native_sdrforge = native_sdrforge
         self._spectrum_source = spectrum_source
         self._radio = radio
@@ -68,7 +69,7 @@ class ReceiverSession:
         self._run_work = run_work
         self._run_ui = run_ui
         self._on_close = on_close
-        self._on_error = on_error
+        self._notification_sink = notification_sink
         self._lock = Lock()
         self._native_lock = RLock()
         self._generation = 0
@@ -192,13 +193,18 @@ class ReceiverSession:
                             self._cleanup_native()
                     except (OSError, RuntimeError, ValueError) as cleanup_error:
                         message += f"; cleanup: {cleanup_error}"
-                if self._on_error is not None and request.action in (
+                if self._notification_sink is not None and request.action in (
                     RadioAction.LAUNCH, RadioAction.ADSB,
                 ):
-                    title = ("ADS-B Map Unavailable" if request.action is RadioAction.ADSB
-                             else "Radio Launch Failed")
-                    self._run_ui(lambda: self._on_error(title, message)
-                                 if self._current(generation) else None)
+                    adsb = request.action is RadioAction.ADSB
+                    notification = Notification(
+                        code="adsb.launch_failed" if adsb else "radio.launch_failed",
+                        title="ADS-B Map Unavailable" if adsb else "Radio Launch Failed",
+                        message=message,
+                        severity=NotificationSeverity.ERROR,
+                        source="adsb" if adsb else "radio",
+                    )
+                    self._notification_sink.publish(notification)
                     self._state = replace(self._state, loading=False, error="")
                 else:
                     self._state = replace(self._state, loading=False, error=message)
