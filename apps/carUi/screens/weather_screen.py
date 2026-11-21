@@ -66,6 +66,9 @@ class WeatherScreen(CarUiScreen):
     def hide(self) -> None:
         if self.noaa_panel is not None:
             self.noaa_panel.stop_radio_status_polling()
+        if self.noaa_session is not None:
+            self.noaa_session.close()
+            self.noaa_session = None
 
     def show(self) -> None:
         if not self.prepare_screen("Weather", self._home_action):
