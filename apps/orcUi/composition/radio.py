@@ -30,6 +30,7 @@ from controllers.radio.native_radio_control import NativeRadioControl
 from apps.orcUi.frontend.tk.radio_panel import RadioPanel
 from controllers.radio.adapters.sdrforge_zmq_spectrum_adapter import SdrForgeTelemetrySubscriber
 from controllers.radio.radio_profile_controller import RadioProfileController
+from protocols.rigctl.rigctl_client import RigctlClient
 from controllers.radio.streaming_radio_favorites import StreamingRadioFavorites
 from controllers.radio.streaming_radio_browser import StreamingRadioBrowser
 from controllers.radio.streaming_radio_artwork import download_station_artwork
@@ -121,6 +122,7 @@ class RadioComposition:
     home_factory: Callable[[tk.Misc], tk.Widget]
     open_weather_radio: Callable[[], None]
     streaming_resources: StreamingRadioResources
+    rigctl_client: RigctlClient | None = None
 
     def close(self) -> None:
         """Retire browser sessions and workers; runtime retains playback ownership."""
@@ -131,6 +133,7 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
     """Compose radio UI against runtime-owned playback and SDR services."""
 
     with ResourceCleanup() as cleanup:
+        rigctl_client = RigctlClient()
         def sync_theme(mode: ThemeMode) -> None:
             def work() -> None:
                 # Native SDRForge uses the ORC theme directly. Only the
@@ -193,7 +196,7 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
         def rf_panel_factory(parent: tk.Misc, theme: ThemeBundle) -> RadioPanel:
             if resources.closed:
                 raise RuntimeError("Radio composition is closed")
-            radio = RadioProfileController()
+            radio = RadioProfileController(client=rigctl_client)
             visualization = RadioVisualizationConfig(
                 renderer=RadioRenderer(os.environ.get("ORC_RADIO_RENDERER", "auto").lower()),
                 waterfall_rows=int(os.environ.get("ORC_RADIO_WATERFALL_ROWS", "180")),
@@ -380,6 +383,7 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
             home_factory=home_radio_factory,
             open_weather_radio=open_weather_radio,
             streaming_resources=resources,
+            rigctl_client=rigctl_client,
         )
         cleanup.release()
     return composition
