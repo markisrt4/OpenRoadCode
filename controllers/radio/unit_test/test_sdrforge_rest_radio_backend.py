@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import unittest
+from urllib.error import URLError
 from unittest.mock import patch
 
 from controllers.radio.adapters.sdrforge_rest_radio_backend import SdrForgeRestRadioBackend
@@ -38,6 +39,42 @@ class SdrForgeRestRadioBackendTest(unittest.TestCase):
             ("/v1/receiver/mode", {"mode": "WFM", "bandwidth_hz": 200000}),
             ("/v1/receiver/stop", {}),
         ])
+
+
+    def test_transient_read_reconnects_once(self) -> None:
+        failure = RuntimeError("connection lost")
+        failure.__cause__ = URLError("refused")
+        with patch.object(self.backend, "_request_once",
+                          side_effect=[failure, {"frequency_hz": 94700000}]) as request:
+            with patch.object(self.backend, "wait_until_ready") as ready:
+                self.assertEqual(self.backend.get_frequency(), 94700000)
+        ready.assert_called_once_with(timeout=3.0)
+        self.assertEqual(request.call_count, 2)
+
+    def test_mutation_is_never_replayed_after_connection_loss(self) -> None:
+        failure = RuntimeError("connection lost")
+        failure.__cause__ = URLError("refused")
+        with patch.object(self.backend, "_request_once", side_effect=failure) as request:
+            with patch.object(self.backend, "wait_until_ready") as ready:
+                with self.assertRaises(RuntimeError):
+                    self.backend.set_frequency(94700000)
+        request.assert_called_once()
+        ready.assert_not_called()
+
+    def test_health_returns_false_when_server_is_offline(self) -> None:
+        with patch.object(self.backend, "_request_once",
+                          side_effect=RuntimeError("offline")):
+            self.assertFalse(self.backend.health())
+
+    def test_malformed_read_is_not_replayed(self) -> None:
+        failure = RuntimeError("invalid JSON")
+        failure.__cause__ = ValueError("invalid")
+        with patch.object(self.backend, "_request_once", side_effect=failure) as request:
+            with patch.object(self.backend, "wait_until_ready") as ready:
+                with self.assertRaises(RuntimeError):
+                    self.backend.receiver_status()
+        request.assert_called_once()
+        ready.assert_not_called()
 
     def test_invalid_frequency_does_not_call_service(self) -> None:
         with patch.object(self.backend, "_request") as request:
