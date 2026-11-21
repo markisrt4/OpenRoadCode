@@ -35,7 +35,7 @@ AIRCRAFT_PANEL_THEME = {
             "action": "airband",
             "title": "AIRBAND AM",
             "subtitle": "Aircraft chatter",
-            "detail": "Launch SDR++ airband receiver",
+            "detail": "Check SDRForge airband receiver",
         },
     ),
 }
