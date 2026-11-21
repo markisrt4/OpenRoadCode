@@ -183,4 +183,8 @@ fi
 echo "[*] Installing shared music-analysis engine..."
 bash "$SCRIPT_DIR/install_libmusicforge.sh"
 
+if [[ " ${FEATURES[*]} " == *" sdrforge "* ]]; then
+  bash "$SCRIPT_DIR/install_libsdrforge.sh"
+fi
+
 deactivate
