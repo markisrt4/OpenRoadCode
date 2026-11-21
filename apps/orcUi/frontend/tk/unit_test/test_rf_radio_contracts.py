@@ -141,7 +141,12 @@ def test_empty_scan_keeps_discovery_card_open_until_closed():
     )
     panel.set_radio_state(panel._state)
     panel._scan_card.place.assert_called()
-    panel._scan_status.configure.assert_called_with(text="No stations found")
+    panel._scan_status.configure.assert_called_with(text="0 stations found")
+    # A stale progress message must not override the completed result count.
+    from dataclasses import replace
+
+    panel.set_radio_state(replace(panel._state, scan_progress="Scanning 100%"))
+    panel._scan_status.configure.assert_called_with(text="0 stations found")
     panel._close_scan_results()
     assert not panel._scan_requested
     panel._scan_card.place_forget.assert_called()
