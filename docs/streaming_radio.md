@@ -2,7 +2,7 @@
 
 ## Overview
 
-Streaming Radio adds internet station discovery and audio playback to the ORC Radio screen without replacing the SDR++ RF path. The Radio chooser offers RF Radio and Streaming Radio. The streaming browser provides Local, Regional, and Favorites views plus filtering, station artwork, selection, playback controls, and shared Home now-playing state.
+Streaming Radio adds internet station discovery and audio playback to the ORC Radio screen without replacing the SDRForge RF path. The Radio chooser offers RF Radio and Streaming Radio. The streaming browser provides Local, Regional, and Favorites views plus filtering, station artwork, selection, playback controls, and shared Home now-playing state.
 
 Radio Browser supplies station discovery and current metadata. mpv supplies audio playback. Internet access is required for directory requests and remote streams; the streaming path itself does not require an SDR receiver.
 
@@ -42,7 +42,7 @@ flowchart TD
     class player orcAdapter;
 ```
 
-`OrcUiApplicationRuntime` owns playback lifetime and stops streaming playback during application cleanup. `RadioComposition` owns feature-scoped presentation dependencies such as the directory, favorites store, and screen. The shell exposes neutral Home and screen-host contracts; it does not construct Radio Browser, mpv, favorites, or SDR++ services itself.
+`OrcUiApplicationRuntime` owns playback lifetime and stops streaming playback during application cleanup. `RadioComposition` owns feature-scoped presentation dependencies such as the directory, favorites store, and screen. The shell exposes neutral Home and screen-host contracts; it does not construct Radio Browser, mpv, favorites, or SDRForge services itself.
 
 Favorites are intentionally separate from station metadata. `StreamingRadioFavorites` stores only stable Radio Browser station UUIDs. When Favorites is opened, `RadioBrowserDirectory.stations_by_ids()` resolves those UUIDs to current names, stream URLs, artwork, and other metadata. This avoids persisting stale stream URLs or duplicating directory records locally.
 
