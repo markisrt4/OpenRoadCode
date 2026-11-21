@@ -234,9 +234,12 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             self._info_text.pack(fill=tk.X)
             # Discovery occupies the existing right-hand information slot.
             # Canvas provides touch and wheel navigation with no visible scrollbar.
-            self._scan_card = tk.Frame(self._receiver_controls, bg=ui.surface)
-            self._scan_card.grid(row=1, column=0, columnspan=2,
-                                 sticky="nsew", padx=5, pady=4)
+            # Full-height overlay over the right sidebar, not a cramped grid row.
+            # The spectrum keeps its width and the discovery list gets the
+            # entire available radio workspace height.
+            self._scan_card = tk.Frame(
+                self._body, bg=ui.surface, highlightthickness=1,
+                highlightbackground=ui.border)
             scan_header = tk.Frame(self._scan_card, bg=ui.surface)
             scan_header.pack(fill=tk.X)
             tk.Label(scan_header, text="STATION DISCOVERY", bg=ui.surface,
@@ -244,7 +247,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             tk.Button(scan_header, text="CLOSE", command=self._close_scan_results,
                       bg=ui.control_background, fg=ui.text, relief=tk.FLAT).pack(side=tk.RIGHT)
             self._scan_canvas = tk.Canvas(self._scan_card, bg=ui.surface,
-                                           highlightthickness=0, height=92)
+                                           highlightthickness=0)
             self._scan_canvas.pack(fill=tk.BOTH, expand=True)
             self._scan_canvas.bind("<ButtonPress-1>", self._scan_touch_start)
             self._scan_canvas.bind("<B1-Motion>", self._scan_touch_move)
@@ -256,7 +259,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                 command=self._save_scanned_presets, bg=ui.control_background,
                 fg=ui.text, relief=tk.FLAT)
             self._scan_save.pack(fill=tk.X, pady=(3, 0))
-            self._scan_card.grid_remove()
+            self._scan_card.place_forget()
             self._bands_heading = tk.Label(self._receiver_controls, text="BANDS", bg=ui.surface,
                      fg=ui.accent_primary, font=("Sans", 11, "bold"),
                      anchor="w", padx=10, pady=2)
@@ -547,7 +550,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._scan_signature = None
         self._scan_dismissed = True
         self._scan_selected.clear()
-        self._scan_card.grid_remove()
+        self._scan_card.place_forget()
         self._show_radio_info()
 
     def _show_radio_info(self) -> None:
@@ -707,13 +710,15 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                 if not self._scan_dismissed and (state.scanning or state.scan_hits):
                     self._station_info.grid_remove()
                     self._subcategory_strip.grid_remove()
-                    self._scan_card.grid()
+                    self._scan_card.place(relx=1.0, rely=0, relheight=1.0,
+                                          width=320, anchor="ne")
+                    self._scan_card.lift()
                     signature = state.scan_hits
                     if signature != self._scan_signature:
                         self._scan_signature = signature
                         self._render_scan_results()
                 elif group in ("FM", "WEATHER"):
-                    self._scan_card.grid_remove()
+                    self._scan_card.place_forget()
                     self._subcategory_strip.grid_remove()
                     self._station_info.grid()
                     name = state.telemetry.station_name.strip()
@@ -729,7 +734,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                         self._info_text.configure(text="Weather broadcast • " +
                             ("Stereo" if state.telemetry.stereo_locked else "Mono"))
                 else:
-                    self._scan_card.grid_remove()
+                    self._scan_card.place_forget()
                     self._station_info.grid_remove()
                     self._subcategory_strip.grid()
 
