@@ -241,7 +241,7 @@ class RadioSessionController(
                         self._active_preset = self._match_preset(frequency_hz)
                     signal_strength = telemetry.signal_db
                     snr = telemetry.snr_db
-                    if mode_name == "WFM":
+                    if mode_name is not None and mode_name.upper() in ("FM", "WFM"):
                         rds = telemetry.radio_text or telemetry.rds or None
             except (OSError, RuntimeError, ValueError):
                 pass
