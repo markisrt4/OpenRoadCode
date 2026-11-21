@@ -107,6 +107,19 @@ class RadioProfileCatalog:
         self._profiles = profiles
 
     def add_user_preset(self, profile_key: str, *, label: str, frequency_hz: int, mode_name: str | None = None, bandwidth: int | None = None, step_hz: int | None = None) -> RadioProfilePreset:
+        if self._remote_configs:
+            remote = SdrforgeRadioCatalogClient()
+            default = self.config_for(profile_key).default_mode
+            mode = {"name": mode_name or default.name,
+                    "bandwidth_hz": bandwidth if bandwidth is not None else default.bandwidth,
+                    "step_hz": step_hz if step_hz is not None else default.step_hz}
+            created = remote.create_preset(profile_key=profile_key, label=label,
+                                          frequency_hz=frequency_hz, mode=mode)
+            self.reload()
+            selected = created["mode"]
+            return RadioProfilePreset(created["label"], created["frequency_hz"],
+                                      selected["name"], selected["bandwidth_hz"],
+                                      selected["step_hz"], True)
         if not label.strip(): raise ValueError("preset label must not be empty")
         if frequency_hz <= 0: raise ValueError("preset frequency must be greater than zero")
         profile = self.profile(profile_key)
@@ -122,6 +135,18 @@ class RadioProfileCatalog:
         return self.profile(profile_key).presets[-1]
 
     def remove_user_preset(self, profile_key: str, *, label: str, frequency_hz: int) -> bool:
+        if self._remote_configs:
+            remote = SdrforgeRadioCatalogClient()
+            selected = next((preset for profile in remote.profiles()
+                             if profile.key == profile_key for preset in profile.presets
+                             if preset.user_defined and preset.label == label
+                             and preset.frequency_hz == frequency_hz), None)
+            if selected is None:
+                return False
+            removed = remote.delete_preset(selected.id)
+            if removed:
+                self.reload()
+            return removed
         data = self._load_user_presets(); entries = data.get(profile_key, [])
         remaining = [item for item in entries if not (str(item.get("label", "")) == label and int(item.get("frequency_hz", 0)) == int(frequency_hz))]
         if len(remaining) == len(entries): return False
