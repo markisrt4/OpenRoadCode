@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import json
+import re
 import socket
 import subprocess
 import time
@@ -39,6 +40,8 @@ class ServiceStatus:
     profile_labels: dict[str, str] | None = None
     input_state: str | None = None
     input_detail: str | None = None
+    readiness: str | None = None
+    readiness_detail: str | None = None
 
 
 class RunitServiceManager:
@@ -85,6 +88,7 @@ class RunitServiceManager:
             state = "unknown"
         profile = self.profile(name)
         input_state, input_detail = self._input_health(name, state, profile)
+        readiness, readiness_detail = self._readiness(name, state, detail)
         return ServiceStatus(
             name=name,
             state=state,
@@ -100,7 +104,35 @@ class RunitServiceManager:
             ),
             input_state=input_state,
             input_detail=input_detail,
+            readiness=readiness,
+            readiness_detail=readiness_detail,
         )
+
+    @staticmethod
+    def _readiness(name: str, state: str, detail: str) -> tuple[str | None, str | None]:
+        """Report SDRForge HTTP readiness without blocking service-manager requests.
+
+        Preserve runit's process state for existing clients. An unreachable API
+        is starting during its first ten seconds, then failed. A running
+        process alone never counts as ready.
+        """
+        if name != "openroadcode-sdrforge":
+            return None, None
+        if state != "running":
+            return ("stopped" if state == "stopped" else "unknown",
+                    "SDRForge service is not running")
+        try:
+            with urlopen("http://127.0.0.1:5570/v1/health", timeout=0.3) as response:
+                payload = json.load(response)
+            if isinstance(payload, dict) and payload.get("status") == "ok":
+                return "ready", "SDRForge REST API is healthy"
+        except (OSError, ValueError):
+            pass
+        match = re.search(r"\\(pid \\d+\\) (\\d+)s", detail)
+        uptime = int(match.group(1)) if match else None
+        if uptime is not None and uptime >= 10:
+            return "failed", "SDRForge REST API is not healthy after startup"
+        return "starting", "Waiting for SDRForge REST API"
 
     def all_status(self) -> tuple[ServiceStatus, ...]:
         return tuple(self.status(name) for name in self.SERVICES)
