@@ -90,6 +90,10 @@ class SystemMetricsPanel(tk.Frame, UiWidget):
         self._battery = tk.Label(self, text="", bg=ui.surface, fg=ui.text_muted,
                                  anchor="w", font=("Sans", 11, "bold"), padx=10, pady=6)
         self._battery.grid(row=4, column=0, columnspan=4, sticky="ew", padx=5, pady=4)
+        self._io = tk.Label(self, text="Storage and network: waiting for samples",
+                            bg=ui.background, fg=ui.text_muted, anchor="w",
+                            justify=tk.LEFT, font=("Sans", 9))
+        self._io.grid(row=5, column=0, columnspan=4, sticky="ew", padx=5, pady=2)
 
     def _metric(
         self,
@@ -167,6 +171,17 @@ class SystemMetricsPanel(tk.Frame, UiWidget):
         else:
             self._battery.grid()
         self._identity.configure(text=f"{snapshot.hostname or 'Computing unit'}   {snapshot.platform}")
+        uptime = ("--" if snapshot.uptime_seconds is None
+                  else f"{snapshot.uptime_seconds / 3600:.1f} h")
+        self._io.configure(text=(
+            f"STORAGE  {_percent(snapshot.disk_used_percent)} used · "
+            f"{_number(snapshot.disk_free_gb, 1)}/{_number(snapshot.disk_total_gb, 1)} GiB free/total"
+            f" · R {_rate(snapshot.disk_read_bytes_per_second)}"
+            f" · W {_rate(snapshot.disk_write_bytes_per_second)}"
+            f"\nNETWORK  RX {_rate(snapshot.network_receive_bytes_per_second)}"
+            f" · TX {_rate(snapshot.network_transmit_bytes_per_second)}"
+            f" · UPTIME {uptime}"
+        ))
         self._process.configure(text=(
             f"This process (PID {snapshot.process_id or '--'}): "
             f"{_percent(snapshot.process_cpu_percent)} CPU   ·   100% = one core; excludes other processes"
@@ -309,7 +324,11 @@ def _number(value: float | None, digits: int) -> str:
 
 
 def _rate(value: float | None) -> str:
-    return "--" if value is None else f"{value / 1024:.0f} KiB/s"
+    if value is None:
+        return "--"
+    if value >= 1024 * 1024:
+        return f"{value / (1024 * 1024):.1f} MiB/s"
+    return f"{value / 1024:.1f} KiB/s"
 
 
 def pressure_color(ui, percent: float | None) -> str:
