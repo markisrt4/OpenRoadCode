@@ -130,9 +130,9 @@ class ScannerScreen(CarUiScreen):
             key=runtime.key,
             title=band.title,
             launch_tile=RadioPanelTileConfig(
-                label="Launch SDR++",
-                subtitle=f"{band.title} receiver",
-                detail="Starts / toggles SDR++",
+                label="SDRForge Status",
+                subtitle="Shared radio service",
+                detail="Check shared SDRForge service",
             ),
             radio_toggle_tile=RadioPanelTileConfig(
                 label="Radio ON/OFF",
