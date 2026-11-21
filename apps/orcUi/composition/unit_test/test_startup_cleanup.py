@@ -85,7 +85,7 @@ def test_runtime_closes_media_and_apps_when_streaming_close_fails():
 def test_runtime_preserves_earth_policy_and_terminal_cleanup(earth_enabled):
     from apps.orcUi.application_runtime import create_orc_ui_application_runtime
 
-    names = ("ApplicationsConfigParser", "AppRuntimeManager", "ManagedSDRPPLauncher",
+    names = ("ApplicationsConfigParser", "AppRuntimeManager", "NativeRadioApplicationService",
              "BrowserApplicationFactory", "GoogleEarthLauncher", "StreamingRadioController",
              "MpvStreamingAudioPlayer", "MediaApplicationService", "create_spotify_controller")
     with ExitStack() as stack:
@@ -95,6 +95,8 @@ def test_runtime_preserves_earth_policy_and_terminal_cleanup(earth_enabled):
         config.app.side_effect = lambda key: Mock(enabled=earth_enabled, fullscreen=False)
         runtime = create_orc_ui_application_runtime()
         manager = factories["AppRuntimeManager"].return_value
+        assert runtime.radio is factories["NativeRadioApplicationService"].return_value
+        assert all(call.args[0] != "sdrpp" for call in manager.register.call_args_list)
         earth_factory = factories["GoogleEarthLauncher"]
         if earth_enabled:
             assert runtime.earth is earth_factory.return_value
@@ -112,7 +114,7 @@ def test_earth_construction_failure_rolls_back_application_manager():
 
     with patch("apps.orcUi.application_runtime.ApplicationsConfigParser"), patch(
         "apps.orcUi.application_runtime.AppRuntimeManager") as manager, patch(
-        "apps.orcUi.application_runtime.ManagedSDRPPLauncher"), patch(
+        "apps.orcUi.application_runtime.NativeRadioApplicationService"), patch(
         "apps.orcUi.application_runtime.BrowserApplicationFactory"), patch(
         "apps.orcUi.application_runtime.GoogleEarthLauncher", side_effect=RuntimeError("Earth startup")):
         with pytest.raises(RuntimeError, match="Earth startup"):
