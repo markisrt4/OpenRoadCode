@@ -35,12 +35,6 @@ class RadioDisplayControlIf(Protocol):
     def themes(self) -> tuple[str, ...]: ...
 
 
-class LegacyRadioTelemetryIf(Protocol):
-    """Optional SDR++ telemetry, used only for an embedded legacy window."""
-
-    def read_state(self, *, include_rds: bool) -> RadioTelemetry: ...
-
-
 class ReceiverSession:
     """Use a composition-owned serial executor for shared receiver/native operations.
 
@@ -49,19 +43,16 @@ class ReceiverSession:
     """
 
     def __init__(self, radio: RadioProfileController, control: RadioDisplayControlIf,
-                 telemetry: LegacyRadioTelemetryIf | None, application: RadioApplication,
+                 application: RadioApplication,
                  aircraft: AircraftPresentation, surface: RadioNativeSurface, *,
                  display: str, run_work: Callable[[Callable[[], None]], None],
                  run_ui: Callable[[Callable[[], None]], None],
                  on_close: Callable[[], None] = lambda: None,
                  spectrum_source: SpectrumSourceIf | None = None,
-                 native_sdrforge: bool = False,
                  notification_sink: NotificationSinkIf | None = None) -> None:
-        self._native_sdrforge = native_sdrforge
         self._spectrum_source = spectrum_source
         self._radio = radio
         self._control = control
-        self._telemetry = telemetry
         self._application = application
         self._aircraft = aircraft
         self._surface = surface
@@ -227,7 +218,7 @@ class ReceiverSession:
         self._run_ui(deliver)
 
     def _launch(self, request: RadioRequest, generation: int) -> None:
-        if request.action is RadioAction.LAUNCH and self._native_sdrforge:
+        if request.action is RadioAction.LAUNCH:
             # The native Tk receiver already exists; never launch or embed SDR++.
             # ADS-B still uses the existing native-window lifecycle.
             with self._native_lock:
@@ -247,33 +238,21 @@ class ReceiverSession:
             self._cleanup_native()
         self._state = replace(self._state, loading=True, error="")
         self._publish(generation)
-        if request.action is RadioAction.ADSB:
-            self._application.relinquish_for_adsb()
-            with self._native_lock:
-                if not self._current(generation):
-                    return
-                self._aircraft.assert_available()
-                self._aircraft.set_preferred_color_scheme(request.color_scheme)
-                self._aircraft.configure_browser_window(position=(host.x, host.y), size=(host.width, host.height))
-                self._aircraft.launch(self._display)
-                self._native_view = "adsb"
-            process_id, window_class = 0, "OpenRoadCodeADSB"
-        else:
-            self._application.present()
+        self._application.relinquish_for_adsb()
+        with self._native_lock:
             if not self._current(generation):
                 return
-            if self._application.fullscreen:
-                self._state = replace(self._state, view="fullscreen", loading=False)
-                return
-            process_id = self._application.window_process_id(timeout_seconds=2.0)
-            window_class = "sdrpp"
+            self._aircraft.assert_available()
+            self._aircraft.set_preferred_color_scheme(request.color_scheme)
+            self._aircraft.configure_browser_window(position=(host.x, host.y), size=(host.width, host.height))
+            self._aircraft.launch(self._display)
+            self._native_view = "adsb"
         with self._native_lock:
             if not self._current(generation):
                 self._cleanup_native()
                 return
-            self._native_view = "adsb" if window_class == "OpenRoadCodeADSB" else "sdrpp"
-            self._surface.embed(process_id, host.window_id, host.width, host.height,
-                                window_class=window_class, relax_size_hints=window_class == "sdrpp",
+            self._surface.embed(0, host.window_id, host.width, host.height,
+                                window_class="OpenRoadCodeADSB", relax_size_hints=False,
                                 cancelled=lambda: not self._current(generation))
             if not self._current(generation):
                 self._cleanup_native()
@@ -368,15 +347,14 @@ class ReceiverSession:
                                else self._state.error),
                     )
                 except (OSError, ValueError, RuntimeError) as exc:
-                    if self._native_sdrforge:
-                        # REST is authoritative for acquisition. A disconnected
-                        # service must not leave the last receiver marked running.
-                        self._rest_receiver_running = False
-                        self._state = replace(
-                            self._state, receiver_running=False,
-                            receiver_starting=False, telemetry=RadioTelemetry(),
-                            error=f"SDRForge service unavailable: {exc}",
-                        )
+                    # REST is authoritative for acquisition. A disconnected
+                    # service must not leave the last receiver marked running.
+                    self._rest_receiver_running = False
+                    self._state = replace(
+                        self._state, receiver_running=False,
+                        receiver_starting=False, telemetry=RadioTelemetry(),
+                        error=f"SDRForge service unavailable: {exc}",
+                    )
                 try:
                     # A successful rigctl frequency read must not erase a
                     # receiver startup failure reported by REST.
@@ -385,9 +363,6 @@ class ReceiverSession:
                     # Preserve the last valid station during transient rigctl failures.
                     # REST remains authoritative for acquisition state.
                     pass
-            if self._native_view == "sdrpp" and self._telemetry is not None:
-                self._state = replace(self._state, telemetry=self._telemetry.read_state(
-                    include_rds=self._radio.active_profile_key == "fm_radio"))
             return
         if self._native_view == "adsb":
             self._launch(RadioRequest(RadioAction.LAUNCH), generation)
