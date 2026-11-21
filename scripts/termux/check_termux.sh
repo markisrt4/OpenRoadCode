@@ -54,6 +54,10 @@ if [[ -x "$VENV_DIR/bin/python" ]]; then
     echo "[!] libMusicForge analyzer unavailable in $VENV_DIR" >&2
     fail=1
   fi
+  if [[ " ${FEATURES[*]} " == *" sdrforge "* ]] && ! "$VENV_DIR/bin/python" -c "import sdrforge, scipy, zmq"; then
+    echo "[!] SDRForge dependencies unavailable" >&2
+    fail=1
+  fi
   if [[ " ${FEATURES[*]} " == *" development "* ]]; then
     echo "[*] Ruff is optional on Termux; the quality gate skips it when unavailable."
     for quality_tool in pytest mypy; do
