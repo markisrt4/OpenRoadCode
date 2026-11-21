@@ -105,7 +105,7 @@ class RadioSessionController(
             )
 
             if running:
-                self._status(f"{self._config.title} app launched")
+                self._status(f"{self._config.title} service ready")
             else:
                 self._receiver_started = False
                 self._status(f"{self._config.title} app stopped")
