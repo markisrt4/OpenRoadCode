@@ -10,6 +10,7 @@ from apps.carUi.radio.radio_session_config import RadioSessionConfig
 from controllers.radio.radio_controller_stub import RadioControllerStub
 from ui.radio.radio_types import (RadioPreset)
 from ui.radio import RadioUiStub, TunedSignal
+from ui.radio.rf_radio_if import RadioTelemetry
 
 
 class RecordingRadioUi(RadioUiStub):
@@ -80,6 +81,31 @@ class RadioSessionControllerTest(unittest.TestCase):
     def test_attach_populates_presets_and_handlers(self) -> None:
         self.assertEqual([preset.label for preset in self.ui.presets], ["Test FM"])
         self.assertEqual(self.ui.handlers, [self.session] * 6)
+
+    def test_sdrforge_receiver_telemetry_updates_frequency_and_rds(self) -> None:
+        self.session._receiver_telemetry = lambda: RadioTelemetry(
+            frequency_hz=88_100_000, radio_text="Station text", mode="WFM"
+        )
+        state = self.session.refresh_state()
+        self.assertEqual(state.frequency_hz, 88_100_000)
+        self.assertEqual(state.rds, "Station text")
+        self.assertIsNone(state.signal_strength)
+        self.assertIsNone(state.snr)
+
+    def test_sdrforge_rds_is_hidden_outside_wfm(self) -> None:
+        self.session._receiver_telemetry = lambda: RadioTelemetry(
+            frequency_hz=88_100_000, radio_text="FM-only metadata"
+        )
+        self.session._current_mode_name = lambda: "AM"
+        self.assertIsNone(self.session.refresh_state().rds)
+
+    def test_telemetry_cleanup_is_idempotent(self) -> None:
+        calls: list[str] = []
+        self.session.own_telemetry(lambda: calls.append("closed"))
+        self.session.close()
+        self.session.close()
+        self.assertEqual(calls, ["closed"])
+        self.assertIsNone(self.session._receiver_telemetry)
 
     def test_play_and_refresh_publish_generic_ui_state(self) -> None:
         self.session.request_play()
