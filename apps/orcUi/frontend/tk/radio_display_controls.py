@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""SDR++ display-control drawer behavior for the ORC radio panel."""
+"""Native display-control drawer behavior for the ORC radio panel."""
 
 import tkinter as tk
 from functools import partial
@@ -13,7 +13,7 @@ from .shell_metrics import FONT_CONTROL
 
 
 class RadioDisplayControlsMixin(RadioPresentationFrame):
-    """Own the optional SDR++ display-controls drawer."""
+    """Own the optional Native display-controls drawer."""
 
     def _toggle_drawer(self) -> None:
         ui = self._theme.ui
