@@ -104,11 +104,11 @@ class RigctlClient:
         return self.send(f"M {rigctl_mode} {bandwidth}")
 
     def start(self) -> str:
-        """Start SDR++ playback using its rigctl extension."""
+        """Start receiver playback using the rigctl extension."""
         return self.send(r"\start")
 
     def stop(self) -> str:
-        """Stop SDR++ playback using its rigctl extension."""
+        """Stop receiver playback using the rigctl extension."""
         return self.send(r"\stop")
 
     def get_signal_strength(self) -> str:
@@ -125,6 +125,6 @@ class RigctlClient:
 
     @staticmethod
     def normalize_sdrpp_mode(mode: str) -> str:
-        """Translate application-facing mode names to SDR++ rigctl names."""
+        """Normalize application-facing mode names for the receiver."""
         normalized = mode.strip().upper()
         return SDRPP_MODE_MAP.get(normalized, normalized)
