@@ -102,9 +102,9 @@ class SdrForgeReceiverView(tk.Frame):
         self._update_recenter_button()
         # Secondary status belongs with the spectrum tools, not the MHz heading.
         self._mode_label = tk.Label(
-            self._spectrum_controls, text="", bg=theme.ui.surface,
+            self, text="", bg=theme.ui.surface,
             fg=theme.ui.text_muted, font=("Sans", 9))
-        self._mode_label.pack(side="right", padx=(8, 10))
+        # Place independently so the label aligns with the right edge of the FFT.
         self._toolbar_toggle = tk.Button(
             self, text="HIDE ◀", command=self._toggle_spectrum_toolbar,
             bg=theme.ui.control_background, fg=theme.ui.text,
@@ -377,6 +377,7 @@ class SdrForgeReceiverView(tk.Frame):
                 y=header + 2, anchor="nw")
         else:
             self._spectrum_controls.place_forget()
+        self._mode_label.place(x=w - 12, y=header + 7, anchor="ne")
         plot_bottom = h - footer
         spectrum_height = max(20, int((plot_bottom - spectrum_top) * 0.38))
         waterfall_top = spectrum_top + spectrum_height
