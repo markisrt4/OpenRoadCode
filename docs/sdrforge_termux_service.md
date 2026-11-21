@@ -5,6 +5,33 @@ ZMQ spectrum/receiver telemetry on `127.0.0.1:5571`, and rigctl on
 `127.0.0.1:4532`. Install libSDRForge under
 `$HOME/src/libSDRForge`.
 
+## One-time regional radio configuration
+
+Configure SDRForge's persistent regional profile overlay from the ORC checkout:
+
+```bash
+cd ~/src/OpenRoadCode
+git switch feature/sdrforge-native-spectrum
+git pull --ff-only
+bash scripts/configure_sdrforge_region.sh romeo
+```
+
+This writes `~/.config/sdrforge/radio-region.conf` with an absolute path to
+ORC's `config/radio` directory and the selected locale. SDRForge's
+region-aware Linux systemd installer, standalone Termux runit installer,
+and Android-authorized USB launchers load this file at process startup.
+The configuration is optional, and SDRForge still works independently of
+ORC. Existing user presets are not modified. Restart the server after
+changing the region. Command-line and explicit environment overrides take
+precedence over the saved file.
+
+**Important:** ORC's existing managed Termux service definition is not
+installed by `scripts/runit/install_termux_services.sh` in this branch.
+If a separate ORC-managed SDRForge runit definition is already installed,
+it must invoke SDRForge's `scripts/run_radio_region_server.sh` wrapper to
+load the saved configuration; the standalone SDRForge installer deliberately
+does not overwrite that definition.
+
 ## Install and inspect the managed service
 
 ```bash
