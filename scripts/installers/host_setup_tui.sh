@@ -78,7 +78,7 @@ while true; do
     radio) choose_features "Radio" "Select radio features:" "$SELECTED_RADIO" \
       "rtl-sdr|RTL-SDR and SoapySDR support" \
       "adsb|ADS-B/readsb support" \
-      "sdrpp|SDR++ support" && SELECTED_RADIO="$SELECTED_RESULT" ;;
+      "sdrforge|SDRForge support" && SELECTED_RADIO="$SELECTED_RESULT" ;;
     automotive) choose_features "Automotive" "Select automotive devices:" "$SELECTED_AUTOMOTIVE" \
       "automotive|Generic serial and CAN-bus support" && SELECTED_AUTOMOTIVE="$SELECTED_RESULT" ;;
     bluetooth) choose_features "Bluetooth" "Select Bluetooth features:" "$SELECTED_BLUETOOTH" \
