@@ -26,7 +26,7 @@ def receiver_sidebar_width(panel_width: int) -> int:
 
 
 class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
-    """Automotive controls wrapped around embedded SDR++ and ADS-B views."""
+    """Automotive controls for native RF and embedded ADS-B views."""
 
     def __init__(
         self,
@@ -523,7 +523,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             self.after_cancel(self._telemetry_after_id)
             self._telemetry_after_id = None
 
-    def detach_sdrpp(self, parent_window_id: int) -> None:
+    def detach_native_client(self, parent_window_id: int) -> None:
         self.deactivate()
 
     def _toggle_receiver_power(self) -> None:
@@ -677,7 +677,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._session.request(RadioRequest(RadioAction.TUNE_UP))
 
     def auto_range_spectrum(self) -> None:
-        """Reset native spectrum scaling without contacting SDR++."""
+        """Reset native spectrum scaling locally."""
         if self._sdrforge_view is not None:
             self._sdrforge_view.auto_range()
 
