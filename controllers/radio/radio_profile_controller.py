@@ -52,7 +52,7 @@ class RadioProfileController:
     def select_profile(self, profile_key: str, *, start: bool = True) -> RadioProfileState:
         profile = self._catalog.profile(profile_key)
         was_started = hasattr(self, "_radio") and self._radio.is_started
-        config = load_radio_config(profile.config_path)
+        config = self._catalog.config_for(profile_key)
         self._profile_key = profile_key
         self._radio = self._build_controller(config)
         if start or was_started:
