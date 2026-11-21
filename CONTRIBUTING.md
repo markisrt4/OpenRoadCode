@@ -301,7 +301,7 @@ Use snake_case filenames:
 controllers/radio/
 ├── unit_test/test_radio_controller.py
 ├── integration_test/test_rigctl_backend.py
-└── component_test/sdrpp_rigctl_cli.py
+└── component_test/rigctl_radio_cli.py
 ```
 
 Files discovered by the automated runner must start with `test_`. Manual
