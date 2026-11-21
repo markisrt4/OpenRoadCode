@@ -17,6 +17,9 @@ def presentation():
     panel._last_receiver_running = None
     panel._receiver_start_pending = False
     panel._receiver_controls = None
+    panel._scan_dismissed = False
+    panel._scan_signature = None
+    panel._scan_selected = set()
     panel._state = RfRadioState(
         RadioProfileState("Station", 100_000_000, "WFM", "fm_radio", "FM"), ()
     )
@@ -63,6 +66,7 @@ def test_native_power_button_reflects_backend_starting_state():
     panel._active_group = "OTHER"
     panel._subcategory_strip = Mock()
     panel._station_info = Mock()
+    panel._scan_card = Mock()
     panel._favorites = Mock()
     panel._pending_group = None
     panel._render_subcategory_tiles = Mock()
