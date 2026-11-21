@@ -3,9 +3,9 @@
   "label": "FRS",
   "description": "FRS receive-only monitoring presets.",
   "launch": {
-    "label": "Launch SDR++",
+    "label": "SDRForge Status",
     "subtitle": "FRS scanner",
-    "detail": "Starts / toggles SDR++"
+    "detail": "Check shared SDRForge service"
   },
   "radio": {
     "label": "Radio ON/OFF",
