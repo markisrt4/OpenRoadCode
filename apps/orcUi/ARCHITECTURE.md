@@ -17,6 +17,39 @@ its composition root owns the local geocoder and whiptail adapter. See
 
 OpenRoadCode deliberately separates semantic UI contracts, reusable behavior, reusable frontend rendering, application-specific presentation, host/platform adapters, and application composition so that a feature can be presented by Tk, web, Android, or another frontend without moving its controller logic into the application shell.
 
+## Application-wide error presentation
+
+The integrated Tk shell owns application-level error dialogs in
+`apps/orcUi/frontend/tk/error_dialog.py`. `OrcUiApp.show_error(title, message)`
+is the entry point for presenting a recoverable or fatal error without writing
+error text into the radio spectrum, waterfall, browser viewport, or other
+embedded native surface. The dialog is a separate, themed `tk.Toplevel`
+window, is non-blocking, and has an explicit **DISMISS** control. A new error
+replaces the previous dialog rather than stacking windows. Call it from the Tk
+UI thread.
+
+Application adapters should report failures through semantic presentation
+callbacks wired by composition, rather than importing Tk widgets. In
+particular, a failed ADS-B browser launch or unreachable local map service
+should be reported by the application shell, not by rendering the browser
+error page over the RF display. A failed ADS-B map does not imply an SDRForge
+receiver failure: the map service (typically port 8081) and SDRForge REST
+service (typically port 5570) are independent.
+
+The current implementation provides a reusable dismissible dialog and the
+shell entry point. Automatic ADS-B failure routing, transient toast notices,
+severity-specific presentation, and cross-thread dispatch are follow-up
+integration work; callers must not assume those behaviors already exist.
+
+Example from application-shell UI code:
+
+```python
+app.show_error(
+    "ADS-B Map Unavailable",
+    "The local ADS-B map service could not be reached.",
+)
+```
+
 ## Tk control chrome
 
 ORC action buttons and classic check/radio/menu controls explicitly suppress Tk's
