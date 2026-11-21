@@ -116,9 +116,9 @@ class AircraftScreen(CarUiScreen):
             key=runtime.key,
             title="Airband AM",
             launch_tile=RadioPanelTileConfig(
-                label="Launch SDR++",
+                label="SDRForge Status",
                 subtitle="Airband AM receiver",
-                detail="Starts / toggles SDR++",
+                detail="Check shared SDRForge service",
             ),
             radio_toggle_tile=RadioPanelTileConfig(
                 label="Radio ON/OFF",
