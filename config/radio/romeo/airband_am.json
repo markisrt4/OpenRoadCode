@@ -4,7 +4,7 @@
   "description": "Aircraft voice radio presets",
   "launch": {
     "label": "Launch",
-    "subtitle": "SDR++ Airband",
+    "subtitle": "SDRForge Airband",
     "detail": "Toggles AM Receiver"
   },
   "radio": {
