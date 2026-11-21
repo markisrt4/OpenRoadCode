@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import tkinter as tk
+from ui.ui_widget import UiWidget
 from collections.abc import Callable
 
 
-class AutomotiveRadioButton(tk.Canvas):
+class AutomotiveRadioButton(tk.Canvas, UiWidget):
     """Rounded radio tile with explicit selected, hover, and disabled states."""
 
     def __init__(self, parent: tk.Misc, *, text: str, command: Callable[[], None],
