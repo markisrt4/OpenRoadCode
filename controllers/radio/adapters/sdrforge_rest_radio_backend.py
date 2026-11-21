@@ -5,11 +5,24 @@
 from __future__ import annotations
 
 import json
+import time
+from dataclasses import dataclass
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from ..radio_backend_if import RadioBackendIf
 from ..sdrforge_readiness import wait_for_sdrforge_ready
+
+
+@dataclass(frozen=True, slots=True)
+class SdrForgeConnectionDiagnostics:
+    """Snapshot of the REST connection, suitable for diagnostics UI."""
+
+    state: str
+    reconnect_attempts: int
+    reconnect_successes: int
+    last_success_monotonic: float | None
+    last_error: str | None
 
 
 class SdrForgeRestRadioBackend(RadioBackendIf):
@@ -18,6 +31,21 @@ class SdrForgeRestRadioBackend(RadioBackendIf):
     def __init__(self, base_url: str = "http://127.0.0.1:5570", timeout: float = 1.0) -> None:
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout
+        self._connection_state = "unknown"
+        self._reconnect_attempts = 0
+        self._reconnect_successes = 0
+        self._last_success_monotonic: float | None = None
+        self._last_error: str | None = None
+
+    def connection_diagnostics(self) -> SdrForgeConnectionDiagnostics:
+        """Return an immutable connection snapshot without issuing network requests."""
+        return SdrForgeConnectionDiagnostics(
+            state=self._connection_state,
+            reconnect_attempts=self._reconnect_attempts,
+            reconnect_successes=self._reconnect_successes,
+            last_success_monotonic=self._last_success_monotonic,
+            last_error=self._last_error,
+        )
 
     def _request(self, path: str, body: dict[str, object] | None = None) -> dict:
         # Read-only requests may be retried after a transient restart. A POST
@@ -28,8 +56,17 @@ class SdrForgeRestRadioBackend(RadioBackendIf):
             except RuntimeError as exc:
                 if not isinstance(exc.__cause__, (URLError, TimeoutError, OSError)):
                     raise
-                self.wait_until_ready(timeout=3.0)
-                return self._request_once(path, body)
+                self._reconnect_attempts += 1
+                self._connection_state = "reconnecting"
+                try:
+                    self.wait_until_ready(timeout=3.0)
+                    result = self._request_once(path, body)
+                except (RuntimeError, OSError) as recovery_error:
+                    self._connection_state = "unavailable"
+                    self._last_error = str(recovery_error)
+                    raise
+                self._reconnect_successes += 1
+                return result
         return self._request_once(path, body)
 
     def _request_once(self, path: str, body: dict[str, object] | None = None) -> dict:
@@ -44,9 +81,16 @@ class SdrForgeRestRadioBackend(RadioBackendIf):
             with urlopen(request, timeout=self._timeout) as response:
                 result = json.load(response)
         except (HTTPError, URLError, TimeoutError, OSError, ValueError) as exc:
+            self._connection_state = "unavailable"
+            self._last_error = str(exc)
             raise RuntimeError(f"SDRForge REST request failed ({path}): {exc}") from exc
         if not isinstance(result, dict):
-            raise RuntimeError("SDRForge REST response must be a JSON object")
+            self._connection_state = "unavailable"
+            self._last_error = "SDRForge REST response must be a JSON object"
+            raise RuntimeError(self._last_error)
+        self._connection_state = "connected"
+        self._last_success_monotonic = time.monotonic()
+        self._last_error = None
         return result
 
     def wait_until_ready(self, timeout: float = 10.0) -> None:
