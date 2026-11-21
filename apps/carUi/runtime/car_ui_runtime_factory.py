@@ -15,7 +15,6 @@ from apps.carUi.runtime.weather_location_provider import CarUiWeatherLocationPro
 from apps.launchers.adsb_launcher import ADSBLauncher
 from apps.launchers.browser_app_factory import BrowserApplicationFactory
 from apps.launchers.google_earth_launcher import GoogleEarthLauncher
-from apps.launchers.sdrpp_launcher import SDRPPLauncher, SDRPPProfile
 from apps.launchers.sdrforge_service_launcher import SdrForgeServiceLauncher
 from controllers.application_runtime import AppRuntimeManager
 from controllers.cache import PersistentCache
@@ -97,7 +96,7 @@ def _build_radio_runtime(*, stack: RadioStackConfig, config: RuntimeConfig, reso
     radio_config = load_radio_config(stack.config_path)
     backend = _build_backend(backend_type=stack.backend, config=config)
     controller = RadioController(backend=backend, presets=tuple(RadioPreset(label=preset.label, frequency_hz=preset.frequency_hz, mode=_runtime_mode(preset.mode)) for preset in radio_config.presets), default_mode=_runtime_mode(radio_config.default_mode), radio_range=_runtime_range(radio_config))
-    launcher = _build_launcher(launcher_type=stack.launcher, stack=stack, radio_config=radio_config, resource_manager=resource_manager)
+    launcher = _build_launcher(launcher_type=stack.launcher, stack=stack)
     return RadioRuntime(key=stack.key, config=radio_config, controller=controller, launcher=launcher)
 
 
@@ -115,17 +114,14 @@ def _build_backend(*, backend_type: str, config: RuntimeConfig):
         raise CarUiRuntimeFactoryError(f"Unsupported radio backend '{backend_type}'. Supported backends: {supported}") from exc
 
 
-def _build_launcher(*, launcher_type: str | None, stack: RadioStackConfig, radio_config, resource_manager: SDRResourceManager):
+def _build_launcher(*, launcher_type: str | None, stack: RadioStackConfig):
     if launcher_type is None or launcher_type == "none":
         raise CarUiRuntimeFactoryError(f"Radio stack '{stack.key}' does not define a usable launcher")
     if launcher_type == "sdrforge":
         return SdrForgeServiceLauncher(
             base_url=os.getenv("SDRFORGE_REST_URL", "http://127.0.0.1:5570")
         )
-    if launcher_type != "sdrpp":
-        raise CarUiRuntimeFactoryError(f"Unsupported radio launcher '{launcher_type}' for stack '{stack.key}'")
-    profile = SDRPPProfile(name=getattr(radio_config, "label", stack.key), mode=radio_config.default_mode.name, step_hz=radio_config.default_mode.step_hz, start_frequency_hz=_profile_start_frequency(radio_config))
-    return SDRPPLauncher(profile=profile, resource_manager=resource_manager, owner_name=f"sdrpp_{stack.key}")
+    raise CarUiRuntimeFactoryError(f"Unsupported radio launcher '{launcher_type}' for stack '{stack.key}'")
 
 
 def _runtime_mode(mode_config) -> RadioMode:
@@ -141,13 +137,3 @@ def _runtime_range(radio_config) -> RadioRange | None:
         return None
     frequencies = tuple(preset.frequency_hz for preset in presets)
     return RadioRange(min_frequency_hz=min(frequencies), max_frequency_hz=max(frequencies), start_frequency_hz=frequencies[0])
-
-
-def _profile_start_frequency(radio_config) -> int | None:
-    radio_range = _runtime_range(radio_config)
-    if radio_range is not None:
-        return radio_range.start_frequency_hz
-    presets = tuple(getattr(radio_config, "presets", ()))
-    if presets:
-        return presets[0].frequency_hz
-    return None
