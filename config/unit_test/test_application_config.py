@@ -39,7 +39,7 @@ profile = "weather"
 startup = "preload"
 exclusive_group = "auxiliary"
 
-[apps.sdrpp]
+[apps.example_native]
 type = "native"
 enabled = false
 """
@@ -50,7 +50,7 @@ enabled = false
         self.assertEqual(weather.startup, StartupPolicy.PRELOAD)
         self.assertEqual(weather.exclusive_group, "auxiliary")
         self.assertEqual(config.preload_apps(), (weather,))
-        self.assertFalse(config.app("sdrpp").enabled)
+        self.assertFalse(config.app("example_native").enabled)
 
     def test_browser_profile_root_defaults_to_xdg_data_home(self) -> None:
         with patch.dict(os.environ, {"XDG_DATA_HOME": "/mnt/orc-data"}):
@@ -96,7 +96,7 @@ profile = "web-ui"
 
     def test_rejects_unknown_startup_policy(self) -> None:
         with self.assertRaisesRegex(ApplicationConfigError, "lazy, preload, persistent"):
-            self._load('[apps.sdrpp]\ntype = "native"\nstartup = "whenever"\n')
+            self._load('[apps.example_native]\ntype = "native"\nstartup = "whenever"\n')
 
     def test_rejects_unknown_application_type(self) -> None:
         with self.assertRaisesRegex(ApplicationConfigError, "browser, adsb, native"):
