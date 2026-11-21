@@ -55,9 +55,22 @@ class RadioSessionController(
         self._on_preset_pressed = on_preset_pressed
         self._radio_ui: RadioUiIf | None = None
         self._receiver_telemetry = receiver_telemetry
+        self._close_telemetry: Callable[[], None] | None = None
 
         self._receiver_started = False
         self._active_preset: RadioPreset | None = None
+
+    def own_telemetry(self, close: Callable[[], None]) -> None:
+        """Register composition-owned telemetry cleanup for this session."""
+        self._close_telemetry = close
+
+    def close(self) -> None:
+        """Release the optional telemetry source when the screen is retired."""
+        if self._close_telemetry is not None:
+            close, self._close_telemetry = self._close_telemetry, None
+            close()
+        self._receiver_telemetry = None
+        self._radio_ui = None
 
     @property
     def presets(self) -> tuple[RadioPreset, ...]:
