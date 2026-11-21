@@ -30,7 +30,7 @@ class RadioProfileCatalog:
         self._user_presets_path = Path(user_presets_path or _DEFAULT_USER_PRESETS).expanduser()
         self._profiles: dict[str, RadioProfile] = {}
         self._remote_configs: dict[str, RadioConfig] = {}
-        self._remote_enabled = os.environ.get("ORC_SDRFORGE_RADIO_CATALOG") == "1"
+        self._remote_enabled = os.environ.get("ORC_SDRFORGE_RADIO_CATALOG", "1").lower() not in ("0", "false", "no")
         self.reload()
 
     @property
@@ -57,7 +57,7 @@ class RadioProfileCatalog:
         if not self._remote_enabled:
             return False
         try:
-            remote = SdrforgeRadioCatalogClient().profiles()
+            remote = SdrforgeRadioCatalogClient(readiness_timeout=1.0).profiles()
             if not remote:
                 return False
             profiles: dict[str, RadioProfile] = {}
