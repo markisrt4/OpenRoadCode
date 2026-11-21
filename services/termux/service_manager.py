@@ -147,7 +147,8 @@ class RunitServiceManager:
             return None
         selected = self._profile_file(name)
         if not selected.exists():
-            return "local"
+            # Match the SDRForge runit launcher default without changing other services.
+            return "simulated" if name == "openroadcode-sdrforge" else "local"
         content = selected.read_text(encoding="utf-8")
         for profile in profiles:
             if f"OPENROADCODE_RUNTIME_PROFILE={profile}" in content:
