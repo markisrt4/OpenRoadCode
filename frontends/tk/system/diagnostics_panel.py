@@ -82,6 +82,8 @@ class DiagnosticsPanel(tk.Frame, UiWidget):
         self._sensor_rows = {}
         self._sensor_table.bind("<<TreeviewSelect>>", self._show_sensor_detail)
 
+        self._sdrforge_connection = self._label(services, "SDRForge REST: diagnostics not connected", 12)
+        self._sdrforge_connection.configure(wraplength=1150)
         self._service_status = self._label(services, "Waiting for service socket samples", 12)
         self._service_status.configure(wraplength=900)
         self._label(services, "TCP/UDP socket health · RX/TX are payload KiB/s · queues are occupancy · -- means unavailable", 10)
@@ -113,6 +115,19 @@ class DiagnosticsPanel(tk.Frame, UiWidget):
         table = DiagnosticsTable(parent, theme=self._theme, columns=columns, visible=visible)
         table.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
         return table
+
+    def apply_sdrforge_connection(self, diagnostics) -> None:
+        """Render a shared radio backend's connection snapshot, without network I/O."""
+        if diagnostics is None:
+            self._sdrforge_connection.configure(text="SDRForge REST: diagnostics unavailable")
+            return
+        attempts = diagnostics.reconnect_attempts
+        successes = diagnostics.reconnect_successes
+        error = diagnostics.last_error or "none"
+        self._sdrforge_connection.configure(
+            text=f"SDRForge REST: {diagnostics.state.upper()}  ·  "
+                 f"Recoveries {successes}/{attempts}  ·  Last error: {error}"
+        )
 
     def apply_snapshot(self, snapshot: SystemDiagnosticsSnapshot) -> None:
         """Refresh tables using cached samples without sampling on the Tk thread."""
