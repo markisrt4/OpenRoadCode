@@ -100,7 +100,7 @@ class HostSetupPlanTests(unittest.TestCase):
         self.assertIn("browser", result.stdout)
         self.assertNotIn("raspberry-pi", result.stdout)
         self.assertNotIn("adsb", result.stdout)
-        self.assertNotIn("sdrpp", result.stdout)
+        self.assertNotIn("sdrforge", result.stdout)
 
     def test_linux_development_plan_excludes_raspberry_pi_support(self) -> None:
         result = self.run_installer("--target", "linux-dev", "--show-plan")
@@ -244,7 +244,7 @@ class HostSetupPlanTests(unittest.TestCase):
 
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertIn("desktop-ui", result.stdout)
-        self.assertIn("sdrpp", result.stdout)
+        self.assertIn("sdrforge", result.stdout)
         self.assertIn("imu", result.stdout)
         self.assertIn("environmental", result.stdout)
         self.assertNotIn("raspberry-pi", result.stdout)
@@ -301,12 +301,12 @@ class HostSetupPlanTests(unittest.TestCase):
         self.assertIn("Features:              navigation desktop-ui gps", result.stdout)
         self.assertNotIn("browser", result.stdout)
 
-    def test_sdrpp_feature_does_not_request_distro_package(self) -> None:
+    def test_sdrforge_feature_does_not_request_distro_package(self) -> None:
         result = subprocess.run(
             [
                 "bash",
                 "-c",
-                'source "$1"; get_feature_packages sdrpp',
+                'source "$1"; get_feature_packages sdrforge',
                 "feature-test",
                 str(FEATURES),
             ],
@@ -316,7 +316,7 @@ class HostSetupPlanTests(unittest.TestCase):
         )
 
         self.assertEqual(0, result.returncode, result.stderr)
-        self.assertEqual("", result.stdout.strip())
+        self.assertEqual("libportaudio2", result.stdout.strip())
 
     def test_all_features_on_raspberry_pi_includes_sensor_support(self) -> None:
         result = self.run_installer(
