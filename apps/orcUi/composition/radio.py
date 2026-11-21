@@ -199,12 +199,11 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
             )
             display_control = NativeRadioControl()
             session = ReceiverSession(
-                radio, display_control, None, runtime.radio,
+                radio, display_control, runtime.radio,
                 adsb, X11WindowEmbedder(), display=os.environ.get("DISPLAY", ":1"),
                 run_work=resources.run_rf, run_ui=app.dispatch_ui,
                 on_close=lambda: resources.rf_sessions.discard(session),
                 spectrum_source=source,
-                native_sdrforge=True,
                 notification_sink=app.notification_sink,
             )
             with ResourceCleanup() as rollback:
