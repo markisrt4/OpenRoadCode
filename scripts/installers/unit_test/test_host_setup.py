@@ -100,7 +100,8 @@ class HostSetupPlanTests(unittest.TestCase):
         self.assertIn("browser", result.stdout)
         self.assertNotIn("raspberry-pi", result.stdout)
         self.assertNotIn("adsb", result.stdout)
-        self.assertNotIn("sdrforge", result.stdout)
+        self.assertIn("sdrforge", result.stdout)
+        self.assertNotIn("sdrpp", result.stdout)
 
     def test_linux_development_plan_excludes_raspberry_pi_support(self) -> None:
         result = self.run_installer("--target", "linux-dev", "--show-plan")
