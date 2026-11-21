@@ -4,7 +4,7 @@
   "description": "Broadcast FM radio presets",
   "launch": {
     "label": "Launch",
-    "subtitle": "SDR++ FM",
+    "subtitle": "SDRForge FM",
     "detail": "Toggles FM Receiver"
   },
   "radio": {
