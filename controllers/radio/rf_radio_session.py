@@ -416,8 +416,6 @@ class ReceiverSession:
             self._radio.catalog.add_user_preset(
                 request.key, label=request.label, frequency_hz=frequency_hz,
             )
-            # Rebuild the controller so NEXT/PREVIOUS immediately include the new preset.
-            self._radio.select_profile(request.key, start=False)
         elif action is RadioAction.THEME:
             self._control.set_theme(request.key)
         else:
