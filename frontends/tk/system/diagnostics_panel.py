@@ -121,12 +121,17 @@ class DiagnosticsPanel(tk.Frame, UiWidget):
         if diagnostics is None:
             self._sdrforge_connection.configure(text="SDRForge REST: diagnostics unavailable")
             return
-        attempts = diagnostics.reconnect_attempts
-        successes = diagnostics.reconnect_successes
         error = diagnostics.last_error or "none"
+        if hasattr(diagnostics, "requests"):
+            summary = f"Requests {diagnostics.requests}  ·  Failures {diagnostics.failures}"
+            transport = "rigctl"
+        else:
+            summary = (f"Recoveries {diagnostics.reconnect_successes}/"
+                       f"{diagnostics.reconnect_attempts}")
+            transport = "REST"
         self._sdrforge_connection.configure(
-            text=f"SDRForge REST: {diagnostics.state.upper()}  ·  "
-                 f"Recoveries {successes}/{attempts}  ·  Last error: {error}"
+            text=f"SDRForge {transport}: {diagnostics.state.upper()}  ·  "
+                 f"{summary}  ·  Last error: {error}"
         )
 
     def apply_snapshot(self, snapshot: SystemDiagnosticsSnapshot) -> None:
