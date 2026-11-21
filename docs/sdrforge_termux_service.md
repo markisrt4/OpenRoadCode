@@ -25,12 +25,10 @@ ORC. Existing user presets are not modified. Restart the server after
 changing the region. Command-line and explicit environment overrides take
 precedence over the saved file.
 
-**Important:** ORC's existing managed Termux service definition is not
-installed by `scripts/runit/install_termux_services.sh` in this branch.
-If a separate ORC-managed SDRForge runit definition is already installed,
-it must invoke SDRForge's `scripts/run_radio_region_server.sh` wrapper to
-load the saved configuration; the standalone SDRForge installer deliberately
-does not overwrite that definition.
+**Managed service:** ORC's `scripts/runit/install_termux_services.sh`
+installs a version-controlled SDRForge runit launcher that loads the saved
+region configuration. The standalone SDRForge installer should not overwrite
+ORC's managed service definition.
 
 ## Install and inspect the managed service
 
@@ -98,3 +96,12 @@ process substitution: it can hang the USB handoff. Collect logs
 after the command finishes. If REST reports an existing server,
 check `sv status openroadcode-sdrforge` and stop the supervised
 instance rather than competing for ports.
+
+## REST readiness and startup timing
+
+Runit reporting `run` means the process exists, not that the REST API is
+accepting requests. ORC's catalog client now polls `/v1/health` with a
+bounded 10-second default deadline before fetching profiles and presets.
+The REST backend also exposes `wait_until_ready(timeout=10.0)` for startup
+orchestration. Do not use fixed sleeps or replay non-idempotent control
+commands to handle a temporary connection refusal.
