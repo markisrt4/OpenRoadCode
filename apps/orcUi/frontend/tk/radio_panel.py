@@ -249,8 +249,14 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             self._scan_canvas = tk.Canvas(self._scan_card, bg=ui.surface,
                                            highlightthickness=0)
             self._scan_canvas.pack(fill=tk.BOTH, expand=True)
+            self._scan_status = tk.Label(
+                self._scan_card, text="Ready to scan", bg=ui.surface,
+                fg=ui.text_muted, font=("Sans", 9), anchor="w")
+            self._scan_status.pack(fill=tk.X, padx=8, pady=(2, 3))
+            self._scan_canvas.bind("<Configure>", lambda _event: self._render_scan_results())
             self._scan_canvas.bind("<ButtonPress-1>", self._scan_touch_start)
             self._scan_canvas.bind("<B1-Motion>", self._scan_touch_move)
+            self._scan_canvas.bind("<ButtonRelease-1>", self._scan_touch_end)
             self._scan_canvas.bind("<MouseWheel>", self._scan_wheel)
             self._scan_canvas.bind("<Button-4>", lambda event: self._scan_scroll(-1))
             self._scan_canvas.bind("<Button-5>", lambda event: self._scan_scroll(1))
@@ -575,6 +581,19 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             self._scan_canvas.yview_scroll(int(delta / 12) or (1 if delta > 0 else -1), "units")
             self._scan_drag_y = event.y
 
+    def _scan_touch_end(self, event: tk.Event) -> None:
+        if not self._scan_dragged:
+            item = self._scan_canvas.find_closest(
+                self._scan_canvas.canvasx(event.x),
+                self._scan_canvas.canvasy(event.y))
+            if item:
+                tags = self._scan_canvas.gettags(item[0])
+                for tag in tags:
+                    if tag.startswith("frequency_"):
+                        self._toggle_scan_hit(int(tag.removeprefix("frequency_")))
+                        break
+        self._scan_drag_y = None
+
     def _scan_scroll(self, units: int) -> None:
         self._scan_canvas.yview_scroll(units, "units")
 
@@ -592,6 +611,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
 
     def _render_scan_results(self) -> None:
         canvas = self._scan_canvas
+        previous_scroll = canvas.yview()[0]
         canvas.delete("all")
         ui = self._theme.ui
         width = max(250, canvas.winfo_width())
@@ -600,16 +620,14 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             selected = frequency in self._scan_selected
             canvas.create_rectangle(2, y + 2, width - 4, y + 33,
                                     fill=ui.control_background if selected else ui.surface,
-                                    outline=ui.border)
+                                    outline=ui.border, tags=(f"frequency_{frequency}",))
             canvas.create_text(12, y + 18, anchor="w",
                                text=("☑ " if selected else "□ ") +
                                     f"{frequency / 1_000_000:.3f} MHz",
-                               fill=ui.text, font=("Sans", 10, "bold"))
-            canvas.tag_bind(canvas.find_all()[-2], "<ButtonRelease-1>",
-                            lambda event, hz=frequency: self._toggle_scan_hit(hz))
-            canvas.tag_bind(canvas.find_all()[-1], "<ButtonRelease-1>",
-                            lambda event, hz=frequency: self._toggle_scan_hit(hz))
+                               fill=ui.text, font=("Sans", 10, "bold"),
+                               tags=(f"frequency_{frequency}",))
         canvas.configure(scrollregion=(0, 0, width, max(1, len(self._state.scan_hits) * 36)))
+        canvas.yview_moveto(previous_scroll)
         self._scan_save.configure(text=f"SAVE SELECTED ({len(self._scan_selected)})",
                                   state=tk.NORMAL if self._scan_selected else tk.DISABLED)
 
@@ -619,8 +637,10 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             self._session.request(RadioRequest(
                 RadioAction.ADD_PRESET, key=key,
                 label=f"{frequency / 1_000_000:.3f} MHz", frequency_hz=frequency))
+        saved_count = len(self._scan_selected)
         self._scan_selected.clear()
-        self._close_scan_results()
+        self._scan_status.configure(text=f"Save requested for {saved_count} preset(s)")
+        self._render_scan_results()
 
     def _previous_preset(self) -> None:
         if self._sdrforge_view is not None and not self._state.receiver_running:
@@ -713,6 +733,10 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                     self._scan_card.place(relx=1.0, rely=0, relheight=1.0,
                                           width=320, anchor="ne")
                     self._scan_card.lift()
+                    self._scan_status.configure(text=(
+                        state.scan_progress or
+                        (f"{len(state.scan_hits)} stations found" if state.scan_hits
+                         else "Scanning…" if state.scanning else "No stations found")))
                     signature = state.scan_hits
                     if signature != self._scan_signature:
                         self._scan_signature = signature
