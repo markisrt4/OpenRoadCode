@@ -16,7 +16,7 @@ def test_radio_composition_does_not_import_sdrpp_launcher_at_module_load():
     assert not eager_imports, "Native radio must not eagerly load the SDR++ launcher"
 
 
-def test_legacy_theme_sync_still_imports_launcher_on_demand():
+def test_composition_never_imports_legacy_theme_launcher():
     root = Path(__file__).resolve().parents[3]
     source = root / "apps" / "orcUi" / "composition" / "radio.py"
     tree = ast.parse(source.read_text(encoding="utf-8"))
@@ -25,5 +25,5 @@ def test_legacy_theme_sync_still_imports_launcher_on_demand():
         if isinstance(node, ast.ImportFrom)
         and node.module == "apps.launchers.sdrpp_launcher"
     ]
-    assert len(imports) == 1
-    assert imports[0] not in tree.body
+    assert not imports
+    assert "ORC_SDRFORGE_UI_PREVIEW" not in source.read_text(encoding="utf-8")
