@@ -133,6 +133,9 @@ def test_empty_scan_keeps_discovery_card_open_until_closed():
     panel._theme.ui.surface = "black"
     panel._scan_requested = True
     panel._scan_dismissed = False
+    panel._scan_card = Mock()
+    panel._scan_status = Mock()
+    panel._render_scan_results = Mock()
     panel._state = RfRadioState(
         RadioProfileState("Station", 100_000_000, "WFM", "fm_radio", "FM"), ()
     )
