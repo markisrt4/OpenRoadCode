@@ -56,6 +56,9 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._favorites_signature = None
         self._preset_page = 0
         self._preset_page_size = 4
+        self._scan_selected: set[int] = set()
+        self._scan_signature: tuple[int, ...] | None = None
+        self._scan_drag_y: int | None = None
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
@@ -227,6 +230,31 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                                        font=("Sans", 9), anchor="nw", justify="left",
                                        wraplength=288)
             self._info_text.pack(fill=tk.X)
+            # Discovery occupies the existing right-hand information slot.
+            # Canvas provides touch and wheel navigation with no visible scrollbar.
+            self._scan_card = tk.Frame(self._receiver_controls, bg=ui.surface)
+            self._scan_card.grid(row=1, column=0, columnspan=2,
+                                 sticky="nsew", padx=5, pady=4)
+            scan_header = tk.Frame(self._scan_card, bg=ui.surface)
+            scan_header.pack(fill=tk.X)
+            tk.Label(scan_header, text="STATION DISCOVERY", bg=ui.surface,
+                     fg=ui.accent_primary, font=("Sans", 10, "bold")).pack(side=tk.LEFT)
+            tk.Button(scan_header, text="CLOSE", command=self._close_scan_results,
+                      bg=ui.control_background, fg=ui.text, relief=tk.FLAT).pack(side=tk.RIGHT)
+            self._scan_canvas = tk.Canvas(self._scan_card, bg=ui.surface,
+                                           highlightthickness=0, height=92)
+            self._scan_canvas.pack(fill=tk.BOTH, expand=True)
+            self._scan_canvas.bind("<ButtonPress-1>", self._scan_touch_start)
+            self._scan_canvas.bind("<B1-Motion>", self._scan_touch_move)
+            self._scan_canvas.bind("<MouseWheel>", self._scan_wheel)
+            self._scan_canvas.bind("<Button-4>", lambda event: self._scan_scroll(-1))
+            self._scan_canvas.bind("<Button-5>", lambda event: self._scan_scroll(1))
+            self._scan_save = tk.Button(
+                self._scan_card, text="SAVE SELECTED",
+                command=self._save_scanned_presets, bg=ui.control_background,
+                fg=ui.text, relief=tk.FLAT)
+            self._scan_save.pack(fill=tk.X, pady=(3, 0))
+            self._scan_card.grid_remove()
             self._bands_heading = tk.Label(self._receiver_controls, text="BANDS", bg=ui.surface,
                      fg=ui.accent_primary, font=("Sans", 11, "bold"),
                      anchor="w", padx=10, pady=2)
@@ -507,7 +535,81 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         if self._sdrforge_view is not None and not self._state.receiver_running:
             return
         action = RadioAction.STOP_SCAN if self._state.scanning else RadioAction.SCAN
+        if action is RadioAction.SCAN:
+            self._scan_signature = None
+            self._scan_selected.clear()
         self._session.request(RadioRequest(action))
+
+    def _close_scan_results(self) -> None:
+        self._scan_signature = None
+        self._scan_selected.clear()
+        self._scan_card.grid_remove()
+        self._show_radio_info()
+
+    def _show_radio_info(self) -> None:
+        group = self._active_group.split(":", 1)[0]
+        if group in ("FM", "WEATHER"):
+            self._subcategory_strip.grid_remove()
+            self._station_info.grid()
+        else:
+            self._station_info.grid_remove()
+            self._subcategory_strip.grid()
+
+    def _scan_touch_start(self, event: tk.Event) -> None:
+        self._scan_drag_y = event.y
+
+    def _scan_touch_move(self, event: tk.Event) -> None:
+        if self._scan_drag_y is None:
+            return
+        delta = self._scan_drag_y - event.y
+        if abs(delta) >= 3:
+            self._scan_canvas.yview_scroll(int(delta / 12) or (1 if delta > 0 else -1), "units")
+            self._scan_drag_y = event.y
+
+    def _scan_scroll(self, units: int) -> None:
+        self._scan_canvas.yview_scroll(units, "units")
+
+    def _scan_wheel(self, event: tk.Event) -> None:
+        self._scan_scroll(-1 if event.delta > 0 else 1)
+
+    def _toggle_scan_hit(self, frequency: int) -> None:
+        if frequency in self._scan_selected:
+            self._scan_selected.remove(frequency)
+        else:
+            self._scan_selected.add(frequency)
+        self._render_scan_results()
+
+    def _render_scan_results(self) -> None:
+        canvas = self._scan_canvas
+        canvas.delete("all")
+        ui = self._theme.ui
+        width = max(250, canvas.winfo_width())
+        for index, frequency in enumerate(self._state.scan_hits):
+            y = index * 36
+            selected = frequency in self._scan_selected
+            canvas.create_rectangle(2, y + 2, width - 4, y + 33,
+                                    fill=ui.control_background if selected else ui.surface,
+                                    outline=ui.border)
+            canvas.create_text(12, y + 18, anchor="w",
+                               text=("☑ " if selected else "□ ") +
+                                    f"{frequency / 1_000_000:.3f} MHz",
+                               fill=ui.text, font=("Sans", 10, "bold"))
+            canvas.tag_bind(canvas.find_all()[-2], "<ButtonRelease-1>",
+                            lambda event, hz=frequency: self._toggle_scan_hit(hz))
+            canvas.tag_bind(canvas.find_all()[-1], "<ButtonRelease-1>",
+                            lambda event, hz=frequency: self._toggle_scan_hit(hz))
+        canvas.configure(scrollregion=(0, 0, width, max(1, len(self._state.scan_hits) * 36)))
+        self._scan_save.configure(text=f"SAVE SELECTED ({len(self._scan_selected)})",
+                                  state=tk.NORMAL if self._scan_selected else tk.DISABLED)
+
+    def _save_scanned_presets(self) -> None:
+        key = self._state.station.profile_key
+        for frequency in sorted(self._scan_selected):
+            self._session.request(RadioRequest(
+                RadioAction.ADD_PRESET, key=key,
+                label=f"{frequency / 1_000_000:.3f} MHz", frequency_hz=frequency))
+        self._scan_selected.clear()
+        self._close_scan_results()
 
     def _previous_preset(self) -> None:
         if self._sdrforge_view is not None and not self._state.receiver_running:
@@ -594,7 +696,16 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             self._receiver_signal_label.configure(text=state.scan_progress or ("SIGNAL  " + signal))
             if self._sdrforge_view is not None:
                 group = self._active_group.split(":", 1)[0]
-                if group in ("FM", "WEATHER"):
+                if state.scanning or (self._scan_signature is not None and state.scan_hits):
+                    self._station_info.grid_remove()
+                    self._subcategory_strip.grid_remove()
+                    self._scan_card.grid()
+                    signature = state.scan_hits
+                    if signature != self._scan_signature:
+                        self._scan_signature = signature
+                        self._render_scan_results()
+                elif group in ("FM", "WEATHER"):
+                    self._scan_card.grid_remove()
                     self._subcategory_strip.grid_remove()
                     self._station_info.grid()
                     name = state.telemetry.station_name.strip()
@@ -610,6 +721,7 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                         self._info_text.configure(text="Weather broadcast • " +
                             ("Stereo" if state.telemetry.stereo_locked else "Mono"))
                 else:
+                    self._scan_card.grid_remove()
                     self._station_info.grid_remove()
                     self._subcategory_strip.grid()
 
