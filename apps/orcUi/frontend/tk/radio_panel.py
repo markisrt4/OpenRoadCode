@@ -619,6 +619,11 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         canvas.delete("all")
         ui = self._theme.ui
         width = max(250, canvas.winfo_width())
+        if not self._state.scan_hits:
+            message = "Scanning…" if self._state.scanning else "0 stations found"
+            canvas.create_text(width // 2, 55, text=message,
+                               fill=ui.text, font=("Sans", 12, "bold"),
+                               anchor="center")
         for index, frequency in enumerate(self._state.scan_hits):
             y = index * 36
             selected = frequency in self._scan_selected
@@ -738,11 +743,11 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
                                           width=320, anchor="ne")
                     self._scan_card.lift()
                     self._scan_status.configure(text=(
-                        state.scan_progress or
-                        (f"{len(state.scan_hits)} stations found" if state.scan_hits
-                         else "Scanning…" if state.scanning else "No stations found")))
+                        state.scan_progress if state.scanning and state.scan_progress else
+                        "Scanning…" if state.scanning else
+                        f"{len(state.scan_hits)} stations found"))
                     signature = state.scan_hits
-                    if signature != self._scan_signature:
+                    if signature != self._scan_signature or not state.scanning and not state.scan_hits:
                         self._scan_signature = signature
                         self._render_scan_results()
                 elif group in ("FM", "WEATHER"):
