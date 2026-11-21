@@ -8,6 +8,7 @@ spectrum bins, keeping transport and DSP outside Tk's UI thread.
 from __future__ import annotations
 
 import tkinter as tk
+from ui.ui_widget import UiWidget
 from dataclasses import replace
 import re
 from time import monotonic
@@ -22,7 +23,7 @@ from ui.theme import ThemeBundle
 from .opengl_radio_surface import OpenGLRadioSurface, available as opengl_available
 
 
-class SdrForgeReceiverView(tk.Frame):
+class SdrForgeReceiverView(tk.Frame, UiWidget):
     """Responsive native receiver visualization for the ORC radio panel."""
 
     def __init__(self, parent: tk.Misc, *, theme: ThemeBundle,
