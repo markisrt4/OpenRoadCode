@@ -11,6 +11,8 @@ import urllib.request
 from urllib.parse import quote
 from dataclasses import dataclass
 
+from controllers.radio.sdrforge_readiness import wait_for_sdrforge_ready
+
 
 @dataclass(frozen=True)
 class RemoteRadioPreset:
@@ -42,9 +44,10 @@ class SdrforgeRadioCatalogClient:
     """Fetch one coherent snapshot from the SDRForge radio catalog."""
 
     def __init__(self, base_url: str = "http://127.0.0.1:5570", *,
-                 timeout: float = 1.5) -> None:
+                 timeout: float = 1.5, readiness_timeout: float = 10.0) -> None:
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout
+        self._readiness_timeout = readiness_timeout
 
     def _get(self, path: str) -> dict:
         with urllib.request.urlopen(self._base_url + path,
@@ -81,6 +84,7 @@ class SdrforgeRadioCatalogClient:
         return result.get("ok") is True
 
     def profiles(self) -> tuple[RemoteRadioProfile, ...]:
+        wait_for_sdrforge_ready(self._base_url, timeout=self._readiness_timeout)
         raw_profiles = self._get("/v1/radio/profiles")["profiles"]
         raw_presets = self._get("/v1/radio/presets")["presets"]
         by_profile: dict[str, list[RemoteRadioPreset]] = {}
