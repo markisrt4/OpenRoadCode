@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import urllib.request
+from urllib.parse import quote
 from dataclasses import dataclass
 
 
@@ -52,6 +53,32 @@ class SdrforgeRadioCatalogClient:
         if not isinstance(result, dict):
             raise ValueError("invalid SDRForge radio response")
         return result
+
+    def _mutate(self, method: str, path: str, payload: dict) -> dict:
+        request = urllib.request.Request(
+            self._base_url + path, data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"}, method=method,
+        )
+        with urllib.request.urlopen(request, timeout=self._timeout) as response:
+            result = json.load(response)
+        if not isinstance(result, dict):
+            raise ValueError("invalid SDRForge preset response")
+        return result
+
+    def create_preset(self, *, profile_key: str, label: str,
+                      frequency_hz: int, mode: dict | None = None) -> dict:
+        payload = {"profile_key": profile_key, "label": label,
+                   "frequency_hz": frequency_hz}
+        if mode is not None:
+            payload["mode"] = mode
+        return self._mutate("POST", "/v1/radio/presets", payload)["preset"]
+
+    def delete_preset(self, preset_id: str) -> bool:
+        result = self._mutate(
+            "DELETE", "/v1/radio/presets/" + quote(preset_id, safe=""),
+            {"owner": "default"},
+        )
+        return result.get("ok") is True
 
     def profiles(self) -> tuple[RemoteRadioProfile, ...]:
         raw_profiles = self._get("/v1/radio/profiles")["profiles"]
