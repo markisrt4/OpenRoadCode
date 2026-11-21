@@ -6,9 +6,12 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
-from config.radio_config_manager import RadioConfig, load_radio_config
+from config.radio_config_manager import (RadioConfig, RadioModeConfig, RadioRangeConfig,
+    RadioPresetConfig, RadioTileConfig, load_radio_config)
+from controllers.radio.sdrforge_radio_catalog_client import SdrforgeRadioCatalogClient
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _RADIO_ROOT = _PROJECT_ROOT / "config" / "radio"
@@ -25,6 +28,8 @@ class RadioProfileCatalog:
         self._locale = locale
         self._user_presets_path = Path(user_presets_path or _DEFAULT_USER_PRESETS).expanduser()
         self._profiles: dict[str, RadioProfile] = {}
+        self._remote_configs: dict[str, RadioConfig] = {}
+        self._remote_enabled = os.environ.get("ORC_SDRFORGE_RADIO_CATALOG") == "1"
         self.reload()
 
     @property
@@ -41,7 +46,51 @@ class RadioProfileCatalog:
         normalized = group.strip().upper()
         return tuple(profile for profile in self.profiles if profile.group == normalized)
 
+    def config_for(self, key: str) -> RadioConfig:
+        """Return SDRForge's authoritative profile or the legacy local config."""
+        if key in self._remote_configs:
+            return self._remote_configs[key]
+        return load_radio_config(self.profile(key).config_path)
+
+    def _load_remote(self) -> bool:
+        if not self._remote_enabled:
+            return False
+        try:
+            remote = SdrforgeRadioCatalogClient().profiles()
+            if not remote:
+                return False
+            profiles: dict[str, RadioProfile] = {}
+            configs: dict[str, RadioConfig] = {}
+            for item in remote:
+                mode = RadioModeConfig(item.mode_name, item.bandwidth, item.step_hz)
+                presets = tuple(RadioProfilePreset(
+                    p.label, p.frequency_hz, p.mode_name, p.bandwidth,
+                    p.step_hz, p.user_defined,
+                ) for p in item.presets)
+                configs[item.key] = RadioConfig(
+                    item.key, item.label, "", mode,
+                    [RadioPresetConfig(p.label, p.frequency_hz,
+                        RadioModeConfig(p.mode_name, p.bandwidth, p.step_hz))
+                     for p in item.presets],
+                    RadioTileConfig("Launch", "", ""),
+                    RadioTileConfig("Radio", "", ""),
+                    RadioRangeConfig(item.minimum_frequency_hz,
+                        item.maximum_frequency_hz, item.start_frequency_hz),
+                )
+                profiles[item.key] = RadioProfile(
+                    item.key, item.label, item.group,
+                    _RADIO_ROOT / f"{item.key}.json", presets,
+                )
+        except (OSError, ValueError, KeyError, TypeError, IndexError):
+            return False
+        self._remote_configs = configs
+        self._profiles = profiles
+        return True
+
     def reload(self) -> None:
+        if self._load_remote():
+            return
+        self._remote_configs = {}
         user_presets = self._load_user_presets()
         profiles: dict[str, RadioProfile] = {}
         for path in self._profile_paths():
