@@ -30,7 +30,7 @@ source "$FEATURES_FILE"
 if (( $# > 0 )); then
   FEATURES=("$@")
 else
-  FEATURES=(base desktop-ui web-ui browser streamlit spotify navigation)
+  FEATURES=(base desktop-ui web-ui browser streamlit spotify sdrforge navigation)
 fi
 
 echo "[*] Termux features: ${FEATURES[*]}"
