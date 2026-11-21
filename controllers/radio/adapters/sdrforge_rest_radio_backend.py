@@ -9,6 +9,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from ..radio_backend_if import RadioBackendIf
+from ..sdrforge_readiness import wait_for_sdrforge_ready
 
 
 class SdrForgeRestRadioBackend(RadioBackendIf):
@@ -34,6 +35,10 @@ class SdrForgeRestRadioBackend(RadioBackendIf):
         if not isinstance(result, dict):
             raise RuntimeError("SDRForge REST response must be a JSON object")
         return result
+
+    def wait_until_ready(self, timeout: float = 10.0) -> None:
+        """Wait for REST readiness; never replay control commands."""
+        wait_for_sdrforge_ready(self._base_url, timeout=timeout)
 
     def health(self) -> bool:
         return self._request("/v1/health").get("status") == "ok"
