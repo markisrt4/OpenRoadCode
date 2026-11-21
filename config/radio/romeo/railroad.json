@@ -60,7 +60,7 @@
     }
   ],
   "range": {
-    "min_frequency_hz": 160215000,
+    "min_frequency_hz": 160080000,
     "max_frequency_hz": 161565000,
     "start_frequency_hz": 160230000
   }
