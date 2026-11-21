@@ -7,19 +7,16 @@ profiles expose presentation metadata and presets without backend configuration 
 The `UiWidget` marker remains a small policy marker, with no injection machinery.
 
 `ReceiverSession` owns receiver orchestration and generation guards. Composition
-constructs the profile controller, telemetry monitor, SDR++ remote controls, managed
+constructs the profile controller, SDRForge telemetry subscriber, native display controls,
 application service, ADS-B adapter, and X11 adapter. A composition-owned serial RF
 executor keeps shared receiver operations ordered. NOAA launch and retry work also
 runs there, outside Tk. Internet radio retains its separate worker pools.
 
 The frontend queue delivers worker results on the UI thread. Closing or hiding a
-session invalidates queued requests and results immediately. Native embedding checks
+session invalidates queued requests and results immediately. ADS-B native embedding checks
 cancellation while discovering a window. Retirement then detaches the native client
 before Tk destroys its host. Native launch/embed/resize and cleanup share a lock;
-hiding may briefly wait for an already executing native operation. SDR++ startup
-itself runs outside that lock, so a slow startup does not prevent retirement.
-The application service also rejects launches after terminal runtime shutdown and
-serializes shutdown with a startup already in progress.
+hiding may briefly wait for an already executing native operation. RF service startup is managed independently of the frontend.
 Application-owned RF audio can continue after leaving the radio screen. Explicit
 ADS-B selection relinquishes RF first because both use the same SDR.
 
@@ -39,7 +36,7 @@ is also checked strictly, without adding behavior to the shared `UiWidget` marke
 queued and in-flight launch retirement, stale UI delivery, native cancellation,
 telemetry measurements, preset/tuning requests, ADS-B ownership, and cleanup failure.
 
-Run `python scripts/quality_gate.py` and the focused receiver/X11 suites. Live SDR++,
+Run `python scripts/quality_gate.py` and the focused receiver/X11 suites. Live SDRForge,
 rigctl, telemetry sockets, ADS-B, X11 embedding, theme switching, and hardware audio
 still require a device acceptance pass. Headless tests cannot verify those behaviors.
 
