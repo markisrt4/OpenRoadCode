@@ -71,11 +71,16 @@ class ScannerScreen(CarUiScreen):
     def hide(self) -> None:
         if self.active_radio_panel is not None:
             self.active_radio_panel.stop_radio_status_polling()
+        if self.active_radio_session is not None:
+            self.active_radio_session.close()
+            self.active_radio_session = None
 
     def show(self) -> None:
         """Display the configured scanner-band menu."""
         if not self.prepare_screen("Scanner", self._radio_menu_action):
             return
+        if self.active_radio_session is not None:
+            self.active_radio_session.close()
         self.active_radio_panel = None
         self.active_radio_session = None
 
@@ -114,6 +119,8 @@ class ScannerScreen(CarUiScreen):
 
     def show_band(self, band: ScannerBandSpec) -> None:
         """Open and start the radio panel for ``band``."""
+        if self.active_radio_session is not None:
+            self.active_radio_session.close()
         runtime = self._radio_runtimes.get(band.key)
 
         self.host.clear_screen_content()
