@@ -8,11 +8,11 @@ import pytest
 from apps.orcUi.native_radio_application_service import NativeRadioApplicationService
 
 
-def test_native_runtime_has_no_eager_sdrpp_launcher_import():
+def test_native_runtime_has_no_sdrpp_launcher_import():
     source = Path(__file__).resolve().parents[3] / "apps/orcUi/application_runtime.py"
     tree = ast.parse(source.read_text(encoding="utf-8"))
     assert not [
-        node for node in tree.body
+        node for node in ast.walk(tree)
         if isinstance(node, ast.ImportFrom)
         and node.module in (
             "apps.launchers.managed_sdrpp_launcher",
@@ -45,8 +45,8 @@ def test_native_radio_composition_has_no_eager_legacy_control_imports():
     assert "controllers.sdr.sdr_telemetry_monitor" not in eager_imports
 
 
-def test_legacy_controls_are_imported_only_inside_fallback_branch():
-    """Keep the optional SDR++ path available without eager initialization."""
+def test_legacy_controls_are_never_imported():
+    """Prevent reintroduction of the retired SDR++ fallback."""
     source = Path(__file__).resolve().parents[3] / "apps/orcUi/composition/radio.py"
     tree = ast.parse(source.read_text(encoding="utf-8"))
     imports = [
@@ -57,7 +57,4 @@ def test_legacy_controls_are_imported_only_inside_fallback_branch():
             "controllers.sdr.sdr_telemetry_monitor",
         }
     ]
-    assert sorted(imports) == [
-        "controllers.sdr.sdr_telemetry_monitor",
-        "controllers.sdr.sdrpp_control",
-    ]
+    assert not imports
