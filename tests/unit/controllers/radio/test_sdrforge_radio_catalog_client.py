@@ -31,9 +31,11 @@ def test_catalog_maps_factory_and_user_presets():
         urls.append(url)
         return io.BytesIO(json.dumps(payloads.pop(0)).encode())
 
-    with patch("controllers.radio.sdrforge_radio_catalog_client.urllib.request.urlopen",
-               side_effect=fetch):
-        profiles = SdrforgeRadioCatalogClient().profiles()
+    with patch("controllers.radio.sdrforge_readiness.urlopen",
+               return_value=io.BytesIO(json.dumps({"status": "ok"}).encode())):
+        with patch("controllers.radio.sdrforge_radio_catalog_client.urllib.request.urlopen",
+                   side_effect=fetch):
+            profiles = SdrforgeRadioCatalogClient().profiles()
 
     assert len(profiles) == 1
     assert profiles[0].key == "fm_radio"
