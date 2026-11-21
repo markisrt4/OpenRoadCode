@@ -16,6 +16,19 @@
 
 *ORC's Law: Inspect what exists. Reuse what works. Extend what's missing. Don't reinvent the wheel.*
 
+## Primary UI display target
+
+- **Design and validate the ORC interface for 1280×720 first.** Treat this as
+  the primary target resolution for new screens, layout changes, controls,
+  overlays, dialogs, and visualizations.
+- Keep layouts adaptable to other resolutions, but do not compromise the
+  1280×720 experience to optimize a smaller display first.
+- Verify that primary navigation, controls, labels, and notification dialogs
+  remain readable and usable at 1280×720 without unintended clipping,
+  overlapping, or unnecessary scrolling.
+- Support for other display sizes, including 800×480, is secondary unless
+  the user explicitly changes the target priority.
+
 ## UI contracts are part of completing a feature
 
 - Before wiring new UI behavior, define or extend toolkit-independent state and
