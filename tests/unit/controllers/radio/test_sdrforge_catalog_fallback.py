@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Opt-in SDRForge catalog and offline fallback tests."""
+"""Default SDRForge catalog and offline fallback tests."""
 from unittest.mock import patch
 
 from controllers.radio.radio_profiles import RadioProfileCatalog
@@ -31,3 +31,19 @@ def test_remote_failure_falls_back_to_local(monkeypatch):
         catalog = RadioProfileCatalog()
     assert catalog.profiles
     assert catalog.config_for("fm_radio").key == "fm_radio"
+
+def test_remote_catalog_is_enabled_by_default(monkeypatch):
+    monkeypatch.delenv("ORC_SDRFORGE_RADIO_CATALOG", raising=False)
+    with patch("controllers.radio.radio_profiles.SdrforgeRadioCatalogClient") as client:
+        client.return_value.profiles.side_effect = OSError("offline")
+        catalog = RadioProfileCatalog()
+    client.assert_called_once_with(readiness_timeout=1.0)
+    assert catalog.profiles
+
+
+def test_remote_catalog_can_be_disabled(monkeypatch):
+    monkeypatch.setenv("ORC_SDRFORGE_RADIO_CATALOG", "0")
+    with patch("controllers.radio.radio_profiles.SdrforgeRadioCatalogClient") as client:
+        catalog = RadioProfileCatalog()
+    client.assert_not_called()
+    assert catalog.profiles
