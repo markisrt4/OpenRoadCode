@@ -56,9 +56,9 @@ class FMRadioScreen(CarUiScreen):
             key=runtime.key,
             title="FM Radio",
             launch_tile=RadioPanelTileConfig(
-                label="Launch SDR++",
-                subtitle="FM receiver app",
-                detail="Starts / toggles SDR++",
+                label="SDRForge Status",
+                subtitle="Shared radio service",
+                detail="Check shared SDRForge service",
             ),
             radio_toggle_tile=RadioPanelTileConfig(
                 label="Radio ON/OFF",
