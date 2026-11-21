@@ -18,6 +18,7 @@ def presentation():
     panel._receiver_start_pending = False
     panel._receiver_controls = None
     panel._scan_dismissed = False
+    panel._scan_requested = False
     panel._scan_signature = None
     panel._scan_selected = set()
     panel._state = RfRadioState(
@@ -67,6 +68,9 @@ def test_native_power_button_reflects_backend_starting_state():
     panel._subcategory_strip = Mock()
     panel._station_info = Mock()
     panel._scan_card = Mock()
+    panel._scan_status = Mock()
+    panel._scan_signature = None
+    panel._render_scan_results = Mock()
     panel._favorites = Mock()
     panel._pending_group = None
     panel._render_subcategory_tiles = Mock()
@@ -105,3 +109,36 @@ def test_native_power_button_reflects_backend_starting_state():
     panel._toggle_receiver_power()
     assert panel._session.request.call_args.args[0].action is RadioAction.START_RECEIVER
     panel._receiver_power_button.set_enabled.assert_called_with(False)
+
+
+def test_empty_scan_keeps_discovery_card_open_until_closed():
+    panel = presentation()
+    panel._sdrforge_view = Mock()
+    panel._receiver_controls = Mock()
+    panel._receiver_mode_label = Mock()
+    panel._receiver_signal_label = Mock()
+    panel._receiver_power_button = Mock()
+    panel._play_button = Mock()
+    panel._scan_button = Mock()
+    panel._live_rf_buttons = []
+    panel._active_group = "FM"
+    panel._subcategory_strip = Mock()
+    panel._station_info = Mock()
+    panel._favorites = Mock()
+    panel._pending_group = None
+    panel._render_subcategory_tiles = Mock()
+    panel._render_favorites = Mock()
+    panel._theme.ui.accent_success = "green"
+    panel._theme.ui.accent_primary = "blue"
+    panel._theme.ui.surface = "black"
+    panel._scan_requested = True
+    panel._scan_dismissed = False
+    panel._state = RfRadioState(
+        RadioProfileState("Station", 100_000_000, "WFM", "fm_radio", "FM"), ()
+    )
+    panel.set_radio_state(panel._state)
+    panel._scan_card.place.assert_called()
+    panel._scan_status.configure.assert_called_with(text="No stations found")
+    panel._close_scan_results()
+    assert not panel._scan_requested
+    panel._scan_card.place_forget.assert_called()
