@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Manual X11 embedding test using a supplied SDR++ process ID."""
+"""Manual X11 embedding test using a supplied X11 client process ID."""
 
 from __future__ import annotations
 
@@ -13,20 +13,21 @@ from frontends.x11 import X11WindowEmbedder
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("pid", type=int, help="PID of the SDR++ X11 process")
+    parser.add_argument("pid", type=int, help="PID of the X11 client X11 process")
+    parser.add_argument("--window-name", default="", help="Optional window title filter")
     args = parser.parse_args()
 
     root = tk.Tk()
     root.title("ORC X11 Embed Test")
     root.geometry("900x520")
 
-    heading = tk.Label(root, text="OpenRoadCode SDR++ Embed Test")
+    heading = tk.Label(root, text="OpenRoadCode X11 client Embed Test")
     heading.pack(fill="x")
 
     host = tk.Frame(root, bg="black")
     host.pack(fill="both", expand=True)
 
-    status = tk.Label(root, text=f"Waiting for SDR++ PID {args.pid}...")
+    status = tk.Label(root, text=f"Waiting for X11 client PID {args.pid}...")
     status.pack(fill="x")
 
     root.update_idletasks()
@@ -39,10 +40,10 @@ def main() -> None:
                 host.winfo_id(),
                 host.winfo_width(),
                 host.winfo_height(),
-                window_name="SDR++",
+                window_name=args.window_name,
             )
             status.config(
-                text=f"Embedded SDR++ XID {window_id} from PID {args.pid}"
+                text=f"Embedded X11 client XID {window_id} from PID {args.pid}"
             )
             host.bind(
                 "<Configure>",
