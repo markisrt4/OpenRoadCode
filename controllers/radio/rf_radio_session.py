@@ -54,7 +54,8 @@ class ReceiverSession:
                  run_ui: Callable[[Callable[[], None]], None],
                  on_close: Callable[[], None] = lambda: None,
                  spectrum_source: SpectrumSourceIf | None = None,
-                 native_sdrforge: bool = False) -> None:
+                 native_sdrforge: bool = False,
+                 on_error: Callable[[str, str], None] | None = None) -> None:
         self._native_sdrforge = native_sdrforge
         self._spectrum_source = spectrum_source
         self._radio = radio
@@ -67,6 +68,7 @@ class ReceiverSession:
         self._run_work = run_work
         self._run_ui = run_ui
         self._on_close = on_close
+        self._on_error = on_error
         self._lock = Lock()
         self._native_lock = RLock()
         self._generation = 0
@@ -190,7 +192,16 @@ class ReceiverSession:
                             self._cleanup_native()
                     except (OSError, RuntimeError, ValueError) as cleanup_error:
                         message += f"; cleanup: {cleanup_error}"
-                self._state = replace(self._state, loading=False, error=message)
+                if self._on_error is not None and request.action in (
+                    RadioAction.LAUNCH, RadioAction.ADSB,
+                ):
+                    title = ("ADS-B Map Unavailable" if request.action is RadioAction.ADSB
+                             else "Radio Launch Failed")
+                    self._run_ui(lambda: self._on_error(title, message)
+                                 if self._current(generation) else None)
+                    self._state = replace(self._state, loading=False, error="")
+                else:
+                    self._state = replace(self._state, loading=False, error=message)
             finally:
                 if request.action is RadioAction.REFRESH:
                     with self._lock:
