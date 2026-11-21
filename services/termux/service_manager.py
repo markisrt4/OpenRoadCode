@@ -128,7 +128,7 @@ class RunitServiceManager:
                 return "ready", "SDRForge REST API is healthy"
         except (OSError, ValueError):
             pass
-        match = re.search(r"\\(pid \\d+\\) (\\d+)s", detail)
+        match = re.search(r"\(pid \d+\) (\d+)s", detail)
         uptime = int(match.group(1)) if match else None
         if uptime is not None and uptime >= 10:
             return "failed", "SDRForge REST API is not healthy after startup"
