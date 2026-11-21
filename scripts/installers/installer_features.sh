@@ -70,6 +70,7 @@ web-ui
 browser
 streamlit
 spotify
+sdrforge
 navigation
 EOF
       ;;
@@ -93,7 +94,9 @@ get_feature_dependencies() {
     spotify)
       [[ "$target" == "termux" ]] && echo "" || echo "audio"
       ;;
-    sdrforge) echo "rtl-sdr desktop-ui audio" ;;
+    sdrforge)
+      [[ "$target" == "termux" ]] && echo "desktop-ui" || echo "rtl-sdr desktop-ui audio"
+      ;;
     navigation)
       [[ "$target" == "termux" ]] && echo "desktop-ui" || echo "desktop-ui gps"
       ;;
