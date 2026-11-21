@@ -76,6 +76,37 @@ class SdrForgeRestRadioBackendTest(unittest.TestCase):
         request.assert_called_once()
         ready.assert_not_called()
 
+    def test_diagnostics_initial_state(self) -> None:
+        diagnostics = self.backend.connection_diagnostics()
+        self.assertEqual(diagnostics.state, "unknown")
+        self.assertEqual(diagnostics.reconnect_attempts, 0)
+        self.assertIsNone(diagnostics.last_success_monotonic)
+
+    def test_diagnostics_record_successful_reconnection(self) -> None:
+        failure = RuntimeError("connection lost")
+        failure.__cause__ = URLError("refused")
+        with patch.object(self.backend, "_request_once",
+                          side_effect=[failure, {"frequency_hz": 94700000}]):
+            with patch.object(self.backend, "wait_until_ready"):
+                self.backend.get_frequency()
+        diagnostics = self.backend.connection_diagnostics()
+        self.assertEqual(diagnostics.reconnect_attempts, 1)
+        self.assertEqual(diagnostics.reconnect_successes, 1)
+
+    def test_diagnostics_track_failed_reconnection(self) -> None:
+        failure = RuntimeError("connection lost")
+        failure.__cause__ = URLError("refused")
+        with patch.object(self.backend, "_request_once", side_effect=failure):
+            with patch.object(self.backend, "wait_until_ready",
+                              side_effect=RuntimeError("not ready")):
+                with self.assertRaises(RuntimeError):
+                    self.backend.receiver_status()
+        diagnostics = self.backend.connection_diagnostics()
+        self.assertEqual(diagnostics.state, "unavailable")
+        self.assertEqual(diagnostics.reconnect_attempts, 1)
+        self.assertEqual(diagnostics.reconnect_successes, 0)
+        self.assertEqual(diagnostics.last_error, "not ready")
+
     def test_invalid_frequency_does_not_call_service(self) -> None:
         with patch.object(self.backend, "_request") as request:
             with self.assertRaises(ValueError):
