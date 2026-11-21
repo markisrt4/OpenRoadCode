@@ -29,7 +29,7 @@ automotive
 imu
 environmental
 spotify
-sdrpp
+sdrforge
 navigation
 raspberry-pi
 EOF
@@ -59,7 +59,7 @@ automotive
 imu
 environmental
 spotify
-sdrpp
+sdrforge
 EOF
       ;;
     termux)
@@ -93,7 +93,7 @@ get_feature_dependencies() {
     spotify)
       [[ "$target" == "termux" ]] && echo "" || echo "audio"
       ;;
-    sdrpp) echo "rtl-sdr desktop-ui audio" ;;
+    sdrforge) echo "rtl-sdr desktop-ui audio" ;;
     navigation)
       [[ "$target" == "termux" ]] && echo "desktop-ui" || echo "desktop-ui gps"
       ;;
@@ -161,7 +161,8 @@ get_feature_packages() {
     spotify)
       echo ""
       ;;
-    sdrpp|navigation)
+    sdrforge) echo "libportaudio2" ;;
+    navigation)
       echo ""
       ;;
     *)
@@ -185,7 +186,7 @@ get_feature_python_packages() {
     web-ui)
       printf '%s\n' Flask numpy
       ;;
-    browser|vnc|adsb|audio|spotify|sdrpp|navigation)
+    browser|vnc|adsb|audio|spotify|sdrforge|navigation)
       echo ""
       ;;
     input)
@@ -243,7 +244,7 @@ Available features:
   imu           MPU-6050 and Adafruit Blinka I2C support
   environmental BMP3XX and Adafruit Blinka I2C support
   spotify       Spotify integration extras (includes audio)
-  sdrpp         SDR++ support (includes RTL-SDR, desktop-ui, and audio)
+  sdrforge         SDRForge support (includes RTL-SDR, desktop-ui, and audio)
   navigation    MapLibre renderer + Valhalla navigation stack (includes desktop-ui and gps)
   raspberry-pi  Raspberry Pi GPIO, I2C, Blinka, and Seesaw support
 EOF
