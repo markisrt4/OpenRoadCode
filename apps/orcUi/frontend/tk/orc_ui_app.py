@@ -14,6 +14,7 @@ from ui.system_diagnostics import SystemDiagnosticsSnapshot
 from apps.orcUi.orc_theme import toggle
 from ui.theme import ThemeMode
 from .power_dialog import PowerDialog
+from .error_dialog import ErrorDialog
 from .performance_overlay import PerformanceOverlay
 from .screen_builders import (
     build_placeholder,
@@ -48,6 +49,7 @@ class OrcUiApp(VolumeUiIf, UiWidget):
         self._power_dialog: PowerDialog | None = None
         self._root = tk.Tk()
         self._performance_overlay = PerformanceOverlay(self._root)
+        self._error_dialog = ErrorDialog(self._root, lambda: self._theme)
         self._root.bind_all("<Control-Shift-P>", self._toggle_performance_overlay)
         with ResourceCleanup() as cleanup:
             cleanup.callback(self.shutdown)
@@ -239,6 +241,10 @@ class OrcUiApp(VolumeUiIf, UiWidget):
         """Show the active screen's semantic back action in persistent chrome."""
         if self._shell is not None:
             self._shell.set_back_action(action)
+    def show_error(self, title: str, message: str) -> None:
+        """Present a shell-level error without painting over native content."""
+        self._error_dialog.show(title, message)
+
     def set_screen_status(self, message: str) -> None:
         if self._shell is not None:
             self._shell.set_status(message)
