@@ -1,7 +1,7 @@
 name: OpenRoadCode CI
 on:
   pull_request:
-    types: [opened, reopened, synchronize, ready_for_review]
+    types: [opened, reopened, ready_for_review]
   push:
     branches: [master]
   workflow_dispatch:
@@ -17,6 +17,7 @@ permissions:
   contents: read
 jobs:
   fast:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
