@@ -16,6 +16,7 @@ from apps.launchers.adsb_launcher import ADSBLauncher
 from apps.launchers.browser_app_factory import BrowserApplicationFactory
 from apps.launchers.google_earth_launcher import GoogleEarthLauncher
 from apps.launchers.sdrpp_launcher import SDRPPLauncher, SDRPPProfile
+from apps.launchers.sdrforge_service_launcher import SdrForgeServiceLauncher
 from controllers.application_runtime import AppRuntimeManager
 from controllers.cache import PersistentCache
 from controllers.weather import GpsdWeatherLocationProvider, OpenMeteoWeatherProvider, WeatherController
@@ -117,6 +118,10 @@ def _build_backend(*, backend_type: str, config: RuntimeConfig):
 def _build_launcher(*, launcher_type: str | None, stack: RadioStackConfig, radio_config, resource_manager: SDRResourceManager):
     if launcher_type is None or launcher_type == "none":
         raise CarUiRuntimeFactoryError(f"Radio stack '{stack.key}' does not define a usable launcher")
+    if launcher_type == "sdrforge":
+        return SdrForgeServiceLauncher(
+            base_url=os.getenv("SDRFORGE_REST_URL", "http://127.0.0.1:5570")
+        )
     if launcher_type != "sdrpp":
         raise CarUiRuntimeFactoryError(f"Unsupported radio launcher '{launcher_type}' for stack '{stack.key}'")
     profile = SDRPPProfile(name=getattr(radio_config, "label", stack.key), mode=radio_config.default_mode.name, step_hz=radio_config.default_mode.step_hz, start_frequency_hz=_profile_start_frequency(radio_config))
