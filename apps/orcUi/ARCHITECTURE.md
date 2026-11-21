@@ -343,7 +343,7 @@ Restart and poweroff requests flow through `SystemLifecycleRequestHandlerIf`. `S
 
 ## Feature composition
 
-`composition/radio.py` wires application-owned radio services to reusable Tk radio presentation and the ORC-specific radio shell. SDR++/ADS-B presentation details stay outside the reusable radio package. ADS-B host/config lifecycle is an ORC adapter, while managed process lifetime remains explicitly owned.
+`composition/radio.py` wires application-owned radio services to reusable Tk radio presentation and the ORC-specific radio shell. native RF/ADS-B presentation details stay outside the reusable radio package. ADS-B host/config lifecycle is an ORC adapter, while managed process lifetime remains explicitly owned.
 
 `composition/media.py` wires shared Spotify services, local-player behavior, image/lyrics/video dependencies, and reusable Tk media screens. Spotify synchronization and local-player behavior remain under `controllers/spotify`; ORC-selected browser and Web Playback hosts live under `apps/orcUi/adapters`.
 
@@ -639,7 +639,7 @@ Strict mypy includes the streaming contracts, controller, browser, transport,
 Tk browser/theme/Home widgets, radio screen, and composition. Structural witnesses
 check actual implementations against their contracts. The migrated streaming
 frontends have no backend import exceptions; thirteen prior exceptions are removed.
-`ReceiverSession` now owns RF profile/telemetry and native SDR++/ADS-B operations
+`ReceiverSession` now owns RF profile/telemetry and native RF and ADS-B operations
 on the composition-owned serial RF worker. `RadioEntryPanel` receives factories
 and `RadioPanel` emits immutable `RadioRequest` values; neither owns launch workers.
 Persistent Aircraft menu requests and receiver-status inspection use the same
