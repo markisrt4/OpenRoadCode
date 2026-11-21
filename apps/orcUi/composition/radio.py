@@ -135,16 +135,8 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
     with ResourceCleanup() as cleanup:
         rigctl_client = RigctlClient()
         def sync_theme(mode: ThemeMode) -> None:
-            def work() -> None:
-                # Native SDRForge uses the ORC theme directly. Only the
-                # explicitly selected legacy SDR++ window needs synchronization.
-                if os.environ.get("ORC_SDRFORGE_UI_PREVIEW", "1").lower() in (
-                    "0", "false", "no",
-                ):
-                    from apps.launchers.sdrpp_launcher import sync_sdrpp_theme
-
-                    sync_sdrpp_theme("Light" if mode is ThemeMode.LIGHT else "Dark")
-            resources.run_rf(work)
+            """Native radio widgets consume the ORC theme directly."""
+            del mode
 
         resources = StreamingRadioResources(app.cancel_ui_callback)
         cleanup.callback(resources.close)
@@ -203,38 +195,24 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
                 max_fps=int(os.environ.get("ORC_RADIO_MAX_FPS", "10")),
                 palette=os.environ.get("ORC_RADIO_PALETTE", "classic").lower(),
             )
-            # SDRForge is the default RF presentation. Legacy SDR++ embedding is
-            # opt-in only, so a normal Linux launch never requires its X11 window.
-            native_sdrforge = os.environ.get("ORC_SDRFORGE_UI_PREVIEW", "1").lower() not in (
-                "0", "false", "no",
-            )
-            source = (SdrForgeTelemetrySubscriber(
+            source = SdrForgeTelemetrySubscriber(
                 os.environ.get("SDRFORGE_ZMQ_ENDPOINT", "tcp://127.0.0.1:5571")
-            ) if native_sdrforge else None)
-            if native_sdrforge:
-                display_control = NativeRadioControl()
-                legacy_telemetry = None
-            else:
-                # SDR++ dependencies are loaded only for explicit legacy mode.
-                from controllers.sdr.sdrpp_control import SDRPPControl
-                from controllers.sdr.sdr_telemetry_monitor import SDRTelemetryMonitor
-
-                display_control = SDRPPControl()
-                legacy_telemetry = SDRTelemetryMonitor(radio)
+            )
+            display_control = NativeRadioControl()
             session = ReceiverSession(
-                radio, display_control, legacy_telemetry, runtime.radio,
+                radio, display_control, None, runtime.radio,
                 adsb, X11WindowEmbedder(), display=os.environ.get("DISPLAY", ":1"),
                 run_work=resources.run_rf, run_ui=app.dispatch_ui,
                 on_close=lambda: resources.rf_sessions.discard(session),
                 spectrum_source=source,
-                native_sdrforge=native_sdrforge,
+                native_sdrforge=True,
                 notification_sink=app.notification_sink,
             )
             with ResourceCleanup() as rollback:
                 rollback.callback(session.close)
                 resources.rf_sessions.add(session)
                 panel = RadioPanel(parent, session=session, theme=theme,
-                                   native_sdrforge=native_sdrforge,
+                                   native_sdrforge=True,
                                    visualization=visualization)
                 rollback.release()
             return panel
