@@ -16,6 +16,8 @@ control it through the localhost service-manager API.
 - `openroadcode-automotive` publishes the automotive state. Navigation ground
   motion is its default road-speed source on Termux.
 - `openroadcode-adsb` runs the optional ADS-B/tar1090 stack.
+- `openroadcode-sdrforge` runs the optional simulated SDRForge service, with
+  regional radio settings loaded at startup. Hardware requires Android USB handoff.
 
 The normal **core stack** is broker + Valhalla + navigation + automotive. ADS-B is kept
 optional so radio processing is not consuming resources when it is not needed.
@@ -29,7 +31,7 @@ Repeated unchanged status checks stay quiet at INFO. See the
 [runtime logging guide](../../common/logging/README.md#runtime-and-service-management)
 for live viewing and the separate Linux service-account store.
 
-Only the service manager starts automatically after installation. Core and
+Only the service manager starts automatically after installation. Core, SDRForge, and
 ADS-B definitions include runit's `down` marker so opening Termux does not
 unexpectedly consume routing, radio, or sensor resources.
 
@@ -92,6 +94,7 @@ sv status openroadcode-valhalla
 sv status openroadcode-navigation
 sv status openroadcode-automotive
 sv status openroadcode-adsb
+sv status openroadcode-sdrforge
 
 scripts/runit/manage_core.sh start
 scripts/runit/manage_core.sh status
@@ -125,3 +128,14 @@ Android bridge can start the stack again. Android-side sensor, Bluetooth,
 camera, and USB/radio services have separate lifecycles; a future full-stop
 control can shut those down together with the Termux core for the lowest idle
 power use.
+
+## SDRForge regional catalog
+
+Configure the region once with `bash scripts/configure_sdrforge_region.sh romeo`.
+The managed SDRForge service loads `~/.config/sdrforge/radio-region.conf`
+through libSDRForge's region-aware launcher at every start. Install the tracked
+service definition with `bash scripts/runit/install_termux_services.sh`.
+An existing SDRForge service keeps its previous enabled/disabled state; a new
+installation starts disabled. After updating an existing simulated service,
+run `sv restart openroadcode-sdrforge` to apply the new launcher. The
+installer itself does not restart the running SDRForge process.
