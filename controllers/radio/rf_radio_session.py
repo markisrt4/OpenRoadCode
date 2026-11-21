@@ -404,8 +404,20 @@ class ReceiverSession:
                 raise ValueError("tune frequency request requires frequency_hz")
             self._radio.tune_frequency(request.frequency_hz)
         elif action is RadioAction.ADD_PRESET:
-            self._radio.catalog.add_user_preset(request.key, label=request.label,
-                                               frequency_hz=self._radio.state.frequency_hz)
+            frequency_hz = (request.frequency_hz if request.frequency_hz is not None
+                            else self._radio.state.frequency_hz)
+            if request.frequency_hz is not None and frequency_hz not in self._state.scan_hits:
+                raise ValueError("Selected frequency is not in the latest scan results")
+            if request.key != self._radio.active_profile_key:
+                raise ValueError("Cannot save a preset to an inactive radio profile")
+            existing = self._radio.catalog.profile(request.key).presets
+            if any(p.frequency_hz == frequency_hz for p in existing):
+                raise ValueError("A preset already exists at this frequency")
+            self._radio.catalog.add_user_preset(
+                request.key, label=request.label, frequency_hz=frequency_hz,
+            )
+            # Rebuild the controller so NEXT/PREVIOUS immediately include the new preset.
+            self._radio.select_profile(request.key, start=False)
         elif action is RadioAction.THEME:
             self._control.set_theme(request.key)
         else:
