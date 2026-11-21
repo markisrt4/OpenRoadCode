@@ -115,9 +115,9 @@ class WeatherScreen(CarUiScreen):
             key=runtime.key,
             title="NOAA Weather Radio",
             launch_tile=RadioPanelTileConfig(
-                label="Launch SDR++",
+                label="SDRForge Status",
                 subtitle="NOAA receiver app",
-                detail="Starts / toggles SDR++",
+                detail="Check shared SDRForge service",
             ),
             radio_toggle_tile=RadioPanelTileConfig(
                 label="Radio ON/OFF",
