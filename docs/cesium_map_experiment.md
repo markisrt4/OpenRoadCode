@@ -1253,3 +1253,17 @@ connection failure or missing package instead of the generic Android-session hin
 
 The Views drawer only shows Close Waze while a retained Waze session is running;
 switching back to Road map does not hide the close action for that retained session.
+
+
+### Upgrading older Termux map data after the navigation merge
+
+Map theme deployment copies the bundled global land, lakes, country and state
+reference GeoJSON into the installed data root before writing the updated style.
+An older regional pack therefore receives the new reference sources without a
+new vector-map download. Detailed regional roads still require their map packs.
+
+Camera controls occupy a separate grid column beside the native map surface,
+matching Views/Places docking; they do not overlap its X11 input area. Cesium
+startup accepts a rendered frame while tiles continue loading, rather than
+waiting for every visible globe tile. Startup timeouts include the last page
+stage, with more detail in `cesium-stages.log` under the logging temporary folder.

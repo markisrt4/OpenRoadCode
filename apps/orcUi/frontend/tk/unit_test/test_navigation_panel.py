@@ -58,6 +58,13 @@ def test_first_views_click_allocates_drawer_and_controls_return_below_views():
         assert 0 <= handle.winfo_rooty() - panel._map_host.winfo_rooty() <= 6
         assert abs(handle.winfo_rootx() + handle.winfo_width() -
                    controls.views_button.winfo_rootx() - controls.views_button.winfo_width()) < 10
+        handle.invoke()
+        root.update()
+        assert panel._map_controls.winfo_manager() == 'grid'
+        assert panel._map_host.winfo_rootx() + panel._map_host.winfo_width() <= panel._map_controls.winfo_rootx()
+        panel._map_controls_toggle.invoke()
+        root.update()
+        assert panel._map_host.winfo_width() == full_width
     finally:
         panel.destroy()
         root.destroy()
@@ -277,7 +284,7 @@ class NavigationPanelControlTest(unittest.TestCase):
 
         panel.set_map_controls_drawer_state(MapControlsDrawerState(expanded=False))
 
-        panel._map_controls.place_forget.assert_called_once_with()
+        panel._map_controls.grid_remove.assert_called_once_with()
         panel._map_host.grid_configure.assert_not_called()
         panel._map_controls_rail.pack_forget.assert_called_once_with()
         panel._map_controls_handle.place.assert_called_once_with(
@@ -296,9 +303,8 @@ class NavigationPanelControlTest(unittest.TestCase):
 
         panel.set_map_controls_drawer_state(MapControlsDrawerState(expanded=True))
 
-        panel._map_controls.place.assert_called_once_with(
-            in_=panel._map_host, relx=1.0, rely=0.0, anchor="ne", width=224, relheight=1.0,
-        )
+        panel._map_controls.grid.assert_called_once_with(row=0, column=2, sticky="nsew")
+        panel._map_host.master.grid_columnconfigure.assert_called_with(2, minsize=224, weight=0)
         panel._map_controls.lift.assert_called_once_with()
         panel._map_host.grid_configure.assert_not_called()
         panel._map_controls_handle.place_forget.assert_called_once_with()

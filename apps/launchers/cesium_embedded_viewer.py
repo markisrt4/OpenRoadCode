@@ -185,7 +185,7 @@ class CesiumEmbeddedViewer:
                 time.sleep(.1)
             else:
                 if current():
-                    raise RuntimeError('Timed out waiting for the first 3D map frame')
+                    raise RuntimeError(f'Timed out waiting for the first 3D map frame (stage: {last_stage or "unknown"})')
             if not current():
                 resources.close()
                 self._embedder.clear()

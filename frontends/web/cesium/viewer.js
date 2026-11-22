@@ -66,10 +66,12 @@
       contextOptions:{webgl:{powerPreference:'high-performance'}}
     });
     window.ORCViewerStage = 'local-layers';
+    window.ORCViewerStage = 'reference-globe';
     await window.ORCReferenceGlobeLayer(viewer,C);
     if (closing || viewer.isDestroyed()) return;
     const terrain = snapshot.terrain ? window.ORCLocalTerrain(snapshot.terrain,C,
       [snapshot.longitude_rad,snapshot.latitude_rad]) : null;
+    window.ORCViewerStage = 'terrain-data';
     if(terrain)await terrain.ready;
     if (terrain) {
       terrain.setScale(viewer, snapshot.terrain_scale);
@@ -269,6 +271,7 @@
     imageryPyramids = window.ORCImageryPyramids(viewer,snapshot.imagery_pyramids || [],C);
     if(snapshot.imagery_pyramids?.length) status.textContent = `Offline · Detail imagery installed · ${terrainLabel} · ${buildingLabel}`;
 
+    window.ORCViewerStage = 'imagery-data';
     if (snapshot.imagery_layers?.length) {
       imageryStack = await window.ORCLocalImageryLayers(viewer,snapshot.imagery_layers,C,(error,layer)=>{
         status.hidden=false;
@@ -294,6 +297,7 @@
         if (!closing) status.textContent = 'Imagery unavailable: '+error.message+' · reference globe remains usable';
       }
     }
+    window.ORCViewerStage = 'map-controls';
     mapLayers=window.ORCMapLayers(viewer,snapshot,document);
     window.ORCMapLayerState=()=>mapLayers.state();
     window.ORCMapLayerAction=action=>mapLayers.request(action);
@@ -302,8 +306,10 @@
     status.textContent = 'Unable to render: '+error.message+' — use Return to ORC or the window close button';
   }
   if (viewer && !window.ORCViewerError) {
+    window.ORCViewerStage = 'waiting-first-frame';
+    // A rendered frame makes the view usable while terrain/imagery stream in.
+    // globe.tilesLoaded waits for every visible tile and is not a startup gate.
     const remove = viewer.scene.postRender.addEventListener(() => {
-      if (!viewer.scene.globe.tilesLoaded) return;
       remove();
       setTimeout(() => {
         if (!viewer.isDestroyed() && !window.ORCViewerError) {

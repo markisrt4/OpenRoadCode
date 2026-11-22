@@ -35,6 +35,7 @@ def install_map_style(mode: ThemeMode, data_root: str | Path | None = None) -> P
         _use_regional_freeway_fallback(document)
     _apply_map_palette(document, _MAP_DARK if mode is ThemeMode.DARK else _MAP_LIGHT)
     try:
+        _install_reference_maps(root)
         destination.write_text(json.dumps(document, separators=(",", ":")), encoding="utf-8")
     except PermissionError:
         logging.getLogger(__name__).warning(
@@ -44,6 +45,24 @@ def install_map_style(mode: ThemeMode, data_root: str | Path | None = None) -> P
         )
         return destination if destination.is_file() else None
     return destination
+
+
+def _install_reference_maps(root: Path) -> None:
+    """Deploy bundled global land and boundaries alongside the generated style.
+
+    Older regional packs predate these assets. Updating only their style leaves
+    file sources missing, so an upgrade must install the reference files too.
+    """
+    source = Path(__file__).resolve().parents[2] / 'resources' / 'maps'
+    destination = root / 'maps' / 'boundaries'
+    destination.mkdir(parents=True, exist_ok=True)
+    for name in ('world_land.geojson', 'world_lakes.geojson',
+                 'world_country_boundaries.geojson', 'us_state_boundaries.geojson',
+                 'us_state_internal_boundaries.geojson'):
+        payload = (source / name).read_bytes()
+        target = destination / name
+        if not target.is_file() or target.read_bytes() != payload:
+            target.write_bytes(payload)
 
 
 def _default_data_root() -> Path:

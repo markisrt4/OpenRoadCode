@@ -128,3 +128,13 @@ class MapThemeRuntimeTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_theme_upgrade_installs_missing_global_reference_sources(tmp_path):
+    (tmp_path / 'maps/styles').mkdir(parents=True)
+    document = json.loads(install_map_style(ThemeMode.DARK, tmp_path).read_text())
+    for name in ('reference-land', 'reference-lakes', 'country-boundaries', 'state-boundaries'):
+        filename = Path(document['sources'][name]['data']).name
+        data = json.loads((tmp_path / 'maps/boundaries' / filename).read_text())
+        assert data['type'] == 'FeatureCollection'
+        assert data['features']
