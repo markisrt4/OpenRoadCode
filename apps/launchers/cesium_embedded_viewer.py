@@ -77,15 +77,21 @@ class CesiumEmbeddedViewer:
             raise RuntimeError('xdotool is required for the embedded 3D map')
         if not current():
             return
+        _diagnostic('imagery-catalog-start')
         imagery_layers = load_imagery_stack()
         imagery_dir = detroit_pack_directory() if imagery_layers else preferred_imagery_directory(state.destination)
         building_dir = detroit_building_directory()
         tile_dir = preferred_tiles_directory(state.destination)
         tiles = load_viewer_tiles(tile_dir) if tile_dir.exists() else None
         imagery = LocalImageryPack.load(imagery_dir) if not imagery_layers and imagery_dir.exists() and (tiles is None or not any(t.imagery_available for t in tiles.state.tiles)) else None
+        _diagnostic('terrain-catalog-start')
         terrain = load_installed_terrain_catalog()
+        _diagnostic('terrain-catalog-ready')
         buildings = load_buildings(building_dir) if tiles is None and building_dir.exists() else None
+        _diagnostic('buildings-ready')
         roads = LocalRoadOverlay.installed()
+        _diagnostic('datasets-ready', latitude=state.destination.latitude_rad,
+                    longitude=state.destination.longitude_rad, distance_m=state.distance_m)
         display = os.environ.get('DISPLAY', ':1')
         resources = ExitStack()
         try:

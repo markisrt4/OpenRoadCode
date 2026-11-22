@@ -81,6 +81,7 @@ def _apply_map_palette(document: dict[str, Any], colors: dict[str, str]) -> None
     layers = {layer.get("id"): layer for layer in document.get("layers", [])}
     _paint(layers, "background", "background-color", colors["background"])
     _paint(layers, "reference-land", "fill-color", colors["reference_land"])
+    _paint(layers, "reference-coastlines", "line-color", colors["country_boundary"])
     _paint(layers, "reference-lakes", "fill-color", colors["water"])
     _paint(layers, "landcover", "fill-color", ["match", ["get", "class"], "wood", colors["wood"], "grass", colors["grass"], "scrub", colors["scrub"], "farmland", colors["farmland"], colors["land_default"]])
     _paint(layers, "landuse", "fill-color", ["match", ["get", "class"], "residential", colors["residential"], "commercial", colors["commercial"], "industrial", colors["industrial"], "cemetery", colors["cemetery"], "hospital", colors["hospital"], "school", colors["school"], colors["landuse_default"]])

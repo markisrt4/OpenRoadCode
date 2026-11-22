@@ -72,7 +72,13 @@
     const terrain = snapshot.terrain ? window.ORCLocalTerrain(snapshot.terrain,C,
       [snapshot.longitude_rad,snapshot.latitude_rad]) : null;
     window.ORCViewerStage = 'terrain-data';
-    if(terrain)await terrain.ready;
+    // Start the globe and controls while the nearby elevation mesh loads.
+    // A detailed mesh is not a prerequisite for the first interactive frame.
+    const terrainReady = terrain ? terrain.ready.then(() => true, error => {
+      status.hidden = false;
+      status.textContent = 'Terrain detail unavailable: '+error.message;
+      return false;
+    }) : Promise.resolve(false);
     if (terrain) {
       terrain.setScale(viewer, snapshot.terrain_scale);
       terrain.setVisible(viewer, snapshot.terrain_visible);
@@ -248,6 +254,9 @@
       scaleButton.onclick = () => {terrainScale=terrainScale%4+1; updateTerrain();};
       cuesButton.onclick = () => {cuesVisible=!cuesVisible;updateTerrain();};
       updateTerrain();
+      terrainReady.then(ready => {
+        if (ready && !closing && !viewer.isDestroyed()) updateTerrain();
+      });
     }
     bindVisibility('buildings', tiledMap || buildings?.source);
     reset();

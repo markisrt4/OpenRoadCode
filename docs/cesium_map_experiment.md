@@ -1267,3 +1267,19 @@ matching Views/Places docking; they do not overlap its X11 input area. Cesium
 startup accepts a rendered frame while tiles continue loading, rather than
 waiting for every visible globe tile. Startup timeouts include the last page
 stage, with more detail in `cesium-stages.log` under the logging temporary folder.
+
+
+### First interactive frame and outline conventions
+
+The embedded globe no longer waits for its initial nearby elevation mesh before
+wiring controls and accepting the first frame. Relief-dependent geometry refreshes
+when that mesh arrives; a detail-load error is reported while the globe remains
+usable. The default location remains Detroit only when composition has no current
+position. `cesium-stages.log` now timestamps imagery catalog, terrain catalog,
+buildings and dataset completion to distinguish disk loading from browser startup.
+
+At overview zooms, Road map uses a solid Natural Earth coastline in addition to
+its dashed international borders. The international-boundary dataset excludes
+coastlines by design. These overview coastlines stop above zoom 8, where regional
+map data supplies detail. The Controls toggle remains visible as Hide Controls
+while its panel occupies the same dock column as Views and Places.

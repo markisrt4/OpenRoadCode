@@ -61,6 +61,8 @@ def test_first_views_click_allocates_drawer_and_controls_return_below_views():
         handle.invoke()
         root.update()
         assert panel._map_controls.winfo_manager() == 'grid'
+        assert handle.winfo_ismapped()
+        assert panel._map_controls.winfo_height() > 100
         assert panel._map_host.winfo_rootx() + panel._map_host.winfo_width() <= panel._map_controls.winfo_rootx()
         panel._map_controls_toggle.invoke()
         root.update()
@@ -303,11 +305,12 @@ class NavigationPanelControlTest(unittest.TestCase):
 
         panel.set_map_controls_drawer_state(MapControlsDrawerState(expanded=True))
 
-        panel._map_controls.grid.assert_called_once_with(row=0, column=2, sticky="nsew")
-        panel._map_host.master.grid_columnconfigure.assert_called_with(2, minsize=224, weight=0)
+        panel._map_controls.grid.assert_called_once_with(row=0, column=1, sticky="nsew")
+        panel._map_host.master.grid_columnconfigure.assert_any_call(1, minsize=224, weight=0)
         panel._map_controls.lift.assert_called_once_with()
         panel._map_host.grid_configure.assert_not_called()
-        panel._map_controls_handle.place_forget.assert_called_once_with()
+        panel._map_controls_handle.place_forget.assert_not_called()
+        panel._map_controls_handle.configure.assert_called_with(text="HIDE CONTROLS ‹")
 
     def test_gas_shortcut_starts_fuel_search(self) -> None:
         panel = self._panel()

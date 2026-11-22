@@ -178,6 +178,17 @@
       }
     },
     {
+      "id": "reference-coastlines",
+      "type": "line",
+      "source": "reference-land",
+      "maxzoom": 8,
+      "paint": {
+        "line-color": "#aaa49d",
+        "line-width": 1.2,
+        "line-opacity": 0.75
+      }
+    },
+    {
       "id": "country-boundaries",
       "type": "line",
       "source": "country-boundaries",
