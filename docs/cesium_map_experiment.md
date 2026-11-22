@@ -1250,3 +1250,6 @@ its drawer is closed. Views, Places, and Waze controls scroll by vertical drag o
 mouse wheel without a visible scrollbar. Dragging a card scrolls without selecting
 it; tapping still selects it. Termux Waze preflight errors now report the ADB
 connection failure or missing package instead of the generic Android-session hint.
+
+The Views drawer only shows Close Waze while a retained Waze session is running;
+switching back to Road map does not hide the close action for that retained session.

@@ -71,7 +71,7 @@ class NavigationExperienceControls(tk.Frame, UiWidget):
             card.pack(fill=tk.X, padx=8, pady=5)
             card.bind('<Configure>', lambda e: e.widget.configure(wraplength=max(90, e.width - 100)))
             self._cards[experience] = card
-        self._button(self._views, 'CLOSE WAZE', self._close_waze).pack(fill=tk.X, padx=8, pady=6)
+        self._close_waze_button = self._button(self._views, 'CLOSE WAZE', self._close_waze)
         self.overlay_frame = tk.Frame(toolbar, bg=ui.surface_alt)
         self.overlay_frame.pack(side=tk.RIGHT, padx=4)
         self._places = tk.Frame(self._content, bg=ui.surface_alt)
@@ -224,6 +224,11 @@ class NavigationExperienceControls(tk.Frame, UiWidget):
                 NavigationExperience.ROAD: 'MAP', NavigationExperience.WAZE: 'WAZE',
                 NavigationExperience.TERRAIN: 'TERRAIN'}[state.selected])
             self._render_loading()
+            if state.waze_running:
+                self._close_waze_button.pack(fill=tk.X, padx=8, pady=6)
+                self._close_waze_button.configure(state=tk.DISABLED if state.busy else tk.NORMAL)
+            else:
+                self._close_waze_button.pack_forget()
             if state.waze_gestures_supported and state.selected is NavigationExperience.WAZE:
                 self.gestures_button.pack(fill=tk.X, pady=(0, 3))
             else:

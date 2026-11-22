@@ -170,3 +170,20 @@ def test_weather_controls_stay_in_toolbar_and_drawer_uses_swipe(layout):
     assert bar._canvas.yview()[0] > 0
     assert bar._scroll_release(SimpleNamespace(widget=card)) == 'break'
     handler.request_experience.assert_not_called()
+
+
+def test_close_waze_only_appears_for_retained_session(layout):
+    root, _, bar, handler = layout
+    bar.show_drawer('views')
+    root.update()
+    assert not bar._close_waze_button.winfo_ismapped()
+    handler.state = replace(handler.state, waze_running=True)
+    bar.after_cancel(bar._poll_job)
+    bar._poll()
+    root.update()
+    assert bar._close_waze_button.winfo_ismapped()
+    handler.state = replace(handler.state, waze_running=False)
+    bar.after_cancel(bar._poll_job)
+    bar._poll()
+    root.update()
+    assert not bar._close_waze_button.winfo_ismapped()
