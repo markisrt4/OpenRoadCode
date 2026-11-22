@@ -16,7 +16,6 @@ test('regional background survives leaving detail and late loads cannot attach a
   let visible=true,render,resolveDetail=null;
   const C={Rectangle:{fromRadians:()=>({}),intersection:()=>visible?{}:undefined},
     SingleTileImageryProvider:{fromUrl:async url=>{
-      if(url.startsWith('data:image/png;base64,'))return {url};
       if (url==='detail' && resolveDetail!==null) return new Promise(resolve=>{resolveDetail=resolve;});
       return {url};
     }}};
@@ -28,7 +27,8 @@ test('regional background survives leaving detail and late loads cannot attach a
   const snapshot=['overview','detail'].map(url=>({url,west_rad:0,east_rad:1,south_rad:0,north_rad:1,attribution:'source'}));
   const stack=await context.window.ORCLocalImageryLayers(viewer,snapshot,C);
   await new Promise(resolve=>setImmediate(resolve));
-  assert.equal(layers[0].provider.url.startsWith('data:image/png;base64,'),true);
+  assert.equal(layers[0].provider.url,'/data/world-reference.png');
+  assert.equal(layers[0].provider.orcLayerRole,'reference-globe');
   assert.equal(layers[1].provider.url,'overview');
   assert.equal(layers[2].provider.url,'detail');
   visible=false;now+=600;render();
