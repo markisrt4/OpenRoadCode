@@ -289,7 +289,7 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
     def _fallback(self, generation, status):
         if not self._current(generation):
             return
-        logging.getLogger(__name__).warning('Terrain returned to Map: %s', status)
+        logging.getLogger(__name__).warning('3D map returned to Map: %s', status)
         map_error = ''
         try:
             self._native.launch(self._host)
