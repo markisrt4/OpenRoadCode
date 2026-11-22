@@ -67,5 +67,11 @@ class MapPlatformRequests(MapRequestHandlerIf):
                                           self._poi_state.focused_category)
         self._send_pois(self._poi_state)
 
+    def refresh_renderer_state(self):
+        """Preserve native presentation replay across the platform wrapper."""
+        refresh = getattr(self._native, 'refresh_renderer_state', None)
+        if refresh is not None:
+            refresh()
+
     def request_style(self, style_id):
         self._native.request_style(style_id)

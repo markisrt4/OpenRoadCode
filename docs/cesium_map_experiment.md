@@ -1283,3 +1283,6 @@ its dashed international borders. The international-boundary dataset excludes
 coastlines by design. These overview coastlines stop above zoom 8, where regional
 map data supplies detail. The Controls toggle remains visible as Hide Controls
 while its panel occupies the same dock column as Views and Places.
+
+The shared map request wrapper forwards native presentation refresh requests as
+well as camera commands, retaining replay after drawer and platform changes.
