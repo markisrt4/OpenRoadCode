@@ -83,6 +83,7 @@ class WazeAppController(WazeRequestHandlerIf):
         Thread(target=self._launch, args=(generation, uri), daemon=True).start()
 
     def _launch(self, generation, uri=None):
+        failure = None
         with self._operation_lock:
             with self._lock:
                 if self._closed or generation != self._generation:
@@ -95,14 +96,15 @@ class WazeAppController(WazeRequestHandlerIf):
                 else:
                     name = (self._launcher.launch_installed_app('com.waze') if uri is None else
                             self._launcher.launch_installed_app('com.waze', uri=uri))
-            except (OSError, RuntimeError):
+            except (OSError, RuntimeError) as error:
                 name = None
+                failure = str(error)
         with self._lock:
             if self._closed or generation != self._generation:
                 return
-        self._dispatch_ui(lambda: self._finish(generation, name, uri is not None))
+        self._dispatch_ui(lambda: self._finish(generation, name, uri is not None, failure))
 
-    def _finish(self, generation, name, navigating=False):
+    def _finish(self, generation, name, navigating=False, failure=None):
         with self._lock:
             if self._closed or generation != self._generation:
                 return
@@ -118,6 +120,8 @@ class WazeAppController(WazeRequestHandlerIf):
             event(logging.getLogger('navigation.waze'), logging.INFO,
                   'app.open.requested', 'Opening Waze', backend='native', destination_requested=navigating)
             self._view.request_show_android_app(name, 'com.waze')
+        elif failure:
+            self._status(failure)
         elif self.state.active:
             self._status('Could not restore Waze. Its session is still retained; check the Android connection.')
         elif navigating:

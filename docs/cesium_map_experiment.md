@@ -1241,3 +1241,12 @@ geometry. CI now renders a synthetic UP hill through the actual Python mesh
 endpoint and browser provider, and checks rendered peak/low elevations at 4×;
 this supplements source continuity tests and the lake contour pixel test. Actual
 Keweenaw source coverage and the user's VM/device view still need verification.
+
+
+### Shared navigation toolbar and touch drawers
+
+Weather and Radar remain in the navigation toolbar beside Views, available while
+its drawer is closed. Views, Places, and Waze controls scroll by vertical drag or
+mouse wheel without a visible scrollbar. Dragging a card scrolls without selecting
+it; tapping still selects it. Termux Waze preflight errors now report the ADB
+connection failure or missing package instead of the generic Android-session hint.

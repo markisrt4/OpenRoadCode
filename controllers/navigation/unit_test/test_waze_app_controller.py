@@ -41,7 +41,7 @@ def test_native_launch_is_off_ui_thread_and_duplicate_requests_coalesce():
 
 @pytest.mark.parametrize('failure', [None, RuntimeError('launch failed')])
 def test_missing_or_failed_native_app_falls_back_on_ui_thread(failure):
-    instance, launcher, view, fallback, _, queued, _ = controller()
+    instance, launcher, view, fallback, status, queued, _ = controller()
     launcher.launch_installed_app.return_value = None
     launcher.launch_installed_app.side_effect = failure
     with patch('controllers.navigation.waze_app_controller.Thread') as thread:
@@ -49,7 +49,11 @@ def test_missing_or_failed_native_app_falls_back_on_ui_thread(failure):
         run_worker(thread)
     fallback.assert_not_called()
     queued.pop()()
-    fallback.assert_called_once_with()
+    if failure is None:
+        fallback.assert_called_once_with()
+    else:
+        fallback.assert_not_called()
+        status.assert_called_with(str(failure))
     view.request_show_android_app.assert_not_called()
 
 

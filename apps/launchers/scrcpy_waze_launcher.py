@@ -30,10 +30,13 @@ class ScrcpyWazeLauncher(InstalledAndroidAppLauncherIf):
         try:
             result = subprocess.run(['adb', 'shell', 'pm', 'path', package],
                                     check=False, capture_output=True, text=True, timeout=5)
-        except (OSError, subprocess.SubprocessError):
-            return None
-        if result.returncode != 0 or 'package:' not in result.stdout:
-            return None
+        except (OSError, subprocess.SubprocessError) as error:
+            raise RuntimeError('Waze connection check failed. Reconnect Android debugging and retry.') from error
+        if result.returncode != 0:
+            detail = result.stderr.strip() or result.stdout.strip() or 'ADB command failed'
+            raise RuntimeError(f'Waze connection check failed: {detail[:300]}')
+        if 'package:' not in result.stdout:
+            raise RuntimeError('Waze is not installed on the connected Android device.')
         if uri is not None and self._prepare_destination is None:
             return None
         if self._prepare_destination is not None:

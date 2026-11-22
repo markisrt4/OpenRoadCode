@@ -145,7 +145,8 @@ def test_invalid_renderer_never_starts_viewer(monkeypatch):
 def test_missing_or_ambiguous_adb_device_does_not_start_native_view():
     with patch('apps.launchers.scrcpy_waze_launcher.subprocess.run') as run:
         run.return_value = subprocess.CompletedProcess([], 1, '', 'more than one device')
-        assert ScrcpyWazeLauncher().launch_installed_app('com.waze') is None
+        with pytest.raises(RuntimeError, match='more than one device'):
+            ScrcpyWazeLauncher().launch_installed_app('com.waze')
         run.return_value = subprocess.CompletedProcess([], 0, 'package:/data/app/waze/base.apk', '')
         assert ScrcpyWazeLauncher().launch_installed_app('com.waze') == 'Waze'
         assert run.call_args.args[0] == ['adb', 'shell', 'pm', 'path', 'com.waze']

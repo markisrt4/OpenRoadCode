@@ -49,10 +49,7 @@ class NavigationExperienceControls(tk.Frame, UiWidget):
         self._button(header, '×', self.close_drawer).pack(side=tk.RIGHT, padx=4)
         self._title.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=10, pady=8)
         self._canvas = tk.Canvas(self._drawer, bg=ui.surface_alt, highlightthickness=0)
-        scroll = tk.Scrollbar(self._drawer, orient=tk.VERTICAL, command=self._canvas.yview)
-        scroll.pack(side=tk.RIGHT, fill=tk.Y)
         self._canvas.pack(fill=tk.BOTH, expand=True)
-        self._canvas.configure(yscrollcommand=scroll.set)
         self._content = tk.Frame(self._canvas, bg=ui.surface_alt)
         window = self._canvas.create_window(0, 0, window=self._content, anchor='nw')
         self._canvas.bind('<Configure>', lambda e: self._canvas.itemconfigure(window, width=e.width))
@@ -75,8 +72,8 @@ class NavigationExperienceControls(tk.Frame, UiWidget):
             card.bind('<Configure>', lambda e: e.widget.configure(wraplength=max(90, e.width - 100)))
             self._cards[experience] = card
         self._button(self._views, 'CLOSE WAZE', self._close_waze).pack(fill=tk.X, padx=8, pady=6)
-        self.overlay_frame = tk.Frame(self._views, bg=ui.surface_alt)
-        self.overlay_frame.pack(fill=tk.X, padx=8, pady=6)
+        self.overlay_frame = tk.Frame(toolbar, bg=ui.surface_alt)
+        self.overlay_frame.pack(side=tk.RIGHT, padx=4)
         self._places = tk.Frame(self._content, bg=ui.surface_alt)
         categories = tk.Frame(self._places, bg=ui.surface_alt)
         categories.pack(fill=tk.X, padx=8)
@@ -126,9 +123,57 @@ class NavigationExperienceControls(tk.Frame, UiWidget):
         self._gesture_status.pack(fill=tk.X, padx=12, pady=8)
         tk.Label(self._gestures, text='Use with Waze’s map visible.\nWaze may resume automatic following.',
                  bg=ui.surface_alt, fg=ui.text_muted, wraplength=210, justify=tk.LEFT).pack(padx=12, pady=8)
+        self._drag_origin = None
+        self._dragging = False
+        self._scroll_tag = f'NavigationScroll:{id(self)}'
+        for sequence, callback in (
+            ('<ButtonPress-1>', self._scroll_press),
+            ('<B1-Motion>', self._scroll_drag),
+            ('<ButtonRelease-1>', self._scroll_release),
+            ('<MouseWheel>', self._scroll_wheel),
+            ('<Button-4>', self._scroll_wheel),
+            ('<Button-5>', self._scroll_wheel),
+        ):
+            self._canvas.bind_class(self._scroll_tag, sequence, callback)
+        self._bind_scroll(self._canvas)
         self.set_places_state(self._places_state)
         self.bind('<Destroy>', self._destroyed, add='+')
         self._poll()
+
+    def _bind_scroll(self, widget):
+        tags = widget.bindtags()
+        if self._scroll_tag not in tags:
+            widget.bindtags((self._scroll_tag,) + tags)
+        for child in widget.winfo_children():
+            self._bind_scroll(child)
+
+    def _scroll_press(self, event):
+        self._drag_origin = event.y_root
+        self._dragging = False
+        self._canvas.scan_mark(0, event.y_root)
+
+    def _scroll_drag(self, event):
+        if self._drag_origin is None:
+            return
+        if abs(event.y_root - self._drag_origin) > 8:
+            self._dragging = True
+        if self._dragging:
+            self._canvas.scan_dragto(0, event.y_root, gain=1)
+            return 'break'
+
+    def _scroll_release(self, event):
+        self._drag_origin = None
+        if self._dragging:
+            self._dragging = False
+            # Cancel the pressed appearance without invoking a dragged button.
+            if isinstance(event.widget, tk.Button):
+                event.widget.configure(relief=tk.FLAT, state=tk.NORMAL)
+            return 'break'
+
+    def _scroll_wheel(self, event):
+        direction = -1 if event.num == 4 or getattr(event, 'delta', 0) > 0 else 1
+        self._canvas.yview_scroll(direction, 'units')
+        return 'break'
 
     def _button(self, parent, text, command):
         ui = self._ui
@@ -277,12 +322,16 @@ class NavigationExperienceControls(tk.Frame, UiWidget):
             button = self._button(self._results, text, lambda value=place: self._handler.request_select_place(value))
             button.configure(wraplength=220, anchor='w', justify=tk.LEFT)
             button.pack(fill=tk.X, padx=10, pady=3)
+        self._bind_scroll(self._results)
 
     def _destroyed(self, event):
         if event.widget is self:
             if self._poll_job is not None:
                 self.after_cancel(self._poll_job)
                 self._poll_job = None
+            for sequence in ('<ButtonPress-1>', '<B1-Motion>', '<ButtonRelease-1>',
+                             '<MouseWheel>', '<Button-4>', '<Button-5>'):
+                self._canvas.unbind_class(self._scroll_tag, sequence)
             try:
                 self._drawer.destroy()
             finally:

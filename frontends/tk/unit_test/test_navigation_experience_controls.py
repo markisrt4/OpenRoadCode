@@ -154,3 +154,19 @@ def test_waze_controls_emit_gestures_disable_while_busy_and_share_the_drawer(lay
     bar.views_button.invoke()
     root.update()
     assert bar._views.winfo_ismapped() and not bar._gestures.winfo_ismapped()
+
+
+def test_weather_controls_stay_in_toolbar_and_drawer_uses_swipe(layout):
+    from types import SimpleNamespace
+    root, _, bar, handler = layout
+    assert bar.overlay_frame.master is bar.views_button.master.master
+    root.geometry('522x240')
+    bar.show_drawer('views')
+    root.update()
+    assert not any(isinstance(child, tk.Scrollbar) for child in bar._drawer.winfo_children())
+    card = bar._cards[NavigationExperience.ROAD]
+    bar._scroll_press(SimpleNamespace(y_root=200))
+    assert bar._scroll_drag(SimpleNamespace(y_root=100)) == 'break'
+    assert bar._canvas.yview()[0] > 0
+    assert bar._scroll_release(SimpleNamespace(widget=card)) == 'break'
+    handler.request_experience.assert_not_called()
