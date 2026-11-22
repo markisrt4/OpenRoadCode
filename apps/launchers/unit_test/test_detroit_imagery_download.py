@@ -10,11 +10,18 @@ from development.maps import download_detroit_imagery as downloader
 from apps.launchers.local_imagery_pack import LocalImageryPack
 
 
+def jpeg_bytes(size=(2048,1536), color=(40,100,160)):
+    output = io.BytesIO()
+    with downloader.Image.new('RGB', size, color) as image:
+        image.save(output, format='JPEG')
+    return output.getvalue()
+
+
 @pytest.mark.parametrize("coverage,title", [("detroit-downtown","Detroit"),("pine-knob","Pine Knob")])
-def test_export_locks_newest_naip_sources_and_retains_provenance(tmp_path, monkeypatch, coverage, title):
+def test_export_uses_naip_service_default_mosaic_and_retains_provenance(tmp_path, monkeypatch, coverage, title):
     records = [
-        {"attributes":{"OBJECTID":1,"Name":"m_4208307_sw_16_2020","Year":2020}},
-        {"attributes":{"OBJECTID":2,"Name":"m_4208307_sw_16_2022","Year":2022}},
+        {"attributes":{"OBJECTID":1,"Name":"m_4208307_sw_16_2020","Year":2020,"agency":"USDA"}},
+        {"attributes":{"OBJECTID":2,"Name":"m_4208307_sw_16_2022","Year":2022,"agency":"USDA"}},
         {"attributes":{"OBJECTID":3,"Name":"m_partner","Year":2024}},
     ]
     west,south,east,north = downloader.PRESETS[coverage][1]
@@ -22,16 +29,34 @@ def test_export_locks_newest_naip_sources_and_retains_provenance(tmp_path, monke
               "extent":{"xmin":west,"ymin":south,"xmax":east,"ymax":north,"spatialReference":{"wkid":4326}}}
     service = Mock(side_effect=[{"serviceDescription":"public domain imagery"}, {"features":records}, export])
     monkeypatch.setattr(downloader,"get_json",service)
-    monkeypatch.setattr(downloader.urllib.request,"urlopen",lambda *args, **kwargs: io.BytesIO(b"\xff\xd8fixture"))
+    monkeypatch.setattr(downloader.urllib.request,"urlopen",lambda *args, **kwargs: io.BytesIO(jpeg_bytes()))
     destination = tmp_path / "pack"
     downloader.download(destination, bounds=(west,south,east,north), title=title)
-    rule = json.loads(service.call_args.kwargs["mosaicRule"])
-    assert rule["lockRasterIds"] == [2]
+    assert downloader.SERVICE.endswith('/USGSNAIPImagery/ImageServer')
+    assert 'mosaicRule' not in service.call_args.kwargs
+    assert json.loads(service.call_args.kwargs['renderingRule']) == {'rasterFunction':'NaturalColor'}
     document = json.loads((destination / "manifest.json").read_text())
-    assert document["source_records"] == [records[1]["attributes"]]
-    assert document["title"] == f"{title} NAIP 2022"
+    assert document["source_records"] == [records[1]["attributes"], records[0]["attributes"]]
+    assert document["title"] == f"{title} NAIP through 2022"
     assert (destination / "source-service.json").exists()
     assert LocalImageryPack.load(destination).state.attribution.startswith("USGS / USDA")
+
+
+def test_black_export_is_rejected_before_pack_is_cached(tmp_path, monkeypatch):
+    records = [{"attributes":{"OBJECTID":1,"Name":"USDA NAIP","Year":2022,"agency":"USDA"}}]
+    west,south,east,north = downloader.BOUNDS
+    export = {"href":"https://imagery.nationalmap.gov/export/black.jpg", "width":2048,"height":1536,
+              "extent":{"xmin":west,"ymin":south,"xmax":east,"ymax":north,
+                        "spatialReference":{"wkid":4326}}}
+    monkeypatch.setattr(downloader, 'get_json', Mock(side_effect=[
+        {'serviceDescription':'public domain imagery'}, {'features':records}, export,
+    ]))
+    monkeypatch.setattr(downloader, 'download_image_bytes',
+                        lambda *args: jpeg_bytes(color=(0,0,0)))
+    destination = tmp_path/'pack'
+    with pytest.raises(RuntimeError, match='only black no-data pixels'):
+        downloader.download(destination)
+    assert not destination.exists()
 
 
 def test_missing_naip_does_not_silently_substitute_partner_imagery(tmp_path, monkeypatch):
@@ -84,6 +109,18 @@ def test_catalog_network_failure_identifies_stage_and_endpoint(monkeypatch):
     with pytest.raises(RuntimeError, match='NAIP source catalog failed after retries') as error:
         downloader.get_json('/query', attempts=3, where="State='MI'")
     assert downloader.SERVICE+'/query' in str(error.value)
+
+
+def test_large_export_parameters_use_arcgis_form_post(monkeypatch):
+    opened = Mock(return_value=io.BytesIO(b'{"width": 1}'))
+    monkeypatch.setattr(downloader, 'open_source', opened)
+    document = downloader.get_json('/exportImage', mosaicRule='x'*3000)
+    assert document == {'width': 1}
+    request = opened.call_args.args[0]
+    assert isinstance(request, downloader.urllib.request.Request)
+    assert request.full_url == downloader.SERVICE+'/exportImage'
+    assert request.get_header('Content-type') == 'application/x-www-form-urlencoded'
+    assert b'mosaicRule=' in request.data
 
 
 def test_truncated_catalog_fetches_complete_ids_with_smaller_batches(monkeypatch):

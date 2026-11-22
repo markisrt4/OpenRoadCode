@@ -11,6 +11,7 @@ from .poi_app_indicator import PoiAppIndicator
 from .navigation_poi_actions import request_poi_app_status
 
 from ui.navigation.poi_models import PoiAction, PoiActionKind
+from ui.navigation.map_layer_controls import MapLayerAction, MapLayerControls
 
 
 def build_navigation_panel(panel) -> None:
@@ -122,128 +123,140 @@ def build_navigation_panel(panel) -> None:
         font=("Sans", 9, "bold"),
         cursor="hand2",
     )
-    controls = tk.Frame(body, bg=ui.surface_alt, width=54, highlightthickness=0)
+    controls = tk.Frame(body, bg=ui.surface_alt, width=224,
+                        highlightbackground=ui.control_background, highlightthickness=1)
     controls.pack_propagate(False)
     panel._map_controls = controls
-    panel._map_controls_toggle = tk.Button(
-        controls,
-        text="Hide controls  ›",
-        command=panel._toggle_map_controls_drawer,
-        bg=ui.control_background,
-        fg=ui.accent_primary,
-        activebackground=ui.control_active,
-        activeforeground="#ffffff",
-        relief=tk.FLAT,
-        bd=0,
-        highlightthickness=0,
-        font=("Sans", 10, "bold"),
-        padx=5,
-        pady=10,
-    )
-    panel._map_controls_toggle.pack(fill=tk.X)
     panel._native_camera_controls = controls
-    rail = tk.Frame(controls, bg=ui.surface_alt)
+    panel._map_controls_toggle = panel._control(
+        controls, 'Map controls   ⌃', panel._toggle_map_controls_drawer, ui.text)
+    panel._map_controls_toggle.configure(anchor='w',font=('Sans',10,'bold'),pady=7)
+    panel._map_controls_toggle.pack(fill=tk.X,padx=4,pady=4)
+    rail = tk.Frame(controls,bg=ui.surface_alt)
     panel._map_controls_rail = rail
-    rail.grid_columnconfigure(0, weight=1)
-    for row, weight in ((0, 3), (1, 3), (2, 1), (3, 1), (4, 1)):
-        rail.grid_rowconfigure(row, weight=weight, uniform="camera")
-    orientation = tk.Frame(rail, bg=ui.surface_alt)
-    orientation.grid(row=0, column=0, sticky="nsew", padx=3, pady=2)
-    orientation.grid_propagate(False)
-    orientation.grid_columnconfigure(0, weight=1)
-    for row in range(3):
-        orientation.grid_rowconfigure(row, weight=1, uniform="orientation")
-    panel._follow_button = panel._control(
-        orientation, "◉  Follow", panel._toggle_follow, ui.accent_success
-    )
-    panel._follow_button.grid(row=0, column=0, sticky="nsew", pady=1)
-    panel._add_tooltip(panel._follow_button, "Toggle following the vehicle")
-    for row, label, command, accent, description in (
-        (1, "↑  North up", panel._north_up, ui.text, "Rotate north to the top (turns follow off)"),
-        (2, "⌖  Recenter", panel._recenter, ui.accent_success, "Center on the vehicle and enable following"),
-    ):
-        button = panel._control(orientation, label, command, accent)
-        button.grid(row=row, column=0, sticky="nsew", pady=1)
-        panel._add_tooltip(button, description)
+    rail.grid_rowconfigure(0,weight=1)
+    rail.grid_columnconfigure(0,weight=1)
+    pages={name:tk.Frame(rail,bg=ui.surface_alt) for name in ('camera','layers','terrain')}
+    panel._map_control_pages=pages
+    panel._map_controls_page='camera'
+    content=pages['camera']
+    content.grid_columnconfigure(0,weight=1)
+    for row,weight in ((0,2),(1,3),(2,1),(3,1),(4,1)):
+        content.grid_rowconfigure(row,weight=weight)
+    drawer_buttons=[]
+    drawer_groups=[]
+
+    def button(parent,text,command,row,column,accent=ui.control_text):
+        widget=panel._control(parent,text,command,accent)
+        widget.configure(font=('Sans',9,'bold'),pady=6,highlightthickness=1,
+                         highlightbackground=ui.control_background)
+        widget.grid(row=row,column=column,sticky='nsew',padx=2,pady=2)
+        drawer_buttons.append(widget)
+        return widget
+
+    orientation=tk.Frame(content,bg=ui.surface_alt)
+    orientation.grid(row=0,column=0,sticky='nsew')
+    drawer_groups.append(orientation)
+    for row in range(2):orientation.grid_rowconfigure(row,weight=1)
+    for column in range(2):orientation.grid_columnconfigure(column,weight=1,uniform='orientation')
+    panel._follow_button=button(orientation,'◉ Follow',panel._toggle_follow,0,0,ui.accent_success)
+    panel._add_tooltip(panel._follow_button,'Toggle following the vehicle')
+    recenter=button(orientation,'⌖ Recenter',panel._recenter,0,1)
+    panel._add_tooltip(recenter,'Center on the vehicle and enable following')
+    north=button(orientation,'↑ North up',panel._north_up,1,0)
+    panel._add_tooltip(north,'Rotate north to the top (turns follow off)')
+    dimension=button(orientation,'2D / 3D',panel._toggle_map_dimension,1,1)
+    panel._add_tooltip(dimension,'Switch between overhead 2D and tilted 3D view')
     panel.set_follow_enabled(panel._follow_enabled)
-    pan = tk.Frame(rail, bg=ui.surface_alt)
-    pan.grid(row=1, column=0, sticky="nsew", padx=3, pady=2)
-    pan.grid_propagate(False)
-    for index in range(3):
-        pan.grid_rowconfigure(index, weight=1, uniform="pan")
-        pan.grid_columnconfigure(index, weight=1, uniform="pan")
-    for row, column, label, up, right in (
-        (0, 1, "▲", 1, 0),
-        (1, 0, "◀", 0, -1),
-        (1, 2, "▶", 0, 1),
-        (2, 1, "▼", -1, 0),
-    ):
-        button = tk.Button(
-            pan,
-            text=label,
-            command=lambda u=up, r=right: panel._pan(u, r),
-            bg=ui.control_background,
-            fg=ui.control_text,
-            activebackground=ui.control_active,
-            activeforeground="#ffffff",
-            relief=tk.FLAT,
-            highlightthickness=0,
-            font=("Sans", 11, "bold"),
-            borderwidth=0,
-            width=1,
-            height=1,
-            padx=4,
-            pady=4,
-        )
-        button.grid(row=row, column=column, sticky="nsew", padx=1, pady=1)
-        direction = {(1, 0): "up", (0, -1): "left", (0, 1): "right", (-1, 0): "down"}[(up, right)]
-        panel._add_tooltip(button, f"Pan the map {direction} on screen (turns follow off)")
-    zoom = tk.Frame(rail, bg=ui.surface_alt)
-    zoom.grid(row=2, column=0, sticky="nsew", padx=3, pady=2)
-    zoom.grid_propagate(False)
-    zoom.grid_rowconfigure(0, weight=1)
-    for column in range(2):
-        zoom.grid_columnconfigure(column, weight=1, uniform="zoom")
-    zoom_in = panel._control(zoom, "+", lambda: panel._change_zoom(1), ui.accent_primary)
-    zoom_in.configure(font=("Sans", 19, "bold"), pady=8)
-    panel._add_tooltip(zoom_in, "Zoom in")
-    zoom_in.grid(row=0, column=0, sticky="nsew", padx=1)
-    zoom_out = panel._control(zoom, "−", lambda: panel._change_zoom(-1), ui.accent_primary)
-    zoom_out.configure(font=("Sans", 19, "bold"), pady=8)
-    panel._add_tooltip(zoom_out, "Zoom out")
-    zoom_out.grid(row=0, column=1, sticky="nsew", padx=1)
-    zoom_label = tk.Label(
-        zoom,
-        textvariable=panel._zoom_text,
-        bg=ui.control_background,
-        fg=ui.text,
-        font=("Sans", 8, "bold"),
-    )
-    zoom_label.place(relx=0.5, y=2, anchor="n")
-    zoom_label.lift()
-    panel._add_tooltip(zoom_label, "Current map zoom level")
-    dimension = tk.Frame(rail, bg=ui.surface_alt)
-    dimension.grid(row=3, column=0, sticky="nsew", padx=4, pady=2)
-    dimension.grid_propagate(False)
-    dimension.grid_rowconfigure(0, weight=1)
-    dimension.grid_columnconfigure(0, weight=1)
-    dimension_button = panel._control(dimension, "", panel._toggle_map_dimension, ui.accent_primary)
-    dimension_button.configure(textvariable=panel._dimension_text)
-    dimension_button.grid(row=0, column=0, sticky="nsew")
-    panel._add_tooltip(dimension_button, "Switch between overhead 2D and tilted 3D view")
-    tilt = tk.Frame(rail, bg=ui.surface_alt)
-    tilt.grid(row=4, column=0, sticky="nsew", padx=3, pady=2)
-    tilt.grid_propagate(False)
-    tilt.grid_rowconfigure(0, weight=1)
-    for column in range(2):
-        tilt.grid_columnconfigure(column, weight=1, uniform="tilt")
-    for column, (label, command, accent, description) in enumerate((
-        ("↗", lambda: panel._change_pitch(5), ui.accent_warning, "Increase map tilt (turns follow off)"),
-        ("↘", lambda: panel._change_pitch(-5), ui.accent_warning, "Decrease map tilt (turns follow off)"),
-    )):
-        button = panel._control(tilt, label, command, accent)
-        panel._add_tooltip(button, description)
-        button.grid(row=0, column=column, sticky="nsew", padx=1)
+
+    movement=tk.Frame(content,bg=ui.surface_alt)
+    movement.grid(row=1,column=0,sticky='nsew')
+    drawer_groups.append(movement)
+    movement.grid_rowconfigure(0,weight=1)
+    movement.grid_columnconfigure(0,weight=3)
+    movement.grid_columnconfigure(1,weight=1)
+    pan=tk.Frame(movement,bg=ui.surface_alt)
+    pan.grid(row=0,column=0,sticky='nsew')
+    for column in range(3):
+        pan.grid_columnconfigure(column,weight=1,uniform='pan')
+        pan.grid_rowconfigure(column,weight=1,uniform='pan')
+    for row,column,label,up,right in ((0,1,'↑',1,0),(1,0,'←',0,-1),(1,2,'→',0,1),(2,1,'↓',-1,0)):
+        widget=button(pan,label,lambda u=up,r=right:panel._pan(u,r),row,column)
+        direction={(1,0):'up',(-1,0):'down',(0,-1):'left',(0,1):'right'}[(up,right)]
+        panel._add_tooltip(widget,f'Pan the map {direction} on screen (turns follow off)')
+    center=button(pan,'⌖',panel._recenter,1,1,ui.accent_primary)
+    panel._add_tooltip(center,'Recenter on the vehicle')
+    zoom=tk.Frame(movement,bg=ui.surface_alt)
+    zoom.grid(row=0,column=1,sticky='nsew',padx=(6,0))
+    zoom.grid_columnconfigure(0,weight=1)
+    zoom.grid_rowconfigure(0,weight=1)
+    zoom.grid_rowconfigure(1,weight=1)
+    for row,text,delta in ((0,'＋',1),(1,'−',-1)):
+        widget=button(zoom,text,lambda d=delta:panel._change_zoom(d),row,0,ui.accent_primary)
+        widget.configure(font=('Sans',15,'bold'))
+        panel._add_tooltip(widget,'Zoom in' if delta>0 else 'Zoom out')
+    readout=tk.Label(zoom,textvariable=panel._zoom_text,bg=ui.surface_alt,fg=ui.text_muted,font=('Sans',8))
+    readout.grid(row=2,column=0)
+    panel._add_tooltip(readout,'Current map zoom level')
+    tilt=tk.Frame(content,bg=ui.surface_alt)
+    tilt.grid(row=2,column=0,sticky='nsew')
+    drawer_groups.append(tilt)
+    tilt.grid_rowconfigure(0,weight=1)
+    for column in range(2):tilt.grid_columnconfigure(column,weight=1,uniform='tilt')
+    for column,text,delta in ((0,'↘ Less tilt',-5),(1,'↗ More tilt',5)):
+        widget=button(tilt,text,lambda d=delta:panel._change_pitch(d),0,column)
+        panel._add_tooltip(widget,('Increase' if delta>0 else 'Decrease')+' map tilt (turns follow off)')
+
+    panel._layer_buttons={}
+    navigation=tk.Frame(content,bg=ui.surface_alt)
+    navigation.grid(row=3,column=0,sticky='nsew')
+    navigation.grid_rowconfigure(0,weight=1)
+    drawer_groups.append(navigation)
+    for column in range(2):navigation.grid_columnconfigure(column,weight=1,uniform='pages')
+    button(navigation,'Layers ›',lambda:panel._show_map_controls_page('layers'),0,0)
+    button(navigation,'Terrain ›',lambda:panel._show_map_controls_page('terrain'),0,1)
+
+    def section(name,title,actions):
+        page=pages[name]
+        page.grid_columnconfigure(0,weight=1)
+        page.grid_rowconfigure(2,weight=1)
+        button(page,'‹ Back to controls',lambda:panel._show_map_controls_page('camera'),0,0)
+        tk.Label(page,text=title,bg=ui.surface_alt,fg=ui.text,font=('Sans',10,'bold')).grid(row=1,column=0,pady=2)
+        items=tk.Frame(page,bg=ui.surface_alt)
+        items.grid(row=2,column=0,sticky='nsew')
+        drawer_groups.append(items)
+        for row in range(2):items.grid_rowconfigure(row,weight=1)
+        for column in range(2):items.grid_columnconfigure(column,weight=1,uniform='layers')
+        for index,(action,label) in enumerate(actions):
+            widget=button(items,label,lambda selected=action:panel._request_layer(selected),index//2,index%2)
+            widget.configure(state=tk.DISABLED)
+            panel._add_tooltip(widget,'Requires an installed layer in Terrain mode')
+            panel._layer_buttons[action]=widget
+    section('layers','Layers',((MapLayerAction.IMAGERY,'Imagery'),(MapLayerAction.BUILDINGS,'Buildings'),
+                              (MapLayerAction.ROADS,'Roads'),(MapLayerAction.PLACES,'Places')))
+    section('terrain','Terrain options',((MapLayerAction.RELIEF,'Relief'),(MapLayerAction.HEIGHT,'Height 1×'),
+                                       (MapLayerAction.CUES,'Terrain cues'),(MapLayerAction.GRID,'Grid')))
+    reset=button(content,'⟳ Reset view',panel._reset_map_view,4,0)
+    panel._add_tooltip(reset,'Reset Terrain view; in Map mode recenter on the vehicle')
+
+    last_compact=None
+    def fit_controls(_event):
+        nonlocal last_compact
+        # Base this on the fixed outer drawer, not the body whose height changes
+        # when the header shrinks, to avoid a compact/regular geometry loop.
+        compact=controls.winfo_height()<320
+        if compact==last_compact:return
+        last_compact=compact
+        for widget in drawer_buttons:
+            widget.configure(font=('Sans',8 if compact else 9,'bold'),pady=0 if compact else 6)
+            widget.grid_configure(pady=0 if compact else 2,padx=1 if compact else 2)
+        panel._map_controls_toggle.configure(font=('Sans',8 if compact else 10,'bold'),pady=0 if compact else 7)
+        # Prevent hidden pages' requested sizes from setting the viewport size.
+        for page in pages.values():page.grid_propagate(False)
+        for group in drawer_groups:group.grid_propagate(False)
+    rail.bind('<Configure>',fit_controls)
+    panel._show_map_controls_page('camera')
+    panel._apply_layer_controls(MapLayerControls(),False)
 
     panel.set_map_controls_drawer_state(panel._drawer_state)
 

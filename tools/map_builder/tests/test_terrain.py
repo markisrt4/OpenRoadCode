@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -6,6 +7,7 @@ import pytest
 from tools.map_builder.builder import terrain, map_3d
 from tools.map_builder.builder.install_3d import validate_selection
 from apps.launchers.local_terrain_pack import load_terrain
+from tools.map_builder.builder.terrain_artifact import package
 
 
 def service(monkeypatch, *, missing=False, mixed=False):
@@ -33,7 +35,7 @@ def test_midtown_terrain_build_is_runtime_and_deployment_compatible(tmp_path, mo
     assert state.vertical_datum == 'NAVD88'
     record = map_3d.validate_pack(root)
     assert record['layers'] == ['terrain'] and record['buildings'] == 0
-    assert 'source-samples.json' in record['checksums']
+    assert 'source-samples.json.gz' in record['checksums']
     manifest = {'map_3d':{'detroit-midtown-terrain':record}}
     (tmp_path/'build-manifest.json').write_text(json.dumps(manifest))
     validate_selection(tmp_path, ['detroit-midtown-terrain'])
@@ -57,6 +59,8 @@ def test_runtime_prefers_deployed_midtown_terrain(tmp_path, monkeypatch):
     root = tmp_path/'maps/3d/packs/detroit-midtown-terrain'
     terrain.download(root, 'detroit-midtown')
     monkeypatch.setattr(local_terrain_pack,'navigation_data_root',lambda:tmp_path)
+    monkeypatch.setattr(local_terrain_pack,'openroadcode_data_dir',
+                        lambda *parts:tmp_path/'absent-user'/parts[-1])
     monkeypatch.setattr(local_map_tiles_pack,'navigation_data_root',lambda:tmp_path)
     assert local_terrain_pack.preferred_terrain_directory() == root
     assert local_map_tiles_pack.preferred_tiles_directory() != root
@@ -103,6 +107,8 @@ def test_direct_device_install_downloads_and_viewer_discovers_local_midtown(tmp_
     monkeypatch.setattr(install_terrain,'midtown_terrain_directory',lambda:destination)
     monkeypatch.setattr(local_terrain_pack,'midtown_terrain_directory',lambda:destination)
     monkeypatch.setattr(local_terrain_pack,'navigation_data_root',lambda:tmp_path/'absent-dataset')
+    monkeypatch.setattr(local_terrain_pack,'openroadcode_data_dir',
+                        lambda *parts:tmp_path/'absent-user'/parts[-1])
     monkeypatch.setattr('sys.argv',['install_terrain','--coverage','detroit-midtown','--yes'])
     assert install_terrain.main() == 0
     assert local_terrain_pack.preferred_terrain_directory() == destination
@@ -168,6 +174,8 @@ def test_pine_knob_install_is_separate_and_selected_by_destination(tmp_path, mon
     from ui.navigation import GeoPoint
     service(monkeypatch)
     monkeypatch.setattr(local_terrain_pack, 'navigation_data_root', lambda: tmp_path/'shared')
+    monkeypatch.setattr(local_terrain_pack, 'openroadcode_data_dir',
+                        lambda *parts: tmp_path/'absent-user'/parts[-1])
     midtown = tmp_path/'midtown'
     pine = tmp_path/'pine'
     terrain.download(midtown, 'detroit-midtown', size=3)
@@ -202,10 +210,12 @@ def test_http_500_request_retries_are_bounded(monkeypatch):
         attempts.append(1)
         raise HTTPError(terrain.SERVICE, 500, 'Server error', {}, None)
     monkeypatch.setattr(terrain.urllib.request, 'urlopen', unavailable)
-    monkeypatch.setattr(terrain.time, 'sleep', lambda seconds: None)
+    delays = []
+    monkeypatch.setattr(terrain.time, 'sleep', delays.append)
     with pytest.raises(HTTPError):
         terrain._json_request(terrain.SERVICE)
-    assert len(attempts) == 3
+    assert len(attempts) == 6
+    assert delays == [1, 2, 4, 8, 16]
 
 
 def test_image_service_http_404_is_not_hidden_by_fallback(tmp_path, monkeypatch):
@@ -216,3 +226,180 @@ def test_image_service_http_404_is_not_hidden_by_fallback(tmp_path, monkeypatch)
     with pytest.raises(HTTPError):
         terrain.download(tmp_path/'pine', 'pine-knob')
     assert not (tmp_path/'pine').exists()
+
+
+def test_regional_mosaic_build_and_release_archive_install(tmp_path, monkeypatch):
+    from development.maps import install_terrain, regional_terrain
+
+    def download_tile(destination, title, bounds, size=65):
+        del title, size
+        destination.mkdir()
+        payload = json.dumps({"width": 2, "height": 2, "heights_m": [1, 2, 3, 4],
+                              "reference_height_m": 2.5, "vertical_datum": "NAVD88"})
+        (destination/'terrain.json').write_text(payload)
+        (destination/'manifest.json').write_text(json.dumps({
+            "schema": 1, "title": destination.name, "attribution": "USGS",
+            "bounds_deg": bounds, "sha256": __import__('hashlib').sha256(payload.encode()).hexdigest(),
+        }))
+
+    monkeypatch.setattr(regional_terrain, 'download_bounds', download_tile)
+    built = tmp_path/'built'
+    regional_terrain.build(built)
+    state = load_terrain(built)
+    assert len(state.tiles) == 21
+    assert state.maximum_zoom == 16
+    assert {tile.detail_level for tile in state.tiles} == {0, 1, 2}
+
+    archive = tmp_path/'metro-detroit-terrain.zip'
+    descriptor = package(built, archive, 'metro-detroit')
+    assert descriptor['kind'] == 'terrain'
+    active = tmp_path/'active'
+    install_terrain._install_archive(archive, active)
+    assert len(load_terrain(active).tiles) == 21
+    assert descriptor['lod_levels'] == [0, 1, 2]
+
+
+def test_michigan_shard_plan_is_bounded_and_cataloged(tmp_path, monkeypatch):
+    from development.maps import regional_terrain
+    from development.maps.terrain_regions import catalog_document
+
+    sizes = []
+    def download_tile(destination, title, bounds, size=65):
+        del title
+        sizes.append(size)
+        destination.mkdir()
+        payload = json.dumps({"width": 2, "height": 2, "heights_m": [1, 2, 3, 4],
+                              "reference_height_m": 2.5, "vertical_datum": "NAVD88"})
+        (destination/'terrain.json').write_text(payload)
+        (destination/'manifest.json').write_text(json.dumps({
+            "schema": 1, "title": destination.name, "attribution": "USGS",
+            "bounds_deg": bounds, "sha256": __import__('hashlib').sha256(payload.encode()).hexdigest(),
+        }))
+
+    monkeypatch.setattr(regional_terrain, 'download_bounds', download_tile)
+    built = tmp_path/'michigan'
+    regional_terrain.build(built, coverage='mi-upper-east')
+    state = load_terrain(built)
+    assert len(state.tiles) == 64
+    assert set(sizes) == {129}
+    catalog = catalog_document()
+    assert catalog['overview'] == 'michigan-overview'
+    assert len(catalog['detail_shards']) == 8
+
+
+def test_michigan_row_builder_selects_one_globally_numbered_row(tmp_path, monkeypatch):
+    from development.maps import regional_terrain
+
+    selected = []
+    def download_tile(destination, title, bounds, size=65):
+        del title
+        selected.append((destination.name, bounds, size))
+        destination.mkdir()
+        (destination/'terrain.json').write_text('{}')
+
+    monkeypatch.setattr(regional_terrain, 'download_bounds', download_tile)
+    cache = tmp_path/'terrain.download'
+    regional_terrain.build_michigan_row(cache, coverage='michigan-overview', row=3)
+    assert {item[0] for item in selected} == {f'r3-c{column}' for column in range(8)}
+    assert {item[2] for item in selected} == {129}
+    with pytest.raises(ValueError, match='0-7'):
+        regional_terrain.build_michigan_row(cache, coverage='michigan-overview', row=8)
+
+
+def test_metro_tile_builder_selects_one_globally_numbered_tile(tmp_path, monkeypatch):
+    from development.maps import regional_terrain
+
+    selected = []
+    def download_tile(destination, title, bounds, size=65):
+        del title
+        selected.append((destination.name, bounds, size))
+        destination.mkdir()
+        (destination/'terrain.json').write_text('{}')
+
+    monkeypatch.setattr(regional_terrain, 'download_bounds', download_tile)
+    cache = tmp_path/'terrain.download'
+    regional_terrain.build_metro_tile(cache, tile=17)
+    assert [(item[0], item[2]) for item in selected] == [('focus-detroit-midtown', 129)]
+    with pytest.raises(ValueError, match='0-20'):
+        regional_terrain.build_metro_tile(cache, tile=21)
+
+
+def test_regional_assembly_requires_every_cached_tile(tmp_path):
+    from development.maps import regional_terrain
+
+    with pytest.raises(ValueError, match='missing 21 tile'):
+        regional_terrain.assemble(
+            tmp_path/'terrain', coverage='metro-detroit', cache=tmp_path/'empty')
+
+
+def test_metro_build_only_validates_the_requested_output(tmp_path, monkeypatch):
+    from development.maps import install_terrain
+    output = tmp_path/'build-only'
+
+    def build(destination, *, coverage):
+        assert destination == output and coverage == 'metro-detroit'
+        destination.mkdir()
+        payload = json.dumps({"width": 2, "height": 2, "heights_m": [1, 2, 3, 4],
+                              "reference_height_m": 2.5, "vertical_datum": "NAVD88"})
+        (destination/'terrain.json').write_text(payload)
+        (destination/'manifest.json').write_text(json.dumps({
+            "schema": 1, "title": "test", "attribution": "USGS",
+            "bounds_deg": [-84, 42, -82, 43],
+            "sha256": __import__('hashlib').sha256(payload.encode()).hexdigest(),
+        }))
+
+    monkeypatch.setattr(install_terrain, 'build_regional_terrain', build)
+    monkeypatch.setattr('sys.argv', ['install_terrain', '--coverage', 'metro-detroit',
+                                    '--build-only', str(output), '--yes'])
+    assert install_terrain.main() == 0
+
+
+def test_map_data_workflow_builds_resumable_split_release_assets():
+    workflow = Path('.github/workflows/build-metro-detroit-imagery.yml').read_text()
+    assert '--detail' in workflow
+    assert 'terrain_artifact' in workflow
+    assert 'metro-detroit-terrain.zip.json' in workflow
+    assert 'tile: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]' in workflow
+    assert 'max-parallel: 2' in workflow
+    assert 'development.maps.build_metro_terrain_tile' in workflow
+    assert 'development.maps.assemble_regional_terrain' in workflow
+    assert 'actions/upload-artifact@v4' in workflow
+    assert 'actions/download-artifact@v4' in workflow
+    assert 'terrain-tile-metro-detroit-${{ needs.prepare-metro.outputs.terrain }}-' in workflow
+    assert 'RELEASE_TAG: ${{ needs.prepare-metro.outputs.tag }}' in workflow
+    assert 'build_target:' in workflow
+    assert 'uses: ./.github/workflows/build-michigan-terrain.yml' in workflow
+    assert 'force_rebuild:' in workflow
+    assert 'map-artifact-imagery-metro-detroit-' in workflow
+    assert 'development.maps.artifact_identity' in workflow
+    michigan = Path('.github/workflows/build-michigan-terrain.yml').read_text()
+    assert 'michigan-terrain-index.json' in michigan
+    assert 'max-parallel: 2' in michigan
+    assert 'row: [0, 1, 2, 3, 4, 5, 6, 7]' in michigan
+    assert 'development.maps.build_terrain_row' in michigan
+    assert 'actions/cache/restore@v4' in michigan
+    assert 'map-artifact-imagery-${{ inputs.coverage }}-' in michigan
+    assert 'actions/cache/save@v4' in michigan
+    assert 'actions/upload-artifact@v4' in michigan
+    assert 'actions/download-artifact@v4' in michigan
+    assert 'needs: [build-row, build-imagery]' in michigan
+    assert 'merge-multiple: true' in michigan
+    assert 'development.maps.install_region' in michigan
+    assert 'michigan-imagery-index.json' in michigan
+    assert 'publish_release:' in michigan
+    assert 'map-data-${{ inputs.coverage }}' in michigan
+    assert 'michigan-all' in workflow
+    assert 'assemble-michigan-all' in workflow
+    assert 'generic-state' in workflow
+    assert 'prepare-generic-state' in workflow
+    assert 'assemble-generic-state' in workflow
+    assert 'The state input is required for generic-state' in workflow
+    assert 'pattern: map-data-us-${{ needs.prepare-generic-state.outputs.state }}-*' in workflow
+    assert 'validation-states' in workflow
+    assert 'state: [OH, HI, CA, AK]' in workflow
+    assert 'uses: ./.github/workflows/build-state-map-data.yml' in workflow
+    state_workflow = Path('.github/workflows/build-state-map-data.yml').read_text()
+    assert 'workflow_call:' in state_workflow
+    assert 'development.maps.state_map_catalog' in state_workflow
+    assert 'uses: ./.github/workflows/build-michigan-terrain.yml' in state_workflow
+    assert 'max-parallel: 1' in state_workflow

@@ -14,13 +14,19 @@ class RoadOverlayLine:
     kind: str
     points: tuple[GeoPoint, ...]
     label: str = ''
+    geometry_visible: bool = True
 
     def __post_init__(self):
-        if self.kind not in {'motorway','trunk','primary','secondary','tertiary','minor','residential','unclassified','service'} or not isinstance(self.points,tuple) or not 2<=len(self.points)<=12000 or len(self.label)>80 or not all(_valid_point(point) for point in self.points):
+        if (self.kind not in {'motorway','trunk','primary','secondary','tertiary','minor','residential','unclassified','service'}
+                or not isinstance(self.points,tuple) or not 2<=len(self.points)<=12000
+                or len(self.label)>80 or type(self.geometry_visible) is not bool
+                or not all(_valid_point(point) for point in self.points)):
             raise ValueError('Invalid SI road segment')
 
     def document(self):
-        return {'kind':self.kind, 'points':[[point.longitude_rad,point.latitude_rad] for point in self.points], 'label':self.label}
+        return {'kind':self.kind,
+                'points':[[point.longitude_rad,point.latitude_rad] for point in self.points],
+                'label':self.label, 'geometry_visible':self.geometry_visible}
 
 
 @dataclass(frozen=True, slots=True)

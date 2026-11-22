@@ -13,15 +13,21 @@ import uuid
 from apps.launchers.browser_launcher import BrowserKioskLauncher
 from apps.launchers.cesium_sdk import sdk_directory
 from apps.launchers.cesium_viewer_server import CesiumViewerServer
+from apps.launchers.local_imagery_pyramid import installed_imagery_pyramids
 from apps.launchers.local_imagery_pack import LocalImageryPack, detroit_pack_directory, preferred_imagery_directory, load_imagery_stack
-from apps.launchers.local_terrain_pack import load_terrain, preferred_terrain_directory
+from apps.launchers.state_boundary_overlay import load_state_boundary_overlay
+from apps.launchers.local_terrain_pack import load_installed_terrain_catalog
 from apps.launchers.local_building_pack import load_buildings, detroit_building_directory
 from apps.launchers.local_map_tiles_pack import load_viewer_tiles, preferred_tiles_directory
+from apps.launchers.local_road_overlay import LocalRoadOverlay
 from common.logging.logging_paths import logging_file_path
 from frontends.x11.x11_window_embedder import X11WindowEmbedder
 from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
 from ui.navigation.map_platform_if import ExplorationCameraAction
+from ui.navigation.poi_overlay_state import PoiOverlayState
+from ui.navigation.route_overlay_state import RouteOverlayState
 from ui.navigation import GeoPoint
+from ui.navigation.map_layer_controls import MapLayerAction, MapLayerControl, MapLayerControls
 
 
 def _diagnostic(stage, **details):
@@ -39,11 +45,13 @@ def _rendering_arguments():
     mode = os.environ.get('OPENROAD_CESIUM_RENDERER', 'default')
     if mode == 'default':
         return ()
+    if mode == 'hardware-override':
+        return ('--ignore-gpu-blocklist',)
     if mode == 'software':
         return ('--use-gl=angle', '--use-angle=swiftshader',
                 '--enable-unsafe-swiftshader', '--disable-gpu-compositing',
                 '--disable-features=Vulkan')
-    raise ValueError('OPENROAD_CESIUM_RENDERER must be default or software')
+    raise ValueError('OPENROAD_CESIUM_RENDERER must be default, hardware-override or software')
 
 
 class CesiumEmbeddedViewer:
@@ -56,8 +64,10 @@ class CesiumEmbeddedViewer:
         self._server = None
         self._size = None
         self._devtools = self._target = None
+        self.layer_controls = MapLayerControls()
         self._manual_revision = 0
         self._manual_pending = False
+        self._poi_selection = None
 
     def open(self, state, parent_window_id, size, current=lambda: True):
         self.close()
@@ -69,18 +79,20 @@ class CesiumEmbeddedViewer:
             return
         imagery_layers = load_imagery_stack()
         imagery_dir = detroit_pack_directory() if imagery_layers else preferred_imagery_directory(state.destination)
-        terrain_dir = preferred_terrain_directory(state.destination)
         building_dir = detroit_building_directory()
         tile_dir = preferred_tiles_directory(state.destination)
         tiles = load_viewer_tiles(tile_dir) if tile_dir.exists() else None
         imagery = LocalImageryPack.load(imagery_dir) if not imagery_layers and imagery_dir.exists() and (tiles is None or not any(t.imagery_available for t in tiles.state.tiles)) else None
-        terrain = load_terrain(terrain_dir) if terrain_dir.exists() else None
+        terrain = load_installed_terrain_catalog()
         buildings = load_buildings(building_dir) if tiles is None and building_dir.exists() else None
+        roads = LocalRoadOverlay.installed()
         display = os.environ.get('DISPLAY', ':1')
         resources = ExitStack()
         try:
             server = CesiumViewerServer(sdk_directory(), replace(state, embedded=True),
-                                       imagery=imagery, imagery_layers=imagery_layers, terrain=terrain, buildings=buildings, tiles=tiles)
+                                       imagery=imagery, imagery_layers=imagery_layers, imagery_pyramids=installed_imagery_pyramids(), terrain=terrain,
+                                       buildings=buildings, tiles=tiles, roads=roads,
+                                       boundaries=load_state_boundary_overlay())
             resources.callback(server.close)
             profile = resources.enter_context(TemporaryDirectory(prefix='orc-cesium-embedded-'))
             window_class = 'orc-cesium-'+uuid.uuid4().hex
@@ -198,6 +210,15 @@ class CesiumEmbeddedViewer:
         if result.get('exceptionDetails') or result.get('result', {}).get('value') is not True:
             raise RuntimeError('3D camera rejected the requested action')
 
+    def request_layer(self, action):
+        action = MapLayerAction(action)
+        if self._devtools is None:
+            raise RuntimeError('3D layers are not ready')
+        result = self._devtools.command(self._target,'Runtime.evaluate',{
+            'expression':f'window.ORCMapLayerAction({json.dumps(action.value)})','returnByValue':True})
+        if result.get('exceptionDetails') or result.get('result',{}).get('value') is not True:
+            raise RuntimeError('Map layer unavailable')
+
     def tick(self, size):
         if self._server is None or self._browser is None:
             raise RuntimeError('Embedded 3D map is not running')
@@ -209,16 +230,28 @@ class CesiumEmbeddedViewer:
             self._embedder.resize(*size)
             self._size = size
         result = self._devtools.command(self._target, 'Runtime.evaluate', {
-            'expression':'window.ORCManualCameraRevision || 0', 'returnByValue':True})
-        revision = result.get('result', {}).get('value', 0)
+            'expression':'({revision:window.ORCManualCameraRevision||0,poi:window.ORCConsumePoiSelection?window.ORCConsumePoiSelection():null,controls:window.ORCMapLayerState?window.ORCMapLayerState():[]})',
+            'returnByValue':True})
+        value = result.get('result', {}).get('value', {})
+        self.layer_controls = MapLayerControls(tuple(MapLayerControl(
+            MapLayerAction(item['action']),str(item['label'])[:40],
+            item['available'] is True,item['enabled'] is True) for item in value.get('controls',[])))
+        revision = value.get('revision', 0)
         if type(revision) is int and revision != self._manual_revision:
             self._manual_pending = True
             self._manual_revision = revision
+        marker_id = value.get('poi')
+        if isinstance(marker_id, str) and marker_id:
+            self._poi_selection = marker_id
         return True
 
     def consume_manual_camera(self):
         pending, self._manual_pending = self._manual_pending, False
         return pending
+
+    def consume_poi_selection(self):
+        marker_id, self._poi_selection = self._poi_selection, None
+        return marker_id
 
     def update_position(self, position, follow_enabled):
         if self._devtools is None:
@@ -233,12 +266,36 @@ class CesiumEmbeddedViewer:
         if result.get('exceptionDetails') or result.get('result', {}).get('value') is not True:
             raise RuntimeError('3D vehicle tracking rejected the update')
 
+    def update_poi_overlay(self, state):
+        if self._devtools is None:
+            raise RuntimeError('3D POI overlay is not ready')
+        if not isinstance(state, PoiOverlayState):
+            raise TypeError('3D POI overlay requires PoiOverlayState')
+        result = self._devtools.command(self._target, 'Runtime.evaluate', {
+            'expression':f'window.ORCUpdatePois({json.dumps(state.document())})',
+            'returnByValue':True})
+        if result.get('exceptionDetails') or result.get('result', {}).get('value') is not True:
+            raise RuntimeError('3D POI overlay rejected the update')
+
+    def update_route_overlay(self, state):
+        if self._devtools is None:
+            raise RuntimeError('3D route overlay is not ready')
+        if not isinstance(state, RouteOverlayState):
+            raise TypeError('3D route overlay requires RouteOverlayState')
+        result = self._devtools.command(self._target, 'Runtime.evaluate', {
+            'expression':f'window.ORCUpdateRoute({json.dumps(state.document())})',
+            'returnByValue':True})
+        if result.get('exceptionDetails') or result.get('result', {}).get('value') is not True:
+            raise RuntimeError('3D route overlay rejected the update')
+
     def close(self):
         resources, self._resources = self._resources, None
         self._browser = self._server = self._size = None
         self._devtools = self._target = None
+        self.layer_controls = MapLayerControls()
         self._manual_revision = 0
         self._manual_pending = False
+        self._poi_selection = None
         try:
             if resources is not None:
                 # Close the browser while attached, before the Tk host is destroyed.

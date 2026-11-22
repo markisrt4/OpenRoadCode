@@ -26,14 +26,18 @@ from controllers.navigation.waze_gesture_controller import WazeGestureController
 from apps.orcUi.adapters.scrcpy_waze_gestures import ScrcpyWazeGestures
 from ui.navigation.waze_request_handler_if import WazeSessionState
 from apps.launchers.waydroid_location_provider import WaydroidLocationProvider
+
+from controllers.navigation.route_overlay_controller import RouteOverlayController
 from controllers.weather.radar_palette import RadarPalette
 
 from apps.orcUi.application_runtime import OrcUiApplicationRuntime, create_orc_ui_application_runtime
 from apps.orcUi.composition.core import CoreComposition, create_core_composition
 from apps.orcUi.cesium_map_runtime import CesiumMapRuntime
+from apps.orcUi.map_platform_requests import MapPlatformRequests
 from apps.launchers.cesium_embedded_viewer import CesiumEmbeddedViewer
 from controllers.navigation.current_position import get_current_position
 from ui.navigation.cesium_viewer_state import CesiumViewerState
+from ui.navigation.map_platform_if import MapPlatform
 from ui.navigation import GeoPoint
 from apps.orcUi.composition.games import configure_games
 from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
@@ -257,9 +261,19 @@ def create_orc_ui_composition(
         cleanup.callback(overlays.close)
         navigation_maps = CesiumMapRuntime(core.map_runtime, CesiumEmbeddedViewer(),
             initial_view=lambda: CesiumViewerState(get_current_position() or
-                GeoPoint(math.radians(42.3314),math.radians(-83.0458)), label="Terrain", destination_marker_visible=False))
+                GeoPoint(math.radians(42.3314),math.radians(-83.0458)), label="3D map", destination_marker_visible=False))
         cleanup.callback(navigation_maps.close)
+        navigation_map_requests = MapPlatformRequests(
+            core.map_camera.request_handler, lambda _name, _args, _kwargs: None,
+            navigation_maps.update_poi_overlay)
         core.map_camera.observe_position(navigation_maps.update_position)
+        route_overlay = RouteOverlayController(navigation_maps.update_route_overlay)
+        core.route_request_handler.observe_route(route_overlay.update_route)
+        core.presentation.observe_route_guidance(route_overlay.update_guidance)
+        if core.route_request_handler.active_route is not None:
+            route_overlay.update_route(core.route_request_handler.active_route)
+        if core.presentation.route_guidance is not None:
+            route_overlay.update_guidance(core.presentation.route_guidance)
         host_location = None
         waydroid_enabled, scrcpy_enabled = _android_panel_backends()
 
@@ -337,7 +351,9 @@ def create_orc_ui_composition(
             online_allowed=lambda: app.online_mode.online,
             camera_observer=core.map_camera.request_handler.observe_camera,
             embedded_explore=navigation_maps.request_explore,
-            android_app_view=android_app_view, installed_apps=installed_business_apps)
+            android_app_view=android_app_view, installed_apps=installed_business_apps,
+            viewport_search_enabled=lambda: navigation_maps.state.active is MapPlatform.MAPLIBRE,
+            marker_selection_source=navigation_maps)
         cleanup.callback(navigation_places.close)
         waze = configure_waze(app, runtime, android_app_view=waze_app_view,
                               native_launcher=waze_native_launcher,
@@ -356,7 +372,7 @@ def create_orc_ui_composition(
             on_show=navigation_view.remember_map,
             places_factory=navigation_places,
             tooltip_factory=TooltipFactory(app),
-            map_request_handler=core.map_camera.request_handler,
+            map_request_handler=navigation_map_requests,
             route_request_handler=core.route_request_handler,
             route_simulation_handler=core.route_request_handler,
             theme_bundle=lambda: theme_bundle(app.theme_mode),
@@ -421,6 +437,7 @@ def create_orc_ui_composition(
         core.presentation.observe_vehicle(home.apply_vehicle_state)
         core.presentation.observe_trip(home.apply_trip_state)
         core.presentation.observe_position(home.apply_position_state)
+        core.presentation.observe_position(app.set_position_state)
         core.presentation.observe_attitude(home.apply_attitude_state)
         core.presentation.observe_vehicle(vehicle.apply_vehicle_state)
         core.presentation.observe_trip(vehicle.apply_trip_state)

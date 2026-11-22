@@ -14,7 +14,7 @@ import subprocess
 import time
 
 from .map_3d import PRESETS
-from .build import OUTPUT_ROOT, _write_manifest, build_regions
+from .build import CENSUS_PRIMARY_ROADS_URL, CENSUS_PRIMARY_ROADS_VINTAGE, OUTPUT_ROOT, _write_manifest, build_regions
 from .geofabrik import fetch_index, resolve_region_ids
 from .selection import load_region_ids, save_region_ids
 from .tui import select_regions
@@ -68,6 +68,7 @@ def print_validation_summary(result: dict, root: Path) -> None:
     valhalla = result["valhalla"]
     output_size = directory_size(root)
     mbtiles_path = root / "maps/vector/openroadcode.mbtiles"
+    freeways_path = root / "maps/vector/us-freeways.mbtiles"
     style_path = root / "maps/styles/openroadcode.json"
     extract_path = root / "valhalla/tiles.tar"
 
@@ -77,8 +78,10 @@ def print_validation_summary(result: dict, root: Path) -> None:
     print(f"  Deployable size:       {format_size(output_size)} ({output_size:,} bytes)")
     print(f"  Source PBF files:      {result['source_pbfs']}")
     print(f"  MBTiles size:          {format_size(mbtiles_path.stat().st_size)}")
+    print(f"  US freeways size:      {format_size(freeways_path.stat().st_size)}")
     print(f"  Vector tiles:          {mbtiles['tiles']:,}")
     print(f"  Vector layers:         {len(mbtiles['layers'])}")
+    print(f"  US freeway tiles:      {result['national_freeways']['tiles']:,}")
     print(f"  Glyph files:           {result['glyph_files']:,}")
     print(f"  Style:                 {style_path.name}")
     print(f"  Valhalla tile files:   {valhalla['tile_files']:,}")
@@ -109,6 +112,9 @@ def reusable_build_for_regions(selected, *, root: Path, service_smoke: bool) -> 
     requested_ids = sorted(region.id for region in selected)
     if existing_ids != requested_ids:
         return None
+    freeway = manifest.get("national_freeways") or {}
+    if freeway.get("url") != CENSUS_PRIMARY_ROADS_URL or freeway.get("vintage") != CENSUS_PRIMARY_ROADS_VINTAGE:
+        return None
 
     try:
         return validate_output(root, service_smoke=service_smoke)
@@ -118,7 +124,9 @@ def reusable_build_for_regions(selected, *, root: Path, service_smoke: bool) -> 
 
 def run_build(selected, *, clean: bool, service_smoke: bool) -> tuple[dict, float]:
     started = time.monotonic()
-    result = build_regions(selected, clean=clean, service_smoke=service_smoke)
+    result = build_regions(
+        selected, clean=clean, service_smoke=service_smoke
+    )
     return result, time.monotonic() - started
 
 
@@ -132,7 +140,9 @@ def build_or_reuse(selected, *, clean: bool, service_smoke: bool, force: bool) -
         if result is not None:
             print("Existing validated build matches requested regions; reusing it.")
             return result, 0.0, True
-    result, elapsed = run_build(selected, clean=clean, service_smoke=service_smoke)
+    result, elapsed = run_build(
+        selected, clean=clean, service_smoke=service_smoke
+    )
     return result, elapsed, False
 
 
@@ -196,7 +206,8 @@ def main() -> int:
                 print("Relative relief in metres; source datum is preserved. Terrain payload capped at 2 MiB.")
             else:
                 print("Layer: buildings. Uses existing OSM sources; no download. Output size is known after extraction.")
-                print("Limit: 8 tiles, 10 MiB geometry each plus metadata; complex polygons are omitted.")
+                tiles = 1024 if coverage == "metro-detroit" else 8
+                print(f"Limit: {tiles} tiles, 10 MiB geometry each plus metadata; complex polygons are omitted.")
             if not args.yes and input("Build this optional pack now? [y/N] ").strip().lower() != 'y':
                 print("Cancelled")
                 return 0
@@ -264,7 +275,13 @@ def main() -> int:
                         search_counts = (previous.get("search_index") or {}).get("counts") or {}
                     except (OSError, json.JSONDecodeError, TypeError):
                         pass
-                _write_manifest(selected, result, search_counts)
+                previous_freeways = None
+                if existing_manifest.is_file():
+                    try:
+                        previous_freeways = json.loads(existing_manifest.read_text(encoding="utf-8")).get("national_freeways")
+                    except (OSError, json.JSONDecodeError, TypeError):
+                        pass
+                _write_manifest(selected, result, search_counts, previous_freeways)
                 print(f"Wrote validated manifest: {OUTPUT_ROOT / 'build-manifest.json'}")
             if args.json:
                 print(json.dumps(result, indent=2))

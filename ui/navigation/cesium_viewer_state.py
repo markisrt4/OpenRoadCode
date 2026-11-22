@@ -15,8 +15,8 @@ class CesiumViewerState:
     distance_m: float = 1500.0
     tilt_rad: float = math.pi / 4
     buildings_visible: bool = True
-    references_visible: bool = False
     terrain_visible: bool = True
+    terrain_shading_visible: bool = False
     embedded: bool = False
     terrain_scale: int = 1
     pan_step_fraction: float = 0.15
@@ -26,14 +26,14 @@ class CesiumViewerState:
 
     def __post_init__(self):
         if any(type(value) is not bool for value in
-               (self.buildings_visible, self.references_visible, self.terrain_visible, self.embedded,
-                self.destination_marker_visible)):
+               (self.buildings_visible, self.terrain_visible,
+                self.terrain_shading_visible, self.embedded, self.destination_marker_visible)):
             raise ValueError("Layer visibility must be boolean")
         if not (math.isfinite(self.pitch_step_rad) and math.isfinite(self.maximum_tilt_rad)
                 and 0 < self.pitch_step_rad <= self.maximum_tilt_rad < math.pi/2):
             raise ValueError("Camera pitch step and maximum tilt must be finite and above ground")
-        if type(self.terrain_scale) is not int or self.terrain_scale not in (1, 2, 3):
-            raise ValueError("Terrain scale must be 1, 2 or 3")
+        if type(self.terrain_scale) is not int or self.terrain_scale not in (1, 2, 3, 4):
+            raise ValueError("Terrain scale must be 1, 2, 3 or 4")
         if not math.isfinite(self.pan_step_fraction) or not 0 < self.pan_step_fraction <= 1:
             raise ValueError("Pan step fraction must be finite and between zero and one")
         lat, lon = self.destination.latitude_rad, self.destination.longitude_rad
@@ -54,8 +54,8 @@ class CesiumViewerState:
                 "label": self.label, "distance_m": self.distance_m,
                 "tilt_rad": self.tilt_rad,
                 "buildings_visible": self.buildings_visible,
-                "references_visible": self.references_visible,
                 "terrain_visible": self.terrain_visible,
+                "terrain_shading_visible": self.terrain_shading_visible,
                 "embedded": self.embedded,
                 "terrain_scale": self.terrain_scale,
                 "pan_step_fraction": self.pan_step_fraction,

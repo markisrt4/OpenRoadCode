@@ -7,6 +7,7 @@ from urllib.error import URLError
 import pytest
 
 from apps.launchers.host_location_permission import HostLocationPermission
+from controllers.navigation.host_location_permission_if import HostLocationServiceUnavailable
 
 
 @pytest.fixture(autouse=True)
@@ -145,3 +146,30 @@ def test_ready_service_does_not_start_or_restart_navigation():
          patch('apps.launchers.host_location_permission.webbrowser.open', return_value=True):
         HostLocationPermission(recover=recover).open_permission_page(lambda: False)
     recover.assert_not_called()
+
+
+def test_restart_uses_restricted_manager_endpoint_and_waits_for_location():
+    manager = response()
+    location = response()
+    with patch(
+        'apps.launchers.host_location_permission.build_opener',
+        side_effect=[manager, location],
+    ), patch('apps.launchers.host_location_permission.time.sleep'):
+        HostLocationPermission().restart_location_service(lambda: False)
+
+    request = manager.open.call_args.args[0]
+    assert request.full_url.endswith('/services/openroadcode-navigation/restart')
+    assert request.method == 'POST'
+    location.open.assert_called_once_with('http://127.0.0.1:8765/', timeout=1)
+
+
+def test_firefox_fallback_removes_private_qt_plugin_paths(monkeypatch):
+    monkeypatch.setenv('QT_QPA_PLATFORM_PLUGIN_PATH', '/private/opencv/plugins')
+    monkeypatch.setenv('QT_QPA_FONTDIR', '/private/opencv/fonts')
+    with patch('apps.launchers.host_location_permission.build_opener', return_value=response()), \
+         patch('apps.launchers.host_location_permission.shutil.which', side_effect=lambda name: '/usr/bin/firefox' if name == 'firefox' else None), \
+         patch('apps.launchers.host_location_permission.subprocess.Popen') as launch:
+        HostLocationPermission().open_permission_page(lambda: False)
+    assert launch.call_args.args[0] == ['/usr/bin/firefox', '--new-window', 'http://127.0.0.1:8765/']
+    assert 'QT_QPA_PLATFORM_PLUGIN_PATH' not in launch.call_args.kwargs['env']
+    assert 'QT_QPA_FONTDIR' not in launch.call_args.kwargs['env']

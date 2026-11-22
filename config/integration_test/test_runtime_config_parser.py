@@ -106,7 +106,7 @@ class RuntimeConfigTestAppTest(unittest.TestCase):
     def test_position_cache_defaults_are_loaded(self) -> None:
         config = RuntimeConfigParser(self.config_path, project_root=self.project_root).load()
         self.assertTrue(config.position_cache.enabled)
-        self.assertEqual(604800.0, config.position_cache.max_age_seconds)
+        self.assertEqual(86400.0, config.position_cache.max_age_seconds)
 
     def test_position_cache_configuration_is_parsed(self) -> None:
         self.config_path.write_text(

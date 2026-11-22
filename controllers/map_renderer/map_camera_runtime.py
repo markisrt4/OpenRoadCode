@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import math
 import logging
+
+from datetime import datetime
 from pathlib import Path
 from common.logging.structured import event
 
@@ -38,6 +40,7 @@ _COURSE_DEADBAND_RAD = math.radians(3.0)
 _COURSE_SMOOTHING_FACTOR = 0.35
 _EARTH_RADIUS_M = 6_378_137.0
 _MAP_CAMERA_MANUAL_TOPIC = "map.camera.manual"
+_MAX_CACHED_POSITION_AGE_SECONDS = 86400.0
 
 
 class MapCameraRuntime:
@@ -136,13 +139,19 @@ class MapCameraRuntime:
         self._renderer_client.close()
 
     @staticmethod
-    def _load_cached_center(cache_directory: Path) -> GeoPoint | None:
+    def _load_cached_center(
+        cache_directory: Path,
+        *,
+        clock=datetime.now,
+        max_age_seconds: float = _MAX_CACHED_POSITION_AGE_SECONDS,
+    ) -> GeoPoint | None:
         """Load the last valid position from the persistent position cache."""
 
         state = PositionSnapshotCache(PersistentCache(cache_directory)).load()
         if (
             state is None
             or not state.has_fix
+            or not 0 <= (clock() - state.received_at).total_seconds() <= max_age_seconds
             or state.latitude_deg is None
             or state.longitude_deg is None
         ):

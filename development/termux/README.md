@@ -394,3 +394,10 @@ configuration. The check runs inside Debian rather than against Termux's filesys
 An explicitly configured non-default directory is preserved. No checkout is moved
 or rebuilt; the setup script continues creating managed installations and refuses
 to modify unmanaged source trees. A compatibility symlink remains supported.
+
+### Browser executable names
+
+The browser environment check accepts `chromium-browser`, `chromium`, or
+`google-chrome`, in the same order as the browser launcher. A package named
+`chromium` may install an executable named `chromium-browser`; no alias or
+reinstallation is required when one of these commands exists.

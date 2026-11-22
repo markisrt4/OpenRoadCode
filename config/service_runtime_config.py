@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from controllers.automotive.vehicle_configuration import EngineInductionType, VehicleConfiguration
+from config.runtime_config import PositionCacheConfig
 from pathlib import Path
 
 try:
@@ -152,6 +153,7 @@ class ServiceRuntimeConfig:
     automotive: AutomotiveServiceRuntimeConfig = AutomotiveServiceRuntimeConfig()
     environmental: EnvironmentalServiceRuntimeConfig = EnvironmentalServiceRuntimeConfig()
     vehicle: VehicleConfiguration = VehicleConfiguration()
+    position_cache: PositionCacheConfig = PositionCacheConfig()
 
 
 class ServiceRuntimeConfigParser:
@@ -183,12 +185,37 @@ class ServiceRuntimeConfigParser:
         automotive = self._parse_automotive(services.get("automotive", {}))
         environmental = self._parse_environmental(services.get("environmental", {}))
         vehicle = self._parse_vehicle(data.get("vehicle", {}))
+        position_cache = self._parse_position_cache(data.get("position_cache", {}))
         return ServiceRuntimeConfig(
             messaging=messaging,
             navigation=navigation,
             automotive=automotive,
             environmental=environmental,
             vehicle=vehicle,
+            position_cache=position_cache,
+        )
+
+    def _parse_position_cache(self, value) -> PositionCacheConfig:
+        data = self._table(value, "position_cache")
+        directory_text = self._string(
+            data.get("directory", "~/.cache/openroadcode/position"),
+            "position_cache.directory",
+        )
+        directory = Path(directory_text).expanduser()
+        if not directory.is_absolute():
+            directory = self._path.parent.parent / directory
+        max_age = self._number(
+            data.get("max_age_seconds", 86400.0),
+            "position_cache.max_age_seconds",
+        )
+        if max_age < 0:
+            raise ServiceRuntimeConfigError(
+                "position_cache.max_age_seconds must be non-negative"
+            )
+        return PositionCacheConfig(
+            enabled=self._bool(data.get("enabled", True), "position_cache.enabled"),
+            directory=directory.resolve(),
+            max_age_seconds=max_age,
         )
 
     def _parse_environmental(self, value) -> EnvironmentalServiceRuntimeConfig:

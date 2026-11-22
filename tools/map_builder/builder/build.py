@@ -12,6 +12,11 @@ from .poi_index import build_search_index
 from .style import install_style
 from .validate import validate_output
 OUTPUT_ROOT=Path(os.environ.get("OPENROAD_OUTPUT_ROOT","/srv/openroadcode")); CACHE_ROOT=Path(os.environ.get("OPENROAD_CACHE_ROOT","/cache")); SCRATCH_ROOT=Path(os.environ.get("OPENROAD_SCRATCH_ROOT","/scratch")); STYLE_TEMPLATE=Path(os.environ.get("OPENROAD_STYLE_TEMPLATE","/opt/openroadcode-map-builder/templates/openroadcode-style.json")); TILEMAKER_CONFIG=Path("/opt/tilemaker/resources/config-openmaptiles.json"); TILEMAKER_PROCESS=Path("/opt/tilemaker/resources/process-openmaptiles.lua"); GLYPH_SOURCE=Path("/opt/klokantech-gl-fonts/KlokanTech Noto Sans CJK Regular")
+REFERENCE_MAP_SOURCE=Path(os.environ.get("OPENROAD_REFERENCE_MAP_SOURCE","/opt/openroadcode-source/resources/maps"))
+REFERENCE_MAP_FILES=("us_state_boundaries.geojson","us_state_internal_boundaries.geojson","world_country_boundaries.geojson","world_land.geojson","world_lakes.geojson")
+CENSUS_PRIMARY_ROADS_VINTAGE=2026
+CENSUS_PRIMARY_ROADS_URL=f"https://www2.census.gov/geo/tiger/TIGER{CENSUS_PRIMARY_ROADS_VINTAGE}/PRIMARYROADS/tl_{CENSUS_PRIMARY_ROADS_VINTAGE}_us_primaryroads.zip"
+NATIONAL_FREEWAYS_PROCESS=Path("/opt/openroadcode-map-builder/templates/process-census-primary-roads.lua")
 class BuildError(RuntimeError): pass
 def run(cmd:list[str],*,cwd:Path|None=None)->None:
  print("+"," ".join(str(x) for x in cmd),flush=True); subprocess.run(cmd,cwd=cwd,check=True)
@@ -33,22 +38,27 @@ def _print_download_progress(downloaded:int,total:int,started:float)->None:
 def _download(url:str,destination:Path)->None:
  destination.parent.mkdir(parents=True,exist_ok=True)
  if destination.exists() and destination.stat().st_size>0: print(f"Using cached {destination.name}"); return
- tmp=destination.with_suffix(destination.suffix+".part"); request=Request(url,headers={"User-Agent":"OpenRoadCode-map-builder/1.0"}); print(f"Downloading {url}",flush=True)
- downloaded=0; started=time.monotonic()
- with urlopen(request,timeout=120) as response,tmp.open("wb") as output:
-  content_length=response.headers.get("Content-Length"); total=int(content_length) if content_length and content_length.isdigit() else 0
-  while True:
-   chunk=response.read(1024*1024)
-   if not chunk: break
-   output.write(chunk); downloaded+=len(chunk); _print_download_progress(downloaded,total,started)
- print(flush=True); tmp.replace(destination)
+ tmp=destination.with_suffix(destination.suffix+".part")
+ action="Resuming" if tmp.exists() and tmp.stat().st_size else "Downloading"
+ print(f"{action} {url}",flush=True)
+ run(["curl","--fail","--location","--retry","8","--retry-delay","5",
+      "--retry-all-errors","--connect-timeout","30","--speed-limit","1024",
+      "--speed-time","120","--continue-at","-","--user-agent",
+      "OpenRoadCode-map-builder/1.0","--output",str(tmp),url])
+ if not tmp.is_file() or tmp.stat().st_size<=0: raise BuildError(f"Download produced no data: {url}")
+ tmp.replace(destination)
 def _md5_file(path:Path)->str:
  digest=hashlib.md5()
  with path.open("rb") as stream:
   for chunk in iter(lambda:stream.read(1024*1024),b""): digest.update(chunk)
  return digest.hexdigest().lower()
-def _download_and_verify(region:Region)->Path:
- cached=CACHE_ROOT/"pbf"/f"{region.safe_id}.osm.pbf"
+def _sha256_file(path:Path)->str:
+ digest=hashlib.sha256()
+ with path.open("rb") as stream:
+  for chunk in iter(lambda:stream.read(1024*1024),b""): digest.update(chunk)
+ return digest.hexdigest().lower()
+def _download_and_verify(region:Region,*,cache_root:Path|None=None)->Path:
+ cached=(cache_root if cache_root is not None else CACHE_ROOT)/"pbf"/f"{region.safe_id}.osm.pbf"
  try:
   with urlopen(Request(region.pbf_url+".md5",headers={"User-Agent":"OpenRoadCode-map-builder/1.0"}),timeout=30) as response: expected=response.read().decode("utf-8",errors="replace").split()[0].lower()
  except Exception as exc:
@@ -76,10 +86,10 @@ def _prepare_output_dirs(clean:bool)->None:
   # touching generated output so a failed rebuild can never leave an old
   # manifest beside a partially replaced dataset.
   (OUTPUT_ROOT/"build-manifest.json").unlink(missing_ok=True)
-  for relative in ("maps/vector","maps/styles","maps/glyphs","maps/source","maps/poi","maps/search","maps/3d","valhalla"):
+  for relative in ("maps/vector","maps/styles","maps/glyphs","maps/source","maps/poi","maps/search","maps/boundaries","maps/3d","valhalla"):
    target=OUTPUT_ROOT/relative
    if target.exists(): shutil.rmtree(target)
- for relative in ("maps/vector","maps/styles","maps/glyphs","maps/source","maps/search","maps/routes","valhalla/tiles"): (OUTPUT_ROOT/relative).mkdir(parents=True,exist_ok=True)
+ for relative in ("maps/vector","maps/styles","maps/glyphs","maps/source","maps/search","maps/boundaries","maps/routes","valhalla/tiles"): (OUTPUT_ROOT/relative).mkdir(parents=True,exist_ok=True)
  SCRATCH_ROOT.mkdir(parents=True,exist_ok=True)
 def _install_sources(regions,cached_pbfs):
  installed=[]
@@ -107,14 +117,49 @@ def _merge_for_build(pbfs):
  run(["osmium","time-filter","--overwrite","-o",str(merged),str(history)])
  run(["osmium","fileinfo","-e",str(merged)])
  return merged,_pbf_bbox(merged)
-def _build_maplibre_data(tilemaker_input,bbox=None):
- output=OUTPUT_ROOT/"maps/vector/openroadcode.mbtiles"; output.unlink(missing_ok=True); store=SCRATCH_ROOT/"tilemaker-store"
+def _build_vector_tiles(tilemaker_input:Path,output:Path,store_name:str,bbox=None)->None:
+ output.unlink(missing_ok=True); store=SCRATCH_ROOT/store_name
  if store.exists():shutil.rmtree(store)
  store.mkdir(parents=True); command=["tilemaker","--input",str(tilemaker_input),"--output",str(output),"--config",str(TILEMAKER_CONFIG),"--process",str(TILEMAKER_PROCESS),"--store",str(store)]
  if bbox: command.extend(["--bbox",bbox])
- run(command); install_style(STYLE_TEMPLATE,OUTPUT_ROOT/"maps/styles/openroadcode.json"); glyph_dest=OUTPUT_ROOT/"maps/glyphs/KlokanTech Noto Sans CJK Regular"
+ run(command)
+def _build_maplibre_data(tilemaker_input,bbox=None):
+ _build_vector_tiles(tilemaker_input,OUTPUT_ROOT/"maps/vector/openroadcode.mbtiles","tilemaker-store",bbox)
+ install_style(STYLE_TEMPLATE,OUTPUT_ROOT/"maps/styles/openroadcode.json"); glyph_dest=OUTPUT_ROOT/"maps/glyphs/KlokanTech Noto Sans CJK Regular"
  if glyph_dest.exists():shutil.rmtree(glyph_dest)
  shutil.copytree(GLYPH_SOURCE,glyph_dest)
+ boundary_dest=OUTPUT_ROOT/"maps/boundaries"; boundary_dest.mkdir(parents=True,exist_ok=True)
+ for name in REFERENCE_MAP_FILES:
+  source=REFERENCE_MAP_SOURCE/name
+  if not source.is_file(): raise BuildError(f"Missing reference map asset: {source}")
+  shutil.copy2(source,boundary_dest/name)
+def _national_freeway_archive()->Path:
+ archive=CACHE_ROOT/"census"/f"tl_{CENSUS_PRIMARY_ROADS_VINTAGE}_us_primaryroads.zip"
+ _download(CENSUS_PRIMARY_ROADS_URL,archive)
+ return archive
+def _national_freeway_source_record(archive:Path|None=None)->dict:
+ record={"dataset":"U.S. Census Bureau TIGER/Line Primary Roads","vintage":CENSUS_PRIMARY_ROADS_VINTAGE,"url":CENSUS_PRIMARY_ROADS_URL,"path":"maps/vector/us-freeways.mbtiles"}
+ if archive is not None and archive.is_file(): record["archive_sha256"]=_sha256_file(archive)
+ return record
+def _build_national_freeways(archive:Path|None=None)->dict:
+ archive=archive or _national_freeway_archive(); source_name=f"tl_{CENSUS_PRIMARY_ROADS_VINTAGE}_us_primaryroads.shp"
+ source=f"/vsizip/{archive}/{source_name}"; converted=SCRATCH_ROOT/"us-primary-roads"; shapefile=converted/source_name
+ if converted.exists(): shutil.rmtree(converted)
+ converted.mkdir(parents=True)
+ run(["ogr2ogr","-f","ESRI Shapefile","-t_srs","EPSG:4326",str(shapefile),source])
+ config=SCRATCH_ROOT/"census-primary-roads.json"
+ config.write_text(json.dumps({
+  "layers":{
+   "transportation":{"minzoom":4,"maxzoom":14,"source":str(shapefile),"source_columns":["FULLNAME","RTTYP","MTFCC"],"simplify_below":12,"simplify_level":0.0001,"combine_lines_below":10},
+   "transportation_name":{"minzoom":7,"maxzoom":14,"source":str(shapefile),"source_columns":["FULLNAME","RTTYP","MTFCC"],"simplify_below":12,"simplify_level":0.0001}
+  },
+  "settings":{"minzoom":4,"maxzoom":14,"basezoom":14,"include_ids":False,"compress":"gzip","name":"OpenRoadCode US primary roads","version":str(CENSUS_PRIMARY_ROADS_VINTAGE),"description":"Nationwide freeway overview from U.S. Census Bureau TIGER/Line Primary Roads","bounding_box":[-180,-90,180,90]}
+ },indent=2)+"\n",encoding="utf-8")
+ output=OUTPUT_ROOT/"maps/vector/us-freeways.mbtiles"; output.unlink(missing_ok=True); store=SCRATCH_ROOT/"tilemaker-freeways-store"
+ if store.exists(): shutil.rmtree(store)
+ store.mkdir(parents=True)
+ run(["tilemaker","--output",str(output),"--config",str(config),"--process",str(NATIONAL_FREEWAYS_PROCESS),"--store",str(store)])
+ return _national_freeway_source_record(archive)
 def _build_valhalla(pbf:Path):
  root=OUTPUT_ROOT/"valhalla"; tiles=root/"tiles"
  if tiles.exists():shutil.rmtree(tiles)
@@ -124,14 +169,16 @@ def _build_valhalla(pbf:Path):
  with config.open("w",encoding="utf-8") as output:subprocess.run(cmd,check=True,stdout=output)
  with timezones.open("wb") as output:subprocess.run(["valhalla_build_timezones"],check=True,stdout=output)
  run(["valhalla_build_admins","-c",str(config),str(pbf)]); run(["valhalla_build_tiles","-c",str(config),str(pbf)]); run(["valhalla_build_extract","-c",str(config),"-v"])
-def _write_manifest(regions,validation,search_counts):
+def _write_manifest(regions,validation,search_counts,national_freeways:dict|None=None):
  manifest={"schema":2,"generated_unix":int(time.time()),"regions":[asdict(r) for r in regions],"validation":validation,"map_3d":validation.get("map_3d",{}),"search_index":{"counts":search_counts,"path":"maps/search/openroadcode-search.sqlite"},"tools":{}}
+ manifest["national_freeways"]=national_freeways or _national_freeway_source_record()
  manifest["deployable_bytes"] = sum(p.stat().st_size for p in OUTPUT_ROOT.rglob("*") if p.is_file() and p.name != "build-manifest.json")
- for tool in ("tilemaker","valhalla_service","osmium"):
+ for tool in ("tilemaker","valhalla_service","osmium","ogr2ogr"):
   result=subprocess.run([tool,"--version"],text=True,capture_output=True,check=False); manifest["tools"][tool]=(result.stdout or result.stderr).strip().splitlines()[0]
  (OUTPUT_ROOT/"build-manifest.json").write_text(json.dumps(manifest,indent=2)+"\n",encoding="utf-8")
 def build_regions(regions:list[Region],*,clean:bool=True,service_smoke:bool=True)->dict:
  if not regions:raise BuildError("No regions selected")
+ freeway_source=_national_freeway_archive()
  _prepare_output_dirs(clean=clean); cached=[_download_and_verify(r) for r in regions]; installed=_install_sources(regions,cached); build_input,bbox=_merge_for_build(installed)
  search_counts=build_search_index(build_input,OUTPUT_ROOT/"maps/search/openroadcode-search.sqlite"); print(f"Built search index: {search_counts}",flush=True)
- _build_maplibre_data(build_input,bbox); _build_valhalla(build_input); validation=validate_output(OUTPUT_ROOT,service_smoke=service_smoke); _write_manifest(regions,validation,search_counts); return validation
+ _build_maplibre_data(build_input,bbox); freeway_record=_build_national_freeways(freeway_source); _build_valhalla(build_input); validation=validate_output(OUTPUT_ROOT,service_smoke=service_smoke); _write_manifest(regions,validation,search_counts,freeway_record); return validation

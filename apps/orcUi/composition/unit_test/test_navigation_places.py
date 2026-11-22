@@ -7,7 +7,8 @@ import pytest
 from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
 
 
-def test_panera_marker_reopens_after_real_session_close_and_factory_remount():
+@pytest.mark.parametrize('terrain', [False, True])
+def test_panera_marker_reopens_after_real_session_close_and_factory_remount(terrain):
     from controllers.poi.poi_search_controller import PoiSearchController
     from protocols.map_renderer.map_poi_source import RawMapClick
     from ui.navigation import GeoPoint
@@ -29,7 +30,11 @@ def test_panera_marker_reopens_after_real_session_close_and_factory_remount():
                                    position_provider=lambda: position, **kwargs)
 
     with patch('apps.orcUi.composition.navigation_places.PoiSearchController', side_effect=build_search):
-        factory = NavigationPlacesFactory(favorites=Mock(), actions=Mock())
+        marker_source = Mock()
+        marker_source.poll_selected_marker_id.return_value = None
+        factory = NavigationPlacesFactory(favorites=Mock(), actions=Mock(),
+            viewport_search_enabled=lambda: not terrain,
+            marker_selection_source=marker_source if terrain else None)
         first = factory.create()
         first.search(PoiCategory.FOOD)
         assert len(first.poll_search_result().pois) == 5
@@ -37,7 +42,10 @@ def test_panera_marker_reopens_after_real_session_close_and_factory_remount():
         sources[0].close.assert_called_once()
         second = factory.create()
         click = RawMapClick(position, 20, marker_id='osm:node:11952787417', marker_index=4)
-        sources[1].poll_click.return_value = click
+        if terrain:
+            marker_source.poll_selected_marker_id.side_effect = [click.marker_id, None]
+        else:
+            sources[1].poll_click.return_value = click
         selected = second.poll_selected()
         assert selected is not None
         assert selected.name == 'Panera Bread'

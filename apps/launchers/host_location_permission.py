@@ -7,14 +7,16 @@ import os
 import webbrowser
 import time
 import shutil
+import subprocess
 from threading import Lock
 from collections.abc import Callable
-from urllib.error import URLError
-from urllib.request import ProxyHandler, build_opener
+from urllib.error import HTTPError, URLError
+from urllib.request import ProxyHandler, Request, build_opener
 from apps.launchers.host_location_session import HostLocationSessionError
 from apps.launchers.browser_launcher import BrowserKioskLauncher
 from apps.launchers.host_location_window_control import HostLocationWindowControl
 from common.xdg_paths import openroadcode_data_dir
+from controllers.navigation.host_location_permission_if import HostLocationServiceUnavailable
 
 
 class HostLocationPermission:
@@ -88,6 +90,15 @@ class HostLocationPermission:
             self._ensure_window_control()
             self._browser.launch(os.environ['DISPLAY'])
             return
+        firefox = shutil.which('firefox')
+        if firefox is not None:
+            environment = os.environ.copy()
+            environment.pop('QT_QPA_PLATFORM_PLUGIN_PATH', None)
+            environment.pop('QT_QPA_FONTDIR', None)
+            subprocess.Popen([firefox, '--new-window', self.url], env=environment,
+                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                start_new_session=True)
+            return
         if not webbrowser.open(self.url, new=2):
             raise RuntimeError('Could not open your browser. Set a default browser on this computer, then try again.')
 
@@ -104,7 +115,7 @@ class HostLocationPermission:
             check_page()
         except (URLError, OSError) as error:
             if self._recover is None:
-                raise RuntimeError("Location sharing couldn't connect. Try again in a moment.") from error
+                raise HostLocationServiceUnavailable("Location sharing couldn't connect. Try again in a moment.") from error
             if cancelled():
                 return
             try:
@@ -112,7 +123,7 @@ class HostLocationPermission:
             except Exception as recovery_error:
                 message = (str(recovery_error) if isinstance(recovery_error, HostLocationSessionError)
                            else 'Location sharing could not start. Please retry or check ORC diagnostics.')
-                raise RuntimeError(message) from recovery_error
+                raise HostLocationServiceUnavailable(message) from recovery_error
             deadline = time.monotonic() + 5
             while not cancelled():
                 try:
@@ -120,8 +131,46 @@ class HostLocationPermission:
                     break
                 except (URLError, OSError) as retry_error:
                     if time.monotonic() >= deadline:
-                        raise RuntimeError("Location sharing couldn't connect. Please try again.") from retry_error
+                        raise HostLocationServiceUnavailable("Location sharing couldn't connect. Please try again.") from retry_error
                     time.sleep(0.2)
         if cancelled():
             return
         self._open_browser(cancelled)
+
+    def restart_location_service(self, cancelled: Callable[[], bool]) -> None:
+        """Restart navigation through its restricted localhost control plane."""
+        if cancelled():
+            return
+        manager_url = os.environ.get(
+            "OPENROADCODE_SERVICE_MANAGER_URL", "http://127.0.0.1:8769"
+        ).rstrip("/")
+        request = Request(
+            manager_url + "/services/openroadcode-navigation/restart",
+            data=b"",
+            method="POST",
+        )
+        try:
+            with build_opener(ProxyHandler({})).open(request, timeout=5) as response:
+                response.read(32768)
+        except HTTPError as error:
+            if error.code == 401:
+                raise RuntimeError(
+                    "Automatic restart is not authorized. Repair the OpenRoadCode service-manager installation."
+                ) from error
+            raise RuntimeError("The location service could not be restarted.") from error
+        except (URLError, OSError) as error:
+            raise RuntimeError(
+                "Automatic restart is unavailable. Start or repair the OpenRoadCode service manager."
+            ) from error
+
+        for _attempt in range(20):
+            if cancelled():
+                return
+            try:
+                with build_opener(ProxyHandler({})).open(self.url, timeout=1) as response:
+                    if b"OpenRoadCode Host Location" in response.read(32768):
+                        return
+            except (URLError, OSError):
+                pass
+            time.sleep(0.25)
+        raise RuntimeError("The location service did not become ready after restarting.")

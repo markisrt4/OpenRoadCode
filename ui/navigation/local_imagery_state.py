@@ -34,14 +34,35 @@ class LocalImageryState:
 
 @dataclass(frozen=True, slots=True)
 class LocalImageryStackState:
-    """Bounded offline layers ordered from regional background to finer detail."""
+    """Bounded offline catalog ordered from regional background to finer detail."""
 
     layers: tuple[LocalImageryState, ...] = ()
 
     def __post_init__(self):
-        if not isinstance(self.layers, tuple) or len(self.layers) > 6 or any(
+        if not isinstance(self.layers, tuple) or len(self.layers) > 64 or any(
                 not isinstance(layer, LocalImageryState) for layer in self.layers):
-            raise ValueError('Imagery stack must contain at most six immutable layers')
+            raise ValueError('Imagery stack must contain at most 64 immutable layers')
 
     def document(self):
         return [layer.document() for layer in self.layers]
+
+
+@dataclass(frozen=True, slots=True)
+class LocalImageryPyramidState:
+    """Coverage and zoom bounds for offline 256-pixel Web Mercator imagery."""
+
+    coverage: LocalImageryState
+    minimum_zoom: int
+    maximum_zoom: int
+    image_format: str
+
+    def __post_init__(self):
+        if (not isinstance(self.coverage, LocalImageryState)
+                or type(self.minimum_zoom) is not int or type(self.maximum_zoom) is not int
+                or not 0 <= self.minimum_zoom <= self.maximum_zoom <= 18
+                or self.image_format not in ('png', 'jpg', 'jpeg', 'webp')):
+            raise ValueError('Invalid offline imagery pyramid metadata')
+
+    def document(self):
+        return dict(self.coverage.document(), minimum_zoom=self.minimum_zoom,
+                    maximum_zoom=self.maximum_zoom, tile_size=256)

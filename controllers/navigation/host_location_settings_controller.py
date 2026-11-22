@@ -5,21 +5,10 @@
 
 import threading
 from dataclasses import replace
-from collections.abc import Callable
-from typing import Protocol
+from controllers.navigation.host_location_permission_if import HostLocationPermissionIf, HostLocationServiceUnavailable
 
 from ui.navigation.host_location_ui_if import HostLocationState, HostLocationUiIf
 from ui.ui_dispatcher_if import UiDispatcherIf
-
-
-class HostLocationPermissionIf(Protocol):
-    def open_permission_page(self, cancelled: Callable[[], bool]) -> None:
-        """Check service availability and open the host location permission window."""
-        ...
-
-    def restore_if_running(self, cancelled: Callable[[], bool]) -> None:
-        """Reconnect an existing permission page without opening a new window."""
-        ...
 
 
 class HostLocationSettingsController:
@@ -70,18 +59,49 @@ class HostLocationSettingsController:
         def work() -> None:
             try:
                 self._permission.open_permission_page(cancelled)
-                message = "In the location window, click Share host location and allow access. Keep that window open."
+                message = "Permission page opened. Click Share host location and allow access."
+                can_restart = False
+            except HostLocationServiceUnavailable:
+                message = "Location service is not running. Restart it to share this computer's location."
+                can_restart = True
             except Exception as error:
                 message = str(error)
+                can_restart = False
             if not cancelled():
-                self._dispatcher.dispatch_ui(lambda: self._complete(generation, message))
+                self._dispatcher.dispatch_ui(lambda: self._complete(generation, message, can_restart))
 
         threading.Thread(target=work, name="host-location-permission", daemon=True).start()
 
-    def _complete(self, generation: int, message: str) -> None:
+    def restart_location_service(self) -> None:
+        if (not self._visible or self._closed or self._state.busy
+                or not self._state.can_restart):
+            return
+        self._generation += 1
+        generation = self._generation
+        self._state = replace(self._state, status="Restarting location service…", busy=True)
+        self._ui.set_host_location_state(self._state)
+
+        def cancelled() -> bool:
+            return self._closed or not self._visible or generation != self._generation
+
+        def work() -> None:
+            try:
+                self._permission.restart_location_service(cancelled)
+                if cancelled():
+                    return
+                self._permission.open_permission_page(cancelled)
+                message = "Permission page opened. Click Share host location and allow access."
+            except Exception as error:
+                message = str(error)
+            if not cancelled():
+                self._dispatcher.dispatch_ui(lambda: self._complete(generation, message, False))
+
+        threading.Thread(target=work, name="host-location-restart", daemon=True).start()
+
+    def _complete(self, generation: int, message: str, can_restart: bool = False) -> None:
         if self._closed or not self._visible or generation != self._generation:
             return
-        self._state = replace(self._state, status='Host location sharing is active.' if self._state.sharing else message, busy=False)
+        self._state = replace(self._state, status='Host location sharing is active.' if self._state.sharing else message, busy=False, can_restart=can_restart and not self._state.sharing)
         self._ui.set_host_location_state(self._state)
 
     def update_location_status(self, location_status, android_status):
@@ -97,7 +117,7 @@ class HostLocationSettingsController:
         def apply():
             if self._closed:
                 return
-            self._state = replace(self._state, sharing=sharing,
+            self._state = replace(self._state, sharing=sharing, can_restart=False if sharing else self._state.can_restart,
                 status='Host location sharing is active.' if sharing else HostLocationState().status)
             if self._visible:
                 self._ui.set_host_location_state(self._state)

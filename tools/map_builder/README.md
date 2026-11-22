@@ -28,7 +28,11 @@ cd tools/map_builder
 ./scripts/run-builder.sh tui
 ```
 
-The runner bind-mounts the local `builder/` and `templates/` directories into the container, so Python, TUI, and style-template edits are available immediately. Rebuild the image only after changing the Dockerfile, toolchain versions, or container-installed dependencies.
+The runner bind-mounts the repository read-only for shared `development`, `ui`,
+and `apps` contracts, plus the local `builder/` and `templates/` directories at
+their container paths. Python, TUI, shared-contract, and style-template edits are
+therefore available immediately. Rebuild the image only after changing the
+Dockerfile, toolchain versions, or container-installed dependencies.
 
 Controls: Up/Down and PageUp/PageDown navigate, Right expands or collapses a region group, Left collapses or moves to its parent, Space selects, `/` searches, `c` clears the search, Enter accepts the selected regions, and `q` quits. `b` also accepts the selection. Parent/child region combinations are rejected to prevent duplicate map data.
 
@@ -43,19 +47,31 @@ Before starting an expensive build, the builder checks `build-output/build-manif
 ## Non-interactive build
 
 ```bash
-./scripts/run-builder.sh build --regions north-america/us/michigan
+./scripts/run-builder.sh build --regions us/michigan
 ```
+
+Every build also creates a nationwide freeway overview from the U.S. Census
+Bureau TIGER/Line Primary Roads archive. This source is about 37 MiB, rather than
+the multi-gigabyte full-US OpenStreetMap extract. GDAL reprojects the Census
+shapefile to WGS84 and tilemaker writes the existing `us-freeways.mbtiles`
+contract, so MapLibre and deployment do not need a separate code path. The
+nationwide overview does not expand Valhalla routing, search, POI, or detailed
+street coverage beyond the selected Geofabrik regions.
+
+Downloads use bounded retries and retain `.part` files, so rerunning the same
+build resumes an interrupted transfer instead of restarting it. The manifest
+records the Census vintage, source URL, and downloaded archive SHA-256.
 
 Multiple regions are comma separated:
 
 ```bash
-./scripts/run-builder.sh build --regions north-america/us/michigan,north-america/us/ohio
+./scripts/run-builder.sh build --regions us/michigan,us/ohio
 ```
 
 Normal non-interactive builds also reuse matching validated output. Force a rebuild with:
 
 ```bash
-./scripts/run-builder.sh build --regions north-america/us/michigan --force
+./scripts/run-builder.sh build --regions us/michigan --force
 ```
 
 After a successful interactive or non-interactive build, the builder reports the selected region names, their combined source PBF size, total deployable output size, elapsed build time, and output path. When an existing build is reused, it reports that result and prints the validation summary instead.
@@ -76,6 +92,8 @@ build-output/
 ├── maps/
 │   ├── source/
 │   ├── vector/openroadcode.mbtiles
+│   ├── vector/us-freeways.mbtiles
+│   ├── boundaries/
 │   ├── glyphs/
 │   ├── search/openroadcode-search.sqlite
 │   ├── styles/openroadcode.json
@@ -92,6 +110,17 @@ build-output/
 
 The canonical style name is `openroadcode.json`; runtime code should not depend on a region-specific filename.
 
+The builder packages reference land, lake, country, and state GeoJSON under
+`maps/boundaries/`. These files are certified deployable artifacts rather than
+being created by ORC at runtime. The map background is the ocean color and the
+reference land layer supplies the green landmass, so missing regional vector
+coverage never appears as an undifferentiated white field.
+
+Nationwide Census freeways use zoom-interpolated widths and remain available
+outside the detailed build regions. Within selected Geofabrik regions, detailed
+OSM motorways and ramps render above that overview, preserving regional geometry
+as the map zooms in.
+
 Buildings use offline vector footprints and available height attributes, with a
 3.66-metre fallback. Map-anchored directional lighting, vertical shading, and
 subtle height-based colors improve depth in the tilted 3D view. ORC applies
@@ -101,7 +130,16 @@ style changes to regenerate the installed style.
 
 ## Validation
 
-Validation runs automatically after a build. It checks source PBFs with osmium, MBTiles SQLite integrity and required vector layers, style JSON and runtime sources, glyph presence, Valhalla databases/tiles/extract, an optional `valhalla_service /status` smoke test, and SHA-256 checksums for key artifacts.
+Validation runs automatically after a build. It checks source PBFs with osmium,
+both regional and nationwide-freeway MBTiles for SQLite integrity and required
+vector layers, style JSON and runtime sources, glyph presence, Valhalla
+databases/tiles/extract, an optional `valhalla_service /status` smoke test, and
+SHA-256 checksums for key artifacts.
+
+The nationwide freeway layer is presentation-only. Selected Geofabrik regional
+PBFs remain the source of detailed MapLibre streets, search, POIs, buildings, and
+Valhalla routing. The Census conversion uses the builder image's `ogr2ogr`; it
+adds no runtime or vehicle dependency.
 
 Run validation again with:
 

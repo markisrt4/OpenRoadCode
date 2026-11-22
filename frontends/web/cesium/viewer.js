@@ -10,7 +10,13 @@
   let snapshot;
   let tiledMap;
   let imageryStack;
+  let imageryPyramids;
+  let boundaryOverlay;
   let roadOverlay;
+  let mapLayers;
+  let poiOverlay;
+  let routeOverlay;
+  let terrainHillshade;
   let closing = false;
   const close = document.getElementById('close');
   document.querySelectorAll('nav button').forEach(button => { button.disabled = true; });
@@ -60,12 +66,17 @@
       contextOptions:{webgl:{powerPreference:'high-performance'}}
     });
     window.ORCViewerStage = 'local-layers';
-    const terrain = snapshot.terrain ? window.ORCLocalTerrain(snapshot.terrain,C) : null;
+    await window.ORCReferenceGlobeLayer(viewer,C);
+    if (closing || viewer.isDestroyed()) return;
+    const terrain = snapshot.terrain ? window.ORCLocalTerrain(snapshot.terrain,C,
+      [snapshot.longitude_rad,snapshot.latitude_rad]) : null;
+    if(terrain)await terrain.ready;
     if (terrain) {
       terrain.setScale(viewer, snapshot.terrain_scale);
       terrain.setVisible(viewer, snapshot.terrain_visible);
     }
     viewer.scene.globe.baseColor = C.Color.fromCssColorString('#174963');
+    boundaryOverlay=window.ORCBoundaryOverlay(viewer,snapshot.boundary_overlay,C);
     const groundHeight = terrain ? terrain.heightAt(snapshot.longitude_rad,snapshot.latitude_rad) : 0;
     let target = C.Cartesian3.fromRadians(snapshot.longitude_rad, snapshot.latitude_rad,groundHeight+3);
     document.getElementById('destination').textContent = snapshot.label;
@@ -77,32 +88,13 @@
       label:{text:snapshot.label,font:'bold 16px sans-serif',pixelOffset:new C.Cartesian2(0,-26),
         fillColor:C.Color.WHITE,showBackground:true,backgroundColor:C.Color.BLACK.withAlpha(.8),
         backgroundPadding:new C.Cartesian2(7,5),disableDepthTestDistance:Number.POSITIVE_INFINITY}});
-    const references = new C.CustomDataSource('references');
-    references.show = snapshot.references_visible;
-    viewer.dataSources.add(references);
-    function rebuildReferences() {
-      references.entities.removeAll();
-      // Procedural geographic grid: no imagery, terrain service, or building data.
-      for (let lat = -60; lat <= 60; lat += 30) {
-        const points = [];
-        for (let lon = -180; lon <= 180; lon += 3) points.push(C.Cartesian3.fromDegrees(lon,lat));
-        references.entities.add({polyline:{positions:points,width:1,material:C.Color.WHITE.withAlpha(.18)}});
-      }
-      for (let lon = -180; lon < 180; lon += 30) {
-        const points = [];
-        for (let lat = -90; lat <= 90; lat += 3) points.push(C.Cartesian3.fromDegrees(lon,lat));
-        references.entities.add({polyline:{positions:points,width:1,material:C.Color.WHITE.withAlpha(.18)}});
-      }
-      window.ORCCesiumReferences(viewer, snapshot, C, terrain?.heightAt, references.entities);
-    }
-    rebuildReferences();
     const buildings = snapshot.buildings
       ? window.ORCLocalBuildings(viewer, snapshot.buildings, C, terrain?.heightAt)
       : null;
     if (buildings) buildings.source.show = snapshot.buildings_visible;
     tiledMap = snapshot.map_tiles ? window.ORCLocalMapTiles(viewer, snapshot.map_tiles, C,
       terrain?.heightAt, snapshot.buildings_visible) : null;
-    const buildingLabel = tiledMap ? "Tiled buildings: blue tagged, gold floor estimates, brown 9 m placeholders"
+    const buildingLabel = tiledMap ? "Tiled buildings: tagged heights; floor estimates appear close in; placeholders hidden"
       : buildings ? buildings.label : "buildings not installed";
     function bindVisibility(id, source) {
       const button = document.getElementById(id);
@@ -128,6 +120,19 @@
       viewer.scene.canvas.addEventListener(event, () => { window.ORCManualCameraRevision++; }, {passive:true});
     }
     window.ORCUpdateVehicle = window.ORCVehicleFollow(viewer, snapshot, C, terrain?.heightAt);
+    poiOverlay=window.ORCPoiOverlay(viewer,C,terrain?.heightAt);
+    window.ORCUpdatePois=state=>poiOverlay.update(state);
+    window.ORCConsumePoiSelection=()=>poiOverlay.consumeSelection();
+    viewer.screenSpaceEventHandler.setInputAction(movement=>{
+      const picked=viewer.scene.pick(movement.position);
+      poiOverlay.select(picked?.id?.id);
+    },C.ScreenSpaceEventType.LEFT_CLICK);
+    viewer.screenSpaceEventHandler.setInputAction(movement=>{
+      const picked=viewer.scene.pick(movement.endPosition);
+      poiOverlay.focus(picked?.id?.id);
+    },C.ScreenSpaceEventType.MOUSE_MOVE);
+    routeOverlay=window.ORCRouteOverlay(viewer,C,terrain?.heightAt);
+    window.ORCUpdateRoute=state=>routeOverlay.update(state);
     document.getElementById('pitch-up').onclick = () => { cameraControls.pitch(1); tilted=true; };
     document.getElementById('pitch-down').onclick = () => { cameraControls.pitch(-1); tilted=true; };
     for (const [id,right,up] of [['pan-up',0,1],['pan-down',0,-1],['pan-left',-1,0],['pan-right',1,0]]) {
@@ -160,7 +165,7 @@
       viewer.scene.requestRender();
     };
     window.ORCExplorationCamera = action => {
-      if (action === 'recenter') { reset(); return true; }
+      if (action === 'recenter' || action === 'reset') { reset(); return true; }
       if (action === 'dimension') {
         const tilt = viewer.camera.pitch+Math.PI/2;
         tilted = tilt < .001;
@@ -181,13 +186,17 @@
     });
     document.querySelectorAll('nav button').forEach(button => { button.disabled = false; });
     const roadsButton=document.getElementById('roads');
+    const placesButton=document.getElementById('places');
     roadsButton.disabled=!snapshot.roads_available;
-    roadsButton.title=snapshot.roads_available?'Major roads, freeway references and place names':'Road overlay temporarily disabled while investigating rendering crashes';
+    placesButton.disabled=!snapshot.roads_available;
+    roadsButton.title=snapshot.roads_available?'Major roads and freeway references':'Install offline vector map data to enable roads';
+    placesButton.title=snapshot.roads_available?'Selected city and community names':'Install offline vector map data to enable place names';
     if(snapshot.roads_available) {
       roadOverlay=window.ORCRoadOverlay(viewer,C,terrain?.heightAt,error=>{
         status.hidden=false;status.textContent='Road overlay unavailable: '+error.message;
       },snapshot.roads_max_zoom);
-      roadsButton.onclick=()=>{roadOverlay.show=!roadOverlay.show;roadsButton.setAttribute('aria-pressed',String(roadOverlay.show));};
+      roadsButton.onclick=()=>{roadOverlay.roadsVisible=!roadOverlay.roadsVisible;roadsButton.setAttribute('aria-pressed',String(roadOverlay.roadsVisible));};
+      placesButton.onclick=()=>{roadOverlay.placesVisible=!roadOverlay.placesVisible;placesButton.setAttribute('aria-pressed',String(roadOverlay.placesVisible));};
     }
 
     const terrainButton = document.getElementById('terrain');
@@ -196,31 +205,35 @@
     let terrainScale = snapshot.terrain_scale;
     const scaleButton = document.getElementById('terrain-scale');
     scaleButton.disabled = !terrain || !terrainVisible;
-    const hasImagery = snapshot.imagery_layers?.length || snapshot.imagery || snapshot.map_tiles?.tiles.some(t=>t.imagery_url);
-    const contours = terrain && !hasImagery ? C.Material.fromType('ElevationContour', {
-      color:C.Color.fromCssColorString('#e6d59a'), spacing:10, width:1.5
-    }) : undefined;
+    const cuesButton = document.getElementById('terrain-cues');
+    const terrainCues = terrain ? window.ORCTerrainCues(viewer,C) : null;
+    terrainHillshade = terrain ? window.ORCTerrainHillshade(viewer,snapshot.terrain,C,error=>{
+      status.hidden=false;status.textContent='Terrain hillshade unavailable: '+error.message;
+    },terrain.loadTile) : null;
+    let cuesVisible = Boolean(snapshot.terrain_shading_visible);
+    cuesButton.disabled = !terrain || !terrainVisible;
     function updateTerrain() {
       terrain.setScale(viewer, terrainScale);
       terrain.setVisible(viewer, terrainVisible);
       scaleButton.disabled = !terrainVisible;
-      scaleButton.textContent = `Relief ${terrainScale}×`;
+      cuesButton.disabled = !terrainVisible;
+      scaleButton.textContent = `Height ${terrainScale}×`;
       scaleButton.title = terrainScale === 1 ? 'Actual elevations' : 'Exaggerated terrain; source elevations unchanged';
       target = C.Cartesian3.fromRadians(snapshot.longitude_rad, snapshot.latitude_rad,
         terrain.heightAt(snapshot.longitude_rad,snapshot.latitude_rad)+3);
       destinationMarker.position = target;
-      rebuildReferences();
       buildings?.refreshGround();
       tiledMap?.refreshGround();
       roadOverlay?.refreshGround();
-      viewer.scene.globe.material = terrainVisible ? contours : undefined;
+      terrainCues?.setScale(terrainScale);
+      terrainCues?.setEnabled(terrainVisible && cuesVisible);
+      terrainHillshade?.setEnabled(terrainVisible && cuesVisible);
+      cuesButton.setAttribute('aria-pressed', String(terrainVisible && cuesVisible));
       terrainButton.setAttribute('aria-pressed', String(terrainVisible));
-      terrainButton.textContent = terrainVisible ? 'Terrain ON' : 'Terrain OFF';
-      const heights = snapshot.terrain.heights_m;
-      const relief = Math.max(...heights)-Math.min(...heights);
+      terrainButton.textContent = terrainVisible ? 'Ground: Relief' : 'Ground: Flat';
       document.getElementById('terrain-status').textContent = terrainVisible
-        ? `Terrain ON · sampled relief ${relief.toFixed(0)} m · ${terrainScale}×${terrainScale>1 ? ' exaggerated' : ' actual'}${contours ? ' · 10 m contours' : ''}`
-        : 'Terrain OFF · flat comparison';
+        ? `Relief ground · sampled range ${terrain.sourceReliefM.toFixed(0)} m · ${terrainScale}×${terrainScale>1 ? ' exaggerated' : ' actual'}${cuesVisible ? ' · contrast hillshade · 10 m contours' : ''}`
+        : 'Flat ground comparison';
       if (snapshot.embedded) {
         const readout = document.getElementById('terrain-status');
         readout.title = readout.textContent;
@@ -230,11 +243,11 @@
     }
     if (terrain) {
       terrainButton.onclick = () => { terrainVisible = !terrainVisible; updateTerrain(); };
-      scaleButton.onclick = () => {terrainScale=terrainScale%3+1; updateTerrain();};
+      scaleButton.onclick = () => {terrainScale=terrainScale%4+1; updateTerrain();};
+      cuesButton.onclick = () => {cuesVisible=!cuesVisible;updateTerrain();};
       updateTerrain();
     }
     bindVisibility('buildings', tiledMap || buildings?.source);
-    bindVisibility('references', references);
     reset();
     const imageCoverage = snapshot.imagery_layers?.[0] || snapshot.imagery || (snapshot.map_tiles?.tiles.some(t=>t.imagery_url) ? snapshot.map_tiles.coverage : null);
     const insideImagery = imageCoverage && snapshot.longitude_rad >= imageCoverage.west_rad
@@ -246,12 +259,16 @@
       || snapshot.latitude_rad > tileCoverage.north_rad);
     const coverageLabel = outsideTiles ? 'Selected place outside installed 3D coverage · '
       : imageCoverage && !insideImagery ? 'Selected place outside installed imagery coverage · ' : '';
-    const terrainLabel = terrain ? `relative relief (${snapshot.terrain.width}×${snapshot.terrain.height} samples)` : 'terrain not installed';
+    const terrainTiles = snapshot.terrain?.tiles || (snapshot.terrain ? [snapshot.terrain] : []);
+    const terrainLabel = terrain ? snapshot.terrain?.page_url ? 'relative relief (nearby grids loaded on demand)' : `relative relief (${terrainTiles.length} grid${terrainTiles.length===1?'':'s'})` : 'terrain not installed';
     status.textContent = `Offline reference globe · imagery not installed · ${terrainLabel} · ${buildingLabel}`;
     if (tiledMap) {
       status.textContent = `Offline · ${coverageLabel}${snapshot.map_tiles.coverage.title} · ${terrainLabel} · ${buildingLabel}`;
       tiledMap.update();
     }
+    imageryPyramids = window.ORCImageryPyramids(viewer,snapshot.imagery_pyramids || [],C);
+    if(snapshot.imagery_pyramids?.length) status.textContent = `Offline · Detail imagery installed · ${terrainLabel} · ${buildingLabel}`;
+
     if (snapshot.imagery_layers?.length) {
       imageryStack = await window.ORCLocalImageryLayers(viewer,snapshot.imagery_layers,C,(error,layer)=>{
         status.hidden=false;
@@ -266,12 +283,10 @@
           credit:layer.attribution
         });
         if (closing || viewer.isDestroyed()) return;
-        // A transparent global base prevents Cesium stretching the first
-        // bounded image layer across uncovered parts of the globe.
-        viewer.imageryLayers.addImageryProvider(new C.GridImageryProvider({
-          color:C.Color.TRANSPARENT, glowColor:C.Color.TRANSPARENT,
-          backgroundColor:C.Color.TRANSPARENT, cells:1
-        }));
+        // A real opaque image layer prevents bounded-image stretching and gives
+        // transparent no-data pixels a reliable blue surface to composite onto.
+        await window.ORCReferenceGlobeLayer(viewer,C);
+        if (closing || viewer.isDestroyed()) return;
         viewer.imageryLayers.addImageryProvider(provider);
         viewer.scene.requestRender();
         status.textContent = `Offline · ${coverageLabel}${layer.title} · ${terrainLabel} · ${buildingLabel}`;
@@ -279,6 +294,9 @@
         if (!closing) status.textContent = 'Imagery unavailable: '+error.message+' · reference globe remains usable';
       }
     }
+    mapLayers=window.ORCMapLayers(viewer,snapshot,document);
+    window.ORCMapLayerState=()=>mapLayers.state();
+    window.ORCMapLayerAction=action=>mapLayers.request(action);
   } catch (error) {
     window.ORCViewerError = error.message;
     status.textContent = 'Unable to render: '+error.message+' — use Return to ORC or the window close button';
@@ -303,5 +321,5 @@
     if (!/unavailable|Unable|stopped/i.test(statusText.textContent)) statusText.hidden = true;
     document.getElementById('tiles-status').hidden = true;
   }
-  window.addEventListener('pagehide', () => { roadOverlay?.destroy(); imageryStack?.destroy(); tiledMap?.destroy(); if (viewer && !viewer.isDestroyed()) viewer.destroy(); });
+  window.addEventListener('pagehide', () => { mapLayers?.destroy(); roadOverlay?.destroy(); terrainHillshade?.destroy(); boundaryOverlay?.destroy(); imageryPyramids?.destroy(); imageryStack?.destroy(); tiledMap?.destroy(); if (viewer && !viewer.isDestroyed()) viewer.destroy(); });
 })();

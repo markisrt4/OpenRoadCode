@@ -3,6 +3,8 @@ from dataclasses import dataclass
 
 from ui.navigation.local_imagery_state import LocalImageryState
 
+MAX_MAP_TILES = 1024
+
 
 @dataclass(frozen=True, slots=True)
 class LocalMapTile:

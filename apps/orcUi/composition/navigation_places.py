@@ -25,7 +25,8 @@ class NavigationPlacesFactory(NavigationPlacesFactoryIf):
                  actions: PoiActionExecutorIf | None = None,
                  search_factory: Callable[[], PoiSearchControllerIf] | None = None,
                  online_allowed: Callable[[], bool] = lambda: True, camera_observer=None, embedded_explore=None,
-                 android_app_view=None, installed_apps=None):
+                 android_app_view=None, installed_apps=None,
+                 viewport_search_enabled=lambda: True, marker_selection_source=None):
         self._favorites = favorites if favorites is not None else MapFavorites()
         platform_actions = AndroidPoiActionExecutor(AndroidAppLauncher(app_view=android_app_view,
                                                                        installed_apps=installed_apps)) if actions is None else None
@@ -36,7 +37,8 @@ class NavigationPlacesFactory(NavigationPlacesFactoryIf):
         self._actions = actions if actions is not None else self._owned_3d
         self._selection_cache = PoiSelectionCache()
         self._search_factory = search_factory if search_factory is not None else (
-            lambda: PoiSearchController(selection_cache=self._selection_cache))
+            lambda: PoiSearchController(selection_cache=self._selection_cache,
+                viewport_search_enabled=viewport_search_enabled, marker_selection_source=marker_selection_source))
         self._sessions = WeakSet()
         self._closed = False
         self._online_allowed = online_allowed

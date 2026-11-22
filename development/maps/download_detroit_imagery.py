@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 import hashlib
 from http.client import IncompleteRead
+from io import BytesIO
 import json
 import re
 import time
@@ -14,10 +15,12 @@ from tempfile import TemporaryDirectory
 import urllib.parse
 import urllib.request
 
+from PIL import Image
+
 from apps.launchers.local_imagery_pack import detroit_pack_directory, pine_knob_imagery_directory, LocalImageryPack
 from tools.map_builder.builder.map_3d import PRESETS
 
-SERVICE = "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer"
+SERVICE = "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer"
 BOUNDS = (-83.065, 42.315, -83.025, 42.345)
 MAX_BYTES = 20 * 1024 * 1024
 CATALOG_FIELDS = 'OBJECTID,Name,Year,raster_name,agency,vendor,download_url,acquisition_date,resolution_value,resolution_units'
@@ -180,22 +183,28 @@ def open_source(url, *, timeout, attempts=None):
 def get_json(endpoint, *, timeout=60, attempts=None, **parameters):
     stage = {"":"service metadata", "/query":"NAIP source catalog", "/exportImage":"bounded image export"}.get(endpoint, endpoint)
     print(f'USGS imagery: requesting {stage}…', flush=True)
-    url = SERVICE + endpoint + "?" + urllib.parse.urlencode({"f":"json", **parameters})
+    address = SERVICE + endpoint
+    encoded = urllib.parse.urlencode({"f":"json", **parameters}).encode()
+    # Large statewide mosaics can lock hundreds of source rasters. ArcGIS
+    # accepts the same form parameters by POST, avoiding proxy/server URI caps.
+    request = (urllib.request.Request(address, data=encoded, headers={
+        'Content-Type': 'application/x-www-form-urlencoded',
+    }) if len(encoded) > 1800 else address + "?" + encoded.decode())
 
     def read():
-        with open_source(url, timeout=timeout, attempts=1) as response:
+        with open_source(request, timeout=timeout, attempts=1) as response:
             document = json.load(response)
         if 'error' in document:
             error = document['error']
             if error.get('code') in (429, 500, 502, 503, 504):
-                raise HTTPError(url, error['code'], error.get('message', 'Service unavailable'), {}, None)
+                raise HTTPError(address, error['code'], error.get('message', 'Service unavailable'), {}, None)
             raise RuntimeError(f'USGS service error: {error}')
         return document
 
     try:
         return retry_request(read, stage=stage, attempts=attempts)
     except (URLError, TimeoutError, IncompleteRead) as error:
-        raise SourceRequestError(f'{stage} failed after retries: {error} · endpoint {SERVICE+endpoint}') from error
+        raise SourceRequestError(f'{stage} failed after retries: {error} · endpoint {address}') from error
 
 
 def download_image_bytes(href, max_bytes):
@@ -203,6 +212,16 @@ def download_image_bytes(href, max_bytes):
         with open_source(href, timeout=90, attempts=1) as response:
             return read_image(response, max_bytes=max_bytes)
     return retry_request(read, stage='exported JPEG download')
+
+
+def validate_export_image(payload, expected_size):
+    """Reject malformed or empty service exports before they enter a resume cache."""
+    with Image.open(BytesIO(payload)) as image:
+        if image.format != 'JPEG' or image.size != expected_size:
+            raise RuntimeError('USGS export JPEG dimensions differ from the requested image size')
+        extrema = image.convert('RGB').getextrema()
+    if all(maximum <= 4 for _, maximum in extrema):
+        raise RuntimeError('USGS export contains only black no-data pixels')
 
 
 def download(destination, *, bounds=BOUNDS, title="Detroit", image_size=(2048,1536), max_bytes=MAX_BYTES):
@@ -228,12 +247,17 @@ def download(destination, *, bounds=BOUNDS, title="Detroit", image_size=(2048,15
     if not candidates:
         raise RuntimeError("No identifiable dated NAIP/USDA source found for selected coverage; source review required")
     year = max(record["Year"] for record in candidates)
-    selected = [record for record in candidates if record["Year"] == year]
-    mosaic = {"mosaicMethod":"esriMosaicLockRaster", "lockRasterIds":[r["OBJECTID"] for r in selected],
-              "mosaicOperation":"MT_FIRST"}
+    # Acquisition years vary within large regions. Retain the approved records
+    # for provenance, but let the NAIP-only service's advertised default mosaic
+    # choose the newest available image at each location. LockRaster is capped
+    # at 50 source images and produces sparse statewide exports.
+    selected = sorted(candidates, key=lambda record: (
+        record["Year"], record.get("acquisition_date") or 0,
+        record.get("OBJECTID") or 0,
+    ), reverse=True)
     export = get_json("/exportImage", bbox=",".join(map(str, bounds)), bboxSR=4326, imageSR=4326,
                       size=','.join(map(str, image_size)), format="jpg", adjustAspectRatio="false",
-                      mosaicRule=json.dumps(mosaic), renderingRule=json.dumps({"rasterFunction":"NaturalColor"}))
+                      renderingRule=json.dumps({"rasterFunction":"NaturalColor"}))
     requested_bounds = bounds
     extent = export["extent"]
     if extent.get("spatialReference", {}).get("wkid") != 4326:
@@ -257,9 +281,10 @@ def download(destination, *, bounds=BOUNDS, title="Detroit", image_size=(2048,15
             raise RuntimeError(f'exported JPEG download failed after retries: {error} · endpoint {href}') from error
         if len(image) > MAX_BYTES or not image.startswith(b"\xff\xd8"):
             raise RuntimeError("USGS export is oversized or not a JPEG image")
+        validate_export_image(image, image_size)
         (root / "imagery.jpg").write_bytes(image)
         manifest = {"schema":1, "image":"imagery.jpg", "sha256":hashlib.sha256(image).hexdigest(),
-                    "title":f"{title} NAIP {year}", "attribution":f"USGS / USDA NAIP {year} · The National Map",
+                    "title":f"{title} NAIP through {year}", "attribution":f"USGS / USDA NAIP through {year} · The National Map",
                     "bounds_deg":bounds, "width":export["width"], "height":export["height"],
                     "source":SERVICE, "source_records":selected, "downloaded_at":datetime.now(timezone.utc).isoformat(),
                     "rights":"Public-domain NAIP imagery; USGS service description retained in source-service.json",

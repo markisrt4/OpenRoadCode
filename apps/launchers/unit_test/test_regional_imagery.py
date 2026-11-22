@@ -11,6 +11,13 @@ from development.maps import regional_imagery
 from apps.launchers.local_imagery_pack import LocalImageryPack
 
 
+def test_michigan_builds_use_large_bounded_images():
+    from development.maps.install_region import build_image_size
+    assert build_image_size('michigan-overview') == (8192, 8192)
+    assert build_image_size('mi-lower-southeast') == (8192, 8192)
+    assert build_image_size('metro-detroit') == (2048, 1536)
+
+
 @pytest.mark.parametrize('image_size', [(2048,1536),(4096,4096)])
 def test_overview_resumes_checked_tiles_and_preserves_north_first_placement(tmp_path, monkeypatch, image_size):
     bounds = (-84., 42., -82., 44.)
@@ -49,9 +56,11 @@ def test_overview_resumes_checked_tiles_and_preserves_north_first_placement(tmp_
         assert image.size == image_size
         width,height = image_size
         assert image.getpixel((width//8,height//8))[0] < 5
+        assert image.convert('RGBA').getpixel((width//8,height//8))[3] == 0
         assert image.getpixel((width//8,height*7//8))[0] > 200
         assert image.getpixel((width*7//8,height//8))[1] > 200
     assert len(json.loads((destination/'manifest.json').read_text())['source_records']) == 16
+    assert json.loads((destination/'manifest.json').read_text())['export_nodata_transparent'] is True
     assert (destination/'sources'/'r0-c0'/'manifest.json').exists()
     assert not cache.exists()
 
@@ -85,9 +94,37 @@ def test_unsupported_area_is_transparent_and_evidence_is_preserved(tmp_path, mon
     monkeypatch.setattr(regional_imagery, 'download_image', tile_download)
     regional_imagery.download(tmp_path/'pack', bounds=bounds, title='Metro', cache_directory=tmp_path/'cache')
     pack = LocalImageryPack.load(tmp_path/'pack')
+    assert pack.image.suffix == '.webp'
+    assert pack.image.stat().st_size <= regional_imagery.MAX_BYTES
     with Image.open(pack.image) as image:
         assert image.getpixel((1792,1344))[3] == 0
         assert image.getpixel((256,192))[3] == 255
     manifest = json.loads((tmp_path/'pack'/'manifest.json').read_text())
     assert len(manifest['missing_coverage']) == 1
+    assert manifest['encoding'] == 'WebP with alpha'
     assert (tmp_path/'pack'/'sources'/'r3-c3'/'source-catalog.json').exists()
+
+
+def test_sparse_black_exports_are_not_publishable_imagery(tmp_path, monkeypatch):
+    def tile_download(tile, **parameters):
+        tile.mkdir()
+        with Image.new('RGB', parameters['image_size'], 'black') as image:
+            image.save(tile/'imagery.jpg')
+        payload = tile/'imagery.jpg'
+        (tile/'manifest.json').write_text(json.dumps({
+            'schema':1, 'image':'imagery.jpg', 'bounds_deg':parameters['bounds'],
+            'width':parameters['image_size'][0], 'height':parameters['image_size'][1],
+            'title':'empty fixture', 'attribution':'USGS fixture',
+            'sha256':hashlib.sha256(payload.read_bytes()).hexdigest(), 'source_records':[],
+        }))
+    monkeypatch.setattr(regional_imagery, 'download_image', tile_download)
+    with pytest.raises(ValueError, match='too incomplete to publish'):
+        regional_imagery.download(tmp_path/'pack', bounds=(-84,42,-82,44), title='Sparse',
+                                  cache_directory=tmp_path/'cache')
+
+
+def test_nodata_mask_removes_neutral_jpeg_halo_but_keeps_dark_color():
+    with Image.new('RGB', (3,1)) as image:
+        image.putdata([(24,24,24), (8,8,30), (25,25,25)])
+        alpha = regional_imagery._nodata_alpha(image)
+        assert [alpha.getpixel((x,0)) for x in range(3)] == [0,255,255]

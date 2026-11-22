@@ -6,6 +6,30 @@
       "type": "vector",
       "url": "mbtiles://__OPENROADCODE_DATA_ROOT__/maps/vector/openroadcode.mbtiles"
     },
+    "national-freeways": {
+      "type": "vector",
+      "url": "mbtiles://__OPENROADCODE_DATA_ROOT__/maps/vector/us-freeways.mbtiles"
+    },
+    "reference-land": {
+      "type": "geojson",
+      "data": "file://__OPENROADCODE_DATA_ROOT__/maps/boundaries/world_land.geojson"
+    },
+    "reference-lakes": {
+      "type": "geojson",
+      "data": "file://__OPENROADCODE_DATA_ROOT__/maps/boundaries/world_lakes.geojson"
+    },
+    "country-boundaries": {
+      "type": "geojson",
+      "data": "file://__OPENROADCODE_DATA_ROOT__/maps/boundaries/world_country_boundaries.geojson"
+    },
+    "state-boundaries": {
+      "type": "geojson",
+      "data": "file://__OPENROADCODE_DATA_ROOT__/maps/boundaries/us_state_boundaries.geojson"
+    },
+    "michigan-boundary": {
+      "type": "geojson",
+      "data": "file://__OPENROADCODE_DATA_ROOT__/maps/boundaries/us_state_boundaries.geojson"
+    },
     "route": {
       "type": "geojson",
       "data": {
@@ -33,7 +57,25 @@
       "id": "background",
       "type": "background",
       "paint": {
-        "background-color": "#f3f1eb"
+        "background-color": "#a8d4eb"
+      }
+    },
+    {
+      "id": "reference-land",
+      "type": "fill",
+      "source": "reference-land",
+      "paint": {
+        "fill-color": "#dfe7d5",
+        "fill-opacity": 1
+      }
+    },
+    {
+      "id": "reference-lakes",
+      "type": "fill",
+      "source": "reference-lakes",
+      "paint": {
+        "fill-color": "#a8d4eb",
+        "fill-opacity": 1
       }
     },
     {
@@ -136,42 +178,54 @@
       }
     },
     {
-      "id": "boundaries",
+      "id": "country-boundaries",
       "type": "line",
-      "source": "openroad",
-      "source-layer": "boundary",
-      "minzoom": 4,
+      "source": "country-boundaries",
       "paint": {
         "line-color": "#aaa49d",
-        "line-width": 1,
+        "line-width": 1.8,
+        "line-opacity": 0.75,
         "line-dasharray": [
-          3,
-          3
+          6,
+          2
         ]
       },
-      "filter": [
-        "!=",
-        [
-          "get",
-          "admin_level"
-        ],
-        4
-      ]
-    },
-    {
-      "id": "state-boundaries",
-      "type": "line",
-      "source": "openroad",
-      "source-layer": "boundary",
-      "minzoom": 4,
       "filter": [
         "==",
         [
           "get",
-          "admin_level"
+          "FEATURECLA"
         ],
-        4
+        "International boundary (verify)"
+      ]
+    },
+    {
+      "id": "disputed-boundaries",
+      "type": "line",
+      "source": "country-boundaries",
+      "filter": [
+        "!=",
+        [
+          "get",
+          "FEATURECLA"
+        ],
+        "International boundary (verify)"
       ],
+      "paint": {
+        "line-color": "#d5a84f",
+        "line-width": 1.5,
+        "line-opacity": 0.8,
+        "line-dasharray": [
+          3,
+          3
+        ]
+      }
+    },
+    {
+      "id": "state-boundaries",
+      "type": "line",
+      "source": "state-boundaries",
+      "minzoom": 0,
       "paint": {
         "line-color": "#54b948",
         "line-width": [
@@ -182,14 +236,43 @@
           [
             "zoom"
           ],
-          4,
-          1,
+          0,
+          0.6,
+          3,
+          1.0,
           8,
           1.6,
           12,
           2.2
         ],
-        "line-opacity": 0.9
+        "line-opacity": 0.78,
+        "line-dasharray": [
+          1,
+          2
+        ]
+      }
+    },
+    {
+      "id": "michigan-boundary",
+      "type": "line",
+      "source": "michigan-boundary",
+      "minzoom": 0,
+      "filter": [
+        "==",
+        [
+          "get",
+          "GEOID"
+        ],
+        "26"
+      ],
+      "paint": {
+        "line-color": "#59d8ff",
+        "line-width": 2.4,
+        "line-opacity": 0.92,
+        "line-dasharray": [
+          1,
+          2
+        ]
       }
     },
     {
@@ -489,9 +572,9 @@
       }
     },
     {
-      "id": "motorways-casing",
+      "id": "national-motorways-casing",
       "type": "line",
-      "source": "openroad",
+      "source": "national-freeways",
       "source-layer": "transportation",
       "minzoom": 4,
       "filter": [
@@ -510,13 +593,20 @@
       ],
       "paint": {
         "line-color": "#b47f58",
-        "line-width": 10
+        "line-width": [
+          "interpolate", ["linear"], ["zoom"],
+          4, 1.4,
+          6, 2.2,
+          8, 3.5,
+          10, 5,
+          14, 7
+        ]
       }
     },
     {
-      "id": "motorways",
+      "id": "national-motorways",
       "type": "line",
-      "source": "openroad",
+      "source": "national-freeways",
       "source-layer": "transportation",
       "minzoom": 4,
       "filter": [
@@ -535,7 +625,54 @@
       ],
       "paint": {
         "line-color": "#efb674",
-        "line-width": 8
+        "line-width": [
+          "interpolate", ["linear"], ["zoom"],
+          4, 0.8,
+          6, 1.4,
+          8, 2.4,
+          10, 3.8,
+          14, 5.5
+        ]
+      }
+    },
+    {
+      "id": "motorways-casing",
+      "type": "line",
+      "source": "openroad",
+      "source-layer": "transportation",
+      "minzoom": 7,
+      "filter": [
+        "in", ["get", "class"], ["literal", ["motorway", "trunk"]]
+      ],
+      "paint": {
+        "line-color": "#b47f58",
+        "line-width": [
+          "interpolate", ["linear"], ["zoom"],
+          7, 2.8,
+          10, 5.5,
+          14, 8,
+          18, 12
+        ]
+      }
+    },
+    {
+      "id": "motorways",
+      "type": "line",
+      "source": "openroad",
+      "source-layer": "transportation",
+      "minzoom": 7,
+      "filter": [
+        "in", ["get", "class"], ["literal", ["motorway", "trunk"]]
+      ],
+      "paint": {
+        "line-color": "#efb674",
+        "line-width": [
+          "interpolate", ["linear"], ["zoom"],
+          7, 1.8,
+          10, 4,
+          14, 6.5,
+          18, 10
+        ]
       }
     },
     {
@@ -646,14 +783,15 @@
       }
     },
     {
-      "id": "road-refs-major",
+      "id": "road-refs-national",
       "type": "symbol",
-      "source": "openroad",
+      "source": "national-freeways",
       "source-layer": "transportation_name",
       "minzoom": 8,
       "filter": [
-        "has",
-        "ref"
+        "all",
+        ["has", "ref"],
+        ["in", ["get", "class"], ["literal", ["motorway", "trunk"]]]
       ],
       "layout": {
         "symbol-placement": "line",
@@ -670,11 +808,83 @@
       }
     },
     {
+      "id": "road-refs-major",
+      "type": "symbol",
+      "source": "openroad",
+      "source-layer": "transportation_name",
+      "minzoom": 8,
+      "filter": [
+        "all",
+        ["has", "ref"],
+        ["in", ["get", "class"], ["literal", ["motorway", "trunk"]]]
+      ],
+      "layout": {
+        "symbol-placement": "line",
+        "text-field": "{ref}",
+        "text-font": ["KlokanTech Noto Sans CJK Regular"],
+        "text-size": 10
+      },
+      "paint": {
+        "text-color": "#624b33",
+        "text-halo-color": "#fff8e8",
+        "text-halo-width": 2
+      }
+    },
+    {
+      "id": "freeway-labels-national",
+      "type": "symbol",
+      "source": "national-freeways",
+      "source-layer": "transportation_name",
+      "minzoom": 7,
+      "filter": [
+        "in",
+        ["get", "class"],
+        ["literal", ["motorway", "trunk"]]
+      ],
+      "layout": {
+        "symbol-placement": "line",
+        "text-field": "{name:latin}",
+        "text-font": ["KlokanTech Noto Sans CJK Regular"],
+        "text-size": 11
+      },
+      "paint": {
+        "text-color": "#373431",
+        "text-halo-color": "#fff",
+        "text-halo-width": 2
+      }
+    },
+    {
+      "id": "freeway-labels-regional",
+      "type": "symbol",
+      "source": "openroad",
+      "source-layer": "transportation_name",
+      "minzoom": 9,
+      "filter": [
+        "in", ["get", "class"], ["literal", ["motorway", "trunk"]]
+      ],
+      "layout": {
+        "symbol-placement": "line",
+        "text-field": "{name:latin}",
+        "text-font": ["KlokanTech Noto Sans CJK Regular"],
+        "text-size": 12
+      },
+      "paint": {
+        "text-color": "#373431",
+        "text-halo-color": "#fff",
+        "text-halo-width": 2
+      }
+    },
+    {
       "id": "road-labels",
       "type": "symbol",
       "source": "openroad",
       "source-layer": "transportation_name",
       "minzoom": 9,
+      "filter": [
+        "all",
+        ["!=", ["get", "class"], "motorway"],
+        ["!=", ["get", "class"], "trunk"]
+      ],
       "layout": {
         "symbol-placement": "line",
         "text-field": "{name:latin}",

@@ -77,7 +77,7 @@ max_entries = 24
 [position_cache]
 enabled = true
 directory = "~/.cache/openroadcode/position"
-max_age_seconds = 604800
+max_age_seconds = 86400
 
 [auxiliary.weather_dashboard]
 enabled = true
@@ -213,6 +213,41 @@ Pressing the selected encoder toggles system mute.
 
 For tests that intentionally use nonexistent radio files, construct the parser
 with `require_radio_files=False`.
+
+## Offline Metro Detroit map data
+
+The manually dispatched GitHub Actions workflow
+`.github/workflows/build-metro-detroit-imagery.yml` builds a draft release with
+two independently downloadable assets:
+
+- 4096×4096 NAIP detail imagery assembled from 16 bounded, resumable USGS
+  exports.
+- A 4×4 USGS 3DEP terrain mosaic containing 65×65 elevation samples per tile.
+
+The workflow does not run on pushes or a schedule. It uses a draft GitHub
+Release instead of Actions artifacts so the packages are retained until the
+release or assets are deleted. Inspect the draft before publishing it.
+
+After publishing, install both checked packages on a viewer host with the two
+descriptor URLs shown in the workflow summary:
+
+```bash
+python -m development.maps.install_region \
+  --coverage metro-detroit \
+  --pack-manifest https://github.com/markisrt4/OpenRoadCode/releases/download/TAG/metro-detroit-imagery.zip.json \
+  --yes
+python -m development.maps.install_terrain \
+  --coverage metro-detroit \
+  --pack-manifest https://github.com/markisrt4/OpenRoadCode/releases/download/TAG/metro-detroit-terrain.zip.json \
+  --yes
+```
+
+Both installers validate the descriptor, archive checksum, inner manifests,
+payload checksums, bounds, and extraction paths before atomically selecting a
+new revision. The imagery is locally viewable at full packaged resolution; it
+is not a street-level slippy-tile cache. Terrain is displayed as relative
+relief because the source NAVD88 heights are not silently treated as Cesium
+ellipsoid heights.
 
 ## Running the parser test
 

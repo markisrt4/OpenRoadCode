@@ -12,9 +12,13 @@ from ui.navigation.cesium_viewer_state import CesiumViewerState
 def native(tmp_path,monkeypatch):
     events=[]
     absent=tmp_path/'absent'
-    for name in ('preferred_imagery_directory','preferred_terrain_directory','detroit_building_directory','preferred_tiles_directory'):
+    for name in ('preferred_imagery_directory','detroit_building_directory','preferred_tiles_directory'):
         monkeypatch.setattr(module,name,lambda *args:absent)
+    monkeypatch.setattr(module,'load_installed_terrain_catalog',lambda *args:None)
+    monkeypatch.setattr(module,'installed_imagery_pyramids',lambda:())
     monkeypatch.setattr(module,'load_imagery_stack',lambda:())
+    roads = Mock(name='roads')
+    monkeypatch.setattr(module.LocalRoadOverlay, 'installed', lambda: roads)
     monkeypatch.setattr(module,'sdk_directory',lambda:tmp_path/'sdk')
     monkeypatch.setattr(module,'logging_file_path',lambda app,name:tmp_path/name)
     browser=Mock()
@@ -48,9 +52,14 @@ def native(tmp_path,monkeypatch):
     embedder.supported.return_value=True
     embedder.embed.side_effect=lambda *args,**kwargs:events.append('window.embed')
     viewer=module.CesiumEmbeddedViewer(embedder=embedder)
-    yield SimpleNamespace(viewer=viewer,browser=browser,server=server,servers=servers,
+    yield SimpleNamespace(viewer=viewer,browser=browser,server=server,servers=servers,roads=roads,
         browsers=browsers,embedder=embedder,devtools=devtools,events=events)
     viewer.close()
+
+
+def test_installed_roads_are_passed_to_local_viewer(native):
+    native.viewer.open(CesiumViewerState(GeoPoint(0.7, -1.4)), 42, (800, 600))
+    assert native.servers.call_args.kwargs['roads'] is native.roads
 
 
 def state():
@@ -169,7 +178,7 @@ def test_vehicle_fix_and_manual_camera_observation_use_owned_browser(native):
     native.viewer.update_position(GeoPoint(.7,-1.4),True)
     expression = native.devtools.command.call_args.args[2]['expression']
     assert 'latitude_rad' in expression and ', true)' in expression
-    native.devtools.command.return_value = {'result':{'value':2}}
+    native.devtools.command.return_value = {'result':{'value':{'revision':2,'poi':None}}}
     native.viewer.tick((640,320))
     assert native.viewer.consume_manual_camera()
     assert not native.viewer.consume_manual_camera()
@@ -180,9 +189,45 @@ def test_vehicle_fix_and_manual_camera_observation_use_owned_browser(native):
         native.viewer.update_position(None,True)
 
 
-def test_software_diagnostic_renderer_is_explicit_and_preserves_default(monkeypatch):
+def test_poi_overlay_is_sent_as_semantic_marker_document(native):
+    from ui.navigation import MapMarker, MapMarkerKind
+    from ui.navigation.poi_overlay_state import PoiOverlayState
+    native.viewer.open(state(),100,(640,320))
+    native.devtools.command.side_effect = None
+    native.devtools.command.return_value = {'result':{'value':True}}
+    overlay = PoiOverlayState((MapMarker('cafe',GeoPoint(.7,-1.4),
+                              MapMarkerKind.SEARCH_RESULT,'Cafe'),),'food')
+    native.viewer.update_poi_overlay(overlay)
+    expression = native.devtools.command.call_args.args[2]['expression']
+    assert 'ORCUpdatePois' in expression and 'Cafe' in expression and 'search_result' in expression
+
+
+def test_tick_consumes_semantic_poi_selection(native):
+    native.viewer.open(state(),100,(640,320))
+    native.devtools.command.side_effect = None
+    native.devtools.command.return_value = {'result':{'value':{'revision':0,'poi':'cafe'}}}
+    native.viewer.tick((640,320))
+    assert native.viewer.consume_poi_selection() == 'cafe'
+    assert native.viewer.consume_poi_selection() is None
+
+
+def test_route_overlay_is_sent_as_semantic_route_document(native):
+    from ui.navigation import RouteGeometry, RouteOverlayState
+    native.viewer.open(state(),100,(640,320))
+    native.devtools.command.side_effect = None
+    native.devtools.command.return_value = {'result':{'value':True}}
+    overlay = RouteOverlayState(RouteGeometry((GeoPoint(.7,-1.4),GeoPoint(.71,-1.39))),
+                                destination=GeoPoint(.71,-1.39))
+    native.viewer.update_route_overlay(overlay)
+    expression = native.devtools.command.call_args.args[2]['expression']
+    assert 'ORCUpdateRoute' in expression and 'latitude_rad' in expression
+
+
+def test_renderer_overrides_are_explicit_and_preserve_default(monkeypatch):
     monkeypatch.delenv('OPENROAD_CESIUM_RENDERER',raising=False)
     assert module._rendering_arguments()==()
+    monkeypatch.setenv('OPENROAD_CESIUM_RENDERER','hardware-override')
+    assert module._rendering_arguments()==('--ignore-gpu-blocklist',)
     monkeypatch.setenv('OPENROAD_CESIUM_RENDERER','software')
     flags=module._rendering_arguments()
     assert '--use-angle=swiftshader' in flags
@@ -219,3 +264,22 @@ def test_system_info_uses_browser_target_not_page_target():
     client._command=Mock(return_value={'gpu':{}})
     assert client.system_info()=={'gpu':{}}
     client._command.assert_called_once_with('ws://127.0.0.1:9223/browser/id','SystemInfo.getInfo',{})
+
+
+def test_layer_snapshot_and_semantic_requests_use_owned_browser(native):
+    from ui.navigation.map_layer_controls import MapLayerAction
+    native.viewer.open(state(),100,(640,320))
+    native.devtools.command.side_effect=None
+    native.devtools.command.return_value={'result':{'value':{'revision':0,'poi':None,'controls':[
+        {'action':'buildings','label':'Buildings','available':True,'enabled':False}]}}}
+    native.viewer.tick((640,320))
+    control=native.viewer.layer_controls.controls[0]
+    assert control.action is MapLayerAction.BUILDINGS
+    assert control.available and not control.enabled
+    native.devtools.command.return_value={'result':{'value':True}}
+    native.viewer.request_layer(MapLayerAction.BUILDINGS)
+    assert native.devtools.command.call_args.args[2]['expression']=='window.ORCMapLayerAction("buildings")'
+    native.viewer.close()
+    assert not native.viewer.layer_controls.controls
+    with pytest.raises(RuntimeError,match='not ready'):
+        native.viewer.request_layer(MapLayerAction.BUILDINGS)

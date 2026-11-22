@@ -35,7 +35,8 @@ def test_settings_binds_host_requests_and_drops_hidden_panel_updates():
 def test_share_button_emits_only_the_semantic_request():
     panel = object.__new__(SettingsPanel)
     panel._location_handler = Mock()
-    panel._share_host_location()
+    panel._host_location_state = HostLocationState()
+    panel._location_action()
     panel._location_handler.share_host_location.assert_called_once()
 
 
@@ -49,6 +50,13 @@ def test_share_control_hides_during_live_sharing_and_returns_when_it_expires():
     panel._location_button.grid.assert_not_called()
     panel.set_host_location_state(HostLocationState(sharing=False))
     panel._location_button.grid.assert_called_once_with()
+
+def test_restart_button_emits_only_the_semantic_request():
+    panel = object.__new__(SettingsPanel)
+    panel._location_handler = Mock()
+    panel._host_location_state = HostLocationState(can_restart=True)
+    panel._location_action()
+    panel._location_handler.restart_location_service.assert_called_once()
 
 
 def test_repeated_resize_events_do_not_reconfigure_the_same_geometry():

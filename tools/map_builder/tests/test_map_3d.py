@@ -22,6 +22,7 @@ def built(tmp_path,monkeypatch):
     source.parent.mkdir(parents=True)
     source.write_bytes(b'OSM source fixture')
     run = Mock()
+    run.return_value.stdout = ""
     run.real_run = map_3d.subprocess.run
     run.real_popen = map_3d.subprocess.Popen
     process = Mock(stdout=io.StringIO('\x1e'+json.dumps(feature())+'\n'))
@@ -83,7 +84,7 @@ def test_failed_extraction_never_installs_pack(tmp_path,monkeypatch):
     source=tmp_path/'maps/source/michigan.osm.pbf'
     source.parent.mkdir(parents=True)
     source.write_bytes(b'source')
-    monkeypatch.setattr(map_3d.subprocess,'run',Mock())
+    monkeypatch.setattr(map_3d.subprocess,'run',Mock(return_value=Mock(stdout='')))
     process = Mock(stdout=io.StringIO('\x1e'+json.dumps(feature())+'\n'))
     process.wait.return_value = 1
     monkeypatch.setattr(map_3d.subprocess,'Popen',Mock(return_value=process))

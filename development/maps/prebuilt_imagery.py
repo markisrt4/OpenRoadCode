@@ -12,6 +12,42 @@ import zipfile
 from apps.launchers.local_imagery_pack import LocalImageryPack
 from tools.map_builder.builder.imagery_artifact import MAX_ARCHIVE_BYTES
 
+GITHUB_REPOSITORY = 'markisrt4/OpenRoadCode'
+IMAGERY_TAG_PREFIX = 'metro-detroit-imagery-'
+IMAGERY_DESCRIPTOR = 'metro-detroit-imagery.zip.json'
+
+
+def github_release_descriptor(version='latest'):
+    """Return the trusted descriptor URL from a published imagery release."""
+    if version == 'latest':
+        endpoint = f'https://api.github.com/repos/{GITHUB_REPOSITORY}/releases?per_page=100'
+    else:
+        if not re.fullmatch(r'metro-detroit-imagery-[A-Za-z0-9._-]+', version):
+            raise ValueError('Invalid Metro Detroit imagery release tag')
+        endpoint = (f'https://api.github.com/repos/{GITHUB_REPOSITORY}/releases/tags/'
+                    f'{urllib.parse.quote(version, safe="")}')
+    request = urllib.request.Request(endpoint, headers={
+        'Accept': 'application/vnd.github+json',
+        'User-Agent': 'OpenRoadCode-imagery-installer',
+        'X-GitHub-Api-Version': '2022-11-28',
+    })
+    with urllib.request.urlopen(request, timeout=30) as response:
+        payload = json.load(response)
+    releases = payload if isinstance(payload, list) else [payload]
+    release = next((item for item in releases
+                    if isinstance(item, dict)
+                    and str(item.get('tag_name', '')).startswith(IMAGERY_TAG_PREFIX)
+                    and not item.get('draft') and not item.get('prerelease')), None)
+    if release is None:
+        raise ValueError('No published Metro Detroit imagery release found')
+    asset = next((item for item in release.get('assets', [])
+                  if item.get('name') == IMAGERY_DESCRIPTOR), None)
+    url = asset.get('browser_download_url', '') if asset else ''
+    expected = f'https://github.com/{GITHUB_REPOSITORY}/releases/download/'
+    if not url.startswith(expected) or not url.endswith('/'+IMAGERY_DESCRIPTOR):
+        raise ValueError('Published imagery release has no trusted descriptor asset')
+    return url
+
 
 def read_descriptor(url, coverage):
     if urllib.parse.urlsplit(url).scheme != 'https':
@@ -24,25 +60,25 @@ def read_descriptor(url, coverage):
     return descriptor, urllib.parse.urljoin(url, descriptor['archive'])
 
 
-def validate_descriptor(raw, coverage):
+def validate_descriptor(raw, coverage, *, max_archive_bytes=MAX_ARCHIVE_BYTES):
     descriptor = json.loads(raw)
     name = descriptor.get('archive', '')
     if (descriptor.get('schema') != 1 or descriptor.get('coverage') != coverage
             or not re.fullmatch(r'[a-zA-Z0-9_-]+\.zip', name)
             or type(descriptor.get('bytes')) is not int
-            or not 0 < descriptor['bytes'] <= MAX_ARCHIVE_BYTES
+            or not 0 < descriptor['bytes'] <= max_archive_bytes
             or not re.fullmatch(r'[a-f0-9]{64}', descriptor.get('sha256', ''))):
         raise ValueError('Invalid imagery artifact descriptor or coverage')
     return descriptor
 
 
-def read_local_archive(path, coverage):
+def read_local_archive(path, coverage, *, max_archive_bytes=MAX_ARCHIVE_BYTES):
     archive = Path(path).resolve()
     with archive.with_suffix(archive.suffix+'.json').open('rb') as source:
         raw = source.read(65537)
     if len(raw) > 65536:
         raise ValueError('Pack descriptor exceeds 64 KiB')
-    descriptor = validate_descriptor(raw, coverage)
+    descriptor = validate_descriptor(raw, coverage, max_archive_bytes=max_archive_bytes)
     if descriptor['archive'] != archive.name:
         raise ValueError('Descriptor names a different local archive')
     verify_archive(archive, descriptor)
@@ -98,14 +134,15 @@ def fetch_archive(url, descriptor, cache):
     return partial
 
 
-def unpack(archive, destination, bounds):
+def unpack(archive, destination, bounds, *, loader=LocalImageryPack.load,
+           max_unpacked_bytes=MAX_ARCHIVE_BYTES):
     destination.parent.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory(dir=destination.parent, prefix='.imagery-unpack-') as temporary:
         root = Path(temporary)/'pack'
         root.mkdir()
         with zipfile.ZipFile(archive) as source:
             members = source.infolist()
-            if len(members) > 2048 or sum(item.file_size for item in members) > MAX_ARCHIVE_BYTES:
+            if len(members) > 2048 or sum(item.file_size for item in members) > max_unpacked_bytes:
                 raise ValueError('Imagery archive exceeds extraction limits')
             names = set()
             for item in members:
@@ -123,7 +160,7 @@ def unpack(archive, destination, bounds):
                     with source.open(item) as incoming, target.open('xb') as outgoing:
                         while chunk := incoming.read(65536):
                             outgoing.write(chunk)
-        LocalImageryPack.load(root)
+        loader(root)
         manifest = json.loads((root/'manifest.json').read_text())
         if manifest['bounds_deg'] != list(bounds):
             raise ValueError('Artifact bounds do not match the selected region')

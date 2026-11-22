@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from enum import Enum
 from typing import Protocol
+from ui.navigation.map_layer_controls import MapLayerAction, MapLayerControls
 
 
 class MapPlatform(str, Enum):
@@ -25,6 +26,7 @@ class ExplorationCameraAction(str, Enum):
     NORTH = 'north'
     RECENTER = 'recenter'
     DIMENSION = 'dimension'
+    RESET = 'reset'
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,6 +39,8 @@ class MapPlatformState:
     follow_enabled: bool = False
     position_available: bool = False
     error: str = ''
+
+    layer_controls: MapLayerControls = MapLayerControls()
 
 
 class MapPlatformControlIf(Protocol):
@@ -68,14 +72,21 @@ class MapPlatformControlIf(Protocol):
     def request_camera(self, action: ExplorationCameraAction) -> None:
         """Apply a relative camera action to the active exploration surface.
 
-        @param action Relative camera movement or view adjustment.
+        @param action Renderer-neutral camera operation.
         """
         ...
 
     def request_follow(self, enabled: bool) -> None:
         """Enable vehicle following on the exploration surface; await a live fix if needed.
 
-        @param enabled Whether vehicle-follow mode should be active.
+        @param enabled True to follow vehicle position, false for free exploration.
+        """
+        ...
+
+    def request_layer(self, action: MapLayerAction) -> None:
+        """Toggle an available layer, or cycle its terrain height multiplier.
+
+        @param action Layer visibility toggle or terrain height cycle.
         """
         ...
 

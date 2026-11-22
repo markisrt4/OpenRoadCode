@@ -3,10 +3,13 @@ import threading
 from unittest.mock import Mock
 import pytest
 from apps.orcUi.cesium_map_runtime import CesiumMapRuntime
-from ui.navigation import GeoPoint
+from ui.navigation import GeoPoint, MapMarker, MapMarkerKind
 from ui.navigation.cesium_viewer_state import CesiumViewerState
 from ui.navigation.map_platform_if import MapPlatform
 from ui.navigation.map_runtime_if import MapRuntimeState
+
+from ui.navigation.poi_overlay_state import PoiOverlayState
+from ui.navigation.route_overlay_state import RouteOverlayState
 
 
 @pytest.fixture
@@ -235,6 +238,44 @@ def test_position_updates_are_coalesced_and_old_generation_cannot_follow(mounted
     assert viewer.update_position.call_count == 1
 
 
+def test_poi_results_are_cached_and_sent_only_to_the_active_3d_view(mounted):
+    runtime,native,viewer = mounted
+    overlay = PoiOverlayState((MapMarker('fuel',GeoPoint(.7,-1.4),
+                              MapMarkerKind.SEARCH_RESULT,'Fuel'),),'fuel')
+    runtime.update_poi_overlay(overlay)
+    flush(runtime)
+    viewer.update_poi_overlay.assert_not_called()
+    explore(runtime)
+    viewer.update_poi_overlay.assert_called_once_with(overlay)
+    replacement = PoiOverlayState((), '')
+    runtime.update_poi_overlay(replacement)
+    flush(runtime)
+    viewer.update_poi_overlay.assert_called_with(replacement)
+
+
+def test_route_is_cached_replaced_and_cleared_only_on_active_3d_view(mounted):
+    runtime,native,viewer = mounted
+    route = RouteOverlayState()
+    runtime.update_route_overlay(route)
+    flush(runtime)
+    viewer.update_route_overlay.assert_not_called()
+    explore(runtime)
+    viewer.update_route_overlay.assert_called_once_with(route)
+    runtime.update_route_overlay(RouteOverlayState())
+    flush(runtime)
+    assert viewer.update_route_overlay.call_count == 1  # equal empty snapshot is coalesced
+
+
+def test_cesium_marker_selection_is_exposed_once_to_places(mounted):
+    runtime,native,viewer = mounted
+    explore(runtime)
+    viewer.consume_poi_selection.return_value = 'fuel-1'
+    runtime._worker.submit(runtime._tick,runtime._generation).result(timeout=3)
+    viewer.consume_poi_selection.return_value = None
+    assert runtime.poll_selected_marker_id() == 'fuel-1'
+    assert runtime.poll_selected_marker_id() is None
+
+
 def test_one_browser_poll_timeout_keeps_terrain_and_success_resets_budget(mounted):
     runtime,native,viewer=mounted
     runtime._stop_tick.set()
@@ -259,4 +300,28 @@ def test_repeated_browser_poll_timeouts_restore_map_with_reason(mounted,caplog):
         runtime._worker.submit(runtime._tick,runtime._generation).result(timeout=3)
     assert runtime.state.active is MapPlatform.MAPLIBRE
     assert 'browser timed out' in runtime.state.status
-    assert 'Terrain returned to Map' in caplog.text
+    assert '3D map returned to Map' in caplog.text
+
+
+def test_layer_state_and_requests_are_scoped_to_current_terrain_generation(mounted):
+    from ui.navigation.map_layer_controls import MapLayerAction, MapLayerControl, MapLayerControls
+    runtime,native,viewer=mounted
+    runtime._stop_tick.set()
+    runtime._ticker.join(timeout=2)
+    runtime.request_layer(MapLayerAction.BUILDINGS)
+    flush(runtime)
+    viewer.request_layer.assert_not_called()
+    explore(runtime)
+    viewer.layer_controls=MapLayerControls((MapLayerControl(MapLayerAction.BUILDINGS,'Buildings',True,False),))
+    runtime._worker.submit(runtime._tick,runtime._generation).result(timeout=3)
+    assert runtime.state.layer_controls==viewer.layer_controls
+    runtime.request_layer(MapLayerAction.BUILDINGS)
+    flush(runtime)
+    viewer.request_layer.assert_called_once_with(MapLayerAction.BUILDINGS)
+    stale=runtime._generation
+    runtime.request_platform(MapPlatform.MAPLIBRE)
+    flush(runtime)
+    assert not runtime.state.layer_controls.controls
+    viewer.request_layer.reset_mock()
+    runtime._layer(MapLayerAction.BUILDINGS,stale)
+    viewer.request_layer.assert_not_called()
