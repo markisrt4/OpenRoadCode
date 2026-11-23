@@ -78,8 +78,8 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
         self._canvas.bind("<Configure>", lambda _event: self._schedule_render())
         self._canvas.bind("<Button-1>", self._handle_spectrum_click)
         self._canvas.bind("<MouseWheel>", self._handle_tune_wheel)
-        self._canvas.bind("<Button-4>", lambda event: self._tune_by_wheel(1))
-        self._canvas.bind("<Button-5>", lambda event: self._tune_by_wheel(-1))
+        self._canvas.bind("<Button-4>", lambda event: self._tune_by_wheel(1) if event.y < 54 else None)
+        self._canvas.bind("<Button-5>", lambda event: self._tune_by_wheel(-1) if event.y < 54 else None)
         self._canvas.bind("<ButtonPress-1>", self._tune_touch_start, add="+")
         self._canvas.bind("<B1-Motion>", self._tune_touch_move)
         self._canvas.bind("<ButtonRelease-1>", self._tune_touch_end)
@@ -204,7 +204,7 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
             self._on_tune_step(direction)
 
     def _handle_tune_wheel(self, event) -> None:
-        if event.delta:
+        if event.delta and event.y < 54:
             self._tune_by_wheel(1 if event.delta > 0 else -1)
 
     def _tune_touch_start(self, event) -> None:
