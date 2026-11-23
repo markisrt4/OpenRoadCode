@@ -62,7 +62,11 @@ class CalDavCalendarProvider(CalendarProviderIf):
         started = time.monotonic()
         _LOG.info("Calendar discovery started")
         calendars = self._adapter.discover_calendars()
-        _LOG.info("Calendar discovery completed: %d calendars in %.1fs", len(calendars), time.monotonic() - started)
+        _LOG.info(
+            "Calendar discovery completed: %d calendars in %.1fs",
+            len(calendars),
+            time.monotonic() - started,
+        )
         events: list[CalendarEvent] = []
         for index, calendar in enumerate(calendars, 1):
             calendar_started = time.monotonic()
@@ -77,8 +81,12 @@ class CalDavCalendarProvider(CalendarProviderIf):
             status = self.last_sync_status[-1]
             _LOG.info(
                 "Calendar %d/%d: %s resources=%d events=%d skipped=%d elapsed=%.1fs",
-                index, len(calendars), "ok" if status.ok else status.error or "failed",
-                status.resource_count, status.event_count, status.skipped_resources,
+                index,
+                len(calendars),
+                "ok" if status.ok else status.error or "failed",
+                status.resource_count,
+                status.event_count,
+                status.skipped_resources,
                 time.monotonic() - calendar_started,
             )
         return sorted(events, key=lambda event: (event.starts_at, event.event_id))

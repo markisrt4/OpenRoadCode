@@ -58,9 +58,7 @@ def main() -> None:
     provider = CalDavCalendarProvider(
         args.account_id, adapter, load_disabled_calendar_ids(args.selection_file)
     )
-    worker = CalendarSyncWorker(
-        args.account_id, provider, CalendarEventCache(args.cache_file)
-    )
+    worker = CalendarSyncWorker(args.account_id, provider, CalendarEventCache(args.cache_file))
     scheduler = CalendarSyncScheduler(
         worker,
         interval_seconds=args.interval_seconds,
