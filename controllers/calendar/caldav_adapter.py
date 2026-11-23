@@ -7,7 +7,9 @@ from __future__ import annotations
 import base64
 from urllib.error import HTTPError
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from urllib.parse import urljoin, urlsplit
+from xml.sax.saxutils import escape
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 from xml.etree import ElementTree
 
@@ -22,6 +24,13 @@ _MAX_RESPONSE = 2_000_000
 class CalDavCalendar:
     href: str
     display_name: str
+
+
+@dataclass(frozen=True)
+class CalDavEventResource:
+    href: str
+    etag: str | None
+    icalendar: str
 
 
 class CalDavAuthenticationError(RuntimeError):
@@ -70,14 +79,11 @@ class CalDavAdapter:
             raise ValueError("Invalid CalDAV reference")
         return resolved
 
-    def _propfind(self, url: str, depth: int, properties: bytes) -> ElementTree.Element:
+    def _request_xml(
+        self, url: str, method: str, depth: int, payload: bytes
+    ) -> ElementTree.Element:
         password = self._secrets.require_secret(self._password_secret_name)
         token = base64.b64encode(f"{self._username}:{password}".encode()).decode("ascii")
-        payload = (
-            b'<?xml version="1.0" encoding="utf-8"?>'
-            b'<d:propfind xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">'
-            b"<d:prop>" + properties + b"</d:prop></d:propfind>"
-        )
         request = Request(
             url,
             data=payload,
@@ -86,13 +92,13 @@ class CalDavAdapter:
                 "Content-Type": "application/xml; charset=utf-8",
                 "Depth": str(depth),
             },
-            method="PROPFIND",
+            method=method,
         )
         try:
             with build_opener(_NoRedirects()).open(request, timeout=15) as response:
                 if response.status != 207:
                     raise CalDavHttpError(
-                        f"CalDAV discovery returned HTTP {response.status}"
+                        f"CalDAV {method} returned HTTP {response.status}"
                     )
                 document = response.read(_MAX_RESPONSE + 1)
         except HTTPError as error:
@@ -102,11 +108,63 @@ class CalDavAdapter:
                     "Check the full account username and bridge password."
                 ) from None
             raise CalDavHttpError(
-                f"CalDAV discovery returned HTTP {error.code}"
+                f"CalDAV {method} returned HTTP {error.code}"
             ) from None
         if len(document) > _MAX_RESPONSE:
             raise ValueError("CalDAV discovery response too large")
         return ElementTree.fromstring(document)
+
+    def _propfind(self, url: str, depth: int, properties: bytes) -> ElementTree.Element:
+        payload = (
+            b'<?xml version="1.0" encoding="utf-8"?>'
+            b'<d:propfind xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">'
+            b"<d:prop>" + properties + b"</d:prop></d:propfind>"
+        )
+        return self._request_xml(url, "PROPFIND", depth, payload)
+
+    def query_event_resources(
+        self, calendar: CalDavCalendar, start: datetime, end: datetime
+    ) -> list[CalDavEventResource]:
+        """Fetch iCalendar resources overlapping [start, end) using CalDAV REPORT.
+
+        Recurrence expansion and normalization are deliberately handled elsewhere.
+        """
+        if start.tzinfo is None or end.tzinfo is None or end <= start:
+            raise ValueError("Expected timezone-aware, increasing time range")
+        url = self._resolve(self._base_url, calendar.href)
+        begin = start.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        finish = end.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        payload = (
+            '<?xml version="1.0" encoding="utf-8"?>'
+            '<c:calendar-query xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">'
+            '<d:prop><d:getetag/><c:calendar-data/></d:prop>'
+            '<c:filter><c:comp-filter name="VCALENDAR">'
+            '<c:comp-filter name="VEVENT">'
+            f'<c:time-range start="{escape(begin)}" end="{escape(finish)}"/>'
+            '</c:comp-filter></c:comp-filter></c:filter>'
+            '</c:calendar-query>'
+        ).encode("utf-8")
+        root = self._request_xml(url, "REPORT", 1, payload)
+        resources: list[CalDavEventResource] = []
+        seen: set[str] = set()
+        for href, prop in self._properties(root):
+            if not href:
+                continue
+            calendar_data = prop.findtext(f"{CALDAV}calendar-data")
+            if calendar_data is None:
+                continue
+            resolved = self._resolve(url, href)
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            resources.append(
+                CalDavEventResource(
+                    href=resolved,
+                    etag=prop.findtext(f"{DAV}getetag"),
+                    icalendar=calendar_data,
+                )
+            )
+        return resources
 
     @staticmethod
     def _properties(root: ElementTree.Element):
