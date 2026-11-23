@@ -246,6 +246,10 @@ class RadioPanel(RadioTuningGesturesMixin, RadioPanelStateMixin, RadioPanelLayou
         self._paint_groups()
         if self._sdrforge_view is not None:
             self._render_subcategory_tiles(self._state)
+            if self._state.view != "adsb":
+                self._preset_page = 0
+                self._render_favorites(self._state)
+                return
         profiles = tuple(p for p in self._state.profiles if p.group == name)
         if name == "AIR" and not profiles:
             self._show_adsb()
@@ -427,7 +431,7 @@ class RadioPanel(RadioTuningGesturesMixin, RadioPanelStateMixin, RadioPanelLayou
     def _render_favorites(self, state: RfRadioState) -> None:
         """One-touch station presets for the active radio profile."""
         ui = self._theme.ui
-        profile = next((p for p in state.profiles if p.key == state.station.profile_key), None)
+        profile = self._browsed_profile(state)
         signature = (profile.key, tuple((p.label, p.frequency_hz) for p in profile.presets), state.station.frequency_hz, self._preset_page) if profile else None
         if signature == self._favorites_signature:
             return
@@ -450,7 +454,7 @@ class RadioPanel(RadioTuningGesturesMixin, RadioPanelStateMixin, RadioPanelLayou
                 self._favorites, text=preset.label,
                 command=lambda p=preset, key=profile.key: self._session.request(
                     RadioRequest(RadioAction.PRESET, key=key, preset=p)),
-                bg=ui.accent_primary if preset.frequency_hz == state.station.frequency_hz else ui.control_background,
+                bg=ui.accent_primary if profile.key == state.station.profile_key and preset.frequency_hz == state.station.frequency_hz else ui.control_background,
                 fg=ui.text, activebackground=ui.accent_primary, relief=tk.FLAT,
                 bd=0, padx=10, pady=13, font=("Sans", 10, "bold"),
                 highlightthickness=1, highlightbackground=ui.border,
@@ -465,14 +469,14 @@ class RadioPanel(RadioTuningGesturesMixin, RadioPanelStateMixin, RadioPanelLayou
         tk.Button(
             self._favorites, text="☆ SAVE",
             command=lambda group=profile.group: self._add_current_preset(group),
+            state=tk.NORMAL if profile.key == state.station.profile_key else tk.DISABLED,
             bg=ui.surface_alt, fg=ui.text, relief=tk.FLAT,
             bd=0, padx=12, pady=13, font=("Sans", 10, "bold"),
             highlightthickness=1, highlightbackground=ui.border,
         ).pack(side=tk.RIGHT, padx=3)
 
     def _change_preset_page(self, delta: int) -> None:
-        profile = next((p for p in self._state.profiles
-                        if p.key == self._state.station.profile_key), None)
+        profile = self._browsed_profile(self._state)
         if profile is None:
             return
         max_page = max(0, (len(profile.presets) - 1) // self._preset_page_size)
