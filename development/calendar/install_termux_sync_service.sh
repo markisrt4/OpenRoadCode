@@ -11,6 +11,12 @@ if ! command -v sv >/dev/null 2>&1; then
     echo "Install termux-services first: pkg install termux-services" >&2
     exit 1
 fi
+case "$1" in
+    *[!a-zA-Z0-9@._+-]*)
+        echo "Username contains unsupported characters" >&2
+        exit 2
+        ;;
+esac
 REPO_DIR=$(pwd -P)
 if [ ! -f "$REPO_DIR/controllers/calendar/calendar_sync_daemon.py" ]; then
     echo "Run installer from the OpenRoadCode repository root" >&2
@@ -18,12 +24,10 @@ if [ ! -f "$REPO_DIR/controllers/calendar/calendar_sync_daemon.py" ]; then
 fi
 SERVICE_DIR="$PREFIX/var/service/openroadcode-calendar-sync"
 mkdir -p "$SERVICE_DIR/log" "$HOME/.local/state/openroadcode-calendar-sync"
-# Quote the supplied username as a shell literal to prevent command injection.
-QUOTED_USERNAME=$(printf "%s" "$1" | sed "s/'/'\\\\''/g")
 cat > "$SERVICE_DIR/run" <<EOF
 #!/data/data/com.termux/files/usr/bin/sh
 cd '$REPO_DIR'
-exec python -m controllers.calendar.calendar_sync_daemon --username '$QUOTED_USERNAME' 2>&1
+exec python -m controllers.calendar.calendar_sync_daemon --username '$1' 2>&1
 EOF
 chmod 700 "$SERVICE_DIR/run"
 cat > "$SERVICE_DIR/log/run" <<'EOF'
