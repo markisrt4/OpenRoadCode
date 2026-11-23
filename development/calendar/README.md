@@ -100,3 +100,24 @@ unbounded accumulation. Failed or disabled calendars retain their last
 successful snapshot. Only the latest queried time window remains available
 offline; this is not an archival calendar store. The periodic scheduler is
 still not installed as a background service.
+
+## Calendar sync daemon (manual validation)
+
+Before installing an unattended calendar service, validate the daemon manually.
+The CalDAV bridge must already be running, and the secret manager must contain
+`CALDAV_BRIDGE_PASSWORD` (separate from `CARBONATE_BRIDGE_PASSWORD` used to
+launch Carbonate). Use the full CalDAV account username. Never put passwords
+on the command line.
+
+```sh
+python -m controllers.calendar.calendar_sync_daemon \
+  --username 'YOUR_USERNAME@proton.me'
+```
+
+The default SQLite cache is
+`~/.local/share/openroadcode/calendar/events.sqlite3`. The daemon starts
+synchronizing immediately, then repeats every 900 seconds. Stop it with
+Ctrl+C. It does not print event contents. The selection file is loaded at
+startup, so restart the daemon after changing disabled calendars.
+
+This entrypoint is not yet registered as a Termux or systemd service.
