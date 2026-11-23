@@ -48,6 +48,7 @@ class RadioPanelLayoutMixin:
                                                       visualization=visualization)
             self._sdrforge_view.place(relx=0, rely=0, relwidth=1, relheight=1)
             self._sdrforge_view.set_spectrum_tune_handler(self._tune_spectrum_frequency)
+            self._sdrforge_view.set_tune_step_handler(self._gesture_tune)
             self._poll_sdrforge_spectrum()
 
         self._telemetry_overlay = tk.Frame(
