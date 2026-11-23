@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import base64
+import socket
 from urllib.error import HTTPError
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -37,6 +38,10 @@ class CalDavAuthenticationError(RuntimeError):
     """The CalDAV server rejected the configured account credentials."""
 
 
+class CalDavTimeoutError(TimeoutError):
+    """The CalDAV service did not respond before the configured timeout."""
+
+
 class CalDavHttpError(RuntimeError):
     """The CalDAV server returned an unexpected HTTP status."""
 
@@ -56,6 +61,7 @@ class CalDavAdapter:
         username: str,
         secret_manager: SecretManagerIf,
         password_secret_name: str,
+        timeout_seconds: float = 15.0,
     ) -> None:
         parsed = urlsplit(base_url)
         if parsed.scheme not in ("http", "https") or not parsed.hostname:
@@ -64,6 +70,9 @@ class CalDavAdapter:
             raise ValueError("Unencrypted CalDAV is only allowed on loopback")
         if parsed.username or parsed.password or parsed.fragment or parsed.query:
             raise ValueError("CalDAV URL must not contain credentials, queries or fragments")
+        if timeout_seconds <= 0:
+            raise ValueError("CalDAV timeout must be positive")
+        self._timeout_seconds = timeout_seconds
         self._base_url = base_url.rstrip("/") + "/"
         self._username = username
         self._secrets = secret_manager
@@ -95,12 +104,16 @@ class CalDavAdapter:
             method=method,
         )
         try:
-            with build_opener(_NoRedirects()).open(request, timeout=15) as response:
+            with build_opener(_NoRedirects()).open(request, timeout=self._timeout_seconds) as response:
                 if response.status != 207:
                     raise CalDavHttpError(
                         f"CalDAV {method} returned HTTP {response.status}"
                     )
                 document = response.read(_MAX_RESPONSE + 1)
+        except (TimeoutError, socket.timeout) as error:
+            raise CalDavTimeoutError(
+                f"CalDAV {method} timed out after {self._timeout_seconds:g}s"
+            ) from None
         except HTTPError as error:
             if error.code == 401:
                 raise CalDavAuthenticationError(
