@@ -6,6 +6,7 @@ import os
 import json
 from pathlib import Path
 import re
+import subprocess
 from tempfile import TemporaryDirectory
 import time
 import uuid
@@ -206,6 +207,34 @@ class CesiumEmbeddedViewer:
             finally:
                 self._embedder.clear()
             raise
+
+    def suspend(self):
+        """Keep the owned browser and host association while Road map is visible."""
+        self._set_visible(False)
+        _diagnostic('viewer-retained')
+
+    def resume(self, size):
+        """Map the existing X11 child without reparenting its live WebGL surface."""
+        if self._browser is None or not self._browser.is_running():
+            raise RuntimeError('Retained Chromium exited')
+        if self._server.close_requested.is_set():
+            raise RuntimeError('Retained 3D viewer was closed')
+        self._embedder.resize(*size)
+        self._set_visible(True)
+        self._size = size
+        if not self.tick(size):
+            raise RuntimeError('Retained 3D viewer requested close')
+        _diagnostic('viewer-resumed')
+
+    def _set_visible(self, visible):
+        window_id = self._embedder.window_id
+        if type(window_id) is not int or window_id <= 0:
+            raise RuntimeError('Retained 3D window is unavailable')
+        try:
+            subprocess.run(['xdotool', 'windowmap' if visible else 'windowunmap', str(window_id)],
+                           check=True, capture_output=True, timeout=3)
+        except (OSError, subprocess.SubprocessError) as error:
+            raise RuntimeError('Could not change retained 3D window visibility') from error
 
     def request_camera(self, action):
         action = ExplorationCameraAction(action)

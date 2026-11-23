@@ -280,32 +280,41 @@
     imageryPyramids = window.ORCImageryPyramids(viewer,snapshot.imagery_pyramids || [],C);
     if(snapshot.imagery_pyramids?.length) status.textContent = `Offline · Detail imagery installed · ${terrainLabel} · ${buildingLabel}`;
 
-    window.ORCViewerStage = 'imagery-data';
-    if (snapshot.imagery_layers?.length) {
-      imageryStack = await window.ORCLocalImageryLayers(viewer,snapshot.imagery_layers,C,(error,layer)=>{
-        status.hidden=false;
-        status.textContent='Imagery layer unavailable: '+layer.title+' · '+error.message;
-      });
-      if (!/unavailable/i.test(status.textContent)) status.textContent = `Offline · ${snapshot.imagery_layers[0].title} + ${snapshot.imagery_layers.length-1} detail packs · ${terrainLabel} · ${buildingLabel}`;
-    } else if (snapshot.imagery) {
-      const layer = snapshot.imagery;
-      try {
-        const provider = await C.SingleTileImageryProvider.fromUrl(layer.url, {
-          rectangle:C.Rectangle.fromRadians(layer.west_rad,layer.south_rad,layer.east_rad,layer.north_rad),
-          credit:layer.attribution
+    // Optional imagery must not hold the first interactive globe frame hostage.
+    async function loadImagery() {
+      if (snapshot.imagery_layers?.length) {
+        imageryStack = await window.ORCLocalImageryLayers(viewer,snapshot.imagery_layers,C,(error,layer)=>{
+          status.hidden=false;
+          status.textContent='Imagery layer unavailable: '+layer.title+' · '+error.message;
         });
         if (closing || viewer.isDestroyed()) return;
-        // A real opaque image layer prevents bounded-image stretching and gives
-        // transparent no-data pixels a reliable blue surface to composite onto.
-        await window.ORCReferenceGlobeLayer(viewer,C);
-        if (closing || viewer.isDestroyed()) return;
-        viewer.imageryLayers.addImageryProvider(provider);
-        viewer.scene.requestRender();
-        status.textContent = `Offline · ${coverageLabel}${layer.title} · ${terrainLabel} · ${buildingLabel}`;
-      } catch (error) {
-        if (!closing) status.textContent = 'Imagery unavailable: '+error.message+' · reference globe remains usable';
+        if (!/unavailable/i.test(status.textContent)) status.textContent = `Offline · ${snapshot.imagery_layers[0].title} + ${snapshot.imagery_layers.length-1} detail packs · ${terrainLabel} · ${buildingLabel}`;
+      } else if (snapshot.imagery) {
+        const layer = snapshot.imagery;
+        try {
+          const provider = await C.SingleTileImageryProvider.fromUrl(layer.url, {
+            rectangle:C.Rectangle.fromRadians(layer.west_rad,layer.south_rad,layer.east_rad,layer.north_rad),
+            credit:layer.attribution
+          });
+          if (closing || viewer.isDestroyed()) return;
+          // A real opaque image layer prevents bounded-image stretching and gives
+          // transparent no-data pixels a reliable blue surface to composite onto.
+          await window.ORCReferenceGlobeLayer(viewer,C);
+          if (closing || viewer.isDestroyed()) return;
+          viewer.imageryLayers.addImageryProvider(provider);
+          viewer.scene.requestRender();
+          status.textContent = `Offline · ${coverageLabel}${layer.title} · ${terrainLabel} · ${buildingLabel}`;
+        } catch (error) {
+          if (!closing) status.textContent = 'Imagery unavailable: '+error.message+' · reference globe remains usable';
+        }
       }
     }
+    loadImagery().catch(error => {
+      if (!closing && !viewer.isDestroyed()) {
+        status.hidden = false;
+        status.textContent = 'Imagery unavailable: '+error.message+' · reference globe remains usable';
+      }
+    });
     window.ORCViewerStage = 'map-controls';
     mapLayers=window.ORCMapLayers(viewer,snapshot,document);
     window.ORCMapLayerState=()=>mapLayers.state();

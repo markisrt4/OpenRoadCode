@@ -325,3 +325,61 @@ def test_layer_state_and_requests_are_scoped_to_current_terrain_generation(mount
     viewer.request_layer.reset_mock()
     runtime._layer(MapLayerAction.BUILDINGS,stale)
     viewer.request_layer.assert_not_called()
+
+
+def test_road_terrain_round_trip_reuses_browser_and_replays_latest_overlays(mounted):
+    runtime, native, viewer = mounted
+    explore(runtime)
+    viewer.close.reset_mock()
+    runtime.request_platform(MapPlatform.MAPLIBRE)
+    flush(runtime)
+    viewer.suspend.assert_called_once_with()
+    viewer.close.assert_not_called()
+    runtime.resize(560, 280, 999)
+    runtime.request_platform(MapPlatform.CESIUM)
+    flush(runtime)
+    viewer.resume.assert_called_once_with((560, 280))
+    assert viewer.open.call_count == 1
+    assert runtime.state.active is MapPlatform.CESIUM
+    assert viewer.update_poi_overlay.call_count == 2
+    assert viewer.update_route_overlay.call_count == 2
+
+
+def test_failed_retained_browser_restarts_once(mounted):
+    runtime, _, viewer = mounted
+    explore(runtime)
+    runtime.request_platform(MapPlatform.MAPLIBRE)
+    flush(runtime)
+    viewer.resume.side_effect = RuntimeError('Chromium exited')
+    runtime.request_platform(MapPlatform.CESIUM)
+    flush(runtime)
+    assert viewer.open.call_count == 2
+    assert runtime.state.active is MapPlatform.CESIUM
+    assert not runtime.state.error
+
+
+def test_new_destination_does_not_resume_stale_exploration(mounted):
+    runtime, _, viewer = mounted
+    explore(runtime)
+    runtime.request_platform(MapPlatform.MAPLIBRE)
+    flush(runtime)
+    runtime.request_explore(CesiumViewerState(GeoPoint(.8,-1.3),label='Another place'))
+    flush(runtime)
+    viewer.resume.assert_not_called()
+    assert viewer.open.call_count == 2
+    assert viewer.open.call_args.args[0].label == 'Another place'
+
+
+def test_leaving_navigation_closes_hidden_retained_browser(mounted):
+    runtime, _, viewer = mounted
+    explore(runtime)
+    runtime.request_platform(MapPlatform.MAPLIBRE)
+    flush(runtime)
+    viewer.close.reset_mock()
+    runtime.stop()
+    viewer.close.assert_called_once_with()
+    runtime.launch(200)
+    runtime.request_platform(MapPlatform.CESIUM)
+    flush(runtime)
+    viewer.resume.assert_not_called()
+    assert viewer.open.call_count == 2

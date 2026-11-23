@@ -1286,3 +1286,22 @@ while its panel occupies the same dock column as Views and Places.
 
 The shared map request wrapper forwards native presentation refresh requests as
 well as camera commands, retaining replay after drawer and platform changes.
+
+
+### Retained Terrain viewer during navigation
+
+Switching Terrain → Road map now unmaps the owned Chromium child while retaining
+its browser, local server, loaded scene, and camera. Returning to Terrain in the
+same Navigation host maps that existing child without reparenting live WebGL.
+The native Road renderer is stopped before the Terrain window returns. Position,
+POI, and route snapshots are replayed on resume. A dead retained viewer falls back
+to a fresh launch, and a different explicit exploration destination starts a new
+scene rather than silently restoring the wrong place.
+
+Leaving Navigation, opening an Android app through a host teardown, or closing
+ORC still closes the viewer and its server before destroying the host. This
+retention uses more memory while Road map is selected; only one Terrain viewer
+is retained. Optional imagery initializes asynchronously after camera controls
+are wired, allowing the reference globe to become usable while imagery loads.
+First launch still pays Chromium and dataset initialization costs; timings are
+recorded in `cesium-stages.log` as `viewer-retained` / `viewer-resumed` for switches.

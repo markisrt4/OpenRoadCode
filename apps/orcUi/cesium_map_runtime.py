@@ -27,6 +27,8 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
         self._native, self._viewer = native, viewer
         self._initial_view = initial_view or (lambda: CesiumViewerState(GeoPoint(math.radians(42.3314),math.radians(-83.0458)), label="3D map", destination_marker_visible=False))
         self._view = None
+        self._retained_view = None
+        self._retained_host = None
         self._position = None
         self._position_received = 0.0
         self._position_revision = 0
@@ -257,16 +259,35 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
         if not self._current(generation):
             return
         try:
-            self._viewer.close()
             if platform is MapPlatform.CESIUM:
                 self._native.stop()
-                self._viewer.open(self._view,self._host,self._size,lambda:self._current(generation))
+                resumed = False
+                if self._retained_view == self._view and self._retained_host == self._host:
+                    try:
+                        self._viewer.resume(self._size)
+                        resumed = True
+                    except (OSError, RuntimeError):
+                        self._close_viewer()
+                if not resumed:
+                    self._close_viewer()
+                    self._viewer.open(self._view,self._host,self._size,lambda:self._current(generation))
+                if not self._current(generation):
+                    self._close_viewer()
+                    return
+                self._retained_view, self._retained_host = self._view, self._host
                 self._sent_position = None
                 self._sent_poi_overlay = None
                 self._sent_route_overlay = None
                 self._send_poi_overlay(generation)
                 self._send_route_overlay(generation)
             elif self._current(generation):
+                if self._retained_view is not None:
+                    try:
+                        self._viewer.suspend()
+                    except (OSError, RuntimeError):
+                        self._close_viewer()
+                else:
+                    self._close_viewer()
                 self._native.launch(self._host)
             with self._lock:
                 if self._current(generation):
@@ -281,10 +302,14 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
                             available_platforms=_PLATFORMS, error=str(error))
                 return
             try:
-                self._viewer.close()
+                self._close_viewer()
             finally:
                 if self._current(generation):
                     self._fallback(generation,f'3D map unavailable: {error}')
+
+    def _close_viewer(self):
+        self._retained_view = self._retained_host = None
+        self._viewer.close()
 
     def _fallback(self, generation, status):
         if not self._current(generation):
@@ -325,7 +350,7 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
             return
         try:
             if not self._viewer.tick(self._size):
-                self._viewer.close()
+                self._close_viewer()
                 self._fallback(generation,'MapLibre')
             else:
                 if self._viewer.consume_manual_camera() is True:
@@ -351,7 +376,7 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
                             self._state = replace(self._state, status='3D map busy · retrying browser connection…')
                     return
             try:
-                self._viewer.close()
+                self._close_viewer()
             finally:
                 self._fallback(generation,f'3D map unavailable: {error}')
 
@@ -362,7 +387,7 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
             self._generation += 1
             self._host = None
             self._state = MapPlatformState(available_platforms=_PLATFORMS)
-            cleanup = self._worker.submit(self._viewer.close)
+            cleanup = self._worker.submit(self._close_viewer)
         try:
             cleanup.result()
         finally:

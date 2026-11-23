@@ -283,3 +283,26 @@ def test_layer_snapshot_and_semantic_requests_use_owned_browser(native):
     assert not native.viewer.layer_controls.controls
     with pytest.raises(RuntimeError,match='not ready'):
         native.viewer.request_layer(MapLayerAction.BUILDINGS)
+
+
+def test_suspend_and_resume_only_unmap_and_map_owned_window(native, monkeypatch):
+    run = Mock()
+    monkeypatch.setattr(module.subprocess, 'run', run)
+    native.viewer.open(state(),100,(640,320))
+    native.embedder.window_id = 1234
+    native.embedder.embed.reset_mock()
+    native.viewer.suspend()
+    native.viewer.resume((800,400))
+    assert [call.args[0] for call in run.call_args_list] == [
+        ['xdotool','windowunmap','1234'], ['xdotool','windowmap','1234']]
+    native.embedder.resize.assert_called_with(800,400)
+    native.embedder.embed.assert_not_called()
+    assert native.browsers.call_count == 1
+    native.browser.stop.assert_not_called()
+
+
+def test_resume_rejects_dead_browser_before_mapping(native):
+    native.viewer.open(state(),100,(640,320))
+    native.browser.is_running.return_value = False
+    with pytest.raises(RuntimeError, match='Retained Chromium exited'):
+        native.viewer.resume((640,320))
