@@ -60,6 +60,8 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
         self._history: deque[tuple[float, ...]] = deque(maxlen=self._visualization.waterfall_rows)
         self._station = "--"
         self._mode = ""
+        self._bandwidth_hz = None
+        self._observed_mode = None
         self._frequency_hz = 0
         self._radio_text = ""
         self._stereo = False
@@ -268,12 +270,17 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
 
     def set_station(self, *, frequency_hz: int, name: str = "",
                     radio_text: str = "", stereo: bool = False,
-                    signal: float | None = None, mode: str = "") -> None:
-        presentation = (frequency_hz, name, radio_text, stereo, signal, mode)
+                    signal: float | None = None, mode: str = "",
+                    bandwidth_hz: int | None = None,
+                    observed_mode: str | None = None) -> None:
+        presentation = (frequency_hz, name, radio_text, stereo, signal, mode,
+                        bandwidth_hz, observed_mode)
         if getattr(self, "_last_presentation", None) == presentation:
             return
         self._last_presentation = presentation
         self._mode = mode.upper()
+        self._bandwidth_hz = bandwidth_hz
+        self._observed_mode = observed_mode
         self._frequency_hz = frequency_hz
         self._station = name or "--"
         self._radio_text = radio_text if (self._mode in ("WFM", "FM") or 76_000_000 <= frequency_hz <= 108_000_000) else ""
