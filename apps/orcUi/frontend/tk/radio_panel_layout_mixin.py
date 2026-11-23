@@ -273,7 +273,7 @@ class RadioPanelLayoutMixin:
             self._receiver_mode_label = tk.Label(
                 self._receiver_controls, text="MODE  --", bg=ui.surface,
                 fg=ui.text_muted, font=("Sans", 9), anchor="w", padx=8, pady=2)
-            self._receiver_mode_label.grid(row=8, column=0, columnspan=2, sticky="ew")
+            # Mode is presented exclusively on the spectrum toolbar.
             # This row is informational; no new controls or scrollbars are needed.
             self._receiver_signal_label = tk.Label(
                 self._receiver_controls, text="SIGNAL  --", bg=ui.surface,
@@ -284,7 +284,7 @@ class RadioPanelLayoutMixin:
         if native_sdrforge:
             self._favorites.grid(row=3, column=0, sticky="ew", pady=(2, 0))
         self._launch_status = tk.Label(self._host, text="Connecting to radio…", bg=ui.background,
-                                       fg=ui.text, font=("Sans", 20, "bold"))
+                                       fg=ui.text, font=("Sans", 12, "bold"), justify="center")
         self._session.bind(self)
         self._schedule_telemetry_refresh()
 
