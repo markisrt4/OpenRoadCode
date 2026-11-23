@@ -70,6 +70,8 @@ class RadioPanelStateMixin:
                 stereo=state.telemetry.stereo_locked is True,
                 signal=state.telemetry.signal_db,
                 mode=state.station.mode_name,
+                bandwidth_hz=state.telemetry.bandwidth_hz if state.receiver_running else None,
+                observed_mode=state.telemetry.mode if receiver_mode_mismatch(state) else None,
             )
         signal = "--" if state.telemetry.signal_db is None else f"{state.telemetry.signal_db:.1f} dB"
         snr = "--" if state.telemetry.snr_db is None else f"{state.telemetry.snr_db:.1f} dB"
@@ -142,6 +144,7 @@ class RadioPanelStateMixin:
         if state.loading or state.error:
             self._launch_status.configure(text=state.error or "Loading radio…",
                                           fg=self._theme.ui.accent_danger if state.error else self._theme.ui.text)
+            self._launch_status.configure(wraplength=max(120, self._host.winfo_width() - 40))
             self._launch_status.place(relx=0.5, rely=0.5, anchor="center")
             self._launch_status.lift()
         else:
