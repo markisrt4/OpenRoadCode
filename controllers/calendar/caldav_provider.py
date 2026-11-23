@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import logging
+import time
 from dataclasses import dataclass
 from collections.abc import Collection
 from datetime import datetime
@@ -18,6 +20,8 @@ from .caldav_adapter import (
 from .calendar_models import CalendarCapabilities, CalendarEvent
 from .calendar_provider_if import CalendarProviderIf
 from .icalendar_parser import UnsupportedCalendarEventError, parse_icalendar_events
+
+_LOG = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -55,15 +59,28 @@ class CalDavCalendarProvider(CalendarProviderIf):
         if start.tzinfo is None or end.tzinfo is None or end <= start:
             raise ValueError("Expected timezone-aware, increasing time range")
         self.last_sync_status = []
+        started = time.monotonic()
+        _LOG.info("Calendar discovery started")
         calendars = self._adapter.discover_calendars()
+        _LOG.info("Calendar discovery completed: %d calendars in %.1fs", len(calendars), time.monotonic() - started)
         events: list[CalendarEvent] = []
-        for calendar in calendars:
+        for index, calendar in enumerate(calendars, 1):
+            calendar_started = time.monotonic()
+            _LOG.info("Calendar %d/%d: starting", index, len(calendars))
             if calendar.href in self._disabled_calendar_ids:
                 self.last_sync_status.append(
                     CalendarSyncStatus(calendar.href, False, disabled=True)
                 )
+                _LOG.info("Calendar %d/%d: disabled", index, len(calendars))
                 continue
             events.extend(self._read_calendar(calendar, start, end))
+            status = self.last_sync_status[-1]
+            _LOG.info(
+                "Calendar %d/%d: %s resources=%d events=%d skipped=%d elapsed=%.1fs",
+                index, len(calendars), "ok" if status.ok else status.error or "failed",
+                status.resource_count, status.event_count, status.skipped_resources,
+                time.monotonic() - calendar_started,
+            )
         return sorted(events, key=lambda event: (event.starts_at, event.event_id))
 
     def _read_calendar(
