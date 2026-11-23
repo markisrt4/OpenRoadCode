@@ -53,3 +53,24 @@ def test_failed_and_disabled_calendars_preserve_cache(tmp_path) -> None:
     result = CalendarSyncWorker("account", provider, cache).sync_once(START, END)
     assert result.cached_calendars == 1
     assert {item.event_id for item in cache.list_events(START, END)} == {"old", "new"}
+
+
+def test_new_window_replaces_stale_events(tmp_path) -> None:
+    cache = CalendarEventCache(tmp_path / "calendar.sqlite3")
+    cache.replace_calendar_window("account", "calendar-a", START, END, [event("old")])
+    next_start = START + timedelta(minutes=15)
+    next_end = END + timedelta(minutes=15)
+    cache.replace_calendar_window(
+        "account", "calendar-a", next_start, next_end, [event("new")]
+    )
+    assert [item.event_id for item in cache.list_events(START, END)] == ["new"]
+
+
+def test_new_empty_window_removes_deleted_events(tmp_path) -> None:
+    cache = CalendarEventCache(tmp_path / "calendar.sqlite3")
+    cache.replace_calendar_window("account", "calendar-a", START, END, [event("old")])
+    cache.replace_calendar_window(
+        "account", "calendar-a",
+        START + timedelta(minutes=15), END + timedelta(minutes=15), []
+    )
+    assert cache.list_events(START, END) == []
