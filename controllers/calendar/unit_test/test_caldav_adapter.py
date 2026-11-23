@@ -18,9 +18,9 @@ from controllers.calendar.caldav_adapter import (
 def multistatus(href: str, properties: str) -> bytes:
     return (
         '<d:multistatus xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">'
-        f'<d:response><d:href>{href}</d:href><d:propstat><d:prop>{properties}</d:prop>'
-        '<d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>'
-        '</d:multistatus>'
+        f"<d:response><d:href>{href}</d:href><d:propstat><d:prop>{properties}</d:prop>"
+        "<d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>"
+        "</d:multistatus>"
     ).encode()
 
 
@@ -127,9 +127,7 @@ class CalDavAdapterTests(unittest.TestCase):
                     "http://127.0.0.1:8080/caldav/", 401, "Unauthorized", {}, None
                 ),
             ):
-                with self.assertRaisesRegex(
-                    CalDavAuthenticationError, "full account username"
-                ):
+                with self.assertRaisesRegex(CalDavAuthenticationError, "full account username"):
                     self.adapter.discover_calendars()
 
     def test_forbidden_is_not_authentication_error(self) -> None:
@@ -138,9 +136,7 @@ class CalDavAdapterTests(unittest.TestCase):
             with patch.object(
                 opener,
                 "open",
-                side_effect=HTTPError(
-                    "http://127.0.0.1:8080/caldav/", 403, "Forbidden", {}, None
-                ),
+                side_effect=HTTPError("http://127.0.0.1:8080/caldav/", 403, "Forbidden", {}, None),
             ):
                 with self.assertRaisesRegex(CalDavHttpError, "403"):
                     self.adapter.discover_calendars()
@@ -167,8 +163,8 @@ class CalDavAdapterTests(unittest.TestCase):
         request = opener.requests[0]
         self.assertEqual(request.get_method(), "REPORT")
         self.assertEqual(request.get_header("Depth"), "1")
-        self.assertIn(b'20261101T000000Z', request.data)
-        self.assertIn(b'20261201T000000Z', request.data)
+        self.assertIn(b"20261101T000000Z", request.data)
+        self.assertIn(b"20261201T000000Z", request.data)
 
     def test_calendar_query_rejects_invalid_range(self) -> None:
         calendar = CalDavCalendar("http://127.0.0.1:8080/caldav/personal/", "Personal")

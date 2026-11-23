@@ -42,24 +42,34 @@ def event(account: str, name: str, offset: int, duration: int = 60) -> CalendarE
 
 class CalendarControllerTests(unittest.TestCase):
     def test_combines_two_providers_in_chronological_order(self) -> None:
-        controller = CalendarController({
-            "proton": FakeProvider([event("proton", "Later", 120)]),
-            "google": FakeProvider([event("google", "Earlier", 30)]),
-        })
+        controller = CalendarController(
+            {
+                "proton": FakeProvider([event("proton", "Later", 120)]),
+                "google": FakeProvider([event("google", "Earlier", 30)]),
+            }
+        )
         result = controller.list_events(START, START + timedelta(days=1))
         self.assertEqual([item.title for item in result], ["Earlier", "Later"])
 
     def test_includes_overlapping_events_but_not_boundary_touching(self) -> None:
-        controller = CalendarController({"local": FakeProvider([
-            event("local", "Overlaps", -30),
-            event("local", "Ends at start", -60),
-            event("local", "Starts at end", 60),
-        ])})
+        controller = CalendarController(
+            {
+                "local": FakeProvider(
+                    [
+                        event("local", "Overlaps", -30),
+                        event("local", "Ends at start", -60),
+                        event("local", "Starts at end", 60),
+                    ]
+                )
+            }
+        )
         result = controller.list_events(START, START + timedelta(minutes=60))
         self.assertEqual([item.title for item in result], ["Overlaps"])
 
     def test_unreadable_provider_is_skipped(self) -> None:
-        controller = CalendarController({"local": FakeProvider([event("local", "Hidden", 0)], False)})
+        controller = CalendarController(
+            {"local": FakeProvider([event("local", "Hidden", 0)], False)}
+        )
         self.assertEqual(controller.list_events(START, START + timedelta(days=1)), [])
 
     def test_rejects_mismatched_account(self) -> None:

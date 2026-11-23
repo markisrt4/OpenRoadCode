@@ -66,9 +66,7 @@ def _date_value(params: dict[str, str], value: str) -> tuple[datetime, bool]:
     return datetime.fromisoformat(value).replace(tzinfo=tz), False
 
 
-def parse_icalendar_events(
-    raw: str, account_id: str, calendar_id: str
-) -> list[CalendarEvent]:
+def parse_icalendar_events(raw: str, account_id: str, calendar_id: str) -> list[CalendarEvent]:
     """Parse standalone VEVENTs; reject recurrence masters until expansion is implemented.
 
     DATE values are represented as UTC midnights to satisfy the existing aware
@@ -89,9 +87,7 @@ def parse_icalendar_events(
             inside = False
             fields = _properties(event_lines)
             if "RRULE" in fields or "RDATE" in fields or "EXDATE" in fields:
-                raise UnsupportedCalendarEventError(
-                    "Recurring events require recurrence expansion"
-                )
+                raise UnsupportedCalendarEventError("Recurring events require recurrence expansion")
             if fields.get("STATUS", [({}, "")])[0][1] == "CANCELLED":
                 continue
             try:

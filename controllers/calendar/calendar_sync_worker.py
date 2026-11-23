@@ -21,7 +21,9 @@ class CalendarSyncWorker:
     """One sync pass; callers may schedule it off the UI thread."""
 
     def __init__(
-        self, account_id: str, provider: CalDavCalendarProvider,
+        self,
+        account_id: str,
+        provider: CalDavCalendarProvider,
         cache: CalendarEventCache,
     ) -> None:
         self._account_id = account_id
@@ -36,9 +38,9 @@ class CalendarSyncWorker:
             if not status.ok or status.disabled:
                 continue
             calendar_events = [
-                event for event in events
-                if event.account_id == self._account_id
-                and event.calendar_id == status.calendar_id
+                event
+                for event in events
+                if event.account_id == self._account_id and event.calendar_id == status.calendar_id
             ]
             self._cache.replace_calendar_window(
                 self._account_id, status.calendar_id, start, end, calendar_events

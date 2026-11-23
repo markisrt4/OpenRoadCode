@@ -18,8 +18,11 @@ END = START + timedelta(days=1)
 
 def event(event_id: str, calendar_id: str = "calendar-a") -> CalendarEvent:
     return CalendarEvent(
-        account_id="account", calendar_id=calendar_id, event_id=event_id,
-        title="Test event", starts_at=START + timedelta(hours=2),
+        account_id="account",
+        calendar_id=calendar_id,
+        event_id=event_id,
+        title="Test event",
+        starts_at=START + timedelta(hours=2),
         ends_at=START + timedelta(hours=3),
     )
 
@@ -60,9 +63,7 @@ def test_new_window_replaces_stale_events(tmp_path) -> None:
     cache.replace_calendar_window("account", "calendar-a", START, END, [event("old")])
     next_start = START + timedelta(minutes=15)
     next_end = END + timedelta(minutes=15)
-    cache.replace_calendar_window(
-        "account", "calendar-a", next_start, next_end, [event("new")]
-    )
+    cache.replace_calendar_window("account", "calendar-a", next_start, next_end, [event("new")])
     assert [item.event_id for item in cache.list_events(START, END)] == ["new"]
 
 
@@ -70,7 +71,6 @@ def test_new_empty_window_removes_deleted_events(tmp_path) -> None:
     cache = CalendarEventCache(tmp_path / "calendar.sqlite3")
     cache.replace_calendar_window("account", "calendar-a", START, END, [event("old")])
     cache.replace_calendar_window(
-        "account", "calendar-a",
-        START + timedelta(minutes=15), END + timedelta(minutes=15), []
+        "account", "calendar-a", START + timedelta(minutes=15), END + timedelta(minutes=15), []
     )
     assert cache.list_events(START, END) == []

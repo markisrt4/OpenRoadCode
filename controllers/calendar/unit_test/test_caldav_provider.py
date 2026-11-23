@@ -28,7 +28,10 @@ RECURRING = (
 
 class FakeAdapter:
     def discover_calendars(self):
-        return [CalDavCalendar("http://localhost/one/", "One"), CalDavCalendar("http://localhost/two/", "Two")]
+        return [
+            CalDavCalendar("http://localhost/one/", "One"),
+            CalDavCalendar("http://localhost/two/", "Two"),
+        ]
 
     def query_event_resources(self, calendar, start, end):
         if calendar.display_name == "Two":

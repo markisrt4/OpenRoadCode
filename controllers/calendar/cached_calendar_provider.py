@@ -26,6 +26,7 @@ class CachedCalendarProvider(CalendarProviderIf):
 
     def list_events(self, start: datetime, end: datetime) -> list[CalendarEvent]:
         return [
-            event for event in self._cache.list_events(start, end)
+            event
+            for event in self._cache.list_events(start, end)
             if event.account_id == self._account_id
         ]

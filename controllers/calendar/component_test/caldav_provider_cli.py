@@ -24,7 +24,11 @@ def main() -> None:
     parser.add_argument("--username", required=True)
     parser.add_argument("--password-secret", default="CALDAV_BRIDGE_PASSWORD")
     parser.add_argument("--prompt-password", action="store_true")
-    parser.add_argument("--selection-file", type=Path, default=Path.home() / ".config/openroadcode/calendar-selection.json")
+    parser.add_argument(
+        "--selection-file",
+        type=Path,
+        default=Path.home() / ".config/openroadcode/calendar-selection.json",
+    )
     parser.add_argument("--disable-index", type=int)
     parser.add_argument("--enable-index", type=int)
     parser.add_argument("--days", type=int, default=1)
@@ -38,13 +42,16 @@ def main() -> None:
         EnvironmentVariableSecretManager(
             environment={args.password_secret: getpass.getpass("Bridge password: ")}
         )
-        if args.prompt_password else EnvironmentVariableSecretManager()
+        if args.prompt_password
+        else EnvironmentVariableSecretManager()
     )
     adapter = CalDavAdapter(args.url, args.username, secrets, args.password_secret, args.timeout)
     calendars = adapter.discover_calendars()
     disabled = set(load_disabled_calendar_ids(args.selection_file))
     for index, calendar in enumerate(calendars, 1):
-        print(f"{index}. {calendar.display_name} [{'disabled' if calendar.href in disabled else 'enabled'}]")
+        print(
+            f"{index}. {calendar.display_name} [{'disabled' if calendar.href in disabled else 'enabled'}]"
+        )
     choice = args.disable_index if args.disable_index is not None else args.enable_index
     if choice is not None:
         if not 1 <= choice <= len(calendars):

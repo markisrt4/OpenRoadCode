@@ -71,8 +71,7 @@ class CalendarEventCache:
         if not account_id or not calendar_id:
             raise ValueError("Account and calendar IDs are required")
         if any(
-            event.account_id != account_id or event.calendar_id != calendar_id
-            for event in events
+            event.account_id != account_id or event.calendar_id != calendar_id for event in events
         ):
             raise ValueError("Events must belong to the selected calendar")
         with self._connect() as connection:
@@ -91,9 +90,14 @@ class CalendarEventCache:
                 """INSERT INTO calendar_snapshots VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 [
                     (
-                        *key, event.event_id, event.recurrence_id or "",
-                        event.title, event.starts_at.isoformat(),
-                        event.ends_at.isoformat(), int(event.all_day), event.location,
+                        *key,
+                        event.event_id,
+                        event.recurrence_id or "",
+                        event.title,
+                        event.starts_at.isoformat(),
+                        event.ends_at.isoformat(),
+                        int(event.all_day),
+                        event.location,
                     )
                     for event in events
                 ],
@@ -114,7 +118,17 @@ class CalendarEventCache:
             ).fetchall()
         events: dict[tuple[str, str, str, str], CalendarEvent] = {}
         for row in rows:
-            account_id, calendar_id, event_id, recurrence_id, title, begins, ends, all_day, location = row
+            (
+                account_id,
+                calendar_id,
+                event_id,
+                recurrence_id,
+                title,
+                begins,
+                ends,
+                all_day,
+                location,
+            ) = row
             event = CalendarEvent(
                 account_id=account_id,
                 calendar_id=calendar_id,
@@ -130,6 +144,11 @@ class CalendarEventCache:
                 events[(account_id, calendar_id, event_id, recurrence_id)] = event
         return sorted(
             events.values(),
-            key=lambda event: (event.starts_at, event.ends_at, event.account_id,
-                               event.calendar_id, event.event_id),
+            key=lambda event: (
+                event.starts_at,
+                event.ends_at,
+                event.account_id,
+                event.calendar_id,
+                event.event_id,
+            ),
         )

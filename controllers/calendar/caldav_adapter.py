@@ -104,11 +104,11 @@ class CalDavAdapter:
             method=method,
         )
         try:
-            with build_opener(_NoRedirects()).open(request, timeout=self._timeout_seconds) as response:
+            with build_opener(_NoRedirects()).open(
+                request, timeout=self._timeout_seconds
+            ) as response:
                 if response.status != 207:
-                    raise CalDavHttpError(
-                        f"CalDAV {method} returned HTTP {response.status}"
-                    )
+                    raise CalDavHttpError(f"CalDAV {method} returned HTTP {response.status}")
                 document = response.read(_MAX_RESPONSE + 1)
         except (TimeoutError, socket.timeout) as error:
             raise CalDavTimeoutError(
@@ -120,9 +120,7 @@ class CalDavAdapter:
                     "CalDAV authentication failed (HTTP 401). "
                     "Check the full account username and bridge password."
                 ) from None
-            raise CalDavHttpError(
-                f"CalDAV {method} returned HTTP {error.code}"
-            ) from None
+            raise CalDavHttpError(f"CalDAV {method} returned HTTP {error.code}") from None
         if len(document) > _MAX_RESPONSE:
             raise ValueError("CalDAV discovery response too large")
         return ElementTree.fromstring(document)
@@ -150,12 +148,12 @@ class CalDavAdapter:
         payload = (
             '<?xml version="1.0" encoding="utf-8"?>'
             '<c:calendar-query xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">'
-            '<d:prop><d:getetag/><c:calendar-data/></d:prop>'
+            "<d:prop><d:getetag/><c:calendar-data/></d:prop>"
             '<c:filter><c:comp-filter name="VCALENDAR">'
             '<c:comp-filter name="VEVENT">'
             f'<c:time-range start="{escape(begin)}" end="{escape(finish)}"/>'
-            '</c:comp-filter></c:comp-filter></c:filter>'
-            '</c:calendar-query>'
+            "</c:comp-filter></c:comp-filter></c:filter>"
+            "</c:calendar-query>"
         ).encode("utf-8")
         root = self._request_xml(url, "REPORT", 1, payload)
         resources: list[CalDavEventResource] = []
@@ -193,9 +191,7 @@ class CalDavAdapter:
 
     def discover_calendars(self) -> list[CalDavCalendar]:
         """Follow current-user-principal and calendar-home-set, then list collections."""
-        principal_doc = self._propfind(
-            self._base_url, 0, b"<d:current-user-principal/>"
-        )
+        principal_doc = self._propfind(self._base_url, 0, b"<d:current-user-principal/>")
         principal = next(
             (
                 href
@@ -207,9 +203,7 @@ class CalDavAdapter:
         home_url = self._base_url
         if principal:
             principal_url = self._resolve(self._base_url, principal)
-            home_doc = self._propfind(
-                principal_url, 0, b"<c:calendar-home-set/>"
-            )
+            home_doc = self._propfind(principal_url, 0, b"<c:calendar-home-set/>")
             home_href = next(
                 (
                     href
@@ -220,9 +214,7 @@ class CalDavAdapter:
             )
             if home_href:
                 home_url = self._resolve(principal_url, home_href)
-        collection_doc = self._propfind(
-            home_url, 1, b"<d:resourcetype/><d:displayname/>"
-        )
+        collection_doc = self._propfind(home_url, 1, b"<d:resourcetype/><d:displayname/>")
         calendars: list[CalDavCalendar] = []
         seen: set[str] = set()
         for href, prop in self._properties(collection_doc):

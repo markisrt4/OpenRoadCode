@@ -35,7 +35,9 @@ class CalDavCalendarProvider(CalendarProviderIf):
     """Fetch calendars independently; report partial results without hiding failures."""
 
     def __init__(
-        self, account_id: str, adapter: CalDavAdapter,
+        self,
+        account_id: str,
+        adapter: CalDavAdapter,
         disabled_calendar_ids: Collection[str] = (),
     ) -> None:
         if not account_id:
@@ -78,16 +80,12 @@ class CalDavCalendarProvider(CalendarProviderIf):
         skipped = 0
         for resource in resources:
             try:
-                parsed = parse_icalendar_events(
-                    resource.icalendar, self._account_id, calendar.href
-                )
+                parsed = parse_icalendar_events(resource.icalendar, self._account_id, calendar.href)
             except (ValueError, UnsupportedCalendarEventError):
                 skipped += 1
                 continue
             events.extend(
-                event
-                for event in parsed
-                if event.starts_at < end and event.ends_at > start
+                event for event in parsed if event.starts_at < end and event.ends_at > start
             )
         self.last_sync_status.append(
             CalendarSyncStatus(

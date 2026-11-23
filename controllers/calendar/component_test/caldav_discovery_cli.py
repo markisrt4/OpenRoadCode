@@ -33,7 +33,12 @@ def main() -> None:
         action="store_true",
         help="Prompt interactively instead of reading ORC secrets",
     )
-    parser.add_argument("--query-days", type=int, default=0, help="Read-only event query window in days (0 disables)")
+    parser.add_argument(
+        "--query-days",
+        type=int,
+        default=0,
+        help="Read-only event query window in days (0 disables)",
+    )
     parser.add_argument("--timeout", type=float, default=15.0, help="Socket timeout in seconds")
     parser.add_argument("--calendar-index", type=int, help="Query only this calendar (1-based)")
     args = parser.parse_args()
@@ -48,7 +53,9 @@ def main() -> None:
         if args.prompt_password
         else EnvironmentVariableSecretManager()
     )
-    adapter = CalDavAdapter(args.url, args.username, secrets, args.password_secret, timeout_seconds=args.timeout)
+    adapter = CalDavAdapter(
+        args.url, args.username, secrets, args.password_secret, timeout_seconds=args.timeout
+    )
     try:
         calendars = adapter.discover_calendars()
     except CalDavAuthenticationError as error:
@@ -80,10 +87,7 @@ def main() -> None:
                 print(f"Calendar {index}: failed after {elapsed:.1f}s: {error}", file=sys.stderr)
                 raise SystemExit(1) from None
             elapsed = time.monotonic() - started
-            print(
-                f"Calendar {index}: {len(resources)} iCalendar resource(s) "
-                f"in {elapsed:.1f}s"
-            )
+            print(f"Calendar {index}: {len(resources)} iCalendar resource(s) in {elapsed:.1f}s")
 
 
 if __name__ == "__main__":

@@ -22,12 +22,20 @@ def test_offline_provider_filters_accounts(tmp_path) -> None:
     start, end = NOW, NOW + timedelta(days=1)
     for account in ("one", "two"):
         cache.replace_calendar_window(
-            account, "calendar", start, end,
-            [CalendarEvent(
-                account_id=account, calendar_id="calendar", event_id="event",
-                title="Test", starts_at=start + timedelta(hours=1),
-                ends_at=start + timedelta(hours=2),
-            )],
+            account,
+            "calendar",
+            start,
+            end,
+            [
+                CalendarEvent(
+                    account_id=account,
+                    calendar_id="calendar",
+                    event_id="event",
+                    title="Test",
+                    starts_at=start + timedelta(hours=1),
+                    ends_at=start + timedelta(hours=2),
+                )
+            ],
         )
     controller = CalendarController({"one": CachedCalendarProvider("one", cache)})
     assert len(controller.list_events(start, end)) == 1
@@ -39,13 +47,14 @@ def test_scheduler_runs_immediately_and_stops() -> None:
     worker = Mock()
     worker.sync_once.side_effect = lambda *_: stop.set()
     scheduler = CalendarSyncScheduler(
-        worker, interval_seconds=10, past_days=2, future_days=5,
+        worker,
+        interval_seconds=10,
+        past_days=2,
+        future_days=5,
         clock=lambda: NOW,
     )
     scheduler.run(stop)
-    worker.sync_once.assert_called_once_with(
-        NOW - timedelta(days=2), NOW + timedelta(days=5)
-    )
+    worker.sync_once.assert_called_once_with(NOW - timedelta(days=2), NOW + timedelta(days=5))
 
 
 def test_scheduler_isolates_failures() -> None:
