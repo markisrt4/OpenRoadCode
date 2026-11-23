@@ -3,9 +3,14 @@
 """Mock CalDAV discovery chain and security tests."""
 
 import unittest
+from urllib.error import HTTPError
 from unittest.mock import patch
 
-from controllers.calendar.caldav_adapter import CalDavAdapter
+from controllers.calendar.caldav_adapter import (
+    CalDavAdapter,
+    CalDavAuthenticationError,
+    CalDavHttpError,
+)
 
 
 def multistatus(href: str, properties: str) -> bytes:
@@ -109,6 +114,34 @@ class CalDavAdapterTests(unittest.TestCase):
         with patch("controllers.calendar.caldav_adapter.build_opener", return_value=opener):
             with self.assertRaises(ValueError):
                 self.adapter.discover_calendars()
+
+    def test_unauthorized_is_authentication_error(self) -> None:
+        opener = FakeOpener([])
+        with patch("controllers.calendar.caldav_adapter.build_opener", return_value=opener):
+            with patch.object(
+                opener,
+                "open",
+                side_effect=HTTPError(
+                    "http://127.0.0.1:8080/caldav/", 401, "Unauthorized", {}, None
+                ),
+            ):
+                with self.assertRaisesRegex(
+                    CalDavAuthenticationError, "full account username"
+                ):
+                    self.adapter.discover_calendars()
+
+    def test_forbidden_is_not_authentication_error(self) -> None:
+        opener = FakeOpener([])
+        with patch("controllers.calendar.caldav_adapter.build_opener", return_value=opener):
+            with patch.object(
+                opener,
+                "open",
+                side_effect=HTTPError(
+                    "http://127.0.0.1:8080/caldav/", 403, "Forbidden", {}, None
+                ),
+            ):
+                with self.assertRaisesRegex(CalDavHttpError, "403"):
+                    self.adapter.discover_calendars()
 
     def test_rejects_non_loopback_plaintext(self) -> None:
         with self.assertRaises(ValueError):
