@@ -26,6 +26,20 @@ from .opengl_radio_surface import OpenGLRadioSurface, available as opengl_availa
 class SdrForgeRenderMixin:
     """Draw spectrum and waterfall from cached presentation data."""
 
+    def _passband(self) -> tuple[float, float] | None:
+        viewport = self._viewport
+        if viewport is None or not self._frequency_hz or viewport.span_hz <= 0:
+            return None
+        bandwidth = self._bandwidth_hz or {
+            "FM": 200000, "WFM": 200000, "NFM": 12500, "AM": 10000,
+        }.get(self._mode, 0)
+        if bandwidth <= 0:
+            return None
+        center = 0.5 + (self._frequency_hz - viewport.center_hz) / viewport.span_hz
+        half = bandwidth / (2 * viewport.span_hz)
+        left, right = max(0.0, center - half), min(1.0, center + half)
+        return (left, right) if left < right else None
+
     def _render(self) -> None:
         """Render a receiver dashboard, not a bare FFT debug canvas."""
         canvas = self._canvas
@@ -62,7 +76,8 @@ class SdrForgeRenderMixin:
             self._gl_surface.place(x=0, y=spectrum_top, relwidth=1, height=max(1, plot_bottom-spectrum_top))
             self._gl_surface.update_data(display_bins, display_history,
                                          self._visualization.palette, display_peaks,
-                                         tuned_position=self._tuned_position())
+                                         tuned_position=self._tuned_position(),
+                                         passband=self._passband())
 
         canvas.create_rectangle(0, 0, w, header, fill=ui.surface, outline="")
         canvas.create_rectangle(0, 0, 5, header, fill=ui.accent_primary, outline="")
@@ -85,8 +100,12 @@ class SdrForgeRenderMixin:
         # Demodulation is determined by the active radio profile, never
         # selected independently in the spectrum UI.
         mode = "WFM" if self._mode in ("FM", "WFM") else self._mode
+        mismatch = self._observed_mode and self._observed_mode != mode
         self._mode_label.configure(
-            text=f"MODE {mode}" if mode else "")
+            text=f"MODE {mode} ≠ {self._observed_mode}" if mismatch else
+            f"MODE {mode}" if mode else "",
+            fg=ui.accent_danger if mismatch else ui.text_muted,
+            bg=ui.surface)
         if mode == "WFM":
             canvas.create_text(w - 14, header - 8, anchor="se",
                                text="● STEREO" if self._stereo else "MONO",
@@ -155,6 +174,12 @@ class SdrForgeRenderMixin:
                                text="Waiting for spectrum telemetry",
                                fill=ui.text_muted, font=("Sans", 11))
         if self._gl_surface is None:
+            band = self._passband()
+            if band is not None:
+                canvas.create_rectangle(
+                    band[0] * (w - 1), spectrum_top, band[1] * (w - 1),
+                    plot_bottom, fill=ui.accent_success, stipple="gray25", outline=""
+                )
             position = self._tuned_position()
             if position is not None:
                 x = position * (w - 1)
