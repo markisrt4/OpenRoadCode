@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import base64
+from urllib.error import HTTPError
 from dataclasses import dataclass
 from urllib.parse import urljoin, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
@@ -21,6 +22,14 @@ _MAX_RESPONSE = 2_000_000
 class CalDavCalendar:
     href: str
     display_name: str
+
+
+class CalDavAuthenticationError(RuntimeError):
+    """The CalDAV server rejected the configured account credentials."""
+
+
+class CalDavHttpError(RuntimeError):
+    """The CalDAV server returned an unexpected HTTP status."""
 
 
 class _NoRedirects(HTTPRedirectHandler):
@@ -79,10 +88,22 @@ class CalDavAdapter:
             },
             method="PROPFIND",
         )
-        with build_opener(_NoRedirects()).open(request, timeout=15) as response:
-            if response.status != 207:
-                raise RuntimeError(f"CalDAV discovery returned HTTP {response.status}")
-            document = response.read(_MAX_RESPONSE + 1)
+        try:
+            with build_opener(_NoRedirects()).open(request, timeout=15) as response:
+                if response.status != 207:
+                    raise CalDavHttpError(
+                        f"CalDAV discovery returned HTTP {response.status}"
+                    )
+                document = response.read(_MAX_RESPONSE + 1)
+        except HTTPError as error:
+            if error.code == 401:
+                raise CalDavAuthenticationError(
+                    "CalDAV authentication failed (HTTP 401). "
+                    "Check the full account username and bridge password."
+                ) from None
+            raise CalDavHttpError(
+                f"CalDAV discovery returned HTTP {error.code}"
+            ) from None
         if len(document) > _MAX_RESPONSE:
             raise ValueError("CalDAV discovery response too large")
         return ElementTree.fromstring(document)
