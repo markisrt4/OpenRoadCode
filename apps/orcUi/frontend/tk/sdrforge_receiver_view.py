@@ -67,6 +67,8 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
         self._presets: tuple[tuple[str, int], ...] = ()
         self._on_tune = None
         self._on_spectrum_tune = None
+        self._on_tune_step = None
+        self._tune_touch_y = None
         self._tune_range: tuple[int, int, int] | None = None
 
         self.grid_columnconfigure(0, weight=1)
@@ -75,6 +77,12 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
         self._canvas.grid(row=0, column=0, sticky="nsew")
         self._canvas.bind("<Configure>", lambda _event: self._schedule_render())
         self._canvas.bind("<Button-1>", self._handle_spectrum_click)
+        self._canvas.bind("<MouseWheel>", self._handle_tune_wheel)
+        self._canvas.bind("<Button-4>", lambda event: self._tune_by_wheel(1))
+        self._canvas.bind("<Button-5>", lambda event: self._tune_by_wheel(-1))
+        self._canvas.bind("<ButtonPress-1>", self._tune_touch_start, add="+")
+        self._canvas.bind("<B1-Motion>", self._tune_touch_move)
+        self._canvas.bind("<ButtonRelease-1>", self._tune_touch_end)
         if self._renderer is RadioRenderer.OPENGL:
             self._gl_surface = OpenGLRadioSurface(self, width=320, height=180)
             self._gl_surface.place(x=0, y=80, relwidth=1, height=180)
@@ -186,6 +194,33 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
     def set_spectrum_tune_handler(self, handler) -> None:
         """Receive frequency selections without coupling the widget to radio control."""
         self._on_spectrum_tune = handler
+
+    def set_tune_step_handler(self, handler) -> None:
+        """Connect wheel and touch channel navigation to the radio controller."""
+        self._on_tune_step = handler
+
+    def _tune_by_wheel(self, direction: int) -> None:
+        if self._on_tune_step is not None:
+            self._on_tune_step(direction)
+
+    def _handle_tune_wheel(self, event) -> None:
+        if event.delta:
+            self._tune_by_wheel(1 if event.delta > 0 else -1)
+
+    def _tune_touch_start(self, event) -> None:
+        # Only the station heading acts as a swipe-to-tune surface.
+        self._tune_touch_y = event.y if event.y < 54 else None
+
+    def _tune_touch_move(self, event) -> None:
+        if self._tune_touch_y is None:
+            return
+        delta = self._tune_touch_y - event.y
+        if abs(delta) >= 32:
+            self._tune_by_wheel(1 if delta > 0 else -1)
+            self._tune_touch_y = event.y
+
+    def _tune_touch_end(self, _event) -> None:
+        self._tune_touch_y = None
 
     def set_tuning_range(self, tuning_range: tuple[int, int, int] | None) -> None:
         """Use the active profile's band limits and tuning step."""
