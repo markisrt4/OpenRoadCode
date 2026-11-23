@@ -1,32 +1,35 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Test CalDAV discovery without contacting a calendar service."""
+"""Mock CalDAV discovery chain and security tests."""
 
 import unittest
 from unittest.mock import patch
 
 from controllers.calendar.caldav_adapter import CalDavAdapter
 
-XML = b"""<?xml version="1.0"?>
-<d:multistatus xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">
-  <d:response>
-    <d:href>/caldav/personal/</d:href>
-    <d:propstat>
-      <d:prop>
-        <d:displayname>Personal</d:displayname>
-        <d:resourcetype><d:collection/><c:calendar/></d:resourcetype>
-      </d:prop>
-      <d:status>HTTP/1.1 200 OK</d:status>
-    </d:propstat>
-  </d:response>
-  <d:response>
-    <d:href>/caldav/</d:href>
-    <d:propstat>
-      <d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop>
-      <d:status>HTTP/1.1 200 OK</d:status>
-    </d:propstat>
-  </d:response>
-</d:multistatus>"""
+
+def multistatus(href: str, properties: str) -> bytes:
+    return (
+        '<d:multistatus xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">'
+        f'<d:response><d:href>{href}</d:href><d:propstat><d:prop>{properties}</d:prop>'
+        '<d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>'
+        '</d:multistatus>'
+    ).encode()
+
+
+PRINCIPAL = multistatus(
+    "/caldav/principal/",
+    "<d:current-user-principal><d:href>/caldav/principal/</d:href></d:current-user-principal>",
+)
+HOME = multistatus(
+    "/caldav/principal/",
+    "<c:calendar-home-set><d:href>/caldav/principal/calendars/</d:href></c:calendar-home-set>",
+)
+CALENDAR = multistatus(
+    "/caldav/principal/calendars/personal/",
+    "<d:displayname>Personal</d:displayname>"
+    "<d:resourcetype><d:collection/><c:calendar/></d:resourcetype>",
+)
 
 
 class FakeSecrets:
@@ -38,6 +41,9 @@ class FakeSecrets:
 class FakeResponse:
     status = 207
 
+    def __init__(self, data: bytes) -> None:
+        self.data = data
+
     def __enter__(self):
         return self
 
@@ -45,25 +51,64 @@ class FakeResponse:
         return False
 
     def read(self, _size):
-        return XML
+        return self.data
+
+
+class FakeOpener:
+    def __init__(self, responses: list[bytes]) -> None:
+        self.responses = iter(responses)
+        self.requests = []
+
+    def open(self, request, timeout):
+        self.requests.append(request)
+        return FakeResponse(next(self.responses))
 
 
 class CalDavAdapterTests(unittest.TestCase):
-    def test_discover_calendar_collections(self) -> None:
-        adapter = CalDavAdapter(
+    def setUp(self) -> None:
+        self.adapter = CalDavAdapter(
             "http://127.0.0.1:8080/caldav/",
             "demo@example.com",
             FakeSecrets(),
             "CALDAV_BRIDGE_PASSWORD",
         )
-        with patch("controllers.calendar.caldav_adapter.urlopen", return_value=FakeResponse()) as opener:
-            calendars = adapter.discover_calendars()
+
+    def test_follows_principal_and_home(self) -> None:
+        opener = FakeOpener([PRINCIPAL, HOME, CALENDAR])
+        with patch("controllers.calendar.caldav_adapter.build_opener", return_value=opener):
+            calendars = self.adapter.discover_calendars()
+        self.assertEqual(
+            [(item.display_name, item.href) for item in calendars],
+            [("Personal", "http://127.0.0.1:8080/caldav/principal/calendars/personal/")],
+        )
+        self.assertEqual(
+            [request.full_url for request in opener.requests],
+            [
+                "http://127.0.0.1:8080/caldav/",
+                "http://127.0.0.1:8080/caldav/principal/",
+                "http://127.0.0.1:8080/caldav/principal/calendars/",
+            ],
+        )
+        self.assertEqual(
+            [request.get_header("Depth") for request in opener.requests], ["0", "0", "1"]
+        )
+
+    def test_falls_back_to_base_when_no_principal(self) -> None:
+        empty = multistatus("/caldav/", "<d:displayname>Root</d:displayname>")
+        opener = FakeOpener([empty, CALENDAR])
+        with patch("controllers.calendar.caldav_adapter.build_opener", return_value=opener):
+            calendars = self.adapter.discover_calendars()
         self.assertEqual(len(calendars), 1)
-        self.assertEqual(calendars[0].display_name, "Personal")
-        self.assertEqual(calendars[0].href, "http://127.0.0.1:8080/caldav/personal/")
-        request = opener.call_args.args[0]
-        self.assertEqual(request.get_method(), "PROPFIND")
-        self.assertEqual(request.get_header("Depth"), "1")
+
+    def test_rejects_cross_origin_calendar_home(self) -> None:
+        external = multistatus(
+            "/caldav/principal/",
+            "<c:calendar-home-set><d:href>https://evil.example/cal/</d:href></c:calendar-home-set>",
+        )
+        opener = FakeOpener([PRINCIPAL, external])
+        with patch("controllers.calendar.caldav_adapter.build_opener", return_value=opener):
+            with self.assertRaises(ValueError):
+                self.adapter.discover_calendars()
 
     def test_rejects_non_loopback_plaintext(self) -> None:
         with self.assertRaises(ValueError):
