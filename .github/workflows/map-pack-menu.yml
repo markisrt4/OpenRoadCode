@@ -8,6 +8,9 @@ on:
       - frontends/web/cesium/terrain_cues.js
       - frontends/web/cesium/unit_test/test_terrain_cues.js
       - tools/map_builder/templates/openroadcode-style.json
+      - tools/map_builder/templates/process-census-primary-roads.lua
+      - tools/map_builder/Dockerfile
+      - tools/map_builder/README.md
       - tools/map_builder/builder/build.py
       - tools/map_builder/builder/cli.py
       - tools/map_builder/builder/validate.py
@@ -40,6 +43,7 @@ on:
       - .github/workflows/build-metro-detroit-imagery.yml
       - tools/map_builder/tests/test_map_pack_menu.py
       - tools/map_builder/scripts/run-builder.sh
+      - tools/map_builder/scripts/validate-host.sh
       - .github/workflows/map-pack-menu.yml
       - .github/workflows/us-coarse-terrain.yml
       - development/maps/build_us_terrain.py
