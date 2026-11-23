@@ -80,8 +80,8 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
         self._canvas.bind("<Configure>", lambda _event: self._schedule_render())
         self._canvas.bind("<Button-1>", self._handle_spectrum_click)
         self._canvas.bind("<MouseWheel>", self._handle_tune_wheel)
-        self._canvas.bind("<Button-4>", lambda event: self._tune_by_wheel(1) if event.y < 54 else None)
-        self._canvas.bind("<Button-5>", lambda event: self._tune_by_wheel(-1) if event.y < 54 else None)
+        self._canvas.bind("<Button-4>", lambda event: self._tune_by_wheel(1) if event.y < self._heading_height() else None)
+        self._canvas.bind("<Button-5>", lambda event: self._tune_by_wheel(-1) if event.y < self._heading_height() else None)
         self._canvas.bind("<ButtonPress-1>", self._tune_touch_start, add="+")
         self._canvas.bind("<B1-Motion>", self._tune_touch_move)
         self._canvas.bind("<ButtonRelease-1>", self._tune_touch_end)
@@ -89,6 +89,9 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
             self._gl_surface = OpenGLRadioSurface(self, width=320, height=180)
             self._gl_surface.place(x=0, y=80, relwidth=1, height=180)
             self._gl_surface.bind("<Button-1>", self._handle_spectrum_click)
+            self._gl_surface.bind("<MouseWheel>", lambda event: self._tune_by_wheel(1 if event.delta > 0 else -1) if event.delta else None)
+            self._gl_surface.bind("<Button-4>", lambda _event: self._tune_by_wheel(1))
+            self._gl_surface.bind("<Button-5>", lambda _event: self._tune_by_wheel(-1))
         # Keep spectrum navigation in its own band, away from the MHz heading.
         self._spectrum_toolbar_visible = True
         self._spectrum_controls = tk.Frame(self, bg=theme.ui.surface)
@@ -205,13 +208,16 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
         if self._on_tune_step is not None:
             self._on_tune_step(direction)
 
+    def _heading_height(self) -> int:
+        return 54 if self._canvas.winfo_height() < 260 else 80
+
     def _handle_tune_wheel(self, event) -> None:
-        if event.delta and event.y < 54:
+        if event.delta and event.y < self._heading_height():
             self._tune_by_wheel(1 if event.delta > 0 else -1)
 
     def _tune_touch_start(self, event) -> None:
         # Only the station heading acts as a swipe-to-tune surface.
-        self._tune_touch_y = event.y if event.y < 54 else None
+        self._tune_touch_y = event.y if event.y < self._heading_height() else None
 
     def _tune_touch_move(self, event) -> None:
         if self._tune_touch_y is None:
