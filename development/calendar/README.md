@@ -5,6 +5,32 @@ Authenticate it manually with `carbonate auth` before installing a service.
 Never put Proton credentials or the bridge password in a service file.
 The bridge should remain bound to loopback.
 
+## Unattended authentication
+
+The launcher uses ORC's existing `EnvironmentVariableSecretManager` to load
+`CARBONATE_BRIDGE_PASSWORD`. On Termux, the default secrets file is
+`~/.config/openroadcode/secrets.env`; on Linux it is
+`/etc/openroadcode/secrets.env`. Set `OPENROADCODE_SECRETS_FILE` to
+override the location. Use ORC's secret manager to set the secret, rather
+than putting it in a service unit or a second password file:
+
+```sh
+python - <<'PY'
+from getpass import getpass
+from security.environment_variable_secret_manager import EnvironmentVariableSecretManager
+EnvironmentVariableSecretManager().set_secret(
+    "CARBONATE_BRIDGE_PASSWORD", getpass("Existing Carbonate bridge password: ")
+)
+PY
+```
+
+Run this from the OpenRoadCode repository root, with the Python environment
+used by ORC. Keep the secrets directory private (mode 700) and secrets file
+private (mode 600). The bridge password is not the Proton login password.
+The launcher uses `python3` by default; override with
+`OPENROADCODE_PYTHON` if the service requires a different interpreter.
+Carbonate itself must be authenticated separately first.
+
 ## Termux
 
 Install `termux-services` using `pkg install termux-services`, then:
@@ -15,8 +41,8 @@ sv up openroadcode-carbonate
 sv status openroadcode-carbonate
 ```
 
-If the runit supervisor is not active, restart the Termux session.
-Carbonate must already be installed and discoverable on PATH.
+If the runit supervisor is not active, restart the Termux session.\nLogs are in ~/.local/state/openroadcode/current.
+Carbonate is located on PATH, in ~/go/bin, or in ~/src/carbonate.\nOverride with CARBONATE_BIN for another installation.
 Use `sv down openroadcode-carbonate` to stop it.
 
 ## Linux with systemd user services
