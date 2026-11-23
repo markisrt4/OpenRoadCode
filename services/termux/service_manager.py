@@ -48,6 +48,8 @@ class RunitServiceManager:
         "openroadcode-navigation",
         "openroadcode-automotive",
         "openroadcode-adsb",
+        "openroadcode-carbonate",
+        "openroadcode-calendar-sync",
     )
     CORE_STACK = (
         "openroadcode-message-broker",
