@@ -163,7 +163,10 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
             return
         rate = float(self._sample_rate_hz)
         span = min(viewport.span_hz, rate)
-        self._viewport = replace(viewport, span_hz=span)
+        center = viewport.center_hz
+        if abs(center - self._center_frequency_hz) >= (rate + span) / 2:
+            center = float(self._center_frequency_hz)
+        self._viewport = replace(viewport, center_hz=center, span_hz=span)
 
     def pan_spectrum(self, fraction: float) -> None:
         if self._viewport is not None:
