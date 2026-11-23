@@ -79,6 +79,7 @@ files = [
     "controllers/radio/streaming_radio_backend_if.py",
     "controllers/radio/streaming_radio_artwork.py",
     "frontends/tk/radio/streaming_radio_panel.py",
+    "frontends/tk/radio/streaming_radio_layout.py",
     "frontends/tk/radio/persistent_streaming_radio_panel.py",
     "frontends/tk/radio/streaming_radio_now_playing.py",
     "frontends/tk/radio/radio_screen.py",
