@@ -24,11 +24,11 @@ def packages(feature):
 
 
 def test_development_feature_provides_required_quality_tools():
-    assert packages("development") == ["pytest", "ruff", "mypy==1.19.1"]
+    assert packages("development") == ["pytest", "ruff==0.17.3", "mypy==1.19.1"]
 
 
 def test_runtime_base_keeps_development_tools_optional():
-    assert not {"pytest", "ruff", "mypy==1.19.1"}.intersection(packages("base"))
+    assert not {"pytest", "ruff==0.17.3", "mypy==1.19.1"}.intersection(packages("base"))
 
 
 def test_pinned_package_is_reinstalled_only_when_version_differs():

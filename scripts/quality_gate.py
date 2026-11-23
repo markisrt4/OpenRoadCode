@@ -9,6 +9,7 @@ from __future__ import annotations
 import importlib.util
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 
@@ -32,13 +33,14 @@ def _run(label: str, command: list[str]) -> bool:
 
 
 def _run_ruff() -> bool:
-    if importlib.util.find_spec("ruff") is None:
-        if _is_termux():
-            print("\n[SKIP] Ruff unavailable on Termux", flush=True)
-            return True
-        print("\n[FAIL] Ruff is not installed", file=sys.stderr, flush=True)
+    venv_ruff = Path(sys.executable).with_name("ruff")
+    ruff = str(venv_ruff) if venv_ruff.is_file() else shutil.which("ruff")
+    if ruff is None:
+        print("\n[FAIL] Ruff executable is not installed", file=sys.stderr, flush=True)
         return False
-    return _run("Ruff", [sys.executable, "-m", "ruff", "check", "."])
+    lint_ok = _run("Ruff lint", [ruff, "check", "."])
+    format_ok = _run("Ruff format", [ruff, "format", "--check", "."])
+    return lint_ok and format_ok
 
 
 def _run_ui_types() -> bool:
