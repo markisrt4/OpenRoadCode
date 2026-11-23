@@ -18,19 +18,10 @@ if ! command -v "$CARBONATE_BIN" >/dev/null 2>&1; then
     echo "Carbonate executable not found: $CARBONATE_BIN" >&2
     exit 127
 fi
-# Load the existing bridge password without printing it or placing it in argv.
-# The file must contain exactly the password, optionally followed by a newline.
-PASSWORD_FILE="${CARBONATE_BRIDGE_PASSWORD_FILE:-$HOME/.config/openroadcode/carbonate-bridge-password}"
-if [ -z "${CARBONATE_BRIDGE_PASSWORD:-}" ] && [ -f "$PASSWORD_FILE" ]; then
-    if [ ! -r "$PASSWORD_FILE" ]; then
-        echo "Carbonate password file is not readable" >&2
-        exit 1
-    fi
-    CARBONATE_BRIDGE_PASSWORD=$(cat "$PASSWORD_FILE")
-    export CARBONATE_BRIDGE_PASSWORD
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+PYTHON_BIN="${OPENROADCODE_PYTHON:-python3}"
+if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
+    echo "Python executable not found: $PYTHON_BIN" >&2
+    exit 127
 fi
-if [ -z "${CARBONATE_BRIDGE_PASSWORD:-}" ]; then
-    echo "Carbonate bridge password unavailable; configure $PASSWORD_FILE" >&2
-    exit 1
-fi
-exec "$CARBONATE_BIN" serve
+exec "$PYTHON_BIN" "$SCRIPT_DIR/carbonate_exec.py" "$CARBONATE_BIN"
