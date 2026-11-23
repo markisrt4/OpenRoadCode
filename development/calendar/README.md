@@ -121,3 +121,26 @@ Ctrl+C. It does not print event contents. The selection file is loaded at
 startup, so restart the daemon after changing disabled calendars.
 
 This entrypoint is not yet registered as a Termux or systemd service.
+
+## Monitored Termux calendar synchronization
+
+After confirming that the manual sync works and the required
+`CALDAV_BRIDGE_PASSWORD` secret is available, install the sync worker from
+the OpenRoadCode checkout:
+
+```sh
+sh development/calendar/install_termux_sync_service.sh 'YOUR_USERNAME@proton.me'
+sv up openroadcode-calendar-sync
+sv status openroadcode-calendar-sync
+tail -f "$HOME/.local/state/openroadcode-calendar-sync/current"
+```
+
+The runit service is separate from `openroadcode-carbonate`. Both names are
+included in the Termux service manager's allowlist for System Performance
+monitoring. The calendar daemon also appears in ORC process workload metrics.
+A service marked running indicates process supervision, not necessarily that
+CalDAV synchronization succeeded; inspect logs for cycle results.
+
+Stop with `sv down openroadcode-calendar-sync`. If the supervisor is not
+active, restart the Termux session. Keep the secrets file private. Changes
+to calendar selection require restarting the sync service.
