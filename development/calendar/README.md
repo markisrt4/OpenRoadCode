@@ -77,4 +77,10 @@ Unsupported recurrence resources are counted as skipped, not silently
 treated as successful event expansion.
 
 These scripts manage Carbonate, **not** a standalone ORC calendar daemon.
-A recurring ORC sync worker and persistent cache will be added separately.
+The initial ORC sync worker (`CalendarSyncWorker.sync_once`) and SQLite
+snapshot cache (`CalendarEventCache`) are available. They are not yet
+scheduled or connected to the UI. Call sync from a background worker, not
+the UI thread. Only successful, enabled calendar queries replace snapshots;
+failed calendars retain their last saved events. The current cache stores
+time-window snapshots and is a foundation for offline support, not yet a
+complete incremental-sync or recurrence-expansion implementation.
