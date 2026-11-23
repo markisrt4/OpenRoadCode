@@ -21,6 +21,15 @@ from .radio_group_menu import MAIN_GROUPS, RadioGroupMenuMixin
 class RadioPanelStateMixin:
     """Apply radio snapshots and update visible receiver state."""
 
+    def _browsed_profile(self, state: RfRadioState):
+        """Prefer the tuned profile within the browsed category."""
+        group = self._active_group.split(":", 1)[0]
+        profiles = tuple(p for p in state.profiles if p.group == group)
+        return next(
+            (p for p in profiles if p.key == state.station.profile_key),
+            profiles[0] if profiles else None,
+        )
+
     def set_radio_state(self, state: RfRadioState) -> None:
         if (self._sdrforge_view is not None
                 and state.receiver_running is False
@@ -39,7 +48,9 @@ class RadioPanelStateMixin:
         if state.view == "adsb":
             self._active_group = "AIR:ADSB"
         elif profile is not None:
-            if self._pending_group is None or profile.group == self._pending_group:
+            if self._pending_group is None or (
+                self._sdrforge_view is None and profile.group == self._pending_group
+            ):
                 self._active_group = profile.group
                 self._pending_group = None
         self._paint_groups()
@@ -96,7 +107,11 @@ class RadioPanelStateMixin:
                     self._station_info.grid()
                     name = state.telemetry.station_name.strip()
                     text = (state.telemetry.radio_text or state.telemetry.rds or "").strip()
-                    if group == "FM":
+                    if profile is None or profile.group != group:
+                        self._info_title.configure(text=group)
+                        self._info_name.configure(text="Select a preset to tune")
+                        self._info_text.configure(text="Current receiver remains active")
+                    elif group == "FM":
                         self._info_title.configure(text="RDS  •  " + (
                             "RECEIVING" if name or text else "WAITING"))
                         self._info_name.configure(text=name or "No station ID")
