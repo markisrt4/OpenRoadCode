@@ -5,15 +5,15 @@
 
 from __future__ import annotations
 
-import os
 import tkinter as tk
 from collections.abc import Callable, Sequence
-from pathlib import Path
 from functools import partial
 
 from ui.games import GameStatus, GameUiState, GamesRequestHandlerIf, GamesUiIf
 from ui.theme import ThemeBundle
 from ui.ui_widget import UiWidget
+
+from .game_catalog_icons import game_icon
 
 PAGE_SIZE = 6
 FILTERS = (
@@ -23,7 +23,6 @@ FILTERS = (
     ("CARD / BOARD", "card_board"),
     ("ACTION", "action"),
 )
-_ICON_SIZES = (128, 96, 64, 48, 32, 256)
 
 
 def catalog_column_count(width: int) -> int:
@@ -364,49 +363,6 @@ class GamesPanel(tk.Frame, GamesUiIf, UiWidget):
         canvas.bind("<Button-4>", lambda event: canvas.yview_scroll(-1, "units"))
         canvas.bind("<Button-5>", lambda event: canvas.yview_scroll(1, "units"))
 
-    def _find_icon(self, icon_name: str) -> Path | None:
-        prefix = Path(os.environ.get("PREFIX", "/usr"))
-        for root in (prefix / "share" / "pixmaps", Path("/usr/share/pixmaps")):
-            for extension in ("png", "gif"):
-                candidate = root / f"{icon_name}.{extension}"
-                if candidate.is_file():
-                    return candidate
-        for root in (prefix / "share" / "icons", Path("/usr/share/icons")):
-            for icon_theme in ("hicolor", "breeze", "breeze-dark", "Adwaita"):
-                for size in _ICON_SIZES:
-                    for context in ("apps", "applications"):
-                        for extension in ("png", "gif"):
-                            candidate = (
-                                root
-                                / icon_theme
-                                / f"{size}x{size}"
-                                / context
-                                / f"{icon_name}.{extension}"
-                            )
-                            if candidate.is_file():
-                                return candidate
-        return None
-
-    def _icon_for(self, game: GameUiState) -> tk.PhotoImage | None:
-        if not game.icon:
-            return None
-        if game.icon in self._icon_cache:
-            return self._icon_cache[game.icon]
-        path = self._find_icon(game.icon)
-        image: tk.PhotoImage | None = None
-        if path is not None:
-            try:
-                image = tk.PhotoImage(file=str(path))
-                maximum = max(image.width(), image.height())
-                if maximum > 56:
-                    image = image.subsample(
-                        max(1, (maximum + 55) // 56), max(1, (maximum + 55) // 56)
-                    )
-            except tk.TclError:
-                image = None
-        self._icon_cache[game.icon] = image
-        return image
-
     def _game_card(self, parent: tk.Misc, game: GameUiState) -> tk.Frame:
         ui = self._theme.ui
         card = tk.Frame(
@@ -421,7 +377,7 @@ class GamesPanel(tk.Frame, GamesUiIf, UiWidget):
 
         label, command, accent = self._action_for(game)
         actionable = command is not None
-        icon = self._icon_for(game)
+        icon = game_icon(game.icon, self._icon_cache)
 
         icon_box = tk.Frame(card, bg=ui.surface, width=58, height=56)
         icon_box.grid(row=0, column=0, rowspan=2, padx=(8, 2), pady=5)

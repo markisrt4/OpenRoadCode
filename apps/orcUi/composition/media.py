@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import copy
 import io
 from concurrent.futures import ThreadPoolExecutor
 import os
@@ -16,7 +15,7 @@ from dataclasses import dataclass, field
 
 from common.resource_cleanup import ResourceCleanup, close_resources
 
-from apps.common.uiTheme.spotify import SPOTIFY_PANEL_THEME
+from .media_spotify_theme import SPOTIFY_GREEN as SPOTIFY_GREEN, spotify_theme as spotify_theme
 from apps.common.spotify_presentation_factory import (
     create_spotify_presentation,
     cached_artwork_loader,
@@ -72,7 +71,6 @@ MUSIC_VIDEO_WINDOW_CLASS = "OpenRoadCodeMusicVideo"
 YOUTUBE_WINDOW_CLASS = "openroadcode-youtube"
 YOUTUBE_MUSIC_WINDOW_CLASS = "openroadcode-youtube-music"
 NETFLIX_WINDOW_CLASS = "openroadcode-netflix"
-SPOTIFY_GREEN = "#1DB954"
 
 
 @dataclass(slots=True)
@@ -102,31 +100,6 @@ class MediaComposition:
             self.visualizer_runtime.close,
             self.music_video_controller.stop_video,
         )
-
-
-def spotify_theme(app: OrcUiApp) -> dict:
-    """Use active CSS for chrome and Spotify green for provider actions."""
-    theme = copy.deepcopy(SPOTIFY_PANEL_THEME)
-    ui = theme_bundle(app.theme_mode).ui
-    theme["colors"].update(
-        {
-            "background": ui.background,
-            "card_background": ui.surface,
-            "card_border": ui.border,
-            "title": ui.text,
-            "subtitle": ui.text_muted,
-            "detail": ui.text_muted,
-            "status": ui.accent_success,
-            "button_background": ui.control_background,
-            "button_foreground": ui.control_text,
-            "button_active_background": SPOTIFY_GREEN,
-            "button_active_foreground": "#000000",
-            "button_disabled_foreground": ui.text_muted,
-            "progress_track": ui.border,
-            "progress_fill": SPOTIFY_GREEN,
-        }
-    )
-    return theme
 
 
 def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
