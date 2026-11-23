@@ -17,6 +17,7 @@ from .shell_metrics import FONT_SMALL
 from .radio_display_controls import RadioDisplayControlsMixin
 from .radio_panel_layout_mixin import RadioPanelLayoutMixin
 from .radio_panel_state_mixin import RadioPanelStateMixin
+from .radio_tuning_gestures_mixin import RadioTuningGesturesMixin
 from .radio_group_menu import MAIN_GROUPS, RadioGroupMenuMixin
 
 RADIO_GROUPS = tuple(name for name, _ in MAIN_GROUPS)
@@ -27,7 +28,7 @@ def receiver_sidebar_width(panel_width: int) -> int:
 
 
 
-class RadioPanel(RadioPanelStateMixin, RadioPanelLayoutMixin, RadioGroupMenuMixin, RadioDisplayControlsMixin):
+class RadioPanel(RadioTuningGesturesMixin, RadioPanelStateMixin, RadioPanelLayoutMixin, RadioGroupMenuMixin, RadioDisplayControlsMixin):
     """Automotive controls for native RF and embedded ADS-B views."""
 
     def __init__(
