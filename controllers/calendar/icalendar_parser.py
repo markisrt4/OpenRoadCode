@@ -55,7 +55,7 @@ def _date_value(params: dict[str, str], value: str) -> tuple[datetime, bool]:
         day = date.fromisoformat(f"{value[:4]}-{value[4:6]}-{value[6:8]}")
         return datetime.combine(day, datetime.min.time(), timezone.utc), True
     if value.endswith("Z"):
-        return datetime.strptime(value, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc), False
+        return datetime.fromisoformat(value).astimezone(timezone.utc), False
     zone = params.get("TZID")
     if not zone:
         raise UnsupportedCalendarEventError("Floating event time needs an explicit timezone")
@@ -63,7 +63,7 @@ def _date_value(params: dict[str, str], value: str) -> tuple[datetime, bool]:
         tz = ZoneInfo(zone)
     except (KeyError, ValueError) as error:
         raise UnsupportedCalendarEventError("Unsupported timezone identifier") from error
-    return datetime.strptime(value, "%Y%m%dT%H%M%S").replace(tzinfo=tz), False
+    return datetime.fromisoformat(value).replace(tzinfo=tz), False
 
 
 def parse_icalendar_events(
