@@ -52,6 +52,7 @@ if OpenGLFrame is not None:
             self._history: tuple[tuple[float, ...], ...] = ()
             self._palette = "classic"
             self._tuned_position: float | None = None
+            self._passband = None
             self._ready = False
             self._waterfall_texture = None
             self._texture_size: tuple[int, int] | None = None
@@ -70,12 +71,14 @@ if OpenGLFrame is not None:
         def update_data(self, bins: Sequence[float],
                         history: Sequence[Sequence[float]], palette: str,
                         peaks: Sequence[float] = (),
-                        tuned_position: float | None = None) -> None:
+                        tuned_position: float | None = None,
+                        passband: tuple[float, float] | None = None) -> None:
             self._bins = tuple(bins)
             self._peaks = tuple(peaks)
             self._history = tuple(tuple(row) for row in history)
             self._palette = palette
             self._tuned_position = tuned_position
+            self._passband = passband
             if self._ready and self.winfo_exists():
                 self.tkMakeCurrent()
                 self.redraw()
@@ -194,6 +197,16 @@ if OpenGLFrame is not None:
                 GL.glVertex2f(x, 1.0)
             GL.glEnd()
             GL.glDisable(GL.GL_LINE_STIPPLE)
+            if self._passband is not None:
+                left, right = self._passband
+                GL.glEnable(GL.GL_BLEND)
+                GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+                GL.glColor4f(.4, .95, .5, .22)
+                GL.glBegin(GL.GL_QUADS)
+                for x, y in ((left, 0.), (right, 0.), (right, 1.), (left, 1.)):
+                    GL.glVertex2f(x, y)
+                GL.glEnd()
+                GL.glDisable(GL.GL_BLEND)
             if self._tuned_position is not None and 0.0 <= self._tuned_position <= 1.0:
                 GL.glColor3f(.4, .95, .5)
                 GL.glLineWidth(2)
