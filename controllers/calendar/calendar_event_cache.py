@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: MIT
 """SQLite-backed snapshots of normalized calendar events.
 
-Snapshots are scoped to a queried time window. Failed calendar syncs never
-replace a previously successful snapshot.
+Each calendar retains its most recent successful query window. Failed calendar
+syncs never replace a previously successful snapshot.
 """
 
 from __future__ import annotations
@@ -66,7 +66,7 @@ class CalendarEventCache:
         end: datetime,
         events: list[CalendarEvent],
     ) -> None:
-        """Atomically replace one successful calendar/window, including empty ones."""
+        """Atomically replace the calendar's last successful snapshot, even if empty."""
         window_start, window_end = self._window(start, end)
         if not account_id or not calendar_id:
             raise ValueError("Account and calendar IDs are required")
@@ -78,9 +78,14 @@ class CalendarEventCache:
         with self._connect() as connection:
             key = (account_id, calendar_id, window_start, window_end)
             connection.execute(
-                """DELETE FROM calendar_snapshots WHERE account_id = ?
-                   AND calendar_id = ? AND window_start = ? AND window_end = ?""",
-                key,
+                """DELETE FROM calendar_snapshots
+                   WHERE account_id = ? AND calendar_id = ?""",
+                (account_id, calendar_id),
+            )
+            connection.execute(
+                """DELETE FROM calendar_snapshot_windows
+                   WHERE account_id = ? AND calendar_id = ?""",
+                (account_id, calendar_id),
             )
             connection.executemany(
                 """INSERT INTO calendar_snapshots VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
@@ -99,7 +104,7 @@ class CalendarEventCache:
             )
 
     def list_events(self, start: datetime, end: datetime) -> list[CalendarEvent]:
-        """Read events from saved windows, deduplicating overlapping snapshots."""
+        """Read events from the latest successful snapshot per calendar."""
         self._window(start, end)
         with self._connect() as connection:
             rows = connection.execute(
