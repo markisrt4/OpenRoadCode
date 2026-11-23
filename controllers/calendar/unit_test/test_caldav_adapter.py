@@ -3,11 +3,13 @@
 """Mock CalDAV discovery chain and security tests."""
 
 import unittest
+from datetime import datetime, timezone
 from urllib.error import HTTPError
 from unittest.mock import patch
 
 from controllers.calendar.caldav_adapter import (
     CalDavAdapter,
+    CalDavCalendar,
     CalDavAuthenticationError,
     CalDavHttpError,
 )
@@ -142,6 +144,49 @@ class CalDavAdapterTests(unittest.TestCase):
             ):
                 with self.assertRaisesRegex(CalDavHttpError, "403"):
                     self.adapter.discover_calendars()
+
+    def test_calendar_query_returns_icalendar_and_etag(self) -> None:
+        report = multistatus(
+            "/caldav/principal/calendars/personal/meeting.ics",
+            "<d:getetag>&quot;revision-1&quot;</d:getetag>"
+            "<c:calendar-data>BEGIN:VCALENDAR\\nBEGIN:VEVENT\\nUID:abc\\nEND:VEVENT\\nEND:VCALENDAR</c:calendar-data>",
+        )
+        opener = FakeOpener([report])
+        with patch("controllers.calendar.caldav_adapter.build_opener", return_value=opener):
+            resources = self.adapter.query_event_resources(
+                CalDavCalendar(
+                    "http://127.0.0.1:8080/caldav/principal/calendars/personal/",
+                    "Personal",
+                ),
+                datetime(2026, 11, 1, tzinfo=timezone.utc),
+                datetime(2026, 12, 1, tzinfo=timezone.utc),
+            )
+        self.assertEqual(len(resources), 1)
+        self.assertEqual(resources[0].etag, '"revision-1"')
+        self.assertIn("BEGIN:VEVENT", resources[0].icalendar)
+        request = opener.requests[0]
+        self.assertEqual(request.get_method(), "REPORT")
+        self.assertEqual(request.get_header("Depth"), "1")
+        self.assertIn(b'20261101T000000Z', request.data)
+        self.assertIn(b'20261201T000000Z', request.data)
+
+    def test_calendar_query_rejects_invalid_range(self) -> None:
+        calendar = CalDavCalendar("http://127.0.0.1:8080/caldav/personal/", "Personal")
+        with self.assertRaises(ValueError):
+            self.adapter.query_event_resources(
+                calendar,
+                datetime(2026, 11, 1),
+                datetime(2026, 12, 1, tzinfo=timezone.utc),
+            )
+
+    def test_calendar_query_rejects_cross_origin(self) -> None:
+        calendar = CalDavCalendar("https://other.example/calendar/", "Other")
+        with self.assertRaises(ValueError):
+            self.adapter.query_event_resources(
+                calendar,
+                datetime(2026, 11, 1, tzinfo=timezone.utc),
+                datetime(2026, 12, 1, tzinfo=timezone.utc),
+            )
 
     def test_rejects_non_loopback_plaintext(self) -> None:
         with self.assertRaises(ValueError):
