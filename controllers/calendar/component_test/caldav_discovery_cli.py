@@ -6,8 +6,13 @@ from __future__ import annotations
 
 import argparse
 import getpass
+import sys
 
-from controllers.calendar.caldav_adapter import CalDavAdapter
+from controllers.calendar.caldav_adapter import (
+    CalDavAdapter,
+    CalDavAuthenticationError,
+    CalDavHttpError,
+)
 from security.environment_variable_secret_manager import EnvironmentVariableSecretManager
 
 
@@ -34,7 +39,14 @@ def main() -> None:
         else EnvironmentVariableSecretManager()
     )
     adapter = CalDavAdapter(args.url, args.username, secrets, args.password_secret)
-    calendars = adapter.discover_calendars()
+    try:
+        calendars = adapter.discover_calendars()
+    except CalDavAuthenticationError as error:
+        print(f"Authentication error: {error}", file=sys.stderr)
+        raise SystemExit(2) from None
+    except CalDavHttpError as error:
+        print(f"CalDAV server error: {error}", file=sys.stderr)
+        raise SystemExit(1) from None
     print(f"Discovered {len(calendars)} calendar(s)")
     for calendar in calendars:
         print(f"  {calendar.display_name}")
