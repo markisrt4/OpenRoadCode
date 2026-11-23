@@ -95,15 +95,24 @@ class CalDavCalendarProvider(CalendarProviderIf):
             return []
         events: list[CalendarEvent] = []
         skipped = 0
+        skipped_reasons: dict[str, int] = {}
         for resource in resources:
             try:
                 parsed = parse_icalendar_events(resource.icalendar, self._account_id, calendar.href)
-            except (ValueError, UnsupportedCalendarEventError):
+            except (ValueError, UnsupportedCalendarEventError) as error:
                 skipped += 1
+                reason = (
+                    "unsupported_recurrence"
+                    if isinstance(error, UnsupportedCalendarEventError)
+                    else "invalid_calendar_data"
+                )
+                skipped_reasons[reason] = skipped_reasons.get(reason, 0) + 1
                 continue
             events.extend(
                 event for event in parsed if event.starts_at < end and event.ends_at > start
             )
+        if skipped_reasons:
+            _LOG.warning("Calendar resources skipped by reason: %s", skipped_reasons)
         self.last_sync_status.append(
             CalendarSyncStatus(
                 calendar.href,
