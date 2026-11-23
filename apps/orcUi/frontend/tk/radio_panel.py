@@ -408,12 +408,14 @@ class RadioPanel(RadioTuningGesturesMixin, RadioPanelStateMixin, RadioPanelLayou
                 RadioAction.TUNE_FREQUENCY, frequency_hz=frequency_hz))
 
     def _tune_down(self) -> None:
-        if self._sdrforge_view is not None and not self._state.receiver_running:
+        if self._sdrforge_view is not None:
+            self._manual_tune(-1)
             return
         self._session.request(RadioRequest(RadioAction.TUNE_DOWN))
 
     def _tune_up(self) -> None:
-        if self._sdrforge_view is not None and not self._state.receiver_running:
+        if self._sdrforge_view is not None:
+            self._manual_tune(1)
             return
         self._session.request(RadioRequest(RadioAction.TUNE_UP))
 
