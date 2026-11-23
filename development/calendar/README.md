@@ -84,3 +84,17 @@ the UI thread. Only successful, enabled calendar queries replace snapshots;
 failed calendars retain their last saved events. The current cache stores
 time-window snapshots and is a foundation for offline support, not yet a
 complete incremental-sync or recurrence-expansion implementation.
+
+## Offline reads and scheduling foundation
+
+`CachedCalendarProvider(account_id, cache)` implements `CalendarProviderIf`
+and can be registered with `CalendarController` for offline event reads.
+`CalendarSyncScheduler(worker)` runs one synchronization immediately and
+repeats every 15 minutes by default (7 days past, 30 days future).
+The caller owns its background thread and stop event; it is **not yet**
+installed as a service.
+
+**Known limitation:** snapshot windows are currently keyed by their exact
+timestamps. As periodic windows advance, older overlapping snapshots remain
+and can contain stale events. Do not enable unattended recurring sync until
+snapshot reconciliation and pruning are implemented and tested.
