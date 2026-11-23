@@ -177,7 +177,7 @@ get_feature_python_packages() {
       printf '%s\n' requests tomli pyzmq
       ;;
     development)
-      printf '%s\n' pytest 'ruff==0.17.3' 'mypy==1.19.1'
+      printf '%s\n' pytest 'ruff==0.17.6' 'mypy==1.19.1'
       ;;
     desktop-ui)
       printf '%s\n' Pillow tinycss2 numpy Flask 'PyOpenGL==3.1.10' 'pyopengltk==0.0.4'
