@@ -94,7 +94,9 @@ repeats every 15 minutes by default (7 days past, 30 days future).
 The caller owns its background thread and stop event; it is **not yet**
 installed as a service.
 
-**Known limitation:** snapshot windows are currently keyed by their exact
-timestamps. As periodic windows advance, older overlapping snapshots remain
-and can contain stale events. Do not enable unattended recurring sync until
-snapshot reconciliation and pruning are implemented and tested.
+**Cache retention:** each successful calendar sync atomically replaces that
+calendar's previous snapshot, preventing stale overlapping windows and
+unbounded accumulation. Failed or disabled calendars retain their last
+successful snapshot. Only the latest queried time window remains available
+offline; this is not an archival calendar store. The periodic scheduler is
+still not installed as a background service.
