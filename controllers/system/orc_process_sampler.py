@@ -169,7 +169,7 @@ def _classify(args: tuple[str, ...]) -> tuple[str, str] | None:
         roots = ("apps.orcUi", "apps.carUi", "apps.carTui", "apps.automotive_dashboard",
                  "apps.map_renderer", "apps.weatherDash", "apps.webUi", "services.android",
                  "services.automotive", "services.navigation", "services.trip", "services.weather",
-                 "messaging.zeromq.broker_cli")
+                 "messaging.zeromq.broker_cli", "controllers.calendar.calendar_sync_daemon")
         if any(module == root or module.startswith(root + ".") for root in roots):
             return module, "workload"
     # Support repo scripts without matching command arguments, logs, or arbitrary grep results.
