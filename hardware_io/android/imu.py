@@ -48,7 +48,11 @@ class AndroidImu:
         if not self._connected:
             raise RuntimeError("Android IMU is not connected")
         sample = self._client.read_imu()
-        linear = _vector(sample.linear_acceleration_mps2) if sample.linear_acceleration_available else None
+        linear = (
+            _vector(sample.linear_acceleration_mps2)
+            if sample.linear_acceleration_available
+            else None
+        )
         timestamp = max(sample.accelerometer_timestamp_ns, sample.gyroscope_timestamp_ns) or None
         return ImuSample(
             acceleration_mps2=_vector(sample.acceleration_mps2),
@@ -59,4 +63,6 @@ class AndroidImu:
 
 
 def _vector(value: object) -> Vector3:
-    return Vector3(x=float(getattr(value, "x")), y=float(getattr(value, "y")), z=float(getattr(value, "z")))
+    return Vector3(
+        x=float(getattr(value, "x")), y=float(getattr(value, "y")), z=float(getattr(value, "z"))
+    )

@@ -65,10 +65,7 @@ def _run(
         snapshot = state_cache.snapshot()
         connected = snapshot.connected
         status = command_status or snapshot.status
-        controls = (
-            "q: quit   h: reset heading   c: calibrate   "
-            f"a: acceleration ({current_mode})"
-        )
+        controls = f"q: quit   h: reset heading   c: calibrate   a: acceleration ({current_mode})"
         view.render(
             screen,
             snapshot,

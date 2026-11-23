@@ -143,7 +143,9 @@ class RadioGroupMenuMixin(RadioPresentationFrame):
             "Add radio preset", "Preset name:", initialvalue=state.label, parent=self
         )
         if label:
-            self._session.request(RadioRequest(RadioAction.ADD_PRESET, key=profile.key, label=label))
+            self._session.request(
+                RadioRequest(RadioAction.ADD_PRESET, key=profile.key, label=label)
+            )
 
     @staticmethod
     def _popup_menu(menu: tk.Menu, button: tk.Button) -> None:

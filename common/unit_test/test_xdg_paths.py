@@ -17,8 +17,9 @@ from common.xdg_paths import (
 
 class XdgPathsTest(unittest.TestCase):
     def test_defaults(self):
-        with patch.dict(os.environ, {}, clear=True), patch(
-            "pathlib.Path.home", return_value=Path("/home/test")
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch("pathlib.Path.home", return_value=Path("/home/test")),
         ):
             self.assertEqual(xdg_config_home(), Path("/home/test/.config"))
             self.assertEqual(xdg_data_home(), Path("/home/test/.local/share"))
@@ -54,19 +55,14 @@ class XdgPathsTest(unittest.TestCase):
             self.assertEqual(
                 openroadcode_config_dir("radio"), Path("/mnt/config/openroadcode/radio")
             )
-            self.assertEqual(
-                openroadcode_data_dir("radio"), Path("/mnt/data/openroadcode/radio")
-            )
-            self.assertEqual(
-                openroadcode_cache_dir("radio"), Path("/mnt/cache/openroadcode/radio")
-            )
-            self.assertEqual(
-                openroadcode_state_dir("radio"), Path("/mnt/state/openroadcode/radio")
-            )
+            self.assertEqual(openroadcode_data_dir("radio"), Path("/mnt/data/openroadcode/radio"))
+            self.assertEqual(openroadcode_cache_dir("radio"), Path("/mnt/cache/openroadcode/radio"))
+            self.assertEqual(openroadcode_state_dir("radio"), Path("/mnt/state/openroadcode/radio"))
 
     def test_relative_override_is_ignored(self):
-        with patch.dict(os.environ, {"XDG_DATA_HOME": "relative"}), patch(
-            "pathlib.Path.home", return_value=Path("/home/test")
+        with (
+            patch.dict(os.environ, {"XDG_DATA_HOME": "relative"}),
+            patch("pathlib.Path.home", return_value=Path("/home/test")),
         ):
             self.assertEqual(xdg_data_home(), Path("/home/test/.local/share"))
 

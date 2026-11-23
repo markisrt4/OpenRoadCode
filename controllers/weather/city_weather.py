@@ -27,7 +27,9 @@ class CityWeatherHours:
     precipitation_mm: tuple[float | None, ...]
 
 
-def city_value(weather: CityWeatherHours, kind: str, hours: int, period: str, anchor: int) -> float | None:
+def city_value(
+    weather: CityWeatherHours, kind: str, hours: int, period: str, anchor: int
+) -> float | None:
     """Select an hourly snapshot or a complete rainfall total over 1–24 hours.
 
     Precipitation at time T is the amount in the preceding hour. Any missing
@@ -75,17 +77,31 @@ class CityWeatherProvider:
         """Return matching Celsius/km/h/mm time series for up to twelve map cities."""
         if not cities:
             return ()
-        if len(cities) > 12 or any(not city.name or not math.isfinite(city.latitude)
-                                  or not math.isfinite(city.longitude) or not -90 <= city.latitude <= 90
-                                  or not -180 <= city.longitude <= 180 for city in cities):
+        if len(cities) > 12 or any(
+            not city.name
+            or not math.isfinite(city.latitude)
+            or not math.isfinite(city.longitude)
+            or not -90 <= city.latitude <= 90
+            or not -180 <= city.longitude <= 180
+            for city in cities
+        ):
             raise ValueError("City weather requires up to twelve valid named locations")
-        response = self._session.get(OpenMeteoWeatherProvider.URL, params={
-            "latitude": ",".join(str(city.latitude) for city in cities),
-            "longitude": ",".join(str(city.longitude) for city in cities),
-            "hourly": "temperature_2m,wind_speed_10m,precipitation",
-            "past_days": 2, "forecast_days": 3, "timezone": "UTC", "timeformat": "unixtime",
-            "temperature_unit": "celsius", "wind_speed_unit": "kmh", "precipitation_unit": "mm",
-        }, timeout=20)
+        response = self._session.get(
+            OpenMeteoWeatherProvider.URL,
+            params={
+                "latitude": ",".join(str(city.latitude) for city in cities),
+                "longitude": ",".join(str(city.longitude) for city in cities),
+                "hourly": "temperature_2m,wind_speed_10m,precipitation",
+                "past_days": 2,
+                "forecast_days": 3,
+                "timezone": "UTC",
+                "timeformat": "unixtime",
+                "temperature_unit": "celsius",
+                "wind_speed_unit": "kmh",
+                "precipitation_unit": "mm",
+            },
+            timeout=20,
+        )
         response.raise_for_status()
         payload = response.json()
         locations = payload if isinstance(payload, list) else [payload]
@@ -95,20 +111,40 @@ class CityWeatherProvider:
         for city, location in zip(cities, locations):
             hourly = location.get("hourly", {})
             times = hourly.get("time", [])
-            if (not times or any(not isinstance(t, int) or isinstance(t, bool) for t in times)
-                    or any(b <= a for a, b in zip(times, times[1:]))):
+            if (
+                not times
+                or any(not isinstance(t, int) or isinstance(t, bool) for t in times)
+                or any(b <= a for a, b in zip(times, times[1:]))
+            ):
                 raise ValueError("City weather has no usable ordered hourly timestamps")
             units = location.get("hourly_units", {})
-            for key, unit in (("temperature_2m", "°C"), ("wind_speed_10m", "km/h"), ("precipitation", "mm")):
+            for key, unit in (
+                ("temperature_2m", "°C"),
+                ("wind_speed_10m", "km/h"),
+                ("precipitation", "mm"),
+            ):
                 if units.get(key) != unit:
                     raise ValueError(f"City weather returned unexpected {key} units")
 
             def values(key, low, high):
                 raw = hourly.get(key, [])
-                return tuple(item if isinstance(item, (int, float)) and not isinstance(item, bool)
-                             and math.isfinite(item) and low <= item <= high else None
-                             for item in (raw[i] if i < len(raw) else None for i in range(len(times))))
+                return tuple(
+                    item
+                    if isinstance(item, (int, float))
+                    and not isinstance(item, bool)
+                    and math.isfinite(item)
+                    and low <= item <= high
+                    else None
+                    for item in (raw[i] if i < len(raw) else None for i in range(len(times)))
+                )
 
-            results.append(CityWeatherHours(city, tuple(times), values("temperature_2m", -100, 70),
-                                             values("wind_speed_10m", 0, 500), values("precipitation", 0, 1000)))
+            results.append(
+                CityWeatherHours(
+                    city,
+                    tuple(times),
+                    values("temperature_2m", -100, 70),
+                    values("wind_speed_10m", 0, 500),
+                    values("precipitation", 0, 1000),
+                )
+            )
         return tuple(results)

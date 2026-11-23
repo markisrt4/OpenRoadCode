@@ -110,7 +110,9 @@ class MapRendererClient:
 
     def search_weather_cities(self, request_id: int) -> None:
         """Ask the native map for a spaced selection of cities in its current viewport."""
-        self._send_command({"command": MapRendererCommand.SEARCH_WEATHER_CITIES, "request_id": request_id})
+        self._send_command(
+            {"command": MapRendererCommand.SEARCH_WEATHER_CITIES, "request_id": request_id}
+        )
 
     def set_center(self, latitude: float, longitude: float) -> None:
         self._send_command(
@@ -149,14 +151,17 @@ class MapRendererClient:
             raise ValueError("weather radar opacity must be between 0.0 and 1.0")
         if not 0 <= max_zoom <= 22:
             raise ValueError("weather radar max zoom must be between 0 and 22")
-        self._send_command({
-            "command": MapRendererCommand.SET_WEATHER_RADAR,
-            "tile_url": tile_url or "",
-            "enabled": enabled,
-            "frame_time": frame_time,
-            "opacity": opacity,
-            "max_zoom": max_zoom,
-        })
+        self._send_command(
+            {
+                "command": MapRendererCommand.SET_WEATHER_RADAR,
+                "tile_url": tile_url or "",
+                "enabled": enabled,
+                "frame_time": frame_time,
+                "opacity": opacity,
+                "max_zoom": max_zoom,
+            }
+        )
+
     def set_weather_field(
         self,
         tile_url: str | None,
@@ -171,14 +176,17 @@ class MapRendererClient:
             raise ValueError("weather field opacity must be between 0.0 and 1.0")
         if not 0 <= max_zoom <= 22:
             raise ValueError("weather field max zoom must be between 0 and 22")
-        self._send_command({
-            "command": MapRendererCommand.SET_WEATHER_FIELD,
-            "tile_url": tile_url or "",
-            "enabled": enabled,
-            "frame_time": frame_time,
-            "opacity": opacity,
-            "max_zoom": max_zoom,
-        })
+        self._send_command(
+            {
+                "command": MapRendererCommand.SET_WEATHER_FIELD,
+                "tile_url": tile_url or "",
+                "enabled": enabled,
+                "frame_time": frame_time,
+                "opacity": opacity,
+                "max_zoom": max_zoom,
+            }
+        )
+
     def set_poi_results(self, geojson: dict[str, object]) -> None:
         self._send_command({"command": MapRendererCommand.SET_POI_RESULTS, "geojson": geojson})
 

@@ -14,7 +14,7 @@ from .shell_metrics import FONT_SMALL
 
 def format_fps(render_hz: float) -> str:
     """Format the compact engine-card frame-rate indicator."""
-    return f'{render_hz:.1f} FPS'
+    return f"{render_hz:.1f} FPS"
 
 
 class RateCounter:
@@ -34,10 +34,10 @@ class RateCounter:
 
     def sample(self) -> EngineUpdateRates:
         now = self._clock()
-        elapsed = now-self._start
+        elapsed = now - self._start
         if elapsed <= 0:
             return EngineUpdateRates()
-        rates = EngineUpdateRates(self._updates/elapsed, self._frames/elapsed)
+        rates = EngineUpdateRates(self._updates / elapsed, self._frames / elapsed)
         self._start, self._updates, self._frames = now, 0, 0
         return rates
 
@@ -46,12 +46,18 @@ class EcuRateLabel(tk.Label, UiWidget):
     """Refresh once a second independently of animation's pause state."""
 
     def __init__(self, parent, *, counter, theme):
-        super().__init__(parent, text='-- FPS', padx=4, pady=2,
-                         bg=theme.ui.surface, fg=theme.ui.text_muted,
-                         font=('Sans', FONT_SMALL))
+        super().__init__(
+            parent,
+            text="-- FPS",
+            padx=4,
+            pady=2,
+            bg=theme.ui.surface,
+            fg=theme.ui.text_muted,
+            font=("Sans", FONT_SMALL),
+        )
         self._counter = counter
         self._job = self.after(1000, self._tick)
-        self.bind('<Configure>', lambda event: self.configure(wraplength=max(1,event.width-8)))
+        self.bind("<Configure>", lambda event: self.configure(wraplength=max(1, event.width - 8)))
 
     def _tick(self):
         rates = self._counter.sample()

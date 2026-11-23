@@ -4,12 +4,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from ui.radio.radio_types import (RadioPreset)
+from ui.radio.radio_types import RadioPreset
 
 
 @dataclass(frozen=True, slots=True)
 class RadioSessionState:
     """Internal state snapshot produced by a Car UI radio session."""
+
     receiver_started: bool = False
     frequency_hz: int | None = None
     mode_name: str | None = None

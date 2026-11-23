@@ -23,9 +23,7 @@ def normalize_imu_to_vehicle(message: ImuStateMessage) -> ImuStateMessage:
     if message.frame_id == VEHICLE_FRAME:
         return message
     if message.frame_id != ANDROID_DEVICE_FRAME:
-        raise ValueError(
-            f"cannot normalize IMU frame {message.frame_id!r} to vehicle frame"
-        )
+        raise ValueError(f"cannot normalize IMU frame {message.frame_id!r} to vehicle frame")
 
     return ImuStateMessage(
         version=message.version,
@@ -34,12 +32,8 @@ def normalize_imu_to_vehicle(message: ImuStateMessage) -> ImuStateMessage:
         frame_id=VEHICLE_FRAME,
         data=ImuStateData(
             acceleration_m_s2=_android_to_vehicle(message.data.acceleration_m_s2),
-            linear_acceleration_m_s2=_android_to_vehicle(
-                message.data.linear_acceleration_m_s2
-            ),
-            angular_velocity_rad_s=_android_to_vehicle(
-                message.data.angular_velocity_rad_s
-            ),
+            linear_acceleration_m_s2=_android_to_vehicle(message.data.linear_acceleration_m_s2),
+            angular_velocity_rad_s=_android_to_vehicle(message.data.angular_velocity_rad_s),
         ),
     )
 

@@ -32,8 +32,10 @@ class ObjectTrack:
         if not 0.0 <= self.confidence <= 1.0:
             raise ValueError("confidence must be between 0 and 1")
         for name, value in (
-            ("x", self.x), ("y", self.y),
-            ("width", self.width), ("height", self.height),
+            ("x", self.x),
+            ("y", self.y),
+            ("width", self.width),
+            ("height", self.height),
         ):
             if not 0.0 <= value <= 1.0:
                 raise ValueError(f"{name} must be normalized between 0 and 1")

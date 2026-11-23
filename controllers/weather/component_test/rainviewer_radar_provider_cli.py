@@ -17,10 +17,7 @@ def main() -> int:
     print("OpenRoadCode Radar Provider Component Test")
     print("Provider: rainviewer")
     print(f"Frames: {len(frames)}")
-    print(
-        "Latest: "
-        f"{datetime.fromtimestamp(latest.timestamp, tz=timezone.utc).isoformat()}"
-    )
+    print(f"Latest: {datetime.fromtimestamp(latest.timestamp, tz=timezone.utc).isoformat()}")
     print(f"Tile template: {latest.tile_url}")
 
     if "{z}" not in latest.tile_url or "{x}" not in latest.tile_url or "{y}" not in latest.tile_url:

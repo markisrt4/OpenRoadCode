@@ -25,23 +25,30 @@ def pine_knob_terrain_directory():
 
 
 def preferred_terrain_directory(destination=None):
-    packs = navigation_data_root()/'maps/3d/packs'
-    candidates = (packs/'detroit-midtown-terrain', midtown_terrain_directory(),
-                  packs/'detroit-downtown-terrain', detroit_terrain_directory(),
-                  packs/'pine-knob-terrain', pine_knob_terrain_directory(),
-                  packs/'rochester-terrain',openroadcode_data_dir('map-packs','rochester-terrain-v1'),
-                  packs/'southfield-terrain',openroadcode_data_dir('map-packs','southfield-terrain-v1'))
+    packs = navigation_data_root() / "maps/3d/packs"
+    candidates = (
+        packs / "detroit-midtown-terrain",
+        midtown_terrain_directory(),
+        packs / "detroit-downtown-terrain",
+        detroit_terrain_directory(),
+        packs / "pine-knob-terrain",
+        pine_knob_terrain_directory(),
+        packs / "rochester-terrain",
+        openroadcode_data_dir("map-packs", "rochester-terrain-v1"),
+        packs / "southfield-terrain",
+        openroadcode_data_dir("map-packs", "southfield-terrain-v1"),
+    )
     if destination is not None:
         longitude = math.degrees(destination.longitude_rad)
         latitude = math.degrees(destination.latitude_rad)
         for directory in candidates:
-            if (directory/'manifest.json').is_file():
-                manifest = json.loads((directory/'manifest.json').read_text())
-                west, south, east, north = manifest['bounds_deg']
+            if (directory / "manifest.json").is_file():
+                manifest = json.loads((directory / "manifest.json").read_text())
+                west, south, east, north = manifest["bounds_deg"]
                 if west <= longitude <= east and south <= latitude <= north:
                     return directory
     for directory in candidates[:3]:
-        if (directory/'manifest.json').is_file():
+        if (directory / "manifest.json").is_file():
             return directory
     return detroit_terrain_directory()
 
@@ -54,13 +61,22 @@ def load_terrain(directory):
     payload = (root / "terrain.json").resolve()
     if not payload.is_relative_to(root):
         raise ValueError("Terrain data must remain inside the pack")
-    if payload.stat().st_size > 2*1024*1024:
+    if payload.stat().st_size > 2 * 1024 * 1024:
         raise ValueError("Prototype terrain exceeds 2 MB")
     content = payload.read_bytes()
     if hashlib.sha256(content).hexdigest() != manifest["sha256"]:
         raise ValueError("Terrain checksum does not match manifest")
     data = json.loads(content)
-    coverage = LocalImageryState(manifest["title"], manifest["attribution"],
-                                 *(math.radians(v) for v in manifest["bounds_deg"]))
-    return LocalTerrainState(coverage, data["width"], data["height"], tuple(data["heights_m"]),
-                              data["reference_height_m"], data["vertical_datum"])
+    coverage = LocalImageryState(
+        manifest["title"],
+        manifest["attribution"],
+        *(math.radians(v) for v in manifest["bounds_deg"]),
+    )
+    return LocalTerrainState(
+        coverage,
+        data["width"],
+        data["height"],
+        tuple(data["heights_m"]),
+        data["reference_height_m"],
+        data["vertical_datum"],
+    )

@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Background NOAA presentation and bounded tuning retries."""
+
 from collections.abc import Callable
 from time import sleep
 
@@ -8,8 +9,9 @@ from ui.radio.radio_profile_state import RadioProfileState
 from ui.radio.rf_radio_if import RadioApplication
 
 
-def play_weather_radio(radio: RadioProfileController, application: RadioApplication, *,
-                       cancelled: Callable[[], bool]) -> RadioProfileState | None:
+def play_weather_radio(
+    radio: RadioProfileController, application: RadioApplication, *, cancelled: Callable[[], bool]
+) -> RadioProfileState | None:
     profile = radio.catalog.profile("weather_band")
     if not profile.presets:
         raise ValueError("No NOAA weather presets configured")

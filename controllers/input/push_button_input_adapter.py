@@ -44,6 +44,4 @@ class PushButtonInputAdapter(PushButtonCallbackIf):
         self._publish(InputEventType.BUTTON_RELEASED)
 
     def _publish(self, event_type: InputEventType) -> None:
-        self._input_handler.handle_input_event(
-            InputEvent(self._device_id, event_type)
-        )
+        self._input_handler.handle_input_event(InputEvent(self._device_id, event_type))

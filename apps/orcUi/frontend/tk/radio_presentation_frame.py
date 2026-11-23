@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Declared Tk presentation fields shared by the receiver menu and drawer."""
+
 from abc import ABC, abstractmethod
 import tkinter as tk
 

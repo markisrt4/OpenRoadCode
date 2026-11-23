@@ -57,9 +57,7 @@ class AppSettingsStore:
             if radar_palette not in ("universal", "classic"):
                 raise ValueError("invalid radar palette")
             return AppSettings(
-                unit_system=UnitSystem(
-                    display.get("unit_system", self._default.unit_system.value)
-                ),
+                unit_system=UnitSystem(display.get("unit_system", self._default.unit_system.value)),
                 radar_palette=radar_palette,
             )
         except (OSError, ValueError, TypeError, tomllib.TOMLDecodeError):

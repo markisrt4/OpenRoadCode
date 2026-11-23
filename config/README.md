@@ -150,9 +150,7 @@ from config.runtime_config import (
     RuntimeConfigParser,
 )
 
-parser = RuntimeConfigParser(
-    Path("config/runtime.toml")
-)
+parser = RuntimeConfigParser(Path("config/runtime.toml"))
 config = parser.load()
 
 print(config.runtime.remote_display)

@@ -61,8 +61,12 @@ class MapRequestHandlerTest(unittest.TestCase):
 
     def test_renderer_camera_is_retained_for_screen_reentry_without_feedback_commands(self) -> None:
         self.handler.request_follow(False)
-        self.handler.observe_camera(GeoPoint(math.radians(42.81), math.radians(-83.02)),
-                                    18.5, math.radians(25), math.radians(40))
+        self.handler.observe_camera(
+            GeoPoint(math.radians(42.81), math.radians(-83.02)),
+            18.5,
+            math.radians(25),
+            math.radians(40),
+        )
         self.assertEqual(self.renderer.cameras, [])
         self.handler.refresh_renderer_state()
         camera = self.renderer.cameras[-1]

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 """Construct backend resources for contract-bound navigation places views."""
+
 from collections.abc import Callable
 from weakref import WeakSet
 
@@ -20,14 +21,25 @@ from ui.navigation.navigation_places_request_handler_if import NavigationPlacesF
 class NavigationPlacesFactory(NavigationPlacesFactoryIf):
     """Share durable dependencies and track transient sessions for shutdown."""
 
-    def __init__(self, *, favorites: MapFavorites | None = None,
-                 actions: PoiActionExecutorIf | None = None,
-                 search_factory: Callable[[], PoiSearchControllerIf] = PoiSearchController,
-                 online_allowed: Callable[[], bool] = lambda: True, camera_observer=None, embedded_explore=None):
+    def __init__(
+        self,
+        *,
+        favorites: MapFavorites | None = None,
+        actions: PoiActionExecutorIf | None = None,
+        search_factory: Callable[[], PoiSearchControllerIf] = PoiSearchController,
+        online_allowed: Callable[[], bool] = lambda: True,
+        camera_observer=None,
+        embedded_explore=None,
+    ):
         self._favorites = favorites if favorites is not None else MapFavorites()
-        self._owned_3d = None if actions is not None else CesiumPoiActions(
-            EarthExplorationActions(AndroidPoiActionExecutor(AndroidAppLauncher())),
-            embedded_explore=embedded_explore)
+        self._owned_3d = (
+            None
+            if actions is not None
+            else CesiumPoiActions(
+                EarthExplorationActions(AndroidPoiActionExecutor(AndroidAppLauncher())),
+                embedded_explore=embedded_explore,
+            )
+        )
         self._actions = actions if actions is not None else self._owned_3d
         self._search_factory = search_factory
         self._sessions = WeakSet()
@@ -37,12 +49,17 @@ class NavigationPlacesFactory(NavigationPlacesFactoryIf):
 
     def create(self) -> NavigationPlacesController:
         if self._closed:
-            raise RuntimeError('Navigation places factory is closed')
+            raise RuntimeError("Navigation places factory is closed")
         # Match the previous per-mount store construction: pick up saved-place edits.
         self._favorites.load()
-        session = NavigationPlacesController(self._search_factory(), self._favorites, self._actions,
-                                             online_allowed=self._online_allowed, camera_observer=self._camera_observer,
-                                             local_3d_action=self._owned_3d.action_for if self._owned_3d is not None else None)
+        session = NavigationPlacesController(
+            self._search_factory(),
+            self._favorites,
+            self._actions,
+            online_allowed=self._online_allowed,
+            camera_observer=self._camera_observer,
+            local_3d_action=self._owned_3d.action_for if self._owned_3d is not None else None,
+        )
         self._sessions.add(session)
         return session
 

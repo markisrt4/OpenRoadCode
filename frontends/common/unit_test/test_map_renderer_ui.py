@@ -24,8 +24,14 @@ class FakeRenderer:
         self.position: tuple[float, float] | None = None
         self.route: dict[str, object] | None = None
 
-    def set_camera(self, latitude: float, longitude: float, zoom: float,
-                   bearing: float = 0.0, pitch: float = 0.0) -> None:
+    def set_camera(
+        self,
+        latitude: float,
+        longitude: float,
+        zoom: float,
+        bearing: float = 0.0,
+        pitch: float = 0.0,
+    ) -> None:
         self.camera = (latitude, longitude, zoom, bearing, pitch)
 
     def set_position(self, latitude: float, longitude: float) -> None:

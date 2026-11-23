@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
 # SPDX-License-Identifier: MIT
 """Own a local visualizer HTTP host and its embedded Chromium lifecycle."""
+
 import os
 from collections.abc import Callable
 from pathlib import Path
@@ -20,7 +21,13 @@ WINDOW_CLASS = "openroadcode-music-visualizer"
 class MusicVisualizerBrowser:
     """Application-selected host adapter consumed through BrowserMediaPlayerIf."""
 
-    def __init__(self, session: MusicAnalysisSession, browser: BrowserKioskLauncher, *, color_scheme: Callable[[], str]) -> None:
+    def __init__(
+        self,
+        session: MusicAnalysisSession,
+        browser: BrowserKioskLauncher,
+        *,
+        color_scheme: Callable[[], str],
+    ) -> None:
         self._session = session
         self._browser = browser
         self._closed = False
@@ -28,27 +35,31 @@ class MusicVisualizerBrowser:
         self._color_scheme = color_scheme
         app = Flask(__name__, static_folder=None)
         app.register_blueprint(create_music_analysis_routes(session))
-        assets = Path(__file__).resolve().parents[3] / 'frontends' / 'web' / 'audio_analysis'
+        assets = Path(__file__).resolve().parents[3] / "frontends" / "web" / "audio_analysis"
 
-        @app.get('/')
+        @app.get("/")
         def page():
             scheme = "light" if self._color_scheme() == "light" else "dark"
-            return VISUALIZER_HTML.replace('data-color-scheme="dark"', f'data-color-scheme="{scheme}"')
+            return VISUALIZER_HTML.replace(
+                'data-color-scheme="dark"', f'data-color-scheme="{scheme}"'
+            )
 
-        @app.get('/web-assets/audio-analysis/<path:filename>')
+        @app.get("/web-assets/audio-analysis/<path:filename>")
         def asset(filename):
-            if Path(filename).suffix not in {'.js', '.css'}:
-                return '', 404
+            if Path(filename).suffix not in {".js", ".css"}:
+                return "", 404
             return send_from_directory(assets, filename)
 
-        self._server = make_server('127.0.0.1', 0, app, threaded=True)
-        self.url = f'http://127.0.0.1:{self._server.server_port}/'
-        self._thread = Thread(target=self._server.serve_forever, name='orc-visualizer-http', daemon=True)
+        self._server = make_server("127.0.0.1", 0, app, threaded=True)
+        self.url = f"http://127.0.0.1:{self._server.server_port}/"
+        self._thread = Thread(
+            target=self._server.serve_forever, name="orc-visualizer-http", daemon=True
+        )
         self._thread.start()
 
     def play(self, target: str, *, display: str, window_position=None, window_size=None) -> bool:
         if self._closed:
-            raise RuntimeError('Visualizer host is closed')
+            raise RuntimeError("Visualizer host is closed")
         self.stop()
         self._display = display
         self._browser.set_preferred_color_scheme(self._color_scheme())

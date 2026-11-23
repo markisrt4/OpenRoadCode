@@ -91,7 +91,11 @@ class CameraVisionScreen(TkScreen, VisionUiIf):
         panel.grid_rowconfigure(0, weight=1)
         panel.grid_columnconfigure(0, weight=1)
         self._canvas = tk.Canvas(
-            panel, bg="#000000", highlightthickness=1, highlightcolor=theme.border, highlightbackground=theme.border
+            panel,
+            bg="#000000",
+            highlightthickness=1,
+            highlightcolor=theme.border,
+            highlightbackground=theme.border,
         )
         self._canvas.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
 
@@ -99,11 +103,17 @@ class CameraVisionScreen(TkScreen, VisionUiIf):
         controls.grid(row=0, column=1, sticky="ns")
         controls.grid_propagate(False)
         tk.Label(
-            controls, text="CAMERA / VISION", bg=theme.surface, fg=theme.text,
+            controls,
+            text="CAMERA / VISION",
+            bg=theme.surface,
+            fg=theme.text,
             font=("Sans", 12, "bold"),
         ).pack(fill=tk.X, padx=8, pady=(10, 8))
         self._mode_label = tk.Label(
-            controls, text="", bg=theme.surface, fg=theme.text_muted,
+            controls,
+            text="",
+            bg=theme.surface,
+            fg=theme.text_muted,
             font=("Sans", 9, "bold"),
         )
         self._mode_label.pack(fill=tk.X, padx=8, pady=(0, 6))
@@ -137,8 +147,13 @@ class CameraVisionScreen(TkScreen, VisionUiIf):
         )
         self._ai_button.pack(fill=tk.X, padx=8, pady=(12, 2))
         self._status_label = tk.Label(
-            controls, text="", justify=tk.LEFT, anchor="nw",
-            bg=theme.surface, fg=theme.text_muted, font=("Monospace", 9),
+            controls,
+            text="",
+            justify=tk.LEFT,
+            anchor="nw",
+            bg=theme.surface,
+            fg=theme.text_muted,
+            font=("Monospace", 9),
         )
         self._status_label.pack(fill=tk.X, padx=8, pady=(12, 4))
         self._panel = panel
@@ -158,7 +173,11 @@ class CameraVisionScreen(TkScreen, VisionUiIf):
         requested = state.requested_mode.value.upper().replace("_", " ")
         effective = state.effective_mode.value.upper().replace("_", " ")
         if self._mode_label is not None:
-            text = requested if state.requested_mode is not VisionCameraMode.AUTO else f"AUTO → {effective}"
+            text = (
+                requested
+                if state.requested_mode is not VisionCameraMode.AUTO
+                else f"AUTO → {effective}"
+            )
             self._mode_label.configure(text=f"Mode: {text}")
         if self._ai_button is not None:
             self._ai_button.configure(
@@ -216,17 +235,19 @@ class CameraVisionScreen(TkScreen, VisionUiIf):
         offset_x = (width - draw_width) // 2
         offset_y = (height - draw_height) // 2
         source = Image.frombytes(
-            "RGB", (image.width, image.height), image.data,
-            "raw", "RGB", image.stride_bytes,
+            "RGB",
+            (image.width, image.height),
+            image.data,
+            "raw",
+            "RGB",
+            image.stride_bytes,
         )
         resized = source.resize((draw_width, draw_height), Image.Resampling.BILINEAR)
         photo = ImageTk.PhotoImage(resized)
         self._photo = photo
         canvas.delete("all")
         canvas.create_image(offset_x, offset_y, anchor=tk.NW, image=photo)
-        self._draw_objects(
-            canvas, self._state.objects, offset_x, offset_y, draw_width, draw_height
-        )
+        self._draw_objects(canvas, self._state.objects, offset_x, offset_y, draw_width, draw_height)
 
     @staticmethod
     def _empty_image_message(state: VisionUiState) -> str:
@@ -258,6 +279,10 @@ class CameraVisionScreen(TkScreen, VisionUiIf):
             identity = "" if item.track_id is None else f" #{item.track_id}"
             label = f"{item.label.upper()}{identity} {item.confidence:.0%}"
             canvas.create_text(
-                x1 + 4, max(offset_y + 8, y1 - 4), text=label,
-                anchor=tk.SW, fill="#00ff77", font=("Sans", 9, "bold"),
+                x1 + 4,
+                max(offset_y + 8, y1 - 4),
+                text=label,
+                anchor=tk.SW,
+                fill="#00ff77",
+                font=("Sans", 9, "bold"),
             )

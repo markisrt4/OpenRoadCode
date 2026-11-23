@@ -28,21 +28,28 @@ class SetupDestinationsInstallerTest(unittest.TestCase):
             self.assertEqual(run.call_args.args[0][:3], ["/termux/bin/dialog", "--output-fd", "1"])
 
     def test_termux_selects_dialog_when_whiptail_is_missing(self):
-        with patch("scripts.installers.setup_destinations.os.geteuid", return_value=1000), \
-             patch("scripts.installers.setup_destinations.shutil.which", side_effect=[None, "/termux/bin/dialog"]), \
-             patch("scripts.installers.setup_destinations.SqliteGeocoder") as geocoder, \
-             patch("scripts.installers.setup_destinations.run_destination_setup"), \
-             patch("scripts.installers.setup_destinations.WhiptailDestinationDialog") as adapter:
+        with (
+            patch("scripts.installers.setup_destinations.os.geteuid", return_value=1000),
+            patch(
+                "scripts.installers.setup_destinations.shutil.which",
+                side_effect=[None, "/termux/bin/dialog"],
+            ),
+            patch("scripts.installers.setup_destinations.SqliteGeocoder") as geocoder,
+            patch("scripts.installers.setup_destinations.run_destination_setup"),
+            patch("scripts.installers.setup_destinations.WhiptailDestinationDialog") as adapter,
+        ):
             self.assertEqual(main([]), 0)
             adapter.assert_called_once_with("/termux/bin/dialog", maps_enabled=True)
             geocoder.return_value.close.assert_called_once()
 
     def test_missing_termux_dialog_has_correct_install_hint(self):
         output = io.StringIO()
-        with patch("scripts.installers.setup_destinations.os.geteuid", return_value=1000), \
-             patch("scripts.installers.setup_destinations.shutil.which", return_value=None), \
-             patch.dict("os.environ", {"TERMUX_VERSION": "test"}), \
-             contextlib.redirect_stderr(output):
+        with (
+            patch("scripts.installers.setup_destinations.os.geteuid", return_value=1000),
+            patch("scripts.installers.setup_destinations.shutil.which", return_value=None),
+            patch.dict("os.environ", {"TERMUX_VERSION": "test"}),
+            contextlib.redirect_stderr(output),
+        ):
             self.assertEqual(main([]), 1)
         self.assertIn("pkg install dialog", output.getvalue())
 
@@ -60,19 +67,37 @@ class SetupDestinationsInstallerTest(unittest.TestCase):
             path = Path(directory) / "destinations.toml"
             dialog = Mock()
             dialog.choose.return_value = None
-            with patch("scripts.installers.setup_destinations.os.geteuid", return_value=1000), \
-                 patch("scripts.installers.setup_destinations.shutil.which", return_value="/usr/bin/whiptail"), \
-                 patch("scripts.installers.setup_destinations.WhiptailDestinationDialog", return_value=dialog):
-                result = main(["--config", str(path), "--search-db", str(Path(directory) / "missing.sqlite")])
+            with (
+                patch("scripts.installers.setup_destinations.os.geteuid", return_value=1000),
+                patch(
+                    "scripts.installers.setup_destinations.shutil.which",
+                    return_value="/usr/bin/whiptail",
+                ),
+                patch(
+                    "scripts.installers.setup_destinations.WhiptailDestinationDialog",
+                    return_value=dialog,
+                ),
+            ):
+                result = main(
+                    ["--config", str(path), "--search-db", str(Path(directory) / "missing.sqlite")]
+                )
             self.assertEqual(result, 0)
             self.assertEqual(list(Path(directory).iterdir()), [])
 
     def test_composition_closes_geocoder_when_presentation_fails(self):
         geocoder = Mock()
-        with patch("scripts.installers.setup_destinations.os.geteuid", return_value=1000), \
-             patch("scripts.installers.setup_destinations.shutil.which", return_value="/usr/bin/whiptail"), \
-             patch("scripts.installers.setup_destinations.SqliteGeocoder", return_value=geocoder), \
-             patch("scripts.installers.setup_destinations.run_destination_setup", side_effect=RuntimeError("terminal unavailable")):
+        with (
+            patch("scripts.installers.setup_destinations.os.geteuid", return_value=1000),
+            patch(
+                "scripts.installers.setup_destinations.shutil.which",
+                return_value="/usr/bin/whiptail",
+            ),
+            patch("scripts.installers.setup_destinations.SqliteGeocoder", return_value=geocoder),
+            patch(
+                "scripts.installers.setup_destinations.run_destination_setup",
+                side_effect=RuntimeError("terminal unavailable"),
+            ),
+        ):
             with self.assertRaises(RuntimeError):
                 main([])
         geocoder.close.assert_called_once()

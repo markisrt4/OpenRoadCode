@@ -21,6 +21,7 @@ def format_frequency(frequency_hz: int) -> str:
 
     return f"{frequency_hz} Hz"
 
+
 class RadioController(RadioControllerIf):
     """Coordinate radio tuning, modes, presets, and receiver telemetry."""
 
@@ -74,9 +75,7 @@ class RadioController(RadioControllerIf):
             self.set_mode(self.default_mode)
 
             if self.radio_range is not None:
-                self.current_frequency_hz = (
-                    self.radio_range.start_frequency_hz
-                )
+                self.current_frequency_hz = self.radio_range.start_frequency_hz
 
             frequency_hz = self.set_frequency(self.current_frequency_hz)
         except Exception:

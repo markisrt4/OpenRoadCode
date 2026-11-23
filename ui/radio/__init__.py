@@ -4,10 +4,14 @@
 """Explicit UI contracts for radio displays."""
 
 from ui.radio.streaming_radio_state import (
-    StreamingRadioBrowseMode, StreamingRadioBrowserState, StreamingRadioPlaybackState,
+    StreamingRadioBrowseMode,
+    StreamingRadioBrowserState,
+    StreamingRadioPlaybackState,
 )
 from ui.radio.streaming_radio_session_if import (
-    StreamingRadioSessionIf, StreamingRadioUiIf, StreamingRadioRequestHandlerIf,
+    StreamingRadioSessionIf,
+    StreamingRadioUiIf,
+    StreamingRadioRequestHandlerIf,
 )
 from ui.radio.streaming_radio_state_source_if import StreamingRadioStateSourceIf
 from ui.radio.playback_request_handler_if import PlaybackRequestHandlerIf

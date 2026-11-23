@@ -19,9 +19,9 @@ from controllers.weather.radar_tile_service import RadarTileService
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--kind', choices=('temperature', 'wind'), required=True)
-    parser.add_argument('--location', nargs=2, type=float, required=True, metavar=('LAT', 'LON'))
-    parser.add_argument('--output', type=Path)
+    parser.add_argument("--kind", choices=("temperature", "wind"), required=True)
+    parser.add_argument("--location", nargs=2, type=float, required=True, metavar=("LAT", "LON"))
+    parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     provider = HrrrMapLayerProvider()
     service = None
@@ -33,23 +33,25 @@ def main():
         response = requests.get(url, timeout=180)
         response.raise_for_status()
         with Image.open(BytesIO(response.content)) as image:
-            image = image.convert('RGBA')
-            covered = sum(image.getchannel('A').histogram()[1:])
-            print(f'Model coverage: {covered / (image.width * image.height):.1%} of tile pixels')
-        output = args.output or Path.home() / f'.cache/openroadcode/hrrr-{args.kind}.png'
+            image = image.convert("RGBA")
+            covered = sum(image.getchannel("A").histogram()[1:])
+            print(f"Model coverage: {covered / (image.width * image.height):.1%} of tile pixels")
+        output = args.output or Path.home() / f".cache/openroadcode/hrrr-{args.kind}.png"
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_bytes(response.content)
-        print('Layer:', args.kind)
-        print('Forecast valid UTC:', datetime.fromtimestamp(frame.timestamp, timezone.utc).isoformat())
-        print(f'Diagnostic tile: {z}/{x}/{y}')
-        print('Saved:', output)
+        print("Layer:", args.kind)
+        print(
+            "Forecast valid UTC:", datetime.fromtimestamp(frame.timestamp, timezone.utc).isoformat()
+        )
+        print(f"Diagnostic tile: {z}/{x}/{y}")
+        print("Saved:", output)
     except Exception as error:
-        parser.exit(1, f'HRRR map layer probe failed: {error}\n')
+        parser.exit(1, f"HRRR map layer probe failed: {error}\n")
     finally:
         provider.close()
         if service is not None:
             service.close()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

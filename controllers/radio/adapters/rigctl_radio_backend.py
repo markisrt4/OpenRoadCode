@@ -31,27 +31,19 @@ class RigctlRadioBackend(RadioBackendIf):
         try:
             return int(response)
         except ValueError as exc:
-            raise RuntimeError(
-                f"rigctl returned an invalid frequency: {response!r}"
-            ) from exc
+            raise RuntimeError(f"rigctl returned an invalid frequency: {response!r}") from exc
 
     def set_mode(self, mode: str, bandwidth: int) -> str:
         return self._client.set_mode(mode, bandwidth)
 
     def get_signal_strength(self) -> Optional[str]:
-        return self._normalize_optional_response(
-            self._client.get_signal_strength()
-        )
+        return self._normalize_optional_response(self._client.get_signal_strength())
 
     def get_snr(self) -> Optional[str]:
-        return self._normalize_optional_response(
-            self._client.get_snr()
-        )
+        return self._normalize_optional_response(self._client.get_snr())
 
     def get_rds(self) -> Optional[str]:
-        return self._normalize_optional_response(
-            self._client.get_rds()
-        )
+        return self._normalize_optional_response(self._client.get_rds())
 
     @staticmethod
     def _normalize_optional_response(

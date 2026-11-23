@@ -31,8 +31,21 @@ class WhiptailDestinationDialog(DestinationSetupUiIf):
 
     def _run(self, title, kind, prompt, arguments=()):
         result = subprocess.run(
-            [self._executable, "--output-fd", "1", "--title", title, kind, prompt,
-             "20", "90", *arguments], stdout=subprocess.PIPE, text=True, check=False,
+            [
+                self._executable,
+                "--output-fd",
+                "1",
+                "--title",
+                title,
+                kind,
+                prompt,
+                "20",
+                "90",
+                *arguments,
+            ],
+            stdout=subprocess.PIPE,
+            text=True,
+            check=False,
         )
         if result.returncode not in (0, 1, 255):
             raise RuntimeError("Unable to display installer dialog")
@@ -58,9 +71,12 @@ class WhiptailDestinationDialog(DestinationSetupUiIf):
     def confirm_location(self, destination):
         if not self._maps_enabled:
             return destination
-        self.notify("Check the location", "A browser map will open. Check or move the pin, "
-                    "choose Use this location, then return to this terminal. "
-                    "The map loads tiles from OpenStreetMap and requires internet.")
+        self.notify(
+            "Check the location",
+            "A browser map will open. Check or move the pin, "
+            "choose Use this location, then return to this terminal. "
+            "The map loads tiles from OpenStreetMap and requires internet.",
+        )
         return confirm_on_map(destination)
 
 
@@ -68,7 +84,11 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Configure user-owned Home/Work destinations")
     parser.add_argument("--config", type=Path, help="Override the user destinations TOML path")
     parser.add_argument("--search-db", type=Path, help="Override the local address database")
-    parser.add_argument("--offline", action="store_true", help="Use only local data; disable online lookup and map tiles")
+    parser.add_argument(
+        "--offline",
+        action="store_true",
+        help="Use only local data; disable online lookup and map tiles",
+    )
     arguments = parser.parse_args(argv)
     if hasattr(os, "geteuid") and os.geteuid() == 0:
         print("Run address setup as the ORC user, without sudo.", file=sys.stderr)
@@ -77,9 +97,13 @@ def main(argv=None) -> int:
     if executable is None:
         termux = os.environ.get("TERMUX_VERSION") or "com.termux" in os.environ.get("PREFIX", "")
         install = "pkg install dialog" if termux else "sudo apt install whiptail"
-        print(f"Address setup requires whiptail or dialog. Install with: {install}", file=sys.stderr)
+        print(
+            f"Address setup requires whiptail or dialog. Install with: {install}", file=sys.stderr
+        )
         return 1
-    database = arguments.search_db or navigation_data_root() / "maps/search/openroadcode-search.sqlite"
+    database = (
+        arguments.search_db or navigation_data_root() / "maps/search/openroadcode-search.sqlite"
+    )
     geocoder = None
     try:
         try:
@@ -87,9 +111,14 @@ def main(argv=None) -> int:
         except (OSError, sqlite3.Error):
             # Map data may be installed later; manual coordinates remain available.
             pass
-        handler = DestinationSetupController(SavedDestinationsConfig(arguments.config), geocoder,
-                    online_geocoder=None if arguments.offline else CensusGeocoder())
-        run_destination_setup(handler, WhiptailDestinationDialog(executable, maps_enabled=not arguments.offline))
+        handler = DestinationSetupController(
+            SavedDestinationsConfig(arguments.config),
+            geocoder,
+            online_geocoder=None if arguments.offline else CensusGeocoder(),
+        )
+        run_destination_setup(
+            handler, WhiptailDestinationDialog(executable, maps_enabled=not arguments.offline)
+        )
     finally:
         if geocoder is not None:
             geocoder.close()

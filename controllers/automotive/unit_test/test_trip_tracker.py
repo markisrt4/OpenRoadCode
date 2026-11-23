@@ -91,7 +91,6 @@ def test_tracker_marks_stationary_trip_paused_and_counts_stopped_time() -> None:
     assert state.stopped_s == pytest.approx(10.0)
 
 
-
 def test_single_stationary_sample_does_not_pause_active_trip() -> None:
     tracker = TripTracker(pause_after_s=3.0)
     tracker.observe_ground_motion_state(motion(0, 5.0))
@@ -130,20 +129,14 @@ def test_tracker_falls_back_to_maf_when_direct_fuel_rate_is_unavailable() -> Non
     state = tracker.snapshot()
     expected_flow = 0.0147 / 14.7 / 745.0
     assert state.fuel_used_m3 == pytest.approx(expected_flow * 10.0)
-    assert state.instantaneous_fuel_consumption_m3_per_m == pytest.approx(
-        expected_flow / 10.0
-    )
+    assert state.instantaneous_fuel_consumption_m3_per_m == pytest.approx(expected_flow / 10.0)
 
 
 def test_direct_fuel_rate_takes_priority_over_maf_fallback() -> None:
     tracker = TripTracker()
 
-    tracker.observe_vehicle_state(
-        vehicle(0, 10.0, fuel_rate_m3_s=3.0e-6, maf_kg_s=0.0147)
-    )
-    tracker.observe_vehicle_state(
-        vehicle(10, 10.0, fuel_rate_m3_s=3.0e-6, maf_kg_s=0.0147)
-    )
+    tracker.observe_vehicle_state(vehicle(0, 10.0, fuel_rate_m3_s=3.0e-6, maf_kg_s=0.0147))
+    tracker.observe_vehicle_state(vehicle(10, 10.0, fuel_rate_m3_s=3.0e-6, maf_kg_s=0.0147))
 
     assert tracker.snapshot().fuel_used_m3 == pytest.approx(3.0e-5)
 
@@ -151,15 +144,9 @@ def test_direct_fuel_rate_takes_priority_over_maf_fallback() -> None:
 def test_tracker_accumulates_boost_metrics() -> None:
     tracker = TripTracker(boost_threshold_pa=5000.0)
 
-    tracker.observe_vehicle_state(
-        vehicle(0, 10.0, fuel_rate_m3_s=2.0e-6, boost_pa=0.0)
-    )
-    tracker.observe_vehicle_state(
-        vehicle(10, 10.0, fuel_rate_m3_s=4.0e-6, boost_pa=10000.0)
-    )
-    tracker.observe_vehicle_state(
-        vehicle(20, 20.0, fuel_rate_m3_s=4.0e-6, boost_pa=12000.0)
-    )
+    tracker.observe_vehicle_state(vehicle(0, 10.0, fuel_rate_m3_s=2.0e-6, boost_pa=0.0))
+    tracker.observe_vehicle_state(vehicle(10, 10.0, fuel_rate_m3_s=4.0e-6, boost_pa=10000.0))
+    tracker.observe_vehicle_state(vehicle(20, 20.0, fuel_rate_m3_s=4.0e-6, boost_pa=12000.0))
 
     state = tracker.snapshot()
     assert state.boost_time_s == pytest.approx(20.0)
@@ -171,18 +158,15 @@ def test_tracker_accumulates_boost_metrics() -> None:
 def test_tracker_ignores_small_positive_pressure_below_boost_threshold() -> None:
     tracker = TripTracker(boost_threshold_pa=5000.0)
 
-    tracker.observe_vehicle_state(
-        vehicle(0, 10.0, fuel_rate_m3_s=2.0e-6, boost_pa=2000.0)
-    )
-    tracker.observe_vehicle_state(
-        vehicle(10, 10.0, fuel_rate_m3_s=2.0e-6, boost_pa=3000.0)
-    )
+    tracker.observe_vehicle_state(vehicle(0, 10.0, fuel_rate_m3_s=2.0e-6, boost_pa=2000.0))
+    tracker.observe_vehicle_state(vehicle(10, 10.0, fuel_rate_m3_s=2.0e-6, boost_pa=3000.0))
 
     state = tracker.snapshot()
     assert state.boost_time_s == pytest.approx(0.0)
     assert state.boost_distance_m == pytest.approx(0.0)
     assert state.boost_fuel_used_m3 == pytest.approx(0.0)
     assert state.peak_boost_pa == pytest.approx(3000.0)
+
 
 def test_tracker_accumulates_high_load_fuel_separately_from_boost() -> None:
     tracker = TripTracker(high_load_threshold=0.75)

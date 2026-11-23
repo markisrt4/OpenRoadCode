@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
+
 class Elm327Error(Exception):
     """Base exception for ELM327 communication failures."""
 
@@ -11,4 +12,3 @@ class Elm327ConnectionError(Elm327Error):
 
 class Elm327CommandError(Elm327Error):
     """Raised when an ELM327 command cannot be sent or read."""
-

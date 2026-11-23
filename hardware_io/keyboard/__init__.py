@@ -15,8 +15,6 @@ def __getattr__(name: str) -> Any:
     """Load the evdev-backed implementation only when explicitly requested."""
     if name != "KeyboardReader":
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    value = import_module(
-        "hardware_io.keyboard.keyboard_reader"
-    ).KeyboardReader
+    value = import_module("hardware_io.keyboard.keyboard_reader").KeyboardReader
     globals()[name] = value
     return value

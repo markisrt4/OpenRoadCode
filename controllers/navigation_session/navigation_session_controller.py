@@ -24,7 +24,14 @@ RouteChangedCallback = Callable[[RouteResult], None]
 class NavigationSessionController:
     """Own destination context and coordinate route replacement."""
 
-    def __init__(self, route_calculator: RouteCalculator, guidance_controller: RouteGuidanceController, reroute_policy: ReroutePolicy, *, on_route_changed: RouteChangedCallback | None = None) -> None:
+    def __init__(
+        self,
+        route_calculator: RouteCalculator,
+        guidance_controller: RouteGuidanceController,
+        reroute_policy: ReroutePolicy,
+        *,
+        on_route_changed: RouteChangedCallback | None = None,
+    ) -> None:
         self._route_calculator = route_calculator
         self._guidance_controller = guidance_controller
         self._reroute_policy = reroute_policy
@@ -37,7 +44,9 @@ class NavigationSessionController:
 
     def start(self, request: RouteRequest, *, route: RouteResult | None = None) -> RouteResult:
         active_route = route if route is not None else self._route_calculator(request)
-        self._activate_route(destination=request.destination, travel_mode=request.travel_mode, route=active_route)
+        self._activate_route(
+            destination=request.destination, travel_mode=request.travel_mode, route=active_route
+        )
         self._reroute_policy.reset()
         return active_route
 
@@ -54,11 +63,15 @@ class NavigationSessionController:
         except Exception:
             self._reroute_policy.reroute_failed()
             raise
-        self._activate_route(destination=self._state.destination, travel_mode=self._state.travel_mode, route=route)
+        self._activate_route(
+            destination=self._state.destination, travel_mode=self._state.travel_mode, route=route
+        )
         self._reroute_policy.reroute_completed()
         return route
 
-    def _activate_route(self, *, destination: GeoPoint, travel_mode: TravelMode, route: RouteResult) -> None:
+    def _activate_route(
+        self, *, destination: GeoPoint, travel_mode: TravelMode, route: RouteResult
+    ) -> None:
         self._guidance_controller.replace_route(route)
         self._state = NavigationSessionState(destination, travel_mode, route)
         if self._on_route_changed is not None:

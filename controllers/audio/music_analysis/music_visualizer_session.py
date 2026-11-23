@@ -26,7 +26,8 @@ class MusicVisualizerSession:
     ) -> None:
         self._callback = callback
         self._session = MusicAnalysisSession(
-            {"capture": capture_factory}, consumer=self._on_analysis_state,
+            {"capture": capture_factory},
+            consumer=self._on_analysis_state,
         )
 
     @property

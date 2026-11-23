@@ -64,9 +64,7 @@ class CarUiFrontend(tk.Tk, UiIf, UiEventHandlerIf, ScreenNavigatorIf):
         self.layout = self.theme["layout"]
         geometry = self._get_ui_geometry()
         self.compact_ui = self._geometry_is_compact(geometry)
-        self.style = self.theme["profiles"][
-            "compact" if self.compact_ui else "normal"
-        ]
+        self.style = self.theme["profiles"]["compact" if self.compact_ui else "normal"]
 
         self.geometry(geometry)
         self.minsize(*self.theme["window"]["minimum_size"])
@@ -235,7 +233,9 @@ class CarUiFrontend(tk.Tk, UiIf, UiEventHandlerIf, ScreenNavigatorIf):
         try:
             self.composition.open_route(screen_id.value)
         except Exception:
-            self._active_route_id = self._navigation_history.pop() if self._navigation_history else None
+            self._active_route_id = (
+                self._navigation_history.pop() if self._navigation_history else None
+            )
             raise
 
     def go_back(self) -> bool:

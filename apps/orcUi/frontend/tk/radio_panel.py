@@ -15,6 +15,7 @@ from .radio_group_menu import MAIN_GROUPS, RadioGroupMenuMixin
 
 RADIO_GROUPS = tuple(name for name, _ in MAIN_GROUPS)
 
+
 class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
     """Automotive controls wrapped around embedded SDR++ and ADS-B views."""
 
@@ -155,8 +156,13 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
             highlightthickness=0,
         ).grid(row=0, column=4, rowspan=3, sticky="ns")
 
-        self._launch_status = tk.Label(self._host, text="Loading SDR++…", bg=ui.background,
-                                       fg=ui.text, font=("Sans", 20, "bold"))
+        self._launch_status = tk.Label(
+            self._host,
+            text="Loading SDR++…",
+            bg=ui.background,
+            fg=ui.text,
+            font=("Sans", 20, "bold"),
+        )
         self._session.bind(self)
         self._schedule_telemetry_refresh()
 
@@ -208,15 +214,16 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         )
         self._paint_groups()
 
-
-
-
-
     def _native_host(self) -> RadioHost:
         self.update_idletasks()
-        return RadioHost(int(self._host.winfo_id()), int(self.winfo_toplevel().winfo_id()),
-                         max(1, self._host.winfo_width()), max(1, self._host.winfo_height()),
-                         self._host.winfo_rootx(), self._host.winfo_rooty())
+        return RadioHost(
+            int(self._host.winfo_id()),
+            int(self.winfo_toplevel().winfo_id()),
+            max(1, self._host.winfo_width()),
+            max(1, self._host.winfo_height()),
+            self._host.winfo_rootx(),
+            self._host.winfo_rooty(),
+        )
 
     def launch(self) -> None:
         """Request RF startup without accessing a launcher from Tk."""
@@ -228,8 +235,15 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
     def _show_adsb(self) -> None:
         self._active_group = "AIR:ADSB"
         self._paint_groups()
-        self._session.request(RadioRequest(RadioAction.ADSB, host=self._native_host(),
-                              color_scheme="light" if sum(self.winfo_rgb(self._theme.ui.background)) > 3 * 32767 else "dark"))
+        self._session.request(
+            RadioRequest(
+                RadioAction.ADSB,
+                host=self._native_host(),
+                color_scheme="light"
+                if sum(self.winfo_rgb(self._theme.ui.background)) > 3 * 32767
+                else "dark",
+            )
+        )
 
     @property
     def active_group(self) -> str:
@@ -247,8 +261,9 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
     def set_station(self, label: str, frequency_hz: int, mode_name: str | None = None) -> None:
         self._station_label.configure(text=label)
         suffix = f"   {mode_name}" if mode_name else ""
-        self._frequency_label.configure(text=f"{frequency_hz / 1_000_000:.3f} MHz{suffix}",
-                                        fg=self._theme.ui.text_muted)
+        self._frequency_label.configure(
+            text=f"{frequency_hz / 1_000_000:.3f} MHz{suffix}", fg=self._theme.ui.text_muted
+        )
 
     def deactivate(self) -> None:
         self._session.deactivate()
@@ -281,13 +296,17 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._paint_groups()
         self.set_station(state.station.label, state.station.frequency_hz, state.station.mode_name)
         self._metadata_label.configure(text=state.telemetry.rds)
-        signal = "--" if state.telemetry.signal_db is None else f"{state.telemetry.signal_db:.1f} dB"
+        signal = (
+            "--" if state.telemetry.signal_db is None else f"{state.telemetry.signal_db:.1f} dB"
+        )
         snr = "--" if state.telemetry.snr_db is None else f"{state.telemetry.snr_db:.1f} dB"
         self._signal_label.configure(text=f"SIGNAL {signal}")
         self._snr_label.configure(text=f"SNR {snr}")
         if state.loading or state.error:
-            self._launch_status.configure(text=state.error or "Loading radio…",
-                                          fg=self._theme.ui.accent_danger if state.error else self._theme.ui.text)
+            self._launch_status.configure(
+                text=state.error or "Loading radio…",
+                fg=self._theme.ui.accent_danger if state.error else self._theme.ui.text,
+            )
             self._launch_status.place(relx=0.5, rely=0.5, anchor="center")
             self._launch_status.lift()
         else:
@@ -306,6 +325,14 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin):
         self._telemetry_after_id = self.after(500, self._schedule_telemetry_refresh)
 
     def _on_host_resize(self, event: tk.Event) -> None:
-        self._session.request(RadioRequest(RadioAction.RESIZE, host=RadioHost(
-            int(self._host.winfo_id()), int(self.winfo_toplevel().winfo_id()),
-            max(1, event.width), max(1, event.height))))
+        self._session.request(
+            RadioRequest(
+                RadioAction.RESIZE,
+                host=RadioHost(
+                    int(self._host.winfo_id()),
+                    int(self.winfo_toplevel().winfo_id()),
+                    max(1, event.width),
+                    max(1, event.height),
+                ),
+            )
+        )

@@ -77,18 +77,12 @@ def main() -> int:
                     continue
 
                 for parameter in _parameters(method):
-                    pattern = re.compile(
-                        PARAM_PATTERN.format(name=re.escape(parameter))
-                    )
+                    pattern = re.compile(PARAM_PATTERN.format(name=re.escape(parameter)))
                     if not pattern.search(docstring):
-                        failures.append(
-                            f"{location}: missing @param {parameter}"
-                        )
+                        failures.append(f"{location}: missing @param {parameter}")
 
                 if _returns_value(method) and not RETURN_PATTERN.search(docstring):
-                    failures.append(
-                        f"{location}: missing @return or @retval"
-                    )
+                    failures.append(f"{location}: missing @return or @retval")
 
     if failures:
         print("\n".join(failures), file=sys.stderr)
@@ -98,10 +92,7 @@ def main() -> int:
         )
         return 1
 
-    print(
-        f"Validated Doxygen contracts for {checked_methods} public "
-        "interface methods."
-    )
+    print(f"Validated Doxygen contracts for {checked_methods} public interface methods.")
     return 0
 
 

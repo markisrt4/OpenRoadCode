@@ -41,9 +41,7 @@ class RoutePlaybackPositionSource(PositionSourceIf, RouteSimulationIf):
                 generation = self._generation
                 self._callback = callback
             try:
-                self._live_source.start(
-                    lambda state: self._deliver(state, generation, None)
-                )
+                self._live_source.start(lambda state: self._deliver(state, generation, None))
             except BaseException:
                 self.stop()
                 raise

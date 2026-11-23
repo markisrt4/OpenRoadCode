@@ -15,9 +15,7 @@ class TimestampContractTest(unittest.TestCase):
         )
 
     def test_fractional_second_uses_nanoseconds(self) -> None:
-        encoded = encode_timestamp(
-            datetime(2026, 8, 21, 17, 27, 14, 123456, tzinfo=timezone.utc)
-        )
+        encoded = encode_timestamp(datetime(2026, 8, 21, 17, 27, 14, 123456, tzinfo=timezone.utc))
         self.assertEqual(encoded["nanoseconds"], 123_456_000)
         self.assertGreater(encoded["seconds"], 0)
 
@@ -34,9 +32,7 @@ class TimestampContractTest(unittest.TestCase):
 
     def test_pre_epoch_timestamp_is_rejected(self) -> None:
         with self.assertRaises(ValueError):
-            encode_timestamp(
-                datetime(1969, 12, 31, 23, 59, 59, 999999, tzinfo=timezone.utc)
-            )
+            encode_timestamp(datetime(1969, 12, 31, 23, 59, 59, 999999, tzinfo=timezone.utc))
 
 
 if __name__ == "__main__":

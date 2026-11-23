@@ -62,8 +62,7 @@ class CarUiRouter:
         except KeyError as exc:
             available = ", ".join(sorted(self._routes)) or "<none>"
             raise KeyError(
-                f"No navigation route registered for '{key}'. "
-                f"Available routes: {available}"
+                f"No navigation route registered for '{key}'. Available routes: {available}"
             ) from exc
 
         action()

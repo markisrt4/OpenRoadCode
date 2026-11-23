@@ -14,7 +14,7 @@ from collections.abc import Callable
 from common.logging.structured import current_operation, event, operation
 
 from controllers.spotify.spotify_controller_if import SpotifyControllerIf
-from ui.media.spotify_library import (SpotifyLibraryTrack, SpotifyPlaylist)
+from ui.media.spotify_library import SpotifyLibraryTrack, SpotifyPlaylist
 from controllers.spotify.spotify_media_presenter import SpotifyMediaPresenter
 from controllers.spotify.spotify_state import SpotifyState
 from protocols.spotify.spotify_web_api_client import SpotifyWebApiError
@@ -149,12 +149,12 @@ class SpotifyStateService(
         fallback_volume_handler: VolumeRequestHandlerIf | None = None,
     ) -> None:
         if refresh_seconds < self.MIN_REFRESH_SECONDS:
-            raise ValueError(
-                f"refresh_seconds must be at least {self.MIN_REFRESH_SECONDS} seconds"
-            )
+            raise ValueError(f"refresh_seconds must be at least {self.MIN_REFRESH_SECONDS} seconds")
         self._network_allowed: Callable[[], bool] = lambda: True
         self._controller = _SynchronizedSpotifyController(controller)
-        self._presenter = SpotifyMediaPresenter(self._controller, MediaUiStub(), fallback_volume_handler)
+        self._presenter = SpotifyMediaPresenter(
+            self._controller, MediaUiStub(), fallback_volume_handler
+        )
         self._refresh_seconds = refresh_seconds
         self._state = MediaState()
         self._state_lock = threading.Lock()

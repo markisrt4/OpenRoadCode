@@ -12,21 +12,43 @@ from .trip_state_codec import SCHEMA_VERSION
 
 TOP_LEVEL_FIELDS = {"version", "timestamp", "source", "data"}
 V1_DATA_FIELDS = {
-    "status", "started_at", "ended_at", "elapsed_s", "moving_s", "stopped_s",
-    "distance_m", "average_speed_m_s", "maximum_speed_m_s", "fuel_used_m3",
-    "instantaneous_fuel_consumption_m3_per_m", "average_fuel_consumption_m3_per_m",
-    "estimated_range_m", "start_latitude_deg", "start_longitude_deg",
-    "current_latitude_deg", "current_longitude_deg", "end_latitude_deg",
+    "status",
+    "started_at",
+    "ended_at",
+    "elapsed_s",
+    "moving_s",
+    "stopped_s",
+    "distance_m",
+    "average_speed_m_s",
+    "maximum_speed_m_s",
+    "fuel_used_m3",
+    "instantaneous_fuel_consumption_m3_per_m",
+    "average_fuel_consumption_m3_per_m",
+    "estimated_range_m",
+    "start_latitude_deg",
+    "start_longitude_deg",
+    "current_latitude_deg",
+    "current_longitude_deg",
+    "end_latitude_deg",
     "end_longitude_deg",
 }
 V2_DATA_FIELDS = V1_DATA_FIELDS | {
-    "boost_time_s", "boost_distance_m", "boost_fuel_used_m3", "peak_boost_pa",
+    "boost_time_s",
+    "boost_distance_m",
+    "boost_fuel_used_m3",
+    "peak_boost_pa",
 }
 DATA_FIELDS = V2_DATA_FIELDS | {
     "high_load_fuel_used_m3",
 }
 OPTIONAL_NUMERIC_FIELDS = DATA_FIELDS - {
-    "status", "started_at", "ended_at", "elapsed_s", "moving_s", "stopped_s", "distance_m"
+    "status",
+    "started_at",
+    "ended_at",
+    "elapsed_s",
+    "moving_s",
+    "stopped_s",
+    "distance_m",
 }
 VALID_STATUSES = {"idle", "active", "paused", "complete"}
 
@@ -52,7 +74,9 @@ def validate_trip_state(payload: Mapping[str, Any]) -> None:
         raise ValueError("trip state source must be a non-empty string")
 
     data = payload["data"]
-    expected_fields = V1_DATA_FIELDS if version == 1 else V2_DATA_FIELDS if version == 2 else DATA_FIELDS
+    expected_fields = (
+        V1_DATA_FIELDS if version == 1 else V2_DATA_FIELDS if version == 2 else DATA_FIELDS
+    )
     if not isinstance(data, Mapping) or set(data) != expected_fields:
         raise ValueError("trip state data contains missing or unknown fields")
     if data["status"] not in VALID_STATUSES:
@@ -69,16 +93,19 @@ def validate_trip_state(payload: Mapping[str, Any]) -> None:
             raise ValueError(f"{name} cannot be negative")
     for name in OPTIONAL_NUMERIC_FIELDS & expected_fields:
         _number(name, data[name])
-    for name in (
-        {
-            "average_speed_m_s", "maximum_speed_m_s", "fuel_used_m3",
-            "instantaneous_fuel_consumption_m3_per_m",
-            "average_fuel_consumption_m3_per_m", "estimated_range_m",
-            "boost_time_s", "boost_distance_m", "boost_fuel_used_m3",
-            "peak_boost_pa", "high_load_fuel_used_m3",
-        }
-        & expected_fields
-    ):
+    for name in {
+        "average_speed_m_s",
+        "maximum_speed_m_s",
+        "fuel_used_m3",
+        "instantaneous_fuel_consumption_m3_per_m",
+        "average_fuel_consumption_m3_per_m",
+        "estimated_range_m",
+        "boost_time_s",
+        "boost_distance_m",
+        "boost_fuel_used_m3",
+        "peak_boost_pa",
+        "high_load_fuel_used_m3",
+    } & expected_fields:
         if data[name] is not None and data[name] < 0.0:
             raise ValueError(f"{name} cannot be negative")
     for name in ("start_latitude_deg", "current_latitude_deg", "end_latitude_deg"):

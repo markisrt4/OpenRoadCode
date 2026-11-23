@@ -7,7 +7,11 @@ from unittest.mock import Mock
 import pytest
 
 from controllers.spotify.spotify_browser import SpotifyBrowser
-from ui.media.spotify_browse_if import SpotifyCollection, SpotifyLocalPlayerState, SpotifyPlaybackMode
+from ui.media.spotify_browse_if import (
+    SpotifyCollection,
+    SpotifyLocalPlayerState,
+    SpotifyPlaybackMode,
+)
 from ui.media.spotify_library import SpotifyLibraryTrack, SpotifyPlaylist
 
 
@@ -17,10 +21,18 @@ def setup_browser():
     service.cached_saved_tracks.return_value = None
     service.cached_recently_played.return_value = None
     service.cached_playlists.return_value = None
-    service.load_saved_tracks.return_value = (SpotifyLibraryTrack("liked", "artist", None, "liked-uri", "liked-art"),)
-    service.load_recently_played.return_value = (SpotifyLibraryTrack("recent", "artist", None, "recent-uri", "recent-art"),)
-    service.load_playlists.return_value = (SpotifyPlaylist("playlist-id", "playlist", "playlist-uri", "playlist-art"),)
-    service.load_playlist_tracks.return_value = (SpotifyLibraryTrack("playlist-track", "artist", None, "playlist-track-uri"),)
+    service.load_saved_tracks.return_value = (
+        SpotifyLibraryTrack("liked", "artist", None, "liked-uri", "liked-art"),
+    )
+    service.load_recently_played.return_value = (
+        SpotifyLibraryTrack("recent", "artist", None, "recent-uri", "recent-art"),
+    )
+    service.load_playlists.return_value = (
+        SpotifyPlaylist("playlist-id", "playlist", "playlist-uri", "playlist-art"),
+    )
+    service.load_playlist_tracks.return_value = (
+        SpotifyLibraryTrack("playlist-track", "artist", None, "playlist-track-uri"),
+    )
     player = Mock()
     player.state.return_value = SpotifyLocalPlayerState(available=True)
     dispatcher = Mock()
@@ -29,8 +41,15 @@ def setup_browser():
     online = [True]
     show_now = Mock()
     loader = Mock(side_effect=lambda uri: uri.encode())
-    session = SpotifyBrowser(service, player, run_work=work.append, dispatcher=dispatcher,
-        load_artwork=loader, online=lambda: online[0], show_now_playing=show_now)
+    session = SpotifyBrowser(
+        service,
+        player,
+        run_work=work.append,
+        dispatcher=dispatcher,
+        load_artwork=loader,
+        online=lambda: online[0],
+        show_now_playing=show_now,
+    )
     view = Mock()
     session.activate(view)
     return session, service, player, view, work, ui, online, show_now, dispatcher

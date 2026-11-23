@@ -26,9 +26,7 @@ class ValhallaHttpClient:
             raise ValueError("base_url cannot be empty")
 
         if timeout_seconds <= 0:
-            raise ValueError(
-                "timeout_seconds must be greater than zero"
-            )
+            raise ValueError("timeout_seconds must be greater than zero")
 
         self._base_url = base_url.rstrip("/")
         self._timeout_seconds = timeout_seconds
@@ -50,9 +48,7 @@ class ValhallaHttpClient:
         result = response.json()
 
         if not isinstance(result, dict):
-            raise ValueError(
-                "Valhalla status response was not a JSON object"
-            )
+            raise ValueError("Valhalla status response was not a JSON object")
 
         return result
 
@@ -73,9 +69,6 @@ class ValhallaHttpClient:
         result = response.json()
 
         if not isinstance(result, dict):
-            raise ValueError(
-                "Valhalla route response was not a JSON object"
-            )
+            raise ValueError("Valhalla route response was not a JSON object")
 
         return result
-

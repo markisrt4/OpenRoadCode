@@ -40,9 +40,7 @@ def __getattr__(name: str) -> Any:
 
     adapter_modules = {
         "KeyboardInputAdapter": "controllers.input.keyboard_input_adapter",
-        "RotaryEncoderInputAdapter": (
-            "controllers.input.rotary_encoder_input_adapter"
-        ),
+        "RotaryEncoderInputAdapter": ("controllers.input.rotary_encoder_input_adapter"),
     }
     module_name = adapter_modules.get(name)
     if module_name is None:

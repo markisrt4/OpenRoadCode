@@ -8,4 +8,9 @@ from controllers.weather.providers.nws_weather_alert_provider import NwsWeatherA
 from controllers.weather.providers.open_meteo_weather_provider import OpenMeteoWeatherProvider
 from controllers.weather.providers.rainviewer_radar_provider import RainViewerRadarProvider
 
-__all__ = ["InjectedRadarProvider", "NwsWeatherAlertProvider", "OpenMeteoWeatherProvider", "RainViewerRadarProvider"]
+__all__ = [
+    "InjectedRadarProvider",
+    "NwsWeatherAlertProvider",
+    "OpenMeteoWeatherProvider",
+    "RainViewerRadarProvider",
+]

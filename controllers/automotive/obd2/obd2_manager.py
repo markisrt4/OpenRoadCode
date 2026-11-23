@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import TypeVar
 
 from common.logging.structured import current_operation, event, operation
-from ui.automotive.automotive_telemetry_profile import (AutomotiveTelemetryProfile)
+from ui.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
 from controllers.automotive.vehicle_state import VehicleState
 from controllers.automotive.obd2.obd2_poll_scheduler import (
     Obd2PollingProfile,
@@ -207,12 +207,15 @@ class Obd2Manager(VehicleStateSourceIf):
     def _current_torque_ratio(self) -> float | None:
         # Do not keep presenting an old instantaneous output after polling stalls.
         now = time.monotonic()
-        if (self._actual_torque_pct is None or self._torque_sample_time is None
-                or self._rpm_sample_time is None
-                or now-self._torque_sample_time > 10.0
-                or now-self._rpm_sample_time > 10.0):
+        if (
+            self._actual_torque_pct is None
+            or self._torque_sample_time is None
+            or self._rpm_sample_time is None
+            or now - self._torque_sample_time > 10.0
+            or now - self._rpm_sample_time > 10.0
+        ):
             return None
-        return self._actual_torque_pct/100.0
+        return self._actual_torque_pct / 100.0
 
     def _create_scheduler(self) -> Obd2PollScheduler:
         """Create the OBD scheduler using the currently requested profile."""
@@ -242,7 +245,8 @@ class Obd2Manager(VehicleStateSourceIf):
             ),
             ecu=(
                 self._actual_torque_pid,
-                self._reference_torque_pid,                self._fuel_system_status_pid,
+                self._reference_torque_pid,
+                self._fuel_system_status_pid,
                 self._short_term_fuel_trim_pid,
                 self._long_term_fuel_trim_pid,
                 self._ignition_timing_pid,

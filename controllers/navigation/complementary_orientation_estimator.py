@@ -29,9 +29,7 @@ class ComplementaryOrientationEstimator(OrientationEstimatorIf):
         self._roll_deg = 0.0
 
     def start(self, acceleration_mps2: Vector3) -> None:
-        self._pitch_deg, self._roll_deg = self._tilt_from_acceleration(
-            acceleration_mps2
-        )
+        self._pitch_deg, self._roll_deg = self._tilt_from_acceleration(acceleration_mps2)
         self._heading_deg = 0.0
         self._started = True
 
@@ -47,34 +45,27 @@ class ComplementaryOrientationEstimator(OrientationEstimatorIf):
         if not self._started:
             raise RuntimeError("orientation estimator has not been started")
 
-        acceleration_pitch_deg, acceleration_roll_deg = (
-            self._tilt_from_acceleration(acceleration_mps2)
+        acceleration_pitch_deg, acceleration_roll_deg = self._tilt_from_acceleration(
+            acceleration_mps2
         )
         gyro_roll_deg = self._normalize_signed_angle(
-            self._roll_deg
-            + math.degrees(angular_velocity_rad_s.x * elapsed_s)
+            self._roll_deg + math.degrees(angular_velocity_rad_s.x * elapsed_s)
         )
-        gyro_pitch_deg = self._pitch_deg + math.degrees(
-            angular_velocity_rad_s.y * elapsed_s
-        )
+        gyro_pitch_deg = self._pitch_deg + math.degrees(angular_velocity_rad_s.y * elapsed_s)
         filter_weight = self._filter_weight(elapsed_s)
 
         # Roll is circular. Correct toward the accelerometer using the shortest
         # signed angular distance so values near +180/-180 remain neighbors.
-        roll_error_deg = self._normalize_signed_angle(
-            acceleration_roll_deg - gyro_roll_deg
-        )
+        roll_error_deg = self._normalize_signed_angle(acceleration_roll_deg - gyro_roll_deg)
         self._roll_deg = self._normalize_signed_angle(
             gyro_roll_deg + (1.0 - filter_weight) * roll_error_deg
         )
         blended_pitch_deg = (
-            filter_weight * gyro_pitch_deg
-            + (1.0 - filter_weight) * acceleration_pitch_deg
+            filter_weight * gyro_pitch_deg + (1.0 - filter_weight) * acceleration_pitch_deg
         )
         self._pitch_deg = max(-90.0, min(90.0, blended_pitch_deg))
         self._heading_deg = (
-            self._heading_deg
-            + math.degrees(angular_velocity_rad_s.z * elapsed_s)
+            self._heading_deg + math.degrees(angular_velocity_rad_s.z * elapsed_s)
         ) % 360.0
 
         return Orientation(
@@ -93,9 +84,7 @@ class ComplementaryOrientationEstimator(OrientationEstimatorIf):
         if elapsed_s <= 0.0:
             return 1.0
 
-        return self._filter_time_constant_s / (
-            self._filter_time_constant_s + elapsed_s
-        )
+        return self._filter_time_constant_s / (self._filter_time_constant_s + elapsed_s)
 
     @staticmethod
     def _normalize_signed_angle(angle_deg: float) -> float:
@@ -115,7 +104,5 @@ class ComplementaryOrientationEstimator(OrientationEstimatorIf):
                 math.hypot(acceleration.y, acceleration.z),
             )
         )
-        roll_deg = math.degrees(
-            math.atan2(acceleration.y, acceleration.z)
-        )
+        roll_deg = math.degrees(math.atan2(acceleration.y, acceleration.z))
         return pitch_deg, roll_deg

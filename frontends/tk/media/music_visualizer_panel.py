@@ -65,8 +65,7 @@ class MusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
         self._mode_name = tk.StringVar(value=_MODE_LABELS[self._mode])
         self._frame = VisualizerFrame(0.0, 0.0, 0.0, 0.0, (0.0,) * 24)
         self._stars = [
-            (random.random(), random.random(), random.uniform(0.5, 1.8))
-            for _ in range(90)
+            (random.random(), random.random(), random.uniform(0.5, 1.8)) for _ in range(90)
         ]
         self._particles: list[list[float]] = []
         self._show_controls = show_controls
@@ -137,7 +136,8 @@ class MusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
                 font=("Sans", 10, "bold"),
                 padx=12,
                 pady=6,
-                highlightthickness=0, bd=0,
+                highlightthickness=0,
+                bd=0,
             ).grid(row=0, column=0, padx=(0, 10))
 
         tk.Label(
@@ -258,9 +258,18 @@ class MusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
     def _draw_planets(self, width: int, height: int) -> None:
         cx, cy = width / 2, height / 2
         for sx, sy, size in self._stars:
-            self._canvas.create_oval(sx * width, sy * height, sx * width + size, sy * height + size, fill="#a9cfff", outline="")
+            self._canvas.create_oval(
+                sx * width,
+                sy * height,
+                sx * width + size,
+                sy * height + size,
+                fill="#a9cfff",
+                outline="",
+            )
         sun = 18 + 34 * self._frame.level
-        self._canvas.create_oval(cx - sun, cy - sun, cx + sun, cy + sun, fill="#ffc14d", outline="#fff1a8", width=2)
+        self._canvas.create_oval(
+            cx - sun, cy - sun, cx + sun, cy + sun, fill="#ffc14d", outline="#fff1a8", width=2
+        )
         for radius, speed, energy, color in (
             (0.20, 0.90, self._frame.bass, BLUE),
             (0.32, -1.25, self._frame.mid, RED),
@@ -271,7 +280,9 @@ class MusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
             x = cx + math.cos(angle) * orbit
             y = cy + math.sin(angle) * orbit * 0.55
             planet = 7 + energy * 16
-            self._canvas.create_oval(x - planet, y - planet, x + planet, y + planet, fill=color, outline="#ffffff")
+            self._canvas.create_oval(
+                x - planet, y - planet, x + planet, y + planet, fill=color, outline="#ffffff"
+            )
 
     def _draw_freeway(self, width: int, height: int) -> None:
         horizon = height * 0.31
@@ -286,9 +297,20 @@ class MusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
             y = horizon + (phase**2) * (height - horizon)
             self._canvas.create_line(0, y, width, y, fill="#163244")
         road_half = width * 0.28
-        self._canvas.create_polygon(cx, horizon, cx - road_half, height, cx + road_half, height, fill="#071019", outline="#126f9e")
+        self._canvas.create_polygon(
+            cx,
+            horizon,
+            cx - road_half,
+            height,
+            cx + road_half,
+            height,
+            fill="#071019",
+            outline="#126f9e",
+        )
         for offset, color in ((-0.10, BLUE), (0.10, RED)):
-            self._canvas.create_line(cx, horizon, cx + width * offset, height, fill=color, width=max(2, glow // 45))
+            self._canvas.create_line(
+                cx, horizon, cx + width * offset, height, fill=color, width=max(2, glow // 45)
+            )
 
     def _draw_explosion(self, width: int, height: int) -> None:
         cx, cy = width / 2, height / 2
@@ -296,7 +318,9 @@ class MusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
             for _ in range(18):
                 angle = random.random() * math.tau
                 speed = random.uniform(1.8, 7.0) * (0.5 + self._frame.bass)
-                self._particles.append([cx, cy, math.cos(angle) * speed, math.sin(angle) * speed, 1.0])
+                self._particles.append(
+                    [cx, cy, math.cos(angle) * speed, math.sin(angle) * speed, 1.0]
+                )
         next_particles: list[list[float]] = []
         for particle in self._particles:
             particle[0] += particle[2]
@@ -308,10 +332,24 @@ class MusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
                 next_particles.append(particle)
                 radius = 1 + 4 * particle[4]
                 color = RED if particle[4] > 0.55 else "#ffb52c"
-                self._canvas.create_oval(particle[0] - radius, particle[1] - radius, particle[0] + radius, particle[1] + radius, fill=color, outline="")
+                self._canvas.create_oval(
+                    particle[0] - radius,
+                    particle[1] - radius,
+                    particle[0] + radius,
+                    particle[1] + radius,
+                    fill=color,
+                    outline="",
+                )
         self._particles = next_particles
         core = 12 + 50 * self._frame.level
-        self._canvas.create_oval(cx - core, cy - core, cx + core, cy + core, outline="#fff4a8", width=2 + int(self._frame.level * 6))
+        self._canvas.create_oval(
+            cx - core,
+            cy - core,
+            cx + core,
+            cy + core,
+            outline="#fff4a8",
+            width=2 + int(self._frame.level * 6),
+        )
 
     def _draw_stars(self, width: int, height: int) -> None:
         for index, (sx, sy, size) in enumerate(self._stars):
@@ -320,7 +358,9 @@ class MusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
             x = (sx * width + math.sin(self._phase + index) * band * 14) % width
             y = (sy * height + math.cos(self._phase * 0.8 + index) * band * 10) % height
             color = self._gradient((index % 24) / 23)
-            self._canvas.create_oval(x - pulse, y - pulse, x + pulse, y + pulse, fill=color, outline="")
+            self._canvas.create_oval(
+                x - pulse, y - pulse, x + pulse, y + pulse, fill=color, outline=""
+            )
 
     def _draw_rings(self, width: int, height: int) -> None:
         cx, cy = width / 2, height / 2
@@ -328,7 +368,14 @@ class MusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
         for index, value in enumerate(self._frame.spectrum[::2]):
             radius = 18 + index * maximum / 13 + value * 18
             color = self._gradient(index / 11)
-            self._canvas.create_oval(cx - radius, cy - radius, cx + radius, cy + radius, outline=color, width=1 + int(value * 5))
+            self._canvas.create_oval(
+                cx - radius,
+                cy - radius,
+                cx + radius,
+                cy + radius,
+                outline=color,
+                width=1 + int(value * 5),
+            )
 
     def _draw_ribbon(self, width: int, height: int) -> None:
         points: list[float] = []
@@ -336,7 +383,9 @@ class MusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
         for index in range(80):
             x = index * width / 79
             band = values[index % len(values)]
-            y = height / 2 + math.sin(index * 0.28 + self._phase * 2.1) * height * (0.08 + band * 0.24)
+            y = height / 2 + math.sin(index * 0.28 + self._phase * 2.1) * height * (
+                0.08 + band * 0.24
+            )
             points.extend((x, y))
         self._canvas.create_line(*points, fill=BLUE, width=8, smooth=True)
         self._canvas.create_line(*points, fill="#75e9ff", width=2, smooth=True)
@@ -357,7 +406,9 @@ class MusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
             y1 = cy + math.sin(angle + 0.18) * outer
             x2 = cx + math.cos(angle - 0.18) * outer
             y2 = cy + math.sin(angle - 0.18) * outer
-            self._canvas.create_polygon(x0, y0, x1, y1, x2, y2, fill=self._gradient(spoke / spokes), outline="")
+            self._canvas.create_polygon(
+                x0, y0, x1, y1, x2, y2, fill=self._gradient(spoke / spokes), outline=""
+            )
 
     @staticmethod
     def _clamp(value: float) -> float:

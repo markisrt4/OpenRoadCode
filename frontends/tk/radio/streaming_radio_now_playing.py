@@ -56,23 +56,36 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
             source_shortcuts.grid_columnconfigure(column, weight=1)
 
         # Large icon above the label, both inside the same touch target.
-        def source_button(column: int, icon: str, label: str, color: str,
-                          command: Callable[[], None]) -> tk.Canvas:
-            tile = tk.Canvas(source_shortcuts, width=56, height=66,
-                             bg=ui.control_background, highlightthickness=0,
-                             bd=0, cursor="hand2")
-            tile.grid(row=0, column=column, sticky="nsew",
-                      padx=(0, 3) if column == 0 else ((3, 0) if column == 2 else 3))
+        def source_button(
+            column: int, icon: str, label: str, color: str, command: Callable[[], None]
+        ) -> tk.Canvas:
+            tile = tk.Canvas(
+                source_shortcuts,
+                width=56,
+                height=66,
+                bg=ui.control_background,
+                highlightthickness=0,
+                bd=0,
+                cursor="hand2",
+            )
+            tile.grid(
+                row=0,
+                column=column,
+                sticky="nsew",
+                padx=(0, 3) if column == 0 else ((3, 0) if column == 2 else 3),
+            )
+
             def paint(_event: tk.Event | None = None) -> None:
                 tile.delete("all")
                 width = max(1, tile.winfo_width())
-                tile.create_text(width / 2, 24, text=icon, fill=color,
-                                 font=("Sans", 22, "bold"))
-                tile.create_text(width / 2, 53, text=label, fill=color,
-                                 font=("Sans", 9, "bold"))
+                tile.create_text(width / 2, 24, text=icon, fill=color, font=("Sans", 22, "bold"))
+                tile.create_text(width / 2, 53, text=label, fill=color, font=("Sans", 9, "bold"))
+
             tile.bind("<Configure>", paint)
-            tile.bind("<Button-1>", lambda _event: command()
-                      if label != "STREAM" or self._online_allowed() else None)
+            tile.bind(
+                "<Button-1>",
+                lambda _event: command() if label != "STREAM" or self._online_allowed() else None,
+            )
             return tile
 
         self._adsb_button = source_button(0, "✈", "ADS-B", ui.accent_warning, on_open_adsb)
@@ -136,6 +149,8 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
         else:
             self._status.grid_remove()
             self._station.configure(text="Radio idle")
-            self._detail.configure(text="Choose a source to start listening" if online else "Offline • RF available")
+            self._detail.configure(
+                text="Choose a source to start listening" if online else "Offline • RF available"
+            )
 
         self._after_id = self.after(750, self._refresh)

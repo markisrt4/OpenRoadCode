@@ -26,7 +26,8 @@ class MusicVideoController:
         self,
         spotify_controller: SpotifyControllerIf,
         music_video: MusicVideoIf,
-        *, network_allowed: Callable[[], bool] = lambda: True,
+        *,
+        network_allowed: Callable[[], bool] = lambda: True,
     ) -> None:
         self._video_operation_lock = threading.Lock()
         self._network_allowed = network_allowed
@@ -54,8 +55,12 @@ class MusicVideoController:
             self._prepared_match = (query, video)
         return video is not None
 
-    def watch_current_track(self, *, is_current: Callable[[], bool] = lambda: True,
-                            restore_allowed: Callable[[], bool] = lambda: True) -> bool:
+    def watch_current_track(
+        self,
+        *,
+        is_current: Callable[[], bool] = lambda: True,
+        restore_allowed: Callable[[], bool] = lambda: True,
+    ) -> bool:
         """Find and play a video for the current Spotify track."""
         with operation(current_operation()):
             event(LOGGER, logging.INFO, "video.requested", "Music video requested")
@@ -79,8 +84,11 @@ class MusicVideoController:
             )
             return started
 
-    def _watch_current_track(self, is_current: Callable[[], bool] = lambda: True,
-                             restore_allowed: Callable[[], bool] = lambda: True) -> bool:
+    def _watch_current_track(
+        self,
+        is_current: Callable[[], bool] = lambda: True,
+        restore_allowed: Callable[[], bool] = lambda: True,
+    ) -> bool:
         if not self._network_allowed() or not is_current():
             return False
         state = self._spotify_controller.current_state()

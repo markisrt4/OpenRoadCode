@@ -14,9 +14,13 @@ from typing import Any
 
 from messaging.contracts.navigation.position_state_validator import validate_position_state
 from messaging.contracts.navigation.imu_state_validator import validate_imu_state
-from messaging.contracts.navigation.magnetic_field_state_validator import validate_magnetic_field_state
+from messaging.contracts.navigation.magnetic_field_state_validator import (
+    validate_magnetic_field_state,
+)
 from messaging.contracts.navigation.attitude_state_validator import validate_attitude_state
-from messaging.contracts.environmental.ambient_light_state_validator import validate_ambient_light_state
+from messaging.contracts.environmental.ambient_light_state_validator import (
+    validate_ambient_light_state,
+)
 from messaging.contracts.environmental.barometric_state_validator import validate_barometric_state
 from ui.system_diagnostics import SensorHealthSnapshot
 
@@ -45,7 +49,9 @@ class _Observation:
 class SensorHealthMonitor:
     """Own one receiver thread and bounded per-topic, per-source observations."""
 
-    def __init__(self, *, subscriber_factory: Callable | None = None, monotonic=time.monotonic) -> None:
+    def __init__(
+        self, *, subscriber_factory: Callable | None = None, monotonic=time.monotonic
+    ) -> None:
         self._factory = subscriber_factory or _subscriber
         self._monotonic = monotonic
         self._lock = threading.Lock()
@@ -71,9 +77,11 @@ class SensorHealthMonitor:
             if self._subscriber is not None:
                 self._subscriber.close()
             with self._lock:
-                self._status = ("unavailable: pyzmq is missing from this Python environment"
-                                if isinstance(error, ModuleNotFoundError) and error.name == "zmq"
-                                else f"unavailable ({type(error).__name__})")
+                self._status = (
+                    "unavailable: pyzmq is missing from this Python environment"
+                    if isinstance(error, ModuleNotFoundError) and error.name == "zmq"
+                    else f"unavailable ({type(error).__name__})"
+                )
             return
         self._stop.clear()
         with self._lock:
@@ -109,7 +117,9 @@ class SensorHealthMonitor:
         with self._lock:
             key = (topic, source)
             if key not in self._observations and len(self._observations) >= 48:
-                oldest = min(self._observations, key=lambda key: self._observations[key].received or 0)
+                oldest = min(
+                    self._observations, key=lambda key: self._observations[key].received or 0
+                )
                 self._observations.pop(oldest)
             observed = self._observations.setdefault(key, _Observation())
             observed.received = now
@@ -124,13 +134,19 @@ class SensorHealthMonitor:
                 observed.timestamp = timestamp
             elif timestamp < observed.timestamp:
                 observed.detail = "Source timestamp moved backward; waiting for timestamp recovery"
-            if topic == "openroad.navigation.attitude" and all(value is None for value in payload["data"].values()):
+            if topic == "openroad.navigation.attitude" and all(
+                value is None for value in payload["data"].values()
+            ):
                 observed.detail = "No usable attitude estimates"
             if topic == "openroad.navigation.position":
                 data = payload["data"]
                 if data["is_cached"]:
                     observed.detail = "Cached position; not a live GPS fix"
-                elif data["fix_mode"] not in (2, 3) or data["latitude_rad"] is None or data["longitude_rad"] is None:
+                elif (
+                    data["fix_mode"] not in (2, 3)
+                    or data["latitude_rad"] is None
+                    or data["longitude_rad"] is None
+                ):
                     observed.detail = "No valid GPS fix"
 
     def snapshots(self) -> tuple[SensorHealthSnapshot, ...]:
@@ -138,17 +154,35 @@ class SensorHealthMonitor:
         rows = []
         with self._lock:
             for topic, (name, _, timeout) in SENSORS.items():
-                matches = [(source, observation) for (observed_topic, source), observation in self._observations.items() if observed_topic == topic]
+                matches = [
+                    (source, observation)
+                    for (observed_topic, source), observation in self._observations.items()
+                    if observed_topic == topic
+                ]
                 if not matches:
-                    rows.append(SensorHealthSnapshot(name=name, topic=topic, stale_after_seconds=timeout))
+                    rows.append(
+                        SensorHealthSnapshot(name=name, topic=topic, stale_after_seconds=timeout)
+                    )
                     continue
                 for source, observation in sorted(matches):
-                    received_age = now - observation.received if observation.received is not None else None
-                    advanced_age = now - observation.advanced if observation.advanced is not None else None
+                    received_age = (
+                        now - observation.received if observation.received is not None else None
+                    )
+                    advanced_age = (
+                        now - observation.advanced if observation.advanced is not None else None
+                    )
                     arrivals = [value for value in observation.arrivals if value >= now - 5]
-                    rate = ((len(arrivals) - 1) / (arrivals[-1] - arrivals[0]) if len(arrivals) >= 2 and arrivals[-1] > arrivals[0]
-                            else 0.0 if not arrivals else None)
-                    state, detail = "streaming", "Validated telemetry with advancing sample timestamps"
+                    rate = (
+                        (len(arrivals) - 1) / (arrivals[-1] - arrivals[0])
+                        if len(arrivals) >= 2 and arrivals[-1] > arrivals[0]
+                        else 0.0
+                        if not arrivals
+                        else None
+                    )
+                    state, detail = (
+                        "streaming",
+                        "Validated telemetry with advancing sample timestamps",
+                    )
                     if received_age is not None and received_age > timeout:
                         state, detail = "stale", "No recent telemetry"
                     elif observation.invalid_last:
@@ -157,12 +191,20 @@ class SensorHealthMonitor:
                         state, detail = "stale", "Sample timestamp stopped advancing"
                     elif observation.detail:
                         state, detail = "degraded", observation.detail
-                    rows.append(SensorHealthSnapshot(
-                        name=name, topic=topic, source=source, state=state, detail=detail,
-                        last_received_age_seconds=received_age, last_sample_age_seconds=advanced_age,
-                        message_rate_hz=rate, invalid_message_count=observation.invalid,
-                        stale_after_seconds=timeout,
-                    ))
+                    rows.append(
+                        SensorHealthSnapshot(
+                            name=name,
+                            topic=topic,
+                            source=source,
+                            state=state,
+                            detail=detail,
+                            last_received_age_seconds=received_age,
+                            last_sample_age_seconds=advanced_age,
+                            message_rate_hz=rate,
+                            invalid_message_count=observation.invalid,
+                            stale_after_seconds=timeout,
+                        )
+                    )
         return tuple(rows)
 
     def _run(self) -> None:
@@ -186,4 +228,5 @@ class SensorHealthMonitor:
 def _subscriber():
     # The service-manager's resource accounting remains usable without optional pyzmq.
     from messaging.zeromq.subscriber import ZeroMqSubscriber
+
     return ZeroMqSubscriber()

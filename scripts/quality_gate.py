@@ -18,9 +18,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 def _is_termux() -> bool:
     prefix = os.environ.get("PREFIX", "")
-    return bool(os.environ.get("TERMUX_VERSION")) or prefix.startswith(
-        "/data/data/com.termux/"
-    )
+    return bool(os.environ.get("TERMUX_VERSION")) or prefix.startswith("/data/data/com.termux/")
 
 
 def _run(label: str, command: list[str]) -> bool:
@@ -44,10 +42,13 @@ def _run_ruff() -> bool:
 
 
 def _run_ui_types() -> bool:
-    if _is_termux() and importlib.util.find_spec('mypy') is None:
-        print('\n[SKIP] Strict UI contract types: mypy unavailable on Termux; required in Linux/CI', flush=True)
+    if _is_termux() and importlib.util.find_spec("mypy") is None:
+        print(
+            "\n[SKIP] Strict UI contract types: mypy unavailable on Termux; required in Linux/CI",
+            flush=True,
+        )
         return True
-    return _run('Strict UI contract types', [sys.executable, 'scripts/check_ui_types.py'])
+    return _run("Strict UI contract types", [sys.executable, "scripts/check_ui_types.py"])
 
 
 def main() -> int:
@@ -59,7 +60,10 @@ def main() -> int:
             [sys.executable, "scripts/check_python_module_size.py"],
         ),
         _run("Project-wide UI boundaries", [sys.executable, "scripts/check_ui_boundaries.py"]),
-        _run("Weather UI contract boundaries", [sys.executable, "scripts/check_weather_ui_contracts.py"]),
+        _run(
+            "Weather UI contract boundaries",
+            [sys.executable, "scripts/check_weather_ui_contracts.py"],
+        ),
         _run(
             "Doxygen interface contracts",
             [sys.executable, "scripts/check_doxygen_contracts.py"],

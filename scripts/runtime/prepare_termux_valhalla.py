@@ -34,13 +34,19 @@ def prepare(source: Path, destination: Path, data_root: Path, runtime_root: Path
     config = relocate(config)
     # Builder output can contain arbitrary build-machine paths. The four
     # standard installed artifacts take precedence when present locally.
-    for key, name in (("tile_dir", "tiles"), ("tile_extract", "tiles.tar"),
-                      ("admin", "admins.sqlite"), ("timezone", "timezones.sqlite")):
+    for key, name in (
+        ("tile_dir", "tiles"),
+        ("tile_extract", "tiles.tar"),
+        ("admin", "admins.sqlite"),
+        ("timezone", "timezones.sqlite"),
+    ):
         path = data_root / name
         if path.exists():
             config["mjolnir"][key] = str(path)
     logging = config.setdefault("logging", {})
-    if logging.get("type") == "file" and str(logging.get("file_name", "")).startswith(("/tmp/", "/var/log/")):
+    if logging.get("type") == "file" and str(logging.get("file_name", "")).startswith(
+        ("/tmp/", "/var/log/")
+    ):
         logging["file_name"] = str(runtime_root / Path(logging["file_name"]).name)
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_suffix(destination.suffix + ".tmp")

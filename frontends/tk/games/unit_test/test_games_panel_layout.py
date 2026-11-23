@@ -26,8 +26,14 @@ class GamesPanelLayoutTest(unittest.TestCase):
         self.panel = GamesPanel(self.root, theme=theme)
         self.panel.pack(fill=tk.BOTH, expand=True)
         self.games = tuple(
-            GameUiState(game_id=game.name, name=game.name, description=game.description,
-                        category=game.category, icon=None, status=GameStatus.UNAVAILABLE)
+            GameUiState(
+                game_id=game.name,
+                name=game.name,
+                description=game.description,
+                category=game.category,
+                icon=None,
+                status=GameStatus.UNAVAILABLE,
+            )
             for game in load_game_catalog(project / "config/games.toml")
         )
         self.panel.set_games(self.games)
@@ -36,14 +42,19 @@ class GamesPanelLayoutTest(unittest.TestCase):
         self.root.update()
         self.assertTrue(self.panel._next_button.winfo_ismapped())
         for card in self.panel._cards.winfo_children():
-            self.assertLessEqual(card.winfo_y() + card.winfo_height(),
-                                 self.panel._cards.winfo_height())
+            self.assertLessEqual(
+                card.winfo_y() + card.winfo_height(), self.panel._cards.winfo_height()
+            )
             for widget in card.winfo_children():
                 if isinstance(widget, (tk.Label, tk.Button)):
                     self.assertGreaterEqual(widget.winfo_height(), widget.winfo_reqheight())
                     self.assertGreaterEqual(widget.winfo_width(), widget.winfo_reqwidth())
-                    self.assertLessEqual(widget.winfo_x() + widget.winfo_width(), card.winfo_width())
-                    self.assertLessEqual(widget.winfo_y() + widget.winfo_height(), card.winfo_height())
+                    self.assertLessEqual(
+                        widget.winfo_x() + widget.winfo_width(), card.winfo_width()
+                    )
+                    self.assertLessEqual(
+                        widget.winfo_y() + widget.winfo_height(), card.winfo_height()
+                    )
 
     def test_narrow_and_wide_windows_keep_text_and_pager_visible(self) -> None:
         for size in ("480x340", "900x400", "1200x800"):
@@ -54,13 +65,19 @@ class GamesPanelLayoutTest(unittest.TestCase):
                 seen = set()
                 while True:
                     first = self.panel._page * self.panel._page_size
-                    seen.update(game.game_id for game in self.panel._visible_games()[
-                        first:first + self.panel._page_size])
+                    seen.update(
+                        game.game_id
+                        for game in self.panel._visible_games()[
+                            first : first + self.panel._page_size
+                        ]
+                    )
                     if self.panel._next_button.cget("state") == tk.DISABLED:
                         break
                     self.panel._change_page(1)
                     self._check_text_fits()
-                self.assertEqual({game.game_id for game in self.games if game.category == "puzzle"}, seen)
+                self.assertEqual(
+                    {game.game_id for game in self.games if game.category == "puzzle"}, seen
+                )
 
     def test_short_window_keeps_six_games_on_each_full_page(self) -> None:
         self.root.geometry("900x340")
@@ -85,8 +102,10 @@ class GamesPanelLayoutTest(unittest.TestCase):
         self.panel.set_games_status("Installing: GNOME Sudoku (Debian)…")
         self.panel._set_filter("puzzle")
         self._check_text_fits()
-        self.assertGreaterEqual(self.panel._status.winfo_height(),
-                                self.panel._status.winfo_reqheight())
+        self.assertGreaterEqual(
+            self.panel._status.winfo_height(), self.panel._status.winfo_reqheight()
+        )
         for button in self.panel._filter_buttons.values():
-            self.assertLessEqual(button.winfo_x() + button.winfo_width(),
-                                 self.panel._filters.winfo_width())
+            self.assertLessEqual(
+                button.winfo_x() + button.winfo_width(), self.panel._filters.winfo_width()
+            )

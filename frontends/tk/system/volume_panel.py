@@ -29,9 +29,7 @@ class VolumePanel(tk.Frame, VolumeUiIf, UiWidget):
     ) -> None:
         self._colors = theme["colors"]
         self._layout = theme["layout"]
-        self._style = theme["profiles"][
-            "compact" if compact_ui else "normal"
-        ]
+        self._style = theme["profiles"]["compact" if compact_ui else "normal"]
         self._indicator_steps = max(1, indicator_steps)
         self._muted: bool | None = None
         self._handler: VolumeRequestHandlerIf | None = None
@@ -129,5 +127,6 @@ class VolumePanel(tk.Frame, VolumeUiIf, UiWidget):
             height=self._layout["button_height"],
             cursor=self._layout["cursor"],
             command=command,
-            highlightthickness=0, relief=tk.FLAT,
+            highlightthickness=0,
+            relief=tk.FLAT,
         )

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
 # SPDX-License-Identifier: MIT
 """Fullscreen only retires its presentation, and closes it exactly once."""
+
 from unittest.mock import Mock, patch
 
 from frontends.tk.media.visualizer_fullscreen import VisualizerFullscreen
@@ -11,7 +12,7 @@ def test_fullscreen_close_retires_surface_and_restores_parent_once():
     window._closed = False
     window._panel = Mock()
     window._on_close = Mock()
-    with patch('tkinter.Toplevel.destroy') as destroy:
+    with patch("tkinter.Toplevel.destroy") as destroy:
         window.close()
         window.close()
         window.destroy()

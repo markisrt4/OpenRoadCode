@@ -25,10 +25,7 @@ class RotaryEncoderInputAdapter:
         input_handler: InputHandlerIf,
     ) -> None:
         if device_id.device_type is not InputDeviceType.ROTARY_ENCODER:
-            raise ValueError(
-                "RotaryEncoderInputAdapter requires a "
-                "ROTARY_ENCODER device ID"
-            )
+            raise ValueError("RotaryEncoderInputAdapter requires a ROTARY_ENCODER device ID")
 
         self._encoder = encoder
         self._device_id = device_id

@@ -36,9 +36,7 @@ class CarUiRuntimeTest(unittest.TestCase):
         second = RecordingRadioController()
         runtime = self._runtime(first, second)
 
-        with self.assertLogs(
-            "apps.carUi.runtime.car_ui_runtime", level="ERROR"
-        ):
+        with self.assertLogs("apps.carUi.runtime.car_ui_runtime", level="ERROR"):
             runtime.close()
 
         self.assertEqual(second.stops, 1)

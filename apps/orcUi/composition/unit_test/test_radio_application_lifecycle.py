@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Runtime shutdown cannot leave a late RF launch running."""
+
 from threading import Event, Thread
 from unittest.mock import Mock
 
@@ -24,10 +25,12 @@ def test_shutdown_waits_for_inflight_start_and_stops_after_it():
     manager.is_running.return_value = False
     entered, release = Event(), Event()
     events = []
+
     def prepare(_display):
         entered.set()
         assert release.wait(2)
         events.append("started")
+
     launcher.prepare.side_effect = prepare
     manager.stop.side_effect = lambda _key: events.append("stopped")
     service = ManagedRadioApplicationService(manager, launcher)

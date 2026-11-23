@@ -35,12 +35,18 @@ def configure_games(app: OrcUiApp) -> GamesScreen:
     """Create dependencies and transfer their cleanup to the registered screen."""
     with ResourceCleanup() as cleanup:
         session = GamesSession(
-            _load_games(), create_game_installers(), GameLauncher(), X11WindowEmbedder(),
-            run_work=_run_work, run_ui=app.dispatch_ui,
+            _load_games(),
+            create_game_installers(),
+            GameLauncher(),
+            X11WindowEmbedder(),
+            run_work=_run_work,
+            run_ui=app.dispatch_ui,
         )
         cleanup.callback(session.close)
         screen = GamesScreen(
-            app, session=session, theme_bundle=lambda: theme_bundle(app.theme_mode),
+            app,
+            session=session,
+            theme_bundle=lambda: theme_bundle(app.theme_mode),
             theme_mode=lambda: app.theme_mode,
         )
         app.register_screen("GAMES", screen)

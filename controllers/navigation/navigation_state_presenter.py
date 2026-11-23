@@ -45,9 +45,7 @@ class NavigationStatePresenter:
         self._translation_ui.set_accel_x(linear.x)
         self._translation_ui.set_accel_y(linear.y)
         self._translation_ui.set_accel_z(linear.z)
-        self._translation_ui.set_accel_total(
-            math.sqrt(linear.x**2 + linear.y**2 + linear.z**2)
-        )
+        self._translation_ui.set_accel_total(math.sqrt(linear.x**2 + linear.y**2 + linear.z**2))
 
         position = state.position
         if (
@@ -75,7 +73,5 @@ class NavigationStatePresenter:
 
         self._ground_track_ui.set_ground_speed(ground_motion.speed_mps)
         self._ground_track_ui.set_course_over_ground(
-            math.radians(ground_motion.course_deg)
-            if ground_motion.course_deg is not None
-            else None
+            math.radians(ground_motion.course_deg) if ground_motion.course_deg is not None else None
         )

@@ -36,10 +36,7 @@ DEFAULT_DESTINATION_LON = -83.0458
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description=(
-            "Calculate a Valhalla route and animate "
-            "a simulated vehicle along it."
-        )
+        description=("Calculate a Valhalla route and animate a simulated vehicle along it.")
     )
 
     parser.add_argument(
@@ -76,20 +73,14 @@ def parse_args() -> argparse.Namespace:
         "--delay",
         type=float,
         default=0.05,
-        help=(
-            "Delay in seconds between vehicle "
-            "position updates."
-        ),
+        help=("Delay in seconds between vehicle position updates."),
     )
 
     parser.add_argument(
         "--step",
         type=int,
         default=1,
-        help=(
-            "Use every Nth route shape point. "
-            "Higher values make the demo faster."
-        ),
+        help=("Use every Nth route shape point. Higher values make the demo faster."),
     )
 
     return parser.parse_args()
@@ -115,10 +106,7 @@ def main() -> int:
     )
 
     if not controller.is_available:
-        print(
-            controller.status_message
-            or "Valhalla is unavailable"
-        )
+        print(controller.status_message or "Valhalla is unavailable")
         return 1
 
     print("Calculating route...")
@@ -140,14 +128,9 @@ def main() -> int:
         print("Calculated route has no shape points")
         return 1
 
-    print(
-        f"Route: {route.distance_miles:.1f} miles, "
-        f"{route.duration_seconds / 60.0:.0f} minutes"
-    )
+    print(f"Route: {route.distance_miles:.1f} miles, {route.duration_seconds / 60.0:.0f} minutes")
 
-    print(
-        f"Shape points: {len(route.shape)}"
-    )
+    print(f"Shape points: {len(route.shape)}")
 
     map_renderer = MapRendererClient()
 
@@ -165,9 +148,7 @@ def main() -> int:
 
         print("Starting simulated drive...")
 
-        animation_points = route.shape[
-            ::args.step
-        ]
+        animation_points = route.shape[:: args.step]
 
         for index, point in enumerate(
             animation_points,
@@ -179,15 +160,12 @@ def main() -> int:
             )
 
             print(
-                f"\rPosition "
-                f"{index}/{len(animation_points)}",
+                f"\rPosition {index}/{len(animation_points)}",
                 end="",
                 flush=True,
             )
 
-            time.sleep(
-                args.delay
-            )
+            time.sleep(args.delay)
 
         # Make certain we end exactly at the
         # calculated destination point.
@@ -200,9 +178,7 @@ def main() -> int:
 
     except MapRendererUnavailableError as exc:
         print()
-        print(
-            f"Map renderer unavailable: {exc}"
-        )
+        print(f"Map renderer unavailable: {exc}")
         return 1
 
     print()

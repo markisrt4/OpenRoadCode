@@ -9,8 +9,9 @@ from protocols.spotify.spotify_auth import SpotifyAuthError
 
 
 class GuardedTokenStore(OAuthTokenStoreIf):
-    def __init__(self, store: OAuthTokenStoreIf,
-                 commit: Callable[[Callable[[], None]], bool]) -> None:
+    def __init__(
+        self, store: OAuthTokenStoreIf, commit: Callable[[Callable[[], None]], bool]
+    ) -> None:
         self._store = store
         self._commit = commit
 

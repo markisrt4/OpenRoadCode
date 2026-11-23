@@ -32,9 +32,12 @@ def normalize_destination(destination: SavedDestination) -> SavedDestination:
         lat, lon = float(lat), float(lon)
     except OverflowError as error:
         raise ValueError("Destination coordinates are out of range") from error
-    if (not math.isfinite(lat) or not math.isfinite(lon)
-            or not -math.pi / 2 <= lat <= math.pi / 2
-            or not -math.pi <= lon <= math.pi):
+    if (
+        not math.isfinite(lat)
+        or not math.isfinite(lon)
+        or not -math.pi / 2 <= lat <= math.pi / 2
+        or not -math.pi <= lon <= math.pi
+    ):
         raise ValueError("Destination coordinates are out of range")
     label = " ".join(destination.label.split()) or destination.key.title()
     address = " ".join(destination.address.split())
@@ -64,16 +67,25 @@ class SavedDestinationsConfig:
             record = data[key]
             try:
                 if not isinstance(record, dict) or set(record) != {
-                    "label", "address", "latitude_rad", "longitude_rad"
+                    "label",
+                    "address",
+                    "latitude_rad",
+                    "longitude_rad",
                 }:
                     raise ValueError("Invalid destination fields")
                 if not isinstance(record["label"], str) or not isinstance(record["address"], str):
                     raise ValueError("Destination labels must be text")
-                if any(type(record[field]) not in (int, float)
-                       for field in ("latitude_rad", "longitude_rad")):
+                if any(
+                    type(record[field]) not in (int, float)
+                    for field in ("latitude_rad", "longitude_rad")
+                ):
                     raise ValueError("Destination coordinates must be numbers")
-                destination = SavedDestination(key, record["label"], record["address"],
-                    GeoPoint(record["latitude_rad"], record["longitude_rad"]))
+                destination = SavedDestination(
+                    key,
+                    record["label"],
+                    record["address"],
+                    GeoPoint(record["latitude_rad"], record["longitude_rad"]),
+                )
                 destinations.append(normalize_destination(destination))
             except (KeyError, TypeError, ValueError) as error:
                 raise ValueError(f"Invalid {key} destination: {error}") from error
@@ -83,17 +95,27 @@ class SavedDestinationsConfig:
         destination = normalize_destination(destination)
         records = {item.key: item for item in self.load()}
         records[destination.key] = destination
-        lines = ["# User-owned saved destinations; angular coordinates are radians.", "version = 1", ""]
+        lines = [
+            "# User-owned saved destinations; angular coordinates are radians.",
+            "version = 1",
+            "",
+        ]
         for key in ("home", "work"):
             if key not in records:
                 continue
             item = records[key]
             label = json.dumps(item.label, ensure_ascii=False).replace("\x7f", "\\u007f")
             address = json.dumps(item.address, ensure_ascii=False).replace("\x7f", "\\u007f")
-            lines.extend([f"[{key}]", f"label = {label}",
-                          f"address = {address}",
-                          f"latitude_rad = {item.position.latitude_rad!r}",
-                          f"longitude_rad = {item.position.longitude_rad!r}", ""])
+            lines.extend(
+                [
+                    f"[{key}]",
+                    f"label = {label}",
+                    f"address = {address}",
+                    f"latitude_rad = {item.position.latitude_rad!r}",
+                    f"longitude_rad = {item.position.longitude_rad!r}",
+                    "",
+                ]
+            )
         self.path.parent.mkdir(parents=True, exist_ok=True)
         descriptor, temporary = tempfile.mkstemp(prefix=".destinations-", dir=self.path.parent)
         try:

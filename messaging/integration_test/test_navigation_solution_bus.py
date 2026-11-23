@@ -75,18 +75,22 @@ def test_simulated_inputs_produce_complete_navigation_solution_over_bus():
     assert broker.is_running
 
     received: dict[str, object] = {}
-    delivered = {topic: threading.Event() for topic in (
-        POSITION_STATE_TOPIC,
-        MOTION_STATE_TOPIC,
-        ATTITUDE_STATE_TOPIC,
-        IMU_STATE_TOPIC,
-    )}
+    delivered = {
+        topic: threading.Event()
+        for topic in (
+            POSITION_STATE_TOPIC,
+            MOTION_STATE_TOPIC,
+            ATTITUDE_STATE_TOPIC,
+            IMU_STATE_TOPIC,
+        )
+    }
     dispatcher = MessageDispatcher(ZeroMqSubscriber(egress))
 
     def register(topic, decoder):
         def handler(message):
             received[topic] = message
             delivered[topic].set()
+
         dispatcher.register(topic, decoder, handler)
 
     register(POSITION_STATE_TOPIC, decode_position_state)
@@ -105,7 +109,9 @@ def test_simulated_inputs_produce_complete_navigation_solution_over_bus():
 
     try:
         deadline = time.monotonic() + 3.0
-        while not all(event.is_set() for event in delivered.values()) and time.monotonic() < deadline:
+        while (
+            not all(event.is_set() for event in delivered.values()) and time.monotonic() < deadline
+        ):
             navigation_publisher.publish(controller.read_state())
             time.sleep(0.05)
 

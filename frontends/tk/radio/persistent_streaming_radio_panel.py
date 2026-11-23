@@ -30,13 +30,18 @@ class PersistentStreamingRadioPanel(StreamingRadioPanel):
     """Apply the ORC theme to contract-driven streaming presentation."""
 
     def __init__(
-        self, parent: tk.Misc, *, session: StreamingRadioSessionIf, theme: ThemeBundle,
+        self,
+        parent: tk.Misc,
+        *,
+        session: StreamingRadioSessionIf,
+        theme: ThemeBundle,
         on_back: Callable[[], None],
         on_station_selected: Callable[[StreamingRadioStation], None] | None = None,
     ) -> None:
         self._theme_bundle = theme
-        super().__init__(parent, session=session, on_back=on_back,
-                         on_station_selected=on_station_selected)
+        super().__init__(
+            parent, session=session, on_back=on_back, on_station_selected=on_station_selected
+        )
         self._apply_theme()
 
     def set_theme_bundle(self, theme: ThemeBundle) -> None:

@@ -16,9 +16,7 @@ from protocols.oauth import (
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="OAuth protocol component test"
-    )
+    parser = argparse.ArgumentParser(description="OAuth protocol component test")
 
     parser.add_argument(
         "--client-id",

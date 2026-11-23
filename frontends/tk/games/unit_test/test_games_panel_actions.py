@@ -44,7 +44,9 @@ class GamesPanelActionTest(unittest.TestCase):
         self.handler.request_launch_game.assert_called_once_with("five-in-a-row")
 
     def test_available_action_installs_using_game_id(self) -> None:
-        label, action, _accent = GamesPanel._action_for(self.panel, self._game(GameStatus.AVAILABLE))
+        label, action, _accent = GamesPanel._action_for(
+            self.panel, self._game(GameStatus.AVAILABLE)
+        )
 
         self.assertEqual(label, "INSTALL")
         self.assertIsNotNone(action)

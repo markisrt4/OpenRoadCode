@@ -10,7 +10,10 @@ from common.logging.diagnostics import ComponentLog, diagnostic_action
 from typing import Any
 
 from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
-from controllers.navigation.earth_camera_controller_if import EarthCameraControllerIf, EarthCameraView
+from controllers.navigation.earth_camera_controller_if import (
+    EarthCameraControllerIf,
+    EarthCameraView,
+)
 
 
 class EarthInputCameraController(EarthCameraControllerIf):
@@ -152,7 +155,7 @@ class EarthInputCameraController(EarthCameraControllerIf):
             key = ("ArrowRight", "ArrowRight", 39) if right > 0 else ("ArrowLeft", "ArrowLeft", 37)
         if key is None:
             return True
-        scale = 1.35 ** self._zoom_bias
+        scale = 1.35**self._zoom_bias
         repeats = round(self._PAN_BASE_REPEATS * scale)
         repeats = max(self._PAN_MIN_REPEATS, min(self._PAN_MAX_REPEATS, repeats))
         return all(self._key(*key, printable=False) for _ in range(repeats))
@@ -210,7 +213,11 @@ class EarthInputCameraController(EarthCameraControllerIf):
                 continue
             lowered = name.casefold()
             score = next(
-                (len(self._LOCATION_NAME_TOKENS) - i for i, token in enumerate(self._LOCATION_NAME_TOKENS) if token in lowered),
+                (
+                    len(self._LOCATION_NAME_TOKENS) - i
+                    for i, token in enumerate(self._LOCATION_NAME_TOKENS)
+                    if token in lowered
+                ),
                 0,
             )
             if score:
@@ -245,11 +252,25 @@ class EarthInputCameraController(EarthCameraControllerIf):
     def _click(self, x: float, y: float) -> bool:
         self._client.command_earth(
             "Input.dispatchMouseEvent",
-            {"type": "mousePressed", "x": x, "y": y, "button": "left", "buttons": 1, "clickCount": 1},
+            {
+                "type": "mousePressed",
+                "x": x,
+                "y": y,
+                "button": "left",
+                "buttons": 1,
+                "clickCount": 1,
+            },
         )
         self._client.command_earth(
             "Input.dispatchMouseEvent",
-            {"type": "mouseReleased", "x": x, "y": y, "button": "left", "buttons": 0, "clickCount": 1},
+            {
+                "type": "mouseReleased",
+                "x": x,
+                "y": y,
+                "button": "left",
+                "buttons": 0,
+                "clickCount": 1,
+            },
         )
         return True
 
@@ -280,7 +301,15 @@ class EarthInputCameraController(EarthCameraControllerIf):
         )
         self._client.command_earth(
             "Input.dispatchMouseEvent",
-            {"type": "mouseReleased", "x": end_x, "y": end_y, "button": "left", "buttons": 0, "modifiers": modifiers, "clickCount": 1},
+            {
+                "type": "mouseReleased",
+                "x": end_x,
+                "y": end_y,
+                "button": "left",
+                "buttons": 0,
+                "modifiers": modifiers,
+                "clickCount": 1,
+            },
         )
         return True
 
@@ -291,19 +320,36 @@ class EarthInputCameraController(EarthCameraControllerIf):
             y_fraction = max(0.05, min(0.95, y_fraction))
             self._client.command_earth(
                 "Input.dispatchMouseEvent",
-                {"type": "mouseWheel", "x": width / 2.0, "y": height * y_fraction, "deltaX": 0.0, "deltaY": delta_y},
+                {
+                    "type": "mouseWheel",
+                    "x": width / 2.0,
+                    "y": height * y_fraction,
+                    "deltaX": 0.0,
+                    "deltaY": delta_y,
+                },
             )
             return True
         except (OSError, RuntimeError, TypeError, ValueError):
             return False
 
-    def _key(self, key: str, code: str, virtual_key: int, *, printable: bool = True, modifiers: int = 0) -> bool:
+    def _key(
+        self, key: str, code: str, virtual_key: int, *, printable: bool = True, modifiers: int = 0
+    ) -> bool:
         try:
             self._client.activate(self._require_target_id())
-            common = {"key": key, "code": code, "windowsVirtualKeyCode": virtual_key, "nativeVirtualKeyCode": virtual_key, "modifiers": modifiers}
+            common = {
+                "key": key,
+                "code": code,
+                "windowsVirtualKeyCode": virtual_key,
+                "nativeVirtualKeyCode": virtual_key,
+                "modifiers": modifiers,
+            }
             self._client.command_earth("Input.dispatchKeyEvent", {"type": "rawKeyDown", **common})
             if printable:
-                self._client.command_earth("Input.dispatchKeyEvent", {"type": "char", "text": key, "unmodifiedText": key, **common})
+                self._client.command_earth(
+                    "Input.dispatchKeyEvent",
+                    {"type": "char", "text": key, "unmodifiedText": key, **common},
+                )
             self._client.command_earth("Input.dispatchKeyEvent", {"type": "keyUp", **common})
             return True
         except (OSError, RuntimeError, ValueError):

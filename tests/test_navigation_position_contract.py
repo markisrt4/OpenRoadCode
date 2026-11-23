@@ -7,7 +7,11 @@ from datetime import datetime, timezone
 import pytest
 
 from controllers.navigation.navigation_state import PositionState
-from messaging.contracts.navigation import decode_position_state, encode_position_state, validate_position_state
+from messaging.contracts.navigation import (
+    decode_position_state,
+    encode_position_state,
+    validate_position_state,
+)
 
 
 def sample_state(**overrides):
@@ -52,15 +56,17 @@ def test_encode_position_state_uses_strict_si_and_decodes():
 
 
 def test_position_contract_preserves_null_fields():
-    payload = encode_position_state(sample_state(
-        latitude_deg=None,
-        longitude_deg=None,
-        altitude_m=None,
-        fix_mode=None,
-        satellites_visible=None,
-        satellites_used=None,
-        accuracy_m=None,
-    ))
+    payload = encode_position_state(
+        sample_state(
+            latitude_deg=None,
+            longitude_deg=None,
+            altitude_m=None,
+            fix_mode=None,
+            satellites_visible=None,
+            satellites_used=None,
+            accuracy_m=None,
+        )
+    )
     for name, value in payload["data"].items():
         if name != "is_cached":
             assert value is None

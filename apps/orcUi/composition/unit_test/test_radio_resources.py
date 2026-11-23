@@ -59,8 +59,13 @@ def test_panel_factory_owns_session_and_rolls_it_back_on_widget_failure(monkeypa
     entry_type = Mock()
     monkeypatch.setattr("apps.orcUi.composition.radio.RadioEntryPanel", entry_type)
     session = Mock()
-    monkeypatch.setattr("apps.orcUi.composition.radio.StreamingRadioBrowser", Mock(return_value=session))
-    monkeypatch.setattr("apps.orcUi.composition.radio.PersistentStreamingRadioPanel", Mock(side_effect=ValueError("widget failed")))
+    monkeypatch.setattr(
+        "apps.orcUi.composition.radio.StreamingRadioBrowser", Mock(return_value=session)
+    )
+    monkeypatch.setattr(
+        "apps.orcUi.composition.radio.PersistentStreamingRadioPanel",
+        Mock(side_effect=ValueError("widget failed")),
+    )
     app = Mock()
     app.theme_mode = ThemeMode.DARK
     composition = configure_radio(app, Mock())

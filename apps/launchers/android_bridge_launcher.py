@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Use Termux URLs for direct websites and Bridge app-first ordering."""
+
 from __future__ import annotations
 
 import subprocess
@@ -41,11 +42,16 @@ class AndroidBridgeLauncher:
     def _open_link(self, link: str) -> None:
         try:
             result = subprocess.run(
-                [self._executable, link], capture_output=True, text=True,
-                check=False, timeout=5,
+                [self._executable, link],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=5,
             )
         except (OSError, subprocess.TimeoutExpired) as exc:
-            raise AndroidBridgeLauncherError(f"Unable to request Android URL launch: {exc}") from exc
+            raise AndroidBridgeLauncherError(
+                f"Unable to request Android URL launch: {exc}"
+            ) from exc
         if result.returncode:
             detail = result.stderr.strip() or result.stdout.strip() or "unknown error"
             raise AndroidBridgeLauncherError(f"Android URL handoff failed: {detail}")

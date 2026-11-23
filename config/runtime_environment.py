@@ -11,9 +11,7 @@ from collections.abc import Mapping
 
 ANDROID_BRIDGE_URL_ENV = "OPENROADCODE_ANDROID_BRIDGE_URL"
 RUNTIME_ENV_FILE_ENV = "OPENROADCODE_RUNTIME_ENV_FILE"
-DEFAULT_RUNTIME_ENV_FILE = Path(
-    "/var/lib/openroadcode/service-profiles/openroadcode-runtime.env"
-)
+DEFAULT_RUNTIME_ENV_FILE = Path("/var/lib/openroadcode/service-profiles/openroadcode-runtime.env")
 
 
 def android_bridge_url(
@@ -29,9 +27,7 @@ def android_bridge_url(
         return override
 
     path = Path(
-        runtime_environment_file
-        or env.get(RUNTIME_ENV_FILE_ENV, "")
-        or DEFAULT_RUNTIME_ENV_FILE
+        runtime_environment_file or env.get(RUNTIME_ENV_FILE_ENV, "") or DEFAULT_RUNTIME_ENV_FILE
     )
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
