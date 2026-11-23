@@ -37,3 +37,21 @@ class RadioTuningGesturesMixin:
         if target != frequency:
             self._session.request(RadioRequest(
                 RadioAction.TUNE_FREQUENCY, frequency_hz=target))
+
+    def _manual_tune(self, direction: int) -> None:
+        """US FM buttons move 100 kHz; other profiles retain their own step."""
+        state = self._state
+        if not state.receiver_running or state.view == "adsb":
+            return
+        frequency = state.station.frequency_hz
+        if not frequency:
+            return
+        mode = state.station.mode_name.upper()
+        if mode not in ("WFM", "FM") or not 88_000_000 <= frequency <= 108_000_000:
+            action = RadioAction.TUNE_UP if direction > 0 else RadioAction.TUNE_DOWN
+            self._session.request(RadioRequest(action))
+            return
+        target = max(88_000_000, min(108_000_000, frequency + direction * 100_000))
+        if target != frequency:
+            self._session.request(RadioRequest(
+                RadioAction.TUNE_FREQUENCY, frequency_hz=target))
