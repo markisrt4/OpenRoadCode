@@ -45,7 +45,7 @@ class RadioPanelStateMixin:
         if state.receiver_running or state.receiver_starting or state.error:
             self._receiver_start_pending = False
         profile = next((p for p in state.profiles if p.key == state.station.profile_key), None)
-        if state.view == "adsb":
+        if state.view == "adsb" and self._pending_group is None:
             self._active_group = "AIR:ADSB"
         elif profile is not None:
             if self._pending_group is None or (
