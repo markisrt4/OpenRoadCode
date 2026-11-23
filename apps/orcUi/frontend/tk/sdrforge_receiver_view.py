@@ -54,7 +54,7 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
         self._center_frequency_hz: int | None = None
         self._sample_rate_hz: int | None = None
         self._viewport: SpectrumViewport | None = None
-        self._recenter_on_tune = overrides.get("recenter_on_tune", True) is not False
+        self._recenter_on_tune = False
         self._db_floor: float | None = None
         self._db_ceiling: float | None = None
         self._history: deque[tuple[float, ...]] = deque(maxlen=self._visualization.waterfall_rows)
@@ -129,11 +129,14 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
 
     def _update_recenter_button(self) -> None:
         self._recenter_button.configure(
-            text="CENTER ●" if self._recenter_on_tune else "CENTER ○",
-            fg=self._theme.ui.accent_primary if self._recenter_on_tune else self._theme.ui.text)
+            text="CENTER", fg=self._theme.ui.text)
 
     def _toggle_recenter(self) -> None:
-        self.set_recenter_on_tune(not self._recenter_on_tune)
+        if self._viewport is not None and self._frequency_hz:
+            self._viewport = replace(
+                self._viewport, center_hz=float(self._frequency_hz), recenter_on_tune=False
+            )
+            self._schedule_render()
 
     def set_recenter_on_tune(self, enabled: bool) -> None:
         self._recenter_on_tune = bool(enabled)
@@ -149,16 +152,13 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
         self._schedule_render()
 
     def _constrain_viewport(self) -> None:
-        """Keep the visible FFT window inside the actual sampled RF band."""
+        """Limit viewport width without moving its absolute center."""
         viewport = self._viewport
         if viewport is None or self._center_frequency_hz is None or not self._sample_rate_hz:
             return
         rate = float(self._sample_rate_hz)
         span = min(viewport.span_hz, rate)
-        margin = (rate - span) / 2
-        center = max(self._center_frequency_hz - margin,
-                     min(self._center_frequency_hz + margin, viewport.center_hz))
-        self._viewport = replace(viewport, center_hz=center, span_hz=span)
+        self._viewport = replace(viewport, span_hz=span)
 
     def pan_spectrum(self, fraction: float) -> None:
         if self._viewport is not None:
