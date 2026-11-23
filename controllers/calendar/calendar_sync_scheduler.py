@@ -48,7 +48,7 @@ class CalendarSyncScheduler:
                     now - timedelta(days=self._past_days),
                     now + timedelta(days=self._future_days),
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001 - isolate background sync failures
                 _LOG.exception("Calendar sync failed; cached events retained")
             if stop.wait(self._interval):
                 break
