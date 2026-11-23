@@ -73,7 +73,7 @@ class ReceiverSession:
         self._view: RfRadioUi | None = None
         self._host: RadioHost | None = None
         self._native_view = "none"
-        self._state = RfRadioState(radio.state, self._profiles())
+        self._state = RfRadioState(radio.state, self._profiles(), waterfall=True)
 
     def _set_station(self, station: RadioProfileState) -> None:
         """Invalidate telemetry when rigctl or a local request changes station."""
@@ -399,7 +399,7 @@ class ReceiverSession:
                 RadioAction.NEXT: self._radio.next_preset,
                 RadioAction.TUNE_DOWN: self._radio.tune_down,
                 RadioAction.TUNE_UP: self._radio.tune_up,
-                RadioAction.WATERFALL: self._control.toggle_waterfall,
+                RadioAction.WATERFALL: self._toggle_waterfall,
                 RadioAction.BANDPLAN: self._control.toggle_bandplan,
                 RadioAction.FFT_HOLD: self._control.toggle_fft_hold,
                 RadioAction.AUTO_RANGE: self._control.auto_range,
@@ -454,9 +454,16 @@ class ReceiverSession:
                                   scanning=False)
             self._publish(generation)
 
+    def _toggle_waterfall(self) -> None:
+        if self._spectrum_source is not None:
+            self._state = replace(self._state, waterfall=not self._state.waterfall)
+        else:
+            self._control.toggle_waterfall()
+
     def _read_controls(self) -> None:
         try:
-            self._state = replace(self._state, waterfall=self._control.waterfall_visible(),
+            self._state = replace(self._state, waterfall=(self._state.waterfall if self._spectrum_source is not None
+                                             else self._control.waterfall_visible()),
                                   bandplan=self._control.bandplan_visible(),
                                   fft_hold=self._control.fft_hold_enabled(), themes=self._control.themes())
         except (OSError, RuntimeError, ValueError):
