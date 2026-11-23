@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 
@@ -44,9 +45,18 @@ class CalendarSyncScheduler:
                 now = self._clock()
                 if now.tzinfo is None:
                     raise ValueError("Clock must return an aware datetime")
-                self._worker.sync_once(
+                started = time.monotonic()
+                _LOG.info("Calendar synchronization started")
+                result = self._worker.sync_once(
                     now - timedelta(days=self._past_days),
                     now + timedelta(days=self._future_days),
+                )
+                _LOG.info(
+                    "Calendar synchronization completed: cached=%d failed=%d disabled=%d elapsed=%.1fs",
+                    result.cached_calendars,
+                    sum(not status.ok and not status.disabled for status in result.statuses),
+                    sum(status.disabled for status in result.statuses),
+                    time.monotonic() - started,
                 )
             except Exception:  # noqa: BLE001 - isolate background sync failures
                 _LOG.exception("Calendar sync failed; cached events retained")
