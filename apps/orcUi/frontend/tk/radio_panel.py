@@ -243,12 +243,17 @@ class RadioPanel(RadioTuningGesturesMixin, RadioPanelStateMixin, RadioPanelLayou
             raise ValueError(f"Unknown radio group: {name}")
         self._active_group = name
         self._pending_group = name
+        self._scan_dismissed = True
+        self._scan_requested = False
+        self._subcategory_signature = None
+        self._favorites_signature = None
         self._paint_groups()
         if self._sdrforge_view is not None:
             self._render_subcategory_tiles(self._state)
             if self._state.view != "adsb":
                 self._preset_page = 0
                 self._render_favorites(self._state)
+                self._show_radio_info()
                 return
         profiles = tuple(p for p in self._state.profiles if p.group == name)
         if name == "AIR" and not profiles:
@@ -432,7 +437,7 @@ class RadioPanel(RadioTuningGesturesMixin, RadioPanelStateMixin, RadioPanelLayou
         """One-touch station presets for the active radio profile."""
         ui = self._theme.ui
         profile = self._browsed_profile(state)
-        signature = (profile.key, tuple((p.label, p.frequency_hz) for p in profile.presets), state.station.frequency_hz, self._preset_page) if profile else None
+        signature = (profile.key, tuple((p.label, p.frequency_hz) for p in profile.presets), state.station.profile_key, state.station.frequency_hz, self._preset_page) if profile else None
         if signature == self._favorites_signature:
             return
         self._favorites_signature = signature
