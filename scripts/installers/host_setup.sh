@@ -169,7 +169,7 @@ persist_host_target() {
 
 while (( $# > 0 )); do
   case "$1" in
-    --target) shift; (( $# > 0 )) || { echo "[!] --target requires a value" >&2; exit 1; }; TARGET="$1" ;;
+    --target) shift; (( $# > 0 )) || { echo "[!] --target requires a value" >&2; exit 1; }; TARGET="${1,,}" ;;
     --force-target) FORCE_TARGET=1 ;;
     --show-plan) SHOW_PLAN=1 ;;
     --skip-installs) SKIP_INSTALLS=1 ;;
