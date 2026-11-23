@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections.abc import Collection
 from datetime import datetime
 
 from .caldav_adapter import (
@@ -23,6 +24,7 @@ from .icalendar_parser import UnsupportedCalendarEventError, parse_icalendar_eve
 class CalendarSyncStatus:
     calendar_id: str
     ok: bool
+    disabled: bool = False
     resource_count: int = 0
     event_count: int = 0
     skipped_resources: int = 0
@@ -32,11 +34,12 @@ class CalendarSyncStatus:
 class CalDavCalendarProvider(CalendarProviderIf):
     """Fetch calendars independently; report partial results without hiding failures."""
 
-    def __init__(self, account_id: str, adapter: CalDavAdapter) -> None:
+    def __init__(\n        self, account_id: str, adapter: CalDavAdapter,\n        disabled_calendar_ids: Collection[str] = (),\n    ) -> None:
         if not account_id:
             raise ValueError("CalDAV account ID is required")
         self._account_id = account_id
         self._adapter = adapter
+        self._disabled_calendar_ids = frozenset(disabled_calendar_ids)
         self.last_sync_status: list[CalendarSyncStatus] = []
 
     @property
@@ -50,6 +53,9 @@ class CalDavCalendarProvider(CalendarProviderIf):
         calendars = self._adapter.discover_calendars()
         events: list[CalendarEvent] = []
         for calendar in calendars:
+            if calendar.href in self._disabled_calendar_ids:
+                self.last_sync_status.append(\n                    CalendarSyncStatus(calendar.href, False, disabled=True)\n                )
+                continue
             events.extend(self._read_calendar(calendar, start, end))
         return sorted(events, key=lambda event: (event.starts_at, event.event_id))
 
