@@ -10,6 +10,11 @@ if ! command -v "$CARBONATE_BIN" >/dev/null 2>&1; then
     fi
 fi
 if ! command -v "$CARBONATE_BIN" >/dev/null 2>&1; then
+    if [ "$CARBONATE_BIN" = carbonate ] && [ -x "$HOME/src/carbonate/carbonate" ]; then
+        CARBONATE_BIN="$HOME/src/carbonate/carbonate"
+    fi
+fi
+if ! command -v "$CARBONATE_BIN" >/dev/null 2>&1; then
     echo "Carbonate executable not found: $CARBONATE_BIN" >&2
     exit 127
 fi
