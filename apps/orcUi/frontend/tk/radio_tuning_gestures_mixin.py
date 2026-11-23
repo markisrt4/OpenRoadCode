@@ -13,8 +13,6 @@ def next_channel(frequency_hz: int, direction: int, *, low: int, high: int,
         candidate = low + ((frequency_hz - low) // step + 1) * step
     else:
         candidate = low + ((frequency_hz - low - 1) // step) * step
-        if (frequency_hz - low) % step:
-            candidate += step
     return max(low, min(high, candidate))
 
 
