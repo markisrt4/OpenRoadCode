@@ -28,9 +28,10 @@ from ui.radio.sdrforge_spectrum_if import SpectrumViewport
 from ui.theme import ThemeBundle
 from .opengl_radio_surface import OpenGLRadioSurface, available as opengl_available
 from .sdrforge_render_mixin import SdrForgeRenderMixin
+from .sdrforge_viewport_mixin import SdrForgeViewportMixin
 
 
-class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
+class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, SdrForgeViewportMixin, UiWidget):
     """Responsive native receiver visualization for the ORC radio panel."""
 
     def __init__(
@@ -180,85 +181,6 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
         """Toggle controls without hiding the button that restores them."""
         self._spectrum_toolbar_visible = not self._spectrum_toolbar_visible
         self._schedule_render()
-
-    def _update_recenter_button(self) -> None:
-        self._recenter_button.configure(text="CENTER", fg=self._theme.ui.text)
-
-    def set_recenter_handler(self, handler) -> None:
-        self._on_recenter = handler
-
-    def _toggle_recenter(self) -> None:
-        if self._on_recenter is not None:
-            self._on_recenter()
-        if self._viewport is not None and self._frequency_hz:
-            self._viewport = replace(
-                self._viewport, center_hz=float(self._frequency_hz), recenter_on_tune=False
-            )
-            self._constrain_viewport()
-            self._schedule_render()
-
-    def set_recenter_on_tune(self, enabled: bool) -> None:
-        self._recenter_on_tune = False
-        if self._viewport is not None:
-            self._viewport = replace(self._viewport, recenter_on_tune=False)
-            self._constrain_viewport()
-        settings = load_rf_visualization_settings()
-        settings["recenter_on_tune"] = False
-        save_rf_visualization_settings(settings)
-        self._update_recenter_button()
-        self._schedule_render()
-
-    def _constrain_viewport(self) -> None:
-        """Keep the visible window entirely inside acquired RF bandwidth."""
-        viewport = self._viewport
-        if viewport is None or self._center_frequency_hz is None or not self._sample_rate_hz:
-            return
-        rate = float(self._sample_rate_hz)
-        span = min(viewport.span_hz, rate)
-        margin = (rate - span) / 2
-        center = max(
-            self._center_frequency_hz - margin,
-            min(viewport.center_hz, self._center_frequency_hz + margin),
-        )
-        self._viewport = replace(viewport, center_hz=center, span_hz=span)
-
-    def pan_spectrum(self, fraction: float) -> None:
-        if self._viewport is not None:
-            self._recenter_on_tune = False
-            self._update_recenter_button()
-            self._viewport = replace(self._viewport.pan(fraction), recenter_on_tune=False)
-            self._constrain_viewport()
-            self._schedule_render()
-
-    def zoom_spectrum(self, factor: float) -> None:
-        if self._viewport is not None:
-            self._viewport = self._viewport.zoom(
-                factor, max_span_hz=float(self._sample_rate_hz or self._viewport.span_hz)
-            )
-            self._constrain_viewport()
-            self._schedule_render()
-
-    def _viewport_row(self, row: Sequence[float]) -> tuple[float, ...]:
-        """Project source FFT values into the visible frequency window."""
-        viewport = self._viewport
-        if not row or viewport is None or not self._center_frequency_hz or not self._sample_rate_hz:
-            return tuple(row)
-        source_start = self._center_frequency_hz - self._sample_rate_hz / 2
-        scale = len(row) / self._sample_rate_hz
-        length = min(len(row), 512)
-        return tuple(
-            row[index] if 0 <= index < len(row) else 0.0
-            for index in (
-                min(
-                    len(row) - 1,
-                    max(
-                        0,
-                        int((viewport.frequency_at(i / max(1, length - 1)) - source_start) * scale),
-                    ),
-                )
-                for i in range(length)
-            )
-        )
 
     def set_spectrum_tune_handler(self, handler) -> None:
         """Receive frequency selections without coupling the widget to radio control."""

@@ -50,3 +50,34 @@ class RadioTuningGesturesMixin:
         else:
             action = RadioAction.TUNE_UP if direction > 0 else RadioAction.TUNE_DOWN
             self._session.request(RadioRequest(action))
+
+    def _previous_preset(self) -> None:
+        if self._sdrforge_view is not None and not self._state.receiver_running:
+            return
+        self._session.request(RadioRequest(RadioAction.PREVIOUS))
+
+    def _next_preset(self) -> None:
+        if self._sdrforge_view is not None and not self._state.receiver_running:
+            return
+        self._session.request(RadioRequest(RadioAction.NEXT))
+
+    def _recenter_spectrum(self) -> None:
+        if self._state.receiver_running and self._state.view != "adsb":
+            self._session.request(RadioRequest(RadioAction.RECENTER))
+
+    def _tune_spectrum_frequency(self, frequency_hz: int) -> None:
+        if self._state.receiver_running and self._state.view != "adsb":
+            self._session.request(RadioRequest(
+                RadioAction.TUNE_FREQUENCY, frequency_hz=frequency_hz))
+
+    def _tune_down(self) -> None:
+        if self._sdrforge_view is not None:
+            self._manual_tune(-1)
+            return
+        self._session.request(RadioRequest(RadioAction.TUNE_DOWN))
+
+    def _tune_up(self) -> None:
+        if self._sdrforge_view is not None:
+            self._manual_tune(1)
+            return
+        self._session.request(RadioRequest(RadioAction.TUNE_UP))
