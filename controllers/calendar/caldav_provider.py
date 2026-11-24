@@ -107,10 +107,10 @@ class CalDavCalendarProvider(CalendarProviderIf):
         for resource in resources:
             try:
                 parsed = parse_icalendar_events(resource.icalendar, self._account_id, calendar.href)
-            except (ValueError, UnsupportedCalendarEventError) as error:
+            except ValueError as error:
                 skipped += 1
                 reason = (
-                    "unsupported_recurrence"
+                    error.reason
                     if isinstance(error, UnsupportedCalendarEventError)
                     else "invalid_calendar_data"
                 )
