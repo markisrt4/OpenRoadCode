@@ -68,7 +68,9 @@ def _date_value(params: dict[str, str], value: str) -> tuple[datetime, bool]:
     try:
         tz = ZoneInfo(zone)
     except (KeyError, ValueError) as error:
-        raise UnsupportedCalendarEventError("Unsupported timezone identifier", "unsupported_timezone") from error
+        raise UnsupportedCalendarEventError(
+            "Unsupported timezone identifier", "unsupported_timezone"
+        ) from error
     return datetime.fromisoformat(value).replace(tzinfo=tz), False
 
 
