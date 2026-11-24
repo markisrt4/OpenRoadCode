@@ -139,7 +139,11 @@ class _NavTile(tk.Canvas, UiWidget):
             height / 2,
             text=_NAV_LABELS.get(self._nav_name, self._nav_name),
             fill=label_color,
-            font=("Sans", FONT_CONTROL - (2 if self._nav_name in ("WEATHER", "CALENDAR") else 1), "bold"),
+            font=(
+                "Sans",
+                FONT_CONTROL - (2 if self._nav_name in ("WEATHER", "CALENDAR") else 1),
+                "bold",
+            ),
             anchor="w",
         )
 
