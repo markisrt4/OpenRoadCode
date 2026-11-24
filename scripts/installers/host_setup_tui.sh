@@ -19,6 +19,7 @@ NAVIGATION_MODE=auto
 SELECTED_TARGET=linux-dev
 SELECTED_GENERAL="base"
 SELECTED_STREAMING=""
+SELECTED_AUDIO=""
 SELECTED_NAVIGATION=""
 SELECTED_RADIO="sdrforge"
 SELECTED_AUTOMOTIVE=""
@@ -29,7 +30,7 @@ WITH_VNC=0
 WITH_GPSD=0
 WITH_TELEMETRY=0
 SETTINGS_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/openroadcode/installer-selection.conf"
-settings_keys=(NAVIGATION_MODE SELECTED_TARGET SELECTED_GENERAL SELECTED_STREAMING SELECTED_NAVIGATION SELECTED_RADIO SELECTED_AUTOMOTIVE SELECTED_BLUETOOTH SELECTED_ENVIRONMENTAL INSTALL_ALL_FEATURES WITH_VNC WITH_GPSD WITH_TELEMETRY)
+settings_keys=(NAVIGATION_MODE SELECTED_TARGET SELECTED_GENERAL SELECTED_STREAMING SELECTED_AUDIO SELECTED_NAVIGATION SELECTED_RADIO SELECTED_AUTOMOTIVE SELECTED_BLUETOOTH SELECTED_ENVIRONMENTAL INSTALL_ALL_FEATURES WITH_VNC WITH_GPSD WITH_TELEMETRY)
 if [[ -f "$SETTINGS_FILE" ]]; then
   while IFS='=' read -r key value; do
     case "$key" in
@@ -37,10 +38,18 @@ if [[ -f "$SETTINGS_FILE" ]]; then
       SELECTED_TARGET) case "$value" in rpi4|rpi5|linux-dev) SELECTED_TARGET="$value" ;; esac ;;
       INSTALL_ALL_FEATURES|WITH_VNC|WITH_GPSD|WITH_TELEMETRY)
         [[ "$value" == 0 || "$value" == 1 ]] && printf -v "$key" '%s' "$value" ;;
-      SELECTED_GENERAL|SELECTED_STREAMING|SELECTED_NAVIGATION|SELECTED_RADIO|SELECTED_AUTOMOTIVE|SELECTED_BLUETOOTH|SELECTED_ENVIRONMENTAL)
+      SELECTED_GENERAL|SELECTED_STREAMING|SELECTED_AUDIO|SELECTED_NAVIGATION|SELECTED_RADIO|SELECTED_AUTOMOTIVE|SELECTED_BLUETOOTH|SELECTED_ENVIRONMENTAL)
         [[ "$value" =~ ^[a-z0-9[:space:]-]*$ ]] && printf -v "$key" '%s' "$value" ;;
     esac
   done < "$SETTINGS_FILE"
+fi
+# Migrate audio selections saved by older versions of the streaming menu.
+if [[ " $SELECTED_STREAMING " == *" audio "* ]]; then
+  [[ " $SELECTED_AUDIO " == *" audio "* ]] || SELECTED_AUDIO="${SELECTED_AUDIO:+$SELECTED_AUDIO }audio"
+  SELECTED_STREAMING=" ${SELECTED_STREAMING} "
+  SELECTED_STREAMING="${SELECTED_STREAMING/ audio / }"
+  SELECTED_STREAMING="${SELECTED_STREAMING# }"
+  SELECTED_STREAMING="${SELECTED_STREAMING% }"
 fi
 
 save_settings() {
@@ -79,9 +88,10 @@ choose_features() {
 
 while true; do
   section=$(whiptail --title "OpenRoadCode installer" --default-item "$(if (( INSTALL_ALL_FEATURES )); then echo all; else echo install; fi)" --menu \
-    "Choose a section to configure, then select Install:" 21 76 10 \
+    "Choose a section to configure, then select Install:" 23 76 11 \
     "general" "General features and user interfaces" \
-    "streaming" "Streaming and audio" \
+    "streaming" "Streaming and media" \
+    "audio" "Audio output and Bluetooth speakers" \
     "navigation" "Navigation" \
     "environmental" "Environmental sensors" \
     "radio" "Radio" \
@@ -98,8 +108,10 @@ while true; do
       "browser|Chromium browser support" \
       "vnc|TigerVNC server support" \
       "input|Linux input/evdev support" && SELECTED_GENERAL="$SELECTED_RESULT" ;;
-    streaming) choose_features "Streaming and audio" "Select media features:" "$SELECTED_STREAMING" \
-      "audio|PipeWire/PulseAudio command-line audio control" \
+    audio) choose_features "Audio configuration" "Select playback capabilities. USB, HDMI and supported analog outputs share the same audio infrastructure:" "$SELECTED_AUDIO" \
+      "audio|PipeWire and ALSA (USB, HDMI, supported analog)" \
+      "audio-bluetooth|Bluetooth speakers and headphones (includes audio)" && SELECTED_AUDIO="$SELECTED_RESULT" ;;
+    streaming) choose_features "Streaming and media" "Select media features:" "$SELECTED_STREAMING" \
       "streamlit|Streamlit dashboard support" \
       "spotify|Spotify integration" && SELECTED_STREAMING="$SELECTED_RESULT" ;;
     navigation) choose_features "Navigation" "Select navigation software and positioning hardware:" "$SELECTED_NAVIGATION" \
@@ -126,7 +138,7 @@ ARGS=(--target "$SELECTED_TARGET" --no-default-features)
 if (( INSTALL_ALL_FEATURES )); then
   ARGS+=(--all-features)
 else
-  for feature in ${SELECTED_GENERAL} ${SELECTED_STREAMING} ${SELECTED_NAVIGATION} ${SELECTED_ENVIRONMENTAL} ${SELECTED_RADIO} ${SELECTED_AUTOMOTIVE} ${SELECTED_BLUETOOTH}; do
+  for feature in ${SELECTED_GENERAL} ${SELECTED_STREAMING} ${SELECTED_AUDIO} ${SELECTED_NAVIGATION} ${SELECTED_ENVIRONMENTAL} ${SELECTED_RADIO} ${SELECTED_AUTOMOTIVE} ${SELECTED_BLUETOOTH}; do
     ARGS+=(--feature "$feature")
   done
   [[ " $SELECTED_GENERAL " == *" base "* ]] || ARGS+=(--feature base)
