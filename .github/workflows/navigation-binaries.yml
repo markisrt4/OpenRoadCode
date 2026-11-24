@@ -90,3 +90,46 @@ jobs:
           path: OpenRoadCode/dist/
           if-no-files-found: error
           retention-days: 14
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: navigation-*
+          path: packages
+      - name: Verify and assemble release assets
+        run: |
+          set -euo pipefail
+          mkdir release
+          for distro in ubuntu24.04 debian13; do
+            for arch in amd64 arm64; do
+              name="navigation-$distro-$arch"
+              (
+                cd "packages/$name"
+                sha256sum -c SHA256SUMS
+                grep -Fx "revision=$GITHUB_SHA" manifest.txt
+                grep -Fx "distribution=$distro" manifest.txt
+                grep -Fx "architecture=$arch" manifest.txt
+                tar -czf "../../release/$name.tar.gz" -- *.tar.gz manifest.txt SHA256SUMS
+              )
+            done
+          done
+          (cd release && sha256sum *.tar.gz > SHA256SUMS)
+      - name: Publish revision-specific prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="navigation-$GITHUB_SHA"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release already exists; refusing to overwrite revision assets."
+            exit 1
+          fi
+          gh release create "$tag" release/* --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" --prerelease --latest=false \
+            --title "Navigation binaries $GITHUB_SHA" \
+            --notes "Native navigation packages for Debian 13 and Ubuntu 24.04, AMD64 and ARM64."
