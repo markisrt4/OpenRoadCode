@@ -13,6 +13,7 @@ import time
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 
+from .calendar_sync_health import CalendarSyncHealth
 from .calendar_sync_worker import CalendarSyncWorker
 
 _LOG = logging.getLogger(__name__)
@@ -29,10 +30,12 @@ class CalendarSyncScheduler:
         past_days: int = 7,
         future_days: int = 30,
         clock: Callable[[], datetime] | None = None,
+        health: CalendarSyncHealth | None = None,
     ) -> None:
         if interval_seconds <= 0 or past_days < 0 or future_days <= 0:
             raise ValueError("Invalid synchronization interval or window")
         self._worker = worker
+        self._health = health
         self._interval = interval_seconds
         self._past_days = past_days
         self._future_days = future_days
@@ -41,11 +44,13 @@ class CalendarSyncScheduler:
     def run(self, stop: threading.Event) -> None:
         """Sync immediately, then wait between attempts until stopped."""
         while not stop.is_set():
+            attempted = datetime.now(timezone.utc)
+            started = time.monotonic()
+            result = None
             try:
                 now = self._clock()
                 if now.tzinfo is None:
                     raise ValueError("Clock must return an aware datetime")
-                started = time.monotonic()
                 _LOG.info("Calendar synchronization started")
                 result = self._worker.sync_once(
                     now - timedelta(days=self._past_days),
@@ -60,5 +65,16 @@ class CalendarSyncScheduler:
                 )
             except Exception:  # noqa: BLE001 - isolate background sync failures
                 _LOG.exception("Calendar sync failed; cached events retained")
+            if self._health is not None:
+                try:
+                    self._health.record(
+                        attempted,
+                        datetime.now(timezone.utc),
+                        time.monotonic() - started,
+                        self._interval,
+                        result,
+                    )
+                except OSError:
+                    _LOG.exception("Unable to publish calendar synchronization health")
             if stop.wait(self._interval):
                 break
