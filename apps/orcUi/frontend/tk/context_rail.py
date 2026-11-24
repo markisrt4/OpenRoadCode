@@ -61,7 +61,9 @@ class ContextRail(tk.Frame, UiWidget):
         self._trip_value_labels: dict[str, tk.Label] = {}
         self._gear_value_label: tk.Label | None = None
         self._offroad_panel: ContextOffroadPanel | None = None
-        self._calendar_factory = None
+        self._calendar_factory: Callable[[tk.Misc], tk.Widget] | None = None
+        self._group = "AUTOMOTIVE"
+        self._group_pages = {"AUTOMOTIVE": 0, "PERSONAL": 0}
         self._page_index = 0
         self._title: tk.Label
         self._body: tk.Frame
@@ -108,13 +110,21 @@ class ContextRail(tk.Frame, UiWidget):
             ContextPage("TRIP", ui.accent_primary, self._build_trip),
             ContextPage("OFF-ROAD", ui.accent_warning, self._build_offroad),
         )
-        if self._calendar_factory is not None:
-            pages += (ContextPage("CALENDAR", ui.accent_primary, self._build_calendar),)
+        if self._group == "PERSONAL" and self._calendar_factory is not None:
+            return (ContextPage("CALENDAR", ui.accent_primary, self._build_calendar),)
         return pages
 
     def set_calendar_factory(self, factory: Callable[[tk.Misc], tk.Widget]) -> None:
         self._calendar_factory = factory
-        self._show_page()
+        self._rebuild()
+
+    def _select_group(self, group: str) -> None:
+        if group == self._group:
+            return
+        self._group_pages[self._group] = self._page_index
+        self._group = group
+        self._page_index = self._group_pages[group]
+        self._rebuild()
 
     def _build_calendar(self, parent: tk.Frame) -> None:
         if self._calendar_factory is not None:
@@ -134,13 +144,29 @@ class ContextRail(tk.Frame, UiWidget):
 
     def _build_header(self) -> None:
         ui = self._theme.ui
+        if self._calendar_factory is not None:
+            tabs = tk.Frame(self, bg=ui.surface)
+            tabs.pack(fill=tk.X, padx=8, pady=(4, 0))
+            for group in ("AUTOMOTIVE", "PERSONAL"):
+                tk.Button(
+                    tabs,
+                    text=group,
+                    command=lambda value=group: self._select_group(value),
+                    bg=ui.control_active if group == self._group else ui.control_background,
+                    fg=ui.control_text,
+                    relief=tk.FLAT,
+                    bd=0,
+                    highlightthickness=0,
+                    font=("Sans", FONT_SMALL, "bold"),
+                ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
         header = tk.Frame(self, bg=ui.surface)
         header.pack(fill=tk.X, padx=8, pady=(7, 3))
         header.grid_columnconfigure(1, weight=1)
         self._title = tk.Label(
             header, text="", bg=ui.surface, font=("Sans", FONT_CONTROL + 1, "bold")
         )
-        self._nav_button(header, "‹", self._previous_page).grid(row=0, column=0, sticky="w")
+        if len(self._pages()) > 1:
+            self._nav_button(header, "‹", self._previous_page).grid(row=0, column=0, sticky="w")
         self._title.grid(row=0, column=1)
         controls = tk.Frame(header, bg=ui.surface)
         controls.grid(row=0, column=2, sticky="e")
@@ -160,7 +186,8 @@ class ContextRail(tk.Frame, UiWidget):
                 font=("Sans", 15, "bold"),
                 cursor="hand2",
             ).pack(side=tk.LEFT)
-        self._nav_button(controls, "›", self._next_page).pack(side=tk.LEFT)
+        if len(self._pages()) > 1:
+            self._nav_button(controls, "›", self._next_page).pack(side=tk.LEFT)
 
     def _nav_button(
         self,
@@ -212,6 +239,8 @@ class ContextRail(tk.Frame, UiWidget):
         page = pages[self._page_index]
         self._title.configure(text=page.name, fg=page.accent, bg=ui.surface)
         page.builder(self._body)
+        if len(pages) == 1:
+            return
         dots = tk.Frame(self._body, bg=ui.surface)
         dots.pack(side=tk.BOTTOM, pady=(4, 0))
         for index in range(len(pages)):
