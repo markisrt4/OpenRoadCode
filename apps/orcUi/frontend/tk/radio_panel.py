@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import tkinter as tk
+from functools import partial
 from .sdrforge_receiver_view import SdrForgeReceiverView
 from .automotive_radio_button import AutomotiveRadioButton
 from ui.radio.sdrforge_spectrum_if import SpectrumPresentation
@@ -69,7 +70,9 @@ class RadioPanel(
         self._live_rf_buttons: list[AutomotiveRadioButton] = []
         self._receiver_start_pending = False
         self._last_receiver_running: bool | None = None
-        self._favorites_signature = None
+        self._favorites_signature: (
+            tuple[str, tuple[tuple[str, int], ...], str, int, int, bool] | None
+        ) = None
         self._preset_page = 0
         self._preset_page_size = 4
         self._scan_selected: set[int] = set()
@@ -212,8 +215,8 @@ class RadioPanel(
             AutomotiveRadioButton(
                 self._subcategory_strip,
                 text=profile.label,
-                command=lambda key=profile.key: self._session.request(
-                    RadioRequest(RadioAction.PROFILE, key=key)
+                command=partial(
+                    self._session.request, RadioRequest(RadioAction.PROFILE, key=profile.key)
                 ),
                 selected=selected,
                 height=40,
@@ -385,8 +388,8 @@ class RadioPanel(
 
     def _scan_touch_end(self, event: tk.Event) -> None:
         if not self._scan_dragged:
-            x = self._scan_canvas.canvasx(event.x)
-            y = self._scan_canvas.canvasy(event.y)
+            x = self._scan_canvas.canvasx(event.x)  # type: ignore[no-untyped-call]
+            y = self._scan_canvas.canvasy(event.y)  # type: ignore[no-untyped-call]
             # A tap on empty space must not select the nearest station.
             item = self._scan_canvas.find_overlapping(x, y, x, y)
             if item:
@@ -524,8 +527,9 @@ class RadioPanel(
             tk.Button(
                 self._favorites,
                 text=preset.label,
-                command=lambda p=preset, key=profile.key: self._session.request(
-                    RadioRequest(RadioAction.PRESET, key=key, preset=p)
+                command=partial(
+                    self._session.request,
+                    RadioRequest(RadioAction.PRESET, key=profile.key, preset=preset),
                 ),
                 bg=ui.accent_primary
                 if profile.key == state.station.profile_key
@@ -556,7 +560,7 @@ class RadioPanel(
         tk.Button(
             self._favorites,
             text="☆ SAVE",
-            command=lambda group=profile.group: self._add_current_preset(group),
+            command=partial(self._add_current_preset, profile.group),
             state=tk.NORMAL
             if profile.key == state.station.profile_key and state.presets_writable
             else tk.DISABLED,
