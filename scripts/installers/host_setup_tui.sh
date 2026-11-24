@@ -29,14 +29,15 @@ INSTALL_ALL_FEATURES=0
 WITH_VNC=0
 WITH_GPSD=0
 WITH_TELEMETRY=0
+WITH_RADIO=1
 SETTINGS_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/openroadcode/installer-selection.conf"
-settings_keys=(NAVIGATION_MODE SELECTED_TARGET SELECTED_GENERAL SELECTED_STREAMING SELECTED_AUDIO SELECTED_NAVIGATION SELECTED_RADIO SELECTED_AUTOMOTIVE SELECTED_BLUETOOTH SELECTED_ENVIRONMENTAL INSTALL_ALL_FEATURES WITH_VNC WITH_GPSD WITH_TELEMETRY)
+settings_keys=(NAVIGATION_MODE SELECTED_TARGET SELECTED_GENERAL SELECTED_STREAMING SELECTED_AUDIO SELECTED_NAVIGATION SELECTED_RADIO SELECTED_AUTOMOTIVE SELECTED_BLUETOOTH SELECTED_ENVIRONMENTAL INSTALL_ALL_FEATURES WITH_VNC WITH_GPSD WITH_TELEMETRY WITH_RADIO)
 if [[ -f "$SETTINGS_FILE" ]]; then
   while IFS='=' read -r key value; do
     case "$key" in
       NAVIGATION_MODE) case "$value" in auto|binary|source) NAVIGATION_MODE="$value" ;; esac ;;
       SELECTED_TARGET) case "$value" in rpi4|rpi5|linux-dev) SELECTED_TARGET="$value" ;; esac ;;
-      INSTALL_ALL_FEATURES|WITH_VNC|WITH_GPSD|WITH_TELEMETRY)
+      INSTALL_ALL_FEATURES|WITH_VNC|WITH_GPSD|WITH_TELEMETRY|WITH_RADIO)
         [[ "$value" == 0 || "$value" == 1 ]] && printf -v "$key" '%s' "$value" ;;
       SELECTED_GENERAL|SELECTED_STREAMING|SELECTED_AUDIO|SELECTED_NAVIGATION|SELECTED_RADIO|SELECTED_AUTOMOTIVE|SELECTED_BLUETOOTH|SELECTED_ENVIRONMENTAL)
         [[ "$value" =~ ^[a-z0-9[:space:]-]*$ ]] && printf -v "$key" '%s' "$value" ;;
@@ -173,6 +174,10 @@ if [[ " $SELECTED_NAVIGATION " == *" gps "* || " $SELECTED_NAVIGATION " == *" na
   ask_service WITH_GPSD "GPSD service" "Configure the default GPSD service?"
 else
   WITH_GPSD=0
+fi
+if [[ "$SELECTED_TARGET" != termux ]] && { (( INSTALL_ALL_FEATURES )) || [[ " $SELECTED_RADIO $SELECTED_GENERAL " == *" sdrforge "* || " $SELECTED_GENERAL " == *" desktop-ui "* ]]; }; then
+  ask_service WITH_RADIO "Native radio service" "Enable SDRForge and the ZeroMQ message broker at startup?"
+  if (( WITH_RADIO )); then ARGS+=(--with-radio-service); else ARGS+=(--no-radio-service); fi
 fi
 ask_service WITH_TELEMETRY "OpenRoadCode telemetry" "Configure and enable the ZeroMQ broker, navigation producer, and automotive producer services?"
 if (( WITH_VNC )); then ARGS+=(--with-vnc); fi
