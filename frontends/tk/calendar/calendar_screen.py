@@ -15,9 +15,13 @@ class CalendarScreen(tk.Frame):
     def __init__(self, parent, *, controller: CalendarAgendaController, theme: ThemeBundle, zone):
         ui = theme.ui
         super().__init__(parent, bg=ui.background)
+        self._ui = ui
+        self._groups = ()
         self._controller = controller
         self._zone = zone
         self._day = datetime.now(zone).date()
+        self._selected = self._day
+        self._day -= timedelta(days=self._day.weekday())
         self._executor = ThreadPoolExecutor(max_workers=1)
         self._future = None
         self._poll = None
@@ -36,25 +40,23 @@ class CalendarScreen(tk.Frame):
             ).pack(side=tk.LEFT, padx=4, pady=4)
         self._status = tk.Label(bar, bg=ui.background, fg=ui.text, font=("Sans", 11))
         self._status.pack(side=tk.RIGHT, padx=6)
-        self._body = tk.Text(
-            self,
-            bg=ui.background,
-            fg=ui.text,
-            font=("Sans", 12),
-            wrap=tk.WORD,
-            relief=tk.FLAT,
-            highlightthickness=0,
-            padx=12,
-            pady=8,
-        )
+        self._week = tk.Frame(self, bg=ui.background)
+        self._week.pack(fill=tk.X, padx=8, pady=6)
+        self._body = tk.Canvas(self, bg=ui.background, highlightthickness=0)
         self._body.pack(fill=tk.BOTH, expand=True)
-        self._body.tag_configure("day", foreground=ui.accent_primary, font=("Sans", 13, "bold"))
-        self._body.tag_configure("location", foreground=ui.text_muted)
-        self._body.configure(state=tk.DISABLED)
+        self._body.bind("<Configure>", lambda event: self._render())
         self._body.bind("<ButtonPress-1>", self._drag_start)
         self._body.bind("<B1-Motion>", self._drag_move)
+        self._body.bind("<MouseWheel>", lambda event: self._body.yview_scroll(-1 if event.delta > 0 else 1, "units"))
+        self._body.bind("<Button-4>", lambda event: self._body.yview_scroll(-1, "units"))
+        self._body.bind("<Button-5>", lambda event: self._body.yview_scroll(1, "units"))
+        self._message = "Loading appointments..."
+        tk.Label(self, text="Local calendar agenda", bg=ui.background, fg=ui.text_muted).pack(
+            anchor="w", padx=12, pady=4
+        )
         self.bind("<Destroy>", self._close, add="+")
         self._refresh()
+        self._render()
 
     def _drag_start(self, event):
         self._body.scan_mark(event.x, event.y)
@@ -65,10 +67,78 @@ class CalendarScreen(tk.Frame):
         return "break"
 
     def _move(self, delta):
-        self._day = (
-            self._day + timedelta(days=delta) if delta else datetime.now(self._zone).date()
-        )
+        today = datetime.now(self._zone).date()
+        self._day = self._day + timedelta(days=delta) if delta else today - timedelta(days=today.weekday())
+        self._selected = self._day if delta else today
+        self._groups = ()
+        self._message = "Loading appointments..."
         self._refresh()
+        self._render()
+
+    def _select(self, day):
+        self._selected = day
+        self._render()
+
+    def _render(self):
+        ui = self._ui
+        today = datetime.now(self._zone).date()
+        counts = {group.day: len(group.events) for group in self._groups}
+        for child in self._week.winfo_children():
+            child.destroy()
+        for index in range(7):
+            day = self._day + timedelta(days=index)
+            selected = day == self._selected
+            count = counts.get(day, 0)
+            tk.Button(
+                self._week,
+                text=f"{day:%a}\\n{day.day}\\n" + (f"• {count}" if count else " "),
+                command=lambda value=day: self._select(value),
+                bg=ui.surface if selected else ui.background,
+                fg=ui.accent_primary if selected or day == today else ui.text,
+                relief=tk.FLAT,
+                font=("Sans", 12, "bold" if selected else "normal"),
+            ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2)
+        canvas = self._body
+        canvas.delete("all")
+        width = max(canvas.winfo_width(), 240)
+        compact = width < 850
+        margin = 10 if compact else 20
+        y = 12
+        canvas.create_text(
+            margin, y, anchor="nw", text=self._selected.strftime("%A, %B %d"),
+            fill=ui.accent_primary, font=("Sans", 15, "bold"),
+        )
+        y += 34
+        events = next((group.events for group in self._groups if group.day == self._selected), ())
+        if not events:
+            canvas.create_text(margin, y, anchor="nw", text=self._message, fill=ui.text_muted)
+        for event in events:
+            start = event.starts_at.astimezone(self._zone)
+            end = event.ends_at.astimezone(self._zone)
+            when = "All day" if event.all_day else f"{start:%I:%M %p} – {end:%I:%M %p}"
+            ongoing = not event.all_day and start <= datetime.now(self._zone) < end
+            color = ui.accent_success if ongoing else ui.accent_primary
+            height = 78 if compact else 96
+            canvas.create_rectangle(margin, y, width - margin, y + height, fill=ui.surface, outline="")
+            canvas.create_rectangle(margin, y, margin + 5, y + height, fill=color, outline="")
+            canvas.create_text(
+                margin + 16, y + 9, anchor="nw", text=when + ("  • Now" if ongoing else ""),
+                fill=color, font=("Sans", 11),
+            )
+            canvas.create_text(
+                margin + 16, y + 29, anchor="nw", text=event.title or "Untitled",
+                fill=ui.text, font=("Sans", 13 if compact else 16, "bold"),
+                width=width - 2 * margin - 32,
+            )
+            if event.location:
+                canvas.create_text(
+                    margin + 16, y + 54, anchor="nw", text=event.location,
+                    fill=ui.text_muted, font=("Sans", 10),
+                    width=width - 2 * margin - 32,
+                )
+            y += height + 8
+        canvas.configure(scrollregion=(0, 0, width, max(y + 12, canvas.winfo_height())))
+        canvas.yview_moveto(0)
 
     def _refresh(self):
         self._status.configure(text=self._day.strftime("%b %d, %Y"))
@@ -86,27 +156,13 @@ class CalendarScreen(tk.Frame):
         if self._requested != self._day:
             self._refresh()
             return
-        self._body.configure(state=tk.NORMAL)
-        self._body.delete("1.0", tk.END)
         try:
-            groups = future.result()
-            if not groups:
-                self._body.insert(tk.END, "No cached appointments in this period.")
-            for group in groups:
-                self._body.insert(tk.END, group.day.strftime("%A, %B %d") + "\n", "day")
-                for event in group.events:
-                    start = event.starts_at.astimezone(self._zone)
-                    when = "All day" if event.all_day else start.strftime("%I:%M %p")
-                    if not event.all_day and start.date() < group.day:
-                        when = "Continues"
-                    self._body.insert(tk.END, f"  {when}    {event.title or 'Untitled'}\n")
-                    if event.location:
-                        self._body.insert(tk.END, f"      {event.location}\n", "location")
-                self._body.insert(tk.END, "\n")
+            self._groups = future.result()
+            self._message = "No cached appointments on this day."
         except Exception:
-            self._body.insert(tk.END, "Calendar cache unavailable.")
-        finally:
-            self._body.configure(state=tk.DISABLED)
+            self._groups = ()
+            self._message = "Calendar cache unavailable."
+        self._render()
 
     def _close(self, event):
         if event.widget is self:
