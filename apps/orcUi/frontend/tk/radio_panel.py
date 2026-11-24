@@ -254,12 +254,15 @@ class RadioPanel(RadioTuningGesturesMixin, RadioPanelStateMixin, RadioPanelLayou
                 self._preset_page = 0
                 self._render_favorites(self._state)
                 self._show_radio_info()
-                return
         profiles = tuple(p for p in self._state.profiles if p.group == name)
         if name == "AIR" and not profiles:
             self._show_adsb()
         elif profiles:
-            self._session.request(RadioRequest(RadioAction.PROFILE, key=profiles[0].key))
+            profile = next((p for p in profiles if p.key == self._state.station.profile_key), profiles[0])
+            if profile.key != self._state.station.profile_key or self._state.view == "adsb":
+                self._session.request(RadioRequest(RadioAction.PROFILE, key=profile.key))
+            else:
+                self._pending_group = None
 
     def set_station(self, label: str, frequency_hz: int, mode_name: str | None = None) -> None:
         self._station_label.configure(text=label)

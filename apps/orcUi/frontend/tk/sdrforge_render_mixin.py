@@ -37,6 +37,8 @@ class SdrForgeRenderMixin:
             return None
         center = 0.5 + (self._frequency_hz - viewport.center_hz) / viewport.span_hz
         half = bandwidth / (2 * viewport.span_hz)
+        if self._mode in ("AM", "NFM"):
+            half = max(half, 2.0 / max(1, self._canvas.winfo_width()))
         left, right = max(0.0, center - half), min(1.0, center + half)
         return (left, right) if left < right else None
 
