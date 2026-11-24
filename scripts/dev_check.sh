@@ -27,10 +27,13 @@ run_checks() {
         ruff format --check "${@:-.}" || rc=1
     fi
     if [ "$mode" = --all ] || [ "$mode" = --test ]; then
+        # Load stdlib calendar before pytest can collect similarly named packages.
+        # pytest.main uses the same test runner as python -m pytest.
+        local pytest_bootstrap='import calendar; import sys; import pytest; sys.exit(pytest.main(sys.argv[1:]))'
         if [ "$#" -gt 0 ]; then
-            python -m pytest --import-mode=importlib "$@" -q || rc=1
+            python -c "$pytest_bootstrap" --import-mode=importlib "$@" -q || rc=1
         else
-            python -m pytest --import-mode=importlib tests/unit/ controllers/calendar/unit_test/ -q || rc=1
+            python -c "$pytest_bootstrap" --import-mode=importlib tests/unit/ controllers/calendar/unit_test/ -q || rc=1
         fi
     fi
     return "$rc"
