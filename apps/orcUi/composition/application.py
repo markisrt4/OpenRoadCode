@@ -44,6 +44,7 @@ from apps.orcUi.frontend.tk.navigation_route_weather import NavigationRouteWeath
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.offroad_screen import OffRoadScreen
 from apps.orcUi.frontend.tk.settings_screen import SettingsScreen
+from adapters.radio.sdrforge_rf_hardware_config import SdrForgeRfHardwareConfig
 from apps.orcUi.frontend.tk.vehicle_screen import VehicleScreen
 from apps.orcUi.performance_status import PerformanceStatusPresenter
 from apps.orcUi.theme_runtime import theme_bundle
@@ -320,6 +321,7 @@ def create_orc_ui_composition(
             unit_system=unit_system,
             on_unit_system_changed=set_unit_system,
             on_back=lambda: app.navigate_to("HOME"),
+            rf_hardware_config=SdrForgeRfHardwareConfig(),
             performance_overlay_enabled=app.performance_overlay_enabled,
             on_performance_overlay_changed=app.set_performance_overlay_enabled,
         )
@@ -337,6 +339,11 @@ def create_orc_ui_composition(
             history=performance.history,
             theme_bundle=lambda: theme_bundle(app.theme_mode),
             on_back=app.close_diagnostics,
+            sdrforge_diagnostics=(
+                radio.rigctl_client.connection_diagnostics
+                if radio.rigctl_client is not None
+                else None
+            ),
         )
         performance_status = PerformanceStatusPresenter(
             app, performance, app.set_performance_status, on_sample=app.update_performance_overlay

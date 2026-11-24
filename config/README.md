@@ -123,7 +123,7 @@ button = 15
 key = "fm_radio"
 config = "fm_radio.json"
 backend = "rigctl"
-launcher = "sdrpp"
+launcher = "sdrforge"
 enabled = true
 ```
 

@@ -23,7 +23,7 @@ def main() -> None:
     )
 
     rigctl = RigctlClient(
-        host="192.168.1.100",  # Radio Pi running SDR++ rigctl server
+        host="192.168.1.100",  # Radio Pi running SDRForge rigctl server
         port=4532,
     )
 

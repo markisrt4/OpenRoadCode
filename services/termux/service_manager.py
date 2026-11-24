@@ -8,8 +8,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import json
+import re
+import socket
 import subprocess
-from urllib.request import urlopen
+import time
+from urllib.request import Request, urlopen
 
 from services.common.service_logging import (
     ServiceStatusLog,
@@ -37,6 +40,8 @@ class ServiceStatus:
     profile_labels: dict[str, str] | None = None
     input_state: str | None = None
     input_detail: str | None = None
+    readiness: str | None = None
+    readiness_detail: str | None = None
 
 
 class RunitServiceManager:
@@ -50,6 +55,7 @@ class RunitServiceManager:
         "openroadcode-adsb",
         "openroadcode-carbonate",
         "openroadcode-calendar-sync",
+        "openroadcode-sdrforge",
     )
     CORE_STACK = (
         "openroadcode-message-broker",
@@ -60,6 +66,7 @@ class RunitServiceManager:
     PROFILE_CONFIGS = {
         "openroadcode-navigation": ("local", "remote", "simulated"),
         "openroadcode-automotive": ("local", "remote", "simulated"),
+        "openroadcode-sdrforge": ("local", "simulated"),
     }
     PROFILE_LABELS = {
         "local": "Android Bridge",
@@ -83,16 +90,53 @@ class RunitServiceManager:
             state = "unknown"
         profile = self.profile(name)
         input_state, input_detail = self._input_health(name, state, profile)
+        readiness, readiness_detail = self._readiness(name, state, detail)
         return ServiceStatus(
             name=name,
             state=state,
             detail=detail,
             profile=profile,
             available_profiles=self.available_profiles(name),
-            profile_labels=(dict(self.PROFILE_LABELS) if self.available_profiles(name) else None),
+            profile_labels=(
+                {"local": "RTL-SDR USB", "simulated": "Simulated"}
+                if name == "openroadcode-sdrforge"
+                else dict(self.PROFILE_LABELS)
+                if self.available_profiles(name)
+                else None
+            ),
             input_state=input_state,
             input_detail=input_detail,
+            readiness=readiness,
+            readiness_detail=readiness_detail,
         )
+
+    @staticmethod
+    def _readiness(name: str, state: str, detail: str) -> tuple[str | None, str | None]:
+        """Report SDRForge HTTP readiness without blocking service-manager requests.
+
+        Preserve runit's process state for existing clients. An unreachable API
+        is starting during its first ten seconds, then failed. A running
+        process alone never counts as ready.
+        """
+        if name != "openroadcode-sdrforge":
+            return None, None
+        if state != "running":
+            return (
+                "stopped" if state == "stopped" else "unknown",
+                "SDRForge service is not running",
+            )
+        try:
+            with urlopen("http://127.0.0.1:5570/v1/health", timeout=0.3) as response:
+                payload = json.load(response)
+            if isinstance(payload, dict) and payload.get("status") == "ok":
+                return "ready", "SDRForge REST API is healthy"
+        except (OSError, ValueError):
+            pass
+        match = re.search(r"\(pid \d+\) (\d+)s", detail)
+        uptime = int(match.group(1)) if match else None
+        if uptime is not None and uptime >= 10:
+            return "failed", "SDRForge REST API is not healthy after startup"
+        return "starting", "Waiting for SDRForge REST API"
 
     def all_status(self) -> tuple[ServiceStatus, ...]:
         return tuple(self.status(name) for name in self.SERVICES)
@@ -107,7 +151,8 @@ class RunitServiceManager:
             return None
         selected = self._profile_file(name)
         if not selected.exists():
-            return "local"
+            # Match the SDRForge runit launcher default without changing other services.
+            return "simulated" if name == "openroadcode-sdrforge" else "local"
         content = selected.read_text(encoding="utf-8")
         for profile in profiles:
             if f"OPENROADCODE_RUNTIME_PROFILE={profile}" in content:
@@ -124,6 +169,11 @@ class RunitServiceManager:
             raise ValueError(f"Service does not support profiles: {name}")
         if profile not in profiles:
             raise ValueError(f"Unsupported profile for {name}: {profile}")
+        if name == "openroadcode-sdrforge" and profile == "local":
+            raise ValueError(
+                "RTL-SDR requires Android-authorized USB handoff; "
+                "direct runit startup is not supported yet"
+            )
 
         was_running = self.status(name).state == "running"
         PROFILE_DIR.mkdir(parents=True, exist_ok=True)
@@ -139,6 +189,8 @@ class RunitServiceManager:
     @service_action(COMPONENT, "start")
     def start(self, name: str) -> ServiceStatus:
         self._validate(name)
+        if name == "openroadcode-sdrforge" and self.profile(name) == "local":
+            raise ValueError("RTL-SDR startup requires Android-authorized USB handoff")
         self._sv("up", name)
         return self.status(name)
 
@@ -151,8 +203,75 @@ class RunitServiceManager:
     @service_action(COMPONENT, "restart")
     def restart(self, name: str) -> ServiceStatus:
         self._validate(name)
+        if name == "openroadcode-sdrforge" and self.profile(name) == "local":
+            raise ValueError("RTL-SDR restart requires Android-authorized USB handoff")
         self._sv("restart", name)
         return self.status(name)
+
+    @service_action(COMPONENT, "switch_sdrforge_source")
+    def switch_sdrforge_source(self, source: str) -> dict[str, str]:
+        """Switch server ownership; USB startup must be requested by Android."""
+        if source not in {"simulated", "local"}:
+            raise ValueError(f"Unsupported SDRForge source: {source}")
+        name = "openroadcode-sdrforge"
+        current = self._sdrforge_source()
+        if source == "local":
+            if current == "rtl_sdr":
+                return {"source": "rtl_sdr", "state": "ready"}
+            self._sv("down", name)
+            self._wait_sdrforge_source(None)
+            return {"source": "rtl_sdr", "state": "usb_handoff_required"}
+        if current == "rtl_sdr":
+            # Only the locally running hardware server is eligible for this
+            # graceful shutdown. Never kill arbitrary PIDs or supervised servers.
+            self._sv("down", name)
+            request = Request(
+                "http://127.0.0.1:5570/v1/server/shutdown",
+                data=b"",
+                method="POST",
+            )
+            with urlopen(request, timeout=3) as response:
+                if response.status != 200:
+                    raise RuntimeError("SDRForge hardware shutdown was rejected")
+            self._wait_sdrforge_source(None)
+        elif current not in (None, "simulated"):
+            raise RuntimeError(f"Unrecognized SDRForge source: {current}")
+        if current == "simulated":
+            return {"source": "simulated", "state": "ready"}
+        self.set_profile(name, "simulated")
+        self._sv("up", name)
+        self._wait_sdrforge_source("simulated")
+        return {"source": "simulated", "state": "ready"}
+
+    @staticmethod
+    def _sdrforge_source() -> str | None:
+        try:
+            with urlopen("http://127.0.0.1:5570/v1/receiver", timeout=0.7) as response:
+                source = json.load(response).get("source_type")
+                if source not in ("simulated", "rtl_sdr"):
+                    raise RuntimeError("SDRForge did not report a recognized source")
+                return source
+        except OSError:
+            return None
+
+    @staticmethod
+    def _sdrforge_ports_free() -> bool:
+        for port in (5570, 5571, 4532):
+            try:
+                with socket.socket() as probe:
+                    probe.bind(("127.0.0.1", port))
+            except OSError:
+                return False
+        return True
+
+    @classmethod
+    def _wait_sdrforge_source(cls, expected: str | None) -> None:
+        for _ in range(40):
+            if cls._sdrforge_source() == expected:
+                if expected is not None or cls._sdrforge_ports_free():
+                    return
+            time.sleep(0.25)
+        raise RuntimeError(f"SDRForge did not transition to {expected or 'stopped'}")
 
     @service_action(COMPONENT, "start_core")
     def start_core(self) -> tuple[ServiceStatus, ...]:

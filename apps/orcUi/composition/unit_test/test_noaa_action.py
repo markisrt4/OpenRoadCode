@@ -53,7 +53,10 @@ def test_noaa_action_queues_work_and_delivery(action, caplog):
         tune.assert_not_called()
         work.pop(0)()
         tune.assert_called_once_with(
-            radio.return_value, runtime.radio, cancelled=tune.call_args.kwargs["cancelled"]
+            radio.return_value,
+            runtime.radio,
+            cancelled=tune.call_args.kwargs["cancelled"],
+            native_sdrforge=True,
         )
         assert "NOAA worker started" in caplog.text
         assert "NOAA tuned" in caplog.text

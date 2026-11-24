@@ -21,6 +21,8 @@ HOST="${OPENROADCODE_SERVICE_MANAGER_HOST:-0.0.0.0}"
 PORT="${OPENROADCODE_SERVICE_MANAGER_PORT:-8769}"
 TOKEN="${OPENROADCODE_SERVICE_MANAGER_TOKEN:-}"
 SYSTEMCTL_BIN="$(command -v systemctl || true)"
+SDRFORGE_USER="${OPENROADCODE_SDRFORGE_USER:-}"
+SDRFORGE_HELPER="/usr/local/sbin/orc-sdrforge-user-service"
 
 if [[ $EUID -ne 0 ]]; then
     echo "This script needs root privileges to install the service manager." >&2
@@ -114,6 +116,24 @@ ORC_LOG_DIR=$STATE_DIR/logs
 EOF
 chmod 600 "$ENV_FILE"
 
+# Explicit opt-in; never guess the desktop account.
+install -D -o root -g root -m 755 \
+    "$PROJECT_ROOT/scripts/systemd/sdrforge_user_service_helper.sh" "$SDRFORGE_HELPER"
+if [[ -n "$SDRFORGE_USER" ]]; then
+    if [[ ! "$SDRFORGE_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]; then
+        echo "Invalid OPENROADCODE_SDRFORGE_USER" >&2
+        exit 1
+    fi
+    SDRFORGE_UID="$(id -u "$SDRFORGE_USER")"
+    if (( SDRFORGE_UID < 1000 )); then
+        echo "SDRForge must use a regular user account" >&2
+        exit 1
+    fi
+    printf '%s\n' "$SDRFORGE_USER" > "$ENV_DIR/sdrforge-user"
+    chown root:root "$ENV_DIR/sdrforge-user"
+    chmod 644 "$ENV_DIR/sdrforge-user"
+fi
+
 {
     echo "# Managed by OpenRoadCode. Restrict the service manager to approved unit actions."
     for action in start stop restart; do
@@ -126,6 +146,11 @@ chmod 600 "$ENV_FILE"
             echo "$SERVICE_USER ALL=(root) NOPASSWD: $SYSTEMCTL_BIN $action $unit"
         done
     done
+    if [[ -f "$ENV_DIR/sdrforge-user" ]]; then
+        for action in start stop restart is-active show; do
+            echo "$SERVICE_USER ALL=(root) NOPASSWD: $SDRFORGE_HELPER $action"
+        done
+    fi
 } > "$SUDOERS_FILE"
 chmod 440 "$SUDOERS_FILE"
 visudo -cf "$SUDOERS_FILE" >/dev/null

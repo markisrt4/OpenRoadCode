@@ -6,9 +6,21 @@
 from __future__ import annotations
 
 import socket
+import time
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True, slots=True)
+class RigctlConnectionDiagnostics:
+    state: str
+    requests: int
+    failures: int
+    last_success_monotonic: float | None
+    last_error: str | None
+
 
 SDRPP_MODE_MAP = {
-    "NFM": "FM",
+    "NFM": "NFM",
     "FM": "FM",
     "WFM": "WFM",
     "AM": "AM",
@@ -32,6 +44,20 @@ class RigctlClient:
         self.host = host
         self.port = port
         self.timeout = timeout
+        self._requests = 0
+        self._failures = 0
+        self._state = "unknown"
+        self._last_success_monotonic: float | None = None
+        self._last_error: str | None = None
+
+    def connection_diagnostics(self) -> RigctlConnectionDiagnostics:
+        return RigctlConnectionDiagnostics(
+            self._state,
+            self._requests,
+            self._failures,
+            self._last_success_monotonic,
+            self._last_error,
+        )
 
     def send(self, command: str) -> str:
         """Send a raw command and return the stripped server response."""
@@ -40,14 +66,24 @@ class RigctlClient:
 
         wire_command = command.rstrip() + "\n"
 
-        with socket.create_connection((self.host, self.port), timeout=self.timeout) as sock:
-            sock.settimeout(self.timeout)
-            sock.sendall(wire_command.encode("utf-8"))
-
-            try:
-                return sock.recv(4096).decode("utf-8", errors="replace").strip()
-            except socket.timeout:
-                return ""
+        self._requests += 1
+        try:
+            with socket.create_connection((self.host, self.port), timeout=self.timeout) as sock:
+                sock.settimeout(self.timeout)
+                sock.sendall(wire_command.encode("utf-8"))
+                try:
+                    result = sock.recv(4096).decode("utf-8", errors="replace").strip()
+                except socket.timeout:
+                    result = ""
+        except OSError as exc:
+            self._failures += 1
+            self._state = "unavailable"
+            self._last_error = str(exc)
+            raise
+        self._state = "connected"
+        self._last_success_monotonic = time.monotonic()
+        self._last_error = None
+        return result
 
     def set_frequency(self, hz: int) -> str:
         """Set receiver frequency in hertz."""
@@ -70,11 +106,11 @@ class RigctlClient:
         return self.send(f"M {rigctl_mode} {bandwidth}")
 
     def start(self) -> str:
-        """Start SDR++ playback using its rigctl extension."""
+        """Start receiver playback using the rigctl extension."""
         return self.send(r"\start")
 
     def stop(self) -> str:
-        """Stop SDR++ playback using its rigctl extension."""
+        """Stop receiver playback using the rigctl extension."""
         return self.send(r"\stop")
 
     def get_signal_strength(self) -> str:
@@ -91,6 +127,6 @@ class RigctlClient:
 
     @staticmethod
     def normalize_sdrpp_mode(mode: str) -> str:
-        """Translate application-facing mode names to SDR++ rigctl names."""
+        """Normalize application-facing mode names for the receiver."""
         normalized = mode.strip().upper()
         return SDRPP_MODE_MAP.get(normalized, normalized)

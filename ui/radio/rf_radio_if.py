@@ -27,6 +27,25 @@ class RadioTelemetry:
     signal_db: float | None = None
     snr_db: float | None = None
     rds: str = ""
+    station_name: str = ""
+    radio_text: str = ""
+    stereo_locked: bool | None = None
+    mode: str | None = None
+    bandwidth_hz: int | None = None
+    receiver_running: bool | None = None
+
+
+def receiver_mode_mismatch(state: "RfRadioState") -> bool:
+    """True only for a running, same-frequency, contradictory receiver mode."""
+    observed = state.telemetry
+    expected = state.station.mode_name.upper()
+    canonical = "WFM" if expected == "FM" else expected
+    return (
+        observed.receiver_running is True
+        and observed.frequency_hz == state.station.frequency_hz
+        and observed.mode is not None
+        and canonical != observed.mode
+    )
 
 
 @dataclass(frozen=True)
@@ -49,6 +68,14 @@ class RfRadioState:
     bandplan: bool = False
     fft_hold: bool = False
     themes: tuple[str, ...] = ()
+    playing: bool = True
+    receiver_running: bool = False
+    receiver_starting: bool = False
+    scanning: bool = False
+    scan_progress: str = ""
+    scan_hits: tuple[int, ...] = ()
+    tuning_range: tuple[int, int, int] | None = None
+    presets_writable: bool = True
 
 
 class RadioAction(Enum):
@@ -60,11 +87,20 @@ class RadioAction(Enum):
     NEXT = "next"
     TUNE_DOWN = "tune_down"
     TUNE_UP = "tune_up"
+    TUNE_FREQUENCY = "tune_frequency"
+    RECENTER = "recenter"
+    PAN_ACQUISITION = "pan_acquisition"
     ADD_PRESET = "add_preset"
     WATERFALL = "waterfall"
     BANDPLAN = "bandplan"
     FFT_HOLD = "fft_hold"
     AUTO_RANGE = "auto_range"
+    SCAN = "scan"
+    STOP_SCAN = "stop_scan"
+    PLAY = "play"
+    PAUSE = "pause"
+    START_RECEIVER = "start_receiver"
+    STOP_RECEIVER = "stop_receiver"
     THEME = "theme"
     REFRESH = "refresh"
     RESIZE = "resize"
@@ -78,6 +114,7 @@ class RadioRequest:
     preset: RadioProfilePreset | None = None
     host: RadioHost | None = None
     color_scheme: str = "dark"
+    frequency_hz: int | None = None
 
 
 class RfRadioUi(Protocol):

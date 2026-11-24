@@ -34,7 +34,6 @@ KNOWN_SERVICES = {
     "services.termux.service_manager_http": "Service manager",
     "ADS-B integration": "ADS-B",
     "GPSD integration": "GPSD",
-    "SDR++ integration": "SDR++",
     "Map renderer": "Map renderer",
 }
 

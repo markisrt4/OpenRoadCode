@@ -23,8 +23,6 @@ def _child_context(process, *args, **kwargs):
 
 
 DEFAULT_DISPLAY_APP_PATTERNS = (
-    "sdrpp",
-    "sdr\\+\\+",
     "chromium",
     "chromium-browser",
     "streamlit",

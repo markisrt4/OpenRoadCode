@@ -3,9 +3,9 @@
   "label": "GMRS",
   "description": "General Mobile Radio Service main and repeater-output channels. Receive-only monitoring; transmitting requires proper GMRS licensing/equipment.",
   "launch": {
-    "label": "Launch SDR++",
+    "label": "SDRForge Status",
     "subtitle": "General Mobile Radio Service",
-    "detail": "Starts / toggles SDR++"
+    "detail": "Check shared SDRForge service"
   },
   "radio": {
     "label": "Radio ON/OFF",

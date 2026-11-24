@@ -44,6 +44,9 @@ class FMRadioScreen(CarUiScreen):
     def hide(self) -> None:
         if self.fm_panel is not None:
             self.fm_panel.stop_radio_status_polling()
+        if self.fm_session is not None:
+            self.fm_session.close()
+            self.fm_session = None
 
     def show(self) -> None:
         if not self.prepare_screen("FM Radio", self._back_action):
@@ -54,9 +57,9 @@ class FMRadioScreen(CarUiScreen):
             key=runtime.key,
             title="FM Radio",
             launch_tile=RadioPanelTileConfig(
-                label="Launch SDR++",
-                subtitle="FM receiver app",
-                detail="Starts / toggles SDR++",
+                label="SDRForge Status",
+                subtitle="Shared radio service",
+                detail="Check shared SDRForge service",
             ),
             radio_toggle_tile=RadioPanelTileConfig(
                 label="Radio ON/OFF",

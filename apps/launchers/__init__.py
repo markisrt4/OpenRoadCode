@@ -14,8 +14,6 @@ __all__ = [
     "AppLauncherIf",
     "AppLauncherStub",
     "BrowserKioskLauncher",
-    "SDRPPLauncher",
-    "SDRPPProfile",
     "StatusCallback",
     "StreamlitLauncher",
     "WeatherDashLauncher",
@@ -24,8 +22,6 @@ __all__ = [
 _LAZY_EXPORTS = {
     "ADSBLauncher": ("apps.launchers.adsb_launcher", "ADSBLauncher"),
     "BrowserKioskLauncher": ("apps.launchers.browser_launcher", "BrowserKioskLauncher"),
-    "SDRPPLauncher": ("apps.launchers.sdrpp_launcher", "SDRPPLauncher"),
-    "SDRPPProfile": ("apps.launchers.sdrpp_launcher", "SDRPPProfile"),
     "StreamlitLauncher": ("apps.launchers.streamlit_launcher", "StreamlitLauncher"),
     "WeatherDashLauncher": ("apps.launchers.weather_dash_launcher", "WeatherDashLauncher"),
 }

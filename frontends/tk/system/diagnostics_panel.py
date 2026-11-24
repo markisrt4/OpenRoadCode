@@ -125,6 +125,10 @@ class DiagnosticsPanel(tk.Frame, UiWidget):
 
         self._calendar_status = self._label(services, "Calendar sync: unavailable", 12)
         self._calendar_metrics = self._label(services, "", 10)
+        self._sdrforge_connection = self._label(
+            services, "SDRForge REST: diagnostics not connected", 12
+        )
+        self._sdrforge_connection.configure(wraplength=1150)
         self._service_status = self._label(services, "Waiting for service socket samples", 12)
         self._service_status.configure(wraplength=900)
         self._label(
@@ -191,6 +195,25 @@ class DiagnosticsPanel(tk.Frame, UiWidget):
         table = DiagnosticsTable(parent, theme=self._theme, columns=columns, visible=visible)
         table.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
         return table
+
+    def apply_sdrforge_connection(self, diagnostics) -> None:
+        """Render a shared radio backend's connection snapshot, without network I/O."""
+        if diagnostics is None:
+            self._sdrforge_connection.configure(text="SDRForge REST: diagnostics unavailable")
+            return
+        error = diagnostics.last_error or "none"
+        if hasattr(diagnostics, "requests"):
+            summary = f"Requests {diagnostics.requests}  ·  Failures {diagnostics.failures}"
+            transport = "rigctl"
+        else:
+            summary = (
+                f"Recoveries {diagnostics.reconnect_successes}/{diagnostics.reconnect_attempts}"
+            )
+            transport = "REST"
+        self._sdrforge_connection.configure(
+            text=f"SDRForge {transport}: {diagnostics.state.upper()}  ·  "
+            f"{summary}  ·  Last error: {error}"
+        )
 
     def apply_snapshot(self, snapshot: SystemDiagnosticsSnapshot) -> None:
         """Refresh tables using cached samples without sampling on the Tk thread."""

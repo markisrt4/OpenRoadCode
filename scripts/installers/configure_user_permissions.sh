@@ -32,7 +32,7 @@ for feature in "${features[@]}"; do
     gps|automotive)
       append_group dialout
       ;;
-    rtl-sdr|adsb|sdrpp)
+    rtl-sdr|adsb|sdrforge)
       append_group plugdev
       ;;
     raspberry-pi|imu|environmental)

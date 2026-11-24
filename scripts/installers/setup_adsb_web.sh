@@ -64,7 +64,7 @@ fi
 
 if command -v systemctl >/dev/null 2>&1; then
     # readsb owns the RTL-SDR while running. OpenRoadCode starts it on demand
-    # through ADSBLauncher so the receiver remains available to SDR++/radio.
+    # through ADSBLauncher so the receiver remains available to native RF radio.
     echo "[*] Configuring ADS-B services..."
     sudo systemctl disable --now readsb || true
     sudo systemctl enable --now lighttpd || true
