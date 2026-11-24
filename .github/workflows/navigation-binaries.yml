@@ -81,6 +81,8 @@ jobs:
           for dependency in maplibre-native valhalla prime_server; do
             printf '%s=%s\n' "$dependency" "$(git -C "../$dependency" rev-parse HEAD)" >> dist/manifest.txt
           done
+          component="$(bash scripts/installers/navigation_component_version.sh "$(git -C ../maplibre-native rev-parse HEAD)" "$(git -C ../valhalla rev-parse HEAD)" "$(git -C ../prime_server rev-parse HEAD)")"
+          printf 'component_version=%s\n' "$component" >> dist/manifest.txt
           sudo tar -C /opt/openroadcode/navigation -czf "$PWD/dist/$name.tar.gz" bin valhalla
           sudo chown "$(id -u):$(id -g)" "dist/$name.tar.gz"
           (cd dist && sha256sum "$name.tar.gz" manifest.txt > SHA256SUMS)
@@ -105,9 +107,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir release
+          component=""
           for distro in ubuntu24.04 debian13; do
             for arch in amd64 arm64; do
               name="navigation-$distro-$arch"
+              version="$(sed -n 's/^component_version=//p' "packages/$name/manifest.txt")"
+              [[ "$version" =~ ^[0-9a-f]{64}$ ]]
+              [[ -z "$component" || "$component" == "$version" ]]
+              component="$version"
               (
                 cd "packages/$name"
                 sha256sum -c SHA256SUMS
@@ -119,17 +126,18 @@ jobs:
             done
           done
           (cd release && sha256sum *.tar.gz > SHA256SUMS)
+          echo "NAVIGATION_COMPONENT=$component" >> "$GITHUB_ENV"
       - name: Publish revision-specific prerelease
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          tag="navigation-$GITHUB_SHA"
+          tag="navigation-$NAVIGATION_COMPONENT"
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Release already exists; refusing to overwrite revision assets."
-            exit 1
+            exit 0
           fi
           gh release create "$tag" release/* --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" --prerelease --latest=false \
-            --title "Navigation binaries $GITHUB_SHA" \
+            --title "Navigation binaries $NAVIGATION_COMPONENT" \
             --notes "Native navigation packages for Debian 13 and Ubuntu 24.04, AMD64 and ARM64."
