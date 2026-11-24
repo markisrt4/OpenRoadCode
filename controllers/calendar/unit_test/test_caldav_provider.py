@@ -43,13 +43,14 @@ class FakeAdapter:
 
 
 class CalDavProviderTests(unittest.TestCase):
-    def test_partial_results_survive_timeout_and_recurrence(self):
+    def test_recurring_and_standalone_results_survive_timeout(self):
         provider = CalDavCalendarProvider("proton", FakeAdapter())
         events = provider.list_events(START, START + timedelta(days=1))
-        self.assertEqual([event.title for event in events], ["Meeting"])
+        self.assertEqual([event.title for event in events], ["Meeting", ""])
+        self.assertEqual(events[1].recurrence_id, "2026-11-23T14:00:00+00:00")
         self.assertEqual(len(provider.last_sync_status), 2)
         self.assertTrue(provider.last_sync_status[0].ok)
-        self.assertEqual(provider.last_sync_status[0].skipped_resources, 1)
+        self.assertEqual(provider.last_sync_status[0].skipped_resources, 0)
         self.assertFalse(provider.last_sync_status[1].ok)
         self.assertEqual(provider.last_sync_status[1].error, "CalDavTimeoutError")
 
