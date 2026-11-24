@@ -99,7 +99,7 @@ class RadioPanelStateMixin:
                         state.scan_progress if state.scanning and state.scan_progress else
                         "Scanning…" if state.scanning else
                         f"{len(state.scan_hits)} stations found"))
-                    signature = state.scan_hits
+                    signature = (state.scan_hits, state.presets_writable)
                     if signature != self._scan_signature or not state.scanning and not state.scan_hits:
                         self._scan_signature = signature
                         self._render_scan_results()
