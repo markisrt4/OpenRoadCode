@@ -39,7 +39,7 @@ def main() -> None:
     parser.add_argument("--interval-seconds", type=float, default=900)
     parser.add_argument("--past-days", type=int, default=7)
     parser.add_argument("--future-days", type=int, default=30)
-    parser.add_argument("--timeout", type=float, default=15)
+    parser.add_argument("--timeout", type=float, default=30)
     args = parser.parse_args()
     if not args.username.strip() or not args.account_id.strip():
         parser.error("username and account-id must be nonempty")
