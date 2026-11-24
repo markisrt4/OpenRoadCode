@@ -52,10 +52,13 @@ def main():
     parser.add_argument("--light", action="store_true")
     args = parser.parse_args()
     zone = ZoneInfo(args.timezone)
+    selection = Path.home() / ".config/openroadcode/calendar-selection.json"
+    cache_path = Path.home() / ".local/share/openroadcode/calendar/events.sqlite3"
     provider = (
         CachedCalendarProvider(
             "caldav",
-            CalendarEventCache(Path.home() / ".local/share/openroadcode/calendar/events.sqlite3"),
+            CalendarEventCache(cache_path),
+            selection_file=selection,
         )
         if args.cached
         else DemoProvider()
@@ -68,6 +71,8 @@ def main():
         controller=CalendarAgendaController(provider, zone),
         theme=theme_bundle(ThemeMode.LIGHT if args.light else ThemeMode.DARK),
         zone=zone,
+        selection_file=selection if args.cached else None,
+        catalog_file=cache_path.with_suffix(".catalog.json") if args.cached else None,
     )
     screen.pack(fill=tk.BOTH, expand=True)
     root.mainloop()
