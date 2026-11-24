@@ -5,9 +5,9 @@ import calendar
 import hashlib
 import tkinter as tk
 from concurrent.futures import Future
-from threading import Thread
 from datetime import datetime, timedelta
 from pathlib import Path
+from threading import Thread
 
 from controllers.calendar.calendar_agenda import CalendarAgendaController
 from controllers.calendar.calendar_selection import (
@@ -15,6 +15,7 @@ from controllers.calendar.calendar_selection import (
     load_disabled_calendar_ids,
     save_disabled_calendar_ids,
 )
+from controllers.system.calendar_health_sampler import sample_calendar_health
 from ui.theme import ThemeBundle
 
 
@@ -25,12 +26,14 @@ def _calendar_color(account_id: str, calendar_id: str) -> str:
     return palette[int.from_bytes(digest[:4], "big") % len(palette)]
 
 
-def _load_agenda(future, controller, day, days):
+def _load_agenda(future, controller, day, days, health_path):
     """Read-only worker; never retain or call a Tk widget."""
     if not future.set_running_or_notify_cancel():
         return
     try:
-        future.set_result(controller.load(day, days))
+        groups = controller.load(day, days)
+        health = sample_calendar_health(health_path) if health_path is not None else {}
+        future.set_result((groups, health))
     except Exception as error:
         future.set_exception(error)
 
@@ -64,6 +67,12 @@ class CalendarScreen(tk.Frame):
         self._closed = False
         self._future = None
         self._poll = None
+        self._refresh_timer = None
+        self._health_path = (
+            catalog_file.with_suffix("").with_suffix(".health.json")
+            if catalog_file is not None
+            else None
+        )
         self._requested = None
         bar = tk.Frame(self, bg=ui.background)
         bar.pack(fill=tk.X, padx=8, pady=(8, 18))
@@ -126,12 +135,21 @@ class CalendarScreen(tk.Frame):
         self._body.bind("<Button-4>", lambda event: self._body.yview_scroll(-1, "units"))
         self._body.bind("<Button-5>", lambda event: self._body.yview_scroll(1, "units"))
         self._message = "Loading appointments..."
-        tk.Label(self, text="Local calendar agenda", bg=ui.background, fg=ui.text_muted).pack(
-            anchor="w", padx=12, pady=4
+        self._footer = tk.Label(
+            self, text="Local calendar agenda", bg=ui.background, fg=ui.text_muted
         )
+        self._footer.pack(anchor="w", padx=12, pady=4)
         self.bind("<Destroy>", self._close, add="+")
         self._refresh()
         self._render()
+        self._refresh_timer = self.after(30000, self._periodic_refresh)
+
+    def _periodic_refresh(self):
+        self._refresh_timer = None
+        if self._closed:
+            return
+        self._refresh()
+        self._refresh_timer = self.after(30000, self._periodic_refresh)
 
     def _settings(self):
         from tkinter import messagebox
@@ -253,7 +271,7 @@ class CalendarScreen(tk.Frame):
         self._selected = day
         self._render()
 
-    def _render(self):
+    def _render(self, *, preserve_scroll=False):
         ui = self._ui
         today = datetime.now(self._zone).date()
         counts = {group.day: len(group.events) for group in self._groups}
@@ -284,7 +302,7 @@ class CalendarScreen(tk.Frame):
                     widget.pack(fill=tk.X)
                     widget.bind("<Button-1>", lambda event, value=day: self._select(value))
                 cell.bind("<Button-1>", lambda event, value=day: self._select(value))
-        self._render_agenda()
+        self._render_agenda(preserve_scroll=preserve_scroll)
 
     def _render_agenda(self, *, preserve_scroll=False):
         ui = self._ui
@@ -353,6 +371,7 @@ class CalendarScreen(tk.Frame):
                 fg=ui.text_muted,
                 font=("Sans", 10),
             ).grid(row=0, column=column, sticky="ew")
+        events_by_day = {group.day: group.events for group in self._groups}
         weeks = calendar.Calendar().monthdatescalendar(self._day.year, self._day.month)
         for row, week in enumerate(weeks, 1):
             self._week.rowconfigure(row, weight=1, uniform="week")
@@ -377,16 +396,22 @@ class CalendarScreen(tk.Frame):
                     font=("Sans", 13, "bold" if selected or day == today else "normal"),
                 )
                 number.pack(anchor="center", expand=True)
-                indicator = tk.Label(
-                    cell,
-                    text=f"• {count}" if count else " ",
-                    bg=background,
-                    fg=ui.accent_primary,
-                    font=("Sans", 9),
-                )
+                indicator = tk.Frame(cell, bg=background)
                 indicator.pack(anchor="center")
+                colors = list(dict.fromkeys(
+                    _calendar_color(event.account_id, event.calendar_id)
+                    for event in events_by_day.get(day, ())
+                ))
+                for color in colors[:3]:
+                    tk.Label(
+                        indicator, text="●", bg=background, fg=color, font=("Sans", 10)
+                    ).pack(side=tk.LEFT)
+                tk.Label(
+                    indicator, text=str(count) if count else " ",
+                    bg=background, fg=ui.text_muted, font=("Sans", 9),
+                ).pack(side=tk.LEFT)
                 if in_month:
-                    for widget in (cell, number, indicator):
+                    for widget in (cell, number, indicator, *indicator.winfo_children()):
                         widget.bind("<Button-1>", lambda event, value=day: self._select(value))
 
     def _refresh(self):
@@ -404,7 +429,7 @@ class CalendarScreen(tk.Frame):
             self._future = Future()
             Thread(
                 target=_load_agenda,
-                args=(self._future, self._controller, self._day, days),
+                args=(self._future, self._controller, self._day, days, self._health_path),
                 name="calendar-agenda-read",
                 daemon=True,
             ).start()
@@ -422,16 +447,33 @@ class CalendarScreen(tk.Frame):
             self._refresh()
             return
         try:
-            self._groups = future.result()
+            groups, health = future.result()
+            self._groups = groups
+            self._update_footer(health)
             self._message = "No cached appointments on this day."
         except Exception:
-            self._groups = ()
             self._message = "Calendar cache unavailable."
-        self._render()
+            self._footer.configure(text=self._message, fg=self._ui.accent_warning)
+        self._render(preserve_scroll=True)
+
+    def _update_footer(self, health):
+        if not health:
+            return
+        status = health.get("status", "unavailable")
+        age = health.get("last_data_refresh_age_seconds")
+        freshness = "not yet refreshed" if age is None else f"refreshed {age / 60:.0f} min ago"
+        stale = health.get("stale", False)
+        self._footer.configure(
+            text=f"Calendar sync: {status.upper()} · {freshness}" + (" · Stale" if stale else ""),
+            fg=self._ui.accent_warning if stale or status != "ok" else self._ui.text_muted,
+        )
 
     def _close(self, event):
         if event.widget is self and not self._closed:
             self._closed = True
+            if self._refresh_timer is not None:
+                self.after_cancel(self._refresh_timer)
+                self._refresh_timer = None
             if self._poll is not None:
                 self.after_cancel(self._poll)
                 self._poll = None
