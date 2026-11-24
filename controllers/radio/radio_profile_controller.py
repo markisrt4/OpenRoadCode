@@ -51,12 +51,16 @@ class RadioProfileController:
 
     def select_profile(self, profile_key: str, *, start: bool = True) -> RadioProfileState:
         profile = self._catalog.profile(profile_key)
+        changed = profile_key != self._profile_key
         was_started = hasattr(self, "_radio") and self._radio.is_started
         config = self._catalog.config_for(profile_key)
         self._profile_key = profile_key
         self._radio = self._build_controller(config)
+        initial_frequency = self._radio.current_frequency_hz
         if start or was_started:
             self._ensure_started()
+            if changed and getattr(self._radio.backend, "shared_receiver", False):
+                self._radio.set_frequency(initial_frequency)
         return self.state
 
     @property

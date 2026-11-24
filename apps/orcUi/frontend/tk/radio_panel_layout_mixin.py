@@ -51,9 +51,18 @@ class RadioPanelLayoutMixin:
             self._sdrforge_view.set_recenter_handler(self._recenter_spectrum)
             self._sdrforge_view.set_acquisition_pan_handler(self._pan_acquisition)
             self._sdrforge_view.set_tune_step_handler(self._gesture_tune)
-            self._spectrum_start_button = tk.Button(
-                self._sdrforge_view, text="▶", font=("Sans", 48, "bold"),
-                bg=ui.surface, fg=ui.accent_primary, command=self._toggle_receiver_power,
+            self._spectrum_start_button = tk.Canvas(
+                self._sdrforge_view, width=112, height=112, bg=ui.background,
+                bd=0, highlightthickness=0, cursor="hand2",
+            )
+            self._spectrum_start_button.create_oval(
+                8, 8, 104, 104, outline=ui.accent_primary, width=4,
+            )
+            self._spectrum_start_button.create_polygon(
+                43, 32, 43, 80, 80, 56, fill=ui.accent_primary, outline="",
+            )
+            self._spectrum_start_button.bind(
+                "<Button-1>", lambda _event: self._toggle_receiver_power(),
             )
             self._spectrum_start_button.place(relx=0.5, rely=0.55, anchor="center")
             self._spectrum_start_button.lift()
