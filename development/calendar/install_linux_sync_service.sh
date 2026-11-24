@@ -35,7 +35,7 @@ After=openroadcode-carbonate.service
 
 [Service]
 Type=simple
-WorkingDirectory="$REPO_DIR"
+WorkingDirectory=$REPO_DIR
 ExecStart="$PYTHON_BIN" -m controllers.calendar.calendar_sync_daemon --username "$1"
 Restart=on-failure
 RestartSec=10
