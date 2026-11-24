@@ -7,6 +7,10 @@ on:
       - '.github/workflows/build-regional-navigation-data.yml'
   workflow_dispatch:
     inputs:
+      publish:
+        description: Publish validated dataset as a versioned prerelease
+        type: boolean
+        default: true
       regions:
         description: Comma-separated Geofabrik region IDs
         default: us/michigan
@@ -77,3 +81,25 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 14
+  publish:
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.publish
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: regional-navigation-data
+          path: regional-artifacts
+      - name: Verify and publish dataset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          REGIONS: ${{ inputs.regions }}
+        run: |
+          set -euo pipefail
+          cd regional-artifacts
+          sha256sum -c SHA256SUMS
+          tag="navigation-data-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          gh release create "$tag" --target "$GITHUB_SHA" --prerelease --latest=false --title "Navigation data: $REGIONS" --notes "Validated regional dataset for $REGIONS. Verify SHA256SUMS before extraction." navigation-data.tar.gz.part-* build-manifest.json SHA256SUMS
