@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -74,8 +75,14 @@ def _date_value(params: dict[str, str], value: str) -> tuple[datetime, bool]:
     return datetime.fromisoformat(value).replace(tzinfo=tz), False
 
 
-def parse_icalendar_events(raw: str, account_id: str, calendar_id: str) -> list[CalendarEvent]:
-    """Parse standalone VEVENTs; reject recurrence masters until expansion is implemented.
+def parse_icalendar_events(
+    raw: str,
+    account_id: str,
+    calendar_id: str,
+    window_start: datetime | None = None,
+    window_end: datetime | None = None,
+) -> list[CalendarEvent]:
+    """Parse standalone VEVENTs and bounded recurrence masters.
 
     DATE values are represented as UTC midnights to satisfy the existing aware
     event model. All-day UI rendering must use the all_day flag, not local conversion.
@@ -94,7 +101,8 @@ def parse_icalendar_events(raw: str, account_id: str, calendar_id: str) -> list[
                 raise ValueError("Unexpected END:VEVENT")
             inside = False
             fields = _properties(event_lines)
-            if "RRULE" in fields or "RDATE" in fields or "EXDATE" in fields:
+            recurring = any(key in fields for key in ("RRULE", "RDATE", "EXDATE"))
+            if recurring and (window_start is None or window_end is None):
                 raise UnsupportedCalendarEventError(
                     "Recurring events require recurrence expansion", "unsupported_recurrence"
                 )
@@ -119,21 +127,80 @@ def parse_icalendar_events(raw: str, account_id: str, calendar_id: str) -> list[
             recurrence = fields.get("RECURRENCE-ID")
             title = _unescape(fields.get("SUMMARY", [({}, "")])[0][1])
             location = fields.get("LOCATION")
-            result.append(
-                CalendarEvent(
-                    account_id=account_id,
-                    calendar_id=calendar_id,
-                    event_id=uid,
-                    title=title,
-                    starts_at=starts_at,
-                    ends_at=ends_at,
-                    all_day=all_day,
-                    location=_unescape(location[0][1]) if location else None,
-                    recurrence_id=recurrence[0][1] if recurrence else None,
-                )
+            event = CalendarEvent(
+                account_id=account_id,
+                calendar_id=calendar_id,
+                event_id=uid,
+                title=title,
+                starts_at=starts_at,
+                ends_at=ends_at,
+                all_day=all_day,
+                location=_unescape(location[0][1]) if location else None,
+                recurrence_id=recurrence[0][1] if recurrence else None,
             )
+            if recurring:
+                if any("RECURRENCE-ID" in line for line in _unfold(raw)):
+                    raise UnsupportedCalendarEventError(
+                        "Series overrides are not supported yet", "unsupported_override"
+                    )
+                result.extend(_expand(event, fields, window_start, window_end))
+            else:
+                result.append(event)
         elif inside:
             event_lines.append(line)
     if inside:
         raise ValueError("Unclosed VEVENT")
+    return result
+
+
+def _expand(
+    event: CalendarEvent,
+    fields: dict[str, list[tuple[dict[str, str], str]]],
+    start: datetime,
+    end: datetime,
+) -> list[CalendarEvent]:
+    """Expand a recurrence set within a finite overlap window."""
+    from dateutil.rrule import rruleset, rrulestr
+    from dateutil.tz import datetime_exists
+
+    if start.tzinfo is None or end.tzinfo is None or end <= start:
+        raise ValueError("Invalid recurrence window")
+    rules = rruleset()
+    rules.rdate(event.starts_at)
+    for _, value in fields.get("RRULE", []):
+        if not value.startswith("FREQ=") and "FREQ=" not in value:
+            raise ValueError("Missing recurrence frequency")
+        if event.all_day:
+            parts = value.split(";")
+            value = ";".join(
+                part + "T000000Z" if part.startswith("UNTIL=") and len(part) == 14 else part
+                for part in parts
+            )
+        rules.rrule(rrulestr(value, dtstart=event.starts_at))
+    for name, add in (("RDATE", rules.rdate), ("EXDATE", rules.exdate)):
+        for params, values in fields.get(name, []):
+            for value in values.split(","):
+                timestamp, all_day = _date_value(params, value)
+                if all_day != event.all_day:
+                    raise ValueError("Recurrence date type differs from DTSTART")
+                add(timestamp)
+    duration = event.ends_at - event.starts_at
+    result = []
+    for occurrence in rules.xafter(start - duration, inc=True):
+        if occurrence >= end:
+            break
+        if not datetime_exists(occurrence):
+            continue
+        if occurrence + duration <= start:
+            continue
+        if len(result) >= 10000:
+            raise UnsupportedCalendarEventError("Too many occurrences", "recurrence_limit")
+        result.append(
+            replace(
+                event,
+                starts_at=occurrence,
+                ends_at=occurrence + duration,
+                recurrence_id=occurrence.astimezone(timezone.utc).isoformat(),
+            )
+        )
     return result
