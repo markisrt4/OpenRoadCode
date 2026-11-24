@@ -27,14 +27,10 @@ def parse_i2c_address(value: str) -> int:
     try:
         address = int(value, 0)
     except ValueError as exc:
-        raise argparse.ArgumentTypeError(
-            f"invalid I2C address: {value}"
-        ) from exc
+        raise argparse.ArgumentTypeError(f"invalid I2C address: {value}") from exc
 
     if not 0 <= address <= 0x7F:
-        raise argparse.ArgumentTypeError(
-            "I2C address must be between 0x00 and 0x7F"
-        )
+        raise argparse.ArgumentTypeError("I2C address must be between 0x00 and 0x7F")
     return address
 
 
@@ -43,14 +39,10 @@ def positive_float(value: str) -> float:
     try:
         result = float(value)
     except ValueError as exc:
-        raise argparse.ArgumentTypeError(
-            f"invalid positive number: {value}"
-        ) from exc
+        raise argparse.ArgumentTypeError(f"invalid positive number: {value}") from exc
 
     if result <= 0.0:
-        raise argparse.ArgumentTypeError(
-            "value must be greater than zero"
-        )
+        raise argparse.ArgumentTypeError("value must be greater than zero")
     return result
 
 
@@ -59,9 +51,7 @@ def parse_args(
 ) -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
-        description=(
-            "Read processed barometric state from a BMP388 or BMP390."
-        )
+        description=("Read processed barometric state from a BMP388 or BMP390.")
     )
     parser.add_argument(
         "--address",
@@ -102,17 +92,11 @@ def format_state(
 ) -> str:
     """Format one environmental state for terminal output."""
     if imperial:
-        pressure_inhg = (
-            state.pressure_pa / PASCALS_PER_INCH_OF_MERCURY
-        )
+        pressure_inhg = state.pressure_pa / PASCALS_PER_INCH_OF_MERCURY
         temperature_f = state.temperature_c * 9.0 / 5.0 + 32.0
         altitude_ft = state.altitude_m / METERS_PER_FOOT
-        relative_altitude_ft = (
-            state.relative_altitude_m / METERS_PER_FOOT
-        )
-        vertical_speed_ft_min = (
-            state.vertical_speed_mps / METERS_PER_FOOT * 60.0
-        )
+        relative_altitude_ft = state.relative_altitude_m / METERS_PER_FOOT
+        vertical_speed_ft_min = state.vertical_speed_mps / METERS_PER_FOOT * 60.0
         return (
             f"Pressure: {pressure_inhg:7.3f} inHg  "
             f"Temperature: {temperature_f:6.2f} °F  "
@@ -161,9 +145,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Run the BMP3XX-backed environmental controller test."""
     args = parse_args(argv)
     controller = BarometricController(
-        Bmp3xxBarometricAdapter(
-            Bmp3xx(address=args.address)
-        ),
+        Bmp3xxBarometricAdapter(Bmp3xx(address=args.address)),
         sea_level_pressure_pa=args.sea_level_pressure,
     )
 

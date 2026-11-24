@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Frontend-neutral contracts for native SDR spectrum presentation."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -20,8 +21,10 @@ class SpectrumPresentation:
     def __post_init__(self) -> None:
         if not self.bins or any(not 0.0 <= value <= 1.0 for value in self.bins):
             raise ValueError("spectrum bins must be nonempty and normalized")
-        if self.power_db is not None and (len(self.power_db) != len(self.bins)
-                or any(not math.isfinite(value) for value in self.power_db)):
+        if self.power_db is not None and (
+            len(self.power_db) != len(self.bins)
+            or any(not math.isfinite(value) for value in self.power_db)
+        ):
             raise ValueError("power_db must match bins and contain finite values")
         if self.center_frequency_hz is not None and self.center_frequency_hz <= 0:
             raise ValueError("center frequency must be positive")
@@ -63,12 +66,15 @@ class SpectrumViewport:
     def pan(self, fraction: float) -> "SpectrumViewport":
         """Shift the viewport by a fraction of its visible bandwidth."""
         from dataclasses import replace
+
         return replace(self, center_hz=self.center_hz + fraction * self.span_hz)
 
-    def zoom(self, factor: float, *, min_span_hz: float = 100_000,
-             max_span_hz: float | None = None) -> "SpectrumViewport":
+    def zoom(
+        self, factor: float, *, min_span_hz: float = 100_000, max_span_hz: float | None = None
+    ) -> "SpectrumViewport":
         """Zoom without changing the receiver's tuned frequency."""
         from dataclasses import replace
+
         if not math.isfinite(factor) or factor <= 0:
             raise ValueError("zoom factor must be finite and positive")
         span = max(min_span_hz, self.span_hz * factor)

@@ -11,6 +11,7 @@ StatusCallback = Optional[Callable[[str], None]]
 @dataclass
 class SDRResourceManager:
     """Coordinate advisory ownership of a shared SDR device."""
+
     current_owner: Optional[str] = None
 
     def acquire(

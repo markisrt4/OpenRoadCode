@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Test native visualization controls without requiring a Tk display."""
+
 from collections import deque
 from unittest.mock import Mock
 

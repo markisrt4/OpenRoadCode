@@ -27,25 +27,21 @@ class OAuthRedirectServer:
         timeout_seconds: float = 120.0,
     ) -> None:
         if timeout_seconds <= 0:
-            raise ValueError(
-                "timeout_seconds must be greater than zero"
-            )
+            raise ValueError("timeout_seconds must be greater than zero")
 
         parsed = urllib.parse.urlparse(redirect_uri)
 
         if parsed.scheme not in ("http", "https"):
-            raise ValueError(
-                "redirect_uri must use HTTP or HTTPS"
-            )
+            raise ValueError("redirect_uri must use HTTP or HTTPS")
 
         self._host = parsed.hostname or "127.0.0.1"
-        self._port = parsed.port or (
-            443 if parsed.scheme == "https" else 80
-        )
+        self._port = parsed.port or (443 if parsed.scheme == "https" else 80)
         self._path = parsed.path or "/"
         self._timeout_seconds = timeout_seconds
 
-    def wait_for_callback(self, *, is_current: Callable[[], bool] = lambda: True) -> OAuthCallbackResult:
+    def wait_for_callback(
+        self, *, is_current: Callable[[], bool] = lambda: True
+    ) -> OAuthCallbackResult:
         """
         Block until a callback, timeout, or cancellation.
 
@@ -71,17 +67,13 @@ class OAuthRedirectServer:
         finally:
             server.server_close()
 
-        parameters = MappingProxyType(
-            dict(callback_parameters)
-        )
+        parameters = MappingProxyType(dict(callback_parameters))
 
         return OAuthCallbackResult(
             code=callback_parameters.get("code"),
             state=callback_parameters.get("state"),
             error=callback_parameters.get("error"),
-            error_description=callback_parameters.get(
-                "error_description"
-            ),
+            error_description=callback_parameters.get("error_description"),
             parameters=parameters,
         )
 
@@ -93,18 +85,14 @@ class OAuthRedirectServer:
 
         class CallbackHandler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:
-                parsed = urllib.parse.urlparse(
-                    self.path
-                )
+                parsed = urllib.parse.urlparse(self.path)
 
                 if parsed.path != callback_path:
                     self.send_response(404)
                     self.end_headers()
                     return
 
-                query = urllib.parse.parse_qs(
-                    parsed.query
-                )
+                query = urllib.parse.parse_qs(parsed.query)
 
                 for key, values in query.items():
                     if values:

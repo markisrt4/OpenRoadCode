@@ -44,8 +44,7 @@ def parse_compact_can_frame(
     data = bytes.fromhex(payload_hex)
     if declared_length is not None and declared_length != len(data):
         raise ValueError(
-            f"CAN frame declares {declared_length} data bytes but contains "
-            f"{len(data)}: {value!r}"
+            f"CAN frame declares {declared_length} data bytes but contains {len(data)}: {value!r}"
         )
 
     return CanFrame(
@@ -53,4 +52,3 @@ def parse_compact_can_frame(
         data=data,
         is_extended_id=extended_id,
     )
-

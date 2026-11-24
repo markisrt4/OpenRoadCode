@@ -15,7 +15,7 @@ class MediaScreenTest(unittest.TestCase):
         canvas = Mock()
         canvas.cget.return_value = "#101010"
         canvas.winfo_rgb.side_effect = lambda color: tuple(
-            int(color[i:i + 2], 16) * 257 for i in (1, 3, 5)
+            int(color[i : i + 2], 16) * 257 for i in (1, 3, 5)
         )
         screen._paint_provider_glow(canvas, 320, 54, "#ed4768")
         canvas.delete.assert_called_once_with("glow")
@@ -28,11 +28,11 @@ class MediaScreenTest(unittest.TestCase):
         screen._theme_bundle = Mock()
         screen._online_allowed = lambda: False
         screen._show_visualizer = Mock()
-        with patch("frontends.tk.media.media_screen.tk.Frame"), patch(
-            "frontends.tk.media.media_screen.tk.Canvas"
-        ), patch(
-            "frontends.tk.media.media_screen.tk.Button"
-        ) as button:
+        with (
+            patch("frontends.tk.media.media_screen.tk.Frame"),
+            patch("frontends.tk.media.media_screen.tk.Canvas"),
+            patch("frontends.tk.media.media_screen.tk.Button") as button,
+        ):
             screen._visualizer_card(Mock())
             button.call_args.kwargs["command"]()
         screen._show_visualizer.assert_called_once_with()

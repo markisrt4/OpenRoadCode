@@ -18,8 +18,9 @@ class SdrForgeRfHardwareConfig(RfHardwareConfigIf):
     def __init__(self, endpoint: str = "http://127.0.0.1:5570") -> None:
         self._url = endpoint.rstrip("/") + "/v1/rf/config"
 
-    def load(self, on_success: Callable[[RfHardwareConfig], None],
-             on_error: Callable[[str], None]) -> None:
+    def load(
+        self, on_success: Callable[[RfHardwareConfig], None], on_error: Callable[[str], None]
+    ) -> None:
         def worker() -> None:
             try:
                 with request.urlopen(self._url, timeout=3.0) as response:
@@ -32,14 +33,18 @@ class SdrForgeRfHardwareConfig(RfHardwareConfigIf):
 
         threading.Thread(target=worker, name="orc-rf-config-read", daemon=True).start()
 
-    def apply(self, config: RfHardwareConfig,
-              on_success: Callable[[], None],
-              on_error: Callable[[str], None]) -> None:
+    def apply(
+        self,
+        config: RfHardwareConfig,
+        on_success: Callable[[], None],
+        on_error: Callable[[str], None],
+    ) -> None:
         def worker() -> None:
             try:
                 payload = json.dumps(config).encode("utf-8")
                 operation = request.Request(
-                    self._url, data=payload,
+                    self._url,
+                    data=payload,
                     headers={"Content-Type": "application/json"},
                     method="POST",
                 )

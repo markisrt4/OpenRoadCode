@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Toolkit-independent aircraft presentation controller."""
+
 from dataclasses import replace
 from ui.adsb.aircraft_overlay_state import AircraftOverlayState
 from ui.adsb.aircraft_overlay_request_handler_if import AircraftOverlayRequestHandlerIf
@@ -25,7 +26,8 @@ class AircraftOverlayController(AircraftOverlayRequestHandlerIf):
         selected = self._state.selected_icao
         follow = self._state.follow_icao
         self._state = replace(
-            self._state, aircraft=aircraft,
+            self._state,
+            aircraft=aircraft,
             selected_icao=selected if selected in ids else None,
             follow_icao=follow if follow in ids else None,
         )

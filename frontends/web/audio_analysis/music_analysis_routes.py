@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 """Source-independent WebUI music analysis HTTP transport."""
+
 from __future__ import annotations
 
 from flask import Blueprint, jsonify, request

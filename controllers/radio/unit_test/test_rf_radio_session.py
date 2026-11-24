@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Receiver requests, UI dispatch, retirement, and native cleanup contracts."""
+
 from dataclasses import replace
 from threading import Event, Thread
 from types import SimpleNamespace
@@ -11,7 +12,13 @@ from controllers.radio.rf_radio_session import ReceiverSession
 from controllers.radio.radio_profile_controller import RadioProfileController
 from controllers.radio.native_radio_control import NativeRadioControl
 from ui.radio.radio_profile_state import RadioProfileState
-from ui.radio.rf_radio_if import AircraftPresentation, RadioAction, RadioHost, RadioRequest, RadioTelemetry
+from ui.radio.rf_radio_if import (
+    AircraftPresentation,
+    RadioAction,
+    RadioHost,
+    RadioRequest,
+    RadioTelemetry,
+)
 
 
 @pytest.fixture
@@ -20,7 +27,12 @@ def receiver():
     radio.state = RadioProfileState("FM", 100_000_000, "WFM", "fm_radio", "FM")
     radio.active_profile_key = "fm_radio"
     radio.catalog.profiles = (SimpleNamespace(key="fm_radio", label="FM", group="FM", presets=()),)
-    control, application, aircraft, surface = Mock(spec=NativeRadioControl), Mock(), Mock(spec=AircraftPresentation), Mock()
+    control, application, aircraft, surface = (
+        Mock(spec=NativeRadioControl),
+        Mock(),
+        Mock(spec=AircraftPresentation),
+        Mock(),
+    )
     control.themes.return_value = ("Light", "Dark")
     control.waterfall_visible.return_value = True
     control.bandplan_visible.return_value = False
@@ -29,8 +41,17 @@ def receiver():
     application.window_process_id.return_value = 123
     work, ui = [], []
     closed = Mock()
-    session = ReceiverSession(radio, control, application, aircraft, surface,
-                              display=":1", run_work=work.append, run_ui=ui.append, on_close=closed)
+    session = ReceiverSession(
+        radio,
+        control,
+        application,
+        aircraft,
+        surface,
+        display=":1",
+        run_work=work.append,
+        run_ui=ui.append,
+        on_close=closed,
+    )
     view = Mock()
     session.bind(view)
     return SimpleNamespace(**locals())
@@ -55,10 +76,15 @@ def test_native_launch_dispatches_immutable_state(receiver):
     assert not hasattr(state.profiles[0], "config_path")
 
 
-@pytest.mark.parametrize("action,method", [
-    (RadioAction.PREVIOUS, "previous_preset"), (RadioAction.NEXT, "next_preset"),
-    (RadioAction.TUNE_UP, "tune_up"), (RadioAction.TUNE_DOWN, "tune_down"),
-])
+@pytest.mark.parametrize(
+    "action,method",
+    [
+        (RadioAction.PREVIOUS, "previous_preset"),
+        (RadioAction.NEXT, "next_preset"),
+        (RadioAction.TUNE_UP, "tune_up"),
+        (RadioAction.TUNE_DOWN, "tune_down"),
+    ],
+)
 def test_tuning_requests_execute_off_frontend(receiver, action, method):
     r = receiver
     r.session.request(RadioRequest(action))
@@ -88,14 +114,17 @@ def test_queued_launch_and_delivery_are_dropped_after_close(receiver):
 def test_embedding_is_cancelled_and_detached_before_close_returns(receiver):
     r = receiver
     entered, retired = Event(), Event()
+
     def embed(*args, cancelled, **kwargs):
         entered.set()
         from time import monotonic
+
         deadline = monotonic() + 2
         while not cancelled() and monotonic() < deadline:
             retired.wait(0.001)
         assert cancelled()
         raise RuntimeError("cancelled")
+
     r.surface.embed.side_effect = embed
     r.session.request(RadioRequest(RadioAction.ADSB, host=RadioHost(10, 20, 800, 400)))
     worker = Thread(target=r.work.pop())
@@ -116,7 +145,9 @@ def test_embedding_is_cancelled_and_detached_before_close_returns(receiver):
 def test_adsb_explicitly_releases_rf_and_stop_is_owned_by_session(receiver):
     r = receiver
     r.application.presented = False
-    r.session.request(RadioRequest(RadioAction.ADSB, host=RadioHost(10, 20, 800, 400, 5, 6), color_scheme="light"))
+    r.session.request(
+        RadioRequest(RadioAction.ADSB, host=RadioHost(10, 20, 800, 400, 5, 6), color_scheme="light")
+    )
     r.work.pop()()
     r.application.relinquish_for_adsb.assert_called_once()
     r.aircraft.configure_browser_window.assert_called_once_with(position=(5, 6), size=(800, 400))
@@ -144,12 +175,17 @@ def test_sdrforge_stop_clears_stale_rds_without_changing_profile(receiver):
     r.session._state = replace(
         r.session._state,
         telemetry=RadioTelemetry(
-            frequency_hz=100_000_000, station_name="OLD FM",
-            radio_text="Old song", rds="OLD", receiver_running=True),
+            frequency_hz=100_000_000,
+            station_name="OLD FM",
+            radio_text="Old song",
+            rds="OLD",
+            receiver_running=True,
+        ),
         receiver_running=True,
     )
     source.latest_receiver.return_value = RadioTelemetry(
-        frequency_hz=100_000_000, receiver_running=False)
+        frequency_hz=100_000_000, receiver_running=False
+    )
     source.latest_spectrum.return_value = None
 
     r.session.refresh_spectrum()
@@ -169,13 +205,21 @@ def test_sdrforge_old_frequency_cannot_replace_new_station_identity(receiver):
     r.session._state = replace(
         r.session._state,
         telemetry=RadioTelemetry(
-            frequency_hz=100_000_000, station_name="CURRENT",
-            radio_text="Current song", rds="CURRENT"),
+            frequency_hz=100_000_000,
+            station_name="CURRENT",
+            radio_text="Current song",
+            rds="CURRENT",
+        ),
     )
     source.latest_receiver.return_value = RadioTelemetry(
-        frequency_hz=99_500_000, station_name="STALE",
-        radio_text="Old song", rds="STALE", mode="NFM",
-        bandwidth_hz=12_500, receiver_running=True)
+        frequency_hz=99_500_000,
+        station_name="STALE",
+        radio_text="Old song",
+        rds="STALE",
+        mode="NFM",
+        bandwidth_hz=12_500,
+        receiver_running=True,
+    )
     source.latest_spectrum.return_value = None
 
     r.session.refresh_spectrum()
@@ -198,11 +242,16 @@ def test_sdrforge_same_frequency_preserves_rds_between_updates(receiver):
     r.session._state = replace(
         r.session._state,
         telemetry=RadioTelemetry(
-            frequency_hz=100_000_000, station_name="LIVE",
-            radio_text="Current song", rds="LIVE", receiver_running=True),
+            frequency_hz=100_000_000,
+            station_name="LIVE",
+            radio_text="Current song",
+            rds="LIVE",
+            receiver_running=True,
+        ),
     )
     source.latest_receiver.return_value = RadioTelemetry(
-        frequency_hz=100_000_000, mode="WFM", receiver_running=True)
+        frequency_hz=100_000_000, mode="WFM", receiver_running=True
+    )
     source.latest_spectrum.return_value = None
 
     r.session.refresh_spectrum()
@@ -220,7 +269,8 @@ def test_rest_running_status_wins_over_delayed_zmq_stop(receiver):
     r.session._spectrum_source = source
     r.session._rest_receiver_running = True
     source.latest_receiver.return_value = RadioTelemetry(
-        frequency_hz=100_000_000, mode="WFM", receiver_running=False)
+        frequency_hz=100_000_000, mode="WFM", receiver_running=False
+    )
     source.latest_spectrum.return_value = None
 
     r.session.refresh_spectrum()
@@ -236,7 +286,8 @@ def test_rest_stopped_status_wins_over_delayed_zmq_start(receiver):
     r.session._spectrum_source = source
     r.session._rest_receiver_running = False
     source.latest_receiver.return_value = RadioTelemetry(
-        frequency_hz=100_000_000, mode="WFM", receiver_running=True)
+        frequency_hz=100_000_000, mode="WFM", receiver_running=True
+    )
     source.latest_spectrum.return_value = None
 
     r.session.refresh_spectrum()
@@ -251,8 +302,12 @@ def test_local_retune_immediately_invalidates_old_receiver_telemetry(receiver):
     r.session._state = replace(
         r.session._state,
         telemetry=RadioTelemetry(
-            frequency_hz=100_000_000, mode="NFM",
-            station_name="OLD", radio_text="Old track", receiver_running=True),
+            frequency_hz=100_000_000,
+            mode="NFM",
+            station_name="OLD",
+            radio_text="Old track",
+            receiver_running=True,
+        ),
     )
     new_station = replace(r.session._state.station, frequency_hz=101_100_000)
     r.session._set_station(new_station)
@@ -265,8 +320,8 @@ def test_local_retune_immediately_invalidates_old_receiver_telemetry(receiver):
 def test_same_frequency_station_refresh_preserves_live_telemetry(receiver):
     r = receiver
     live = RadioTelemetry(
-        frequency_hz=100_000_000, mode="WFM",
-        station_name="LIVE", receiver_running=True)
+        frequency_hz=100_000_000, mode="WFM", station_name="LIVE", receiver_running=True
+    )
     r.session._state = replace(r.session._state, telemetry=live)
     r.session._set_station(r.session._state.station)
     assert r.session._state.telemetry == live
@@ -276,11 +331,9 @@ def test_external_rigctl_retune_invalidates_previous_mode(receiver):
     r = receiver
     r.session._state = replace(
         r.session._state,
-        telemetry=RadioTelemetry(
-            frequency_hz=100_000_000, mode="NFM", receiver_running=True),
+        telemetry=RadioTelemetry(frequency_hz=100_000_000, mode="NFM", receiver_running=True),
     )
-    r.radio.refresh.return_value = replace(
-        r.session._state.station, frequency_hz=102_500_000)
+    r.radio.refresh.return_value = replace(r.session._state.station, frequency_hz=102_500_000)
     r.session._native_view = "none"
     r.session._perform(RadioRequest(RadioAction.REFRESH), r.session._generation)
 
@@ -304,8 +357,13 @@ def test_receiver_stop_clears_old_station_and_ignores_late_zmq(receiver, monkeyp
         r.session._state,
         receiver_running=True,
         telemetry=RadioTelemetry(
-            frequency_hz=100_000_000, mode="WFM", receiver_running=True,
-            station_name="OLD", radio_text="Old song", rds="OLD"),
+            frequency_hz=100_000_000,
+            mode="WFM",
+            receiver_running=True,
+            station_name="OLD",
+            radio_text="Old song",
+            rds="OLD",
+        ),
     )
 
     r.session._perform(RadioRequest(RadioAction.STOP_RECEIVER), r.session._generation)
@@ -313,8 +371,13 @@ def test_receiver_stop_clears_old_station_and_ignores_late_zmq(receiver, monkeyp
     assert r.session._state.telemetry == RadioTelemetry()
 
     source.latest_receiver.return_value = RadioTelemetry(
-        frequency_hz=100_000_000, mode="WFM", receiver_running=True,
-        station_name="OLD", radio_text="Old song", rds="OLD")
+        frequency_hz=100_000_000,
+        mode="WFM",
+        receiver_running=True,
+        station_name="OLD",
+        radio_text="Old song",
+        rds="OLD",
+    )
     source.latest_spectrum.return_value = None
     r.session.refresh_spectrum()
     state = r.view.set_radio_state.call_args.args[0]
@@ -341,8 +404,7 @@ def test_accepted_restart_does_not_claim_acquisition_is_running(receiver, monkey
     r.session._state = replace(
         r.session._state,
         receiver_running=False,
-        telemetry=RadioTelemetry(
-            frequency_hz=100_000_000, station_name="OLD", rds="OLD"),
+        telemetry=RadioTelemetry(frequency_hz=100_000_000, station_name="OLD", rds="OLD"),
     )
 
     r.session._perform(RadioRequest(RadioAction.START_RECEIVER), r.session._generation)
@@ -359,11 +421,16 @@ def test_stopped_rest_does_not_resurrect_cached_rds(receiver):
     r.session._state = replace(
         r.session._state,
         telemetry=RadioTelemetry(
-            frequency_hz=100_000_000, receiver_running=True,
-            station_name="OLD", radio_text="OLD TEXT", rds="OLD"),
+            frequency_hz=100_000_000,
+            receiver_running=True,
+            station_name="OLD",
+            radio_text="OLD TEXT",
+            rds="OLD",
+        ),
     )
     source.latest_receiver.return_value = RadioTelemetry(
-        frequency_hz=100_000_000, receiver_running=True)
+        frequency_hz=100_000_000, receiver_running=True
+    )
     source.latest_spectrum.return_value = None
 
     r.session.refresh_spectrum()
@@ -381,8 +448,12 @@ def test_profile_mode_change_on_same_frequency_invalidates_telemetry(receiver):
     r.session._state = replace(
         r.session._state,
         telemetry=RadioTelemetry(
-            frequency_hz=100_000_000, mode="WFM", receiver_running=True,
-            station_name="OLD", rds="OLD"),
+            frequency_hz=100_000_000,
+            mode="WFM",
+            receiver_running=True,
+            station_name="OLD",
+            rds="OLD",
+        ),
     )
     station = replace(r.session._state.station, mode_name="NFM", profile_key="weather")
     r.session._set_station(station)
@@ -394,8 +465,7 @@ def test_profile_change_with_same_mode_and_frequency_invalidates_telemetry(recei
     r = receiver
     r.session._state = replace(
         r.session._state,
-        telemetry=RadioTelemetry(
-            frequency_hz=100_000_000, mode="WFM", receiver_running=True),
+        telemetry=RadioTelemetry(frequency_hz=100_000_000, mode="WFM", receiver_running=True),
     )
     station = replace(r.session._state.station, profile_key="alternate")
     r.session._set_station(station)
@@ -418,19 +488,23 @@ def test_usb_disconnect_rest_outage_and_reconnect_lifecycle(receiver, monkeypatc
         if outage["active"]:
             raise OSError("SDRForge temporarily unreachable")
         url = request if isinstance(request, str) else request.full_url
-        data = ({"muted": False} if url.endswith("/v1/audio") else status)
+        data = {"muted": False} if url.endswith("/v1/audio") else status
         return BytesIO(json.dumps(data).encode())
 
-    monkeypatch.setattr(
-        "controllers.radio.rf_radio_session.urllib.request.urlopen", urlopen)
+    monkeypatch.setattr("controllers.radio.rf_radio_session.urllib.request.urlopen", urlopen)
     r.radio.refresh.return_value = r.session._state.station
     source.latest_spectrum.return_value = None
 
     # Healthy FM acquisition with decoded station metadata.
     r.session._perform(RadioRequest(RadioAction.REFRESH), r.session._generation)
     source.latest_receiver.return_value = RadioTelemetry(
-        frequency_hz=100_000_000, mode="WFM", receiver_running=True,
-        station_name="LIVE FM", radio_text="Now playing", rds="LIVE FM")
+        frequency_hz=100_000_000,
+        mode="WFM",
+        receiver_running=True,
+        station_name="LIVE FM",
+        radio_text="Now playing",
+        rds="LIVE FM",
+    )
     r.session.refresh_spectrum()
     assert r.session._state.receiver_running is True
     assert r.session._state.telemetry.station_name == "LIVE FM"
@@ -462,8 +536,8 @@ def test_usb_disconnect_rest_outage_and_reconnect_lifecycle(receiver, monkeypatc
     status["running"] = True
     r.radio.refresh.side_effect = None
     r.radio.refresh.return_value = replace(
-        r.session._state.station, frequency_hz=162_550_000,
-        mode_name="NFM", profile_key="weather")
+        r.session._state.station, frequency_hz=162_550_000, mode_name="NFM", profile_key="weather"
+    )
     r.session._perform(RadioRequest(RadioAction.REFRESH), r.session._generation)
     assert r.session._state.receiver_running is True
     assert r.session._state.station.frequency_hz == 162_550_000
@@ -471,7 +545,8 @@ def test_usb_disconnect_rest_outage_and_reconnect_lifecycle(receiver, monkeypatc
 
     # The first fresh NFM snapshot becomes the only station identity.
     source.latest_receiver.return_value = RadioTelemetry(
-        frequency_hz=162_550_000, mode="NFM", receiver_running=True)
+        frequency_hz=162_550_000, mode="NFM", receiver_running=True
+    )
     r.session.refresh_spectrum()
     assert r.session._state.telemetry.mode == "NFM"
     assert r.session._state.telemetry.station_name == ""
@@ -489,14 +564,18 @@ def test_spectrum_frames_are_suppressed_while_rest_reports_stopped(receiver):
     r.session._state = replace(r.session._state, receiver_running=False)
     source.latest_receiver.return_value = None
     source.latest_spectrum.return_value = SpectrumPresentation(
-        bins=(0.1, 0.9), center_frequency_hz=100_000_000)
+        bins=(0.1, 0.9), center_frequency_hz=100_000_000
+    )
+
     # Mock is not a SpectrumPresentationIf, so register a protocol-compliant
     # concrete test view to verify no spectrum presentation occurs.
     class View:
         def __init__(self):
             self.frames = []
+
         def set_radio_state(self, state):
             self.state = state
+
         def set_spectrum_presentation(self, snapshot):
             self.frames.append(snapshot)
 
@@ -506,7 +585,7 @@ def test_spectrum_frames_are_suppressed_while_rest_reports_stopped(receiver):
     assert view.frames == []
 
 
-def test_spectrum_recovery_requires_current_frequency_and_running(receiver):
+def test_spectrum_recovery_follows_acquisition_while_running(receiver):
     from ui.radio.sdrforge_spectrum_if import SpectrumPresentation
 
     r = receiver
@@ -515,11 +594,14 @@ def test_spectrum_recovery_requires_current_frequency_and_running(receiver):
     r.session._rest_receiver_running = True
     r.session._state = replace(r.session._state, receiver_running=True)
     source.latest_receiver.return_value = None
+
     class View:
         def __init__(self):
             self.frames = []
+
         def set_radio_state(self, state):
             self.state = state
+
         def set_spectrum_presentation(self, snapshot):
             self.frames.append(snapshot)
 
@@ -529,10 +611,18 @@ def test_spectrum_recovery_requires_current_frequency_and_running(receiver):
     fresh = SpectrumPresentation(bins=(0.4, 0.6), center_frequency_hz=100_000_000)
     source.latest_spectrum.return_value = old
     r.session.refresh_spectrum()
-    assert view.frames == []
+    assert view.frames == [old]
     source.latest_spectrum.return_value = fresh
     r.session.refresh_spectrum()
-    assert view.frames == [fresh]
+    assert view.frames == [old, fresh]
+    in_band = SpectrumPresentation(
+        bins=(0.3, 0.7),
+        center_frequency_hz=99_800_000,
+        sample_rate_hz=2_400_000,
+    )
+    source.latest_spectrum.return_value = in_band
+    r.session.refresh_spectrum()
+    assert view.frames == [old, fresh, in_band]
 
 
 def test_native_receiver_does_not_require_legacy_telemetry(receiver, monkeypatch):
@@ -562,8 +652,7 @@ def test_native_launch_never_starts_or_embeds_sdrpp(receiver):
 
 def test_native_launch_preserves_adsb_embedding_path(receiver):
     r = receiver
-    r.session.request(RadioRequest(
-        RadioAction.ADSB, host=RadioHost(10, 20, 800, 400)))
+    r.session.request(RadioRequest(RadioAction.ADSB, host=RadioHost(10, 20, 800, 400)))
     r.work.pop(0)()
     r.aircraft.launch.assert_called_once()
     r.surface.embed.assert_called_once()
@@ -576,16 +665,16 @@ def test_native_rest_outage_clears_running_state_and_stale_telemetry(receiver, m
         r.session._state,
         receiver_running=True,
         telemetry=RadioTelemetry(
-            frequency_hz=100_000_000, station_name="OLD", rds="OLD",
+            frequency_hz=100_000_000,
+            station_name="OLD",
+            rds="OLD",
         ),
     )
 
     def unavailable(*_args, **_kwargs):
         raise ConnectionRefusedError("connection refused")
 
-    monkeypatch.setattr(
-        "controllers.radio.rf_radio_session.urllib.request.urlopen", unavailable
-    )
+    monkeypatch.setattr("controllers.radio.rf_radio_session.urllib.request.urlopen", unavailable)
     r.session.request(RadioRequest(RadioAction.REFRESH))
     r.work.pop()()
     r.ui.pop()()
@@ -617,6 +706,7 @@ def test_native_rest_reconnection_clears_outage_error(receiver, monkeypatch):
 
         def read(self):
             import json
+
             return json.dumps(self.payload).encode()
 
     def connected(url, timeout):
@@ -624,9 +714,7 @@ def test_native_rest_reconnection_clears_outage_error(receiver, monkeypatch):
             return Response({"muted": False})
         return Response({"running": True, "startup_error": None})
 
-    monkeypatch.setattr(
-        "controllers.radio.rf_radio_session.urllib.request.urlopen", connected
-    )
+    monkeypatch.setattr("controllers.radio.rf_radio_session.urllib.request.urlopen", connected)
     r.session.request(RadioRequest(RadioAction.REFRESH))
     r.work.pop()()
     r.ui.pop()()
@@ -635,9 +723,14 @@ def test_native_rest_reconnection_clears_outage_error(receiver, monkeypatch):
     assert state.error == ""
 
 
-@pytest.mark.parametrize("running,starting", [
-    (False, False), (False, True), (True, False),
-])
+@pytest.mark.parametrize(
+    "running,starting",
+    [
+        (False, False),
+        (False, True),
+        (True, False),
+    ],
+)
 def test_native_refresh_tracks_receiver_lifecycle(receiver, monkeypatch, running, starting):
     import json
     from io import BytesIO
@@ -649,22 +742,18 @@ def test_native_refresh_tracks_receiver_lifecycle(receiver, monkeypatch, running
     def urlopen(request, timeout=1.5):
         calls.append(request)
         payload = (
-            {"muted": False} if request.endswith("/v1/audio")
+            {"muted": False}
+            if request.endswith("/v1/audio")
             else {"running": running, "starting": starting, "startup_error": None}
         )
         return BytesIO(json.dumps(payload).encode())
 
-    monkeypatch.setattr(
-        "controllers.radio.rf_radio_session.urllib.request.urlopen", urlopen
-    )
+    monkeypatch.setattr("controllers.radio.rf_radio_session.urllib.request.urlopen", urlopen)
     r.radio.refresh.return_value = r.session._state.station
     r.session._perform(RadioRequest(RadioAction.REFRESH), r.session._generation)
     assert r.session._state.receiver_running is running
     assert r.session._state.receiver_starting is (starting and not running)
-    assert not any(
-        isinstance(call, str) and call.endswith("/v1/receiver/start")
-        for call in calls
-    )
+    assert not any(isinstance(call, str) and call.endswith("/v1/receiver/start") for call in calls)
 
 
 def test_stale_zmq_running_flag_is_diagnostic_only_after_rest_stop(receiver):
@@ -689,9 +778,7 @@ def test_native_close_never_stops_shared_receiver(receiver, monkeypatch):
     r = receiver
     r.session._owns_receiver = False
     requests = Mock()
-    monkeypatch.setattr(
-        "controllers.radio.rf_radio_session.urllib.request.urlopen", requests
-    )
+    monkeypatch.setattr("controllers.radio.rf_radio_session.urllib.request.urlopen", requests)
     r.session.close()
     requests.assert_not_called()
 
@@ -728,9 +815,7 @@ def test_native_receiver_full_simulated_lifecycle(receiver, monkeypatch):
         payload = {"muted": False} if url.endswith("/v1/audio") else status
         return Response(json.dumps(payload).encode())
 
-    monkeypatch.setattr(
-        "controllers.radio.rf_radio_session.urllib.request.urlopen", urlopen
-    )
+    monkeypatch.setattr("controllers.radio.rf_radio_session.urllib.request.urlopen", urlopen)
     r.radio.refresh.return_value = r.session._state.station
 
     def execute(action):
@@ -775,8 +860,7 @@ def test_native_receiver_full_simulated_lifecycle(receiver, monkeypatch):
     assert running.receiver_running
     assert not running.receiver_starting
     source.latest_receiver.return_value = RadioTelemetry(
-        frequency_hz=100_000_000, mode="WFM", receiver_running=True,
-        station_name="LIVE", rds="LIVE"
+        frequency_hz=100_000_000, mode="WFM", receiver_running=True, station_name="LIVE", rds="LIVE"
     )
     r.session.refresh_spectrum()
     assert r.session._state.telemetry.station_name == "LIVE"

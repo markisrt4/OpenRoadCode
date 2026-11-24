@@ -76,7 +76,6 @@ def test_failed_refresh_clears_old_weather_and_reports_unavailable():
     assert ui.native.set_route_weather.call_args.args[0]["features"] == []
 
 
-
 def test_guidance_progress_updates_remaining_route_and_completion_clears_it():
     ui = component()
     message = Mock()

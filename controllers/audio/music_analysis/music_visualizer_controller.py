@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
 # SPDX-License-Identifier: MIT
 """Reusable asynchronous capture coordination and bounded presentation."""
+
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 import queue
@@ -37,11 +38,20 @@ class MusicVisualizerController(MusicVisualizerControlIf):
     def start(self, source: MusicVisualizerSource) -> None:
         if self._closed:
             return
-        if (self._source is source and self._connected_generation == self._generation
-                and self._session is not None and self._session.is_running):
+        if (
+            self._source is source
+            and self._connected_generation == self._generation
+            and self._session is not None
+            and self._session.is_running
+        ):
             return
-        if self._source is source and (self._pending_generation == self._generation
-                or (source is MusicVisualizerSource.SIMULATED and self._connected_generation == self._generation)):
+        if self._source is source and (
+            self._pending_generation == self._generation
+            or (
+                source is MusicVisualizerSource.SIMULATED
+                and self._connected_generation == self._generation
+            )
+        ):
             return
         self._source = source
         self._generation += 1
@@ -76,7 +86,8 @@ class MusicVisualizerController(MusicVisualizerControlIf):
             return
         try:
             self._session = self._session_factory(
-                lambda frame: self._offer_frame(generation, frame), source=source,
+                lambda frame: self._offer_frame(generation, frame),
+                source=source,
             )
             if self._session is not None:
                 self._session.start()
@@ -105,6 +116,7 @@ class MusicVisualizerController(MusicVisualizerControlIf):
         if action not in {"start_zeroize", "finish_zeroize", "clear_zeroize"}:
             raise ValueError("Unknown calibration action")
         generation = self._generation
+
         def run() -> None:
             if generation != self._generation:
                 return
@@ -112,12 +124,15 @@ class MusicVisualizerController(MusicVisualizerControlIf):
                 if self._session is None:
                     raise RuntimeError("Start a real audio input before calibration")
                 getattr(self._session, action)()
-                messages = {"start_zeroize": "Collecting ambient noise — press FINISH when ready",
-                            "finish_zeroize": "Noise calibration saved",
-                            "clear_zeroize": "Noise calibration cleared"}
+                messages = {
+                    "start_zeroize": "Collecting ambient noise — press FINISH when ready",
+                    "finish_zeroize": "Noise calibration saved",
+                    "clear_zeroize": "Noise calibration cleared",
+                }
                 self._messages.put((generation, messages[action]))
             except Exception as exc:
                 self._messages.put((generation, f"Calibration unavailable: {exc}"))
+
         self._executor.submit(run)
 
     def presentation(self) -> tuple[VisualizerFrame | None, str | None]:
@@ -136,17 +151,21 @@ class MusicVisualizerController(MusicVisualizerControlIf):
                 break
             if generation == self._generation:
                 message = candidate_message
-        if (self._connected_generation == self._generation
-                and self._session is not None and not self._session.is_running):
+        if (
+            self._connected_generation == self._generation
+            and self._session is not None
+            and not self._session.is_running
+        ):
             message = "Audio input stopped — check the source and press START"
         return frame, message
 
     def capture_state(self) -> MusicCaptureState:
         if self._closed:
             return MusicCaptureState.IDLE
-        if (self._connected_generation == self._generation
-                and (self._source is MusicVisualizerSource.SIMULATED
-                     or (self._session is not None and self._session.is_running))):
+        if self._connected_generation == self._generation and (
+            self._source is MusicVisualizerSource.SIMULATED
+            or (self._session is not None and self._session.is_running)
+        ):
             return MusicCaptureState.RUNNING
         if self._pending_generation == self._generation:
             return MusicCaptureState.STARTING
@@ -193,6 +212,7 @@ class MusicVisualizerController(MusicVisualizerControlIf):
             self._view_epoch += 1
             epoch = self._view_epoch
             generation = self._generation
+
             def release() -> None:
                 with self._view_lock:
                     if epoch != self._view_epoch:
@@ -200,7 +220,8 @@ class MusicVisualizerController(MusicVisualizerControlIf):
                     if not self._closed and not self._views and generation == self._generation:
                         self.stop()
                     self._detach_timer = None
-            self._detach_timer = threading.Timer(.25, release)
+
+            self._detach_timer = threading.Timer(0.25, release)
             self._detach_timer.daemon = True
             self._detach_timer.start()
 

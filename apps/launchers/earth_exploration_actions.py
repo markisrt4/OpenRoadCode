@@ -1,6 +1,5 @@
 """Open user-selected Earth destinations in an ordinary native browser window."""
 
-
 from common.logging.diagnostics import ComponentLog, diagnostic_action
 import os
 import shutil
@@ -26,20 +25,44 @@ class EarthExplorationActions(PoiActionExecutorIf):
         if action.provider_id != "google-earth-explore":
             return self._fallback.execute(poi, action)
         parsed = urlsplit(action.uri or "")
-        if (action.kind is not PoiActionKind.OPEN_WEBSITE or parsed.scheme != "https"
-                or parsed.netloc != "earth.google.com"
-                or not (parsed.path == "/web/" or parsed.path.startswith(("/web/search/", "/web/@")))):
+        if (
+            action.kind is not PoiActionKind.OPEN_WEBSITE
+            or parsed.scheme != "https"
+            or parsed.netloc != "earth.google.com"
+            or not (parsed.path == "/web/" or parsed.path.startswith(("/web/search/", "/web/@")))
+        ):
             raise ValueError("Invalid Google Earth exploration link")
-        browser = next((path for name in ("chromium-browser", "chromium", "google-chrome")
-                        if (path := shutil.which(name))), None)
+        browser = next(
+            (
+                path
+                for name in ("chromium-browser", "chromium", "google-chrome")
+                if (path := shutil.which(name))
+            ),
+            None,
+        )
         if browser is None:
             raise RuntimeError("Install native Chromium to explore this place in Google Earth")
         environment = graphics_environment(x11_environment(os.environ.get("DISPLAY", ":1")))
         # Normal browser ownership: no embedding, GPS subscriber, DevTools,
         # injected JavaScript, or ORC camera controls.
-        with logging_file_path("openroadcode", "earth-explore.log").open("a", encoding="utf-8") as log:
-            subprocess.Popen([browser, "--new-window", "--start-maximized", "--password-store=basic", action.uri],
-                             env=environment, stdout=log, stderr=subprocess.STDOUT,
-                             start_new_session=True)
-        return ("Opened Google Earth" if parsed.path == "/web/"
-                else "Opened selected place in Google Earth")
+        with logging_file_path("openroadcode", "earth-explore.log").open(
+            "a", encoding="utf-8"
+        ) as log:
+            subprocess.Popen(
+                [
+                    browser,
+                    "--new-window",
+                    "--start-maximized",
+                    "--password-store=basic",
+                    action.uri,
+                ],
+                env=environment,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+            )
+        return (
+            "Opened Google Earth"
+            if parsed.path == "/web/"
+            else "Opened selected place in Google Earth"
+        )

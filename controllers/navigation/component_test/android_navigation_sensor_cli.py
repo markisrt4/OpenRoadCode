@@ -18,10 +18,7 @@ def main() -> int:
     try:
         while True:
             sample = sensor.read_motion()
-            print(
-                f"accel={sample.acceleration_mps2} "
-                f"gyro={sample.angular_velocity_rad_s}"
-            )
+            print(f"accel={sample.acceleration_mps2} gyro={sample.angular_velocity_rad_s}")
             time.sleep(0.1)
     except KeyboardInterrupt:
         print("\n[*] Stopping...")

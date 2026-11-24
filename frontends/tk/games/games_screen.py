@@ -22,8 +22,12 @@ class GamesScreen(TkScreen):
     """Render the Games destination; composition supplies its lifecycle handler."""
 
     def __init__(
-        self, host: TkScreenHostIf, *, session: GamesSessionIf,
-        theme_bundle: Callable[[], ThemeBundle], theme_mode: Callable[[], ThemeMode],
+        self,
+        host: TkScreenHostIf,
+        *,
+        session: GamesSessionIf,
+        theme_bundle: Callable[[], ThemeBundle],
+        theme_mode: Callable[[], ThemeMode],
     ) -> None:
         super().__init__(ScreenId("games"))
         self._host = host
@@ -110,8 +114,13 @@ class GamesScreen(TkScreen):
         self._clear_loading()
         ui = self._theme_bundle().ui
         label = tk.Label(
-            panel, text="Now Loading ...", bg=ui.background, fg=ui.text,
-            font=("Sans", 20, "bold"), padx=24, pady=16,
+            panel,
+            text="Now Loading ...",
+            bg=ui.background,
+            fg=ui.text,
+            font=("Sans", 20, "bold"),
+            padx=24,
+            pady=16,
         )
         label.place(relx=0.5, rely=0.5, anchor="center")
         self._loading_label = label

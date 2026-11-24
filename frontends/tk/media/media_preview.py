@@ -25,17 +25,31 @@ class MediaPreview(tk.Frame, UiWidget):
         art_host = tk.Frame(self, width=56, height=56, bg=ui.surface_alt)
         art_host.grid(row=0, column=0, rowspan=3, padx=(0, 10))
         art_host.grid_propagate(False)
-        self._art = tk.Label(art_host, text="♫", bg=ui.surface_alt, fg=ui.accent_success,
-                             font=("Sans", 24, "bold"), bd=0)
+        self._art = tk.Label(
+            art_host,
+            text="♫",
+            bg=ui.surface_alt,
+            fg=ui.accent_success,
+            font=("Sans", 24, "bold"),
+            bd=0,
+        )
         self._art.place(relwidth=1, relheight=1)
-        self._caption = tk.Label(self, text="SPOTIFY", bg=ui.surface,
-                                 fg=ui.accent_success, font=("Sans", 8, "bold"), anchor="w")
+        self._caption = tk.Label(
+            self,
+            text="SPOTIFY",
+            bg=ui.surface,
+            fg=ui.accent_success,
+            font=("Sans", 8, "bold"),
+            anchor="w",
+        )
         self._caption.grid(row=0, column=1, sticky="ew")
-        self._title = tk.Label(self, bg=ui.surface, fg=ui.text,
-                               font=("Sans", 12, "bold"), anchor="w", width=1)
+        self._title = tk.Label(
+            self, bg=ui.surface, fg=ui.text, font=("Sans", 12, "bold"), anchor="w", width=1
+        )
         self._title.grid(row=1, column=1, sticky="ew")
-        self._artist = tk.Label(self, bg=ui.surface, fg=ui.text_muted,
-                                font=("Sans", 9), anchor="w", width=1)
+        self._artist = tk.Label(
+            self, bg=ui.surface, fg=ui.text_muted, font=("Sans", 9), anchor="w", width=1
+        )
         self._artist.grid(row=2, column=1, sticky="ew")
         for widget in (self, art_host, self._art, self._caption, self._title, self._artist):
             widget.configure(cursor="hand2")
@@ -49,8 +63,13 @@ class MediaPreview(tk.Frame, UiWidget):
         state = self._handler.read_state()
         self._title.configure(text=state.title or "Your music, your device")
         self._artist.configure(text=state.artist or "Open Spotify to start listening")
-        self._caption.configure(text="SPOTIFY · NOW PLAYING" if state.playback is PlaybackState.PLAYING
-                                else "SPOTIFY · PAUSED" if state.title else "SPOTIFY")
+        self._caption.configure(
+            text="SPOTIFY · NOW PLAYING"
+            if state.playback is PlaybackState.PLAYING
+            else "SPOTIFY · PAUSED"
+            if state.title
+            else "SPOTIFY"
+        )
         url = state.artwork_uri
         if url != self._url:
             self._url = url

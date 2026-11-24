@@ -12,11 +12,19 @@ from PIL import Image
 import pytest
 import requests
 
-from controllers.weather.hrrr_tiles import HrrrTileSource, color_hrrr_reflectivity, tile_bounds, location_tile, reflectivity_summary
+from controllers.weather.hrrr_tiles import (
+    HrrrTileSource,
+    color_hrrr_reflectivity,
+    tile_bounds,
+    location_tile,
+    reflectivity_summary,
+)
 from controllers.weather.providers.hrrr_radar_provider import HrrrRadarProvider, reflectivity_range
 from controllers.weather.radar_tile_service import _UNIVERSAL_DBZ
 from controllers.weather import RadarFrame, RadarPalette, RadarTileService, WeatherRadarController
-from controllers.weather.environmental_radar_injection_controller import EnvironmentalRadarInjectionController
+from controllers.weather.environmental_radar_injection_controller import (
+    EnvironmentalRadarInjectionController,
+)
 
 
 NOW = 1790945700  # 2026-10-02 12:55 UTC
@@ -47,14 +55,20 @@ def _provider():
 
 def test_index_selects_only_reflectivity_and_not_the_whole_grib():
     assert reflectivity_range(_index(), RUN) == (0, 499)
-    assert reflectivity_range(f"1:700:d={RUN}:REFC:entire atmosphere:1 hour fcst:\n", RUN) == (700, None)
+    assert reflectivity_range(f"1:700:d={RUN}:REFC:entire atmosphere:1 hour fcst:\n", RUN) == (
+        700,
+        None,
+    )
 
 
-@pytest.mark.parametrize("index", [
-    f"1:0:d={RUN}:TMP:2 m above ground:1 hour fcst:\n",
-    _index("2026100211"),
-    f"1:500:d={RUN}:REFC:entire atmosphere:1 hour fcst:\n2:400:d={RUN}:TMP:surface:1 hour fcst:\n",
-])
+@pytest.mark.parametrize(
+    "index",
+    [
+        f"1:0:d={RUN}:TMP:2 m above ground:1 hour fcst:\n",
+        _index("2026100211"),
+        f"1:500:d={RUN}:REFC:entire atmosphere:1 hour fcst:\n2:400:d={RUN}:TMP:surface:1 hour fcst:\n",
+    ],
+)
 def test_wrong_field_run_or_offsets_are_rejected(index):
     with pytest.raises(ValueError):
         reflectivity_range(index, RUN)
@@ -73,7 +87,8 @@ def test_provider_returns_six_future_hours_from_one_run():
 def test_partial_latest_run_falls_back_as_a_whole():
     provider, session = _provider()
     session.get.side_effect = [
-        _response(), _response(status=404),
+        _response(),
+        _response(status=404),
         *[_response(_index("2026100211")) for _ in range(6)],
     ]
     frames = provider.get_frames()
@@ -135,12 +150,17 @@ def test_download_requires_a_valid_single_message_byte_range(tmp_path):
     assert session.get.call_args.kwargs["stream"] is True
 
 
-@pytest.mark.parametrize(("status", "content_range", "data"), [
-    (200, "", _grib_message()),
-    (206, "bytes 0-23/10000", _grib_message()),
-    (206, "bytes 100-123/10000", b"truncated"),
-])
-def test_full_file_wrong_range_and_truncated_download_are_rejected(tmp_path, status, content_range, data):
+@pytest.mark.parametrize(
+    ("status", "content_range", "data"),
+    [
+        (200, "", _grib_message()),
+        (206, "bytes 0-23/10000", _grib_message()),
+        (206, "bytes 100-123/10000", b"truncated"),
+    ],
+)
+def test_full_file_wrong_range_and_truncated_download_are_rejected(
+    tmp_path, status, content_range, data
+):
     session = Mock()
     session.get.return_value = _range_response(data, status, content_range)
     with pytest.raises(RuntimeError):
@@ -148,11 +168,14 @@ def test_full_file_wrong_range_and_truncated_download_are_rejected(tmp_path, sta
     session.get.return_value.close.assert_called_once()
 
 
-@pytest.mark.parametrize("attributes", [
-    {"GRIB_ELEMENT": "TMP", "GRIB_SHORT_NAME": "0-EATM", "GRIB_VALID_TIME": str(HOUR + 3600)},
-    {"GRIB_ELEMENT": "REFC", "GRIB_SHORT_NAME": "0-SFC", "GRIB_VALID_TIME": str(HOUR + 3600)},
-    {"GRIB_ELEMENT": "REFC", "GRIB_SHORT_NAME": "0-EATM", "GRIB_VALID_TIME": str(HOUR + 7200)},
-])
+@pytest.mark.parametrize(
+    "attributes",
+    [
+        {"GRIB_ELEMENT": "TMP", "GRIB_SHORT_NAME": "0-EATM", "GRIB_VALID_TIME": str(HOUR + 3600)},
+        {"GRIB_ELEMENT": "REFC", "GRIB_SHORT_NAME": "0-SFC", "GRIB_VALID_TIME": str(HOUR + 3600)},
+        {"GRIB_ELEMENT": "REFC", "GRIB_SHORT_NAME": "0-EATM", "GRIB_VALID_TIME": str(HOUR + 7200)},
+    ],
+)
 def test_decoder_rejects_wrong_variable_surface_or_valid_time(tmp_path, attributes):
     provider, _ = _provider()
     source = HrrrTileSource(tmp_path, Mock())
@@ -182,9 +205,15 @@ def test_raw_reflectivity_becomes_transparent_clear_and_colored_precipitation():
     assert result.getpixel((3, 0))[3] == 0
 
 
-@pytest.mark.parametrize(("value", "covered", "visible"), [
-    (-10.0, 65536, 0), (-9999.0, 0, 0), (float("nan"), 0, 0), (20.0, 65536, 65536),
-])
+@pytest.mark.parametrize(
+    ("value", "covered", "visible"),
+    [
+        (-10.0, 65536, 0),
+        (-9999.0, 0, 0),
+        (float("nan"), 0, 0),
+        (20.0, 65536, 65536),
+    ],
+)
 def test_summary_distinguishes_clear_weather_from_missing_coverage(value, covered, visible):
     stream = BytesIO()
     Image.new("F", (256, 256), value).save(stream, format="TIFF")
@@ -210,8 +239,12 @@ def test_colorized_output_is_not_misread_as_dbz():
 def test_same_timestamp_from_different_sources_has_separate_tiles(tmp_path):
     service = RadarTileService(cache_root=tmp_path)
     try:
-        observed = service.tile_url(RadarFrame(100, "https://observed.test/{z}/{x}/{y}.png"), RadarPalette.UNIVERSAL)
-        forecast = service.tile_url(RadarFrame(100, "https://forecast.test/{z}/{x}/{y}.png"), RadarPalette.UNIVERSAL)
+        observed = service.tile_url(
+            RadarFrame(100, "https://observed.test/{z}/{x}/{y}.png"), RadarPalette.UNIVERSAL
+        )
+        forecast = service.tile_url(
+            RadarFrame(100, "https://forecast.test/{z}/{x}/{y}.png"), RadarPalette.UNIVERSAL
+        )
         assert observed != forecast
     finally:
         service.close()
@@ -222,7 +255,9 @@ def test_hrrr_tiles_flow_through_local_cache_and_classic_palette(tmp_path):
     service = RadarTileService(cache_root=tmp_path)
     service._hrrr_tiles.tile = Mock(return_value=_tiff())
     try:
-        path = urlparse(service.tile_url(provider.get_frames()[0], RadarPalette.UNIVERSAL)).path.format(z=4, x=3, y=6)
+        path = urlparse(
+            service.tile_url(provider.get_frames()[0], RadarPalette.UNIVERSAL)
+        ).path.format(z=4, x=3, y=6)
         universal = service._handle_path(path)
         classic = service._handle_path(path.replace("/universal/", "/classic/"))
         assert Image.open(BytesIO(universal)).getpixel((0, 0)) == (0, 163, 224, 255)

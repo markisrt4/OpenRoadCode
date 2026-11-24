@@ -22,7 +22,9 @@ from ui.navigation import GeoPoint
 
 DEFAULT_SEARCH_DATABASE = (
     Path(os.environ.get("OPENROADCODE_DATA_ROOT", "/srv/openroadcode"))
-    / "maps" / "search" / "openroadcode-search.sqlite"
+    / "maps"
+    / "search"
+    / "openroadcode-search.sqlite"
 )
 
 
@@ -35,9 +37,7 @@ def _format_favorite(favorite: MapFavorite | None) -> str:
 
 
 def _cached_position() -> GeoPoint | None:
-    state = PositionSnapshotCache(
-        PersistentCache(DEFAULT_POSITION_CACHE_DIRECTORY)
-    ).load()
+    state = PositionSnapshotCache(PersistentCache(DEFAULT_POSITION_CACHE_DIRECTORY)).load()
     if (
         state is None
         or not state.has_fix
@@ -82,8 +82,10 @@ def _search_address(label: str, geocoder: SqliteGeocoder) -> GeoPoint | None:
         for index, result in enumerate(results, start=1):
             lat = math.degrees(result.position.latitude_rad)
             lon = math.degrees(result.position.longitude_rad)
-            qualifier = "exact address" if result.source == "address" else (
-                "approximate street location" if result.source == "street" else result.source
+            qualifier = (
+                "exact address"
+                if result.source == "address"
+                else ("approximate street location" if result.source == "street" else result.source)
             )
             print(
                 f"  {index}) {result.display_name}\n"

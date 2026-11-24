@@ -41,7 +41,13 @@ class FakeElm327Device:
 
 class Elm327ObdAdapterTests(unittest.TestCase):
     def test_parses_captured_rpm_response(self) -> None:
-        device = FakeElm327Device(Elm327Response(command="010C", raw="SEARCHING...\r7E804410C09D2\r\r>", lines=("SEARCHING...", "7E804410C09D2")))
+        device = FakeElm327Device(
+            Elm327Response(
+                command="010C",
+                raw="SEARCHING...\r7E804410C09D2\r\r>",
+                lines=("SEARCHING...", "7E804410C09D2"),
+            )
+        )
         adapter = Elm327ObdAdapter(device)  # type: ignore[arg-type]
         responses = adapter.request(Obd2Request(mode=0x01, pid=0x0C))
         self.assertEqual(device.commands, ["010C"])
@@ -52,12 +58,20 @@ class Elm327ObdAdapterTests(unittest.TestCase):
         self.assertEqual(responses[0].data, bytes.fromhex("09D2"))
 
     def test_parses_captured_supported_pid_response(self) -> None:
-        response = Elm327Response(command="0100", raw="SEARCHING...\r7E8064100BE3EA813\r\r>", lines=("SEARCHING...", "7E8064100BE3EA813"))
+        response = Elm327Response(
+            command="0100",
+            raw="SEARCHING...\r7E8064100BE3EA813\r\r>",
+            lines=("SEARCHING...", "7E8064100BE3EA813"),
+        )
         parsed = Elm327ObdAdapter._parse_response(Obd2Request(mode=0x01, pid=0x00), response)
         self.assertEqual(parsed[0].data, bytes.fromhex("BE3EA813"))
 
     def test_preserves_responses_from_multiple_ecus(self) -> None:
-        response = Elm327Response(command="010C", raw="7E804410C09D2\r7E904410C0A00\r>", lines=("7E804410C09D2", "7E904410C0A00"))
+        response = Elm327Response(
+            command="010C",
+            raw="7E804410C09D2\r7E904410C0A00\r>",
+            lines=("7E804410C09D2", "7E904410C0A00"),
+        )
         parsed = Elm327ObdAdapter._parse_response(Obd2Request(mode=0x01, pid=0x0C), response)
         self.assertEqual([item.ecu_id for item in parsed], [0x7E8, 0x7E9])
 
@@ -115,10 +129,13 @@ class FakeObd2Adapter:
     def __init__(self) -> None:
         self.is_connected = True
         self.requests: list[int | None] = []
+
     def connect(self) -> None:
         self.is_connected = True
+
     def disconnect(self) -> None:
         pass
+
     def request(self, request: Obd2Request) -> tuple[Obd2Response, ...]:
         self.requests.append(request.pid)
         if request.pid == 0x0C:

@@ -121,9 +121,13 @@ class SdrForgeRestRadioBackend(RadioBackendIf):
         return int(self.receiver_status()["frequency_hz"])
 
     def set_mode(self, mode: str, bandwidth: int) -> object:
-        return self._request("/v1/receiver/mode", {
-            "mode": mode.upper(), "bandwidth_hz": bandwidth,
-        })
+        return self._request(
+            "/v1/receiver/mode",
+            {
+                "mode": mode.upper(),
+                "bandwidth_hz": bandwidth,
+            },
+        )
 
     def get_signal_strength(self) -> float | str | None:
         return self.receiver_status().get("signal_strength")

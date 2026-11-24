@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """SDRForge user-systemd routing must remain strictly allowlisted."""
+
 from __future__ import annotations
 
 import subprocess
@@ -15,9 +16,9 @@ class SdrforgeSystemdTests(unittest.TestCase):
             run.return_value = subprocess.CompletedProcess([], 0, "active\n", "")
             SystemdServiceManager._systemctl("is-active", "libsdrforge.service", check=False)
             command = run.call_args.args[0]
-            self.assertEqual(command, [
-                "sudo", "-n", "/usr/local/sbin/orc-sdrforge-user-service", "is-active"
-            ])
+            self.assertEqual(
+                command, ["sudo", "-n", "/usr/local/sbin/orc-sdrforge-user-service", "is-active"]
+            )
 
     def test_system_service_keeps_restricted_sudo(self) -> None:
         with patch("services.linux.systemd_service_manager.subprocess.run") as run:

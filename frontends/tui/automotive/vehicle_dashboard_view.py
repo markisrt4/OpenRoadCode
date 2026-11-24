@@ -49,9 +49,19 @@ def vehicle_fields(
 ) -> tuple[tuple[str, str], ...]:
     """Return formatted values in the requested presentation unit system."""
     labels = (
-        "Engine RPM", "Vehicle speed", "Boost", "Coolant", "Intake air",
-        "Throttle", "Accelerator", "Engine load", "MAP", "Barometric",
-        "Mass airflow", "Fuel level", "Module voltage",
+        "Engine RPM",
+        "Vehicle speed",
+        "Boost",
+        "Coolant",
+        "Intake air",
+        "Throttle",
+        "Accelerator",
+        "Engine load",
+        "MAP",
+        "Barometric",
+        "Mass airflow",
+        "Fuel level",
+        "Module voltage",
     )
     if state is None:
         return tuple((label, "--") for label in labels)
@@ -101,14 +111,23 @@ class VehicleDashboardView:
     def __init__(self, unit_system: UnitSystem = UnitSystem.IMPERIAL) -> None:
         self._unit_system = unit_system
 
-    def render(self, screen, state: VehicleSnapshot | None, status: str, connected: bool, controls: str | None = None) -> None:
+    def render(
+        self,
+        screen,
+        state: VehicleSnapshot | None,
+        status: str,
+        connected: bool,
+        controls: str | None = None,
+    ) -> None:
         screen.erase()
         height, width = screen.getmaxyx()
         title_attr = curses.A_BOLD | (curses.color_pair(1) if curses.has_colors() else 0)
         addstr(screen, 0, 2, f"OpenRoadCode Vehicle [{self._unit_system.value}]", title_attr)
         addstr(screen, 1, 0, "─" * max(0, width - 1))
         connection = "CONNECTED" if connected else "DISCONNECTED"
-        connection_attr = curses.A_BOLD | (curses.color_pair(2 if connected else 3) if curses.has_colors() else 0)
+        connection_attr = curses.A_BOLD | (
+            curses.color_pair(2 if connected else 3) if curses.has_colors() else 0
+        )
         addstr(screen, 2, 2, connection, connection_attr)
         if state is not None:
             timestamp = getattr(state.timestamp, "strftime", lambda _fmt: "--:--:--")

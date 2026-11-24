@@ -42,9 +42,7 @@ class ZeroMqSubscriber(SubscriberIf):
 
         with self._topics_lock:
             if self._socket is not None:
-                raise RuntimeError(
-                    "subscriptions must be registered before receive() starts"
-                )
+                raise RuntimeError("subscriptions must be registered before receive() starts")
             if topic not in self._topics:
                 self._topics.append(topic)
 
@@ -63,9 +61,7 @@ class ZeroMqSubscriber(SubscriberIf):
             topic = self._socket.recv_string()
             payload = self._socket.recv_json()
             if not isinstance(payload, dict):
-                raise ValueError(
-                    "OpenRoadCode JSON message payload must be an object"
-                )
+                raise ValueError("OpenRoadCode JSON message payload must be an object")
             return topic, payload
 
         self._cleanup_if_owner()
@@ -83,9 +79,7 @@ class ZeroMqSubscriber(SubscriberIf):
         current_thread_id = get_ident()
         if self._socket is not None:
             if self._owner_thread_id != current_thread_id:
-                raise RuntimeError(
-                    "ZeroMQ subscriber receive() called from multiple threads"
-                )
+                raise RuntimeError("ZeroMQ subscriber receive() called from multiple threads")
             return
 
         self._owner_thread_id = current_thread_id

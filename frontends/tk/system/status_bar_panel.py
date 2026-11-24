@@ -24,9 +24,7 @@ class StatusBarPanel(tk.Frame, StatusUiIf, UiWidget):
         self._theme = theme
         self._colors = theme["colors"]
         self._layout = theme["layout"]
-        self._style = theme["profiles"][
-            "compact" if compact_ui else "normal"
-        ]
+        self._style = theme["profiles"]["compact" if compact_ui else "normal"]
 
         super().__init__(
             parent,

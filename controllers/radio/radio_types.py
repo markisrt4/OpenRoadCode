@@ -9,4 +9,4 @@ from ui.radio.radio_types import (
     RadioPreset,
 )
 
-__all__ = ['RadioRange', 'RadioMode', 'RadioPreset']
+__all__ = ["RadioRange", "RadioMode", "RadioPreset"]

@@ -10,7 +10,10 @@ from apps.launchers.android_bridge_launcher import (
     AndroidBridgeLauncher,
     AndroidBridgeLauncherError,
 )
-from apps.launchers.desktop_browser_launcher import DesktopBrowserLauncher, DesktopBrowserLauncherError
+from apps.launchers.desktop_browser_launcher import (
+    DesktopBrowserLauncher,
+    DesktopBrowserLauncherError,
+)
 from tools.map_builder.builder.web_urls import valid_website
 from apps.launchers.waydroid_launcher import WaydroidLauncher, WaydroidLauncherError
 
@@ -55,9 +58,7 @@ class AndroidAppLauncher:
             raise ValueError("POI destination must be a valid HTTP or HTTPS URL")
         if self._is_native_android():
             try:
-                return (self._native or AndroidBridgeLauncher()).open_package_or_uri(
-                    package, uri
-                )
+                return (self._native or AndroidBridgeLauncher()).open_package_or_uri(package, uri)
             except AndroidBridgeLauncherError as exc:
                 raise AndroidAppLauncherError(str(exc)) from exc
 

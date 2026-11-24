@@ -99,7 +99,9 @@ class VisionController(VisionRequestHandlerIf):
             except Exception as error:
                 self._active = False
                 self._thread = None
-                self._publish(generation, self._state(VisionLifecycle.ERROR, f"Camera unavailable: {error}"))
+                self._publish(
+                    generation, self._state(VisionLifecycle.ERROR, f"Camera unavailable: {error}")
+                )
                 self._diagnostics.changed("lifecycle", "error", self._operation_id)
                 raise
             self._diagnostics.changed("lifecycle", "starting", self._operation_id)
@@ -206,9 +208,11 @@ class VisionController(VisionRequestHandlerIf):
                     self._state(VisionLifecycle.ERROR, f"Camera unavailable: {exc}"),
                 )
         finally:
-            for stage, cleanup in (("worker_stop", self._worker.stop),
-                                   ("restore_profile", self._controls.restore_day_defaults),
-                                   ("camera_close", self._camera.close)):
+            for stage, cleanup in (
+                ("worker_stop", self._worker.stop),
+                ("restore_profile", self._controls.restore_day_defaults),
+                ("camera_close", self._camera.close),
+            ):
                 try:
                     with self._diagnostics.action(stage):
                         cleanup()
@@ -268,9 +272,7 @@ class VisionController(VisionRequestHandlerIf):
             delta = processed_count - self._last_processed_count
             if self._last_inference_time > 0.0 and elapsed > 0.0 and delta > 0:
                 measured = delta / elapsed
-                self._inference_rate_hz = self._smooth(
-                    self._inference_rate_hz, measured, 0.2
-                )
+                self._inference_rate_hz = self._smooth(self._inference_rate_hz, measured, 0.2)
             self._last_processed_count = processed_count
             self._last_inference_time = now
 

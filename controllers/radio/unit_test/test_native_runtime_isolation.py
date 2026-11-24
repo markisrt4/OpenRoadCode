@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Static and contract guards for SDR++-free native runtime composition."""
+
 import ast
 from pathlib import Path
 
@@ -12,9 +13,11 @@ def test_native_runtime_has_no_sdrpp_launcher_import():
     source = Path(__file__).resolve().parents[3] / "apps/orcUi/application_runtime.py"
     tree = ast.parse(source.read_text(encoding="utf-8"))
     assert not [
-        node for node in ast.walk(tree)
+        node
+        for node in ast.walk(tree)
         if isinstance(node, ast.ImportFrom)
-        and node.module in (
+        and node.module
+        in (
             "apps.launchers.managed_sdrpp_launcher",
             "apps.launchers.sdrpp_launcher",
         )
@@ -36,11 +39,7 @@ def test_native_radio_composition_has_no_eager_legacy_control_imports():
     """Loading the native radio composition must not require SDR++ modules."""
     source = Path(__file__).resolve().parents[3] / "apps/orcUi/composition/radio.py"
     tree = ast.parse(source.read_text(encoding="utf-8"))
-    eager_imports = {
-        node.module
-        for node in tree.body
-        if isinstance(node, ast.ImportFrom)
-    }
+    eager_imports = {node.module for node in tree.body if isinstance(node, ast.ImportFrom)}
     assert "controllers.sdr.sdrpp_control" not in eager_imports
     assert "controllers.sdr.sdr_telemetry_monitor" not in eager_imports
 
@@ -50,9 +49,11 @@ def test_legacy_controls_are_never_imported():
     source = Path(__file__).resolve().parents[3] / "apps/orcUi/composition/radio.py"
     tree = ast.parse(source.read_text(encoding="utf-8"))
     imports = [
-        node.module for node in ast.walk(tree)
+        node.module
+        for node in ast.walk(tree)
         if isinstance(node, ast.ImportFrom)
-        and node.module in {
+        and node.module
+        in {
             "controllers.sdr.sdrpp_control",
             "controllers.sdr.sdr_telemetry_monitor",
         }

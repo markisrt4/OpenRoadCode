@@ -13,6 +13,7 @@ from ui.ui_dispatcher_if import UiDispatcherIf
 
 class CarUiFrontendIf(UiDispatcherIf, Protocol):
     """Shell services required by toolkit-independent Car UI composition."""
+
     top_bar: TopBarUiIf
     status_bar: StatusUiIf
     volume_panel: VolumeUiIf

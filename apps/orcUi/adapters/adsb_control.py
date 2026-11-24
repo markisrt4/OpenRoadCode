@@ -56,13 +56,17 @@ class OrcUiAdsbControl:
             query.setdefault("nowebgl", "1")
         self._launcher = ADSBLauncher(
             url=urlunsplit(parts._replace(query=urlencode(query))),
-            data_source=config.adsb_data_source.value if config.adsb_data_source is not None else "rtlsdr",
+            data_source=config.adsb_data_source.value
+            if config.adsb_data_source is not None
+            else "rtlsdr",
         )
         if _is_termux():
             # Reparented GPU surfaces have rendered corrupt blocks on Termux:X11.
             self._launcher.browser.extra_arguments += (
-                "--use-gl=angle", "--use-angle=swiftshader",
-                "--enable-unsafe-swiftshader", "--disable-gpu-compositing",
+                "--use-gl=angle",
+                "--use-angle=swiftshader",
+                "--enable-unsafe-swiftshader",
+                "--disable-gpu-compositing",
                 "--ozone-platform=x11",
             )
 
@@ -114,6 +118,7 @@ class OrcUiAdsbControl:
                 if not acquired:
                     return False
             from apps.launchers.adsb_launcher import _set_systemd_service_state
+
             if not _set_systemd_service_state(self._launcher.readsb_service, "start"):
                 if self._launcher.resource_manager is not None:
                     self._launcher.resource_manager.release(self._launcher.owner_name)
@@ -123,6 +128,7 @@ class OrcUiAdsbControl:
                 )
             return self.tracking
         from apps.launchers.adsb_launcher import _set_systemd_service_state
+
         _set_systemd_service_state(self._launcher.readsb_service, "stop")
         if self._launcher.resource_manager is not None:
             self._launcher.resource_manager.release(self._launcher.owner_name)
@@ -156,11 +162,13 @@ class OrcUiAdsbControl:
         if self._stop_thread is not None and self._stop_thread.is_alive():
             return
         self._simulation_tracking = False
+
         def close():
             try:
                 self._launcher.stop(display)
             except (OSError, RuntimeError, ValueError):
                 logging.getLogger(__name__).exception("ADS-B cleanup failed")
+
         # A non-daemon worker finishes cleanup even if ORC exits immediately.
         self._stop_thread = threading.Thread(target=close, name="adsb-close", daemon=False)
         self._stop_thread.start()

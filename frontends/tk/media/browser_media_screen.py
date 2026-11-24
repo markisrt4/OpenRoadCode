@@ -23,8 +23,14 @@ class BrowserMediaScreen(TkScreen):
     """Launch and reparent one managed browser directly into an ORC screen."""
 
     def __init__(
-        self, screen_id: str, host: TkScreenHostIf, *, title: str,
-        player: BrowserMediaPlayerIf, default_target: str, window_class: str,
+        self,
+        screen_id: str,
+        host: TkScreenHostIf,
+        *,
+        title: str,
+        player: BrowserMediaPlayerIf,
+        default_target: str,
+        window_class: str,
         back_action: Callable[[], None],
         media_navigation_factory: MediaNavigationFactory | None = None,
         theme_bundle: Callable[[], ThemeBundle] | None = None,
@@ -46,7 +52,9 @@ class BrowserMediaScreen(TkScreen):
         self._visible = False
 
     def _background(self) -> str:
-        return self._theme_provider().ui.background if self._theme_provider is not None else "#000000"
+        return (
+            self._theme_provider().ui.background if self._theme_provider is not None else "#000000"
+        )
 
     def show(self) -> None:
         """Show media navigation and launch the provider directly below it."""
@@ -136,8 +144,15 @@ class BrowserMediaScreen(TkScreen):
             height = max(1, host.winfo_height())
             position = (host.winfo_rootx(), host.winfo_rooty())
             display = os.environ.get("DISPLAY", ":1")
-            self._player.play(self._default_target, display=display, window_position=position, window_size=(width, height))
-            self._embedder.embed(0, int(host.winfo_id()), width, height, window_class=self._window_class)
+            self._player.play(
+                self._default_target,
+                display=display,
+                window_position=position,
+                window_size=(width, height),
+            )
+            self._embedder.embed(
+                0, int(host.winfo_id()), width, height, window_class=self._window_class
+            )
             self._host.set_screen_status(f"{self._title} ready")
         except Exception as error:
             self._embedder.clear()

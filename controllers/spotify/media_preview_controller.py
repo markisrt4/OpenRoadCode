@@ -11,8 +11,13 @@ from ui.media.media_ui_if import MediaState
 
 
 class MediaPreviewController(MediaPreviewIf):
-    def __init__(self, state: Callable[[], MediaState], artwork: Callable[[str], bytes],
-                 *, online_allowed: Callable[[], bool] = lambda: True):
+    def __init__(
+        self,
+        state: Callable[[], MediaState],
+        artwork: Callable[[str], bytes],
+        *,
+        online_allowed: Callable[[], bool] = lambda: True,
+    ):
         self._state, self._artwork = state, artwork
         self._online_allowed = online_allowed
         self._lock = Lock()

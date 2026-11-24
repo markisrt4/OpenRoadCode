@@ -8,16 +8,10 @@ import unittest
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-NAV_INSTALLER = (
-    PROJECT_ROOT / "scripts" / "installers" / "install_navigation_stack.sh"
-)
+NAV_INSTALLER = PROJECT_ROOT / "scripts" / "installers" / "install_navigation_stack.sh"
 HOST_INSTALLER = PROJECT_ROOT / "scripts" / "installers" / "host_setup.sh"
-SYSTEM_PACKAGES = (
-    PROJECT_ROOT / "scripts" / "installers" / "install_system_packages.sh"
-)
-TERMUX_NAV_BUILDER = (
-    PROJECT_ROOT / "development" / "termux" / "build_navigation_stack.sh"
-)
+SYSTEM_PACKAGES = PROJECT_ROOT / "scripts" / "installers" / "install_system_packages.sh"
+TERMUX_NAV_BUILDER = PROJECT_ROOT / "development" / "termux" / "build_navigation_stack.sh"
 INSTALLER_TOOLCHAIN = PROJECT_ROOT / "scripts" / "installers" / "toolchain.lock"
 TERMUX_TAR1090 = PROJECT_ROOT / "development" / "termux" / "setup_tar1090.sh"
 LINUX_TAR1090 = PROJECT_ROOT / "scripts" / "installers" / "setup_adsb_web.sh"
@@ -75,8 +69,7 @@ class NavigationInstallerContractTests(unittest.TestCase):
 
     def test_linux_navigation_installs_built_map_renderer(self) -> None:
         self.assertIn(
-            'sudo install -m 0755 "$renderer" '
-            '"$INSTALL_ROOT/bin/openroadcode-map-renderer"',
+            'sudo install -m 0755 "$renderer" "$INSTALL_ROOT/bin/openroadcode-map-renderer"',
             self.navigation,
         )
 

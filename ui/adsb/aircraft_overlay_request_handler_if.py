@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Semantic aircraft map interactions."""
+
 from abc import ABC, abstractmethod
 
 

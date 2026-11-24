@@ -43,7 +43,9 @@ class CarUiDependencies:
     keyboards: Sequence[KeyboardReaderIf] = ()
     push_buttons: Sequence[PushButtonIf] = ()
     push_button_actions: Sequence[str] = ()
-    presentation_cleanup: list[Callable[[], None]] = field(default_factory=list, repr=False, compare=False)
+    presentation_cleanup: list[Callable[[], None]] = field(
+        default_factory=list, repr=False, compare=False
+    )
     _closed: bool = field(default=False, init=False, repr=False, compare=False)
 
     def close(self) -> None:

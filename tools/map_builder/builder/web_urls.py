@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Validation for website links supplied by map data."""
+
 from urllib.parse import urlsplit
 
 
@@ -12,8 +13,12 @@ def valid_website(value: str | None) -> str | None:
         return None
     try:
         parsed = urlsplit(value)
-        if (parsed.scheme not in {'http', 'https'} or not parsed.hostname
-                or parsed.username is not None or parsed.password is not None):
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+        ):
             return None
         parsed.port  # Reject malformed port numbers.
     except ValueError:

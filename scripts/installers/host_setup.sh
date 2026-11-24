@@ -244,6 +244,10 @@ done
 (( RUN_VNC )) && append_feature vnc
 (( RUN_GPSD_SERVICE )) && append_feature gps
 
+if [[ " ${FEATURES[*]} " == *" desktop-ui "* ]]; then
+  append_feature sdrforge
+fi
+
 feature_index=0
 while (( feature_index < ${#FEATURES[@]} )); do
   feature="${FEATURES[$feature_index]}"

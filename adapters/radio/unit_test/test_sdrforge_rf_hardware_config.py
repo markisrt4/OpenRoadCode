@@ -30,7 +30,8 @@ def test_load_receiver_configuration(monkeypatch):
     monkeypatch.setattr(module.threading, "Thread", _ImmediateThread)
     seen = {}
     monkeypatch.setattr(
-        module.request, "urlopen",
+        module.request,
+        "urlopen",
         lambda url, timeout: (
             seen.update(url=url, timeout=timeout)
             or _Response(json.dumps({"gain_db": 29.7}).encode())
@@ -46,15 +47,20 @@ def test_load_receiver_configuration(monkeypatch):
 def test_apply_receiver_configuration(monkeypatch):
     monkeypatch.setattr(module.threading, "Thread", _ImmediateThread)
     requests = []
+
     def respond(req, timeout):
         requests.append((req, timeout))
         return _Response(b"{}")
+
     monkeypatch.setattr(module.request, "urlopen", respond)
     success, error = Mock(), Mock()
-    config = {"sample_rate_hz": 2400000, "gain_db": None,
-              "ppm_correction": 0, "rtl_agc_enabled": False}
-    module.SdrForgeRfHardwareConfig("http://localhost:5570/").apply(
-        config, success, error)
+    config = {
+        "sample_rate_hz": 2400000,
+        "gain_db": None,
+        "ppm_correction": 0,
+        "rtl_agc_enabled": False,
+    }
+    module.SdrForgeRfHardwareConfig("http://localhost:5570/").apply(config, success, error)
     success.assert_called_once_with()
     error.assert_not_called()
     req, timeout = requests[0]
@@ -66,8 +72,10 @@ def test_apply_receiver_configuration(monkeypatch):
 
 def test_unavailable_service_reports_error(monkeypatch):
     monkeypatch.setattr(module.threading, "Thread", _ImmediateThread)
+
     def unavailable(*_args, **_kwargs):
         raise OSError("connection refused")
+
     monkeypatch.setattr(module.request, "urlopen", unavailable)
     success, error = Mock(), Mock()
     module.SdrForgeRfHardwareConfig().load(success, error)

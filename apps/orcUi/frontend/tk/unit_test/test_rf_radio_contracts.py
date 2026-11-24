@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Headless checks of semantic requests and frontend-only measurement formatting."""
+
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -14,6 +15,7 @@ def presentation():
     # __new__ deliberately skips Tk initialization. Supply the minimal
     # constructor state required by the legacy and native presentation paths.
     panel._sdrforge_view = None
+    panel._spectrum_start_button = Mock()
     panel._last_receiver_running = None
     panel._receiver_start_pending = False
     panel._receiver_controls = None
@@ -24,18 +26,34 @@ def presentation():
     panel._state = RfRadioState(
         RadioProfileState("Station", 100_000_000, "WFM", "fm_radio", "FM"), ()
     )
-    panel._theme = SimpleNamespace(ui=SimpleNamespace(text="white", text_muted="gray", accent_danger="red"))
-    for name in ("_station_label", "_frequency_label", "_metadata_label", "_signal_label",
-                 "_snr_label", "_launch_status", "_controls", "_telemetry_overlay", "_controls_button",
-                 "_paint_groups", "_refresh_display_controls"):
+    panel._theme = SimpleNamespace(
+        ui=SimpleNamespace(text="white", text_muted="gray", accent_danger="red")
+    )
+    for name in (
+        "_station_label",
+        "_frequency_label",
+        "_metadata_label",
+        "_signal_label",
+        "_snr_label",
+        "_launch_status",
+        "_controls",
+        "_telemetry_overlay",
+        "_controls_button",
+        "_paint_groups",
+        "_refresh_display_controls",
+    ):
         setattr(panel, name, Mock())
     return panel
 
 
 def test_receiver_measurements_are_formatted_in_frontend():
     panel = presentation()
-    state = RfRadioState(RadioProfileState("Station", 100_000_000, "WFM", "fm_radio", "FM"), (),
-                         telemetry=RadioTelemetry(signal_db=-42.25, snr_db=17.75, rds="RDS"), view="sdrpp")
+    state = RfRadioState(
+        RadioProfileState("Station", 100_000_000, "WFM", "fm_radio", "FM"),
+        (),
+        telemetry=RadioTelemetry(signal_db=-42.25, snr_db=17.75, rds="RDS"),
+        view="sdrpp",
+    )
     panel.set_radio_state(state)
     panel._frequency_label.configure.assert_called_with(text="100.000 MHz   WFM", fg="gray")
     panel._signal_label.configure.assert_called_with(text="SIGNAL -42.2 dB")
@@ -78,23 +96,23 @@ def test_native_power_button_reflects_backend_starting_state():
     panel._theme.ui.accent_success = "green"
     panel._theme.ui.accent_primary = "blue"
     panel._theme.ui.surface = "black"
+    panel._theme.ui.border = "gray"
     panel._state = RfRadioState(
         RadioProfileState("Station", 100_000_000, "WFM", "fm_radio", "FM"), ()
     )
-    state = RfRadioState(
-        panel._state.station, (), receiver_starting=True
-    )
+    state = RfRadioState(panel._state.station, (), receiver_starting=True)
     panel.set_radio_state(state)
+    panel._spectrum_start_button.place_forget.assert_called()
     panel._receiver_power_button.set_text.assert_called_with("STARTING SDR…")
     panel._receiver_power_button.set_enabled.assert_called_with(False)
     panel._session.request.assert_not_called()
     panel._toggle_receiver_power()
     panel._session.request.assert_not_called()
 
-
     # Acquisition completed: power control switches to STOP.
     running = RfRadioState(panel._state.station, (), receiver_running=True)
     panel.set_radio_state(running)
+    assert panel._spectrum_start_button.place_forget.call_count == 2
     panel._receiver_power_button.set_text.assert_called_with("■ STOP SDR")
     panel._receiver_power_button.set_enabled.assert_called_with(True)
     panel._toggle_receiver_power()

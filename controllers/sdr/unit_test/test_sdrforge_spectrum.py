@@ -27,20 +27,25 @@ def test_absolute_frequency_and_missing_bins():
 
 
 def test_retune_updates_absolute_frequency():
-    frame = SdrForgeSpectrumFrame.from_payload(snapshot(
-        center_frequency_hz=162_550_000,
-        first_bin_frequency_hz=161_350_000.0,
-    ))
+    frame = SdrForgeSpectrumFrame.from_payload(
+        snapshot(
+            center_frequency_hz=162_550_000,
+            first_bin_frequency_hz=161_350_000.0,
+        )
+    )
     assert frame.frequency_hz(2) == 162_550_000
 
 
-@pytest.mark.parametrize("changes", [
-    {"bin_count": 3},
-    {"power_db": [-40, float("nan"), -15, -30]},
-    {"bin_spacing_hz": 1.0},
-    {"sample_rate_hz": 0},
-    {"center_frequency_hz": True},
-])
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"bin_count": 3},
+        {"power_db": [-40, float("nan"), -15, -30]},
+        {"bin_spacing_hz": 1.0},
+        {"sample_rate_hz": 0},
+        {"center_frequency_hz": True},
+    ],
+)
 def test_invalid_snapshot_rejected(changes):
     with pytest.raises((ValueError, TypeError)):
         SdrForgeSpectrumFrame.from_payload(snapshot(**changes))

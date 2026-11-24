@@ -8,12 +8,14 @@ VEHICLE_FRAME = "vehicle"
 WORLD_ENU_FRAME = "world_enu"
 WORLD_NED_FRAME = "world_ned"
 
-KNOWN_FRAME_IDS = frozenset({
-    ANDROID_DEVICE_FRAME,
-    VEHICLE_FRAME,
-    WORLD_ENU_FRAME,
-    WORLD_NED_FRAME,
-})
+KNOWN_FRAME_IDS = frozenset(
+    {
+        ANDROID_DEVICE_FRAME,
+        VEHICLE_FRAME,
+        WORLD_ENU_FRAME,
+        WORLD_NED_FRAME,
+    }
+)
 
 
 def validate_frame_id(frame_id: object) -> str:

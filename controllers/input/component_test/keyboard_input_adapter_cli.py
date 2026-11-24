@@ -29,9 +29,7 @@ class PrintingUiEventHandler(UiEventHandlerIf):
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Test physical keyboard input mapping"
-    )
+    parser = argparse.ArgumentParser(description="Test physical keyboard input mapping")
 
     parser.add_argument(
         "--device",

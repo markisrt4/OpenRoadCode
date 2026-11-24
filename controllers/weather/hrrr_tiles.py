@@ -40,9 +40,13 @@ def tile_bounds(z, x, y):
 
 def location_tile(latitude, longitude, zoom=7):
     """Return the XYZ tile containing a geographic location."""
-    if not (math.isfinite(latitude) and math.isfinite(longitude)
-            and -85.05112878 <= latitude <= 85.05112878 and -180 <= longitude <= 180
-            and 0 <= zoom <= 9):
+    if not (
+        math.isfinite(latitude)
+        and math.isfinite(longitude)
+        and -85.05112878 <= latitude <= 85.05112878
+        and -180 <= longitude <= 180
+        and 0 <= zoom <= 9
+    ):
         raise ValueError("invalid diagnostic location")
     count = 2**zoom
     x = min(count - 1, int((longitude + 180) / 360 * count))
@@ -62,8 +66,12 @@ def reflectivity_summary(data):
                 covered += 1
                 visible += value >= 5
                 maximum = value if maximum is None else max(maximum, value)
-        return {"total": image.width * image.height, "covered": covered,
-                "visible": visible, "max_dbz": maximum}
+        return {
+            "total": image.width * image.height,
+            "covered": covered,
+            "visible": visible,
+            "max_dbz": maximum,
+        }
 
 
 class HrrrTileSource:
@@ -87,13 +95,21 @@ class HrrrTileSource:
         return result.stdout
 
     def _download(self, url, start, end):
-        response = self._session.get(url, headers={"Range": f"bytes={start}-{'' if end is None else end}"},
-                                     timeout=self._timeout, stream=True)
+        response = self._session.get(
+            url,
+            headers={"Range": f"bytes={start}-{'' if end is None else end}"},
+            timeout=self._timeout,
+            stream=True,
+        )
         try:
             response.raise_for_status()
             if response.status_code != 206:
-                raise RuntimeError("NOAA did not honor the field byte range; refusing a full HRRR download")
-            match = re.fullmatch(r"bytes (\d+)-(\d+)/(\d+)", response.headers.get("Content-Range", ""))
+                raise RuntimeError(
+                    "NOAA did not honor the field byte range; refusing a full HRRR download"
+                )
+            match = re.fullmatch(
+                r"bytes (\d+)-(\d+)/(\d+)", response.headers.get("Content-Range", "")
+            )
             if not match or int(match[1]) != start or (end is not None and int(match[2]) != end):
                 raise RuntimeError("NOAA returned a different HRRR byte range")
             chunks, size = [], 0
@@ -103,10 +119,17 @@ class HrrrTileSource:
                     raise RuntimeError("HRRR reflectivity field exceeds the 16 MB download limit")
                 chunks.append(chunk)
             data = b"".join(chunks)
-            if (len(data) < 20 or data[:4] != b"GRIB" or data[7] != 2 or
-                    data[-4:] != b"7777" or int.from_bytes(data[8:16], "big") != len(data) or
-                    len(data) != int(match[2]) - start + 1):
-                raise RuntimeError("NOAA returned an incomplete or invalid GRIB2 reflectivity field")
+            if (
+                len(data) < 20
+                or data[:4] != b"GRIB"
+                or data[7] != 2
+                or data[-4:] != b"7777"
+                or int.from_bytes(data[8:16], "big") != len(data)
+                or len(data) != int(match[2]) - start + 1
+            ):
+                raise RuntimeError(
+                    "NOAA returned an incomplete or invalid GRIB2 reflectivity field"
+                )
             return data
         finally:
             response.close()
@@ -118,12 +141,19 @@ class HrrrTileSource:
         params = parse_qs(parsed.query, keep_blank_values=True)
         url = params.get("url", [""])[0]
         lead = parsed.path.strip("/").split("/")[0]
-        if (not re.fullmatch(r"\d{10}", parsed.netloc) or not re.fullmatch(r"f\d{2}", lead)
-                or not url.startswith("https://noaa-hrrr-bdp-pds.s3.amazonaws.com/hrrr.")):
+        if (
+            not re.fullmatch(r"\d{10}", parsed.netloc)
+            or not re.fullmatch(r"f\d{2}", lead)
+            or not url.startswith("https://noaa-hrrr-bdp-pds.s3.amazonaws.com/hrrr.")
+        ):
             raise ValueError("invalid HRRR forecast field URL")
         element = params.get("element", ["REFC"])[0]
-        fields = {"REFC": ("reflectivity", "0-EATM"), "TMP": ("temperature", "2-HTGL"),
-                  "UGRD": ("wind-u", "10-HTGL"), "VGRD": ("wind-v", "10-HTGL")}
+        fields = {
+            "REFC": ("reflectivity", "0-EATM"),
+            "TMP": ("temperature", "2-HTGL"),
+            "UGRD": ("wind-u", "10-HTGL"),
+            "VGRD": ("wind-v", "10-HTGL"),
+        }
         if element not in fields:
             raise ValueError("unsupported HRRR field")
         name, short_name = fields[element]
@@ -145,38 +175,104 @@ class HrrrTileSource:
                     temporary = field.with_suffix(".tmp")
                     temporary.write_bytes(self._download(url, start, end))
                     temporary.replace(field)
-                metadata = json.loads(self._run(["gdalinfo", "--config", "GRIB_NORMALIZE_UNITS", "YES", "-json", str(field)]))
+                metadata = json.loads(
+                    self._run(
+                        ["gdalinfo", "--config", "GRIB_NORMALIZE_UNITS", "YES", "-json", str(field)]
+                    )
+                )
                 bands = metadata.get("bands", [])
                 attributes = bands[0].get("metadata", {}).get("", {}) if len(bands) == 1 else {}
-                run_time = int(datetime.strptime(parsed.netloc, "%Y%m%d%H").replace(tzinfo=timezone.utc).timestamp())
+                run_time = int(
+                    datetime.strptime(parsed.netloc, "%Y%m%d%H")
+                    .replace(tzinfo=timezone.utc)
+                    .timestamp()
+                )
                 expected_time = run_time + int(lead[1:]) * 3600
-                if (attributes.get("GRIB_ELEMENT") != element or
-                        attributes.get("GRIB_SHORT_NAME") != short_name or
-                        int(attributes.get("GRIB_VALID_TIME", "-1")) != expected_time):
-                    detail = ("not composite reflectivity" if element == "REFC" else "the wrong variable or level")
-                    raise RuntimeError(f"Downloaded HRRR field is {detail} at the requested forecast time")
+                if (
+                    attributes.get("GRIB_ELEMENT") != element
+                    or attributes.get("GRIB_SHORT_NAME") != short_name
+                    or int(attributes.get("GRIB_VALID_TIME", "-1")) != expected_time
+                ):
+                    detail = (
+                        "not composite reflectivity"
+                        if element == "REFC"
+                        else "the wrong variable or level"
+                    )
+                    raise RuntimeError(
+                        f"Downloaded HRRR field is {detail} at the requested forecast time"
+                    )
                 if element == "TMP" and attributes.get("GRIB_UNIT") not in {"[C]", "C"}:
                     raise RuntimeError("HRRR temperature was not decoded in Celsius")
-                if element in {"UGRD", "VGRD"} and attributes.get("GRIB_UNIT") not in {"[m/s]", "m/s"}:
+                if element in {"UGRD", "VGRD"} and attributes.get("GRIB_UNIT") not in {
+                    "[m/s]",
+                    "m/s",
+                }:
                     raise RuntimeError("HRRR wind was not decoded in meters per second")
                 temporary = raster.with_suffix(".tmp.tif")
-                self._run(["gdal_translate", "-q", "--config", "GDAL_CACHEMAX", "64",
-                           "--config", "GRIB_NORMALIZE_UNITS", "YES",
-                           "-of", "GTiff", "-ot", "Float32", "-b", "1",
-                           "-co", "TILED=YES", "-co", "COMPRESS=DEFLATE", str(field), str(temporary)])
+                self._run(
+                    [
+                        "gdal_translate",
+                        "-q",
+                        "--config",
+                        "GDAL_CACHEMAX",
+                        "64",
+                        "--config",
+                        "GRIB_NORMALIZE_UNITS",
+                        "YES",
+                        "-of",
+                        "GTiff",
+                        "-ot",
+                        "Float32",
+                        "-b",
+                        "1",
+                        "-co",
+                        "TILED=YES",
+                        "-co",
+                        "COMPRESS=DEFLATE",
+                        str(field),
+                        str(temporary),
+                    ]
+                )
                 temporary.replace(raster)
                 # Retain two model runs; native work and pruning share the lock.
-                runs = sorted(path for path in self._root.iterdir()
-                              if path.is_dir() and re.fullmatch(r"\d{10}", path.name))
+                runs = sorted(
+                    path
+                    for path in self._root.iterdir()
+                    if path.is_dir() and re.fullmatch(r"\d{10}", path.name)
+                )
                 for old in runs[:-2]:
                     if old.name != parsed.netloc:
                         shutil.rmtree(old)
             with TemporaryDirectory(prefix="tile-", dir=directory) as work:
                 output = Path(work) / "tile.tif"
-                self._run(["gdalwarp", "-q", "--config", "GDAL_CACHEMAX", "64",
-                           "-wm", "64", "-t_srs", "EPSG:3857", "-te", *map(str, bounds),
-                           "-ts", "256", "256", "-r", "near", "-ot", "Float32",
-                           "-dstnodata", "-9999", "-of", "GTiff", str(raster), str(output)])
+                self._run(
+                    [
+                        "gdalwarp",
+                        "-q",
+                        "--config",
+                        "GDAL_CACHEMAX",
+                        "64",
+                        "-wm",
+                        "64",
+                        "-t_srs",
+                        "EPSG:3857",
+                        "-te",
+                        *map(str, bounds),
+                        "-ts",
+                        "256",
+                        "256",
+                        "-r",
+                        "near",
+                        "-ot",
+                        "Float32",
+                        "-dstnodata",
+                        "-9999",
+                        "-of",
+                        "GTiff",
+                        str(raster),
+                        str(output),
+                    ]
+                )
                 return output.read_bytes()
 
 

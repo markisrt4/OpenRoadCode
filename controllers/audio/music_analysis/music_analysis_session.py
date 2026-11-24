@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 """Source-independent music analysis and calibration ownership."""
+
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
@@ -48,7 +49,9 @@ class PushAudioCapture(AudioCaptureIf):
         if not audio or len(audio) % 2:
             raise ValueError("PCM16 frame must contain complete 16-bit samples")
         count = len(audio) // 2
-        self.push(tuple(value / 32768.0 for value in struct.unpack(f"<{count}h", audio)), sample_rate_hz)
+        self.push(
+            tuple(value / 32768.0 for value in struct.unpack(f"<{count}h", audio)), sample_rate_hz
+        )
 
 
 class MusicAnalysisSession:
@@ -60,8 +63,13 @@ class MusicAnalysisSession:
     raw MusicAnalysisState, never presentation-gained values.
     """
 
-    def __init__(self, sources: Mapping[str, Callable[[], AudioCaptureIf]], *,
-                 analyzer: MusicAnalyzer | None = None, consumer=None) -> None:
+    def __init__(
+        self,
+        sources: Mapping[str, Callable[[], AudioCaptureIf]],
+        *,
+        analyzer: MusicAnalyzer | None = None,
+        consumer=None,
+    ) -> None:
         if not sources:
             raise ValueError("at least one audio source is required")
         self._sources = dict(sources)
@@ -141,13 +149,17 @@ class MusicAnalysisSession:
                 capture.stop()
             return self.state()
 
-    def push_pcm16(self, audio: bytes, sample_rate_hz: int, *, source: str = "browser") -> dict[str, object]:
+    def push_pcm16(
+        self, audio: bytes, sample_rate_hz: int, *, source: str = "browser"
+    ) -> dict[str, object]:
         """Decode a little-endian PCM16 frame from the selected push source."""
         capture = self._push_source(source)
         capture.push_pcm16(audio, sample_rate_hz)
         return self.state()
 
-    def push(self, samples: Sequence[float], sample_rate_hz: int, *, source: str) -> dict[str, object]:
+    def push(
+        self, samples: Sequence[float], sample_rate_hz: int, *, source: str
+    ) -> dict[str, object]:
         """Accept normalized PCM from an external capture transport."""
         capture = self._push_source(source)
         capture.push(samples, sample_rate_hz)
@@ -166,18 +178,36 @@ class MusicAnalysisSession:
         with self._lock:
             if self._latest is None:
                 data: dict[str, object] = {
-                    "level": 0.0, "bass": 0.0, "mid": 0.0, "treble": 0.0,
+                    "level": 0.0,
+                    "bass": 0.0,
+                    "mid": 0.0,
+                    "treble": 0.0,
                     "spectrum": [0.0] * self._analyzer.band_count,
-                    "percussion": {key: 0.0 for key in (
-                        "kick", "bass", "snare", "tom_high", "tom_mid", "tom_low", "cymbal")},
-                    "sample_rate_hz": 0, "fft_size": self._analyzer.fft_size,
+                    "percussion": {
+                        key: 0.0
+                        for key in (
+                            "kick",
+                            "bass",
+                            "snare",
+                            "tom_high",
+                            "tom_mid",
+                            "tom_low",
+                            "cymbal",
+                        )
+                    },
+                    "sample_rate_hz": 0,
+                    "fft_size": self._analyzer.fft_size,
                 }
             else:
                 data = asdict(self._latest)
                 data["spectrum"] = list(self._latest.spectrum)
-            data.update(source=self._source, running=bool(self._capture and self._capture.is_running),
-                        zeroized=self._analyzer.is_zeroized, calibrating=self._calibrating,
-                        capture_error=getattr(self._capture, "last_error", None))
+            data.update(
+                source=self._source,
+                running=bool(self._capture and self._capture.is_running),
+                zeroized=self._analyzer.is_zeroized,
+                calibrating=self._calibrating,
+                capture_error=getattr(self._capture, "last_error", None),
+            )
             return data
 
     def start_zeroize(self) -> dict[str, object]:

@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 
+
 class KeyboardReader(KeyboardReaderIf):
     """
     Reads key-press events from a Linux input device.
@@ -99,9 +100,7 @@ class KeyboardReader(KeyboardReaderIf):
         path = Path(self._device_path)
 
         if not path.exists():
-            raise FileNotFoundError(
-                f"Keyboard input device does not exist: {self._device_path}"
-            )
+            raise FileNotFoundError(f"Keyboard input device does not exist: {self._device_path}")
 
         self._device = InputDevice(self._device_path)
 

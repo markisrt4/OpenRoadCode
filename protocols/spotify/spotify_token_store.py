@@ -34,18 +34,10 @@ class SpotifyTokenStore(OAuthTokenStoreIf):
 
         return OAuthTokens(
             access_token=str(data["access_token"]),
-            refresh_token=(
-                str(refresh_token_value)
-                if refresh_token_value is not None
-                else None
-            ),
+            refresh_token=(str(refresh_token_value) if refresh_token_value is not None else None),
             expires_at=float(data["expires_at"]),
             token_type=str(data.get("token_type", "Bearer")),
-            scope=(
-                str(scope_value)
-                if scope_value is not None
-                else None
-            ),
+            scope=(str(scope_value) if scope_value is not None else None),
         )
 
     def save(self, tokens: OAuthTokens) -> None:

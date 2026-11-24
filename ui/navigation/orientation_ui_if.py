@@ -4,6 +4,7 @@
 from abc import ABC, abstractmethod
 from enum import Enum, auto
 
+
 class HeadingReference(Enum):
     """Reference origin used by a supplied heading."""
 

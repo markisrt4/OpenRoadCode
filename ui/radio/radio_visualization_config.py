@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Frontend-neutral configuration and backend selection for radio visualization."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -39,6 +40,7 @@ def select_renderer(config: RadioVisualizationConfig, *, opengl_available: bool)
             raise RuntimeError("OpenGL radio renderer is unavailable on this display")
         return RadioRenderer.OPENGL
     return RadioRenderer.OPENGL if opengl_available else RadioRenderer.TK
+
 
 RF_SETTINGS_PATH = Path.home() / ".config" / "openroadcode" / "rf_visualization.json"
 

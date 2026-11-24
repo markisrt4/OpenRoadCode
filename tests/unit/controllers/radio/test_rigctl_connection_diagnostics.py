@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Connection diagnostics for the active rigctl transport."""
+
 from unittest.mock import patch
 
 import pytest
@@ -23,8 +24,10 @@ def test_success_records_connection_snapshot():
 
 def test_failure_and_recovery_are_observable():
     client = RigctlClient()
-    with patch("protocols.rigctl.rigctl_client.socket.create_connection",
-               side_effect=ConnectionRefusedError("offline")):
+    with patch(
+        "protocols.rigctl.rigctl_client.socket.create_connection",
+        side_effect=ConnectionRefusedError("offline"),
+    ):
         with pytest.raises(ConnectionRefusedError):
             client.get_frequency()
     state = client.connection_diagnostics()

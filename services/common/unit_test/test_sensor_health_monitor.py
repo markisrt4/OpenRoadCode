@@ -14,10 +14,19 @@ TOPIC = "openroad.navigation.position"
 
 def position(seconds=100, source="gps", cached=False, fix=3):
     return {
-        "version": 1, "timestamp": {"seconds": seconds, "nanoseconds": 0}, "source": source,
-        "data": {"latitude_rad": 0.1, "longitude_rad": 0.2, "altitude_m": 100,
-                 "fix_mode": fix, "satellites_visible": 10, "satellites_used": 8,
-                 "accuracy_m": 3, "is_cached": cached},
+        "version": 1,
+        "timestamp": {"seconds": seconds, "nanoseconds": 0},
+        "source": source,
+        "data": {
+            "latitude_rad": 0.1,
+            "longitude_rad": 0.2,
+            "altitude_m": 100,
+            "fix_mode": fix,
+            "satellites_visible": 10,
+            "satellites_used": 8,
+            "accuracy_m": 3,
+            "is_cached": cached,
+        },
     }
 
 
@@ -27,7 +36,9 @@ class SensorHealthMonitorTest(unittest.TestCase):
         self.monitor = SensorHealthMonitor(monotonic=lambda: self.now)
 
     def row(self, source="gps"):
-        return next(row for row in self.monitor.snapshots() if row.topic == TOPIC and row.source == source)
+        return next(
+            row for row in self.monitor.snapshots() if row.topic == TOPIC and row.source == source
+        )
 
     def test_unseen_streams_are_unknown_not_failed(self):
         self.assertEqual(len(self.monitor.snapshots()), 6)
@@ -92,22 +103,44 @@ class SensorHealthMonitorTest(unittest.TestCase):
     def test_other_sensor_contracts_and_nonfinite_magnetic_data(self):
         vectors = {"x": 0.0, "y": 1.0, "z": 2.0}
         samples = {
-            "openroad.navigation.imu": {"acceleration_m_s2": vectors, "linear_acceleration_m_s2": vectors, "angular_velocity_rad_s": vectors},
+            "openroad.navigation.imu": {
+                "acceleration_m_s2": vectors,
+                "linear_acceleration_m_s2": vectors,
+                "angular_velocity_rad_s": vectors,
+            },
             "openroad.navigation.magnetic_field": {"magnetic_field_ut": vectors},
             "openroad.navigation.attitude": {"heading_rad": 0.0, "pitch_rad": 0.0, "roll_rad": 0.0},
             "openroad.environmental.ambient_light": {"illuminance_lux": 100.0},
-            "openroad.environmental.barometric": {"pressure_pa": 100000.0, "temperature_c": 25.0, "altitude_m": 0.0, "relative_altitude_m": 0.0, "vertical_speed_m_s": 0.0},
+            "openroad.environmental.barometric": {
+                "pressure_pa": 100000.0,
+                "temperature_c": 25.0,
+                "altitude_m": 0.0,
+                "relative_altitude_m": 0.0,
+                "vertical_speed_m_s": 0.0,
+            },
         }
         for topic, data in samples.items():
-            payload = {"version": 1, "source": "test", "timestamp": {"seconds": 100, "nanoseconds": 0}, "data": data}
+            payload = {
+                "version": 1,
+                "source": "test",
+                "timestamp": {"seconds": 100, "nanoseconds": 0},
+                "data": data,
+            }
             if topic.endswith(".imu"):
                 payload["frame_id"] = "vehicle"
             self.monitor.observe(topic, payload)
         self.assertEqual(sum(row.state == "streaming" for row in self.monitor.snapshots()), 5)
-        magnetic = {"version": 1, "source": "test", "timestamp": {"seconds": 101, "nanoseconds": 0},
-                    "data": {"magnetic_field_ut": {"x": float("nan"), "y": 0, "z": 0}}}
+        magnetic = {
+            "version": 1,
+            "source": "test",
+            "timestamp": {"seconds": 101, "nanoseconds": 0},
+            "data": {"magnetic_field_ut": {"x": float("nan"), "y": 0, "z": 0}},
+        }
         self.monitor.observe("openroad.navigation.magnetic_field", magnetic)
-        self.assertEqual(next(row for row in self.monitor.snapshots() if row.name == "Magnetometer").state, "invalid")
+        self.assertEqual(
+            next(row for row in self.monitor.snapshots() if row.name == "Magnetometer").state,
+            "invalid",
+        )
 
     def test_backward_source_clock_is_degraded_and_recovers(self):
         self.monitor.observe(TOPIC, position(100))
@@ -121,6 +154,7 @@ class SensorHealthMonitorTest(unittest.TestCase):
     def test_missing_optional_transport_does_not_crash_monitor(self):
         def missing():
             raise ModuleNotFoundError("zmq", name="zmq")
+
         monitor = SensorHealthMonitor(subscriber_factory=missing)
         monitor.start()
         self.assertIn("pyzmq is missing", monitor.status)
@@ -129,10 +163,12 @@ class SensorHealthMonitorTest(unittest.TestCase):
     def test_close_unblocks_and_releases_receive_thread(self):
         entered, closed = threading.Event(), threading.Event()
         subscriber = Mock()
+
         def receive():
             entered.set()
             closed.wait(2)
             raise RuntimeError("closed")
+
         subscriber.receive.side_effect = receive
         subscriber.close.side_effect = closed.set
         monitor = SensorHealthMonitor(subscriber_factory=lambda: subscriber)

@@ -137,9 +137,7 @@ controller = LedDmxBluetoothController()
 try:
     controller.connect().result(timeout=20)
     controller.set_power(True).result(timeout=5)
-    controller.set_color(
-        RgbColor(255, 120, 0)
-    ).result(timeout=5)
+    controller.set_color(RgbColor(255, 120, 0)).result(timeout=5)
     controller.set_brightness(75).result(timeout=5)
 finally:
     controller.close()

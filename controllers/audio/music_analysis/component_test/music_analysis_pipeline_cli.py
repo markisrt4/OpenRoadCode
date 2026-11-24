@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 """Live PipeWire music-analysis smoke test."""
+
 from __future__ import annotations
 
 import argparse

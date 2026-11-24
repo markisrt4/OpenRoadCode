@@ -20,7 +20,9 @@ def test_encoded_variant_preserves_cache_ownership_and_size(limit):
     source.save(buffer, format="PNG")
     source.close()
     downloader = Mock()
-    downloader.download.return_value = DownloadedImage("https://example.org/art", buffer.getvalue(), "image/png")
+    downloader.download.return_value = DownloadedImage(
+        "https://example.org/art", buffer.getvalue(), "image/png"
+    )
     cache = ImageCache(downloader)
     try:
         load = cached_artwork_loader(cache, max_size=limit)

@@ -23,9 +23,7 @@ class AudioControllerContractTests(unittest.TestCase):
             UnconfiguredAudioController,
         ):
             with self.subTest(controller_type=controller_type):
-                self.assertTrue(
-                    issubclass(controller_type, AudioControllerIf)
-                )
+                self.assertTrue(issubclass(controller_type, AudioControllerIf))
 
     def test_pipewire_controller_reports_available(self) -> None:
         controller = PipewireAudioController()

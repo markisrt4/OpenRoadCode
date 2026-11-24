@@ -23,11 +23,14 @@ def test_live_mode_and_bandwidth_are_exposed() -> None:
 
 
 def test_legacy_wfm_receiver_remains_compatible() -> None:
-    telemetry = receiver_telemetry("receiver", {
-        "channel_frequency_hz": 104_300_000,
-        "stereo_locked": True,
-        "rds": None,
-    })
+    telemetry = receiver_telemetry(
+        "receiver",
+        {
+            "channel_frequency_hz": 104_300_000,
+            "stereo_locked": True,
+            "rds": None,
+        },
+    )
     assert telemetry is not None
     assert telemetry.mode is None
     assert telemetry.bandwidth_hz is None
@@ -36,9 +39,15 @@ def test_legacy_wfm_receiver_remains_compatible() -> None:
 
 
 def test_invalid_live_receiver_mode_is_rejected() -> None:
-    assert receiver_telemetry("receiver", {
-        "channel_frequency_hz": 104_300_000,
-        "mode": "SSB",
-        "bandwidth_hz": 12_500,
-        "running": True,
-    }) is None
+    assert (
+        receiver_telemetry(
+            "receiver",
+            {
+                "channel_frequency_hz": 104_300_000,
+                "mode": "SSB",
+                "bandwidth_hz": 12_500,
+                "running": True,
+            },
+        )
+        is None
+    )

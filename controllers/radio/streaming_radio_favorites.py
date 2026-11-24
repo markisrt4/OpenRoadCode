@@ -29,9 +29,7 @@ class StreamingRadioFavorites:
         *,
         legacy_path: Path | None = None,
     ) -> None:
-        self._storage = storage or PersistentCache(
-            openroadcode_data_dir("radio"), suffix=".json"
-        )
+        self._storage = storage or PersistentCache(openroadcode_data_dir("radio"), suffix=".json")
         self._legacy_path = legacy_path or (
             xdg_config_home() / "openroadcode" / "streaming_radio.toml"
         )

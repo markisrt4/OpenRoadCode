@@ -40,33 +40,17 @@ def present_route(
 
 def _present_route(route: RouteResult, map_renderer: MapRendererClient, padding: float) -> None:
     if not route.shape:
-        raise ValueError(
-            "Cannot present a route with an empty shape"
-        )
+        raise ValueError("Cannot present a route with an empty shape")
 
-    map_renderer.set_route(
-        route_to_geojson(route)
-    )
+    map_renderer.set_route(route_to_geojson(route))
 
-    south = min(
-        point.latitude
-        for point in route.shape
-    )
+    south = min(point.latitude for point in route.shape)
 
-    north = max(
-        point.latitude
-        for point in route.shape
-    )
+    north = max(point.latitude for point in route.shape)
 
-    west = min(
-        point.longitude
-        for point in route.shape
-    )
+    west = min(point.longitude for point in route.shape)
 
-    east = max(
-        point.longitude
-        for point in route.shape
-    )
+    east = max(point.longitude for point in route.shape)
 
     map_renderer.fit_bounds(
         south=south,

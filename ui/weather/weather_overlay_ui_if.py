@@ -5,7 +5,11 @@
 
 from abc import ABC, abstractmethod
 
-from ui.weather.weather_overlay_state import CityWeatherOverlayState, ModelWeatherOverlayState, RouteWeatherOverlayState
+from ui.weather.weather_overlay_state import (
+    CityWeatherOverlayState,
+    ModelWeatherOverlayState,
+    RouteWeatherOverlayState,
+)
 
 
 class WeatherOverlayUiIf(ABC):

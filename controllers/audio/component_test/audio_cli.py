@@ -49,10 +49,7 @@ def main() -> None:
                 continue
 
             if command == "g":
-                print(
-                    f"Volume level: "
-                    f"{controller.get_volume_level()}"
-                )
+                print(f"Volume level: {controller.get_volume_level()}")
                 continue
 
             if command.startswith("s "):

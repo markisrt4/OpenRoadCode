@@ -15,12 +15,7 @@ import unittest
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 INSTALLER = PROJECT_ROOT / "scripts" / "installers" / "host_setup.sh"
 FEATURES = PROJECT_ROOT / "scripts" / "installers" / "installer_features.sh"
-PERMISSIONS = (
-    PROJECT_ROOT
-    / "scripts"
-    / "installers"
-    / "configure_user_permissions.sh"
-)
+PERMISSIONS = PROJECT_ROOT / "scripts" / "installers" / "configure_user_permissions.sh"
 TUI_INSTALLER = PROJECT_ROOT / "scripts" / "installers" / "host_setup_tui.sh"
 VNC_SETUP = PROJECT_ROOT / "scripts" / "installers" / "setup_vnc.sh"
 
@@ -62,6 +57,14 @@ class HostSetupPlanTests(unittest.TestCase):
                 text=True,
                 check=False,
             )
+
+    def test_desktop_plan_includes_native_radio(self) -> None:
+        result = self.run_installer(
+            "--target", "linux-dev", "--feature", "desktop-ui", "--show-plan"
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn("sdrforge", result.stdout)
+        self.assertNotIn("sdrpp", result.stdout)
 
     def test_target_is_required(self) -> None:
         result = self.run_installer("--show-plan")
@@ -371,10 +374,11 @@ class HostSetupPlanTests(unittest.TestCase):
     def test_audio_packages_follow_install_target(self) -> None:
         linux = subprocess.run(
             [
-                "bash", "-c",
-                'source "$1"; OPENROAD_INSTALL_TARGET=linux-dev '
-                'get_feature_packages audio',
-                "feature-test", str(FEATURES),
+                "bash",
+                "-c",
+                'source "$1"; OPENROAD_INSTALL_TARGET=linux-dev get_feature_packages audio',
+                "feature-test",
+                str(FEATURES),
             ],
             capture_output=True,
             text=True,
@@ -382,10 +386,11 @@ class HostSetupPlanTests(unittest.TestCase):
         )
         raspberry_pi = subprocess.run(
             [
-                "bash", "-c",
-                'source "$1"; OPENROAD_INSTALL_TARGET=rpi5 '
-                'get_feature_packages audio',
-                "feature-test", str(FEATURES),
+                "bash",
+                "-c",
+                'source "$1"; OPENROAD_INSTALL_TARGET=rpi5 get_feature_packages audio',
+                "feature-test",
+                str(FEATURES),
             ],
             capture_output=True,
             text=True,
@@ -400,9 +405,11 @@ class HostSetupPlanTests(unittest.TestCase):
     def test_spotify_depends_on_audio(self) -> None:
         result = subprocess.run(
             [
-                "bash", "-c",
+                "bash",
+                "-c",
                 'source "$1"; get_feature_dependencies spotify',
-                "feature-test", str(FEATURES),
+                "feature-test",
+                str(FEATURES),
             ],
             capture_output=True,
             text=True,

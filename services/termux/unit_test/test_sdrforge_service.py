@@ -14,9 +14,7 @@ from services.termux.service_manager import RunitServiceManager
 def test_sdrforge_is_optional_and_profiled() -> None:
     assert "openroadcode-sdrforge" in RunitServiceManager.SERVICES
     assert "openroadcode-sdrforge" not in RunitServiceManager.CORE_STACK
-    assert RunitServiceManager.PROFILE_CONFIGS["openroadcode-sdrforge"] == (
-        "local", "simulated"
-    )
+    assert RunitServiceManager.PROFILE_CONFIGS["openroadcode-sdrforge"] == ("local", "simulated")
 
 
 def test_missing_profile_defaults_to_simulation(tmp_path: Path) -> None:

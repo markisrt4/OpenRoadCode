@@ -8,7 +8,6 @@ from ui.ui_action import UiAction
 
 
 class InputMapperIf(ABC):
-
     @abstractmethod
     def map_input(
         self,

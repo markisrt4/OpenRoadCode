@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 """Immutable diagnostics for tiles requested for one radar frame."""
+
 from dataclasses import dataclass
 
 

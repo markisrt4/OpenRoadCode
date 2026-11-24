@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """SDRForge readiness is independent of runit's process status."""
+
 import io
 from unittest.mock import patch
 
@@ -16,8 +17,9 @@ def test_sdrforge_starting_before_http_is_available():
 
 
 def test_sdrforge_ready_after_health_response():
-    with patch("services.termux.service_manager.urlopen",
-               return_value=io.BytesIO(b'{"status":"ok"}')):
+    with patch(
+        "services.termux.service_manager.urlopen", return_value=io.BytesIO(b'{"status":"ok"}')
+    ):
         state, _ = RunitServiceManager._readiness(
             "openroadcode-sdrforge", "running", "run: service: (pid 123) 3s"
         )

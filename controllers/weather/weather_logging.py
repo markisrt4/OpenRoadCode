@@ -46,21 +46,41 @@ class WeatherLog:
             fields = {"stage": stage, "reason": reason}
             if exception_type is not None:
                 fields["exception_type"] = exception_type
-            self.emit(logging.WARNING, "weather.failed", "Weather operation failed",
-                      operation_id, **fields)
+            self.emit(
+                logging.WARNING,
+                "weather.failed",
+                "Weather operation failed",
+                operation_id,
+                **fields,
+            )
 
     def succeeded(self, operation_id=None, *, stage="provider", **fields):
         with self._lock:
             recovered = self._failures.pop(stage, None) is not None
         if recovered:
-            self.emit(logging.INFO, "weather.recovered", "Weather operation recovered",
-                      operation_id, stage=stage)
-        self.emit(logging.DEBUG, "weather.completed", "Weather operation completed",
-                  operation_id, stage=stage, **fields)
+            self.emit(
+                logging.INFO,
+                "weather.recovered",
+                "Weather operation recovered",
+                operation_id,
+                stage=stage,
+            )
+        self.emit(
+            logging.DEBUG,
+            "weather.completed",
+            "Weather operation completed",
+            operation_id,
+            stage=stage,
+            **fields,
+        )
 
     def stale(self, operation_id=None):
-        self.emit(logging.DEBUG, "weather.result_discarded", "Obsolete weather result discarded",
-                  operation_id)
+        self.emit(
+            logging.DEBUG,
+            "weather.result_discarded",
+            "Obsolete weather result discarded",
+            operation_id,
+        )
 
     def changed(self, key, value, name, message, **fields):
         with self._lock:

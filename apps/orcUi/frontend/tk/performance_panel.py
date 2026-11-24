@@ -9,7 +9,7 @@ import tkinter as tk
 
 from apps.orcUi.trip_presenter import TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
-from ui.automotive.vehicle_configuration import (VehicleConfiguration)
+from ui.automotive.vehicle_configuration import VehicleConfiguration
 from frontends.tk.automotive import DEFAULT_GAUGES, ShifterGauge
 from frontends.tk.automotive.vehicle_gauge_theme import vehicle_gauge_theme_from_style_sheet
 from frontends.tk.automotive.vehicle_gauge_widgets import RoundGauge
@@ -66,7 +66,9 @@ class PerformancePanel(tk.Frame, UiWidget):
         economy = self._driver_labels.get("economy")
         if fuel is not None:
             fuel.configure(
-                text="--" if self._state.fuel_percent is None else f"{self._state.fuel_percent:.0f}%"
+                text="--"
+                if self._state.fuel_percent is None
+                else f"{self._state.fuel_percent:.0f}%"
             )
         if economy is not None:
             economy.configure(
@@ -176,17 +178,25 @@ class PerformancePanel(tk.Frame, UiWidget):
         driver.grid(row=1, column=0, sticky="ew", padx=4, pady=(5, 0))
         driver.grid_columnconfigure(1, weight=1)
         driver.grid_columnconfigure(3, weight=1)
-        for column, (title, key, accent) in enumerate((
-            ("FUEL", "fuel", ui.accent_warning),
-            ("INSTANT ECONOMY", "economy", ui.accent_success),
-        )):
+        for column, (title, key, accent) in enumerate(
+            (
+                ("FUEL", "fuel", ui.accent_warning),
+                ("INSTANT ECONOMY", "economy", ui.accent_success),
+            )
+        ):
             base = column * 2
             tk.Label(
-                driver, text=title, fg=ui.text_muted, bg=ui.surface_alt,
+                driver,
+                text=title,
+                fg=ui.text_muted,
+                bg=ui.surface_alt,
                 font=("Sans", 10, "bold"),
             ).grid(row=0, column=base, sticky="w", padx=(14, 8), pady=8)
             value = tk.Label(
-                driver, text="--", fg=accent, bg=ui.surface_alt,
+                driver,
+                text="--",
+                fg=accent,
+                bg=ui.surface_alt,
                 font=("Sans", 14, "bold"),
             )
             value.grid(row=0, column=base + 1, sticky="w", padx=(0, 18), pady=8)

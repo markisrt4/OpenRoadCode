@@ -5,19 +5,25 @@
 
 from __future__ import annotations
 
-import os
 import tkinter as tk
 from collections.abc import Callable, Sequence
-from pathlib import Path
 from functools import partial
 
 from ui.games import GameStatus, GameUiState, GamesRequestHandlerIf, GamesUiIf
 from ui.theme import ThemeBundle
 from ui.ui_widget import UiWidget
 
+from .game_catalog_icons import game_icon
+from .game_card_layout import bind_game_card_layout
+
 PAGE_SIZE = 6
-FILTERS = (("ALL", "all"), ("CASUAL", "casual"), ("PUZZLE", "puzzle"), ("CARD / BOARD", "card_board"), ("ACTION", "action"))
-_ICON_SIZES = (128, 96, 64, 48, 32, 256)
+FILTERS = (
+    ("ALL", "all"),
+    ("CASUAL", "casual"),
+    ("PUZZLE", "puzzle"),
+    ("CARD / BOARD", "card_board"),
+    ("ACTION", "action"),
+)
 
 
 def catalog_column_count(width: int) -> int:
@@ -229,15 +235,20 @@ class GamesPanel(tk.Frame, GamesUiIf, UiWidget):
             font=("Sans", 14, "bold"),
             padx=16,
             pady=4,
-            highlightthickness=0, bd=0,
+            highlightthickness=0,
+            bd=0,
         )
 
     def _paint_status(self) -> None:
         ui = self._theme.ui
         message = self._status_message
-        if message.startswith(("Install failed", "Launch failed", "Embed failed", "No runtime", "Stop failed")):
+        if message.startswith(
+            ("Install failed", "Launch failed", "Embed failed", "No runtime", "Stop failed")
+        ):
             color = ui.accent_danger
-        elif message.startswith(("Installing", "Checking", "Refreshing", "Embedding", "Launching", "Stopping")):
+        elif message.startswith(
+            ("Installing", "Checking", "Refreshing", "Embedding", "Launching", "Stopping")
+        ):
             color = ui.accent_primary
         elif message.startswith(("Installed", "Playing")):
             color = ui.accent_success
@@ -294,7 +305,7 @@ class GamesPanel(tk.Frame, GamesUiIf, UiWidget):
             fg=ui.text,
             bg=ui.background,
             font=("Sans", 18, "bold"),
-        ).place(relx=.5, rely=.45, anchor="center")
+        ).place(relx=0.5, rely=0.45, anchor="center")
 
     def _refresh_cards(self) -> None:
         self._clear_body()
@@ -314,19 +325,22 @@ class GamesPanel(tk.Frame, GamesUiIf, UiWidget):
                 fg=ui.text_muted,
                 bg=ui.background,
                 font=("Sans", 18, "bold"),
-            ).place(relx=.5, rely=.45, anchor="center")
+            ).place(relx=0.5, rely=0.45, anchor="center")
             return
         page_count = max(1, (len(games) + self._page_size - 1) // self._page_size)
         self._page = min(self._page, page_count - 1)
         start = self._page * self._page_size
-        page_games = games[start:start + self._page_size]
-        self._page_label.configure(text=f"{self._page + 1} / {page_count}" if page_count > 1 else "")
+        page_games = games[start : start + self._page_size]
+        self._page_label.configure(
+            text=f"{self._page + 1} / {page_count}" if page_count > 1 else ""
+        )
         self._prev_button.configure(state=tk.NORMAL if self._page > 0 else tk.DISABLED)
         self._next_button.configure(state=tk.NORMAL if self._page + 1 < page_count else tk.DISABLED)
         # Keep six games per page. Let cards request their natural height and
         # scroll the content rather than hiding games or stretching one row.
-        canvas = tk.Canvas(self._body, bg=self._theme.ui.background,
-                           highlightthickness=0, width=1, height=1)
+        canvas = tk.Canvas(
+            self._body, bg=self._theme.ui.background, highlightthickness=0, width=1, height=1
+        )
         scrollbar = tk.Scrollbar(self._body, orient=tk.VERTICAL, command=canvas.yview)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         canvas.pack(fill=tk.BOTH, expand=True)
@@ -344,44 +358,11 @@ class GamesPanel(tk.Frame, GamesUiIf, UiWidget):
                 pady=5,
             )
         canvas.bind("<Configure>", lambda event: canvas.itemconfigure(window, width=event.width))
-        self._cards.bind("<Configure>", lambda event: canvas.configure(scrollregion=canvas.bbox("all")))
+        self._cards.bind(
+            "<Configure>", lambda event: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
         canvas.bind("<Button-4>", lambda event: canvas.yview_scroll(-1, "units"))
         canvas.bind("<Button-5>", lambda event: canvas.yview_scroll(1, "units"))
-
-    def _find_icon(self, icon_name: str) -> Path | None:
-        prefix = Path(os.environ.get("PREFIX", "/usr"))
-        for root in (prefix / "share" / "pixmaps", Path("/usr/share/pixmaps")):
-            for extension in ("png", "gif"):
-                candidate = root / f"{icon_name}.{extension}"
-                if candidate.is_file():
-                    return candidate
-        for root in (prefix / "share" / "icons", Path("/usr/share/icons")):
-            for icon_theme in ("hicolor", "breeze", "breeze-dark", "Adwaita"):
-                for size in _ICON_SIZES:
-                    for context in ("apps", "applications"):
-                        for extension in ("png", "gif"):
-                            candidate = root / icon_theme / f"{size}x{size}" / context / f"{icon_name}.{extension}"
-                            if candidate.is_file():
-                                return candidate
-        return None
-
-    def _icon_for(self, game: GameUiState) -> tk.PhotoImage | None:
-        if not game.icon:
-            return None
-        if game.icon in self._icon_cache:
-            return self._icon_cache[game.icon]
-        path = self._find_icon(game.icon)
-        image: tk.PhotoImage | None = None
-        if path is not None:
-            try:
-                image = tk.PhotoImage(file=str(path))
-                maximum = max(image.width(), image.height())
-                if maximum > 56:
-                    image = image.subsample(max(1, (maximum + 55) // 56), max(1, (maximum + 55) // 56))
-            except tk.TclError:
-                image = None
-        self._icon_cache[game.icon] = image
-        return image
 
     def _game_card(self, parent: tk.Misc, game: GameUiState) -> tk.Frame:
         ui = self._theme.ui
@@ -397,7 +378,7 @@ class GamesPanel(tk.Frame, GamesUiIf, UiWidget):
 
         label, command, accent = self._action_for(game)
         actionable = command is not None
-        icon = self._icon_for(game)
+        icon = game_icon(game.icon, self._icon_cache)
 
         icon_box = tk.Frame(card, bg=ui.surface, width=58, height=56)
         icon_box.grid(row=0, column=0, rowspan=2, padx=(8, 2), pady=5)
@@ -436,14 +417,14 @@ class GamesPanel(tk.Frame, GamesUiIf, UiWidget):
         )
         description_label.grid(row=1, column=1, columnspan=2, sticky="nsew", padx=(4, 6))
 
-        tk.Label(
+        status_label = tk.Label(
             card,
             text=game.status.name,
             fg=accent,
             bg=ui.surface,
             font=("Sans", 14, "bold"),
             anchor="w",
-        ).grid(row=2, column=1, sticky="ew", padx=(4, 6), pady=(1, 5))
+        )
 
         action = tk.Button(
             card,
@@ -467,30 +448,33 @@ class GamesPanel(tk.Frame, GamesUiIf, UiWidget):
             pady=5,
             cursor="hand2" if actionable else "",
         )
-        action.grid(
-            row=2,
-            column=2,
-            padx=(4, 8),
-            pady=9,
-            sticky="ew",
-        )
-
-        def wrap_text(event: tk.Event) -> None:
-            available_width = max(1, event.width - 70 - 16)
-            name_label.configure(wraplength=available_width)
-            description_label.configure(wraplength=available_width)
-
-        card.bind("<Configure>", wrap_text)
+        bind_game_card_layout(card, name_label, description_label, status_label, action)
         return card
 
     def _action_for(self, game: GameUiState) -> tuple[str, Callable[[], None] | None, str]:
         ui = self._theme.ui
         if game.status is GameStatus.READY:
-            return "PLAY", lambda: self._request_handler.request_launch_game(game.game_id) if self._request_handler else None, ui.accent_success
+            return (
+                "PLAY",
+                lambda: (
+                    self._request_handler.request_launch_game(game.game_id)
+                    if self._request_handler
+                    else None
+                ),
+                ui.accent_success,
+            )
         if game.status is GameStatus.RUNNING:
             return "PLAYING", None, ui.accent_success
         if game.status is GameStatus.AVAILABLE:
-            return "INSTALL", lambda: self._request_handler.request_install_game(game.game_id) if self._request_handler else None, ui.accent_primary
+            return (
+                "INSTALL",
+                lambda: (
+                    self._request_handler.request_install_game(game.game_id)
+                    if self._request_handler
+                    else None
+                ),
+                ui.accent_primary,
+            )
         if game.status is GameStatus.INSTALLING:
             return "INSTALLING", None, ui.accent_primary
         if game.status is GameStatus.CHECKING:

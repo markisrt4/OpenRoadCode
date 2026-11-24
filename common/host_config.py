@@ -50,9 +50,11 @@ def installed_target(config_path: str | Path | None = None) -> str | None:
             return normalized
 
     try:
-        model = Path("/proc/device-tree/model").read_text(
-            encoding="utf-8", errors="ignore"
-        ).replace("\x00", "")
+        model = (
+            Path("/proc/device-tree/model")
+            .read_text(encoding="utf-8", errors="ignore")
+            .replace("\x00", "")
+        )
     except OSError:
         return None
     if "Raspberry Pi 5" in model or "Raspberry Pi 500" in model or "Compute Module 5" in model:
@@ -71,10 +73,7 @@ def orcui_fullscreen_default(config_path: str | Path | None = None) -> bool:
             return True
         if normalized in _FALSE_VALUES:
             return False
-        raise ValueError(
-            "ORCUI_FULLSCREEN must be one of: "
-            "1/0, true/false, yes/no, or on/off"
-        )
+        raise ValueError("ORCUI_FULLSCREEN must be one of: 1/0, true/false, yes/no, or on/off")
 
     return installed_target(config_path) in _RPI_TARGETS
 
@@ -89,7 +88,4 @@ def orcui_borderless_default() -> bool:
         return True
     if normalized in _FALSE_VALUES:
         return False
-    raise ValueError(
-        "ORCUI_BORDERLESS must be one of: "
-        "1/0, true/false, yes/no, or on/off"
-    )
+    raise ValueError("ORCUI_BORDERLESS must be one of: 1/0, true/false, yes/no, or on/off")

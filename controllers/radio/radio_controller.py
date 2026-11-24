@@ -21,6 +21,7 @@ def format_frequency(frequency_hz: int) -> str:
 
     return f"{frequency_hz} Hz"
 
+
 class RadioController(RadioControllerIf):
     """Coordinate radio tuning, modes, presets, and receiver telemetry."""
 

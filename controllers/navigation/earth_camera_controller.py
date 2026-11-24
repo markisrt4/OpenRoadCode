@@ -7,7 +7,10 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from controllers.navigation.earth_camera_controller_if import EarthCameraControllerIf, EarthCameraView
+from controllers.navigation.earth_camera_controller_if import (
+    EarthCameraControllerIf,
+    EarthCameraView,
+)
 
 
 class EarthCameraController:

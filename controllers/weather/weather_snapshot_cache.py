@@ -55,9 +55,7 @@ class WeatherSnapshotCache:
 
     @staticmethod
     def _decode(value: Any) -> WeatherSnapshot:
-        if not isinstance(value, dict) or not isinstance(
-            value["forecast"], dict
-        ):
+        if not isinstance(value, dict) or not isinstance(value["forecast"], dict):
             raise ValueError("invalid weather snapshot")
         return WeatherSnapshot(
             latitude=float(value["latitude"]),

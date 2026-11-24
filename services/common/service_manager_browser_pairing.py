@@ -99,9 +99,7 @@ class ServiceManagerBrowserPairing:
     def _prune_expired(self) -> None:
         now = time.time()
         expired = [
-            session_id
-            for session_id, session in self._sessions.items()
-            if now > session.expires_at
+            session_id for session_id, session in self._sessions.items() if now > session.expires_at
         ]
         for session_id in expired:
             self._sessions.pop(session_id, None)

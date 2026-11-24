@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 """PipeWire audio capture using pw-record's raw PCM output."""
+
 from __future__ import annotations
 
 import shutil

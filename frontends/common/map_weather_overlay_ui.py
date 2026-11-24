@@ -19,12 +19,30 @@ class MapWeatherOverlayUi(WeatherOverlayUiIf):
         features = []
         if state.enabled and state.visible:
             for point in state.points:
-                features.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [
-                    math.degrees(point.position.longitude_rad), math.degrees(point.position.latitude_rad)]},
-                    "properties": {"name": point.name, "weather_city_id": point.city_id,
-                                   "value": weather_value(point.value_si, state.kind, self._unit_system().value == "imperial"),
-                                   "color": "#f8e58b" if state.kind == "temperature" else
-                                            "#a6edff" if state.kind == "wind" else "#a2f2c4"}})
+                features.append(
+                    {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [
+                                math.degrees(point.position.longitude_rad),
+                                math.degrees(point.position.latitude_rad),
+                            ],
+                        },
+                        "properties": {
+                            "name": point.name,
+                            "weather_city_id": point.city_id,
+                            "value": weather_value(
+                                point.value_si, state.kind, self._unit_system().value == "imperial"
+                            ),
+                            "color": "#f8e58b"
+                            if state.kind == "temperature"
+                            else "#a6edff"
+                            if state.kind == "wind"
+                            else "#a2f2c4",
+                        },
+                    }
+                )
         self._renderer.set_city_weather({"type": "FeatureCollection", "features": features})
 
     def set_model_weather_state(self, state):
@@ -32,16 +50,34 @@ class MapWeatherOverlayUi(WeatherOverlayUiIf):
         if raster is None:
             self._renderer.set_weather_field(None, enabled=False)
         else:
-            self._renderer.set_weather_field(raster.tile_url, frame_time=raster.frame_time,
-                                             max_zoom=raster.max_zoom, opacity=raster.opacity)
+            self._renderer.set_weather_field(
+                raster.tile_url,
+                frame_time=raster.frame_time,
+                max_zoom=raster.max_zoom,
+                opacity=raster.opacity,
+            )
 
     def set_route_weather_state(self, state):
         features = []
         if state.enabled and state.layers:
             for index, point in enumerate(state.points, 1):
-                arrival = point.arrival.astimezone().strftime('%I:%M %p').lstrip('0')
-                features.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [
-                    math.degrees(point.position.longitude_rad), math.degrees(point.position.latitude_rad)]},
-                    "properties": {"label": f"{index} · ~{arrival}\n" +
-                                   route_weather_label(point, state.layers, self._unit_system().value == "imperial")}})
+                arrival = point.arrival.astimezone().strftime("%I:%M %p").lstrip("0")
+                features.append(
+                    {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [
+                                math.degrees(point.position.longitude_rad),
+                                math.degrees(point.position.latitude_rad),
+                            ],
+                        },
+                        "properties": {
+                            "label": f"{index} · ~{arrival}\n"
+                            + route_weather_label(
+                                point, state.layers, self._unit_system().value == "imperial"
+                            )
+                        },
+                    }
+                )
         self._renderer.set_route_weather({"type": "FeatureCollection", "features": features})

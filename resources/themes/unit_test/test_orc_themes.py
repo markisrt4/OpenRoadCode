@@ -62,9 +62,7 @@ def test_packaged_theme_contains_complete_offroad_palette(filename: str) -> None
 
 @pytest.mark.parametrize("filename", _THEME_FILES)
 def test_automotive_gauge_defines_linear_card_palette(filename: str) -> None:
-    values = load_theme_bundle(_THEME_ROOT / filename).style_sheet.declarations(
-        ".automotive-gauge"
-    )
+    values = load_theme_bundle(_THEME_ROOT / filename).style_sheet.declarations(".automotive-gauge")
 
     required = {
         "--linear-card-background",

@@ -11,6 +11,7 @@ from ui.ui_widget import UiWidget
 @dataclass(frozen=True, slots=True)
 class VolumeIndicatorStyle:
     """Define dimensions and colors for the system volume indicator."""
+
     background: str
     active: str
     inactive: str
@@ -25,6 +26,7 @@ class VolumeIndicatorStyle:
 
 class VolumeIndicator(tk.Frame, UiWidget):
     """Render volume level and mute state as a vertical bar graph."""
+
     def __init__(
         self,
         parent: tk.Widget,
@@ -58,9 +60,7 @@ class VolumeIndicator(tk.Frame, UiWidget):
                 color = self._style.active
             else:
                 color = self._style.inactive
-            bar.configure(
-                bg=color
-            )
+            bar.configure(bg=color)
 
     def _build(self) -> None:
         for index in range(self._steps):

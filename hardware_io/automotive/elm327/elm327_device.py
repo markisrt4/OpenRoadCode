@@ -64,8 +64,7 @@ class Elm327Device:
         except Elm327CommandError as exc:
             self.disconnect()
             raise Elm327ConnectionError(
-                f"Connected to {self._port}, but ELM327 initialization "
-                f"failed: {exc}"
+                f"Connected to {self._port}, but ELM327 initialization failed: {exc}"
             ) from exc
         except OSError as exc:
             self.disconnect()
@@ -103,9 +102,7 @@ class Elm327Device:
                 lines=self._parse_lines(raw),
             )
         except OSError as exc:
-            raise Elm327CommandError(
-                f"ELM327 command failed: {normalized_command}: {exc}"
-            ) from exc
+            raise Elm327CommandError(f"ELM327 command failed: {normalized_command}: {exc}") from exc
 
     def _initialize(self) -> None:
         for command in self.INITIALIZATION_COMMANDS:
@@ -129,11 +126,7 @@ class Elm327Device:
 
     @staticmethod
     def _parse_lines(raw: str) -> tuple[str, ...]:
-        return tuple(
-            line.strip()
-            for line in raw.replace(">", "").splitlines()
-            if line.strip()
-        )
+        return tuple(line.strip() for line in raw.replace(">", "").splitlines() if line.strip())
 
     def __enter__(self) -> Elm327Device:
         self.connect()

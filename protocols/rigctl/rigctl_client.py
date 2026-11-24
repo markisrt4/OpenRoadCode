@@ -18,6 +18,7 @@ class RigctlConnectionDiagnostics:
     last_success_monotonic: float | None
     last_error: str | None
 
+
 SDRPP_MODE_MAP = {
     "NFM": "NFM",
     "FM": "FM",
@@ -51,8 +52,11 @@ class RigctlClient:
 
     def connection_diagnostics(self) -> RigctlConnectionDiagnostics:
         return RigctlConnectionDiagnostics(
-            self._state, self._requests, self._failures,
-            self._last_success_monotonic, self._last_error,
+            self._state,
+            self._requests,
+            self._failures,
+            self._last_success_monotonic,
+            self._last_error,
         )
 
     def send(self, command: str) -> str:
@@ -64,9 +68,7 @@ class RigctlClient:
 
         self._requests += 1
         try:
-            with socket.create_connection(
-                (self.host, self.port), timeout=self.timeout
-            ) as sock:
+            with socket.create_connection((self.host, self.port), timeout=self.timeout) as sock:
                 sock.settimeout(self.timeout)
                 sock.sendall(wire_command.encode("utf-8"))
                 try:

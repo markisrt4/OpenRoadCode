@@ -263,7 +263,7 @@ Run the complete repository gate before declaring a feature complete:
 python scripts/quality_gate.py
 ```
 
-It runs Ruff, module size, project-wide and weather UI boundary checks, Doxygen
+It runs Ruff lint and format checks, module size, project-wide and weather UI boundary checks, Doxygen
 contract documentation, Mermaid legends, and unit/integration tests. CI also
 checks documentation, browser audio, shell syntax, runtime state, whitespace,
 and logging. Record unavailable hardware/service validation separately from

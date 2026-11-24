@@ -8,7 +8,10 @@ from apps.orcUi.frontend.tk.navigation_panel import NavigationPanel
 from controllers.navigation.map_controls_drawer_controller import MapControlsDrawerController
 from apps.orcUi.frontend.tk.navigation_poi_actions import poll_poi_launch_results
 from ui.navigation import GeoPoint
-from ui.navigation.navigation_places_request_handler_if import NavigationPlacesRequestHandlerIf, PlaceActionResult
+from ui.navigation.navigation_places_request_handler_if import (
+    NavigationPlacesRequestHandlerIf,
+    PlaceActionResult,
+)
 from ui.navigation.poi_models import PoiAction, PoiActionKind, PoiCategory, PointOfInterest
 
 
@@ -36,11 +39,15 @@ class EarthPoiControlTest(unittest.TestCase):
         )
         self.panel.pack(fill=tk.BOTH, expand=True)
         self.root.update()
-        self.action = PoiAction(PoiActionKind.OPEN_WEBSITE, "Explore in Google Earth",
-                                provider_id="google-earth-explore",
-                                uri="https://earth.google.com/web/search/42,-83")
-        self.poi = PointOfInterest("poi", "Selected place", PoiCategory.OTHER,
-                                   GeoPoint(.7, -1.4), actions=(self.action,))
+        self.action = PoiAction(
+            PoiActionKind.OPEN_WEBSITE,
+            "Explore in Google Earth",
+            provider_id="google-earth-explore",
+            uri="https://earth.google.com/web/search/42,-83",
+        )
+        self.poi = PointOfInterest(
+            "poi", "Selected place", PoiCategory.OTHER, GeoPoint(0.7, -1.4), actions=(self.action,)
+        )
 
     def show(self, poi=None):
         self.panel._show_poi_card(poi or self.poi)
@@ -55,8 +62,10 @@ class EarthPoiControlTest(unittest.TestCase):
         self.assertTrue(self.panel._earth_icon.transparency_get(0, 0))
         self.assertFalse(self.panel._earth_icon.transparency_get(23, 23))
         self.assertGreaterEqual(button.winfo_rootx(), self.panel._poi_card.winfo_rootx())
-        self.assertLessEqual(button.winfo_rootx()+button.winfo_width(),
-                             self.panel._poi_card.winfo_rootx()+self.panel._poi_card.winfo_width())
+        self.assertLessEqual(
+            button.winfo_rootx() + button.winfo_width(),
+            self.panel._poi_card.winfo_rootx() + self.panel._poi_card.winfo_width(),
+        )
         button.invoke()
         self.places.request_action.assert_called_once_with(self.poi, self.action)
         self.assertEqual(str(button.cget("state")), "disabled")
@@ -67,13 +76,17 @@ class EarthPoiControlTest(unittest.TestCase):
     def test_action_row_has_icons_above_labels_and_close_returns_to_map(self):
         earth = self.show()
         buttons = [child for child in earth.master.winfo_children() if isinstance(child, tk.Button)]
-        self.assertEqual([button.cget("text") for button in buttons], ["Navigate", "Earth", "Close"])
+        self.assertEqual(
+            [button.cget("text") for button in buttons], ["Navigate", "Earth", "Close"]
+        )
         self.assertEqual(len({button.winfo_y() for button in buttons}), 1)
         for button in buttons:
             self.assertEqual(str(button.cget("compound")), "top")
             self.assertTrue(button.cget("image"))
-            self.assertLessEqual(button.winfo_rooty()+button.winfo_height(),
-                                 self.panel._poi_card.winfo_rooty()+self.panel._poi_card.winfo_height())
+            self.assertLessEqual(
+                button.winfo_rooty() + button.winfo_height(),
+                self.panel._poi_card.winfo_rooty() + self.panel._poi_card.winfo_height(),
+            )
         buttons[-1].invoke()
         self.assertFalse(earth.winfo_exists())
         self.assertTrue(self.panel._map_host.winfo_viewable())
@@ -96,11 +109,15 @@ class EarthPoiControlTest(unittest.TestCase):
     def test_replacing_popup_does_not_retarget_click_or_close_new_card_on_old_completion(self):
         old_button = self.show()
         old_button.invoke()
-        new_action = PoiAction(PoiActionKind.OPEN_WEBSITE, "Explore in Google Earth",
-                               provider_id="google-earth-explore",
-                               uri="https://earth.google.com/web/search/43,-84")
-        new_poi = PointOfInterest("other", "Other place", PoiCategory.OTHER,
-                                  GeoPoint(.75, -1.45), actions=(new_action,))
+        new_action = PoiAction(
+            PoiActionKind.OPEN_WEBSITE,
+            "Explore in Google Earth",
+            provider_id="google-earth-explore",
+            uri="https://earth.google.com/web/search/43,-84",
+        )
+        new_poi = PointOfInterest(
+            "other", "Other place", PoiCategory.OTHER, GeoPoint(0.75, -1.45), actions=(new_action,)
+        )
         new_button = self.show(new_poi)
         self.assertFalse(old_button.winfo_exists())
         self.assertEqual(str(new_button.cget("state")), "disabled")
@@ -128,28 +145,32 @@ class EarthPoiControlTest(unittest.TestCase):
 
     def test_local_3d_button_remains_enabled_offline_and_launches_selected_place(self):
         from dataclasses import replace
-        action = PoiAction(PoiActionKind.EXPLORE_3D, 'Offline 3D', provider_id='local-3d')
-        selected = replace(self.poi, actions=self.poi.actions+(action,))
+
+        action = PoiAction(PoiActionKind.EXPLORE_3D, "Offline 3D", provider_id="local-3d")
+        selected = replace(self.poi, actions=self.poi.actions + (action,))
         self.panel._online_mode = Mock(online=False)
         self.show(selected)
         button = self.panel._local_3d_button
-        self.assertEqual(str(self.panel._earth_button.cget('state')), 'disabled')
-        self.assertEqual(str(button.cget('state')), 'normal')
-        self.assertEqual(button.cget('text'), '3D Map')
-        self.assertLessEqual(button.winfo_rootx()+button.winfo_width(),
-                             self.panel._poi_card.winfo_rootx()+self.panel._poi_card.winfo_width())
+        self.assertEqual(str(self.panel._earth_button.cget("state")), "disabled")
+        self.assertEqual(str(button.cget("state")), "normal")
+        self.assertEqual(button.cget("text"), "3D Map")
+        self.assertLessEqual(
+            button.winfo_rootx() + button.winfo_width(),
+            self.panel._poi_card.winfo_rootx() + self.panel._poi_card.winfo_width(),
+        )
         button.invoke()
         self.places.request_action.assert_called_once_with(selected, action)
-        self.assertEqual(str(button.cget('state')), 'disabled')
+        self.assertEqual(str(button.cget("state")), "disabled")
 
 
 class Local3DOfflineRequestTest(unittest.TestCase):
     def test_local_3d_request_does_not_require_online_mode(self):
         from apps.orcUi.frontend.tk.navigation_poi_actions import execute_poi_action
+
         panel = Mock(online_actions_allowed=False, _poi_launching=False)
         panel._places_handler.request_action.return_value = 1
-        action = PoiAction(PoiActionKind.EXPLORE_3D,'Offline 3D',provider_id='local-3d')
-        poi = PointOfInterest('local','Place',PoiCategory.OTHER,GeoPoint(.7,-1.4))
-        execute_poi_action(panel,poi,action)
-        panel._places_handler.request_action.assert_called_once_with(poi,action)
+        action = PoiAction(PoiActionKind.EXPLORE_3D, "Offline 3D", provider_id="local-3d")
+        poi = PointOfInterest("local", "Place", PoiCategory.OTHER, GeoPoint(0.7, -1.4))
+        execute_poi_action(panel, poi, action)
+        panel._places_handler.request_action.assert_called_once_with(poi, action)
         self.assertTrue(panel._poi_launching)

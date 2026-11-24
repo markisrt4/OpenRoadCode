@@ -35,8 +35,6 @@ def test_home_toggle_uses_shared_state_and_updates_label():
     assert panel._radar_button.configure.call_args.kwargs["text"] == "☁ OFF"
 
 
-
-
 def test_radar_menu_opens_collapsible_timeline_and_keeps_cloud_toggle():
     panel = object.__new__(NavigationPanel)
     panel._theme_bundle = theme_bundle(ThemeMode.DARK)
@@ -51,8 +49,13 @@ def test_radar_menu_opens_collapsible_timeline_and_keeps_cloud_toggle():
     panel._on_radar_speed = Mock()
     panel._radar_speed = 1.0
     panel._on_radar_source = Mock()
-    with patch.multiple("apps.orcUi.frontend.tk.navigation_radar_controls.tk",
-                        Menubutton=Mock(), Menu=Mock(), BooleanVar=Mock(), Button=Mock()):
+    with patch.multiple(
+        "apps.orcUi.frontend.tk.navigation_radar_controls.tk",
+        Menubutton=Mock(),
+        Menu=Mock(),
+        BooleanVar=Mock(),
+        Button=Mock(),
+    ):
         # Avoid a Tcl interpreter; menu contents and callback wiring are asserted below.
         panel._render_radar_state = Mock()
         panel._build_radar_controls(Mock())
@@ -91,16 +94,31 @@ def test_cloud_toggle_reflects_visibility_without_changing_camera():
 def test_weather_state_renders_provider_role_and_current_temperature():
     from common.units.unit_system import UnitSystem
     from ui.weather.weather_ui_if import WeatherCurrentUiState, WeatherUiState
+
     panel = object.__new__(OrcWeatherPanel)
     panel._theme_bundle = lambda: theme_bundle(ThemeMode.DARK)
     panel._unit_system = lambda: UnitSystem.IMPERIAL
-    for name in ('_location', '_provider_label', '_symbol', '_temperature', '_condition', '_summary'):
+    for name in (
+        "_location",
+        "_provider_label",
+        "_symbol",
+        "_temperature",
+        "_condition",
+        "_summary",
+    ):
         setattr(panel, name, Mock())
     panel._metric_cards = [(None, None, Mock()) for _ in range(3)]
     panel._render_forecasts = Mock()
-    panel.set_weather_state(WeatherUiState(
-        location_name='Detroit', provider_label='Open-Meteo', fetched_at=1000,
-        current=WeatherCurrentUiState(temperature_k=283.15)))
-    assert panel._provider_label.configure.call_args.kwargs['text'].startswith('Weather data provider: Open-Meteo')
-    assert panel._temperature.configure.call_args.kwargs['text'] == '50°F'
+    panel.set_weather_state(
+        WeatherUiState(
+            location_name="Detroit",
+            provider_label="Open-Meteo",
+            fetched_at=1000,
+            current=WeatherCurrentUiState(temperature_k=283.15),
+        )
+    )
+    assert panel._provider_label.configure.call_args.kwargs["text"].startswith(
+        "Weather data provider: Open-Meteo"
+    )
+    assert panel._temperature.configure.call_args.kwargs["text"] == "50°F"
     panel._render_forecasts.assert_called_once()

@@ -41,9 +41,7 @@ class NavigationControllerContractTests(unittest.TestCase):
             UnconfiguredNavigationController,
         ):
             with self.subTest(controller_type=controller_type):
-                self.assertTrue(
-                    issubclass(controller_type, NavigationControllerIf)
-                )
+                self.assertTrue(issubclass(controller_type, NavigationControllerIf))
                 self.assertFalse(controller_type.__abstractmethods__)
 
 
