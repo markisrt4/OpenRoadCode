@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import replace
 from threading import Event, Lock, RLock, Thread
-from time import sleep
+from time import monotonic, sleep
 import json
 import urllib.request
 import urllib.error
@@ -73,7 +73,11 @@ class ReceiverSession:
         self._view: RfRadioUi | None = None
         self._host: RadioHost | None = None
         self._native_view = "none"
-        self._state = RfRadioState(radio.state, self._profiles(), waterfall=True)
+        self._next_catalog_refresh = 0.0
+        self._state = RfRadioState(
+            radio.state, self._profiles(), waterfall=True,
+            presets_writable=radio.catalog.presets_writable,
+        )
 
     def _set_station(self, station: RadioProfileState) -> None:
         """Invalidate telemetry when rigctl or a local request changes station."""
@@ -211,6 +215,9 @@ class ReceiverSession:
             return self._active and not self._closed and self._generation == generation
 
     def _publish(self, generation: int) -> None:
+        self._state = replace(
+            self._state, presets_writable=self._radio.catalog.presets_writable,
+        )
         state = replace(self._state, tuning_range=self._radio.scan_range)
         def deliver() -> None:
             if self._current(generation) and self._view is not None:
@@ -319,6 +326,11 @@ class ReceiverSession:
                         self._surface.resize(self._host.width, self._host.height)
             return
         if action is RadioAction.REFRESH:
+            now = monotonic()
+            if now >= self._next_catalog_refresh:
+                self._radio.catalog.reload()
+                self._next_catalog_refresh = monotonic() + 5.0
+                self._state = replace(self._state, profiles=self._profiles())
             # Rigctl is the authoritative receiver state, including external
             # changes made by Android. Do not retune during a refresh.
             if self._native_view != "adsb":
