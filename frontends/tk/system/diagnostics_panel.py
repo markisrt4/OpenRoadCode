@@ -200,10 +200,10 @@ class DiagnosticsPanel(tk.Frame, UiWidget):
         status = health.get("status", "unavailable")
         ui = self._theme.ui
         stale = health.get("stale", False)
-        age = health.get("last_success_age_seconds")
+        age = health.get("last_data_refresh_age_seconds")
         freshness = "--" if age is None else f"{age / 60:.1f} min ago"
         self._calendar_status.configure(
-            text=f"Calendar sync: {status.title()}{' · Stale' if stale else ''} · Last success: {freshness}",
+            text=f"Calendar sync: {status.title()}{' · Stale' if stale else ''} · Data refreshed: {freshness}",
             fg=ui.accent_danger
             if status == "failed"
             else ui.accent_warning
