@@ -166,7 +166,7 @@ get_feature_packages() {
       ;;
     sdrforge) echo "libportaudio2" ;;
     navigation)
-      echo ""
+      echo "rsync curl python3-zmq libzmq3-dev libspdlog-dev libglfw3-dev libgles-dev libcurl4-openssl-dev libjpeg-dev libuv1-dev libwebp-dev libicu-dev libpng-dev libprotobuf-dev liblz4-dev libgeotiff-dev libczmq-dev libxxhash-dev libsqlite3-dev libspatialite-dev libssl-dev libluajit-5.1-dev"
       ;;
     *)
       echo ""
