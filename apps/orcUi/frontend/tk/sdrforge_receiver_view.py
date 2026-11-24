@@ -391,7 +391,8 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, SdrForgeViewportMixin,
                 target = getattr(self, "_pending_viewport_center", None)
                 self._pending_viewport_center = None
                 self._viewport = replace(
-                    self._viewport, center_hz=float(center_frequency_hz if target is None else target)
+                    self._viewport,
+                    center_hz=float(center_frequency_hz if target is None else target),
                 )
             self._constrain_viewport()
         if len(self._bins) == len(raw):

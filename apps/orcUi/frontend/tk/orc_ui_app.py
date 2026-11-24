@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Integrated OpenRoadCode automotive application shell."""
+
 from __future__ import annotations
 import os
 import signal
@@ -31,8 +32,10 @@ from ui.weather import WeatherAlertUiEvent
 from ui.radio import AircraftMenuRequestHandlerIf, AircraftMenuUiState
 from ui.ui_widget import UiWidget
 
+
 class OrcUiApp(VolumeUiIf, UiWidget):
     """Own the integrated Tk application shell."""
+
     def __init__(
         self,
         *,
@@ -53,7 +56,8 @@ class OrcUiApp(VolumeUiIf, UiWidget):
         self._performance_overlay = PerformanceOverlay(self._root)
         self._error_dialog = ErrorDialog(self._root, lambda: self._theme)
         self.notification_sink = NotificationDispatcher(
-            self.dispatch_ui, self._present_notification,
+            self.dispatch_ui,
+            self._present_notification,
         )
         self._root.bind_all("<Control-Shift-P>", self._toggle_performance_overlay)
         with ResourceCleanup() as cleanup:
@@ -122,9 +126,11 @@ class OrcUiApp(VolumeUiIf, UiWidget):
     @property
     def theme_mode(self) -> ThemeMode:
         return self._theme_mode
+
     @property
     def screen_parent(self) -> tk.Misc:
         return self._content
+
     def set_theme_change_handler(
         self,
         handler: Callable[[ThemeMode], None] | None,
@@ -142,18 +148,19 @@ class OrcUiApp(VolumeUiIf, UiWidget):
     ) -> None:
         """Connect the shell volume controls to a semantic request handler."""
         self._volume_request_handler = handler
+
     def set_volume(self, volume_percent: float | None) -> None:
         """Display normalized system volume state in the shell."""
         self._volume_percent = (
-            None
-            if volume_percent is None
-            else max(0.0, min(100.0, volume_percent))
+            None if volume_percent is None else max(0.0, min(100.0, volume_percent))
         )
         self._paint_volume()
+
     def set_muted(self, muted: bool | None) -> None:
         """Display system mute state in the shell."""
         self._volume_muted = muted
         self._paint_volume()
+
     def set_initial_destination(self, label: str) -> None:
         """Select the composition-owned destination shown when the shell starts."""
         destination = label.strip().upper()
@@ -173,13 +180,21 @@ class OrcUiApp(VolumeUiIf, UiWidget):
                 self._nav_items.append(nav_label)
         self._rebuild_side_nav()
 
-    def register_screen(self, label: str, screen: ScreenUiIf, *, before: str | None = None, show_in_navigation: bool = True) -> None:
+    def register_screen(
+        self,
+        label: str,
+        screen: ScreenUiIf,
+        *,
+        before: str | None = None,
+        show_in_navigation: bool = True,
+    ) -> None:
         nav_label = label.strip().upper()
         if not nav_label:
             raise ValueError("Screen navigation label must not be empty")
         self._screen_registry[nav_label] = screen
         if show_in_navigation:
             self.register_navigation_destination(nav_label, before=before)
+
     def navigate_to(self, name: str) -> None:
         """Show a registered screen or built-in shell destination."""
         nav_name = name.strip().upper()
@@ -198,6 +213,7 @@ class OrcUiApp(VolumeUiIf, UiWidget):
             return
         self._deactivate_active_screen()
         self._show_placeholder(nav_name)
+
     def close_diagnostics(self) -> None:
         """Return to the destination that opened Diagnostics."""
         self.navigate_to(self._diagnostics_return)
@@ -231,8 +247,10 @@ class OrcUiApp(VolumeUiIf, UiWidget):
         if self._shell is not None:
             self._shell.set_back_action(None)
         self._active_screen = screen
+
     def clear_screen_content(self) -> None:
         self._clear_content()
+
     def set_screen_title(self, title: str) -> None:
         title = title.strip()
         self._root.title("OpenRoadCode" if not title else f"OpenRoadCode | {title}")
@@ -242,10 +260,12 @@ class OrcUiApp(VolumeUiIf, UiWidget):
                 self._shell.set_breadcrumb(self._active_nav)
             else:
                 self._shell.set_breadcrumb(self._active_nav, leaf)
+
     def set_screen_back_action(self, action: Callable[[], None]) -> None:
         """Show the active screen's semantic back action in persistent chrome."""
         if self._shell is not None:
             self._shell.set_back_action(action)
+
     def _present_notification(self, notification: Notification) -> None:
         """Present on Tk's UI thread; never paint in an embedded viewport."""
         self._error_dialog.show(notification.title, notification.message)
@@ -257,6 +277,7 @@ class OrcUiApp(VolumeUiIf, UiWidget):
     def set_screen_status(self, message: str) -> None:
         if self._shell is not None:
             self._shell.set_status(message)
+
     def dispatch_ui(self, callback: Callable[[], None]) -> None:
         """Queue work from any thread without calling Tk; discard it after shutdown."""
         self._callback_queue.dispatch_ui(callback)
@@ -323,6 +344,7 @@ class OrcUiApp(VolumeUiIf, UiWidget):
 
     def _on_sigint(self, _signum: int, _frame: object) -> None:
         self._root.after_idle(self._shutdown)
+
     def _shutdown(self) -> None:
         self.shutdown()
 
@@ -394,20 +416,27 @@ class OrcUiApp(VolumeUiIf, UiWidget):
         if self._shell is not None:
             self._shell.set_aircraft_request_handler(handler)
 
-    def set_adsb_state(self, *, enabled: bool, aircraft_count: int = 0, simulation: bool = False) -> None:
+    def set_adsb_state(
+        self, *, enabled: bool, aircraft_count: int = 0, simulation: bool = False
+    ) -> None:
         self._adsb_enabled = bool(enabled)
         self._adsb_simulation = simulation
         self._aircraft_count = max(0, int(aircraft_count))
         if self._shell is not None:
-            self._shell.set_aircraft_state(AircraftMenuUiState(
-                self._adsb_enabled, self._aircraft_count, self._adsb_simulation,
-            ))
+            self._shell.set_aircraft_state(
+                AircraftMenuUiState(
+                    self._adsb_enabled,
+                    self._aircraft_count,
+                    self._adsb_simulation,
+                )
+            )
 
     def _rebuild_shell_theme(self) -> None:
         if self._shell is not None:
             self._shell.rebuild(theme=self._theme, theme_mode=self._theme_mode)
             if self.online_mode is not None:
                 self.set_online_status(self.online_mode.online, self._internet_status)
+
     def _open_settings(self) -> None:
         action = self._settings_action
         if action is not None:
@@ -417,24 +446,30 @@ class OrcUiApp(VolumeUiIf, UiWidget):
         handler = self._volume_request_handler
         if handler is not None:
             handler.request_volume_up()
+
     def _request_volume_down(self) -> None:
         handler = self._volume_request_handler
         if handler is not None:
             handler.request_volume_down()
+
     def _volume_text(self) -> str:
         icon = "🔇" if self._volume_muted else "🔊"
         if self._volume_percent is None:
             return f"{icon} --"
         return f"{icon} {round(self._volume_percent)}%"
+
     def _paint_volume(self) -> None:
         if self._shell is not None:
             self._shell.set_volume_text(self._volume_text())
+
     def _restart_ui(self) -> None:
         self._lifecycle_handler.request_restart_ui()
         self._shutdown()
+
     def _shutdown_system(self) -> None:
         self._lifecycle_handler.request_poweroff()
         self._shutdown()
+
     def _toggle_theme(self) -> None:
         self._theme_mode = toggle(self._theme_mode)
         self._theme = theme_bundle(self._theme_mode)
@@ -453,6 +488,7 @@ class OrcUiApp(VolumeUiIf, UiWidget):
             set_theme_mode(self._theme_mode)
         elif active_screen is not None:
             self.navigate_to(self._active_nav)
+
     def _deactivate_active_screen(self) -> None:
         active_screen = self._active_screen
         self._active_screen = None
@@ -462,14 +498,18 @@ class OrcUiApp(VolumeUiIf, UiWidget):
             self._shell.set_back_action(None)
             self._shell.set_status("")
         self._root.title("OpenRoadCode")
+
     def _paint_nav(self) -> None:
         if self._shell is not None:
             self._shell.set_active_navigation(self._active_nav)
+
     def _clear_content(self) -> None:
         for child in self._content.winfo_children():
             child.destroy()
+
     def _on_close(self) -> None:
         self._shutdown()
+
     def _show_placeholder(self, name: str) -> None:
         self._clear_content()
         build_placeholder(self._content, name, theme=self._theme)

@@ -44,9 +44,7 @@ def _load_businesses(directory: Path = _CATALOG_DIR) -> tuple[BusinessEntity, ..
                 provider_id=provider_id,
                 brand=str(raw["name"]),
                 aliases=tuple(str(alias) for alias in raw.get("aliases", ())),
-                categories=frozenset(
-                    str(value).casefold() for value in raw.get("categories", ())
-                ),
+                categories=frozenset(str(value).casefold() for value in raw.get("categories", ())),
                 capabilities=frozenset(
                     str(value).casefold() for value in raw.get("capabilities", ())
                 ),
@@ -64,9 +62,7 @@ _ALIAS_INDEX = {
 }
 
 
-def resolve_business(
-    *, brand: str | None = None, name: str | None = None
-) -> BusinessEntity | None:
+def resolve_business(*, brand: str | None = None, name: str | None = None) -> BusinessEntity | None:
     """Resolve a canonical business, preferring explicit brand metadata."""
     for candidate in (brand, name):
         match = _ALIAS_INDEX.get(_normalize(candidate))

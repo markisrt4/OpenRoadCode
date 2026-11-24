@@ -90,15 +90,19 @@ class DebianCommandRunner:
         environment.append("XDG_RUNTIME_DIR=/tmp")
 
         if rendering == "software":
-            environment.extend((
-                "LIBGL_ALWAYS_SOFTWARE=true",
-                "GALLIUM_DRIVER=llvmpipe",
-            ))
+            environment.extend(
+                (
+                    "LIBGL_ALWAYS_SOFTWARE=true",
+                    "GALLIUM_DRIVER=llvmpipe",
+                )
+            )
         elif self._ensure_virgl_server():
-            environment.extend((
-                "LIBGL_ALWAYS_SOFTWARE=true",
-                "GALLIUM_DRIVER=virpipe",
-            ))
+            environment.extend(
+                (
+                    "LIBGL_ALWAYS_SOFTWARE=true",
+                    "GALLIUM_DRIVER=virpipe",
+                )
+            )
 
         return self.command(["env", *environment, *args], shared_tmp=True)
 

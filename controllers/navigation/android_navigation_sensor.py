@@ -47,9 +47,7 @@ class AndroidNavigationSensor(NavigationSensorIf):
         sample = self._imu.read()
         return MotionSample(
             acceleration_mps2=_android_to_vehicle(sample.acceleration_mps2),
-            angular_velocity_rad_s=_android_to_vehicle(
-                sample.angular_velocity_rad_s
-            ),
+            angular_velocity_rad_s=_android_to_vehicle(sample.angular_velocity_rad_s),
         )
 
 

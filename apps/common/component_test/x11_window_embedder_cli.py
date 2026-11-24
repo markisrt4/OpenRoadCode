@@ -42,9 +42,7 @@ def main() -> None:
                 host.winfo_height(),
                 window_name=args.window_name,
             )
-            status.config(
-                text=f"Embedded X11 client XID {window_id} from PID {args.pid}"
-            )
+            status.config(text=f"Embedded X11 client XID {window_id} from PID {args.pid}")
             host.bind(
                 "<Configure>",
                 lambda event: embedder.resize(event.width, event.height),

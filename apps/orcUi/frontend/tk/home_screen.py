@@ -16,7 +16,7 @@ from apps.orcUi.navigation_presenter import (
 )
 from apps.orcUi.trip_presenter import TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
-from ui.automotive.automotive_telemetry_profile import (AutomotiveTelemetryProfile)
+from ui.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from ui.navigation import MapRequestHandlerIf
@@ -113,9 +113,7 @@ class HomeScreen(TkScreen):
         map_request_handler: MapRequestHandlerIf,
         theme_bundle: Callable[[], ThemeBundle],
         presentation: OrcUiPresentationState,
-        telemetry_profile_request: (
-            Callable[[AutomotiveTelemetryProfile], None] | None
-        ),
+        telemetry_profile_request: (Callable[[AutomotiveTelemetryProfile], None] | None),
         on_expand_context: Callable[[str], None],
         radar_enabled: Callable[[], bool] = lambda: False,
         on_radar_toggle: Callable[[bool], None] | None = None,
@@ -159,7 +157,8 @@ class HomeScreen(TkScreen):
         self._media_factory = factory
 
     def set_visualizer_factory(
-        self, factory: Callable[[tk.Misc], tk.Widget] | None,
+        self,
+        factory: Callable[[tk.Misc], tk.Widget] | None,
     ) -> None:
         self._visualizer_factory = factory
 
@@ -244,7 +243,4 @@ class HomeScreen(TkScreen):
         try:
             self._map_runtime.launch(panel.map_host_window_id)
         except (OSError, RuntimeError) as error:
-            print(
-                "WARNING: map renderer: "
-                f"{type(error).__name__}: {error}"
-            )
+            print(f"WARNING: map renderer: {type(error).__name__}: {error}")

@@ -5,7 +5,12 @@
 """Frontend-neutral music visualizer contracts."""
 
 from .music_visualizer_request_handler_if import MusicVisualizerRequestHandlerIf
-from .music_visualizer_types import KickMode, MusicVisualizationMode, MusicVisualizerSource, VisualizerFrame
+from .music_visualizer_types import (
+    KickMode,
+    MusicVisualizationMode,
+    MusicVisualizerSource,
+    VisualizerFrame,
+)
 
 __all__ = [
     "MusicVisualizerSource",

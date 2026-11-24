@@ -23,9 +23,7 @@ class PactlAudioControllerTest(unittest.TestCase):
         controller = PactlAudioController(steps=20)
         with patch.object(controller, "_run") as run:
             self.assertEqual(13, controller.set_volume_level(13))
-        run.assert_called_once_with(
-            ["set-sink-volume", "@DEFAULT_SINK@", "65%"]
-        )
+        run.assert_called_once_with(["set-sink-volume", "@DEFAULT_SINK@", "65%"])
 
 
 if __name__ == "__main__":

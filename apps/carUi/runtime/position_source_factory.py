@@ -45,9 +45,20 @@ def create_position_source(
     cache_enabled = os.getenv("CARUI_POSITION_CACHE", "1" if cache_config.enabled else "0")
     if cache_enabled.strip().lower() in {"0", "false", "no", "off"}:
         return source
-    cache_directory = Path(os.getenv("CARUI_POSITION_CACHE_DIRECTORY", str(cache_config.directory or DEFAULT_POSITION_CACHE_DIRECTORY))).expanduser()
+    cache_directory = Path(
+        os.getenv(
+            "CARUI_POSITION_CACHE_DIRECTORY",
+            str(cache_config.directory or DEFAULT_POSITION_CACHE_DIRECTORY),
+        )
+    ).expanduser()
     try:
-        max_age_seconds = float(os.getenv("CARUI_POSITION_CACHE_MAX_AGE_SECONDS", str(cache_config.max_age_seconds)))
+        max_age_seconds = float(
+            os.getenv("CARUI_POSITION_CACHE_MAX_AGE_SECONDS", str(cache_config.max_age_seconds))
+        )
     except ValueError as error:
         raise ValueError("CARUI_POSITION_CACHE_MAX_AGE_SECONDS must be numeric") from error
-    return PersistentPositionSource(source, PositionSnapshotCache(PersistentCache(cache_directory)), max_age_seconds=max_age_seconds)
+    return PersistentPositionSource(
+        source,
+        PositionSnapshotCache(PersistentCache(cache_directory)),
+        max_age_seconds=max_age_seconds,
+    )

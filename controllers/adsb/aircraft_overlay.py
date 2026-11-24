@@ -4,6 +4,7 @@
 This is a transport-agnostic presentation model. It does not alter the route,
 camera, weather layers, or existing ADS-B browser lifecycle.
 """
+
 from __future__ import annotations
 
 from math import isfinite
@@ -29,15 +30,23 @@ def aircraft_geojson(aircraft: Iterable[Mapping[str, object]]) -> dict[str, obje
         if not isinstance(icao, str) or len(icao) != 6:
             continue
         props = {"icao": icao.upper()}
-        for name in ("callsign", "altitude_ft", "speed_kt", "heading_deg",
-                     "vertical_rate_fpm", "last_seen"):
+        for name in (
+            "callsign",
+            "altitude_ft",
+            "speed_kt",
+            "heading_deg",
+            "vertical_rate_fpm",
+            "last_seen",
+        ):
             value = item.get(name)
             if value is not None:
                 props[name] = value
-        features.append({
-            "type": "Feature",
-            "id": icao.upper(),
-            "geometry": {"type": "Point", "coordinates": [float(lon), float(lat)]},
-            "properties": props,
-        })
+        features.append(
+            {
+                "type": "Feature",
+                "id": icao.upper(),
+                "geometry": {"type": "Point", "coordinates": [float(lon), float(lat)]},
+                "properties": props,
+            }
+        )
     return {"type": "FeatureCollection", "features": features}

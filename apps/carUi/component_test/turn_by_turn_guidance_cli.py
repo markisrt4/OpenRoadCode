@@ -156,8 +156,10 @@ def main() -> int:
             state = guidance.update(position)
             publisher.publish(state)
             maneuver = state.current_maneuver
-            instruction = "ARRIVED" if state.route_complete else (
-                "--" if maneuver is None else maneuver.instruction
+            instruction = (
+                "ARRIVED"
+                if state.route_complete
+                else ("--" if maneuver is None else maneuver.instruction)
             )
             distance = state.distance_to_maneuver_miles
             distance_text = "--" if distance is None else f"{distance:.2f} mi"

@@ -3,6 +3,7 @@
 
 from abc import ABC, abstractmethod
 
+
 class TranslationUiIf(ABC):
     """Display translational motion in the vehicle coordinate frame.
 

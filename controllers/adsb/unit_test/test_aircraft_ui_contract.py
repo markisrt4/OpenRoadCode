@@ -1,4 +1,5 @@
 """Hardware-independent aircraft presentation tests."""
+
 from dataclasses import FrozenInstanceError
 from math import radians
 import pytest
@@ -18,9 +19,14 @@ class Recorder:
 def test_si_aircraft_snapshot_converts_at_map_boundary():
     renderer = Recorder()
     view = MapAircraftOverlayUi(renderer)
-    aircraft = AircraftPoint("a1b2c3", GeoPoint(radians(42), radians(-83), 3048),
-                             callsign="TEST1", speed_m_s=100,
-                             heading_rad=radians(90), vertical_speed_m_s=5)
+    aircraft = AircraftPoint(
+        "a1b2c3",
+        GeoPoint(radians(42), radians(-83), 3048),
+        callsign="TEST1",
+        speed_m_s=100,
+        heading_rad=radians(90),
+        vertical_speed_m_s=5,
+    )
     view.set_aircraft_overlay_state(AircraftOverlayState(enabled=True, aircraft=(aircraft,)))
     feature = renderer.snapshots[-1]["features"][0]
     assert feature["geometry"]["coordinates"] == pytest.approx([-83, 42])

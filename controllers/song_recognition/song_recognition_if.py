@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 """Frontend-neutral interface for identifying recorded music."""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -49,7 +50,9 @@ class SongRecognitionIf(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def recognize(self, audio: bytes, *, sample_bytes: int | None = None) -> SongRecognitionResult | None:
+    def recognize(
+        self, audio: bytes, *, sample_bytes: int | None = None
+    ) -> SongRecognitionResult | None:
         """Return the best matching song, or None when unmatched.
 
         @param audio Encoded audio sample sent to the recognition provider.

@@ -2,4 +2,3 @@
 # SPDX-License-Identifier: MIT
 
 """Automotive hardware interfaces."""
-

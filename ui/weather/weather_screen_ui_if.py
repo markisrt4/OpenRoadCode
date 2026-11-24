@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 """Toolkit-independent forecast screen lifecycle contracts."""
+
 from abc import abstractmethod
 from ui.weather.weather_ui_if import WeatherUiIf
 from ui.weather.weather_request_handler_if import WeatherRequestHandlerIf

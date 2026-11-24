@@ -22,9 +22,15 @@ def payload(center=104_300_000, timestamp=1):
 
 
 def test_wire_message_decodes_spectrum():
-    message = b"spectrum " + json.dumps({
-        "schema_version": 1, "payload": payload(),
-    }).encode()
+    message = (
+        b"spectrum "
+        + json.dumps(
+            {
+                "schema_version": 1,
+                "payload": payload(),
+            }
+        ).encode()
+    )
     frame = decode_spectrum_message(message)
     assert frame.center_frequency_hz == 104_300_000
     assert frame.power_db == (-30.0, None)

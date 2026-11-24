@@ -12,7 +12,9 @@ from .game_types import GameDefinition
 class DebianGameInstaller(GameInstallerIf):
     """Install and execute games from Debian regardless of how Debian is hosted."""
 
-    _GAME_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games"
+    _GAME_PATH = (
+        "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games"
+    )
 
     def __init__(self) -> None:
         self._runner = DebianCommandRunner()
@@ -68,7 +70,9 @@ class DebianGameInstaller(GameInstallerIf):
         if not self.supported():
             raise RuntimeError("Debian is not available")
         if not self.is_available(game):
-            raise RuntimeError(f"{package} is not available from the configured Debian repositories")
+            raise RuntimeError(
+                f"{package} is not available from the configured Debian repositories"
+            )
         self._runner.run(["apt-get", "install", "-y", package], check=True)
 
     def launch_command(self, game: GameDefinition) -> Sequence[str]:

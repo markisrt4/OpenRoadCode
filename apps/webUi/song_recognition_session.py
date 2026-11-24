@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 """Web adapter for frontend-neutral song recognition controllers."""
+
 from __future__ import annotations
 
 import os
@@ -28,7 +29,9 @@ class WebSongRecognitionSession:
         secret = os.environ.get("ACRCLOUD_ACCESS_SECRET", "").strip()
         if not (host and key and secret):
             return None
-        return AcrCloudSongRecognizer(AcrCloudConfig(host=host, access_key=key, access_secret=secret))
+        return AcrCloudSongRecognizer(
+            AcrCloudConfig(host=host, access_key=key, access_secret=secret)
+        )
 
     def config(self) -> dict[str, object]:
         """Return recognition-provider readiness without exposing credentials."""

@@ -58,10 +58,7 @@ def print_spotify_state(
     print()
     print(label)
     print("-" * len(label))
-    print(
-        f"Track: {state.artist_name or 'Unknown artist'} - "
-        f"{state.track_name or 'Unknown track'}"
-    )
+    print(f"Track: {state.artist_name or 'Unknown artist'} - {state.track_name or 'Unknown track'}")
     print(f"Album: {state.album_name or 'Unknown album'}")
     print(f"Playing: {state.is_playing}")
     print(f"Position: {state.progress_ms or 0} ms")

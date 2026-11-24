@@ -22,46 +22,10 @@ from ui.theme import ThemeBundle
 from ui.weather import WeatherRequestHandlerIf, WeatherUiIf, WeatherUiState
 from ui.ui_widget import UiWidget
 
-
-def weather_symbol(condition: str, *, nighttime: bool = False) -> str:
-    """Return a compact Unicode symbol for a normalized condition label."""
-    text = condition.lower()
-    if "thunder" in text:
-        return "ϟ"
-    if "snow" in text or "sleet" in text:
-        return "✣"
-    if "rain" in text or "drizzle" in text or "shower" in text:
-        return "●≋"
-    if "fog" in text or "mist" in text:
-        return "≋≋"
-    if "clear" in text or "sun" in text:
-        return "◒" if nighttime else "✹"
-    if "partly" in text:
-        return "◒☁" if nighttime else "✹☁"
-    if "cloud" in text or "overcast" in text:
-        return "☁"
-    return "◌"
-
-
-def weather_accent(condition: str, theme: ThemeBundle) -> str:
-    """Choose a semantic accent while staying inside the ORC theme palette."""
-    text = condition.lower()
-    ui = theme.ui
-    if "thunder" in text:
-        return ui.accent_danger
-    if "rain" in text or "drizzle" in text or "shower" in text:
-        return ui.accent_primary
-    if "snow" in text or "sleet" in text:
-        return ui.text
-    if "fog" in text or "mist" in text:
-        return ui.text_muted
-    if "clear" in text or "sun" in text:
-        return "#e5a100"
-    if "partly" in text:
-        return "#d39a20"
-    if "cloud" in text or "overcast" in text:
-        return "#70869a"
-    return ui.text_muted
+from .weather_condition_style import (
+    weather_accent as weather_accent,
+    weather_symbol as weather_symbol,
+)
 
 
 class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
@@ -95,9 +59,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
             self._header, text="WEATHER", anchor="w", font=("Sans", 16, "bold")
         )
         self._location.grid(row=0, column=0, sticky="w")
-        self._provider_label = tk.Label(
-            self._header, text="", anchor="w", font=("Sans", 10)
-        )
+        self._provider_label = tk.Label(self._header, text="", anchor="w", font=("Sans", 10))
         self._provider_label.grid(row=1, column=0, sticky="w", pady=(1, 0))
         self._weather_radio = tk.Button(
             self._header,
@@ -106,7 +68,9 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
             padx=12,
             pady=6,
             font=("Sans", 9, "bold"),
-            highlightthickness=0, bd=0, relief=tk.FLAT,
+            highlightthickness=0,
+            bd=0,
+            relief=tk.FLAT,
         )
         self._weather_radio.grid(row=0, column=1, rowspan=2, padx=(8, 6))
         self._refresh = tk.Button(
@@ -116,14 +80,22 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
             padx=12,
             pady=6,
             font=("Sans", 9, "bold"),
-            highlightthickness=0, bd=0, relief=tk.FLAT,
+            highlightthickness=0,
+            bd=0,
+            relief=tk.FLAT,
         )
         self._refresh.grid(row=0, column=2, rowspan=2)
         self._radar_map = tk.Button(
-            self._header, text="RADAR MAP", command=self._request_radar_map,
-            padx=12, pady=6, font=("Sans", 9, "bold"),
+            self._header,
+            text="RADAR MAP",
+            command=self._request_radar_map,
+            padx=12,
+            pady=6,
+            font=("Sans", 9, "bold"),
             state=tk.NORMAL if on_radar_map is not None else tk.DISABLED,
-            highlightthickness=0, bd=0, relief=tk.FLAT,
+            highlightthickness=0,
+            bd=0,
+            relief=tk.FLAT,
         )
         self._radar_map.grid(row=0, column=3, rowspan=2, padx=(6, 0))
 
@@ -132,13 +104,9 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
         self._hero.grid_columnconfigure(2, weight=1, minsize=200)
         self._hero.grid_columnconfigure(3, weight=0)
 
-        self._symbol = tk.Label(
-            self._hero, text="◌", width=2, font=("Sans", 48), anchor="center"
-        )
+        self._symbol = tk.Label(self._hero, text="◌", width=2, font=("Sans", 48), anchor="center")
         self._symbol.grid(row=0, column=0, rowspan=2, padx=(14, 2), pady=8)
-        self._temperature = tk.Label(
-            self._hero, text="--°", font=("Sans", 48, "bold"), anchor="w"
-        )
+        self._temperature = tk.Label(self._hero, text="--°", font=("Sans", 48, "bold"), anchor="w")
         self._temperature.grid(row=0, column=1, rowspan=2, sticky="w", padx=(0, 14), pady=6)
 
         self._condition = tk.Label(
@@ -187,13 +155,13 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
 
     def set_online(self, online: bool) -> None:
         self._online = online
-        self._refresh.configure(state=tk.NORMAL if online else tk.DISABLED,
-                                disabledforeground=self._theme_bundle().ui.text_muted)
+        self._refresh.configure(
+            state=tk.NORMAL if online else tk.DISABLED,
+            disabledforeground=self._theme_bundle().ui.text_muted,
+        )
         self._render()
 
-    def set_weather_request_handler(
-        self, handler: WeatherRequestHandlerIf | None
-    ) -> None:
+    def set_weather_request_handler(self, handler: WeatherRequestHandlerIf | None) -> None:
         self._handler = handler
 
     def set_loading(self, loading: bool) -> None:
@@ -210,8 +178,11 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
         self._symbol.configure(text="◌")
         self._temperature.configure(text="--°")
         self._condition.configure(text="Loading…" if getattr(self, "_online", True) else "Offline")
-        self._summary.configure(text="Waiting for weather data" if getattr(self, "_online", True)
-                                    else "No cached weather available")
+        self._summary.configure(
+            text="Waiting for weather data"
+            if getattr(self, "_online", True)
+            else "No cached weather available"
+        )
         for _, _, value in self._metric_cards:
             value.configure(text="--")
 
@@ -247,7 +218,9 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
         self._metrics.configure(bg=ui.surface)
 
         for card, title, value in self._metric_cards:
-            card.configure(bg=ui.surface_alt, highlightcolor=ui.border, highlightbackground=ui.border)
+            card.configure(
+                bg=ui.surface_alt, highlightcolor=ui.border, highlightbackground=ui.border
+            )
             title.configure(bg=ui.surface_alt, fg=ui.text_muted)
             value.configure(bg=ui.surface_alt, fg=ui.text)
 
@@ -278,9 +251,14 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
             self._provider_label.configure(text="")
             self._symbol.configure(text="◌")
             self._temperature.configure(text="--°")
-            self._condition.configure(text="Loading…" if getattr(self, "_online", True) else "Offline")
-            self._summary.configure(text="Waiting for weather data" if getattr(self, "_online", True)
-                                    else "No cached weather available")
+            self._condition.configure(
+                text="Loading…" if getattr(self, "_online", True) else "Offline"
+            )
+            self._summary.configure(
+                text="Waiting for weather data"
+                if getattr(self, "_online", True)
+                else "No cached weather available"
+            )
             for _, _, value in self._metric_cards:
                 value.configure(text="--")
             self._render_forecasts()
@@ -289,7 +267,9 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
         current = state.current
         location = state.location_name.strip()
         self._location.configure(
-            text="WEATHER" if not location or location.lower() == "configured fallback" else location
+            text="WEATHER"
+            if not location or location.lower() == "configured fallback"
+            else location
         )
         self._provider_label.configure(text=self._provider_label_text(state))
         self._symbol.configure(
@@ -314,10 +294,16 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
         self._render_forecasts()
 
     def _provider_label_text(self, state: WeatherUiState) -> str:
-        label = f"Weather data provider: {state.provider_label}" if state.provider_label else "Weather data"
+        label = (
+            f"Weather data provider: {state.provider_label}"
+            if state.provider_label
+            else "Weather data"
+        )
         if state.fetched_at is None:
             return label
-        updated = datetime.fromtimestamp(state.fetched_at).strftime("%b %d, %Y %I:%M %p").lstrip("0")
+        updated = (
+            datetime.fromtimestamp(state.fetched_at).strftime("%b %d, %Y %I:%M %p").lstrip("0")
+        )
         prefix = "Offline • Cached • " if not getattr(self, "_online", True) else ""
         return f"{prefix}{label}  •  Updated {updated}"
 
@@ -332,12 +318,12 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
         now = datetime.now().astimezone()
         current_hour = now.replace(minute=0, second=0, microsecond=0)
         upcoming = [
-            item for item in state.hourly
-            if self._local_timestamp(item.timestamp) >= current_hour
+            item for item in state.hourly if self._local_timestamp(item.timestamp) >= current_hour
         ]
         for column, item in enumerate(upcoming[:6]):
             precipitation = (
-                "" if item.precipitation_probability is None
+                ""
+                if item.precipitation_probability is None
                 else f"PRECIP {self._percent(item.precipitation_probability)}"
             )
             self._forecast_cell(
@@ -355,7 +341,8 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
 
         for column, item in enumerate(state.daily[:6]):
             precipitation = (
-                "" if item.precipitation_probability is None
+                ""
+                if item.precipitation_probability is None
                 else f"PRECIP {self._percent(item.precipitation_probability)}"
             )
             temperatures = (
@@ -386,7 +373,12 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
         ui = theme.ui
         accent = weather_accent(detail, theme)
         cell = tk.Frame(
-            parent, bg=ui.surface, bd=0, highlightthickness=1, highlightcolor=ui.border, highlightbackground=ui.border
+            parent,
+            bg=ui.surface,
+            bd=0,
+            highlightthickness=1,
+            highlightcolor=ui.border,
+            highlightbackground=ui.border,
         )
         cell.grid(
             row=0,
@@ -403,34 +395,46 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
         icon_slot = tk.Frame(cell, bg=ui.surface, height=30)
         icon_slot.pack(fill=tk.X)
         icon_slot.pack_propagate(False)
-        tk.Label(
-            icon_slot, text=symbol, bg=ui.surface, fg=accent, font=("Sans", 22)
-        ).place(relx=0.5, rely=0.5, anchor="center")
+        tk.Label(icon_slot, text=symbol, bg=ui.surface, fg=accent, font=("Sans", 22)).place(
+            relx=0.5, rely=0.5, anchor="center"
+        )
         if isinstance(value, tuple):
             temperatures = tk.Frame(cell, bg=ui.surface)
             temperatures.pack(pady=(0, 0))
             tk.Label(
-                temperatures, text=value[0], bg=ui.surface, fg=ui.text,
+                temperatures,
+                text=value[0],
+                bg=ui.surface,
+                fg=ui.text,
                 font=("Sans", 11, "bold"),
             ).pack(side=tk.LEFT, padx=(0, 8))
             tk.Label(
-                temperatures, text=value[1], bg=ui.surface, fg=ui.text,
+                temperatures,
+                text=value[1],
+                bg=ui.surface,
+                fg=ui.text,
                 font=("Sans", 11, "bold"),
             ).pack(side=tk.LEFT, padx=(8, 0))
             legend = tk.Frame(cell, bg=ui.surface)
             legend.pack(pady=(0, 0))
             tk.Label(
-                legend, text="● LOW", bg=ui.surface, fg="#2878b8",
+                legend,
+                text="● LOW",
+                bg=ui.surface,
+                fg="#2878b8",
                 font=("Sans", 8, "bold"),
             ).pack(side=tk.LEFT, padx=(0, 6))
             tk.Label(
-                legend, text="● HIGH", bg=ui.surface, fg="#c84b45",
+                legend,
+                text="● HIGH",
+                bg=ui.surface,
+                fg="#c84b45",
                 font=("Sans", 8, "bold"),
             ).pack(side=tk.LEFT, padx=(6, 0))
         else:
-            tk.Label(
-                cell, text=value, bg=ui.surface, fg=ui.text, font=("Sans", 12, "bold")
-            ).pack(pady=(0, 1))
+            tk.Label(cell, text=value, bg=ui.surface, fg=ui.text, font=("Sans", 12, "bold")).pack(
+                pady=(0, 1)
+            )
         tk.Label(
             cell,
             text=detail,
@@ -440,9 +444,9 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
             wraplength=150,
             height=1,
         ).pack(padx=3)
-        tk.Label(
-            cell, text=footer, bg=ui.surface, fg=accent, font=("Sans", 8, "bold")
-        ).pack(pady=(1, 4))
+        tk.Label(cell, text=footer, bg=ui.surface, fg=accent, font=("Sans", 8, "bold")).pack(
+            pady=(1, 4)
+        )
 
     @staticmethod
     def _local_timestamp(value: datetime) -> datetime:

@@ -40,7 +40,9 @@ def test_fuel_rail_pressure_decode() -> None:
 
 def test_measured_equivalence_ratio_decode() -> None:
     assert OxygenSensor1EquivalenceRatioPid().decode(bytes.fromhex("8000")) == pytest.approx(1.0)
-    assert OxygenSensor1EquivalenceRatioPid().decode(bytes.fromhex("6666")) == pytest.approx(0.8, rel=1e-3)
+    assert OxygenSensor1EquivalenceRatioPid().decode(bytes.fromhex("6666")) == pytest.approx(
+        0.8, rel=1e-3
+    )
 
 
 def test_absolute_engine_load_decode() -> None:
@@ -48,4 +50,6 @@ def test_absolute_engine_load_decode() -> None:
 
 
 def test_commanded_throttle_decode() -> None:
-    assert CommandedThrottleActuatorPid().decode(bytes([128])) == pytest.approx(128.0 * 100.0 / 255.0)
+    assert CommandedThrottleActuatorPid().decode(bytes([128])) == pytest.approx(
+        128.0 * 100.0 / 255.0
+    )

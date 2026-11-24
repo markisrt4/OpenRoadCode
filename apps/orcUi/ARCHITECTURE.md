@@ -46,13 +46,15 @@ Example from a controller with an injected `notification_sink`:
 ```python
 from ui.notification_if import Notification, NotificationSeverity
 
-notification_sink.publish(Notification(
-    code="adsb.launch_failed",
-    title="ADS-B Map Unavailable",
-    message="The local ADS-B map service could not be reached.",
-    severity=NotificationSeverity.ERROR,
-    source="adsb",
-))
+notification_sink.publish(
+    Notification(
+        code="adsb.launch_failed",
+        title="ADS-B Map Unavailable",
+        message="The local ADS-B map service could not be reached.",
+        severity=NotificationSeverity.ERROR,
+        source="adsb",
+    )
+)
 ```
 
 The ADS-B launcher checks dashboard reachability before embedding its browser.

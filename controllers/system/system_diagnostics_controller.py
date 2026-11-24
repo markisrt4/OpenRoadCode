@@ -36,12 +36,16 @@ class SystemDiagnosticsController:
         self._gpu_sampler = GpuSampler(Path(sys_root) / "class/kgsl/kgsl-3d0/gpubusy")
         self._proc_root = Path(proc_root)
         self._sys_root = Path(sys_root)
-        termux = bool(os.environ.get("TERMUX_VERSION")) or os.environ.get("PREFIX", "").startswith("/data/data/com.termux/files/usr")
+        termux = bool(os.environ.get("TERMUX_VERSION")) or os.environ.get("PREFIX", "").startswith(
+            "/data/data/com.termux/files/usr"
+        )
         self._android = termux or platform.system() == "Android"
         self._thermal_sources = ()
         self._thermal_source_type = None
         self._thermal_detail = ""
-        self._disk_path = Path(disk_path) if disk_path is not None else (Path.home() if termux else Path("/"))
+        self._disk_path = (
+            Path(disk_path) if disk_path is not None else (Path.home() if termux else Path("/"))
+        )
         self._previous_cpu: dict[str, tuple[int, int]] = {}
         self._monotonic = monotonic
         self._process_time = process_time
@@ -106,7 +110,8 @@ class SystemDiagnosticsController:
             temperature_c=temperature_c,
             thermal_limit_c=thermal_limit_c,
             thermal_zone=thermal_zone,
-            thermal_source_type=self._thermal_source_type, thermal_detail=self._thermal_detail,
+            thermal_source_type=self._thermal_source_type,
+            thermal_detail=self._thermal_detail,
             thermal_sources=self._thermal_sources,
             thermal_headroom_c=(
                 None
@@ -137,7 +142,9 @@ class SystemDiagnosticsController:
         percentages: dict[str, float] = {}
         for line in lines:
             fields = line.split()
-            if not fields or not (fields[0] == "cpu" or fields[0][3:].isdigit() and fields[0].startswith("cpu")):
+            if not fields or not (
+                fields[0] == "cpu" or fields[0][3:].isdigit() and fields[0].startswith("cpu")
+            ):
                 continue
             try:
                 values = [int(value) for value in fields[1:]]
@@ -166,8 +173,12 @@ class SystemDiagnosticsController:
             )
 
         self._previous_cpu = current
-        self._cpu_unavailable_reason = None if "cpu" in percentages else (
-            "warming up or counters reset" if "cpu" in current else "CPU counters unavailable"
+        self._cpu_unavailable_reason = (
+            None
+            if "cpu" in percentages
+            else (
+                "warming up or counters reset" if "cpu" in current else "CPU counters unavailable"
+            )
         )
         cores = tuple(
             percentages[name]
@@ -187,7 +198,10 @@ class SystemDiagnosticsController:
         return 100.0 * (cpu_seconds - previous[1]) / (now - previous[0])
 
     def _rates(
-        self, key: str, current: dict[str, tuple[int, int]] | None, now: float,
+        self,
+        key: str,
+        current: dict[str, tuple[int, int]] | None,
+        now: float,
     ) -> tuple[float | None, float | None]:
         previous = self._previous_io.pop(key, None)
         if current is None:
@@ -314,17 +328,28 @@ class SystemDiagnosticsController:
             except OSError:
                 kind = "unknown"
             if 0.0 <= value <= 150.0:
-                sources.append(ThermalSourceSnapshot(path.parent.name, kind, value,
-                                                     self._read_thermal_limit_c(path.parent)))
+                sources.append(
+                    ThermalSourceSnapshot(
+                        path.parent.name, kind, value, self._read_thermal_limit_c(path.parent)
+                    )
+                )
         self._thermal_sources = tuple(sorted(sources, key=lambda row: row.zone)[:128])
         candidates = sources
         if self._android:
             # Vendor virtual/policy zones and anonymous hottest readings are not
             # identified CPU temperatures. Retain them for inspection instead.
-            physical = [row for row in sources if not any(word in row.source_type.lower()
-                         for word in ("virtual", "vts", "policy"))]
-            candidates = [row for row in physical if row.source_type.lower().startswith(
-                ("cpu", "soc", "cpuss", "ap-therm", "ap_therm"))]
+            physical = [
+                row
+                for row in sources
+                if not any(word in row.source_type.lower() for word in ("virtual", "vts", "policy"))
+            ]
+            candidates = [
+                row
+                for row in physical
+                if row.source_type.lower().startswith(
+                    ("cpu", "soc", "cpuss", "ap-therm", "ap_therm")
+                )
+            ]
             if not candidates:
                 self._thermal_detail = "No identified CPU sensor; inspect reported thermal sources"
                 return None, None, None

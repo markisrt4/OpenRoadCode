@@ -27,13 +27,15 @@ jobs:
           python-version: '3.12'
       - name: Install verification dependencies
         run: |
-          python -m pip install pytest numpy scipy PyYAML requests tinycss2 pyzmq Pillow flask ruff mypy
+          python -m pip install -r requirements-dev.txt numpy scipy PyYAML requests tinycss2 pyzmq Pillow flask
           python -m pip install 'libmusicforge[analysis] @ git+https://github.com/markisrt4/libMusicForge.git@main'
       - name: Focused architecture checks
         run: |
           python scripts/check_python_module_size.py
           python scripts/check_ui_boundaries.py
           python scripts/check_weather_ui_contracts.py
+      - name: Games panel layout with X11
+        run: xvfb-run -a python -m pytest -q -rs frontends/tk/games/unit_test/test_games_panel_layout.py
       - name: Unit tests
         run: |
           python - <<'PY'
@@ -63,7 +65,7 @@ jobs:
           python-version: '3.12'
       - name: Install quality gate dependencies
         run: |
-          python -m pip install pytest numpy scipy PyYAML requests tinycss2 pyzmq Pillow flask ruff mypy
+          python -m pip install -r requirements-dev.txt numpy scipy PyYAML requests tinycss2 pyzmq Pillow flask
           python -m pip install 'libmusicforge[analysis] @ git+https://github.com/markisrt4/libMusicForge.git@main'
       - name: Run portable full quality gate
         run: python scripts/quality_gate.py

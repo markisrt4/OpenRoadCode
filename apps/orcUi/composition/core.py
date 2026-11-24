@@ -116,7 +116,9 @@ def create_core_composition() -> CoreComposition:
             online_mode=OnlineModeController(),
         )
         cleanup.callback(app.shutdown)
-        connectivity = ShellConnectivityController(app.online_mode, app, app.set_online_status, app.set_screen_status)
+        connectivity = ShellConnectivityController(
+            app.online_mode, app, app.set_online_status, app.set_screen_status
+        )
         cleanup.callback(connectivity.close)
         app.set_connectivity_handler(connectivity.toggle)
         volume = SystemVolumeHandler(

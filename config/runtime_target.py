@@ -35,8 +35,7 @@ def detect_runtime_target(
         except ValueError as exc:
             supported = ", ".join(target.value for target in RuntimeTarget)
             raise ValueError(
-                f"Unsupported OPENROAD_RUNTIME_TARGET '{override}'; "
-                f"expected one of: {supported}"
+                f"Unsupported OPENROAD_RUNTIME_TARGET '{override}'; expected one of: {supported}"
             ) from exc
 
     path = Path(model_path)
@@ -46,9 +45,6 @@ def detect_runtime_target(
         return RuntimeTarget.LINUX_DEV
     if "Raspberry Pi 4" in model or "Compute Module 4" in model:
         return RuntimeTarget.RPI4
-    if any(
-        name in model
-        for name in ("Raspberry Pi 5", "Raspberry Pi 500", "Compute Module 5")
-    ):
+    if any(name in model for name in ("Raspberry Pi 5", "Raspberry Pi 500", "Compute Module 5")):
         return RuntimeTarget.RPI5
     return RuntimeTarget.LINUX_DEV

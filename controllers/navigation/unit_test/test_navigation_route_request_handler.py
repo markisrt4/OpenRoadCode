@@ -14,9 +14,12 @@ from controllers.route_planning.route_planning_types import (
 from ui.navigation import GeoPoint
 from ui.navigation.route_types import TravelMode
 from ui.navigation import (
-    RouteAlternativeRequestHandlerIf, RouteRecalculationRequestHandlerIf,
-    RouteRequestHandlerIf, RouteSimulationRequestHandlerIf,
-    RouteTravelModeRequestHandlerIf, RouteVoiceGuidanceRequestHandlerIf,
+    RouteAlternativeRequestHandlerIf,
+    RouteRecalculationRequestHandlerIf,
+    RouteRequestHandlerIf,
+    RouteSimulationRequestHandlerIf,
+    RouteTravelModeRequestHandlerIf,
+    RouteVoiceGuidanceRequestHandlerIf,
     RouteWaypointRequestHandlerIf,
 )
 from services.navigation.navigation_command_client import NavigationCommandClient
@@ -35,9 +38,7 @@ def test_start_route_converts_ui_point_and_presents_route() -> None:
     handler = NavigationRouteRequestHandler(client, renderer)
 
     destination = GeoPoint(math.radians(42.7), math.radians(-83.1))
-    with patch(
-        "controllers.navigation.navigation_route_request_handler.present_route"
-    ) as present:
+    with patch("controllers.navigation.navigation_route_request_handler.present_route") as present:
         handler.request_start_route(destination, TravelMode.AUTO)
 
     args, kwargs = client.start_route.call_args
@@ -55,9 +56,7 @@ def test_cancel_route_clears_renderer_route() -> None:
     handler.request_cancel_route()
 
     client.cancel_route.assert_called_once_with()
-    renderer.set_route.assert_called_once_with(
-        {"type": "FeatureCollection", "features": []}
-    )
+    renderer.set_route.assert_called_once_with({"type": "FeatureCollection", "features": []})
 
 
 def test_close_closes_renderer_client() -> None:
@@ -101,8 +100,10 @@ def test_service_adapter_advertises_only_supported_capabilities():
     assert isinstance(handler, RouteRequestHandlerIf)
     assert isinstance(handler, RouteSimulationRequestHandlerIf)
     for capability in (
-        RouteWaypointRequestHandlerIf, RouteAlternativeRequestHandlerIf,
-        RouteRecalculationRequestHandlerIf, RouteTravelModeRequestHandlerIf,
+        RouteWaypointRequestHandlerIf,
+        RouteAlternativeRequestHandlerIf,
+        RouteRecalculationRequestHandlerIf,
+        RouteTravelModeRequestHandlerIf,
         RouteVoiceGuidanceRequestHandlerIf,
     ):
         assert not isinstance(handler, capability)
@@ -125,9 +126,13 @@ def test_unsupported_transit_is_discoverable_and_rejected_before_service_call():
 
     client, renderer = Mock(spec=NavigationCommandClient), Mock()
     handler = NavigationRouteRequestHandler(client, renderer)
-    assert handler.supported_travel_modes == frozenset((
-        TravelMode.AUTO, TravelMode.BICYCLE, TravelMode.PEDESTRIAN,
-    ))
+    assert handler.supported_travel_modes == frozenset(
+        (
+            TravelMode.AUTO,
+            TravelMode.BICYCLE,
+            TravelMode.PEDESTRIAN,
+        )
+    )
     with pytest.raises(ValueError, match="Unsupported route travel mode: TRANSIT"):
         handler.request_start_route(GeoPoint(0, 0), TravelMode.TRANSIT)
     client.start_route.assert_not_called()

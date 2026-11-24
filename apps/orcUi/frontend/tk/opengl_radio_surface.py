@@ -4,6 +4,7 @@
 Requires pyopengltk and PyOpenGL, with a working compatibility GL context.
 No receiver or transport logic belongs here.
 """
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -12,8 +13,14 @@ import io
 import logging
 
 _LOG = logging.getLogger(__name__)
-_GLX_PROGRESS = ("GLX version:", "Screen is ", "Number of FBconfigs",
-                 "Got a matching visual:", "Is Direct?:", "Done making a first context")
+_GLX_PROGRESS = (
+    "GLX version:",
+    "Screen is ",
+    "Number of FBconfigs",
+    "Got a matching visual:",
+    "Is Direct?:",
+    "Done making a first context",
+)
 
 
 def _create_glx_context(create):
@@ -42,6 +49,7 @@ def available() -> bool:
 
 
 if OpenGLFrame is not None:
+
     class OpenGLRadioSurface(OpenGLFrame):
         """Draw the RF spectrum and historical waterfall using GPU primitives."""
 
@@ -68,11 +76,15 @@ if OpenGLFrame is not None:
             self._texture_size = None
             GL.glClearColor(0.012, 0.035, 0.075, 1.0)
 
-        def update_data(self, bins: Sequence[float],
-                        history: Sequence[Sequence[float]], palette: str,
-                        peaks: Sequence[float] = (),
-                        tuned_position: float | None = None,
-                        passband: tuple[float, float] | None = None) -> None:
+        def update_data(
+            self,
+            bins: Sequence[float],
+            history: Sequence[Sequence[float]],
+            palette: str,
+            peaks: Sequence[float] = (),
+            tuned_position: float | None = None,
+            passband: tuple[float, float] | None = None,
+        ) -> None:
             self._bins = tuple(bins)
             self._peaks = tuple(peaks)
             self._history = tuple(tuple(row) for row in history)
@@ -88,13 +100,13 @@ if OpenGLFrame is not None:
             v = max(0.0, min(1.0, value))
             if palette == "grayscale":
                 return (v, v, v)
-            if v < .33:
-                return (0.0, 0.0, .19 + .66 * v / .33)
-            if v < .66:
-                t = (v - .33) / .33
-                return (.12 * t, .75 * t, 1.0)
-            t = (v - .66) / .34
-            return (1.0, .75 + .25 * t, .16 * (1.0 - t))
+            if v < 0.33:
+                return (0.0, 0.0, 0.19 + 0.66 * v / 0.33)
+            if v < 0.66:
+                t = (v - 0.33) / 0.33
+                return (0.12 * t, 0.75 * t, 1.0)
+            t = (v - 0.66) / 0.34
+            return (1.0, 0.75 + 0.25 * t, 0.16 * (1.0 - t))
 
         def redraw(self):
             if not self._ready:
@@ -108,7 +120,7 @@ if OpenGLFrame is not None:
             GL.glLoadIdentity()
             GL.glClear(GL.GL_COLOR_BUFFER_BIT)
             # Upper 38% spectrum, lower 62% waterfall.
-            split = .62
+            split = 0.62
             history = self._history
             if history and self._waterfall_texture is not None:
                 # A single GPU texture replaces thousands of per-cell quads.
@@ -119,9 +131,13 @@ if OpenGLFrame is not None:
                 columns = min(max(128, w), 512)
                 lut = self._palette_lut.get(self._palette)
                 if lut is None:
-                    lut = tuple(bytes(int(component * 255)
-                                      for component in self._color(i / 255.0, self._palette))
-                                for i in range(256))
+                    lut = tuple(
+                        bytes(
+                            int(component * 255)
+                            for component in self._color(i / 255.0, self._palette)
+                        )
+                        for i in range(256)
+                    )
                     self._palette_lut[self._palette] = lut
                 pixels = bytearray(rows * columns * 3)
                 for row_idx in range(rows):
@@ -134,7 +150,7 @@ if OpenGLFrame is not None:
                         value = row[col * row_len // columns]
                         index = max(0, min(255, int(value * 255)))
                         pos = offset + col * 3
-                        pixels[pos:pos + 3] = lut[index]
+                        pixels[pos : pos + 3] = lut[index]
                 GL.glEnable(GL.GL_TEXTURE_2D)
                 GL.glBindTexture(GL.GL_TEXTURE_2D, self._waterfall_texture)
                 GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)
@@ -146,14 +162,28 @@ if OpenGLFrame is not None:
                 # frames update the existing GPU texture without reallocating.
                 if self._texture_size != (columns, rows):
                     GL.glTexImage2D(
-                        GL.GL_TEXTURE_2D, 0, GL.GL_RGB, columns, rows, 0,
-                        GL.GL_RGB, GL.GL_UNSIGNED_BYTE, bytes(pixels),
+                        GL.GL_TEXTURE_2D,
+                        0,
+                        GL.GL_RGB,
+                        columns,
+                        rows,
+                        0,
+                        GL.GL_RGB,
+                        GL.GL_UNSIGNED_BYTE,
+                        bytes(pixels),
                     )
                     self._texture_size = (columns, rows)
                 else:
                     GL.glTexSubImage2D(
-                        GL.GL_TEXTURE_2D, 0, 0, 0, columns, rows,
-                        GL.GL_RGB, GL.GL_UNSIGNED_BYTE, bytes(pixels),
+                        GL.GL_TEXTURE_2D,
+                        0,
+                        0,
+                        0,
+                        columns,
+                        rows,
+                        GL.GL_RGB,
+                        GL.GL_UNSIGNED_BYTE,
+                        bytes(pixels),
                     )
                 GL.glColor3f(1.0, 1.0, 1.0)
                 GL.glBegin(GL.GL_QUADS)
@@ -168,20 +198,22 @@ if OpenGLFrame is not None:
                 GL.glEnd()
                 GL.glDisable(GL.GL_TEXTURE_2D)
             if self._bins:
-                GL.glColor3f(.04, .77, 1.0)
+                GL.glColor3f(0.04, 0.77, 1.0)
                 GL.glLineWidth(2)
                 GL.glBegin(GL.GL_LINE_STRIP)
                 for i, value in enumerate(self._bins):
-                    GL.glVertex2f(i / max(1, len(self._bins)-1),
-                                  split + .38 * max(0., min(1., value)))
+                    GL.glVertex2f(
+                        i / max(1, len(self._bins) - 1), split + 0.38 * max(0.0, min(1.0, value))
+                    )
                 GL.glEnd()
             if self._peaks:
-                GL.glColor3f(.4, .95, .5)
+                GL.glColor3f(0.4, 0.95, 0.5)
                 GL.glLineWidth(1)
                 GL.glBegin(GL.GL_LINE_STRIP)
                 for i, value in enumerate(self._peaks):
-                    GL.glVertex2f(i / max(1, len(self._peaks)-1),
-                                  split + .38 * max(0., min(1., value)))
+                    GL.glVertex2f(
+                        i / max(1, len(self._peaks) - 1), split + 0.38 * max(0.0, min(1.0, value))
+                    )
                 GL.glEnd()
             # Frequency grid aligns with the five labels above the plot.
             # Draw after the waterfall so the guides remain visible through
@@ -189,7 +221,7 @@ if OpenGLFrame is not None:
             GL.glLineWidth(1)
             GL.glEnable(GL.GL_LINE_STIPPLE)
             GL.glLineStipple(1, 0x1111)
-            GL.glColor3f(.30, .42, .53)
+            GL.glColor3f(0.30, 0.42, 0.53)
             GL.glBegin(GL.GL_LINES)
             for i in range(5):
                 x = i / 4.0
@@ -201,23 +233,24 @@ if OpenGLFrame is not None:
                 left, right = self._passband
                 GL.glEnable(GL.GL_BLEND)
                 GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
-                GL.glColor4f(.4, .95, .5, .22)
+                GL.glColor4f(0.4, 0.95, 0.5, 0.22)
                 GL.glBegin(GL.GL_QUADS)
-                for x, y in ((left, 0.), (right, 0.), (right, 1.), (left, 1.)):
+                for x, y in ((left, 0.0), (right, 0.0), (right, 1.0), (left, 1.0)):
                     GL.glVertex2f(x, y)
                 GL.glEnd()
                 GL.glDisable(GL.GL_BLEND)
             if self._tuned_position is not None and 0.0 <= self._tuned_position <= 1.0:
-                GL.glColor3f(.4, .95, .5)
+                GL.glColor3f(0.4, 0.95, 0.5)
                 GL.glLineWidth(2)
                 GL.glBegin(GL.GL_LINES)
-                GL.glVertex2f(self._tuned_position, 0.)
-                GL.glVertex2f(self._tuned_position, 1.)
+                GL.glVertex2f(self._tuned_position, 0.0)
+                GL.glVertex2f(self._tuned_position, 1.0)
                 GL.glEnd()
             # pyopengltk uses a double-buffered GLX drawable. glFlush only
             # submits commands; it does not present the back buffer.
             self.tkSwapBuffers()
 else:
+
     class OpenGLRadioSurface:
         def __init__(self, *args, **kwargs):
             raise RuntimeError("Install pyopengltk and PyOpenGL to use OpenGL radio rendering")

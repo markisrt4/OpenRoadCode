@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Toolkit-free notification delivery contract tests."""
+
 from unittest.mock import Mock
 
 import pytest
@@ -9,8 +10,7 @@ from ui.notification_if import Notification, NotificationSeverity
 
 
 def _event(code="adsb.launch_failed", severity=NotificationSeverity.ERROR):
-    return Notification(code, "ADS-B Map Unavailable", "Connection refused",
-                        severity, "adsb")
+    return Notification(code, "ADS-B Map Unavailable", "Connection refused", severity, "adsb")
 
 
 def test_event_is_immutable_and_validated():
@@ -25,8 +25,9 @@ def test_dispatcher_schedules_ui_and_suppresses_duplicate(caplog):
     callbacks = []
     presented = []
     clock = [10.0]
-    dispatcher = NotificationDispatcher(callbacks.append, presented.append,
-                                        cooldown_seconds=5, clock=lambda: clock[0])
+    dispatcher = NotificationDispatcher(
+        callbacks.append, presented.append, cooldown_seconds=5, clock=lambda: clock[0]
+    )
     dispatcher.publish(_event())
     dispatcher.publish(_event())
     assert len(callbacks) == 1

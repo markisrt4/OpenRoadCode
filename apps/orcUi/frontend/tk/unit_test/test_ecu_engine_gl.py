@@ -10,7 +10,7 @@ import pytest
 from apps.orcUi.frontend.tk.ecu_engine_gl import create_engine_gl, piston_position
 
 
-@pytest.mark.parametrize('phase', [0, 0.125, 0.25, 0.5, 0.75, 1, 1.5])
+@pytest.mark.parametrize("phase", [0, 0.125, 0.25, 0.5, 0.75, 1, 1.5])
 def test_rods_keep_constant_length_and_pistons_stay_in_bore(phase):
     for cylinder in range(4):
         y, pin_y, pin_z = piston_position(phase, cylinder)
@@ -27,7 +27,7 @@ def test_pistons_have_opposing_top_and_bottom_dead_centers():
 
 
 def test_forced_canvas_does_not_require_gl_or_tk(monkeypatch):
-    monkeypatch.setenv('OPENROAD_ECU_RENDERER', 'canvas')
+    monkeypatch.setenv("OPENROAD_ECU_RENDERER", "canvas")
     assert create_engine_gl(None, theme=None, on_failure=None) is None
 
 

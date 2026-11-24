@@ -15,5 +15,7 @@ def require_sdk(directory):
     """Fail early instead of silently falling back to a remote CDN."""
     for name in ("Cesium.js", "Widgets/widgets.css", "Assets", "Workers"):
         if not (directory / name).exists():
-            raise RuntimeError("Cesium SDK is missing; run python -m development.maps.install_cesium")
+            raise RuntimeError(
+                "Cesium SDK is missing; run python -m development.maps.install_cesium"
+            )
     return directory.resolve()

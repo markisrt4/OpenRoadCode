@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
 # SPDX-License-Identifier: MIT
 """Measured spectrum display: fixed axes, configurable geometry and envelopes."""
+
 import math
 
 from .music_scene_theme import ScenePalette
@@ -13,8 +14,10 @@ def measured_levels(frame, band_count=64):
     result = []
     for i in range(band_count):
         low, high = 31.25 * 512 ** (i / band_count), 31.25 * 512 ** ((i + 1) / band_count)
-        db = max((db for hz, db in zip(frame.spectrum_hz, frame.spectrum_dbfs)
-                  if low <= hz < high), default=-60)
+        db = max(
+            (db for hz, db in zip(frame.spectrum_hz, frame.spectrum_dbfs) if low <= hz < high),
+            default=-60,
+        )
         result.append(max(0, min(1, (db + 60) / 60)))
     return result
 
@@ -54,20 +57,20 @@ class AnalyzerDisplay:
             self.levels[i] = value
             if value >= self.peaks[i]:
                 self.peaks[i] = value
-                self._hold_until[i] = now + .5
+                self._hold_until[i] = now + 0.5
             elif now > self._hold_until[i]:
-                self.peaks[i] = max(value, self.peaks[i] - dt * .5)
+                self.peaks[i] = max(value, self.peaks[i] - dt * 0.5)
 
 
 def analyzer_color(appearance, height):
     """Interpolate preset/custom RGB colors from bar base to tip."""
     t = max(0, min(1, height))
     if appearance.palette is AnalyzerPalette.RETRO:
-        return min(1, t * 2), min(1, (1 - t) * 2), .04
+        return min(1, t * 2), min(1, (1 - t) * 2), 0.04
     endpoints = {
-        AnalyzerPalette.ORC: ((.02, .3, .6), (.15, .85, 1)),
-        AnalyzerPalette.MONO: ((.45, .65, .72), (.9, .98, 1)),
-        AnalyzerPalette.FIRE: ((.9, .2, .02), (1, .85, .15)),
+        AnalyzerPalette.ORC: ((0.02, 0.3, 0.6), (0.15, 0.85, 1)),
+        AnalyzerPalette.MONO: ((0.45, 0.65, 0.72), (0.9, 0.98, 1)),
+        AnalyzerPalette.FIRE: ((0.9, 0.2, 0.02), (1, 0.85, 0.15)),
     }
     low, high = endpoints.get(appearance.palette, (appearance.low_color, appearance.high_color))
     return tuple(a + (b - a) * t for a, b in zip(low, high))
@@ -81,56 +84,69 @@ def draw_analyzer(gl, frame, decay, appearance, display, palette=None):
     gl.glMatrixMode(gl.GL_MODELVIEW)
     gl.glLoadIdentity()
     gl.glDisable(gl.GL_DEPTH_TEST)
-    levels = display.levels if display is not None else [v * decay for v in measured_levels(frame, max(8, min(64, appearance.band_count)))]
+    levels = (
+        display.levels
+        if display is not None
+        else [v * decay for v in measured_levels(frame, max(8, min(64, appearance.band_count)))]
+    )
     peaks = display.peaks if display is not None else levels
     for db in (-60, -40, -20, 0):
         gl.glColor3f(*palette.grid)
         gl.glBegin(gl.GL_LINES)
-        gl.glVertex2f(.04, .08 + (db + 60) / 60 * .86)
-        gl.glVertex2f(.96, .08 + (db + 60) / 60 * .86)
+        gl.glVertex2f(0.04, 0.08 + (db + 60) / 60 * 0.86)
+        gl.glVertex2f(0.96, 0.08 + (db + 60) / 60 * 0.86)
         gl.glEnd()
     gl.glColor3f(*palette.guides)
     gl.glBegin(gl.GL_LINES)
     for hz in (250, 4000):
-        x = .04 + .92 * math.log(hz / 31.25, 512)
-        gl.glVertex2f(x, .08)
-        gl.glVertex2f(x, .94)
+        x = 0.04 + 0.92 * math.log(hz / 31.25, 512)
+        gl.glVertex2f(x, 0.08)
+        gl.glVertex2f(x, 0.94)
     gl.glEnd()
     # Let GL interpolate linear gradients; Retro needs one extra stop at yellow.
     # Batch every bar in one draw block to avoid Python/GL calls per segment.
     gl.glShadeModel(gl.GL_SMOOTH)
-    stops = (0, .5, 1) if appearance.palette is AnalyzerPalette.RETRO else (0, 1)
+    stops = (0, 0.5, 1) if appearance.palette is AnalyzerPalette.RETRO else (0, 1)
     colors = [analyzer_color(appearance, stop) for stop in stops]
     count = len(levels)
-    gap = max(0, min(.8, appearance.spacing))
-    width = .92 / count * (1 - gap)
+    gap = max(0, min(0.8, appearance.spacing))
+    width = 0.92 / count * (1 - gap)
     gl.glBegin(gl.GL_QUADS)
     for i, height in enumerate(levels):
         if height <= 0:
             continue
-        x = .04 + .92 * (i + gap/2) / count
+        x = 0.04 + 0.92 * (i + gap / 2) / count
         if appearance.segmented:
-            segments = [(j / 30, j / 30 + .025) for j in range(int(height * 30))]
-            spans = [(bottom, top, analyzer_color(appearance, bottom / height),
-                      analyzer_color(appearance, top / height)) for bottom, top in segments]
+            segments = [(j / 30, j / 30 + 0.025) for j in range(int(height * 30))]
+            spans = [
+                (
+                    bottom,
+                    top,
+                    analyzer_color(appearance, bottom / height),
+                    analyzer_color(appearance, top / height),
+                )
+                for bottom, top in segments
+            ]
         else:
-            spans = [(height * stops[j], height * stops[j+1], colors[j], colors[j+1])
-                     for j in range(len(stops)-1)]
+            spans = [
+                (height * stops[j], height * stops[j + 1], colors[j], colors[j + 1])
+                for j in range(len(stops) - 1)
+            ]
         for bottom, top, low_color, high_color in spans:
             gl.glColor3f(*low_color)
-            gl.glVertex2f(x, .08 + bottom * .86)
-            gl.glVertex2f(x+width, .08 + bottom * .86)
+            gl.glVertex2f(x, 0.08 + bottom * 0.86)
+            gl.glVertex2f(x + width, 0.08 + bottom * 0.86)
             gl.glColor3f(*high_color)
-            gl.glVertex2f(x+width, .08 + top * .86)
-            gl.glVertex2f(x, .08 + top * .86)
+            gl.glVertex2f(x + width, 0.08 + top * 0.86)
+            gl.glVertex2f(x, 0.08 + top * 0.86)
     gl.glEnd()
     if appearance.peak_markers:
         gl.glColor3f(*palette.text)
         gl.glBegin(gl.GL_LINES)
         for i, peak in enumerate(peaks):
-            if peak > .005:
-                x = .04 + .92 * (i + gap/2) / count
-                gl.glVertex2f(x, .08 + peak * .86)
-                gl.glVertex2f(x+width, .08 + peak * .86)
+            if peak > 0.005:
+                x = 0.04 + 0.92 * (i + gap / 2) / count
+                gl.glVertex2f(x, 0.08 + peak * 0.86)
+                gl.glVertex2f(x + width, 0.08 + peak * 0.86)
         gl.glEnd()
     gl.glEnable(gl.GL_DEPTH_TEST)

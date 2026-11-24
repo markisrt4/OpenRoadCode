@@ -32,7 +32,14 @@ class FuelLevelGauge(tk.Canvas, UiWidget):
         self._value: float | None = None
         self._connected = True
         self._show_title = show_title
-        super().__init__(master, width=size, height=size, background=self._style.background_color, highlightthickness=0, **kwargs)
+        super().__init__(
+            master,
+            width=size,
+            height=size,
+            background=self._style.background_color,
+            highlightthickness=0,
+            **kwargs,
+        )
         self.bind("<Configure>", self._on_resize)
         self.after_idle(self._draw)
 
@@ -82,9 +89,16 @@ class FuelLevelGauge(tk.Canvas, UiWidget):
         cx, cy = width / 2.0, height / 2.0
         radius = size * 0.46
 
-        for scale, color in ((1.00, self._style.bezel_outer), (0.96, self._style.bezel_shadow), (0.91, self._style.bezel_metal_dark), (0.87, self._style.bezel_midlight), (0.82, self._style.bezel_inner), (0.77, self._style.face_color)):
+        for scale, color in (
+            (1.00, self._style.bezel_outer),
+            (0.96, self._style.bezel_shadow),
+            (0.91, self._style.bezel_metal_dark),
+            (0.87, self._style.bezel_midlight),
+            (0.82, self._style.bezel_inner),
+            (0.77, self._style.face_color),
+        ):
             r = radius * scale
-            self.create_oval(cx-r, cy-r, cx+r, cy+r, fill=color, outline=color)
+            self.create_oval(cx - r, cy - r, cx + r, cy + r, fill=color, outline=color)
 
         # Twenty minor divisions, with quarter-tank marks emphasized.
         for index in range(21):
@@ -96,8 +110,24 @@ class FuelLevelGauge(tk.Canvas, UiWidget):
             x1, y1 = self._point(cx, cy, inner, angle)
             x2, y2 = self._point(cx, cy, outer, angle)
             percent = ratio * 100.0
-            color = self._style.danger_value if percent <= 12.5 else self._style.caution_value if percent <= 25.0 else self._style.foreground_color if major else self._style.muted_detail
-            self.create_line(x1, y1, x2, y2, fill=color, width=max(2, int(size * (0.024 if major else 0.012))), capstyle=tk.ROUND)
+            color = (
+                self._style.danger_value
+                if percent <= 12.5
+                else self._style.caution_value
+                if percent <= 25.0
+                else self._style.foreground_color
+                if major
+                else self._style.muted_detail
+            )
+            self.create_line(
+                x1,
+                y1,
+                x2,
+                y2,
+                fill=color,
+                width=max(2, int(size * (0.024 if major else 0.012))),
+                capstyle=tk.ROUND,
+            )
 
         # Keep labels sparse at this size. Fractions inside a 122 px dial turned
         # into visual confetti; E, 1/2 and F give the useful reference points.
@@ -105,23 +135,65 @@ class FuelLevelGauge(tk.Canvas, UiWidget):
             angle = self.START_ANGLE_DEG + (percent / 100.0) * self.SWEEP_ANGLE_DEG
             tx, ty = self._point(cx, cy, radius * 0.42, angle)
             color = self._style.danger_value if percent == 0 else self._style.foreground_color
-            self.create_text(tx, ty, text=label, fill=color, font=(self._style.condensed_font_family, max(7, int(radius * 0.105)), "bold"))
+            self.create_text(
+                tx,
+                ty,
+                text=label,
+                fill=color,
+                font=(self._style.condensed_font_family, max(7, int(radius * 0.105)), "bold"),
+            )
 
         if self._show_title:
-            self.create_text(cx, cy - radius * 0.24, text="FUEL", fill=self._style.foreground_color, font=(self._style.condensed_font_family, max(8, int(radius * 0.13)), "bold"))
+            self.create_text(
+                cx,
+                cy - radius * 0.24,
+                text="FUEL",
+                fill=self._style.foreground_color,
+                font=(self._style.condensed_font_family, max(8, int(radius * 0.13)), "bold"),
+            )
 
         needle_value = 0.0 if self._value is None or not self._connected else self._value
         needle_angle = self.START_ANGLE_DEG + (needle_value / 100.0) * self.SWEEP_ANGLE_DEG
-        needle_color = self._style.accent_color if self._value is not None and self._connected else self._style.muted_color
+        needle_color = (
+            self._style.accent_color
+            if self._value is not None and self._connected
+            else self._style.muted_color
+        )
         nx, ny = self._point(cx, cy, radius * 0.55, needle_angle)
         tail_x, tail_y = self._point(cx, cy, -radius * 0.10, needle_angle)
-        self.create_line(tail_x, tail_y, nx, ny, fill=needle_color, width=max(3, int(size * 0.026)), capstyle=tk.ROUND)
+        self.create_line(
+            tail_x,
+            tail_y,
+            nx,
+            ny,
+            fill=needle_color,
+            width=max(3, int(size * 0.026)),
+            capstyle=tk.ROUND,
+        )
         hub = max(3.0, size * 0.035)
-        self.create_oval(cx-hub, cy-hub, cx+hub, cy+hub, fill=self._style.hub_metal, outline=self._style.hub_outer, width=max(1, int(size * 0.008)))
+        self.create_oval(
+            cx - hub,
+            cy - hub,
+            cx + hub,
+            cy + hub,
+            fill=self._style.hub_metal,
+            outline=self._style.hub_outer,
+            width=max(1, int(size * 0.008)),
+        )
 
         detail = "--" if not self._connected or self._value is None else f"{self._value:.0f}%"
-        detail_color = self._style.muted_color if self._value is None or not self._connected else self._value_color()
-        self.create_text(cx, cy + radius * 0.38, text=detail, fill=detail_color, font=(self._style.mono_font_family, max(7, int(radius * 0.11)), "bold"))
+        detail_color = (
+            self._style.muted_color
+            if self._value is None or not self._connected
+            else self._value_color()
+        )
+        self.create_text(
+            cx,
+            cy + radius * 0.38,
+            text=detail,
+            fill=detail_color,
+            font=(self._style.mono_font_family, max(7, int(radius * 0.11)), "bold"),
+        )
 
     def _segment_color(self, segment_percent: float, active: bool) -> str:
         if not active:

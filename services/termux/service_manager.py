@@ -119,8 +119,10 @@ class RunitServiceManager:
         if name != "openroadcode-sdrforge":
             return None, None
         if state != "running":
-            return ("stopped" if state == "stopped" else "unknown",
-                    "SDRForge service is not running")
+            return (
+                "stopped" if state == "stopped" else "unknown",
+                "SDRForge service is not running",
+            )
         try:
             with urlopen("http://127.0.0.1:5570/v1/health", timeout=0.3) as response:
                 payload = json.load(response)

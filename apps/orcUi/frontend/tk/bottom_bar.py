@@ -26,13 +26,21 @@ def aircraft_button_text(*, enabled: bool, aircraft_count: int) -> str:
     return "✈  AIRCRAFT ▾"
 
 
-def aircraft_menu_labels(*, enabled: bool, aircraft_count: int, simulation: bool = False) -> tuple[str, str, str]:
+def aircraft_menu_labels(
+    *, enabled: bool, aircraft_count: int, simulation: bool = False
+) -> tuple[str, str, str]:
     """Describe Aircraft actions without coupling their behavior to Tk."""
-    receiver = "Simulated data · no live receiver" if simulation else (
-        "Stop ADS-B receiver" if enabled else "Start ADS-B receiver")
+    receiver = (
+        "Simulated data · no live receiver"
+        if simulation
+        else ("Stop ADS-B receiver" if enabled else "Start ADS-B receiver")
+    )
     count = max(0, aircraft_count)
-    tracker = "↗  Open simulated aircraft map" if simulation else (
-        "↗  Open aircraft map" if enabled else "↗  Start tracking & open map")
+    tracker = (
+        "↗  Open simulated aircraft map"
+        if simulation
+        else ("↗  Open aircraft map" if enabled else "↗  Start tracking & open map")
+    )
     if enabled and count:
         tracker += f" · {count} {'simulated' if simulation else 'nearby'}"
     return receiver, tracker, "♫  Open AM / pilot radio"
@@ -95,8 +103,11 @@ class OrcUiBottomBar(tk.Frame, UiWidget):
 
         self._aircraft_button = self._button(self._show_aircraft_menu, bold=True)
         self._aircraft_button.grid(
-            row=0, column=1, sticky="nsew",
-            padx=0, pady=0,
+            row=0,
+            column=1,
+            sticky="nsew",
+            padx=0,
+            pady=0,
         )
         theme_button = self._button(on_theme_toggle, bold=True)
         theme_button.configure(text=theme_label)
@@ -117,15 +128,20 @@ class OrcUiBottomBar(tk.Frame, UiWidget):
         ui = self._theme.ui
         weight = "bold" if bold else "normal"
         return GradientControl(
-            parent if parent is not None else self, command=command,
-            bg=ui.control_background, fg=ui.control_text,
-            activebackground=ui.control_active, activeforeground=ui.text,
+            parent if parent is not None else self,
+            command=command,
+            bg=ui.control_background,
+            fg=ui.control_text,
+            activebackground=ui.control_active,
+            activeforeground=ui.text,
             font=("Sans", FONT_CONTROL, weight),
         )
 
     def set_performance_status(self, status: PerformanceStatus) -> None:
         """Present observed computing-unit health alongside the shell controls."""
-        self._performance_button.configure(text=status.text, fg=getattr(self._theme.ui, status.tone))
+        self._performance_button.configure(
+            text=status.text, fg=getattr(self._theme.ui, status.tone)
+        )
 
     def set_volume_text(self, text: str) -> None:
         self._volume_label.configure(text=text)
@@ -162,10 +178,16 @@ class OrcUiBottomBar(tk.Frame, UiWidget):
         root = self.winfo_toplevel()
         popup = tk.Frame(root, bg=ui.surface, bd=0, highlightthickness=0)
         self._aircraft_popup = popup
-        tk.Label(popup, text="SIMULATED DATA" if self._adsb_simulation else (
-            "RECEIVER ON" if self._adsb_enabled else "RECEIVER OFF · MAP STARTS TRACKING"),
-            bg=ui.surface, fg=ui.text_muted, font=("Sans", 8, "bold"),
-            anchor="w").pack(fill=tk.X, padx=12, pady=(8, 4))
+        tk.Label(
+            popup,
+            text="SIMULATED DATA"
+            if self._adsb_simulation
+            else ("RECEIVER ON" if self._adsb_enabled else "RECEIVER OFF · MAP STARTS TRACKING"),
+            bg=ui.surface,
+            fg=ui.text_muted,
+            font=("Sans", 8, "bold"),
+            anchor="w",
+        ).pack(fill=tk.X, padx=12, pady=(8, 4))
         actions = [(tracker, self._show_aircraft)]
         if not self._adsb_simulation:
             actions.append((receiver, self._toggle_adsb))
@@ -192,9 +214,9 @@ class OrcUiBottomBar(tk.Frame, UiWidget):
         popup.update_idletasks()
         x = self._aircraft_button.winfo_rootx() - root.winfo_rootx()
         y = self._aircraft_button.winfo_rooty() - root.winfo_rooty() - popup.winfo_reqheight()
-        popup.place(x=x, y=max(0, y), width=max(
-            self._aircraft_button.winfo_width(), popup.winfo_reqwidth()
-        ))
+        popup.place(
+            x=x, y=max(0, y), width=max(self._aircraft_button.winfo_width(), popup.winfo_reqwidth())
+        )
         popup.lift()
 
     def _run_aircraft_action(self, action: Callable[[], None]) -> None:

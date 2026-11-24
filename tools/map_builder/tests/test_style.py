@@ -11,6 +11,7 @@ from tools.map_builder.builder.validate import validate_style
 
 TEMPLATE = Path(__file__).parents[1] / "templates/openroadcode-style.json"
 
+
 class StyleTests(unittest.TestCase):
     def test_style_round_trip_and_required_sources(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -31,4 +32,6 @@ class StyleTests(unittest.TestCase):
             ["coalesce", ["get", "render_min_height"], 0],
         )
 
-if __name__ == "__main__": unittest.main()
+
+if __name__ == "__main__":
+    unittest.main()

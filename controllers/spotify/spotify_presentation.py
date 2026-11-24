@@ -7,9 +7,17 @@ from dataclasses import replace
 import time
 
 from controllers.lyrics.lrclib_lyrics_client import LyricsResult
-from ui.media import MediaAvailability, MediaState, PlaybackRequestHandlerIf, TrackRequestHandlerIf, SeekRequestHandlerIf
+from ui.media import (
+    MediaAvailability,
+    MediaState,
+    PlaybackRequestHandlerIf,
+    TrackRequestHandlerIf,
+    SeekRequestHandlerIf,
+)
 from ui.media.spotify_presentation_if import (
-    SpotifyPresentationState, SpotifyPresentationUi, SpotifyRequestHandler,
+    SpotifyPresentationState,
+    SpotifyPresentationUi,
+    SpotifyRequestHandler,
 )
 from ui.ui_dispatcher_if import UiDispatcherIf
 
@@ -18,17 +26,24 @@ class SpotifyPresentation(SpotifyRequestHandler):
     """One visible view; all completions are guarded by view and track generations."""
 
     def __init__(
-        self, *, read_state: Callable[[], MediaState], online: Callable[[], bool],
+        self,
+        *,
+        read_state: Callable[[], MediaState],
+        online: Callable[[], bool],
         load_artwork: Callable[[str], bytes],
         load_lyrics: Callable[[MediaState], LyricsResult | None],
-        video_available: Callable[[], bool], video_active: Callable[[], bool],
+        video_available: Callable[[], bool],
+        video_active: Callable[[], bool],
         watch_video: Callable[[Callable[[], bool], Callable[[], bool]], bool],
         return_to_spotify: Callable[[Callable[[], bool]], None],
-        run_work: Callable[[Callable[[], None]], None], dispatcher: UiDispatcherIf,
+        run_work: Callable[[Callable[[], None]], None],
+        dispatcher: UiDispatcherIf,
         read_video_process_id: Callable[[], int | None] = lambda: None,
         playback: PlaybackRequestHandlerIf | None = None,
-        tracks: TrackRequestHandlerIf | None = None, seek: SeekRequestHandlerIf | None = None,
-        rich: bool = True, set_volume: Callable[[int], None] = lambda _volume: None,
+        tracks: TrackRequestHandlerIf | None = None,
+        seek: SeekRequestHandlerIf | None = None,
+        rich: bool = True,
+        set_volume: Callable[[int], None] = lambda _volume: None,
     ) -> None:
         self._playback = playback
         self._tracks = tracks
@@ -100,24 +115,47 @@ class SpotifyPresentation(SpotifyRequestHandler):
         online = self._online()
         media = self._read_state() if online else MediaState()
         if self._pending_volume is not None:
-            if media.volume_percent == self._pending_volume or time.monotonic() >= self._volume_until:
+            if (
+                media.volume_percent == self._pending_volume
+                or time.monotonic() >= self._volume_until
+            ):
                 self._pending_volume = None
             else:
                 media = replace(media, volume_percent=self._pending_volume)
         valid = online and media.availability is MediaAvailability.AVAILABLE
-        key = (media.media_uri, media.title, media.artist, media.album, media.duration_s,
-               media.artwork_uri, valid)
-        self._state = replace(self._state, media=media, online=online,
-                              video_active=self._video_active() if online and self._rich and not self._returning_video else False,
-                              video_process_id=self._read_video_process_id() if online and self._rich else None)
+        key = (
+            media.media_uri,
+            media.title,
+            media.artist,
+            media.album,
+            media.duration_s,
+            media.artwork_uri,
+            valid,
+        )
+        self._state = replace(
+            self._state,
+            media=media,
+            online=online,
+            video_active=self._video_active()
+            if online and self._rich and not self._returning_video
+            else False,
+            video_process_id=self._read_video_process_id() if online and self._rich else None,
+        )
         if key != self._key:
             self._key = key
             self._track_generation += 1
             self._lyrics = None
             self._returning_video = False
-            self._state = replace(self._state, artwork=None, artwork_loading=False,
-                                  lyric_current="", lyric_next="", video_available=False,
-                                  video_busy=False, message="")
+            self._state = replace(
+                self._state,
+                artwork=None,
+                artwork_loading=False,
+                lyric_current="",
+                lyric_next="",
+                video_available=False,
+                video_busy=False,
+                message="",
+            )
             if valid:
                 self._start_track(media)
         self._render_lyrics()
@@ -126,56 +164,77 @@ class SpotifyPresentation(SpotifyRequestHandler):
 
     def _work(self, work: Callable[[], Callable[[], None]]) -> None:
         generation, track = self._generation, self._track_generation
+
         def current() -> bool:
-            return (not self._closed and self._view is not None
-                    and generation == self._generation and track == self._track_generation
-                    and self._online())
+            return (
+                not self._closed
+                and self._view is not None
+                and generation == self._generation
+                and track == self._track_generation
+                and self._online()
+            )
+
         def run() -> None:
             if not current():
                 return
             finish = work()
+
             def deliver() -> None:
                 if current():
                     finish()
                     self._publish()
+
             self._dispatcher.dispatch_ui(deliver)
+
         self._run_work(run)
 
     def _start_track(self, media: MediaState) -> None:
         if media.artwork_uri:
             self._state = replace(self._state, artwork_loading=True)
             uri = media.artwork_uri
+
             def artwork() -> Callable[[], None]:
                 try:
                     payload = self._load_artwork(uri)
                 except Exception:
                     payload = None
+
                 def finish() -> None:
                     self._state = replace(self._state, artwork=payload, artwork_loading=False)
+
                 return finish
+
             self._work(artwork)
         if not self._rich or not media.title or not media.artist:
             return
         self._state = replace(self._state, lyric_current="Finding lyrics…", video_available=None)
+
         def lyrics() -> Callable[[], None]:
             try:
                 result = self._load_lyrics(media)
             except Exception:
                 result = None
+
             def finish() -> None:
                 self._lyrics = result
                 self._state = replace(self._state, lyric_current="Lyrics unavailable")
                 self._render_lyrics()
+
             return finish
+
         self._work(lyrics)
+
         def video() -> Callable[[], None]:
             try:
                 available = self._video_available()
             except Exception:
                 available = False
+
             def finish() -> None:
                 self._state = replace(self._state, video_available=available)
+
             return finish
+
         self._work(video)
 
     def _render_lyrics(self) -> None:
@@ -193,7 +252,11 @@ class SpotifyPresentation(SpotifyRequestHandler):
             lines = tuple(line.text for line in result.synced_lines)
         else:
             lines = result.plain_lines
-            ratio = min(1.0, max(0.0, (media.position_s or 0.0) / media.duration_s)) if media.duration_s else 0.0
+            ratio = (
+                min(1.0, max(0.0, (media.position_s or 0.0) / media.duration_s))
+                if media.duration_s
+                else 0.0
+            )
             index = min(len(lines) - 1, int(ratio * len(lines)))
         current = lines[index] if lines else "Lyrics unavailable"
         following = lines[index + 1] if lines and index + 1 < len(lines) else ""
@@ -262,22 +325,47 @@ class SpotifyPresentation(SpotifyRequestHandler):
             return
         self._returning_video = returning
         generation, track = self._generation, self._track_generation
+
         def current() -> bool:
-            return (not self._closed and self._view is not None and self._online()
-                    and generation == self._generation and track == self._track_generation)
-        self._state = replace(self._state, video_busy=True, video_active=False if returning else self._state.video_active, message="Finding video..." if not returning else "Returning to Spotify…")
+            return (
+                not self._closed
+                and self._view is not None
+                and self._online()
+                and generation == self._generation
+                and track == self._track_generation
+            )
+
+        self._state = replace(
+            self._state,
+            video_busy=True,
+            video_active=False if returning else self._state.video_active,
+            message="Finding video..." if not returning else "Returning to Spotify…",
+        )
         self._publish()
+
         def work() -> Callable[[], None]:
             try:
                 if returning:
                     self._return(current)
                     message = "Returned to Spotify"
                 else:
-                    message = "Music video playing" if self._watch_video(current, lambda: not self._closed and self._online()) else "No suitable music video found"
+                    message = (
+                        "Music video playing"
+                        if self._watch_video(current, lambda: not self._closed and self._online())
+                        else "No suitable music video found"
+                    )
             except Exception as error:
                 message = f"Video failed: {error}"
+
             def finish() -> None:
                 self._returning_video = False
-                self._state = replace(self._state, video_busy=False, video_active=self._video_active(), message=message)
+                self._state = replace(
+                    self._state,
+                    video_busy=False,
+                    video_active=self._video_active(),
+                    message=message,
+                )
+
             return finish
+
         self._work(work)

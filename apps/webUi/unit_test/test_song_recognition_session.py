@@ -16,7 +16,9 @@ class _Recognizer(SongRecognitionIf):
     def provider_name(self) -> str | None:
         return "test"
 
-    def recognize(self, audio: bytes, *, sample_bytes: int | None = None) -> SongRecognitionResult | None:
+    def recognize(
+        self, audio: bytes, *, sample_bytes: int | None = None
+    ) -> SongRecognitionResult | None:
         assert audio == b"clip"
         assert sample_bytes == 4
         return SongRecognitionResult(

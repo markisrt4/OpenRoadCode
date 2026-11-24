@@ -99,9 +99,7 @@ def _create_hardware_encoder(
             i2c,
         )
 
-    raise TypeError(
-        f"Unsupported rotary encoder config: {type(device).__name__}"
-    )
+    raise TypeError(f"Unsupported rotary encoder config: {type(device).__name__}")
 
 
 def create_rotary_encoder_runtime(

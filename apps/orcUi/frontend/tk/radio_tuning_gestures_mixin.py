@@ -4,8 +4,7 @@
 from ui.radio.rf_radio_if import RadioAction, RadioRequest
 
 
-def next_channel(frequency_hz: int, direction: int, *, low: int, high: int,
-                 step: int) -> int:
+def next_channel(frequency_hz: int, direction: int, *, low: int, high: int, step: int) -> int:
     """Move to the next channel center, even from an off-grid frequency."""
     if step <= 0 or direction == 0:
         return frequency_hz
@@ -36,16 +35,17 @@ class RadioTuningGesturesMixin:
             return
         target = next_channel(frequency, direction, low=low, high=high, step=step)
         if target != frequency:
-            self._session.request(RadioRequest(
-                RadioAction.TUNE_FREQUENCY, frequency_hz=target))
+            self._session.request(RadioRequest(RadioAction.TUNE_FREQUENCY, frequency_hz=target))
 
     def _manual_tune(self, direction: int) -> None:
         """Use broadcast channel spacing for FM and profile steps otherwise."""
         state = self._state
         if not state.receiver_running or state.view == "adsb" or not direction:
             return
-        if (state.station.mode_name.upper() in ("FM", "WFM")
-                and 88_000_000 <= state.station.frequency_hz <= 108_000_000):
+        if (
+            state.station.mode_name.upper() in ("FM", "WFM")
+            and 88_000_000 <= state.station.frequency_hz <= 108_000_000
+        ):
             self._gesture_tune(direction)
         else:
             action = RadioAction.TUNE_UP if direction > 0 else RadioAction.TUNE_DOWN
@@ -74,8 +74,9 @@ class RadioTuningGesturesMixin:
 
     def _tune_spectrum_frequency(self, frequency_hz: int) -> None:
         if self._state.receiver_running and self._state.view != "adsb":
-            self._session.request(RadioRequest(
-                RadioAction.TUNE_FREQUENCY, frequency_hz=frequency_hz))
+            self._session.request(
+                RadioRequest(RadioAction.TUNE_FREQUENCY, frequency_hz=frequency_hz)
+            )
 
     def _tune_down(self) -> None:
         if self._sdrforge_view is not None:

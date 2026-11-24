@@ -7,4 +7,4 @@ from ui.navigation.map_presentation_if import (
     MapPresentationIf,
 )
 
-__all__ = ['MapPresentationIf']
+__all__ = ["MapPresentationIf"]

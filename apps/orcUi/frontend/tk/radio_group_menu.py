@@ -28,9 +28,19 @@ class RadioGroupMenuMixin(RadioPresentationFrame):
         ui = self._theme.ui
         driving = getattr(self, "_driving_radio", False)
         for name, label in MAIN_GROUPS:
-            command = partial(self.select_group, name) if driving else partial(self._show_group_menu, name)
+            command = (
+                partial(self.select_group, name)
+                if driving
+                else partial(self._show_group_menu, name)
+            )
             if driving:
-                label = {"FM": "♫ FM", "WEATHER": "☁ WEATHER", "AIR": "✈ AIR", "HAM": "⌁ HAM", "SCANNER": "⌁ SCANNER"}[name]
+                label = {
+                    "FM": "♫ FM",
+                    "WEATHER": "☁ WEATHER",
+                    "AIR": "✈ AIR",
+                    "HAM": "⌁ HAM",
+                    "SCANNER": "⌁ SCANNER",
+                }[name]
             button = tk.Button(
                 self._groups,
                 text=label,
@@ -146,7 +156,9 @@ class RadioGroupMenuMixin(RadioPresentationFrame):
             "Add radio preset", "Preset name:", initialvalue=state.label, parent=self
         )
         if label:
-            self._session.request(RadioRequest(RadioAction.ADD_PRESET, key=profile.key, label=label))
+            self._session.request(
+                RadioRequest(RadioAction.ADD_PRESET, key=profile.key, label=label)
+            )
 
     @staticmethod
     def _popup_menu(menu: tk.Menu, button: tk.Button) -> None:

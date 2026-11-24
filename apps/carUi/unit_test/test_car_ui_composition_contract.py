@@ -54,9 +54,17 @@ class FakeScreenFactory:
         self.screens = {
             key: RecordingScreen(key)
             for key in (
-                "aircraft", "weather", "lighting", "fm_radio", "scanner",
-                "spotify", "netflix", "youtube", "offroad_dashboard",
-                "vehicle_gauges", "turn_by_turn",
+                "aircraft",
+                "weather",
+                "lighting",
+                "fm_radio",
+                "scanner",
+                "spotify",
+                "netflix",
+                "youtube",
+                "offroad_dashboard",
+                "vehicle_gauges",
+                "turn_by_turn",
             )
         }
 
@@ -112,8 +120,8 @@ class CarUiCompositionContractTest(unittest.TestCase):
             config_path = Path(directory) / "runtime.toml"
             config_path.write_text(
                 "[messaging]\n"
-                "publisher_endpoint = \"tcp://127.0.0.1:5556\"\n"
-                "subscriber_endpoint = \"tcp://127.0.0.1:5557\"\n"
+                'publisher_endpoint = "tcp://127.0.0.1:5556"\n'
+                'subscriber_endpoint = "tcp://127.0.0.1:5557"\n'
             )
             dependencies = SimpleNamespace(
                 runtime=SimpleNamespace(remote_display=":0", config_path=config_path),

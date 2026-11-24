@@ -3,6 +3,7 @@
 
 No Tk objects are touched from the subscriber thread. Newest spectrum wins.
 """
+
 from __future__ import annotations
 
 import json
@@ -75,9 +76,14 @@ def receiver_telemetry(topic: str, payload: dict[str, Any]) -> RadioTelemetry | 
     if running is not None and type(running) is not bool:
         return None
     return RadioTelemetry(
-        frequency_hz=int(frequency), rds=radio_text or name,
-        station_name=name, radio_text=radio_text, stereo_locked=stereo,
-        mode=mode, bandwidth_hz=bandwidth, receiver_running=running,
+        frequency_hz=int(frequency),
+        rds=radio_text or name,
+        station_name=name,
+        radio_text=radio_text,
+        stereo_locked=stereo,
+        mode=mode,
+        bandwidth_hz=bandwidth,
+        receiver_running=running,
     )
 
 
@@ -96,8 +102,12 @@ class ReceiverSequenceFilter:
         if stream_id is None and sequence is None:
             # Legacy publisher: no ordering information available.
             return True
-        if (not isinstance(stream_id, str) or not stream_id
-                or type(sequence) is not int or sequence < 1):
+        if (
+            not isinstance(stream_id, str)
+            or not stream_id
+            or type(sequence) is not int
+            or sequence < 1
+        ):
             return False
         if stream_id in self._retired_streams:
             return False
@@ -203,14 +213,20 @@ class SdrForgeTelemetrySubscriber:
                             finite = tuple(float(value) for value in raw_power if value is not None)
                             if finite and all(math.isfinite(value) for value in finite):
                                 noise_floor = min(finite)
-                                power_db = tuple(noise_floor if value is None else float(value)
-                                                 for value in raw_power)
+                                power_db = tuple(
+                                    noise_floor if value is None else float(value)
+                                    for value in raw_power
+                                )
                         except (TypeError, ValueError):
                             pass
-                    self._queue.put_nowait(SpectrumPresentation(
-                        bins, center_frequency_hz=center, sample_rate_hz=rate,
-                        power_db=power_db,
-                    ))
+                    self._queue.put_nowait(
+                        SpectrumPresentation(
+                            bins,
+                            center_frequency_hz=center,
+                            sample_rate_hz=rate,
+                            power_db=power_db,
+                        )
+                    )
                 except (ValueError, TypeError, KeyError, json.JSONDecodeError):
                     LOG.debug("Ignoring malformed SDRForge telemetry", exc_info=True)
                 except zmq.Again:

@@ -13,7 +13,8 @@ def panel():
     view = RadioPanel.__new__(RadioPanel)
     view._session = Mock()
     view._state = RfRadioState(
-        RadioProfileState("FM", 100_000_000, "WFM", "fm_radio", "FM"), (),
+        RadioProfileState("FM", 100_000_000, "WFM", "fm_radio", "FM"),
+        (),
         scan_hits=(94_700_000, 104_300_000),
     )
     view._scan_selected = set()
@@ -63,11 +64,10 @@ def test_save_requests_presets_and_keeps_results_open():
     view._save_scanned_presets()
     requests = [call.args[0] for call in view._session.request.call_args_list]
     assert [request.action for request in requests] == [
-        RadioAction.ADD_PRESET, RadioAction.ADD_PRESET
+        RadioAction.ADD_PRESET,
+        RadioAction.ADD_PRESET,
     ]
-    assert [request.frequency_hz for request in requests] == [
-        94_700_000, 104_300_000
-    ]
+    assert [request.frequency_hz for request in requests] == [94_700_000, 104_300_000]
     assert view._scan_selected == set()
     view._scan_status.configure.assert_called_once()
     view._render_scan_results.assert_called_once()

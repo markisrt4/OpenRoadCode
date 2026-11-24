@@ -7,7 +7,8 @@ from unittest.mock import Mock
 
 from frontends.tui.destination_setup import run_destination_setup
 from ui.navigation.destination_setup_request_handler_if import (
-    DestinationSetupRequestHandlerIf, SavedDestination,
+    DestinationSetupRequestHandlerIf,
+    SavedDestination,
 )
 from ui.navigation.destination_setup_ui_if import DestinationSetupUiIf
 from ui.navigation.map_ui_if import GeoPoint
@@ -50,10 +51,13 @@ class DestinationSetupPresentationTest(unittest.TestCase):
         handler.save.assert_not_called()
 
     def test_cancelled_drafts_never_save(self):
-        for choices, texts in [([None], []), (["home", "done"], [None]),
-                (["home", None, "done"], ["123 Main St"]),
-                (["home", "manual", "done"], ["123 Main St", None]),
-                (["home", "manual", "done"], ["123 Main St", "42.8", None])]:
+        for choices, texts in [
+            ([None], []),
+            (["home", "done"], [None]),
+            (["home", None, "done"], ["123 Main St"]),
+            (["home", "manual", "done"], ["123 Main St", None]),
+            (["home", "manual", "done"], ["123 Main St", "42.8", None]),
+        ]:
             with self.subTest(choices=choices, texts=texts):
                 handler, dialog = setup_flow(choices, texts)
                 run_destination_setup(handler, dialog)
@@ -68,14 +72,18 @@ class DestinationSetupPresentationTest(unittest.TestCase):
         dialog.confirm.assert_called_once()
 
     def test_declined_confirmation_never_saves(self):
-        handler, dialog = setup_flow(["home", "manual", "done"], ["123 Main St", "42", "-83"], confirmed=False)
+        handler, dialog = setup_flow(
+            ["home", "manual", "done"], ["123 Main St", "42", "-83"], confirmed=False
+        )
         run_destination_setup(handler, dialog)
         handler.save.assert_not_called()
 
     def test_candidate_selection_saves_confirmed_match(self):
         handler, dialog = setup_flow(["home", "1", "done"], ["Main St"])
-        candidates = (SavedDestination("home", "Home", "One", GeoPoint(0.5, -1)),
-                      SavedDestination("home", "Home", "Two", GeoPoint(0.6, -1)))
+        candidates = (
+            SavedDestination("home", "Home", "One", GeoPoint(0.5, -1)),
+            SavedDestination("home", "Home", "Two", GeoPoint(0.6, -1)),
+        )
         handler.search.return_value = candidates
         run_destination_setup(handler, dialog)
         handler.save.assert_called_once_with(candidates[1])
@@ -83,7 +91,9 @@ class DestinationSetupPresentationTest(unittest.TestCase):
     def test_invalid_coordinates_report_error_without_saving(self):
         for latitude in ("91", "nan", "invalid"):
             with self.subTest(latitude=latitude):
-                handler, dialog = setup_flow(["home", "manual", "done"], ["123 Main St", latitude, "-83"])
+                handler, dialog = setup_flow(
+                    ["home", "manual", "done"], ["123 Main St", latitude, "-83"]
+                )
                 run_destination_setup(handler, dialog)
                 handler.save.assert_not_called()
                 dialog.notify.assert_called_once()

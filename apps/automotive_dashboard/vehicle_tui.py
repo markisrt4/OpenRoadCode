@@ -59,8 +59,7 @@ class _VehicleBusCache:
     def set_message(self, message: VehicleStateMessage) -> None:
         data = message.data
         timestamp = datetime.fromtimestamp(
-            message.timestamp.seconds
-            + message.timestamp.nanoseconds / 1_000_000_000.0,
+            message.timestamp.seconds + message.timestamp.nanoseconds / 1_000_000_000.0,
             tz=timezone.utc,
         )
         state = _VehicleDisplayState(

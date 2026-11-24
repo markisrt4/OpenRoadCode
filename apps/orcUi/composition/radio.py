@@ -83,15 +83,24 @@ class StreamingRadioResources:
     """Retain worker and browser ownership independently of widget lifetime."""
 
     cancel_callback: Callable[[object], None]
-    executor: ThreadPoolExecutor = field(default_factory=lambda: ThreadPoolExecutor(
-        max_workers=4, thread_name_prefix="orcui-streaming-radio",
-    ))
-    artwork_executor: ThreadPoolExecutor = field(default_factory=lambda: ThreadPoolExecutor(
-        max_workers=4, thread_name_prefix="orcui-radio-artwork",
-    ))
-    rf_executor: ThreadPoolExecutor = field(default_factory=lambda: ThreadPoolExecutor(
-        max_workers=1, thread_name_prefix="orcui-rf-radio",
-    ))
+    executor: ThreadPoolExecutor = field(
+        default_factory=lambda: ThreadPoolExecutor(
+            max_workers=4,
+            thread_name_prefix="orcui-streaming-radio",
+        )
+    )
+    artwork_executor: ThreadPoolExecutor = field(
+        default_factory=lambda: ThreadPoolExecutor(
+            max_workers=4,
+            thread_name_prefix="orcui-radio-artwork",
+        )
+    )
+    rf_executor: ThreadPoolExecutor = field(
+        default_factory=lambda: ThreadPoolExecutor(
+            max_workers=1,
+            thread_name_prefix="orcui-rf-radio",
+        )
+    )
     rf_sessions: set[ReceiverSession] = field(default_factory=set)
     sessions: set[StreamingRadioBrowser] = field(default_factory=set)
     unsubscribe: Callable[[], None] = lambda: None
@@ -115,12 +124,15 @@ class StreamingRadioResources:
         if self.closed:
             return
         self.closed = True
+
         def cancel_adsb() -> None:
             if self.adsb_callback is not None:
                 self.cancel_callback(self.adsb_callback)
                 self.adsb_callback = None
+
         close_resources(
-            self.unsubscribe, cancel_adsb,
+            self.unsubscribe,
+            cancel_adsb,
             *(session.close for session in tuple(self.sessions)),
             *(session.close for session in tuple(self.rf_sessions)),
             lambda: self.rf_executor.shutdown(wait=True, cancel_futures=True),
@@ -152,27 +164,37 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
 
     with ResourceCleanup() as cleanup:
         rigctl_client = RigctlClient()
+
         def sync_theme(mode: ThemeMode) -> None:
             """Native radio widgets consume the ORC theme directly."""
             del mode
 
         resources = StreamingRadioResources(
-            app.cancel_ui_callback, stop_receiver=stop_sdrforge_receiver,
+            app.cancel_ui_callback,
+            stop_receiver=stop_sdrforge_receiver,
         )
         cleanup.callback(resources.close)
         online_mode = app.online_mode
+
         def network_allowed() -> bool:
             return online_mode is None or online_mode.online
+
         runtime.streaming_radio.set_network_allowed(network_allowed)
+
         def mode_changed(online: bool) -> None:
             if not online:
+
                 def stop_offline() -> None:
                     try:
                         runtime.streaming_radio.stop_if_offline()
                     except (OSError, RuntimeError) as exc:
                         message = f"Could not stop internet radio: {exc}"
-                        app.dispatch_ui(lambda: app.set_screen_status(message) if not resources.closed else None)
+                        app.dispatch_ui(
+                            lambda: app.set_screen_status(message) if not resources.closed else None
+                        )
+
                 resources.run_work(stop_offline)
+
         if online_mode is not None:
             resources.unsubscribe = online_mode.subscribe(mode_changed)
         mode_changed(network_allowed())
@@ -186,20 +208,29 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
             return download_station_artwork(url)
 
         def streaming_panel_factory(
-            parent: tk.Misc, theme: ThemeBundle, on_back: Callable[[], None],
+            parent: tk.Misc,
+            theme: ThemeBundle,
+            on_back: Callable[[], None],
         ) -> PersistentStreamingRadioPanel:
             if resources.closed:
                 raise RuntimeError("Radio composition is closed")
             session = StreamingRadioBrowser(
-                directory, runtime.streaming_radio, favorites, run_work=resources.run_work,
-                run_ui=app.dispatch_ui, load_artwork=load_artwork,
+                directory,
+                runtime.streaming_radio,
+                favorites,
+                run_work=resources.run_work,
+                run_ui=app.dispatch_ui,
+                load_artwork=load_artwork,
                 on_close=lambda: resources.sessions.discard(session),
                 run_artwork=resources.run_artwork,
             )
             with ResourceCleanup() as rollback:
                 rollback.callback(session.close)
                 panel = PersistentStreamingRadioPanel(
-                    parent, session=session, theme=theme, on_back=on_back,
+                    parent,
+                    session=session,
+                    theme=theme,
+                    on_back=on_back,
                 )
                 resources.sessions.add(session)
                 rollback.release()
@@ -220,9 +251,14 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
             )
             display_control = NativeRadioControl()
             session = ReceiverSession(
-                radio, display_control, runtime.radio,
-                adsb, X11WindowEmbedder(), display=os.environ.get("DISPLAY", ":1"),
-                run_work=resources.run_rf, run_ui=app.dispatch_ui,
+                radio,
+                display_control,
+                runtime.radio,
+                adsb,
+                X11WindowEmbedder(),
+                display=os.environ.get("DISPLAY", ":1"),
+                run_work=resources.run_rf,
+                run_ui=app.dispatch_ui,
                 on_close=lambda: resources.rf_sessions.discard(session),
                 spectrum_source=source,
                 notification_sink=app.notification_sink,
@@ -230,9 +266,13 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
             with ResourceCleanup() as rollback:
                 rollback.callback(session.close)
                 resources.rf_sessions.add(session)
-                panel = RadioPanel(parent, session=session, theme=theme,
-                                   native_sdrforge=True,
-                                   visualization=visualization)
+                panel = RadioPanel(
+                    parent,
+                    session=session,
+                    theme=theme,
+                    native_sdrforge=True,
+                    visualization=visualization,
+                )
                 rollback.release()
             return panel
 
@@ -278,25 +318,32 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
                 return
             logger.info("NOAA request queued")
             app.set_screen_status("RF: starting NOAA Weather Radio")
+
             def work() -> None:
                 if resources.closed:
                     return
                 logger.info("NOAA worker started")
                 try:
                     state = play_weather_radio(
-                        RadioProfileController(), runtime.radio,
+                        RadioProfileController(),
+                        runtime.radio,
                         cancelled=lambda: resources.closed,
                         native_sdrforge=True,
                     )
                     if state is None:
                         logger.info("NOAA request cancelled")
                         return
-                    message = f"RF: Playing {state.frequency_hz / 1_000_000:.3f} MHz · {state.label}"
+                    message = (
+                        f"RF: Playing {state.frequency_hz / 1_000_000:.3f} MHz · {state.label}"
+                    )
                     logger.info("NOAA tuned: %s", message)
                 except Exception as error:
                     logger.exception("NOAA request failed")
                     message = f"RF: {error}"
-                app.dispatch_ui(lambda: app.set_screen_status(message) if not resources.closed else None)
+                app.dispatch_ui(
+                    lambda: app.set_screen_status(message) if not resources.closed else None
+                )
+
             resources.run_rf(work)
 
         def home_radio_factory(parent: tk.Misc) -> tk.Widget:
@@ -309,7 +356,6 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
                 on_open_streaming=lambda: show_radio_source("streaming"),
                 on_open_adsb=lambda: show_radio_source("adsb"),
             )
-
 
         def toggle_adsb(enabled: bool) -> tuple[bool, str | None]:
             # An explicit ADS-B selection wins the shared SDR. Relinquish RF first.
@@ -339,11 +385,13 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
 
             resources.run_rf(apply)
 
-        app.set_aircraft_request_handler(AircraftMenuRequests(
-            toggle_adsb=request_adsb,
-            open_tracker=lambda: show_radio_source("adsb"),
-            open_airband=lambda: show_radio_source("airband"),
-        ))
+        app.set_aircraft_request_handler(
+            AircraftMenuRequests(
+                toggle_adsb=request_adsb,
+                open_tracker=lambda: show_radio_source("adsb"),
+                open_airband=lambda: show_radio_source("airband"),
+            )
+        )
         app.set_adsb_state(enabled=False, aircraft_count=0, simulation=adsb.simulation)
 
         def observe_adsb_status() -> None:
@@ -366,7 +414,9 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
                     enabled, count, error = adsb_results.get_nowait()
                 except Empty:
                     break
-                app.set_adsb_state(enabled=enabled, aircraft_count=count, simulation=adsb.simulation)
+                app.set_adsb_state(
+                    enabled=enabled, aircraft_count=count, simulation=adsb.simulation
+                )
                 if error is not None:
                     app.set_screen_status(error)
             observe_adsb_status()

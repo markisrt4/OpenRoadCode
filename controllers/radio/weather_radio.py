@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Background NOAA presentation and bounded tuning retries."""
+
 from collections.abc import Callable
 from time import sleep
 import json
@@ -10,8 +11,13 @@ from ui.radio.radio_profile_state import RadioProfileState
 from ui.radio.rf_radio_if import RadioApplication
 
 
-def play_weather_radio(radio: RadioProfileController, application: RadioApplication, *,
-                       cancelled: Callable[[], bool], native_sdrforge: bool = False) -> RadioProfileState | None:
+def play_weather_radio(
+    radio: RadioProfileController,
+    application: RadioApplication,
+    *,
+    cancelled: Callable[[], bool],
+    native_sdrforge: bool = False,
+) -> RadioProfileState | None:
     profile = radio.catalog.profile("weather_band")
     if not profile.presets:
         raise ValueError("No NOAA weather presets configured")
@@ -70,5 +76,3 @@ def _ensure_native_receiver_started(*, cancelled: Callable[[], bool]) -> bool:
             raise RuntimeError("SDRForge receiver stopped before becoming ready")
         sleep(0.25)
     raise RuntimeError("SDRForge receiver startup timed out after 5 seconds")
-
-

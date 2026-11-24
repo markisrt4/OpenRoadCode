@@ -61,9 +61,7 @@ class NavigationStatePublisher:
                 timestamp=timestamp,
                 source=self._source,
                 heading_rad=math.radians(state.heading_deg),
-                ground_speed_m_s=(
-                    None if ground_motion is None else ground_motion.speed_mps
-                ),
+                ground_speed_m_s=(None if ground_motion is None else ground_motion.speed_mps),
                 course_rad=(
                     None
                     if ground_motion is None or ground_motion.course_deg is None

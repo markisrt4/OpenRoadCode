@@ -58,10 +58,14 @@ def decode_receiver_message(message: bytes) -> SdrForgeReceiverStatus | None:
     # Legacy WFM publishers lack mode/bandwidth/running; ignore until upgraded.
     if mode is None or bandwidth is None or running is None:
         return None
-    if (type(frequency) is not int or frequency <= 0
-            or mode not in ("WFM", "NFM", "AM")
-            or type(bandwidth) is not int or bandwidth <= 0
-            or type(running) is not bool):
+    if (
+        type(frequency) is not int
+        or frequency <= 0
+        or mode not in ("WFM", "NFM", "AM")
+        or type(bandwidth) is not int
+        or bandwidth <= 0
+        or type(running) is not bool
+    ):
         raise ValueError("invalid SDRForge receiver status")
     return SdrForgeReceiverStatus(frequency, mode, bandwidth, running)
 

@@ -213,10 +213,7 @@ class NavigationRuntime:
             or not position_state.has_fix
         ):
             return
-        if (
-            position_state.latitude_deg is None
-            or position_state.longitude_deg is None
-        ):
+        if position_state.latitude_deg is None or position_state.longitude_deg is None:
             return
 
         position = GeoPoint(

@@ -10,8 +10,14 @@ from ui.weather.radar_ui_if import RadarPalette
 
 
 def component(enabled=False):
-    backend = Mock(enabled=enabled, frame_time=None, frame_times=(), frame_index=None,
-                   palette=RadarPalette.UNIVERSAL, is_forecast=False)
+    backend = Mock(
+        enabled=enabled,
+        frame_time=None,
+        frame_times=(),
+        frame_index=None,
+        palette=RadarPalette.UNIVERSAL,
+        is_forecast=False,
+    )
     return RadarReplayController(Mock(), RadarUiStub(), backend)
 
 
@@ -49,7 +55,8 @@ def test_download_presents_on_ui_thread_and_retries_slow_renderer():
     screen._radar_controller.show_frames.assert_not_called()
     screen._host.dispatch_ui.call_args.args[0]()
     screen._radar_controller.show_frames.assert_called_once_with(
-        screen._radar_controller.load_frames.return_value)
+        screen._radar_controller.load_frames.return_value
+    )
     replays = screen._host.schedule_ui_callback.call_args_list
     assert [call.args[0] for call in replays] == [300, 1200, 2500, 5000]
     replays[-1].args[1]()

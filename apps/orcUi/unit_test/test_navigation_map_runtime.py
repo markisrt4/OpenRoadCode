@@ -17,16 +17,27 @@ class NavigationMapRuntimeTest(unittest.TestCase):
         self.earth = Mock()
         self.earth.WINDOW_CLASS = "earth"
         self.earth.is_running.return_value = False
-        self.earth.prepare.side_effect = lambda display: setattr(self.earth.is_running, "return_value", True)
-        self.earth.stop.side_effect = lambda display: setattr(self.earth.is_running, "return_value", False)
+        self.earth.prepare.side_effect = lambda display: setattr(
+            self.earth.is_running, "return_value", True
+        )
+        self.earth.stop.side_effect = lambda display: setattr(
+            self.earth.is_running, "return_value", False
+        )
         self.embedder = Mock()
         self.embedder.window_id = None
-        self.embedder.embed.side_effect = lambda *args, **kwargs: setattr(self.embedder, "window_id", 42)
+        self.embedder.embed.side_effect = lambda *args, **kwargs: setattr(
+            self.embedder, "window_id", 42
+        )
         self.embedder.clear.side_effect = lambda: setattr(self.embedder, "window_id", None)
         self.controller = Mock()
         self.controller.status = "Earth — test GPS"
-        self.runtime = NavigationMapRuntime(self.native, self.requests, self.earth,
-            controller=self.controller, embedder=self.embedder)
+        self.runtime = NavigationMapRuntime(
+            self.native,
+            self.requests,
+            self.earth,
+            controller=self.controller,
+            embedder=self.embedder,
+        )
         self.runtime._devtools = Mock()
         self.runtime._devtools.targets.return_value = [SimpleNamespace(url="about:blank")]
         self.runtime._devtools.command.return_value = {}
@@ -74,10 +85,12 @@ class NavigationMapRuntimeTest(unittest.TestCase):
 
     def test_switch_during_startup_does_not_embed_stale_browser(self):
         entered, release = threading.Event(), threading.Event()
+
         def launch(display):
             entered.set()
             release.wait(3)
             self.earth.is_running.return_value = True
+
         self.earth.prepare.side_effect = launch
         self.runtime.request_platform(MapPlatform.EARTH)
         self.assertTrue(entered.wait(3))
@@ -148,13 +161,16 @@ class NavigationMapRuntimeTest(unittest.TestCase):
         names = [call[0] for call in calls.mock_calls]
         self.assertLess(names.index("embedder.embed"), names.index("devtools.command"))
         self.runtime._devtools.command.assert_called_once_with(
-            self.runtime._devtools.targets.return_value[0], "Page.navigate",
-            {"url": "https://earth.google.com/web"})
+            self.runtime._devtools.targets.return_value[0],
+            "Page.navigate",
+            {"url": "https://earth.google.com/web"},
+        )
 
     def test_navigation_failure_restores_maplibre_and_closes_browser(self):
         self.runtime._devtools.command.return_value = {"errorText": "network error"}
         # Expire the retry window after one attempt.
         from unittest.mock import patch
+
         with patch("apps.orcUi.navigation_map_runtime.time.monotonic", side_effect=[0, 0, 9]):
             self.select_earth()
         self.assertEqual(self.runtime.state.active, MapPlatform.MAPLIBRE)

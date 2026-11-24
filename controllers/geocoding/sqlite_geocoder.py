@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 """Offline geocoder backed by the OpenRoadCode search database."""
+
 from __future__ import annotations
 
 import re

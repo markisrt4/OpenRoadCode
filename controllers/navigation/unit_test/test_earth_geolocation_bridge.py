@@ -9,16 +9,22 @@ from controllers.navigation.earth_geolocation_bridge import EarthGeolocationBrid
 class EarthGeolocationBridgeTest(unittest.TestCase):
     def test_grants_only_earth_location_before_installing_bridge(self):
         client = Mock()
-        client.version.return_value = {"webSocketDebuggerUrl": "ws://127.0.0.1:9224/devtools/browser/test"}
+        client.version.return_value = {
+            "webSocketDebuggerUrl": "ws://127.0.0.1:9224/devtools/browser/test"
+        }
         client.evaluate_earth.return_value = True
         bridge = EarthGeolocationBridge(client)
         self.assertTrue(bridge.install())
         self.assertTrue(bridge.install())
         client.command.assert_called_once()
         target, method, params = client.command.call_args.args
-        self.assertEqual(target.web_socket_debugger_url, client.version.return_value["webSocketDebuggerUrl"])
+        self.assertEqual(
+            target.web_socket_debugger_url, client.version.return_value["webSocketDebuggerUrl"]
+        )
         self.assertEqual(method, "Browser.grantPermissions")
-        self.assertEqual(params, {"origin": "https://earth.google.com", "permissions": ["geolocation"]})
+        self.assertEqual(
+            params, {"origin": "https://earth.google.com", "permissions": ["geolocation"]}
+        )
 
     def test_permission_failure_is_retried_and_does_not_claim_ready(self):
         client = Mock()
@@ -35,7 +41,8 @@ class EarthGeolocationBridgeTest(unittest.TestCase):
         client = Mock()
         client.version.side_effect = [
             {"webSocketDebuggerUrl": "ws://localhost/browser/first"},
-            {"webSocketDebuggerUrl": "ws://localhost/browser/second"}]
+            {"webSocketDebuggerUrl": "ws://localhost/browser/second"},
+        ]
         client.evaluate_earth.return_value = True
         bridge = EarthGeolocationBridge(client)
         self.assertTrue(bridge.install())

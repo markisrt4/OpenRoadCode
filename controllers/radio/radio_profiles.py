@@ -264,4 +264,3 @@ class RadioProfileCatalog:
             for key, value in raw.items()
             if isinstance(value, list)
         }
-

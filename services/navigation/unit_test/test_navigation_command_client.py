@@ -22,6 +22,7 @@ class _NavigationController:
 class _RoutePlanner:
     def calculate_route(self, request):
         from controllers.route_planning.route_planning_types import RouteManeuver, RouteResult
+
         return RouteResult(
             distance_miles=12.5,
             duration_seconds=900.0,

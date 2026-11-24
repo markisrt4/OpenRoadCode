@@ -55,13 +55,9 @@ class ZeroMqNavigationRequestHandler(NavigationRequestHandlerIf):
             self._socket.send_json({"command": command, "arguments": {}})
             response = self._socket.recv_json()
         except zmq.Again as error:
-            raise NavigationCommandError(
-                f"Navigation command timed out: {command}"
-            ) from error
+            raise NavigationCommandError(f"Navigation command timed out: {command}") from error
 
         if not isinstance(response, dict):
             raise NavigationCommandError("Navigation command returned an invalid response")
         if not response.get("ok", False):
-            raise NavigationCommandError(
-                str(response.get("message", "Navigation command failed"))
-            )
+            raise NavigationCommandError(str(response.get("message", "Navigation command failed")))

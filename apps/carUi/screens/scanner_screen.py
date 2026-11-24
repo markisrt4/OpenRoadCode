@@ -27,6 +27,7 @@ from frontends.tk.tk_screen_host_if import TkScreenHostIf
 @dataclass(frozen=True)
 class ScannerBandSpec:
     """Describe one scanner band shown in the scanner menu."""
+
     key: str
     icon: str
     title: str
@@ -36,6 +37,7 @@ class ScannerBandSpec:
 
 class ScannerScreen(CarUiScreen):
     """Build scanner-band menus and manage the selected radio session."""
+
     def __init__(
         self,
         host: TkScreenHostIf,
@@ -58,7 +60,9 @@ class ScannerScreen(CarUiScreen):
         self.active_radio_panel: Optional[RadioPanel] = None
         self.active_radio_session: Optional[RadioSessionController] = None
         self.bands = (
-            ScannerBandSpec("police_fire", "PF", "POLICE / FIRE", "Public safety", "Local / regional monitoring"),
+            ScannerBandSpec(
+                "police_fire", "PF", "POLICE / FIRE", "Public safety", "Local / regional monitoring"
+            ),
             ScannerBandSpec("railroad", "RR", "RAILROAD", "Rail channels", "AAR road / dispatch"),
             ScannerBandSpec("ham_2m", "2M", "HAM 2m", "144–148 MHz", "Amateur VHF"),
             ScannerBandSpec("ham_70cm", "70", "HAM 70cm", "420–450 MHz", "Amateur UHF"),

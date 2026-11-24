@@ -20,6 +20,7 @@ from frontends.tk.tk_screen_host_if import TkScreenHostIf
 
 class FMRadioScreen(CarUiScreen):
     """Manage the FM radio panel and its radio session."""
+
     def __init__(
         self,
         host: TkScreenHostIf,

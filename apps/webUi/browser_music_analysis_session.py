@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 """HTTP transport adapter for browser PCM music analysis."""
+
 from __future__ import annotations
 
 from dataclasses import asdict

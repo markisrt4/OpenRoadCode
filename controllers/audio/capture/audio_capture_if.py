@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 """Audio sample capture contract for shared analysis pipelines."""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

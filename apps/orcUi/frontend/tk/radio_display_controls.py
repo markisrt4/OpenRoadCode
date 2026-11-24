@@ -133,7 +133,10 @@ class RadioDisplayControlsMixin(RadioPresentationFrame):
             relief=tk.FLAT,
         )
         for theme in themes:
-            menu.add_command(label=theme, command=partial(self._session.request, RadioRequest(RadioAction.THEME, key=theme)))
+            menu.add_command(
+                label=theme,
+                command=partial(self._session.request, RadioRequest(RadioAction.THEME, key=theme)),
+            )
         try:
             menu.tk_popup(self.winfo_pointerx(), self.winfo_pointery())
         finally:

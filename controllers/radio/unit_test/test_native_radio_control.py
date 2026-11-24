@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Native display controls must not require an SDR++ service."""
+
 from controllers.radio.native_radio_control import NativeRadioControl
 
 

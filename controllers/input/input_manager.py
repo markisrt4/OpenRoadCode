@@ -7,7 +7,6 @@ from ui.ui_event_handler_if import UiEventHandlerIf
 
 
 class InputManager(InputHandlerIf):
-
     def __init__(
         self,
         mapper: InputMapperIf,

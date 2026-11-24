@@ -13,4 +13,12 @@ from ui.automotive.engine_analysis import (
     EngineAnalysis,
 )
 
-__all__ = ['FuelControlMode', 'EngineOperatingMode', 'MixtureMode', 'TrackingQuality', 'FuelCorrectionStatus', 'EngineLoadLevel', 'EngineAnalysis']
+__all__ = [
+    "FuelControlMode",
+    "EngineOperatingMode",
+    "MixtureMode",
+    "TrackingQuality",
+    "FuelCorrectionStatus",
+    "EngineLoadLevel",
+    "EngineAnalysis",
+]

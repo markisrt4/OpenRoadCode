@@ -102,9 +102,7 @@ def main() -> int:
         received.append(message)
         data = message.data
         distance = (
-            "--"
-            if data.distance_to_maneuver_m is None
-            else f"{data.distance_to_maneuver_m:6.1f} m"
+            "--" if data.distance_to_maneuver_m is None else f"{data.distance_to_maneuver_m:6.1f} m"
         )
         status = "ARRIVED" if data.route_complete else (data.instruction or "--")
         route_status = "OFF" if data.off_route else "ON "

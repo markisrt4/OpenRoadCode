@@ -9,15 +9,21 @@ from pathlib import Path
 
 MARKER = "ui.ui_widget.UiWidget"
 EXCLUDED = {
-    "venv", ".venv", "node_modules", "__pycache__",
-    "unit_test", "integration_test", "component_test",
+    "venv",
+    ".venv",
+    "node_modules",
+    "__pycache__",
+    "unit_test",
+    "integration_test",
+    "component_test",
 }
 
 
 def _sources(root):
     for directory, children, files in os.walk(root):
-        children[:] = [name for name in children
-                       if name not in EXCLUDED and not name.startswith(".")]
+        children[:] = [
+            name for name in children if name not in EXCLUDED and not name.startswith(".")
+        ]
         for name in files:
             if name.endswith(".py") and not name.startswith("test_"):
                 yield Path(directory) / name
@@ -60,13 +66,17 @@ def discover_widgets(root):
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     imports[alias.asname or alias.name.split(".")[0]] = (
-                        alias.name if alias.asname else alias.name.split(".")[0])
+                        alias.name if alias.asname else alias.name.split(".")[0]
+                    )
             elif isinstance(node, ast.ImportFrom):
                 source = node.module or ""
                 if node.level:
-                    package = module.split(".") if path.name == "__init__.py" else module.split(".")[:-1]
-                    source = ".".join(package[:len(package) - node.level + 1]
-                                      + ([source] if source else []))
+                    package = (
+                        module.split(".") if path.name == "__init__.py" else module.split(".")[:-1]
+                    )
+                    source = ".".join(
+                        package[: len(package) - node.level + 1] + ([source] if source else [])
+                    )
                 for alias in node.names:
                     if alias.name != "*":
                         local = alias.asname or alias.name
@@ -87,7 +97,8 @@ def discover_widgets(root):
                 name = f"{module}.{node.name}"
                 owners[name] = path
                 edges.setdefault(name, set()).update(
-                    target for base in node.bases if (target := resolve(base)))
+                    target for base in node.bases if (target := resolve(base))
+                )
             elif isinstance(node, ast.Assign):
                 target = resolve(node.value)
                 if target is not None:

@@ -3,6 +3,7 @@
 
 Run from the repository root: python -m component_test.adsb_overlay_cli
 """
+
 import argparse
 import time
 from controllers.adsb.aircraft_overlay_controller import AircraftOverlayController
@@ -29,7 +30,7 @@ def main(argv=None):
     try:
         from sdrforge.adsb.simulation import simulated_aircraft
     except ImportError as exc:
-        parser.error('Install libSDRForge in this environment: pip install -e ../libSDRForge')
+        parser.error("Install libSDRForge in this environment: pip install -e ../libSDRForge")
 
     with_client = MapRendererClient(endpoint=args.endpoint)
     try:
@@ -44,7 +45,9 @@ def main(argv=None):
                 continue
             elapsed = now - start
             snapshot = simulated_aircraft(
-                elapsed, args.aircraft, center_lat=args.latitude,
+                elapsed,
+                args.aircraft,
+                center_lat=args.latitude,
                 center_lon=args.longitude,
             )
             controller.set_aircraft(aircraft_from_snapshot(snapshot))

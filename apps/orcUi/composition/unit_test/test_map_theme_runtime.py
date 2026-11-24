@@ -21,8 +21,10 @@ class MapThemeRuntimeTest(unittest.TestCase):
             style = root / "maps/styles/openroadcode.json"
             style.parent.mkdir(parents=True)
             style.write_text('{"version":8}')
-            with (patch("apps.orcUi.map_theme_runtime.Path.write_text", side_effect=PermissionError),
-                  self.assertLogs("apps.orcUi.map_theme_runtime", level="WARNING") as logs):
+            with (
+                patch("apps.orcUi.map_theme_runtime.Path.write_text", side_effect=PermissionError),
+                self.assertLogs("apps.orcUi.map_theme_runtime", level="WARNING") as logs,
+            ):
                 self.assertEqual(install_map_style(ThemeMode.DARK, root), style)
             self.assertEqual(style.read_text(), '{"version":8}')
             self.assertIn("install_navigation_style.sh", logs.output[0])

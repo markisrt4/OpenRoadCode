@@ -4,6 +4,7 @@
 A supervised PID is not proof that the HTTP API is accepting requests.
 Only safe GET health probes are retried; mutations are never replayed.
 """
+
 from __future__ import annotations
 
 import json

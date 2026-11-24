@@ -228,7 +228,8 @@ class SystemdServiceManager:
             if action not in {"start", "stop", "restart", "is-active", "show"}:
                 raise ValueError(f"Unsupported SDRForge action: {action}")
             if action == "show" and extra != (
-                "--property=ActiveState,SubState,UnitFileState", "--value"
+                "--property=ActiveState,SubState,UnitFileState",
+                "--value",
             ):
                 raise ValueError("Unsupported SDRForge show arguments")
             if action != "show" and extra:

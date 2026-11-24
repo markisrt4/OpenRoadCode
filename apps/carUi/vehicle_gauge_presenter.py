@@ -25,10 +25,7 @@ class VehicleGaugeSnapshot:
             return self.error
         if self.vehicle is None:
             return "Waiting for vehicle telemetry"
-        return (
-            f"Vehicle telemetry: {self.vehicle.source} · "
-            f"{self.received_count} messages"
-        )
+        return f"Vehicle telemetry: {self.vehicle.source} · {self.received_count} messages"
 
 
 class VehicleGaugePresenter:
@@ -48,10 +45,7 @@ class VehicleGaugePresenter:
 
     def set_vehicle_error(self, topic: str, error: Exception) -> None:
         with self._lock:
-            self._error = (
-                f"Vehicle telemetry error: {topic}: "
-                f"{type(error).__name__}: {error}"
-            )
+            self._error = f"Vehicle telemetry error: {topic}: {type(error).__name__}: {error}"
 
     def snapshot(self) -> VehicleGaugeSnapshot:
         with self._lock:

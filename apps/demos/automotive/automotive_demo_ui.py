@@ -276,7 +276,9 @@ class AutomotiveDemoUi(
         self._text(screen, 0, 0, "OpenRoadCode Automotive UI Demo", curses.A_BOLD)
         self._text(screen, 1, 0, "q: quit   u: units   c: clear diagnostics")
         connection = values.get("connection")
-        connection_text = connection.name if isinstance(connection, VehicleConnectionState) else "--"
+        connection_text = (
+            connection.name if isinstance(connection, VehicleConnectionState) else "--"
+        )
         self._text(screen, 0, 45, connection_text, self._color(2))
 
         gear = values.get("gear")
@@ -289,17 +291,31 @@ class AutomotiveDemoUi(
         self._field(screen, 8, 0, "Fuel", self._ratio(values.get("fuel_level_ratio")))
 
         self._section(screen, 3, 28, "TEMPERATURE / PRESSURE")
-        self._field(screen, 4, 28, "Coolant", self._temperature(values.get("coolant_temperature_k")))
+        self._field(
+            screen, 4, 28, "Coolant", self._temperature(values.get("coolant_temperature_k"))
+        )
         self._field(screen, 5, 28, "Oil", self._temperature(values.get("engine_oil_temperature_k")))
-        self._field(screen, 6, 28, "Oil pressure", self._pressure(values.get("engine_oil_pressure_pa")))
-        self._field(screen, 7, 28, "Boost", self._pressure(values.get("boost_pressure_pa"), signed=True))
-        self._field(screen, 8, 28, "Ambient", self._temperature(values.get("ambient_temperature_k")))
+        self._field(
+            screen, 6, 28, "Oil pressure", self._pressure(values.get("engine_oil_pressure_pa"))
+        )
+        self._field(
+            screen, 7, 28, "Boost", self._pressure(values.get("boost_pressure_pa"), signed=True)
+        )
+        self._field(
+            screen, 8, 28, "Ambient", self._temperature(values.get("ambient_temperature_k"))
+        )
 
         self._section(screen, 10, 0, "TRIP")
         self._field(screen, 11, 0, "Odometer", self._distance(values.get("odometer_m")))
         self._field(screen, 12, 0, "Trip", self._distance(values.get("trip_distance_m")))
         self._field(screen, 13, 0, "Range", self._distance(values.get("estimated_range_m")))
-        self._field(screen, 14, 0, "Average", self._consumption(values.get("average_fuel_consumption_m3_per_m")))
+        self._field(
+            screen,
+            14,
+            0,
+            "Average",
+            self._consumption(values.get("average_fuel_consumption_m3_per_m")),
+        )
 
         self._section(screen, 10, 38, "TIRES")
         for offset, position in enumerate(TirePosition):
@@ -313,8 +329,16 @@ class AutomotiveDemoUi(
         belt = body.get(("belt", SeatPosition.DRIVER))
         self._field(screen, 17, 0, "Driver door", self._state(door, "OPEN", "closed"))
         self._field(screen, 18, 0, "Driver belt", self._state(belt, "fastened", "UNFASTENED"))
-        self._field(screen, 17, 30, "Parking brake", self._state(values.get("parking_brake"), "APPLIED", "released"))
-        self._field(screen, 18, 30, "MIL", self._state(values.get("malfunction_indicator"), "ON", "off"))
+        self._field(
+            screen,
+            17,
+            30,
+            "Parking brake",
+            self._state(values.get("parking_brake"), "APPLIED", "released"),
+        )
+        self._field(
+            screen, 18, 30, "MIL", self._state(values.get("malfunction_indicator"), "ON", "off")
+        )
         code_text = ", ".join(code.code for code in codes) if codes else "none"
         self._field(screen, 19, 0, "Trouble codes", code_text)
         screen.refresh()

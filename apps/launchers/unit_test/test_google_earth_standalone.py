@@ -12,11 +12,16 @@ class GoogleEarthStandaloneTest(unittest.TestCase):
         browser = Mock()
         with (
             patch("sys.argv", ["earth-test", "--display", ":1"]),
-            patch("apps.launchers.component_test.google_earth_launcher_cli.BrowserKioskLauncher",
-                  return_value=browser) as factory,
+            patch(
+                "apps.launchers.component_test.google_earth_launcher_cli.BrowserKioskLauncher",
+                return_value=browser,
+            ) as factory,
             patch("builtins.input", side_effect=KeyboardInterrupt),
             patch("builtins.print"),
-            patch("apps.launchers.component_test.google_earth_launcher_cli.logging_file_path", return_value="test.log"),
+            patch(
+                "apps.launchers.component_test.google_earth_launcher_cli.logging_file_path",
+                return_value="test.log",
+            ),
         ):
             with self.assertRaises(KeyboardInterrupt):
                 main()
@@ -37,12 +42,19 @@ class GoogleEarthStandaloneTest(unittest.TestCase):
         lifecycle.attach_mock(controller, "controller")
         with (
             patch("sys.argv", ["earth-test", "--orc-gps"]),
-            patch("apps.launchers.component_test.google_earth_launcher_cli.BrowserKioskLauncher",
-                  return_value=browser) as factory,
-            patch("apps.launchers.component_test.google_earth_launcher_cli.EarthNavigationController",
-                  return_value=controller),
+            patch(
+                "apps.launchers.component_test.google_earth_launcher_cli.BrowserKioskLauncher",
+                return_value=browser,
+            ) as factory,
+            patch(
+                "apps.launchers.component_test.google_earth_launcher_cli.EarthNavigationController",
+                return_value=controller,
+            ),
             patch("builtins.print"),
-            patch("apps.launchers.component_test.google_earth_launcher_cli.logging_file_path", return_value="test.log"),
+            patch(
+                "apps.launchers.component_test.google_earth_launcher_cli.logging_file_path",
+                return_value="test.log",
+            ),
         ):
             self.assertEqual(main(), 0)
         self.assertIn("--remote-debugging-port=9224", factory.call_args.kwargs["extra_arguments"])

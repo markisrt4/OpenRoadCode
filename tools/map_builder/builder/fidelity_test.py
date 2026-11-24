@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 """Build small MBTiles samples for zoom-level fidelity comparisons."""
+
 from __future__ import annotations
 
 import argparse
@@ -47,7 +48,9 @@ def _write_zoom_config(source: Path, destination: Path, max_zoom: int) -> None:
     destination.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
 
 
-def build_samples(region_id: str, bbox: tuple[float, float, float, float], zooms: list[int]) -> Path:
+def build_samples(
+    region_id: str, bbox: tuple[float, float, float, float], zooms: list[int]
+) -> Path:
     regions = fetch_index(INDEX_PATH)
     region = resolve_region_ids(regions, [region_id])[0]
     source = _download_and_verify(region)
@@ -57,14 +60,20 @@ def build_samples(region_id: str, bbox: tuple[float, float, float, float], zooms
     clipped = root / "sample.osm.pbf"
     clipped.unlink(missing_ok=True)
     bbox_text = ",".join(str(value) for value in bbox)
-    run([
-        "osmium", "extract",
-        "--overwrite",
-        "--strategy", "smart",
-        "--bbox", bbox_text,
-        "-o", str(clipped),
-        str(source),
-    ])
+    run(
+        [
+            "osmium",
+            "extract",
+            "--overwrite",
+            "--strategy",
+            "smart",
+            "--bbox",
+            bbox_text,
+            "-o",
+            str(clipped),
+            str(source),
+        ]
+    )
     run(["osmium", "fileinfo", "-e", str(clipped)])
 
     for zoom in zooms:
@@ -76,15 +85,23 @@ def build_samples(region_id: str, bbox: tuple[float, float, float, float], zooms
             shutil.rmtree(store)
         store.mkdir(parents=True)
         _write_zoom_config(TILEMAKER_CONFIG, config, zoom)
-        run([
-            "tilemaker",
-            "--input", str(clipped),
-            "--output", str(output),
-            "--config", str(config),
-            "--process", str(TILEMAKER_PROCESS),
-            "--store", str(store),
-            "--bbox", bbox_text,
-        ])
+        run(
+            [
+                "tilemaker",
+                "--input",
+                str(clipped),
+                "--output",
+                str(output),
+                "--config",
+                str(config),
+                "--process",
+                str(TILEMAKER_PROCESS),
+                "--store",
+                str(store),
+                "--bbox",
+                bbox_text,
+            ]
+        )
         print(f"z{zoom}: {output} ({output.stat().st_size:,} bytes)")
 
     print(f"samples: {root}")

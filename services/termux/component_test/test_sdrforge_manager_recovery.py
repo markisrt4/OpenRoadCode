@@ -4,6 +4,7 @@
 Uses a fake supervisor and an ephemeral HTTP port. Never touches Termux runit
 or the user's real SDRForge instance.
 """
+
 from __future__ import annotations
 
 from subprocess import CompletedProcess
@@ -27,9 +28,13 @@ def test_supervisor_readiness_and_client_recovery_during_restart():
             return real_urlopen(url, timeout=timeout)
 
         def status_at(uptime):
-            with patch.object(manager, "_sv", return_value=CompletedProcess(
-                ["sv", "status"], 0, f"run: openroadcode-sdrforge: (pid 123) {uptime}s", ""
-            )):
+            with patch.object(
+                manager,
+                "_sv",
+                return_value=CompletedProcess(
+                    ["sv", "status"], 0, f"run: openroadcode-sdrforge: (pid 123) {uptime}s", ""
+                ),
+            ):
                 with patch.object(manager, "profile", return_value="simulated"):
                     with patch.object(manager, "_input_health", return_value=(None, None)):
                         with patch.object(manager_module, "urlopen", side_effect=redirected_health):
@@ -50,9 +55,13 @@ def test_supervisor_readiness_and_client_recovery_during_restart():
 def test_stopped_supervisor_is_not_ready_even_if_api_is_healthy():
     with _server() as port:
         manager = RunitServiceManager()
-        with patch.object(manager, "_sv", return_value=CompletedProcess(
-            ["sv", "status"], 0, "down: openroadcode-sdrforge: 1s", ""
-        )):
+        with patch.object(
+            manager,
+            "_sv",
+            return_value=CompletedProcess(
+                ["sv", "status"], 0, "down: openroadcode-sdrforge: 1s", ""
+            ),
+        ):
             with patch.object(manager, "profile", return_value="simulated"):
                 with patch.object(manager, "_input_health", return_value=(None, None)):
                     status = manager.status("openroadcode-sdrforge")

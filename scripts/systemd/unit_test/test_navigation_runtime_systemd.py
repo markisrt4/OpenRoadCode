@@ -41,7 +41,10 @@ def test_automotive_service_passes_installer_runtime_overrides() -> None:
 
     assert "Environment=OPENROADCODE_PYTHON=$PYTHON_BIN" in installer
     assert "Environment=OPENROADCODE_RUNTIME_CONFIG=$RUNTIME_CONFIG" in installer
-    assert "EnvironmentFile=-/var/lib/openroadcode/service-profiles/openroadcode-runtime.env" in installer
+    assert (
+        "EnvironmentFile=-/var/lib/openroadcode/service-profiles/openroadcode-runtime.env"
+        in installer
+    )
 
 
 def test_runtime_installer_installs_stack_in_dependency_order() -> None:

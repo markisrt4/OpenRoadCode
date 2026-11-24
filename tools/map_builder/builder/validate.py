@@ -392,6 +392,7 @@ def validate_output(root, *, service_smoke=False):
     }
     validate_style(style, result["mbtiles"]["layers"])
     from .map_3d import validate_packs
+
     result["map_3d"] = validate_packs(root)
     result["checksums"] = {
         "mbtiles": sha256(mbtiles),

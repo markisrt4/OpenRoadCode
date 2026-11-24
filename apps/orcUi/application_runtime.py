@@ -48,7 +48,9 @@ class OrcUiApplicationRuntime:
         if self._closed:
             return
         object.__setattr__(self, "_closed", True)
-        close_resources(self.streaming_radio.close, self.media.close, self.radio.close, self.manager.stop_all)
+        close_resources(
+            self.streaming_radio.close, self.media.close, self.radio.close, self.manager.stop_all
+        )
 
 
 def create_orc_ui_application_runtime() -> OrcUiApplicationRuntime:
@@ -65,8 +67,11 @@ def create_orc_ui_application_runtime() -> OrcUiApplicationRuntime:
         manager.register("youtube", browser_factory.create("youtube"))
         manager.register("netflix", browser_factory.create("netflix"))
         earth_config = config.app("google_earth")
-        earth = (GoogleEarthLauncher(browser=browser_factory.create("google_earth"))
-                 if earth_config.enabled else None)
+        earth = (
+            GoogleEarthLauncher(browser=browser_factory.create("google_earth"))
+            if earth_config.enabled
+            else None
+        )
         if earth is not None:
             manager.register("google_earth", earth)
 
@@ -84,7 +89,6 @@ def create_orc_ui_application_runtime() -> OrcUiApplicationRuntime:
         )
         cleanup.release()
         return runtime
-
 
 
 def _applications_config_path() -> Path:

@@ -51,18 +51,24 @@ class TermuxPositionAdapter(PositionSourceIf):
         while not self._stop_event.is_set():
             try:
                 location = self._location.read()
-                has_coordinates = location.latitude_deg is not None and location.longitude_deg is not None
-                callback(PositionState(
-                    received_at=datetime.now(),
-                    latitude_deg=location.latitude_deg,
-                    longitude_deg=location.longitude_deg,
-                    altitude_m=location.altitude_m,
-                    speed_mps=location.speed_mps,
-                    course_deg=location.bearing_deg,
-                    fix_mode=3 if has_coordinates and location.altitude_m is not None else (2 if has_coordinates else 1),
-                    accuracy_m=location.accuracy_m,
-                    source="termux-location",
-                ))
+                has_coordinates = (
+                    location.latitude_deg is not None and location.longitude_deg is not None
+                )
+                callback(
+                    PositionState(
+                        received_at=datetime.now(),
+                        latitude_deg=location.latitude_deg,
+                        longitude_deg=location.longitude_deg,
+                        altitude_m=location.altitude_m,
+                        speed_mps=location.speed_mps,
+                        course_deg=location.bearing_deg,
+                        fix_mode=3
+                        if has_coordinates and location.altitude_m is not None
+                        else (2 if has_coordinates else 1),
+                        accuracy_m=location.accuracy_m,
+                        source="termux-location",
+                    )
+                )
             except (OSError, subprocess.SubprocessError, ValueError, json.JSONDecodeError):
                 pass
             self._stop_event.wait(self._interval_seconds)

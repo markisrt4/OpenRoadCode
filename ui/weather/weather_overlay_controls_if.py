@@ -13,7 +13,9 @@ class WeatherOverlayControlsIf(WeatherOverlayUiIf):
     """Present state and bind actions while remaining independent of controller classes."""
 
     @abstractmethod
-    def set_weather_overlay_request_handler(self, handler: WeatherOverlayRequestHandlerIf | None) -> None:
+    def set_weather_overlay_request_handler(
+        self, handler: WeatherOverlayRequestHandlerIf | None
+    ) -> None:
         """Connect or disconnect weather actions.
 
         @param handler Semantic request consumer, or None to disable actions.

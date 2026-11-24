@@ -52,9 +52,7 @@ class YouTubePlayerTest(unittest.TestCase):
         launcher.stop.assert_called_once_with(":2")
 
     @patch("controllers.video.youtube_player.BrowserKioskLauncher")
-    def test_linux_dev_disables_gpu_acceleration(
-        self, launcher_type: MagicMock
-    ) -> None:
+    def test_linux_dev_disables_gpu_acceleration(self, launcher_type: MagicMock) -> None:
         player = YouTubePlayer(software_rendering=True)
         player.play("music", display=":0")
 

@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Error dialog lifecycle tests without requiring an X display."""
+
 from unittest.mock import MagicMock, patch
 
 from apps.orcUi.frontend.tk.error_dialog import ErrorDialog
@@ -30,9 +31,11 @@ def test_show_replaces_existing_dialog():
     old = MagicMock()
     old.winfo_exists.return_value = True
     dialog._window = old
-    with patch("apps.orcUi.frontend.tk.error_dialog.tk.Toplevel") as top, \
-         patch("apps.orcUi.frontend.tk.error_dialog.tk.Label"), \
-         patch("apps.orcUi.frontend.tk.error_dialog.tk.Button"):
+    with (
+        patch("apps.orcUi.frontend.tk.error_dialog.tk.Toplevel") as top,
+        patch("apps.orcUi.frontend.tk.error_dialog.tk.Label"),
+        patch("apps.orcUi.frontend.tk.error_dialog.tk.Button"),
+    ):
         dialog.show("ADS-B Map Unavailable", "Connection refused")
     old.destroy.assert_called_once_with()
     top.assert_called_once_with(root)

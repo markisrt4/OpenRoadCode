@@ -8,14 +8,28 @@ from unittest import TestCase
 from unittest.mock import Mock
 
 from apps.orcUi.performance_status import PerformanceStatusPresenter, performance_status
-from ui.system_diagnostics import OrcWorkloadSnapshot, SensorHealthSnapshot, SystemDiagnosticsSnapshot, ServiceSocketSnapshot, BatterySnapshot
+from ui.system_diagnostics import (
+    OrcWorkloadSnapshot,
+    SensorHealthSnapshot,
+    SystemDiagnosticsSnapshot,
+    ServiceSocketSnapshot,
+    BatterySnapshot,
+)
 
 
 def sample(**changes):
-    return replace(SystemDiagnosticsSnapshot(
-        sampled_at_unix_s=100, cpu_percent=20, memory_used_percent=40, disk_used_percent=50,
-        workload=OrcWorkloadSnapshot(visibility="visible", cpu_percent=200, cpu_capacity_percent=25),
-    ), **changes)
+    return replace(
+        SystemDiagnosticsSnapshot(
+            sampled_at_unix_s=100,
+            cpu_percent=20,
+            memory_used_percent=40,
+            disk_used_percent=50,
+            workload=OrcWorkloadSnapshot(
+                visibility="visible", cpu_percent=200, cpu_capacity_percent=25
+            ),
+        ),
+        **changes,
+    )
 
 
 class PerformanceStatusTests(TestCase):
@@ -25,47 +39,94 @@ class PerformanceStatusTests(TestCase):
         self.assertEqual(status.tone, "accent_success")
 
     def test_pressure_boundaries_and_host_cpu(self):
-        for value, tone in ((79.9, "accent_success"), (80, "accent_warning"), (95, "accent_danger")):
+        for value, tone in (
+            (79.9, "accent_success"),
+            (80, "accent_warning"),
+            (95, "accent_danger"),
+        ):
             for key in ("cpu_percent", "memory_used_percent", "disk_used_percent"):
                 with self.subTest(value=value, key=key):
                     self.assertEqual(performance_status(sample(**{key: value})).tone, tone)
-        self.assertEqual(performance_status(sample(workload=OrcWorkloadSnapshot(
-            visibility="visible", cpu_percent=640, cpu_capacity_percent=80))).tone, "accent_warning")
+        self.assertEqual(
+            performance_status(
+                sample(
+                    workload=OrcWorkloadSnapshot(
+                        visibility="visible", cpu_percent=640, cpu_capacity_percent=80
+                    )
+                )
+            ).tone,
+            "accent_warning",
+        )
 
     def test_thermal_and_sensor_severity(self):
         for headroom, tone in ((10, "accent_warning"), (5, "accent_danger")):
             status = performance_status(sample(thermal_headroom_c=headroom))
             self.assertEqual(status.text, "SYSTEM")
             self.assertEqual(status.tone, tone)
-        for state, tone in (("stale", "accent_warning"), ("degraded", "accent_warning"), ("invalid", "accent_danger")):
-            self.assertEqual(performance_status(sample(sensors=(SensorHealthSnapshot(
-                "GPS", "gps", state=state),))).tone, tone)
-        self.assertEqual(performance_status(sample(cpu_percent=80, thermal_headroom_c=5)).tone, "accent_danger")
+        for state, tone in (
+            ("stale", "accent_warning"),
+            ("degraded", "accent_warning"),
+            ("invalid", "accent_danger"),
+        ):
+            self.assertEqual(
+                performance_status(
+                    sample(sensors=(SensorHealthSnapshot("GPS", "gps", state=state),))
+                ).tone,
+                tone,
+            )
+        self.assertEqual(
+            performance_status(sample(cpu_percent=80, thermal_headroom_c=5)).tone, "accent_danger"
+        )
 
     def test_services_warn_only_for_observed_failures(self):
         for state in ("dropping", "stopped"):
-            self.assertEqual(performance_status(sample(services=(ServiceSocketSnapshot("Broker", state=state),))).tone,
-                             "accent_danger")
-        self.assertEqual(performance_status(sample(services=(ServiceSocketSnapshot("Optional"),))).text, "SYSTEM")
+            self.assertEqual(
+                performance_status(
+                    sample(services=(ServiceSocketSnapshot("Broker", state=state),))
+                ).tone,
+                "accent_danger",
+            )
+        self.assertEqual(
+            performance_status(sample(services=(ServiceSocketSnapshot("Optional"),))).text, "SYSTEM"
+        )
 
     def test_battery_health_is_separate_from_cpu_thermal_thresholds(self):
-        self.assertEqual(performance_status(sample(battery=BatterySnapshot(
-            state="available", temperature_c=30.1, health="GOOD"))).tone, "accent_success")
-        self.assertEqual(performance_status(sample(battery=BatterySnapshot(
-            state="available", health="OVERHEAT"))).tone, "accent_danger")
-        self.assertEqual(performance_status(sample(battery=BatterySnapshot(
-            state="available", health="COLD"))).tone, "accent_warning")
+        self.assertEqual(
+            performance_status(
+                sample(
+                    battery=BatterySnapshot(state="available", temperature_c=30.1, health="GOOD")
+                )
+            ).tone,
+            "accent_success",
+        )
+        self.assertEqual(
+            performance_status(
+                sample(battery=BatterySnapshot(state="available", health="OVERHEAT"))
+            ).tone,
+            "accent_danger",
+        )
+        self.assertEqual(
+            performance_status(
+                sample(battery=BatterySnapshot(state="available", health="COLD"))
+            ).tone,
+            "accent_warning",
+        )
 
     def test_missing_partial_and_stale_readings_are_neutral(self):
-        for value in (SystemDiagnosticsSnapshot(), sample(memory_used_percent=None),
-                      sample(workload=OrcWorkloadSnapshot(visibility="partial", cpu_capacity_percent=20))):
+        for value in (
+            SystemDiagnosticsSnapshot(),
+            sample(memory_used_percent=None),
+            sample(workload=OrcWorkloadSnapshot(visibility="partial", cpu_capacity_percent=20)),
+        ):
             self.assertEqual(performance_status(value).tone, "text_muted")
         self.assertEqual(performance_status(sample(cpu_percent=99), stale=True).text, "SYSTEM")
         self.assertEqual(performance_status(sample()).text, "SYSTEM")
 
     def test_real_pressure_is_visible_despite_missing_other_data(self):
-        self.assertEqual(performance_status(sample(workload=OrcWorkloadSnapshot(), disk_used_percent=96)).tone,
-                         "accent_danger")
+        self.assertEqual(
+            performance_status(sample(workload=OrcWorkloadSnapshot(), disk_used_percent=96)).tone,
+            "accent_danger",
+        )
 
 
 class PresenterTests(TestCase):
@@ -77,7 +138,9 @@ class PresenterTests(TestCase):
         self.provider = Mock()
         self.provider.snapshot.return_value = sample()
         self.present = Mock()
-        self.presenter = PerformanceStatusPresenter(self.host, self.provider, self.present, clock=lambda: self.now)
+        self.presenter = PerformanceStatusPresenter(
+            self.host, self.provider, self.present, clock=lambda: self.now
+        )
 
     def schedule(self, delay, callback):
         self.assertEqual(delay, 1000)

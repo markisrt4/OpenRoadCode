@@ -16,9 +16,12 @@ class SdrForgeRestRadioBackendTest(unittest.TestCase):
 
     def test_receiver_snapshot_maps_to_radio_contract(self) -> None:
         snapshot = {
-            "frequency_hz": 104300000, "mode": "WFM",
-            "bandwidth_hz": 200000, "signal_strength": -35.0,
-            "snr": 24.0, "rds": "WOMC",
+            "frequency_hz": 104300000,
+            "mode": "WFM",
+            "bandwidth_hz": 200000,
+            "signal_strength": -35.0,
+            "snr": 24.0,
+            "rds": "WOMC",
         }
         with patch.object(self.backend, "_request", return_value=snapshot) as request:
             self.assertEqual(self.backend.get_frequency(), 104300000)
@@ -33,19 +36,22 @@ class SdrForgeRestRadioBackendTest(unittest.TestCase):
             self.backend.set_frequency(94700000)
             self.backend.set_mode("wfm", 200000)
             self.backend.stop()
-        self.assertEqual([call.args for call in request.call_args_list], [
-            ("/v1/receiver/start", {}),
-            ("/v1/receiver/frequency", {"frequency_hz": 94700000}),
-            ("/v1/receiver/mode", {"mode": "WFM", "bandwidth_hz": 200000}),
-            ("/v1/receiver/stop", {}),
-        ])
-
+        self.assertEqual(
+            [call.args for call in request.call_args_list],
+            [
+                ("/v1/receiver/start", {}),
+                ("/v1/receiver/frequency", {"frequency_hz": 94700000}),
+                ("/v1/receiver/mode", {"mode": "WFM", "bandwidth_hz": 200000}),
+                ("/v1/receiver/stop", {}),
+            ],
+        )
 
     def test_transient_read_reconnects_once(self) -> None:
         failure = RuntimeError("connection lost")
         failure.__cause__ = URLError("refused")
-        with patch.object(self.backend, "_request_once",
-                          side_effect=[failure, {"frequency_hz": 94700000}]) as request:
+        with patch.object(
+            self.backend, "_request_once", side_effect=[failure, {"frequency_hz": 94700000}]
+        ) as request:
             with patch.object(self.backend, "wait_until_ready") as ready:
                 self.assertEqual(self.backend.get_frequency(), 94700000)
         ready.assert_called_once_with(timeout=3.0)
@@ -62,8 +68,7 @@ class SdrForgeRestRadioBackendTest(unittest.TestCase):
         ready.assert_not_called()
 
     def test_health_returns_false_when_server_is_offline(self) -> None:
-        with patch.object(self.backend, "_request_once",
-                          side_effect=RuntimeError("offline")):
+        with patch.object(self.backend, "_request_once", side_effect=RuntimeError("offline")):
             self.assertFalse(self.backend.health())
 
     def test_malformed_read_is_not_replayed(self) -> None:
@@ -85,8 +90,9 @@ class SdrForgeRestRadioBackendTest(unittest.TestCase):
     def test_diagnostics_record_successful_reconnection(self) -> None:
         failure = RuntimeError("connection lost")
         failure.__cause__ = URLError("refused")
-        with patch.object(self.backend, "_request_once",
-                          side_effect=[failure, {"frequency_hz": 94700000}]):
+        with patch.object(
+            self.backend, "_request_once", side_effect=[failure, {"frequency_hz": 94700000}]
+        ):
             with patch.object(self.backend, "wait_until_ready"):
                 self.backend.get_frequency()
         diagnostics = self.backend.connection_diagnostics()
@@ -97,8 +103,9 @@ class SdrForgeRestRadioBackendTest(unittest.TestCase):
         failure = RuntimeError("connection lost")
         failure.__cause__ = URLError("refused")
         with patch.object(self.backend, "_request_once", side_effect=failure):
-            with patch.object(self.backend, "wait_until_ready",
-                              side_effect=RuntimeError("not ready")):
+            with patch.object(
+                self.backend, "wait_until_ready", side_effect=RuntimeError("not ready")
+            ):
                 with self.assertRaises(RuntimeError):
                     self.backend.receiver_status()
         diagnostics = self.backend.connection_diagnostics()

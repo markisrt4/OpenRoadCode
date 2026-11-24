@@ -9,4 +9,4 @@ from ui.radio.streaming_radio_types import (
     _clean_upper,
 )
 
-__all__ = ['StreamingRadioStation', '_clean', '_clean_upper']
+__all__ = ["StreamingRadioStation", "_clean", "_clean_upper"]

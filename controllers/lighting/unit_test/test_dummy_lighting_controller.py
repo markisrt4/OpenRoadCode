@@ -24,9 +24,7 @@ class DummyLightingControllerTest(unittest.TestCase):
         controller.set_color_temperature(60).result()
         controller.set_pattern(23).result()
         controller.set_music_mode(2).result()
-        controller.set_custom_pattern_mode(
-            CustomPatternMode.FLOW
-        ).result()
+        controller.set_custom_pattern_mode(CustomPatternMode.FLOW).result()
         controller.set_custom_pattern_direction(False).result()
 
         self.assertEqual(

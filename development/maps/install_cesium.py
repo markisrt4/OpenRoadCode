@@ -31,7 +31,10 @@ def install(destination: Path) -> None:
                 if not (member.isfile() or member.isdir()):
                     raise RuntimeError("Unsupported Cesium archive entry")
                 if member.name.startswith("package/Build/Cesium/") or member.name in (
-                        "package/LICENSE.md", "package/ThirdParty.json", "package/package.json"):
+                    "package/LICENSE.md",
+                    "package/ThirdParty.json",
+                    "package/package.json",
+                ):
                     bundle.extract(member, staging, filter="data")
         prepared = staging / "package"
         require_sdk(prepared / "Build/Cesium")

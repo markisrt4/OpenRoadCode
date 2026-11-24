@@ -11,12 +11,15 @@ import sqlite3
 import math
 from config.saved_destinations import SavedDestinationsConfig, normalize_destination
 from ui.navigation.destination_setup_request_handler_if import (
-    DestinationSetupRequestHandlerIf, SavedDestination,
+    DestinationSetupRequestHandlerIf,
+    SavedDestination,
 )
 
 
 class DestinationSetupController(DestinationSetupRequestHandlerIf):
-    def __init__(self, config: SavedDestinationsConfig, geocoder=None, *, online_geocoder=None) -> None:
+    def __init__(
+        self, config: SavedDestinationsConfig, geocoder=None, *, online_geocoder=None
+    ) -> None:
         self._config = config
         self._geocoder = geocoder
         self._online_geocoder = online_geocoder
@@ -30,10 +33,18 @@ class DestinationSetupController(DestinationSetupRequestHandlerIf):
             return ()
         matches = self._online_geocoder.geocode(address)
         from ui.navigation.map_ui_if import GeoPoint
-        return tuple(normalize_destination(SavedDestination(
-            key, key.title(), item.address,
-            GeoPoint(math.radians(item.latitude_deg), math.radians(item.longitude_deg)),
-        )) for item in matches)
+
+        return tuple(
+            normalize_destination(
+                SavedDestination(
+                    key,
+                    key.title(),
+                    item.address,
+                    GeoPoint(math.radians(item.latitude_deg), math.radians(item.longitude_deg)),
+                )
+            )
+            for item in matches
+        )
 
     def current(self, key: str) -> SavedDestination | None:
         self._validate_key(key)
@@ -49,10 +60,21 @@ class DestinationSetupController(DestinationSetupRequestHandlerIf):
         try:
             results = self._geocoder.geocode(address)
         except sqlite3.Error as error:
-            raise RuntimeError("Local address database unavailable; enter coordinates instead") from error
-        return tuple(normalize_destination(SavedDestination(
-            key, key.title(), result.display_name, result.position,
-        )) for result in results if result.source == "address")
+            raise RuntimeError(
+                "Local address database unavailable; enter coordinates instead"
+            ) from error
+        return tuple(
+            normalize_destination(
+                SavedDestination(
+                    key,
+                    key.title(),
+                    result.display_name,
+                    result.position,
+                )
+            )
+            for result in results
+            if result.source == "address"
+        )
 
     def save(self, destination: SavedDestination) -> None:
         self._config.save(destination)

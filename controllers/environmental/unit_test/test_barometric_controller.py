@@ -68,9 +68,7 @@ class FakeBmp3xx:
 
 class BarometricControllerTests(unittest.TestCase):
     def test_implements_controller_interface(self) -> None:
-        self.assertTrue(
-            issubclass(BarometricController, BarometricControllerIf)
-        )
+        self.assertTrue(issubclass(BarometricController, BarometricControllerIf))
 
     def test_reads_normalized_sensor_sample(self) -> None:
         sensor = FakeBarometricSource()

@@ -14,6 +14,7 @@ from ui.screen_ui_if import ScreenUiIf
 @dataclass(frozen=True, slots=True)
 class CarUiScreens:
     """Contain every standard destination required by Car UI routes."""
+
     aircraft: ScreenUiIf
     weather: ScreenUiIf
     lighting: ScreenUiIf

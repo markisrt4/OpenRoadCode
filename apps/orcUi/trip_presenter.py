@@ -49,9 +49,7 @@ class TripPresenter:
             and state.average_fuel_consumption_m3_per_m > 0.0
         ):
             gallons_per_mile = (
-                state.average_fuel_consumption_m3_per_m
-                * GALLONS_PER_CUBIC_METRE
-                / MILES_PER_METRE
+                state.average_fuel_consumption_m3_per_m * GALLONS_PER_CUBIC_METRE / MILES_PER_METRE
             )
             if gallons_per_mile > 0.0:
                 economy_mpg = 1.0 / gallons_per_mile
@@ -82,19 +80,13 @@ class TripPresenter:
             moving_s=state.moving_s,
             stopped_s=state.stopped_s,
             average_speed_mph=(
-                None
-                if state.average_speed_m_s is None
-                else state.average_speed_m_s * MPH_PER_MPS
+                None if state.average_speed_m_s is None else state.average_speed_m_s * MPH_PER_MPS
             ),
             maximum_speed_mph=(
-                None
-                if state.maximum_speed_m_s is None
-                else state.maximum_speed_m_s * MPH_PER_MPS
+                None if state.maximum_speed_m_s is None else state.maximum_speed_m_s * MPH_PER_MPS
             ),
             fuel_used_gallons=(
-                None
-                if state.fuel_used_m3 is None
-                else state.fuel_used_m3 * GALLONS_PER_CUBIC_METRE
+                None if state.fuel_used_m3 is None else state.fuel_used_m3 * GALLONS_PER_CUBIC_METRE
             ),
             economy_mpg=economy_mpg,
             instantaneous_economy_mpg=instantaneous_economy_mpg,

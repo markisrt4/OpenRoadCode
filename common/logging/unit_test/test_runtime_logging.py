@@ -454,7 +454,8 @@ def test_restricted_install_can_import_http_and_write_logs_without_checkout(tmp_
     root = Path(__file__).resolve().parents[3]
     script = (root / "scripts/systemd/install_service_manager_systemd.sh").read_text()
     manifest = next(
-        line for line in script.replace("\\\n", " ").splitlines()
+        line
+        for line in script.replace("\\\n", " ").splitlines()
         if line.startswith("for package in ")
     )
     packages = manifest.removeprefix("for package in ").removesuffix("; do").split()

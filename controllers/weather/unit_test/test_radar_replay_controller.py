@@ -146,7 +146,7 @@ def test_old_history_completion_cannot_overwrite_new_source(screen):
     screen._radar_load_generation = 2
     selector = Mock()
     before = screen._radar_controller.frame_time
-    screen._complete_radar_selection(selector, (RadarFrame(999, 'https://old.test/tile'),), 1)
+    screen._complete_radar_selection(selector, (RadarFrame(999, "https://old.test/tile"),), 1)
     assert screen._radar_controller.frame_time == before
     selector.assert_not_called()
 
@@ -154,5 +154,7 @@ def test_old_history_completion_cannot_overwrite_new_source(screen):
 def test_closed_replay_rejects_a_completed_download(screen):
     screen.close()
     before = screen._radar_controller._map_renderer.set_weather_radar.call_count
-    screen._show_radar_frames((RadarFrame(999, 'https://old.test/tile'),), screen._radar_load_generation)
+    screen._show_radar_frames(
+        (RadarFrame(999, "https://old.test/tile"),), screen._radar_load_generation
+    )
     assert screen._radar_controller._map_renderer.set_weather_radar.call_count == before

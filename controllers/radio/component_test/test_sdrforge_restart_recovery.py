@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Exercise REST recovery across a real localhost server restart, without SDR hardware."""
+
 from __future__ import annotations
 
 from contextlib import contextmanager

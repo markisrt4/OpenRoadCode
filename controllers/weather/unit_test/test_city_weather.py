@@ -7,7 +7,13 @@ from unittest.mock import Mock
 
 import pytest
 
-from controllers.weather.city_weather import CityWeatherHours, CityWeatherProvider, WeatherCity, city_label, city_value
+from controllers.weather.city_weather import (
+    CityWeatherHours,
+    CityWeatherProvider,
+    WeatherCity,
+    city_label,
+    city_value,
+)
 
 ANCHOR = 1791028800
 CITY = WeatherCity("Detroit", 42.33, -83.05)
@@ -15,8 +21,13 @@ CITY = WeatherCity("Detroit", 42.33, -83.05)
 
 def series(missing=None, times=None):
     times = times or tuple(ANCHOR + h * 3600 for h in range(-24, 25))
-    return CityWeatherHours(CITY, times, tuple(range(len(times))), (16.09344,) * len(times),
-                            tuple(None if t == missing else 1.0 for t in times))
+    return CityWeatherHours(
+        CITY,
+        times,
+        tuple(range(len(times))),
+        (16.09344,) * len(times),
+        tuple(None if t == missing else 1.0 for t in times),
+    )
 
 
 def test_temperature_and_wind_use_selected_hour_not_daily_summary():
@@ -52,16 +63,22 @@ def test_missing_hour_is_unavailable_not_zero_or_partial_accumulation():
     assert city_label(16.1, "wind", False) == "16 km/h"
 
 
-@pytest.mark.parametrize('hours', [0, 25, True, 1.5])
+@pytest.mark.parametrize("hours", [0, 25, True, 1.5])
 def test_hour_range_is_enforced(hours):
     with pytest.raises(ValueError):
         city_value(series(), "temperature", hours, "past", ANCHOR)
 
 
 def payload():
-    return {"hourly_units": {"temperature_2m": "°C", "wind_speed_10m": "km/h", "precipitation": "mm"},
-            "hourly": {"time": [ANCHOR, ANCHOR + 3600], "temperature_2m": [10, None],
-                       "wind_speed_10m": [float('nan'), 20], "precipitation": [0, -1]}}
+    return {
+        "hourly_units": {"temperature_2m": "°C", "wind_speed_10m": "km/h", "precipitation": "mm"},
+        "hourly": {
+            "time": [ANCHOR, ANCHOR + 3600],
+            "temperature_2m": [10, None],
+            "wind_speed_10m": [float("nan"), 20],
+            "precipitation": [0, -1],
+        },
+    }
 
 
 def test_provider_batches_locations_with_history_and_forecasts_in_utc():
@@ -75,7 +92,7 @@ def test_provider_batches_locations_with_history_and_forecasts_in_utc():
     assert weather[0].wind_kmh == (None, 20)
     assert weather[0].precipitation_mm == (0, None)
     params = session.get.call_args.kwargs["params"]
-    assert params["latitude"] == '42.33,43.01'
+    assert params["latitude"] == "42.33,43.01"
     assert params["past_days"] == 2 and params["forecast_days"] == 3
     assert params["timezone"] == "UTC" and params["timeformat"] == "unixtime"
     assert "precipitation_probability" not in params["hourly"]
@@ -84,14 +101,14 @@ def test_provider_batches_locations_with_history_and_forecasts_in_utc():
     session.close.assert_called_once()
 
 
-@pytest.mark.parametrize('problem', ['units', 'times', 'locations'])
+@pytest.mark.parametrize("problem", ["units", "times", "locations"])
 def test_provider_rejects_unusable_times_units_or_batch_mismatch(problem):
     data = payload()
-    if problem == 'units':
-        data['hourly_units']['temperature_2m'] = '°F'
-    elif problem == 'times':
-        data['hourly']['time'] = [ANCHOR, ANCHOR]
+    if problem == "units":
+        data["hourly_units"]["temperature_2m"] = "°F"
+    elif problem == "times":
+        data["hourly"]["time"] = [ANCHOR, ANCHOR]
     session = Mock()
-    session.get.return_value.json.return_value = [data, data] if problem == 'locations' else data
+    session.get.return_value.json.return_value = [data, data] if problem == "locations" else data
     with pytest.raises(ValueError):
         CityWeatherProvider(session).hourly((CITY,))
