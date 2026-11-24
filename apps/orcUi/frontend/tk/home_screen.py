@@ -131,6 +131,7 @@ class HomeScreen(TkScreen):
         self._on_radar_toggle = on_radar_toggle
         self._refresh_radar = refresh_radar
 
+        self._calendar_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._radio_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._media_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._visualizer_factory: Callable[[tk.Misc], tk.Widget] | None = None
@@ -141,6 +142,9 @@ class HomeScreen(TkScreen):
     def context_rail(self) -> ContextRail | None:
         """Return the active HOME context rail, when HOME is displayed."""
         return self._context_rail
+
+    def set_calendar_factory(self, factory: Callable[[tk.Misc], tk.Widget]) -> None:
+        self._calendar_factory = factory
 
     def set_radio_factory(
         self,
@@ -207,6 +211,9 @@ class HomeScreen(TkScreen):
             radar_enabled=self._radar_enabled,
             on_radar_toggle=self._on_radar_toggle,
         )
+
+        if self._calendar_factory is not None:
+            self._context_rail.set_calendar_factory(self._calendar_factory)
 
         if self._telemetry_profile_request is not None:
             self._telemetry_profile_request(AutomotiveTelemetryProfile.HOME)
