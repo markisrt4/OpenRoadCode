@@ -192,14 +192,12 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
             self._schedule_render()
 
     def set_recenter_on_tune(self, enabled: bool) -> None:
-        self._recenter_on_tune = bool(enabled)
+        self._recenter_on_tune = False
         if self._viewport is not None:
-            self._viewport = replace(self._viewport, recenter_on_tune=bool(enabled))
-            if enabled and self._frequency_hz:
-                self._viewport = replace(self._viewport, center_hz=float(self._frequency_hz))
+            self._viewport = replace(self._viewport, recenter_on_tune=False)
             self._constrain_viewport()
         settings = load_rf_visualization_settings()
-        settings["recenter_on_tune"] = bool(enabled)
+        settings["recenter_on_tune"] = False
         save_rf_visualization_settings(settings)
         self._update_recenter_button()
         self._schedule_render()
@@ -379,9 +377,6 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
         )
         self._stereo = stereo
         self._signal = signal
-        if self._recenter_on_tune and self._viewport is not None and frequency_hz:
-            self._viewport = replace(self._viewport, center_hz=float(frequency_hz))
-            self._constrain_viewport()
         self._schedule_render()
 
     def set_display_controls(self, *, waterfall: bool, peak_hold: bool) -> None:
@@ -464,9 +459,9 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
                 self._viewport = SpectrumViewport(
                     float(center_frequency_hz), float(sample_rate_hz), self._recenter_on_tune
                 )
-            elif previous_center != center_frequency_hz and self._recenter_on_tune:
+            elif previous_center != center_frequency_hz:
                 self._viewport = replace(
-                    self._viewport, center_hz=float(self._frequency_hz or center_frequency_hz)
+                    self._viewport, center_hz=float(center_frequency_hz)
                 )
             self._constrain_viewport()
         if len(self._bins) == len(raw):
