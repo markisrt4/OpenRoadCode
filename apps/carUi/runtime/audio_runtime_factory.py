@@ -70,9 +70,7 @@ def _resolve_wpctl_sink(output: str, device_match: str | None) -> str:
         return PipewireAudioController.DEFAULT_SINK
     sink = _match_wpctl_sink(result.stdout, output, device_match)
     if sink is None:
-        LOGGER.warning(
-            "Preferred %s PipeWire sink was not found; using default", output
-        )
+        LOGGER.warning("Preferred %s PipeWire sink was not found; using default", output)
         return PipewireAudioController.DEFAULT_SINK
     return sink
 
@@ -85,17 +83,12 @@ def _match_wpctl_sink(
     patterns = (
         (device_match,)
         if device_match
-        else (
-            ("usb", "USB Audio")
-            if output == "usb"
-            else ("bcm2835", "headphones")
-        )
+        else (("usb", "USB Audio") if output == "usb" else ("bcm2835", "headphones"))
     )
     for line in status.splitlines():
         match = re.search(r"(?:\*\s*)?(\d+)\.\s+(.+)", line)
         if match and any(
-            pattern and pattern.casefold() in match.group(2).casefold()
-            for pattern in patterns
+            pattern and pattern.casefold() in match.group(2).casefold() for pattern in patterns
         ):
             return match.group(1)
     return None
@@ -112,16 +105,11 @@ def _resolve_pactl_sink(output: str, device_match: str | None) -> str:
     except (FileNotFoundError, subprocess.CalledProcessError) as exc:
         LOGGER.warning("Unable to enumerate pactl sinks: %s", exc)
         return PactlAudioController.DEFAULT_SINK
-    patterns = (
-        (device_match,)
-        if device_match
-        else (("usb",) if output == "usb" else ("analog",))
-    )
+    patterns = (device_match,) if device_match else (("usb",) if output == "usb" else ("analog",))
     for line in result.stdout.splitlines():
         fields = line.split("\t")
         if len(fields) >= 2 and any(
-            pattern and pattern.casefold() in line.casefold()
-            for pattern in patterns
+            pattern and pattern.casefold() in line.casefold() for pattern in patterns
         ):
             return fields[1]
     LOGGER.warning("Preferred %s pactl sink was not found; using default", output)

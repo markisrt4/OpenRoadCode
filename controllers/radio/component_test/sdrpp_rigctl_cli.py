@@ -109,9 +109,11 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                 raise ValueError("--launch-command must not be empty")
 
             print(f"[INFO] Launching: {config.launch_command}")
-            process = subprocess.Popen(command,
-                                       stdout=subprocess.DEVNULL,
-                                       stderr=subprocess.DEVNULL,)
+            process = subprocess.Popen(
+                command,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
             launched_process = True
             wait_for_port(
                 config.host,
@@ -139,10 +141,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
 
             if config.mode is not None and config.bandwidth is not None:
                 backend.set_mode(config.mode, config.bandwidth)
-                print(
-                    f"[PASS] Set mode: {config.mode}, "
-                    f"bandwidth: {config.bandwidth} Hz"
-                )
+                print(f"[PASS] Set mode: {config.mode}, bandwidth: {config.bandwidth} Hz")
 
             signal_strength = backend.get_signal_strength()
             print(f"[INFO] Signal strength: {signal_strength or 'unavailable'}")

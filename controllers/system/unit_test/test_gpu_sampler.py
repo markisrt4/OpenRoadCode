@@ -1,4 +1,5 @@
 """Offline tests for Qualcomm KGSL busy counters."""
+
 import tempfile
 import unittest
 from pathlib import Path

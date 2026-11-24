@@ -12,4 +12,11 @@ from ui.system.app_launcher_if import (
     BrowserDashboardLauncherIf,
 )
 
-__all__ = ['StatusCallback', 'AppLauncherIf', 'HideableAppLauncherIf', 'WindowedAppLauncherIf', 'PreloadableAppLauncherIf', 'BrowserDashboardLauncherIf']
+__all__ = [
+    "StatusCallback",
+    "AppLauncherIf",
+    "HideableAppLauncherIf",
+    "WindowedAppLauncherIf",
+    "PreloadableAppLauncherIf",
+    "BrowserDashboardLauncherIf",
+]

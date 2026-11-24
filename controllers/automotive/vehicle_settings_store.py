@@ -10,12 +10,10 @@ try:
 except ModuleNotFoundError:  # Python 3.10
     import tomli as tomllib
 
-from ui.automotive.vehicle_configuration import (EngineInductionType, VehicleConfiguration)
+from ui.automotive.vehicle_configuration import EngineInductionType, VehicleConfiguration
 
 
-DEFAULT_VEHICLE_SETTINGS_PATH = (
-    Path.home() / ".config" / "openroadcode" / "vehicle.toml"
-)
+DEFAULT_VEHICLE_SETTINGS_PATH = Path.home() / ".config" / "openroadcode" / "vehicle.toml"
 
 
 class VehicleSettingsStore:
@@ -52,7 +50,6 @@ class VehicleSettingsStore:
     def save(self, configuration: VehicleConfiguration) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
         self._path.write_text(
-            "[engine]\n"
-            f'induction = "{configuration.induction.value}"\n',
+            f'[engine]\ninduction = "{configuration.induction.value}"\n',
             encoding="utf-8",
         )

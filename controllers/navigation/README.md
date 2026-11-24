@@ -196,9 +196,7 @@ try:
     state = navigation.read_state()
 
     print(
-        f"heading={state.heading_deg:.1f}° "
-        f"pitch={state.pitch_deg:.1f}° "
-        f"roll={state.roll_deg:.1f}°"
+        f"heading={state.heading_deg:.1f}° pitch={state.pitch_deg:.1f}° roll={state.roll_deg:.1f}°"
     )
     print(f"acceleration={state.acceleration_mps2}")
 finally:

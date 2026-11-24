@@ -55,7 +55,10 @@ if [[ -x "$VENV_DIR/bin/python" ]]; then
     fail=1
   fi
   if [[ " ${FEATURES[*]} " == *" development "* ]]; then
-    echo "[*] Ruff is optional on Termux; the quality gate skips it when unavailable."
+    if ! "$PREFIX/bin/ruff" check --config "$PROJECT_ROOT/pyproject.toml" --show-settings "$PROJECT_ROOT/ui/radio/rf_radio_if.py" >/dev/null; then
+      echo "[!] Native Ruff is missing or incompatible with pyproject.toml" >&2
+      fail=1
+    fi
     for quality_tool in pytest mypy; do
       if "$VENV_DIR/bin/python" -m "$quality_tool" --version; then
         echo "[+] $quality_tool available in $VENV_DIR"

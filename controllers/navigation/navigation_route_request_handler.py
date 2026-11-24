@@ -69,9 +69,7 @@ class NavigationRouteRequestHandler(RouteRequestHandlerIf, RouteSimulationReques
         self._active_route = None
         for observer in tuple(self._route_observers):
             observer(None)
-        self._map_renderer.set_route(
-            {"type": "FeatureCollection", "features": []}
-        )
+        self._map_renderer.set_route({"type": "FeatureCollection", "features": []})
 
     def request_start_route_simulation(self, *, time_scale: float = 60.0) -> None:
         self._client.simulate_active_route(time_scale=time_scale)

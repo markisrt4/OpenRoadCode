@@ -47,7 +47,9 @@ class DebianGameInstallerRuntimeTest(unittest.TestCase):
         self.assertTrue(installer.relax_window_size_hints(self._game()))
 
     @patch("controllers.games.debian_game_installer.DebianCommandRunner")
-    def test_native_debian_ignores_termux_proot_runtime_compatibility(self, runner_type: Mock) -> None:
+    def test_native_debian_ignores_termux_proot_runtime_compatibility(
+        self, runner_type: Mock
+    ) -> None:
         runner = runner_type.return_value
         runner.is_proot = False
         runner.graphical_command.return_value = ["native"]

@@ -30,7 +30,5 @@ class Mpu6050NavigationAdapter(NavigationSensorIf):
     def read_motion(self) -> MotionSample:
         return MotionSample(
             acceleration_mps2=self._device.get_acceleration_mps2(),
-            angular_velocity_rad_s=(
-                self._device.get_angular_velocity_rad_s()
-            ),
+            angular_velocity_rad_s=(self._device.get_angular_velocity_rad_s()),
         )

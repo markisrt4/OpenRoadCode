@@ -42,7 +42,7 @@ class RemoteControlState:
             return "OK"
         prefix = "SET theme "
         if command.startswith(prefix):
-            requested = command[len(prefix):].strip()
+            requested = command[len(prefix) :].strip()
             if requested not in self.themes:
                 return "ERROR invalid-value"
             self.current_theme = requested
@@ -75,7 +75,9 @@ class RemoteControlTestServer(socketserver.ThreadingTCPServer):
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Fake SDR++ remote-control server for validating line protocol exchanges.")
+    parser = argparse.ArgumentParser(
+        description="Fake SDR++ remote-control server for validating line protocol exchanges."
+    )
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=4533)
     parser.add_argument("--themes", default="Dark,Light,Dracula,Grey")

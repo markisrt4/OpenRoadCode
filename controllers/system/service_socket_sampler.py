@@ -12,7 +12,12 @@ import time
 from pathlib import Path
 
 from ui.system_diagnostics import OrcWorkloadSnapshot, ServiceSocketSnapshot
-from controllers.system.service_socket_parser import parse_socket_table, parse_tcp_counters, parse_ss_sockets, counter_rate
+from controllers.system.service_socket_parser import (
+    parse_socket_table,
+    parse_tcp_counters,
+    parse_ss_sockets,
+    counter_rate,
+)
 
 # Absent optional integrations are unknown, not failed services.
 KNOWN_SERVICES = {
@@ -35,8 +40,14 @@ KNOWN_SERVICES = {
 class ServiceSocketSampler:
     """Use procfs ownership plus optional kernel TCP_INFO; UDP rates stay unknown."""
 
-    def __init__(self, proc_root: Path | str = "/proc", *, monotonic=time.monotonic,
-                 tcp_reader=None, max_rows: int = 256) -> None:
+    def __init__(
+        self,
+        proc_root: Path | str = "/proc",
+        *,
+        monotonic=time.monotonic,
+        tcp_reader=None,
+        max_rows: int = 256,
+    ) -> None:
         if max_rows <= 0:
             raise ValueError("Service socket row limit must be positive")
         self._root = Path(proc_root)
@@ -58,9 +69,14 @@ class ServiceSocketSampler:
         except (OSError, subprocess.SubprocessError) as error:
             counters = {}
             netlink_records = ()
-            reason = ((error.stderr or "").strip() if isinstance(error, subprocess.CalledProcessError)
-                      else str(error))
-            warnings.append("TCP byte counters unavailable: " + (reason[:180] or type(error).__name__))
+            reason = (
+                (error.stderr or "").strip()
+                if isinstance(error, subprocess.CalledProcessError)
+                else str(error)
+            )
+            warnings.append(
+                "TCP byte counters unavailable: " + (reason[:180] or type(error).__name__)
+            )
         try:
             own_namespace = os.readlink(self._root / "self/ns/net")
         except OSError:
@@ -69,7 +85,14 @@ class ServiceSocketSampler:
         observed_names = set()
         rows = []
         for process in workload.processes:
-            name = next((label for prefix, label in KNOWN_SERVICES.items() if process.name.startswith(prefix)), process.name)
+            name = next(
+                (
+                    label
+                    for prefix, label in KNOWN_SERVICES.items()
+                    if process.name.startswith(prefix)
+                ),
+                process.name,
+            )
             observed_names.add(name)
             directory = self._root / str(process.pid)
             inaccessible = False
@@ -101,20 +124,38 @@ class ServiceSocketSampler:
                 denied = False
                 readable = 0
                 table_failures = []
-                for filename, protocol in (("tcp", "TCP"), ("tcp6", "TCP"), ("udp", "UDP"), ("udp6", "UDP")):
+                for filename, protocol in (
+                    ("tcp", "TCP"),
+                    ("tcp6", "TCP"),
+                    ("udp", "UDP"),
+                    ("udp6", "UDP"),
+                ):
                     try:
-                        records.extend(parse_socket_table((directory / "net" / filename).read_text(), protocol))
+                        records.extend(
+                            parse_socket_table((directory / "net" / filename).read_text(), protocol)
+                        )
                         readable += 1
                     except FileNotFoundError:
                         continue  # An unsupported address family is not a permission failure.
                     except OSError as error:
-                        table_failures.append(f"{filename}: {error.strerror or type(error).__name__}")
+                        table_failures.append(
+                            f"{filename}: {error.strerror or type(error).__name__}"
+                        )
                         denied = True
                 # Only a verified shared namespace permits using the monitor's table.
                 if readable == 0 and namespace == own_namespace:
-                    for filename, protocol in (("tcp", "TCP"), ("tcp6", "TCP"), ("udp", "UDP"), ("udp6", "UDP")):
+                    for filename, protocol in (
+                        ("tcp", "TCP"),
+                        ("tcp6", "TCP"),
+                        ("udp", "UDP"),
+                        ("udp6", "UDP"),
+                    ):
                         try:
-                            records.extend(parse_socket_table((self._root / "self/net" / filename).read_text(), protocol))
+                            records.extend(
+                                parse_socket_table(
+                                    (self._root / "self/net" / filename).read_text(), protocol
+                                )
+                            )
                             readable += 1
                         except OSError:
                             continue
@@ -135,52 +176,117 @@ class ServiceSocketSampler:
                     known.add(record.inode)
                     fallback_inodes.add(record.inode)
             if not owned:
-                rows.append(ServiceSocketSnapshot(name=name, pid=process.pid, process_state=process_state,
-                    state="unavailable" if inaccessible else "stopped" if process.state in {"Z", "T", "t", "X"} else "no_socket",
-                    detail="Socket inspection unavailable: " + "; ".join(dict.fromkeys(failures)) + ". Android may block this even for running services." if inaccessible else
-                           "Visible process has no TCP/UDP sockets; may use IPC, serial, or be starting"))
+                rows.append(
+                    ServiceSocketSnapshot(
+                        name=name,
+                        pid=process.pid,
+                        process_state=process_state,
+                        state="unavailable"
+                        if inaccessible
+                        else "stopped"
+                        if process.state in {"Z", "T", "t", "X"}
+                        else "no_socket",
+                        detail="Socket inspection unavailable: "
+                        + "; ".join(dict.fromkeys(failures))
+                        + ". Android may block this even for running services."
+                        if inaccessible
+                        else "Visible process has no TCP/UDP sockets; may use IPC, serial, or be starting",
+                    )
+                )
             for record in owned:
-                cookie, rx, tx = counters.get(record.inode, ("", None, None)) if namespace == own_namespace or record.inode in fallback_inodes else ("", None, None)
-                key = (namespace, record.inode, cookie, record.protocol, record.local, record.remote)
+                cookie, rx, tx = (
+                    counters.get(record.inode, ("", None, None))
+                    if namespace == own_namespace or record.inode in fallback_inodes
+                    else ("", None, None)
+                )
+                key = (
+                    namespace,
+                    record.inode,
+                    cookie,
+                    record.protocol,
+                    record.local,
+                    record.remote,
+                )
                 before = previous.get(key, (now, None, None, None))
                 elapsed = now - before[0]
                 receive = counter_rate(rx, before[1], elapsed) if record.protocol == "TCP" else None
-                transmit = counter_rate(tx, before[2], elapsed) if record.protocol == "TCP" else None
+                transmit = (
+                    counter_rate(tx, before[2], elapsed) if record.protocol == "TCP" else None
+                )
                 drops = counter_rate(record.drops, before[3], elapsed)
                 self._previous[key] = (now, rx, tx, record.drops)
                 state = "dropping" if drops is not None and drops > 0 else record.state
                 if process.state in {"Z", "T", "t", "X"}:
                     state = "stopped"
-                detail = ("TCP socket state, not an application response check. Payload byte rates from kernel TCP_INFO; "
-                          "-- means warmup, missing counters, or reset. Includes retransmitted payload; excludes headers."
-                          if record.protocol == "TCP" else
-                          "UDP socket observed, not a delivery check. OS exposes queues and drops but no per-socket byte counters; bandwidth unavailable.")
-                if record.protocol == "TCP" and namespace != own_namespace and record.inode not in fallback_inodes:
+                detail = (
+                    "TCP socket state, not an application response check. Payload byte rates from kernel TCP_INFO; "
+                    "-- means warmup, missing counters, or reset. Includes retransmitted payload; excludes headers."
+                    if record.protocol == "TCP"
+                    else "UDP socket observed, not a delivery check. OS exposes queues and drops but no per-socket byte counters; bandwidth unavailable."
+                )
+                if (
+                    record.protocol == "TCP"
+                    and namespace != own_namespace
+                    and record.inode not in fallback_inodes
+                ):
                     detail += " TCP counters belong to another or inaccessible network namespace."
                 if record.inode in fallback_inodes:
-                    detail += " Endpoint recovered via ss/netlink and matched to owned socket inode."
+                    detail += (
+                        " Endpoint recovered via ss/netlink and matched to owned socket inode."
+                    )
                 if inaccessible:
-                    detail += " Socket visibility is partial: " + "; ".join(dict.fromkeys(failures)) + "."
-                rows.append(ServiceSocketSnapshot(
-                    name=name, pid=process.pid, process_state=process_state, protocol=record.protocol,
-                    local_endpoint=record.local, remote_endpoint=record.remote, state=state, detail=detail,
-                    receive_bytes_per_second=receive, transmit_bytes_per_second=transmit,
-                    receive_queue_bytes=record.rx_queue, transmit_queue_bytes=record.tx_queue,
-                    udp_drops=record.drops, drops_per_second=drops,
-                ))
+                    detail += (
+                        " Socket visibility is partial: " + "; ".join(dict.fromkeys(failures)) + "."
+                    )
+                rows.append(
+                    ServiceSocketSnapshot(
+                        name=name,
+                        pid=process.pid,
+                        process_state=process_state,
+                        protocol=record.protocol,
+                        local_endpoint=record.local,
+                        remote_endpoint=record.remote,
+                        state=state,
+                        detail=detail,
+                        receive_bytes_per_second=receive,
+                        transmit_bytes_per_second=transmit,
+                        receive_queue_bytes=record.rx_queue,
+                        transmit_queue_bytes=record.tx_queue,
+                        udp_drops=record.drops,
+                        drops_per_second=drops,
+                    )
+                )
         for name in dict.fromkeys(KNOWN_SERVICES.values()):
             if name not in observed_names:
                 rows.append(ServiceSocketSnapshot(name=name))
-        rows.sort(key=lambda row: (row.pid is None, row.name, row.pid or 0, row.protocol, row.local_endpoint, row.remote_endpoint))
+        rows.sort(
+            key=lambda row: (
+                row.pid is None,
+                row.name,
+                row.pid or 0,
+                row.protocol,
+                row.local_endpoint,
+                row.remote_endpoint,
+            )
+        )
         if len(rows) > self._max_rows:
             warnings.append(f"Showing {self._max_rows} of {len(rows)} endpoint rows")
         if workload.visibility != "visible":
             warnings.append("Process discovery is incomplete; hidden services cannot be measured")
-        self.status = "; ".join(dict.fromkeys(warnings)) if warnings else "Visible ORC TCP/UDP sockets; application health is not probed"
-        return tuple(rows[:self._max_rows])
+        self.status = (
+            "; ".join(dict.fromkeys(warnings))
+            if warnings
+            else "Visible ORC TCP/UDP sockets; application health is not probed"
+        )
+        return tuple(rows[: self._max_rows])
 
 
 def _tcp_counters() -> str:
-    result = subprocess.run(["ss", "-H", "-t", "-u", "-a", "-n", "-i", "-e", "-O"],
-                            capture_output=True, text=True, timeout=0.5, check=True)
+    result = subprocess.run(
+        ["ss", "-H", "-t", "-u", "-a", "-n", "-i", "-e", "-O"],
+        capture_output=True,
+        text=True,
+        timeout=0.5,
+        check=True,
+    )
     return result.stdout

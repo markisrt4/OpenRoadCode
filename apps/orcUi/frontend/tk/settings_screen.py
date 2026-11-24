@@ -8,8 +8,8 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from common.units import UnitSystem
-from ui.automotive.automotive_telemetry_profile import (AutomotiveTelemetryProfile)
-from ui.automotive.vehicle_configuration import (VehicleConfiguration)
+from ui.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
+from ui.automotive.vehicle_configuration import VehicleConfiguration
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from ui.screen_ui_if import ScreenId
@@ -29,9 +29,7 @@ class SettingsScreen(TkScreen):
         host: TkScreenHostIf,
         *,
         theme_bundle: Callable[[], ThemeBundle],
-        telemetry_profile_request: (
-            Callable[[AutomotiveTelemetryProfile], None] | None
-        ),
+        telemetry_profile_request: (Callable[[AutomotiveTelemetryProfile], None] | None),
         vehicle_configuration: Callable[[], VehicleConfiguration],
         on_vehicle_configuration_changed: Callable[[VehicleConfiguration], None],
         unit_system: Callable[[], UnitSystem],

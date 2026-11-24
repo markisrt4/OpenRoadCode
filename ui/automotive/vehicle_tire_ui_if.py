@@ -6,6 +6,7 @@
 from abc import ABC, abstractmethod
 from enum import Enum, auto
 
+
 class TirePosition(Enum):
     """! @brief Position of a tire on a four-wheel vehicle."""
 

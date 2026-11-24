@@ -118,8 +118,7 @@ def _kmeans_1d(values: list[float], clusters: int) -> list[list[float]]:
 
     ordered = sorted(values)
     centers = [
-        ordered[round(i * (len(ordered) - 1) / max(1, clusters - 1))]
-        for i in range(clusters)
+        ordered[round(i * (len(ordered) - 1) / max(1, clusters - 1))] for i in range(clusters)
     ]
 
     assignments: list[list[float]] = [[] for _ in centers]
@@ -130,8 +129,7 @@ def _kmeans_1d(values: list[float], clusters: int) -> list[list[float]]:
             assignments[index].append(value)
 
         new_centers = [
-            statistics.median(group) if group else centers[i]
-            for i, group in enumerate(assignments)
+            statistics.median(group) if group else centers[i] for i, group in enumerate(assignments)
         ]
         if max(abs(a - b) for a, b in zip(centers, new_centers)) < 1e-6:
             break
@@ -147,7 +145,7 @@ def _write_profile(path: Path, groups: list[list[float]], sample_count: int) -> 
         "# Learned by scripts/automotive/learn_gears.py",
         f"sample_count = {sample_count}",
         f"gear_count = {len(groups)}",
-        "ratio_units = \"rpm_per_mph\"",
+        'ratio_units = "rpm_per_mph"',
         "",
     ]
 
@@ -184,13 +182,12 @@ def _print_summary(groups: list[list[float]]) -> None:
             continue
         center = statistics.median(group)
         spread = statistics.pstdev(group) if len(group) > 1 else 0.0
-        print(
-            f"  gear {gear}: {center:8.2f} rpm/mph  "
-            f"samples={len(group):5d}  sigma={spread:6.2f}"
-        )
+        print(f"  gear {gear}: {center:8.2f} rpm/mph  samples={len(group):5d}  sigma={spread:6.2f}")
 
 
-def _read_sample(subscriber: ZeroMqSubscriber, args: argparse.Namespace, history: deque[float]) -> Sample | None:
+def _read_sample(
+    subscriber: ZeroMqSubscriber, args: argparse.Namespace, history: deque[float]
+) -> Sample | None:
     topic, payload = subscriber.receive()
     if topic != VEHICLE_STATE_TOPIC:
         return None
@@ -210,8 +207,6 @@ def _read_sample(subscriber: ZeroMqSubscriber, args: argparse.Namespace, history
     if not _stable_ratio(history, args.max_window_spread):
         return None
     return Sample(rpm=rpm, speed_mph=speed_mph, rpm_per_mph=ratio)
-
-
 
 
 def _read_profile_groups(path: Path, gear_count: int) -> list[list[float]]:
@@ -263,7 +258,9 @@ def _single_gear_learn(subscriber: ZeroMqSubscriber, args: argparse.Namespace) -
     groups[gear - 1] = values
 
     learned = [(index + 1, statistics.median(group)) for index, group in enumerate(groups) if group]
-    if any(a_ratio <= b_ratio for (_a_gear, a_ratio), (_b_gear, b_ratio) in zip(learned, learned[1:])):
+    if any(
+        a_ratio <= b_ratio for (_a_gear, a_ratio), (_b_gear, b_ratio) in zip(learned, learned[1:])
+    ):
         print(
             "Calibration rejected: learned ratios must decrease as gear number increases.",
             file=sys.stderr,
@@ -324,10 +321,7 @@ def _capture_guided_gear(
             print("Sampling is DISARMED. Re-establish the requested gear and retry.")
             continue
 
-        print(
-            f"CAPTURED GEAR {gear}: median={center:.2f} rpm/mph, "
-            f"sigma={sigma:.2f}"
-        )
+        print(f"CAPTURED GEAR {gear}: median={center:.2f} rpm/mph, sigma={sigma:.2f}")
         print("Sampling is DISARMED.")
         return values
 
@@ -431,7 +425,9 @@ def main() -> int:
 
             now = time.monotonic()
             if now - last_status >= 1.0:
-                state = "stable" if _stable_ratio(ratio_history, args.max_window_spread) else "reject"
+                state = (
+                    "stable" if _stable_ratio(ratio_history, args.max_window_spread) else "reject"
+                )
                 print(
                     f"\r{rpm:5.0f} rpm  {speed_mph:5.1f} mph  "
                     f"{ratio:7.2f} rpm/mph  {state:6s}  accepted={len(samples):5d}",

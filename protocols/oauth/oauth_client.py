@@ -35,9 +35,7 @@ class OAuthHttpError(OAuthError):
         self.status_code = status_code
         self.response_body = response_body
 
-        super().__init__(
-            f"OAuth HTTP {status_code}: {response_body}"
-        )
+        super().__init__(f"OAuth HTTP {status_code}: {response_body}")
 
 
 class OAuthClient:
@@ -52,9 +50,7 @@ class OAuthClient:
         timeout_seconds: float = 10.0,
     ) -> None:
         if timeout_seconds <= 0:
-            raise ValueError(
-                "timeout_seconds must be greater than zero"
-            )
+            raise ValueError("timeout_seconds must be greater than zero")
 
         self._config = config
         self._timeout_seconds = timeout_seconds
@@ -81,9 +77,7 @@ class OAuthClient:
             raise ValueError("state cannot be empty")
 
         if not code_challenge:
-            raise ValueError(
-                "code_challenge cannot be empty"
-            )
+            raise ValueError("code_challenge cannot be empty")
 
         parameters = {
             "client_id": self._config.client_id,
@@ -98,10 +92,7 @@ class OAuthClient:
         if extra_parameters:
             parameters.update(extra_parameters)
 
-        return (
-            f"{self._config.authorization_url}?"
-            f"{urllib.parse.urlencode(parameters)}"
-        )
+        return f"{self._config.authorization_url}?{urllib.parse.urlencode(parameters)}"
 
     def exchange_authorization_code(
         self,
@@ -117,9 +108,7 @@ class OAuthClient:
             raise ValueError("code cannot be empty")
 
         if not code_verifier:
-            raise ValueError(
-                "code_verifier cannot be empty"
-            )
+            raise ValueError("code_verifier cannot be empty")
 
         parameters = {
             "client_id": self._config.client_id,
@@ -146,9 +135,7 @@ class OAuthClient:
         Refresh an OAuth access token.
         """
         if not refresh_token:
-            raise ValueError(
-                "refresh_token cannot be empty"
-            )
+            raise ValueError("refresh_token cannot be empty")
 
         parameters = {
             "client_id": self._config.client_id,
@@ -170,17 +157,14 @@ class OAuthClient:
         self,
         parameters: Mapping[str, str],
     ) -> dict[str, object]:
-        body = urllib.parse.urlencode(
-            parameters
-        ).encode("utf-8")
+        body = urllib.parse.urlencode(parameters).encode("utf-8")
 
         request = urllib.request.Request(
             self._config.token_url,
             data=body,
             method="POST",
             headers={
-                "Content-Type":
-                    "application/x-www-form-urlencoded",
+                "Content-Type": "application/x-www-form-urlencoded",
                 "Accept": "application/json",
             },
         )
@@ -190,9 +174,7 @@ class OAuthClient:
                 request,
                 timeout=self._timeout_seconds,
             ) as response:
-                response_body = response.read().decode(
-                    "utf-8"
-                )
+                response_body = response.read().decode("utf-8")
 
         except urllib.error.HTTPError as exc:
             response_body = exc.read().decode(
@@ -206,21 +188,15 @@ class OAuthClient:
             ) from exc
 
         except urllib.error.URLError as exc:
-            raise OAuthError(
-                f"Unable to reach OAuth endpoint: {exc}"
-            ) from exc
+            raise OAuthError(f"Unable to reach OAuth endpoint: {exc}") from exc
 
         try:
             parsed = json.loads(response_body)
         except json.JSONDecodeError as exc:
-            raise OAuthError(
-                "OAuth endpoint returned invalid JSON"
-            ) from exc
+            raise OAuthError("OAuth endpoint returned invalid JSON") from exc
 
         if not isinstance(parsed, dict):
-            raise OAuthError(
-                "OAuth endpoint returned an invalid response"
-            )
+            raise OAuthError("OAuth endpoint returned an invalid response")
 
         return parsed
 
@@ -233,9 +209,7 @@ class OAuthClient:
         access_token = response.get("access_token")
 
         if not isinstance(access_token, str):
-            raise OAuthError(
-                "OAuth response did not contain an access token"
-            )
+            raise OAuthError("OAuth response did not contain an access token")
 
         expires_in_value = response.get(
             "expires_in",
@@ -245,18 +219,12 @@ class OAuthClient:
         try:
             expires_in = int(expires_in_value)
         except (TypeError, ValueError) as exc:
-            raise OAuthError(
-                "OAuth response contained an invalid expiration"
-            ) from exc
+            raise OAuthError("OAuth response contained an invalid expiration") from exc
 
-        refresh_token_value = response.get(
-            "refresh_token"
-        )
+        refresh_token_value = response.get("refresh_token")
 
         refresh_token = (
-            refresh_token_value
-            if isinstance(refresh_token_value, str)
-            else existing_refresh_token
+            refresh_token_value if isinstance(refresh_token_value, str) else existing_refresh_token
         )
 
         token_type_value = response.get(
@@ -264,19 +232,11 @@ class OAuthClient:
             "Bearer",
         )
 
-        token_type = (
-            token_type_value
-            if isinstance(token_type_value, str)
-            else "Bearer"
-        )
+        token_type = token_type_value if isinstance(token_type_value, str) else "Bearer"
 
         scope_value = response.get("scope")
 
-        scope = (
-            scope_value
-            if isinstance(scope_value, str)
-            else None
-        )
+        scope = scope_value if isinstance(scope_value, str) else None
 
         return OAuthTokens(
             access_token=access_token,

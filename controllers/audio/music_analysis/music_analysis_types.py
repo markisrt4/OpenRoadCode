@@ -5,6 +5,7 @@
 
 OpenRoadCode owns capture and presentation, not the DSP data model.
 """
+
 from musicforge.analysis import MusicAnalysisState, PercussionActivity
 
 __all__ = ["MusicAnalysisState", "PercussionActivity"]

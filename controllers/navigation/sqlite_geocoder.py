@@ -51,10 +51,12 @@ _STREET_SUFFIXES = {
     "hwy": "highway",
 }
 
-_MILE_NUMBERS = dict(zip(
-    "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty".split(),
-    map(str, range(1, 21)),
-))
+_MILE_NUMBERS = dict(
+    zip(
+        "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty".split(),
+        map(str, range(1, 21)),
+    )
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,11 +114,23 @@ class SqliteGeocoder:
         for row in rows:
             # An explicitly requested locality must not silently resolve to a
             # different city/state/postcode with the same house and road name.
-            if query.city and row["city"] and _normalize_words(str(row["city"])) != _normalize_words(query.city):
+            if (
+                query.city
+                and row["city"]
+                and _normalize_words(str(row["city"])) != _normalize_words(query.city)
+            ):
                 continue
-            if query.state and row["state"] and str(row["state"]).casefold() != query.state.casefold():
+            if (
+                query.state
+                and row["state"]
+                and str(row["state"]).casefold() != query.state.casefold()
+            ):
                 continue
-            if query.postcode and row["postcode"] and str(row["postcode"]).casefold() != query.postcode.casefold():
+            if (
+                query.postcode
+                and row["postcode"]
+                and str(row["postcode"]).casefold() != query.postcode.casefold()
+            ):
                 continue
             candidate_street = _normalize_street(str(row["street"] or ""))
             if not candidate_street:
@@ -132,11 +146,23 @@ class SqliteGeocoder:
             else:
                 continue
 
-            if query.city and row["city"] and _normalize_words(str(row["city"])) == _normalize_words(query.city):
+            if (
+                query.city
+                and row["city"]
+                and _normalize_words(str(row["city"])) == _normalize_words(query.city)
+            ):
                 score += 10
-            if query.state and row["state"] and str(row["state"]).casefold() == query.state.casefold():
+            if (
+                query.state
+                and row["state"]
+                and str(row["state"]).casefold() == query.state.casefold()
+            ):
                 score += 5
-            if query.postcode and row["postcode"] and str(row["postcode"]).casefold() == query.postcode.casefold():
+            if (
+                query.postcode
+                and row["postcode"]
+                and str(row["postcode"]).casefold() == query.postcode.casefold()
+            ):
                 score += 5
             ranked.append((score, row))
 
@@ -176,7 +202,8 @@ class SqliteGeocoder:
             (
                 token
                 for token in search_tokens
-                if token.casefold().rstrip(".") not in {"east", "west", "north", "south", "e", "w", "n", "s"}
+                if token.casefold().rstrip(".")
+                not in {"east", "west", "north", "south", "e", "w", "n", "s"}
             ),
             search_tokens[0],
         )
@@ -211,11 +238,23 @@ class SqliteGeocoder:
             else:
                 continue
 
-            if query.city and row["city"] and _normalize_words(str(row["city"])) == _normalize_words(query.city):
+            if (
+                query.city
+                and row["city"]
+                and _normalize_words(str(row["city"])) == _normalize_words(query.city)
+            ):
                 score += 10
-            if query.state and row["state"] and str(row["state"]).casefold() == query.state.casefold():
+            if (
+                query.state
+                and row["state"]
+                and str(row["state"]).casefold() == query.state.casefold()
+            ):
                 score += 5
-            if query.postcode and row["postcode"] and str(row["postcode"]).casefold() == query.postcode.casefold():
+            if (
+                query.postcode
+                and row["postcode"]
+                and str(row["postcode"]).casefold() == query.postcode.casefold()
+            ):
                 score += 5
 
             distance_km = float("inf")
@@ -350,6 +389,7 @@ def _find_street_suffix_index(tokens: list[str]) -> int | None:
             return index
     return None
 
+
 def _street_confidence(*, score: int, distance_km: float, has_house_number: bool) -> float:
     base = 0.45 if has_house_number else 0.65
 
@@ -381,8 +421,7 @@ def _distance_km(lat1_deg: float, lon1_deg: float, lat2_deg: float, lon2_deg: fl
     dlat = lat2 - lat1
     dlon = lon2 - lon1
     haversine = (
-        math.sin(dlat / 2.0) ** 2
-        + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2.0) ** 2
+        math.sin(dlat / 2.0) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2.0) ** 2
     )
     return 2.0 * 6371.0088 * math.asin(min(1.0, math.sqrt(haversine)))
 
@@ -399,23 +438,20 @@ def _format_address(row: sqlite3.Row) -> str:
     if row["unit"]:
         first += f" #{row['unit']}"
     return ", ".join(
-        str(value) for value in (first, row["city"], row["state"], row["postcode"], row["country"])
+        str(value)
+        for value in (first, row["city"], row["state"], row["postcode"], row["country"])
         if value
     )
 
 
 def _format_street(row: sqlite3.Row) -> str:
     return ", ".join(
-        str(value) for value in (row["name"], row["city"], row["state"], row["postcode"])
-        if value
+        str(value) for value in (row["name"], row["city"], row["state"], row["postcode"]) if value
     )
 
 
 def _format_place(row: sqlite3.Row) -> str:
-    return ", ".join(
-        str(value) for value in (row["name"], row["state"], row["country"])
-        if value
-    )
+    return ", ".join(str(value) for value in (row["name"], row["state"], row["country"]) if value)
 
 
 def _dedupe(results: list[GeocodeResult]) -> tuple[GeocodeResult, ...]:

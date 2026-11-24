@@ -14,7 +14,8 @@ HTTP calls to `protocols.valhalla.ValhallaHttpClient`.
 
 ```python
 from controllers.route_planning.route_planning_types import (
-    GeoPoint, RouteRequest,
+    GeoPoint,
+    RouteRequest,
 )
 from controllers.route_planning.valhalla_route_planning_controller import (
     ValhallaRoutePlanningController,

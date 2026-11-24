@@ -24,14 +24,10 @@ def parse_i2c_address(value: str) -> int:
     try:
         address = int(value, 0)
     except ValueError as exc:
-        raise argparse.ArgumentTypeError(
-            f"invalid I2C address: {value}"
-        ) from exc
+        raise argparse.ArgumentTypeError(f"invalid I2C address: {value}") from exc
 
     if not 0 <= address <= 0x7F:
-        raise argparse.ArgumentTypeError(
-            "I2C address must be between 0x00 and 0x7F"
-        )
+        raise argparse.ArgumentTypeError("I2C address must be between 0x00 and 0x7F")
 
     return address
 
@@ -41,14 +37,10 @@ def positive_interval(value: str) -> float:
     try:
         interval = float(value)
     except ValueError as exc:
-        raise argparse.ArgumentTypeError(
-            f"invalid sampling interval: {value}"
-        ) from exc
+        raise argparse.ArgumentTypeError(f"invalid sampling interval: {value}") from exc
 
     if interval <= 0.0:
-        raise argparse.ArgumentTypeError(
-            "sampling interval must be greater than zero"
-        )
+        raise argparse.ArgumentTypeError("sampling interval must be greater than zero")
 
     return interval
 
@@ -112,16 +104,10 @@ def print_sample(
     if imperial:
         pressure_inhg = pressure_pa / PASCALS_PER_INCH_OF_MERCURY
         temperature_f = temperature_c * 9.0 / 5.0 + 32.0
-        print(
-            f"Pressure: {pressure_inhg:7.3f} inHg  "
-            f"Temperature: {temperature_f:6.2f} °F"
-        )
+        print(f"Pressure: {pressure_inhg:7.3f} inHg  Temperature: {temperature_f:6.2f} °F")
         return
 
-    print(
-        f"Pressure: {pressure_pa:10.1f} Pa  "
-        f"Temperature: {temperature_c:6.2f} °C"
-    )
+    print(f"Pressure: {pressure_pa:10.1f} Pa  Temperature: {temperature_c:6.2f} °C")
 
 
 def run(
@@ -140,8 +126,7 @@ def run(
             raise RuntimeError("sensor did not report a started state")
 
         print(
-            f"{model.upper()} initialized at {address:#04x}; "
-            "reading first sample...",
+            f"{model.upper()} initialized at {address:#04x}; reading first sample...",
             flush=True,
         )
         print_sample(sensor, imperial=imperial)

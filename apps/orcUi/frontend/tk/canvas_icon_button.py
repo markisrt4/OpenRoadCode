@@ -60,11 +60,7 @@ class CanvasIconButton(tk.Canvas, UiWidget):
         was_pressed = self._pressed
         self._pressed = False
         self._paint()
-        if (
-            was_pressed
-            and 0 <= event.x <= self._width
-            and 0 <= event.y <= self._height
-        ):
+        if was_pressed and 0 <= event.x <= self._width and 0 <= event.y <= self._height:
             self._command()
 
     def _on_leave(self, _event: tk.Event) -> None:
@@ -77,7 +73,8 @@ class CanvasIconButton(tk.Canvas, UiWidget):
         background = (
             ui.control_active
             if self._pressed
-            else ui.surface_alt if self._hovered
+            else ui.surface_alt
+            if self._hovered
             else ui.control_background
         )
         self.configure(bg=background)

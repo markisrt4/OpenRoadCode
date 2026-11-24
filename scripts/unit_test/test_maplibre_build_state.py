@@ -31,9 +31,12 @@ def test_maplibre_rebuild_after_package_upgrade(tmp_path, stamp, artifact, cache
         (tmp_path / "stamp").write_text(stamp + "\n")
     result = subprocess.run(
         [
-            "bash", "-c",
+            "bash",
+            "-c",
             'source "$1"; maplibre_needs_build "$2/mbgl-glfw" "$2" "$2/stamp" "libpng=1.6.59"',
-            "test", str(HELPER), str(tmp_path),
+            "test",
+            str(HELPER),
+            str(tmp_path),
         ],
         env={**os.environ, "FORCE_REBUILD": force},
         check=False,
@@ -47,9 +50,11 @@ def test_signature_tracks_png_headers_and_package_version(tmp_path):
     for name in ("png.h", "pngconf.h"):
         (include / name).write_text("old header")
     command = [
-        "bash", "-c",
+        "bash",
+        "-c",
         'source "$1"; pkg-config() { echo "$PNG_VERSION"; }; maplibre_build_signature',
-        "test", str(HELPER),
+        "test",
+        str(HELPER),
     ]
     env = {**os.environ, "PREFIX": str(tmp_path), "MAPLIBRE_REF": "pinned", "PNG_VERSION": "1.6.58"}
     before = subprocess.check_output(command, env=env)

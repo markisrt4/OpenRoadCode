@@ -10,17 +10,17 @@ SIZE = 33
 
 
 def download(destination):
-    build_terrain(destination, 'detroit-downtown', size=SIZE)
+    build_terrain(destination, "detroit-downtown", size=SIZE)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output",type=Path,default=detroit_terrain_directory())
+    parser.add_argument("--output", type=Path, default=detroit_terrain_directory())
     args = parser.parse_args()
     try:
         download(args.output)
     except (OSError, ValueError, KeyError, RuntimeError, TypeError) as error:
-        parser.exit(1,f"Detroit terrain download: {error}\n")
+        parser.exit(1, f"Detroit terrain download: {error}\n")
 
 
 if __name__ == "__main__":

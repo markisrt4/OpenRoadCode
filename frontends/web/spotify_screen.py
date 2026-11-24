@@ -55,7 +55,13 @@ def render_spotify_screen(*, style: str, back: str, state: dict[str, Any]) -> st
     volume = state.get("volume_percent")
     initial_state = Markup.escape(json.dumps(state, separators=(",", ":")))
     return render_template_string(
-        _TEMPLATE, style=style, back=back, state=state, initial_state=initial_state,
-        progress_value=max(0, min(1000, progress_value)), position_text=_format_time(position),
-        duration_text=_format_time(duration), volume_text=f"{volume}%" if volume is not None else "--",
+        _TEMPLATE,
+        style=style,
+        back=back,
+        state=state,
+        initial_state=initial_state,
+        progress_value=max(0, min(1000, progress_value)),
+        position_text=_format_time(position),
+        duration_text=_format_time(duration),
+        volume_text=f"{volume}%" if volume is not None else "--",
     )

@@ -14,7 +14,17 @@ import sys
 from pathlib import Path
 from urllib.parse import quote
 
-IGNORED_DIRECTORIES = {".git", ".github", ".pytest_cache", ".venv", "venv", "venv-termux", "__pycache__", "build", "dist"}
+IGNORED_DIRECTORIES = {
+    ".git",
+    ".github",
+    ".pytest_cache",
+    ".venv",
+    "venv",
+    "venv-termux",
+    "__pycache__",
+    "build",
+    "dist",
+}
 CURATED_GUIDES = ("apps/orcUi/ARCHITECTURE.md",)
 BEGIN = "<!-- BEGIN GENERATED DOCS INDEX -->"
 END = "<!-- END GENERATED DOCS INDEX -->"
@@ -70,7 +80,14 @@ def render_catalog(records: list[dict[str, str]]) -> str:
             continue
         group = path.parts[0] if len(path.parts) > 1 else "project"
         groups.setdefault(group, []).append(record)
-    lines = [BEGIN, "", "## Complete documentation catalog", "", "Generated from the canonical documentation files. Every component README and standalone guide is listed here. Run `python scripts/docs_inventory.py --write` after adding or moving documentation.", ""]
+    lines = [
+        BEGIN,
+        "",
+        "## Complete documentation catalog",
+        "",
+        "Generated from the canonical documentation files. Every component README and standalone guide is listed here. Run `python scripts/docs_inventory.py --write` after adding or moving documentation.",
+        "",
+    ]
     for group in sorted(groups, key=str.lower):
         lines.extend((f"### {display_name(group)}", ""))
         for record in sorted(groups[group], key=lambda item: item["path"].lower()):
@@ -89,12 +106,14 @@ def render_catalog(records: list[dict[str, str]]) -> str:
 def update_index(markdown: str, catalog: str) -> str:
     """Replace only the generated region, preserving authored content."""
     if markdown.count(BEGIN) != 1 or markdown.count(END) != 1:
-        raise ValueError("docs/README.md must contain exactly one ordered generated-index marker pair")
+        raise ValueError(
+            "docs/README.md must contain exactly one ordered generated-index marker pair"
+        )
     start = markdown.index(BEGIN)
     end = markdown.index(END)
     if start >= end:
         raise ValueError("Generated-index markers are out of order")
-    return markdown[:start] + catalog + markdown[end + len(END):]
+    return markdown[:start] + catalog + markdown[end + len(END) :]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -109,14 +128,26 @@ def main(argv: list[str] | None = None) -> int:
     records = discover(root)
     if args.manifest:
         args.manifest.parent.mkdir(parents=True, exist_ok=True)
-        args.manifest.write_text(json.dumps(records, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        args.manifest.write_text(
+            json.dumps(records, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
     if args.write or args.check:
         index = root / "docs/README.md"
         current = index.read_text(encoding="utf-8")
         expected = update_index(current, render_catalog(records))
         if args.check and current != expected:
-            sys.stderr.writelines(difflib.unified_diff(current.splitlines(True), expected.splitlines(True), fromfile="docs/README.md", tofile="generated index"))
-            print("Documentation index is stale. Run python scripts/docs_inventory.py --write", file=sys.stderr)
+            sys.stderr.writelines(
+                difflib.unified_diff(
+                    current.splitlines(True),
+                    expected.splitlines(True),
+                    fromfile="docs/README.md",
+                    tofile="generated index",
+                )
+            )
+            print(
+                "Documentation index is stale. Run python scripts/docs_inventory.py --write",
+                file=sys.stderr,
+            )
             return 1
         if args.write and current != expected:
             index.write_text(expected, encoding="utf-8")

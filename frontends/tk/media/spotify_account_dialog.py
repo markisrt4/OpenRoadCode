@@ -6,15 +6,23 @@ from collections.abc import Callable
 import tkinter as tk
 
 from ui.media.spotify_account_if import (
-    SpotifyAccountAction, SpotifyAccountRequests, SpotifyAccountSession, SpotifyAccountState,
+    SpotifyAccountAction,
+    SpotifyAccountRequests,
+    SpotifyAccountSession,
+    SpotifyAccountState,
 )
 from ui.theme import ThemeBundle
 from ui.ui_widget import UiWidget
 
 
 class SpotifyAccountDialog(UiWidget):
-    def __init__(self, parent: tk.Misc, *, session: SpotifyAccountSession,
-                 theme_bundle: Callable[[], ThemeBundle]) -> None:
+    def __init__(
+        self,
+        parent: tk.Misc,
+        *,
+        session: SpotifyAccountSession,
+        theme_bundle: Callable[[], ThemeBundle],
+    ) -> None:
         self._parent = parent
         self._session = session
         self._theme_bundle = theme_bundle
@@ -40,24 +48,47 @@ class SpotifyAccountDialog(UiWidget):
         dialog.transient(self._parent.winfo_toplevel())
         dialog.grab_set()
         dialog.protocol("WM_DELETE_WINDOW", self.close)
-        tk.Label(dialog, text="SPOTIFY APPLICATION", bg=theme.background, fg=theme.text,
-                 font=("Sans", 14, "bold")).pack(anchor="w", padx=18, pady=(16, 4))
-        tk.Label(dialog, text="Enter the Client ID from your Spotify developer application. "
-                 "OpenRoadCode uses OAuth PKCE, so no client secret is required.",
-                 bg=theme.background, fg=theme.text_muted, justify=tk.LEFT, wraplength=460,
-                 font=("Sans", 9)).pack(anchor="w", padx=18, pady=(0, 12))
+        tk.Label(
+            dialog,
+            text="SPOTIFY APPLICATION",
+            bg=theme.background,
+            fg=theme.text,
+            font=("Sans", 14, "bold"),
+        ).pack(anchor="w", padx=18, pady=(16, 4))
+        tk.Label(
+            dialog,
+            text="Enter the Client ID from your Spotify developer application. "
+            "OpenRoadCode uses OAuth PKCE, so no client secret is required.",
+            bg=theme.background,
+            fg=theme.text_muted,
+            justify=tk.LEFT,
+            wraplength=460,
+            font=("Sans", 9),
+        ).pack(anchor="w", padx=18, pady=(0, 12))
         self._client_id = tk.StringVar(master=dialog)
         entry = tk.Entry(dialog, textvariable=self._client_id, width=52)
         entry.pack(fill=tk.X, padx=18)
         entry.focus_set()
         self._status = tk.StringVar(master=dialog)
-        tk.Label(dialog, textvariable=self._status, bg=theme.background, fg=theme.text_muted,
-                 font=("Sans", 8)).pack(anchor="w", padx=18, pady=(5, 0))
+        tk.Label(
+            dialog,
+            textvariable=self._status,
+            bg=theme.background,
+            fg=theme.text_muted,
+            font=("Sans", 8),
+        ).pack(anchor="w", padx=18, pady=(5, 0))
         buttons = tk.Frame(dialog, bg=theme.background)
         buttons.pack(fill=tk.X, padx=18, pady=16)
         tk.Button(buttons, text="CANCEL", command=self.close).pack(side=tk.RIGHT)
-        self._save = tk.Button(buttons, text="SAVE", command=self._request_save,
-                              bg="#1DB954", fg="#000000", relief=tk.FLAT, padx=14)
+        self._save = tk.Button(
+            buttons,
+            text="SAVE",
+            command=self._request_save,
+            bg="#1DB954",
+            fg="#000000",
+            relief=tk.FLAT,
+            padx=14,
+        )
         self._save.pack(side=tk.RIGHT, padx=(0, 8))
         self._session.activate(self)
 
@@ -80,7 +111,12 @@ class SpotifyAccountDialog(UiWidget):
             self._status.set(state.message if state.error or self._saving else "")
         if self._save is not None:
             self._save.configure(state=tk.DISABLED if state.busy or state.loading else tk.NORMAL)
-        if self._saving and not state.busy and not state.error and state.action is SpotifyAccountAction.CONFIGURE:
+        if (
+            self._saving
+            and not state.busy
+            and not state.error
+            and state.action is SpotifyAccountAction.CONFIGURE
+        ):
             self.close()
 
     def close(self) -> None:

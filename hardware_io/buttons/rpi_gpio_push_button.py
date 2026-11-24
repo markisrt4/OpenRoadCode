@@ -48,8 +48,7 @@ class RpiGpioPushButton(PushButtonIf):
         """
         if not gpio_pin.is_gpio:
             raise ValueError(
-                f"Physical pin {gpio_pin.physical_pin} "
-                f"({gpio_pin.name}) is not a GPIO pin"
+                f"Physical pin {gpio_pin.physical_pin} ({gpio_pin.name}) is not a GPIO pin"
             )
 
         if debounce_seconds < 0:
@@ -79,9 +78,7 @@ class RpiGpioPushButton(PushButtonIf):
             if bcm_pin is None:
                 # Protected by constructor validation, but keeps type checking
                 # and future modifications honest.
-                raise RuntimeError(
-                    f"Pin {self._gpio_pin.physical_pin} has no BCM mapping"
-                )
+                raise RuntimeError(f"Pin {self._gpio_pin.physical_pin} has no BCM mapping")
 
             self._button = Button(
                 pin=bcm_pin,

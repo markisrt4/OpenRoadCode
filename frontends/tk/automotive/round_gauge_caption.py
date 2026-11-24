@@ -41,8 +41,13 @@ class RoundGauge(BaseRoundGauge):
 
         r = radius * 0.755
         self.create_arc(
-            cx - r, cy - r, cx + r, cy + r,
-            start=25, extent=130, style=tk.ARC,
+            cx - r,
+            cy - r,
+            cx + r,
+            cy + r,
+            start=25,
+            extent=130,
+            style=tk.ARC,
             outline=self._style.face_highlight,
             width=max(2, int(size * 0.008)),
         )
@@ -52,7 +57,8 @@ class RoundGauge(BaseRoundGauge):
         self._draw_needle(cx, cy, radius)
         self._draw_center(cx, cy, radius)
         self.create_text(
-            cx, dial_height + caption_height / 2,
+            cx,
+            dial_height + caption_height / 2,
             text=self._title.upper(),
             fill=self._style.foreground_color,
             font=(self._style.condensed_font_family, max(9, int(radius * 0.12)), "bold"),
@@ -63,7 +69,8 @@ class RoundGauge(BaseRoundGauge):
         # Preserve the unit, value display and connection state while removing
         # only the title from the face. The title is drawn in the caption strip.
         self.create_text(
-            cx, cy - radius * 0.16,
+            cx,
+            cy - radius * 0.16,
             text=self._unit.upper(),
             fill=self._style.muted_color,
             font=(self._style.font_family, max(6, int(radius * 0.075)), "bold"),
@@ -72,7 +79,8 @@ class RoundGauge(BaseRoundGauge):
         if not self._connected:
             value_text = "OFF"
         self.create_text(
-            cx, cy + radius * 0.13,
+            cx,
+            cy + radius * 0.13,
             text="PERFORMANCE",
             fill=self._style.performance_label,
             font=(self._style.condensed_font_family, max(5, int(radius * 0.055)), "bold"),
@@ -80,14 +88,18 @@ class RoundGauge(BaseRoundGauge):
         box_w, box_h = radius * 0.58, radius * 0.18
         box_y = cy + radius * 0.61
         self.create_rectangle(
-            cx - box_w / 2, box_y - box_h / 2,
-            cx + box_w / 2, box_y + box_h / 2,
+            cx - box_w / 2,
+            box_y - box_h / 2,
+            cx + box_w / 2,
+            box_y + box_h / 2,
             fill=self._style.display_color,
             outline=self._style.display_border,
             width=max(2, int(radius * 0.016)),
         )
         self.create_text(
-            cx, box_y, text=value_text,
+            cx,
+            box_y,
+            text=value_text,
             fill=self._style.display_text if self._connected else self._style.muted_color,
             font=(self._style.mono_font_family, max(8, int(radius * 0.12)), "bold"),
         )

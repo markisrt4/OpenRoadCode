@@ -52,25 +52,38 @@ def test_bluetooth_write_retry_and_recovery_never_log_device_or_packets(caplog):
     client = Mock()
     client.is_connected = False
     client.services = [PRIVATE]
+
     async def connect():
         client.is_connected = True
+
     async def disconnect():
         client.is_connected = False
+
     client.connect = AsyncMock(side_effect=connect)
     client.disconnect = AsyncMock(side_effect=disconnect)
     client.write_gatt_char = AsyncMock(side_effect=[OSError(PRIVATE), None])
     config = LedDmxBluetoothConfig("ffe0", "ffe1", (), (), False, 0, 0, 1, 1)
-    with patch.object(ble, "BleakClient", return_value=client), patch.object(ble, "BleakScanner", Mock()), \
-         patch.object(ble.LedDmxBluetoothController, "_client_has_leddmx_characteristic", return_value=True):
+    with (
+        patch.object(ble, "BleakClient", return_value=client),
+        patch.object(ble, "BleakScanner", Mock()),
+        patch.object(
+            ble.LedDmxBluetoothController, "_client_has_leddmx_characteristic", return_value=True
+        ),
+    ):
         # Drive the real coroutine on this thread: no socket wakeups/hardware needed.
-        with patch.object(threading.Thread, "start"), patch.object(threading.Event, "wait", return_value=True):
+        with (
+            patch.object(threading.Thread, "start"),
+            patch.object(threading.Event, "wait", return_value=True),
+        ):
             controller = ble.LedDmxBluetoothController(PRIVATE, config=config)
         try:
             pending = []
             future = Future()
+
             def schedule(coroutine, loop):
                 pending.append(coroutine)
                 return future
+
             with patch.object(ble.asyncio, "run_coroutine_threadsafe", side_effect=schedule):
                 with operation("ble-command"):
                     assert controller.set_brightness(37) is future
@@ -87,7 +100,9 @@ def test_bluetooth_write_retry_and_recovery_never_log_device_or_packets(caplog):
     assert client.write_gatt_char.await_count == 2
 
 
-def test_earth_bridge_retries_and_safe_trace_exclude_coordinates_and_endpoint(caplog, monkeypatch, capsys):
+def test_earth_bridge_retries_and_safe_trace_exclude_coordinates_and_endpoint(
+    caplog, monkeypatch, capsys
+):
     caplog.set_level(logging.DEBUG)
     monkeypatch.setenv("ORC_EARTH_TRACE", "1")
     client = Mock()
@@ -104,7 +119,9 @@ def test_earth_bridge_retries_and_safe_trace_exclude_coordinates_and_endpoint(ca
         assert not bridge.push_position(42.8028, -83.0127)
         assert bridge.push_position(42.8028, -83.0127)
     emitted = records(caplog, "navigation.earth.bridge")
-    assert len([r for r in emitted if r["event"] == "earth.failed" and r["stage"] == "install"]) == 1
+    assert (
+        len([r for r in emitted if r["event"] == "earth.failed" and r["stage"] == "install"]) == 1
+    )
     assert any(r["event"] == "earth.recovered" for r in emitted)
     assert all(r["operation_id"] == "earth-request" for r in emitted)
     assert capsys.readouterr().out == ""
@@ -131,10 +148,14 @@ def test_poi_database_failure_recovery_and_search_ids_exclude_names_paths_and_bo
     source, database = Mock(), Mock()
     # Select the headless path rather than the renderer viewport transport.
     source.request_search = source.poll_search_result = None
-    database.search.side_effect = [sqlite3.OperationalError(PRIVATE),
-                                   sqlite3.OperationalError(PRIVATE), ()]
-    controller = PoiSearchController(source, search_source=database,
-                                     position_provider=lambda: GeoPoint(0.5, -1))
+    database.search.side_effect = [
+        sqlite3.OperationalError(PRIVATE),
+        sqlite3.OperationalError(PRIVATE),
+        (),
+    ]
+    controller = PoiSearchController(
+        source, search_source=database, position_provider=lambda: GeoPoint(0.5, -1)
+    )
     for index in range(3):
         with operation(f"search-{index}"):
             controller.search(PoiCategory.FOOD)
@@ -148,10 +169,12 @@ def test_poi_database_failure_recovery_and_search_ids_exclude_names_paths_and_bo
 def test_place_action_worker_carries_operation_and_discards_result_after_close(caplog):
     caplog.set_level(logging.DEBUG)
     entered, release = threading.Event(), threading.Event()
+
     def execute(*args):
         entered.set()
         assert release.wait(2)
         return PRIVATE
+
     executor = Mock(execute=execute)
     controller = NavigationPlacesController(Mock(), Mock(), executor)
     poi = PointOfInterest(PRIVATE, PRIVATE, PoiCategory.FOOD, GeoPoint(0.5, -1))
@@ -171,8 +194,13 @@ def test_place_action_worker_carries_operation_and_discards_result_after_close(c
 def test_place_worker_start_failure_releases_pending_action(caplog):
     caplog.set_level(logging.DEBUG)
     controller = NavigationPlacesController(Mock(), Mock(), Mock())
-    with patch("controllers.poi.navigation_places_controller.threading.Thread.start",
-               side_effect=OSError(PRIVATE)), pytest.raises(OSError):
+    with (
+        patch(
+            "controllers.poi.navigation_places_controller.threading.Thread.start",
+            side_effect=OSError(PRIVATE),
+        ),
+        pytest.raises(OSError),
+    ):
         controller.request_action(Mock(), Mock())
     assert not controller._action_pending
     assert any(r.get("stage") == "worker_start" for r in records(caplog, "navigation.poi.actions"))

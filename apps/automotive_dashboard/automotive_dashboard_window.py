@@ -64,9 +64,7 @@ class AutomotiveDashboardWindow(tk.Frame):
                     else (state.coolant_temperature_k - 273.15) * 9.0 / 5.0 + 32.0
                 ),
                 "throttle": (
-                    None
-                    if state.throttle_position is None
-                    else state.throttle_position * 100.0
+                    None if state.throttle_position is None else state.throttle_position * 100.0
                 ),
                 "voltage": state.control_voltage_v,
             }

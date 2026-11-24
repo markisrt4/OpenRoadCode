@@ -59,12 +59,12 @@ class SpotifyPlaybackPanelTest(unittest.TestCase):
     def test_volume_click_emits_request_without_running_worker(self) -> None:
         handler = Mock()
         panel = SimpleNamespace(
-            _displayed_volume_percent=40, _volume_handler=handler,
+            _displayed_volume_percent=40,
+            _volume_handler=handler,
             _layout={"default_volume": 50, "minimum_volume": 0, "maximum_volume": 100},
         )
         SpotifyPlaybackPanel._adjust_volume(panel, 5)
         handler.request_volume.assert_called_once_with(45)
-
 
 
 if __name__ == "__main__":

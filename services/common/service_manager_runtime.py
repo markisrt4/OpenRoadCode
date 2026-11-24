@@ -29,15 +29,11 @@ def detect_service_manager_runtime(
     host_platform = sys.platform if platform is None else platform
     prefix = env.get("PREFIX", "")
 
-    if env.get("TERMUX_VERSION") or prefix.startswith(
-        "/data/data/com.termux/files/usr"
-    ):
+    if env.get("TERMUX_VERSION") or prefix.startswith("/data/data/com.termux/files/usr"):
         return "termux"
     if host_platform.startswith("linux"):
         return "linux"
-    raise RuntimeError(
-        f"Unsupported OpenRoadCode service-manager runtime: {host_platform}"
-    )
+    raise RuntimeError(f"Unsupported OpenRoadCode service-manager runtime: {host_platform}")
 
 
 def create_service_manager(

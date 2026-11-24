@@ -21,7 +21,9 @@ from ui.radio.radio_profiles import RadioProfilePreset, RadioProfile
 class RadioProfileCatalog:
     """Load installed radio profiles and merge persistent user presets."""
 
-    def __init__(self, *, locale: str = "romeo", user_presets_path: str | Path | None = None) -> None:
+    def __init__(
+        self, *, locale: str = "romeo", user_presets_path: str | Path | None = None
+    ) -> None:
         self._locale = locale
         self._user_presets_path = Path(user_presets_path or _DEFAULT_USER_PRESETS).expanduser()
         self._profiles: dict[str, RadioProfile] = {}
@@ -54,65 +56,129 @@ class RadioProfileCatalog:
                 preset = self._preset_from_user(item, config)
                 if preset is not None:
                     presets.append(preset)
-            profiles[config.key] = RadioProfile(config.key, config.label, self._group_for_key(config.key), path, tuple(presets))
+            profiles[config.key] = RadioProfile(
+                config.key, config.label, self._group_for_key(config.key), path, tuple(presets)
+            )
         self._profiles = profiles
 
-    def add_user_preset(self, profile_key: str, *, label: str, frequency_hz: int, mode_name: str | None = None, bandwidth: int | None = None, step_hz: int | None = None) -> RadioProfilePreset:
-        if not label.strip(): raise ValueError("preset label must not be empty")
-        if frequency_hz <= 0: raise ValueError("preset frequency must be greater than zero")
+    def add_user_preset(
+        self,
+        profile_key: str,
+        *,
+        label: str,
+        frequency_hz: int,
+        mode_name: str | None = None,
+        bandwidth: int | None = None,
+        step_hz: int | None = None,
+    ) -> RadioProfilePreset:
+        if not label.strip():
+            raise ValueError("preset label must not be empty")
+        if frequency_hz <= 0:
+            raise ValueError("preset frequency must be greater than zero")
         profile = self.profile(profile_key)
         config = load_radio_config(profile.config_path)
         data = self._load_user_presets()
-        data.setdefault(profile_key, []).append({
-            "label": label.strip(), "frequency_hz": int(frequency_hz),
-            "mode": {"name": mode_name or config.default_mode.name,
-                     "bandwidth": int(bandwidth if bandwidth is not None else config.default_mode.bandwidth),
-                     "step_hz": int(step_hz if step_hz is not None else config.default_mode.step_hz)},
-        })
-        self._save_user_presets(data); self.reload()
+        data.setdefault(profile_key, []).append(
+            {
+                "label": label.strip(),
+                "frequency_hz": int(frequency_hz),
+                "mode": {
+                    "name": mode_name or config.default_mode.name,
+                    "bandwidth": int(
+                        bandwidth if bandwidth is not None else config.default_mode.bandwidth
+                    ),
+                    "step_hz": int(step_hz if step_hz is not None else config.default_mode.step_hz),
+                },
+            }
+        )
+        self._save_user_presets(data)
+        self.reload()
         return self.profile(profile_key).presets[-1]
 
     def remove_user_preset(self, profile_key: str, *, label: str, frequency_hz: int) -> bool:
-        data = self._load_user_presets(); entries = data.get(profile_key, [])
-        remaining = [item for item in entries if not (str(item.get("label", "")) == label and int(item.get("frequency_hz", 0)) == int(frequency_hz))]
-        if len(remaining) == len(entries): return False
-        if remaining: data[profile_key] = remaining
-        else: data.pop(profile_key, None)
-        self._save_user_presets(data); self.reload(); return True
+        data = self._load_user_presets()
+        entries = data.get(profile_key, [])
+        remaining = [
+            item
+            for item in entries
+            if not (
+                str(item.get("label", "")) == label
+                and int(item.get("frequency_hz", 0)) == int(frequency_hz)
+            )
+        ]
+        if len(remaining) == len(entries):
+            return False
+        if remaining:
+            data[profile_key] = remaining
+        else:
+            data.pop(profile_key, None)
+        self._save_user_presets(data)
+        self.reload()
+        return True
 
     def _profile_paths(self) -> tuple[Path, ...]:
         selected: dict[str, Path] = {}
         for directory in (_RADIO_ROOT / "common", _RADIO_ROOT / self._locale):
             if directory.exists():
-                for path in sorted(directory.glob("*.json")): selected[path.stem] = path
+                for path in sorted(directory.glob("*.json")):
+                    selected[path.stem] = path
         return tuple(selected[key] for key in sorted(selected))
 
     @staticmethod
     def _group_for_key(key: str) -> str:
-        if key == "fm_radio": return "FM"
-        if key == "weather_band": return "WEATHER"
-        if key == "airband_am": return "AIR"
-        if key.startswith("ham_"): return "HAM"
+        if key == "fm_radio":
+            return "FM"
+        if key == "weather_band":
+            return "WEATHER"
+        if key == "airband_am":
+            return "AIR"
+        if key.startswith("ham_"):
+            return "HAM"
         return "SCANNER"
 
     @staticmethod
     def _preset_from_config(item) -> RadioProfilePreset:
-        return RadioProfilePreset(item.label, item.frequency_hz, item.mode.name, item.mode.bandwidth, item.mode.step_hz, False)
+        return RadioProfilePreset(
+            item.label,
+            item.frequency_hz,
+            item.mode.name,
+            item.mode.bandwidth,
+            item.mode.step_hz,
+            False,
+        )
 
     @staticmethod
     def _preset_from_user(item: dict, config: RadioConfig) -> RadioProfilePreset | None:
         try:
             mode = item.get("mode") or {}
-            return RadioProfilePreset(str(item["label"]), int(item["frequency_hz"]), str(mode.get("name", config.default_mode.name)), int(mode.get("bandwidth", config.default_mode.bandwidth)), int(mode.get("step_hz", config.default_mode.step_hz)), True)
-        except (KeyError, TypeError, ValueError): return None
+            return RadioProfilePreset(
+                str(item["label"]),
+                int(item["frequency_hz"]),
+                str(mode.get("name", config.default_mode.name)),
+                int(mode.get("bandwidth", config.default_mode.bandwidth)),
+                int(mode.get("step_hz", config.default_mode.step_hz)),
+                True,
+            )
+        except (KeyError, TypeError, ValueError):
+            return None
 
     def _load_user_presets(self) -> dict[str, list[dict]]:
-        if not self._user_presets_path.exists(): return {}
-        try: raw = json.loads(self._user_presets_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError): return {}
-        if not isinstance(raw, dict): return {}
-        return {str(key): [item for item in value if isinstance(item, dict)] for key, value in raw.items() if isinstance(value, list)}
+        if not self._user_presets_path.exists():
+            return {}
+        try:
+            raw = json.loads(self._user_presets_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return {}
+        if not isinstance(raw, dict):
+            return {}
+        return {
+            str(key): [item for item in value if isinstance(item, dict)]
+            for key, value in raw.items()
+            if isinstance(value, list)
+        }
 
     def _save_user_presets(self, data: dict[str, list[dict]]) -> None:
         self._user_presets_path.parent.mkdir(parents=True, exist_ok=True)
-        self._user_presets_path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        self._user_presets_path.write_text(
+            json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )

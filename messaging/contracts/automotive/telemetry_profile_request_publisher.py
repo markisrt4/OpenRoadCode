@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: MIT
 
 from controllers.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
-from messaging.contracts.automotive.telemetry_profile_request import encode_automotive_telemetry_profile_request
+from messaging.contracts.automotive.telemetry_profile_request import (
+    encode_automotive_telemetry_profile_request,
+)
 from messaging.contracts.automotive.topics import AUTOMOTIVE_TELEMETRY_PROFILE_REQUEST_TOPIC
 from messaging.publisher_if import PublisherIf
 

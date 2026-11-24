@@ -107,20 +107,14 @@ def _android_bridge_url(configured: str) -> str:
 
 def _build_motion_sensor(config: NavigationServiceRuntimeConfig):
     if config.imu.source == "simulation":
-        return SimulatedNavigationSensor(
-            profile=config.imu.simulation.profile
-        )
+        return SimulatedNavigationSensor(profile=config.imu.simulation.profile)
 
     if config.imu.device == "android":
-        client = AndroidSensorBridgeClient(
-            base_url=_android_bridge_url(config.imu.bridge_url)
-        )
+        client = AndroidSensorBridgeClient(base_url=_android_bridge_url(config.imu.bridge_url))
         return AndroidNavigationSensor(AndroidImu(client))
 
     if config.imu.device == "mpu6050":
-        return Mpu6050NavigationAdapter(
-            Mpu6050Imu(address=config.imu.address)
-        )
+        return Mpu6050NavigationAdapter(Mpu6050Imu(address=config.imu.address))
 
     raise ValueError(f"Unsupported IMU device: {config.imu.device}")
 
@@ -155,8 +149,11 @@ def _build_position_source(config: NavigationServiceRuntimeConfig):
 
 def _host_location_fallback_available() -> bool:
     """Check the running host, not the saved deployment/build target."""
-    if (sys.platform != "linux" or os.environ.get("TERMUX_VERSION")
-            or os.environ.get("PREFIX", "").startswith("/data/data/com.termux/")):
+    if (
+        sys.platform != "linux"
+        or os.environ.get("TERMUX_VERSION")
+        or os.environ.get("PREFIX", "").startswith("/data/data/com.termux/")
+    ):
         return False
     try:
         model = Path("/proc/device-tree/model").read_text(encoding="utf-8", errors="ignore")
@@ -187,19 +184,14 @@ def _build_ground_motion_source(config: NavigationServiceRuntimeConfig):
 def build_controller(config: NavigationServiceRuntimeConfig, *, position_source=None):
     """Build the configured pre-publication navigation solution pipeline."""
     if config.solution.algorithm != "complementary_filter":
-        raise ValueError(
-            "Unsupported navigation solution algorithm: "
-            f"{config.solution.algorithm}"
-        )
+        raise ValueError(f"Unsupported navigation solution algorithm: {config.solution.algorithm}")
 
     if position_source is None:
         position_source = _build_position_source(config)
 
     return NavigationController(
         sensor=_build_motion_sensor(config),
-        filter_time_constant_s=(
-            config.solution.complementary_filter.time_constant_s
-        ),
+        filter_time_constant_s=(config.solution.complementary_filter.time_constant_s),
         gps_source=position_source,
         ground_motion_source=_build_ground_motion_source(config),
     )
@@ -215,9 +207,7 @@ def build_route_planning_controller(
         return None
 
     if route_config.backend != "valhalla":
-        raise ValueError(
-            f"Unsupported route-planning backend: {route_config.backend}"
-        )
+        raise ValueError(f"Unsupported route-planning backend: {route_config.backend}")
 
     client = ValhallaHttpClient(
         route_config.base_url,
@@ -253,9 +243,7 @@ def main() -> int:
     controller = build_controller(config, position_source=position_source)
     route_planning_controller = build_route_planning_controller(config)
     geocoder = build_geocoder(args.search_database)
-    route_simulator = (
-        position_source if isinstance(position_source, RouteSimulationIf) else None
-    )
+    route_simulator = position_source if isinstance(position_source, RouteSimulationIf) else None
 
     publish_source = config.publish.source
     publisher = ZeroMqPublisher(system.messaging.publisher_endpoint)
@@ -290,7 +278,15 @@ def main() -> int:
     print(f"  publish source:    {publish_source}")
     print("Ctrl+C to stop")
 
-    event(logger, logging.INFO, "service.started", "Navigation service started", profile=profile, publisher_endpoint=system.messaging.publisher_endpoint, command_endpoint=config.command_endpoint)
+    event(
+        logger,
+        logging.INFO,
+        "service.started",
+        "Navigation service started",
+        profile=profile,
+        publisher_endpoint=system.messaging.publisher_endpoint,
+        command_endpoint=config.command_endpoint,
+    )
     try:
         runtime.run()
     except KeyboardInterrupt:

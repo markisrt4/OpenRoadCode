@@ -98,8 +98,10 @@ def test_android_bridge_errors_are_reported_as_launcher_errors(_exists, operatio
     error = AndroidBridgeLauncherError("bridge unavailable")
     getattr(native, operation).side_effect = error
     launcher = AndroidAppLauncher(native=native)
-    args = ("https://example.com",) if operation == "open_uri" else (
-        "com.panera.bread", "https://example.com"
+    args = (
+        ("https://example.com",)
+        if operation == "open_uri"
+        else ("com.panera.bread", "https://example.com")
     )
 
     with pytest.raises(AndroidAppLauncherError, match="bridge unavailable") as raised:

@@ -15,20 +15,20 @@ DEFAULT_PORT = 35000
 # include CAN headers and data lengths because Elm327Device initializes ATH1.
 _PID_DATA = {
     0x00: bytes.fromhex("183B8001"),
-    0x04: bytes((0x66,)),                 # 40% engine load
-    0x05: bytes((0x7B,)),                 # 83 C coolant
-    0x0B: bytes((0x73,)),                 # 115 kPa manifold pressure
-    0x0C: bytes((0x1F, 0x40)),            # 2000 rpm
-    0x0D: bytes((0x2D,)),                 # 45 km/h
-    0x0F: bytes((0x50,)),                 # 40 C intake air
-    0x10: bytes((0x04, 0xD2)),            # 12.34 g/s MAF
-    0x11: bytes((0x40,)),                 # ~25% throttle
+    0x04: bytes((0x66,)),  # 40% engine load
+    0x05: bytes((0x7B,)),  # 83 C coolant
+    0x0B: bytes((0x73,)),  # 115 kPa manifold pressure
+    0x0C: bytes((0x1F, 0x40)),  # 2000 rpm
+    0x0D: bytes((0x2D,)),  # 45 km/h
+    0x0F: bytes((0x50,)),  # 40 C intake air
+    0x10: bytes((0x04, 0xD2)),  # 12.34 g/s MAF
+    0x11: bytes((0x40,)),  # ~25% throttle
     0x20: bytes.fromhex("00022001"),
-    0x2F: bytes((0x99,)),                 # 60% fuel
-    0x33: bytes((0x64,)),                 # 100 kPa barometric pressure
+    0x2F: bytes((0x99,)),  # 60% fuel
+    0x33: bytes((0x64,)),  # 100 kPa barometric pressure
     0x40: bytes.fromhex("40800000"),
-    0x42: bytes((0x37, 0x14)),            # 14.100 V
-    0x49: bytes((0x33,)),                 # 20% accelerator pedal
+    0x42: bytes((0x37, 0x14)),  # 14.100 V
+    0x49: bytes((0x33,)),  # 20% accelerator pedal
 }
 
 

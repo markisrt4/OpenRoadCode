@@ -8,7 +8,7 @@ from __future__ import annotations
 import math
 import tkinter as tk
 
-from ui.navigation.map_presentation_if import (MapPresentationIf)
+from ui.navigation.map_presentation_if import MapPresentationIf
 from frontends.tk.automotive import OffroadDashboardPanel
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from messaging.contracts.navigation import (
@@ -158,9 +158,7 @@ class OffroadDashboardScreen(CarUiScreen):
         panel = self._panel
         text = f"Navigation error [{topic}]: {type(error).__name__}"
         if panel is not None:
-            panel.set_status(
-                StatusMessage(text, StatusSeverity.ERROR, source="navigation")
-            )
+            panel.set_status(StatusMessage(text, StatusSeverity.ERROR, source="navigation"))
         self.set_status(text)
 
     def _set_live_status(self) -> None:

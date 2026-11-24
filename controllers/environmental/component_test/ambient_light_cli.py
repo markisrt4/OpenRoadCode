@@ -69,10 +69,7 @@ def run(
 
         while True:
             state = controller.read_state()
-            print(
-                f"{state.timestamp.isoformat()}  "
-                f"Illuminance: {state.illuminance_lux:9.2f} lux"
-            )
+            print(f"{state.timestamp.isoformat()}  Illuminance: {state.illuminance_lux:9.2f} lux")
             if once:
                 return
             time.sleep(interval_s)

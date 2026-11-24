@@ -82,8 +82,12 @@ class BrowserPositionSourceTest(unittest.TestCase):
 
     def test_rejects_position_from_an_unrelated_web_origin(self) -> None:
         connection = http.client.HTTPConnection("127.0.0.1", self.source.port)
-        connection.request("POST", "/position", body=json.dumps({"latitude": 42, "longitude": -83}),
-                           headers={"Content-Type": "application/json", "Origin": "https://example.com"})
+        connection.request(
+            "POST",
+            "/position",
+            body=json.dumps({"latitude": 42, "longitude": -83}),
+            headers={"Content-Type": "application/json", "Origin": "https://example.com"},
+        )
         response = connection.getresponse()
         response.read()
         connection.close()
@@ -92,7 +96,9 @@ class BrowserPositionSourceTest(unittest.TestCase):
 
 
 def test_browser_without_altitude_produces_a_2d_fix():
-    state = BrowserPositionAdapter.state_from_payload({'latitude': 42, 'longitude': -83, 'accuracy': 100})
+    state = BrowserPositionAdapter.state_from_payload(
+        {"latitude": 42, "longitude": -83, "accuracy": 100}
+    )
     assert state.fix_mode == 2
     assert state.altitude_m is None
     assert state.accuracy_m == 100
@@ -100,8 +106,11 @@ def test_browser_without_altitude_produces_a_2d_fix():
 
 def test_browser_accuracy_must_be_valid_for_the_position_message():
     import pytest
-    with pytest.raises(ValueError, match='accuracy must not be negative'):
-        BrowserPositionAdapter.state_from_payload({'latitude': 42, 'longitude': -83, 'accuracy': -1})
+
+    with pytest.raises(ValueError, match="accuracy must not be negative"):
+        BrowserPositionAdapter.state_from_payload(
+            {"latitude": 42, "longitude": -83, "accuracy": -1}
+        )
 
 
 if __name__ == "__main__":

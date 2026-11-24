@@ -6,6 +6,7 @@
 from abc import ABC, abstractmethod
 from enum import Enum, auto
 
+
 class VehicleConnectionState(Enum):
     """! @brief Connection state of the vehicle telemetry source."""
 

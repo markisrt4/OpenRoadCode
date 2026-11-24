@@ -116,11 +116,7 @@ class MapPositionAdapter:
 
     def update(self, state: PositionState) -> None:
         """Accept one authoritative position fix."""
-        if (
-            not state.has_fix
-            or state.latitude_deg is None
-            or state.longitude_deg is None
-        ):
+        if not state.has_fix or state.latitude_deg is None or state.longitude_deg is None:
             return
 
         now = self._clock()
@@ -340,16 +336,11 @@ def _project_position(
     longitude_radians = math.radians(longitude)
     projected_latitude = math.asin(
         math.sin(latitude_radians) * math.cos(angular_distance)
-        + math.cos(latitude_radians)
-        * math.sin(angular_distance)
-        * math.cos(bearing)
+        + math.cos(latitude_radians) * math.sin(angular_distance) * math.cos(bearing)
     )
     projected_longitude = longitude_radians + math.atan2(
-        math.sin(bearing)
-        * math.sin(angular_distance)
-        * math.cos(latitude_radians),
-        math.cos(angular_distance)
-        - math.sin(latitude_radians) * math.sin(projected_latitude),
+        math.sin(bearing) * math.sin(angular_distance) * math.cos(latitude_radians),
+        math.cos(angular_distance) - math.sin(latitude_radians) * math.sin(projected_latitude),
     )
     return math.degrees(projected_latitude), math.degrees(projected_longitude)
 
@@ -364,9 +355,7 @@ def _distance_m(
     latitude_2 = math.radians(second[0])
     haversine = (
         math.sin(latitude_delta / 2.0) ** 2
-        + math.cos(latitude_1)
-        * math.cos(latitude_2)
-        * math.sin(longitude_delta / 2.0) ** 2
+        + math.cos(latitude_1) * math.cos(latitude_2) * math.sin(longitude_delta / 2.0) ** 2
     )
     return 2.0 * EARTH_RADIUS_M * math.asin(math.sqrt(min(1.0, haversine)))
 

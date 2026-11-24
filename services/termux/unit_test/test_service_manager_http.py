@@ -32,7 +32,9 @@ class ServiceManagerHttpRequestTest(unittest.TestCase):
         ServiceManagerHandler.manager = self.manager
         ServiceManagerHandler.auth_token = "secret"
         ServiceManagerHandler.pairing = ServiceManagerPairing()
-        ServiceManagerHandler.browser_pairing = ServiceManagerBrowserPairing(ServiceManagerHandler.pairing)
+        ServiceManagerHandler.browser_pairing = ServiceManagerBrowserPairing(
+            ServiceManagerHandler.pairing
+        )
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), ServiceManagerHandler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -44,7 +46,15 @@ class ServiceManagerHttpRequestTest(unittest.TestCase):
         self.thread.join(timeout=2.0)
         ServiceManagerHandler.auth_token = None
 
-    def request(self, method: str, path: str, token: str | None = "secret", body=None, form=None, pairing_token=None):
+    def request(
+        self,
+        method: str,
+        path: str,
+        token: str | None = "secret",
+        body=None,
+        form=None,
+        pairing_token=None,
+    ):
         headers = {}
         if token is not None:
             headers["Authorization"] = f"Bearer {token}"
@@ -55,6 +65,7 @@ class ServiceManagerHttpRequestTest(unittest.TestCase):
             encoded = None
             if form is not None:
                 from urllib.parse import urlencode
+
                 encoded = urlencode(form)
                 headers["Content-Type"] = "application/x-www-form-urlencoded"
             elif body is not None:
@@ -94,10 +105,11 @@ class ServiceManagerHttpRequestTest(unittest.TestCase):
         self.assertEqual(payload["services"][0]["state"], "running")
         self.manager.restart.assert_called_once_with("openroadcode-navigation")
 
-
     def test_browser_pairing_starts_without_admin_token(self) -> None:
         status, payload = self.request(
-            "POST", "/pairing/browser/start", token=None,
+            "POST",
+            "/pairing/browser/start",
+            token=None,
             body={"client_name": "Test Android"},
         )
         self.assertEqual(status, 200)
@@ -108,10 +120,13 @@ class ServiceManagerHttpRequestTest(unittest.TestCase):
 
     def test_browser_pairing_approval_requires_session_capability(self) -> None:
         _, started = self.request(
-            "POST", "/pairing/browser/start", token=None,
+            "POST",
+            "/pairing/browser/start",
+            token=None,
             body={"client_name": "Test Android"},
         )
         from urllib.parse import parse_qs, urlsplit
+
         approval_token = parse_qs(urlsplit(started["approval_url"]).query)["token"][0]
         status, approved = self.request(
             "POST",
@@ -124,7 +139,9 @@ class ServiceManagerHttpRequestTest(unittest.TestCase):
 
     def test_browser_pairing_status_requires_poll_token(self) -> None:
         _, started = self.request(
-            "POST", "/pairing/browser/start", token=None,
+            "POST",
+            "/pairing/browser/start",
+            token=None,
             body={"client_name": "Test Android"},
         )
         status, response = self.request(
@@ -135,10 +152,13 @@ class ServiceManagerHttpRequestTest(unittest.TestCase):
 
     def test_browser_pairing_issues_credentials_once_after_approval(self) -> None:
         _, started = self.request(
-            "POST", "/pairing/browser/start", token=None,
+            "POST",
+            "/pairing/browser/start",
+            token=None,
             body={"client_name": "Test Android"},
         )
         from urllib.parse import parse_qs, urlsplit
+
         approval_token = parse_qs(urlsplit(started["approval_url"]).query)["token"][0]
         status, approved = self.request(
             "POST",
@@ -150,7 +170,9 @@ class ServiceManagerHttpRequestTest(unittest.TestCase):
         self.assertIn("Device approved", approved)
 
         status, completed = self.request(
-            "GET", f"/pairing/browser/status/{started['session_id']}", token=None,
+            "GET",
+            f"/pairing/browser/status/{started['session_id']}",
+            token=None,
             pairing_token=started["poll_token"],
         )
         self.assertEqual(status, 200)
@@ -159,7 +181,9 @@ class ServiceManagerHttpRequestTest(unittest.TestCase):
         self.assertTrue(completed["access_token"])
 
         status, consumed = self.request(
-            "GET", f"/pairing/browser/status/{started['session_id']}", token=None,
+            "GET",
+            f"/pairing/browser/status/{started['session_id']}",
+            token=None,
             pairing_token=started["poll_token"],
         )
         self.assertEqual(status, 410)
@@ -179,30 +203,28 @@ class ServiceManagerHttpRequestTest(unittest.TestCase):
         self.assertIn("expires_at", payload)
 
         status, paired = self.request(
-            "POST", "/pair", token=None,
+            "POST",
+            "/pair",
+            token=None,
             body={"pin": pin, "client_name": "Test phone"},
         )
         self.assertEqual(status, 200)
         self.assertTrue(paired["client_id"])
         self.assertTrue(paired["access_token"])
 
-        status, services = self.request(
-            "GET", "/services", token=paired["access_token"]
-        )
+        status, services = self.request("GET", "/services", token=paired["access_token"])
         self.assertEqual(status, 200)
-        self.assertEqual(
-            services["services"][0]["name"], "openroadcode-navigation"
-        )
+        self.assertEqual(services["services"][0]["name"], "openroadcode-navigation")
 
     def test_paired_client_cannot_start_another_pairing(self) -> None:
         _, started = self.request("POST", "/pairing/start")
         _, paired = self.request(
-            "POST", "/pair", token=None,
+            "POST",
+            "/pair",
+            token=None,
             body={"pin": started["pin"], "client_name": "Test phone"},
         )
-        status, payload = self.request(
-            "POST", "/pairing/start", token=paired["access_token"]
-        )
+        status, payload = self.request("POST", "/pairing/start", token=paired["access_token"])
         self.assertEqual(status, 401)
         self.assertEqual(payload, {"error": "unauthorized"})
 

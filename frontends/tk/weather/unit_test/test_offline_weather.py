@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Offline weather behavior without a display server."""
+
 from unittest.mock import Mock, patch
 from controllers.weather.weather_screen_controller import WeatherScreenController
 from frontends.tk.weather.orc_weather_panel import OrcWeatherPanel
@@ -20,7 +21,7 @@ def test_offline_refresh_starts_no_worker_and_invalidates_inflight_result():
     with patch("controllers.weather.weather_screen_controller.threading.Thread") as worker:
         screen.request_refresh()
         worker.assert_not_called()
-    screen._complete(old_generation, Mock(), '')
+    screen._complete(old_generation, Mock(), "")
     screen._presenter.present.assert_not_called()
     screen._panel.set_online.assert_called_once_with(False)
 
@@ -62,9 +63,16 @@ def test_forced_refresh_bypasses_cache_and_reports_error_without_clearing_foreca
     controller = Mock()
     controller.refresh.side_effect = TimeoutError("forecast timed out")
     from controllers.weather.weather_state import WeatherState, WeatherSource, CurrentWeather
-    cached = WeatherState(latitude=0, longitude=0, location_name='Cached', location_source='test',
-                          source=WeatherSource('test', 'Test'), fetched_at=100,
-                          current=CurrentWeather(temperature_k=283.15))
+
+    cached = WeatherState(
+        latitude=0,
+        longitude=0,
+        location_name="Cached",
+        location_source="test",
+        source=WeatherSource("test", "Test"),
+        fetched_at=100,
+        current=CurrentWeather(temperature_k=283.15),
+    )
     screen = WeatherScreenController(host, controller, Mock())
     screen._presenter = Mock()
     screen._visible = True

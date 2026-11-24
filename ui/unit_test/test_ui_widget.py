@@ -21,6 +21,6 @@ def test_marker_does_not_change_widget_constructor_or_require_screen_lifecycle()
     supplied_contract = object()
     panel = Panel(supplied_contract)
     assert panel.request_handler is supplied_contract
-    assert not hasattr(panel, 'show')
-    assert not hasattr(panel, 'hide')
-    assert '__init__' not in UiWidget.__dict__
+    assert not hasattr(panel, "show")
+    assert not hasattr(panel, "hide")
+    assert "__init__" not in UiWidget.__dict__

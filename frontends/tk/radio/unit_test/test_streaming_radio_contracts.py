@@ -14,8 +14,9 @@ from ui.radio.streaming_radio_state import StreamingRadioBrowserState, Streaming
 from ui.radio.streaming_radio_types import StreamingRadioStation
 
 
-STATION = StreamingRadioStation("one", "One", "https://radio.test/one",
-                                artwork_url="https://radio.test/logo")
+STATION = StreamingRadioStation(
+    "one", "One", "https://radio.test/one", artwork_url="https://radio.test/logo"
+)
 
 
 def view():
@@ -57,8 +58,10 @@ def test_widget_renders_snapshot_and_invalidates_artwork_when_url_changes():
     panel._artwork_urls["one"] = "https://radio.test/old-logo"
     panel._artwork_images["one"] = Mock()
     state = StreamingRadioBrowserState(
-        stations=(STATION,), favorite_station_ids=frozenset(("one",)),
-        playback=StreamingRadioPlaybackState(STATION, True), playback_busy=True,
+        stations=(STATION,),
+        favorite_station_ids=frozenset(("one",)),
+        playback=StreamingRadioPlaybackState(STATION, True),
+        playback_busy=True,
     )
     panel.set_streaming_state(state)
     assert panel._playback is state.playback and panel._playback_busy

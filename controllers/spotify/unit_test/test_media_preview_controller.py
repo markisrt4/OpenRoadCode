@@ -23,9 +23,11 @@ class MediaPreviewControllerTest(unittest.TestCase):
         main = get_ident()
         finished = Event()
         result = []
+
         def load(url):
             self.assertNotEqual(get_ident(), main)
             return b"png"
+
         controller = MediaPreviewController(MediaState, load)
         try:
             controller.request_artwork("cover", lambda data: (result.append(data), finished.set()))
@@ -50,11 +52,13 @@ class MediaPreviewControllerTest(unittest.TestCase):
     def test_new_track_discards_old_completion(self):
         started, release, finished = Event(), Event(), Event()
         results = []
+
         def load(url):
             if url == "old":
                 started.set()
                 release.wait(2)
             return url.encode()
+
         controller = MediaPreviewController(MediaState, load)
         try:
             controller.request_artwork("old", results.append)

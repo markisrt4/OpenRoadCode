@@ -12,4 +12,11 @@ from ui.navigation.poi_models import (
     PoiSearchResult,
 )
 
-__all__ = ['PoiCategory', 'TransitMode', 'PoiActionKind', 'PoiAction', 'PointOfInterest', 'PoiSearchResult']
+__all__ = [
+    "PoiCategory",
+    "TransitMode",
+    "PoiActionKind",
+    "PoiAction",
+    "PointOfInterest",
+    "PoiSearchResult",
+]

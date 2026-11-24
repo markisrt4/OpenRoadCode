@@ -33,7 +33,10 @@ if TYPE_CHECKING:
     from controllers.radio.streaming_radio_browser import StreamingRadioBrowser
     from controllers.radio.streaming_radio_controller import StreamingRadioController
     from controllers.radio.streaming_radio_favorites import StreamingRadioFavorites
-    from controllers.radio.streaming_radio_backend_if import StreamingRadioBackendIf, StreamingRadioFavoritesIf
+    from controllers.radio.streaming_radio_backend_if import (
+        StreamingRadioBackendIf,
+        StreamingRadioFavoritesIf,
+    )
     from frontends.tk.radio.streaming_radio_panel import StreamingRadioPanel
     from ui.radio.streaming_radio_session_if import StreamingRadioSessionIf, StreamingRadioUiIf
     from ui.radio.streaming_radio_state_source_if import StreamingRadioStateSourceIf
@@ -101,6 +104,7 @@ if TYPE_CHECKING:
 
     def spotify_native_surface(adapter: X11WindowEmbedder) -> SpotifyNativeSurface:
         return adapter
+
 
 if TYPE_CHECKING:
     from controllers.spotify.spotify_account import SpotifyAccountBinding

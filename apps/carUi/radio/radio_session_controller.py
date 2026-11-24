@@ -8,9 +8,9 @@ from typing import Callable, Optional
 from apps.carUi.radio.radio_session_config import RadioSessionConfig
 from apps.carUi.radio.radio_session_state import RadioSessionState
 from ui.radio.radio_formatter import format_frequency
-from ui.system.app_launcher_if import (AppLauncherIf)
+from ui.system.app_launcher_if import AppLauncherIf
 from controllers.radio.radio_controller_if import RadioControllerIf
-from ui.radio.radio_types import (RadioPreset)
+from ui.radio.radio_types import RadioPreset
 from controllers.sdr.sdr_telemetry_monitor import SDRTelemetryMonitor
 from ui.radio import (
     ModulationType,
@@ -36,6 +36,7 @@ class RadioSessionController(
     RadioRefreshRequestHandlerIf,
 ):
     """Coordinate a radio domain controller, launcher, and panel state."""
+
     def __init__(
         self,
         radio_controller: RadioControllerIf,
@@ -139,8 +140,7 @@ class RadioSessionController(
                 self._on_preset_pressed(tuned)
 
             self._status(
-                f"{self._config.title}: {tuned.label} "
-                f"({format_frequency(tuned.frequency_hz)})"
+                f"{self._config.title}: {tuned.label} ({format_frequency(tuned.frequency_hz)})"
             )
             return self.refresh_state(include_telemetry=False)
         except Exception as exc:
@@ -215,9 +215,7 @@ class RadioSessionController(
         if include_telemetry:
             try:
                 mode_name = self._current_mode_name()
-                telemetry = self._telemetry_monitor.read(
-                    include_rds=(mode_name == "WFM")
-                )
+                telemetry = self._telemetry_monitor.read(include_rds=(mode_name == "WFM"))
                 if telemetry.frequency_hz is not None:
                     frequency_hz = telemetry.frequency_hz
                     self._active_preset = self._match_preset(frequency_hz)
@@ -312,9 +310,7 @@ class RadioSessionController(
         try:
             frequency_hz = action()
             self._active_preset = self._match_preset(frequency_hz)
-            self._status(
-                f"{self._config.title}: {format_frequency(frequency_hz)}"
-            )
+            self._status(f"{self._config.title}: {format_frequency(frequency_hz)}")
             return self.refresh_state(include_telemetry=False)
         except Exception as exc:
             self._report_failure(operation, exc)

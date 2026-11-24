@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 """Small deterministic smoke test for the shared music analyzer."""
+
 from __future__ import annotations
 
 import argparse

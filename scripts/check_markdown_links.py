@@ -97,9 +97,7 @@ def _local_destination(
 def _destinations(markdown: str) -> list[str]:
     """Extract inline, image, and reference-style Markdown destinations."""
     destinations = [match.group(1) for match in INLINE_LINK_PATTERN.finditer(markdown)]
-    destinations.extend(
-        match.group(1) for match in REFERENCE_LINK_PATTERN.finditer(markdown)
-    )
+    destinations.extend(match.group(1) for match in REFERENCE_LINK_PATTERN.finditer(markdown))
     return destinations
 
 
@@ -153,15 +151,13 @@ def main() -> int:
                 target.relative_to(PROJECT_ROOT)
             except ValueError:
                 failures.append(
-                    f"{path.relative_to(PROJECT_ROOT)}: link escapes repository: "
-                    f"{destination}"
+                    f"{path.relative_to(PROJECT_ROOT)}: link escapes repository: {destination}"
                 )
                 continue
 
             if not target.exists():
                 failures.append(
-                    f"{path.relative_to(PROJECT_ROOT)}: missing link target: "
-                    f"{destination}"
+                    f"{path.relative_to(PROJECT_ROOT)}: missing link target: {destination}"
                 )
                 continue
 

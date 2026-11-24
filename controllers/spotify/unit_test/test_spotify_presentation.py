@@ -14,7 +14,18 @@ from ui.media import MediaAvailability, MediaState
 
 @pytest.fixture
 def session_setup():
-    media = [MediaState(availability=MediaAvailability.AVAILABLE, title="one", artist="artist", artwork_uri="art-one", media_uri="one", duration_s=100, position_s=5, volume_percent=30)]
+    media = [
+        MediaState(
+            availability=MediaAvailability.AVAILABLE,
+            title="one",
+            artist="artist",
+            artwork_uri="art-one",
+            media_uri="one",
+            duration_s=100,
+            position_s=5,
+            volume_percent=30,
+        )
+    ]
     online = [True]
     work, ui = [], []
     dispatcher = Mock()
@@ -23,11 +34,17 @@ def session_setup():
     volume = Mock()
     lyrics = LyricsResult(synced_lines=(LyricLine(0, "first"), LyricLine(10000, "second")))
     session = SpotifyPresentation(
-        read_state=lambda: media[0], online=lambda: online[0],
-        load_artwork=lambda uri: uri.encode(), load_lyrics=lambda _state: lyrics,
-        video_available=lambda: True, video_active=lambda: False,
-        watch_video=lambda _current, _restore: True, return_to_spotify=lambda _current: None,
-        run_work=work.append, dispatcher=dispatcher, set_volume=volume,
+        read_state=lambda: media[0],
+        online=lambda: online[0],
+        load_artwork=lambda uri: uri.encode(),
+        load_lyrics=lambda _state: lyrics,
+        video_available=lambda: True,
+        video_active=lambda: False,
+        watch_video=lambda _current, _restore: True,
+        return_to_spotify=lambda _current: None,
+        run_work=work.append,
+        dispatcher=dispatcher,
+        set_volume=volume,
     )
     session.activate(view)
     return session, view, media, online, work, ui, dispatcher, volume

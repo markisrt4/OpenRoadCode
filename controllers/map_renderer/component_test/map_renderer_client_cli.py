@@ -16,5 +16,6 @@ def main() -> None:
         longitude=-83.0458,
     )
 
+
 if __name__ == "__main__":
     main()

@@ -2,12 +2,16 @@
 # SPDX-License-Identifier: MIT
 
 """Contract tests for source-independent audio analysis ownership."""
+
 import struct
 from dataclasses import dataclass
 
 import pytest
 
-from controllers.audio.music_analysis.music_analysis_session import MusicAnalysisSession, PushAudioCapture
+from controllers.audio.music_analysis.music_analysis_session import (
+    MusicAnalysisSession,
+    PushAudioCapture,
+)
 
 
 @dataclass(frozen=True)
@@ -85,14 +89,19 @@ class FakeCapture:
 
 def test_source_selection_is_lazy_idempotent_and_exclusive():
     events, captures = [], []
+
     def factory(name):
         def create():
             capture = FakeCapture(events, name)
             captures.append(capture)
             return capture
+
         return create
+
     analyzer = FakeAnalyzer()
-    session = MusicAnalysisSession({"one": factory("one"), "two": factory("two")}, analyzer=analyzer)
+    session = MusicAnalysisSession(
+        {"one": factory("one"), "two": factory("two")}, analyzer=analyzer
+    )
     assert session.sources() == ("one", "two")
     assert not captures
     assert session.start("one")["running"]
@@ -120,7 +129,9 @@ def test_unknown_source_does_not_interrupt_current_capture():
 
 def test_push_pcm16_uses_same_analyzer_and_rejects_other_sources():
     analyzer = FakeAnalyzer()
-    session = MusicAnalysisSession({"browser": PushAudioCapture, "other": PushAudioCapture}, analyzer=analyzer)
+    session = MusicAnalysisSession(
+        {"browser": PushAudioCapture, "other": PushAudioCapture}, analyzer=analyzer
+    )
     session.start("browser")
     data = session.push_pcm16(struct.pack("<3h", -32768, 0, 32767), 48000)
     assert analyzer.frames[-1][0] == (-1.0, 0.0, 32767 / 32768.0)
@@ -139,7 +150,9 @@ def test_push_pcm16_uses_same_analyzer_and_rejects_other_sources():
 
 def test_calibration_is_shared_and_source_switch_resets_profile():
     analyzer = FakeAnalyzer()
-    session = MusicAnalysisSession({"browser": PushAudioCapture, "other": PushAudioCapture}, analyzer=analyzer)
+    session = MusicAnalysisSession(
+        {"browser": PushAudioCapture, "other": PushAudioCapture}, analyzer=analyzer
+    )
     with pytest.raises(RuntimeError, match="Start an audio source"):
         session.start_zeroize()
     session.start("browser")
@@ -173,14 +186,19 @@ def test_stopping_during_calibration_discards_unfinished_collection():
 
 def test_stale_capture_callback_cannot_update_new_source():
     events, captures, published = [], [], []
+
     def factory(name):
         def create():
             capture = FakeCapture(events, name)
             captures.append(capture)
             return capture
+
         return create
+
     analyzer = FakeAnalyzer()
-    session = MusicAnalysisSession({"one": factory("one"), "two": factory("two")}, analyzer=analyzer, consumer=published.append)
+    session = MusicAnalysisSession(
+        {"one": factory("one"), "two": factory("two")}, analyzer=analyzer, consumer=published.append
+    )
     session.start("one")
     old = captures[0]
     old.emit()

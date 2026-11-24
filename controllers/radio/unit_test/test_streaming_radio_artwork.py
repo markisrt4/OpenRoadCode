@@ -27,5 +27,7 @@ def test_artwork_transport_returns_encoded_bytes_without_toolkit_objects(monkeyp
     response.read.return_value = b"encoded image"
     connection.__enter__ = Mock(return_value=response)
     connection.__exit__ = Mock(return_value=False)
-    monkeypatch.setattr("controllers.radio.streaming_radio_artwork.urlopen", Mock(return_value=connection))
+    monkeypatch.setattr(
+        "controllers.radio.streaming_radio_artwork.urlopen", Mock(return_value=connection)
+    )
     assert download_station_artwork("https://radio.test/logo") == b"encoded image"

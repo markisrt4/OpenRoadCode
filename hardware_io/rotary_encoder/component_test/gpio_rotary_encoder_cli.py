@@ -15,9 +15,7 @@ from hardware_io.rotary_encoder import (
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="GPIO rotary encoder component test"
-    )
+    parser = argparse.ArgumentParser(description="GPIO rotary encoder component test")
 
     parser.add_argument(
         "--pin-a",

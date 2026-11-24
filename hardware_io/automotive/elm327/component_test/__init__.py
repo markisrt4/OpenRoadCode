@@ -2,4 +2,3 @@
 # SPDX-License-Identifier: MIT
 
 """ELM327 hardware component tests."""
-

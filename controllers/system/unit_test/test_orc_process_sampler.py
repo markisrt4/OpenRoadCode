@@ -16,7 +16,9 @@ class OrcProcessSamplerTest(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.root = Path(self.directory.name)
         self.now = 0.0
-        self.sampler = OrcProcessSampler(self.root, monotonic=lambda: self.now, clock_ticks=100, page_size=4096)
+        self.sampler = OrcProcessSampler(
+            self.root, monotonic=lambda: self.now, clock_ticks=100, page_size=4096
+        )
 
     def tearDown(self):
         self.directory.cleanup()
@@ -45,7 +47,11 @@ class OrcProcessSamplerTest(unittest.TestCase):
         self.now = 2.0
         self.process(10, ui, ticks=200, io=300)
         self.process(11, ("chromium", "--renderer"), parent=10, ticks=150, io=200)
-        self.process(12, ("python", "-m", "frontends.tk.system.component_test.performance_preview"), ticks=300)
+        self.process(
+            12,
+            ("python", "-m", "frontends.tk.system.component_test.performance_preview"),
+            ticks=300,
+        )
         with patch("controllers.system.orc_process_sampler.os.cpu_count", return_value=4):
             sample = self.sampler.sample()
         self.assertEqual({p.pid for p in sample.processes}, {10, 11, 12})
@@ -76,6 +82,7 @@ class OrcProcessSamplerTest(unittest.TestCase):
         self.process(11, ("chromium",), parent=10)
         self.sampler.sample()
         import shutil
+
         shutil.rmtree(self.root / "10")
         self.now = 1
         self.process(11, ("chromium",), parent=1)
@@ -119,10 +126,16 @@ class OrcProcessSamplerTest(unittest.TestCase):
         self.assertIsNone(sample.read_bytes_per_second)
 
     def test_unrelated_modules_and_arguments_do_not_match_orc(self):
-        for args in (("python", "-m", "apps.other"), ("bash", "-c", "python -m apps.orcUi"),
-                     ("grep", "apps.orcUi"), ("python", "-m", "apps.orcUi_extra")):
+        for args in (
+            ("python", "-m", "apps.other"),
+            ("bash", "-c", "python -m apps.orcUi"),
+            ("grep", "apps.orcUi"),
+            ("python", "-m", "apps.orcUi_extra"),
+        ):
             self.assertIsNone(_classify(args))
-        self.assertEqual(_classify(("/opt/bin/openroadcode-map-renderer",)), ("Map renderer", "workload"))
+        self.assertEqual(
+            _classify(("/opt/bin/openroadcode-map-renderer",)), ("Map renderer", "workload")
+        )
 
 
 if __name__ == "__main__":

@@ -88,8 +88,11 @@ def build_top_bar(
         font=("Sans", FONT_STATUS),
     ).pack(side=tk.LEFT, padx=(0, 10))
     online = ConnectivityButton(
-        status, command=on_online_toggle, background=ui.control_background,
-        active_background=ui.control_active, muted=ui.text_muted,
+        status,
+        command=on_online_toggle,
+        background=ui.control_background,
+        active_background=ui.control_active,
+        muted=ui.text_muted,
     )
     online.pack(side=tk.LEFT, padx=(0, 8))
     tk.Button(

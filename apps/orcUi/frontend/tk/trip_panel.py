@@ -8,7 +8,7 @@ from __future__ import annotations
 import tkinter as tk
 
 from apps.orcUi.trip_presenter import TripPresentationState
-from ui.automotive.vehicle_configuration import (VehicleConfiguration)
+from ui.automotive.vehicle_configuration import VehicleConfiguration
 from frontends.tk.automotive.trip_metric_card import TripMetricCard
 from ui.theme import ThemeBundle
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
@@ -42,9 +42,15 @@ class TripPanel(tk.Frame, UiWidget):
             "elapsed": self._format_duration(state.elapsed_s),
             "moving": self._format_duration(state.moving_s),
             "stopped": self._format_duration(state.stopped_s),
-            "average": "--" if state.average_speed_mph is None else f"{state.average_speed_mph:.1f}",
-            "maximum": "--" if state.maximum_speed_mph is None else f"{state.maximum_speed_mph:.1f}",
-            "fuel_used": "--" if state.fuel_used_gallons is None else f"{state.fuel_used_gallons:.2f}",
+            "average": "--"
+            if state.average_speed_mph is None
+            else f"{state.average_speed_mph:.1f}",
+            "maximum": "--"
+            if state.maximum_speed_mph is None
+            else f"{state.maximum_speed_mph:.1f}",
+            "fuel_used": "--"
+            if state.fuel_used_gallons is None
+            else f"{state.fuel_used_gallons:.2f}",
             "economy": "--" if state.economy_mpg is None else f"{state.economy_mpg:.1f}",
             "status": state.status.upper(),
         }
@@ -59,19 +65,21 @@ class TripPanel(tk.Frame, UiWidget):
             if card is not None:
                 card.set_value(
                     text,
-                    accent=status_colors.get(state.status)
-                    if key == "status"
-                    else None,
+                    accent=status_colors.get(state.status) if key == "status" else None,
                 )
 
         boost_values = {
             "boost_time": self._format_duration(state.boost_time_s),
             "boost_distance": f"{state.boost_distance_miles:.1f}",
             "boost_fuel": f"{state.boost_fuel_gallons:.2f}",
-            "boost_share": "--" if state.boost_fuel_percent is None else f"{state.boost_fuel_percent:.0f}",
+            "boost_share": "--"
+            if state.boost_fuel_percent is None
+            else f"{state.boost_fuel_percent:.0f}",
             "peak_boost": "--" if state.peak_boost_psi is None else f"{state.peak_boost_psi:.1f}",
             "high_load_fuel": f"{state.high_load_fuel_gallons:.2f}",
-            "high_load_share": "--" if state.high_load_fuel_percent is None else f"{state.high_load_fuel_percent:.0f}",
+            "high_load_share": "--"
+            if state.high_load_fuel_percent is None
+            else f"{state.high_load_fuel_percent:.0f}",
         }
         for key, text in boost_values.items():
             label = self._boost_labels.get(key)
@@ -102,7 +110,14 @@ class TripPanel(tk.Frame, UiWidget):
         )
         road.grid(row=0, column=0, rowspan=2, padx=(16, 10), pady=7)
         road.create_polygon(
-            10, 54, 28, 7, 42, 7, 60, 54,
+            10,
+            54,
+            28,
+            7,
+            42,
+            7,
+            60,
+            54,
             fill=ui.accent_primary,
             outline="",
         )

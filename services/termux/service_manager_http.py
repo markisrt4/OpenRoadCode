@@ -76,7 +76,9 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
         if parts == ["performance"]:
             monitor = self.performance_monitor
             if monitor is None:
-                self._json(HTTPStatus.SERVICE_UNAVAILABLE, {"error": "performance sampler unavailable"})
+                self._json(
+                    HTTPStatus.SERVICE_UNAVAILABLE, {"error": "performance sampler unavailable"}
+                )
             else:
                 self._json(HTTPStatus.OK, monitor.payload())
             return

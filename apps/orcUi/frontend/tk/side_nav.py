@@ -19,8 +19,8 @@ _NAV_LABELS = {"NAVIGATION": "NAV"}
 def _blend(first: str, second: str, amount: float) -> str:
     """Blend two six-digit hexadecimal colors for lightweight Tk gradients."""
     amount = max(0.0, min(1.0, amount))
-    a = tuple(int(first[index:index + 2], 16) for index in (1, 3, 5))
-    b = tuple(int(second[index:index + 2], 16) for index in (1, 3, 5))
+    a = tuple(int(first[index : index + 2], 16) for index in (1, 3, 5))
+    b = tuple(int(second[index : index + 2], 16) for index in (1, 3, 5))
     rgb = tuple(round(left + (right - left) * amount) for left, right in zip(a, b))
     return "#{:02x}{:02x}{:02x}".format(*rgb)
 
@@ -125,13 +125,18 @@ class _NavTile(tk.Canvas, UiWidget):
         badge_y = height / 2
         badge_radius = 12
         self.create_oval(
-            badge_x - badge_radius, badge_y - badge_radius,
-            badge_x + badge_radius, badge_y + badge_radius,
-            fill=badge_fill, outline=border, width=1,
+            badge_x - badge_radius,
+            badge_y - badge_radius,
+            badge_x + badge_radius,
+            badge_y + badge_radius,
+            fill=badge_fill,
+            outline=border,
+            width=1,
         )
         self._draw_icon(self._nav_name, badge_x, badge_y, icon_color)
         self.create_text(
-            35, height / 2,
+            35,
+            height / 2,
             text=_NAV_LABELS.get(self._nav_name, self._nav_name),
             fill=label_color,
             font=("Sans", FONT_CONTROL - (2 if self._nav_name == "WEATHER" else 1), "bold"),
@@ -148,15 +153,24 @@ class _NavTile(tk.Canvas, UiWidget):
             self.create_rectangle(0, y1, width, y2, fill=color, outline="")
 
     def _draw_icon(self, name: str, x: float, y: float, color: str) -> None:
-        if name == "HOME": self._draw_home(x, y, color)
-        elif name == "NAVIGATION": self._draw_navigation(x, y, color)
-        elif name == "RADIO": self._draw_radio(x, y, color)
-        elif name == "VEHICLE": self._draw_vehicle(x, y, color)
-        elif name == "LIGHTING": self._draw_light(x, y, color)
-        elif name == "GAMES": self._draw_games(x, y, color)
-        elif name == "MEDIA": self._draw_media(x, y, color)
-        elif name == "VISION": self._draw_vision(x, y, color)
-        elif name == "WEATHER": self._draw_weather(x, y, color)
+        if name == "HOME":
+            self._draw_home(x, y, color)
+        elif name == "NAVIGATION":
+            self._draw_navigation(x, y, color)
+        elif name == "RADIO":
+            self._draw_radio(x, y, color)
+        elif name == "VEHICLE":
+            self._draw_vehicle(x, y, color)
+        elif name == "LIGHTING":
+            self._draw_light(x, y, color)
+        elif name == "GAMES":
+            self._draw_games(x, y, color)
+        elif name == "MEDIA":
+            self._draw_media(x, y, color)
+        elif name == "VISION":
+            self._draw_vision(x, y, color)
+        elif name == "WEATHER":
+            self._draw_weather(x, y, color)
 
     def _draw_home(self, x: float, y: float, color: str) -> None:
         self.create_polygon(x - 8, y - 1, x, y - 8, x + 8, y - 1, outline=color, fill="", width=2)
@@ -164,15 +178,58 @@ class _NavTile(tk.Canvas, UiWidget):
         self.create_rectangle(x - 2, y + 2, x + 2, y + 7, outline=color, width=1)
 
     def _draw_navigation(self, x: float, y: float, color: str) -> None:
-        self.create_polygon(x - 7, y + 7, x - 1, y - 8, x + 8, y - 4, x + 2, y, x + 5, y + 7, x, y + 3, fill=color, outline=color)
+        self.create_polygon(
+            x - 7,
+            y + 7,
+            x - 1,
+            y - 8,
+            x + 8,
+            y - 4,
+            x + 2,
+            y,
+            x + 5,
+            y + 7,
+            x,
+            y + 3,
+            fill=color,
+            outline=color,
+        )
 
     def _draw_radio(self, x: float, y: float, color: str) -> None:
         self.create_oval(x - 2, y - 2, x + 2, y + 2, fill=color, outline=color)
-        self.create_arc(x - 8, y - 8, x + 8, y + 8, start=300, extent=120, style=tk.ARC, outline=color, width=2)
-        self.create_arc(x - 11, y - 11, x + 11, y + 11, start=300, extent=120, style=tk.ARC, outline=color, width=1)
+        self.create_arc(
+            x - 8, y - 8, x + 8, y + 8, start=300, extent=120, style=tk.ARC, outline=color, width=2
+        )
+        self.create_arc(
+            x - 11,
+            y - 11,
+            x + 11,
+            y + 11,
+            start=300,
+            extent=120,
+            style=tk.ARC,
+            outline=color,
+            width=1,
+        )
 
     def _draw_vehicle(self, x: float, y: float, color: str) -> None:
-        self.create_polygon(x - 8, y + 3, x - 5, y - 4, x + 5, y - 4, x + 8, y + 3, x + 7, y + 6, x - 7, y + 6, outline=color, fill="", width=2)
+        self.create_polygon(
+            x - 8,
+            y + 3,
+            x - 5,
+            y - 4,
+            x + 5,
+            y - 4,
+            x + 8,
+            y + 3,
+            x + 7,
+            y + 6,
+            x - 7,
+            y + 6,
+            outline=color,
+            fill="",
+            width=2,
+        )
         self.create_oval(x - 6, y + 4, x - 2, y + 8, fill=color, outline=color)
         self.create_oval(x + 2, y + 4, x + 6, y + 8, fill=color, outline=color)
 
@@ -189,7 +246,9 @@ class _NavTile(tk.Canvas, UiWidget):
             self.create_line(x + dx * scale, y + dy * scale, x + dx, y + dy, fill=color, width=1)
 
     def _draw_games(self, x: float, y: float, color: str) -> None:
-        self.create_arc(x - 9, y - 5, x + 9, y + 10, start=0, extent=180, style=tk.ARC, outline=color, width=2)
+        self.create_arc(
+            x - 9, y - 5, x + 9, y + 10, start=0, extent=180, style=tk.ARC, outline=color, width=2
+        )
         self.create_line(x - 9, y + 2, x - 7, y + 8, fill=color, width=2)
         self.create_line(x + 9, y + 2, x + 7, y + 8, fill=color, width=2)
         self.create_line(x - 5, y + 1, x - 1, y + 1, fill=color, width=2)
@@ -295,7 +354,7 @@ class OrcUiSideNav(tk.Frame, UiWidget):
         else:
             self._up_button = None
 
-        visible = self._items[self._offset:self._offset + self.VISIBLE_ITEMS]
+        visible = self._items[self._offset : self._offset + self.VISIBLE_ITEMS]
         for item in visible:
             tile = _NavTile(
                 self,

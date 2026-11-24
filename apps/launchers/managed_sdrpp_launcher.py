@@ -10,7 +10,7 @@ import subprocess
 import threading
 import time
 
-from ui.system.app_launcher_if import (StatusCallback)
+from ui.system.app_launcher_if import StatusCallback
 from apps.launchers.sdrpp_launcher import SDRPPLauncher
 
 
@@ -108,7 +108,9 @@ class ManagedSDRPPLauncher(SDRPPLauncher):
 
     @staticmethod
     def _search_window(selector: str, value: str) -> int | None:
-        result = subprocess.run(["xdotool", "search", selector, value], capture_output=True, text=True, check=False)
+        result = subprocess.run(
+            ["xdotool", "search", selector, value], capture_output=True, text=True, check=False
+        )
         if result.returncode != 0:
             return None
         candidates = [line.strip() for line in result.stdout.splitlines() if line.strip()]

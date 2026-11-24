@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ui.system.app_launcher_if import (StatusCallback)
+from ui.system.app_launcher_if import StatusCallback
 from apps.launchers.browser_launcher import BrowserKioskLauncher
 from apps.launchers.streamlit_launcher import StreamlitLauncher
 from common.logging.logging_paths import logging_file_path
@@ -27,7 +27,11 @@ class WeatherDashLauncher(StreamlitLauncher):
         refresh_seconds: int = 120,
         browser: BrowserKioskLauncher | None = None,
     ) -> None:
-        root = Path(project_root).expanduser().resolve() if project_root is not None else Path(__file__).resolve().parents[2]
+        root = (
+            Path(project_root).expanduser().resolve()
+            if project_root is not None
+            else Path(__file__).resolve().parents[2]
+        )
 
         super().__init__(
             app_path=root / "apps" / "weatherDash" / "main.py",

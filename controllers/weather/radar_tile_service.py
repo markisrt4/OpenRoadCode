@@ -30,11 +30,20 @@ LOGGER = logging.getLogger("weather.radar.tiles")
 # Representative points from RainViewer's published Universal Blue dBZ table.
 # The classic output follows the familiar NEXRAD-style intensity progression.
 _UNIVERSAL_DBZ = (
-    (0, (130, 123, 105)), (5, (146, 136, 113)), (10, (206, 192, 135)),
-    (15, (136, 221, 238)), (20, (0, 163, 224)), (25, (0, 119, 170)),
-    (30, (0, 85, 136)), (35, (255, 238, 0)), (40, (255, 170, 0)),
-    (45, (255, 68, 0)), (50, (193, 0, 0)), (55, (255, 170, 255)),
-    (60, (255, 119, 255)), (65, (255, 255, 255)),
+    (0, (130, 123, 105)),
+    (5, (146, 136, 113)),
+    (10, (206, 192, 135)),
+    (15, (136, 221, 238)),
+    (20, (0, 163, 224)),
+    (25, (0, 119, 170)),
+    (30, (0, 85, 136)),
+    (35, (255, 238, 0)),
+    (40, (255, 170, 0)),
+    (45, (255, 68, 0)),
+    (50, (193, 0, 0)),
+    (55, (255, 170, 255)),
+    (60, (255, 119, 255)),
+    (65, (255, 255, 255)),
 )
 
 
@@ -66,9 +75,7 @@ def _nearest_dbz(red: int, green: int, blue: int) -> int:
     return min(
         _UNIVERSAL_DBZ,
         key=lambda item: (
-            (red - item[1][0]) ** 2
-            + (green - item[1][1]) ** 2
-            + (blue - item[1][2]) ** 2
+            (red - item[1][0]) ** 2 + (green - item[1][1]) ** 2 + (blue - item[1][2]) ** 2
         ),
     )[0]
 
@@ -153,7 +160,9 @@ class RadarTileService:
                 del format, args
 
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-        self._thread = Thread(target=self._server.serve_forever, name="radar-tile-service", daemon=True)
+        self._thread = Thread(
+            target=self._server.serve_forever, name="radar-tile-service", daemon=True
+        )
         self._thread.start()
         self._log.emit(logging.INFO, "tiles.started", "Local weather tile service started")
 
@@ -182,8 +191,14 @@ class RadarTileService:
             if key in self._frames:
                 self._pending[key] = self._pending.get(key, 0) + 1
 
-    def _finish_tile(self, key: str, error: str | None = None, *,
-                     tile_id: str = "", has_echoes: bool | None = None) -> None:
+    def _finish_tile(
+        self,
+        key: str,
+        error: str | None = None,
+        *,
+        tile_id: str = "",
+        has_echoes: bool | None = None,
+    ) -> None:
         with self._load_lock:
             if key not in self._frames:
                 return
@@ -207,10 +222,16 @@ class RadarTileService:
         key = self._frame_key(frame)
         with self._load_lock:
             echoes = self._tile_echoes.get(key, {})
-            visible = (True if any(value is True for value in echoes.values()) else
-                       False if echoes and all(value is False for value in echoes.values()) else None)
-            return RadarTileStatus(self._pending.get(key, 0), len(echoes),
-                                   len(self._tile_errors.get(key, {})), visible)
+            visible = (
+                True
+                if any(value is True for value in echoes.values())
+                else False
+                if echoes and all(value is False for value in echoes.values())
+                else None
+            )
+            return RadarTileStatus(
+                self._pending.get(key, 0), len(echoes), len(self._tile_errors.get(key, {})), visible
+            )
 
     @staticmethod
     def _png_has_echoes(data: bytes) -> bool:
@@ -260,6 +281,7 @@ class RadarTileService:
             source = self._synthetic_tile(source_url, z, x, y, palette)
         elif source_url.startswith("orc-hrrr-layer://"):
             from controllers.weather.hrrr_map_layers import color_model_layer
+
             with self._cache_lock(source_path):
                 cached = self._cached_png(source_path)
                 if cached is not None:
@@ -267,8 +289,11 @@ class RadarTileService:
                 params = parse_qs(urlparse(template).query)
                 kind = params.get("kind", [""])[0]
                 second = params.get("secondary", [None])[0]
-                source = color_model_layer(self._hrrr_tiles.tile(template, z, x, y), kind,
-                                          self._hrrr_tiles.tile(second, z, x, y) if second else None)
+                source = color_model_layer(
+                    self._hrrr_tiles.tile(template, z, x, y),
+                    kind,
+                    self._hrrr_tiles.tile(second, z, x, y) if second else None,
+                )
                 self._write_cache(source_path, source)
                 return source
         elif source_url.startswith("orc-hrrr://"):
@@ -277,7 +302,9 @@ class RadarTileService:
                 if cached is not None:
                     source = cached
                 else:
-                    source = color_hrrr_reflectivity(self._hrrr_tiles.tile(template, z, x, y), _UNIVERSAL_DBZ)
+                    source = color_hrrr_reflectivity(
+                        self._hrrr_tiles.tile(template, z, x, y), _UNIVERSAL_DBZ
+                    )
                     self._write_cache(source_path, source)
         else:
             source = self._read_or_fetch(source_path, source_url)
@@ -295,9 +322,7 @@ class RadarTileService:
             return derived
 
     @staticmethod
-    def _synthetic_tile(
-        url: str, z: int, x: int, y: int, palette: RadarPalette
-    ) -> bytes:
+    def _synthetic_tile(url: str, z: int, x: int, y: int, palette: RadarPalette) -> bytes:
         """Render a deterministic transparent radar tile for an injected scenario."""
         parsed = urlparse(url)
         scenario = parsed.netloc
@@ -317,12 +342,15 @@ class RadarTileService:
             colors = (
                 ((0, 145, 0, 150), (255, 255, 0, 180), (255, 0, 0, 205), (255, 0, 255, 230))
                 if palette is RadarPalette.CLASSIC
-                else ((0, 85, 136, 150), (0, 119, 170, 180), (0, 163, 224, 205), (136, 221, 238, 230))
+                else (
+                    (0, 85, 136, 150),
+                    (0, 119, 170, 180),
+                    (0, 163, 224, 205),
+                    (136, 221, 238, 230),
+                )
             )
             if scenario == "storm":
-                cells = (
-                    (center_x, center_y, ((82, colors[0]), (58, colors[1]), (36, colors[2]))),
-                )
+                cells = ((center_x, center_y, ((82, colors[0]), (58, colors[1]), (36, colors[2]))),)
             else:
                 # Severe weather is intentionally broader and multi-cell so it is
                 # visually distinct from the ordinary storm scenario at map scale.
@@ -393,8 +421,12 @@ class RadarTileService:
             return data
         except (OSError, ValueError):
             # No path, XYZ coordinate, frame key, or corrupt content is retained.
-            event(LOGGER, logging.DEBUG,
-                  "tiles.cache_invalid", "Invalid weather tile cache entry discarded")
+            event(
+                LOGGER,
+                logging.DEBUG,
+                "tiles.cache_invalid",
+                "Invalid weather tile cache entry discarded",
+            )
             path.unlink(missing_ok=True)
             return None
 

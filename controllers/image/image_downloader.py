@@ -44,14 +44,10 @@ class ImageDownloader:
         user_agent: str = DEFAULT_USER_AGENT,
     ) -> None:
         if timeout_seconds <= 0:
-            raise ValueError(
-                "timeout_seconds must be greater than zero"
-            )
+            raise ValueError("timeout_seconds must be greater than zero")
 
         if max_size_bytes <= 0:
-            raise ValueError(
-                "max_size_bytes must be greater than zero"
-            )
+            raise ValueError("max_size_bytes must be greater than zero")
 
         if not user_agent:
             raise ValueError("user_agent cannot be empty")
@@ -75,9 +71,7 @@ class ImageDownloader:
             raise ValueError("url cannot be empty")
 
         if not normalized_url.startswith(("http://", "https://")):
-            raise ValueError(
-                "url must use HTTP or HTTPS"
-            )
+            raise ValueError("url must use HTTP or HTTPS")
 
         request = urllib.request.Request(
             normalized_url,
@@ -93,9 +87,7 @@ class ImageDownloader:
                 timeout=self._timeout_seconds,
             ) as response:
                 content_type = response.headers.get_content_type()
-                content_length = response.headers.get(
-                    "Content-Length"
-                )
+                content_length = response.headers.get("Content-Length")
 
                 if content_length is not None:
                     try:
@@ -105,48 +97,32 @@ class ImageDownloader:
 
                     if expected_size > self._max_size_bytes:
                         raise ImageDownloadError(
-                            "Image exceeds maximum allowed size: "
-                            f"{expected_size} bytes"
+                            f"Image exceeds maximum allowed size: {expected_size} bytes"
                         )
 
-                data = response.read(
-                    self._max_size_bytes + 1
-                )
+                data = response.read(self._max_size_bytes + 1)
 
         except urllib.error.HTTPError as exc:
             raise ImageDownloadError(
-                f"Image download returned HTTP {exc.code}: "
-                f"{normalized_url}"
+                f"Image download returned HTTP {exc.code}: {normalized_url}"
             ) from exc
 
         except urllib.error.URLError as exc:
-            raise ImageDownloadError(
-                f"Unable to download image: {exc}"
-            ) from exc
+            raise ImageDownloadError(f"Unable to download image: {exc}") from exc
 
         except OSError as exc:
-            raise ImageDownloadError(
-                f"Image download failed: {exc}"
-            ) from exc
+            raise ImageDownloadError(f"Image download failed: {exc}") from exc
 
         if len(data) > self._max_size_bytes:
             raise ImageDownloadError(
-                "Image exceeds maximum allowed size: "
-                f"{self._max_size_bytes} bytes"
+                f"Image exceeds maximum allowed size: {self._max_size_bytes} bytes"
             )
 
         if not data:
-            raise ImageDownloadError(
-                "Image download returned no data"
-            )
+            raise ImageDownloadError("Image download returned no data")
 
-        if (
-            content_type is not None
-            and not content_type.startswith("image/")
-        ):
-            raise ImageDownloadError(
-                f"URL did not return an image: {content_type}"
-            )
+        if content_type is not None and not content_type.startswith("image/"):
+            raise ImageDownloadError(f"URL did not return an image: {content_type}")
 
         return DownloadedImage(
             url=normalized_url,

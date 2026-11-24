@@ -20,29 +20,36 @@ def test_snapshot_does_not_wait_for_playback_and_stop_is_serialized():
     player.is_playing = False
     entered, release, stop_requested = threading.Event(), threading.Event(), threading.Event()
     calls = []
+
     def play(url):
         entered.set()
         assert release.wait(3)
         calls.append("play")
         player.is_playing = True
+
     def stop():
         calls.append("stop")
         player.is_playing = False
+
     player.play.side_effect = play
     player.stop.side_effect = stop
     controller = StreamingRadioController(player)
     errors = []
+
     def start():
         try:
             controller.play(STATION)
         except Exception as error:
             errors.append(error)
+
     play_thread = threading.Thread(target=start)
     play_thread.start()
     assert entered.wait(3)
+
     def request_stop():
         stop_requested.set()
         controller.stop()
+
     stop_thread = threading.Thread(target=request_stop)
     stop_thread.start()
     assert stop_requested.wait(3)
@@ -63,19 +70,23 @@ def test_terminal_close_waits_for_startup_and_rejects_late_playback():
     player = Mock(spec=StreamingAudioPlayerIf)
     player.is_playing = False
     entered, release, closing = threading.Event(), threading.Event(), threading.Event()
+
     def play(url):
         entered.set()
         assert release.wait(3)
         player.is_playing = True
+
     player.play.side_effect = play
     player.stop.side_effect = lambda: setattr(player, "is_playing", False)
     controller = StreamingRadioController(player)
     start_thread = threading.Thread(target=lambda: controller.play(STATION))
     start_thread.start()
     assert entered.wait(3)
+
     def close():
         closing.set()
         controller.close()
+
     close_thread = threading.Thread(target=close)
     close_thread.start()
     assert closing.wait(3)

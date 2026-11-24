@@ -44,9 +44,7 @@ class Bmp3xx(BarometricSensorIf):
                 When omitted, the Raspberry Pi's default I2C bus is used.
         """
         if not 0 <= address <= 0x7F:
-            raise ValueError(
-                f"I2C address must be between 0x00 and 0x7F: {address:#x}"
-            )
+            raise ValueError(f"I2C address must be between 0x00 and 0x7F: {address:#x}")
 
         self._diagnostics = ComponentLog("environmental.bmp3xx", "sensor")
         self._address = address
@@ -76,8 +74,7 @@ class Bmp3xx(BarometricSensorIf):
             import adafruit_bmp3xx
         except ImportError as exc:
             raise RuntimeError(
-                "BMP3XX support requires the "
-                "'adafruit-circuitpython-bmp3xx' package"
+                "BMP3XX support requires the 'adafruit-circuitpython-bmp3xx' package"
             ) from exc
 
         if self._provided_i2c is not None:
@@ -87,9 +84,7 @@ class Bmp3xx(BarometricSensorIf):
             try:
                 import board
             except ImportError as exc:
-                raise RuntimeError(
-                    "BMP3XX support requires Adafruit Blinka on Linux"
-                ) from exc
+                raise RuntimeError("BMP3XX support requires Adafruit Blinka on Linux") from exc
 
             self._i2c = board.I2C()
             self._owns_i2c = True
@@ -129,18 +124,12 @@ class Bmp3xx(BarometricSensorIf):
 
     def _require_sensor(self) -> Any:
         if self._sensor is None:
-            raise RuntimeError(
-                "BMP3XX has not been started; call start() first"
-            )
+            raise RuntimeError("BMP3XX has not been started; call start() first")
 
         return self._sensor
 
     def _release_i2c(self) -> None:
-        if (
-            self._owns_i2c
-            and self._i2c is not None
-            and hasattr(self._i2c, "deinit")
-        ):
+        if self._owns_i2c and self._i2c is not None and hasattr(self._i2c, "deinit"):
             self._i2c.deinit()
 
         self._i2c = None

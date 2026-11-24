@@ -56,40 +56,20 @@ class LedDmxBluetoothController(LightingControllerIf):
         self._diagnostics = ComponentLog("lighting.bluetooth", "lighting")
         if BleakClient is None or BleakScanner is None:
             self._diagnostics.failed("availability", reason="dependency_missing")
-            raise BleakUnavailableError(
-                "bleak is not installed. Install with: pip install bleak"
-            )
+            raise BleakUnavailableError("bleak is not installed. Install with: pip install bleak")
 
         adapter_config = config or load_leddmx_config()
 
-        self._address = (
-            address.strip()
-            if address is not None and address.strip()
-            else None
-        )
+        self._address = address.strip() if address is not None and address.strip() else None
         self._service_uuid = adapter_config.service_uuid
         self._characteristic_uuid = adapter_config.characteristic_uuid
-        self._excluded_service_uuids = set(
-            adapter_config.excluded_service_uuids
-        )
-        self._excluded_name_fragments = (
-            adapter_config.excluded_name_fragments
-        )
-        self._write_with_response = (
-            adapter_config.write_with_response
-        )
-        self._command_delay_seconds = (
-            adapter_config.command_delay_seconds
-        )
-        self._reconnect_delay_seconds = (
-            adapter_config.reconnect_delay_seconds
-        )
-        self._scan_timeout_seconds = (
-            adapter_config.scan_timeout_seconds
-        )
-        self._candidate_connect_timeout_seconds = (
-            adapter_config.candidate_connect_timeout_seconds
-        )
+        self._excluded_service_uuids = set(adapter_config.excluded_service_uuids)
+        self._excluded_name_fragments = adapter_config.excluded_name_fragments
+        self._write_with_response = adapter_config.write_with_response
+        self._command_delay_seconds = adapter_config.command_delay_seconds
+        self._reconnect_delay_seconds = adapter_config.reconnect_delay_seconds
+        self._scan_timeout_seconds = adapter_config.scan_timeout_seconds
+        self._candidate_connect_timeout_seconds = adapter_config.candidate_connect_timeout_seconds
 
         self._loop = asyncio.new_event_loop()
         self._loop_ready = threading.Event()
@@ -142,10 +122,7 @@ class LedDmxBluetoothController(LightingControllerIf):
         if self._loop.is_running():
             self._loop.call_soon_threadsafe(self._loop.stop)
 
-        if (
-            self._thread.is_alive()
-            and threading.current_thread() is not self._thread
-        ):
+        if self._thread.is_alive() and threading.current_thread() is not self._thread:
             self._thread.join(timeout=2.0)
 
         self._update_state(connected=False)
@@ -369,10 +346,7 @@ class LedDmxBluetoothController(LightingControllerIf):
         name = (device.name or getattr(advertisement, "local_name", None) or "").lower()
         service_uuids = [uuid.lower() for uuid in getattr(advertisement, "service_uuids", [])]
 
-        if any(
-            fragment in name
-            for fragment in self._excluded_name_fragments
-        ):
+        if any(fragment in name for fragment in self._excluded_name_fragments):
             return True
         if any(uuid in self._excluded_service_uuids for uuid in service_uuids):
             return True

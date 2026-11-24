@@ -68,6 +68,7 @@ def kilograms_per_second_to_grams_per_second(value: float | None) -> float | Non
     """Convert kilograms per second to grams per second."""
     return None if value is None else value * 1000.0
 
+
 def celsius_to_kelvin(value: float | None) -> float | None:
     """Convert degrees Celsius to absolute temperature in kelvin."""
     return None if value is None else value + 273.15

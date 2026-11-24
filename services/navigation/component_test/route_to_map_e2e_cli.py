@@ -152,9 +152,7 @@ def main() -> int:
         http_thread.start()
         valhalla_url = f"http://127.0.0.1:{VALHALLA_PORT}"
 
-    planner = ValhallaRoutePlanningController(
-        ValhallaHttpClient(valhalla_url, timeout_seconds=2.0)
-    )
+    planner = ValhallaRoutePlanningController(ValhallaHttpClient(valhalla_url, timeout_seconds=2.0))
     navigation_server = ZeroMqNavigationCommandServer(
         NavigationCommandService(
             _UnusedNavigationController(),

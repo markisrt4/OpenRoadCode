@@ -4,7 +4,7 @@
 """UI Theme module providing color schemes and fonts for the application."""
 
 from .uiTheme import (
-    COLORS, 
+    COLORS,
     FONT_FAMILY,
     FONTS,
     MENU_TILE_STYLE,

@@ -165,7 +165,5 @@ class BrowserMotionSource(NavigationSensorIf):
                 raise RuntimeError("No browser motion sample has been received yet")
             age = time.monotonic() - self._latest_at
             if age > self._max_sample_age_seconds:
-                raise RuntimeError(
-                    f"Browser motion sample is stale ({age * 1000.0:.0f} ms old)"
-                )
+                raise RuntimeError(f"Browser motion sample is stale ({age * 1000.0:.0f} ms old)")
             return self._latest

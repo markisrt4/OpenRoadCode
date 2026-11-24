@@ -32,36 +32,38 @@ radioCtrl = RadioCtrl(radioConfig)
 
 freq = 0
 
-#print "Left or Right arrows to changes frequency, Up arrow to change bands, Q to quit."
+# print "Left or Right arrows to changes frequency, Up arrow to change bands, Q to quit."
 try:
     while True:
-        screen.addstr(0,0, "Left or Right arrows to changes frequency, Up arrow to change bands, Q to quit.")
+        screen.addstr(
+            0, 0, "Left or Right arrows to changes frequency, Up arrow to change bands, Q to quit."
+        )
         char = screen.getch()
-        if char == ord('q'):
+        if char == ord("q"):
             break
         elif char == curses.KEY_RIGHT:
-            os.system('clear')
+            os.system("clear")
             freq = radioCtrl.getNextFrequency
-            print ("Freq=" + str(freq))
-            print ("Band Name=" + radioCtrl.getCurrBandName)
+            print("Freq=" + str(freq))
+            print("Band Name=" + radioCtrl.getCurrBandName)
         elif char == curses.KEY_LEFT:
-            os.system('clear')
+            os.system("clear")
             freq = radioCtrl.getPrevFrequency
-            print ("Freq=" + str(freq))
-            print ("Band Name=" + radioCtrl.getCurrBandName)
+            print("Freq=" + str(freq))
+            print("Band Name=" + radioCtrl.getCurrBandName)
         elif char == curses.KEY_UP:
-            os.system('clear')
+            os.system("clear")
             radioCtrl.setNextBand()
             freq = radioCtrl.getCurrFreqency
-            print ("Freq=" + str(freq))
-            print ("Band Name=" + radioCtrl.getCurrBandName)
+            print("Freq=" + str(freq))
+            print("Band Name=" + radioCtrl.getCurrBandName)
         elif char == curses.KEY_DOWN:
-            print ("TBD.")
+            print("TBD.")
 
 
 finally:
     # shut down cleanly
-    curses.nocbreak();
-    screen.keypad(0);
+    curses.nocbreak()
+    screen.keypad(0)
     curses.echo()
     curses.endwin()
