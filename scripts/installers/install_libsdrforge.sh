@@ -19,4 +19,6 @@ python -c 'import sdrforge, numpy, scipy, zmq; print("[+] SDRForge imports succe
 
 # Both Linux and Termux installers use this entry point. Configure the
 # independent SDRForge launchers before the next service startup.
-bash "$PROJECT_ROOT/scripts/configure_sdrforge_region.sh" "${ORC_RADIO_LOCALE:-romeo}"
+if [[ -n "${ORC_RADIO_LOCALE:-}" || ! -f "${XDG_CONFIG_HOME:-$HOME/.config}/sdrforge/radio-region.conf" ]]; then
+  bash "$PROJECT_ROOT/scripts/configure_sdrforge_region.sh" "${ORC_RADIO_LOCALE:-romeo}"
+fi
