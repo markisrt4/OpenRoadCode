@@ -123,9 +123,11 @@ bash scripts/setup_quality_env.sh
 ```
 
 This creates `.venv-quality` without inheriting system packages and installs
-the pinned development tools. It does not yet install application dependencies;
-continue using the existing runtime-based verification commands below until
-the quality dependency migration is complete. Termux setup is deferred.
+the pinned development tools and portable application dependencies from the
+existing feature definitions. Shared libraries are installed at explicit Git
+revisions, without invoking hardware or region configuration installers.
+Hardware-only dependencies and full runtime parity remain outside this initial
+portable environment. Termux setup is deferred.
 
 For the existing runtime-based verification workflow, install development tools
 after creating the runtime environment:
