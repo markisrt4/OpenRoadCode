@@ -49,7 +49,7 @@ class RadioProfileCatalog:
     @property
     def presets_writable(self) -> bool:
         """Whether the selected preset backend was available at last reload."""
-        return not self._remote_enabled or self._remote_available
+        return self._remote_available
 
     @property
     def profiles(self) -> tuple[RadioProfile, ...]:
@@ -179,31 +179,7 @@ class RadioProfileCatalog:
                 selected["step_hz"],
                 True,
             )
-        if self._remote_enabled:
-            raise ValueError("SDRForge unavailable; preset storage is read-only")
-        if not label.strip():
-            raise ValueError("preset label must not be empty")
-        if frequency_hz <= 0:
-            raise ValueError("preset frequency must be greater than zero")
-        profile = self.profile(profile_key)
-        config = load_radio_config(profile.config_path)
-        data = self._load_user_presets()
-        data.setdefault(profile_key, []).append(
-            {
-                "label": label.strip(),
-                "frequency_hz": int(frequency_hz),
-                "mode": {
-                    "name": mode_name or config.default_mode.name,
-                    "bandwidth": int(
-                        bandwidth if bandwidth is not None else config.default_mode.bandwidth
-                    ),
-                    "step_hz": int(step_hz if step_hz is not None else config.default_mode.step_hz),
-                },
-            }
-        )
-        self._save_user_presets(data)
-        self.reload()
-        return self.profile(profile_key).presets[-1]
+        raise ValueError("SDRForge unavailable; preset storage is read-only")
 
     def remove_user_preset(self, profile_key: str, *, label: str, frequency_hz: int) -> bool:
         if self._remote_available:
@@ -226,27 +202,7 @@ class RadioProfileCatalog:
             if removed:
                 self.reload()
             return removed
-        if self._remote_enabled:
-            raise ValueError("SDRForge unavailable; preset storage is read-only")
-        data = self._load_user_presets()
-        entries = data.get(profile_key, [])
-        remaining = [
-            item
-            for item in entries
-            if not (
-                str(item.get("label", "")) == label
-                and int(item.get("frequency_hz", 0)) == int(frequency_hz)
-            )
-        ]
-        if len(remaining) == len(entries):
-            return False
-        if remaining:
-            data[profile_key] = remaining
-        else:
-            data.pop(profile_key, None)
-        self._save_user_presets(data)
-        self.reload()
-        return True
+        raise ValueError("SDRForge unavailable; preset storage is read-only")
 
     def _profile_paths(self) -> tuple[Path, ...]:
         selected: dict[str, Path] = {}
@@ -309,8 +265,3 @@ class RadioProfileCatalog:
             if isinstance(value, list)
         }
 
-    def _save_user_presets(self, data: dict[str, list[dict]]) -> None:
-        self._user_presets_path.parent.mkdir(parents=True, exist_ok=True)
-        self._user_presets_path.write_text(
-            json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-        )
