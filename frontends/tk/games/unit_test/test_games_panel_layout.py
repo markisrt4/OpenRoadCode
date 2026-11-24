@@ -87,6 +87,14 @@ class GamesPanelLayoutTest(unittest.TestCase):
         self._check_text_fits()
         self.assertEqual("1 / 3", self.panel._page_label.cget("text"))
 
+    def test_large_fonts_fit_two_columns(self) -> None:
+        self.root.tk.call("tk", "scaling", 2.0)
+        for size in ("900x340", "1200x800", "900x400"):
+            with self.subTest(size=size):
+                self.root.geometry(size)
+                self.panel._set_filter("puzzle")
+                self._check_text_fits()
+
     def test_runtime_resize_and_return_restore_catalog(self) -> None:
         self.root.geometry("900x400")
         self.root.update()

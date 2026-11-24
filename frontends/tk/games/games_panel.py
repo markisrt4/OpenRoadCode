@@ -14,6 +14,7 @@ from ui.theme import ThemeBundle
 from ui.ui_widget import UiWidget
 
 from .game_catalog_icons import game_icon
+from .game_card_layout import bind_game_card_layout
 
 PAGE_SIZE = 6
 FILTERS = (
@@ -424,8 +425,6 @@ class GamesPanel(tk.Frame, GamesUiIf, UiWidget):
             font=("Sans", 14, "bold"),
             anchor="w",
         )
-        status_label.grid(row=2, column=1, sticky="ew", padx=(4, 6), pady=(1, 5))
-        card.grid_columnconfigure(1, minsize=status_label.winfo_reqwidth() + 10)
 
         action = tk.Button(
             card,
@@ -449,20 +448,7 @@ class GamesPanel(tk.Frame, GamesUiIf, UiWidget):
             pady=5,
             cursor="hand2" if actionable else "",
         )
-        action.grid(
-            row=2,
-            column=2,
-            padx=(4, 8),
-            pady=9,
-            sticky="ew",
-        )
-
-        def wrap_text(event: tk.Event) -> None:
-            available_width = max(1, event.width - 70 - 16)
-            name_label.configure(wraplength=available_width)
-            description_label.configure(wraplength=available_width)
-
-        card.bind("<Configure>", wrap_text)
+        bind_game_card_layout(card, name_label, description_label, status_label, action)
         return card
 
     def _action_for(self, game: GameUiState) -> tuple[str, Callable[[], None] | None, str]:
