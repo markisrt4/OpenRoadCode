@@ -9,7 +9,9 @@ from apps.orcUi.theme_runtime import theme_bundle
 from controllers.calendar.cached_calendar_provider import CachedCalendarProvider
 from controllers.calendar.calendar_agenda import CalendarAgendaController
 from controllers.calendar.calendar_event_cache import CalendarEventCache
+from controllers.calendar.upcoming_appointments import upcoming_appointments
 from frontends.tk.calendar.calendar_screen import CalendarScreen
+from frontends.tk.calendar.upcoming_panel import UpcomingPanel
 from frontends.tk.tk_screen import TkScreen
 from ui.screen_ui_if import ScreenId
 
@@ -61,3 +63,28 @@ def configure_calendar(app):
     screen = DashboardCalendarScreen(app)
     app.register_screen("CALENDAR", screen, before="MEDIA")
     return screen
+
+
+def create_home_calendar_factory(app):
+    def factory(parent):
+        try:
+            zone = ZoneInfo("America/Detroit")
+        except ZoneInfoNotFoundError:
+            zone = datetime.now().astimezone().tzinfo
+
+        def load():
+            cache = CalendarEventCache(
+                Path.home() / ".local/share/openroadcode/calendar/events.sqlite3"
+            )
+            provider = CachedCalendarProvider(
+                "caldav",
+                cache,
+                selection_file=Path.home() / ".config/openroadcode/calendar-selection.json",
+            )
+            return upcoming_appointments(
+                CalendarAgendaController(provider, zone), datetime.now(zone), limit=1
+            )
+
+        return UpcomingPanel(parent, theme=theme_bundle(app.theme_mode), load=load, zone=zone)
+
+    return factory
