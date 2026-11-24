@@ -88,6 +88,7 @@ def parse_icalendar_events(
     event model. All-day UI rendering must use the all_day flag, not local conversion.
     """
     result: list[CalendarEvent] = []
+    overrides: dict[tuple[str, str], CalendarEvent | None] = {}
     inside = False
     event_lines: list[str] = []
     for line in _unfold(raw):
@@ -106,7 +107,18 @@ def parse_icalendar_events(
                 raise UnsupportedCalendarEventError(
                     "Recurring events require recurrence expansion", "unsupported_recurrence"
                 )
+            recurrence = fields.get("RECURRENCE-ID")
+            recurrence_id = None
+            if recurrence:
+                params, value = recurrence[0]
+                if "RANGE" in params:
+                    raise UnsupportedCalendarEventError(
+                        "Range overrides are unsupported", "unsupported_override"
+                    )
+                recurrence_id = _date_value(params, value)[0].astimezone(timezone.utc).isoformat()
             if fields.get("STATUS", [({}, "")])[0][1] == "CANCELLED":
+                if recurrence_id is not None:
+                    overrides[(fields["UID"][0][1], recurrence_id)] = None
                 continue
             try:
                 uid = fields["UID"][0][1]
@@ -124,7 +136,6 @@ def parse_icalendar_events(
                 raise UnsupportedCalendarEventError(
                     "Timed events without DTEND are not supported yet", "missing_end"
                 )
-            recurrence = fields.get("RECURRENCE-ID")
             title = _unescape(fields.get("SUMMARY", [({}, "")])[0][1])
             location = fields.get("LOCATION")
             event = CalendarEvent(
@@ -136,13 +147,15 @@ def parse_icalendar_events(
                 ends_at=ends_at,
                 all_day=all_day,
                 location=_unescape(location[0][1]) if location else None,
-                recurrence_id=recurrence[0][1] if recurrence else None,
+                recurrence_id=recurrence_id,
             )
-            if recurring:
-                if any("RECURRENCE-ID" in line for line in _unfold(raw)):
+            if recurrence_id is not None:
+                if recurring:
                     raise UnsupportedCalendarEventError(
-                        "Series overrides are not supported yet", "unsupported_override"
+                        "Recurring override is unsupported", "unsupported_override"
                     )
+                overrides[(uid, recurrence_id)] = event
+            elif recurring:
                 result.extend(_expand(event, fields, window_start, window_end))
             else:
                 result.append(event)
@@ -150,7 +163,15 @@ def parse_icalendar_events(
             event_lines.append(line)
     if inside:
         raise ValueError("Unclosed VEVENT")
-    return result
+    result = [event for event in result if (event.event_id, event.recurrence_id) not in overrides]
+    result.extend(
+        event
+        for event in overrides.values()
+        if event is not None
+        and (window_start is None or event.ends_at > window_start)
+        and (window_end is None or event.starts_at < window_end)
+    )
+    return sorted(result, key=lambda event: (event.starts_at, event.event_id))
 
 
 def _expand(
