@@ -29,7 +29,7 @@ class CalendarScreen(tk.Frame):
         self._poll = None
         self._requested = None
         bar = tk.Frame(self, bg=ui.background)
-        bar.pack(fill=tk.X)
+        bar.pack(fill=tk.X, padx=8, pady=(8, 18))
         tk.Label(bar, text="CALENDAR", bg=ui.background, fg=ui.text, font=("Sans", 15, "bold")).pack(side=tk.LEFT, padx=12)
         for title, delta in (("Previous", -7), ("Today", 0), ("Next", 7)):
             tk.Button(
@@ -54,10 +54,12 @@ class CalendarScreen(tk.Frame):
         self._toggle.pack(side=tk.LEFT, padx=4)
         self._status = tk.Label(bar, bg=ui.background, fg=ui.text, font=("Sans", 11))
         self._status.pack(side=tk.RIGHT, padx=6)
-        self._week = tk.Frame(self, bg=ui.background)
-        self._week.pack(fill=tk.X, padx=8, pady=6)
-        self._body = tk.Canvas(self, bg=ui.background, highlightthickness=0)
-        self._body.pack(fill=tk.BOTH, expand=True)
+        self._content = tk.Frame(self, bg=ui.background)
+        self._content.pack(fill=tk.BOTH, expand=True, padx=8)
+        self._week = tk.Frame(self._content, bg=ui.background)
+        self._body = tk.Canvas(self._content, bg=ui.background, highlightthickness=0)
+        self._layout()
+
         self._body.bind("<Configure>", lambda event: self._render())
         self._body.bind("<ButtonPress-1>", self._drag_start)
         self._body.bind("<B1-Motion>", self._drag_move)
@@ -71,6 +73,26 @@ class CalendarScreen(tk.Frame):
         self.bind("<Destroy>", self._close, add="+")
         self._refresh()
         self._render()
+
+    def _layout(self):
+        self._week.grid_forget()
+        self._body.grid_forget()
+        self._content.columnconfigure(0, weight=1)
+        self._content.columnconfigure(1, weight=0)
+        self._content.rowconfigure(0, weight=0)
+        self._content.rowconfigure(1, weight=1)
+        if self._month:
+            self._content.columnconfigure(0, weight=5, uniform="pane")
+            self._content.columnconfigure(1, weight=4, uniform="pane")
+            self._content.rowconfigure(0, weight=1)
+            self._content.rowconfigure(1, weight=0)
+            self._week.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
+            self._body.grid(row=0, column=1, sticky="nsew")
+        else:
+            self._content.columnconfigure(0, weight=1, uniform="")
+            self._content.columnconfigure(1, weight=0, uniform="")
+            self._week.grid(row=0, column=0, sticky="ew")
+            self._body.grid(row=1, column=0, sticky="nsew")
 
     def _drag_start(self, event):
         self._body.scan_mark(event.x, event.y)
@@ -88,6 +110,7 @@ class CalendarScreen(tk.Frame):
             if self._month
             else self._selected - timedelta(days=self._selected.weekday())
         )
+        self._layout()
         self._reload()
 
     def _move(self, delta):
@@ -123,6 +146,8 @@ class CalendarScreen(tk.Frame):
         counts = {group.day: len(group.events) for group in self._groups}
         for child in self._week.winfo_children():
             child.destroy()
+        for row in range(7):
+            self._week.rowconfigure(row, weight=0, uniform="")
         if self._month:
             self._render_month(counts, today)
         else:
@@ -198,22 +223,34 @@ class CalendarScreen(tk.Frame):
             ).grid(row=0, column=column, sticky="ew")
         weeks = calendar.Calendar().monthdatescalendar(self._day.year, self._day.month)
         for row, week in enumerate(weeks, 1):
+            self._week.rowconfigure(row, weight=1, uniform="week")
             for column, day in enumerate(week):
                 selected = day == self._selected
                 in_month = day.month == self._day.month
                 count = counts.get(day, 0)
-                label = str(day.day) + (f"  • {count}" if count else "")
-                button = tk.Button(
-                    self._week, text=label,
-                    command=lambda value=day: self._select(value),
-                    state=tk.NORMAL if in_month else tk.DISABLED,
-                    bg=ui.surface if selected else ui.background,
-                    fg=ui.accent_primary if selected or day == today else ui.text,
-                    disabledforeground=ui.text_muted,
-                    relief=tk.FLAT, borderwidth=0, highlightthickness=0,
-                    font=("Sans", 11), pady=2,
+                background = ui.surface if in_month else ui.background
+                foreground = ui.accent_primary if day == today else ui.text
+                cell = tk.Frame(
+                    self._week,
+                    bg=background,
+                    highlightthickness=2,
+                    highlightbackground=ui.accent_primary if selected else ui.background,
                 )
-                button.grid(row=row, column=column, sticky="ew", padx=2, pady=1)
+                cell.grid(row=row, column=column, sticky="nsew", padx=2, pady=2)
+                number = tk.Label(
+                    cell, text=str(day.day), bg=background,
+                    fg=foreground if in_month else ui.text_muted,
+                    font=("Sans", 13, "bold" if selected or day == today else "normal"),
+                )
+                number.pack(anchor="center", expand=True)
+                indicator = tk.Label(
+                    cell, text=f"• {count}" if count else " ",
+                    bg=background, fg=ui.accent_primary, font=("Sans", 9),
+                )
+                indicator.pack(anchor="center")
+                if in_month:
+                    for widget in (cell, number, indicator):
+                        widget.bind("<Button-1>", lambda event, value=day: self._select(value))
 
     def _refresh(self):
         days = calendar.monthrange(self._day.year, self._day.month)[1] if self._month else 7
