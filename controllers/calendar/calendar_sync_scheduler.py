@@ -43,6 +43,8 @@ class CalendarSyncScheduler:
 
     def run(self, stop: threading.Event) -> None:
         """Sync immediately, then wait between attempts until stopped."""
+        startup_delays = iter((5, 10, 20, 30))
+        startup = True
         while not stop.is_set():
             attempted = datetime.now(timezone.utc)
             started = time.monotonic()
@@ -76,5 +78,14 @@ class CalendarSyncScheduler:
                     )
                 except OSError:
                     _LOG.exception("Unable to publish calendar synchronization health")
-            if stop.wait(self._interval):
+            delay = self._interval
+            if startup and result is None:
+                delay = next(startup_delays, self._interval)
+                if delay == self._interval:
+                    startup = False
+                else:
+                    _LOG.info("Retrying calendar startup in %s seconds", delay)
+            else:
+                startup = False
+            if stop.wait(delay):
                 break
