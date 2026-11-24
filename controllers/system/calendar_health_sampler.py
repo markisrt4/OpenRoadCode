@@ -27,9 +27,7 @@ def sample_calendar_health(path: Path | None = None, now: datetime | None = None
         metrics = raw.get("metrics") or {}
         return {
             "status": status,
-            "stale": age > 2 * interval or (
-                success_age is not None and success_age > 2 * interval
-            ),
+            "stale": age > 2 * interval or (success_age is not None and success_age > 2 * interval),
             "last_success_age_seconds": success_age,
             "last_completed_age_seconds": age,
             "interval_seconds": interval,
