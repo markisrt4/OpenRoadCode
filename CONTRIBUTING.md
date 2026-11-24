@@ -471,3 +471,7 @@ person who wrote it.
 OpenRoadCode is an ambitious experiment assembled from many disciplines. No
 one arrives knowing all of them. Share what you know, ask when you do not, and
 help make the next contributor's first drive a little smoother.
+
+The Linux quality environment uses `constraints-quality-linux.txt`, captured from a
+validated Ubuntu Python 3.12 installation. Forge dependencies remain pinned to Git
+commits in `scripts/setup_quality_env.sh`. Runtime installation is independent.
