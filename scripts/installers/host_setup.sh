@@ -24,6 +24,7 @@ GEOMETRY="${GEOMETRY:-1280x720}"
 DEPTH="${DEPTH:-24}"
 GPS_DEVICE="${GPS_DEVICE:-/dev/ttyACM0}"
 
+NAVIGATION_MODE="${NAVIGATION_MODE:-auto}"
 TARGET=""
 FORCE_TARGET=0
 SHOW_PLAN=0
@@ -52,6 +53,7 @@ Targets:
 
 Options:
   --target TARGET         Required installation target
+  --navigation-mode MODE  auto, binary, or source
   --force-target          Continue without prompting when detection disagrees
   --show-plan             Print the resolved plan without changing the system
   --skip-installs         Skip packages, Python setup, and group changes
@@ -170,6 +172,7 @@ persist_host_target() {
 while (( $# > 0 )); do
   case "$1" in
     --target) shift; (( $# > 0 )) || { echo "[!] --target requires a value" >&2; exit 1; }; TARGET="${1,,}" ;;
+    --navigation-mode) shift; NAVIGATION_MODE="${1:?--navigation-mode requires a value}" ;;
     --force-target) FORCE_TARGET=1 ;;
     --show-plan) SHOW_PLAN=1 ;;
     --skip-installs) SKIP_INSTALLS=1 ;;
@@ -195,6 +198,12 @@ done
 
 [[ -n "$TARGET" ]] || { echo "[!] --target is required" >&2; usage >&2; exit 1; }
 case "$TARGET" in rpi4|rpi5|linux-dev|termux) ;; *) echo "[!] Unknown target: $TARGET" >&2; usage >&2; exit 1 ;; esac
+
+NAVIGATION_MODE="${NAVIGATION_MODE,,}"
+case "$NAVIGATION_MODE" in auto|binary|source) ;; *) echo "Invalid navigation mode: $NAVIGATION_MODE" >&2; exit 2 ;; esac
+if [[ "$TARGET" == "termux" && "$NAVIGATION_MODE" == binary ]]; then
+  echo "No Termux navigation binary packages available" >&2; exit 2
+fi
 
 if [[ "$TARGET" == "termux" ]]; then
   if [[ -n "$BLUETOOTH_SPP_ADDRESS" ]]; then
@@ -264,6 +273,7 @@ echo "[*] Detected architecture: $HOST_ARCH"
 echo "[*] Distribution:          ${DISTRO_ID:-unknown}"
 [[ -z "$RPI_MODEL" ]] || echo "[*] Raspberry Pi model:    $RPI_MODEL"
 [[ -z "$GPIO_BACKEND" ]] || echo "[*] GPIO backend:          $GPIO_BACKEND"
+echo "[*] Navigation mode:       $NAVIGATION_MODE"
 echo "[*] Features:              ${FEATURES[*]}"
 echo "[*] VNC service setup:     $RUN_VNC"
 echo "[*] GPSD service setup:    $RUN_GPSD_SERVICE"
@@ -281,7 +291,7 @@ if [[ "$TARGET" == "termux" ]]; then
     bash "$PROJECT_DIR/scripts/termux/install.sh" "${FEATURES[@]}"
   fi
   if [[ " ${FEATURES[*]} " == *" navigation "* ]]; then
-    bash "$SCRIPT_DIR/install_navigation_stack.sh" --target termux
+    bash "$SCRIPT_DIR/install_navigation_stack.sh" --target termux --mode "$NAVIGATION_MODE"
   fi
   echo
   echo "[+] termux setup complete."
@@ -329,6 +339,7 @@ if (( ! SKIP_INSTALLS )) && [[ " ${FEATURES[*]} " == *" navigation "* ]]; then
   echo "[*] Installing navigation software stack..."
   bash "$SCRIPT_DIR/install_navigation_stack.sh" \
     --target "$TARGET" \
+    --mode "$NAVIGATION_MODE" \
     --skip-host-packages
 fi
 
