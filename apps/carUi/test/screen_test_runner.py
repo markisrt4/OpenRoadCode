@@ -21,9 +21,7 @@ ROUTE_ALIASES = {"scanner": "scanner_radio"}
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Launch one Car UI screen for visual testing."
-    )
+    parser = argparse.ArgumentParser(description="Launch one Car UI screen for visual testing.")
     parser.add_argument(
         "screen",
         choices=(

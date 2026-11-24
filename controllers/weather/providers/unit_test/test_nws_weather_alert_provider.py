@@ -13,8 +13,10 @@ from controllers.weather.weather_state import WeatherLocation
 class _Response:
     def __init__(self, payload):
         self._payload = payload
+
     def raise_for_status(self):
         pass
+
     def json(self):
         return self._payload
 
@@ -23,28 +25,35 @@ class _Session:
     def __init__(self, payload):
         self.payload = payload
         self.request = None
+
     def get(self, url, **kwargs):
         self.request = (url, kwargs)
         return _Response(self.payload)
 
 
 def test_normalizes_active_nws_alert():
-    session = _Session({"features": [{
-        "id": "https://api.weather.gov/alerts/test",
-        "properties": {
-            "event": "Severe Thunderstorm Warning",
-            "headline": "Severe Thunderstorm Warning issued September 18",
-            "description": "A severe thunderstorm was located nearby.",
-            "instruction": "Move indoors.",
-            "severity": "Severe",
-            "urgency": "Immediate",
-            "certainty": "Observed",
-            "effective": "2026-09-18T13:00:00-04:00",
-            "onset": "2026-09-18T13:00:00-04:00",
-            "expires": "2026-09-18T14:00:00-04:00",
-            "senderName": "NWS Detroit/Pontiac MI",
-        },
-    }]})
+    session = _Session(
+        {
+            "features": [
+                {
+                    "id": "https://api.weather.gov/alerts/test",
+                    "properties": {
+                        "event": "Severe Thunderstorm Warning",
+                        "headline": "Severe Thunderstorm Warning issued September 18",
+                        "description": "A severe thunderstorm was located nearby.",
+                        "instruction": "Move indoors.",
+                        "severity": "Severe",
+                        "urgency": "Immediate",
+                        "certainty": "Observed",
+                        "effective": "2026-09-18T13:00:00-04:00",
+                        "onset": "2026-09-18T13:00:00-04:00",
+                        "expires": "2026-09-18T14:00:00-04:00",
+                        "senderName": "NWS Detroit/Pontiac MI",
+                    },
+                }
+            ]
+        }
+    )
     provider = NwsWeatherAlertProvider(session=session)
     alerts = provider.active_alerts(WeatherLocation(42.8028, -83.0127, "Romeo", "test"))
 
@@ -65,16 +74,18 @@ def test_normalizes_active_nws_alert():
 
 
 def test_unknown_cap_values_normalize_to_unknown():
-    alert = NwsWeatherAlertProvider._alert({
-        "id": "alert-1",
-        "properties": {
-            "event": "Test",
-            "severity": "Undefined",
-            "urgency": "Undefined",
-            "certainty": "Undefined",
-            "effective": "2026-09-18T13:00:00Z",
-        },
-    })
+    alert = NwsWeatherAlertProvider._alert(
+        {
+            "id": "alert-1",
+            "properties": {
+                "event": "Test",
+                "severity": "Undefined",
+                "urgency": "Undefined",
+                "certainty": "Undefined",
+                "effective": "2026-09-18T13:00:00Z",
+            },
+        }
+    )
     assert alert.severity is WeatherAlertSeverity.UNKNOWN
     assert alert.urgency is WeatherAlertUrgency.UNKNOWN
     assert alert.certainty is WeatherAlertCertainty.UNKNOWN

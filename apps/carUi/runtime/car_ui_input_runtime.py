@@ -65,9 +65,7 @@ class CarUiInputRuntime:
             raise ValueError("poll_interval_ms must be greater than zero")
 
         self._dispatcher = dispatcher
-        self._event_dispatcher = UiInputEventDispatcher(
-            _StepExpandingInputHandler(input_handler)
-        )
+        self._event_dispatcher = UiInputEventDispatcher(_StepExpandingInputHandler(input_handler))
         self._adapters = tuple(
             RotaryEncoderInputAdapter(encoder, device_id, self._event_dispatcher)
             for encoder, device_id in zip(encoders, device_ids)

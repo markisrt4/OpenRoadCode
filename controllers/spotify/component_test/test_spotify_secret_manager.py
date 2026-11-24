@@ -25,9 +25,7 @@ class SpotifySecretManagerComponentTest(unittest.TestCase):
         secret_manager = EnvironmentVariableSecretManager(
             {
                 "SPOTIFY_CLIENT_ID": " test-client-id ",
-                "SPOTIFY_REDIRECT_URI": (
-                    " http://localhost:9999/callback "
-                ),
+                "SPOTIFY_REDIRECT_URI": (" http://localhost:9999/callback "),
             }
         )
 
@@ -42,9 +40,7 @@ class SpotifySecretManagerComponentTest(unittest.TestCase):
         )
 
     def test_uses_default_redirect_uri_when_secret_is_missing(self) -> None:
-        secret_manager = EnvironmentVariableSecretManager(
-            {"SPOTIFY_CLIENT_ID": "test-client-id"}
-        )
+        secret_manager = EnvironmentVariableSecretManager({"SPOTIFY_CLIENT_ID": "test-client-id"})
 
         config = load_spotify_config_from_secrets(secret_manager)
 
@@ -60,9 +56,7 @@ class SpotifySecretManagerComponentTest(unittest.TestCase):
         self.assertIsNone(config)
 
     def test_runtime_factory_accepts_injected_secret_manager(self) -> None:
-        secret_manager = EnvironmentVariableSecretManager(
-            {"SPOTIFY_CLIENT_ID": "test-client-id"}
-        )
+        secret_manager = EnvironmentVariableSecretManager({"SPOTIFY_CLIENT_ID": "test-client-id"})
 
         controller = create_spotify_controller(secret_manager)
 

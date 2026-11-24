@@ -43,8 +43,7 @@ class BleScanner:
 
         if BleakScanner is None:
             raise RuntimeError(
-                "bleak is not installed. "
-                "Install it using: python3 -m pip install bleak"
+                "bleak is not installed. Install it using: python3 -m pip install bleak"
             )
 
         self._timeout_seconds = timeout_seconds
@@ -81,12 +80,8 @@ class BleScanner:
                     name=device.name,
                     local_name=advertisement.local_name,
                     rssi=getattr(advertisement, "rssi", None),
-                    service_uuids=tuple(
-                        advertisement.service_uuids or ()
-                    ),
-                    manufacturer_data=dict(
-                        advertisement.manufacturer_data or {}
-                    ),
+                    service_uuids=tuple(advertisement.service_uuids or ()),
+                    manufacturer_data=dict(advertisement.manufacturer_data or {}),
                 )
             )
 

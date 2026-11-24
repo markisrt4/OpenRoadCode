@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """GPSD-backed weather location selection with a bounded wait for a fix."""
+
 from __future__ import annotations
 
 import json
@@ -14,8 +15,9 @@ from controllers.weather.weather_state import WeatherLocation
 class GpsdWeatherLocationProvider:
     """Read a current weather fix without waiting indefinitely for GPSD."""
 
-    def __init__(self, host: str = "127.0.0.1", port: int = 2947,
-                 *, timeout_seconds: float = 2.0) -> None:
+    def __init__(
+        self, host: str = "127.0.0.1", port: int = 2947, *, timeout_seconds: float = 2.0
+    ) -> None:
         if timeout_seconds <= 0:
             raise ValueError("GPS timeout must be positive")
         self._host = host
@@ -24,8 +26,9 @@ class GpsdWeatherLocationProvider:
 
     def get_location(self) -> WeatherLocation:
         deadline = time.monotonic() + self._timeout_seconds
-        with socket.create_connection((self._host, self._port),
-                                      timeout=self._timeout_seconds) as connection:
+        with socket.create_connection(
+            (self._host, self._port), timeout=self._timeout_seconds
+        ) as connection:
             connection.sendall(b'?WATCH={"enable":true,"json":true};\n')
             with connection.makefile("rb") as stream:
                 while True:
@@ -45,8 +48,13 @@ class GpsdWeatherLocationProvider:
                         lat, lon = float(packet["lat"]), float(packet["lon"])
                     except (ValueError, TypeError, KeyError, AttributeError):
                         continue
-                    if not (math.isfinite(lat) and math.isfinite(lon)
-                            and -90 <= lat <= 90 and -180 <= lon <= 180):
+                    if not (
+                        math.isfinite(lat)
+                        and math.isfinite(lon)
+                        and -90 <= lat <= 90
+                        and -180 <= lon <= 180
+                    ):
                         continue
-                    return WeatherLocation(latitude=lat, longitude=lon,
-                                           name=f"{lat:.5f}, {lon:.5f}", source="GPSD")
+                    return WeatherLocation(
+                        latitude=lat, longitude=lon, name=f"{lat:.5f}, {lon:.5f}", source="GPSD"
+                    )

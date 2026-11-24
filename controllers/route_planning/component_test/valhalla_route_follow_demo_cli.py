@@ -47,26 +47,13 @@ def calculate_bearing(
     lat1 = math.radians(start.latitude)
     lat2 = math.radians(end.latitude)
 
-    delta_lon = math.radians(
-        end.longitude - start.longitude
-    )
+    delta_lon = math.radians(end.longitude - start.longitude)
 
-    x = (
-        math.sin(delta_lon)
-        * math.cos(lat2)
-    )
+    x = math.sin(delta_lon) * math.cos(lat2)
 
-    y = (
-        math.cos(lat1)
-        * math.sin(lat2)
-        - math.sin(lat1)
-        * math.cos(lat2)
-        * math.cos(delta_lon)
-    )
+    y = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(delta_lon)
 
-    bearing = math.degrees(
-        math.atan2(x, y)
-    )
+    bearing = math.degrees(math.atan2(x, y))
 
     return (bearing + 360.0) % 360.0
 
@@ -74,8 +61,7 @@ def calculate_bearing(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Calculate a Valhalla route and simulate "
-            "a vehicle using a navigation follow camera."
+            "Calculate a Valhalla route and simulate a vehicle using a navigation follow camera."
         )
     )
 
@@ -156,10 +142,7 @@ def main() -> int:
     )
 
     if not controller.is_available:
-        print(
-            controller.status_message
-            or "Valhalla is unavailable"
-        )
+        print(controller.status_message or "Valhalla is unavailable")
         return 1
 
     print("Calculating route...")
@@ -178,20 +161,12 @@ def main() -> int:
     )
 
     if len(route.shape) < 2:
-        print(
-            "Calculated route does not contain "
-            "enough shape points"
-        )
+        print("Calculated route does not contain enough shape points")
         return 1
 
-    print(
-        f"Route: {route.distance_miles:.1f} miles, "
-        f"{route.duration_seconds / 60.0:.0f} minutes"
-    )
+    print(f"Route: {route.distance_miles:.1f} miles, {route.duration_seconds / 60.0:.0f} minutes")
 
-    print(
-        f"Shape points: {len(route.shape)}"
-    )
+    print(f"Shape points: {len(route.shape)}")
 
     map_renderer = MapRendererClient()
 
@@ -204,16 +179,12 @@ def main() -> int:
 
         time.sleep(1.0)
 
-        animation_points = list(
-            route.shape[::args.step]
-        )
+        animation_points = list(route.shape[:: args.step])
 
         # Ensure the actual destination is included even
         # when --step skips over the final shape point.
         if animation_points[-1] != route.shape[-1]:
-            animation_points.append(
-                route.shape[-1]
-            )
+            animation_points.append(route.shape[-1])
 
         print("Starting navigation follow demo...")
 
@@ -222,13 +193,9 @@ def main() -> int:
             animation_points[1],
         )
 
-        for index, point in enumerate(
-            animation_points
-        ):
+        for index, point in enumerate(animation_points):
             if index + 1 < len(animation_points):
-                next_point = animation_points[
-                    index + 1
-                ]
+                next_point = animation_points[index + 1]
 
                 bearing = calculate_bearing(
                     point,
@@ -254,23 +221,16 @@ def main() -> int:
             )
 
             print(
-                f"\rPosition "
-                f"{index + 1}/"
-                f"{len(animation_points)} "
-                f"heading={bearing:6.1f}°",
+                f"\rPosition {index + 1}/{len(animation_points)} heading={bearing:6.1f}°",
                 end="",
                 flush=True,
             )
 
-            time.sleep(
-                args.delay
-            )
+            time.sleep(args.delay)
 
     except MapRendererUnavailableError as exc:
         print()
-        print(
-            f"Map renderer unavailable: {exc}"
-        )
+        print(f"Map renderer unavailable: {exc}")
         return 1
 
     print()

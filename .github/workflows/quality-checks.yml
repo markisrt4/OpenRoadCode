@@ -134,7 +134,10 @@ jobs:
           venv/bin/python -m pip install -r requirements-dev.txt
 
       - name: Lint Python
-        run: venv/bin/python -m ruff check .
+        run: venv/bin/ruff check .
+
+      - name: Check Python and Markdown code formatting
+        run: venv/bin/ruff format --check .
 
       - name: Enforce strict UI contract types
         run: venv/bin/python scripts/check_ui_types.py

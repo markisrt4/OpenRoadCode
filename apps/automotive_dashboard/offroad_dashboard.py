@@ -160,9 +160,7 @@ class OffroadDashboardApp:
             self._panel.set_accel_x(linear.x)
             self._panel.set_accel_y(linear.y)
             self._panel.set_accel_z(linear.z)
-            self._panel.set_accel_total(
-                math.sqrt(linear.x**2 + linear.y**2 + linear.z**2)
-            )
+            self._panel.set_accel_total(math.sqrt(linear.x**2 + linear.y**2 + linear.z**2))
 
         gps = state.gps
         if (
@@ -181,9 +179,7 @@ class OffroadDashboardApp:
             )
             self._panel.set_ground_speed(gps.speed_mps)
             self._panel.set_course_over_ground(
-                math.radians(gps.course_deg)
-                if gps.course_deg is not None
-                else None
+                math.radians(gps.course_deg) if gps.course_deg is not None else None
             )
         else:
             self._panel.set_position(None)

@@ -35,6 +35,7 @@ def __getattr__(name: str):
     """Load CSS helpers only when requested. @param name Export. @return Exported helper."""
     if name in {"StyleSheet", "load_style_sheet", "load_theme_bundle", "load_ui_theme"}:
         from . import style_sheet
+
         value = getattr(style_sheet, name)
         globals()[name] = value
         return value

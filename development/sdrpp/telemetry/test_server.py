@@ -58,9 +58,17 @@ class Handler(socketserver.StreamRequestHandler):
         values = STATE.snapshot()
         if command == "GET telemetry":
             order = (
-                "snr", "signal_peak", "fft_average", "center_frequency",
-                "bandwidth", "view_bandwidth", "fft_min", "fft_max",
-                "waterfall_min", "waterfall_max", "selected_vfo",
+                "snr",
+                "signal_peak",
+                "fft_average",
+                "center_frequency",
+                "bandwidth",
+                "view_bandwidth",
+                "fft_min",
+                "fft_max",
+                "waterfall_min",
+                "waterfall_max",
+                "selected_vfo",
             )
             fields = " ".join(f"{name}={values[name]}" for name in order)
             return f"TELEMETRY {fields}"

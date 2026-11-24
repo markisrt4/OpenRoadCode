@@ -16,9 +16,7 @@ from hardware_io.android import AndroidImu, AndroidSensorBridgeClient
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description=(
-            "Monitor NavigationController attitude using an Android sensor bridge."
-        )
+        description=("Monitor NavigationController attitude using an Android sensor bridge.")
     )
     parser.add_argument(
         "--bridge-url",

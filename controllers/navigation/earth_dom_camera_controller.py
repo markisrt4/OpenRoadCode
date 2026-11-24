@@ -5,7 +5,10 @@
 
 from __future__ import annotations
 
-from controllers.navigation.earth_camera_controller_if import EarthCameraControllerIf, EarthCameraView
+from controllers.navigation.earth_camera_controller_if import (
+    EarthCameraControllerIf,
+    EarthCameraView,
+)
 
 
 class EarthDomCameraController(EarthCameraControllerIf):

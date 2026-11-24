@@ -100,10 +100,7 @@ class OpenMeteoWeatherController:
         if max_age_seconds < 0:
             raise ValueError("max_age_seconds cannot be negative")
         cached = self.latest()
-        if (
-            cached is not None
-            and self._clock() - cached.fetched_at <= max_age_seconds
-        ):
+        if cached is not None and self._clock() - cached.fetched_at <= max_age_seconds:
             return cached
         try:
             return self.refresh()
@@ -134,22 +131,45 @@ class OpenMeteoWeatherController:
             "latitude": location.latitude,
             "longitude": location.longitude,
             "timezone": "auto",
-            "current": ",".join((
-                "temperature_2m", "apparent_temperature",
-                "relative_humidity_2m", "precipitation", "rain", "showers",
-                "snowfall", "weather_code", "cloud_cover", "pressure_msl",
-                "surface_pressure", "wind_speed_10m", "wind_direction_10m",
-                "wind_gusts_10m",
-            )),
-            "hourly": ",".join((
-                "temperature_2m", "apparent_temperature",
-                "precipitation_probability", "precipitation",
-                "weather_code", "cloud_cover", "wind_speed_10m",
-            )),
-            "daily": ",".join((
-                "weather_code", "temperature_2m_max", "temperature_2m_min",
-                "sunrise", "sunset", "precipitation_probability_max",
-                "wind_speed_10m_max",
-            )),
+            "current": ",".join(
+                (
+                    "temperature_2m",
+                    "apparent_temperature",
+                    "relative_humidity_2m",
+                    "precipitation",
+                    "rain",
+                    "showers",
+                    "snowfall",
+                    "weather_code",
+                    "cloud_cover",
+                    "pressure_msl",
+                    "surface_pressure",
+                    "wind_speed_10m",
+                    "wind_direction_10m",
+                    "wind_gusts_10m",
+                )
+            ),
+            "hourly": ",".join(
+                (
+                    "temperature_2m",
+                    "apparent_temperature",
+                    "precipitation_probability",
+                    "precipitation",
+                    "weather_code",
+                    "cloud_cover",
+                    "wind_speed_10m",
+                )
+            ),
+            "daily": ",".join(
+                (
+                    "weather_code",
+                    "temperature_2m_max",
+                    "temperature_2m_min",
+                    "sunrise",
+                    "sunset",
+                    "precipitation_probability_max",
+                    "wind_speed_10m_max",
+                )
+            ),
             "forecast_days": 7,
         }

@@ -6,7 +6,9 @@
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
-from controllers.automotive.navigation_motion_vehicle_state_source import NavigationMotionVehicleStateSource
+from controllers.automotive.navigation_motion_vehicle_state_source import (
+    NavigationMotionVehicleStateSource,
+)
 
 
 class _Subscriber:

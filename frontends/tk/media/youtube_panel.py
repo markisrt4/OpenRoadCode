@@ -126,7 +126,8 @@ class YouTubePanel(tk.Frame, UiWidget):
             cursor="hand2",
             padx=20,
             pady=12,
-            highlightthickness=0, bd=0,
+            highlightthickness=0,
+            bd=0,
         )
 
     def _open(self) -> None:

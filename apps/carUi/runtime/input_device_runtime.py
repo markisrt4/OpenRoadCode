@@ -22,6 +22,7 @@ def create_input_device_runtime(config: InputConfig) -> InputDeviceRuntime:
     keyboards: tuple[KeyboardReaderIf, ...] = ()
     if config.keyboard.enabled:
         from hardware_io.keyboard.keyboard_reader import KeyboardReader
+
         keyboards = (KeyboardReader(device_path=config.keyboard.device_path),)
 
     buttons: list[PushButtonIf] = []
@@ -29,12 +30,15 @@ def create_input_device_runtime(config: InputConfig) -> InputDeviceRuntime:
     if "Raspberry Pi" in _model_name():
         from hardware_io.buttons.rpi_gpio_push_button import RpiGpioPushButton
         from hardware_io.gpio.rpi_gpio_header import RpiGpioHeader
+
         for item in config.push_buttons:
-            buttons.append(RpiGpioPushButton(
-                RpiGpioHeader.by_physical_pin(item.pin),
-                active_low=item.active_low,
-                debounce_seconds=item.debounce_seconds,
-            ))
+            buttons.append(
+                RpiGpioPushButton(
+                    RpiGpioHeader.by_physical_pin(item.pin),
+                    active_low=item.active_low,
+                    debounce_seconds=item.debounce_seconds,
+                )
+            )
             actions.append(item.action)
     return InputDeviceRuntime(keyboards, tuple(buttons), tuple(actions))
 

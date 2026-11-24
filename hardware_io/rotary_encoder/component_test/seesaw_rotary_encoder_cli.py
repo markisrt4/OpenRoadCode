@@ -24,22 +24,16 @@ def parse_i2c_address(value: str) -> int:
     try:
         address = int(value, 0)
     except ValueError as exc:
-        raise argparse.ArgumentTypeError(
-            f"Invalid I2C address: {value}"
-        ) from exc
+        raise argparse.ArgumentTypeError(f"Invalid I2C address: {value}") from exc
 
     if not 0 <= address <= 0x7F:
-        raise argparse.ArgumentTypeError(
-            "I2C address must be between 0x00 and 0x7F"
-        )
+        raise argparse.ArgumentTypeError("I2C address must be between 0x00 and 0x7F")
 
     return address
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="One-or-more encoder Seesaw component test"
-    )
+    parser = argparse.ArgumentParser(description="One-or-more encoder Seesaw component test")
 
     parser.add_argument(
         "--addresses",
@@ -48,8 +42,7 @@ def parse_args() -> argparse.Namespace:
         default=[0x36, 0x37, 0x38],
         metavar="ADDRESS",
         help=(
-            "I2C addresses to test, for example: "
-            "--addresses 0x36 0x37 (default: 0x36 0x37 0x38)"
+            "I2C addresses to test, for example: --addresses 0x36 0x37 (default: 0x36 0x37 0x38)"
         ),
     )
 
@@ -76,10 +69,7 @@ def create_callbacks(
     def rotated(steps: int) -> None:
         direction = "clockwise" if steps > 0 else "counterclockwise"
 
-        print(
-            f"[{name} {address:#04x}] "
-            f"rotated {direction}: {steps:+d}"
-        )
+        print(f"[{name} {address:#04x}] rotated {direction}: {steps:+d}")
 
     def button_pressed() -> None:
         print(f"[{name} {address:#04x}] button pressed")
@@ -101,9 +91,7 @@ def main() -> None:
     addresses = [config.address for config in configs]
 
     if len(addresses) != len(set(addresses)):
-        raise ValueError(
-            "Each Seesaw encoder must use a unique I2C address"
-        )
+        raise ValueError("Each Seesaw encoder must use a unique I2C address")
 
     print("Initializing shared I2C bus...")
     i2c = board.I2C()

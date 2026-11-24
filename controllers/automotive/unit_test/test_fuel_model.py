@@ -56,16 +56,11 @@ def test_speed_density_estimates_flow_from_map_rpm_and_iat() -> None:
     )
 
     air_mass_flow = (
-        100000.0
-        * 0.0016
-        * 0.85
-        * state.engine_speed_rad_s
-        / (4.0 * math.pi * 287.05 * 300.0)
+        100000.0 * 0.0016 * 0.85 * state.engine_speed_rad_s / (4.0 * math.pi * 287.05 * 300.0)
     )
     expected = air_mass_flow / 14.7 / 745.0
 
     assert model.fuel_flow_m3_s(state) == pytest.approx(expected)
-
 
 
 def test_commanded_equivalence_ratio_increases_fuel_when_rich() -> None:
@@ -93,6 +88,7 @@ def test_commanded_equivalence_ratio_increases_fuel_when_rich() -> None:
 
     assert stoich_flow is not None
     assert rich_flow == pytest.approx(stoich_flow / 0.80)
+
 
 def test_speed_density_requires_configured_displacement() -> None:
     model = FuelModel()

@@ -43,19 +43,13 @@ class NavigationPresenter:
     def present_position(state: PositionStateData) -> PositionPresentationState:
         return PositionPresentationState(
             latitude_deg=(
-                math.degrees(state.latitude_rad)
-                if state.latitude_rad is not None
-                else None
+                math.degrees(state.latitude_rad) if state.latitude_rad is not None else None
             ),
             longitude_deg=(
-                math.degrees(state.longitude_rad)
-                if state.longitude_rad is not None
-                else None
+                math.degrees(state.longitude_rad) if state.longitude_rad is not None else None
             ),
             altitude_ft=(
-                state.altitude_m * FEET_PER_METER
-                if state.altitude_m is not None
-                else None
+                state.altitude_m * FEET_PER_METER if state.altitude_m is not None else None
             ),
             fix_mode=state.fix_mode,
             satellites_visible=state.satellites_visible,
@@ -68,18 +62,8 @@ class NavigationPresenter:
     def present_attitude(state: AttitudeStateData) -> AttitudePresentationState:
         return AttitudePresentationState(
             heading_deg=(
-                math.degrees(state.heading_rad) % 360.0
-                if state.heading_rad is not None
-                else None
+                math.degrees(state.heading_rad) % 360.0 if state.heading_rad is not None else None
             ),
-            pitch_deg=(
-                math.degrees(state.pitch_rad)
-                if state.pitch_rad is not None
-                else None
-            ),
-            roll_deg=(
-                math.degrees(state.roll_rad)
-                if state.roll_rad is not None
-                else None
-            ),
+            pitch_deg=(math.degrees(state.pitch_rad) if state.pitch_rad is not None else None),
+            roll_deg=(math.degrees(state.roll_rad) if state.roll_rad is not None else None),
         )

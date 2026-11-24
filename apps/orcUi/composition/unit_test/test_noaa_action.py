@@ -18,11 +18,13 @@ def action():
     work, deliveries = [], []
     resources.run_rf.side_effect = work.append
     app.dispatch_ui.side_effect = deliveries.append
-    with patch("apps.orcUi.composition.radio.StreamingRadioResources", return_value=resources), patch(
-        "apps.orcUi.composition.radio.RadioScreen"), patch(
-        "apps.orcUi.composition.radio.RadioBrowserDirectory"), patch(
-        "apps.orcUi.composition.radio.StreamingRadioFavorites"), patch(
-        "apps.orcUi.composition.radio.OrcUiAdsbControl"):
+    with (
+        patch("apps.orcUi.composition.radio.StreamingRadioResources", return_value=resources),
+        patch("apps.orcUi.composition.radio.RadioScreen"),
+        patch("apps.orcUi.composition.radio.RadioBrowserDirectory"),
+        patch("apps.orcUi.composition.radio.StreamingRadioFavorites"),
+        patch("apps.orcUi.composition.radio.OrcUiAdsbControl"),
+    ):
         composition = configure_radio(app, runtime)
         # Complete the composition-owned initial ADS-B observation separately.
         while work:
@@ -42,12 +44,17 @@ def test_button_emits_wired_action(caplog):
 def test_noaa_action_queues_work_and_delivery(action, caplog):
     request, app, runtime, _, work, deliveries = action
     state = RadioProfileState("WX1", 162550000, "NFM", "weather_band", "Weather Band")
-    with patch("apps.orcUi.composition.radio.RadioProfileController") as radio, patch(
-        "apps.orcUi.composition.radio.play_weather_radio", return_value=state) as tune, caplog.at_level("INFO", logger="orc.radio.noaa"):
+    with (
+        patch("apps.orcUi.composition.radio.RadioProfileController") as radio,
+        patch("apps.orcUi.composition.radio.play_weather_radio", return_value=state) as tune,
+        caplog.at_level("INFO", logger="orc.radio.noaa"),
+    ):
         request()
         tune.assert_not_called()
         work.pop(0)()
-        tune.assert_called_once_with(radio.return_value, runtime.radio, cancelled=tune.call_args.kwargs["cancelled"])
+        tune.assert_called_once_with(
+            radio.return_value, runtime.radio, cancelled=tune.call_args.kwargs["cancelled"]
+        )
         assert "NOAA worker started" in caplog.text
         assert "NOAA tuned" in caplog.text
     deliveries.pop(0)()
@@ -57,7 +64,10 @@ def test_noaa_action_queues_work_and_delivery(action, caplog):
 
 def test_unexpected_worker_failure_is_logged_and_delivered(action, caplog):
     request, app, _, _, work, deliveries = action
-    with patch("apps.orcUi.composition.radio.RadioProfileController", side_effect=AttributeError("startup failed")):
+    with patch(
+        "apps.orcUi.composition.radio.RadioProfileController",
+        side_effect=AttributeError("startup failed"),
+    ):
         request()
         work.pop(0)()
     assert "NOAA request failed" in caplog.text
@@ -78,8 +88,10 @@ def test_retirement_drops_queued_noaa_work(action):
 def test_retirement_drops_completed_noaa_status(action):
     request, app, _, resources, work, deliveries = action
     state = RadioProfileState("WX1", 162550000, "NFM", "weather_band", "Weather Band")
-    with patch("apps.orcUi.composition.radio.RadioProfileController"), patch(
-        "apps.orcUi.composition.radio.play_weather_radio", return_value=state):
+    with (
+        patch("apps.orcUi.composition.radio.RadioProfileController"),
+        patch("apps.orcUi.composition.radio.play_weather_radio", return_value=state),
+    ):
         request()
         work.pop(0)()
     resources.closed = True

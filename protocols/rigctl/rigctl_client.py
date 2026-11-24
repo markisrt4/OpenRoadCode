@@ -40,16 +40,12 @@ class RigctlClient:
 
         wire_command = command.rstrip() + "\n"
 
-        with socket.create_connection(
-            (self.host, self.port), timeout=self.timeout
-        ) as sock:
+        with socket.create_connection((self.host, self.port), timeout=self.timeout) as sock:
             sock.settimeout(self.timeout)
             sock.sendall(wire_command.encode("utf-8"))
 
             try:
-                return sock.recv(4096).decode(
-                    "utf-8", errors="replace"
-                ).strip()
+                return sock.recv(4096).decode("utf-8", errors="replace").strip()
             except socket.timeout:
                 return ""
 

@@ -18,9 +18,12 @@ from ui.navigation.route_types import TravelMode
 
 
 OPTIONAL_CAPABILITIES = (
-    RouteAlternativeRequestHandlerIf, RouteRecalculationRequestHandlerIf,
-    RouteTravelModeRequestHandlerIf, RouteVoiceGuidanceRequestHandlerIf,
-    RouteWaypointRequestHandlerIf, RouteSimulationRequestHandlerIf,
+    RouteAlternativeRequestHandlerIf,
+    RouteRecalculationRequestHandlerIf,
+    RouteTravelModeRequestHandlerIf,
+    RouteVoiceGuidanceRequestHandlerIf,
+    RouteWaypointRequestHandlerIf,
+    RouteSimulationRequestHandlerIf,
 )
 
 

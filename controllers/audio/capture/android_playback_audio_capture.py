@@ -8,6 +8,7 @@ The bridge owns MediaProjection and Android permissions. This adapter only
 receives PCM and implements AudioCaptureIf. It cannot start native capture or
 request consent, and it never stores the audio or exposes it to remote clients.
 """
+
 from __future__ import annotations
 
 import ipaddress
@@ -25,8 +26,9 @@ from .audio_capture_if import AudioCaptureIf, AudioSamplesCallback
 class AndroidPlaybackAudioCapture(AudioCaptureIf):
     """Read ORCA v1 mono PCM16 from the local Android playback bridge."""
 
-    def __init__(self, *, url: str = "http://127.0.0.1:8768/stream",
-                 block_size: int = 2048) -> None:
+    def __init__(
+        self, *, url: str = "http://127.0.0.1:8768/stream", block_size: int = 2048
+    ) -> None:
         parsed = urlsplit(url)
         if parsed.scheme != "http" or parsed.username or parsed.password or not parsed.hostname:
             raise ValueError("Android playback requires a local HTTP endpoint")
@@ -62,10 +64,14 @@ class AndroidPlaybackAudioCapture(AudioCaptureIf):
         except HTTPError as exc:
             exc.close()
             if exc.code == 409:
-                raise RuntimeError("Android playback is already in use. Stop the other visualizer or PCM client and retry.") from exc
+                raise RuntimeError(
+                    "Android playback is already in use. Stop the other visualizer or PCM client and retry."
+                ) from exc
             raise RuntimeError(f"Android playback bridge returned HTTP {exc.code}") from exc
         except URLError as exc:
-            raise RuntimeError("Android playback bridge is unavailable. Open Android Bridge, press START PLAYBACK CAPTURE, approve Android consent, then retry START AUDIO.") from exc
+            raise RuntimeError(
+                "Android playback bridge is unavailable. Open Android Bridge, press START PLAYBACK CAPTURE, approve Android consent, then retry START AUDIO."
+            ) from exc
         try:
             header = self._read_exact(response, 12)
             if len(header) != 12:
@@ -83,8 +89,11 @@ class AndroidPlaybackAudioCapture(AudioCaptureIf):
             self._running = True
             self.last_error = None
             self._thread = threading.Thread(
-                target=self._read_loop, args=(response, callback, rate, generation),
-                name="orc-android-playback", daemon=True)
+                target=self._read_loop,
+                args=(response, callback, rate, generation),
+                name="orc-android-playback",
+                daemon=True,
+            )
             self._thread.start()
 
     @staticmethod
@@ -97,8 +106,9 @@ class AndroidPlaybackAudioCapture(AudioCaptureIf):
             pending.extend(chunk)
         return bytes(pending)
 
-    def _read_loop(self, response, callback: AudioSamplesCallback,
-                   rate: int, generation: int) -> None:
+    def _read_loop(
+        self, response, callback: AudioSamplesCallback, rate: int, generation: int
+    ) -> None:
         pending = bytearray()
         byte_count = self.block_size * 2
         try:

@@ -1,6 +1,5 @@
 """Feed navigation telemetry and semantic camera requests to Google Earth."""
 
-
 from common.logging.diagnostics import ComponentLog, diagnostic_action
 import math
 import threading
@@ -10,7 +9,10 @@ from controllers.navigation.earth_geolocation_bridge import EarthGeolocationBrid
 from controllers.navigation.earth_input_camera_controller import EarthInputCameraController
 from controllers.navigation.earth_chase_camera_controller import EarthChaseCameraController
 from messaging.contracts.navigation import (
-    POSITION_STATE_TOPIC, MOTION_STATE_TOPIC, decode_position_state, decode_motion_state,
+    POSITION_STATE_TOPIC,
+    MOTION_STATE_TOPIC,
+    decode_position_state,
+    decode_motion_state,
 )
 from messaging.message_dispatcher import MessageDispatcher
 from messaging.zeromq import ZeroMqSubscriber
@@ -25,7 +27,9 @@ class EarthNavigationController:
         self._bridge = bridge or EarthGeolocationBridge()
         self._camera = camera or EarthInputCameraController()
         self._chase = EarthChaseCameraController(self._camera)
-        self._dispatcher = dispatcher or MessageDispatcher(ZeroMqSubscriber(LOCAL_SUBSCRIBER_ENDPOINT))
+        self._dispatcher = dispatcher or MessageDispatcher(
+            ZeroMqSubscriber(LOCAL_SUBSCRIBER_ENDPOINT)
+        )
         self._dispatcher.register(POSITION_STATE_TOPIC, decode_position_state, self._on_position)
         self._dispatcher.register(MOTION_STATE_TOPIC, decode_motion_state, self._on_motion)
         self._lock = threading.Lock()
@@ -60,7 +64,9 @@ class EarthNavigationController:
     def _on_position(self, message) -> None:
         data = message.data
         with self._lock:
-            self._position = data if data.latitude_rad is not None and data.longitude_rad is not None else None
+            self._position = (
+                data if data.latitude_rad is not None and data.longitude_rad is not None else None
+            )
 
     def _on_motion(self, message) -> None:
         with self._lock:
@@ -84,11 +90,15 @@ class EarthNavigationController:
             self.status = "Earth — location follow paused; use recenter"
             return True
         ok = self._bridge.push_position(
-            math.degrees(position.latitude_rad), math.degrees(position.longitude_rad),
+            math.degrees(position.latitude_rad),
+            math.degrees(position.longitude_rad),
             altitude_m=position.altitude_m,
             accuracy_m=getattr(position, "accuracy_m", None) or 5.0,
-            heading_deg=(math.degrees(motion.course_rad) if motion is not None
-                         and motion.course_rad is not None else None),
+            heading_deg=(
+                math.degrees(motion.course_rad)
+                if motion is not None and motion.course_rad is not None
+                else None
+            ),
             speed_m_s=motion.ground_speed_m_s if motion is not None else None,
         )
         if not ok:
@@ -99,13 +109,18 @@ class EarthNavigationController:
         self._diagnostics.succeeded("delivery")
         self._diagnostics.changed("availability", "ready")
         registrations = self._bridge.registration_count()
-        self._tracking = self._location_requested and registrations is not None and registrations > 0
+        self._tracking = (
+            self._location_requested and registrations is not None and registrations > 0
+        )
         now = time.monotonic()
         if not self._tracking and now >= self._next_tracking_attempt:
             self._location_requested = self._camera.activate_location_tracking()
             self._next_tracking_attempt = now + 5.0
-        self.status = ("Earth — ORC GPS delivered" if self._tracking else
-                       "Earth — GPS delivered; waiting for Earth's location control")
+        self.status = (
+            "Earth — ORC GPS delivered"
+            if self._tracking
+            else "Earth — GPS delivered; waiting for Earth's location control"
+        )
         self._diagnostics.changed("tracking", self._tracking)
         return self._tracking
 
@@ -126,8 +141,11 @@ class EarthNavigationController:
     def request_center_on(self, position) -> None:
         self._follow = False
         self._bridge.install()
-        self._bridge.push_position(math.degrees(position.latitude_rad),
-                                   math.degrees(position.longitude_rad), altitude_m=position.altitude_m)
+        self._bridge.push_position(
+            math.degrees(position.latitude_rad),
+            math.degrees(position.longitude_rad),
+            altitude_m=position.altitude_m,
+        )
         self._camera.activate_location_tracking()
 
     @diagnostic_action("pan")

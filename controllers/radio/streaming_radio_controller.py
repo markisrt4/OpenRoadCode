@@ -9,7 +9,7 @@ import threading
 from ui.radio.streaming_radio_state import StreamingRadioPlaybackState
 
 from controllers.audio.streaming_audio_player_if import StreamingAudioPlayerIf
-from ui.radio.streaming_radio_types import (StreamingRadioStation)
+from ui.radio.streaming_radio_types import StreamingRadioStation
 
 
 class StreamingRadioController:
@@ -45,7 +45,8 @@ class StreamingRadioController:
             return self._snapshot
         try:
             self._snapshot = StreamingRadioPlaybackState(
-                self._current_station, self._audio_player.is_playing,
+                self._current_station,
+                self._audio_player.is_playing,
             )
             return self._snapshot
         finally:

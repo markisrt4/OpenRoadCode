@@ -25,11 +25,16 @@ def reflectivity_range(index: str, run: str):
                 continue
             records.append((offset, parts))
     if any(offset < 0 for offset, _ in records) or any(
-            records[i][0] >= records[i + 1][0] for i in range(len(records) - 1)):
+        records[i][0] >= records[i + 1][0] for i in range(len(records) - 1)
+    ):
         raise ValueError("NOAA HRRR index contains invalid byte offsets")
-    matches = [i for i, (_, parts) in enumerate(records)
-               if parts[2] == f"d={run}" and parts[3] == "REFC"
-               and parts[4].startswith("entire atmosphere")]
+    matches = [
+        i
+        for i, (_, parts) in enumerate(records)
+        if parts[2] == f"d={run}"
+        and parts[3] == "REFC"
+        and parts[4].startswith("entire atmosphere")
+    ]
     if len(matches) != 1:
         raise ValueError("NOAA HRRR index does not identify one composite-reflectivity field")
     i = matches[0]
@@ -63,8 +68,10 @@ class HrrrRadarProvider(RadarProviderIf):
             for step in range(1, 7):
                 valid = current_hour + step * 3600
                 lead = (valid - run_time) // 3600
-                url = (f"{self.ARCHIVE}/hrrr.{run_date:%Y%m%d}/conus/"
-                       f"hrrr.t{run_date:%H}z.wrfsfcf{lead:02d}.grib2")
+                url = (
+                    f"{self.ARCHIVE}/hrrr.{run_date:%Y%m%d}/conus/"
+                    f"hrrr.t{run_date:%H}z.wrfsfcf{lead:02d}.grib2"
+                )
                 response = self._session.get(url + ".idx", timeout=self._timeout)
                 try:
                     if response.status_code == 404:
@@ -73,12 +80,16 @@ class HrrrRadarProvider(RadarProviderIf):
                     start, end = reflectivity_range(response.text, run)
                 finally:
                     response.close()
-                frames.append(RadarFrame(
-                    timestamp=valid,
-                    tile_url=(f"orc-hrrr://{run}/f{lead:02d}/{{z}}/{{x}}/{{y}}.tiff"
-                              f"?url={quote(url, safe='')}&start={start}&end={'' if end is None else end}"),
-                    max_zoom=9,
-                ))
+                frames.append(
+                    RadarFrame(
+                        timestamp=valid,
+                        tile_url=(
+                            f"orc-hrrr://{run}/f{lead:02d}/{{z}}/{{x}}/{{y}}.tiff"
+                            f"?url={quote(url, safe='')}&start={start}&end={'' if end is None else end}"
+                        ),
+                        max_zoom=9,
+                    )
+                )
             if len(frames) == 6:
                 return tuple(frames)
         raise RuntimeError("NOAA HRRR has no complete recent run for the next six forecast hours")

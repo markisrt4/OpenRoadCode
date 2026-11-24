@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """NOAA retry and cancellation policy executes independently of frontend timers."""
+
 from unittest.mock import Mock
 
 import pytest
@@ -27,9 +28,11 @@ def test_weather_retirement_stops_retries(monkeypatch):
     radio.catalog.profile.return_value.presets = (Mock(),)
     radio.tune_preset.side_effect = RuntimeError("not ready")
     retired = False
+
     def retire(_delay):
         nonlocal retired
         retired = True
+
     monkeypatch.setattr("controllers.radio.weather_radio.sleep", retire)
     assert play_weather_radio(radio, application, cancelled=lambda: retired) is None
     radio.tune_preset.assert_called_once()

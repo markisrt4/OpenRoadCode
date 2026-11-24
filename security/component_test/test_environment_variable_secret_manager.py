@@ -114,7 +114,7 @@ class EnvironmentVariableSecretManagerTest(unittest.TestCase):
             secrets_file = Path(directory) / "secrets.env"
             with patch.dict("os.environ", {}, clear=True):
                 manager = EnvironmentVariableSecretManager(secrets_file=secrets_file)
-                value = "client id with spaces and an apostrophe: it\'s-safe"
+                value = "client id with spaces and an apostrophe: it's-safe"
                 manager.set_secret("SPECIAL_SECRET", value)
 
                 reloaded = EnvironmentVariableSecretManager(secrets_file=secrets_file)

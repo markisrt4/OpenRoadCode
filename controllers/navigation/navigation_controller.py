@@ -52,9 +52,7 @@ class NavigationController(NavigationControllerIf):
         self._orientation_estimator = (
             orientation_estimator
             if orientation_estimator is not None
-            else ComplementaryOrientationEstimator(
-                filter_time_constant_s=filter_time_constant_s
-            )
+            else ComplementaryOrientationEstimator(filter_time_constant_s=filter_time_constant_s)
         )
         self._monotonic_clock = monotonic_clock
         self._wall_clock = wall_clock
@@ -110,7 +108,9 @@ class NavigationController(NavigationControllerIf):
                 # Inertial sensing improves the navigation solution, but GPS,
                 # routing, and command handling remain useful without it.
                 self._motion_status = f"IMU unavailable: {error}"
-                self._next_motion_retry_time = self._monotonic_clock() + self._motion_retry_interval_s
+                self._next_motion_retry_time = (
+                    self._monotonic_clock() + self._motion_retry_interval_s
+                )
                 try:
                     self._sensor.disconnect()
                 except Exception:
@@ -175,9 +175,7 @@ class NavigationController(NavigationControllerIf):
 
         for index in range(sample_count):
             motion = self._sensor.read_motion()
-            acceleration_sum = self._add_vectors(
-                acceleration_sum, motion.acceleration_mps2
-            )
+            acceleration_sum = self._add_vectors(acceleration_sum, motion.acceleration_mps2)
             angular_velocity_sum = self._add_vectors(
                 angular_velocity_sum, motion.angular_velocity_rad_s
             )
@@ -185,9 +183,7 @@ class NavigationController(NavigationControllerIf):
                 self._sleeper(sample_interval_s)
 
         average_acceleration = self._divide_vector(acceleration_sum, sample_count)
-        average_angular_velocity = self._divide_vector(
-            angular_velocity_sum, sample_count
-        )
+        average_angular_velocity = self._divide_vector(angular_velocity_sum, sample_count)
         acceleration_magnitude = self._vector_magnitude(average_acceleration)
         if acceleration_magnitude <= 1e-9:
             raise RuntimeError("stationary calibration measured no gravity vector")
@@ -197,9 +193,7 @@ class NavigationController(NavigationControllerIf):
             self.STANDARD_GRAVITY_MPS2 / acceleration_magnitude,
         )
         calibration = MotionCalibration(
-            acceleration_bias_mps2=self._subtract_vectors(
-                average_acceleration, expected_gravity
-            ),
+            acceleration_bias_mps2=self._subtract_vectors(average_acceleration, expected_gravity),
             angular_velocity_bias_rad_s=average_angular_velocity,
             sample_count=sample_count,
         )
@@ -217,10 +211,7 @@ class NavigationController(NavigationControllerIf):
         """Accept the latest normalized geographic position update."""
         with self._state_lock:
             self._position_state = position_state
-            if (
-                position_state.speed_mps is not None
-                or position_state.course_deg is not None
-            ):
+            if position_state.speed_mps is not None or position_state.course_deg is not None:
                 self._ground_motion_state = GroundMotionState(
                     received_at=position_state.received_at,
                     speed_mps=position_state.speed_mps,
@@ -297,7 +288,6 @@ class NavigationController(NavigationControllerIf):
             position=position_state,
             ground_motion=ground_motion_state,
         )
-
 
     def _retry_motion_source(self, sample_time: float) -> None:
         """Retry an unavailable inertial source without restarting navigation."""

@@ -44,8 +44,10 @@ class SimulatedVehicleStateSource(VehicleStateSourceIf):
             barometric_pressure_pa=baro_pa,
             boost_pressure_pa=map_pa - baro_pa,
             mass_air_flow_kg_s=(3.0 + 28.0 * load) / 1000.0,
-            coolant_temperature_k=(188.0 + 8.0 * math.sin(self._phase * 0.25) - 32.0) * 5.0 / 9.0 + 273.15,
-            intake_air_temperature_k=(72.0 + 6.0 * math.sin(self._phase * 0.4) - 32.0) * 5.0 / 9.0 + 273.15,
+            coolant_temperature_k=(188.0 + 8.0 * math.sin(self._phase * 0.25) - 32.0) * 5.0 / 9.0
+            + 273.15,
+            intake_air_temperature_k=(72.0 + 6.0 * math.sin(self._phase * 0.4) - 32.0) * 5.0 / 9.0
+            + 273.15,
             fuel_level=max(0.0, 78.0 - self._phase * 0.03) / 100.0,
             control_voltage_v=13.8 + 0.2 * math.sin(self._phase * 0.5),
         )

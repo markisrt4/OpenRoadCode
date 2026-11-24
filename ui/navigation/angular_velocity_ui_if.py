@@ -5,6 +5,7 @@
 
 from abc import ABC, abstractmethod
 
+
 class AngularVelocityUiIf(ABC):
     """Display angular velocity about the vehicle's three axes.
 

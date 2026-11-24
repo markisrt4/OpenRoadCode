@@ -29,7 +29,9 @@ class RouteWeather:
     condition: str
 
 
-def sample_route(route: RouteResult, departure: datetime, progress: float = 0) -> tuple[RouteCheckpoint, ...]:
+def sample_route(
+    route: RouteResult, departure: datetime, progress: float = 0
+) -> tuple[RouteCheckpoint, ...]:
     """Sample up to six remaining checkpoints using maneuver travel times.
 
     Progress is a fraction of total route distance. Arrival times are estimates
@@ -40,8 +42,12 @@ def sample_route(route: RouteResult, departure: datetime, progress: float = 0) -
     distances = [0.0]
     for a, b in zip(route.shape, route.shape[1:]):
         lat1, lat2 = math.radians(a.latitude), math.radians(b.latitude)
-        angle = (math.sin((lat2 - lat1) / 2) ** 2 + math.cos(lat1) * math.cos(lat2)
-                 * math.sin(math.radians(b.longitude - a.longitude) / 2) ** 2)
+        angle = (
+            math.sin((lat2 - lat1) / 2) ** 2
+            + math.cos(lat1)
+            * math.cos(lat2)
+            * math.sin(math.radians(b.longitude - a.longitude) / 2) ** 2
+        )
         distances.append(distances[-1] + 6371000 * 2 * math.asin(math.sqrt(min(1, angle))))
     total = distances[-1]
     if not total:
@@ -55,8 +61,12 @@ def sample_route(route: RouteResult, departure: datetime, progress: float = 0) -
     elapsed = 0.0
     for maneuver in maneuvers:
         begin, finish = maneuver.begin_shape_index, maneuver.end_shape_index
-        if (begin != end or not begin <= finish < len(distances)
-                or not math.isfinite(maneuver.duration_seconds) or maneuver.duration_seconds < 0):
+        if (
+            begin != end
+            or not begin <= finish < len(distances)
+            or not math.isfinite(maneuver.duration_seconds)
+            or maneuver.duration_seconds < 0
+        ):
             valid = False
             break
         length = distances[finish] - distances[begin]
@@ -71,13 +81,17 @@ def sample_route(route: RouteResult, departure: datetime, progress: float = 0) -
         times = [value * route.duration_seconds / elapsed for value in times]
 
     def interpolate(distance):
-        index = next((i for i in range(1, len(distances)) if distances[i] >= distance), len(distances) - 1)
-        start, finish = route.shape[index - 1:index + 1]
+        index = next(
+            (i for i in range(1, len(distances)) if distances[i] >= distance), len(distances) - 1
+        )
+        start, finish = route.shape[index - 1 : index + 1]
         span = distances[index] - distances[index - 1]
         ratio = (distance - distances[index - 1]) / span if span else 0
         delta_lon = (finish.longitude - start.longitude + 180) % 360 - 180
-        point = GeoPoint(start.latitude + ratio * (finish.latitude - start.latitude),
-                         (start.longitude + ratio * delta_lon + 180) % 360 - 180)
+        point = GeoPoint(
+            start.latitude + ratio * (finish.latitude - start.latitude),
+            (start.longitude + ratio * delta_lon + 180) % 360 - 180,
+        )
         return point, times[index - 1] + ratio * (times[index] - times[index - 1])
 
     progress = max(0, min(1, progress))
@@ -88,8 +102,13 @@ def sample_route(route: RouteResult, departure: datetime, progress: float = 0) -
     for index in range(count):
         distance = start_distance + (total - start_distance) * index / (count - 1)
         point, seconds = interpolate(distance)
-        result.append(RouteCheckpoint(point, departure + timedelta(seconds=seconds - start_time),
-                                      distance - start_distance))
+        result.append(
+            RouteCheckpoint(
+                point,
+                departure + timedelta(seconds=seconds - start_time),
+                distance - start_distance,
+            )
+        )
     return tuple(result)
 
 
@@ -106,13 +125,20 @@ class RouteWeatherProvider:
     def forecast(self, checkpoints: tuple[RouteCheckpoint, ...]) -> tuple[RouteWeather, ...]:
         if not checkpoints:
             return ()
-        response = self._session.get(OpenMeteoWeatherProvider.URL, params={
-            "latitude": ",".join(str(c.point.latitude) for c in checkpoints),
-            "longitude": ",".join(str(c.point.longitude) for c in checkpoints),
-            "hourly": "temperature_2m,precipitation_probability,wind_speed_10m,weather_code",
-            "timezone": "UTC", "timeformat": "unixtime", "forecast_days": 7,
-            "temperature_unit": "celsius", "wind_speed_unit": "kmh",
-        }, timeout=15)
+        response = self._session.get(
+            OpenMeteoWeatherProvider.URL,
+            params={
+                "latitude": ",".join(str(c.point.latitude) for c in checkpoints),
+                "longitude": ",".join(str(c.point.longitude) for c in checkpoints),
+                "hourly": "temperature_2m,precipitation_probability,wind_speed_10m,weather_code",
+                "timezone": "UTC",
+                "timeformat": "unixtime",
+                "forecast_days": 7,
+                "temperature_unit": "celsius",
+                "wind_speed_unit": "kmh",
+            },
+            timeout=15,
+        )
         response.raise_for_status()
         payload = response.json()
         locations = payload if isinstance(payload, list) else [payload]
@@ -132,11 +158,22 @@ class RouteWeatherProvider:
             def value(key, low, high):
                 values = hourly.get(key, [])
                 item = values[index] if index < len(values) else None
-                return item if isinstance(item, (float, int)) and math.isfinite(item) and low <= item <= high else None
+                return (
+                    item
+                    if isinstance(item, (float, int))
+                    and math.isfinite(item)
+                    and low <= item <= high
+                    else None
+                )
 
             code = value("weather_code", 0, 99)
-            results.append(RouteWeather(checkpoint, value("temperature_2m", -100, 70),
-                                        value("precipitation_probability", 0, 100),
-                                        value("wind_speed_10m", 0, 500),
-                                        OpenMeteoWeatherProvider._condition(code).value.replace("_", " ")))
+            results.append(
+                RouteWeather(
+                    checkpoint,
+                    value("temperature_2m", -100, 70),
+                    value("precipitation_probability", 0, 100),
+                    value("wind_speed_10m", 0, 500),
+                    OpenMeteoWeatherProvider._condition(code).value.replace("_", " "),
+                )
+            )
         return tuple(results)

@@ -64,9 +64,7 @@ class SimulatedGroundMotionSource(GroundMotionSourceIf):
                 speed_mps = self._speed_mps + 1.5 * math.sin(phase)
                 course_deg = (self._course_deg + 8.0 * math.sin(phase * 0.5)) % 360.0
             else:
-                raise ValueError(
-                    f"unsupported simulated ground-motion profile: {self._profile}"
-                )
+                raise ValueError(f"unsupported simulated ground-motion profile: {self._profile}")
 
             callback(
                 GroundMotionState(

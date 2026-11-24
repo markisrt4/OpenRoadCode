@@ -47,7 +47,9 @@ from ui.navigation.map_controls_drawer_ui import (
     MapControlsDrawerUiIf,
 )
 from ui.navigation.navigation_places_request_handler_if import (
-    MapFavorite, NavigationPlacesFactoryIf, NavigationPlacesRequestHandlerIf,
+    MapFavorite,
+    NavigationPlacesFactoryIf,
+    NavigationPlacesRequestHandlerIf,
 )
 
 from ui.navigation.route_waypoint_request_handler_if import RouteWaypointRequestHandlerIf

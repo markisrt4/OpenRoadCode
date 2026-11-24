@@ -37,7 +37,9 @@ class ExternalWindowManagerTest(unittest.TestCase):
 
     @patch("apps.launchers.external_window_manager.shutil.which", return_value="/usr/bin/tool")
     @patch("apps.launchers.external_window_manager.time.sleep")
-    def test_fit_removes_window_states_and_applies_geometry(self, _sleep: Mock, _which: Mock) -> None:
+    def test_fit_removes_window_states_and_applies_geometry(
+        self, _sleep: Mock, _which: Mock
+    ) -> None:
         manager = ExternalWindowManager()
         with (
             patch.object(manager, "wait_for_window_id", return_value="0x789"),
@@ -63,7 +65,9 @@ class ExternalWindowManagerTest(unittest.TestCase):
             Mock(stdout="0x00100001 0 xfce4-terminal.Xfce4-terminal host Terminal\n"),
             Mock(stdout="_NET_CLIENT_LIST(WINDOW): window id # 0x100001, 0x200004\n"),
             Mock(stdout='WM_CLASS(STRING) = "xfce4-terminal", "Xfce4-terminal"\n'),
-            Mock(stdout='WM_CLASS(STRING) = "earth.google.com__web_search", "openroadcode-google-earth"\n'),
+            Mock(
+                stdout='WM_CLASS(STRING) = "earth.google.com__web_search", "openroadcode-google-earth"\n'
+            ),
         ]
 
         with patch("apps.launchers.external_window_manager.subprocess.run", side_effect=responses):

@@ -119,13 +119,8 @@ class MusicReactiveLighting:
 
         if previous is None or derived.color != previous.color:
             commands.append(self._controller.set_color(derived.color))
-        if (
-            previous is None
-            or derived.brightness_percent != previous.brightness_percent
-        ):
-            commands.append(
-                self._controller.set_brightness(derived.brightness_percent)
-            )
+        if previous is None or derived.brightness_percent != previous.brightness_percent:
+            commands.append(self._controller.set_brightness(derived.brightness_percent))
 
         operation_id = current_operation()
         for command in commands:

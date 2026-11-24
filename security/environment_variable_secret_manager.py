@@ -54,9 +54,7 @@ class EnvironmentVariableSecretManager(SecretManagerIf):
     ) -> None:
         if environment is None:
             resolved_secrets_file = (
-                resolve_default_secrets_file()
-                if secrets_file is None
-                else Path(secrets_file)
+                resolve_default_secrets_file() if secrets_file is None else Path(secrets_file)
             )
             self._secrets_file = resolved_secrets_file
             loaded_environment = self._load_file(resolved_secrets_file)
@@ -139,10 +137,7 @@ class EnvironmentVariableSecretManager(SecretManagerIf):
             name, separator, value = line.partition("=")
             name = name.strip()
             if not separator or not name.isidentifier():
-                raise ValueError(
-                    f"Invalid secret assignment in {path} "
-                    f"at line {line_number}"
-                )
+                raise ValueError(f"Invalid secret assignment in {path} at line {line_number}")
             value = value.strip()
             if len(value) >= 2 and value[0] == value[-1] == '"':
                 escaped = value[1:-1]

@@ -19,9 +19,7 @@ class UiDispatcherIf(Protocol):
         """
         ...
 
-    def schedule_ui_callback(
-        self, delay_ms: int, callback: Callable[[], None]
-    ) -> object:
+    def schedule_ui_callback(self, delay_ms: int, callback: Callable[[], None]) -> object:
         """Schedule a timer on the frontend thread and return a cancellation token.
 
         Call this from the frontend thread only. Worker completions use

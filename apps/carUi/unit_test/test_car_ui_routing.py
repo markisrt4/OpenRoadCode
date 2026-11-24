@@ -23,9 +23,7 @@ class CarUiRoutingTest(unittest.TestCase):
     def test_menu_destinations_have_registered_routes(self) -> None:
         router, _opened = self._create_router()
         destinations = {
-            tile.key
-            for page in create_car_ui_menu_pages().values()
-            for tile in page.tiles
+            tile.key for page in create_car_ui_menu_pages().values() for tile in page.tiles
         }
 
         self.assertTrue(all(router.contains(key) for key in destinations))

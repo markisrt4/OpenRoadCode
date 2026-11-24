@@ -25,9 +25,7 @@ class KeyboardInputAdapter:
         input_handler: InputHandlerIf,
     ) -> None:
         if device_id.device_type is not InputDeviceType.KEYBOARD:
-            raise ValueError(
-                "KeyboardInputAdapter requires a KEYBOARD device ID"
-            )
+            raise ValueError("KeyboardInputAdapter requires a KEYBOARD device ID")
 
         self._keyboard = keyboard
         self._device_id = device_id

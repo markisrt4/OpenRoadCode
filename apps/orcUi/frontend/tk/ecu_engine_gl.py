@@ -35,7 +35,7 @@ def point_on_path(points, fraction):
     remaining = max(0.0, min(1.0, fraction)) * sum(lengths)
     for start, end, length in zip(points, points[1:], lengths):
         if length > 0 and remaining <= length:
-            return tuple(a + (b-a)*remaining/length for a, b in zip(start, end))
+            return tuple(a + (b - a) * remaining / length for a, b in zip(start, end))
         remaining -= length
     return points[-1]
 
@@ -109,10 +109,14 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None, on_frame
 
         def _display(self):
             """Coalesce expose, resize, telemetry and animation into one frame."""
-            if (self.failed or not self.context_created or self._render_job is not None
-                    or not self.winfo_ismapped()):
+            if (
+                self.failed
+                or not self.context_created
+                or self._render_job is not None
+                or not self.winfo_ismapped()
+            ):
                 return
-            delay = max(1, math.ceil(50 - (time.monotonic()-self._last_render)*1000))
+            delay = max(1, math.ceil(50 - (time.monotonic() - self._last_render) * 1000))
             self._render_job = self.after(delay, self._render)
 
         def _render(self):
@@ -133,10 +137,18 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None, on_frame
                 self._drawing = False
 
         def update_engine(self, analysis, phase):
-            old_state = None if self.analysis is None else (
-                self.analysis.engine_running, self.analysis.forced_induction_active,
+            old_state = (
+                None
+                if self.analysis is None
+                else (
+                    self.analysis.engine_running,
+                    self.analysis.forced_induction_active,
+                )
             )
-            changed = old_state != (analysis.engine_running, analysis.forced_induction_active) or self.phase != phase
+            changed = (
+                old_state != (analysis.engine_running, analysis.forced_induction_active)
+                or self.phase != phase
+            )
             self.analysis, self.phase = analysis, phase
             if changed:
                 self._display()
@@ -179,7 +191,6 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None, on_frame
                     glu.gluSphere(self.quadric, 1, 10, 6)
                 gl.glEndList()
 
-
         def box(self, center, size, color):
             if self._dynamic_pass:
                 return
@@ -189,12 +200,12 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None, on_frame
             gl.glColor3f(*color)
             gl.glBegin(gl.GL_QUADS)
             for normal, vertices in (
-                ((0, 0, 1), ((-1,-1,1),(1,-1,1),(1,1,1),(-1,1,1))),
-                ((0, 0,-1), ((1,-1,-1),(-1,-1,-1),(-1,1,-1),(1,1,-1))),
-                ((0, 1, 0), ((-1,1,1),(1,1,1),(1,1,-1),(-1,1,-1))),
-                ((0,-1, 0), ((-1,-1,-1),(1,-1,-1),(1,-1,1),(-1,-1,1))),
-                ((1, 0, 0), ((1,-1,1),(1,-1,-1),(1,1,-1),(1,1,1))),
-                ((-1,0, 0), ((-1,-1,-1),(-1,-1,1),(-1,1,1),(-1,1,-1))),
+                ((0, 0, 1), ((-1, -1, 1), (1, -1, 1), (1, 1, 1), (-1, 1, 1))),
+                ((0, 0, -1), ((1, -1, -1), (-1, -1, -1), (-1, 1, -1), (1, 1, -1))),
+                ((0, 1, 0), ((-1, 1, 1), (1, 1, 1), (1, 1, -1), (-1, 1, -1))),
+                ((0, -1, 0), ((-1, -1, -1), (1, -1, -1), (1, -1, 1), (-1, -1, 1))),
+                ((1, 0, 0), ((1, -1, 1), (1, -1, -1), (1, 1, -1), (1, 1, 1))),
+                ((-1, 0, 0), ((-1, -1, -1), (-1, -1, 1), (-1, 1, 1), (-1, 1, -1))),
             ):
                 gl.glNormal3f(*normal)
                 for vertex in vertices:
@@ -205,14 +216,14 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None, on_frame
         def tube(self, start, end, radius, color):
             if self._dynamic_pass != self._moving:
                 return
-            delta = tuple(b-a for a, b in zip(start, end))
-            length = math.sqrt(sum(v*v for v in delta))
+            delta = tuple(b - a for a, b in zip(start, end))
+            length = math.sqrt(sum(v * v for v in delta))
             if length < 1e-6:
                 return
             gl.glPushMatrix()
             gl.glTranslatef(*start)
             if abs(delta[0]) + abs(delta[1]) > 1e-6:
-                gl.glRotatef(math.degrees(math.acos(delta[2]/length)), -delta[1], delta[0], 0)
+                gl.glRotatef(math.degrees(math.acos(delta[2] / length)), -delta[1], delta[0], 0)
             elif delta[2] < 0:
                 gl.glRotatef(180, 1, 0, 0)
             gl.glColor3f(*color)
@@ -235,13 +246,13 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None, on_frame
 
             if flow and self._dynamic_pass and self.analysis and self.analysis.engine_running:
                 self._moving = True
-                highlight = tuple(min(1.0, component*0.5+0.5) for component in color)
+                highlight = tuple(min(1.0, component * 0.5 + 0.5) for component in color)
                 gl.glDisable(gl.GL_LIGHTING)
                 for pulse in range(5):
-                    travel = (self.phase/2 + pulse/5) % 1
+                    travel = (self.phase / 2 + pulse / 5) % 1
                     start = point_on_path(points, travel)
-                    end = point_on_path(points, min(1, travel+0.025))
-                    self.tube(start, end, radius*1.15, highlight)
+                    end = point_on_path(points, min(1, travel + 0.025))
+                    self.tube(start, end, radius * 1.15, highlight)
                 gl.glEnable(gl.GL_LIGHTING)
                 self._moving = False
 
@@ -253,17 +264,19 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None, on_frame
             for step in range(41):
                 angle = step * math.tau / 40
                 radius = 0.30 + 0.09 * step / 40
-                points.append((x + radius*math.cos(angle),
-                               y + radius*math.sin(angle), z))
+                points.append((x + radius * math.cos(angle), y + radius * math.sin(angle), z))
             self.pipe(points, 0.105, color)
-            self.tube((x, y, z-0.16), (x, y, z+0.06), 0.25, (0.14, 0.18, 0.22))
-            self.tube((x, y, z+0.07), (x, y, z+0.10), 0.075, (0.72, 0.77, 0.82))
+            self.tube((x, y, z - 0.16), (x, y, z + 0.06), 0.25, (0.14, 0.18, 0.22))
+            self.tube((x, y, z + 0.07), (x, y, z + 0.10), 0.075, (0.72, 0.77, 0.82))
             self._moving = True
             for blade in range(8):
-                angle = phase + blade*math.tau/8
-                self.tube((x+0.075*math.cos(angle), y+0.075*math.sin(angle), z+0.09),
-                          (x+0.22*math.cos(angle+0.3), y+0.22*math.sin(angle+0.3), z+0.09),
-                          0.025, (0.72, 0.77, 0.82))
+                angle = phase + blade * math.tau / 8
+                self.tube(
+                    (x + 0.075 * math.cos(angle), y + 0.075 * math.sin(angle), z + 0.09),
+                    (x + 0.22 * math.cos(angle + 0.3), y + 0.22 * math.sin(angle + 0.3), z + 0.09),
+                    0.025,
+                    (0.72, 0.77, 0.82),
+                )
 
             self._moving = False
 
@@ -275,7 +288,7 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None, on_frame
             gl.glLoadIdentity()
             aspect = w / h
             extent = max(2.65, 2.40 / aspect)
-            gl.glOrtho(-extent*aspect, extent*aspect, -extent, extent, 0.1, 30)
+            gl.glOrtho(-extent * aspect, extent * aspect, -extent, extent, 0.1, 30)
             gl.glMatrixMode(gl.GL_MODELVIEW)
             gl.glLoadIdentity()
             glu.gluLookAt(1.8, 2.4, 7.5, 0.20, 0.90, 0, 0, 1, 0)
@@ -314,10 +327,10 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None, on_frame
                 self._moving = True
                 piston_y, pin_y, pin_z = piston_position(self.phase, i)
                 self.tube((x, pin_y, pin_z), (x, piston_y, 0), 0.045, metal)
-                self.tube((x-0.12, pin_y, pin_z), (x+0.12, pin_y, pin_z), 0.08, metal)
-                self.tube((x, piston_y-0.13, 0), (x, piston_y+0.13, 0), 0.23, metal)
-                for y in (piston_y+0.05, piston_y+0.10):
-                    self.tube((x, y, 0), (x, y+0.02, 0), 0.235, dark)
+                self.tube((x - 0.12, pin_y, pin_z), (x + 0.12, pin_y, pin_z), 0.08, metal)
+                self.tube((x, piston_y - 0.13, 0), (x, piston_y + 0.13, 0), 0.23, metal)
+                for y in (piston_y + 0.05, piston_y + 0.10):
+                    self.tube((x, y, 0), (x, y + 0.02, 0), 0.235, dark)
                 # Firing order 1-3-4-2, one flash per 720-degree cycle.
                 firing = (0, 0.75, 0.25, 0.5)[i]
                 cycle = (self.phase / 2 - firing) % 1
@@ -325,75 +338,127 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None, on_frame
                     # A brief white/blue spark at the plug precedes the orange flame.
                     gl.glDisable(gl.GL_LIGHTING)
                     for dx, dy in ((-0.11, 0), (0.11, 0), (0, -0.09), (0, 0.09)):
-                        self.tube((x, 1.34, 0.86), (x+dx, 1.34+dy, 0.86),
-                                  0.015, (0.78, 0.91, 1.0))
+                        self.tube(
+                            (x, 1.34, 0.86), (x + dx, 1.34 + dy, 0.86), 0.015, (0.78, 0.91, 1.0)
+                        )
                     gl.glEnable(gl.GL_LIGHTING)
                 if running and 0.02 <= cycle < 0.12:
                     self.tube((x, 1.22, 0), (x, 1.36, 0), 0.19, (1, 0.45, 0.08))
                 self._moving = False
                 self.tube((x, 1.90, 0.3), (x, 1.60, 0.3), 0.035, gold)
                 self.tube((x, 1.48, -0.25), (x, 2.03, -0.42), 0.07, blue)
-                self.pipe(((x, 1.42, 0.25), (x, 1.18, 0.72),
-                           (x+0.15, 0.98, 0.72), (1.60, 0.98, 0.72)), 0.075, red)
+                self.pipe(
+                    ((x, 1.42, 0.25), (x, 1.18, 0.72), (x + 0.15, 0.98, 0.72), (1.60, 0.98, 0.72)),
+                    0.075,
+                    red,
+                )
             self.tube((-1.3, 1.93, 0.3), (1.3, 1.93, 0.3), 0.045, gold)
             self.tube((-1.3, 2.03, -0.42), (1.3, 2.03, -0.42), 0.13, blue)
             # Distinct compressor and hot-side turbine share a horizontal shaft.
             # Place the larger turbo above the head, clear of the piston cutaway.
             turbo_x, turbo_y = 0.72, 2.68
-            rotor_phase = self.phase*math.tau*(3 if boosted else 1 if running else 0)
-            self.turbo_housing((turbo_x, turbo_y, 0.22),
-                               (0.20, 0.88, 0.42) if boosted else metal, rotor_phase)
+            rotor_phase = self.phase * math.tau * (3 if boosted else 1 if running else 0)
+            self.turbo_housing(
+                (turbo_x, turbo_y, 0.22), (0.20, 0.88, 0.42) if boosted else metal, rotor_phase
+            )
             self.turbo_housing((turbo_x, turbo_y, -0.35), red, rotor_phase)
             self.tube((turbo_x, turbo_y, -0.35), (turbo_x, turbo_y, 0.22), 0.08, metal)
             # Filtered air enters the compressor through a front-facing inlet.
             # A pleated filter on the left makes the fresh-air path recognizable.
-            self.pipe(((-1.48, 2.65, 0.48), (-1.08, 2.65, 0.48),
-                       (-0.92, 3.30, 0.48), (0.72, 3.30, 0.48),
-                       (0.72, 3.02, 0.48), (0.72, 2.68, 0.34)), 0.10, blue, flow=True)
+            self.pipe(
+                (
+                    (-1.48, 2.65, 0.48),
+                    (-1.08, 2.65, 0.48),
+                    (-0.92, 3.30, 0.48),
+                    (0.72, 3.30, 0.48),
+                    (0.72, 3.02, 0.48),
+                    (0.72, 2.68, 0.34),
+                ),
+                0.10,
+                blue,
+                flow=True,
+            )
             self.tube((-1.98, 2.65, 0.48), (-1.48, 2.65, 0.48), 0.22, dark)
             for rib in range(9):
-                x = -1.96 + rib*0.057
-                self.tube((x, 2.65, 0.48), (x+0.023, 2.65, 0.48),
-                          0.235, (0.64, 0.68, 0.71))
+                x = -1.96 + rib * 0.057
+                self.tube((x, 2.65, 0.48), (x + 0.023, 2.65, 0.48), 0.235, (0.64, 0.68, 0.71))
             for x in (-1.98, -1.51):
-                self.tube((x, 2.65, 0.48), (x+0.03, 2.65, 0.48), 0.25, dark)
+                self.tube((x, 2.65, 0.48), (x + 0.03, 2.65, 0.48), 0.25, dark)
             # Charge pipe runs down the intake side to a finned intercooler.
             # The return pipe joins the intake plenum through a throttle body.
-            self.pipe(((1.11, 2.68, 0.22), (1.11, 2.35, 0.22),
-                       (-1.73, 2.35, -0.38), (-1.88, 1.95, -0.38),
-                       (-1.88, -0.58, -0.38), (-1.05, -0.58, -0.38)), 0.10, blue, flow=True)
+            self.pipe(
+                (
+                    (1.11, 2.68, 0.22),
+                    (1.11, 2.35, 0.22),
+                    (-1.73, 2.35, -0.38),
+                    (-1.88, 1.95, -0.38),
+                    (-1.88, -0.58, -0.38),
+                    (-1.05, -0.58, -0.38),
+                ),
+                0.10,
+                blue,
+                flow=True,
+            )
             self.box((0, -0.58, -0.38), (2.10, 0.38, 0.28), dark)
             for fin in range(22):
-                self.box((-1.0+fin*0.095, -0.58, -0.21),
-                         (0.035, 0.32, 0.06), metal)
+                self.box((-1.0 + fin * 0.095, -0.58, -0.21), (0.035, 0.32, 0.06), metal)
             for y in (-0.77, -0.39):
                 self.box((0, y, -0.38), (2.12, 0.035, 0.30), metal)
-            self.pipe(((1.05, -0.58, -0.38), (1.58, -0.58, -0.38),
-                       (1.58, 1.86, -0.38), (1.30, 2.03, -0.42)), 0.10, blue, flow=True)
+            self.pipe(
+                (
+                    (1.05, -0.58, -0.38),
+                    (1.58, -0.58, -0.38),
+                    (1.58, 1.86, -0.38),
+                    (1.30, 2.03, -0.42),
+                ),
+                0.10,
+                blue,
+                flow=True,
+            )
             self.tube((1.58, 1.64, -0.38), (1.58, 1.87, -0.38), 0.15, metal)
-            self.pipe(((1.60, 0.98, 0.72), (1.78, 1.28, 0.65),
-                       (1.78, 2.40, -0.35), (1.11, 2.68, -0.35)), 0.095, red, flow=True)
+            self.pipe(
+                ((1.60, 0.98, 0.72), (1.78, 1.28, 0.65), (1.78, 2.40, -0.35), (1.11, 2.68, -0.35)),
+                0.095,
+                red,
+                flow=True,
+            )
             # Turbine outlet/downpipe stays outside the block and crankshaft.
-            self.pipe(((0.72, 2.68, -0.58), (1.98, 2.68, -0.58),
-                       (1.98, 0.28, 0.15)), 0.10, red, flow=True)
+            self.pipe(
+                ((0.72, 2.68, -0.58), (1.98, 2.68, -0.58), (1.98, 0.28, 0.15)), 0.10, red, flow=True
+            )
             # Bulged catalyst, then a separate muffler and open tailpipe below.
             self.tube((1.98, 0.28, 0.15), (1.98, -0.26, 0.15), 0.19, metal)
             for y in (0.22, -0.20):
-                self.tube((1.98, y, 0.15), (1.98, y-0.025, 0.15), 0.205, dark)
-            self.pipe(((1.98, -0.26, 0.15), (1.98, -0.66, 0.15),
-                       (1.65, -0.87, 0.15), (0.78, -0.87, 0.15)), 0.095, red, flow=True)
+                self.tube((1.98, y, 0.15), (1.98, y - 0.025, 0.15), 0.205, dark)
+            self.pipe(
+                (
+                    (1.98, -0.26, 0.15),
+                    (1.98, -0.66, 0.15),
+                    (1.65, -0.87, 0.15),
+                    (0.78, -0.87, 0.15),
+                ),
+                0.095,
+                red,
+                flow=True,
+            )
             self.tube((0.78, -0.87, 0.15), (-0.42, -0.87, 0.15), 0.22, metal)
             self.tube((0.78, -0.87, 0.15), (0.72, -0.87, 0.15), 0.23, dark)
             self.tube((-0.36, -0.87, 0.15), (-0.42, -0.87, 0.15), 0.23, dark)
-            self.pipe(((-0.42, -0.87, 0.15), (-1.40, -0.87, 0.15),
-                       (-1.68, -0.87, 0.55)), 0.09, metal, flow=True)
+            self.pipe(
+                ((-0.42, -0.87, 0.15), (-1.40, -0.87, 0.15), (-1.68, -0.87, 0.55)),
+                0.09,
+                metal,
+                flow=True,
+            )
             self.tube((-1.68, -0.87, 0.55), (-1.68, -0.87, 0.58), 0.066, dark)
             # Flywheel on the end of the crank.
             self.tube((-1.65, 0, 0), (-1.52, 0, 0), 0.33, dark)
             self._moving = True
             for spoke in range(4):
-                a = self.phase*math.tau + spoke*math.tau/4
-                self.tube((-1.67, 0, 0), (-1.67, 0.27*math.cos(a), 0.27*math.sin(a)), 0.025, metal)
+                a = self.phase * math.tau + spoke * math.tau / 4
+                self.tube(
+                    (-1.67, 0, 0), (-1.67, 0.27 * math.cos(a), 0.27 * math.sin(a)), 0.025, metal
+                )
 
             self._moving = False
 

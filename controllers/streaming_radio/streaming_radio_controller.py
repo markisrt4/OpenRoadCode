@@ -14,7 +14,9 @@ from .streaming_station import StreamingStation
 class StreamingStationProviderIf(Protocol):
     """Discover stations without coupling the controller to one directory."""
 
-    def stations_near(self, *, state: str, country: str = "United States") -> Sequence[StreamingStation]: ...
+    def stations_near(
+        self, *, state: str, country: str = "United States"
+    ) -> Sequence[StreamingStation]: ...
 
 
 class StreamingAudioPlayerIf(Protocol):
@@ -27,7 +29,9 @@ class StreamingAudioPlayerIf(Protocol):
 class StreamingRadioController:
     """Discover and play internet stations while keeping UI code provider-free."""
 
-    def __init__(self, provider: StreamingStationProviderIf, player: StreamingAudioPlayerIf) -> None:
+    def __init__(
+        self, provider: StreamingStationProviderIf, player: StreamingAudioPlayerIf
+    ) -> None:
         self._provider = provider
         self._player = player
         self._stations: tuple[StreamingStation, ...] = ()
@@ -41,7 +45,9 @@ class StreamingRadioController:
     def current_station(self) -> StreamingStation | None:
         return self._current_station
 
-    def refresh_region(self, *, state: str, country: str = "United States") -> tuple[StreamingStation, ...]:
+    def refresh_region(
+        self, *, state: str, country: str = "United States"
+    ) -> tuple[StreamingStation, ...]:
         stations = self._provider.stations_near(state=state, country=country)
         self._stations = tuple(stations)
         return self._stations
@@ -58,5 +64,9 @@ class StreamingRadioController:
 
 def default_image_cache_dir() -> Path:
     """Return the XDG cache location reserved for station artwork."""
-    root = Path.home() / ".cache" if not (xdg := __import__("os").environ.get("XDG_CACHE_HOME")) else Path(xdg)
+    root = (
+        Path.home() / ".cache"
+        if not (xdg := __import__("os").environ.get("XDG_CACHE_HOME"))
+        else Path(xdg)
+    )
     return root / "openroadcode" / "streaming_radio" / "images"

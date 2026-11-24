@@ -42,7 +42,7 @@ def decode_attitude_state(payload: Mapping[str, Any]) -> AttitudeStateMessage:
         version=payload["version"],
         timestamp=decode_timestamp(payload["timestamp"]),
         source=payload["source"],
-        data=AttitudeStateData(**{
-            name: data[name] for name in AttitudeStateData.__dataclass_fields__
-        }),
+        data=AttitudeStateData(
+            **{name: data[name] for name in AttitudeStateData.__dataclass_fields__}
+        ),
     )

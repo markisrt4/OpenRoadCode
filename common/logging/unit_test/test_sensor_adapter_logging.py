@@ -19,7 +19,9 @@ from hardware_io.imu.mpu6050_imu import Mpu6050Imu
 @pytest.mark.parametrize("kind", ["bmp", "imu"])
 def test_i2c_start_failure_recovery_and_polling_are_private(caplog, kind):
     caplog.set_level(logging.DEBUG)
-    sensor = SimpleNamespace(pressure=1013.25, temperature=20, acceleration=(1, 2, 3), gyro=(1, 2, 3))
+    sensor = SimpleNamespace(
+        pressure=1013.25, temperature=20, acceleration=(1, 2, 3), gyro=(1, 2, 3)
+    )
     constructor = Mock(side_effect=[OSError(PRIVATE), OSError(PRIVATE), sensor])
     if kind == "bmp":
         module, driver = "adafruit_bmp3xx", SimpleNamespace(BMP3XX_I2C=constructor)
@@ -41,7 +43,10 @@ def test_i2c_start_failure_recovery_and_polling_are_private(caplog, kind):
     assert len([r for r in emitted if r["event"] == "sensor.failed"]) == 1
     assert len([r for r in emitted if r["event"] == "sensor.recovered"]) == 1
     assert all(r["operation_id"] == "i2c-session" for r in emitted)
-    assert [r["state"] for r in emitted if r["event"] == "sensor.state_changed"] == ["started", "stopped"]
+    assert [r["state"] for r in emitted if r["event"] == "sensor.state_changed"] == [
+        "started",
+        "stopped",
+    ]
 
 
 def gps_adapter():
@@ -78,8 +83,10 @@ def test_gps_thread_carries_start_operation(caplog):
     caplog.set_level(logging.DEBUG)
     module = gps_adapter()
     reader = module.GpsReader(Mock(), host=PRIVATE)
-    with patch.object(module, "_Python3GpsSession", return_value=[]), \
-         patch.object(module.threading, "Thread") as thread:
+    with (
+        patch.object(module, "_Python3GpsSession", return_value=[]),
+        patch.object(module.threading, "Thread") as thread,
+    ):
         with operation("gps-start"):
             reader.start()
         target = thread.call_args.kwargs["target"]

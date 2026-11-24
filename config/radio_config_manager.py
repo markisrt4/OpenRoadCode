@@ -12,6 +12,7 @@ from typing import Any, Optional
 @dataclass(frozen=True)
 class RadioModeConfig:
     """Describe a demodulation mode loaded from radio configuration."""
+
     name: str
     bandwidth: int
     step_hz: int
@@ -20,6 +21,7 @@ class RadioModeConfig:
 @dataclass(frozen=True)
 class RadioRangeConfig:
     """Define the valid and initial frequencies for a configured radio."""
+
     min_frequency_hz: int
     max_frequency_hz: int
     start_frequency_hz: int
@@ -28,6 +30,7 @@ class RadioRangeConfig:
 @dataclass(frozen=True)
 class RadioPresetConfig:
     """Describe a named preset and its demodulation mode."""
+
     label: str
     frequency_hz: int
     mode: RadioModeConfig
@@ -44,6 +47,7 @@ class RadioPresetConfig:
 @dataclass(frozen=True)
 class RadioTileConfig:
     """Define the text displayed by a radio navigation tile."""
+
     label: str
     subtitle: str
     detail: str
@@ -52,6 +56,7 @@ class RadioTileConfig:
 @dataclass(frozen=True)
 class RadioConfig:
     """Contain the complete configuration for one radio profile."""
+
     key: str
     label: str
     description: str
@@ -97,6 +102,7 @@ def _parse_range(data: dict[str, Any] | None) -> RadioRangeConfig | None:
         start_frequency_hz=int(data["start_frequency_hz"]),
     )
 
+
 def _parse_tile(data: dict[str, Any]) -> RadioTileConfig:
     return RadioTileConfig(
         label=str(data["label"]),
@@ -127,10 +133,7 @@ def load_radio_config(path: str | Path) -> RadioConfig:
     raw = _read_json(path)
 
     default_mode = _parse_mode(raw["default_mode"])
-    presets = [
-        _parse_preset(item, default_mode)
-        for item in raw.get("presets", [])
-    ]
+    presets = [_parse_preset(item, default_mode) for item in raw.get("presets", [])]
 
     return RadioConfig(
         key=str(raw["key"]),

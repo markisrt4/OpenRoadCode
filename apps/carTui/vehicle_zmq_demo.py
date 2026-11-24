@@ -106,12 +106,30 @@ def draw(window, endpoint, ui_state) -> None:
 
             if metric:
                 speed_text = fmt(speed, 1, " m/s")
-                boost_text = fmt(None if d.boost_pressure_pa is None else d.boost_pressure_pa * KPA_PER_PA, 1, " kPa")
-                coolant_text = fmt(None if d.coolant_temperature_k is None else d.coolant_temperature_k - 273.15, 1, " C")
-                intake_text = fmt(None if d.intake_air_temperature_k is None else d.intake_air_temperature_k - 273.15, 1, " C")
+                boost_text = fmt(
+                    None if d.boost_pressure_pa is None else d.boost_pressure_pa * KPA_PER_PA,
+                    1,
+                    " kPa",
+                )
+                coolant_text = fmt(
+                    None if d.coolant_temperature_k is None else d.coolant_temperature_k - 273.15,
+                    1,
+                    " C",
+                )
+                intake_text = fmt(
+                    None
+                    if d.intake_air_temperature_k is None
+                    else d.intake_air_temperature_k - 273.15,
+                    1,
+                    " C",
+                )
             else:
                 speed_text = fmt(None if speed is None else speed * MPH_PER_MPS, 1, " mph")
-                boost_text = fmt(None if d.boost_pressure_pa is None else d.boost_pressure_pa * PSI_PER_PA, 1, " psi")
+                boost_text = fmt(
+                    None if d.boost_pressure_pa is None else d.boost_pressure_pa * PSI_PER_PA,
+                    1,
+                    " psi",
+                )
                 coolant_text = fmt(fahrenheit(d.coolant_temperature_k), 1, " F")
                 intake_text = fmt(fahrenheit(d.intake_air_temperature_k), 1, " F")
 

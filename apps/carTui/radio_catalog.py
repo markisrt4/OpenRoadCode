@@ -48,13 +48,13 @@ def build_car_tui_radios(
         try:
             stack = config.radio(stack_key)
         except KeyError:
-            radios.append(CarTuiRadio(
-                key,
-                label,
-                UnconfiguredRadioController(
-                    f"Radio stack '{stack_key}' is not configured"
-                ),
-            ))
+            radios.append(
+                CarTuiRadio(
+                    key,
+                    label,
+                    UnconfiguredRadioController(f"Radio stack '{stack_key}' is not configured"),
+                )
+            )
             continue
 
         radio_config = load_radio_config(stack.config_path)
@@ -78,10 +78,12 @@ def build_car_tui_radios(
             )
         else:
             controller = RadioController(
-                backend=RigctlRadioBackend(RigctlClient(
-                    host=config.rigctl.host,
-                    port=config.rigctl.port,
-                )),
+                backend=RigctlRadioBackend(
+                    RigctlClient(
+                        host=config.rigctl.host,
+                        port=config.rigctl.port,
+                    )
+                ),
                 presets=list(presets),
                 default_mode=default_mode,
                 radio_range=radio_range,

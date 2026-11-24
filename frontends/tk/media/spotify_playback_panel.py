@@ -12,7 +12,11 @@ from typing import Any, cast
 
 from PIL import Image, ImageEnhance, ImageFilter, ImageOps, ImageTk
 
-from ui.media.spotify_presentation_if import SpotifyPresentationState, SpotifyVideoRequests, SpotifyRequestHandler
+from ui.media.spotify_presentation_if import (
+    SpotifyPresentationState,
+    SpotifyVideoRequests,
+    SpotifyRequestHandler,
+)
 from ui.media import (
     MediaAvailability,
     MediaState,
@@ -64,9 +68,7 @@ def album_art_accent(image: Image.Image) -> str:
             blue / 255,
         )
         if value >= 0.18:
-            ranked.append(
-                (saturation * 0.7 + value * 0.3, (red, green, blue))
-            )
+            ranked.append((saturation * 0.7 + value * 0.3, (red, green, blue)))
     if not ranked:
         return "#FFFFFF"
 
@@ -83,12 +85,7 @@ def album_art_accent(image: Image.Image) -> str:
     saturation = max(0.45, min(0.85, saturation))
     value = max(0.78, min(0.98, value))
     red_f, green_f, blue_f = colorsys.hsv_to_rgb(hue, saturation, value)
-    return (
-        f"#{round(red_f * 255):02X}"
-        f"{round(green_f * 255):02X}"
-        f"{round(blue_f * 255):02X}"
-    )
-
+    return f"#{round(red_f * 255):02X}{round(green_f * 255):02X}{round(blue_f * 255):02X}"
 
 
 def format_duration_s(value: float | None) -> str:
@@ -142,18 +139,10 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
         self._track_var = tk.StringVar(value=self._layout["loading_value"])
         self._artist_var = tk.StringVar(value=self._layout["empty_value"])
         self._album_var = tk.StringVar(value=self._layout["empty_value"])
-        self._device_var = tk.StringVar(
-            value=self._layout["empty_device_text"]
-        )
-        self._status_var = tk.StringVar(
-            value=self._layout["loading_status"]
-        )
-        self._progress_var = tk.StringVar(
-            value=self._layout["empty_progress_text"]
-        )
-        self._volume_var = tk.StringVar(
-            value=self._layout["empty_volume_text"]
-        )
+        self._device_var = tk.StringVar(value=self._layout["empty_device_text"])
+        self._status_var = tk.StringVar(value=self._layout["loading_status"])
+        self._progress_var = tk.StringVar(value=self._layout["empty_progress_text"])
+        self._volume_var = tk.StringVar(value=self._layout["empty_volume_text"])
 
         self._build_ui()
 
@@ -161,24 +150,16 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
         self._state = state
         self._apply_state(state)
 
-    def set_playback_request_handler(
-        self, handler: PlaybackRequestHandlerIf | None
-    ) -> None:
+    def set_playback_request_handler(self, handler: PlaybackRequestHandlerIf | None) -> None:
         self._playback_handler = handler
 
-    def set_track_request_handler(
-        self, handler: TrackRequestHandlerIf | None
-    ) -> None:
+    def set_track_request_handler(self, handler: TrackRequestHandlerIf | None) -> None:
         self._track_handler = handler
 
-    def set_seek_request_handler(
-        self, handler: SeekRequestHandlerIf | None
-    ) -> None:
+    def set_seek_request_handler(self, handler: SeekRequestHandlerIf | None) -> None:
         self._seek_handler = handler
 
-    def set_volume_request_handler(
-        self, handler: VolumeRequestHandlerIf | None
-    ) -> None:
+    def set_volume_request_handler(self, handler: VolumeRequestHandlerIf | None) -> None:
         self._volume_handler = handler
 
     def destroy(self) -> None:
@@ -376,7 +357,9 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
             pady=self._style["controls_pady"],
         )
 
-        self._transport_button(controls, "−10s", lambda: self._skip(-10), width=4).pack(side=tk.LEFT, padx=4)
+        self._transport_button(controls, "−10s", lambda: self._skip(-10), width=4).pack(
+            side=tk.LEFT, padx=4
+        )
         self._transport_button(
             controls,
             self._layout["previous_text"],
@@ -408,7 +391,9 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
             padx=self._style["transport_button_gap"],
         )
 
-        self._transport_button(controls, "+10s", lambda: self._skip(10), width=4).pack(side=tk.LEFT, padx=4)
+        self._transport_button(controls, "+10s", lambda: self._skip(10), width=4).pack(
+            side=tk.LEFT, padx=4
+        )
 
         bottom = tk.Frame(card, bg=self._colors["card_background"])
         self._bottom = bottom
@@ -417,10 +402,17 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
         for label, action in (("♫ Visualizer", self._show_visualizer),):
             if action is not None:
                 self._button(bottom, label, action, width=0, vertical_padding=4).grid(
-                    row=0, column=0, sticky="w", padx=3,
+                    row=0,
+                    column=0,
+                    sticky="w",
+                    padx=3,
                 )
         self._video_button = self._button(
-            bottom, _WATCH_VIDEO_TEXT, self._toggle_video, width=0, vertical_padding=4,
+            bottom,
+            _WATCH_VIDEO_TEXT,
+            self._toggle_video,
+            width=0,
+            vertical_padding=4,
         )
         self._video_button.grid(row=0, column=1, padx=6)
         self._video_button.configure(state=tk.DISABLED, font=("Sans", 13, "bold"))
@@ -438,7 +430,9 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
             font=self._style["status_font"],
             anchor=self._layout["left_anchor"],
         ).grid(
-            row=0, column=2, sticky="e",
+            row=0,
+            column=2,
+            sticky="e",
             padx=(10, 0),
         )
 
@@ -512,8 +506,9 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
 
         return tk.Label(parent, **options)
 
-    def _transport_button(self, parent: tk.Widget, text: str, command: Callable[[], None],
-                          *, width: int) -> tk.Button:
+    def _transport_button(
+        self, parent: tk.Widget, text: str, command: Callable[[], None], *, width: int
+    ) -> tk.Button:
         button = self._button(parent, text, command, width=width, vertical_padding=10)
         button.configure(relief=tk.RAISED, bd=2)
         return button
@@ -523,8 +518,11 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
         if self._seek_handler is None or self._state is None:
             return
         handler = self._seek_handler
-        action = (lambda: handler.request_rewind(-seconds)) if seconds < 0 else (
-            lambda: handler.request_forward(seconds))
+        action = (
+            (lambda: handler.request_rewind(-seconds))
+            if seconds < 0
+            else (lambda: handler.request_forward(seconds))
+        )
         self._run_action(action, failure_message="Seek failed")
 
     def _button(
@@ -591,15 +589,9 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
 
         if state.availability is MediaAvailability.CONFIGURATION_REQUIRED:
             self._video_available = False
-            self._status_var.set(
-                self._layout["configuration_required_status"]
-            )
-            self._track_var.set(
-                self._layout["configuration_required_title"]
-            )
-            self._artist_var.set(
-                self._layout["configuration_required_detail"]
-            )
+            self._status_var.set(self._layout["configuration_required_status"])
+            self._track_var.set(self._layout["configuration_required_title"])
+            self._artist_var.set(self._layout["configuration_required_detail"])
             self._album_var.set(empty)
             self._device_var.set(self._layout["empty_device_text"])
             self._volume_var.set(self._layout["empty_volume_text"])
@@ -616,17 +608,13 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
         self._artist_var.set(state.artist or empty)
         self._album_var.set(state.album or empty)
         self._device_var.set(
-            self._layout["device_template"].format(
-                device=state.device_name or empty
-            )
+            self._layout["device_template"].format(device=state.device_name or empty)
         )
 
         displayed_volume = state.volume_percent
         self._displayed_volume_percent = displayed_volume
         volume = empty if displayed_volume is None else str(displayed_volume)
-        self._volume_var.set(
-            self._layout["volume_template"].format(volume=volume)
-        )
+        self._volume_var.set(self._layout["volume_template"].format(volume=volume))
 
         self._play_button.configure(
             text=(
@@ -787,8 +775,7 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
             return
         request = (
             handler.request_pause
-            if self._state is not None
-            and self._state.playback is PlaybackState.PLAYING
+            if self._state is not None and self._state.playback is PlaybackState.PLAYING
             else handler.request_play
         )
         self._run_action(
@@ -822,7 +809,9 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
         current = self._displayed_volume_percent
         if current is None:
             current = self._layout["default_volume"]
-        target = max(self._layout["minimum_volume"], min(self._layout["maximum_volume"], current + delta))
+        target = max(
+            self._layout["minimum_volume"], min(self._layout["maximum_volume"], current + delta)
+        )
         if self._volume_handler is not None:
             self._volume_handler.request_volume(target)
 

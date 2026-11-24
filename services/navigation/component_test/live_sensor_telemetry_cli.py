@@ -41,9 +41,7 @@ def _fmt(value: float | None, *, width: int = 8, precision: int = 2) -> str:
 def _vector(vector) -> str:
     if vector is None:
         return "x=       -  y=       -  z=       -"
-    return (
-        f"x={_fmt(vector.x)}  y={_fmt(vector.y)}  z={_fmt(vector.z)}"
-    )
+    return f"x={_fmt(vector.x)}  y={_fmt(vector.y)}  z={_fmt(vector.z)}"
 
 
 def _age_ms(snapshot: NavigationBusSnapshot) -> float | None:

@@ -3,7 +3,11 @@
 
 """State-recording weather overlay sink for headless views and tests."""
 
-from ui.weather.weather_overlay_state import CityWeatherOverlayState, ModelWeatherOverlayState, RouteWeatherOverlayState
+from ui.weather.weather_overlay_state import (
+    CityWeatherOverlayState,
+    ModelWeatherOverlayState,
+    RouteWeatherOverlayState,
+)
 from ui.weather.weather_overlay_ui_if import WeatherOverlayUiIf
 
 

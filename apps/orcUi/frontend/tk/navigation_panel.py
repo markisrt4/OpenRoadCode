@@ -41,8 +41,14 @@ from ui.ui_widget import UiWidget
 _LOG = logging.getLogger("navigation.poi.ui")
 
 
-class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, NavigationCameraControls,
-                      MapControlsDrawerUiIf, tk.Frame, UiWidget):
+class NavigationPanel(
+    NavigationPlacesControls,
+    NavigationRadarControls,
+    NavigationCameraControls,
+    MapControlsDrawerUiIf,
+    tk.Frame,
+    UiWidget,
+):
     """Map host, navigation controls, and nearby POI discovery."""
 
     def __init__(
@@ -113,7 +119,9 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         self._poi_action_request = None
         self._unsubscribe_online_mode = (
             online_mode.subscribe(lambda _online: self._refresh_poi_action_buttons())
-            if online_mode is not None else lambda: None)
+            if online_mode is not None
+            else lambda: None
+        )
         self._closed = False
         self._places_closed = False
         self._poi_poll_after_id: str | None = None
@@ -155,20 +163,20 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         elif self._terrain_active and not terrain:
             self.set_follow_enabled(self._map_follow_enabled)
         self._terrain_active = terrain
-        self._follow_button.configure(state='disabled' if state.busy else 'normal')
+        self._follow_button.configure(state="disabled" if state.busy else "normal")
         if state.busy:
-            self._loading_cover.configure(text='Loading Terrain…' if terrain else 'Loading map…')
+            self._loading_cover.configure(text="Loading Terrain…" if terrain else "Loading map…")
             self._loading_cover.grid()
             self._loading_cover.lift()
         else:
             self._loading_cover.grid_remove()
         if terrain:
             self.set_follow_enabled(state.follow_enabled)
-            self._zoom_text.set('—')
-            self._dimension_text.set('2D/3D')
+            self._zoom_text.set("—")
+            self._dimension_text.set("2D/3D")
         else:
-            self._zoom_text.set(f'{self._zoom_level:.1f}')
-            self._dimension_text.set('2D' if self._pitch_rad > 0 else '3D')
+            self._zoom_text.set(f"{self._zoom_level:.1f}")
+            self._dimension_text.set("2D" if self._pitch_rad > 0 else "3D")
 
     @property
     def map_host_window_id(self) -> int:
@@ -209,7 +217,11 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
             return
         if state.expanded:
             self._map_controls.place(
-                relx=1.0, rely=0.0, anchor="ne", width=140, relheight=1.0,
+                relx=1.0,
+                rely=0.0,
+                anchor="ne",
+                width=140,
+                relheight=1.0,
             )
             self._map_controls.lift()
             self._map_controls_handle.place_forget()
@@ -218,7 +230,11 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
             self._map_controls_rail.pack_forget()
             self._map_controls.place_forget()
             self._map_controls_handle.place(
-                relx=1.0, rely=0.5, anchor="e", width=48, height=72,
+                relx=1.0,
+                rely=0.5,
+                anchor="e",
+                width=48,
+                height=72,
             )
             self._map_controls_handle.lift()
         self.after_idle(self._refresh_renderer_state)
@@ -232,7 +248,9 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         host = self._map_host
         body = host.master
         event(
-            logger, logging.DEBUG, "map.host_allocation",
+            logger,
+            logging.DEBUG,
+            "map.host_allocation",
             f"expanded={self._drawer_state.expanded} "
             f"body={body.winfo_width()}x{body.winfo_height()} "
             f"host={host.winfo_width()}x{host.winfo_height()} "
@@ -279,10 +297,15 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
     def _add_tooltip(self, widget: tk.Misc, text: str) -> None:
         if self._tooltip_factory is not None:
             ui = self._theme_bundle.ui
-            self._tooltips.append(TkTooltip(
-                widget, text, self._tooltip_factory,
-                background=ui.surface_alt, foreground=ui.text,
-            ))
+            self._tooltips.append(
+                TkTooltip(
+                    widget,
+                    text,
+                    self._tooltip_factory,
+                    background=ui.surface_alt,
+                    foreground=ui.text,
+                )
+            )
 
     def close_tooltips(self) -> None:
         """Close mounted tooltip sessions before hiding or rebuilding widgets."""
@@ -396,7 +419,6 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         if off_route:
             details.append("OFF ROUTE")
         self._guidance_detail.set("  •  ".join(details))
-
 
 
 def _format_distance(distance_m: float) -> str:

@@ -39,10 +39,14 @@ class ComplementaryOrientationEstimatorTests(unittest.TestCase):
 
     def test_roll_blends_across_wrap_using_shortest_path(self) -> None:
         estimator = ComplementaryOrientationEstimator(filter_time_constant_s=1.0)
-        near_positive_180 = Vector3(0.0, math.sin(math.radians(179.0)), math.cos(math.radians(179.0)))
+        near_positive_180 = Vector3(
+            0.0, math.sin(math.radians(179.0)), math.cos(math.radians(179.0))
+        )
         estimator.start(near_positive_180)
 
-        near_negative_180 = Vector3(0.0, math.sin(math.radians(-179.0)), math.cos(math.radians(-179.0)))
+        near_negative_180 = Vector3(
+            0.0, math.sin(math.radians(-179.0)), math.cos(math.radians(-179.0))
+        )
         orientation = estimator.update(
             acceleration_mps2=near_negative_180,
             angular_velocity_rad_s=Vector3(0.0, 0.0, 0.0),

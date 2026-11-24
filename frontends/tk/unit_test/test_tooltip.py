@@ -46,8 +46,7 @@ def test_popup_placement_is_clamped_and_hidden_state_releases_window(toplevel, _
     popup.winfo_screenheight.return_value = 600
     factory = Mock(spec=TooltipFactoryIf)
     factory.create.return_value = Mock(spec=TooltipRequestHandlerIf)
-    tooltip = TkTooltip(target, "Recenter", factory,
-                        background="black", foreground="white")
+    tooltip = TkTooltip(target, "Recenter", factory, background="black", foreground="white")
     tooltip.set_tooltip_state(TooltipState("Recenter", True))
     popup.geometry.assert_called_once_with("+0+560")
     popup.deiconify.assert_called_once()

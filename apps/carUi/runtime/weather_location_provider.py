@@ -39,9 +39,6 @@ class CarUiWeatherLocationProvider:
             return WeatherLocation(
                 latitude=cached.latitude_deg,
                 longitude=cached.longitude_deg,
-                name=(
-                    f"{cached.latitude_deg:.5f}, "
-                    f"{cached.longitude_deg:.5f}"
-                ),
+                name=(f"{cached.latitude_deg:.5f}, {cached.longitude_deg:.5f}"),
                 source="Last known position",
             )

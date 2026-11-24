@@ -70,11 +70,7 @@ class VolumeManager(VolumeRequestHandlerIf):
         """
         try:
             current = self._audio_controller.is_muted()
-            resulting = (
-                self._audio_controller.toggle_mute()
-                if current != muted
-                else current
-            )
+            resulting = self._audio_controller.toggle_mute() if current != muted else current
             self._volume_ui.set_muted(resulting)
             self._set_status("Volume muted" if resulting else "Volume unmuted")
         except Exception as exc:
@@ -100,6 +96,4 @@ class VolumeManager(VolumeRequestHandlerIf):
         if maximum <= 0:
             self._volume_ui.set_volume(None)
             return
-        self._volume_ui.set_volume(
-            max(0.0, min(100.0, level * 100.0 / maximum))
-        )
+        self._volume_ui.set_volume(max(0.0, min(100.0, level * 100.0 / maximum)))

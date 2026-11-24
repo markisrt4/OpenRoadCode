@@ -48,7 +48,8 @@ class ContextRail(tk.Frame, UiWidget):
             bg=ui.surface,
             width=self.WIDTH,
             highlightthickness=1,
-            highlightcolor=ui.border, highlightbackground=ui.border,
+            highlightcolor=ui.border,
+            highlightbackground=ui.border,
         )
         self.pack_propagate(False)
         self._on_expand = on_expand
@@ -72,7 +73,9 @@ class ContextRail(tk.Frame, UiWidget):
     def set_theme_bundle(self, theme: ThemeBundle) -> None:
         """Apply a CSS-derived theme while preserving page and telemetry state."""
         self._theme = theme
-        self.configure(bg=theme.ui.surface, highlightcolor=theme.ui.border, highlightbackground=theme.ui.border)
+        self.configure(
+            bg=theme.ui.surface, highlightcolor=theme.ui.border, highlightbackground=theme.ui.border
+        )
         self._rebuild()
 
     def update_vehicle_state(self, state: VehiclePresentationState) -> None:
@@ -122,7 +125,9 @@ class ContextRail(tk.Frame, UiWidget):
         header = tk.Frame(self, bg=ui.surface)
         header.pack(fill=tk.X, padx=8, pady=(7, 3))
         header.grid_columnconfigure(1, weight=1)
-        self._title = tk.Label(header, text="", bg=ui.surface, font=("Sans", FONT_CONTROL + 1, "bold"))
+        self._title = tk.Label(
+            header, text="", bg=ui.surface, font=("Sans", FONT_CONTROL + 1, "bold")
+        )
         self._nav_button(header, "‹", self._previous_page).grid(row=0, column=0, sticky="w")
         self._title.grid(row=0, column=1)
         controls = tk.Frame(header, bg=ui.surface)
@@ -288,9 +293,9 @@ class ContextRail(tk.Frame, UiWidget):
         coolant.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
         gear = self._card(status)
         gear.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
-        tk.Label(gear, text="GEAR", fg=ui.text_muted, bg=ui.surface, font=("Sans", FONT_SMALL, "bold")).pack(
-            padx=10, pady=(4, 0)
-        )
+        tk.Label(
+            gear, text="GEAR", fg=ui.text_muted, bg=ui.surface, font=("Sans", FONT_SMALL, "bold")
+        ).pack(padx=10, pady=(4, 0))
         self._gear_value_label = tk.Label(
             gear,
             text="—",
@@ -317,9 +322,9 @@ class ContextRail(tk.Frame, UiWidget):
         cell.grid(row=row, column=column, sticky="nsew", padx=padx, pady=pady)
         label = tk.Frame(cell, bg=ui.surface)
         label.pack(side=tk.BOTTOM, fill=tk.X, pady=(0, 1))
-        tk.Label(label, text=title, fg=ui.text, bg=ui.surface, font=("Sans", FONT_CONTROL, "bold")).pack(
-            side=tk.LEFT, expand=True, anchor="e"
-        )
+        tk.Label(
+            label, text=title, fg=ui.text, bg=ui.surface, font=("Sans", FONT_CONTROL, "bold")
+        ).pack(side=tk.LEFT, expand=True, anchor="e")
         tk.Label(label, text=unit, fg=ui.text_muted, bg=ui.surface, font=("Sans", FONT_SMALL)).pack(
             side=tk.LEFT, expand=True, anchor="w", padx=(4, 0)
         )
@@ -363,9 +368,13 @@ class ContextRail(tk.Frame, UiWidget):
         values = {
             "distance": f"{state.distance_miles:.1f}",
             "elapsed": self._format_duration(state.elapsed_s),
-            "average": "--" if state.average_speed_mph is None else f"{state.average_speed_mph:.1f}",
+            "average": "--"
+            if state.average_speed_mph is None
+            else f"{state.average_speed_mph:.1f}",
             "moving": self._format_duration(state.moving_s),
-            "fuel_used": "--" if state.fuel_used_gallons is None else f"{state.fuel_used_gallons:.2f}",
+            "fuel_used": "--"
+            if state.fuel_used_gallons is None
+            else f"{state.fuel_used_gallons:.2f}",
             "economy": "--" if state.economy_mpg is None else f"{state.economy_mpg:.1f}",
         }
         for key, text in values.items():
@@ -395,7 +404,8 @@ class ContextRail(tk.Frame, UiWidget):
             parent,
             bg=ui.surface,
             highlightthickness=1,
-            highlightcolor=ui.border, highlightbackground=ui.border,
+            highlightcolor=ui.border,
+            highlightbackground=ui.border,
         )
 
     def _metric_table(

@@ -12,7 +12,9 @@ from apps.launchers.map_renderer_launcher import _default_command
 
 
 class MapRendererLauncherCommandTest(unittest.TestCase):
-    @patch.dict(os.environ, {"OPENROADCODE_MAP_RENDERER_COMMAND": "/tmp/custom-renderer --flag"}, clear=True)
+    @patch.dict(
+        os.environ, {"OPENROADCODE_MAP_RENDERER_COMMAND": "/tmp/custom-renderer --flag"}, clear=True
+    )
     def test_explicit_command_override_wins(self) -> None:
         self.assertEqual(_default_command(), ["/tmp/custom-renderer", "--flag"])
 

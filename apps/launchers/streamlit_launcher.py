@@ -12,7 +12,7 @@ from pathlib import Path
 from urllib.error import URLError
 from urllib.request import urlopen
 
-from ui.system.app_launcher_if import (AppLauncherIf, StatusCallback)
+from ui.system.app_launcher_if import AppLauncherIf, StatusCallback
 from apps.launchers.browser_launcher import BrowserKioskLauncher
 from apps.launchers.process_manager import is_process_running, terminate_process
 from common.logging.logging_paths import logging_file_path
@@ -41,7 +41,11 @@ class StreamlitLauncher(AppLauncherIf):
         self.browser = browser or BrowserKioskLauncher(
             url=f"http://127.0.0.1:{port}",
             process_pattern=f"127.0.0.1:{port}",
-            profile_path=Path.home() / "snap" / "chromium" / "common" / f"openroadcode-streamlit-{port}",
+            profile_path=Path.home()
+            / "snap"
+            / "chromium"
+            / "common"
+            / f"openroadcode-streamlit-{port}",
             window_class=f"OpenRoadCodeStreamlit{port}",
             exclusive_group=browser_exclusive_group,
             log_file=browser_log_file or logging_file_path("openroadcode", "streamlit-browser.log"),
@@ -107,7 +111,19 @@ class StreamlitLauncher(AppLauncherIf):
         log_handle = self.log_file.open("a", encoding="utf-8")
         try:
             self._process = subprocess.Popen(
-                [sys.executable, "-m", "streamlit", "run", str(self.app_path), "--server.headless", "true", "--server.port", str(self.port), "--browser.gatherUsageStats", "false"],
+                [
+                    sys.executable,
+                    "-m",
+                    "streamlit",
+                    "run",
+                    str(self.app_path),
+                    "--server.headless",
+                    "true",
+                    "--server.port",
+                    str(self.port),
+                    "--browser.gatherUsageStats",
+                    "false",
+                ],
                 env={**os.environ, **self.environment},
                 stdout=log_handle,
                 stderr=subprocess.STDOUT,

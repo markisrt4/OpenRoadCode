@@ -17,9 +17,15 @@ from controllers.weather.weather_logging import WeatherLog
 class WeatherRadarController:
     """Select radar frames and publish persistent overlay state to the map."""
 
-    def __init__(self, provider: RadarProviderIf, map_renderer, *, opacity: float = 0.65,
-                 palette: RadarPalette = RadarPalette.UNIVERSAL,
-                 tile_service: RadarTileService | None = None) -> None:
+    def __init__(
+        self,
+        provider: RadarProviderIf,
+        map_renderer,
+        *,
+        opacity: float = 0.65,
+        palette: RadarPalette = RadarPalette.UNIVERSAL,
+        tile_service: RadarTileService | None = None,
+    ) -> None:
         if not 0.0 <= opacity <= 1.0:
             raise ValueError("radar opacity must be between 0.0 and 1.0")
         self._provider = provider
@@ -68,7 +74,9 @@ class WeatherRadarController:
     @property
     def frame_tiles_ready(self) -> bool:
         """Report whether the selected frame has finished local tile work."""
-        return self._tile_service is None or (self._frame is not None and self._tile_service.frame_ready(self._frame))
+        return self._tile_service is None or (
+            self._frame is not None and self._tile_service.frame_ready(self._frame)
+        )
 
     @property
     def frame_tile_status(self) -> RadarTileStatus:
@@ -156,8 +164,16 @@ class WeatherRadarController:
             self._tile_service.retry_frame(frame)
         self._publish_frame(frame)
         if not previous:
-            self._log.changed("enabled", True, "radar.visibility_changed", "Radar overlay visibility changed", enabled=True)
-        self._log.emit(logging.DEBUG, "radar.frame_selected", "Cached radar frame selected", frame_index=index)
+            self._log.changed(
+                "enabled",
+                True,
+                "radar.visibility_changed",
+                "Radar overlay visibility changed",
+                enabled=True,
+            )
+        self._log.emit(
+            logging.DEBUG, "radar.frame_selected", "Cached radar frame selected", frame_index=index
+        )
         return frame
 
     def hide(self) -> None:
@@ -166,14 +182,26 @@ class WeatherRadarController:
         self._enabled = False
         self._map_renderer.set_weather_radar(None, enabled=False, opacity=self._opacity)
         if previous:
-            self._log.changed("enabled", False, "radar.visibility_changed", "Radar overlay visibility changed", enabled=False)
+            self._log.changed(
+                "enabled",
+                False,
+                "radar.visibility_changed",
+                "Radar overlay visibility changed",
+                enabled=False,
+            )
 
     def set_palette(self, palette: RadarPalette) -> None:
         """Change radar presentation without discovering or downloading a new frame."""
         previous = self._palette
         self._palette = RadarPalette(palette)
         if previous != self._palette:
-            self._log.changed("palette", self._palette, "radar.palette_changed", "Radar palette changed", palette=self._palette.value)
+            self._log.changed(
+                "palette",
+                self._palette,
+                "radar.palette_changed",
+                "Radar palette changed",
+                palette=self._palette.value,
+            )
         if self._enabled and self._frame is not None:
             self._publish_frame(self._frame)
 

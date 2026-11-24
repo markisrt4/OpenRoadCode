@@ -1,4 +1,5 @@
 [tool.ruff]
+required-version = "==0.17.6"
 target-version = "py312"
 line-length = 100
 extend-exclude = [
@@ -78,6 +79,7 @@ files = [
     "controllers/radio/streaming_radio_backend_if.py",
     "controllers/radio/streaming_radio_artwork.py",
     "frontends/tk/radio/streaming_radio_panel.py",
+    "frontends/tk/radio/streaming_radio_layout.py",
     "frontends/tk/radio/persistent_streaming_radio_panel.py",
     "frontends/tk/radio/streaming_radio_now_playing.py",
     "frontends/tk/radio/radio_screen.py",

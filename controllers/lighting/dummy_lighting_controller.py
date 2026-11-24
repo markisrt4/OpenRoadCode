@@ -83,9 +83,7 @@ class DummyLightingController(LightingControllerIf):
     def _update(self, **changes: object) -> Future[None]:
         with self._lock:
             if self._closed:
-                return self._failed(
-                    RuntimeError("lighting controller is closed")
-                )
+                return self._failed(RuntimeError("lighting controller is closed"))
             self._state = self._state.updated(**changes)
         return self._done()
 
@@ -111,6 +109,4 @@ def _validate_range(
     if not isinstance(value, int) or isinstance(value, bool):
         raise TypeError(f"{name} must be an integer")
     if not minimum <= value <= maximum:
-        raise ValueError(
-            f"{name} must be in range {minimum}..{maximum}"
-        )
+        raise ValueError(f"{name} must be in range {minimum}..{maximum}")

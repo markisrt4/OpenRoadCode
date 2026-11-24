@@ -32,8 +32,7 @@ def vehicle_gauge_theme_from_style_sheet(
     hex_background = background.lstrip("#")
     if len(hex_background) == 6:
         red, green, blue = (
-            int(hex_background[index:index + 2], 16) / 255.0
-            for index in (0, 2, 4)
+            int(hex_background[index : index + 2], 16) / 255.0 for index in (0, 2, 4)
         )
         luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
     else:

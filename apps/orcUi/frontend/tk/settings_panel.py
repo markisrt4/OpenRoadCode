@@ -8,7 +8,7 @@ from collections.abc import Callable
 
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from common.units import UnitSystem
-from ui.automotive.vehicle_configuration import (EngineInductionType, VehicleConfiguration)
+from ui.automotive.vehicle_configuration import EngineInductionType, VehicleConfiguration
 from ui.theme import ThemeBundle, ThemeMode
 from ui.navigation.host_location_ui_if import HostLocationRequestHandlerIf, HostLocationState
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
@@ -44,7 +44,9 @@ class SettingsPanel(tk.Frame, UiWidget):
         self._unit_system = unit_system
         self._unit_system_var = tk.StringVar(value=unit_system.value)
         self._on_performance_overlay_changed = on_performance_overlay_changed
-        self._performance_overlay_var = tk.BooleanVar(value=performance_overlay_enabled() if performance_overlay_enabled else False)
+        self._performance_overlay_var = tk.BooleanVar(
+            value=performance_overlay_enabled() if performance_overlay_enabled else False
+        )
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
@@ -88,10 +90,18 @@ class SettingsPanel(tk.Frame, UiWidget):
         page_nav.grid_columnconfigure(0, weight=1)
         page_nav.grid_columnconfigure(1, weight=1)
         self._page_buttons = {}
-        for column, (page, title) in enumerate((("display", "DISPLAY & LOCATION"), ("vehicle", "VEHICLE"))):
-            button = tk.Button(page_nav, text=title, height=2, bd=0, relief=tk.FLAT,
-                               font=("Sans", FONT_CONTROL, "bold"),
-                               command=lambda selected=page: self._show_settings_page(selected))
+        for column, (page, title) in enumerate(
+            (("display", "DISPLAY & LOCATION"), ("vehicle", "VEHICLE"))
+        ):
+            button = tk.Button(
+                page_nav,
+                text=title,
+                height=2,
+                bd=0,
+                relief=tk.FLAT,
+                font=("Sans", FONT_CONTROL, "bold"),
+                command=lambda selected=page: self._show_settings_page(selected),
+            )
             button.grid(row=0, column=column, sticky="ew", padx=3)
             self._page_buttons[page] = button
 
@@ -134,9 +144,14 @@ class SettingsPanel(tk.Frame, UiWidget):
             (("Imperial", UnitSystem.IMPERIAL), ("Metric", UnitSystem.METRIC))
         ):
             button = tk.Button(
-                unit_choices, text=label, width=12, height=2,
+                unit_choices,
+                text=label,
+                width=12,
+                height=2,
                 command=lambda value=choice: self._select_unit(value),
-                font=("Sans", FONT_CONTROL, "bold"), bd=0, relief=tk.FLAT,
+                font=("Sans", FONT_CONTROL, "bold"),
+                bd=0,
+                relief=tk.FLAT,
                 activeforeground=ui.text,
             )
             button.grid(row=row, column=0, sticky="ew", pady=3)
@@ -144,14 +159,26 @@ class SettingsPanel(tk.Frame, UiWidget):
         self._refresh_unit_buttons()
 
         if on_performance_overlay_changed is not None:
-            tk.Label(display, text="Performance HUD", bg=ui.surface, fg=ui.text,
-                     font=("Sans", FONT_BODY + 1, "bold")).grid(
-                         row=3, column=0, sticky="w", padx=14, pady=(4, 2))
-            tk.Label(display, text="Show CPU, GPU and RAM over other screens.",
-                     bg=ui.surface, fg=ui.text_muted, font=("Sans", FONT_SMALL)).grid(
-                         row=4, column=0, sticky="w", padx=14, pady=(0, 12))
+            tk.Label(
+                display,
+                text="Performance HUD",
+                bg=ui.surface,
+                fg=ui.text,
+                font=("Sans", FONT_BODY + 1, "bold"),
+            ).grid(row=3, column=0, sticky="w", padx=14, pady=(4, 2))
+            tk.Label(
+                display,
+                text="Show CPU, GPU and RAM over other screens.",
+                bg=ui.surface,
+                fg=ui.text_muted,
+                font=("Sans", FONT_SMALL),
+            ).grid(row=4, column=0, sticky="w", padx=14, pady=(0, 12))
             self._hud_button = tk.Button(
-                display, width=12, height=2, bd=0, relief=tk.FLAT,
+                display,
+                width=12,
+                height=2,
+                bd=0,
+                relief=tk.FLAT,
                 font=("Sans", FONT_CONTROL, "bold"),
                 command=self._toggle_hud,
             )
@@ -195,30 +222,58 @@ class SettingsPanel(tk.Frame, UiWidget):
         self._induction_buttons = {}
         for row, induction in enumerate(EngineInductionType):
             button = tk.Button(
-                choices, text=induction.display_name, width=22, height=2,
+                choices,
+                text=induction.display_name,
+                width=22,
+                height=2,
                 command=lambda value=induction: self._select_induction(value),
-                font=("Sans", FONT_CONTROL, "bold"), bd=0, relief=tk.FLAT,
+                font=("Sans", FONT_CONTROL, "bold"),
+                bd=0,
+                relief=tk.FLAT,
                 activeforeground=ui.text,
             )
             button.grid(row=row, column=0, sticky="ew", pady=3)
             self._induction_buttons[induction.value] = button
         self._refresh_induction_buttons()
 
-        location = tk.Frame(body, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
+        location = tk.Frame(
+            body, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border
+        )
         location.grid(row=1, column=0, sticky="ew", pady=4)
         location.grid_columnconfigure(0, weight=1)
-        tk.Label(location, text="LOCATION", bg=ui.surface, fg=ui.accent_primary,
-                 font=("Sans", 10, "bold")).grid(row=0, column=0, sticky="w", padx=14, pady=(8, 2))
+        tk.Label(
+            location,
+            text="LOCATION",
+            bg=ui.surface,
+            fg=ui.accent_primary,
+            font=("Sans", 10, "bold"),
+        ).grid(row=0, column=0, sticky="w", padx=14, pady=(8, 2))
         self._location_status = tk.StringVar(value=host_location_state.status)
-        status = tk.Label(location, textvariable=self._location_status, bg=ui.surface, fg=ui.text_muted,
-                          font=("Sans", FONT_SMALL), justify=tk.LEFT, anchor="w", wraplength=200)
+        status = tk.Label(
+            location,
+            textvariable=self._location_status,
+            bg=ui.surface,
+            fg=ui.text_muted,
+            font=("Sans", FONT_SMALL),
+            justify=tk.LEFT,
+            anchor="w",
+            wraplength=200,
+        )
         status.grid(row=1, column=0, sticky="ew", padx=14, pady=(0, 8))
         status.bind("<Configure>", lambda event: self._update_location_wrap(status, event.width))
         self._location_handler = host_location_handler
         self._location_button = tk.Button(
-            location, text="SHARE HOST LOCATION", command=self._share_host_location,
-            bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active,
-            relief=tk.FLAT, font=("Sans", FONT_CONTROL, "bold"), padx=10, pady=6)
+            location,
+            text="SHARE HOST LOCATION",
+            command=self._share_host_location,
+            bg=ui.control_background,
+            fg=ui.control_text,
+            activebackground=ui.control_active,
+            relief=tk.FLAT,
+            font=("Sans", FONT_CONTROL, "bold"),
+            padx=10,
+            pady=6,
+        )
         self._location_button.grid(row=0, column=1, rowspan=2, padx=14, pady=8)
         self.set_host_location_state(host_location_state)
         self._settings_pages = {"display": (location, display), "vehicle": (vehicle,)}
@@ -247,8 +302,11 @@ class SettingsPanel(tk.Frame, UiWidget):
 
     def set_host_location_state(self, state: HostLocationState) -> None:
         self._location_status.set(state.status)
-        self._location_button.configure(state=tk.DISABLED if state.busy or not state.can_share
-                                        or self._location_handler is None else tk.NORMAL)
+        self._location_button.configure(
+            state=tk.DISABLED
+            if state.busy or not state.can_share or self._location_handler is None
+            else tk.NORMAL
+        )
 
     @property
     def vehicle_configuration(self) -> VehicleConfiguration:

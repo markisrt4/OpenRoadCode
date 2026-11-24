@@ -104,14 +104,16 @@ class AutomotiveDemoController(DiagnosticsRequestHandlerIf):
     def _publish_diagnostics(self) -> None:
         self._diagnostics_ui.set_malfunction_indicator(self._diagnostic_active)
         if self._diagnostic_active:
-            self._diagnostics_ui.set_trouble_codes((
-                DiagnosticTroubleCode(
-                    code="P0456",
-                    status=DiagnosticStatus.CONFIRMED,
-                    severity=DiagnosticSeverity.WARNING,
-                    description="Small evaporative emissions leak",
-                ),
-            ))
+            self._diagnostics_ui.set_trouble_codes(
+                (
+                    DiagnosticTroubleCode(
+                        code="P0456",
+                        status=DiagnosticStatus.CONFIRMED,
+                        severity=DiagnosticSeverity.WARNING,
+                        description="Small evaporative emissions leak",
+                    ),
+                )
+            )
         else:
             self._diagnostics_ui.set_trouble_codes(())
 

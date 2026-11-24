@@ -8,4 +8,4 @@ from ui.media.spotify_library import (
     SpotifyPlaylist,
 )
 
-__all__ = ['SpotifyLibraryTrack', 'SpotifyPlaylist']
+__all__ = ["SpotifyLibraryTrack", "SpotifyPlaylist"]

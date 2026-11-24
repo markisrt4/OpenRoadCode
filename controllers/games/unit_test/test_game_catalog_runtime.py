@@ -21,7 +21,9 @@ class GameCatalogRuntimeTest(unittest.TestCase):
             games = {game.name: game for game in load_game_catalog(catalog_path)}
         runner = DebianCommandRunner.__new__(DebianCommandRunner)
         runner._mode = "proot"
-        with patch("controllers.games.debian_game_installer.DebianCommandRunner", return_value=runner):
+        with patch(
+            "controllers.games.debian_game_installer.DebianCommandRunner", return_value=runner
+        ):
             installer = DebianGameInstaller()
         for name in ("GNOME 2048", "GNOME Nibbles", "GNOME Sudoku"):
             with self.subTest(game=name):

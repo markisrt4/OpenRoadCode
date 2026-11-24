@@ -82,9 +82,7 @@ from pathlib import Path
 
 from apps.carUi.runtime.car_ui_runtime_factory import create_car_ui_runtime
 
-runtime = create_car_ui_runtime(
-    Path("config/runtime.toml")
-)
+runtime = create_car_ui_runtime(Path("config/runtime.toml"))
 
 fm_runtime = runtime.radios.get("fm_radio")
 

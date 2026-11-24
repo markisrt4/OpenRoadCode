@@ -9,7 +9,11 @@ import time
 from datetime import datetime, timezone
 from controllers.navigation.navigation_state import PositionState
 from messaging.contracts.common.timestamp import encode_timestamp
-from messaging.contracts.navigation import MOTION_STATE_TOPIC, PositionStatePublisher, encode_motion_state
+from messaging.contracts.navigation import (
+    MOTION_STATE_TOPIC,
+    PositionStatePublisher,
+    encode_motion_state,
+)
 from messaging.zeromq import ZeroMqPublisher
 
 
@@ -47,24 +51,37 @@ def main():
                     altitude_m=altitude,
                     speed_mps=speed,
                     course_deg=math.degrees(heading),
-                    fix_mode=3, satellites_visible=14, satellites_used=10,
-                    accuracy_m=2.5, source="mock", is_cached=False,
+                    fix_mode=3,
+                    satellites_visible=14,
+                    satellites_used=10,
+                    accuracy_m=2.5,
+                    source="mock",
+                    is_cached=False,
                 )
                 motion = encode_motion_state(
-                    timestamp=encode_timestamp(now), source="mock-estimator",
-                    heading_rad=heading, ground_speed_m_s=speed,
-                    vertical_speed_m_s=vertical_speed, turn_rate_rad_s=0.08,
+                    timestamp=encode_timestamp(now),
+                    source="mock-estimator",
+                    heading_rad=heading,
+                    ground_speed_m_s=speed,
+                    vertical_speed_m_s=vertical_speed,
+                    turn_rate_rad_s=0.08,
                     is_cached=False,
                 )
                 phase += 0.08
             else:
                 state = PositionState(
-                    received_at=state.received_at, latitude_deg=state.latitude_deg,
-                    longitude_deg=state.longitude_deg, altitude_m=state.altitude_m,
-                    speed_mps=state.speed_mps, course_deg=state.course_deg,
-                    fix_mode=state.fix_mode, satellites_visible=state.satellites_visible,
-                    satellites_used=state.satellites_used, accuracy_m=state.accuracy_m,
-                    source=state.source, is_cached=True,
+                    received_at=state.received_at,
+                    latitude_deg=state.latitude_deg,
+                    longitude_deg=state.longitude_deg,
+                    altitude_m=state.altitude_m,
+                    speed_mps=state.speed_mps,
+                    course_deg=state.course_deg,
+                    fix_mode=state.fix_mode,
+                    satellites_visible=state.satellites_visible,
+                    satellites_used=state.satellites_used,
+                    accuracy_m=state.accuracy_m,
+                    source=state.source,
+                    is_cached=True,
                 )
                 motion = {**motion, "data": {**motion["data"], "is_cached": True}}
             position_publisher.publish(state)
