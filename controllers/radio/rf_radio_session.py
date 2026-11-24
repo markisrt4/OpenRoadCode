@@ -153,9 +153,6 @@ class ReceiverSession:
         if (snapshot is not None
                 and self._rest_receiver_running is not False
                 and self._state.receiver_running
-                and (snapshot.center_frequency_hz is None
-                     or abs(snapshot.center_frequency_hz - self._state.station.frequency_hz)
-                     <= (snapshot.sample_rate_hz or 0) / 2)
                 and isinstance(view, SpectrumPresentationIf)):
             # FFT geometry describes acquisition, not the listening channel.
             view.set_spectrum_presentation(snapshot)
