@@ -61,6 +61,7 @@ class ContextRail(tk.Frame, UiWidget):
         self._trip_value_labels: dict[str, tk.Label] = {}
         self._gear_value_label: tk.Label | None = None
         self._offroad_panel: ContextOffroadPanel | None = None
+        self._calendar_factory = None
         self._page_index = 0
         self._title: tk.Label
         self._body: tk.Frame
@@ -102,11 +103,22 @@ class ContextRail(tk.Frame, UiWidget):
 
     def _pages(self) -> tuple[ContextPage, ...]:
         ui = self._theme.ui
-        return (
+        pages = (
             ContextPage("VEHICLE", ui.accent_success, self._build_vehicle),
             ContextPage("TRIP", ui.accent_primary, self._build_trip),
             ContextPage("OFF-ROAD", ui.accent_warning, self._build_offroad),
         )
+        if self._calendar_factory is not None:
+            pages += (ContextPage("CALENDAR", ui.accent_primary, self._build_calendar),)
+        return pages
+
+    def set_calendar_factory(self, factory: Callable[[tk.Misc], tk.Widget]) -> None:
+        self._calendar_factory = factory
+        self._show_page()
+
+    def _build_calendar(self, parent: tk.Frame) -> None:
+        if self._calendar_factory is not None:
+            self._calendar_factory(parent).pack(fill=tk.BOTH, expand=True)
 
     def _rebuild(self) -> None:
         for child in self.winfo_children():
