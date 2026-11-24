@@ -89,7 +89,11 @@ echo "[*] Installing Python packages..."
 # shellcheck disable=SC1091
 source "$VENV_DIR/bin/activate"
 
-python -m pip install --upgrade pip wheel setuptools
+pip_install() {
+  python -m pip install --disable-pip-version-check --retries 8 --timeout 60 "$@"
+}
+
+pip_install --upgrade pip wheel setuptools
 
 if [[ " ${FEATURES[*]} " == *" gps "* ]]; then
   gps_location=""
@@ -175,7 +179,26 @@ done
 
 if (( ${#missing_python_packages[@]} > 0 )); then
   echo "[*] Installing missing Python packages: ${missing_python_packages[*]}"
-  python -m pip install --disable-pip-version-check "${missing_python_packages[@]}"
+  if ! pip_install "${missing_python_packages[@]}"; then
+    echo "[!] Batch installation failed; retrying missing packages individually." >&2
+    failed_packages=()
+    for pkg in "${missing_python_packages[@]}"; do
+      package_name="${pkg%%==*}"
+      package_metadata="$(python -m pip show "$package_name" 2>/dev/null || true)"
+      installed_version="$(printf '%s\\n' "$package_metadata" | awk -F': ' '$1 == "Version" { print $2; exit }')"
+      if [[ -n "$package_metadata" ]] && { [[ "$pkg" != *==* ]] || [[ "$installed_version" == "${pkg#*==}" ]]; }; then
+        continue
+      fi
+      if ! pip_install "$pkg"; then
+        failed_packages+=("$pkg")
+      fi
+    done
+    if (( ${#failed_packages[@]} > 0 )); then
+      echo "[!] Python packages still missing: ${failed_packages[*]}" >&2
+      echo "[!] Re-run the installer to resume with the existing environment." >&2
+      exit 1
+    fi
+  fi
 else
   echo "[*] All requested Python packages are already installed in the virtual environment."
 fi
