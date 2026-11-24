@@ -29,6 +29,12 @@ def build_poi_icon_button(panel, parent, filename, label, command, toolkit):
         takefocus=True,
     )
     button._action_icon = icon
+
+    def release_icon(event):
+        if event.widget is button:
+            button._action_icon = None
+
+    button.bind("<Destroy>", release_icon, add="+")
     button.pack(side=toolkit.LEFT, padx=4)
     return button
 
@@ -41,5 +47,14 @@ def build_earth_control(panel, parent, poi, action, toolkit) -> None:
     panel._earth_offline_icon = toolkit.PhotoImage(
         master=parent, file=str(_ASSETS / "earth_offline.png")
     )
+    button = panel._earth_button
+
+    def release_earth_icons(event):
+        if event.widget is button and panel._earth_button is button:
+            panel._earth_icon = None
+            panel._earth_offline_icon = None
+            panel._earth_button = None
+
+    button.bind("<Destroy>", release_earth_icons, add="+")
     panel._add_tooltip(panel._earth_button, "Explore this place in Google Earth (separate window)")
     panel._refresh_poi_action_buttons()
