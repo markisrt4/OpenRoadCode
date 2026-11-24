@@ -43,7 +43,13 @@ class RadioProfileCatalog:
             "false",
             "no",
         )
+        self._remote_available = False
         self.reload()
+
+    @property
+    def presets_writable(self) -> bool:
+        """Whether the selected preset backend was available at last reload."""
+        return not self._remote_enabled or self._remote_available
 
     @property
     def profiles(self) -> tuple[RadioProfile, ...]:
@@ -122,9 +128,9 @@ class RadioProfileCatalog:
         return True
 
     def reload(self) -> None:
-        if self._load_remote():
+        self._remote_available = self._load_remote()
+        if self._remote_available or self._remote_configs:
             return
-        self._remote_configs = {}
         user_presets = self._load_user_presets()
         profiles: dict[str, RadioProfile] = {}
         for path in self._profile_paths():
@@ -152,7 +158,7 @@ class RadioProfileCatalog:
         bandwidth: int | None = None,
         step_hz: int | None = None,
     ) -> RadioProfilePreset:
-        if self._remote_configs:
+        if self._remote_available:
             remote = SdrforgeRadioCatalogClient()
             default = self.config_for(profile_key).default_mode
             mode = {
@@ -200,7 +206,7 @@ class RadioProfileCatalog:
         return self.profile(profile_key).presets[-1]
 
     def remove_user_preset(self, profile_key: str, *, label: str, frequency_hz: int) -> bool:
-        if self._remote_configs:
+        if self._remote_available:
             remote = SdrforgeRadioCatalogClient()
             selected = next(
                 (
