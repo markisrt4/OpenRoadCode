@@ -23,3 +23,7 @@ else
   python -m pip install "${SOURCE}[zmq,audio]"
 fi
 python -c 'import sdrforge, numpy, scipy, zmq; print("[+] SDRForge imports succeeded")'
+
+# Both Linux and Termux installers use this entry point. Configure the
+# independent SDRForge launchers before the next service startup.
+bash "$PROJECT_ROOT/scripts/configure_sdrforge_region.sh" "${ORC_RADIO_LOCALE:-romeo}"
