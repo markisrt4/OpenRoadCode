@@ -63,12 +63,20 @@ class UpcomingPanel(tk.Frame):
         for child in self.winfo_children():
             child.destroy()
         try:
-            events = self._future.result()
+            events, health = self._future.result()
         except Exception:
             self._label("Calendar cache unavailable", self._ui.accent_warning)
         else:
+            if health.get("status") == "unavailable" or health.get(
+                "last_data_refresh_age_seconds"
+            ) is None:
+                self._label("Calendar freshness unknown", self._ui.accent_warning)
+            elif health.get("stale"):
+                self._label("Calendar data stale", self._ui.accent_warning)
+            elif health.get("status") != "ok":
+                self._label("Calendar sync incomplete", self._ui.accent_warning)
             if not events:
-                self._label("No upcoming timed appointments", self._ui.text_muted)
+                self._label("No upcoming timed appointments in cache", self._ui.text_muted)
             for event in events:
                 start = event.starts_at.astimezone(self._zone)
                 self._label(start.strftime("%a %b %d · %I:%M %p"), self._ui.accent_primary)
