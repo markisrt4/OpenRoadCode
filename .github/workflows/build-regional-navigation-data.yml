@@ -9,7 +9,7 @@ on:
     inputs:
       regions:
         description: Comma-separated Geofabrik region IDs
-        default: north-america/us/michigan
+        default: us/michigan
         required: true
         type: string
 permissions:
@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     env:
-      REGIONS: ${{ inputs.regions || 'north-america/us/michigan' }}
+      REGIONS: ${{ inputs.regions || 'us/michigan' }}
     steps:
       - uses: actions/checkout@v5
       - name: Validate request and inspect runner resources
@@ -33,6 +33,20 @@ jobs:
         run: |
           set -euo pipefail
           curl -4 --fail --location --retry 5 --retry-all-errors --connect-timeout 15 --max-time 120 https://download.geofabrik.de/index-v1-nogeom.json -o "$RUNNER_TEMP/geofabrik-index.json"
+          python3 - <<'PY'
+          import os
+          import sys
+          from pathlib import Path
+
+          sys.path.insert(0, "tools/map_builder")
+          from builder.geofabrik import load_index, resolve_region_ids
+
+          regions = load_index(Path(os.environ["RUNNER_TEMP"]) / "geofabrik-index.json")
+          requested = os.environ["REGIONS"].split(",")
+          selected = resolve_region_ids(regions, requested)
+          for region in selected:
+              print(f"{region.id}: {region.pbf_url}")
+          PY
       - name: Build existing map builder image
         working-directory: tools/map_builder
         run: bash scripts/build-image.sh
