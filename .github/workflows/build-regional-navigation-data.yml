@@ -1,0 +1,55 @@
+name: Build Regional Navigation Data
+on:
+  workflow_dispatch:
+    inputs:
+      regions:
+        description: Comma-separated Geofabrik region IDs
+        default: north-america/us/michigan
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    env:
+      REGIONS: ${{ inputs.regions }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate request and inspect runner resources
+        run: |
+          set -euo pipefail
+          [[ "$REGIONS" =~ ^[a-z0-9-]+(/[a-z0-9-]+)*(,[a-z0-9-]+(/[a-z0-9-]+)*)*$ ]]
+          df -h
+          free -h
+          nproc
+      - name: Build existing map builder image
+        working-directory: tools/map_builder
+        run: bash scripts/build-image.sh
+      - name: Generate regional navigation data
+        working-directory: tools/map_builder
+        run: bash scripts/run-builder.sh build --regions "$REGIONS"
+      - name: Validate dataset and routing service
+        working-directory: tools/map_builder
+        run: bash scripts/validate-host.sh
+      - name: Package validated dataset
+        run: |
+          set -euo pipefail
+          root=tools/map_builder/build-output
+          test -s "$root/build-manifest.json"
+          test -s "$root/maps/vector/openroadcode.mbtiles"
+          test -s "$root/maps/search/openroadcode-search.sqlite"
+          test -s "$root/valhalla/valhalla.json"
+          mkdir -p regional-artifacts
+          sudo tar -C "$root" --exclude=maps/routes -czf - . | split -b 1900M -d -a 4 - regional-artifacts/navigation-data.tar.gz.part-
+          cp "$root/build-manifest.json" regional-artifacts/
+          (cd regional-artifacts && sha256sum navigation-data.tar.gz.part-* build-manifest.json > SHA256SUMS)
+          du -sh "$root" regional-artifacts
+          df -h
+      - uses: actions/upload-artifact@v4
+        with:
+          name: regional-navigation-data
+          path: regional-artifacts/
+          if-no-files-found: error
+          retention-days: 14
