@@ -139,7 +139,7 @@ class _NavTile(tk.Canvas, UiWidget):
             height / 2,
             text=_NAV_LABELS.get(self._nav_name, self._nav_name),
             fill=label_color,
-            font=("Sans", FONT_CONTROL - (2 if self._nav_name == "WEATHER" else 1), "bold"),
+            font=("Sans", FONT_CONTROL - (2 if self._nav_name in ("WEATHER", "CALENDAR") else 1), "bold"),
             anchor="w",
         )
 
@@ -171,6 +171,16 @@ class _NavTile(tk.Canvas, UiWidget):
             self._draw_vision(x, y, color)
         elif name == "WEATHER":
             self._draw_weather(x, y, color)
+        elif name == "CALENDAR":
+            self._draw_calendar(x, y, color)
+
+    def _draw_calendar(self, x: float, y: float, color: str) -> None:
+        self.create_rectangle(x - 8, y - 7, x + 8, y + 8, outline=color, width=2)
+        self.create_line(x - 8, y - 2, x + 8, y - 2, fill=color, width=2)
+        for dx in (-4, 4):
+            self.create_line(x + dx, y - 10, x + dx, y - 5, fill=color, width=2)
+        for dx in (-4, 0, 4):
+            self.create_rectangle(x + dx - 1, y + 2, x + dx + 1, y + 4, fill=color, outline="")
 
     def _draw_home(self, x: float, y: float, color: str) -> None:
         self.create_polygon(x - 8, y - 1, x, y - 8, x + 8, y - 1, outline=color, fill="", width=2)
