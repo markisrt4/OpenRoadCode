@@ -28,6 +28,22 @@ case "$mode" in
         python scripts/check_doxygen_contracts.py
         python scripts/check_mermaid_legends.py
         ;;
+    --docs)
+        python scripts/docs_inventory.py --check
+        python scripts/check_markdown_links.py
+        python scripts/check_mermaid_legends.py
+        python scripts/check_doxygen_contracts.py
+        bash scripts/install_quality_doxygen.sh
+        mkdir -p build
+        rm -f build/doxygen-warnings.log
+        status=0
+        doxygen Doxyfile || status=$?
+        if [[ -s build/doxygen-warnings.log ]]; then
+            cat build/doxygen-warnings.log >&2
+            exit 1
+        fi
+        exit "$status"
+        ;;
     --full) python scripts/quality_gate.py ;;
-    *) echo "Usage: $0 [--all|--lint|--format|--types|--docstrings|--test|--full]" >&2; exit 2 ;;
+    *) echo "Usage: $0 [--all|--lint|--format|--types|--docstrings|--docs|--test|--full]" >&2; exit 2 ;;
 esac

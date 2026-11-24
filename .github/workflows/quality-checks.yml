@@ -48,8 +48,8 @@ jobs:
 
       - name: Install Doxygen
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes doxygen
+          python -m venv .venv-quality
+          bash scripts/install_quality_doxygen.sh
 
       - name: Generate Doxygen documentation
         shell: bash
@@ -58,7 +58,7 @@ jobs:
           rm -f build/doxygen-warnings.log
 
           set +e
-          doxygen Doxyfile
+          .venv-quality/bin/doxygen Doxyfile
           doxygen_status=$?
           set -e
 
