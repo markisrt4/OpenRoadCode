@@ -190,6 +190,7 @@ def _classify(args: tuple[str, ...]) -> tuple[str, str] | None:
         "sdrpp": "SDR++ integration",
         "readsb": "ADS-B integration",
         "gpsd": "GPSD integration",
+        "carbonate": "Carbonate bridge",
     }
     if executable in native:
         return native[executable], "workload"
