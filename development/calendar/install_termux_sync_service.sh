@@ -22,12 +22,17 @@ if [ ! -f "$REPO_DIR/controllers/calendar/calendar_sync_daemon.py" ]; then
     echo "Run installer from the OpenRoadCode repository root" >&2
     exit 1
 fi
+PYTHON_BIN="$PREFIX/bin/python"
+"$PYTHON_BIN" -c 'import dateutil' || {
+    echo "Install calendar dependencies with bash scripts/dev_setup.sh" >&2
+    exit 1
+}
 SERVICE_DIR="$PREFIX/var/service/openroadcode-calendar-sync"
 mkdir -p "$SERVICE_DIR/log" "$HOME/.local/state/openroadcode-calendar-sync"
 cat > "$SERVICE_DIR/run" <<EOF
 #!/data/data/com.termux/files/usr/bin/sh
 cd '$REPO_DIR'
-exec python -m controllers.calendar.calendar_sync_daemon --username '$1' 2>&1
+exec '$PYTHON_BIN' -m controllers.calendar.calendar_sync_daemon --username '$1' 2>&1
 EOF
 chmod 700 "$SERVICE_DIR/run"
 cat > "$SERVICE_DIR/log/run" <<'EOF'
