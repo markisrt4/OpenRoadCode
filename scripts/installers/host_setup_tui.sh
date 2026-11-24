@@ -25,7 +25,7 @@ SELECTED_TARGET="$(whiptail --title "Installation target" --radiolist \
 SELECTED_GENERAL="base"
 SELECTED_STREAMING=""
 SELECTED_NAVIGATION=""
-SELECTED_RADIO=""
+SELECTED_RADIO="sdrforge"
 SELECTED_AUTOMOTIVE=""
 SELECTED_BLUETOOTH=""
 SELECTED_ENVIRONMENTAL=""
@@ -78,7 +78,7 @@ while true; do
     radio) choose_features "Radio" "Select radio features:" "$SELECTED_RADIO" \
       "rtl-sdr|RTL-SDR and SoapySDR support" \
       "adsb|ADS-B/readsb support" \
-      "sdrpp|SDR++ support" && SELECTED_RADIO="$SELECTED_RESULT" ;;
+      "sdrforge|Native SDRForge radio (included with desktop UI)" && SELECTED_RADIO="$SELECTED_RESULT" ;;
     automotive) choose_features "Automotive" "Select automotive devices:" "$SELECTED_AUTOMOTIVE" \
       "automotive|Generic serial and CAN-bus support" && SELECTED_AUTOMOTIVE="$SELECTED_RESULT" ;;
     bluetooth) choose_features "Bluetooth" "Select Bluetooth features:" "$SELECTED_BLUETOOTH" \

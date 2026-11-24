@@ -74,13 +74,40 @@ class RadioProfileController:
 
     def select_profile(self, profile_key: str, *, start: bool = True) -> RadioProfileState:
         profile = self._catalog.profile(profile_key)
+        changed = profile_key != self._profile_key
         was_started = hasattr(self, "_radio") and self._radio.is_started
-        config = load_radio_config(profile.config_path)
+        config = self._catalog.config_for(profile_key)
         self._profile_key = profile_key
         self._radio = self._build_controller(config)
+        initial_frequency = self._radio.current_frequency_hz
         if start or was_started:
-            self._radio.start()
+            self._ensure_started()
+            if changed and getattr(self._radio.backend, "shared_receiver", False):
+                self._radio.set_frequency(initial_frequency)
         return self.state
+
+    @property
+    def scan_range(self) -> tuple[int, int, int] | None:
+        band = self._radio.radio_range
+        if band is None:
+            return None
+        return (band.min_frequency_hz, band.max_frequency_hz, self._radio.current_mode.step_hz)
+
+    def tune_frequency(self, frequency_hz: int) -> RadioProfileState:
+        self._ensure_started()
+        self._radio.set_frequency(frequency_hz)
+        return self.state
+
+    def scan_tune(self, frequency_hz: int) -> float | None:
+        self._ensure_started()
+        self._radio.set_frequency(frequency_hz)
+        value = self._radio.get_signal_strength()
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
 
     def tune_preset(self, preset: RadioProfilePreset) -> RadioProfileState:
         domain_preset = RadioPreset(
@@ -113,13 +140,44 @@ class RadioProfileController:
         return self.state
 
     def refresh(self) -> RadioProfileState:
+        # A shared rigctl receiver may be active even if this controller never started it.
+        self._radio.refresh_frequency()
+        return self.state
+
+    def next_preset(self) -> RadioProfileState:
+        self._ensure_started()
+        self._radio.next_preset()
+        return self.state
+
+    def previous_preset(self) -> RadioProfileState:
+        self._ensure_started()
+        self._radio.previous_preset()
+        return self.state
+
+    def tune_up(self) -> RadioProfileState:
+        self._ensure_started()
+        self._radio.frequency_up()
+        return self.state
+
+    def tune_down(self) -> RadioProfileState:
+        self._ensure_started()
+        self._radio.frequency_down()
+        return self.state
+
+    def refresh(self) -> RadioProfileState:
         if self._radio.is_started:
             self._radio.refresh_frequency()
         return self.state
 
     def _ensure_started(self) -> None:
-        if not self._radio.is_started:
-            self._radio.start()
+        if self._radio.is_started:
+            return
+        self._radio.start()
+        # The shared SDRForge receiver retains its previous DSP mode when
+        # a new ORC controller attaches. Apply the selected profile explicitly.
+        if getattr(self._radio.backend, "shared_receiver", False):
+            mode = self._radio.current_mode
+            self._radio.backend.set_mode(mode.name, mode.bandwidth)
 
     def _build_controller(self, config) -> RadioController:
         presets = [

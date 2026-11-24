@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 import tkinter as tk
 from dataclasses import dataclass
 from typing import Callable, Optional
@@ -12,6 +13,7 @@ from apps.carUi.radio.radio_session_config import RadioSessionConfig
 from apps.carUi.radio.radio_session_controller import RadioSessionController
 from ui.system.app_launcher_if import AppLauncherIf
 from controllers.radio.radio_controller_if import RadioControllerIf
+from controllers.radio.adapters.sdrforge_zmq_spectrum_adapter import SdrForgeTelemetrySubscriber
 from ui.radio.radio_types import RadioPreset
 from apps.common.uiTheme import RADIO_PANEL_THEME
 
@@ -50,6 +52,9 @@ def create_radio_screen_binding(
     @return Newly connected session and panel.
     """
 
+    telemetry = SdrForgeTelemetrySubscriber(
+        os.environ.get("SDRFORGE_ZMQ_ENDPOINT", "tcp://127.0.0.1:5571")
+    )
     session = RadioSessionController(
         radio_controller=radio_controller,
         radio_app_launcher=radio_app_launcher,
@@ -61,7 +66,9 @@ def create_radio_screen_binding(
         remote_display=remote_display,
         set_status=set_status,
         on_preset_pressed=on_preset_pressed,
+        receiver_telemetry=telemetry.latest_receiver,
     )
+    session.own_telemetry(telemetry.close)
     panel = RadioPanel(
         parent=parent,
         panel_config=panel_config,
@@ -70,4 +77,5 @@ def create_radio_screen_binding(
         presets_per_bank=presets_per_bank,
     )
     session.set_radio_ui(panel)
+    telemetry.start()
     return RadioPanelBinding(session=session, panel=panel)

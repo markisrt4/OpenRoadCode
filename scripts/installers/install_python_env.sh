@@ -7,7 +7,17 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 PROJECT_DIR="${PROJECT_DIR:-$PROJECT_ROOT}"
-VENV_DIR="${VENV_DIR:-$PROJECT_DIR/venv}"
+# Match runOrcUi: honor an active project venv, then existing .venv,
+# then the legacy venv path. Explicit VENV_DIR always takes precedence.
+if [[ -z "${VENV_DIR:-}" ]]; then
+  if [[ -n "${VIRTUAL_ENV:-}" && "$VIRTUAL_ENV" == "$PROJECT_DIR/"* ]]; then
+    VENV_DIR="$VIRTUAL_ENV"
+  elif [[ -x "$PROJECT_DIR/.venv/bin/python" ]]; then
+    VENV_DIR="$PROJECT_DIR/.venv"
+  else
+    VENV_DIR="$PROJECT_DIR/venv"
+  fi
+fi
 FEATURES_FILE="$SCRIPT_DIR/installer_features.sh"
 
 if [[ ! -f "$FEATURES_FILE" ]]; then
@@ -112,6 +122,12 @@ if [[ " ${FEATURES[*]} " == *" raspberry-pi "* ]]; then
   echo "[*] Selected GPIO backend: $rpi_gpio_backend"
 fi
 
+# Desktop UI imports core network modules during startup even when the
+# requested feature list omits base. Keep its runtime dependencies complete.
+if [[ " ${FEATURES[*]} " == *" desktop-ui "* && " ${FEATURES[*]} " != *" base "* ]]; then
+  FEATURES=(base "${FEATURES[@]}")
+fi
+
 for feature in "${FEATURES[@]}"; do
   while read -r pkg; do
     [[ -z "$pkg" ]] && continue
@@ -166,5 +182,9 @@ fi
 
 echo "[*] Installing shared music-analysis engine..."
 bash "$SCRIPT_DIR/install_libmusicforge.sh"
+
+if [[ " ${FEATURES[*]} " == *" sdrforge "* ]]; then
+  bash "$SCRIPT_DIR/install_libsdrforge.sh"
+fi
 
 deactivate

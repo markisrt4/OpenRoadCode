@@ -37,9 +37,9 @@ class RigctlClientIntegrationTest(unittest.TestCase):
         self.assertEqual("RPRT 0", self.client.set_frequency(101_100_000))
         self.assertEqual("101100000", self.client.get_frequency())
 
-    def test_mode_translation_and_server_state(self) -> None:
+    def test_native_nfm_mode_and_server_state(self) -> None:
         self.assertEqual("RPRT 0", self.client.set_mode("NFM", 12_500))
-        self.assertEqual("FM", self.server.state.mode)
+        self.assertEqual("NFM", self.server.state.mode)
         self.assertEqual(12_500, self.server.state.bandwidth_hz)
 
     def test_start_and_stop_extensions(self) -> None:

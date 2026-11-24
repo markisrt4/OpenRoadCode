@@ -77,6 +77,7 @@ def test_simulated_imu_and_simulated_gps_build_real_solution_controller():
 
 
 def test_simulated_imu_and_device_gps_can_be_composed(monkeypatch):
+    monkeypatch.setattr(navigation_service_cli, "_host_location_fallback_available", lambda: True)
     _patch_devices(monkeypatch)
     controller = navigation_service_cli.build_controller(_config("simulation", "device"))
 
@@ -95,6 +96,7 @@ def test_device_imu_and_simulated_gps_can_be_composed(monkeypatch):
 
 
 def test_device_imu_and_device_gps_can_be_composed(monkeypatch):
+    monkeypatch.setattr(navigation_service_cli, "_host_location_fallback_available", lambda: True)
     _patch_devices(monkeypatch)
     controller = navigation_service_cli.build_controller(_config("device", "device"))
 

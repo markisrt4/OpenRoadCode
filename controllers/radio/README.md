@@ -36,7 +36,7 @@ The package owns radio-domain behavior:
 - Adaptation of Rigctl to the radio backend contract
 - Access to radio-specific metadata such as RDS when the backend supports it
 
-Protocol packages own command formatting, socket communication, and response parsing. `controllers/sdr` owns SDR++ application control and SDR telemetry. Frontends own presentation and user interaction.
+Protocol packages own command formatting, socket communication, and response parsing. Native radio display controls and SDRForge transport adapters live in the radio controller layer. Frontends own presentation and user interaction.
 
 ## Radio Profiles
 
@@ -48,7 +48,7 @@ User-created presets are stored separately from repository configuration so norm
 
 ## RDS
 
-RDS is radio metadata and belongs in the radio path rather than the generic SDR++ telemetry protocol.
+RDS is radio metadata and belongs in the radio path and is published in SDRForge receiver telemetry.
 
 The current ORC path is:
 
@@ -64,7 +64,7 @@ The current ORC path is:
 
 ```mermaid
 flowchart TD
-    sdr["SDR++ / Rigctl :4532"] --> protocol["protocols/rigctl"] --> backend["RigctlRadioBackend"]
+    sdr["SDRForge / Rigctl :4532"] --> protocol["protocols/rigctl"] --> backend["RigctlRadioBackend"]
     backend --> radio["RadioController.get_rds()"] --> profile["RadioProfileController.read_rds()"] --> frontend["Frontend presentation"]
 
     classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
@@ -81,19 +81,15 @@ flowchart TD
 
 RDS should be requested asynchronously by graphical frontends. Reading ordinary controller state must not cause hidden network I/O.
 
-For ORCui, an FM-only RDS overlay over the embedded SDR++ view is a natural presentation. The overlay should be visible only for WFM/FM profiles and can eventually present Program Service/station identity and RadioText independently if the backend exposes structured RDS fields.
+ORC renders station identity and RadioText from receiver telemetry for WFM/FM profiles.
 
-## SDR++ Services
+## SDRForge services
 
-ORC intentionally separates SDR++ integration by responsibility:
+- 4532: Rigctl compatibility.
+- 5570: REST receiver control and health.
+- 5571: ZeroMQ spectrum and receiver telemetry.
 
-```text
-4532  Rigctl          RF tuning, modes, bandwidth, radio-specific metadata
-4533  remote_control SDR++ application/UI controls
-4534  telemetry      read-only SDR++ runtime measurements
-```
-
-See `development/sdrpp/README.md` for the module architecture.
+See [RF radio contracts](../../docs/rf_radio.md).
 
 ## Basic Use
 
@@ -132,13 +128,7 @@ Run the deterministic component test from the repository root:
 python3 -m controllers.radio.component_test
 ```
 
-The SDR++ Rigctl integration test connects to a real Rigctl server:
-
-```bash
-python3 -m controllers.radio.integration_test.test_sdrpp_rigctl
-```
-
-The default endpoint is `127.0.0.1:4532`. SDR++ must have its Rigctl Server module enabled.
+Live receiver checks require a running SDRForge service. See the Rigctl protocol component tools for endpoint testing.
 
 ## Import Boundaries
 

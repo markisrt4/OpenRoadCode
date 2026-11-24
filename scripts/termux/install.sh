@@ -30,7 +30,11 @@ source "$FEATURES_FILE"
 if (( $# > 0 )); then
   FEATURES=("$@")
 else
-  FEATURES=(base desktop-ui web-ui browser streamlit spotify navigation)
+  FEATURES=(base desktop-ui web-ui browser streamlit spotify sdrforge navigation)
+fi
+
+if [[ " ${FEATURES[*]} " == *" desktop-ui "* && " ${FEATURES[*]} " != *" sdrforge "* ]]; then
+  FEATURES+=(sdrforge)
 fi
 
 echo "[*] Termux features: ${FEATURES[*]}"
@@ -97,6 +101,12 @@ fi
 
 echo "[*] Installing shared music-analysis engine..."
 bash "$PROJECT_ROOT/scripts/installers/install_libmusicforge.sh"
+
+if [[ " ${FEATURES[*]} " == *" sdrforge "* ]]; then
+  pkg install -y python-scipy libusb
+  python -m pip install pyzmq
+  bash "$PROJECT_ROOT/scripts/installers/install_libsdrforge.sh"
+fi
 
 deactivate
 

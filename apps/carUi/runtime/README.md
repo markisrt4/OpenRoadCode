@@ -99,7 +99,7 @@ TOML uses stable symbolic names:
 
 ```toml
 backend = "rigctl"
-launcher = "sdrpp"
+launcher = "sdrforge"
 ```
 
 The factory maps those names to known constructors. The TOML file does not

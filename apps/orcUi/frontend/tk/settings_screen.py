@@ -17,6 +17,7 @@ from ui.theme import ThemeBundle
 from ui.navigation.host_location_ui_if import HostLocationRequestHandlerIf, HostLocationState
 
 from .screen_builders import build_settings_screen
+from ui.radio.rf_hardware_config_if import RfHardwareConfigIf
 
 
 class SettingsScreen(TkScreen):
@@ -35,6 +36,7 @@ class SettingsScreen(TkScreen):
         unit_system: Callable[[], UnitSystem],
         on_unit_system_changed: Callable[[UnitSystem], None],
         on_back: Callable[[], None],
+        rf_hardware_config: RfHardwareConfigIf | None = None,
         performance_overlay_enabled: Callable[[], bool] | None = None,
         on_performance_overlay_changed: Callable[[bool], None] | None = None,
     ) -> None:
@@ -47,6 +49,7 @@ class SettingsScreen(TkScreen):
         self._unit_system = unit_system
         self._on_unit_system_changed = on_unit_system_changed
         self._on_back = on_back
+        self._rf_hardware_config = rf_hardware_config
         self._performance_overlay_enabled = performance_overlay_enabled
         self._on_performance_overlay_changed = on_performance_overlay_changed
         self._host_location_handler: HostLocationRequestHandlerIf | None = None
@@ -91,6 +94,7 @@ class SettingsScreen(TkScreen):
             theme=self._theme_bundle(),
             host_location_handler=self._host_location_handler,
             host_location_state=self._host_location_state,
+            rf_hardware_config=self._rf_hardware_config,
             performance_overlay_enabled=self._performance_overlay_enabled,
             on_performance_overlay_changed=self._on_performance_overlay_changed,
         )

@@ -187,7 +187,6 @@ def _classify(args: tuple[str, ...]) -> tuple[str, str] | None:
     executable = Path(args[0]).name
     native = {
         "openroadcode-map-renderer": "Map renderer",
-        "sdrpp": "SDR++ integration",
         "readsb": "ADS-B integration",
         "gpsd": "GPSD integration",
     }

@@ -100,6 +100,10 @@ class MapRendererClient:
     def set_route(self, geojson: dict[str, object]) -> None:
         self._send_command({"command": MapRendererCommand.SET_ROUTE, "geojson": geojson})
 
+    def set_aircraft(self, geojson: dict[str, object]) -> None:
+        """Replace the independent aircraft overlay snapshot."""
+        self._send_command({"command": MapRendererCommand.SET_AIRCRAFT, "geojson": geojson})
+
     def set_route_weather(self, geojson: dict[str, object]) -> None:
         """Update independent forecast markers without changing the route or camera."""
         self._send_command({"command": MapRendererCommand.SET_ROUTE_WEATHER, "geojson": geojson})

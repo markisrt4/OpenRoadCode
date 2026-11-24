@@ -50,7 +50,9 @@ class SystemdServiceManager:
         "openroadcode-navigation": "openroadcode-navigation.service",
         "openroadcode-automotive": "openroadcode-automotive.service",
         "openroadcode-adsb": "readsb.service",
+        "openroadcode-sdrforge": "libsdrforge.service",
     }
+    USER_SERVICE_UNITS = frozenset({"libsdrforge.service"})
     SERVICES = tuple(SERVICE_UNITS)
     CORE_STACK = (
         "openroadcode-message-broker",
@@ -219,9 +221,24 @@ class SystemdServiceManager:
         *extra: str,
         check: bool = True,
     ) -> subprocess.CompletedProcess[str]:
-        command = [SYSTEMCTL_BIN, action, unit, *extra]
-        if action in PRIVILEGED_ACTIONS:
-            command = ["sudo", "-n", *command]
+        user_unit = unit in SystemdServiceManager.USER_SERVICE_UNITS
+        if user_unit:
+            # A root-owned helper enforces the fixed unit and configured user.
+            # Do not pass arbitrary caller-supplied arguments to the helper.
+            if action not in {"start", "stop", "restart", "is-active", "show"}:
+                raise ValueError(f"Unsupported SDRForge action: {action}")
+            if action == "show" and extra != (
+                "--property=ActiveState,SubState,UnitFileState",
+                "--value",
+            ):
+                raise ValueError("Unsupported SDRForge show arguments")
+            if action != "show" and extra:
+                raise ValueError("Unexpected SDRForge arguments")
+            command = ["sudo", "-n", "/usr/local/sbin/orc-sdrforge-user-service", action]
+        else:
+            command = [SYSTEMCTL_BIN, action, unit, *extra]
+            if action in PRIVILEGED_ACTIONS:
+                command = ["sudo", "-n", *command]
         service = next(
             (
                 name

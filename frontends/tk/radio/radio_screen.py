@@ -92,7 +92,7 @@ class RadioScreen(TkScreen):
             deactivate = getattr(panel, "deactivate", None)
             if callable(deactivate):
                 deactivate()
-            detach = getattr(panel, "detach_sdrpp", None)
+            detach = getattr(panel, "detach_native_client", None)
             if callable(detach):
                 try:
                     detach(panel.winfo_toplevel().winfo_id())

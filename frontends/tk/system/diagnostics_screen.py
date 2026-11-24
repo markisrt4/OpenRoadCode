@@ -31,6 +31,7 @@ class DiagnosticsScreen(TkScreen):
         theme_bundle: Callable[[], ThemeBundle],
         on_back: Callable[[], None] | None = None,
         history: Callable[[], tuple[SystemDiagnosticsSnapshot, ...]] | None = None,
+        sdrforge_diagnostics: Callable[[], object] | None = None,
     ) -> None:
         super().__init__(ScreenId("DIAGNOSTICS"))
         self._host = host
@@ -38,6 +39,7 @@ class DiagnosticsScreen(TkScreen):
         self._theme_bundle = theme_bundle
         self._on_back = on_back
         self._history = history
+        self._sdrforge_diagnostics = sdrforge_diagnostics
         self._panel: DiagnosticsPanel | None = None
         self._refresh_callback_id: object | None = None
 
@@ -86,6 +88,11 @@ class DiagnosticsScreen(TkScreen):
             )
         else:
             panel.apply_snapshot(snapshot)
+            if self._sdrforge_diagnostics is not None:
+                try:
+                    panel.apply_sdrforge_connection(self._sdrforge_diagnostics())
+                except (RuntimeError, OSError, ValueError):
+                    panel.apply_sdrforge_connection(None)
             self._host.set_screen_status("Live system performance")
         if self._panel is panel:
             self._refresh_callback_id = self._host.schedule_ui_callback(

@@ -94,7 +94,7 @@ indicator opens this screen inside ORC.
 
 Recognized roots include the ORC UI/application modules, navigation, automotive,
 Android sensor, weather and trip services, the message broker, and native
-`openroadcode-map-renderer`, `sdrpp`, and `readsb` integration processes.
+`openroadcode-map-renderer` and `readsb` integration processes.
 Descendants are attributed using process parentage, including renderer/browser
 helpers. A known child remains attributed after reparenting until it exits.
 Arbitrary Python processes and commands merely mentioning ORC are excluded.
@@ -246,7 +246,7 @@ container quotas, or differing performance between CPU types.
 The fourth Diagnostics tab, **Services**, lists TCP/UDP endpoints owned by visible
 ORC processes and integrations, including the broker, navigation, automotive,
 Android sensor service, trip/weather services, service manager, GPSD, ADS-B,
-SDR++ and the map renderer. Discovered ORC descendants are included. Optional
+the map renderer and other native processes. Discovered ORC descendants are included. Optional
 integrations with no visible process are **NOT_OBSERVED**, not assumed failed.
 This is local computing-unit socket observation; services running on another
 machine appear through their visible client connections, not remote PID discovery.

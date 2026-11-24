@@ -3,9 +3,9 @@
   "label": "Marine",
   "description": "Marine VHF channels useful around Lake St. Clair / southeast Michigan. Receive-only monitoring.",
   "launch": {
-    "label": "Launch SDR++",
+    "label": "SDRForge Status",
     "subtitle": "Marine scanner",
-    "detail": "Starts / toggles SDR++"
+    "detail": "Check shared SDRForge service"
   },
   "radio": {
     "label": "Radio ON/OFF",

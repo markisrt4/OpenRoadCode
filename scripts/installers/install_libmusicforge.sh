@@ -17,6 +17,18 @@ if [[ -z "$LIBMUSICFORGE_SOURCE" ]]; then
   fi
 fi
 
+# Reject stale sibling checkouts before pip builds and installs an unusable wheel.
+# The analysis package is a required ORC runtime API, not an optional add-on.
+if [[ "$LIBMUSICFORGE_SOURCE" != git+* ]]; then
+  if [[ ! -f "$LIBMUSICFORGE_SOURCE/src/musicforge/analysis/__init__.py" ]]; then
+    echo "[!] libMusicForge source lacks musicforge.analysis: $LIBMUSICFORGE_SOURCE" >&2
+    echo "    This checkout is incompatible with OpenRoadCode's music analyzer." >&2
+    echo "    Update libMusicForge to a revision containing src/musicforge/analysis/" >&2
+    echo "    and rerun the ORC Python installer." >&2
+    exit 1
+  fi
+fi
+
 if [[ "${PREFIX:-}" == "/data/data/com.termux/files/usr" ]]; then
   # Termux provides a compatible NumPy through pkg install python-numpy.
   # Never ask pip to compile NumPy against Android's libc.

@@ -32,7 +32,7 @@ class ADSBLauncher(AppLauncherIf):
     """Launch a configured ADS-B data source and tar1090 dashboard.
 
     ``rtlsdr`` is the Raspberry Pi/Linux hardware path. It acquires the shared
-    SDR resource, closes competing SDR++ windows, and starts ``readsb`` only
+    SDR resource, coordinates access to shared RF hardware, and starts ``readsb`` only
     while the ADS-B application owns the receiver. ``simulation`` is the
     hardware-independent path used by Termux presentation testing.
     """

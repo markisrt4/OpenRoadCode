@@ -13,8 +13,6 @@ HOST_INSTALLER = PROJECT_ROOT / "scripts" / "installers" / "host_setup.sh"
 SYSTEM_PACKAGES = PROJECT_ROOT / "scripts" / "installers" / "install_system_packages.sh"
 TERMUX_NAV_BUILDER = PROJECT_ROOT / "development" / "termux" / "build_navigation_stack.sh"
 INSTALLER_TOOLCHAIN = PROJECT_ROOT / "scripts" / "installers" / "toolchain.lock"
-DEBIAN_SDRPP = PROJECT_ROOT / "development" / "debian" / "setup_sdrpp.sh"
-TERMUX_SDRPP = PROJECT_ROOT / "development" / "termux" / "setup_sdrpp.sh"
 TERMUX_TAR1090 = PROJECT_ROOT / "development" / "termux" / "setup_tar1090.sh"
 LINUX_TAR1090 = PROJECT_ROOT / "scripts" / "installers" / "setup_adsb_web.sh"
 
@@ -89,27 +87,12 @@ class NavigationInstallerContractTests(unittest.TestCase):
             self.termux_navigation,
         )
 
-    def test_sdrpp_feature_uses_orc_source_build_installer(self) -> None:
-        self.assertIn(
-            'bash "$SCRIPT_DIR/install_sdrpp_nightly.sh"',
-            self.system_packages,
-        )
-        self.assertNotIn(
-            "sudo apt install -y --no-install-recommends sdrpp",
-            self.system_packages,
-        )
+    def test_retired_radio_source_build_is_not_invoked(self) -> None:
+        self.assertNotIn("install_sdrpp_nightly.sh", self.system_packages)
 
     def test_third_party_installers_use_pinned_toolchain_revisions(self) -> None:
         lock = INSTALLER_TOOLCHAIN.read_text(encoding="utf-8")
-        self.assertRegex(lock, r"SDRPP_COMMIT=[0-9a-f]{40}")
         self.assertRegex(lock, r"TAR1090_COMMIT=[0-9a-f]{40}")
-
-        for path in (DEBIAN_SDRPP, TERMUX_SDRPP):
-            installer = path.read_text(encoding="utf-8")
-            self.assertIn("toolchain.lock", installer)
-            self.assertNotIn("reset --hard", installer)
-            self.assertNotIn('SDRPP_REF="${SDRPP_REF:-master}"', installer)
-            self.assertIn(".openroadcode-managed-source", installer)
 
         termux_tar1090 = TERMUX_TAR1090.read_text(encoding="utf-8")
         linux_tar1090 = LINUX_TAR1090.read_text(encoding="utf-8")

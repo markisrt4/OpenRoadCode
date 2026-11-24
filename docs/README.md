@@ -87,9 +87,6 @@ Generated from the canonical documentation files. Every component README and sta
 
 - [Maplibre (`development/containers/maplibre`)](../development/containers/maplibre/README.md)
 - [Scripts (`development/containers/maplibre/scripts`)](../development/containers/maplibre/scripts/README.md)
-- [Sdrpp (`development/sdrpp`)](../development/sdrpp/README.md)
-- [Remote Control (`development/sdrpp/remote_control`)](../development/sdrpp/remote_control/README.md)
-- [Telemetry (`development/sdrpp/telemetry`)](../development/sdrpp/telemetry/README.md)
 - [Termux (`development/termux`)](../development/termux/README.md)
 
 ### Docs
@@ -171,7 +168,6 @@ Generated from the canonical documentation files. Every component README and sta
 - [Oauth (`protocols/oauth`)](../protocols/oauth/README.md)
 - [Obd2 (`protocols/obd2`)](../protocols/obd2/README.md)
 - [Rigctl (`protocols/rigctl`)](../protocols/rigctl/README.md)
-- [Sdrpp Telemetry (`protocols/sdrpp_telemetry`)](../protocols/sdrpp_telemetry/README.md)
 - [Spotify (`protocols/spotify`)](../protocols/spotify/README.md)
 
 ### Scripts

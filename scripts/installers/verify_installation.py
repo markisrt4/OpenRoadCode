@@ -16,6 +16,7 @@ from collections.abc import Iterable
 
 PYTHON_IMPORTS: dict[str, tuple[str, ...]] = {
     "base": ("requests", "zmq"),
+    "sdrforge": ("sdrforge", "scipy", "zmq", "sounddevice"),
     "desktop-ui": ("tkinter", "PIL", "numpy", "flask"),
     "web-ui": ("flask",),
     "input": ("evdev",),
@@ -39,7 +40,6 @@ COMMANDS: dict[str, tuple[tuple[str, ...], ...]] = {
     "adsb": (("readsb",),),
     "bluetooth": (("bluetoothctl",), ("sdptool",), ("rfcomm",)),
     "automotive": (("candump",),),
-    "sdrpp": (("sdrpp",),),
     "raspberry-pi": (("i2cdetect",),),
     "imu": (("i2cdetect",),),
     "environmental": (("i2cdetect",),),
@@ -49,7 +49,7 @@ DEPENDENCIES: dict[str, tuple[str, ...]] = {
     "vnc": ("desktop-ui",),
     "spotify": ("audio",),
     "adsb": ("rtl-sdr", "browser"),
-    "sdrpp": ("rtl-sdr", "desktop-ui", "audio"),
+    "sdrforge": ("rtl-sdr", "desktop-ui", "audio"),
 }
 
 

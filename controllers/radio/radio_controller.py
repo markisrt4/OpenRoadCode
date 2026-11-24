@@ -70,16 +70,24 @@ class RadioController(RadioControllerIf):
         if self._started:
             return self.current_frequency_hz
 
-        self.backend.start()
+        shared_receiver = getattr(self.backend, "shared_receiver", False)
+        if not shared_receiver:
+            self.backend.start()
         try:
-            self.set_mode(self.default_mode)
-
-            if self.radio_range is not None:
-                self.current_frequency_hz = self.radio_range.start_frequency_hz
-
-            frequency_hz = self.set_frequency(self.current_frequency_hz)
+            if shared_receiver:
+                # Attaching to SDRForge must not overwrite another client's tune.
+                frequency_hz = self.backend.get_frequency()
+                if frequency_hz <= 0:
+                    raise ValueError("backend returned a non-positive frequency")
+                self.current_frequency_hz = frequency_hz
+            else:
+                self.set_mode(self.default_mode)
+                if self.radio_range is not None:
+                    self.current_frequency_hz = self.radio_range.start_frequency_hz
+                frequency_hz = self.set_frequency(self.current_frequency_hz)
         except Exception:
-            self.backend.stop()
+            if not shared_receiver:
+                self.backend.stop()
             raise
 
         self._started = True
@@ -91,7 +99,8 @@ class RadioController(RadioControllerIf):
             return
 
         try:
-            self.backend.stop()
+            if not getattr(self.backend, "shared_receiver", False):
+                self.backend.stop()
         finally:
             self._started = False
 
@@ -107,8 +116,9 @@ class RadioController(RadioControllerIf):
 
     def set_mode(self, mode: RadioMode) -> RadioMode:
         """Set and return the active demodulation mode."""
-        self.backend.set_mode(mode.name, mode.bandwidth)
-        self.current_mode = mode
+        if mode != self.current_mode:
+            self.backend.set_mode(mode.name, mode.bandwidth)
+            self.current_mode = mode
         return mode
 
     def tune_preset(self, preset: RadioPreset) -> RadioPreset:
