@@ -139,11 +139,17 @@ class RadioPanelStateMixin:
                     self._spectrum_start_button.place_forget()
                 else:
                     self._spectrum_start_button.place(relx=0.5, rely=0.55, anchor="center")
-                    self._spectrum_start_button.lift()
+                    self._spectrum_start_button.tk.call("raise", self._spectrum_start_button._w)
             self._receiver_power_button.set_text(
                 "STARTING SDR…" if starting else
                 ("■ STOP SDR" if state.receiver_running else "▶ START SDR"))
-            self._receiver_power_button.set_enabled(not starting)
+            unavailable = state.error.startswith("SDRForge service unavailable:")
+            self._receiver_power_button.set_enabled(not starting and not unavailable)
+            if self._sdrforge_view is not None:
+                self._spectrum_start_button.configure(state="disabled" if unavailable else "normal")
+                color = self._theme.ui.border if unavailable else self._theme.ui.accent_primary
+                self._spectrum_start_button.itemconfigure(1, outline=color)
+                self._spectrum_start_button.itemconfigure(2, fill=color)
             self._receiver_power_button.set_selected(state.receiver_running)
             self._play_button.set_text("MUTE" if state.playing else "UNMUTE")
             self._play_button.set_selected(not state.playing)

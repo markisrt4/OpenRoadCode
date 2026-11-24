@@ -65,7 +65,7 @@ class RadioPanelLayoutMixin:
                 "<Button-1>", lambda _event: self._toggle_receiver_power(),
             )
             self._spectrum_start_button.place(relx=0.5, rely=0.55, anchor="center")
-            self._spectrum_start_button.lift()
+            self._spectrum_start_button.tk.call("raise", self._spectrum_start_button._w)
             self._poll_sdrforge_spectrum()
 
         self._telemetry_overlay = tk.Frame(
