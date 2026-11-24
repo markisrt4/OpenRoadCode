@@ -13,7 +13,10 @@ from pathlib import Path
 from controllers.calendar.caldav_adapter import CalDavAdapter
 from controllers.calendar.caldav_provider import CalDavCalendarProvider
 from controllers.calendar.calendar_event_cache import CalendarEventCache
-from controllers.calendar.calendar_selection import load_disabled_calendar_ids
+from controllers.calendar.calendar_selection import (
+    load_disabled_calendar_ids,
+    save_calendar_catalog,
+)
 from controllers.calendar.calendar_sync_health import CalendarSyncHealth
 from controllers.calendar.calendar_sync_scheduler import CalendarSyncScheduler
 from controllers.calendar.calendar_sync_worker import CalendarSyncWorker
@@ -57,7 +60,13 @@ def main() -> None:
         timeout_seconds=args.timeout,
     )
     provider = CalDavCalendarProvider(
-        args.account_id, adapter, load_disabled_calendar_ids(args.selection_file)
+        args.account_id,
+        adapter,
+        selection_loader=lambda: load_disabled_calendar_ids(args.selection_file),
+        discovery_listener=lambda calendars: save_calendar_catalog(
+            args.cache_file.with_suffix(".catalog.json"),
+            {calendar.href: calendar.display_name for calendar in calendars},
+        ),
     )
     worker = CalendarSyncWorker(args.account_id, provider, CalendarEventCache(args.cache_file))
     scheduler = CalendarSyncScheduler(

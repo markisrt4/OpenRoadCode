@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
-from collections.abc import Collection
+from collections.abc import Callable, Collection
 from datetime import datetime
 
 from .caldav_adapter import (
@@ -43,12 +43,17 @@ class CalDavCalendarProvider(CalendarProviderIf):
         account_id: str,
         adapter: CalDavAdapter,
         disabled_calendar_ids: Collection[str] = (),
+        *,
+        selection_loader: Callable[[], Collection[str]] | None = None,
+        discovery_listener: Callable[[list[CalDavCalendar]], None] | None = None,
     ) -> None:
         if not account_id:
             raise ValueError("CalDAV account ID is required")
         self._account_id = account_id
         self._adapter = adapter
         self._disabled_calendar_ids = frozenset(disabled_calendar_ids)
+        self._selection_loader = selection_loader
+        self._discovery_listener = discovery_listener
         self.last_sync_status: list[CalendarSyncStatus] = []
 
     @property
@@ -61,7 +66,14 @@ class CalDavCalendarProvider(CalendarProviderIf):
         self.last_sync_status = []
         started = time.monotonic()
         _LOG.info("Calendar discovery started")
+        disabled = (
+            frozenset(self._selection_loader())
+            if self._selection_loader is not None
+            else self._disabled_calendar_ids
+        )
         calendars = self._adapter.discover_calendars()
+        if self._discovery_listener is not None:
+            self._discovery_listener(calendars)
         _LOG.info(
             "Calendar discovery completed: %d calendars in %.1fs",
             len(calendars),
@@ -71,7 +83,7 @@ class CalDavCalendarProvider(CalendarProviderIf):
         for index, calendar in enumerate(calendars, 1):
             calendar_started = time.monotonic()
             _LOG.info("Calendar %d/%d: starting", index, len(calendars))
-            if calendar.href in self._disabled_calendar_ids:
+            if calendar.href in disabled:
                 self.last_sync_status.append(
                     CalendarSyncStatus(calendar.href, False, disabled=True)
                 )

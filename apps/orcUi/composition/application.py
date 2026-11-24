@@ -27,6 +27,7 @@ from apps.launchers.cesium_embedded_viewer import CesiumEmbeddedViewer
 from controllers.navigation.current_position import get_current_position
 from ui.navigation.cesium_viewer_state import CesiumViewerState
 from ui.navigation import GeoPoint
+from apps.orcUi.composition.calendar import configure_calendar
 from apps.orcUi.composition.games import configure_games
 from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
 from apps.orcUi.composition.tooltips import TooltipFactory
@@ -362,6 +363,7 @@ def create_orc_ui_composition(
         app.register_screen("OFF-ROAD", offroad, show_in_navigation=False)
         app.register_screen("SETTINGS", settings, show_in_navigation=False)
         app.register_screen("DIAGNOSTICS", diagnostics, show_in_navigation=False)
+        configure_calendar(app)
         app.set_initial_destination("HOME")
         app.set_settings_action(lambda: app.navigate_to("SETTINGS"))
         _report(progress, "screens", "Application screens loaded")
