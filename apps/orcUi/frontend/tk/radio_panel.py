@@ -60,7 +60,7 @@ class RadioPanel(RadioTuningGesturesMixin, RadioPanelStateMixin, RadioPanelLayou
         self._preset_page = 0
         self._preset_page_size = 4
         self._scan_selected: set[int] = set()
-        self._scan_signature: tuple[int, ...] | None = None
+        self._scan_signature: tuple[tuple[int, ...], bool] | None = None
         self._scan_drag_y: int | None = None
         self._scan_dragged = False
         self._scan_dismissed = False
@@ -388,9 +388,11 @@ class RadioPanel(RadioTuningGesturesMixin, RadioPanelStateMixin, RadioPanelLayou
         canvas.configure(scrollregion=(0, 0, width, max(1, len(self._state.scan_hits) * 36)))
         canvas.yview_moveto(previous_scroll)
         self._scan_save.configure(text=f"SAVE SELECTED ({len(self._scan_selected)})",
-                                  state=tk.NORMAL if self._scan_selected else tk.DISABLED)
+                                  state=tk.NORMAL if self._scan_selected and self._state.presets_writable else tk.DISABLED)
 
     def _save_scanned_presets(self) -> None:
+        if not self._state.presets_writable:
+            return
         key = self._state.station.profile_key
         for frequency in sorted(self._scan_selected):
             self._session.request(RadioRequest(
@@ -437,7 +439,7 @@ class RadioPanel(RadioTuningGesturesMixin, RadioPanelStateMixin, RadioPanelLayou
         """One-touch station presets for the active radio profile."""
         ui = self._theme.ui
         profile = self._browsed_profile(state)
-        signature = (profile.key, tuple((p.label, p.frequency_hz) for p in profile.presets), state.station.profile_key, state.station.frequency_hz, self._preset_page) if profile else None
+        signature = (profile.key, tuple((p.label, p.frequency_hz) for p in profile.presets), state.station.profile_key, state.station.frequency_hz, self._preset_page, state.presets_writable) if profile else None
         if signature == self._favorites_signature:
             return
         self._favorites_signature = signature
@@ -474,7 +476,7 @@ class RadioPanel(RadioTuningGesturesMixin, RadioPanelStateMixin, RadioPanelLayou
         tk.Button(
             self._favorites, text="☆ SAVE",
             command=lambda group=profile.group: self._add_current_preset(group),
-            state=tk.NORMAL if profile.key == state.station.profile_key else tk.DISABLED,
+            state=tk.NORMAL if profile.key == state.station.profile_key and state.presets_writable else tk.DISABLED,
             bg=ui.surface_alt, fg=ui.text, relief=tk.FLAT,
             bd=0, padx=12, pady=13, font=("Sans", 10, "bold"),
             highlightthickness=1, highlightbackground=ui.border,
