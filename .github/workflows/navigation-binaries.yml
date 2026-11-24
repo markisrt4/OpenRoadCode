@@ -6,6 +6,11 @@ on:
     branches: [feature/rpi5-integration]
     paths:
       - '.github/workflows/navigation-binaries.yml'
+      - 'tools/map_builder/toolchain.lock'
+      - 'scripts/installers/navigation_component_version.sh'
+      - 'apps/map_renderer/**'
+      - 'development/containers/maplibre/**'
+      - 'development/containers/valhalla/**'
 
 permissions:
   contents: read
