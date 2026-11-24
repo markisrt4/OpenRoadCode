@@ -33,6 +33,10 @@ else
   FEATURES=(base desktop-ui web-ui browser streamlit spotify sdrforge navigation)
 fi
 
+if [[ " ${FEATURES[*]} " == *" desktop-ui "* && " ${FEATURES[*]} " != *" sdrforge "* ]]; then
+  FEATURES+=(sdrforge)
+fi
+
 echo "[*] Termux features: ${FEATURES[*]}"
 echo "[*] Updating Termux packages..."
 pkg update

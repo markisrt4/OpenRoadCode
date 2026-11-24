@@ -109,7 +109,7 @@ OpenRoadCode uses libSDRForge for RF acquisition and DSP, with native ORC spectr
 | 5570 | REST | Receiver control, status and health |
 | 5571 | ZeroMQ | Spectrum and receiver telemetry |
 
-Select the `sdrforge` installation feature to install the engine. RF service lifecycle is separate from UI presentation. See [RF radio contracts](docs/rf_radio.md) for details.
+Desktop UI installations include the native SDRForge engine automatically. Headless installations can explicitly select the `sdrforge` feature. SDR++ is not required. RF service lifecycle is separate from UI presentation. See [RF radio contracts](docs/rf_radio.md) for details.
 
 ---
 ## Native Games
@@ -275,7 +275,7 @@ The `desktop-ui` and `navigation` features use the native Tk/X11 and MapLibre
 interfaces and do not install a web browser. Select `--feature browser`
 explicitly for browser-backed applications.
 
-For RF radio on Linux, select the `sdrforge` installer feature.
+Linux and Raspberry Pi desktop installations include SDRForge. The installer uses a pinned compatible upstream revision; developers can explicitly set `LIBSDRFORGE_SOURCE` to a local checkout.
 
 For the integrated media path on Debian/Ubuntu, run:
 
