@@ -28,9 +28,9 @@ run_checks() {
     fi
     if [ "$mode" = --all ] || [ "$mode" = --test ]; then
         if [ "$#" -gt 0 ]; then
-            python -m pytest "$@" -q || rc=1
+            python -m pytest --import-mode=importlib "$@" -q || rc=1
         else
-            python -m pytest tests/unit/ controllers/calendar/unit_test/ -q || rc=1
+            python -m pytest --import-mode=importlib tests/unit/ controllers/calendar/unit_test/ -q || rc=1
         fi
     fi
     return "$rc"
