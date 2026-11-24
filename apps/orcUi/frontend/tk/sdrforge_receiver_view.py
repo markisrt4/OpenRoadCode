@@ -5,6 +5,7 @@
 This widget owns no SDR hardware. Composition supplies immutable snapshots and
 spectrum bins, keeping transport and DSP outside Tk's UI thread.
 """
+
 from __future__ import annotations
 
 import tkinter as tk
@@ -13,8 +14,13 @@ from dataclasses import replace
 import re
 from time import monotonic
 
-from ui.radio.radio_visualization_config import (RadioRenderer, RadioVisualizationConfig, select_renderer,
-    load_rf_visualization_settings, save_rf_visualization_settings)
+from ui.radio.radio_visualization_config import (
+    RadioRenderer,
+    RadioVisualizationConfig,
+    select_renderer,
+    load_rf_visualization_settings,
+    save_rf_visualization_settings,
+)
 from collections import deque
 from collections.abc import Sequence
 
@@ -27,8 +33,13 @@ from .sdrforge_render_mixin import SdrForgeRenderMixin
 class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
     """Responsive native receiver visualization for the ORC radio panel."""
 
-    def __init__(self, parent: tk.Misc, *, theme: ThemeBundle,
-                 visualization: RadioVisualizationConfig | None = None) -> None:
+    def __init__(
+        self,
+        parent: tk.Misc,
+        *,
+        theme: ThemeBundle,
+        visualization: RadioVisualizationConfig | None = None,
+    ) -> None:
         super().__init__(parent, bg=theme.ui.background)
         self._theme = theme
         self._visualization = visualization or RadioVisualizationConfig()
@@ -36,9 +47,13 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
         try:
             self._visualization = replace(
                 self._visualization,
-                renderer=RadioRenderer(str(overrides.get("renderer", self._visualization.renderer.value))),
+                renderer=RadioRenderer(
+                    str(overrides.get("renderer", self._visualization.renderer.value))
+                ),
                 max_fps=int(overrides.get("max_fps", self._visualization.max_fps)),
-                waterfall_rows=int(overrides.get("waterfall_rows", self._visualization.waterfall_rows)),
+                waterfall_rows=int(
+                    overrides.get("waterfall_rows", self._visualization.waterfall_rows)
+                ),
                 palette=str(overrides.get("palette", self._visualization.palette)),
             )
         except (TypeError, ValueError):
@@ -80,8 +95,14 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
         self._canvas.bind("<Configure>", lambda _event: self._schedule_render())
         self._canvas.bind("<Button-1>", self._handle_spectrum_click)
         self._canvas.bind("<MouseWheel>", self._handle_tune_wheel)
-        self._canvas.bind("<Button-4>", lambda event: self._tune_by_wheel(1) if event.y < self._heading_height() else None)
-        self._canvas.bind("<Button-5>", lambda event: self._tune_by_wheel(-1) if event.y < self._heading_height() else None)
+        self._canvas.bind(
+            "<Button-4>",
+            lambda event: self._tune_by_wheel(1) if event.y < self._heading_height() else None,
+        )
+        self._canvas.bind(
+            "<Button-5>",
+            lambda event: self._tune_by_wheel(-1) if event.y < self._heading_height() else None,
+        )
         self._canvas.bind("<ButtonPress-1>", self._tune_touch_start, add="+")
         self._canvas.bind("<B1-Motion>", self._tune_touch_move)
         self._canvas.bind("<ButtonRelease-1>", self._tune_touch_end)
@@ -89,7 +110,12 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
             self._gl_surface = OpenGLRadioSurface(self, width=320, height=180)
             self._gl_surface.place(x=0, y=80, relwidth=1, height=180)
             self._gl_surface.bind("<Button-1>", self._handle_spectrum_click)
-            self._gl_surface.bind("<MouseWheel>", lambda event: self._tune_by_wheel(1 if event.delta > 0 else -1) if event.delta else None)
+            self._gl_surface.bind(
+                "<MouseWheel>",
+                lambda event: (
+                    self._tune_by_wheel(1 if event.delta > 0 else -1) if event.delta else None
+                ),
+            )
             self._gl_surface.bind("<Button-4>", lambda _event: self._tune_by_wheel(1))
             self._gl_surface.bind("<Button-5>", lambda _event: self._tune_by_wheel(-1))
         # Keep spectrum navigation in its own band, away from the MHz heading.
@@ -103,28 +129,50 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
             ("▶", lambda: self.pan_spectrum(0.20)),
         ):
             button = tk.Button(
-                self._spectrum_controls, text=label, command=callback,
-                bg=theme.ui.control_background, fg=theme.ui.text,
-                relief=tk.FLAT, bd=0, width=3, padx=2, pady=3,
-                font=("Sans", 10, "bold"))
+                self._spectrum_controls,
+                text=label,
+                command=callback,
+                bg=theme.ui.control_background,
+                fg=theme.ui.text,
+                relief=tk.FLAT,
+                bd=0,
+                width=3,
+                padx=2,
+                pady=3,
+                font=("Sans", 10, "bold"),
+            )
             button.pack(side="left", padx=2)
             self._spectrum_buttons.append(button)
         self._recenter_button = tk.Button(
-            self._spectrum_controls, command=self._toggle_recenter,
-            bg=theme.ui.control_background, fg=theme.ui.text,
-            relief=tk.FLAT, bd=0, padx=6, pady=3, font=("Sans", 9, "bold"))
+            self._spectrum_controls,
+            command=self._toggle_recenter,
+            bg=theme.ui.control_background,
+            fg=theme.ui.text,
+            relief=tk.FLAT,
+            bd=0,
+            padx=6,
+            pady=3,
+            font=("Sans", 9, "bold"),
+        )
         self._recenter_button.pack(side="left", padx=(4, 2))
         self._update_recenter_button()
         # Secondary status belongs with the spectrum tools, not the MHz heading.
         self._mode_label = tk.Label(
-            self, text="", bg=theme.ui.surface,
-            fg=theme.ui.text_muted, font=("Sans", 9))
+            self, text="", bg=theme.ui.surface, fg=theme.ui.text_muted, font=("Sans", 9)
+        )
         # Place independently so the label aligns with the right edge of the FFT.
         self._toolbar_toggle = tk.Button(
-            self, text="HIDE ◀", command=self._toggle_spectrum_toolbar,
-            bg=theme.ui.control_background, fg=theme.ui.text,
-            relief=tk.FLAT, bd=0, padx=6, pady=3,
-            font=("Sans", 9, "bold"))
+            self,
+            text="HIDE ◀",
+            command=self._toggle_spectrum_toolbar,
+            bg=theme.ui.control_background,
+            fg=theme.ui.text,
+            relief=tk.FLAT,
+            bd=0,
+            padx=6,
+            pady=3,
+            font=("Sans", 9, "bold"),
+        )
         # Preset navigation belongs to RadioPanel, not inside the spectrum.
 
     def _toggle_spectrum_toolbar(self) -> None:
@@ -133,8 +181,7 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
         self._schedule_render()
 
     def _update_recenter_button(self) -> None:
-        self._recenter_button.configure(
-            text="CENTER", fg=self._theme.ui.text)
+        self._recenter_button.configure(text="CENTER", fg=self._theme.ui.text)
 
     def _toggle_recenter(self) -> None:
         if self._viewport is not None and self._frequency_hz:
@@ -182,7 +229,8 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
     def zoom_spectrum(self, factor: float) -> None:
         if self._viewport is not None:
             self._viewport = self._viewport.zoom(
-                factor, max_span_hz=float(self._sample_rate_hz or self._viewport.span_hz))
+                factor, max_span_hz=float(self._sample_rate_hz or self._viewport.span_hz)
+            )
             self._constrain_viewport()
             self._schedule_render()
 
@@ -197,7 +245,13 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
         return tuple(
             row[index] if 0 <= index < len(row) else 0.0
             for index in (
-                min(len(row) - 1, max(0, int((viewport.frequency_at(i / max(1, length - 1)) - source_start) * scale)))
+                min(
+                    len(row) - 1,
+                    max(
+                        0,
+                        int((viewport.frequency_at(i / max(1, length - 1)) - source_start) * scale),
+                    ),
+                )
                 for i in range(length)
             )
         )
@@ -249,13 +303,21 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
             header = 54 if h < 260 else 80
             if event.y < header + 34 + 22:
                 return
-            footer = (24 if h < 260 else 32) if self._radio_text and (self._mode in ("WFM", "FM") or 76_000_000 <= self._frequency_hz <= 108_000_000) else 0
+            footer = (
+                (24 if h < 260 else 32)
+                if self._radio_text
+                and (self._mode in ("WFM", "FM") or 76_000_000 <= self._frequency_hz <= 108_000_000)
+                else 0
+            )
             if event.y >= h - footer:
                 return
         width = max(1, event.widget.winfo_width())
         position = max(0.0, min(1.0, event.x / width))
-        hz = (self._viewport.frequency_at(position) if self._viewport is not None
-              else self._center_frequency_hz + (position - 0.5) * self._sample_rate_hz)
+        hz = (
+            self._viewport.frequency_at(position)
+            if self._viewport is not None
+            else self._center_frequency_hz + (position - 0.5) * self._sample_rate_hz
+        )
         if self._tune_range is None:
             return
         low, high, step = self._tune_range
@@ -280,13 +342,28 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
         self._update_recenter_button()
         self._schedule_render()
 
-    def set_station(self, *, frequency_hz: int, name: str = "",
-                    radio_text: str = "", stereo: bool = False,
-                    signal: float | None = None, mode: str = "",
-                    bandwidth_hz: int | None = None,
-                    observed_mode: str | None = None) -> None:
-        presentation = (frequency_hz, name, radio_text, stereo, signal, mode,
-                        bandwidth_hz, observed_mode)
+    def set_station(
+        self,
+        *,
+        frequency_hz: int,
+        name: str = "",
+        radio_text: str = "",
+        stereo: bool = False,
+        signal: float | None = None,
+        mode: str = "",
+        bandwidth_hz: int | None = None,
+        observed_mode: str | None = None,
+    ) -> None:
+        presentation = (
+            frequency_hz,
+            name,
+            radio_text,
+            stereo,
+            signal,
+            mode,
+            bandwidth_hz,
+            observed_mode,
+        )
         if getattr(self, "_last_presentation", None) == presentation:
             return
         self._last_presentation = presentation
@@ -295,7 +372,11 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
         self._observed_mode = observed_mode
         self._frequency_hz = frequency_hz
         self._station = name or "--"
-        self._radio_text = radio_text if (self._mode in ("WFM", "FM") or 76_000_000 <= frequency_hz <= 108_000_000) else ""
+        self._radio_text = (
+            radio_text
+            if (self._mode in ("WFM", "FM") or 76_000_000 <= frequency_hz <= 108_000_000)
+            else ""
+        )
         self._stereo = stereo
         self._signal = signal
         if self._recenter_on_tune and self._viewport is not None and frequency_hz:
@@ -335,10 +416,14 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
             self._gl_surface.update_data((), (), self._visualization.palette)
         self._schedule_render()
 
-    def set_spectrum(self, bins: Sequence[float], *,
-                     center_frequency_hz: int | None = None,
-                     sample_rate_hz: int | None = None,
-                     power_db: Sequence[float] | None = None) -> None:
+    def set_spectrum(
+        self,
+        bins: Sequence[float],
+        *,
+        center_frequency_hz: int | None = None,
+        sample_rate_hz: int | None = None,
+        power_db: Sequence[float] | None = None,
+    ) -> None:
         """Smooth display bins while retaining the raw waterfall history."""
         raw = tuple(max(0.0, min(1.0, float(x))) for x in bins)
         previous_center = self._center_frequency_hz
@@ -369,22 +454,28 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
                 self._db_floor = 0.9 * self._db_floor + 0.1 * target_floor
                 self._db_ceiling = 0.9 * self._db_ceiling + 0.1 * target_ceiling
             span = max(1.0, self._db_ceiling - self._db_floor)
-            raw = tuple(max(0.0, min(1.0, (float(value) - self._db_floor) / span))
-                        for value in power_db)
+            raw = tuple(
+                max(0.0, min(1.0, (float(value) - self._db_floor) / span)) for value in power_db
+            )
         self._center_frequency_hz = center_frequency_hz
         self._sample_rate_hz = sample_rate_hz
         if center_frequency_hz is not None and sample_rate_hz is not None:
             if self._viewport is None:
                 self._viewport = SpectrumViewport(
-                    float(center_frequency_hz), float(sample_rate_hz), self._recenter_on_tune)
+                    float(center_frequency_hz), float(sample_rate_hz), self._recenter_on_tune
+                )
             elif previous_center != center_frequency_hz and self._recenter_on_tune:
-                self._viewport = replace(self._viewport, center_hz=float(self._frequency_hz or center_frequency_hz))
+                self._viewport = replace(
+                    self._viewport, center_hz=float(self._frequency_hz or center_frequency_hz)
+                )
             self._constrain_viewport()
         if len(self._bins) == len(raw):
-            self._bins = tuple(0.40 * value + 0.60 * old
-                               for value, old in zip(raw, self._bins))
-            self._peak_bins = (tuple(max(value, peak) for value, peak in zip(self._bins, self._peak_bins))
-                               if self._peak_hold_enabled else self._bins)
+            self._bins = tuple(0.40 * value + 0.60 * old for value, old in zip(raw, self._bins))
+            self._peak_bins = (
+                tuple(max(value, peak) for value, peak in zip(self._bins, self._peak_bins))
+                if self._peak_hold_enabled
+                else self._bins
+            )
         else:
             self._bins = raw
             self._peak_bins = raw
@@ -432,7 +523,9 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
             return ""
         # Also reject a label matching the tuned frequency, regardless of units.
         for divisor in (1_000_000, 1_000, 1):
-            if re.fullmatch(rf"{self._frequency_hz / divisor:g}\\s*(?:MHz|kHz|Hz|FM)?", station, re.I):
+            if re.fullmatch(
+                rf"{self._frequency_hz / divisor:g}\\s*(?:MHz|kHz|Hz|FM)?", station, re.I
+            ):
                 return ""
         return station
 
@@ -445,4 +538,4 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
             t = (value - 0.33) / 0.33
             return f"#{int(30 * t):02x}{int(190 * t):02x}ff"
         t = (value - 0.66) / 0.34
-        return f"#ff{int(190 + 65 * t):02x}{int(40 * (1-t)):02x}"
+        return f"#ff{int(190 + 65 * t):02x}{int(40 * (1 - t)):02x}"
