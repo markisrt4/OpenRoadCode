@@ -61,6 +61,13 @@ class RadioTuningGesturesMixin:
             return
         self._session.request(RadioRequest(RadioAction.NEXT))
 
+    def _pan_acquisition(self, center_hz: int) -> None:
+        state = self._state
+        if state.receiver_running and state.view != "adsb" and state.tuning_range:
+            low, high, step = state.tuning_range
+            target = max(low, min(high, low + round((center_hz - low) / max(1, step)) * step))
+            self._session.request(RadioRequest(RadioAction.PAN_ACQUISITION, frequency_hz=target))
+
     def _recenter_spectrum(self) -> None:
         if self._state.receiver_running and self._state.view != "adsb":
             self._session.request(RadioRequest(RadioAction.RECENTER))

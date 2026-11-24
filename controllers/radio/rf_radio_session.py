@@ -272,6 +272,19 @@ class ReceiverSession:
             if self._current(generation) and request.action is RadioAction.LAUNCH:
                 self._read_controls()
             return
+        if action is RadioAction.PAN_ACQUISITION:
+            if request.frequency_hz is None:
+                raise ValueError("pan requires an acquisition center")
+            with urllib.request.urlopen(
+                urllib.request.Request(
+                    "http://127.0.0.1:5570/v1/receiver/pan",
+                    data=('{"center_hz": %d}' % request.frequency_hz).encode(),
+                    headers={"Content-Type": "application/json"}, method="POST",
+                ), timeout=6.0,
+            ) as response:
+                if response.status != 202:
+                    raise RuntimeError("SDRForge acquisition pan failed")
+            return
         if action is RadioAction.RECENTER:
             with urllib.request.urlopen(
                 urllib.request.Request(

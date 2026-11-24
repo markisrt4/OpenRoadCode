@@ -57,14 +57,22 @@ class SdrForgeViewportMixin:
         )
         self._viewport = replace(viewport, center_hz=center, span_hz=span)
 
+    def set_acquisition_pan_handler(self, handler) -> None:
+        self._on_acquisition_pan = handler
+
     def pan_spectrum(self, fraction: float) -> None:
         if self._viewport is not None:
             self._recenter_on_tune = False
             self._update_recenter_button()
             if self._sample_rate_hz and self._viewport.span_hz >= self._sample_rate_hz:
                 self._viewport = self._viewport.zoom(0.7)
-            self._viewport = replace(self._viewport.pan(fraction), recenter_on_tune=False)
+            target = self._viewport.pan(fraction)
+            self._viewport = replace(target, recenter_on_tune=False)
             self._constrain_viewport()
+            if target.center_hz != self._viewport.center_hz:
+                handler = getattr(self, "_on_acquisition_pan", None)
+                if handler is not None:
+                    handler(round(target.center_hz))
             self._schedule_render()
 
     def zoom_spectrum(self, factor: float) -> None:
