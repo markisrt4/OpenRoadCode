@@ -121,6 +121,8 @@ class RadioProfileCatalog:
             return RadioProfilePreset(created["label"], created["frequency_hz"],
                                       selected["name"], selected["bandwidth_hz"],
                                       selected["step_hz"], True)
+        if self._remote_enabled:
+            raise ValueError("SDRForge unavailable; preset storage is read-only")
         if not label.strip(): raise ValueError("preset label must not be empty")
         if frequency_hz <= 0: raise ValueError("preset frequency must be greater than zero")
         profile = self.profile(profile_key)
@@ -148,6 +150,8 @@ class RadioProfileCatalog:
             if removed:
                 self.reload()
             return removed
+        if self._remote_enabled:
+            raise ValueError("SDRForge unavailable; preset storage is read-only")
         data = self._load_user_presets(); entries = data.get(profile_key, [])
         remaining = [item for item in entries if not (str(item.get("label", "")) == label and int(item.get("frequency_hz", 0)) == int(frequency_hz))]
         if len(remaining) == len(entries): return False
