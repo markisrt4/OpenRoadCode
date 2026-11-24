@@ -14,6 +14,7 @@ def presentation():
     # __new__ deliberately skips Tk initialization. Supply the minimal
     # constructor state required by the legacy and native presentation paths.
     panel._sdrforge_view = None
+    panel._spectrum_start_button = Mock()
     panel._last_receiver_running = None
     panel._receiver_start_pending = False
     panel._receiver_controls = None
@@ -78,6 +79,7 @@ def test_native_power_button_reflects_backend_starting_state():
     panel._theme.ui.accent_success = "green"
     panel._theme.ui.accent_primary = "blue"
     panel._theme.ui.surface = "black"
+    panel._theme.ui.border = "gray"
     panel._state = RfRadioState(
         RadioProfileState("Station", 100_000_000, "WFM", "fm_radio", "FM"), ()
     )
@@ -85,6 +87,7 @@ def test_native_power_button_reflects_backend_starting_state():
         panel._state.station, (), receiver_starting=True
     )
     panel.set_radio_state(state)
+    panel._spectrum_start_button.place_forget.assert_called()
     panel._receiver_power_button.set_text.assert_called_with("STARTING SDR…")
     panel._receiver_power_button.set_enabled.assert_called_with(False)
     panel._session.request.assert_not_called()
@@ -95,6 +98,7 @@ def test_native_power_button_reflects_backend_starting_state():
     # Acquisition completed: power control switches to STOP.
     running = RfRadioState(panel._state.station, (), receiver_running=True)
     panel.set_radio_state(running)
+    assert panel._spectrum_start_button.place_forget.call_count == 2
     panel._receiver_power_button.set_text.assert_called_with("■ STOP SDR")
     panel._receiver_power_button.set_enabled.assert_called_with(True)
     panel._toggle_receiver_power()
