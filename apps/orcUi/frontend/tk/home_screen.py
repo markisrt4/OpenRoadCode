@@ -137,6 +137,7 @@ class HomeScreen(TkScreen):
         self._visualizer_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._map_panel: HomeMapPanel | None = None
         self._context_rail: ContextRail | None = None
+        self._context_selection: tuple[str, dict[str, int]] | None = None
 
     @property
     def context_rail(self) -> ContextRail | None:
@@ -192,6 +193,7 @@ class HomeScreen(TkScreen):
 
     def show(self) -> None:
         """Build HOME content and start its embedded map renderer."""
+        self._remember_context()
         self._host.activate_screen(self)
         self._host.clear_screen_content()
         self._host.set_screen_title("")
@@ -214,6 +216,8 @@ class HomeScreen(TkScreen):
 
         if self._calendar_factory is not None:
             self._context_rail.set_calendar_factory(self._calendar_factory)
+        if self._context_selection is not None:
+            self._context_rail.restore_selection(self._context_selection)
 
         if self._telemetry_profile_request is not None:
             self._telemetry_profile_request(AutomotiveTelemetryProfile.HOME)
@@ -226,9 +230,15 @@ class HomeScreen(TkScreen):
 
     def hide(self) -> None:
         """Stop transient HOME resources when navigating away."""
+        self._remember_context()
         self._map_runtime.stop()
         self._map_panel = None
         self._context_rail = None
+
+    def _remember_context(self) -> None:
+        context = self._context_rail
+        if context is not None and context.winfo_exists():
+            self._context_selection = context.selection()
 
     def refresh_radar_state(self) -> None:
         """Refresh the mounted Home toggle after shared radar-state changes."""
