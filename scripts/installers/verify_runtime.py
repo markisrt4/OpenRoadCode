@@ -7,6 +7,8 @@
 from __future__ import annotations
 
 import argparse
+import json
+import re
 import os
 from pathlib import Path
 import socket
@@ -57,6 +59,30 @@ def systemd_active(service: str) -> tuple[bool, str]:
     )
     state = result.stdout.strip() or result.stderr.strip() or f"exit {result.returncode}"
     return result.returncode == 0 and state == "active", state
+
+
+def radio_service_ready() -> tuple[bool, str]:
+    """Check the user service, its listeners, and its REST health."""
+    try:
+        pid = subprocess.check_output(
+            ["systemctl", "--user", "show", "libsdrforge.service", "-p", "MainPID", "--value"],
+            text=True,
+            timeout=5,
+        ).strip()
+        if not pid.isdigit() or int(pid) == 0:
+            return False, "no systemd MainPID"
+        for port in (5570, 5571, 4532):
+            listeners = subprocess.check_output(
+                ["ss", "-H", "-lntp", f"sport = :{port}"], text=True, timeout=5
+            )
+            if set(re.findall(r"pid=(\d+)", listeners)) != {pid}:
+                return False, f"port {port} is not owned by PID {pid}"
+        with urllib.request.urlopen("http://127.0.0.1:5570/v1/health", timeout=2) as response:
+            if json.load(response).get("status") != "ok":
+                return False, "REST health is not ok"
+        return True, f"systemd PID {pid} owns REST, ZMQ and rigctl"
+    except (OSError, ValueError, subprocess.SubprocessError) as exc:
+        return False, str(exc)
 
 
 def tcp_endpoint(endpoint: str, timeout_s: float = 0.5) -> tuple[bool, str]:
@@ -121,6 +147,7 @@ def main() -> int:
         action="store_true",
         help="Require the OpenRoadCode telemetry systemd services to be active",
     )
+    parser.add_argument("--radio-service", action="store_true")
     parser.add_argument(
         "--gpsd-service",
         action="store_true",
@@ -160,6 +187,15 @@ def main() -> int:
     else:
         report("SKIP", "OpenRoadCode telemetry services", "not requested")
 
+    if args.radio_service:
+        if not args.telemetry_services:
+            ok, detail = systemd_active(TELEMETRY_SERVICES[0])
+            report("PASS" if ok else "FAIL", TELEMETRY_SERVICES[0], detail)
+            failures += not ok
+        ok, detail = radio_service_ready()
+        report("PASS" if ok else "FAIL", "libsdrforge.service", detail)
+        failures += not ok
+
     if args.gpsd_service:
         service_ok, service_detail = systemd_active("gpsd.service")
         socket_ok, socket_detail = systemd_active("gpsd.socket")
@@ -169,12 +205,14 @@ def main() -> int:
         failures += not ok
 
     print("\nMessaging endpoints:")
-    if args.telemetry_services:
+    if args.telemetry_services or args.radio_service:
         endpoint_paths = (
             ("publisher ingress", nested(config, "messaging", "publisher_endpoint")),
             ("subscriber egress", nested(config, "messaging", "subscriber_endpoint")),
             ("navigation commands", nested(config, "services", "navigation", "command_endpoint")),
         )
+        if not args.telemetry_services:
+            endpoint_paths = endpoint_paths[:2]
         for label, value in endpoint_paths:
             if not isinstance(value, str) or not value:
                 report("FAIL", label, "missing endpoint in runtime config")
