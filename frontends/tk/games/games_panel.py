@@ -416,14 +416,16 @@ class GamesPanel(tk.Frame, GamesUiIf, UiWidget):
         )
         description_label.grid(row=1, column=1, columnspan=2, sticky="nsew", padx=(4, 6))
 
-        tk.Label(
+        status_label = tk.Label(
             card,
             text=game.status.name,
             fg=accent,
             bg=ui.surface,
             font=("Sans", 14, "bold"),
             anchor="w",
-        ).grid(row=2, column=1, sticky="ew", padx=(4, 6), pady=(1, 5))
+        )
+        status_label.grid(row=2, column=1, sticky="ew", padx=(4, 6), pady=(1, 5))
+        card.grid_columnconfigure(1, minsize=status_label.winfo_reqwidth() + 10)
 
         action = tk.Button(
             card,
