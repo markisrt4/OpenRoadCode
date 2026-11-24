@@ -11,7 +11,11 @@ from .calendar_models import CalendarEvent
 
 
 class UnsupportedCalendarEventError(ValueError):
-    """Event needs recurrence expansion or timezone features not yet implemented."""
+    """Event needs features not yet implemented."""
+
+    def __init__(self, message: str, reason: str = "unsupported_event") -> None:
+        super().__init__(message)
+        self.reason = reason
 
 
 def _unfold(raw: str) -> list[str]:
@@ -58,11 +62,11 @@ def _date_value(params: dict[str, str], value: str) -> tuple[datetime, bool]:
         return datetime.fromisoformat(value).astimezone(timezone.utc), False
     zone = params.get("TZID")
     if not zone:
-        raise UnsupportedCalendarEventError("Floating event time needs an explicit timezone")
+        raise UnsupportedCalendarEventError("Floating event time needs an explicit timezone", "floating_time")
     try:
         tz = ZoneInfo(zone)
     except (KeyError, ValueError) as error:
-        raise UnsupportedCalendarEventError("Unsupported timezone identifier") from error
+        raise UnsupportedCalendarEventError("Unsupported timezone identifier", "unsupported_timezone") from error
     return datetime.fromisoformat(value).replace(tzinfo=tz), False
 
 
@@ -87,7 +91,7 @@ def parse_icalendar_events(raw: str, account_id: str, calendar_id: str) -> list[
             inside = False
             fields = _properties(event_lines)
             if "RRULE" in fields or "RDATE" in fields or "EXDATE" in fields:
-                raise UnsupportedCalendarEventError("Recurring events require recurrence expansion")
+                raise UnsupportedCalendarEventError("Recurring events require recurrence expansion", "unsupported_recurrence")
             if fields.get("STATUS", [({}, "")])[0][1] == "CANCELLED":
                 continue
             try:
@@ -104,7 +108,7 @@ def parse_icalendar_events(raw: str, account_id: str, calendar_id: str) -> list[
                 ends_at = starts_at + timedelta(days=1)
             else:
                 raise UnsupportedCalendarEventError(
-                    "Timed events without DTEND are not supported yet"
+                    "Timed events without DTEND are not supported yet", "missing_end"
                 )
             recurrence = fields.get("RECURRENCE-ID")
             title = _unescape(fields.get("SUMMARY", [({}, "")])[0][1])
