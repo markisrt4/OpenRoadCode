@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import os
 from pathlib import Path
+import re
 import socket
 import subprocess
 import sys
@@ -64,6 +64,13 @@ def systemd_active(service: str) -> tuple[bool, str]:
 def radio_service_ready() -> tuple[bool, str]:
     """Check the user service, its listeners, and its REST health."""
     try:
+        state = subprocess.check_output(
+            ["systemctl", "--user", "is-active", "libsdrforge.service"],
+            text=True,
+            timeout=5,
+        ).strip()
+        if state != "active":
+            return False, f"service state: {state}"
         pid = subprocess.check_output(
             ["systemctl", "--user", "show", "libsdrforge.service", "-p", "MainPID", "--value"],
             text=True,
@@ -78,7 +85,8 @@ def radio_service_ready() -> tuple[bool, str]:
             if set(re.findall(r"pid=(\d+)", listeners)) != {pid}:
                 return False, f"port {port} is not owned by PID {pid}"
         with urllib.request.urlopen("http://127.0.0.1:5570/v1/health", timeout=2) as response:
-            if json.load(response).get("status") != "ok":
+            health = json.load(response)
+            if not isinstance(health, dict) or health.get("status") != "ok":
                 return False, "REST health is not ok"
         return True, f"systemd PID {pid} owns REST, ZMQ and rigctl"
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
@@ -147,7 +155,11 @@ def main() -> int:
         action="store_true",
         help="Require the OpenRoadCode telemetry systemd services to be active",
     )
-    parser.add_argument("--radio-service", action="store_true")
+    parser.add_argument(
+        "--radio-service",
+        action="store_true",
+        help="Require the native radio user service and message broker",
+    )
     parser.add_argument(
         "--gpsd-service",
         action="store_true",
