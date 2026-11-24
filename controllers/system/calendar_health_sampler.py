@@ -24,11 +24,16 @@ def sample_calendar_health(path: Path | None = None, now: datetime | None = None
         success_age = (now - datetime.fromisoformat(success)).total_seconds() if success else None
         if success_age is not None and success_age < 0:
             raise ValueError("Invalid success time")
+        refresh = raw.get("last_data_refresh", success)
+        refresh_age = (now - datetime.fromisoformat(refresh)).total_seconds() if refresh else None
+        if refresh_age is not None and refresh_age < 0:
+            raise ValueError("Invalid refresh time")
         metrics = raw.get("metrics") or {}
         return {
             "status": status,
-            "stale": age > 2 * interval or (success_age is not None and success_age > 2 * interval),
+            "stale": age > 2 * interval or (refresh_age is not None and refresh_age > 2 * interval),
             "last_success_age_seconds": success_age,
+            "last_data_refresh_age_seconds": refresh_age,
             "last_completed_age_seconds": age,
             "interval_seconds": interval,
             "duration_seconds": float(raw["duration_seconds"]),
