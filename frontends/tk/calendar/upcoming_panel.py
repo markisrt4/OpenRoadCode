@@ -67,9 +67,10 @@ class UpcomingPanel(tk.Frame):
         except Exception:
             self._label("Calendar cache unavailable", self._ui.accent_warning)
         else:
-            if health.get("status") == "unavailable" or health.get(
-                "last_data_refresh_age_seconds"
-            ) is None:
+            if (
+                health.get("status") == "unavailable"
+                or health.get("last_data_refresh_age_seconds") is None
+            ):
                 self._label("Calendar freshness unknown", self._ui.accent_warning)
             elif health.get("stale"):
                 self._label("Calendar data stale", self._ui.accent_warning)
