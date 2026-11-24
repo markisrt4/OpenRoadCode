@@ -115,7 +115,20 @@ When an installer has created the project environment, activate it with:
 source venv/bin/activate
 ```
 
-Install the separate development tools after creating the runtime environment:
+The existing runtime installer remains unchanged. For the isolated quality
+tooling baseline on Linux, run:
+
+```bash
+bash scripts/setup_quality_env.sh
+```
+
+This creates `.venv-quality` without inheriting system packages and installs
+the pinned development tools. It does not yet install application dependencies;
+continue using the existing runtime-based verification commands below until
+the quality dependency migration is complete. Termux setup is deferred.
+
+For the existing runtime-based verification workflow, install development tools
+after creating the runtime environment:
 
 ```bash
 python -m pip install -r requirements-dev.txt

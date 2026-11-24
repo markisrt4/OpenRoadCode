@@ -3,6 +3,7 @@ tmp
 *.pyc
 venv
 .venv
+.venv-*/
 build
 **/build-termux/
 build-container
