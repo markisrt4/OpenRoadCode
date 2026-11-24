@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Touch-friendly cached calendar agenda."""
 
+import calendar
 import tkinter as tk
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
@@ -16,6 +17,7 @@ class CalendarScreen(tk.Frame):
         ui = theme.ui
         super().__init__(parent, bg=ui.background)
         self._ui = ui
+        self._month = False
         self._groups = ()
         self._controller = controller
         self._zone = zone
@@ -44,6 +46,12 @@ class CalendarScreen(tk.Frame):
                 activebackground=ui.surface,
                 activeforeground=ui.accent_primary,
             ).pack(side=tk.LEFT, padx=4, pady=4)
+        self._toggle = tk.Button(
+            bar, text="Month", command=self._toggle_view, bg=ui.surface,
+            fg=ui.text, relief=tk.FLAT, borderwidth=0, highlightthickness=0,
+            font=("Sans", 12), pady=6,
+        )
+        self._toggle.pack(side=tk.LEFT, padx=4)
         self._status = tk.Label(bar, bg=ui.background, fg=ui.text, font=("Sans", 11))
         self._status.pack(side=tk.RIGHT, padx=6)
         self._week = tk.Frame(self, bg=ui.background)
@@ -72,10 +80,34 @@ class CalendarScreen(tk.Frame):
         self._body.scan_dragto(event.x, event.y, gain=1)
         return "break"
 
+    def _toggle_view(self):
+        self._month = not self._month
+        self._toggle.configure(text="Week" if self._month else "Month")
+        self._day = (
+            self._selected.replace(day=1)
+            if self._month
+            else self._selected - timedelta(days=self._selected.weekday())
+        )
+        self._reload()
+
     def _move(self, delta):
         today = datetime.now(self._zone).date()
-        self._day = self._day + timedelta(days=delta) if delta else today - timedelta(days=today.weekday())
-        self._selected = self._day if delta else today
+        if not delta:
+            self._selected = today
+            self._day = (
+                today.replace(day=1) if self._month else today - timedelta(days=today.weekday())
+            )
+        elif self._month:
+            index = self._day.year * 12 + self._day.month - 1 + (1 if delta > 0 else -1)
+            year, month = divmod(index, 12)
+            self._day = self._day.replace(year=year, month=month + 1, day=1)
+            self._selected = self._day
+        else:
+            self._day += timedelta(days=delta)
+            self._selected = self._day
+        self._reload()
+
+    def _reload(self):
         self._groups = ()
         self._message = "Loading appointments..."
         self._refresh()
@@ -91,26 +123,29 @@ class CalendarScreen(tk.Frame):
         counts = {group.day: len(group.events) for group in self._groups}
         for child in self._week.winfo_children():
             child.destroy()
-        for index in range(7):
-            day = self._day + timedelta(days=index)
-            selected = day == self._selected
-            count = counts.get(day, 0)
-            background = ui.surface if selected else ui.background
-            foreground = ui.accent_primary if selected or day == today else ui.text
-            cell = tk.Frame(self._week, bg=background)
-            cell.grid(row=0, column=index, sticky="nsew", padx=2)
-            self._week.columnconfigure(index, weight=1, uniform="day")
-            for label, size, color in (
-                (day.strftime("%a").upper(), 10, foreground),
-                (str(day.day), 19, foreground),
-                (f"• {count}" if count else " ", 10, ui.accent_primary),
-            ):
-                widget = tk.Label(
-                    cell, text=label, font=("Sans", size), bg=background, fg=color
-                )
-                widget.pack(fill=tk.X)
-                widget.bind("<Button-1>", lambda event, value=day: self._select(value))
-            cell.bind("<Button-1>", lambda event, value=day: self._select(value))
+        if self._month:
+            self._render_month(counts, today)
+        else:
+            for index in range(7):
+                day = self._day + timedelta(days=index)
+                selected = day == self._selected
+                count = counts.get(day, 0)
+                background = ui.surface if selected else ui.background
+                foreground = ui.accent_primary if selected or day == today else ui.text
+                cell = tk.Frame(self._week, bg=background)
+                cell.grid(row=0, column=index, sticky="nsew", padx=2)
+                self._week.columnconfigure(index, weight=1, uniform="day")
+                for label, size, color in (
+                    (day.strftime("%a").upper(), 10, foreground),
+                    (str(day.day), 19, foreground),
+                    (f"• {count}" if count else " ", 10, ui.accent_primary),
+                ):
+                    widget = tk.Label(
+                        cell, text=label, font=("Sans", size), bg=background, fg=color
+                    )
+                    widget.pack(fill=tk.X)
+                    widget.bind("<Button-1>", lambda event, value=day: self._select(value))
+                cell.bind("<Button-1>", lambda event, value=day: self._select(value))
         canvas = self._body
         canvas.delete("all")
         width = max(canvas.winfo_width(), 240)
@@ -153,12 +188,42 @@ class CalendarScreen(tk.Frame):
         canvas.configure(scrollregion=(0, 0, width, max(y + 12, canvas.winfo_height())))
         canvas.yview_moveto(0)
 
+    def _render_month(self, counts, today):
+        ui = self._ui
+        for column, name in enumerate(calendar.day_abbr):
+            self._week.columnconfigure(column, weight=1, uniform="day")
+            tk.Label(
+                self._week, text=name.upper(), bg=ui.background, fg=ui.text_muted,
+                font=("Sans", 10),
+            ).grid(row=0, column=column, sticky="ew")
+        weeks = calendar.Calendar().monthdatescalendar(self._day.year, self._day.month)
+        for row, week in enumerate(weeks, 1):
+            for column, day in enumerate(week):
+                selected = day == self._selected
+                in_month = day.month == self._day.month
+                count = counts.get(day, 0)
+                label = str(day.day) + (f"  • {count}" if count else "")
+                button = tk.Button(
+                    self._week, text=label,
+                    command=lambda value=day: self._select(value),
+                    state=tk.NORMAL if in_month else tk.DISABLED,
+                    bg=ui.surface if selected else ui.background,
+                    fg=ui.accent_primary if selected or day == today else ui.text,
+                    disabledforeground=ui.text_muted,
+                    relief=tk.FLAT, borderwidth=0, highlightthickness=0,
+                    font=("Sans", 11), pady=2,
+                )
+                button.grid(row=row, column=column, sticky="ew", padx=2, pady=1)
+
     def _refresh(self):
-        end = self._day + timedelta(days=6)
-        self._status.configure(text=f"{self._day:%b %d} – {end:%b %d, %Y}")
+        days = calendar.monthrange(self._day.year, self._day.month)[1] if self._month else 7
+        end = self._day + timedelta(days=days - 1)
+        self._status.configure(
+            text=self._day.strftime("%B %Y") if self._month else f"{self._day:%b %d} – {end:%b %d, %Y}"
+        )
         if self._future is None:
-            self._requested = self._day
-            self._future = self._executor.submit(self._controller.load, self._day)
+            self._requested = (self._day, self._month)
+            self._future = self._executor.submit(self._controller.load, self._day, days)
             self._poll = self.after(50, self._collect)
 
     def _collect(self):
@@ -167,7 +232,7 @@ class CalendarScreen(tk.Frame):
             self._poll = self.after(50, self._collect)
             return
         future, self._future = self._future, None
-        if self._requested != self._day:
+        if self._requested != (self._day, self._month):
             self._refresh()
             return
         try:
