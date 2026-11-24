@@ -40,3 +40,17 @@ def test_catalog_survives_disconnect_and_recovers(monkeypatch, tmp_path):
         catalog.reload()
         assert catalog.presets_writable
         assert catalog.profiles == snapshot
+
+
+def test_explicit_local_catalog_is_read_only(monkeypatch, tmp_path):
+    monkeypatch.setenv("ORC_SDRFORGE_RADIO_CATALOG", "0")
+    path = tmp_path / "presets.json"
+    path.write_text("{}", encoding="utf-8")
+    catalog = RadioProfileCatalog(user_presets_path=path)
+    assert catalog.profiles
+    assert not catalog.presets_writable
+    with pytest.raises(ValueError, match="read-only"):
+        catalog.add_user_preset("fm_radio", label="Test", frequency_hz=94700000)
+    with pytest.raises(ValueError, match="read-only"):
+        catalog.remove_user_preset("fm_radio", label="Test", frequency_hz=94700000)
+    assert path.read_text(encoding="utf-8") == "{}"
