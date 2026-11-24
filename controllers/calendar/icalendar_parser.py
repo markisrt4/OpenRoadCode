@@ -62,7 +62,9 @@ def _date_value(params: dict[str, str], value: str) -> tuple[datetime, bool]:
         return datetime.fromisoformat(value).astimezone(timezone.utc), False
     zone = params.get("TZID")
     if not zone:
-        raise UnsupportedCalendarEventError("Floating event time needs an explicit timezone", "floating_time")
+        raise UnsupportedCalendarEventError(
+            "Floating event time needs an explicit timezone", "floating_time"
+        )
     try:
         tz = ZoneInfo(zone)
     except (KeyError, ValueError) as error:
@@ -91,7 +93,9 @@ def parse_icalendar_events(raw: str, account_id: str, calendar_id: str) -> list[
             inside = False
             fields = _properties(event_lines)
             if "RRULE" in fields or "RDATE" in fields or "EXDATE" in fields:
-                raise UnsupportedCalendarEventError("Recurring events require recurrence expansion", "unsupported_recurrence")
+                raise UnsupportedCalendarEventError(
+                    "Recurring events require recurrence expansion", "unsupported_recurrence"
+                )
             if fields.get("STATUS", [({}, "")])[0][1] == "CANCELLED":
                 continue
             try:
