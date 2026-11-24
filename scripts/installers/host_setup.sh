@@ -34,6 +34,7 @@ RUN_PYTHON_ENV=1
 RUN_VNC=""
 RUN_GPSD_SERVICE=""
 RUN_TELEMETRY_SERVICES=""
+RUN_RADIO=""
 BLUETOOTH_SPP_ADDRESS=""
 BLUETOOTH_SPP_CHANNEL=""
 BLUETOOTH_RFCOMM_ID="0"
@@ -59,6 +60,8 @@ Options:
   --skip-installs         Skip packages, Python setup, and group changes
   --no-system-packages    Skip system package installation
   --no-python-env         Skip Python virtualenv/package setup
+  --with-radio-service    Enable broker and SDRForge user service
+  --no-radio-service      Skip radio service setup
   --with-vnc              Enable VNC service setup
   --no-vnc                Disable VNC service setup
   --with-gpsd-service     Enable GPSD service setup
@@ -178,6 +181,8 @@ while (( $# > 0 )); do
     --skip-installs) SKIP_INSTALLS=1 ;;
     --no-system-packages) RUN_SYSTEM_PACKAGES=0 ;;
     --no-python-env) RUN_PYTHON_ENV=0 ;;
+    --with-radio-service) RUN_RADIO=1 ;;
+    --no-radio-service) RUN_RADIO=0 ;;
     --with-vnc) RUN_VNC=1 ;;
     --no-vnc) RUN_VNC=0 ;;
     --with-gpsd-service) RUN_GPSD_SERVICE=1 ;;
@@ -265,6 +270,15 @@ while (( feature_index < ${#FEATURES[@]} )); do
 done
 for feature in "${FEATURES[@]}"; do is_known_feature "$feature" || { echo "[!] Internal error: unknown resolved feature '$feature'" >&2; exit 1; }; done
 
+if [[ -z "$RUN_RADIO" ]]; then
+  RUN_RADIO=0
+  if [[ "$TARGET" != termux && " ${FEATURES[*]} " == *" sdrforge "* ]]; then RUN_RADIO=1; fi
+fi
+if (( RUN_RADIO )) && [[ "$TARGET" == termux || " ${FEATURES[*]} " != *" sdrforge "* ]]; then
+  echo "[!] Radio service requires the Linux sdrforge feature." >&2
+  exit 1
+fi
+
 export OPENROAD_RPI_GPIO_BACKEND="$GPIO_BACKEND"
 
 echo "[*] Requested target:      $TARGET"
@@ -277,6 +291,7 @@ echo "[*] Navigation mode:       $NAVIGATION_MODE"
 echo "[*] Features:              ${FEATURES[*]}"
 echo "[*] VNC service setup:     $RUN_VNC"
 echo "[*] GPSD service setup:    $RUN_GPSD_SERVICE"
+echo "[*] Radio service setup:   $RUN_RADIO"
 echo "[*] Telemetry services:    $RUN_TELEMETRY_SERVICES"
 if [[ -n "$BLUETOOTH_SPP_ADDRESS" ]]; then
   echo "[*] Bluetooth SPP:         $BLUETOOTH_SPP_ADDRESS (rfcomm$BLUETOOTH_RFCOMM_ID)"
@@ -323,8 +338,9 @@ if [[ -n "$BLUETOOTH_SPP_ADDRESS" ]] && (( ! SKIP_INSTALLS )); then
   bash "$PROJECT_DIR/scripts/installers/setup_bluetooth_spp.sh" "${spp_args[@]}"
 fi
 
-if (( RUN_VNC )) || (( RUN_GPSD_SERVICE )) || (( RUN_TELEMETRY_SERVICES )); then
+if (( RUN_VNC )) || (( RUN_GPSD_SERVICE )) || (( RUN_TELEMETRY_SERVICES )) || (( RUN_RADIO )); then
   service_args=()
+  (( RUN_RADIO )) && service_args+=(--radio)
   (( RUN_VNC )) && service_args+=(--vnc)
   (( RUN_GPSD_SERVICE )) && service_args+=(--gpsd --gps-device "$GPS_DEVICE")
   (( RUN_TELEMETRY_SERVICES )) && service_args+=(--telemetry)
