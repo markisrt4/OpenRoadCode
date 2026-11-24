@@ -43,6 +43,7 @@ class CalendarSyncHealth:
             "last_completed": completed_at.isoformat(),
             "interval_seconds": interval,
             "duration_seconds": round(elapsed, 3),
+            "last_data_refresh": previous.get("last_data_refresh", previous.get("last_success")),
             "last_success": previous.get("last_success"),
             "last_success_metrics": previous.get("last_success_metrics"),
             "metrics": None,
@@ -57,6 +58,8 @@ class CalendarSyncHealth:
                 "skipped_resources": sum(s.skipped_resources for s in result.statuses),
             }
             snapshot["metrics"] = metrics
+            if result.cached_calendars > 0:
+                snapshot["last_data_refresh"] = completed_at.isoformat()
             if metrics["failed_calendars"] or metrics["skipped_resources"]:
                 snapshot["status"] = "degraded"
             else:
