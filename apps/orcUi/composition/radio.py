@@ -9,6 +9,7 @@ import os
 import logging
 import tkinter as tk
 import threading
+import urllib.request
 from queue import Empty, SimpleQueue
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -61,6 +62,22 @@ class AircraftMenuRequests(AircraftMenuRequestHandlerIf):
         self.open_airband()
 
 
+def stop_sdrforge_receiver() -> None:
+    """Release RF acquisition at application shutdown, not screen retirement."""
+    try:
+        with urllib.request.urlopen(
+            urllib.request.Request(
+                "http://127.0.0.1:5570/v1/receiver/stop",
+                data=b"",
+                method="POST",
+            ),
+            timeout=5.0,
+        ):
+            pass
+    except (OSError, RuntimeError) as exc:
+        logging.getLogger(__name__).debug("SDRForge shutdown: %s", exc)
+
+
 @dataclass(slots=True)
 class StreamingRadioResources:
     """Retain worker and browser ownership independently of widget lifetime."""
@@ -80,6 +97,7 @@ class StreamingRadioResources:
     unsubscribe: Callable[[], None] = lambda: None
     adsb_callback: object | None = None
     closed: bool = False
+    stop_receiver: Callable[[], None] = lambda: None
 
     def run_work(self, work: Callable[[], None]) -> None:
         if not self.closed:
@@ -105,7 +123,8 @@ class StreamingRadioResources:
             self.unsubscribe, cancel_adsb,
             *(session.close for session in tuple(self.sessions)),
             *(session.close for session in tuple(self.rf_sessions)),
-            lambda: self.rf_executor.shutdown(wait=False, cancel_futures=False),
+            lambda: self.rf_executor.shutdown(wait=True, cancel_futures=True),
+            self.stop_receiver,
             lambda: self.executor.shutdown(wait=False, cancel_futures=True),
             lambda: self.artwork_executor.shutdown(wait=False, cancel_futures=True),
         )
@@ -137,7 +156,9 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
             """Native radio widgets consume the ORC theme directly."""
             del mode
 
-        resources = StreamingRadioResources(app.cancel_ui_callback)
+        resources = StreamingRadioResources(
+            app.cancel_ui_callback, stop_receiver=stop_sdrforge_receiver,
+        )
         cleanup.callback(resources.close)
         online_mode = app.online_mode
         def network_allowed() -> bool:
