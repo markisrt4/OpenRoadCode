@@ -182,14 +182,8 @@ hash_inputs() {
     printf 'target=%s\n' "$TARGET"
     printf 'arch=%s\n' "$(uname -m)"
     printf 'build_image=%s\n' "$BUILD_BASE_IMAGE"
-    for path in "$@"; do
-      if [[ -f "$path" ]]; then
-        printf 'file=%s\n' "$path"
-        sha256sum "$path"
-      elif [[ -d "$path" ]]; then
-        find "$path" -type f -print0 | sort -z | xargs -0 -r sha256sum
-      fi
-    done
+    printf 'fingerprint-schema=2\n'
+    (cd "$PROJECT_ROOT" && git ls-files -z -- "$@" | LC_ALL=C sort -z | xargs -0 -r sha256sum)
   } | sha256sum | awk '{print $1}'
 }
 
@@ -210,17 +204,15 @@ write_state_hash() {
 MAPLIBRE_FINGERPRINT="$( {
   printf 'maplibre_ref=%s\n' "$MAPLIBRE_REF"
   hash_inputs \
-    "$PROJECT_ROOT/apps/map_renderer" \
-    "$PROJECT_ROOT/development/containers/maplibre" \
-    "$PROJECT_ROOT/scripts/runtime/install_navigation_style.sh"
+    apps/map_renderer \
+    development/containers/maplibre
 } | sha256sum | awk '{print $1}' )"
 
 VALHALLA_FINGERPRINT="$( {
   printf 'valhalla_ref=%s\n' "$VALHALLA_REF"
   printf 'prime_server_ref=%s\n' "$PRIME_SERVER_REF"
   hash_inputs \
-    "$PROJECT_ROOT/development/containers/valhalla" \
-    "$TOOLCHAIN_LOCK"
+    development/containers/valhalla
 } | sha256sum | awk '{print $1}' )"
 
 MAPLIBRE_BUILD_REQUIRED=1
