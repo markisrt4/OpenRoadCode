@@ -24,7 +24,7 @@ if [[ -f "$TOOLCHAIN_LOCK" ]]; then
   source "$TOOLCHAIN_LOCK"
 fi
 VALHALLA_REF="${VALHALLA_REF:-${VALHALLA_COMMIT:-}}"
-PRIME_SERVER_REF="${PRIME_SERVER_REF:-}"
+PRIME_SERVER_REF="${PRIME_SERVER_REF:-${PRIME_SERVER_COMMIT:-}}"
 
 SHOW_PLAN=0
 SKIP_HOST_PACKAGES=0
@@ -33,6 +33,7 @@ SKIP_VALHALLA=0
 SKIP_SERVICES=0
 SKIP_SMOKE=0
 PACKAGE_ONLY=0
+NAVIGATION_MODE="${NAVIGATION_MODE:-auto}"
 TARGET="rpi5"
 HOST_PLATFORM="linux"
 
@@ -50,6 +51,7 @@ Options:
   --skip-valhalla         skip Valhalla build/install
   --skip-services         skip systemd service installation
   --skip-smoke            skip final software smoke checks
+  --mode MODE             auto, binary, or source
   --package-only          stage binaries for target-container validation; no host runtime configuration
   -h, --help              show this help
 
@@ -70,6 +72,7 @@ while (( $# > 0 )); do
     --skip-valhalla) SKIP_VALHALLA=1 ;;
     --skip-services) SKIP_SERVICES=1 ;;
     --skip-smoke) SKIP_SMOKE=1 ;;
+    --mode) shift; NAVIGATION_MODE="${1:?--mode requires a value}" ;;
     --package-only) PACKAGE_ONLY=1; SKIP_HOST_PACKAGES=1; SKIP_SERVICES=1; SKIP_SMOKE=1 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage >&2; exit 2 ;;
@@ -77,6 +80,9 @@ while (( $# > 0 )); do
   shift
 done
 
+NAVIGATION_MODE="${NAVIGATION_MODE,,}"
+case "$NAVIGATION_MODE" in auto|binary|source) ;; *) echo "Invalid navigation mode: $NAVIGATION_MODE" >&2; exit 2 ;; esac
+if (( PACKAGE_ONLY )); then NAVIGATION_MODE=source; fi
 case "$TARGET" in
   rpi4|rpi5|linux-dev|termux) ;;
   *) echo "Unsupported target: $TARGET" >&2; exit 2 ;;
@@ -112,7 +118,7 @@ else
     version_id="$(. /etc/os-release; printf '%s' "$VERSION_ID")"
     case "$id:$version_id" in
       ubuntu:24.04) printf '%s\n' 'ubuntu:24.04' ;;
-      debian:13) printf '%s\n' 'debian:trixie' ;;
+      debian:13|raspbian:13) printf '%s\n' 'debian:trixie' ;;
       *)
         echo "Unsupported navigation build host: $id $version_id" >&2
         echo "Supported hosts: Ubuntu 24.04 and Debian 13/Trixie." >&2
@@ -126,6 +132,7 @@ fi
 cat <<EOF
 OpenRoadCode navigation software plan
   target:             $TARGET
+  installation mode:  $NAVIGATION_MODE
   host platform:      $HOST_PLATFORM
   build environment:  $BUILD_BASE_IMAGE
   host source root:   $HOST_SRC
@@ -149,6 +156,7 @@ if (( SHOW_PLAN )); then
 fi
 
 if [[ "$TARGET" == "termux" ]]; then
+  [[ "$NAVIGATION_MODE" != binary ]] || { echo "No Termux binary packages available" >&2; exit 2; }
   (( ! PACKAGE_ONLY )) || { echo "--package-only requires Linux" >&2; exit 2; }
   exec env \
     HOST_SRC="$HOST_SRC" \
@@ -284,9 +292,7 @@ ensure_container_engine() {
 
 trap restore_container_engine_state EXIT
 
-if (( (! SKIP_MAPLIBRE && MAPLIBRE_BUILD_REQUIRED) || (! SKIP_VALHALLA && VALHALLA_BUILD_REQUIRED) )); then
-  ensure_container_engine
-fi
+
 
 ensure_user_owned_checkout() {
   local dir="$1" label="$2"
@@ -342,7 +348,7 @@ if (( ! SKIP_HOST_PACKAGES )); then
   echo "[*] Installing navigation host dependencies"
   bash "$PROJECT_ROOT/scripts/installers/host_setup.sh" --target "$TARGET" --feature desktop-ui --feature gps --no-vnc --no-gpsd-service
   sudo apt-get update
-  sudo apt-get install -y rsync python3-zmq
+  sudo apt-get install -y rsync python3-zmq curl libzmq3-dev libcurl4-openssl-dev libpng-dev libwebp-dev libsqlite3-dev libprotobuf-dev libspatialite-dev libssl-dev liblz4-dev libxxhash-dev libluajit-5.1-dev
   (( SKIP_MAPLIBRE )) || bash "$PROJECT_ROOT/development/containers/maplibre/host_setup.sh"
   (( SKIP_VALHALLA )) || bash "$PROJECT_ROOT/development/containers/valhalla/host_setup.sh"
 fi
@@ -358,6 +364,23 @@ if [[ ! -f "$CONFIG_ROOT/navigation.toml" ]]; then
   sudo install -m 0644 "$PROJECT_ROOT/config/navigation.toml" "$CONFIG_ROOT/navigation.toml"
 fi
 
+fi
+
+if [[ "$NAVIGATION_MODE" != source ]] && (( (! SKIP_MAPLIBRE && MAPLIBRE_BUILD_REQUIRED) || (! SKIP_VALHALLA && VALHALLA_BUILD_REQUIRED) )); then
+  component="$(bash "$SCRIPT_DIR/navigation_component_version.sh" "$MAPLIBRE_REF" "$VALHALLA_REF" "$PRIME_SERVER_REF")"
+  if bash "$SCRIPT_DIR/install_navigation_binary.sh" "$component" "$BUILD_BASE_IMAGE" "$INSTALL_ROOT" "$SKIP_MAPLIBRE" "$SKIP_VALHALLA"; then
+    (( SKIP_MAPLIBRE )) || write_state_hash "$MAPLIBRE_STATE_FILE" "$MAPLIBRE_FINGERPRINT"
+    (( SKIP_VALHALLA )) || write_state_hash "$VALHALLA_STATE_FILE" "$VALHALLA_FINGERPRINT"
+    MAPLIBRE_BUILD_REQUIRED=0
+    VALHALLA_BUILD_REQUIRED=0
+  else
+    status=$?
+    if [[ "$status" != 3 || "$NAVIGATION_MODE" == binary ]]; then exit "$status"; fi
+    echo "[!] No compatible navigation release; falling back to source build."
+  fi
+fi
+if (( (! SKIP_MAPLIBRE && MAPLIBRE_BUILD_REQUIRED) || (! SKIP_VALHALLA && VALHALLA_BUILD_REQUIRED) )); then
+  ensure_container_engine
 fi
 
 if (( ! SKIP_MAPLIBRE && MAPLIBRE_BUILD_REQUIRED )); then
