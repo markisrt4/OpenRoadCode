@@ -1,5 +1,10 @@
 name: Build Regional Navigation Data
 on:
+  push:
+    branches:
+      - feature/rpi5-integration
+    paths:
+      - '.github/workflows/build-regional-navigation-data.yml'
   workflow_dispatch:
     inputs:
       regions:
@@ -14,7 +19,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     env:
-      REGIONS: ${{ inputs.regions }}
+      REGIONS: ${{ inputs.regions || 'north-america/us/michigan' }}
     steps:
       - uses: actions/checkout@v4
       - name: Validate request and inspect runner resources
