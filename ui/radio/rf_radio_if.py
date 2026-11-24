@@ -74,6 +74,7 @@ class RfRadioState:
     scan_progress: str = ""
     scan_hits: tuple[int, ...] = ()
     tuning_range: tuple[int, int, int] | None = None
+    presets_writable: bool = True
 
 
 class RadioAction(Enum):
