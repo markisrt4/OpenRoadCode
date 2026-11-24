@@ -300,13 +300,26 @@ ensure_user_owned_checkout() {
 checkout_repo() {
   local url="$1" dir="$2" ref="$3" label="$4"
   ensure_user_owned_checkout "$dir" "$label"
-  if [[ ! -d "$dir/.git" ]]; then git clone "$url" "$dir"; fi
+  if [[ ! -d "$dir/.git" ]]; then
+    if [[ -n "$ref" ]]; then
+      git init "$dir"
+      git -C "$dir" remote add origin "$url"
+    else
+      git clone --depth 1 --no-tags "$url" "$dir"
+    fi
+  fi
   if [[ -n "$ref" ]]; then
-    git -C "$dir" fetch --tags --prune origin
-    git -C "$dir" checkout --detach "$ref"
+    if ! git -C "$dir" rev-parse --verify --quiet "${ref}^{commit}" >/dev/null; then
+      echo "[*] Fetching pinned $label revision (shallow)..."
+      git -C "$dir" fetch --depth 1 --no-tags origin "$ref"
+      git -C "$dir" checkout --detach FETCH_HEAD
+    else
+      echo "[*] Reusing local $label revision $ref"
+      git -C "$dir" checkout --detach "$ref"
+    fi
   fi
   git -C "$dir" submodule sync --recursive
-  git -C "$dir" submodule update --init --recursive
+  git -C "$dir" submodule update --init --recursive --depth 1
 }
 
 check_runtime_libraries() {
