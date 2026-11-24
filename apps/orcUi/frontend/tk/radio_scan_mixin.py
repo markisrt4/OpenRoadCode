@@ -11,6 +11,9 @@ from ui.radio.rf_radio_if import RadioAction, RadioRequest
 class RadioScanMixin:
     """Render scan results and submit semantic scan requests."""
 
+    _scan_signature: tuple[tuple[int, ...], bool] | None
+    _scan_drag_y: int | None
+
     def _toggle_scan(self) -> None:
         if self._sdrforge_view is not None and not self._state.receiver_running:
             return
