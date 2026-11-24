@@ -4,7 +4,8 @@
 import calendar
 import hashlib
 import tkinter as tk
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future
+from threading import Thread
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -24,12 +25,28 @@ def _calendar_color(account_id: str, calendar_id: str) -> str:
     return palette[int.from_bytes(digest[:4], "big") % len(palette)]
 
 
+def _load_agenda(future, controller, day, days):
+    """Read-only worker; never retain or call a Tk widget."""
+    if not future.set_running_or_notify_cancel():
+        return
+    try:
+        future.set_result(controller.load(day, days))
+    except Exception as error:
+        future.set_exception(error)
+
+
 class CalendarScreen(tk.Frame):
     """Load agenda data off the Tk thread and render on the Tk thread."""
 
     def __init__(
-        self, parent, *, controller: CalendarAgendaController, theme: ThemeBundle, zone,
-        selection_file: Path | None = None, catalog_file: Path | None = None,
+        self,
+        parent,
+        *,
+        controller: CalendarAgendaController,
+        theme: ThemeBundle,
+        zone,
+        selection_file: Path | None = None,
+        catalog_file: Path | None = None,
     ):
         ui = theme.ui
         super().__init__(parent, bg=ui.background)
@@ -44,7 +61,7 @@ class CalendarScreen(tk.Frame):
         self._day = datetime.now(zone).date()
         self._selected = self._day
         self._day -= timedelta(days=self._day.weekday())
-        self._executor = ThreadPoolExecutor(max_workers=1)
+        self._closed = False
         self._future = None
         self._poll = None
         self._requested = None
@@ -83,8 +100,13 @@ class CalendarScreen(tk.Frame):
         self._toggle.pack(side=tk.LEFT, padx=4)
         if selection_file is not None and catalog_file is not None:
             tk.Button(
-                bar, text="⚙", command=self._settings, bg=ui.surface, fg=ui.text,
-                relief=tk.FLAT, font=("Sans", 15),
+                bar,
+                text="⚙",
+                command=self._settings,
+                bg=ui.surface,
+                fg=ui.text,
+                relief=tk.FLAT,
+                font=("Sans", 15),
             ).pack(side=tk.LEFT, padx=4)
         self._status = tk.Label(bar, bg=ui.background, fg=ui.text, font=("Sans", 11))
         self._status.pack(side=tk.RIGHT, padx=6)
@@ -368,6 +390,8 @@ class CalendarScreen(tk.Frame):
                         widget.bind("<Button-1>", lambda event, value=day: self._select(value))
 
     def _refresh(self):
+        if self._closed:
+            return
         days = calendar.monthrange(self._day.year, self._day.month)[1] if self._month else 7
         end = self._day + timedelta(days=days - 1)
         self._status.configure(
@@ -377,16 +401,24 @@ class CalendarScreen(tk.Frame):
         )
         if self._future is None:
             self._requested = (self._day, self._month, self._generation)
-            self._future = self._executor.submit(self._controller.load, self._day, days)
+            self._future = Future()
+            Thread(
+                target=_load_agenda,
+                args=(self._future, self._controller, self._day, days),
+                name="calendar-agenda-read",
+                daemon=True,
+            ).start()
             self._poll = self.after(50, self._collect)
 
     def _collect(self):
         self._poll = None
+        if self._closed or self._future is None:
+            return
         if not self._future.done():
             self._poll = self.after(50, self._collect)
             return
         future, self._future = self._future, None
-        if self._requested != (self._day, self._month):
+        if self._requested != (self._day, self._month, self._generation):
             self._refresh()
             return
         try:
@@ -398,7 +430,11 @@ class CalendarScreen(tk.Frame):
         self._render()
 
     def _close(self, event):
-        if event.widget is self:
+        if event.widget is self and not self._closed:
+            self._closed = True
             if self._poll is not None:
                 self.after_cancel(self._poll)
-            self._executor.shutdown(wait=False, cancel_futures=True)
+                self._poll = None
+            if self._future is not None:
+                self._future.cancel()
+                self._future = None
