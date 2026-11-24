@@ -106,7 +106,9 @@ class CalDavCalendarProvider(CalendarProviderIf):
         skipped_reasons: dict[str, int] = {}
         for resource in resources:
             try:
-                parsed = parse_icalendar_events(resource.icalendar, self._account_id, calendar.href)
+                parsed = parse_icalendar_events(
+                    resource.icalendar, self._account_id, calendar.href, start, end
+                )
             except ValueError as error:
                 skipped += 1
                 reason = (
