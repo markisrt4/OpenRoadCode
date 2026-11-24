@@ -15,6 +15,7 @@ fi
 
 whiptail --title "OpenRoadCode installer" --yesno "Would you like to run the interactive installer?" 10 60 || exit 0
 
+NAVIGATION_MODE=auto
 SELECTED_TARGET=linux-dev
 SELECTED_GENERAL="base"
 SELECTED_STREAMING=""
@@ -28,10 +29,11 @@ WITH_VNC=0
 WITH_GPSD=0
 WITH_TELEMETRY=0
 SETTINGS_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/openroadcode/installer-selection.conf"
-settings_keys=(SELECTED_TARGET SELECTED_GENERAL SELECTED_STREAMING SELECTED_NAVIGATION SELECTED_RADIO SELECTED_AUTOMOTIVE SELECTED_BLUETOOTH SELECTED_ENVIRONMENTAL INSTALL_ALL_FEATURES WITH_VNC WITH_GPSD WITH_TELEMETRY)
+settings_keys=(NAVIGATION_MODE SELECTED_TARGET SELECTED_GENERAL SELECTED_STREAMING SELECTED_NAVIGATION SELECTED_RADIO SELECTED_AUTOMOTIVE SELECTED_BLUETOOTH SELECTED_ENVIRONMENTAL INSTALL_ALL_FEATURES WITH_VNC WITH_GPSD WITH_TELEMETRY)
 if [[ -f "$SETTINGS_FILE" ]]; then
   while IFS='=' read -r key value; do
     case "$key" in
+      NAVIGATION_MODE) case "$value" in auto|binary|source) NAVIGATION_MODE="$value" ;; esac ;;
       SELECTED_TARGET) case "$value" in rpi4|rpi5|linux-dev) SELECTED_TARGET="$value" ;; esac ;;
       INSTALL_ALL_FEATURES|WITH_VNC|WITH_GPSD|WITH_TELEMETRY)
         [[ "$value" == 0 || "$value" == 1 ]] && printf -v "$key" '%s' "$value" ;;
@@ -129,6 +131,15 @@ else
   done
   [[ " $SELECTED_GENERAL " == *" base "* ]] || ARGS+=(--feature base)
 fi
+
+if [[ " $SELECTED_NAVIGATION " == *" navigation "* ]] || { (( INSTALL_ALL_FEATURES )) && [[ "$SELECTED_TARGET" != linux-dev ]]; }; then
+  NAVIGATION_MODE="$(whiptail --title "Navigation installation" --default-item "$NAVIGATION_MODE" --menu \
+    "Choose how to install native navigation:" 15 78 3 \
+    auto "Prefer prebuilt binaries; source fallback if unavailable" \
+    binary "Require prebuilt binaries; never compile" \
+    source "Build from source when needed" 3>&1 1>&2 2>&3)" || exit 0
+fi
+ARGS+=(--navigation-mode "$NAVIGATION_MODE")
 
 ask_service() {
   local variable="$1" title="$2" prompt="$3"
