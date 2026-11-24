@@ -65,6 +65,7 @@ class ContextRail(tk.Frame, UiWidget):
         self._group = "AUTOMOTIVE"
         self._group_pages = {"AUTOMOTIVE": 0, "PERSONAL": 0}
         self._page_index = 0
+        self._swipe_start: tuple[int, int] | None = None
         self._title: tk.Label
         self._body: tk.Frame
         self._rebuild()
@@ -113,6 +114,18 @@ class ContextRail(tk.Frame, UiWidget):
         if self._group == "PERSONAL" and self._calendar_factory is not None:
             return (ContextPage("CALENDAR", ui.accent_primary, self._build_calendar),)
         return pages
+
+    def selection(self) -> tuple[str, dict[str, int]]:
+        pages = dict(self._group_pages)
+        pages[self._group] = self._page_index
+        return self._group, pages
+
+    def restore_selection(self, selection: tuple[str, dict[str, int]]) -> None:
+        group, pages = selection
+        self._group_pages = dict(pages)
+        self._group = group if self._calendar_factory is not None else "AUTOMOTIVE"
+        self._page_index = self._group_pages[self._group] % len(self._pages())
+        self._rebuild()
 
     def set_calendar_factory(self, factory: Callable[[tk.Misc], tk.Widget]) -> None:
         self._calendar_factory = factory
@@ -239,6 +252,9 @@ class ContextRail(tk.Frame, UiWidget):
         page = pages[self._page_index]
         self._title.configure(text=page.name, fg=page.accent, bg=ui.surface)
         page.builder(self._body)
+        self._swipe_start = None
+        for child in self._body.winfo_children():
+            self._bind_swipe(child)
         if len(pages) == 1:
             return
         dots = tk.Frame(self._body, bg=ui.surface)
@@ -251,6 +267,29 @@ class ContextRail(tk.Frame, UiWidget):
                 bg=ui.surface,
                 font=("Sans", FONT_SMALL),
             ).pack(side=tk.LEFT, padx=2)
+
+    def _bind_swipe(self, widget: tk.Misc) -> None:
+        if isinstance(widget, tk.Button):
+            return
+        widget.bind("<ButtonPress-1>", self._begin_swipe, add="+")
+        widget.bind("<ButtonRelease-1>", self._end_swipe, add="+")
+        for child in widget.winfo_children():
+            self._bind_swipe(child)
+
+    def _begin_swipe(self, event: tk.Event) -> None:
+        self._swipe_start = (event.x_root, event.y_root)
+
+    def _end_swipe(self, event: tk.Event) -> None:
+        start, self._swipe_start = self._swipe_start, None
+        if start is None or len(self._pages()) < 2:
+            return
+        dx = event.x_root - start[0]
+        dy = event.y_root - start[1]
+        if abs(dx) >= 50 and abs(dx) > 2 * abs(dy):
+            if dx < 0:
+                self._next_page()
+            else:
+                self._previous_page()
 
     def _build_vehicle(self, parent: tk.Frame) -> None:
         ui = self._theme.ui
