@@ -25,6 +25,9 @@ class DocsInventoryTests(unittest.TestCase):
                 "controllers/radio/README.md",
                 "apps/orcUi/ARCHITECTURE.md",
                 "build/README.md",
+                ".venv-quality/lib/python3.12/site-packages/flask/README.md",
+                ".venv-other/lib/README.md",
+                "docs/.venv-quality/guide.md",
             ):
                 path = root / name
                 path.parent.mkdir(parents=True, exist_ok=True)
