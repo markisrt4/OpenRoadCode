@@ -23,6 +23,6 @@ def upcoming_appointments(
             ):
                 key = (event.account_id, event.calendar_id, event.event_id, event.recurrence_id)
                 unique[key] = event
-    return tuple(sorted(unique.values(), key=lambda event: event.starts_at.astimezone(timezone.utc)))[
-        :limit
-    ]
+    return tuple(
+        sorted(unique.values(), key=lambda event: event.starts_at.astimezone(timezone.utc))
+    )[:limit]
