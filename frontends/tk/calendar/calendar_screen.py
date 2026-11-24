@@ -6,8 +6,14 @@ import hashlib
 import tkinter as tk
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from controllers.calendar.calendar_agenda import CalendarAgendaController
+from controllers.calendar.calendar_selection import (
+    load_calendar_catalog,
+    load_disabled_calendar_ids,
+    save_disabled_calendar_ids,
+)
 from ui.theme import ThemeBundle
 
 
@@ -21,7 +27,10 @@ def _calendar_color(account_id: str, calendar_id: str) -> str:
 class CalendarScreen(tk.Frame):
     """Load agenda data off the Tk thread and render on the Tk thread."""
 
-    def __init__(self, parent, *, controller: CalendarAgendaController, theme: ThemeBundle, zone):
+    def __init__(
+        self, parent, *, controller: CalendarAgendaController, theme: ThemeBundle, zone,
+        selection_file: Path | None = None, catalog_file: Path | None = None,
+    ):
         ui = theme.ui
         super().__init__(parent, bg=ui.background)
         self._ui = ui
@@ -29,6 +38,9 @@ class CalendarScreen(tk.Frame):
         self._groups = ()
         self._controller = controller
         self._zone = zone
+        self._selection_file = selection_file
+        self._catalog_file = catalog_file
+        self._generation = 0
         self._day = datetime.now(zone).date()
         self._selected = self._day
         self._day -= timedelta(days=self._day.weekday())
@@ -69,6 +81,11 @@ class CalendarScreen(tk.Frame):
             pady=6,
         )
         self._toggle.pack(side=tk.LEFT, padx=4)
+        if selection_file is not None and catalog_file is not None:
+            tk.Button(
+                bar, text="⚙", command=self._settings, bg=ui.surface, fg=ui.text,
+                relief=tk.FLAT, font=("Sans", 15),
+            ).pack(side=tk.LEFT, padx=4)
         self._status = tk.Label(bar, bg=ui.background, fg=ui.text, font=("Sans", 11))
         self._status.pack(side=tk.RIGHT, padx=6)
         self._content = tk.Frame(self, bg=ui.background)
@@ -93,6 +110,59 @@ class CalendarScreen(tk.Frame):
         self.bind("<Destroy>", self._close, add="+")
         self._refresh()
         self._render()
+
+    def _settings(self):
+        from tkinter import messagebox
+
+        try:
+            catalog = load_calendar_catalog(self._catalog_file)
+            disabled = load_disabled_calendar_ids(self._selection_file)
+        except (OSError, ValueError) as error:
+            messagebox.showerror("Calendar settings", str(error), parent=self)
+            return
+        if not catalog:
+            messagebox.showinfo(
+                "Calendar settings", "Waiting for calendar discovery.", parent=self
+            )
+            return
+        ui = self._ui
+        dialog = tk.Toplevel(self, bg=ui.background)
+        dialog.title("Calendar settings")
+        dialog.transient(self.winfo_toplevel())
+        dialog.grab_set()
+        variables = {}
+        for calendar_id, name in sorted(catalog.items(), key=lambda item: item[1].casefold()):
+            variable = tk.BooleanVar(dialog, value=calendar_id not in disabled)
+            variables[calendar_id] = variable
+            row = tk.Frame(dialog, bg=ui.background)
+            row.pack(fill=tk.X, padx=12, pady=3)
+            tk.Frame(row, bg=_calendar_color("caldav", calendar_id), width=5).pack(
+                side=tk.LEFT, fill=tk.Y
+            )
+            tk.Checkbutton(
+                row,
+                text=name or "Unnamed calendar",
+                variable=variable,
+                bg=ui.background,
+                fg=ui.text,
+                selectcolor=ui.surface,
+                activebackground=ui.background,
+                activeforeground=ui.text,
+                font=("Sans", 13),
+            ).pack(side=tk.LEFT, padx=8)
+
+        def apply():
+            updated = set(disabled) - variables.keys()
+            updated.update(key for key, value in variables.items() if not value.get())
+            try:
+                save_disabled_calendar_ids(self._selection_file, updated)
+            except OSError as error:
+                messagebox.showerror("Calendar settings", str(error), parent=dialog)
+                return
+            dialog.destroy()
+            self._reload()
+
+        tk.Button(dialog, text="Apply", command=apply).pack(pady=10)
 
     def _layout(self):
         self._week.grid_forget()
@@ -151,6 +221,7 @@ class CalendarScreen(tk.Frame):
         self._reload()
 
     def _reload(self):
+        self._generation += 1
         self._groups = ()
         self._message = "Loading appointments..."
         self._refresh()
@@ -305,7 +376,7 @@ class CalendarScreen(tk.Frame):
             else f"{self._day:%b %d} – {end:%b %d, %Y}"
         )
         if self._future is None:
-            self._requested = (self._day, self._month)
+            self._requested = (self._day, self._month, self._generation)
             self._future = self._executor.submit(self._controller.load, self._day, days)
             self._poll = self.after(50, self._collect)
 
