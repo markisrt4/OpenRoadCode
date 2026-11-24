@@ -134,6 +134,12 @@ class RadioPanelStateMixin:
             for button in self._live_rf_buttons:
                 button.set_enabled(state.receiver_running and not state.loading and not state.error)
             starting = state.receiver_starting or self._receiver_start_pending
+            if self._sdrforge_view is not None:
+                if starting or state.receiver_running:
+                    self._spectrum_start_button.place_forget()
+                else:
+                    self._spectrum_start_button.place(relx=0.5, rely=0.55, anchor="center")
+                    self._spectrum_start_button.lift()
             self._receiver_power_button.set_text(
                 "STARTING SDR…" if starting else
                 ("■ STOP SDR" if state.receiver_running else "▶ START SDR"))

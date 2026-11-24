@@ -64,14 +64,13 @@ class SdrForgeViewportMixin:
         if self._viewport is not None:
             self._recenter_on_tune = False
             self._update_recenter_button()
-            if self._sample_rate_hz and self._viewport.span_hz >= self._sample_rate_hz:
-                self._viewport = self._viewport.zoom(0.7)
             target = self._viewport.pan(fraction)
             self._viewport = replace(target, recenter_on_tune=False)
             self._constrain_viewport()
             if target.center_hz != self._viewport.center_hz:
                 handler = getattr(self, "_on_acquisition_pan", None)
                 if handler is not None:
+                    self._pending_viewport_center = target.center_hz
                     handler(round(target.center_hz))
             self._schedule_render()
 

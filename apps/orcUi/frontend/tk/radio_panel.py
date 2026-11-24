@@ -284,6 +284,8 @@ class RadioPanel(RadioTuningGesturesMixin, RadioPanelStateMixin, RadioPanelLayou
             return
         if not self._state.receiver_running:
             self._receiver_start_pending = True
+            if self._sdrforge_view is not None:
+                self._spectrum_start_button.place_forget()
             self._receiver_power_button.set_text("STARTING SDR…")
             self._receiver_power_button.set_enabled(False)
         action = (RadioAction.STOP_RECEIVER if self._state.receiver_running
