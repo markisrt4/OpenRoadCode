@@ -141,6 +141,7 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
             self._viewport = replace(
                 self._viewport, center_hz=float(self._frequency_hz), recenter_on_tune=False
             )
+            self._constrain_viewport()
             self._schedule_render()
 
     def set_recenter_on_tune(self, enabled: bool) -> None:
@@ -157,15 +158,17 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
         self._schedule_render()
 
     def _constrain_viewport(self) -> None:
-        """Limit viewport width without moving its absolute center."""
+        """Keep the visible window entirely inside acquired RF bandwidth."""
         viewport = self._viewport
         if viewport is None or self._center_frequency_hz is None or not self._sample_rate_hz:
             return
         rate = float(self._sample_rate_hz)
         span = min(viewport.span_hz, rate)
-        center = viewport.center_hz
-        if abs(center - self._center_frequency_hz) >= (rate + span) / 2:
-            center = float(self._center_frequency_hz)
+        margin = (rate - span) / 2
+        center = max(
+            self._center_frequency_hz - margin,
+            min(viewport.center_hz, self._center_frequency_hz + margin),
+        )
         self._viewport = replace(viewport, center_hz=center, span_hz=span)
 
     def pan_spectrum(self, fraction: float) -> None:
@@ -194,7 +197,7 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
         return tuple(
             row[index] if 0 <= index < len(row) else 0.0
             for index in (
-                round((viewport.frequency_at(i / max(1, length - 1)) - source_start) * scale)
+                min(len(row) - 1, max(0, int((viewport.frequency_at(i / max(1, length - 1)) - source_start) * scale)))
                 for i in range(length)
             )
         )
