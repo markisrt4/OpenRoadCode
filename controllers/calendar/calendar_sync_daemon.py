@@ -14,6 +14,7 @@ from controllers.calendar.caldav_adapter import CalDavAdapter
 from controllers.calendar.caldav_provider import CalDavCalendarProvider
 from controllers.calendar.calendar_event_cache import CalendarEventCache
 from controllers.calendar.calendar_selection import load_disabled_calendar_ids
+from controllers.calendar.calendar_sync_health import CalendarSyncHealth
 from controllers.calendar.calendar_sync_scheduler import CalendarSyncScheduler
 from controllers.calendar.calendar_sync_worker import CalendarSyncWorker
 from security.environment_variable_secret_manager import EnvironmentVariableSecretManager
@@ -64,6 +65,7 @@ def main() -> None:
         interval_seconds=args.interval_seconds,
         past_days=args.past_days,
         future_days=args.future_days,
+        health=CalendarSyncHealth(args.cache_file.with_suffix(".health.json")),
     )
     stop = threading.Event()
     signal.signal(signal.SIGTERM, lambda _signum, _frame: stop.set())
