@@ -10,6 +10,7 @@ from controllers.calendar.cached_calendar_provider import CachedCalendarProvider
 from controllers.calendar.calendar_agenda import CalendarAgendaController
 from controllers.calendar.calendar_event_cache import CalendarEventCache
 from controllers.calendar.upcoming_appointments import upcoming_appointments
+from controllers.system.calendar_health_sampler import sample_calendar_health
 from frontends.tk.calendar.calendar_screen import CalendarScreen
 from frontends.tk.calendar.upcoming_panel import UpcomingPanel
 from frontends.tk.tk_screen import TkScreen
@@ -81,9 +82,10 @@ def create_home_calendar_factory(app):
                 cache,
                 selection_file=Path.home() / ".config/openroadcode/calendar-selection.json",
             )
-            return upcoming_appointments(
+            events = upcoming_appointments(
                 CalendarAgendaController(provider, zone), datetime.now(zone), limit=1
             )
+            return events, sample_calendar_health()
 
         return UpcomingPanel(parent, theme=theme_bundle(app.theme_mode), load=load, zone=zone)
 
