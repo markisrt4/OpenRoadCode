@@ -28,6 +28,7 @@ class CalendarScreen(tk.Frame):
         self._requested = None
         bar = tk.Frame(self, bg=ui.background)
         bar.pack(fill=tk.X)
+        tk.Label(bar, text="CALENDAR", bg=ui.background, fg=ui.text, font=("Sans", 15, "bold")).pack(side=tk.LEFT, padx=12)
         for title, delta in (("Previous", -7), ("Today", 0), ("Next", 7)):
             tk.Button(
                 bar,
@@ -37,6 +38,11 @@ class CalendarScreen(tk.Frame):
                 fg=ui.text,
                 font=("Sans", 12),
                 pady=6,
+                relief=tk.FLAT,
+                borderwidth=0,
+                highlightthickness=0,
+                activebackground=ui.surface,
+                activeforeground=ui.accent_primary,
             ).pack(side=tk.LEFT, padx=4, pady=4)
         self._status = tk.Label(bar, bg=ui.background, fg=ui.text, font=("Sans", 11))
         self._status.pack(side=tk.RIGHT, padx=6)
@@ -89,15 +95,22 @@ class CalendarScreen(tk.Frame):
             day = self._day + timedelta(days=index)
             selected = day == self._selected
             count = counts.get(day, 0)
-            tk.Button(
-                self._week,
-                text=f"{day:%a}\\n{day.day}\\n" + (f"• {count}" if count else " "),
-                command=lambda value=day: self._select(value),
-                bg=ui.surface if selected else ui.background,
-                fg=ui.accent_primary if selected or day == today else ui.text,
-                relief=tk.FLAT,
-                font=("Sans", 12, "bold" if selected else "normal"),
-            ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2)
+            background = ui.surface if selected else ui.background
+            foreground = ui.accent_primary if selected or day == today else ui.text
+            cell = tk.Frame(self._week, bg=background)
+            cell.grid(row=0, column=index, sticky="nsew", padx=2)
+            self._week.columnconfigure(index, weight=1, uniform="day")
+            for label, size, color in (
+                (day.strftime("%a").upper(), 10, foreground),
+                (str(day.day), 19, foreground),
+                (f"• {count}" if count else " ", 10, ui.accent_primary),
+            ):
+                widget = tk.Label(
+                    cell, text=label, font=("Sans", size), bg=background, fg=color
+                )
+                widget.pack(fill=tk.X)
+                widget.bind("<Button-1>", lambda event, value=day: self._select(value))
+            cell.bind("<Button-1>", lambda event, value=day: self._select(value))
         canvas = self._body
         canvas.delete("all")
         width = max(canvas.winfo_width(), 240)
@@ -141,7 +154,8 @@ class CalendarScreen(tk.Frame):
         canvas.yview_moveto(0)
 
     def _refresh(self):
-        self._status.configure(text=self._day.strftime("%b %d, %Y"))
+        end = self._day + timedelta(days=6)
+        self._status.configure(text=f"{self._day:%b %d} – {end:%b %d, %Y}")
         if self._future is None:
             self._requested = self._day
             self._future = self._executor.submit(self._controller.load, self._day)
