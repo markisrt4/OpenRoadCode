@@ -15,13 +15,7 @@ fi
 
 whiptail --title "OpenRoadCode installer" --yesno "Would you like to run the interactive installer?" 10 60 || exit 0
 
-SELECTED_TARGET="$(whiptail --title "Installation target" --radiolist \
-  "Choose the system profile to install:" 15 78 5 \
-  "rpi4" "Raspberry Pi 4 or Compute Module 4" OFF \
-  "rpi5" "Raspberry Pi 5, Pi 500, or Compute Module 5" OFF \
-  "linux-dev" "Debian/Ubuntu development workstation or VM" ON \
-  3>&1 1>&2 2>&3)" || exit 0
-
+SELECTED_TARGET=linux-dev
 SELECTED_GENERAL="base"
 SELECTED_STREAMING=""
 SELECTED_NAVIGATION=""
@@ -30,6 +24,43 @@ SELECTED_AUTOMOTIVE=""
 SELECTED_BLUETOOTH=""
 SELECTED_ENVIRONMENTAL=""
 INSTALL_ALL_FEATURES=0
+WITH_VNC=0
+WITH_GPSD=0
+WITH_TELEMETRY=0
+SETTINGS_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/openroadcode/installer-selection.conf"
+settings_keys=(SELECTED_TARGET SELECTED_GENERAL SELECTED_STREAMING SELECTED_NAVIGATION SELECTED_RADIO SELECTED_AUTOMOTIVE SELECTED_BLUETOOTH SELECTED_ENVIRONMENTAL INSTALL_ALL_FEATURES WITH_VNC WITH_GPSD WITH_TELEMETRY)
+if [[ -f "$SETTINGS_FILE" ]]; then
+  while IFS='=' read -r key value; do
+    case "$key" in
+      SELECTED_TARGET) case "$value" in rpi4|rpi5|linux-dev) SELECTED_TARGET="$value" ;; esac ;;
+      INSTALL_ALL_FEATURES|WITH_VNC|WITH_GPSD|WITH_TELEMETRY)
+        [[ "$value" == 0 || "$value" == 1 ]] && printf -v "$key" '%s' "$value" ;;
+      SELECTED_GENERAL|SELECTED_STREAMING|SELECTED_NAVIGATION|SELECTED_RADIO|SELECTED_AUTOMOTIVE|SELECTED_BLUETOOTH|SELECTED_ENVIRONMENTAL)
+        [[ "$value" =~ ^[a-z0-9[:space:]-]*$ ]] && printf -v "$key" '%s' "$value" ;;
+    esac
+  done < "$SETTINGS_FILE"
+fi
+
+save_settings() {
+  local key temporary
+  mkdir -p "$(dirname "$SETTINGS_FILE")"
+  temporary="$(mktemp "${SETTINGS_FILE}.XXXXXX")"
+  for key in "${settings_keys[@]}"; do
+    printf '%s=%s\n' "$key" "${!key}"
+  done > "$temporary"
+  mv -f -- "$temporary" "$SETTINGS_FILE"
+}
+
+target_state() {
+  if [[ "$SELECTED_TARGET" == "$1" ]]; then echo ON; else echo OFF; fi
+}
+
+SELECTED_TARGET="$(whiptail --title "Installation target" --radiolist \
+  "Choose the system profile to install:" 15 78 5 \
+  "rpi4" "Raspberry Pi 4 or Compute Module 4" "$(target_state rpi4)" \
+  "rpi5" "Raspberry Pi 5, Pi 500, or Compute Module 5" "$(target_state rpi5)" \
+  "linux-dev" "Debian/Ubuntu development workstation or VM" "$(target_state linux-dev)" \
+  3>&1 1>&2 2>&3)" || exit 0
 
 choose_features() {
   local title="$1" prompt="$2" selected="$3"
@@ -45,7 +76,7 @@ choose_features() {
 }
 
 while true; do
-  section=$(whiptail --title "OpenRoadCode installer" --menu \
+  section=$(whiptail --title "OpenRoadCode installer" --default-item "$(if (( INSTALL_ALL_FEATURES )); then echo all; else echo install; fi)" --menu \
     "Choose a section to configure, then select Install:" 21 76 10 \
     "general" "General features and user interfaces" \
     "streaming" "Streaming and audio" \
@@ -84,7 +115,7 @@ while true; do
     bluetooth) choose_features "Bluetooth" "Select Bluetooth features:" "$SELECTED_BLUETOOTH" \
       "bluetooth|Bluetooth device support" && SELECTED_BLUETOOTH="$SELECTED_RESULT" ;;
     all) INSTALL_ALL_FEATURES=1; break ;;
-    install) break ;;
+    install) INSTALL_ALL_FEATURES=0; break ;;
     cancel) exit 0 ;;
   esac
 done
@@ -99,19 +130,44 @@ else
   [[ " $SELECTED_GENERAL " == *" base "* ]] || ARGS+=(--feature base)
 fi
 
+ask_service() {
+  local variable="$1" title="$2" prompt="$3"
+  local options=()
+  if [[ "${!variable}" == 0 ]]; then options+=(--defaultno); fi
+  if whiptail --title "$title" "${options[@]}" --yesno "$prompt" 14 78; then
+    printf -v "$variable" 1
+  else
+    printf -v "$variable" 0
+  fi
+}
+
 if [[ " $SELECTED_GENERAL " == *" vnc "* ]] || (( INSTALL_ALL_FEATURES )); then
-  whiptail --title "VNC service" --yesno "Configure and enable the VNC service after installing it?" 10 68 && ARGS+=(--with-vnc)
+  ask_service WITH_VNC "VNC service" "Configure and enable the VNC service?"
+else
+  WITH_VNC=0
 fi
-if [[ " $SELECTED_NAVIGATION " == *" gps "* ]] || (( INSTALL_ALL_FEATURES )); then
-  whiptail --title "GPSD service" --yesno "Configure the default GPSD service after installing GPS support?" 10 72 && ARGS+=(--with-gpsd-service)
+if [[ " $SELECTED_NAVIGATION " == *" gps "* || " $SELECTED_NAVIGATION " == *" navigation "* ]] || (( INSTALL_ALL_FEATURES )); then
+  ask_service WITH_GPSD "GPSD service" "Configure the default GPSD service?"
+else
+  WITH_GPSD=0
 fi
+ask_service WITH_TELEMETRY "OpenRoadCode telemetry" "Configure and enable the ZeroMQ broker, navigation producer, and automotive producer services?"
+if (( WITH_VNC )); then ARGS+=(--with-vnc); fi
+if (( WITH_GPSD )); then ARGS+=(--with-gpsd-service); fi
+if (( WITH_TELEMETRY )); then ARGS+=(--with-telemetry-services); fi
 
-if whiptail --title "OpenRoadCode telemetry" --yesno \
-  "Configure and enable the ZeroMQ broker, navigation producer, and automotive producer services?\n\nThese services provide telemetry to carTui, carUi, webUi, and other consumers." 14 78; then
-  ARGS+=(--with-telemetry-services)
-fi
-
-bash "$PROJECT_DIR/scripts/installers/host_setup.sh" "${ARGS[@]}"
+save_settings
+while true; do
+  if bash "$PROJECT_DIR/scripts/installers/host_setup.sh" "${ARGS[@]}"; then
+    break
+  else
+    status=$?
+  fi
+  if ! whiptail --title "Installation incomplete" --defaultno --yesno \
+    "Installation failed (exit $status). Your selections are saved. Retry now? Existing packages will be reused where possible." 12 78; then
+    exit "$status"
+  fi
+done
 
 if [[ " $SELECTED_NAVIGATION " == *" navigation "* ]] || (( INSTALL_ALL_FEATURES )); then
   if whiptail --title "Home and Work addresses" --yesno \
