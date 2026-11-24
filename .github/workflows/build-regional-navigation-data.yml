@@ -21,7 +21,7 @@ jobs:
     env:
       REGIONS: ${{ inputs.regions || 'north-america/us/michigan' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Validate request and inspect runner resources
         run: |
           set -euo pipefail
@@ -29,6 +29,10 @@ jobs:
           df -h
           free -h
           nproc
+      - name: Check Geofabrik connectivity before compiling
+        run: |
+          set -euo pipefail
+          curl -4 --fail --location --retry 5 --retry-all-errors --connect-timeout 15 --max-time 120 https://download.geofabrik.de/index-v1-nogeom.json -o "$RUNNER_TEMP/geofabrik-index.json"
       - name: Build existing map builder image
         working-directory: tools/map_builder
         run: bash scripts/build-image.sh
@@ -57,4 +61,5 @@ jobs:
           name: regional-navigation-data
           path: regional-artifacts/
           if-no-files-found: error
+          compression-level: 0
           retention-days: 14
