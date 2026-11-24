@@ -2,6 +2,10 @@ name: Navigation binaries
 
 on:
   workflow_dispatch:
+  push:
+    branches: [feature/rpi5-integration]
+    paths:
+      - '.github/workflows/navigation-binaries.yml'
 
 permissions:
   contents: read
@@ -11,6 +15,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+        distro: [ubuntu24.04, debian13]
         include:
           - runner: ubuntu-24.04
             arch: amd64
@@ -18,6 +24,10 @@ jobs:
           - runner: ubuntu-24.04-arm
             arch: arm64
             target: rpi5
+          - distro: ubuntu24.04
+            image: ubuntu:24.04
+          - distro: debian13
+            image: debian:trixie
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 180
     defaults:
@@ -27,34 +37,56 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: OpenRoadCode
-      - name: Install host runtime dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y rsync python3-zmq
-          bash development/containers/maplibre/host_setup.sh
-          bash development/containers/valhalla/host_setup.sh
       - name: Build navigation software
         env:
           HOST_SRC: ${{ github.workspace }}
+          BUILD_BASE_IMAGE: ${{ matrix.image }}
           BUILD_JOBS: "2"
           FORCE_NAVIGATION_REBUILD: "1"
         run: |
+          sudo apt-get update
+          sudo apt-get install -y rsync
           bash scripts/installers/install_navigation_stack.sh \
-            --target "${{ matrix.target }}" --skip-host-packages --skip-services
+            --target "${{ matrix.target }}" --package-only
+      - name: Validate target runtime dependencies
+        env:
+          TARGET_IMAGE: ${{ matrix.image }}
+        run: |
+          docker run --rm \
+            -v /opt/openroadcode/navigation:/opt/openroadcode/navigation:ro \
+            -v "$PWD:/orc:ro" "$TARGET_IMAGE" bash -euc '
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y sudo libzmq3-dev libcurl4-openssl-dev libpng-dev libwebp-dev libsqlite3-dev libprotobuf-dev libspatialite-dev libssl-dev liblz4-dev libxxhash-dev libluajit-5.1-dev
+              bash /orc/development/containers/maplibre/host_setup.sh
+              bash /orc/development/containers/valhalla/host_setup.sh
+              echo /opt/openroadcode/navigation/valhalla/lib > /etc/ld.so.conf.d/orc.conf
+              ldconfig
+              for binary in /opt/openroadcode/navigation/bin/openroadcode-map-renderer /opt/openroadcode/navigation/valhalla/bin/valhalla_service; do
+                dependencies="$(ldd "$binary")"
+                printf "%s\n" "$dependencies"
+                if grep -q "not found" <<< "$dependencies"; then exit 1; fi
+              done
+            '
       - name: Package and checksum
         env:
           ARCH: ${{ matrix.arch }}
+          DISTRO: ${{ matrix.distro }}
+          TARGET_IMAGE: ${{ matrix.image }}
         run: |
           mkdir -p dist
-          name="orc-navigation-ubuntu24.04-${ARCH}-${GITHUB_SHA}"
-          printf 'revision=%s\nos=ubuntu\nversion=24.04\narchitecture=%s\n' \
-            "$GITHUB_SHA" "$ARCH" > dist/manifest.txt
+          name="orc-navigation-${DISTRO}-${ARCH}-${GITHUB_SHA}"
+          printf 'revision=%s\ndistribution=%s\narchitecture=%s\nbuild_image=%s\n' \
+            "$GITHUB_SHA" "$DISTRO" "$ARCH" "$TARGET_IMAGE" > dist/manifest.txt
+          for dependency in maplibre-native valhalla prime_server; do
+            printf '%s=%s\n' "$dependency" "$(git -C "../$dependency" rev-parse HEAD)" >> dist/manifest.txt
+          done
           sudo tar -C /opt/openroadcode/navigation -czf "$PWD/dist/$name.tar.gz" bin valhalla
           sudo chown "$(id -u):$(id -g)" "dist/$name.tar.gz"
           (cd dist && sha256sum "$name.tar.gz" manifest.txt > SHA256SUMS)
       - uses: actions/upload-artifact@v4
         with:
-          name: navigation-ubuntu24.04-${{ matrix.arch }}
+          name: navigation-${{ matrix.distro }}-${{ matrix.arch }}
           path: OpenRoadCode/dist/
           if-no-files-found: error
           retention-days: 14
