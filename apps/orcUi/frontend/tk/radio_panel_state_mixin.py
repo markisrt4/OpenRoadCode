@@ -138,7 +138,7 @@ class RadioPanelStateMixin:
                 if starting or state.receiver_running:
                     self._spectrum_start_button.place_forget()
                 else:
-                    self._spectrum_start_button.place(relx=0.5, rely=0.55, anchor="center")
+                    self._spectrum_start_button.place(relx=0.5, rely=0.68, anchor="center")
                     self._spectrum_start_button.tk.call("raise", self._spectrum_start_button._w)
             self._receiver_power_button.set_text(
                 "STARTING SDR…" if starting else
