@@ -70,7 +70,11 @@ if (( RUN_GPSD_SERVICE )); then
 fi
 
 if (( RUN_TELEMETRY_SERVICES || RUN_RADIO )); then
-  echo "[*] Installing OpenRoadCode telemetry services..."
+  if (( RUN_TELEMETRY_SERVICES )); then
+    echo "[*] Installing OpenRoadCode telemetry services..."
+  else
+    echo "[*] Installing OpenRoadCode message broker and native radio service..."
+  fi
   runtime_config="$PROJECT_ROOT/config/runtime.toml"
   python_bin="${OPENROADCODE_PYTHON:-${VENV_DIR:-$PROJECT_ROOT/venv}/bin/python}"
   if [[ ! -x "$python_bin" ]]; then
