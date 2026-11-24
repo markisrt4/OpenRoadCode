@@ -154,9 +154,10 @@ class ReceiverSession:
                 and self._rest_receiver_running is not False
                 and self._state.receiver_running
                 and (snapshot.center_frequency_hz is None
-                     or snapshot.center_frequency_hz == self._state.station.frequency_hz)
+                     or abs(snapshot.center_frequency_hz - self._state.station.frequency_hz)
+                     <= (snapshot.sample_rate_hz or 0) / 2)
                 and isinstance(view, SpectrumPresentationIf)):
-            # Ignore queued FFT frames after a stop or external retune.
+            # FFT geometry describes acquisition, not the listening channel.
             view.set_spectrum_presentation(snapshot)
 
     def request(self, request: RadioRequest) -> None:

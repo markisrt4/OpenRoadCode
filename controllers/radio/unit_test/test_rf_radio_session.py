@@ -533,6 +533,12 @@ def test_spectrum_recovery_requires_current_frequency_and_running(receiver):
     source.latest_spectrum.return_value = fresh
     r.session.refresh_spectrum()
     assert view.frames == [fresh]
+    in_band = SpectrumPresentation(
+        bins=(0.3, 0.7), center_frequency_hz=99_800_000, sample_rate_hz=2_400_000,
+    )
+    source.latest_spectrum.return_value = in_band
+    r.session.refresh_spectrum()
+    assert view.frames == [fresh, in_band]
 
 
 def test_native_receiver_does_not_require_legacy_telemetry(receiver, monkeypatch):

@@ -70,7 +70,10 @@ class RadioPanelStateMixin:
                 stereo=state.telemetry.stereo_locked is True,
                 signal=state.telemetry.signal_db,
                 mode=state.station.mode_name,
-                bandwidth_hz=state.telemetry.bandwidth_hz if state.receiver_running else None,
+                bandwidth_hz=(state.telemetry.bandwidth_hz
+                              if state.receiver_running and not receiver_mode_mismatch(state)
+                              and state.telemetry.frequency_hz == state.station.frequency_hz
+                              else None),
                 observed_mode=state.telemetry.mode if receiver_mode_mismatch(state) else None,
             )
         signal = "--" if state.telemetry.signal_db is None else f"{state.telemetry.signal_db:.1f} dB"
