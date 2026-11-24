@@ -30,7 +30,9 @@ class CalendarScreen(tk.Frame):
         self._requested = None
         bar = tk.Frame(self, bg=ui.background)
         bar.pack(fill=tk.X, padx=8, pady=(8, 18))
-        tk.Label(bar, text="CALENDAR", bg=ui.background, fg=ui.text, font=("Sans", 15, "bold")).pack(side=tk.LEFT, padx=12)
+        tk.Label(
+            bar, text="CALENDAR", bg=ui.background, fg=ui.text, font=("Sans", 15, "bold")
+        ).pack(side=tk.LEFT, padx=12)
         for title, delta in (("Previous", -7), ("Today", 0), ("Next", 7)):
             tk.Button(
                 bar,
@@ -47,9 +49,16 @@ class CalendarScreen(tk.Frame):
                 activeforeground=ui.accent_primary,
             ).pack(side=tk.LEFT, padx=4, pady=4)
         self._toggle = tk.Button(
-            bar, text="Month", command=self._toggle_view, bg=ui.surface,
-            fg=ui.text, relief=tk.FLAT, borderwidth=0, highlightthickness=0,
-            font=("Sans", 12), pady=6,
+            bar,
+            text="Month",
+            command=self._toggle_view,
+            bg=ui.surface,
+            fg=ui.text,
+            relief=tk.FLAT,
+            borderwidth=0,
+            highlightthickness=0,
+            font=("Sans", 12),
+            pady=6,
         )
         self._toggle.pack(side=tk.LEFT, padx=4)
         self._status = tk.Label(bar, bg=ui.background, fg=ui.text, font=("Sans", 11))
@@ -63,7 +72,10 @@ class CalendarScreen(tk.Frame):
         self._body.bind("<Configure>", lambda event: self._render())
         self._body.bind("<ButtonPress-1>", self._drag_start)
         self._body.bind("<B1-Motion>", self._drag_move)
-        self._body.bind("<MouseWheel>", lambda event: self._body.yview_scroll(-1 if event.delta > 0 else 1, "units"))
+        self._body.bind(
+            "<MouseWheel>",
+            lambda event: self._body.yview_scroll(-1 if event.delta > 0 else 1, "units"),
+        )
         self._body.bind("<Button-4>", lambda event: self._body.yview_scroll(-1, "units"))
         self._body.bind("<Button-5>", lambda event: self._body.yview_scroll(1, "units"))
         self._message = "Loading appointments..."
@@ -178,8 +190,12 @@ class CalendarScreen(tk.Frame):
         margin = 10 if compact else 20
         y = 12
         canvas.create_text(
-            margin, y, anchor="nw", text=self._selected.strftime("%A, %B %d"),
-            fill=ui.accent_primary, font=("Sans", 15, "bold"),
+            margin,
+            y,
+            anchor="nw",
+            text=self._selected.strftime("%A, %B %d"),
+            fill=ui.accent_primary,
+            font=("Sans", 15, "bold"),
         )
         y += 34
         events = next((group.events for group in self._groups if group.day == self._selected), ())
@@ -192,21 +208,35 @@ class CalendarScreen(tk.Frame):
             ongoing = not event.all_day and start <= datetime.now(self._zone) < end
             color = ui.accent_success if ongoing else ui.accent_primary
             height = 78 if compact else 96
-            canvas.create_rectangle(margin, y, width - margin, y + height, fill=ui.surface, outline="")
+            canvas.create_rectangle(
+                margin, y, width - margin, y + height, fill=ui.surface, outline=""
+            )
             canvas.create_rectangle(margin, y, margin + 5, y + height, fill=color, outline="")
             canvas.create_text(
-                margin + 16, y + 9, anchor="nw", text=when + ("  • Now" if ongoing else ""),
-                fill=color, font=("Sans", 11),
+                margin + 16,
+                y + 9,
+                anchor="nw",
+                text=when + ("  • Now" if ongoing else ""),
+                fill=color,
+                font=("Sans", 11),
             )
             canvas.create_text(
-                margin + 16, y + 29, anchor="nw", text=event.title or "Untitled",
-                fill=ui.text, font=("Sans", 13 if compact else 16, "bold"),
+                margin + 16,
+                y + 29,
+                anchor="nw",
+                text=event.title or "Untitled",
+                fill=ui.text,
+                font=("Sans", 13 if compact else 16, "bold"),
                 width=width - 2 * margin - 32,
             )
             if event.location:
                 canvas.create_text(
-                    margin + 16, y + 54, anchor="nw", text=event.location,
-                    fill=ui.text_muted, font=("Sans", 10),
+                    margin + 16,
+                    y + 54,
+                    anchor="nw",
+                    text=event.location,
+                    fill=ui.text_muted,
+                    font=("Sans", 10),
                     width=width - 2 * margin - 32,
                 )
             y += height + 8
@@ -218,7 +248,10 @@ class CalendarScreen(tk.Frame):
         for column, name in enumerate(calendar.day_abbr):
             self._week.columnconfigure(column, weight=1, uniform="day")
             tk.Label(
-                self._week, text=name.upper(), bg=ui.background, fg=ui.text_muted,
+                self._week,
+                text=name.upper(),
+                bg=ui.background,
+                fg=ui.text_muted,
                 font=("Sans", 10),
             ).grid(row=0, column=column, sticky="ew")
         weeks = calendar.Calendar().monthdatescalendar(self._day.year, self._day.month)
@@ -238,14 +271,19 @@ class CalendarScreen(tk.Frame):
                 )
                 cell.grid(row=row, column=column, sticky="nsew", padx=2, pady=2)
                 number = tk.Label(
-                    cell, text=str(day.day), bg=background,
+                    cell,
+                    text=str(day.day),
+                    bg=background,
                     fg=foreground if in_month else ui.text_muted,
                     font=("Sans", 13, "bold" if selected or day == today else "normal"),
                 )
                 number.pack(anchor="center", expand=True)
                 indicator = tk.Label(
-                    cell, text=f"• {count}" if count else " ",
-                    bg=background, fg=ui.accent_primary, font=("Sans", 9),
+                    cell,
+                    text=f"• {count}" if count else " ",
+                    bg=background,
+                    fg=ui.accent_primary,
+                    font=("Sans", 9),
                 )
                 indicator.pack(anchor="center")
                 if in_month:
@@ -256,7 +294,9 @@ class CalendarScreen(tk.Frame):
         days = calendar.monthrange(self._day.year, self._day.month)[1] if self._month else 7
         end = self._day + timedelta(days=days - 1)
         self._status.configure(
-            text=self._day.strftime("%B %Y") if self._month else f"{self._day:%b %d} – {end:%b %d, %Y}"
+            text=self._day.strftime("%B %Y")
+            if self._month
+            else f"{self._day:%b %d} – {end:%b %d, %Y}"
         )
         if self._future is None:
             self._requested = (self._day, self._month)
