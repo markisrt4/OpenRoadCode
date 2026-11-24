@@ -20,6 +20,7 @@ browser
 vnc
 input
 audio
+audio-bluetooth
 gps
 rtl-sdr
 streamlit
@@ -50,6 +51,7 @@ browser
 vnc
 input
 audio
+audio-bluetooth
 gps
 rtl-sdr
 streamlit
@@ -91,6 +93,7 @@ get_feature_dependencies() {
   local target="${OPENROAD_INSTALL_TARGET:-linux-dev}"
   case "$feature" in
     vnc) echo "desktop-ui" ;;
+    audio-bluetooth) echo "audio" ;;
     spotify)
       [[ "$target" == "termux" ]] && echo "" || echo "audio"
       ;;
@@ -138,10 +141,13 @@ get_feature_packages() {
       ;;
     audio)
       case "${OPENROAD_INSTALL_TARGET:-linux-dev}" in
-        rpi4|rpi5) echo "wireplumber pipewire-pulse pipewire-bin pulseaudio-utils alsa-utils python3-numpy" ;;
-        linux-dev) echo "pipewire-bin pulseaudio-utils python3-numpy" ;;
+        rpi4|rpi5) echo "wireplumber pipewire-pulse pipewire-bin pipewire-alsa pulseaudio-utils alsa-utils python3-numpy" ;;
+        linux-dev) echo "pipewire-bin pipewire-alsa pulseaudio-utils alsa-utils python3-numpy" ;;
         *) echo "" ;;
       esac
+      ;;
+    audio-bluetooth)
+      echo "bluez libspa-0.2-bluetooth wireplumber pipewire-pulse"
       ;;
     gps)
       echo "gpsd gpsd-clients python3-gps"
@@ -238,6 +244,7 @@ Available features:
   vnc           TigerVNC server support (includes desktop-ui)
   input         Linux input/evdev support
   audio         PipeWire/PulseAudio control, capture, and native music analysis
+  audio-bluetooth Bluetooth audio playback via PipeWire (includes audio)
   gps           GPSD and Python GPS/navigation support
   rtl-sdr       RTL-SDR device and SoapySDR support
   streamlit     Streamlit dashboard support
