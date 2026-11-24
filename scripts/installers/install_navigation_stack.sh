@@ -32,6 +32,7 @@ SKIP_MAPLIBRE=0
 SKIP_VALHALLA=0
 SKIP_SERVICES=0
 SKIP_SMOKE=0
+PACKAGE_ONLY=0
 TARGET="rpi5"
 HOST_PLATFORM="linux"
 
@@ -49,6 +50,7 @@ Options:
   --skip-valhalla         skip Valhalla build/install
   --skip-services         skip systemd service installation
   --skip-smoke            skip final software smoke checks
+  --package-only          stage binaries for target-container validation; no host runtime configuration
   -h, --help              show this help
 
 Environment:
@@ -68,6 +70,7 @@ while (( $# > 0 )); do
     --skip-valhalla) SKIP_VALHALLA=1 ;;
     --skip-services) SKIP_SERVICES=1 ;;
     --skip-smoke) SKIP_SMOKE=1 ;;
+    --package-only) PACKAGE_ONLY=1; SKIP_HOST_PACKAGES=1; SKIP_SERVICES=1; SKIP_SMOKE=1 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -146,6 +149,7 @@ if (( SHOW_PLAN )); then
 fi
 
 if [[ "$TARGET" == "termux" ]]; then
+  (( ! PACKAGE_ONLY )) || { echo "--package-only requires Linux" >&2; exit 2; }
   exec env \
     HOST_SRC="$HOST_SRC" \
     INSTALL_ROOT="$INSTALL_ROOT" \
@@ -214,13 +218,13 @@ VALHALLA_FINGERPRINT="$( {
 MAPLIBRE_BUILD_REQUIRED=1
 VALHALLA_BUILD_REQUIRED=1
 
-if [[ "${FORCE_NAVIGATION_REBUILD:-0}" != "1" && "${FORCE_MAPLIBRE_REBUILD:-0}" != "1" ]] \
+if [[ "$PACKAGE_ONLY" == "0" && "${FORCE_NAVIGATION_REBUILD:-0}" != "1" && "${FORCE_MAPLIBRE_REBUILD:-0}" != "1" ]] \
    && [[ "$(read_state_hash "$MAPLIBRE_STATE_FILE")" == "$MAPLIBRE_FINGERPRINT" ]] \
    && [[ -x "$INSTALL_ROOT/bin/openroadcode-map-renderer" ]]; then
   MAPLIBRE_BUILD_REQUIRED=0
 fi
 
-if [[ "${FORCE_NAVIGATION_REBUILD:-0}" != "1" && "${FORCE_VALHALLA_REBUILD:-0}" != "1" ]] \
+if [[ "$PACKAGE_ONLY" == "0" && "${FORCE_NAVIGATION_REBUILD:-0}" != "1" && "${FORCE_VALHALLA_REBUILD:-0}" != "1" ]] \
    && [[ "$(read_state_hash "$VALHALLA_STATE_FILE")" == "$VALHALLA_FINGERPRINT" ]] \
    && [[ -x "$INSTALL_ROOT/valhalla/bin/valhalla_service" ]]; then
   VALHALLA_BUILD_REQUIRED=0
@@ -343,6 +347,7 @@ if (( ! SKIP_HOST_PACKAGES )); then
   (( SKIP_VALHALLA )) || bash "$PROJECT_ROOT/development/containers/valhalla/host_setup.sh"
 fi
 
+if (( ! PACKAGE_ONLY )); then
 sudo install -d "$CONFIG_ROOT"
 # The native renderer runs as the invoking desktop user during development and
 # vehicle UI sessions. A root-owned 0755 cache directory lets MapLibre read but
@@ -351,6 +356,8 @@ sudo install -d "$CONFIG_ROOT"
 sudo install -d -m 0775 -o "$(id -u)" -g "$(id -g)" /var/cache/openroadcode
 if [[ ! -f "$CONFIG_ROOT/navigation.toml" ]]; then
   sudo install -m 0644 "$PROJECT_ROOT/config/navigation.toml" "$CONFIG_ROOT/navigation.toml"
+fi
+
 fi
 
 if (( ! SKIP_MAPLIBRE && MAPLIBRE_BUILD_REQUIRED )); then
@@ -370,8 +377,10 @@ if (( ! SKIP_MAPLIBRE && MAPLIBRE_BUILD_REQUIRED )); then
   [[ -x "$renderer" ]] || { echo "Renderer build missing: $renderer" >&2; exit 1; }
   sudo install -d "$INSTALL_ROOT/bin"
   sudo install -m 0755 "$renderer" "$INSTALL_ROOT/bin/openroadcode-map-renderer"
-  check_runtime_libraries "MapLibre renderer" "$INSTALL_ROOT/bin/openroadcode-map-renderer"
-  write_state_hash "$MAPLIBRE_STATE_FILE" "$MAPLIBRE_FINGERPRINT"
+  if (( ! PACKAGE_ONLY )); then
+    check_runtime_libraries "MapLibre renderer" "$INSTALL_ROOT/bin/openroadcode-map-renderer"
+    write_state_hash "$MAPLIBRE_STATE_FILE" "$MAPLIBRE_FINGERPRINT"
+  fi
 elif (( ! SKIP_MAPLIBRE )); then
   echo "[+] MapLibre renderer is current; skipping rebuild."
 fi
@@ -379,7 +388,9 @@ fi
 # Map/routing geometry is deployed independently, but the visual style belongs
 # to this software revision. Refresh it whenever the software stack is installed
 # so style-only improvements do not require rebuilding the MBTiles dataset.
-DATA_ROOT="$DATA_ROOT" bash "$PROJECT_ROOT/scripts/runtime/install_navigation_style.sh"
+if (( ! PACKAGE_ONLY )); then
+  DATA_ROOT="$DATA_ROOT" bash "$PROJECT_ROOT/scripts/runtime/install_navigation_style.sh"
+fi
 
 if (( ! SKIP_VALHALLA && VALHALLA_BUILD_REQUIRED )); then
   echo "[*] Valhalla inputs changed; rebuilding..."
@@ -394,11 +405,13 @@ if (( ! SKIP_VALHALLA && VALHALLA_BUILD_REQUIRED )); then
   [[ -x "$valhalla_stage/bin/valhalla_service" ]] || { echo "Valhalla build missing: $valhalla_stage/bin/valhalla_service" >&2; exit 1; }
   sudo install -d "$INSTALL_ROOT"
   sudo rsync -a --delete "$valhalla_stage/" "$INSTALL_ROOT/valhalla/"
-  sudo install -d /etc/ld.so.conf.d
-  printf '%s\n' "$INSTALL_ROOT/valhalla/lib" | sudo tee /etc/ld.so.conf.d/openroadcode-navigation.conf >/dev/null
-  sudo ldconfig
-  check_runtime_libraries "Valhalla" "$INSTALL_ROOT/valhalla/bin/valhalla_service"
-  write_state_hash "$VALHALLA_STATE_FILE" "$VALHALLA_FINGERPRINT"
+  if (( ! PACKAGE_ONLY )); then
+    sudo install -d /etc/ld.so.conf.d
+    printf '%s\n' "$INSTALL_ROOT/valhalla/lib" | sudo tee /etc/ld.so.conf.d/openroadcode-navigation.conf >/dev/null
+    sudo ldconfig
+    check_runtime_libraries "Valhalla" "$INSTALL_ROOT/valhalla/bin/valhalla_service"
+    write_state_hash "$VALHALLA_STATE_FILE" "$VALHALLA_FINGERPRINT"
+  fi
 elif (( ! SKIP_VALHALLA )); then
   echo "[+] Valhalla is current; skipping rebuild."
 fi
