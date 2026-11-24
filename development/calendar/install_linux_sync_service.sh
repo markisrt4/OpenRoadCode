@@ -35,6 +35,7 @@ After=openroadcode-carbonate.service
 
 [Service]
 Type=simple
+Environment="OPENROADCODE_SECRETS_FILE=%h/.config/openroadcode/secrets.env"
 WorkingDirectory=$REPO_DIR
 ExecStart="$PYTHON_BIN" -m controllers.calendar.calendar_sync_daemon --username "$1"
 Restart=on-failure
