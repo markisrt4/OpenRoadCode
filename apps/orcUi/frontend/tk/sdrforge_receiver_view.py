@@ -85,6 +85,7 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
         self._on_tune = None
         self._on_spectrum_tune = None
         self._on_tune_step = None
+        self._on_recenter = None
         self._tune_touch_y = None
         self._tune_range: tuple[int, int, int] | None = None
 
@@ -183,7 +184,12 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, UiWidget):
     def _update_recenter_button(self) -> None:
         self._recenter_button.configure(text="CENTER", fg=self._theme.ui.text)
 
+    def set_recenter_handler(self, handler) -> None:
+        self._on_recenter = handler
+
     def _toggle_recenter(self) -> None:
+        if self._on_recenter is not None:
+            self._on_recenter()
         if self._viewport is not None and self._frequency_hz:
             self._viewport = replace(
                 self._viewport, center_hz=float(self._frequency_hz), recenter_on_tune=False

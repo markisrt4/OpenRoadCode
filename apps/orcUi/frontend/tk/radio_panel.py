@@ -413,6 +413,10 @@ class RadioPanel(RadioTuningGesturesMixin, RadioPanelStateMixin, RadioPanelLayou
             return
         self._session.request(RadioRequest(RadioAction.NEXT))
 
+    def _recenter_spectrum(self) -> None:
+        if self._state.receiver_running and self._state.view != "adsb":
+            self._session.request(RadioRequest(RadioAction.RECENTER))
+
     def _tune_spectrum_frequency(self, frequency_hz: int) -> None:
         if self._state.receiver_running and self._state.view != "adsb":
             self._session.request(RadioRequest(

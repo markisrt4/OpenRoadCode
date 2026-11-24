@@ -274,6 +274,17 @@ class ReceiverSession:
             if self._current(generation) and request.action is RadioAction.LAUNCH:
                 self._read_controls()
             return
+        if action is RadioAction.RECENTER:
+            with urllib.request.urlopen(
+                urllib.request.Request(
+                    "http://127.0.0.1:5570/v1/receiver/recenter",
+                    data=b"", method="POST",
+                ), timeout=6.0,
+            ) as response:
+                if response.status != 202:
+                    raise RuntimeError("SDRForge acquisition recenter failed")
+            self._state = replace(self._state, error="")
+            return
         if action in (RadioAction.START_RECEIVER, RadioAction.STOP_RECEIVER):
             endpoint = "start" if action is RadioAction.START_RECEIVER else "stop"
             with urllib.request.urlopen(

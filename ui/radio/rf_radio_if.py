@@ -87,6 +87,7 @@ class RadioAction(Enum):
     TUNE_DOWN = "tune_down"
     TUNE_UP = "tune_up"
     TUNE_FREQUENCY = "tune_frequency"
+    RECENTER = "recenter"
     ADD_PRESET = "add_preset"
     WATERFALL = "waterfall"
     BANDPLAN = "bandplan"
