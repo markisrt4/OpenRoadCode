@@ -372,6 +372,7 @@ if [[ "$TARGET" == "linux-dev" ]]; then
   runtime_config="$PROJECT_DIR/config/runtime.simulated.toml"
 fi
 runtime_args=("${FEATURES[@]}" --config "$runtime_config")
+(( RUN_RADIO )) && runtime_args+=(--radio-service)
 (( RUN_TELEMETRY_SERVICES )) && runtime_args+=(--telemetry-services)
 (( RUN_GPSD_SERVICE )) && runtime_args+=(--gpsd-service)
 "$VERIFY_PYTHON" "$SCRIPT_DIR/verify_runtime.py" "${runtime_args[@]}"
