@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 
 from adapters.radio.sdrforge_rf_hardware_config import SdrForgeRfHardwareConfig
 from apps.launchers.cesium_embedded_viewer import CesiumEmbeddedViewer
@@ -205,8 +205,7 @@ def create_orc_ui_composition(
 
         def set_unit_system(value):
             nonlocal app_settings
-            app_settings = replace(settings_store.load(), unit_system=value)
-            settings_store.save(app_settings)
+            app_settings = settings_store.update(unit_system=value)
 
         def open_radar_map() -> None:
             app.navigate_to("NAVIGATION")
@@ -226,8 +225,7 @@ def create_orc_ui_composition(
 
         def set_radar_palette(value: RadarPalette) -> None:
             nonlocal app_settings
-            app_settings = replace(settings_store.load(), radar_palette=value.value)
-            settings_store.save(app_settings)
+            app_settings = settings_store.update(radar_palette=value.value)
 
         def navigate_home_context(name: str) -> None:
             context_name = name.strip().upper()
