@@ -4,11 +4,11 @@ import hashlib
 import json
 from unittest.mock import Mock
 
-from PIL import Image
 import pytest
+from PIL import Image
 
-from development.maps import regional_imagery
 from apps.launchers.local_imagery_pack import LocalImageryPack
+from development.maps import regional_imagery
 
 
 def test_michigan_builds_use_large_bounded_images():
@@ -29,27 +29,38 @@ def test_overview_resumes_checked_tiles_and_preserves_north_first_placement(tmp_
         if tile.exists():
             return
         if len(downloaded) == 2 and not allow_completion[0]:
-            raise RuntimeError('export timed out')
+            raise RuntimeError("export timed out")
         downloaded.append(tile.name)
         tile.mkdir()
         row = int(tile.name[1])
         col = int(tile.name[-1])
-        with Image.new('RGB', parameters['image_size'], (row*70, col*70, 0)) as image:
-            image.save(tile/'imagery.jpg')
-        document = {'schema':1, 'image':'imagery.jpg', 'bounds_deg':parameters['bounds'],
-                    'width':parameters['image_size'][0], 'height':parameters['image_size'][1], 'title':'fixture', 'attribution':'USGS fixture',
-                    'sha256':hashlib.sha256((tile/'imagery.jpg').read_bytes()).hexdigest(),
-                    'source_records':[{'OBJECTID': row*4+col}]}
-        (tile/'manifest.json').write_text(json.dumps(document))
+        with Image.new("RGB", parameters["image_size"], (row * 70, col * 70, 0)) as image:
+            image.save(tile / "imagery.jpg")
+        document = {
+            "schema": 1,
+            "image": "imagery.jpg",
+            "bounds_deg": parameters["bounds"],
+            "width": parameters["image_size"][0],
+            "height": parameters["image_size"][1],
+            "title": "fixture",
+            "attribution": "USGS fixture",
+            "sha256": hashlib.sha256((tile / "imagery.jpg").read_bytes()).hexdigest(),
+            "source_records": [{"OBJECTID": row * 4 + col}],
+        }
+        (tile / "manifest.json").write_text(json.dumps(document))
 
     allow_completion = [False]
-    monkeypatch.setattr(regional_imagery, 'download_image', tile_download)
-    with pytest.raises(RuntimeError, match='timed out'):
-        regional_imagery.download(destination, bounds=bounds, title='Metro', cache_directory=cache, image_size=image_size)
+    monkeypatch.setattr(regional_imagery, "download_image", tile_download)
+    with pytest.raises(RuntimeError, match="timed out"):
+        regional_imagery.download(
+            destination, bounds=bounds, title="Metro", cache_directory=cache, image_size=image_size
+        )
     assert not destination.exists()
-    assert (cache/'r0-c0'/'imagery.jpg').exists()
+    assert (cache / "r0-c0" / "imagery.jpg").exists()
     allow_completion[0] = True
-    regional_imagery.download(destination, bounds=bounds, title='Metro', cache_directory=cache, image_size=image_size)
+    regional_imagery.download(
+        destination, bounds=bounds, title="Metro", cache_directory=cache, image_size=image_size
+    )
     assert len(downloaded) == 16  # First two pieces were reused, not downloaded twice.
     pack = LocalImageryPack.load(destination)
     with Image.open(pack.image) as image:
@@ -66,23 +77,30 @@ def test_overview_resumes_checked_tiles_and_preserves_north_first_placement(tmp_
 
 
 def test_overview_rejects_cache_for_other_coverage(tmp_path, monkeypatch):
-    cache = tmp_path/'cache'
-    tile = cache/'r0-c0'
+    cache = tmp_path / "cache"
+    tile = cache / "r0-c0"
     tile.mkdir(parents=True)
-    (tile/'manifest.json').write_text(json.dumps({'bounds_deg':[0,0,1,1], 'width':512, 'height':384}))
+    (tile / "manifest.json").write_text(
+        json.dumps({"bounds_deg": [0, 0, 1, 1], "width": 512, "height": 384})
+    )
     download = Mock()
-    monkeypatch.setattr(regional_imagery, 'download_image', download)
-    with pytest.raises(ValueError, match='does not match'):
-        regional_imagery.download(tmp_path/'pack', bounds=(-84,42,-82,44), title='Metro', cache_directory=cache)
+    monkeypatch.setattr(regional_imagery, "download_image", download)
+    with pytest.raises(ValueError, match="does not match"):
+        regional_imagery.download(
+            tmp_path / "pack", bounds=(-84, 42, -82, 44), title="Metro", cache_directory=cache
+        )
     download.assert_not_called()
-    assert not (tmp_path/'pack').exists()
+    assert not (tmp_path / "pack").exists()
 
 
 def test_unsupported_area_is_transparent_and_evidence_is_preserved(tmp_path, monkeypatch):
-    bounds = (-84.,42.,-82.,44.)
+    bounds = (-84.0, 42.0, -82.0, 44.0)
+
     def tile_download(tile, **parameters):
-        if tile.name == 'r3-c3':
-            raise regional_imagery.NoImageryCoverage({'serviceDescription':'public domain'}, {'features':[]})
+        if tile.name == "r3-c3":
+            raise regional_imagery.NoImageryCoverage(
+                {"serviceDescription": "public domain"}, {"features": []}
+            )
         tile.mkdir()
         with Image.new('RGB', (512,384), 'red') as image:
             image.save(tile/'imagery.jpg')

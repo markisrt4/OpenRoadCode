@@ -11,13 +11,30 @@ from typing import Any
 
 from frontends.tk.media.spotify_browse_panel import SpotifyBrowsePanel
 from frontends.tk.media.spotify_playback_panel import SpotifyPlaybackPanel
-from ui.media.spotify_browse_if import SpotifyBrowseSession
 from frontends.tk.media.spotify_video_overlay import SpotifyVideoOverlay
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
-from ui.media import MediaState, MediaUiIf, PlaybackRequestHandlerIf, SeekRequestHandlerIf, TrackRequestHandlerIf, VolumeRequestHandlerIf
-from ui.media.spotify_presentation_if import SpotifyNativeSurface, SpotifyPresentationSession, SpotifyPresentationState, SpotifyVideoRequests, SpotifyRequestHandler
-from ui.media.spotify_account_if import SpotifyAccountRequests, SpotifyAccountSession, SpotifyAccountState
+from ui.media import (
+    MediaState,
+    MediaUiIf,
+    PlaybackRequestHandlerIf,
+    SeekRequestHandlerIf,
+    TrackRequestHandlerIf,
+    VolumeRequestHandlerIf,
+)
+from ui.media.spotify_account_if import (
+    SpotifyAccountRequests,
+    SpotifyAccountSession,
+    SpotifyAccountState,
+)
+from ui.media.spotify_browse_if import SpotifyBrowseSession
+from ui.media.spotify_presentation_if import (
+    SpotifyNativeSurface,
+    SpotifyPresentationSession,
+    SpotifyPresentationState,
+    SpotifyRequestHandler,
+    SpotifyVideoRequests,
+)
 from ui.screen_ui_if import ScreenId
 
 MediaNavigationFactory = Callable[[tk.Misc, str], tk.Widget]
@@ -29,7 +46,10 @@ class SpotifyScreen(TkScreen, MediaUiIf):
     """Present Spotify now-playing, destination selection, and library browse."""
 
     def __init__(
-        self, host: TkScreenHostIf, *, theme: dict[str, Any] | Callable[[], dict[str, Any]],
+        self,
+        host: TkScreenHostIf,
+        *,
+        theme: dict[str, Any] | Callable[[], dict[str, Any]],
         show_visualizer: Callable[[], None] | None = None,
         back_action: Callable[[], None],
         media_navigation_factory: MediaNavigationFactory | None = None,
@@ -143,11 +163,24 @@ class SpotifyScreen(TkScreen, MediaUiIf):
     def set_spotify_account_state(self, state: SpotifyAccountState) -> None:
         self._account = state
         if self._account_label is not None:
-            text = "Spotify setup required" if not state.configured else "Spotify connected" if state.connected else "Spotify account not connected"
+            text = (
+                "Spotify setup required"
+                if not state.configured
+                else "Spotify connected"
+                if state.connected
+                else "Spotify account not connected"
+            )
             self._account_label.configure(text=text.upper())
         if self._account_button is not None:
-            self._account_button.configure(text="DISCONNECT" if state.connected else "CONNECT SPOTIFY",
-                state=tk.DISABLED if state.busy or state.loading or not state.configured or not (state.online or state.connected) else tk.NORMAL)
+            self._account_button.configure(
+                text="DISCONNECT" if state.connected else "CONNECT SPOTIFY",
+                state=tk.DISABLED
+                if state.busy
+                or state.loading
+                or not state.configured
+                or not (state.online or state.connected)
+                else tk.NORMAL,
+            )
         if self._configuration_button is not None:
             self._configuration_button.configure(state=tk.DISABLED if state.busy else tk.NORMAL)
         if state.message:
@@ -169,32 +202,63 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         button_fg = colors.get("button_foreground", text)
         row = tk.Frame(parent, bg=surface)
         row.pack(fill=tk.X, padx=4, pady=(2, 4))
-        self._account_label = tk.Label(row, text="SPOTIFY", bg=surface, fg=SPOTIFY_GREEN,
-            font=("Sans", 9, "bold"))
+        self._account_label = tk.Label(
+            row, text="SPOTIFY", bg=surface, fg=SPOTIFY_GREEN, font=("Sans", 9, "bold")
+        )
         self._account_label.pack(side=tk.LEFT, padx=10, pady=8)
         if self._show_account_configuration is not None:
-            self._configuration_button = tk.Button(row, text="CONFIGURE", command=self._show_account_configuration,
-                bg=button_bg, fg=button_fg, relief=tk.FLAT, bd=0, font=("Sans", 8, "bold"), padx=10, pady=5)
+            self._configuration_button = tk.Button(
+                row,
+                text="CONFIGURE",
+                command=self._show_account_configuration,
+                bg=button_bg,
+                fg=button_fg,
+                relief=tk.FLAT,
+                bd=0,
+                font=("Sans", 8, "bold"),
+                padx=10,
+                pady=5,
+            )
             self._configuration_button.pack(side=tk.RIGHT, padx=(4, 8), pady=5)
         if self._account_session is not None:
-            self._account_button = tk.Button(row, text="CONNECT SPOTIFY", command=self._request_account_action,
-                bg=button_bg, fg=button_fg, relief=tk.FLAT, bd=0, font=("Sans", 8, "bold"), padx=10, pady=5)
+            self._account_button = tk.Button(
+                row,
+                text="CONNECT SPOTIFY",
+                command=self._request_account_action,
+                bg=button_bg,
+                fg=button_fg,
+                relief=tk.FLAT,
+                bd=0,
+                font=("Sans", 8, "bold"),
+                padx=10,
+                pady=5,
+            )
             self._account_button.pack(side=tk.RIGHT, padx=4, pady=5)
         if self._account_session is not None:
             self.set_spotify_account_state(self._account)
 
         tk.Button(
-            row, text="‹ MEDIA", command=self._back_action,
-            bg=button_bg, fg=button_fg, activebackground=colors.get("button_active_background", button_bg),
+            row,
+            text="‹ MEDIA",
+            command=self._back_action,
+            bg=button_bg,
+            fg=button_fg,
+            activebackground=colors.get("button_active_background", button_bg),
             activeforeground=colors.get("button_active_foreground", button_fg),
-            relief=tk.FLAT, bd=0, highlightthickness=0,
-            font=("Sans", 9, "bold"), padx=10, pady=5,
+            relief=tk.FLAT,
+            bd=0,
+            highlightthickness=0,
+            font=("Sans", 9, "bold"),
+            padx=10,
+            pady=5,
         ).pack(side=tk.RIGHT, padx=4, pady=5)
 
     def _browse_panel(self, parent: tk.Misc) -> SpotifyBrowsePanel:
         if self._browse_session is None:
             raise RuntimeError("Spotify browsing is unavailable")
-        panel = SpotifyBrowsePanel(parent, show_now_playing=self._show_now_playing, theme=self._theme)
+        panel = SpotifyBrowsePanel(
+            parent, show_now_playing=self._show_now_playing, theme=self._theme
+        )
         self._browse_panel_view = panel
         self._browse_session.activate(panel)
         return panel
@@ -214,8 +278,9 @@ class SpotifyScreen(TkScreen, MediaUiIf):
             controls.show_now_playing_header()
         content = tk.Frame(root, bg=self._theme["colors"]["background"])
         content.pack(fill=tk.BOTH, expand=True)
-        panel = SpotifyPlaybackPanel(parent=content, theme=self._theme,
-                                     show_visualizer=self._show_visualizer)
+        panel = SpotifyPlaybackPanel(
+            parent=content, theme=self._theme, show_visualizer=self._show_visualizer
+        )
         panel.set_playback_request_handler(self._playback_handler)
         panel.set_track_request_handler(self._track_handler)
         panel.set_seek_request_handler(self._seek_handler)
@@ -225,7 +290,8 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         if self._state is not None:
             panel.set_media_state(self._state)
         self._video_overlay = SpotifyVideoOverlay(
-            content, native_surface=self._native_surface,
+            content,
+            native_surface=self._native_surface,
             set_status=self._host.set_screen_status,
         )
         self._host.set_screen_status("Loading Spotify…")
@@ -246,7 +312,11 @@ class SpotifyScreen(TkScreen, MediaUiIf):
 
     def set_spotify_state(self, state: SpotifyPresentationState) -> None:
         self._state = state.media
-        self._host.set_screen_status(self._account.message if self._account.busy or self._account.error else state.message or state.media.status_message or "Spotify controls ready")
+        self._host.set_screen_status(
+            self._account.message
+            if self._account.busy or self._account.error
+            else state.message or state.media.status_message or "Spotify controls ready"
+        )
         if self.spotify_panel is not None:
             self.spotify_panel.set_spotify_state(state)
         if self._video_overlay is not None:

@@ -2,10 +2,11 @@
 # SPDX-License-Identifier: MIT
 
 """Linux/PipeWire adapter for the refreshed music-analysis pipeline."""
+
 from __future__ import annotations
 
-from dataclasses import asdict
 import threading
+from dataclasses import asdict
 
 from controllers.audio.capture import PipewireAudioCapture
 from controllers.audio.music_analysis import (

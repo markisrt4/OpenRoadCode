@@ -13,7 +13,9 @@ from controllers.weather.route_weather import RouteCheckpoint, RouteWeatherProvi
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--location", nargs=2, type=float, required=True, metavar=("LAT", "LON"))
-    parser.add_argument("--hours", type=float, default=1, help="Estimated arrival in hours (default: 1)")
+    parser.add_argument(
+        "--hours", type=float, default=1, help="Estimated arrival in hours (default: 1)"
+    )
     args = parser.parse_args()
     if not 0 <= args.hours <= 144:
         parser.error("--hours must be between 0 and 144")
@@ -26,9 +28,11 @@ def main():
     print("Arrival-time forecast at requested location (not a route)")
     print("Estimated arrival UTC:", arrival.isoformat(timespec="minutes"))
     print("Condition:", forecast.condition)
-    for label, value, unit in (("Temperature", forecast.temperature_c, "°C"),
-                               ("Precipitation chance", forecast.rain_probability, "%"),
-                               ("Wind", forecast.wind_kmh, "km/h")):
+    for label, value, unit in (
+        ("Temperature", forecast.temperature_c, "°C"),
+        ("Precipitation chance", forecast.rain_probability, "%"),
+        ("Wind", forecast.wind_kmh, "km/h"),
+    ):
         print(f"{label}: unavailable" if value is None else f"{label}: {value:.1f} {unit}")
 
 

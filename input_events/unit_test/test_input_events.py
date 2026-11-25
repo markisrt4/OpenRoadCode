@@ -3,8 +3,8 @@
 
 """Tests for normalized physical-input values and handler contracts."""
 
-from dataclasses import FrozenInstanceError
 import unittest
+from dataclasses import FrozenInstanceError
 
 from input_events import (
     InputDeviceId,

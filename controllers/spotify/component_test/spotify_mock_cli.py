@@ -15,9 +15,7 @@ from controllers.spotify import (
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Mock Spotify controller component test"
-    )
+    parser = argparse.ArgumentParser(description="Mock Spotify controller component test")
 
     parser.add_argument(
         "--refresh",
@@ -176,9 +174,7 @@ def handle_command(
             print("Seek position must be a number.")
             return True
 
-        controller.seek_to_position_ms(
-            int(seconds * 1000)
-        )
+        controller.seek_to_position_ms(int(seconds * 1000))
         print_state(controller.current_state())
         return True
 

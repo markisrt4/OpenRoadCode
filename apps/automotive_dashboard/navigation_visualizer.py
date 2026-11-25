@@ -62,13 +62,20 @@ def _build_jeep_model() -> WireframeModel:
             )
         )
         local_edges = (
-            (0, 1), (1, 2), (2, 3), (3, 0),
-            (4, 5), (5, 6), (6, 7), (7, 4),
-            (0, 4), (1, 5), (2, 6), (3, 7),
+            (0, 1),
+            (1, 2),
+            (2, 3),
+            (3, 0),
+            (4, 5),
+            (5, 6),
+            (6, 7),
+            (7, 4),
+            (0, 4),
+            (1, 5),
+            (2, 6),
+            (3, 7),
         )
-        body_edges.extend(
-            (start + left, start + right) for left, right in local_edges
-        )
+        body_edges.extend((start + left, start + right) for left, right in local_edges)
 
     add_box(-2.15, 2.15, -0.88, 0.88, 0.42, 0.82)
     add_box(0.72, 2.28, -0.82, 0.82, 0.82, 1.08)
@@ -213,9 +220,7 @@ class NavigationVisualizerApp:
             side=tk.LEFT, padx=4, pady=7
         )
 
-        self._orientation_text = tk.StringVar(
-            value="Heading --   Pitch --   Roll --"
-        )
+        self._orientation_text = tk.StringVar(value="Heading --   Pitch --   Roll --")
         tk.Label(
             controls,
             textvariable=self._orientation_text,
@@ -270,14 +275,8 @@ class NavigationVisualizerApp:
         height = max(1, self._canvas.winfo_height())
         scale = min(width / 7.5, height / 5.0)
 
-        rotated = tuple(
-            _rotate_point(point, heading, pitch, roll)
-            for point in self._model.points
-        )
-        projected = tuple(
-            _project_point(point, width, height, scale)
-            for point in rotated
-        )
+        rotated = tuple(_rotate_point(point, heading, pitch, roll) for point in self._model.points)
+        projected = tuple(_project_point(point, width, height, scale) for point in rotated)
 
         self._draw_reference(width, height)
         self._draw_edges(projected, self._model.body_edges, "#67d8ff", 2)

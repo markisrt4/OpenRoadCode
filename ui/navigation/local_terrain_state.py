@@ -1,7 +1,7 @@
 """Immutable sampled ground relief in SI units, independent of its renderer."""
 
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
 
 from ui.navigation.local_imagery_state import LocalImageryState
 
@@ -22,7 +22,7 @@ class LocalTerrainState:
     def __post_init__(self):
         if not (2 <= self.width <= 129 and 2 <= self.height <= 129):
             raise ValueError("Terrain dimensions must be between 2 and 129")
-        if len(self.heights_m) != self.width*self.height:
+        if len(self.heights_m) != self.width * self.height:
             raise ValueError("Terrain sample count does not match dimensions")
         if not all(math.isfinite(v) and -500 <= v <= 9000 for v in self.heights_m):
             raise ValueError("Terrain contains invalid or missing elevations")

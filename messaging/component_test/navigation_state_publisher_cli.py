@@ -53,8 +53,8 @@ def main() -> None:
             if not args.quiet and sample_count % max(1, round(args.rate_hz)) == 0:
                 linear = state.linear_acceleration_mps2
                 gps = state.gps
-                position = "no-fix" if gps is None else (
-                    f"{gps.latitude_deg:.5f},{gps.longitude_deg:.5f}"
+                position = (
+                    "no-fix" if gps is None else (f"{gps.latitude_deg:.5f},{gps.longitude_deg:.5f}")
                 )
                 print(
                     f"published #{sample_count}: "

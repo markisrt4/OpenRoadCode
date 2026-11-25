@@ -6,25 +6,24 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Optional
 
+from apps.carUi.radio.radio_session_controller import RadioSessionController
 from apps.carUi.runtime.car_ui_runtime import RadioRuntime
+from apps.carUi.screens.car_ui_screen import CarUiScreen
 from apps.carUi.screens.car_ui_screen_services import (
     MenuTileFactory,
     RadioScreenBindingFactoryIf,
 )
+from apps.common.uiTheme import AIRCRAFT_PANEL_THEME
 from controllers.application_runtime import AppRuntimeManager
 from frontends.tk.aircraft import AircraftMenuPanel
 from frontends.tk.media.browser_return_overlay import BrowserReturnOverlay
-from apps.carUi.screens.car_ui_screen import CarUiScreen
 from frontends.tk.radio import RadioPanel
 from frontends.tk.radio.radio_panel_config import (
     RadioPanelConfig,
     RadioPanelTileConfig,
 )
-from apps.carUi.radio.radio_session_controller import RadioSessionController
-from apps.common.uiTheme import AIRCRAFT_PANEL_THEME
-from ui.screen_ui_if import ScreenId
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
-
+from ui.screen_ui_if import ScreenId
 
 ADSB_APP_KEY = "adsb"
 
@@ -66,6 +65,9 @@ class AircraftScreen(CarUiScreen):
     def hide(self) -> None:
         if self.airband_panel is not None:
             self.airband_panel.stop_radio_status_polling()
+        if self.airband_session is not None:
+            self.airband_session.close()
+            self.airband_session = None
 
     def show(self) -> None:
         if not self.prepare_screen("Aircraft", self._home_action):
@@ -116,9 +118,9 @@ class AircraftScreen(CarUiScreen):
             key=runtime.key,
             title="Airband AM",
             launch_tile=RadioPanelTileConfig(
-                label="Launch SDR++",
+                label="SDRForge Status",
                 subtitle="Airband AM receiver",
-                detail="Starts / toggles SDR++",
+                detail="Check shared SDRForge service",
             ),
             radio_toggle_tile=RadioPanelTileConfig(
                 label="Radio ON/OFF",

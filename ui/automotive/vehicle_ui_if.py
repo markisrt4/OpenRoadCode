@@ -6,6 +6,7 @@
 from abc import ABC, abstractmethod
 from enum import Enum, auto
 
+
 class Gear(Enum):
     """! @brief Gear currently engaged by the vehicle."""
 

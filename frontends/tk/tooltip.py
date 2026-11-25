@@ -12,8 +12,15 @@ from ui.ui_widget import UiWidget
 class TkTooltip(TooltipUiIf, UiWidget):
     """Translate hover/focus events into requests and render a nearby popup."""
 
-    def __init__(self, target: tk.Misc, text: str, factory: TooltipFactoryIf,
-                 *, background: str, foreground: str) -> None:
+    def __init__(
+        self,
+        target: tk.Misc,
+        text: str,
+        factory: TooltipFactoryIf,
+        *,
+        background: str,
+        foreground: str,
+    ) -> None:
         if not isinstance(factory, TooltipFactoryIf):
             raise TypeError("Tooltip requires TooltipFactoryIf")
         self._target = target
@@ -56,13 +63,22 @@ class TkTooltip(TooltipUiIf, UiWidget):
         popup.withdraw()
         popup.overrideredirect(True)
         popup.attributes("-topmost", True)
-        tk.Label(popup, text=state.text, bg=self._background, fg=self._foreground,
-                 relief=tk.SOLID, borderwidth=1, padx=8, pady=5, wraplength=240,
-                 justify=tk.LEFT, font=("Sans", 9)).pack()
+        tk.Label(
+            popup,
+            text=state.text,
+            bg=self._background,
+            fg=self._foreground,
+            relief=tk.SOLID,
+            borderwidth=1,
+            padx=8,
+            pady=5,
+            wraplength=240,
+            justify=tk.LEFT,
+            font=("Sans", 9),
+        ).pack()
         popup.update_idletasks()
         width, height = popup.winfo_reqwidth(), popup.winfo_reqheight()
-        x = max(0, min(self._target.winfo_rootx() - width - 8,
-                       popup.winfo_screenwidth() - width))
+        x = max(0, min(self._target.winfo_rootx() - width - 8, popup.winfo_screenwidth() - width))
         y = max(0, min(self._target.winfo_rooty(), popup.winfo_screenheight() - height))
         popup.geometry(f"+{x}+{y}")
         popup.deiconify()

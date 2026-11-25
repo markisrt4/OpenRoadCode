@@ -4,8 +4,8 @@
 """Receive and decode public navigation position messages."""
 
 import argparse
-from dataclasses import asdict
 import json
+from dataclasses import asdict
 
 from messaging.contracts.navigation import POSITION_STATE_TOPIC, decode_position_state
 from messaging.zeromq import ZeroMqSubscriber

@@ -32,7 +32,8 @@ class HomeMapPanel(tk.Frame, UiWidget):
             parent,
             bg=ui.surface,
             highlightthickness=1,
-            highlightcolor=ui.border, highlightbackground=ui.border,
+            highlightcolor=ui.border,
+            highlightbackground=ui.border,
         )
         self._request_handler = map_request_handler
         self._radar_enabled = radar_enabled
@@ -58,10 +59,17 @@ class HomeMapPanel(tk.Frame, UiWidget):
     def _build(self) -> None:
         self.grid_rowconfigure(0, weight=1)
         self._radar_button = tk.Button(
-            self, text="RADAR", command=self._toggle_radar,
-            bg=self._theme.ui.control_background, fg=self._theme.ui.text,
-            relief=tk.FLAT, font=("Sans", 10, "bold"), padx=10, pady=5,
-            bd=0, highlightthickness=0,
+            self,
+            text="RADAR",
+            command=self._toggle_radar,
+            bg=self._theme.ui.control_background,
+            fg=self._theme.ui.text,
+            relief=tk.FLAT,
+            font=("Sans", 10, "bold"),
+            padx=10,
+            pady=5,
+            bd=0,
+            highlightthickness=0,
             state=tk.NORMAL if self._on_radar_toggle is not None else tk.DISABLED,
         )
         self._radar_button.place(relx=1.0, x=-8, y=8, anchor="ne")

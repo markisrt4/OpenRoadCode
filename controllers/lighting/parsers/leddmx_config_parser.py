@@ -3,10 +3,10 @@
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-import uuid
 
 try:
     import tomllib
@@ -25,6 +25,7 @@ class LedDmxConfigError(ValueError):
 @dataclass(frozen=True, slots=True)
 class LedDmxBluetoothConfig:
     """Contain validated Bluetooth discovery and command timing settings."""
+
     service_uuid: str
     characteristic_uuid: str
     excluded_service_uuids: tuple[str, ...]
@@ -48,16 +49,8 @@ def load_leddmx_config(
     @return Validated Bluetooth configuration.
     @exception LedDmxConfigError if the file is missing or invalid.
     """
-    root = (
-        Path(project_root).expanduser().resolve()
-        if project_root is not None
-        else PROJECT_ROOT
-    )
-    path = (
-        Path(config_path).expanduser()
-        if config_path is not None
-        else DEFAULT_LEDDMX_CONFIG_PATH
-    )
+    root = Path(project_root).expanduser().resolve() if project_root is not None else PROJECT_ROOT
+    path = Path(config_path).expanduser() if config_path is not None else DEFAULT_LEDDMX_CONFIG_PATH
     if not path.is_absolute():
         path = root / path
     if path.is_dir():
@@ -68,13 +61,9 @@ def load_leddmx_config(
         with path.open("rb") as file:
             data = tomllib.load(file)
     except FileNotFoundError as exc:
-        raise LedDmxConfigError(
-            f"LEDDMX config file not found: {path}"
-        ) from exc
+        raise LedDmxConfigError(f"LEDDMX config file not found: {path}") from exc
     except tomllib.TOMLDecodeError as exc:
-        raise LedDmxConfigError(
-            f"Invalid TOML in {path}: {exc}"
-        ) from exc
+        raise LedDmxConfigError(f"Invalid TOML in {path}: {exc}") from exc
 
     bluetooth = _table(data.get("bluetooth"), "bluetooth")
     discovery = _table(data.get("discovery", {}), "discovery")
@@ -154,9 +143,7 @@ def _uuid(
 ) -> str:
     value = section.get(key)
     if not isinstance(value, str) or not value.strip():
-        raise LedDmxConfigError(
-            f"{section_name}.{key} must be a UUID string"
-        )
+        raise LedDmxConfigError(f"{section_name}.{key} must be a UUID string")
     return _uuid_value(value, f"{section_name}.{key}")
 
 
@@ -164,9 +151,7 @@ def _uuid_value(value: str, field_name: str) -> str:
     try:
         return str(uuid.UUID(value.strip()))
     except (ValueError, AttributeError) as exc:
-        raise LedDmxConfigError(
-            f"{field_name} contains an invalid UUID: {value!r}"
-        ) from exc
+        raise LedDmxConfigError(f"{field_name} contains an invalid UUID: {value!r}") from exc
 
 
 def _string_list(
@@ -178,16 +163,12 @@ def _string_list(
 ) -> tuple[str, ...]:
     value = section.get(key, list(default))
     if not isinstance(value, list):
-        raise LedDmxConfigError(
-            f"{section_name}.{key} must be an array of strings"
-        )
+        raise LedDmxConfigError(f"{section_name}.{key} must be an array of strings")
 
     result: list[str] = []
     for item in value:
         if not isinstance(item, str) or not item.strip():
-            raise LedDmxConfigError(
-                f"{section_name}.{key} must contain non-empty strings"
-            )
+            raise LedDmxConfigError(f"{section_name}.{key} must contain non-empty strings")
         result.append(item.strip())
     return tuple(result)
 
@@ -201,9 +182,7 @@ def _boolean(
 ) -> bool:
     value = section.get(key, default)
     if not isinstance(value, bool):
-        raise LedDmxConfigError(
-            f"{section_name}.{key} must be a boolean"
-        )
+        raise LedDmxConfigError(f"{section_name}.{key} must be a boolean")
     return value
 
 
@@ -216,9 +195,7 @@ def _positive_number(
 ) -> float:
     value = _number(section, key, default, section_name)
     if value <= 0:
-        raise LedDmxConfigError(
-            f"{section_name}.{key} must be greater than zero"
-        )
+        raise LedDmxConfigError(f"{section_name}.{key} must be greater than zero")
     return value
 
 
@@ -231,9 +208,7 @@ def _nonnegative_number(
 ) -> float:
     value = _number(section, key, default, section_name)
     if value < 0:
-        raise LedDmxConfigError(
-            f"{section_name}.{key} must not be negative"
-        )
+        raise LedDmxConfigError(f"{section_name}.{key} must not be negative")
     return value
 
 
@@ -244,11 +219,6 @@ def _number(
     section_name: str,
 ) -> float:
     value = section.get(key, default)
-    if (
-        not isinstance(value, (int, float))
-        or isinstance(value, bool)
-    ):
-        raise LedDmxConfigError(
-            f"{section_name}.{key} must be numeric"
-        )
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        raise LedDmxConfigError(f"{section_name}.{key} must be numeric")
     return float(value)

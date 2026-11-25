@@ -3,10 +3,10 @@
 
 import unittest
 
-from input_events import InputDeviceId, InputDeviceType, InputEventType
 from controllers.input.keyboard_input_adapter import KeyboardInputAdapter
-from hardware_io.keyboard import KeyboardReaderIf
 from controllers.input.push_button_input_adapter import PushButtonInputAdapter
+from hardware_io.keyboard import KeyboardReaderIf
+from input_events import InputDeviceId, InputDeviceType, InputEventType
 
 
 class RecordingHandler:
@@ -41,16 +41,13 @@ class FakeButton:
 class InputAdapterTest(unittest.TestCase):
     def test_keyboard_adapter_is_typed_against_reader_contract(self) -> None:
         self.assertTrue(
-            {"open", "close", "read_keys", "start", "stop"}
-            <= KeyboardReaderIf.__abstractmethods__
+            {"open", "close", "read_keys", "start", "stop"} <= KeyboardReaderIf.__abstractmethods__
         )
 
     def test_keyboard_publishes_generic_button_press(self) -> None:
         handler = RecordingHandler()
         keyboard = FakeKeyboard()
-        adapter = KeyboardInputAdapter(
-            keyboard, InputDeviceId(InputDeviceType.KEYBOARD), handler
-        )
+        adapter = KeyboardInputAdapter(keyboard, InputDeviceId(InputDeviceType.KEYBOARD), handler)
         adapter.connect()
         keyboard.callback("KEY_HOME")
 

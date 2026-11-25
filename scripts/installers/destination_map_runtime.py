@@ -4,14 +4,15 @@
 """Installer-owned loopback map server and browser lifecycle."""
 
 import json
+import math
 import secrets
 import shutil
 import subprocess
 import threading
-import math
 from dataclasses import replace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
+
 from frontends.common.destination_map_confirmation import HTML, validate_position
 
 
@@ -19,9 +20,13 @@ def confirm_on_map(destination, *, timeout=600, open_url=None):
     """Open a map, await a user-confirmed pin, and close the temporary server."""
     token = secrets.token_urlsafe(24)
     done, result = threading.Event(), []
-    data = dict(label=destination.label, address=destination.address, token=token,
-                lat=math.degrees(destination.position.latitude_rad),
-                lon=math.degrees(destination.position.longitude_rad))
+    data = dict(
+        label=destination.label,
+        address=destination.address,
+        token=token,
+        lat=math.degrees(destination.position.latitude_rad),
+        lon=math.degrees(destination.position.longitude_rad),
+    )
     page = HTML.replace("__DATA__", json.dumps(data).replace("<", "\\u003c")).encode()
 
     class Handler(BaseHTTPRequestHandler):
@@ -79,7 +84,9 @@ def confirm_on_map(destination, *, timeout=600, open_url=None):
             executable = shutil.which("termux-open-url") or shutil.which("xdg-open")
             if executable is None:
                 raise RuntimeError("No browser opener available for map confirmation")
-            subprocess.Popen([executable, url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.Popen(
+                [executable, url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
         if not done.wait(timeout):
             raise RuntimeError("Map confirmation timed out; destination was not saved")
         return result[0]

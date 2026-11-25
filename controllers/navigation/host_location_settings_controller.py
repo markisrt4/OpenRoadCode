@@ -13,14 +13,25 @@ from ui.navigation.host_location_ui_if import HostLocationState, HostLocationUiI
 from ui.ui_dispatcher_if import UiDispatcherIf
 
 class HostLocationSettingsController:
-    def __init__(self, dispatcher: UiDispatcherIf, ui: HostLocationUiIf,
-                 permission: HostLocationPermissionIf, *, available: bool = True) -> None:
+    def __init__(
+        self,
+        dispatcher: UiDispatcherIf,
+        ui: HostLocationUiIf,
+        permission: HostLocationPermissionIf,
+        *,
+        available: bool = True,
+    ) -> None:
         self._dispatcher, self._ui, self._permission = dispatcher, ui, permission
         self._generation = 0
         self._visible = False
         self._closed = False
-        self._state = (HostLocationState() if available else HostLocationState(
-            "Termux location uses the Android sensor bridge.", can_share=False))
+        self._state = (
+            HostLocationState()
+            if available
+            else HostLocationState(
+                "Termux location uses the Android sensor bridge.", can_share=False
+            )
+        )
 
     def show(self) -> None:
         if not self._closed:

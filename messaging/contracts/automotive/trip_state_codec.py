@@ -52,5 +52,6 @@ def encode_trip_state(
         },
     }
     from .trip_state_validator import validate_trip_state
+
     validate_trip_state(payload)
     return payload

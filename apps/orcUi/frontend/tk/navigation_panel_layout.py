@@ -5,10 +5,10 @@
 
 import tkinter as tk
 
+from ui.navigation.poi_models import PoiActionKind, PoiCategory, TransitMode
+
 from .map_platform_bar import MapPlatformToggle
 from .navigation_earth_control import build_earth_control, build_poi_icon_button
-
-from ui.navigation.poi_models import (PoiActionKind, PoiCategory, TransitMode)
 
 
 def build_navigation_panel(panel) -> None:
@@ -26,22 +26,49 @@ def build_navigation_panel(panel) -> None:
         ("⌂ Home", ui.accent_primary, "home"),
         ("▣ Work", ui.accent_warning, "work"),
     ):
-        tk.Button(shortcuts, text=label,
-                  command=lambda selected=key: panel._destination_shortcut(selected),
-                  bg=ui.control_background, fg=accent, activebackground=ui.control_active,
-                  activeforeground=ui.control_text, relief=tk.FLAT,
-                  bd=0, highlightthickness=0,
-                  font=("Sans", 9, "bold"), padx=7, pady=3).pack(side=tk.LEFT, padx=(0, 4))
-    places = tk.Menubutton(shortcuts, text="Places ▾", bg=ui.control_background,
-                           fg=ui.text, relief=tk.FLAT, bd=0, highlightthickness=0,
-                           font=("Sans", 9, "bold"), padx=7, pady=3)
+        tk.Button(
+            shortcuts,
+            text=label,
+            command=lambda selected=key: panel._destination_shortcut(selected),
+            bg=ui.control_background,
+            fg=accent,
+            activebackground=ui.control_active,
+            activeforeground=ui.control_text,
+            relief=tk.FLAT,
+            bd=0,
+            highlightthickness=0,
+            font=("Sans", 9, "bold"),
+            padx=7,
+            pady=3,
+        ).pack(side=tk.LEFT, padx=(0, 4))
+    places = tk.Menubutton(
+        shortcuts,
+        text="Places ▾",
+        bg=ui.control_background,
+        fg=ui.text,
+        relief=tk.FLAT,
+        bd=0,
+        highlightthickness=0,
+        font=("Sans", 9, "bold"),
+        padx=7,
+        pady=3,
+    )
     places_menu = tk.Menu(places, tearoff=False, bg=ui.control_background, fg=ui.control_text)
     for label, key in (("Gas stations", "gas"), ("Groceries", "grocery"), ("Food", "food")):
-        places_menu.add_command(label=label, command=lambda selected=key: panel._destination_shortcut(selected))
+        places_menu.add_command(
+            label=label, command=lambda selected=key: panel._destination_shortcut(selected)
+        )
     transit_menu = tk.Menu(places_menu, tearoff=False, bg=ui.control_background, fg=ui.control_text)
-    for label, mode in (("All transit", TransitMode.ALL), ("Bus", TransitMode.BUS),
-                        ("Rail", TransitMode.RAIL), ("Tram / Subway", TransitMode.TRAM_SUBWAY)):
-        transit_menu.add_command(label=label, command=lambda selected=mode: panel._start_poi_search(PoiCategory.TRANSIT, selected))
+    for label, mode in (
+        ("All transit", TransitMode.ALL),
+        ("Bus", TransitMode.BUS),
+        ("Rail", TransitMode.RAIL),
+        ("Tram / Subway", TransitMode.TRAM_SUBWAY),
+    ):
+        transit_menu.add_command(
+            label=label,
+            command=lambda selected=mode: panel._start_poi_search(PoiCategory.TRANSIT, selected),
+        )
     places_menu.add_cascade(label="Transit", menu=transit_menu)
     places_menu.add_separator()
     places_menu.add_command(label="Clear place results", command=panel._clear_poi_search)
@@ -49,10 +76,14 @@ def build_navigation_panel(panel) -> None:
     places.configure(menu=places_menu)
     places.pack(side=tk.LEFT, padx=(0, 4))
     if panel._map_platform is not None:
-        panel._platform_toggle = MapPlatformToggle(shortcuts, handler=panel._map_platform, theme=panel._theme_bundle,
-                                                   on_state=panel.apply_map_platform_state)
-        panel._platform_toggle.pack(side=tk.LEFT, padx=(0,4))
-        panel._add_tooltip(panel._platform_toggle, "Switch between the street map and local Cesium 3D map")
+        panel._platform_toggle = MapPlatformToggle(
+            shortcuts,
+            handler=panel._map_platform,
+            theme=panel._theme_bundle,
+            on_state=panel.apply_map_platform_state,
+        )
+        panel._platform_toggle.pack(side=tk.LEFT, padx=(0, 4))
+        panel._add_tooltip(panel._platform_toggle, "Switch between the street map and 3D terrain")
     tk.Label(
         bar,
         textvariable=panel._shortcut_status,
@@ -66,12 +97,11 @@ def build_navigation_panel(panel) -> None:
 
     panel._build_radar_controls(bar)
 
-    guidance = tk.Frame(
-        panel, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border
-    )
+    guidance = tk.Frame(panel, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
     guidance.grid(row=2, column=0, sticky="ew", pady=(4, 0))
-    tk.Label(guidance, text="ROUTE", bg=ui.surface, fg=ui.text_muted,
-             font=("Sans", 8, "bold")).pack(side=tk.LEFT, padx=6)
+    tk.Label(
+        guidance, text="ROUTE", bg=ui.surface, fg=ui.text_muted, font=("Sans", 8, "bold")
+    ).pack(side=tk.LEFT, padx=6)
     tk.Label(
         guidance,
         textvariable=panel._guidance_instruction,
@@ -127,9 +157,8 @@ def build_navigation_panel(panel) -> None:
         body, bg=ui.background, highlightthickness=1, highlightbackground=ui.border
     )
     panel._map_host.grid(row=0, column=0, sticky="nsew")
-    panel._loading_cover = tk.Label(body, text='Loading Terrain…',
-                                    bg=ui.background, fg=ui.text)
-    panel._loading_cover.grid(row=0, column=0, sticky='nsew')
+    panel._loading_cover = tk.Label(body, text="Loading Terrain…", bg=ui.background, fg=ui.text)
+    panel._loading_cover.grid(row=0, column=0, sticky="nsew")
     panel._loading_cover.grid_remove()
     panel._map_host.bind("<Configure>", panel._log_map_allocation, add="+")
     panel._map_controls_handle = tk.Button(
@@ -184,7 +213,13 @@ def build_navigation_panel(panel) -> None:
     panel._add_tooltip(panel._follow_button, "Toggle following the vehicle")
     for row, label, command, accent, description in (
         (1, "↑  North up", panel._north_up, ui.text, "Rotate north to the top (turns follow off)"),
-        (2, "⌖  Recenter", panel._recenter, ui.accent_success, "Center on the vehicle and enable following"),
+        (
+            2,
+            "⌖  Recenter",
+            panel._recenter,
+            ui.accent_success,
+            "Center on the vehicle and enable following",
+        ),
     ):
         button = panel._control(orientation, label, command, accent)
         button.grid(row=row, column=0, sticky="nsew", pady=1)
@@ -261,10 +296,22 @@ def build_navigation_panel(panel) -> None:
     tilt.grid_rowconfigure(0, weight=1)
     for column in range(2):
         tilt.grid_columnconfigure(column, weight=1, uniform="tilt")
-    for column, (label, command, accent, description) in enumerate((
-        ("↗", lambda: panel._change_pitch(5), ui.accent_warning, "Increase map tilt (turns follow off)"),
-        ("↘", lambda: panel._change_pitch(-5), ui.accent_warning, "Decrease map tilt (turns follow off)"),
-    )):
+    for column, (label, command, accent, description) in enumerate(
+        (
+            (
+                "↗",
+                lambda: panel._change_pitch(5),
+                ui.accent_warning,
+                "Increase map tilt (turns follow off)",
+            ),
+            (
+                "↘",
+                lambda: panel._change_pitch(-5),
+                ui.accent_warning,
+                "Decrease map tilt (turns follow off)",
+            ),
+        )
+    ):
         button = panel._control(tilt, label, command, accent)
         panel._add_tooltip(button, description)
         button.grid(row=0, column=column, sticky="nsew", padx=1)
@@ -287,9 +334,12 @@ def show_poi_card(panel, poi) -> None:
     panel._poi_card = popup
 
     width = 480
-    other_actions = tuple(action for action in poi.actions
-                          if action.kind in {PoiActionKind.ORDER, PoiActionKind.OPEN_WEBSITE}
-                          and action.provider_id != "google-earth-explore")
+    other_actions = tuple(
+        action
+        for action in poi.actions
+        if action.kind in {PoiActionKind.ORDER, PoiActionKind.OPEN_WEBSITE}
+        and action.provider_id != "google-earth-explore"
+    )
     height = 260 if other_actions else 210
     panel.update_idletasks()
     x = panel.winfo_rootx() + max(0, (panel.winfo_width() - width) // 2)
@@ -307,8 +357,9 @@ def show_poi_card(panel, poi) -> None:
     header = tk.Frame(frame, bg=ui.surface_alt)
     header.pack(fill=tk.X, pady=(10, 2))
     panel._earth_button = None
-    earth_action = next((action for action in poi.actions
-                         if action.provider_id == "google-earth-explore"), None)
+    earth_action = next(
+        (action for action in poi.actions if action.provider_id == "google-earth-explore"), None
+    )
 
     tk.Label(
         header,
@@ -341,8 +392,9 @@ def show_poi_card(panel, poi) -> None:
     buttons = tk.Frame(frame, bg=ui.surface_alt)
     buttons.pack()
 
-    build_poi_icon_button(panel, buttons, "navigate.png", "Navigate",
-                          lambda: panel._navigate_to_poi(poi), tk)
+    build_poi_icon_button(
+        panel, buttons, "navigate.png", "Navigate", lambda: panel._navigate_to_poi(poi), tk
+    )
     if earth_action is not None:
         build_earth_control(panel, buttons, poi, earth_action, tk)
 
@@ -350,9 +402,17 @@ def show_poi_card(panel, poi) -> None:
     panel._local_3d_button = None
     if local_action is not None:
         panel._local_3d_button = build_poi_icon_button(
-            panel, buttons, "map_3d.png", "3D Map",
-            lambda: panel._execute_poi_action(poi, local_action), tk)
-        panel._add_tooltip(panel._local_3d_button, "Offline 3D exploration; coverage depends on installed map packs")
+            panel,
+            buttons,
+            "map_3d.png",
+            "3D Map",
+            lambda: panel._execute_poi_action(poi, local_action),
+            tk,
+        )
+        panel._add_tooltip(
+            panel._local_3d_button,
+            "Offline 3D exploration; coverage depends on installed map packs",
+        )
 
     build_poi_icon_button(panel, buttons, "close.png", "Close", popup.destroy, tk)
 
@@ -361,8 +421,10 @@ def show_poi_card(panel, poi) -> None:
         extra_buttons.pack(pady=(6, 0))
     panel._poi_action_buttons = []
     for action in other_actions:
-        if (action.kind in {PoiActionKind.ORDER, PoiActionKind.OPEN_WEBSITE}
-                and action.provider_id != "google-earth-explore"):
+        if (
+            action.kind in {PoiActionKind.ORDER, PoiActionKind.OPEN_WEBSITE}
+            and action.provider_id != "google-earth-explore"
+        ):
             button = tk.Button(
                 extra_buttons,
                 text=action.label,

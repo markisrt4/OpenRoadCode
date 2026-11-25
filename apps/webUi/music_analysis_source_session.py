@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 """Compatibility adapters for the original browser and Linux HTTP routes."""
+
 from __future__ import annotations
 
 from controllers.audio.music_analysis.music_analysis_session import MusicAnalysisSession

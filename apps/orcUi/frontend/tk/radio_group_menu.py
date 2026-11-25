@@ -7,9 +7,10 @@ import tkinter as tk
 from functools import partial
 from tkinter import simpledialog
 
-from ui.radio.rf_radio_if import RadioAction, RadioRequest, RfProfile
 from ui.radio.radio_profiles import RadioProfilePreset
+from ui.radio.rf_radio_if import RadioAction, RadioRequest, RfProfile
 from ui.radio.station_identity import preset_label
+
 from .radio_presentation_frame import RadioPresentationFrame
 from .shell_metrics import FONT_CONTROL
 
@@ -27,9 +28,22 @@ class RadioGroupMenuMixin(RadioPresentationFrame):
 
     def _build_group_bar(self) -> None:
         ui = self._theme.ui
-        groups = MAIN_GROUPS[:1] if getattr(self, '_fm_only', False) else MAIN_GROUPS
+        groups = MAIN_GROUPS[:1] if getattr(self, "_fm_only", False) else MAIN_GROUPS
+        driving = getattr(self, "_driving_radio", False)
         for name, label in groups:
-            command = partial(self._show_group_menu, name)
+            command = (
+                partial(self.select_group, name)
+                if driving
+                else partial(self._show_group_menu, name)
+            )
+            if driving:
+                label = {
+                    "FM": "♫ FM",
+                    "WEATHER": "☁ WEATHER",
+                    "AIR": "✈ AIR",
+                    "HAM": "⌁ HAM",
+                    "SCANNER": "⌁ SCANNER",
+                }[name]
             button = tk.Button(
                 self._groups,
                 text=label,
@@ -42,14 +56,14 @@ class RadioGroupMenuMixin(RadioPresentationFrame):
                 bd=0,
                 font=("Sans", FONT_CONTROL, "bold"),
                 padx=9,
-                pady=7,
+                pady=12 if driving else 7,
                 highlightthickness=0,
             )
             button.pack(side=tk.LEFT, fill=tk.X, expand=True)
             self._group_buttons[name] = button
         self._controls_button = tk.Button(
             self._groups,
-            text="☰ CONTROLS",
+            text="⚙ ADVANCED" if driving else "☰ CONTROLS",
             command=self._toggle_drawer,
             bg=ui.surface,
             fg=ui.text,
@@ -59,7 +73,7 @@ class RadioGroupMenuMixin(RadioPresentationFrame):
             bd=0,
             font=("Sans", FONT_CONTROL, "bold"),
             padx=12,
-            pady=7,
+            pady=12 if driving else 7,
             highlightthickness=0,
         )
         self._controls_button.pack(side=tk.RIGHT)
@@ -145,7 +159,9 @@ class RadioGroupMenuMixin(RadioPresentationFrame):
             "Add radio preset", "Preset name:", initialvalue=state.label, parent=self
         )
         if label:
-            self._session.request(RadioRequest(RadioAction.ADD_PRESET, key=profile.key, label=label))
+            self._session.request(
+                RadioRequest(RadioAction.ADD_PRESET, key=profile.key, label=label)
+            )
 
     @staticmethod
     def _popup_menu(menu: tk.Menu, button: tk.Button) -> None:

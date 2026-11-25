@@ -5,11 +5,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 import os
 import sys
+from collections.abc import Mapping
 from typing import Literal
-
 
 ServiceManagerRuntime = Literal["termux", "linux"]
 
@@ -29,15 +28,11 @@ def detect_service_manager_runtime(
     host_platform = sys.platform if platform is None else platform
     prefix = env.get("PREFIX", "")
 
-    if env.get("TERMUX_VERSION") or prefix.startswith(
-        "/data/data/com.termux/files/usr"
-    ):
+    if env.get("TERMUX_VERSION") or prefix.startswith("/data/data/com.termux/files/usr"):
         return "termux"
     if host_platform.startswith("linux"):
         return "linux"
-    raise RuntimeError(
-        f"Unsupported OpenRoadCode service-manager runtime: {host_platform}"
-    )
+    raise RuntimeError(f"Unsupported OpenRoadCode service-manager runtime: {host_platform}")
 
 
 def create_service_manager(

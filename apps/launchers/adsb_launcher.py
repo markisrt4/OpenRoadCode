@@ -19,10 +19,10 @@ from pathlib import Path
 from urllib.error import URLError
 from urllib.request import urlopen
 
-from ui.system.app_launcher_if import (AppLauncherIf, StatusCallback)
 from apps.launchers.browser_launcher import BrowserKioskLauncher
 from apps.launchers.process_manager import is_process_running
 from common.logging.logging_paths import logging_file_path
+from ui.system.app_launcher_if import AppLauncherIf, StatusCallback
 
 RTLSDR_DATA_SOURCE = "rtlsdr"
 SIMULATION_DATA_SOURCE = "simulation"
@@ -32,12 +32,23 @@ class ADSBLauncher(AppLauncherIf):
     """Launch a configured ADS-B data source and tar1090 dashboard.
 
     ``rtlsdr`` is the Raspberry Pi/Linux hardware path. It acquires the shared
-    SDR resource, closes competing SDR++ windows, and starts ``readsb`` only
+    SDR resource, coordinates access to shared RF hardware, and starts ``readsb`` only
     while the ADS-B application owns the receiver. ``simulation`` is the
     hardware-independent path used by Termux presentation testing.
     """
 
-    def __init__(self, *, url: str = "http://127.0.0.1/tar1090", data_source: str = RTLSDR_DATA_SOURCE, browser_log_file: str | Path | None = None, resource_manager=None, owner_name: str = "adsb", readsb_service: str = "readsb", startup_timeout_seconds: float = 5.0, tar1090_config_path: str | Path = "/usr/local/share/tar1090/html/config.js") -> None:
+    def __init__(
+        self,
+        *,
+        url: str = "http://127.0.0.1/tar1090",
+        data_source: str = RTLSDR_DATA_SOURCE,
+        browser_log_file: str | Path | None = None,
+        resource_manager=None,
+        owner_name: str = "adsb",
+        readsb_service: str = "readsb",
+        startup_timeout_seconds: float = 5.0,
+        tar1090_config_path: str | Path = "/usr/local/share/tar1090/html/config.js",
+    ) -> None:
         if data_source not in (RTLSDR_DATA_SOURCE, SIMULATION_DATA_SOURCE):
             raise ValueError(f"Unsupported ADS-B data source: {data_source}")
         self.url = url
@@ -47,7 +58,14 @@ class ADSBLauncher(AppLauncherIf):
         self.readsb_service = readsb_service
         self.startup_timeout_seconds = startup_timeout_seconds
         self.tar1090_config_path = Path(tar1090_config_path)
-        self.browser = BrowserKioskLauncher(url=url, process_pattern=url, profile_path=Path.home() / ".local" / "share" / "openroadcode" / "browser" / "adsb", window_class="OpenRoadCodeADSB", exclusive_group="openroadcode-auxiliary-dashboard", log_file=browser_log_file or logging_file_path("openroadcode", "adsb-browser.log"))
+        self.browser = BrowserKioskLauncher(
+            url=url,
+            process_pattern=url,
+            profile_path=Path.home() / ".local" / "share" / "openroadcode" / "browser" / "adsb",
+            window_class="OpenRoadCodeADSB",
+            exclusive_group="openroadcode-auxiliary-dashboard",
+            log_file=browser_log_file or logging_file_path("openroadcode", "adsb-browser.log"),
+        )
 
     def is_running(self) -> bool:
         return self.browser.is_running()
@@ -59,9 +77,7 @@ class ADSBLauncher(AppLauncherIf):
         if self.resource_manager is not None:
             owner = self.resource_manager.get_owner()
             if owner not in (None, self.owner_name):
-                raise RuntimeError(
-                    f"SDR is in use by {owner}; RF radio has priority"
-                )
+                raise RuntimeError(f"SDR is in use by {owner}; RF radio has priority")
 
     def set_preferred_color_scheme(self, scheme: str) -> None:
         """Apply ORC's preferred light/dark scheme to Chromium and tar1090."""

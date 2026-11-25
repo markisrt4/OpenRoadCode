@@ -50,7 +50,9 @@ class _FixedNavigationController:
     def stop(self) -> None:
         self.started = False
 
-    def calibrate_stationary(self, *, sample_count: int = 100, sample_interval_s: float = 0.01) -> None:
+    def calibrate_stationary(
+        self, *, sample_count: int = 100, sample_interval_s: float = 0.01
+    ) -> None:
         pass
 
     def reset_heading(self, heading_deg: float = 0.0) -> None:

@@ -49,11 +49,15 @@ class FallbackPositionSource(PositionSourceIf):
             started = False
             for source, primary in ((self._primary, True), (self._fallback, False)):
                 try:
-                    source.start(lambda state, primary=primary: self._deliver(state, generation, primary))
+                    source.start(
+                        lambda state, primary=primary: self._deliver(state, generation, primary)
+                    )
                     started = True
                 except Exception as error:
                     logging.getLogger(__name__).warning(
-                        "%s position source unavailable: %s", "Primary" if primary else "Host", error
+                        "%s position source unavailable: %s",
+                        "Primary" if primary else "Host",
+                        error,
                     )
                     source.stop()
             if not started:
@@ -73,10 +77,16 @@ class FallbackPositionSource(PositionSourceIf):
                 self._fallback.stop()
 
     def _deliver(self, state: PositionState, generation: int, primary: bool) -> None:
-        if (not state.has_fix or state.is_cached or state.latitude_deg is None
-                or state.longitude_deg is None or not math.isfinite(state.latitude_deg)
-                or not math.isfinite(state.longitude_deg)
-                or not -90 <= state.latitude_deg <= 90 or not -180 <= state.longitude_deg <= 180):
+        if (
+            not state.has_fix
+            or state.is_cached
+            or state.latitude_deg is None
+            or state.longitude_deg is None
+            or not math.isfinite(state.latitude_deg)
+            or not math.isfinite(state.longitude_deg)
+            or not -90 <= state.latitude_deg <= 90
+            or not -180 <= state.longitude_deg <= 180
+        ):
             return
         with self._delivery_lock:
             if self._callback is None or generation != self._generation:

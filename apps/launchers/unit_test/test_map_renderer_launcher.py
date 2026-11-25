@@ -12,7 +12,9 @@ from apps.launchers.map_renderer_launcher import _default_command
 
 
 class MapRendererLauncherCommandTest(unittest.TestCase):
-    @patch.dict(os.environ, {"OPENROADCODE_MAP_RENDERER_COMMAND": "/tmp/custom-renderer --flag"}, clear=True)
+    @patch.dict(
+        os.environ, {"OPENROADCODE_MAP_RENDERER_COMMAND": "/tmp/custom-renderer --flag"}, clear=True
+    )
     def test_explicit_command_override_wins(self) -> None:
         self.assertEqual(_default_command(), ["/tmp/custom-renderer", "--flag"])
 
@@ -40,6 +42,7 @@ def test_native_child_output_is_collected_and_drained(tmp_path, monkeypatch):
     """Exercise real pipe ownership without starting MapLibre or X11."""
     import json
     import sys
+
     from apps.launchers.map_renderer_launcher import MapRendererLauncher
 
     log_file = tmp_path / "renderer.jsonl"

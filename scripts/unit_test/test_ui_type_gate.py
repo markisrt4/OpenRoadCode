@@ -2,33 +2,47 @@
 
 """Prove the configured type gate rejects contract drift and invalid callers."""
 
-from pathlib import Path
+import importlib.util
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
-from scripts.check_ui_types import main, is_termux
-import importlib.util
-
+from scripts.check_ui_types import is_quality_environment, is_termux, main, mypy_platform_args
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 def check_source(tmp_path, source):
-    if is_termux() and importlib.util.find_spec('mypy') is None:
-        pytest.skip('mypy unavailable on Termux; strict type tests run in Linux/CI')
+    if is_termux() and not is_quality_environment() and importlib.util.find_spec("mypy") is None:
+        pytest.skip("mypy unavailable on Termux; strict type tests run in Linux/CI")
     path = tmp_path / "contract_example.py"
     path.write_text(source)
     return subprocess.run(
-        [sys.executable, "-m", "mypy", "--config-file", str(ROOT / "pyproject.toml"),
-         "--cache-dir", str(tmp_path / "cache"), str(path)],
-        cwd=ROOT, capture_output=True, text=True, check=False, timeout=60,
+        [
+            sys.executable,
+            "-m",
+            "mypy",
+            *mypy_platform_args(),
+            "--config-file",
+            str(ROOT / "pyproject.toml"),
+            "--cache-dir",
+            str(tmp_path / "cache"),
+            str(path),
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
     )
 
 
 def test_gate_accepts_supported_route_binding_and_typed_caller(tmp_path):
-    result = check_source(tmp_path, """
+    result = check_source(
+        tmp_path,
+        """
 from controllers.navigation.navigation_route_request_handler import NavigationRouteRequestHandler
 from ui.navigation import GeoPoint, RouteRequestHandlerIf
 from ui.navigation.route_types import TravelMode
@@ -38,16 +52,23 @@ def bind(adapter: NavigationRouteRequestHandler) -> RouteRequestHandlerIf:
 
 def navigate(handler: RouteRequestHandlerIf) -> None:
     handler.request_start_route(GeoPoint(0, 0), TravelMode.AUTO)
-""")
+""",
+    )
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-@pytest.mark.parametrize("source,error_code", [
-    ("""
+@pytest.mark.parametrize(
+    "source,error_code",
+    [
+        (
+            """
 def untyped_binding(handler):
     return handler
-""", "[no-untyped-def]"),
-    ("""
+""",
+            "[no-untyped-def]",
+        ),
+        (
+            """
 from ui.navigation import RouteRequestHandlerStub
 from ui.navigation.route_types import TravelMode
 from ui import UiWidget
@@ -55,21 +76,30 @@ from ui import UiWidget
 class BrokenWidget(RouteRequestHandlerStub, UiWidget):
     def request_start_route(self, destination: str, travel_mode: TravelMode) -> None:
         pass
-""", "[override]"),
-    ("""
+""",
+            "[override]",
+        ),
+        (
+            """
 from ui.navigation import GeoPoint, RouteRequestHandlerIf
 from ui.navigation.route_types import TravelMode
 
 def navigate(handler: RouteRequestHandlerIf) -> None:
     handler.request_start_route(GeoPoint(0, 0), (), TravelMode.AUTO)
-""", "[call-arg]"),
-    ("""
+""",
+            "[call-arg]",
+        ),
+        (
+            """
 from ui.navigation import GeoPoint, RouteRequestHandlerIf
 
 def navigate(handler: RouteRequestHandlerIf) -> None:
     handler.request_start_route(GeoPoint(0, 0), "auto")
-""", "[arg-type]"),
-    ("""
+""",
+            "[arg-type]",
+        ),
+        (
+            """
 from collections.abc import Callable
 from ui.ui_dispatcher_if import UiDispatcherIf
 
@@ -85,8 +115,11 @@ class BrokenDispatcher:
 
 def bind(dispatcher: BrokenDispatcher) -> UiDispatcherIf:
     return dispatcher
-""", "[return-value]"),
-])
+""",
+            "[return-value]",
+        ),
+    ],
+)
 def test_gate_rejects_incompatible_contracts_and_calls(tmp_path, source, error_code):
     result = check_source(tmp_path, source)
     assert result.returncode == 1, result.stdout + result.stderr
@@ -94,15 +127,17 @@ def test_gate_rejects_incompatible_contracts_and_calls(tmp_path, source, error_c
 
 
 def test_missing_mypy_fails_instead_of_silently_skipping(monkeypatch, capsys):
-    monkeypatch.delenv('TERMUX_VERSION', raising=False)
-    monkeypatch.delenv('PREFIX', raising=False)
+    monkeypatch.delenv("TERMUX_VERSION", raising=False)
+    monkeypatch.delenv("PREFIX", raising=False)
     monkeypatch.setattr("scripts.check_ui_types.importlib.util.find_spec", lambda name: None)
     assert main() == 1
     assert "requirements-dev.txt" in capsys.readouterr().err
 
 
 def test_gate_accepts_actual_games_bindings(tmp_path):
-    result = check_source(tmp_path, """
+    result = check_source(
+        tmp_path,
+        """
 from controllers.games.game_launcher import GameLauncher
 from controllers.games.game_launcher_if import GameLauncherIf
 from controllers.games.games_session import GamesSession
@@ -117,19 +152,26 @@ def session(value: GamesSession) -> GamesSessionIf:
 
 def surface(value: GamesScreen) -> GamesRuntimeUiIf:
     return value
-""")
+""",
+    )
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-@pytest.mark.parametrize("source,error_code", [
-    ("""
+@pytest.mark.parametrize(
+    "source,error_code",
+    [
+        (
+            """
 from controllers.games.game_launcher_if import GameLauncherIf
 from controllers.games.game_types import GameDefinition
 
 def launch(launcher: GameLauncherIf, game: GameDefinition) -> None:
     launcher.launch(game, ("game",), on_exit=lambda code: None)
-""", "[arg-type]"),
-    ("""
+""",
+            "[arg-type]",
+        ),
+        (
+            """
 from collections.abc import Callable
 from ui.games import GamesRuntimeUiIf
 
@@ -143,8 +185,11 @@ class BrokenSurface:
 
 def bind(value: BrokenSurface) -> GamesRuntimeUiIf:
     return value
-""", "[return-value]"),
-])
+""",
+            "[return-value]",
+        ),
+    ],
+)
 def test_gate_rejects_games_contract_drift(tmp_path, source, error_code):
     result = check_source(tmp_path, source)
     assert result.returncode == 1, result.stdout + result.stderr
@@ -152,7 +197,9 @@ def test_gate_rejects_games_contract_drift(tmp_path, source, error_code):
 
 
 def test_gate_accepts_actual_radio_bindings(tmp_path):
-    result = check_source(tmp_path, """
+    result = check_source(
+        tmp_path,
+        """
 from controllers.radio.streaming_radio_browser import StreamingRadioBrowser
 from controllers.radio.streaming_radio_controller import StreamingRadioController
 from frontends.tk.radio.streaming_radio_panel import StreamingRadioPanel
@@ -167,18 +214,25 @@ def view(value: StreamingRadioPanel) -> StreamingRadioUiIf:
 
 def summary(value: StreamingRadioController) -> StreamingRadioStateSourceIf:
     return value
-""")
+""",
+    )
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-@pytest.mark.parametrize("source,error_code", [
-    ("""
+@pytest.mark.parametrize(
+    "source,error_code",
+    [
+        (
+            """
 from ui.radio.streaming_radio_session_if import StreamingRadioRequestHandlerIf
 
 def play(handler: StreamingRadioRequestHandlerIf) -> None:
     handler.request_play(12)
-""", "[arg-type]"),
-    ("""
+""",
+            "[arg-type]",
+        ),
+        (
+            """
 from ui.radio.streaming_radio_state_source_if import StreamingRadioStateSourceIf
 
 class BrokenStateSource:
@@ -187,8 +241,11 @@ class BrokenStateSource:
 
 def bind(value: BrokenStateSource) -> StreamingRadioStateSourceIf:
     return value
-""", "[return-value]"),
-])
+""",
+            "[return-value]",
+        ),
+    ],
+)
 def test_gate_rejects_radio_contract_drift(tmp_path, source, error_code):
     result = check_source(tmp_path, source)
     assert result.returncode == 1, result.stdout + result.stderr
@@ -196,30 +253,52 @@ def test_gate_rejects_radio_contract_drift(tmp_path, source, error_code):
 
 
 def test_gate_rejects_rf_request_contract_drift(tmp_path):
-    result = check_source(tmp_path, """
+    result = check_source(
+        tmp_path,
+        """
 from ui.radio.rf_radio_if import RfRadioSession
 
 def tune(session: RfRadioSession) -> None:
     session.request("tune up")
-""")
+""",
+    )
     assert result.returncode == 1, result.stdout + result.stderr
     assert "[arg-type]" in result.stdout
 
 
-def test_missing_mypy_is_explicitly_skipped_on_termux(monkeypatch,capsys):
-    monkeypatch.setenv('PREFIX','/data/data/com.termux/files/usr')
-    monkeypatch.setattr('scripts.check_ui_types.importlib.util.find_spec',lambda _:None)
+def test_missing_mypy_is_explicitly_skipped_on_termux(monkeypatch, capsys):
+    monkeypatch.setattr("scripts.check_ui_types.is_quality_environment", lambda: False)
+    monkeypatch.setenv("PREFIX", "/data/data/com.termux/files/usr")
+    monkeypatch.setattr("scripts.check_ui_types.importlib.util.find_spec", lambda _: None)
     assert main() == 0
-    assert '[SKIP]' in capsys.readouterr().out
+    assert "[SKIP]" in capsys.readouterr().out
 
 
-def test_termux_quality_gate_reports_skip_without_running_type_checker(monkeypatch,capsys):
-    from scripts import quality_gate
+def test_termux_quality_gate_reports_skip_without_running_type_checker(monkeypatch, capsys):
     from unittest.mock import Mock
-    monkeypatch.setenv('PREFIX','/data/data/com.termux/files/usr')
-    monkeypatch.setattr(quality_gate.importlib.util,'find_spec',lambda _:None)
-    run=Mock()
-    monkeypatch.setattr(quality_gate,'_run',run)
+
+    from scripts import quality_gate
+
+    monkeypatch.setenv("PREFIX", "/data/data/com.termux/files/usr")
+    monkeypatch.setattr(quality_gate.importlib.util, "find_spec", lambda _: None)
+    run = Mock()
+    monkeypatch.setattr(quality_gate, "_run", run)
     assert quality_gate._run_ui_types()
     run.assert_not_called()
-    assert '[SKIP]' in capsys.readouterr().out
+    assert "[SKIP]" in capsys.readouterr().out
+
+
+def test_missing_mypy_fails_in_termux_quality_environment(monkeypatch, capsys):
+    monkeypatch.setenv("PREFIX", "/data/data/com.termux/files/usr")
+    monkeypatch.setattr("scripts.check_ui_types.is_quality_environment", lambda: True)
+    monkeypatch.setattr("scripts.check_ui_types.importlib.util.find_spec", lambda _: None)
+    assert main() == 1
+    assert "mypy is required" in capsys.readouterr().err
+
+
+def test_mypy_platform_args(monkeypatch):
+    monkeypatch.setattr("scripts.check_ui_types.is_quality_environment", lambda: True)
+    monkeypatch.setattr("scripts.check_ui_types.is_termux", lambda: True)
+    assert mypy_platform_args() == ["--no-native-parser", "--no-incremental"]
+    monkeypatch.setattr("scripts.check_ui_types.is_termux", lambda: False)
+    assert mypy_platform_args() == []

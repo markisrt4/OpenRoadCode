@@ -5,8 +5,8 @@ import json
 import math
 from pathlib import Path
 
-from common.xdg_paths import openroadcode_data_dir
 from common.navigation_data import navigation_data_root
+from common.xdg_paths import openroadcode_data_dir
 from ui.navigation.local_imagery_state import LocalImageryState
 from ui.navigation.local_terrain_state import LocalTerrainMosaicState, LocalTerrainState
 
@@ -47,9 +47,9 @@ def preferred_terrain_directory(destination=None):
         longitude = math.degrees(destination.longitude_rad)
         latitude = math.degrees(destination.latitude_rad)
         for directory in candidates:
-            if (directory/'manifest.json').is_file():
-                manifest = json.loads((directory/'manifest.json').read_text())
-                west, south, east, north = manifest['bounds_deg']
+            if (directory / "manifest.json").is_file():
+                manifest = json.loads((directory / "manifest.json").read_text())
+                west, south, east, north = manifest["bounds_deg"]
                 if west <= longitude <= east and south <= latitude <= north:
                     return directory
     for directory in candidates:
@@ -112,7 +112,7 @@ def _load_single_terrain(root, *, detail_level=0, minimum_zoom=0):
     payload = (root / "terrain.json").resolve()
     if not payload.is_relative_to(root):
         raise ValueError("Terrain data must remain inside the pack")
-    if payload.stat().st_size > 2*1024*1024:
+    if payload.stat().st_size > 2 * 1024 * 1024:
         raise ValueError("Prototype terrain exceeds 2 MB")
     content = payload.read_bytes()
     if hashlib.sha256(content).hexdigest() != manifest["sha256"]:

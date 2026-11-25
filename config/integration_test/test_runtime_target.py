@@ -31,9 +31,7 @@ class RuntimeTargetTest(unittest.TestCase):
                 )
 
     def test_environment_override_takes_precedence(self) -> None:
-        with patch.dict(
-            os.environ, {"OPENROAD_RUNTIME_TARGET": "rpi4"}, clear=True
-        ):
+        with patch.dict(os.environ, {"OPENROAD_RUNTIME_TARGET": "rpi4"}, clear=True):
             self.assertIs(detect_runtime_target(), RuntimeTarget.RPI4)
 
 

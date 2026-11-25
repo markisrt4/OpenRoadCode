@@ -27,8 +27,6 @@ class SecretManagerIf(ABC):
         value = self.get_secret(name)
 
         if value is None:
-            raise RuntimeError(
-                f"Required secret is unavailable: {name}"
-            )
+            raise RuntimeError(f"Required secret is unavailable: {name}")
 
         return value

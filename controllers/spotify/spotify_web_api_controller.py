@@ -4,15 +4,17 @@
 """Spotify application controller backed by the Spotify Web API."""
 
 from __future__ import annotations
+
 import logging
 from typing import Any
 from urllib.parse import quote, urlencode
+
+from common.logging.structured import event
 from controllers.spotify.spotify_controller_if import SpotifyControllerIf
-from ui.media.spotify_library import (SpotifyLibraryTrack, SpotifyPlaylist)
 from controllers.spotify.spotify_state import SpotifyState
 from protocols.spotify import SpotifyWebApiClient
 from protocols.spotify.spotify_web_api_client import SpotifyWebApiError
-from common.logging.structured import event
+from ui.media.spotify_library import SpotifyLibraryTrack, SpotifyPlaylist
 
 LOGGER = logging.getLogger("media.spotify.api")
 

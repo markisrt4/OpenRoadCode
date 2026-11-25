@@ -6,6 +6,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
+
 @dataclass(frozen=True, slots=True)
 class SystemDiagnostics:
     """! @brief Describe a snapshot of host system health.

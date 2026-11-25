@@ -8,7 +8,7 @@ from ui.navigation.poi_models import PoiActionKind
 def execute_poi_action(panel, poi, action) -> None:
     """Request a handoff. @param panel View. @param poi Place. @param action Action."""
     if action.kind is not PoiActionKind.EXPLORE_3D and not panel.online_actions_allowed:
-        panel._shortcut_status.set('Offline mode: go online to order or open websites')
+        panel._shortcut_status.set("Offline mode: go online to order or open websites")
         return
     if panel._poi_launching:
         return
@@ -18,7 +18,7 @@ def execute_poi_action(panel, poi, action) -> None:
     panel._poi_action_request = (request_id, panel._poi_card)
     panel._poi_launching = True
     panel._refresh_poi_action_buttons()
-    panel._shortcut_status.set(f'Opening {action.label.casefold()}…')
+    panel._shortcut_status.set(f"Opening {action.label.casefold()}…")
 
 
 def poll_poi_launch_results(panel) -> None:

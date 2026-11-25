@@ -5,12 +5,11 @@
 
 from __future__ import annotations
 
-import threading
 import logging
+import threading
 
 from common.logging.diagnostics import ComponentLog
 from common.logging.structured import operation
-
 from controllers.computer_vision.object_detector_if import DetectionFrame, ObjectDetectorIf
 from controllers.computer_vision.object_tracker_if import ObjectTrackerIf, TrackFrame
 from hardware_io.camera.camera_if import CameraFrame
@@ -74,8 +73,10 @@ class PerceptionWorker:
                 self._processed = 0
                 self._running = True
             self._thread = threading.Thread(
-                target=self._run, args=(generation, operation_id),
-                name="PerceptionWorker", daemon=True,
+                target=self._run,
+                args=(generation, operation_id),
+                name="PerceptionWorker",
+                daemon=True,
             )
             try:
                 self._thread.start()
@@ -107,8 +108,7 @@ class PerceptionWorker:
         if thread is not None and thread is not threading.current_thread():
             thread.join(timeout=2.0)
         if thread is not None and thread.is_alive():
-            self._diagnostics.failed("stop", operation_id=self._operation_id,
-                                     reason="timeout")
+            self._diagnostics.failed("stop", operation_id=self._operation_id, reason="timeout")
         else:
             self._thread = None
             self._diagnostics.succeeded("stop", self._operation_id)

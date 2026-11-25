@@ -5,25 +5,24 @@
 
 from __future__ import annotations
 
-import tkinter as tk
 import math
+import tkinter as tk
 from collections.abc import Callable
 from datetime import datetime
 
-from apps.orcUi.performance_status import PerformanceStatus
 from apps.orcUi.navigation_presenter import PositionPresentationState
 from apps.orcUi.orc_theme import toggle_label
-from ui.theme import ThemeBundle, ThemeMode
+from apps.orcUi.performance_status import PerformanceStatus
 from ui.radio import AircraftMenuRequestHandlerIf, AircraftMenuUiState
+from ui.theme import ThemeBundle
+from ui.ui_widget import UiWidget
 from ui.weather import WeatherAlertUiEvent
-
-from .weather_alert_banner import WeatherAlertBanner
 
 from .bottom_bar import OrcUiBottomBar
 from .shell_chrome import build_footer, build_top_bar
 from .shell_metrics import SHELL_PAD_X, SHELL_PAD_Y
 from .side_nav import OrcUiSideNav
-from ui.ui_widget import UiWidget
+from .weather_alert_banner import WeatherAlertBanner
 
 
 class OrcUiShellView(UiWidget):
@@ -176,7 +175,8 @@ class OrcUiShellView(UiWidget):
     def set_breadcrumb(self, *parts: str) -> None:
         normalized = [part.strip().upper() for part in parts if part and part.strip()]
         deduplicated = [
-            part for index, part in enumerate(normalized)
+            part
+            for index, part in enumerate(normalized)
             if index == 0 or part != normalized[index - 1]
         ]
         self._breadcrumb = "  ›  ".join(deduplicated) if deduplicated else self._active_nav
@@ -258,24 +258,52 @@ class OrcUiShellView(UiWidget):
         detail.configure(bg=self._theme.ui.background)
         detail.geometry("720x420")
         ui = self._theme.ui
-        tk.Label(detail, text=alert.event.upper(), bg=ui.background,
-                 fg=ui.accent_danger if alert.severity.lower() in {"extreme", "severe"} else ui.text,
-                 font=("Sans", 18, "bold"), anchor="w").pack(fill=tk.X, padx=18, pady=(16, 6))
-        tk.Label(detail, text=alert.headline, bg=ui.background, fg=ui.text,
-                 font=("Sans", 12, "bold"), anchor="w", justify=tk.LEFT,
-                 wraplength=680).pack(fill=tk.X, padx=18, pady=(0, 12))
+        tk.Label(
+            detail,
+            text=alert.event.upper(),
+            bg=ui.background,
+            fg=ui.accent_danger if alert.severity.lower() in {"extreme", "severe"} else ui.text,
+            font=("Sans", 18, "bold"),
+            anchor="w",
+        ).pack(fill=tk.X, padx=18, pady=(16, 6))
+        tk.Label(
+            detail,
+            text=alert.headline,
+            bg=ui.background,
+            fg=ui.text,
+            font=("Sans", 12, "bold"),
+            anchor="w",
+            justify=tk.LEFT,
+            wraplength=680,
+        ).pack(fill=tk.X, padx=18, pady=(0, 12))
         body = alert.description
         if not getattr(self, "_weather_online", True):
             body = "OFFLINE: cached alert; it may have changed or been withdrawn.\n\n" + body
         if alert.instruction:
             body = f"{body}\\n\\n{alert.instruction}"
-        tk.Label(detail, text=body, bg=ui.background, fg=ui.text_muted,
-                 font=("Sans", 11), anchor="nw", justify=tk.LEFT,
-                 wraplength=680).pack(fill=tk.BOTH, expand=True, padx=18, pady=(0, 12))
-        tk.Button(detail, text="CLOSE", command=detail.destroy,
-                  bg=ui.control_background, fg=ui.control_text,
-                  activebackground=ui.control_active, activeforeground=ui.text,
-                  relief=tk.FLAT, bd=0, font=("Sans", 10, "bold"), highlightthickness=0).pack(pady=(0, 16))
+        tk.Label(
+            detail,
+            text=body,
+            bg=ui.background,
+            fg=ui.text_muted,
+            font=("Sans", 11),
+            anchor="nw",
+            justify=tk.LEFT,
+            wraplength=680,
+        ).pack(fill=tk.BOTH, expand=True, padx=18, pady=(0, 12))
+        tk.Button(
+            detail,
+            text="CLOSE",
+            command=detail.destroy,
+            bg=ui.control_background,
+            fg=ui.control_text,
+            activebackground=ui.control_active,
+            activeforeground=ui.text,
+            relief=tk.FLAT,
+            bd=0,
+            font=("Sans", 10, "bold"),
+            highlightthickness=0,
+        ).pack(pady=(0, 16))
 
     def set_weather_status(self, text: str) -> None:
         self._weather_status_text = text
@@ -369,13 +397,16 @@ class OrcUiShellView(UiWidget):
             padx=(SHELL_PAD_X, SHELL_PAD_X + 78),
         )
         self._bottom_bar.set_aircraft_request_handler(self._aircraft_handler)
-        self._bottom_bar.set_aircraft_state(AircraftMenuUiState(
-            self._adsb_enabled, self._aircraft_count, self._adsb_simulation,
-        ))
+        self._bottom_bar.set_aircraft_state(
+            AircraftMenuUiState(
+                self._adsb_enabled,
+                self._aircraft_count,
+                self._adsb_simulation,
+            )
+        )
         self._breadcrumb_label, self._status_label = build_footer(self._root, theme=self._theme)
         settings_space = tk.Frame(self._root, bg=self._theme.ui.background)
-        settings_space.place(relx=1.0, rely=1.0, x=-SHELL_PAD_X,
-                             anchor="se", width=78, height=74)
+        settings_space.place(relx=1.0, rely=1.0, x=-SHELL_PAD_X, anchor="se", width=78, height=74)
         self._settings_button = tk.Canvas(
             settings_space,
             bg=self._theme.ui.background,
@@ -397,18 +428,33 @@ class OrcUiShellView(UiWidget):
         for tooth in range(12):
             for fraction, radius in ((0.0, 15), (0.2, 19), (0.6, 19), (0.8, 15)):
                 angle = (tooth + fraction) * math.tau / 12
-                points.extend((32 + radius * math.cos(angle),
-                               32 + radius * math.sin(angle)))
+                points.extend((32 + radius * math.cos(angle), 32 + radius * math.sin(angle)))
         self._settings_button.create_polygon(
-            *points, fill=self._theme.ui.text_muted, outline="", tags="gear",
+            *points,
+            fill=self._theme.ui.text_muted,
+            outline="",
+            tags="gear",
         )
         self._settings_button.create_oval(
-            23, 23, 41, 41, fill=self._theme.ui.background, outline="",
+            23,
+            23,
+            41,
+            41,
+            fill=self._theme.ui.background,
+            outline="",
         )
-        self._settings_button.bind("<Enter>", lambda _event:
-            self._settings_button.itemconfigure("gear", fill=self._theme.ui.accent_primary))
-        self._settings_button.bind("<Leave>", lambda _event:
-            self._settings_button.itemconfigure("gear", fill=self._theme.ui.text_muted))
+        self._settings_button.bind(
+            "<Enter>",
+            lambda _event: self._settings_button.itemconfigure(
+                "gear", fill=self._theme.ui.accent_primary
+            ),
+        )
+        self._settings_button.bind(
+            "<Leave>",
+            lambda _event: self._settings_button.itemconfigure(
+                "gear", fill=self._theme.ui.text_muted
+            ),
+        )
         self._settings_button.bind("<Button-1>", lambda _event: self._on_settings())
         self._settings_button.bind("<Return>", lambda _event: self._on_settings())
         self._settings_button.bind("<space>", lambda _event: self._on_settings())
@@ -416,10 +462,16 @@ class OrcUiShellView(UiWidget):
         tk.Misc.lift(self._settings_button)
         ui = self._theme.ui
         self._back_button = tk.Button(
-            self._breadcrumb_label.master, text="‹ BACK", command=self._request_back,
-            bg=ui.control_background, fg=ui.control_text,
-            activebackground=ui.control_active, activeforeground=ui.text,
-            relief=tk.FLAT, bd=0, cursor="hand2",
+            self._breadcrumb_label.master,
+            text="‹ BACK",
+            command=self._request_back,
+            bg=ui.control_background,
+            fg=ui.control_text,
+            activebackground=ui.control_active,
+            activeforeground=ui.text,
+            relief=tk.FLAT,
+            bd=0,
+            cursor="hand2",
         )
         self.set_back_action(self._back_action)
         self.set_performance_status(self._performance_status)

@@ -4,13 +4,14 @@
 
 from collections.abc import Callable
 
-from protocols.oauth import OAuthTokenStoreIf, OAuthTokens
+from protocols.oauth import OAuthTokens, OAuthTokenStoreIf
 from protocols.spotify.spotify_auth import SpotifyAuthError
 
 
 class GuardedTokenStore(OAuthTokenStoreIf):
-    def __init__(self, store: OAuthTokenStoreIf,
-                 commit: Callable[[Callable[[], None]], bool]) -> None:
+    def __init__(
+        self, store: OAuthTokenStoreIf, commit: Callable[[Callable[[], None]], bool]
+    ) -> None:
         self._store = store
         self._commit = commit
 

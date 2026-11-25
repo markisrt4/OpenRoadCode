@@ -21,11 +21,13 @@ from hardware_io.imu import Vector3
 class FakeNavigationSensor:
     def __init__(
         self,
-        acceleration: Vector3 = Vector3(0.0, 0.0, 9.80665),
-        angular_velocity: Vector3 = Vector3(0.0, 0.0, 0.0),
+        acceleration: Vector3 | None = None,
+        angular_velocity: Vector3 | None = None,
     ) -> None:
-        self.acceleration = acceleration
-        self.angular_velocity = angular_velocity
+        self.acceleration = acceleration if acceleration is not None else Vector3(0.0, 0.0, 9.80665)
+        self.angular_velocity = (
+            angular_velocity if angular_velocity is not None else Vector3(0.0, 0.0, 0.0)
+        )
         self.started = False
 
     def connect(self) -> None:
@@ -93,9 +95,7 @@ class NavigationControllerTests(unittest.TestCase):
         imu = FakeNavigationSensor()
         clock = FakeClock()
         timestamp = datetime(2026, 1, 2, 3, 4, 5)
-        controller = NavigationController(
-            imu, monotonic_clock=clock, wall_clock=lambda: timestamp
-        )
+        controller = NavigationController(imu, monotonic_clock=clock, wall_clock=lambda: timestamp)
 
         controller.start()
         clock.now = 0.1
@@ -111,9 +111,7 @@ class NavigationControllerTests(unittest.TestCase):
         self.assertAlmostEqual(state.linear_acceleration_mps2.z, 0.0)
 
     def test_integrates_relative_heading_from_z_gyro(self) -> None:
-        imu = FakeNavigationSensor(
-            angular_velocity=Vector3(0.0, 0.0, math.pi / 2.0)
-        )
+        imu = FakeNavigationSensor(angular_velocity=Vector3(0.0, 0.0, math.pi / 2.0))
         clock = FakeClock()
         controller = NavigationController(imu, monotonic_clock=clock)
 
@@ -169,9 +167,7 @@ class NavigationControllerTests(unittest.TestCase):
 
     def test_rejects_negative_filter_time_constant(self) -> None:
         with self.assertRaises(ValueError):
-            NavigationController(
-                FakeNavigationSensor(), filter_time_constant_s=-0.1
-            )
+            NavigationController(FakeNavigationSensor(), filter_time_constant_s=-0.1)
 
     def test_stationary_calibration_removes_sensor_biases(self) -> None:
         sensor = FakeNavigationSensor(
@@ -198,9 +194,7 @@ class NavigationControllerTests(unittest.TestCase):
             calibration.acceleration_bias_mps2.z,
             10.0 - controller.STANDARD_GRAVITY_MPS2,
         )
-        self.assertAlmostEqual(
-            calibration.angular_velocity_bias_rad_s.z, 0.1
-        )
+        self.assertAlmostEqual(calibration.angular_velocity_bias_rad_s.z, 0.1)
         self.assertAlmostEqual(state.heading_deg, 0.0)
         self.assertAlmostEqual(state.linear_acceleration_mps2.z, 0.0)
         self.assertEqual(state.acceleration_mps2.z, 10.0)
@@ -247,7 +241,6 @@ class NavigationControllerTests(unittest.TestCase):
         self.assertTrue(gps_state.has_fix)
         self.assertFalse(gps_source.started)
 
-
     def test_missing_imu_degrades_to_gps_navigation(self) -> None:
         class MissingNavigationSensor(FakeNavigationSensor):
             def connect(self) -> None:
@@ -278,7 +271,6 @@ class NavigationControllerTests(unittest.TestCase):
         self.assertEqual(state.acceleration_mps2, Vector3(0.0, 0.0, 0.0))
         controller.stop()
         self.assertFalse(gps_source.started)
-
 
     def test_missing_imu_recovers_when_source_becomes_available(self) -> None:
         class RecoveringNavigationSensor(FakeNavigationSensor):
@@ -360,12 +352,8 @@ class Mpu6050NavigationAdapterTests(unittest.TestCase):
         sample = adapter.read_motion()
         adapter.disconnect()
 
-        self.assertEqual(
-            sample.acceleration_mps2, Vector3(1.0, 2.0, 3.0)
-        )
-        self.assertEqual(
-            sample.angular_velocity_rad_s, Vector3(4.0, 5.0, 6.0)
-        )
+        self.assertEqual(sample.acceleration_mps2, Vector3(1.0, 2.0, 3.0))
+        self.assertEqual(sample.angular_velocity_rad_s, Vector3(4.0, 5.0, 6.0))
         self.assertFalse(adapter.is_connected)
 
 

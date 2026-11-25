@@ -17,7 +17,9 @@ class HomeRadioCompositionTest(unittest.TestCase):
     @patch("apps.orcUi.composition.radio.RadioScreen")
     @patch("apps.orcUi.composition.radio.StreamingRadioFavorites")
     @patch("apps.orcUi.composition.radio.RadioBrowserDirectory")
-    def test_home_factory_uses_runtime_and_retained_screen(self, directory_type, favorites_type, screen_type, now_playing_type):
+    def test_home_factory_uses_runtime_and_retained_screen(
+        self, directory_type, favorites_type, screen_type, now_playing_type
+    ):
         app = Mock()
         app.theme_mode = ThemeMode.DARK
         runtime = Mock()
@@ -48,7 +50,9 @@ class HomeRadioCompositionTest(unittest.TestCase):
     @patch("apps.orcUi.composition.radio.RadioScreen")
     @patch("apps.orcUi.composition.radio.StreamingRadioFavorites")
     @patch("apps.orcUi.composition.radio.RadioBrowserDirectory")
-    def test_home_factory_stays_in_composition(self, _directory_type, _favorites_type, _screen_type, _now_playing_type):
+    def test_home_factory_stays_in_composition(
+        self, _directory_type, _favorites_type, _screen_type, _now_playing_type
+    ):
         app = Mock()
         app.theme_mode = ThemeMode.DARK
         configure_radio(app, Mock())

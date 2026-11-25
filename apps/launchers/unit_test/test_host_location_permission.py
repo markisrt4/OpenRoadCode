@@ -12,7 +12,9 @@ from controllers.navigation.host_location_permission_if import HostLocationServi
 
 def response():
     opener = Mock()
-    opener.open.return_value.__enter__ = Mock(return_value=Mock(read=Mock(return_value=b'OpenRoadCode Host Location')))
+    opener.open.return_value.__enter__ = Mock(
+        return_value=Mock(read=Mock(return_value=b"OpenRoadCode Host Location"))
+    )
     opener.open.return_value.__exit__ = Mock(return_value=False)
     return opener
 

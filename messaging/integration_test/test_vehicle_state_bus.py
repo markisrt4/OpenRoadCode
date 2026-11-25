@@ -92,8 +92,7 @@ def test_simulated_obd_vehicle_state_crosses_message_bus():
         assert message.source == "integration-test-obd2"
         assert message.data.vehicle_speed_m_s is None
         assert message.data.boost_pressure_pa == pytest.approx(
-            message.data.intake_manifold_pressure_pa
-            - message.data.barometric_pressure_pa
+            message.data.intake_manifold_pressure_pa - message.data.barometric_pressure_pa
         )
     finally:
         manager.disconnect()

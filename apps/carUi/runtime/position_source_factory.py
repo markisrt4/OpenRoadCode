@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 
 from apps.carUi.runtime.browser_position_source import BrowserPositionSource
+from config.runtime_config import PositionCacheConfig
 from controllers.cache import PersistentCache
 from controllers.navigation import (
     GpsdPositionSource,
@@ -17,15 +18,16 @@ from controllers.navigation import (
     PositionSourceIf,
 )
 from controllers.navigation.position_snapshot_cache import DEFAULT_POSITION_CACHE_DIRECTORY
-from config.runtime_config import PositionCacheConfig
 
 
 def create_position_source(
     provider: str | None = None,
     *,
-    cache_config: PositionCacheConfig = PositionCacheConfig(),
+    cache_config: PositionCacheConfig | None = None,
 ) -> PositionSourceIf:
     """Create the configured position provider."""
+    if cache_config is None:
+        cache_config = PositionCacheConfig()
     selected = (provider or os.getenv("CARUI_POSITION_SOURCE", "gpsd")).strip().lower()
     if selected == "gpsd":
         source: PositionSourceIf = GpsdPositionSource()
@@ -45,9 +47,20 @@ def create_position_source(
     cache_enabled = os.getenv("CARUI_POSITION_CACHE", "1" if cache_config.enabled else "0")
     if cache_enabled.strip().lower() in {"0", "false", "no", "off"}:
         return source
-    cache_directory = Path(os.getenv("CARUI_POSITION_CACHE_DIRECTORY", str(cache_config.directory or DEFAULT_POSITION_CACHE_DIRECTORY))).expanduser()
+    cache_directory = Path(
+        os.getenv(
+            "CARUI_POSITION_CACHE_DIRECTORY",
+            str(cache_config.directory or DEFAULT_POSITION_CACHE_DIRECTORY),
+        )
+    ).expanduser()
     try:
-        max_age_seconds = float(os.getenv("CARUI_POSITION_CACHE_MAX_AGE_SECONDS", str(cache_config.max_age_seconds)))
+        max_age_seconds = float(
+            os.getenv("CARUI_POSITION_CACHE_MAX_AGE_SECONDS", str(cache_config.max_age_seconds))
+        )
     except ValueError as error:
         raise ValueError("CARUI_POSITION_CACHE_MAX_AGE_SECONDS must be numeric") from error
-    return PersistentPositionSource(source, PositionSnapshotCache(PersistentCache(cache_directory)), max_age_seconds=max_age_seconds)
+    return PersistentPositionSource(
+        source,
+        PositionSnapshotCache(PersistentCache(cache_directory)),
+        max_age_seconds=max_age_seconds,
+    )

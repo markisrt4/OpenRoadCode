@@ -24,9 +24,7 @@ from security.environment_variable_secret_manager import (
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Spotify Web API controller component test"
-    )
+    parser = argparse.ArgumentParser(description="Spotify Web API controller component test")
 
     parser.add_argument(
         "--refresh",
@@ -81,14 +79,9 @@ def print_state(state: SpotifyState) -> None:
 
 
 def create_controller() -> SpotifyWebApiController:
-    config = load_spotify_config_from_secrets(
-        EnvironmentVariableSecretManager()
-    )
+    config = load_spotify_config_from_secrets(EnvironmentVariableSecretManager())
     if config is None:
-        raise RuntimeError(
-            "Spotify is not configured. Expected secret: "
-            "SPOTIFY_CLIENT_ID"
-        )
+        raise RuntimeError("Spotify is not configured. Expected secret: SPOTIFY_CLIENT_ID")
     token_store = SpotifyTokenStore()
 
     auth = SpotifyAuth(

@@ -181,9 +181,12 @@ def test_route_lifecycle_stops_playback(transition):
     route = _route()
     simulator = Mock()
     runtime = NavigationRuntime(
-        Mock(), Mock(), source="test-navigation",
+        Mock(),
+        Mock(),
+        source="test-navigation",
         command_endpoint="inproc://navigation-runtime-playback-lifecycle",
-        route_planning_controller=Mock(), route_simulator=simulator,
+        route_planning_controller=Mock(),
+        route_simulator=simulator,
     )
     request = RouteRequest(route.shape[0], route.shape[-1])
     try:
@@ -194,9 +197,15 @@ def test_route_lifecycle_stops_playback(transition):
         if transition == "cancel":
             runtime._cancel_route()
         elif transition == "arrival":
-            runtime._update_guidance(SimpleNamespace(position=SimpleNamespace(
-                has_fix=True, latitude_deg=42.0, longitude_deg=-82.99,
-            )))
+            runtime._update_guidance(
+                SimpleNamespace(
+                    position=SimpleNamespace(
+                        has_fix=True,
+                        latitude_deg=42.0,
+                        longitude_deg=-82.99,
+                    )
+                )
+            )
         elif transition == "replacement":
             runtime._activate_route(request, route)
         else:

@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 from common.logging.structured import operation
-
 from controllers.route_planning.route_geojson_mapper import (
     route_to_geojson,
 )
@@ -16,7 +15,6 @@ from controllers.route_planning.route_planning_types import (
 from protocols.map_renderer.map_renderer_client import (
     MapRendererClient,
 )
-
 
 DEFAULT_ROUTE_PADDING = 50.0
 
@@ -40,33 +38,17 @@ def present_route(
 
 def _present_route(route: RouteResult, map_renderer: MapRendererClient, padding: float) -> None:
     if not route.shape:
-        raise ValueError(
-            "Cannot present a route with an empty shape"
-        )
+        raise ValueError("Cannot present a route with an empty shape")
 
-    map_renderer.set_route(
-        route_to_geojson(route)
-    )
+    map_renderer.set_route(route_to_geojson(route))
 
-    south = min(
-        point.latitude
-        for point in route.shape
-    )
+    south = min(point.latitude for point in route.shape)
 
-    north = max(
-        point.latitude
-        for point in route.shape
-    )
+    north = max(point.latitude for point in route.shape)
 
-    west = min(
-        point.longitude
-        for point in route.shape
-    )
+    west = min(point.longitude for point in route.shape)
 
-    east = max(
-        point.longitude
-        for point in route.shape
-    )
+    east = max(point.longitude for point in route.shape)
 
     map_renderer.fit_bounds(
         south=south,

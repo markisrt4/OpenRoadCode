@@ -19,18 +19,11 @@ from networking.router.router_manager import (
 )
 from networking.router.router_status import RouterStatus
 
-
-DEFAULT_CONFIG = (
-    Path(__file__).resolve().parents[1]
-    / "config"
-    / "vm_bench.toml"
-)
+DEFAULT_CONFIG = Path(__file__).resolve().parents[1] / "config" / "vm_bench.toml"
 
 
 def _create_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Control a configured OpenRoadCode router."
-    )
+    parser = argparse.ArgumentParser(description="Control a configured OpenRoadCode router.")
 
     parser.add_argument(
         "command",
@@ -57,10 +50,7 @@ def _print_status(status: RouterStatus) -> None:
     print(f"WAN interface:       {status.wan_interface}")
     print(f"LAN interface:       {status.lan_interface}")
     print(f"SSID:                {status.ssid or '-'}")
-    print(
-        "Internet connected: "
-        f"{'yes' if status.internet_connected else 'no'}"
-    )
+    print(f"Internet connected: {'yes' if status.internet_connected else 'no'}")
 
     if status.addresses:
         print("LAN addresses:")

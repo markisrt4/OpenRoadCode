@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: MIT
 """Safe lifecycle events for operations that may contain sensitive arguments."""
 
-from functools import wraps
 import logging
+from functools import wraps
 
 from common.logging.structured import current_operation, event, operation
 

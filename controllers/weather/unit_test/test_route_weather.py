@@ -4,6 +4,7 @@
 """Route sampling and hourly forecast selection regressions."""
 
 from datetime import datetime, timedelta, timezone
+from itertools import pairwise
 from unittest.mock import Mock
 
 import pytest
@@ -11,12 +12,13 @@ import pytest
 from controllers.route_planning.route_planning_types import GeoPoint, RouteManeuver, RouteResult
 from controllers.weather.route_weather import RouteWeatherProvider, sample_route
 
-
 NOW = datetime(2026, 10, 3, 12, tzinfo=timezone.utc)
 
 
 def route(maneuvers=()):
-    return RouteResult(100, 7200, (GeoPoint(42, -84), GeoPoint(42, -83), GeoPoint(42, -82)), maneuvers)
+    return RouteResult(
+        100, 7200, (GeoPoint(42, -84), GeoPoint(42, -83), GeoPoint(42, -82)), maneuvers
+    )
 
 
 def test_sampling_includes_origin_destination_and_bounds_requests():
@@ -26,12 +28,14 @@ def test_sampling_includes_origin_destination_and_bounds_requests():
     assert points[-1].point == route().shape[-1]
     assert points[0].arrival == NOW
     assert points[-1].arrival == NOW + timedelta(hours=2)
-    assert all(a.distance_m < b.distance_m for a, b in zip(points, points[1:]))
+    assert all(a.distance_m < b.distance_m for a, b in pairwise(points))
 
 
 def test_maneuver_time_changes_midpoint_eta():
-    maneuvers = (RouteManeuver("First", None, 50, 5400, 0, 1),
-                 RouteManeuver("Second", None, 50, 1800, 1, 2))
+    maneuvers = (
+        RouteManeuver("First", None, 50, 5400, 0, 1),
+        RouteManeuver("Second", None, 50, 1800, 1, 2),
+    )
     points = sample_route(route(maneuvers), NOW, progress=0.5)
     assert points[0].point.longitude == pytest.approx(-83)
     assert points[-1].arrival == NOW + timedelta(minutes=30)
@@ -66,10 +70,15 @@ def test_invalid_duration_is_rejected(duration):
 
 
 def hourly(temperature=10):
-    return {"hourly": {"time": [NOW.timestamp() + i * 3600 for i in range(4)],
-                       "temperature_2m": [temperature] * 4,
-                       "precipitation_probability": [0, 20, 40, 60],
-                       "wind_speed_10m": [15] * 4, "weather_code": [71] * 4}}
+    return {
+        "hourly": {
+            "time": [NOW.timestamp() + i * 3600 for i in range(4)],
+            "temperature_2m": [temperature] * 4,
+            "precipitation_probability": [0, 20, 40, 60],
+            "wind_speed_10m": [15] * 4,
+            "weather_code": [71] * 4,
+        }
+    }
 
 
 def test_batch_uses_utc_and_selects_arrival_hour():

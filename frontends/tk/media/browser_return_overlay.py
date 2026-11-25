@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import tkinter as tk
 from collections.abc import Callable
+
 from ui.ui_widget import UiWidget
 
 

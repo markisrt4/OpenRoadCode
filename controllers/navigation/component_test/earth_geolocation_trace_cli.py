@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Observe Earth geolocation calls and the user's location-control click."""
+
 from __future__ import annotations
 
 import argparse
@@ -9,8 +10,8 @@ import time
 
 from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
 
-_PREFIX = '[earth-trace]'
-_INSTALL = r'''(() => {
+_PREFIX = "[earth-trace]"
+_INSTALL = r"""(() => {
  const geo = navigator.geolocation;
  if (!geo) return {error: 'Geolocation unavailable'};
  if (window.__orcEarthGeoTrace) return {installed: true, existing: true};
@@ -80,46 +81,55 @@ _INSTALL = r'''(() => {
   height: window.innerHeight
  });
  return {installed: true, existingBridge: !!window.__orcEarthGeoBridge?.installed, width: window.innerWidth, height: window.innerHeight};
-})()'''
+})()"""
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--seconds', type=float, default=30.0)
+    parser.add_argument("--seconds", type=float, default=30.0)
     args = parser.parse_args()
     client = ChromiumDevToolsClient(port=9223)
     try:
         result = client.evaluate_earth(_INSTALL)
         print(_PREFIX, json.dumps(result, sort_keys=True), flush=True)
-        if not isinstance(result, dict) or not result.get('installed'):
+        if not isinstance(result, dict) or not result.get("installed"):
             return 2
-        print(_PREFIX, 'Click the actual Earth location control once. The trace will record the click coordinates and geolocation calls.', flush=True)
+        print(
+            _PREFIX,
+            "Click the actual Earth location control once. The trace will record the click coordinates and geolocation calls.",
+            flush=True,
+        )
         deadline = time.monotonic() + args.seconds
         seen = 0
         while time.monotonic() < deadline:
-            snapshot = client.evaluate_earth('window.__orcEarthGeoTrace?.snapshot() ?? null')
+            snapshot = client.evaluate_earth("window.__orcEarthGeoTrace?.snapshot() ?? null")
             if snapshot is None:
-                print(_PREFIX, 'Trace lost, possibly due to page navigation.', flush=True)
+                print(_PREFIX, "Trace lost, possibly due to page navigation.", flush=True)
                 return 3
-            events = snapshot['events']
+            events = snapshot["events"]
             for event in events[seen:]:
                 print(_PREFIX, json.dumps(event, sort_keys=True), flush=True)
             seen = len(events)
             time.sleep(0.5)
-        print(_PREFIX, 'Observation complete. Active watchers:', snapshot['activeWatchers'], flush=True)
+        print(
+            _PREFIX,
+            "Observation complete. Active watchers:",
+            snapshot["activeWatchers"],
+            flush=True,
+        )
         return 0
     except (OSError, RuntimeError, ValueError) as exc:
-        print(_PREFIX, 'FAIL:', exc, flush=True)
+        print(_PREFIX, "FAIL:", exc, flush=True)
         return 2
     except KeyboardInterrupt:
-        print('\n' + _PREFIX, 'Stopped.', flush=True)
+        print("\n" + _PREFIX, "Stopped.", flush=True)
         return 0
     finally:
         try:
-            client.evaluate_earth('window.__orcEarthGeoTrace?.restore(); true')
+            client.evaluate_earth("window.__orcEarthGeoTrace?.restore(); true")
         except (OSError, RuntimeError, ValueError):
             pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     raise SystemExit(main())

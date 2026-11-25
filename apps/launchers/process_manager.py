@@ -3,11 +3,11 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import signal
 import subprocess
 import time
-import logging
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,8 +23,6 @@ def _child_context(process, *args, **kwargs):
 
 
 DEFAULT_DISPLAY_APP_PATTERNS = (
-    "sdrpp",
-    "sdr\\+\\+",
     "chromium",
     "chromium-browser",
     "streamlit",

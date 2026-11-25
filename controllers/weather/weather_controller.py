@@ -6,15 +6,14 @@
 from __future__ import annotations
 
 import logging
-
-from collections.abc import Callable
 import time
+from collections.abc import Callable
 from typing import Protocol
 
+from common.logging.structured import current_operation, operation
+from controllers.weather.weather_logging import WeatherLog
 from controllers.weather.weather_provider_if import WeatherProviderIf
 from controllers.weather.weather_state import WeatherLocation, WeatherState
-from controllers.weather.weather_logging import WeatherLog
-from common.logging.structured import current_operation, operation
 
 
 class WeatherLocationProviderIf(Protocol):
@@ -52,7 +51,9 @@ class WeatherController:
         operation_id = self._log.requested()
         if not self._network_allowed():
             if self._last_state is not None:
-                self._log.emit(logging.DEBUG, "weather.cache_used", "Offline weather cache used", operation_id)
+                self._log.emit(
+                    logging.DEBUG, "weather.cache_used", "Offline weather cache used", operation_id
+                )
                 return self._last_state
             self._log.failed(operation_id=operation_id, reason="offline_without_cache")
             raise RuntimeError("Offline mode: no cached weather available")
@@ -79,7 +80,11 @@ class WeatherController:
                 return self.refresh()
             except Exception:
                 if cached is not None:
-                    self._log.emit(logging.DEBUG, "weather.cache_used", "Previous weather cache used after failure")
+                    self._log.emit(
+                        logging.DEBUG,
+                        "weather.cache_used",
+                        "Previous weather cache used after failure",
+                    )
                     return cached
                 raise
 
@@ -95,8 +100,9 @@ class WeatherController:
         # Reuse the last resolved position when GPS is temporarily unavailable.
         if self._last_state is not None:
             cached = self._last_state
-            return WeatherLocation(cached.latitude, cached.longitude,
-                                   cached.location_name, cached.location_source)
+            return WeatherLocation(
+                cached.latitude, cached.longitude, cached.location_name, cached.location_source
+            )
         if self._fallback_location is None:
             raise RuntimeError("No weather location is available")
         return self._fallback_location

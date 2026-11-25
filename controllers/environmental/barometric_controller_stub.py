@@ -24,9 +24,7 @@ class BarometricControllerStub(BarometricControllerIf):
         sea_level_pressure_pa: float = STANDARD_SEA_LEVEL_PRESSURE_PA,
     ) -> None:
         if sea_level_pressure_pa <= 0.0:
-            raise ValueError(
-                "sea_level_pressure_pa must be greater than zero"
-            )
+            raise ValueError("sea_level_pressure_pa must be greater than zero")
 
         self._state = state or BarometricState.create(
             pressure_pa=101_325.0,
@@ -92,11 +90,7 @@ class BarometricControllerStub(BarometricControllerIf):
         if not self._started:
             raise RuntimeError("Barometric controller has not been started")
 
-        current_pressure_pa = (
-            self._state.pressure_pa
-            if pressure_pa is None
-            else pressure_pa
-        )
+        current_pressure_pa = self._state.pressure_pa if pressure_pa is None else pressure_pa
         if current_pressure_pa <= 0.0:
             raise ValueError("pressure_pa must be greater than zero")
 

@@ -3,7 +3,9 @@
 # SPDX-License-Identifier: MIT
 
 """Browser-native leaf screens used by the standalone web frontend."""
+
 from __future__ import annotations
+
 from dataclasses import dataclass
 
 
@@ -14,7 +16,7 @@ class WebScreen:
     body_html: str
 
 
-NETFLIX_HTML = '''
+NETFLIX_HTML = """
 <div class="card">
   <b>Netflix</b>
   <p>Open Netflix directly on this device, or search for a title.</p>
@@ -26,9 +28,9 @@ NETFLIX_HTML = '''
   <button class="wide" type="submit">SEARCH NETFLIX</button>
 </form>
 <script src="/web-assets/media/browser_media.js"></script>
-'''
+"""
 
-YOUTUBE_HTML = '''
+YOUTUBE_HTML = """
 <form id="youtube-search-form" class="card">
   <label for="youtube-search"><b>Search YouTube</b></label>
   <input id="youtube-search" class="search" type="search" placeholder="Video, channel, artist…" autocomplete="off">
@@ -39,9 +41,9 @@ YOUTUBE_HTML = '''
   <button id="youtube-open" class="wide">OPEN YOUTUBE</button>
 </div>
 <script src="/web-assets/media/browser_media.js"></script>
-'''
+"""
 
-VEHICLE_GAUGES_HTML = '''
+VEHICLE_GAUGES_HTML = """
 <div class="card"><b>Automotive bus</b><p id="vehicle-obd-status">Waiting for openroad.vehicle.state…</p></div>
 <div class="gauges">
   <div class="gauge"><span id="vehicle-rpm">--</span><small>RPM</small></div>
@@ -67,7 +69,7 @@ VEHICLE_GAUGES_HTML = '''
 </div>
 <script src="/web-assets/sensors/geolocation.js"></script>
 <script src="/web-assets/sensors/vehicle_gauges.js"></script>
-'''
+"""
 
 
 MUSIC_VISUALIZER_HTML = '<link rel="stylesheet" href="/web-assets/audio-analysis/music_visualizer.css"><div class="card"><button id="music-visualizer-toggle" class="primary wide">START MICROPHONE</button><button id="music-visualizer-linux-toggle" class="wide">START SYSTEM AUDIO</button><p id="music-visualizer-status">Choose microphone input or Linux system audio to feed the shared Python MusicAnalyzer.</p></div><div class="card"><b>Ambient Calibration</b><p>With system audio running and music paused, capture the room/noise floor so the analyzer can ignore it.</p><div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px"><button id="music-zeroize-start" type="button" disabled>START</button><button id="music-zeroize-finish" type="button" disabled>FINISH</button><button id="music-zeroize-clear" type="button" disabled>CLEAR</button></div><p id="music-zeroize-status">No ambient-noise calibration.</p></div><div class="card"><b>Visual Sensitivity</b><p>Boost display response without changing analyzer data.</p><div style="display:flex;gap:12px;align-items:center"><input id="music-visualizer-sensitivity" type="range" min="1" max="20" step="1" value="10" style="flex:1"><strong id="music-visualizer-sensitivity-value" style="min-width:44px;text-align:right">10×</strong></div></div><div class="card"><b>Now Hearing</b><div id="music-song-title" style="font-size:22px;font-weight:900;margin-top:12px">No song identified</div><div id="music-song-artist" style="color:#aebac4;margin-top:4px">Waiting for recognition</div><div id="music-song-album" style="color:#aebac4;margin-top:4px"></div><button id="music-song-identify" class="wide" disabled>IDENTIFY SONG</button><p id="music-song-status">Checking song recognition provider…</p></div><div class="card"><b>Music-Reactive Lighting</b><p id="music-lighting-status">Checking lighting backend…</p><button id="music-lighting-toggle" class="wide" disabled>CHECKING LIGHTING…</button></div><div id="music-visualizer-anchor"></div><div class="card"><div style="display:grid;gap:10px"><div><small>BASS</small><div style="height:8px;background:#222b34;border-radius:8px"><div id="music-bass" style="height:100%;width:0;background:#45b8ff;border-radius:8px"></div></div></div><div><small>MID</small><div style="height:8px;background:#222b34;border-radius:8px"><div id="music-mid" style="height:100%;width:0;background:#58df7b;border-radius:8px"></div></div></div><div><small>TREBLE</small><div style="height:8px;background:#222b34;border-radius:8px"><div id="music-treble" style="height:100%;width:0;background:#d260ff;border-radius:8px"></div></div></div></div></div><script src="/web-assets/audio-analysis/inline_select.js"></script><script src="/web-assets/audio-analysis/browser_pcm_capture.js"></script><script src="/web-assets/audio-analysis/kick_mode.js"></script><script src="/web-assets/audio-analysis/webgl_music_visualizer.js"></script><script src="/web-assets/audio-analysis/percussion_display.js"></script><script src="/web-assets/audio-analysis/music_visualizer.js"></script>'
@@ -75,19 +77,63 @@ MUSIC_VISUALIZER_HTML = '<link rel="stylesheet" href="/web-assets/audio-analysis
 
 def create_web_screens() -> dict[str, WebScreen]:
     return {
-        "music_visualizer": WebScreen("Music Visualizer", "Shared audio analysis", MUSIC_VISUALIZER_HTML),
-        "vehicle_gauges": WebScreen("Vehicle Gauges", "Navigation + automotive bus", VEHICLE_GAUGES_HTML),
-        "weather_overview": WebScreen("Weather", "Frontend provider shell", '''<div class="hero-value">72°<small>F</small></div><div class="card"><b>Current Conditions</b><p>Partly cloudy</p></div>'''),
-        "weather_forecast": WebScreen("Forecast", "Demo forecast", '''<div class="forecast"><div><b>MON</b><span>72°</span><small>Partly cloudy</small></div><div><b>TUE</b><span>76°</span><small>Sunny</small></div></div>'''),
-        "weather_alerts": WebScreen("Weather Alerts", "Warnings and watches", '''<div class="card"><b>No demo alerts</b></div>'''),
-        "fm_radio": WebScreen("FM Radio", "Frontend controls", '''<div class="hero-value">101.1<small>MHz</small></div>'''),
-        "scanner_radio": WebScreen("Scanner", "Monitoring controls", '''<div class="card">Scanner idle</div>'''),
-        "weather_radio": WebScreen("NOAA Weather Radio", "Weather band", '''<div class="hero-value">162.550<small>MHz</small></div>'''),
-        "adsb": WebScreen("ADS-B", "Nearby aircraft", '''<div class="card">No ADS-B source attached</div>'''),
-        "airband": WebScreen("Airband", "AM aviation radio", '''<div class="hero-value">118.000<small>MHz AM</small></div>'''),
-        "offroad_dashboard": WebScreen("Off-Road", "Phone GPS + orientation", '''<div class="stat-grid"><div class="stat"><b id="pitch">--</b><small>PITCH</small></div><div class="stat"><b id="roll">--</b><small>ROLL</small></div><div class="stat"><b id="heading">--</b><small>HEADING</small></div><div class="stat"><b id="speed">--</b><small>GPS MPH</small></div></div><div class="card"><p id="sensor-status">Tap START SENSORS.</p><div id="location">GPS: --</div><button id="start-sensors" class="primary wide">START SENSORS</button></div><script src="/web-assets/sensors/device_orientation.js"></script><script src="/web-assets/sensors/geolocation.js"></script><script>(()=>{const o=new OpenRoadCodeWeb.DeviceOrientationSensorAdapter(),g=new OpenRoadCodeWeb.GeolocationSensorAdapter(),v=(id,x,d=1,s='°')=>document.getElementById(id).textContent=Number.isFinite(x)?`${x.toFixed(d)}${s}`:'--';start_sensors=document.getElementById('start-sensors');start_sensors.onclick=async()=>{if(await o.requestPermission())o.start(x=>{v('pitch',x.pitch);v('roll',x.roll);v('heading',x.heading,0)});g.start(x=>{v('speed',Number.isFinite(x.speed)?x.speed*2.236936:null,1,' mph');location.textContent=`GPS: ${x.latitude.toFixed(6)}, ${x.longitude.toFixed(6)}`});sensor_status.textContent='Sensors active';};})();</script>'''),
-        "cabin_lighting": WebScreen("Cabin Lighting", "Frontend controls", '''<div class="card"><input type="range" min="0" max="100"><input type="color"></div>'''),
-        "accent_lighting": WebScreen("Accent Lighting", "Frontend controls", '''<div class="card"><input type="range" min="0" max="100"><input type="color"></div>'''),
+        "music_visualizer": WebScreen(
+            "Music Visualizer", "Shared audio analysis", MUSIC_VISUALIZER_HTML
+        ),
+        "vehicle_gauges": WebScreen(
+            "Vehicle Gauges", "Navigation + automotive bus", VEHICLE_GAUGES_HTML
+        ),
+        "weather_overview": WebScreen(
+            "Weather",
+            "Frontend provider shell",
+            """<div class="hero-value">72°<small>F</small></div><div class="card"><b>Current Conditions</b><p>Partly cloudy</p></div>""",
+        ),
+        "weather_forecast": WebScreen(
+            "Forecast",
+            "Demo forecast",
+            """<div class="forecast"><div><b>MON</b><span>72°</span><small>Partly cloudy</small></div><div><b>TUE</b><span>76°</span><small>Sunny</small></div></div>""",
+        ),
+        "weather_alerts": WebScreen(
+            "Weather Alerts",
+            "Warnings and watches",
+            """<div class="card"><b>No demo alerts</b></div>""",
+        ),
+        "fm_radio": WebScreen(
+            "FM Radio",
+            "Frontend controls",
+            """<div class="hero-value">101.1<small>MHz</small></div>""",
+        ),
+        "scanner_radio": WebScreen(
+            "Scanner", "Monitoring controls", """<div class="card">Scanner idle</div>"""
+        ),
+        "weather_radio": WebScreen(
+            "NOAA Weather Radio",
+            "Weather band",
+            """<div class="hero-value">162.550<small>MHz</small></div>""",
+        ),
+        "adsb": WebScreen(
+            "ADS-B", "Nearby aircraft", """<div class="card">No ADS-B source attached</div>"""
+        ),
+        "airband": WebScreen(
+            "Airband",
+            "AM aviation radio",
+            """<div class="hero-value">118.000<small>MHz AM</small></div>""",
+        ),
+        "offroad_dashboard": WebScreen(
+            "Off-Road",
+            "Phone GPS + orientation",
+            """<div class="stat-grid"><div class="stat"><b id="pitch">--</b><small>PITCH</small></div><div class="stat"><b id="roll">--</b><small>ROLL</small></div><div class="stat"><b id="heading">--</b><small>HEADING</small></div><div class="stat"><b id="speed">--</b><small>GPS MPH</small></div></div><div class="card"><p id="sensor-status">Tap START SENSORS.</p><div id="location">GPS: --</div><button id="start-sensors" class="primary wide">START SENSORS</button></div><script src="/web-assets/sensors/device_orientation.js"></script><script src="/web-assets/sensors/geolocation.js"></script><script>(()=>{const o=new OpenRoadCodeWeb.DeviceOrientationSensorAdapter(),g=new OpenRoadCodeWeb.GeolocationSensorAdapter(),v=(id,x,d=1,s='°')=>document.getElementById(id).textContent=Number.isFinite(x)?`${x.toFixed(d)}${s}`:'--';start_sensors=document.getElementById('start-sensors');start_sensors.onclick=async()=>{if(await o.requestPermission())o.start(x=>{v('pitch',x.pitch);v('roll',x.roll);v('heading',x.heading,0)});g.start(x=>{v('speed',Number.isFinite(x.speed)?x.speed*2.236936:null,1,' mph');location.textContent=`GPS: ${x.latitude.toFixed(6)}, ${x.longitude.toFixed(6)}`});sensor_status.textContent='Sensors active';};})();</script>""",
+        ),
+        "cabin_lighting": WebScreen(
+            "Cabin Lighting",
+            "Frontend controls",
+            """<div class="card"><input type="range" min="0" max="100"><input type="color"></div>""",
+        ),
+        "accent_lighting": WebScreen(
+            "Accent Lighting",
+            "Frontend controls",
+            """<div class="card"><input type="range" min="0" max="100"><input type="color"></div>""",
+        ),
         "netflix": WebScreen("Netflix", "Browser-native launcher", NETFLIX_HTML),
         "youtube": WebScreen("YouTube", "Browser-native search and video", YOUTUBE_HTML),
     }

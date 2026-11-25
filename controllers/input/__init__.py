@@ -4,17 +4,17 @@
 from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
+from controllers.input.input_manager import InputManager
+from controllers.input.input_mapper import (
+    InputMapper,
+)
+from controllers.input.push_button_input_adapter import PushButtonInputAdapter
 from input_events import (
     InputDeviceId,
     InputDeviceType,
     InputEvent,
     InputEventType,
 )
-from controllers.input.input_mapper import (
-    InputMapper,
-)
-from controllers.input.input_manager import InputManager
-from controllers.input.push_button_input_adapter import PushButtonInputAdapter
 
 if TYPE_CHECKING:
     from controllers.input.keyboard_input_adapter import KeyboardInputAdapter
@@ -40,9 +40,7 @@ def __getattr__(name: str) -> Any:
 
     adapter_modules = {
         "KeyboardInputAdapter": "controllers.input.keyboard_input_adapter",
-        "RotaryEncoderInputAdapter": (
-            "controllers.input.rotary_encoder_input_adapter"
-        ),
+        "RotaryEncoderInputAdapter": ("controllers.input.rotary_encoder_input_adapter"),
     }
     module_name = adapter_modules.get(name)
     if module_name is None:

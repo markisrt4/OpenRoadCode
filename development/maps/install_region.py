@@ -1,14 +1,20 @@
 """Interactive device-side imagery packs; base navigation stays in the map builder."""
 
 import argparse
-from http.client import IncompleteRead
-from zipfile import BadZipFile
-from pathlib import Path
 import uuid
+from http.client import IncompleteRead
+from pathlib import Path
+from zipfile import BadZipFile
 
 from apps.launchers.local_imagery_pack import LocalImageryPack
-from tools.map_builder.builder.map_3d import PRESETS
 from common.xdg_paths import openroadcode_data_dir
+from development.maps.prebuilt_imagery import (
+    fetch_archive,
+    read_descriptor,
+    read_local_archive,
+    unpack,
+    verify_archive,
+)
 from development.maps.regional_imagery import download as download_overview
 from development.maps.prebuilt_imagery import (read_descriptor, read_local_archive,
                                                verify_archive, fetch_archive, unpack,
@@ -33,7 +39,7 @@ def build_image_size(coverage, detail=False):
 
 
 def imagery_directory(coverage):
-    return openroadcode_data_dir('map-packs', coverage+'-imagery-active')
+    return openroadcode_data_dir("map-packs", coverage + "-imagery-active")
 
 
 def install(coverage, *, update=False, artifact=None, detail=False):
@@ -41,12 +47,14 @@ def install(coverage, *, update=False, artifact=None, detail=False):
     active = imagery_directory(coverage)
     if active.exists() and not update:
         pack = LocalImageryPack.load(active)
-        print(f'Already installed: {pack.state.title}. Use --update to fetch a new revision.')
+        print(f"Already installed: {pack.state.title}. Use --update to fetch a new revision.")
         return
     if active.exists() and not active.is_symlink():
-        raise ValueError('Active pack must be a managed revision link; existing directory left untouched')
+        raise ValueError(
+            "Active pack must be a managed revision link; existing directory left untouched"
+        )
     active.parent.mkdir(parents=True, exist_ok=True)
-    revision = active.parent / ('.'+coverage+'-imagery-'+uuid.uuid4().hex)
+    revision = active.parent / ("." + coverage + "-imagery-" + uuid.uuid4().hex)
     title, bounds = COVERAGES[coverage]
     if artifact is not None:
         descriptor, source = artifact
@@ -54,20 +62,22 @@ def install(coverage, *, update=False, artifact=None, detail=False):
             verify_archive(source, descriptor)
             archive = source
         else:
-            archive = fetch_archive(source, descriptor, active.with_name(active.name+'.artifacts'))
+            archive = fetch_archive(
+                source, descriptor, active.with_name(active.name + ".artifacts")
+            )
         unpack(archive, revision, bounds)
     else:
         download_overview(revision, bounds=bounds, title=title,
                           cache_directory=active.with_name(active.name+'.download'),
                           image_size=build_image_size(coverage, detail))
     LocalImageryPack.load(revision)
-    pending = active.parent / ('.active-'+uuid.uuid4().hex)
+    pending = active.parent / (".active-" + uuid.uuid4().hex)
     try:
         pending.symlink_to(revision.name, target_is_directory=True)
         pending.replace(active)
     finally:
         pending.unlink(missing_ok=True)
-    print('Ready. Reopen Terrain in ORC. Earlier revisions are retained for recovery.')
+    print("Ready. Reopen Terrain in ORC. Earlier revisions are retained for recovery.")
 
 
 def main():
@@ -89,13 +99,13 @@ def main():
         coverage = args.coverage
         if coverage is None:
             for index, (_, (title, _)) in enumerate(COVERAGES.items(), 1):
-                print(f'{index}. {title}')
-            choice = input(f'Choose coverage [1–{len(COVERAGES)}, Enter cancels]: ').strip()
+                print(f"{index}. {title}")
+            choice = input(f"Choose coverage [1–{len(COVERAGES)}, Enter cancels]: ").strip()
             if not choice:
                 return 0
             if not choice.isdigit() or not 1 <= int(choice) <= len(COVERAGES):
-                raise ValueError(f'Choose 1–{len(COVERAGES)}')
-            coverage = tuple(COVERAGES)[int(choice)-1]
+                raise ValueError(f"Choose 1–{len(COVERAGES)}")
+            coverage = tuple(COVERAGES)[int(choice) - 1]
         title, bounds = COVERAGES[coverage]
         print(f'{title}: rectangular bounds {bounds}; not exact county boundaries.')
         manifest_url = args.pack_manifest
@@ -108,41 +118,77 @@ def main():
         if args.pack_file:
             artifact = read_local_archive(args.pack_file, coverage)
         if artifact:
-            print(f"Prebuilt imagery: {artifact[0]['title']} · {artifact[0]['bytes']/1048576:.2f} MiB archive")
-            print('Local file: no download needed.' if args.pack_file else 'Download supports resume.')
-            print('Archive SHA256 and image checksum are checked before activation.')
+            print(
+                f"Prebuilt imagery: {artifact[0]['title']} · {artifact[0]['bytes'] / 1048576:.2f} MiB archive"
+            )
+            print(
+                "Local file: no download needed." if args.pack_file else "Download supports resume."
+            )
+            print("Archive SHA256 and image checksum are checked before activation.")
         else:
-            print('Source-build mode: USGS custom exports may fail. For device installs, use --pack-manifest with a published artifact.')
-            print('Layer: public-domain NAIP imagery; 20 MiB maximum image payload plus source metadata.')
+            print(
+                "Source-build mode: USGS custom exports may fail. For device installs, use --pack-manifest with a published artifact."
+            )
+            print(
+                "Layer: public-domain NAIP imagery; 20 MiB maximum image payload plus source metadata."
+            )
         if not artifact:
-            if coverage != 'metro-detroit':
-                print('Detail quality: 4096×4096 final pixels over selected coverage; more GPU memory than the overview.')
-            print('16 smaller exports, combined locally. Completed tiles resume after interruption.')
-            print('Transfer cap: 20 MiB across tiles; cache and final image temporarily use up to 40 MiB plus metadata.')
-        print('Overview is coarse, not street-level detail. Inspect coverage for source gaps after installation.')
-        print('No internet needed for local installation.' if args.pack_file else 'Internet required to download; viewing is offline.')
-        print('Updates retain the previous revision (extra disk space).')
-        print('Base map, search, routing and buildings continue through existing map-builder tools; this installs imagery only.')
-        question = 'Install this local imagery pack now? [y/N] ' if args.pack_file else 'Download this imagery pack now? [y/N] '
-        if not args.yes and input(question).strip().lower() != 'y':
-            print('Cancelled')
+            if coverage != "metro-detroit":
+                print(
+                    "Detail quality: 4096×4096 final pixels over selected coverage; more GPU memory than the overview."
+                )
+            print(
+                "16 smaller exports, combined locally. Completed tiles resume after interruption."
+            )
+            print(
+                "Transfer cap: 20 MiB across tiles; cache and final image temporarily use up to 40 MiB plus metadata."
+            )
+        print(
+            "Overview is coarse, not street-level detail. Inspect coverage for source gaps after installation."
+        )
+        print(
+            "No internet needed for local installation."
+            if args.pack_file
+            else "Internet required to download; viewing is offline."
+        )
+        print("Updates retain the previous revision (extra disk space).")
+        print(
+            "Base map, search, routing and buildings continue through existing map-builder tools; this installs imagery only."
+        )
+        question = (
+            "Install this local imagery pack now? [y/N] "
+            if args.pack_file
+            else "Download this imagery pack now? [y/N] "
+        )
+        if not args.yes and input(question).strip().lower() != "y":
+            print("Cancelled")
             return 0
         if args.build_only:
             download_overview(args.build_only, bounds=bounds, title=title,
                               cache_directory=args.build_only.with_name(args.build_only.name+'.download'),
                               image_size=build_image_size(coverage, args.detail))
             LocalImageryPack.load(args.build_only)
-            print(f'Validated build output: {args.build_only}. Ready for imagery_artifact packaging.')
+            print(
+                f"Validated build output: {args.build_only}. Ready for imagery_artifact packaging."
+            )
         else:
             install(coverage, update=args.update, artifact=artifact, detail=args.detail)
         return 0
     except (EOFError, KeyboardInterrupt):
-        print('\nCancelled; active pack unchanged unless installation already completed.')
+        print("\nCancelled; active pack unchanged unless installation already completed.")
         return 0
-    except (OSError, ValueError, RuntimeError, KeyError, TypeError, IncompleteRead, BadZipFile) as error:
-        print(f'Region imagery install failed: {error}')
+    except (
+        OSError,
+        ValueError,
+        RuntimeError,
+        KeyError,
+        TypeError,
+        IncompleteRead,
+        BadZipFile,
+    ) as error:
+        print(f"Region imagery install failed: {error}")
         return 1
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     raise SystemExit(main())

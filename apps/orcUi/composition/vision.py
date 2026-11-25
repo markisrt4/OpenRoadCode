@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
 
 from apps.orcUi.frontend.tk.camera_vision_screen import CameraVisionScreen
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
@@ -60,10 +60,13 @@ def configure_vision(app: OrcUiApp) -> VisionComposition:
         # VISION is optional; absent inference dependencies or unusable weights
         # should disable this destination rather than abort the entire cockpit.
         _LOG.warning("VISION unavailable: %s", exc)
-        screen.set_vision_state(VisionUiState(
-            lifecycle=VisionLifecycle.ERROR, ai_enabled=False,
-            status_message=f"VISION unavailable: {exc}",
-        ))
+        screen.set_vision_state(
+            VisionUiState(
+                lifecycle=VisionLifecycle.ERROR,
+                ai_enabled=False,
+                status_message=f"VISION unavailable: {exc}",
+            )
+        )
         app.register_screen("VISION", screen, before="CONTROLS")
         return VisionComposition(screen=screen, controller=None, model_readiness=readiness)
     controller = VisionController(

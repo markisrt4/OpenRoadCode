@@ -19,6 +19,7 @@ def shell():
     app._root.after.return_value = "timer"
     app._active_screen = Mock()
     app._power_dialog = Mock()
+    app._performance_overlay = Mock()
     app._shell = Mock()
     return app
 

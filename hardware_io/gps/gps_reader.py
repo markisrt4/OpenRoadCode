@@ -6,10 +6,10 @@ from __future__ import annotations
 import json
 import threading
 
+import gps
+
 from common.logging.diagnostics import ComponentLog, diagnostic_action
 from common.logging.structured import current_operation, operation
-
-import gps
 
 try:
     from gps.client import dictwrapper
@@ -29,10 +29,7 @@ class _Python3GpsSession(gps.gps):
             raise ValueError(f"Invalid gpsd JSON report: {buffer!r}") from exc
 
         if hasattr(self.data, "satellites"):
-            self.data.satellites = [
-                dictwrapper(satellite)
-                for satellite in self.data.satellites
-            ]
+            self.data.satellites = [dictwrapper(satellite) for satellite in self.data.satellites]
 
 
 class GpsReader:
@@ -114,7 +111,8 @@ class GpsReader:
 
         self._operation_id = current_operation()
         self._thread = threading.Thread(
-            target=self._run, args=(self._operation_id,),
+            target=self._run,
+            args=(self._operation_id,),
             name="GpsReader",
             daemon=True,
         )
@@ -191,9 +189,7 @@ class GpsReader:
     def _update_satellite_counts(self, report: gps.gpsdata) -> None:
         satellites = report.get("satellites") or []
         self._satellites_visible = len(satellites)
-        self._satellites_used = sum(
-            1 for satellite in satellites if satellite.get("used", False)
-        )
+        self._satellites_used = sum(1 for satellite in satellites if satellite.get("used", False))
 
     def _publish(self, data: GpsData) -> None:
         callback = self._callback

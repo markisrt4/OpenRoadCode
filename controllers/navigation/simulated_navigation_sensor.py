@@ -7,9 +7,8 @@ from __future__ import annotations
 
 import math
 
-from hardware_io.imu import Vector3
-
 from controllers.navigation.navigation_sensor_if import MotionSample, NavigationSensorIf
+from hardware_io.imu import Vector3
 
 
 class SimulatedNavigationSensor(NavigationSensorIf):

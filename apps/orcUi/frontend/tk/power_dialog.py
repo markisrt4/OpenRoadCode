@@ -9,8 +9,9 @@ import tkinter as tk
 from collections.abc import Callable
 
 from ui.theme import ThemeBundle
-from .shell_metrics import FONT_BODY, FONT_CONTROL
 from ui.ui_widget import UiWidget
+
+from .shell_metrics import FONT_BODY
 
 
 class PowerDialog(UiWidget):
@@ -46,7 +47,9 @@ class PowerDialog(UiWidget):
         dialog.protocol("WM_DELETE_WINDOW", self.close)
         frame = tk.Frame(dialog, bg=ui.surface, padx=18, pady=16)
         frame.pack(fill=tk.BOTH, expand=True)
-        tk.Label(frame, text="POWER", fg=ui.text, bg=ui.surface, font=("Sans", 16, "bold")).pack(pady=(0, 4))
+        tk.Label(frame, text="POWER", fg=ui.text, bg=ui.surface, font=("Sans", 16, "bold")).pack(
+            pady=(0, 4)
+        )
         tk.Label(
             frame,
             text="System actions are intentionally two taps away.",
@@ -72,7 +75,8 @@ class PowerDialog(UiWidget):
                 width=24,
                 pady=8,
                 font=("Sans", 10, "bold"),
-                highlightthickness=0, bd=0,
+                highlightthickness=0,
+                bd=0,
             ).pack(fill=tk.X, pady=3)
         self._center(dialog)
 

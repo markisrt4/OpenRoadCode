@@ -37,7 +37,11 @@ def validate_route_guidance_state(payload: Mapping[str, Any]) -> None:
         "distance_remaining_m",
         "distance_from_route_m",
     ):
-        if not isinstance(data[name], (int, float)) or isinstance(data[name], bool) or data[name] < 0:
+        if (
+            not isinstance(data[name], (int, float))
+            or isinstance(data[name], bool)
+            or data[name] < 0
+        ):
             raise ValueError(f"{name} must be a non-negative number")
 
     optional_distance = data["distance_to_maneuver_m"]

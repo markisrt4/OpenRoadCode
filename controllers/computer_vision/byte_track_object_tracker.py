@@ -8,7 +8,6 @@ from __future__ import annotations
 import warnings
 
 from common.logging.diagnostics import ComponentLog, diagnostic_action
-
 from controllers.computer_vision.object_detector_if import DetectionFrame
 from controllers.computer_vision.object_tracker_if import ObjectTrack, ObjectTrackerIf, TrackFrame
 
@@ -84,11 +83,7 @@ class ByteTrackObjectTracker(ObjectTrackerIf):
         for index, raw_id in enumerate(tracker_ids):
             track_id = int(raw_id)
             x1, y1, x2, y2 = (float(v) for v in tracked.xyxy[index])
-            confidence = (
-                float(tracked.confidence[index])
-                if tracked.confidence is not None
-                else 0.0
-            )
+            confidence = float(tracked.confidence[index]) if tracked.confidence is not None else 0.0
             label = self._match_label(x1, y1, x2, y2, source)
             if label is not None:
                 self._labels[track_id] = label

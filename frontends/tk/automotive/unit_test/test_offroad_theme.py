@@ -10,7 +10,6 @@ import pytest
 from frontends.tk.automotive.offroad_theme import OffroadTheme
 from ui.theme import load_theme_bundle
 
-
 _THEME_ROOT = Path(__file__).resolve().parents[4] / "resources" / "themes"
 
 

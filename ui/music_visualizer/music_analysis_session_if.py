@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 """Source-neutral analysis controls consumed by the existing HTTP frontend."""
+
 from typing import Protocol
 
 
@@ -46,7 +47,9 @@ class MusicAnalysisSessionIf(Protocol):
         """
         ...
 
-    def push_pcm16(self, audio: bytes, sample_rate_hz: int, *, source: str = "browser") -> dict[str, object]:
+    def push_pcm16(
+        self, audio: bytes, sample_rate_hz: int, *, source: str = "browser"
+    ) -> dict[str, object]:
         """Accept a PCM16 frame from an existing transport.
 
         @param audio Little-endian signed PCM16 audio bytes.

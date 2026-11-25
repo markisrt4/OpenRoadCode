@@ -37,15 +37,9 @@ class CarUiDependenciesTest(unittest.TestCase):
             spotify_controller=object(),  # type: ignore[arg-type]
             spotify_image_cache=object(),  # type: ignore[arg-type]
             spotify_lyrics_client=object(),  # type: ignore[arg-type]
-            spotify_music_video_controller=RecordingResource(
-                "music-video", events
-            ),  # type: ignore[arg-type]
-            netflix_player=RecordingResource(
-                "netflix", events
-            ),  # type: ignore[arg-type]
-            youtube_player=RecordingResource(
-                "youtube", events
-            ),  # type: ignore[arg-type]
+            spotify_music_video_controller=RecordingResource("music-video", events),  # type: ignore[arg-type]
+            netflix_player=RecordingResource("netflix", events),  # type: ignore[arg-type]
+            youtube_player=RecordingResource("youtube", events),  # type: ignore[arg-type]
             lighting_controller=RecordingResource("lighting", events),  # type: ignore[arg-type]
             rotary_encoders=(
                 RecordingResource("encoder-0", events),  # type: ignore[arg-type]
@@ -78,15 +72,9 @@ class CarUiDependenciesTest(unittest.TestCase):
             spotify_controller=object(),  # type: ignore[arg-type]
             spotify_image_cache=object(),  # type: ignore[arg-type]
             spotify_lyrics_client=object(),  # type: ignore[arg-type]
-            spotify_music_video_controller=RecordingResource(
-                "music-video", events
-            ),  # type: ignore[arg-type]
-            netflix_player=RecordingResource(
-                "netflix", events
-            ),  # type: ignore[arg-type]
-            youtube_player=RecordingResource(
-                "youtube", events
-            ),  # type: ignore[arg-type]
+            spotify_music_video_controller=RecordingResource("music-video", events),  # type: ignore[arg-type]
+            netflix_player=RecordingResource("netflix", events),  # type: ignore[arg-type]
+            youtube_player=RecordingResource("youtube", events),  # type: ignore[arg-type]
             lighting_controller=RecordingResource("lighting", events),  # type: ignore[arg-type]
             rotary_encoders=(
                 RecordingResource("encoder", events, fail=True),  # type: ignore[arg-type]
@@ -94,9 +82,7 @@ class CarUiDependenciesTest(unittest.TestCase):
             volume_encoder_index=0,
         )
 
-        with self.assertLogs(
-            "apps.carUi.car_ui_dependencies", level="ERROR"
-        ):
+        with self.assertLogs("apps.carUi.car_ui_dependencies", level="ERROR"):
             dependencies.close()
 
         self.assertIn("close:runtime", events)

@@ -6,9 +6,16 @@ from datetime import datetime
 import pytest
 
 from controllers.automotive import EngineInductionType, VehicleConfiguration
-from ui.automotive.engine_analysis import (EngineLoadLevel, EngineOperatingMode, FuelControlMode, FuelCorrectionStatus, MixtureMode, TrackingQuality)
 from controllers.automotive.engine_analyzer import EngineAnalyzer
 from controllers.automotive.vehicle_state import VehicleState
+from ui.automotive.engine_analysis import (
+    EngineLoadLevel,
+    EngineOperatingMode,
+    FuelControlMode,
+    FuelCorrectionStatus,
+    MixtureMode,
+    TrackingQuality,
+)
 
 
 def _state(**overrides) -> VehicleState:
@@ -80,9 +87,7 @@ def test_high_load_and_enrichment_are_derived() -> None:
 
 def test_naturally_aspirated_configuration_never_reports_forced_induction() -> None:
     analysis = EngineAnalyzer(
-        VehicleConfiguration(
-            induction=EngineInductionType.NATURALLY_ASPIRATED
-        )
+        VehicleConfiguration(induction=EngineInductionType.NATURALLY_ASPIRATED)
     ).analyze(_state(boost_pressure_pa=80_000.0))
 
     assert analysis.forced_induction_active is False
@@ -142,7 +147,5 @@ def test_missing_telemetry_remains_unknown_instead_of_invented() -> None:
     ],
 )
 def test_fuel_system_status_decoding(status, expected) -> None:
-    analysis = EngineAnalyzer(VehicleConfiguration()).analyze(
-        _state(fuel_system_status_1=status)
-    )
+    analysis = EngineAnalyzer(VehicleConfiguration()).analyze(_state(fuel_system_status_1=status))
     assert analysis.fuel_control_mode is expected

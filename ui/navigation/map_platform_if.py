@@ -14,17 +14,17 @@ class MapPlatform(str, Enum):
 class ExplorationCameraAction(str, Enum):
     """Renderer-neutral, relative camera actions for destination exploration."""
 
-    PAN_UP = 'pan-up'
-    PAN_DOWN = 'pan-down'
-    PAN_LEFT = 'pan-left'
-    PAN_RIGHT = 'pan-right'
-    ZOOM_IN = 'zoom-in'
-    ZOOM_OUT = 'zoom-out'
-    PITCH_UP = 'pitch-up'
-    PITCH_DOWN = 'pitch-down'
-    NORTH = 'north'
-    RECENTER = 'recenter'
-    DIMENSION = 'dimension'
+    PAN_UP = "pan-up"
+    PAN_DOWN = "pan-down"
+    PAN_LEFT = "pan-left"
+    PAN_RIGHT = "pan-right"
+    ZOOM_IN = "zoom-in"
+    ZOOM_OUT = "zoom-out"
+    PITCH_UP = "pitch-up"
+    PITCH_DOWN = "pitch-down"
+    NORTH = "north"
+    RECENTER = "recenter"
+    DIMENSION = "dimension"
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,14 +63,14 @@ class MapPlatformControlIf(Protocol):
     def request_camera(self, action: ExplorationCameraAction) -> None:
         """Apply a relative camera action to the active exploration surface.
 
-        @param action Renderer-neutral camera operation.
+        @param action Relative camera movement or view adjustment.
         """
         ...
 
     def request_follow(self, enabled: bool) -> None:
         """Enable vehicle following on the exploration surface; await a live fix if needed.
 
-        @param enabled True to follow vehicle position, false for free exploration.
+        @param enabled Whether vehicle-follow mode should be active.
         """
         ...
 

@@ -12,9 +12,7 @@ from apps.launchers.weather_dash_launcher import WeatherDashLauncher
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Launch the OpenRoadCode weather dashboard"
-    )
+    parser = argparse.ArgumentParser(description="Launch the OpenRoadCode weather dashboard")
     parser.add_argument("--display", default=":1", help="X11 display to use")
     parser.add_argument("--port", type=int, default=8501, help="Streamlit port")
     parser.add_argument(
@@ -37,10 +35,7 @@ def main() -> int:
         refresh_seconds=args.refresh_seconds,
     )
 
-    print(
-        f"[*] Launching weather dashboard on {args.display} "
-        f"using port {args.port}"
-    )
+    print(f"[*] Launching weather dashboard on {args.display} using port {args.port}")
     try:
         launcher.launch(args.display, print)
     except (FileNotFoundError, RuntimeError) as exc:

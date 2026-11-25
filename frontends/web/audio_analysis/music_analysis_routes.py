@@ -3,12 +3,12 @@
 # SPDX-License-Identifier: MIT
 
 """Source-independent WebUI music analysis HTTP transport."""
+
 from __future__ import annotations
 
 from flask import Blueprint, jsonify, request
 
 from ui.music_visualizer.music_analysis_session_if import MusicAnalysisSessionIf
-
 
 MAX_PCM_FRAME_BYTES = 262_144
 

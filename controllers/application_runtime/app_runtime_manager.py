@@ -5,16 +5,22 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from threading import Lock, RLock, Thread
 from typing import TypeVar
-import logging
 
 from common.logging.lifecycle import logged_action
 from common.logging.structured import current_operation, event, operation
-
-from ui.system.app_launcher_if import (AppLauncherIf, BrowserDashboardLauncherIf, HideableAppLauncherIf, PreloadableAppLauncherIf, StatusCallback, WindowedAppLauncherIf)
 from config.application_config import ApplicationConfig, ApplicationsConfig, StartupPolicy
+from ui.system.app_launcher_if import (
+    AppLauncherIf,
+    BrowserDashboardLauncherIf,
+    HideableAppLauncherIf,
+    PreloadableAppLauncherIf,
+    StatusCallback,
+    WindowedAppLauncherIf,
+)
 
 LauncherT = TypeVar("LauncherT", bound=AppLauncherIf)
 LOGGER = logging.getLogger("runtime.apps")

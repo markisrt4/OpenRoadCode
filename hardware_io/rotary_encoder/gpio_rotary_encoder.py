@@ -16,7 +16,6 @@ from hardware_io.rotary_encoder.rotary_encoder_if import (
     RotationCallback,
 )
 
-
 LOGGER = logging.getLogger(__name__)
 
 
@@ -40,9 +39,7 @@ class GpioRotaryEncoderPins:
             pin_numbers.append(self.button)
 
         if len(pin_numbers) != len(set(pin_numbers)):
-            raise ValueError(
-                "Rotary encoder pins must use different physical pins"
-            )
+            raise ValueError("Rotary encoder pins must use different physical pins")
 
         for physical_pin in pin_numbers:
             RpiGpioHeader.bcm_from_physical_pin(physical_pin)
@@ -70,17 +67,11 @@ class GpioRotaryEncoder(RotaryEncoderIf):
         self._button_bounce_ms = button_bounce_ms
         self._reverse_direction = reverse_direction
 
-        self._bcm_pin_a = RpiGpioHeader.bcm_from_physical_pin(
-            pins.pin_a
-        )
-        self._bcm_pin_b = RpiGpioHeader.bcm_from_physical_pin(
-            pins.pin_b
-        )
+        self._bcm_pin_a = RpiGpioHeader.bcm_from_physical_pin(pins.pin_a)
+        self._bcm_pin_b = RpiGpioHeader.bcm_from_physical_pin(pins.pin_b)
 
         self._bcm_button = (
-            RpiGpioHeader.bcm_from_physical_pin(pins.button)
-            if pins.button is not None
-            else None
+            RpiGpioHeader.bcm_from_physical_pin(pins.button) if pins.button is not None else None
         )
 
         self._rotated_callback: RotationCallback | None = None
@@ -251,10 +242,7 @@ class GpioRotaryEncoder(RotaryEncoderIf):
         current_a = GPIO.input(self._bcm_pin_a)
         current_b = GPIO.input(self._bcm_pin_b)
 
-        if (
-            current_a == self._current_a
-            and current_b == self._current_b
-        ):
+        if current_a == self._current_a and current_b == self._current_b:
             return
 
         self._current_a = current_a
@@ -273,11 +261,7 @@ class GpioRotaryEncoder(RotaryEncoderIf):
 
         pressed = GPIO.input(self._bcm_button) == GPIO.LOW
 
-        callback = (
-            self._button_pressed_callback
-            if pressed
-            else self._button_released_callback
-        )
+        callback = self._button_pressed_callback if pressed else self._button_released_callback
 
         if callback is None:
             return
@@ -285,9 +269,7 @@ class GpioRotaryEncoder(RotaryEncoderIf):
         try:
             callback()
         except Exception:
-            LOGGER.exception(
-                "GPIO rotary encoder button callback failed"
-            )
+            LOGGER.exception("GPIO rotary encoder button callback failed")
 
     def __enter__(self) -> GpioRotaryEncoder:
         if self._rotated_callback is None:

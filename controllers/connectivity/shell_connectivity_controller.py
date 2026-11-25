@@ -1,8 +1,10 @@
 # SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
 # SPDX-License-Identifier: MIT
 """Own automatic network recovery and discard stale internet probe results."""
-from queue import SimpleQueue, Empty
+
+from queue import Empty, SimpleQueue
 from threading import Thread
+
 from controllers.connectivity.internet_access import internet_reachable
 from controllers.connectivity.network_monitor import NetworkMonitor
 
@@ -88,14 +90,19 @@ class ShellConnectivityController:
                     self.online_mode.set_reachable(reachable)
                 except OSError as exc:
                     self._set_status(f"Could not save connection mode: {exc}")
-        if (self.online_mode.requested_online and self._network_available is not False
-                and not self._internet_probe_active):
+        if (
+            self.online_mode.requested_online
+            and self._network_available is not False
+            and not self._internet_probe_active
+        ):
             if self._internet_next_probe <= 0:
                 generation = self._internet_generation
                 self._internet_probe_active = True
                 self._internet_next_probe = 10
+
                 def probe() -> None:
                     self._internet_results.put((generation, internet_reachable()))
+
                 Thread(target=probe, daemon=True, name="orc-internet-check").start()
             else:
                 self._internet_next_probe -= 1

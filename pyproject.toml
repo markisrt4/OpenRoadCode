@@ -1,4 +1,5 @@
 [tool.ruff]
+required-version = "==0.17.6"
 target-version = "py312"
 line-length = 100
 extend-exclude = [
@@ -9,14 +10,12 @@ extend-exclude = [
 ]
 
 [tool.ruff.lint]
-# Begin with high-confidence correctness failures so CI can be enabled without
-# demanding a repository-wide style cleanup in the same change. Expand this
-# ruleset as existing code is brought under lint discipline.
+# Enforce syntax, Pyflakes correctness, Bugbear and import ordering.
 select = [
     "E9",
-    "F63",
-    "F7",
-    "F82",
+    "F",
+    "B",
+    "I",
 ]
 
 [tool.mypy]
@@ -29,6 +28,12 @@ show_error_codes = true
 pretty = false
 files = [
     "ui/ui_widget.py",
+    "ui/calendar/calendar_models.py",
+    "ui/calendar/calendar_presentation_if.py",
+    "controllers/calendar/appointment_monitor.py",
+    "controllers/calendar/calendar_presentation.py",
+    "controllers/calendar/calendar_query_if.py",
+    "controllers/calendar/calendar_agenda.py",
     "ui/media/spotify_presentation_if.py",
     "ui/media/spotify_browse_if.py",
     "ui/media/spotify_account_if.py",
@@ -78,6 +83,7 @@ files = [
     "controllers/radio/streaming_radio_backend_if.py",
     "controllers/radio/streaming_radio_artwork.py",
     "frontends/tk/radio/streaming_radio_panel.py",
+    "frontends/tk/radio/streaming_radio_layout.py",
     "frontends/tk/radio/persistent_streaming_radio_panel.py",
     "frontends/tk/radio/streaming_radio_now_playing.py",
     "frontends/tk/radio/radio_screen.py",

@@ -447,14 +447,15 @@ def test_host_clear_and_unavailable_poweroff_do_not_claim_dispatch(caplog):
 
 def test_restricted_install_can_import_http_and_write_logs_without_checkout(tmp_path):
     import os
-    from pathlib import Path
     import shutil
     import sys
+    from pathlib import Path
 
     root = Path(__file__).resolve().parents[3]
     script = (root / "scripts/systemd/install_service_manager_systemd.sh").read_text()
     manifest = next(
-        line for line in script.replace("\\\n", " ").splitlines()
+        line
+        for line in script.replace("\\\n", " ").splitlines()
         if line.startswith("for package in ")
     )
     packages = manifest.removeprefix("for package in ").removesuffix("; do").split()
@@ -467,6 +468,8 @@ def test_restricted_install_can_import_http_and_write_logs_without_checkout(tmp_
     # The installer explicitly ships this namespace-package dependency.
     assert '"$PROJECT_ROOT/common/xdg_paths.py"' in script
     shutil.copyfile(root / "common/xdg_paths.py", deployed / "common/xdg_paths.py")
+    assert '"$PROJECT_ROOT/common/calendar_health.py"' in script
+    shutil.copyfile(root / "common/calendar_health.py", deployed / "common/calendar_health.py")
     log_dir = tmp_path / "logs"
     code = (
         "import logging; import services.linux.systemd_service_manager_http; "

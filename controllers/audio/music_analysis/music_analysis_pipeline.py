@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 """Composition layer joining PCM capture to music analysis."""
+
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence

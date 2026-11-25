@@ -22,7 +22,10 @@ def test_cancellation_after_callback_prevents_exchange():
     store = Mock()
     auth = SpotifyAuth(SpotifyConfig("public-client"), store, open_browser=False)
     current = Mock(side_effect=[True, False])
-    with patch("protocols.spotify.spotify_auth.OAuthRedirectServer") as server, patch.object(auth, "complete_authorization") as complete:
+    with (
+        patch("protocols.spotify.spotify_auth.OAuthRedirectServer") as server,
+        patch.object(auth, "complete_authorization") as complete,
+    ):
         with pytest.raises(SpotifyAuthError, match="cancelled"):
             auth.login(is_current=current)
         server.return_value.wait_for_callback.assert_called_once_with(is_current=current)
@@ -32,8 +35,16 @@ def test_cancellation_after_callback_prevents_exchange():
 
 def test_default_login_still_completes_authorization():
     auth = SpotifyAuth(SpotifyConfig("public-client"), Mock(), open_browser=False)
-    with patch("protocols.spotify.spotify_auth.OAuthRedirectServer") as server, patch.object(auth, "complete_authorization") as complete:
+    with (
+        patch("protocols.spotify.spotify_auth.OAuthRedirectServer") as server,
+        patch.object(auth, "complete_authorization") as complete,
+    ):
         callback = server.return_value.wait_for_callback.return_value
         assert auth.login() is complete.return_value
-        complete.assert_called_once_with(ANY,
-            code=callback.code, state=callback.state, error=callback.error, error_description=callback.error_description)
+        complete.assert_called_once_with(
+            ANY,
+            code=callback.code,
+            state=callback.state,
+            error=callback.error,
+            error_description=callback.error_description,
+        )

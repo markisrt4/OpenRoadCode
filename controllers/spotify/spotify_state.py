@@ -7,6 +7,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True, slots=True)
 class SpotifyState:
     """Immutable snapshot of Spotify availability and playback metadata."""
+
     is_available: bool = False
     configuration_required: bool = False
     is_playing: bool = False

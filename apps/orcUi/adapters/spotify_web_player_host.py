@@ -11,7 +11,6 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from common.logging.structured import current_operation, event, operation
-
 from protocols.spotify import SpotifyAuth, SpotifyTokenStore, load_spotify_config_from_secrets
 from security.environment_variable_secret_manager import EnvironmentVariableSecretManager
 

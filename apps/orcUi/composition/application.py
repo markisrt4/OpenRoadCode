@@ -5,51 +5,59 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
-from controllers.navigation.map_controls_drawer_controller import MapControlsDrawerController
 from dataclasses import dataclass, field
 
-from common.resource_cleanup import ResourceCleanup, close_resources
-import math
-
-from common.app_settings import AppSettings, AppSettingsStore
-from apps.launchers.host_location_permission import HostLocationPermission
-from controllers.navigation.host_location_settings_controller import HostLocationSettingsController
-from controllers.navigation.route_overlay_controller import RouteOverlayController
-from controllers.weather.radar_palette import RadarPalette
-
-from apps.orcUi.application_runtime import OrcUiApplicationRuntime, create_orc_ui_application_runtime
-from apps.orcUi.composition.core import CoreComposition, create_core_composition
-from apps.orcUi.cesium_map_runtime import CesiumMapRuntime
-from apps.orcUi.map_platform_requests import MapPlatformRequests
-from controllers.poi.poi_search_controller import PoiSearchController
+from adapters.radio.sdrforge_rf_hardware_config import SdrForgeRfHardwareConfig
 from apps.launchers.cesium_embedded_viewer import CesiumEmbeddedViewer
-from controllers.navigation.current_position import get_current_position
-from ui.navigation.cesium_viewer_state import CesiumViewerState
+from apps.launchers.host_location_permission import HostLocationPermission
+from apps.orcUi.application_runtime import (
+    OrcUiApplicationRuntime,
+    create_orc_ui_application_runtime,
+)
+from apps.orcUi.cesium_map_runtime import CesiumMapRuntime
+from apps.orcUi.composition.calendar import (
+    CalendarConfiguration,
+    configure_calendar,
+    create_home_calendar_factory,
+)
+from apps.orcUi.composition.core import CoreComposition, create_core_composition
+from apps.orcUi.map_platform_requests import MapPlatformRequests
+from controllers.navigation.route_overlay_controller import RouteOverlayController
+from controllers.poi.poi_search_controller import PoiSearchController
 from ui.navigation.map_platform_if import MapPlatform
-from ui.navigation import GeoPoint
 from apps.orcUi.composition.games import configure_games
-from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
-from apps.orcUi.composition.tooltips import TooltipFactory
 from apps.orcUi.composition.media import MediaComposition, configure_media
+from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
 from apps.orcUi.composition.radio import RadioComposition, configure_radio
+from apps.orcUi.composition.tooltips import TooltipFactory
+from apps.orcUi.composition.vision import VisionComposition, configure_vision
 from apps.orcUi.composition.weather import WeatherComposition, configure_weather
 from apps.orcUi.composition.weather_overlays import configure_weather_overlays
-from apps.orcUi.composition.vision import VisionComposition, configure_vision
-from controllers.weather.weather_overlay_controller import WeatherOverlayController
-from controllers.weather.radar_replay_controller import RadarReplayController
 from apps.orcUi.frontend.tk.home_screen import HomeScreen
-from apps.orcUi.frontend.tk.navigation_screen import NavigationScreen
 from apps.orcUi.frontend.tk.navigation_route_weather import NavigationRouteWeather
-from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
+from apps.orcUi.frontend.tk.navigation_screen import NavigationScreen
 from apps.orcUi.frontend.tk.offroad_screen import OffRoadScreen
+from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.settings_screen import SettingsScreen
 from apps.orcUi.frontend.tk.vehicle_screen import VehicleScreen
 from apps.orcUi.performance_status import PerformanceStatusPresenter
 from apps.orcUi.theme_runtime import theme_bundle
+from common.app_settings import AppSettings, AppSettingsStore
+from common.resource_cleanup import ResourceCleanup, close_resources
+from controllers.navigation.current_position import get_current_position
+from controllers.navigation.host_location_settings_controller import HostLocationSettingsController
+from controllers.navigation.map_controls_drawer_controller import MapControlsDrawerController
+from controllers.weather.radar_palette import RadarPalette
+from controllers.weather.radar_replay_controller import RadarReplayController
+from controllers.weather.weather_overlay_controller import WeatherOverlayController
 from frontends.tk.games import GamesScreen
 from frontends.tk.system.diagnostics_screen import DiagnosticsScreen
 from services.common.system_performance_monitor import SystemPerformanceMonitor
+from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
+from ui.navigation import GeoPoint
+from ui.navigation.cesium_viewer_state import CesiumViewerState
 
 
 @dataclass(slots=True)
@@ -64,6 +72,7 @@ class OrcUiComposition:
     weather: WeatherComposition
     vision: VisionComposition | None = None
     home: HomeScreen | None = None
+    appointment_monitor: AppointmentMonitorIf | None = None
     navigation: NavigationScreen | None = None
     vehicle: VehicleScreen | None = None
     offroad: OffRoadScreen | None = None
@@ -106,10 +115,21 @@ class OrcUiComposition:
         self._closed = True
         close_resources(
             self.app.shutdown,
-            *(resource.close for resource in (
-                self.host_location, self.performance_status, self.performance, self.vision, self.navigation,
-                self.navigation_places, self.radar_replay, self.weather_overlays,
-            ) if resource is not None),
+            *(
+                resource.close
+                for resource in (
+                    self.appointment_monitor,
+                    self.host_location,
+                    self.performance_status,
+                    self.performance,
+                    self.vision,
+                    self.navigation,
+                    self.navigation_places,
+                    self.radar_replay,
+                    self.weather_overlays,
+                )
+                if resource is not None
+            ),
             self.radio.close,
             self.games.shutdown,
             self.media.close,
@@ -144,7 +164,16 @@ def create_orc_ui_composition(
         app.set_theme_change_handler(core.map_runtime.set_theme)
         core.map_runtime.set_theme(app.theme_mode)
         core.presentation.observe_weather_alert(app.present_weather_alert)
-        for destination in ("HOME", "NAVIGATION", "RADIO", "VEHICLE", "VISION", "MEDIA", "GAMES", "LIGHTING"):
+        for destination in (
+            "HOME",
+            "NAVIGATION",
+            "RADIO",
+            "VEHICLE",
+            "VISION",
+            "MEDIA",
+            "GAMES",
+            "LIGHTING",
+        ):
             app.register_navigation_destination(destination)
         radio = configure_radio(app, runtime)
         cleanup.callback(radio.close)
@@ -169,9 +198,7 @@ def create_orc_ui_composition(
 
         def set_unit_system(value):
             nonlocal app_settings
-            app_settings = AppSettings(
-                unit_system=value, radar_palette=app_settings.radar_palette
-            )
+            app_settings = AppSettings(unit_system=value, radar_palette=app_settings.radar_palette)
             settings_store.save(app_settings)
 
         def open_radar_map() -> None:
@@ -189,6 +216,7 @@ def create_orc_ui_composition(
         )
         cleanup.callback(weather.close)
         _report(progress, "weather", "Weather subsystem loaded")
+
         def set_radar_palette(value: RadarPalette) -> None:
             nonlocal app_settings
             app_settings = AppSettings(
@@ -223,10 +251,18 @@ def create_orc_ui_composition(
             on_radar_toggle=lambda enabled: navigation.set_radar_enabled(enabled),
             refresh_radar=refresh_radar_map_state,
         )
-        weather_view = NavigationRouteWeather(app, lambda: theme_bundle(app.theme_mode), unit_system)
-        overlays = configure_weather_overlays(app, weather_view, core.map_camera.renderer_client,
-                                             weather.radar_tiles, unit_system, core.route_request_handler,
-                                             core.presentation)
+        weather_view = NavigationRouteWeather(
+            app, lambda: theme_bundle(app.theme_mode), unit_system
+        )
+        overlays = configure_weather_overlays(
+            app,
+            weather_view,
+            core.map_camera.renderer_client,
+            weather.radar_tiles,
+            unit_system,
+            core.route_request_handler,
+            core.presentation,
+        )
         cleanup.callback(overlays.close)
         navigation_maps = CesiumMapRuntime(core.map_runtime, CesiumEmbeddedViewer(),
             initial_view=lambda: CesiumViewerState(get_current_position() or
@@ -268,10 +304,16 @@ def create_orc_ui_composition(
             route_weather=weather_view,
         )
         cleanup.callback(navigation.close)
-        radar_replay = RadarReplayController(app, navigation, weather.radar, injection=weather.radar_injection,
-                                              on_palette=set_radar_palette, on_visibility=home.refresh_radar_state,
-                                              on_source=weather.select_radar_source,
-                                              refresh_renderer=refresh_radar_map_state)
+        radar_replay = RadarReplayController(
+            app,
+            navigation,
+            weather.radar,
+            injection=weather.radar_injection,
+            on_palette=set_radar_palette,
+            on_visibility=home.refresh_radar_state,
+            on_source=weather.select_radar_source,
+            refresh_renderer=refresh_radar_map_state,
+        )
         cleanup.callback(radar_replay.close)
         navigation.set_radar_request_handler(radar_replay)
         vehicle = VehicleScreen(
@@ -297,22 +339,37 @@ def create_orc_ui_composition(
             unit_system=unit_system,
             on_unit_system_changed=set_unit_system,
             on_back=lambda: app.navigate_to("HOME"),
+            rf_hardware_config=SdrForgeRfHardwareConfig(),
+            performance_overlay_enabled=app.performance_overlay_enabled,
+            on_performance_overlay_changed=app.set_performance_overlay_enabled,
         )
         permission = HostLocationPermission()
-        host_location = HostLocationSettingsController(app, settings, permission, available=permission.available)
+        host_location = HostLocationSettingsController(
+            app, settings, permission, available=permission.available
+        )
         cleanup.callback(host_location.close)
         settings.set_host_location_request_handler(host_location)
         performance = SystemPerformanceMonitor()
         cleanup.callback(performance.close)
         diagnostics = DiagnosticsScreen(
-            app, provider=performance, history=performance.history,
+            app,
+            provider=performance,
+            history=performance.history,
             theme_bundle=lambda: theme_bundle(app.theme_mode),
             on_back=app.close_diagnostics,
+            sdrforge_diagnostics=(
+                radio.rigctl_client.connection_diagnostics
+                if radio.rigctl_client is not None
+                else None
+            ),
         )
-        performance_status = PerformanceStatusPresenter(app, performance, app.set_performance_status)
+        performance_status = PerformanceStatusPresenter(
+            app, performance, app.set_performance_status, on_sample=app.update_performance_overlay
+        )
         cleanup.callback(performance_status.close)
         home.set_radio_factory(radio.home_factory)
         home.set_media_factory(media.home_factory)
+        home.set_visualizer_factory(media.home_visualizer_factory)
         core.presentation.observe_vehicle(home.apply_vehicle_state)
         core.presentation.observe_trip(home.apply_trip_state)
         core.presentation.observe_position(home.apply_position_state)
@@ -332,6 +389,10 @@ def create_orc_ui_composition(
         app.register_screen("OFF-ROAD", offroad, show_in_navigation=False)
         app.register_screen("SETTINGS", settings, show_in_navigation=False)
         app.register_screen("DIAGNOSTICS", diagnostics, show_in_navigation=False)
+        calendar_config = CalendarConfiguration()
+        configure_calendar(app, calendar_config)
+        calendar_factory = create_home_calendar_factory(app, calendar_config)
+        home.set_calendar_factory(calendar_factory, calendar_factory.monitor)
         app.set_initial_destination("HOME")
         app.set_settings_action(lambda: app.navigate_to("SETTINGS"))
         _report(progress, "screens", "Application screens loaded")
@@ -344,6 +405,7 @@ def create_orc_ui_composition(
             weather=weather,
             vision=vision,
             home=home,
+            appointment_monitor=calendar_factory.monitor,
             navigation=navigation,
             vehicle=vehicle,
             offroad=offroad,

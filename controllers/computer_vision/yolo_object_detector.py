@@ -5,12 +5,12 @@
 
 from __future__ import annotations
 
-import time
 import threading
+import time
 from collections.abc import Callable
-from common.logging.diagnostics import ComponentLog
 from typing import Any, Iterable
 
+from common.logging.diagnostics import ComponentLog
 from controllers.computer_vision.model_readiness import YoloModelReadiness
 from controllers.computer_vision.object_detector_if import (
     Detection,
@@ -18,7 +18,6 @@ from controllers.computer_vision.object_detector_if import (
     ObjectDetectorIf,
 )
 from hardware_io.camera.camera_if import CameraFrame
-
 
 DEFAULT_ROAD_CLASSES = frozenset({"person", "bicycle", "motorcycle", "car", "bus", "truck"})
 

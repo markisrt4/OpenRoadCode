@@ -138,8 +138,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         else:
             print(
-                f"[poi-cli] searching category={category_name} "
-                "center=current/cached-position",
+                f"[poi-cli] searching category={category_name} center=current/cached-position",
                 flush=True,
             )
         controller.search(args.category)

@@ -10,8 +10,8 @@ from ui.ui_action import UiAction
 class ScreenUiStub(ScreenUiIf):
     """Provide inert lifecycle and action behavior for a named screen."""
 
-    def __init__(self, screen_id: ScreenId = ScreenId("stub")) -> None:
-        self._screen_id = screen_id
+    def __init__(self, screen_id: ScreenId | None = None) -> None:
+        self._screen_id = screen_id if screen_id is not None else ScreenId("stub")
 
     @property
     def screen_id(self) -> ScreenId:

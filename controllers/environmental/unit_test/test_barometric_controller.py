@@ -25,12 +25,13 @@ from controllers.environmental.component_test.barometric_cli import (
 class FakeBarometricSource:
     def __init__(
         self,
-        sample: BarometricSample = BarometricSample(
-            pressure_pa=101_325.0,
-            temperature_c=20.0,
-        ),
+        sample: BarometricSample | None = None,
     ) -> None:
-        self.sample = sample
+        self.sample = (
+            sample
+            if sample is not None
+            else BarometricSample(pressure_pa=101_325.0, temperature_c=20.0)
+        )
         self.connected = False
 
     @property
@@ -68,9 +69,7 @@ class FakeBmp3xx:
 
 class BarometricControllerTests(unittest.TestCase):
     def test_implements_controller_interface(self) -> None:
-        self.assertTrue(
-            issubclass(BarometricController, BarometricControllerIf)
-        )
+        self.assertTrue(issubclass(BarometricController, BarometricControllerIf))
 
     def test_reads_normalized_sensor_sample(self) -> None:
         sensor = FakeBarometricSource()

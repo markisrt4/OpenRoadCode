@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from messaging.contracts.common import decode_timestamp
+
 from .trip_state_message import TripStateData, TripStateMessage
 from .trip_state_validator import validate_trip_state
 

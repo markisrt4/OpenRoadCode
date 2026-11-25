@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: MIT
 """Quiet, private diagnostics for device and background operations."""
 
+import logging
 from contextlib import contextmanager
 from functools import wraps
-import logging
 from threading import Lock
 
 from common.logging.structured import current_operation, event, operation
@@ -23,8 +23,13 @@ class ComponentLog:
     def emit(self, level, suffix, operation_id=None, **fields):
         if operation_id is not None:
             fields["operation_id"] = operation_id
-        event(self._logger, level, f"{self._prefix}.{suffix}",
-              f"{self._prefix.capitalize()} {suffix.replace('_', ' ')}", **fields)
+        event(
+            self._logger,
+            level,
+            f"{self._prefix}.{suffix}",
+            f"{self._prefix.capitalize()} {suffix.replace('_', ' ')}",
+            **fields,
+        )
 
     def failed(self, stage, error=None, operation_id=None, *, reason="exception"):
         failure = (reason, type(error).__name__ if error is not None else None)
@@ -66,6 +71,7 @@ class ComponentLog:
 
 def diagnostic_action(stage: str, *, false_is_failure: bool = False):
     """Instrument a method using its instance's private diagnostic recorder."""
+
     def decorate(function):
         @wraps(function)
         def wrapped(self, *args, **kwargs):
@@ -81,5 +87,7 @@ def diagnostic_action(stage: str, *, false_is_failure: bool = False):
                 else:
                     self._diagnostics.succeeded(stage)
                 return result
+
         return wrapped
+
     return decorate

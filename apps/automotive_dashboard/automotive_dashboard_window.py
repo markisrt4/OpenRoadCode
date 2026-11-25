@@ -9,7 +9,6 @@ from apps.common.instruments.gauge_style import GaugeStyle
 from apps.common.instruments.instrument_panel import InstrumentPanel
 from messaging.contracts.automotive import VehicleStateData
 
-
 RPM_PER_RAD_S = 60.0 / (2.0 * math.pi)
 MPH_PER_MPS = 2.2369362920544
 PSI_PER_PA = 0.00014503773773020923
@@ -64,9 +63,7 @@ class AutomotiveDashboardWindow(tk.Frame):
                     else (state.coolant_temperature_k - 273.15) * 9.0 / 5.0 + 32.0
                 ),
                 "throttle": (
-                    None
-                    if state.throttle_position is None
-                    else state.throttle_position * 100.0
+                    None if state.throttle_position is None else state.throttle_position * 100.0
                 ),
                 "voltage": state.control_voltage_v,
             }

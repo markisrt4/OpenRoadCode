@@ -2,12 +2,12 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from controllers.connectivity.online_mode import OnlineModeController
 from controllers.connectivity.internet_access import internet_reachable
+from controllers.connectivity.online_mode import OnlineModeController
 
 
 def test_mode_persists_and_notifies_subscribers(tmp_path):
-    path = tmp_path / 'settings/mode.json'
+    path = tmp_path / "settings/mode.json"
     mode = OnlineModeController(path)
     listener = Mock()
     unsubscribe = mode.subscribe(listener)
@@ -20,10 +20,12 @@ def test_mode_persists_and_notifies_subscribers(tmp_path):
 
 
 def test_failed_save_does_not_change_permission_or_notify(tmp_path):
-    mode = OnlineModeController(tmp_path / 'mode.json')
+    mode = OnlineModeController(tmp_path / "mode.json")
     listener = Mock()
     mode.subscribe(listener)
-    with patch('controllers.connectivity.online_mode.Path.write_text', side_effect=OSError('read only')):
+    with patch(
+        "controllers.connectivity.online_mode.Path.write_text", side_effect=OSError("read only")
+    ):
         with pytest.raises(OSError):
             mode.set_online(False)
     assert mode.online
@@ -31,22 +33,25 @@ def test_failed_save_does_not_change_permission_or_notify(tmp_path):
 
 
 def test_reachability_requires_expected_response():
-    with patch('controllers.connectivity.internet_access.urllib.request.urlopen') as open_url:
+    with patch("controllers.connectivity.internet_access.urllib.request.urlopen") as open_url:
         open_url.return_value.__enter__.return_value.status = 200
         assert internet_reachable() is False
         open_url.return_value.__enter__.return_value.status = 204
         assert internet_reachable() is True
-        assert open_url.call_args.kwargs['timeout'] == 3
+        assert open_url.call_args.kwargs["timeout"] == 3
 
 
 def test_unreachable_network_is_not_online():
-    with patch('controllers.connectivity.internet_access.urllib.request.urlopen', side_effect=TimeoutError):
+    with patch(
+        "controllers.connectivity.internet_access.urllib.request.urlopen", side_effect=TimeoutError
+    ):
         assert internet_reachable() is False
 
 
 def test_loss_and_recovery_notify_and_share_effective_state(tmp_path):
     from controllers.connectivity.online_mode import saved_online_mode
-    path = tmp_path / 'mode.json'
+
+    path = tmp_path / "mode.json"
     mode = OnlineModeController(path)
     listener = Mock()
     mode.subscribe(listener)
@@ -63,7 +68,7 @@ def test_loss_and_recovery_notify_and_share_effective_state(tmp_path):
 
 
 def test_manual_offline_does_not_recover_automatically(tmp_path):
-    mode = OnlineModeController(tmp_path / 'mode.json')
+    mode = OnlineModeController(tmp_path / "mode.json")
     mode.set_online(False)
     mode.set_reachable(True)
     assert not mode.online and not mode.requested_online
@@ -72,7 +77,7 @@ def test_manual_offline_does_not_recover_automatically(tmp_path):
 
 
 def test_legacy_offline_preference_stays_manual(tmp_path):
-    path = tmp_path / 'mode.json'
+    path = tmp_path / "mode.json"
     path.write_text('{"online":false}')
     mode = OnlineModeController(path)
     mode.set_reachable(True)

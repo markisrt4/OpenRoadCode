@@ -36,9 +36,9 @@ def main():
     if sum(bool(value) for value in (args.pack_manifest, args.pack_file, args.build_only)) > 1:
         parser.error('--pack-manifest, --pack-file and --build-only cannot be combined')
     try:
-        coverage = args.coverage or choose_coverage(layer='terrain')
+        coverage = args.coverage or choose_coverage(layer="terrain")
         if coverage is None:
-            print('Cancelled')
+            print("Cancelled")
             return 0
         title, bounds = (COVERAGES[coverage] if coverage == 'metro-detroit' else
                          MICHIGAN_COVERAGES[coverage] if coverage in MICHIGAN_COVERAGES else
@@ -87,10 +87,10 @@ def main():
         print(f'Ready: {detail}. {action}')
         return 0
     except (EOFError, KeyboardInterrupt):
-        print('\nCancelled; no incomplete pack was installed.')
+        print("\nCancelled; no incomplete pack was installed.")
         return 0
     except (OSError, ValueError, KeyError, RuntimeError, TypeError) as error:
-        print(f'Terrain install failed: {error}')
+        print(f"Terrain install failed: {error}")
         return 1
 
 

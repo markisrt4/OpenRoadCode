@@ -4,9 +4,9 @@
 from __future__ import annotations
 
 import io
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import unittest
 
 from PIL import Image
 

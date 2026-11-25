@@ -11,6 +11,7 @@ class _Mode01Pid:
 
 class FuelSystemStatusPid(_Mode01Pid):
     """Decode raw fuel-system status bytes for bank/system 1 and 2."""
+
     pid = 0x03
     unit = "encoded"
 
@@ -23,6 +24,7 @@ class FuelSystemStatusPid(_Mode01Pid):
 
 class ShortTermFuelTrimBank1Pid(_Mode01Pid):
     """Decode short-term fuel trim for bank 1 as a percentage."""
+
     pid = 0x06
     unit = "%"
 
@@ -32,6 +34,7 @@ class ShortTermFuelTrimBank1Pid(_Mode01Pid):
 
 class LongTermFuelTrimBank1Pid(_Mode01Pid):
     """Decode long-term fuel trim for bank 1 as a percentage."""
+
     pid = 0x07
     unit = "%"
 
@@ -41,6 +44,7 @@ class LongTermFuelTrimBank1Pid(_Mode01Pid):
 
 class IgnitionTimingAdvancePid(_Mode01Pid):
     """Decode ignition timing advance in crankshaft degrees."""
+
     pid = 0x0E
     unit = "deg"
 
@@ -50,6 +54,7 @@ class IgnitionTimingAdvancePid(_Mode01Pid):
 
 class FuelRailGaugePressurePid(_Mode01Pid):
     """Decode fuel-rail gauge pressure in kilopascals."""
+
     pid = 0x23
     unit = "kPa"
 
@@ -59,6 +64,7 @@ class FuelRailGaugePressurePid(_Mode01Pid):
 
 class OxygenSensor1EquivalenceRatioPid(_Mode01Pid):
     """Decode wideband oxygen sensor 1 air/fuel equivalence ratio."""
+
     pid = 0x34
     unit = "ratio"
 
@@ -68,6 +74,7 @@ class OxygenSensor1EquivalenceRatioPid(_Mode01Pid):
 
 class AbsoluteEngineLoadPid(_Mode01Pid):
     """Decode absolute engine load as a percentage."""
+
     pid = 0x43
     unit = "%"
 
@@ -77,6 +84,7 @@ class AbsoluteEngineLoadPid(_Mode01Pid):
 
 class CommandedThrottleActuatorPid(_Mode01Pid):
     """Decode commanded throttle actuator position as a percentage."""
+
     pid = 0x4C
     unit = "%"
 
@@ -86,6 +94,7 @@ class CommandedThrottleActuatorPid(_Mode01Pid):
 
 class EngineLoadPid(_Mode01Pid):
     """Decode calculated engine load as a percentage."""
+
     pid = 0x04
     unit = "%"
 
@@ -95,6 +104,7 @@ class EngineLoadPid(_Mode01Pid):
 
 class EngineRpmPid(_Mode01Pid):
     """Decode engine speed in revolutions per minute."""
+
     pid = 0x0C
     unit = "rpm"
 
@@ -104,6 +114,7 @@ class EngineRpmPid(_Mode01Pid):
 
 class VehicleSpeedPid(_Mode01Pid):
     """Decode vehicle speed in kilometers per hour."""
+
     pid = 0x0D
     unit = "km/h"
 
@@ -113,6 +124,7 @@ class VehicleSpeedPid(_Mode01Pid):
 
 class IntakeManifoldPressurePid(_Mode01Pid):
     """Decode absolute intake-manifold pressure in kilopascals."""
+
     pid = 0x0B
     unit = "kPa"
 
@@ -122,6 +134,7 @@ class IntakeManifoldPressurePid(_Mode01Pid):
 
 class BarometricPressurePid(_Mode01Pid):
     """Decode barometric pressure in kilopascals."""
+
     pid = 0x33
     unit = "kPa"
 
@@ -131,6 +144,7 @@ class BarometricPressurePid(_Mode01Pid):
 
 class ThrottlePositionPid(_Mode01Pid):
     """Decode absolute throttle position as a percentage."""
+
     pid = 0x11
     unit = "%"
 
@@ -150,6 +164,7 @@ class AcceleratorPedalPositionPid(_Mode01Pid):
 
 class CoolantTempPid(_Mode01Pid):
     """Decode engine coolant temperature in degrees Celsius."""
+
     pid = 0x05
     unit = "°C"
 
@@ -159,6 +174,7 @@ class CoolantTempPid(_Mode01Pid):
 
 class IntakeAirTempPid(_Mode01Pid):
     """Decode intake-air temperature in degrees Celsius."""
+
     pid = 0x0F
     unit = "°C"
 
@@ -168,6 +184,7 @@ class IntakeAirTempPid(_Mode01Pid):
 
 class MassAirFlowPid(_Mode01Pid):
     """Decode mass-air flow in grams per second."""
+
     pid = 0x10
     unit = "g/s"
 
@@ -177,6 +194,7 @@ class MassAirFlowPid(_Mode01Pid):
 
 class FuelLevelPid(_Mode01Pid):
     """Decode fuel-tank level input as a percentage."""
+
     pid = 0x2F
     unit = "%"
 
@@ -186,6 +204,7 @@ class FuelLevelPid(_Mode01Pid):
 
 class CommandedEquivalenceRatioPid(_Mode01Pid):
     """Decode commanded equivalence ratio (lambda-like ratio, 1.0 = stoich)."""
+
     pid = 0x44
     unit = "ratio"
 
@@ -195,6 +214,7 @@ class CommandedEquivalenceRatioPid(_Mode01Pid):
 
 class EngineFuelRatePid(_Mode01Pid):
     """Decode engine fuel rate in liters per hour."""
+
     pid = 0x5E
     unit = "L/h"
 
@@ -204,6 +224,7 @@ class EngineFuelRatePid(_Mode01Pid):
 
 class ControlModuleVoltagePid(_Mode01Pid):
     """Decode control-module supply voltage in volts."""
+
     pid = 0x42
     unit = "V"
 
@@ -213,15 +234,17 @@ class ControlModuleVoltagePid(_Mode01Pid):
 
 class ActualEngineTorquePid(_Mode01Pid):
     """Decode Mode 01 PID 62 actual engine torque as percent of reference."""
+
     pid = 0x62
     unit = "%"
 
     def decode(self, data: bytes) -> float | None:
-        return None if not data else float(data[0]-125)
+        return None if not data else float(data[0] - 125)
 
 
 class ReferenceEngineTorquePid(_Mode01Pid):
     """Decode Mode 01 PID 63 reference engine torque in newton metres."""
+
     pid = 0x63
     unit = "Nm"
 

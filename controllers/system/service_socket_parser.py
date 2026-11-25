@@ -24,9 +24,18 @@ class SocketRecord:
 
 
 TCP_STATES = {
-    "01": "connected", "02": "connecting", "03": "connecting", "04": "closing",
-    "05": "closing", "06": "closing", "07": "closed", "08": "closing",
-    "09": "closing", "0A": "listening", "0B": "closing", "0C": "connecting",
+    "01": "connected",
+    "02": "connecting",
+    "03": "connecting",
+    "04": "closing",
+    "05": "closing",
+    "06": "closing",
+    "07": "closed",
+    "08": "closing",
+    "09": "closing",
+    "0A": "listening",
+    "0B": "closing",
+    "0C": "connecting",
 }
 
 
@@ -40,11 +49,18 @@ def parse_socket_table(text: str, protocol: str) -> tuple[SocketRecord, ...]:
             inode = int(fields[9])
             if not inode:
                 continue
-            rows.append(SocketRecord(
-                inode, protocol, _endpoint(fields[1]), _endpoint(fields[2]),
-                TCP_STATES.get(fields[3], "unknown") if protocol == "TCP" else "bound",
-                rx, tx, int(fields[-1]) if protocol == "UDP" and len(fields) >= 13 else None,
-            ))
+            rows.append(
+                SocketRecord(
+                    inode,
+                    protocol,
+                    _endpoint(fields[1]),
+                    _endpoint(fields[2]),
+                    TCP_STATES.get(fields[3], "unknown") if protocol == "TCP" else "bound",
+                    rx,
+                    tx,
+                    int(fields[-1]) if protocol == "UDP" and len(fields) >= 13 else None,
+                )
+            )
         except (ValueError, IndexError):
             continue
     return tuple(rows)
@@ -60,8 +76,11 @@ def parse_tcp_counters(text: str) -> dict[int, tuple[str, int | None, int | None
         cookie = re.search(r"\bsk:([0-9a-fA-F]+)\b", line)
         rx = re.search(r"\bbytes_received:(\d+)\b", line)
         tx = re.search(r"\bbytes_sent:(\d+)\b", line)
-        counters[int(inode[1])] = (cookie[1] if cookie else "", int(rx[1]) if rx else None,
-                                   int(tx[1]) if tx else None)
+        counters[int(inode[1])] = (
+            cookie[1] if cookie else "",
+            int(rx[1]) if rx else None,
+            int(tx[1]) if tx else None,
+        )
     return counters
 
 
@@ -74,8 +93,10 @@ def counter_rate(current: int | None, previous: int | None, elapsed: float) -> f
 
 def _endpoint(raw: str) -> str:
     address, port = raw.split(":")
-    data = b"".join(int(address[index:index + 8], 16).to_bytes(4, sys.byteorder)
-                    for index in range(0, len(address), 8))
+    data = b"".join(
+        int(address[index : index + 8], 16).to_bytes(4, sys.byteorder)
+        for index in range(0, len(address), 8)
+    )
     ip = ipaddress.ip_address(data)
     return f"[{ip}]:{int(port, 16)}" if ip.version == 6 else f"{ip}:{int(port, 16)}"
 
@@ -83,10 +104,19 @@ def _endpoint(raw: str) -> str:
 def parse_ss_sockets(text: str) -> tuple[SocketRecord, ...]:
     """Recover visible netlink endpoints when procfs socket tables are blocked."""
     rows = []
-    states = {"ESTAB": "connected", "LISTEN": "listening", "SYN-SENT": "connecting",
-              "SYN-RECV": "connecting", "CLOSE-WAIT": "closing", "FIN-WAIT-1": "closing",
-              "FIN-WAIT-2": "closing", "TIME-WAIT": "closing", "LAST-ACK": "closing",
-              "CLOSING": "closing", "CLOSE": "closed"}
+    states = {
+        "ESTAB": "connected",
+        "LISTEN": "listening",
+        "SYN-SENT": "connecting",
+        "SYN-RECV": "connecting",
+        "CLOSE-WAIT": "closing",
+        "FIN-WAIT-1": "closing",
+        "FIN-WAIT-2": "closing",
+        "TIME-WAIT": "closing",
+        "LAST-ACK": "closing",
+        "CLOSING": "closing",
+        "CLOSE": "closed",
+    }
     for line in text.splitlines():
         fields = line.split()
         inode = re.search(r"\bino:(\d+)\b", line)
@@ -99,8 +129,18 @@ def parse_ss_sockets(text: str) -> tuple[SocketRecord, ...]:
             if ":" not in fields[offset + 3] or ":" not in fields[offset + 4]:
                 continue
             state = "bound" if protocol == "UDP" else states.get(fields[offset], "unknown")
-            rows.append(SocketRecord(int(inode[1]), protocol, fields[offset + 3], fields[offset + 4],
-                                     state, int(fields[offset + 1]), int(fields[offset + 2]), None))
+            rows.append(
+                SocketRecord(
+                    int(inode[1]),
+                    protocol,
+                    fields[offset + 3],
+                    fields[offset + 4],
+                    state,
+                    int(fields[offset + 1]),
+                    int(fields[offset + 2]),
+                    None,
+                )
+            )
         except (ValueError, IndexError):
             continue
     return tuple(rows)

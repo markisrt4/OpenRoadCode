@@ -70,8 +70,7 @@ try:
     angular_velocity = imu.get_angular_velocity_rad_s()
 
     print(
-        f"acceleration: x={acceleration.x:.3f}, "
-        f"y={acceleration.y:.3f}, z={acceleration.z:.3f} m/s²"
+        f"acceleration: x={acceleration.x:.3f}, y={acceleration.y:.3f}, z={acceleration.z:.3f} m/s²"
     )
     print(
         f"angular velocity: x={angular_velocity.x:.4f}, "

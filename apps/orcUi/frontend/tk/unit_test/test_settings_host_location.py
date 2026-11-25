@@ -3,32 +3,41 @@
 
 from unittest.mock import Mock, patch
 
-from common.units import UnitSystem
-from apps.orcUi.frontend.tk.settings_screen import SettingsScreen
 from apps.orcUi.frontend.tk.settings_panel import SettingsPanel
+from apps.orcUi.frontend.tk.settings_screen import SettingsScreen
+from common.units import UnitSystem
 from ui.navigation.host_location_ui_if import HostLocationState
 
 
 def test_settings_binds_host_requests_and_drops_hidden_panel_updates():
     host, handler, panel = Mock(), Mock(), Mock()
-    screen = SettingsScreen(host, theme_bundle=Mock(), telemetry_profile_request=None,
-                            vehicle_configuration=Mock(), on_vehicle_configuration_changed=Mock(),
-                            unit_system=lambda: UnitSystem.IMPERIAL, on_unit_system_changed=Mock(), on_back=Mock())
+    screen = SettingsScreen(
+        host,
+        theme_bundle=Mock(),
+        telemetry_profile_request=None,
+        vehicle_configuration=Mock(),
+        on_vehicle_configuration_changed=Mock(),
+        unit_system=lambda: UnitSystem.IMPERIAL,
+        on_unit_system_changed=Mock(),
+        on_back=Mock(),
+    )
     screen.set_host_location_request_handler(handler)
-    state = HostLocationState('Ready')
+    state = HostLocationState("Ready")
     screen.set_host_location_state(state)
-    with patch('apps.orcUi.frontend.tk.settings_screen.build_settings_screen', return_value=panel) as build:
+    with patch(
+        "apps.orcUi.frontend.tk.settings_screen.build_settings_screen", return_value=panel
+    ) as build:
         screen.show()
     handler.show.assert_called_once()
-    assert build.call_args.kwargs['host_location_handler'] is handler
-    assert build.call_args.kwargs['host_location_state'] == state
-    pending = HostLocationState('Checking', busy=True)
+    assert build.call_args.kwargs["host_location_handler"] is handler
+    assert build.call_args.kwargs["host_location_state"] == state
+    pending = HostLocationState("Checking", busy=True)
     screen.set_host_location_state(pending)
     panel.set_host_location_state.assert_called_once_with(pending)
     screen.hide()
     handler.hide.assert_called_once()
     panel.reset_mock()
-    screen.set_host_location_state(HostLocationState('Late'))
+    screen.set_host_location_state(HostLocationState("Late"))
     panel.set_host_location_state.assert_not_called()
 
 

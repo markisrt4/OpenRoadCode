@@ -5,15 +5,15 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import shlex
 import subprocess
-import logging
 import threading
-from common.logging.structured import JsonStore, collect_native_output, event
 from pathlib import Path
 
 from apps.launchers.process_manager import find_matching_processes, terminate_process
+from common.logging.structured import JsonStore, collect_native_output, event
 
 _MAP_RENDERER_PROCESS_PATTERN = r"(^|/)openroadcode-map-renderer([[:space:]]|$)"
 

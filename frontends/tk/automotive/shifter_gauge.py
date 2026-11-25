@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import tkinter as tk
+from dataclasses import dataclass
 
 from ui.theme import StyleSheet
 from ui.ui_widget import UiWidget

@@ -137,75 +137,75 @@ address = 0x38
 key = "fm_radio"
 config = "fm_radio.json"
 backend = "rigctl"
-launcher = "sdrpp"
+launcher = "sdrforge"
 enabled = true
 
 [[radios]]
 key = "airband"
 config = "airband_am.json"
 backend = "rigctl"
-launcher = "sdrpp"
+launcher = "sdrforge"
 enabled = true
 
 [[radios]]
 key = "weather_band"
 config = "weather_band.json"
 backend = "rigctl"
-launcher = "sdrpp"
+launcher = "sdrforge"
 enabled = true
 
 [[radios]]
 key = "police_fire"
 config = "police_fire.json"
 backend = "rigctl"
-launcher = "sdrpp"
+launcher = "sdrforge"
 enabled = true
 
 [[radios]]
 key = "railroad"
 config = "railroad.json"
 backend = "rigctl"
-launcher = "sdrpp"
+launcher = "sdrforge"
 enabled = true
 
 [[radios]]
 key = "ham_2m"
 config = "ham_2m.json"
 backend = "rigctl"
-launcher = "sdrpp"
+launcher = "sdrforge"
 enabled = true
 
 [[radios]]
 key = "ham_70cm"
 config = "ham_70cm.json"
 backend = "rigctl"
-launcher = "sdrpp"
+launcher = "sdrforge"
 enabled = true
 
 [[radios]]
 key = "gmrs"
 config = "gmrs.json"
 backend = "rigctl"
-launcher = "sdrpp"
+launcher = "sdrforge"
 enabled = true
 
 [[radios]]
 key = "frs"
 config = "frs.json"
 backend = "rigctl"
-launcher = "sdrpp"
+launcher = "sdrforge"
 enabled = true
 
 [[radios]]
 key = "marine"
 config = "marine.json"
 backend = "rigctl"
-launcher = "sdrpp"
+launcher = "sdrforge"
 enabled = true
 
 [[radios]]
 key = "cb"
 config = "cb.json"
 backend = "rigctl"
-launcher = "sdrpp"
+launcher = "sdrforge"
 enabled = true

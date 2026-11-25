@@ -1,23 +1,24 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Top-level radio chooser and SDR++ presentation handoff for orcUi."""
+"""Top-level radio chooser and native radio presentation handoff for orcUi."""
 
 from __future__ import annotations
 
 import tkinter as tk
-from functools import partial
 from collections.abc import Callable
+from functools import partial
 
-from ui.system.online_mode_if import OnlineModeIf
-from frontends.tk.offline_card import OfflineCardAppearance
 from apps.orcUi.frontend.tk.radio_panel import RadioPanel
+from frontends.tk.offline_card import OfflineCardAppearance
 from frontends.tk.radio.persistent_streaming_radio_panel import PersistentStreamingRadioPanel
+from ui.system.online_mode_if import OnlineModeIf
 from ui.theme import ThemeBundle
-from .trending_radio_panel import TrendingRadioPanel
-from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
-from .radio_source_icon import draw_source_icon, draw_source_scene
 from ui.ui_widget import UiWidget
+
+from .radio_source_icon import draw_source_icon, draw_source_scene
+from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
+from .trending_radio_panel import TrendingRadioPanel
 
 
 class RadioEntryPanel(tk.Frame, UiWidget):
@@ -37,8 +38,9 @@ class RadioEntryPanel(tk.Frame, UiWidget):
         online_mode: OnlineModeIf | None = None,
     ) -> None:
         self._online_mode = online_mode
-        self._unsubscribe_online = (online_mode.subscribe(self._mode_changed)
-                                    if online_mode is not None else lambda: None)
+        self._unsubscribe_online = (
+            online_mode.subscribe(self._mode_changed) if online_mode is not None else lambda: None
+        )
         self._theme = theme
         ui = theme.ui
         super().__init__(parent, bg=ui.background)
@@ -68,8 +70,9 @@ class RadioEntryPanel(tk.Frame, UiWidget):
         self._streaming_card_appearance.set_online(online)
         if self._trending_button is not None:
             self._trending_button.configure(state=tk.NORMAL if online else tk.DISABLED)
-        self._streaming_button.configure(state=tk.NORMAL if online else tk.DISABLED,
-                                         disabledforeground=self._theme.ui.text_muted)
+        self._streaming_button.configure(
+            state=tk.NORMAL if online else tk.DISABLED, disabledforeground=self._theme.ui.text_muted
+        )
         self._status.configure(text="" if online else "Offline mode: RF radio remains available")
         if not online:
             if self._trending_page is not None and self._trending_page.winfo_exists():
@@ -150,7 +153,7 @@ class RadioEntryPanel(tk.Frame, UiWidget):
         self._set_location("AIRBAND")
 
     def open_adsb(self) -> None:
-        """Present the ADS-B aircraft dashboard without starting SDR++ first."""
+        """Present the ADS-B aircraft dashboard without starting the RF receiver first."""
         self._chooser.grid_remove()
         if self._streaming_page is not None and self._streaming_page.winfo_exists():
             self._streaming_page.deactivate()
@@ -241,9 +244,17 @@ class RadioEntryPanel(tk.Frame, UiWidget):
 
         scene = tk.Canvas(card, height=96, bg=ui.surface, highlightthickness=0, bd=0)
         scene.grid(row=0, column=0, sticky="ew")
-        scene.bind("<Configure>", lambda event: draw_source_scene(
-            scene, icon_kind=icon_kind, accent=accent, theme=self._theme,
-            width=event.width, height=event.height))
+        scene.bind(
+            "<Configure>",
+            lambda event: draw_source_scene(
+                scene,
+                icon_kind=icon_kind,
+                accent=accent,
+                theme=self._theme,
+                width=event.width,
+                height=event.height,
+            ),
+        )
 
         heading = tk.Frame(card, bg=ui.surface)
         heading.grid(row=1, column=0, sticky="ew", padx=12, pady=(8, 6))
@@ -297,8 +308,6 @@ class RadioEntryPanel(tk.Frame, UiWidget):
             wraplength=390,
         )
         description_label.grid(row=0, column=0, sticky="new")
-        body.bind("<Configure>", lambda event: description_label.configure(
-            wraplength=max(1, event.width)))
         feature_label = tk.Label(
             body,
             text=features,
@@ -364,7 +373,9 @@ class RadioEntryPanel(tk.Frame, UiWidget):
         self._chooser.grid_remove()
         if self._streaming_page is None or not self._streaming_page.winfo_exists():
             self._streaming_page = self._streaming_panel_factory(
-                self, self._theme, self._show_chooser,
+                self,
+                self._theme,
+                self._show_chooser,
             )
         self._streaming_page.activate()
         self._streaming_page.grid(row=0, column=0, sticky="nsew")
@@ -395,6 +406,6 @@ class RadioEntryPanel(tk.Frame, UiWidget):
         self._radio_panel.grid(row=0, column=0, sticky="nsew")
         self._radio_panel.launch()
 
-    def detach_sdrpp(self, parent_window_id: int) -> None:
+    def detach_native_client(self, parent_window_id: int) -> None:
         if self._radio_panel is not None:
             self._radio_panel.deactivate()
