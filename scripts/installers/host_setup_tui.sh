@@ -132,7 +132,7 @@ while true; do
     radio) choose_features "Radio" "Select radio features:" "$SELECTED_RADIO" \
       "rtl-sdr|RTL-SDR and SoapySDR support" \
       "adsb|ADS-B/readsb support" \
-      "sdrforge|Native SDRForge radio (included with desktop UI)" && SELECTED_RADIO="$SELECTED_RESULT" ;;
+      "sdrforge|Native SDRForge radio" && SELECTED_RADIO="$SELECTED_RESULT" ;;
     video) choose_features "Video" "Select camera and perception capabilities:" "$SELECTED_VIDEO" \
       "video|Common camera capture and preview" \
       "video-v4l2|Linux USB cameras and V4L2 controls" \
@@ -215,7 +215,7 @@ if [[ " $SELECTED_NAVIGATION " == *" gps "* || " $SELECTED_NAVIGATION " == *" na
 else
   WITH_GPSD=0
 fi
-if [[ "$SELECTED_TARGET" != termux ]] && { (( INSTALL_ALL_FEATURES )) || [[ " $SELECTED_RADIO $SELECTED_GENERAL " == *" sdrforge "* || " $SELECTED_GENERAL " == *" desktop-ui "* ]]; }; then
+if [[ "$SELECTED_TARGET" != termux ]] && { (( INSTALL_ALL_FEATURES )) || [[ " $SELECTED_RADIO $SELECTED_GENERAL " == *" sdrforge "* ]]; }; then
   ask_service WITH_RADIO "Native radio service" "Enable SDRForge and the ZeroMQ message broker at startup?"
   if (( WITH_RADIO )); then ARGS+=(--with-radio-service); else ARGS+=(--no-radio-service); fi
 fi
