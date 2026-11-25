@@ -15,21 +15,26 @@ from frontends.common.weather_overlay_ui_group import WeatherOverlayUiGroup
 from ui.weather.weather_overlay_ui_stub import WeatherOverlayUiStub
 
 
-def component():
+class TestableOverlay(RouteWeatherOverlayController):
+    native: Mock
+    sink: WeatherOverlayUiStub
+
+
+def component() -> TestableOverlay:
     handler = Mock(active_route=None)
     native, sink = Mock(), WeatherOverlayUiStub()
     group = WeatherOverlayUiGroup(MapWeatherOverlayUi(native, lambda: UnitSystem.IMPERIAL), sink)
-    ui = RouteWeatherOverlayController(Mock(), handler, Mock(), Mock(), group)
+    ui = TestableOverlay(Mock(), handler, Mock(), Mock(), group)
     ui.native, ui.sink = native, sink
     return ui
 
 
-def forecasts():
+def forecasts() -> tuple[RouteWeather, ...]:
     checkpoint = RouteCheckpoint(GeoPoint(42, -83), datetime.now(timezone.utc), 0)
     return (RouteWeather(checkpoint, 0, 75, 16.09344, "snow"),)
 
 
-def test_markers_include_selected_layers_and_correct_imperial_units():
+def test_markers_include_selected_layers_and_correct_imperial_units() -> None:
     ui = component()
     ui._enabled = True
     ui._forecasts = forecasts()
@@ -45,7 +50,7 @@ def test_markers_include_selected_layers_and_correct_imperial_units():
     assert "°F" not in label and "mph" not in label
 
 
-def test_canceled_route_clears_markers_and_rejects_late_results():
+def test_canceled_route_clears_markers_and_rejects_late_results() -> None:
     ui = component()
     ui._enabled = True
     ui._forecasts = forecasts()
@@ -55,18 +60,19 @@ def test_canceled_route_clears_markers_and_rejects_late_results():
     assert ui._forecasts == ()
 
 
-def test_changed_route_retries_instead_of_accepting_previous_route_weather():
+def test_changed_route_retries_instead_of_accepting_previous_route_weather() -> None:
     ui = component()
     ui._enabled = True
     ui._route = RouteResult(1, 300, (GeoPoint(42, -83),), ())
     ui._generation = 2
-    ui.refresh = Mock()
+    refresh = Mock()
+    ui.refresh = refresh
     ui._complete(1, forecasts(), None)
     assert ui._forecasts == ()
-    ui.refresh.assert_called_once()
+    refresh.assert_called_once()
 
 
-def test_failed_refresh_clears_old_weather_and_reports_unavailable():
+def test_failed_refresh_clears_old_weather_and_reports_unavailable() -> None:
     ui = component()
     ui._enabled = True
     ui._forecasts = forecasts()
@@ -76,7 +82,7 @@ def test_failed_refresh_clears_old_weather_and_reports_unavailable():
     assert ui.native.set_route_weather.call_args.args[0]["features"] == []
 
 
-def test_guidance_progress_updates_remaining_route_and_completion_clears_it():
+def test_guidance_progress_updates_remaining_route_and_completion_clears_it() -> None:
     ui = component()
     message = Mock()
     message.data.route_complete = False
@@ -90,17 +96,18 @@ def test_guidance_progress_updates_remaining_route_and_completion_clears_it():
     assert ui._route is None and ui._forecasts == ()
 
 
-def test_closed_component_ignores_late_completions_and_closes_provider():
+def test_closed_component_ignores_late_completions_and_closes_provider() -> None:
     ui = component()
-    ui._provider = Mock()
+    provider = Mock()
+    ui._provider = provider
     ui._enabled = True
     ui.close()
     ui._complete(ui._generation, forecasts(), None)
     assert ui._forecasts == ()
-    ui._provider.close.assert_called_once()
+    provider.close.assert_called_once()
 
 
-def test_route_contract_normalizes_temperature_wind_and_probability():
+def test_route_contract_normalizes_temperature_wind_and_probability() -> None:
     ui = component()
     ui._enabled = True
     ui._forecasts = forecasts()
