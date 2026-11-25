@@ -173,7 +173,6 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
     with ResourceCleanup() as cleanup:
         rigctl_client = RigctlClient()
         token = os.environ.get("SDRFORGE_ACQUISITION_TOKEN")
-        managed_backend = SdrForgeRestRadioBackend(shared_receiver=True) if token else None
 
         def sync_theme(mode: ThemeMode) -> None:
             """Native radio widgets consume the ORC theme directly."""
@@ -192,6 +191,13 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
         )
         if managed is not None:
             resources.stop_receiver = managed.close
+        managed_backend = (
+            SdrForgeRestRadioBackend(
+                shared_receiver=True, before_mutation=managed.guard_radio_control
+            )
+            if managed is not None
+            else None
+        )
         receiver_settings = (
             None
             if not os.path.isdir("/sys/bus/usb/devices")
@@ -301,6 +307,7 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
                 notification_sink=app.notification_sink,
                 start_receiver=managed.start_radio if managed is not None else None,
                 stop_receiver=managed.stop_radio if managed is not None else None,
+                guard_receiver_control=managed.guard_radio_control if managed is not None else None,
             )
             with ResourceCleanup() as rollback:
                 rollback.callback(session.close)

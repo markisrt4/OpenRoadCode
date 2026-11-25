@@ -61,6 +61,11 @@ class ReceiverAcquisitionController:
         with self._lock:
             session.phase = phase
 
+    def uses_adapter(self, consumer: str, adapter: ReceiverAcquisitionIf) -> bool:
+        with self._lock:
+            session = self._sessions.get(consumer)
+            return session is not None and session.adapter is adapter
+
     def status(self) -> tuple[tuple[ReceiverLease, str], ...]:
         with self._lock:
             return tuple((session.lease, session.phase) for session in self._sessions.values())

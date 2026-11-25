@@ -33,6 +33,7 @@ def test_noaa_uses_second_supervised_instance_with_distinct_receiver(tmp_path: P
     services, ownership = setup_receivers(tmp_path / "assignments.json", WEATHER)
     services.start_radio()
     assert services.start_weather() == WEATHER_REST
+    services.guard_radio_control()
     assert {lease.identity for lease in ownership.snapshot()} == {RADIO.identity, WEATHER.identity}
     services._radio.start.assert_called_once_with(RADIO)
     services._weather.start.assert_called_once_with(WEATHER)
@@ -49,6 +50,8 @@ def test_noaa_sharing_receiver_preserves_broadcast_until_explicit_stop(tmp_path:
     services._radio.stop.assert_not_called()
     services.stop_radio()
     assert services.start_weather() == RADIO_REST
+    with pytest.raises(RuntimeError, match="NOAA owns"):
+        services.guard_radio_control()
     assert ownership.snapshot()[0].consumer == "weather"
     services._weather.start.assert_not_called()
     services.close()

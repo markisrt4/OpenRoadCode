@@ -68,6 +68,7 @@ class ReceiverSession:
         notification_sink: NotificationSinkIf | None = None,
         start_receiver: Callable[[], None] | None = None,
         stop_receiver: Callable[[], None] | None = None,
+        guard_receiver_control: Callable[[], None] | None = None,
     ) -> None:
         self._spectrum_source = spectrum_source
         self._radio = radio
@@ -82,6 +83,7 @@ class ReceiverSession:
         self._notification_sink = notification_sink
         self._start_receiver = start_receiver
         self._stop_receiver = stop_receiver
+        self._guard_receiver_control = guard_receiver_control
         self._lock = Lock()
         self._native_lock = RLock()
         self._generation = 0
@@ -325,6 +327,13 @@ class ReceiverSession:
 
     def _perform(self, request: RadioRequest, generation: int) -> None:
         action = request.action
+        if self._guard_receiver_control is not None and action in (
+            RadioAction.PAN_ACQUISITION,
+            RadioAction.RECENTER,
+            RadioAction.PLAY,
+            RadioAction.PAUSE,
+        ):
+            self._guard_receiver_control()
         if action in (RadioAction.LAUNCH, RadioAction.ADSB):
             self._launch(request, generation)
             if self._current(generation) and request.action is RadioAction.LAUNCH:

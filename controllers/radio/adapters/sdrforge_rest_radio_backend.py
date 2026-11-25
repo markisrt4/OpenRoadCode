@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -36,8 +37,10 @@ class SdrForgeRestRadioBackend(RadioBackendIf):
         timeout: float = 1.0,
         *,
         shared_receiver: bool = False,
+        before_mutation: Callable[[], None] | None = None,
     ) -> None:
         self.shared_receiver = shared_receiver
+        self._before_mutation = before_mutation
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout
         self._connection_state = "unknown"
@@ -79,6 +82,8 @@ class SdrForgeRestRadioBackend(RadioBackendIf):
         return self._request_once(path, body)
 
     def _request_once(self, path: str, body: dict[str, object] | None = None) -> dict:
+        if body is not None and self._before_mutation is not None:
+            self._before_mutation()
         data = None if body is None else json.dumps(body).encode("utf-8")
         request = Request(
             self._base_url + path,

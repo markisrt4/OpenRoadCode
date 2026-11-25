@@ -45,6 +45,12 @@ class ManagedReceiverServices:
         instance = SdrForgeSystemdInstance(unit, endpoint)
         return SdrforgeAcquisitionAdapter(token, endpoint, ensure_ready=instance.ensure_ready)
 
+    def guard_radio_control(self) -> None:
+        if self.acquisition.uses_adapter("weather", self._radio):
+            raise RuntimeError(
+                "NOAA owns the shared receiver. Choose Start Receiver to switch to radio."
+            )
+
     def start_radio(self) -> None:
         device = self._consumers.assignment("radio")
         for lease in self._ownership.snapshot():
