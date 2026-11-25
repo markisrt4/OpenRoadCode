@@ -23,9 +23,11 @@ from controllers.navigation.position_snapshot_cache import DEFAULT_POSITION_CACH
 def create_position_source(
     provider: str | None = None,
     *,
-    cache_config: PositionCacheConfig = PositionCacheConfig(),
+    cache_config: PositionCacheConfig | None = None,
 ) -> PositionSourceIf:
     """Create the configured position provider."""
+    if cache_config is None:
+        cache_config = PositionCacheConfig()
     selected = (provider or os.getenv("CARUI_POSITION_SOURCE", "gpsd")).strip().lower()
     if selected == "gpsd":
         source: PositionSourceIf = GpsdPositionSource()

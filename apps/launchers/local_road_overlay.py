@@ -81,7 +81,7 @@ def decode_overlay(blob, z, x, y):
         if not 256 <= extent <= 8192:
             raise ValueError("Unsupported road tile extent")
 
-        def point(px, py):
+        def point(px, py, extent=extent):
             n = 2**z
             return GeoPoint(
                 math.atan(math.sinh(math.pi * (1 - 2 * (y + py / extent) / n))),

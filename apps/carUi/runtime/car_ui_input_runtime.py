@@ -67,7 +67,7 @@ class CarUiInputRuntime:
         self._event_dispatcher = UiInputEventDispatcher(_StepExpandingInputHandler(input_handler))
         self._adapters = tuple(
             RotaryEncoderInputAdapter(encoder, device_id, self._event_dispatcher)
-            for encoder, device_id in zip(encoders, device_ids)
+            for encoder, device_id in zip(encoders, device_ids, strict=True)
         )
         from controllers.input import KeyboardInputAdapter, PushButtonInputAdapter
 
