@@ -6,9 +6,6 @@ set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 RUNNER="$SCRIPT_DIR/run_carbonate.sh"
 PYTHON_BIN="${OPENROADCODE_PYTHON:-$(command -v python3)}"
-if ! command -v go >/dev/null 2>&1; then
-    sudo apt-get install -y golang-go
-fi
 CARBONATE_BIN="${CARBONATE_BIN:-carbonate}"
 if ! command -v "$CARBONATE_BIN" >/dev/null 2>&1; then
     if [ "$CARBONATE_BIN" = carbonate ] && [ -x "$HOME/go/bin/carbonate" ]; then
