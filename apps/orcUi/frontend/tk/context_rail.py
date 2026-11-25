@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import tkinter as tk
+from datetime import datetime, timedelta, timezone
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -62,6 +63,9 @@ class ContextRail(tk.Frame, UiWidget):
         self._gear_value_label: tk.Label | None = None
         self._offroad_panel: ContextOffroadPanel | None = None
         self._calendar_factory: Callable[[tk.Misc], tk.Widget] | None = None
+        self._calendar_timer = None
+        self._personal_tab = None
+        self.bind("<Destroy>", self._stop_calendar_poll, add="+")
         self._group = "AUTOMOTIVE"
         self._group_pages = {"AUTOMOTIVE": 0, "PERSONAL": 0}
         self._page_index = 0
@@ -130,6 +134,32 @@ class ContextRail(tk.Frame, UiWidget):
     def set_calendar_factory(self, factory: Callable[[tk.Misc], tk.Widget]) -> None:
         self._calendar_factory = factory
         self._rebuild()
+        if self._calendar_timer is None:
+            self._poll_calendar()
+
+    def _poll_calendar(self) -> None:
+        self._calendar_timer = None
+        monitor = getattr(self._calendar_factory, "monitor", None)
+        if monitor is None:
+            return
+        monitor.poll()
+        upcoming = False
+        if monitor.snapshot is not None and not monitor.failed:
+            events, health = monitor.snapshot
+            if not health.get("stale") and health.get("last_data_refresh_age_seconds") is not None:
+                now = datetime.now(timezone.utc)
+                upcoming = any(
+                    timedelta(0) <= event.starts_at - now <= timedelta(hours=1)
+                    for event in events
+                )
+        if self._personal_tab is not None:
+            self._personal_tab.configure(text="PERSONAL •" if upcoming else "PERSONAL")
+        self._calendar_timer = self.after(500, self._poll_calendar)
+
+    def _stop_calendar_poll(self, event: tk.Event) -> None:
+        if event.widget is self and self._calendar_timer is not None:
+            self.after_cancel(self._calendar_timer)
+            self._calendar_timer = None
 
     def _select_group(self, group: str) -> None:
         if group == self._group:
@@ -161,7 +191,7 @@ class ContextRail(tk.Frame, UiWidget):
             tabs = tk.Frame(self, bg=ui.surface)
             tabs.pack(fill=tk.X, padx=8, pady=(4, 0))
             for group in ("AUTOMOTIVE", "PERSONAL"):
-                tk.Button(
+                button = tk.Button(
                     tabs,
                     text=group,
                     command=lambda value=group: self._select_group(value),
@@ -171,7 +201,10 @@ class ContextRail(tk.Frame, UiWidget):
                     bd=0,
                     highlightthickness=0,
                     font=("Sans", FONT_SMALL, "bold"),
-                ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
+                )
+                button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
+                if group == "PERSONAL":
+                    self._personal_tab = button
         header = tk.Frame(self, bg=ui.surface)
         header.pack(fill=tk.X, padx=8, pady=(7, 3))
         header.grid_columnconfigure(1, weight=1)
