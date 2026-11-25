@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections import deque
 from collections.abc import Iterable, Sequence
 from enum import Enum
+from typing import TypeAlias
 
 from protocols.obd2.obd_pid_decoder import ObdPidDecoder
 
@@ -109,21 +110,25 @@ PROFILE_SCHEDULES: dict[Obd2PollingProfile, tuple[str, ...]] = {
 }
 
 
+ObdValue: TypeAlias = int | float | tuple[int, int]
+ObdDecoder: TypeAlias = ObdPidDecoder[ObdValue]
+
+
 class Obd2PollScheduler:
     """Choose one supported PID per physical OBD transaction opportunity."""
 
     def __init__(
         self,
         *,
-        rpm: ObdPidDecoder,
-        vehicle_speed: ObdPidDecoder,
-        manifold_pressure: ObdPidDecoder,
-        standard: Sequence[ObdPidDecoder],
-        slow: Sequence[ObdPidDecoder],
-        performance: Sequence[ObdPidDecoder] = (),
-        engine: Sequence[ObdPidDecoder] = (),
-        ecu: Sequence[ObdPidDecoder] = (),
-        trip: Sequence[ObdPidDecoder] = (),
+        rpm: ObdDecoder,
+        vehicle_speed: ObdDecoder,
+        manifold_pressure: ObdDecoder,
+        standard: Sequence[ObdDecoder],
+        slow: Sequence[ObdDecoder],
+        performance: Sequence[ObdDecoder] = (),
+        engine: Sequence[ObdDecoder] = (),
+        ecu: Sequence[ObdDecoder] = (),
+        trip: Sequence[ObdDecoder] = (),
         supported_pids: set[int] | None,
         profile: Obd2PollingProfile = Obd2PollingProfile.BACKGROUND,
     ) -> None:
@@ -153,7 +158,7 @@ class Obd2PollScheduler:
         self._profile = profile
         self._index = 0
 
-    def next_decoder(self) -> ObdPidDecoder | None:
+    def next_decoder(self) -> ObdDecoder | None:
         """Return the next supported decoder for the active profile."""
         schedule = PROFILE_SCHEDULES[self._profile]
         for _ in range(len(schedule)):
@@ -161,7 +166,7 @@ class Obd2PollScheduler:
             self._index = (self._index + 1) % len(schedule)
 
             if token == "rpm":
-                decoder = self._rpm
+                decoder: ObdDecoder | None = self._rpm
             elif token == "vehicle_speed":
                 decoder = self._vehicle_speed
             elif token == "map":
@@ -175,15 +180,15 @@ class Obd2PollScheduler:
 
     def _supported(
         self,
-        decoders: Iterable[ObdPidDecoder],
-    ) -> tuple[ObdPidDecoder, ...]:
+        decoders: Iterable[ObdDecoder],
+    ) -> tuple[ObdDecoder, ...]:
         return tuple(decoder for decoder in decoders if self._is_supported(decoder))
 
     def _is_supported(self, decoder: ObdPidDecoder) -> bool:
         return self._supported_pids is None or decoder.pid in self._supported_pids
 
     @staticmethod
-    def _rotate(queue: deque[ObdPidDecoder]) -> ObdPidDecoder | None:
+    def _rotate(queue: deque[ObdDecoder]) -> ObdDecoder | None:
         if not queue:
             return None
         decoder = queue[0]
