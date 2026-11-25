@@ -14,8 +14,7 @@ persistent cache for seven days so repeat selections can reuse profile data.
 Song selections show their observed play count and the same sourced artist
 context when available.
 
-Trending's
-embedded video pane requests playback through a per-pane session. Radio
+Trending's embedded video pane requests playback through a per-pane session. Radio
 composition creates the session, which owns search work and browser cleanup.
 The pane retires the session when it closes. Set `MUSICFORGE_AIRPLAY_URL` if the
 charts service runs somewhere other than `http://127.0.0.1:8000`.
@@ -26,10 +25,12 @@ with Bash as the ORC user. It uses your interactive VPS login once to register a
 dedicated tunnel key. The systemd user service starts at login and reconnects
 automatically. Set `MUSICFORGE_AIRPLAY_URL=http://127.0.0.1:8003` when launching
 ORC. To start the service before login, enable systemd lingering for the ORC user.
+See the [Ethernet IDD](ethernet_idd.md#musicforge-airplay) for port ownership and
+the HTTP interface.
 
 ## Overview
 
-Streaming Radio adds internet station discovery and audio playback to the ORC Radio screen without replacing the SDRForge RF path. The Radio chooser offers RF Radio and Streaming Radio. The streaming browser provides Local, Regional, and Favorites views plus filtering, station artwork, selection, playback controls, and shared Home now-playing state.
+Streaming Radio adds internet station discovery and audio playback to the ORC Radio screen alongside RF Radio and Trending. The streaming browser provides Local, Regional, and Favorites views plus filtering, station artwork, selection, playback controls, and shared Home now-playing state.
 
 Radio Browser supplies station discovery and current metadata. mpv supplies audio playback. Internet access is required for directory requests and remote streams; the streaming path itself does not require an SDR receiver.
 

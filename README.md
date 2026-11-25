@@ -76,7 +76,12 @@ Current and partially integrated capabilities include:
 * Configurable startup and splash-screen behavior
 * Mock, stub, and simulation implementations for development without hardware
 
-The Radio entry screen separates RF Radio from Streaming Radio. RF Radio opens the native SDRForge receiver; Streaming Radio currently presents a Coming Soon screen while its provider/controller plumbing remains under development.
+The Radio entry screen offers **RF Radio**, **Streaming Radio**, and **Trending**.
+RF Radio opens the native SDRForge receiver. Streaming Radio provides internet
+station browsing and playback. Trending shows songs and artists observed by
+MusicForge, with cached artist information and YouTube and Spotify actions.
+Trending uses the Airplay API and does not require an SDR receiver. See
+[Streaming Radio and Trending setup](docs/streaming_radio.md).
 
 Not every feature is supported on every target. In particular, Android/Termux is a development and portability target and does not provide hardware parity with the Raspberry Pi installation.
 
@@ -110,6 +115,11 @@ OpenRoadCode uses libSDRForge for RF acquisition and DSP, with native ORC spectr
 | 5571 | ZeroMQ | Spectrum and receiver telemetry |
 
 Desktop UI installations include the native SDRForge engine automatically. Headless installations can explicitly select the `sdrforge` feature. SDR++ is not required. RF service lifecycle is separate from UI presentation. See [RF radio contracts](docs/rf_radio.md) for details.
+
+FM opens with the spectrum and waterfall visible. **Hide Spectrum** switches
+to a compact dashboard with an FM dial, large tune controls, station and RDS
+information, presets, and receiver power. **Show Spectrum** restores the plots
+within the same receiver session.
 
 ---
 ## Native Games

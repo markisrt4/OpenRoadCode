@@ -38,6 +38,12 @@ The package owns radio-domain behavior:
 
 Protocol packages own command formatting, socket communication, and response parsing. Native radio display controls and SDRForge transport adapters live in the radio controller layer. Frontends own presentation and user interaction.
 
+ORC's compact FM dashboard and spectrum view share one receiver session.
+Showing or hiding the plots changes presentation and spectrum polling while
+preserving tuning and playback. MusicForge Trending uses its own read-only
+[Airplay connection](../../docs/ethernet_idd.md#musicforge-airplay) and does not
+open an RF receiver session.
+
 ## Radio Profiles
 
 `RadioProfileCatalog` loads shipped profiles from `config/radio/common` and the configured locale directory, currently defaulting to `config/radio/romeo`. Locale profiles override common profiles with the same key.
