@@ -3,10 +3,11 @@
 """Quiet, private diagnostics for device and background operations."""
 
 import logging
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from functools import wraps
 from threading import Lock
+from typing import Concatenate, ParamSpec, Protocol, TypeVar
 
 from common.logging.structured import current_operation, event, operation
 
@@ -75,12 +76,26 @@ class ComponentLog:
                 self.succeeded(stage)
 
 
-def diagnostic_action(stage: str, *, false_is_failure: bool = False):
+class _DiagnosticOwner(Protocol):
+    @property
+    def _diagnostics(self) -> ComponentLog: ...
+
+
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+_Owner = TypeVar("_Owner", bound=_DiagnosticOwner)
+
+
+def diagnostic_action(
+    stage: str, *, false_is_failure: bool = False
+) -> Callable[[Callable[Concatenate[_Owner, _P], _R]], Callable[Concatenate[_Owner, _P], _R]]:
     """Instrument a method using its instance's private diagnostic recorder."""
 
-    def decorate(function):
+    def decorate(
+        function: Callable[Concatenate[_Owner, _P], _R],
+    ) -> Callable[Concatenate[_Owner, _P], _R]:
         @wraps(function)
-        def wrapped(self, *args, **kwargs):
+        def wrapped(self: _Owner, /, *args: _P.args, **kwargs: _P.kwargs) -> _R:
             with operation(current_operation()):
                 self._diagnostics.emit(logging.DEBUG, "requested", stage=stage)
                 try:
