@@ -58,7 +58,9 @@ class AppSettingsStore:
             if radar_palette not in ("universal", "classic"):
                 raise ValueError("invalid radar palette")
             navigation = data.get("navigation", {})
-            buffer = navigation.get("appointment_arrival_minutes", self._default.appointment_arrival_minutes)
+            buffer = navigation.get(
+                "appointment_arrival_minutes", self._default.appointment_arrival_minutes
+            )
             if type(buffer) is not int or not 0 <= buffer <= 120:
                 buffer = self._default.appointment_arrival_minutes
             return AppSettings(

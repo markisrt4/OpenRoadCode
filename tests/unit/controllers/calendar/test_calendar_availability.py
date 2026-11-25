@@ -19,7 +19,5 @@ def test_successful_empty_cache_is_distinct_from_initial_state():
 
 
 def test_failed_refresh_preserves_cached_result_semantics():
-    health = CalendarHealthView(
-        status="failed", stale=True, last_data_refresh_age_seconds=3600.0
-    )
+    health = CalendarHealthView(status="failed", stale=True, last_data_refresh_age_seconds=3600.0)
     assert health.empty_message == "No cached appointments."

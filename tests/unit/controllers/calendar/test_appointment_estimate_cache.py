@@ -14,8 +14,13 @@ from ui.navigation import GeoPoint
 def test_estimate_cache_invalidates_on_inputs_and_expiration():
     now = datetime.now(timezone.utc)
     event = CalendarEvent(
-        "account", "calendar", "event", "Appointment",
-        now + timedelta(hours=1), now + timedelta(hours=2), location="Address",
+        "account",
+        "calendar",
+        "event",
+        "Appointment",
+        now + timedelta(hours=1),
+        now + timedelta(hours=2),
+        location="Address",
     )
     clock = Mock(return_value=0.0)
     position = Mock(return_value=GeoPoint(0.7, -1.4))

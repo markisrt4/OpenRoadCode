@@ -107,7 +107,9 @@ def configure_calendar(app, config: CalendarConfiguration | None = None):
 
 class HomeCalendarFactory:
     def __init__(
-        self, app, config: CalendarConfiguration | None = None,
+        self,
+        app,
+        config: CalendarConfiguration | None = None,
         route_handler: RouteRequestHandlerIf | None = None,
     ):
         self._route_handler = route_handler
@@ -142,7 +144,8 @@ class HomeCalendarFactory:
 
 
 def create_home_calendar_factory(
-    app, config: CalendarConfiguration | None = None,
+    app,
+    config: CalendarConfiguration | None = None,
     route_handler: RouteRequestHandlerIf | None = None,
 ):
     return HomeCalendarFactory(app, config, route_handler)

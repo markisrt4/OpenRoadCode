@@ -98,9 +98,7 @@ class UpcomingPanel(tk.Frame, UiWidget):
                 departure = snapshot.journey.leave_by.astimezone(self._zone)
                 minutes = ceil(snapshot.journey.travel_seconds / 60)
                 self._label(f"Travel: {minutes} min", self._ui.text_muted)
-                self._label(
-                    departure.strftime("Leave by %a %I:%M %p"), self._ui.accent_primary
-                )
+                self._label(departure.strftime("Leave by %a %I:%M %p"), self._ui.accent_primary)
                 if (
                     not failed
                     and self._route_handler is not None
@@ -128,7 +126,9 @@ class UpcomingPanel(tk.Frame, UiWidget):
             return
         if journey.event is None or journey.event not in snapshot.events:
             return
-        if not self._confirm_destination(journey.destination_label or journey.event.location or "Unknown destination"):
+        if not self._confirm_destination(
+            journey.destination_label or journey.event.location or "Unknown destination"
+        ):
             return
         if self._closed:
             return
@@ -167,16 +167,27 @@ class UpcomingPanel(tk.Frame, UiWidget):
             dialog.destroy()
 
         tk.Label(
-            dialog, text="Navigate to appointment", bg=ui.surface, fg=ui.text,
+            dialog,
+            text="Navigate to appointment",
+            bg=ui.surface,
+            fg=ui.text,
             font=("Sans", 16, "bold"),
         ).pack(padx=20, pady=(16, 8))
         tk.Label(
-            dialog, text=location, bg=ui.surface, fg=ui.accent_primary,
-            wraplength=340, justify=tk.LEFT, font=("Sans", 13),
+            dialog,
+            text=location,
+            bg=ui.surface,
+            fg=ui.accent_primary,
+            wraplength=340,
+            justify=tk.LEFT,
+            font=("Sans", 13),
         ).pack(padx=20, pady=8)
         tk.Label(
-            dialog, text="This may replace active guidance.", bg=ui.surface,
-            fg=ui.text_muted, wraplength=340,
+            dialog,
+            text="This may replace active guidance.",
+            bg=ui.surface,
+            fg=ui.text_muted,
+            wraplength=340,
         ).pack(padx=20, pady=8)
         buttons = tk.Frame(dialog, bg=ui.surface)
         buttons.pack(fill=tk.X, padx=16, pady=16)
@@ -185,8 +196,14 @@ class UpcomingPanel(tk.Frame, UiWidget):
             ("Navigate", accept, ui.accent_primary),
         ):
             tk.Button(
-                buttons, text=title, command=command, bg=ui.background, fg=color,
-                font=("Sans", 13), relief=tk.FLAT, pady=12,
+                buttons,
+                text=title,
+                command=command,
+                bg=ui.background,
+                fg=color,
+                font=("Sans", 13),
+                relief=tk.FLAT,
+                pady=12,
             ).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=4)
         dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
         dialog.bind("<Escape>", lambda event: dialog.destroy())

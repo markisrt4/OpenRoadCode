@@ -151,14 +151,21 @@ class CalendarScreen(tk.Frame, UiWidget):
             controls.pack()
             for label, delta in (("−", -5), ("+", 5)):
                 tk.Button(
-                    controls, text=label, width=4, pady=8, bg=ui.surface, fg=ui.text,
+                    controls,
+                    text=label,
+                    width=4,
+                    pady=8,
+                    bg=ui.surface,
+                    fg=ui.text,
                     command=lambda step=delta: buffer.set(max(0, min(120, buffer.get() + step))),
                 ).pack(side=tk.LEFT if delta < 0 else tk.RIGHT, padx=8)
-            tk.Label(controls, textvariable=buffer, bg=ui.background, fg=ui.text,
-                     font=("Sans", 16)).pack(side=tk.LEFT)
+            tk.Label(
+                controls, textvariable=buffer, bg=ui.background, fg=ui.text, font=("Sans", 16)
+            ).pack(side=tk.LEFT)
         if not catalog:
-            tk.Label(dialog, text="Waiting for calendar discovery.", bg=ui.background,
-                     fg=ui.text_muted).pack(padx=12, pady=6)
+            tk.Label(
+                dialog, text="Waiting for calendar discovery.", bg=ui.background, fg=ui.text_muted
+            ).pack(padx=12, pady=6)
         variables = {}
         for item in sorted(catalog, key=lambda item: item.name.casefold()):
             calendar_id, name = item.calendar_id, item.name
@@ -194,10 +201,12 @@ class CalendarScreen(tk.Frame, UiWidget):
             dialog.destroy()
             self._reload()
 
-        tk.Button(dialog, text="Apply", command=apply, bg=ui.surface, fg=ui.text,
-                  pady=8).pack(pady=10)
-        tk.Button(dialog, text="Cancel", command=dialog.destroy, bg=ui.surface,
-                  fg=ui.text).pack(pady=(0, 8))
+        tk.Button(dialog, text="Apply", command=apply, bg=ui.surface, fg=ui.text, pady=8).pack(
+            pady=10
+        )
+        tk.Button(dialog, text="Cancel", command=dialog.destroy, bg=ui.surface, fg=ui.text).pack(
+            pady=(0, 8)
+        )
 
     def _layout(self):
         self._week.grid_forget()

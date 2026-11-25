@@ -30,15 +30,18 @@ def estimate_upcoming_journey(
 ) -> AppointmentJourneyView | None:
     """Estimate a journey using only installed local navigation resources."""
     try:
-        geocoder = SqliteGeocoder(
-            navigation_data_root() / "maps/search/openroadcode-search.sqlite"
-        )
+        geocoder = SqliteGeocoder(navigation_data_root() / "maps/search/openroadcode-search.sqlite")
         try:
             router = ValhallaRoutePlanningController(ValhallaHttpClient())
-            candidates = tuple(
-                result for result in geocoder.geocode((event.location or "").strip())
-                if result.source == "address"
-            ) if event.location else ()
+            candidates = (
+                tuple(
+                    result
+                    for result in geocoder.geocode((event.location or "").strip())
+                    if result.source == "address"
+                )
+                if event.location
+                else ()
+            )
             if len(candidates) != 1:
                 return None
             planner = AppointmentJourneyPlanner(

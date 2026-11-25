@@ -19,7 +19,9 @@ class AppointmentEstimateCache:
         *,
         position: Callable[[], GeoPoint | None],
         arrival_minutes: Callable[[], int],
-        calculate: Callable[[CalendarQueryIf, CalendarEvent, GeoPoint, int], AppointmentJourneyView | None],
+        calculate: Callable[
+            [CalendarQueryIf, CalendarEvent, GeoPoint, int], AppointmentJourneyView | None
+        ],
         clock: Callable[[], float] = monotonic,
     ) -> None:
         self._position = position
@@ -53,7 +55,8 @@ class AppointmentEstimateCache:
                 origin.latitude_rad - previous.latitude_rad,
                 ((origin.longitude_rad - previous.longitude_rad + pi) % (2 * pi) - pi)
                 * cos((origin.latitude_rad + previous.latitude_rad) / 2),
-            ) < 0.00004
+            )
+            < 0.00004
         ):
             return self._estimate
         self._estimate = self._calculate(query, event, origin, buffer_minutes)

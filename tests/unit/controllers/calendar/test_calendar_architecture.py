@@ -31,8 +31,7 @@ def test_calendar_does_not_import_system_or_navigation_controllers():
             else:
                 continue
             assert not any(
-                name.startswith(("controllers.system", "controllers.navigation"))
-                for name in names
+                name.startswith(("controllers.system", "controllers.navigation")) for name in names
             ), path
 
 
