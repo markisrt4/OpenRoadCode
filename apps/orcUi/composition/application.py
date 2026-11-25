@@ -379,7 +379,9 @@ def create_orc_ui_composition(
         app.register_screen("DIAGNOSTICS", diagnostics, show_in_navigation=False)
         calendar_config = CalendarConfiguration()
         configure_calendar(app, calendar_config)
-        calendar_factory = create_home_calendar_factory(app, calendar_config)
+        calendar_factory = create_home_calendar_factory(
+            app, calendar_config, core.route_request_handler
+        )
         home.set_calendar_factory(calendar_factory, calendar_factory.monitor)
         app.set_initial_destination("HOME")
         app.set_settings_action(lambda: app.navigate_to("SETTINGS"))
