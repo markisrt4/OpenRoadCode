@@ -2,11 +2,11 @@
 """Compact upcoming appointments presentation for a mounted context page."""
 
 import tkinter as tk
-from controllers.calendar.appointment_monitor import read_snapshot as _read  # noqa: F401
+from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
 
 
 class UpcomingPanel(tk.Frame):
-    def __init__(self, parent, *, theme, monitor, zone):
+    def __init__(self, parent, *, theme, monitor: AppointmentMonitorIf, zone):
         super().__init__(parent, bg=theme.ui.surface)
         self._ui = theme.ui
         self._monitor = monitor
@@ -49,13 +49,13 @@ class UpcomingPanel(tk.Frame):
             if not failed:
                 self._label("Loading appointments…", self._ui.text_muted)
         else:
-            events, health = snapshot
+            events, health = snapshot.events, snapshot.health
             if (
-                health.get("status") == "unavailable"
-                or health.get("last_data_refresh_age_seconds") is None
+                health.status == "unavailable"
+                or health.last_data_refresh_age_seconds is None
             ):
                 self._label("Calendar freshness unknown", self._ui.accent_warning)
-            elif health.get("stale"):
+            elif health.stale:
                 self._label("Calendar data stale", self._ui.accent_warning)
             elif health.get("status") != "ok":
                 self._label("Calendar sync incomplete", self._ui.accent_warning)
