@@ -12,11 +12,13 @@ fi
 if [ -n "${TERMUX_VERSION:-}" ] || [[ "${PREFIX:-}" == */com.termux/files/usr ]]; then
     if [ "${ORC_QUALITY_CAPTURE:-0}" != 1 ]; then
         log="$(mktemp "${TMPDIR:-$PREFIX/tmp}/orc-quality.XXXXXX")"
-        trap 'rm -f "$log"' EXIT
         status=0
         ORC_QUALITY_CAPTURE=1 bash "$0" "$@" 2>&1 | tee "$log" || status=$?
         if (( status != 0 )); then
+            echo "Diagnostic log retained: $log"
             timeout 5 termux-clipboard-set < "$log" || true
+        else
+            rm -f "$log"
         fi
         exit "$status"
     fi
@@ -27,6 +29,34 @@ if [ "$#" -gt 0 ]; then shift; fi
 case "$mode" in
     --lint) ruff check "${@:-.}"; ruff format --check "${@:-.}" ;;
     --format) ruff check --fix "${@:-.}"; ruff format "${@:-.}" ;;
+    --format-push)
+        if [[ "$#" != 0 ]]; then
+            echo "--format-push does not accept paths." >&2
+            exit 2
+        fi
+        branch="$(git symbolic-ref --quiet --short HEAD)"
+        if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+            echo "Commit or restore tracked changes before automatic formatting." >&2
+            exit 1
+        fi
+        git fetch origin
+        git pull --ff-only origin "$branch"
+        mapfile -d '' -t python_files < <(git ls-files -z -- '*.py')
+        if (( ${#python_files[@]} > 0 )); then
+            ruff check --fix --no-unsafe-fixes -- "${python_files[@]}"
+            ruff format -- "${python_files[@]}"
+            ruff check -- "${python_files[@]}"
+            ruff format --check -- "${python_files[@]}"
+        fi
+        git diff --check
+        git --no-pager diff
+        if ! git diff --quiet; then
+            git add -u -- '*.py'
+            git commit -m "Apply safe Ruff corrections and formatting"
+        fi
+        git push origin "HEAD:refs/heads/$branch"
+        python scripts/check_ui_types.py
+        ;;
     --types) python scripts/check_ui_types.py ;;
     --docstrings) python scripts/check_doxygen_contracts.py ;;
     --test) python scripts/run_tests.py unit ;;
@@ -61,5 +91,5 @@ case "$mode" in
         exit "$status"
         ;;
     --full) python scripts/quality_gate.py ;;
-    *) echo "Usage: $0 [--all|--lint|--format|--types|--docstrings|--docs|--test|--full]" >&2; exit 2 ;;
+    *) echo "Usage: $0 [--all|--lint|--format|--format-push|--types|--docstrings|--docs|--test|--full]" >&2; exit 2 ;;
 esac
