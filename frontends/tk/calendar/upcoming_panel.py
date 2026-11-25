@@ -100,6 +100,13 @@ class UpcomingPanel(tk.Frame, UiWidget):
                     tk.Button(
                         self,
                         text="Navigate to appointment",
+                        bg=self._ui.surface,
+                        fg=self._ui.accent_primary,
+                        activebackground=self._ui.surface,
+                        activeforeground=self._ui.text,
+                        relief=tk.FLAT,
+                        wraplength=180,
+                        pady=6,
                         command=lambda: self._navigate(snapshot),
                     ).pack(fill=tk.X, pady=3)
 
@@ -117,7 +124,15 @@ class UpcomingPanel(tk.Frame, UiWidget):
             parent=self,
         ):
             return
-        if self._monitor.snapshot != snapshot or self._monitor.failed:
+        current = self._monitor.snapshot
+        if (
+            self._closed
+            or self._monitor.failed
+            or current is None
+            or journey.event not in current.events
+            or current.journey is None
+            or current.journey.destination != journey.destination
+        ):
             return
         try:
             handler.request_start_route(journey.destination, TravelMode.AUTO)
