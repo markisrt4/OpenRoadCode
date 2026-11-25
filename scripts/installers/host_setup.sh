@@ -356,16 +356,6 @@ if [[ -n "$BLUETOOTH_SPP_ADDRESS" ]] && (( ! SKIP_INSTALLS )); then
   bash "$PROJECT_DIR/scripts/installers/setup_bluetooth_spp.sh" "${spp_args[@]}"
 fi
 
-if (( RUN_VNC )) || (( RUN_GPSD_SERVICE )) || (( RUN_TELEMETRY_SERVICES )) || (( RUN_RADIO )) || (( RUN_NAVIGATION )); then
-  service_args=()
-  (( RUN_NAVIGATION )) && service_args+=(--navigation)
-  (( RUN_RADIO )) && service_args+=(--radio)
-  (( RUN_VNC )) && service_args+=(--vnc)
-  (( RUN_GPSD_SERVICE )) && service_args+=(--gpsd --gps-device "$GPS_DEVICE")
-  (( RUN_TELEMETRY_SERVICES )) && service_args+=(--telemetry)
-  bash "$PROJECT_DIR/scripts/installers/install_services.sh" "${service_args[@]}"
-fi
-
 VERIFY_PYTHON="python3"
 [[ -x "$VENV_DIR/bin/python" ]] && VERIFY_PYTHON="$VENV_DIR/bin/python"
 
@@ -375,11 +365,24 @@ if (( ! SKIP_INSTALLS )) && [[ " ${FEATURES[*]} " == *" navigation "* ]]; then
   bash "$SCRIPT_DIR/install_navigation_stack.sh" \
     --target "$TARGET" \
     --mode "$NAVIGATION_MODE" \
-    --skip-host-packages
+    --skip-host-packages --skip-services
   if [[ -n "$NAVIGATION_REGION" ]]; then
     bash "$PROJECT_ROOT/scripts/runtime/pull_navigation_data.sh" --region "$NAVIGATION_REGION" --no-restart
-    sudo bash "$PROJECT_ROOT/scripts/systemd/install_navigation_runtime_systemd.sh"
   fi
+fi
+
+if (( RUN_NAVIGATION || RUN_TELEMETRY_SERVICES )) && [[ -s "${DATA_ROOT:-/srv/openroadcode}/valhalla/valhalla.json" ]]; then
+  sudo bash "$PROJECT_ROOT/scripts/systemd/install_valhalla_systemd.sh" "${DATA_ROOT:-/srv/openroadcode}/valhalla/valhalla.json"
+fi
+
+if (( RUN_VNC )) || (( RUN_GPSD_SERVICE )) || (( RUN_TELEMETRY_SERVICES )) || (( RUN_RADIO )) || (( RUN_NAVIGATION )); then
+  service_args=()
+  (( RUN_NAVIGATION )) && service_args+=(--navigation)
+  (( RUN_RADIO )) && service_args+=(--radio)
+  (( RUN_VNC )) && service_args+=(--vnc)
+  (( RUN_GPSD_SERVICE )) && service_args+=(--gpsd --gps-device "$GPS_DEVICE")
+  (( RUN_TELEMETRY_SERVICES )) && service_args+=(--telemetry)
+  bash "$PROJECT_DIR/scripts/installers/install_services.sh" "${service_args[@]}"
 fi
 
 if (( ! SKIP_INSTALLS )); then
@@ -395,6 +398,8 @@ if [[ "$TARGET" == "linux-dev" ]]; then
   runtime_config="$PROJECT_DIR/config/runtime.simulated.toml"
 fi
 runtime_args=("${FEATURES[@]}" --config "$runtime_config")
+(( RUN_NAVIGATION )) && runtime_args+=(--navigation-service)
+[[ -z "$NAVIGATION_REGION" ]] || runtime_args+=(--navigation-data-root "${DATA_ROOT:-/srv/openroadcode}")
 (( RUN_RADIO )) && runtime_args+=(--radio-service)
 (( RUN_TELEMETRY_SERVICES )) && runtime_args+=(--telemetry-services)
 (( RUN_GPSD_SERVICE )) && runtime_args+=(--gpsd-service)
