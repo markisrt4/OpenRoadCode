@@ -106,6 +106,31 @@ build_feature_args() {
   fi
 }
 
+show_installation_inventory() {
+  local report python_bin feature
+  local -a packages
+  python_bin="${VENV_DIR:-$PROJECT_DIR/venv}/bin/python"
+  if [[ ! -x "$python_bin" ]]; then
+    if [[ -x "$PROJECT_DIR/../.venv/bin/python" ]]; then
+      python_bin="$PROJECT_DIR/../.venv/bin/python"
+    elif [[ -x "$PROJECT_DIR/.venv/bin/python" ]]; then
+      python_bin="$PROJECT_DIR/.venv/bin/python"
+    else
+      python_bin=python3
+    fi
+  fi
+  mapfile -t packages < <(
+    source "$SCRIPT_DIR/installer_features.sh"
+    while read -r feature; do get_feature_packages "$feature"; done < <(get_known_features) |
+      tr -s '[:space:]' '\n' | sort -u
+  )
+  report="$(mktemp -t openroadcode-inventory.XXXXXX)"
+  (cd "$PROJECT_DIR" && "$python_bin" -m scripts.installers.installation_inventory "${packages[@]}") >"$report" 2>&1 ||
+    printf '\nInventory could not finish. See the output above.\n' >>"$report"
+  whiptail --title "Installed software and services" --scrolltext --textbox "$report" 20 78 || true
+  rm -f -- "$report"
+}
+
 verify_current_installation() {
   local report status=0
   build_feature_args
@@ -141,7 +166,8 @@ while true; do
     "automotive" "Automotive devices" \
     "bluetooth" "Bluetooth" \
     "all" "Install every capability compatible with the target" \
-    "verify" "Verify current installation" \
+    "inventory" "Show installed software and services" \
+    "verify" "Verify the selected setup" \
     "install" "Install the selected features" \
     "cancel" "Exit without installing" 3>&1 1>&2 2>&3) || exit 0
   case "$section" in
@@ -177,6 +203,7 @@ while true; do
     bluetooth) choose_features "Bluetooth" "Select Bluetooth features:" "$SELECTED_BLUETOOTH" \
       "bluetooth|Bluetooth device support" && SELECTED_BLUETOOTH="$SELECTED_RESULT" ;;
     all) INSTALL_ALL_FEATURES=1; break ;;
+    inventory) show_installation_inventory ;;
     verify) verify_current_installation ;;
     install) INSTALL_ALL_FEATURES=0; break ;;
     cancel) exit 0 ;;
