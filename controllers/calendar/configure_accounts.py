@@ -32,6 +32,9 @@ def main() -> None:
     args = parser.parse_args()
     accounts = load_accounts(args.accounts_file)
     if args.action == "list":
+        if not accounts:
+            print("No calendar accounts configured.")
+            return
         for account in accounts:
             print(
                 account.account_id, account.provider, "enabled" if account.enabled else "disabled"
