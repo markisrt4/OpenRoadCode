@@ -283,6 +283,16 @@ if [[ -z "$RUN_GPSD_SERVICE" ]]; then
   RUN_GPSD_SERVICE=0
   if (( RUN_NAVIGATION )) && [[ "$TARGET" == rpi4 || "$TARGET" == rpi5 ]]; then RUN_GPSD_SERVICE=1; fi
 fi
+if [[ -n "$NAVIGATION_REGION" ]]; then
+  python3 - "$PROJECT_ROOT/scripts/runtime/navigation-data-catalog.json" "$NAVIGATION_REGION" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as stream:
+    if sys.argv[2] not in json.load(stream)["regions"]:
+        raise SystemExit(f"Unknown navigation region: {sys.argv[2]}")
+PY
+fi
 if [[ -n "$NAVIGATION_REGION" ]] && [[ "$TARGET" == termux || " ${FEATURES[*]} " != *" navigation "* ]]; then
   echo "Regional data installation requires Linux navigation feature" >&2; exit 2
 fi
@@ -371,7 +381,7 @@ if (( ! SKIP_INSTALLS )) && [[ " ${FEATURES[*]} " == *" navigation "* ]]; then
   fi
 fi
 
-if (( RUN_NAVIGATION || RUN_TELEMETRY_SERVICES )) && [[ -s "${DATA_ROOT:-/srv/openroadcode}/valhalla/valhalla.json" ]]; then
+if [[ " ${FEATURES[*]} " == *" navigation "* ]] && [[ -s "${DATA_ROOT:-/srv/openroadcode}/valhalla/valhalla.json" ]]; then
   sudo bash "$PROJECT_ROOT/scripts/systemd/install_valhalla_systemd.sh" "${DATA_ROOT:-/srv/openroadcode}/valhalla/valhalla.json"
 fi
 
