@@ -50,14 +50,11 @@ class UpcomingPanel(tk.Frame):
                 self._label("Loading appointments…", self._ui.text_muted)
         else:
             events, health = snapshot.events, snapshot.health
-            if (
-                health.status == "unavailable"
-                or health.last_data_refresh_age_seconds is None
-            ):
+            if health.status == "unavailable" or health.last_data_refresh_age_seconds is None:
                 self._label("Calendar freshness unknown", self._ui.accent_warning)
             elif health.stale:
                 self._label("Calendar data stale", self._ui.accent_warning)
-            elif health.get("status") != "ok":
+            elif health.status != "ok":
                 self._label("Calendar sync incomplete", self._ui.accent_warning)
             if not events:
                 self._label("No upcoming timed appointments in cache", self._ui.text_muted)
