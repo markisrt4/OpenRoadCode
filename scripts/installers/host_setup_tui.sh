@@ -13,8 +13,6 @@ if ! command -v whiptail >/dev/null 2>&1; then
   exit 1
 fi
 
-whiptail --title "OpenRoadCode installer" --yesno "Would you like to run the interactive installer?" 10 60 || exit 0
-
 NAVIGATION_MODE=auto
 NAVIGATION_REGION=none
 WITH_NAVIGATION=1
@@ -178,7 +176,18 @@ PY
 )"
   region_options=(none "Skip regional data; manage datasets separately")
   region_default=none
-  while IFS=
+  while IFS=$'\t' read -r region description; do
+    [[ -n "$region" ]] || continue
+    region_options+=("$region" "$description")
+    [[ "$region" != "$NAVIGATION_REGION" ]] || region_default="$region"
+  done <<< "$catalog_rows"
+  NAVIGATION_REGION="$(whiptail --title "Offline navigation data" --default-item "$region_default" --menu \
+    "Select a regional dataset. Downloads are cached and verified before deployment." 18 78 8 \
+    "${region_options[@]}" 3>&1 1>&2 2>&3)" || exit 0
+  if [[ "$NAVIGATION_REGION" != none ]]; then
+    ARGS+=(--navigation-region "$NAVIGATION_REGION")
+  fi
+fi
 
 ask_service() {
   local variable="$1" title="$2" prompt="$3"
@@ -231,78 +240,7 @@ if [[ " $SELECTED_NAVIGATION " == *" navigation "* ]] || (( INSTALL_ALL_FEATURES
   if whiptail --title "Home and Work addresses" --yesno \
     "Configure Home and Work destinations now?\n\nAddresses stay in your user configuration. You can skip this and configure them later." 12 78; then
     SETUP_PYTHON="python3"
-    [[ -x "${VENV_DIR:-$PROJECT_DIR/venv}/bin/python" ]] && SETUP_PYTHON="${VENV_DIR:-$PROJECT_DIR/venv}/bin/python"
-    (cd "$PROJECT_DIR" && "$SETUP_PYTHON" -m scripts.installers.setup_destinations) || \
-      echo "[!] Address setup did not finish. Run it again as the ORC user."
-  fi
-fi
-
-if [[ " $SELECTED_BLUETOOTH " == *" bluetooth "* ]] || (( INSTALL_ALL_FEATURES )); then
-  if whiptail --title "Post-install configuration" --yesno "Configure a Bluetooth Serial Port Profile device now?" 10 72; then
-    bash "$PROJECT_DIR/scripts/installers/setup_bluetooth_spp.sh"
-  fi
-fi
-\t' read -r region description; do
-    [[ -n "$region" ]] || continue
-    region_options+=("$region" "$description")
-    [[ "$region" != "$NAVIGATION_REGION" ]] || region_default="$region"
-  done <<< "$catalog_rows"
-  NAVIGATION_REGION="$(whiptail --title "Offline navigation data" --default-item "$region_default" --menu \
-    "Select a regional dataset. Downloads are cached and verified before deployment." 18 78 8 \
-    "${region_options[@]}" 3>&1 1>&2 2>&3)" || exit 0
-  if [[ "$NAVIGATION_REGION" != none ]]; then
-    ARGS+=(--navigation-region "$NAVIGATION_REGION")
-  fi
-fi
-
-ask_service() {
-  local variable="$1" title="$2" prompt="$3"
-  local options=()
-  if [[ "${!variable}" == 0 ]]; then options+=(--defaultno); fi
-  if whiptail --title "$title" "${options[@]}" --yesno "$prompt" 14 78; then
-    printf -v "$variable" 1
-  else
-    printf -v "$variable" 0
-  fi
-}
-
-if [[ " $SELECTED_GENERAL " == *" vnc "* ]] || (( INSTALL_ALL_FEATURES )); then
-  ask_service WITH_VNC "VNC service" "Configure and enable the VNC service?"
-else
-  WITH_VNC=0
-fi
-if [[ " $SELECTED_NAVIGATION " == *" gps "* || " $SELECTED_NAVIGATION " == *" navigation "* ]] || (( INSTALL_ALL_FEATURES )); then
-  ask_service WITH_GPSD "GPSD service" "Configure the default GPSD service?"
-else
-  WITH_GPSD=0
-fi
-if [[ "$SELECTED_TARGET" != termux ]] && { (( INSTALL_ALL_FEATURES )) || [[ " $SELECTED_RADIO $SELECTED_GENERAL " == *" sdrforge "* || " $SELECTED_GENERAL " == *" desktop-ui "* ]]; }; then
-  ask_service WITH_RADIO "Native radio service" "Enable SDRForge and the ZeroMQ message broker at startup?"
-  if (( WITH_RADIO )); then ARGS+=(--with-radio-service); else ARGS+=(--no-radio-service); fi
-fi
-ask_service WITH_TELEMETRY "OpenRoadCode telemetry" "Configure and enable the ZeroMQ broker, navigation producer, and automotive producer services?"
-if (( WITH_VNC )); then ARGS+=(--with-vnc); fi
-if (( WITH_GPSD )); then ARGS+=(--with-gpsd-service); fi
-if (( WITH_TELEMETRY )); then ARGS+=(--with-telemetry-services); fi
-
-save_settings
-while true; do
-  if bash "$PROJECT_DIR/scripts/installers/host_setup.sh" "${ARGS[@]}"; then
-    break
-  else
-    status=$?
-  fi
-  if ! whiptail --title "Installation incomplete" --defaultno --yesno \
-    "Installation failed (exit $status). Your selections are saved. Retry now? Existing packages will be reused where possible." 12 78; then
-    exit "$status"
-  fi
-done
-
-if [[ " $SELECTED_NAVIGATION " == *" navigation "* ]] || (( INSTALL_ALL_FEATURES )); then
-  if whiptail --title "Home and Work addresses" --yesno \
-    "Configure Home and Work destinations now?\n\nAddresses stay in your user configuration. You can skip this and configure them later." 12 78; then
-    SETUP_PYTHON="python3"
-    [[ -x "${VENV_DIR:-$PROJECT_DIR/venv}/bin/python" ]] && SETUP_PYTHON="${VENV_DIR:-$PROJECT_DIR/venv}/bin/python"
+    [[ -x "${VENV_DIR:-$PROJECT_DIR/../.venv}/bin/python" ]] && SETUP_PYTHON="${VENV_DIR:-$PROJECT_DIR/../.venv}/bin/python"
     (cd "$PROJECT_DIR" && "$SETUP_PYTHON" -m scripts.installers.setup_destinations) || \
       echo "[!] Address setup did not finish. Run it again as the ORC user."
   fi
