@@ -2,38 +2,56 @@
 # SPDX-License-Identifier: MIT
 """Own automatic network recovery and discard stale internet probe results."""
 
+from collections.abc import Callable
 from queue import Empty, SimpleQueue
 from threading import Thread
+from typing import Protocol
 
 from controllers.connectivity.internet_access import internet_reachable
 from controllers.connectivity.network_monitor import NetworkMonitor
+from ui.ui_dispatcher_if import UiDispatcherIf
+
+
+class _OnlineMode(Protocol):
+    @property
+    def requested_online(self) -> bool: ...
+    @property
+    def online(self) -> bool: ...
+    def set_reachable(self, reachable: bool) -> None: ...
+    def set_online(self, online: bool) -> None: ...
 
 
 class ShellConnectivityController:
     """Observe network reachability and publish mode on the UI dispatcher."""
 
-    def __init__(self, mode, dispatcher, paint, set_status):
+    def __init__(
+        self,
+        mode: _OnlineMode,
+        dispatcher: UiDispatcherIf,
+        paint: Callable[[bool, bool | None], None],
+        set_status: Callable[[str], None],
+    ) -> None:
         self.online_mode = mode
         self._dispatcher = dispatcher
         self._paint = paint
         self._set_status = set_status
         self._closing = False
-        self._callback_id = None
+        self._callback_id: object | None = None
         self._internet_status: bool | None = None
-        self._internet_results = SimpleQueue()
+        self._internet_results: SimpleQueue[tuple[int, bool]] = SimpleQueue()
         self._internet_generation = 0
         self._internet_probe_active = False
         self._internet_next_probe = 0
         self._network_available: bool | None = None
-        self._network_results = SimpleQueue()
+        self._network_results: SimpleQueue[bool] = SimpleQueue()
         self._network_monitor = NetworkMonitor(self._network_results.put)
 
-    def start(self):
+    def start(self) -> None:
         """Start bounded network monitoring and scheduled presentation."""
         self._network_monitor.start()
         self._poll_internet_status()
 
-    def close(self):
+    def close(self) -> None:
         """Stop network monitoring and reject all late probe completions."""
         self._closing = True
         self._network_monitor.close()
@@ -41,7 +59,7 @@ class ShellConnectivityController:
             self._dispatcher.cancel_ui_callback(self._callback_id)
             self._callback_id = None
 
-    def toggle(self):
+    def toggle(self) -> None:
         """Request the opposite saved internet preference."""
         self._toggle_online_mode()
 
