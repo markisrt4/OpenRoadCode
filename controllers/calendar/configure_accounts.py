@@ -66,7 +66,13 @@ def main() -> None:
         except ValueError as exc:
             parser.error(str(exc))
         secrets = EnvironmentVariableSecretManager()
-        password = getpass("Calendar password or app password: ")
+        password = None
+        if provider == "proton" and url == "http://127.0.0.1:8080/caldav/":
+            stored = secrets.get_secret("CARBONATE_BRIDGE_PASSWORD")
+            if stored and input("Reuse stored Carbonate bridge password? [Y/n] ").lower() != "n":
+                password = stored
+        if password is None:
+            password = getpass("Calendar password or app password: ")
         if not password.strip():
             parser.error("Password cannot be empty")
         paths = CalendarAccountPaths(args.accounts_file.parent / "calendar-accounts", account)
