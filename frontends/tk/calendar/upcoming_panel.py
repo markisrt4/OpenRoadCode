@@ -2,26 +2,16 @@
 """Compact upcoming appointments presentation for a mounted context page."""
 
 import tkinter as tk
-from concurrent.futures import Future
-from threading import Thread
-
-
-def _read(future, load):
-    if not future.set_running_or_notify_cancel():
-        return
-    try:
-        future.set_result(load())
-    except Exception as error:
-        future.set_exception(error)
+from controllers.calendar.appointment_monitor import read_snapshot as _read  # noqa: F401
 
 
 class UpcomingPanel(tk.Frame):
-    def __init__(self, parent, *, theme, load, zone):
+    def __init__(self, parent, *, theme, monitor, zone):
         super().__init__(parent, bg=theme.ui.surface)
         self._ui = theme.ui
-        self._load = load
+        self._monitor = monitor
         self._zone = zone
-        self._future = None
+        self._last_state = None
         self._timer = None
         self._closed = False
         self.bind("<Destroy>", self._close, add="+")
@@ -44,29 +34,22 @@ class UpcomingPanel(tk.Frame):
         self._timer = None
         if self._closed:
             return
-        self._future = Future()
-        Thread(
-            target=_read,
-            args=(self._future, self._load),
-            daemon=True,
-            name="upcoming-calendar-read",
-        ).start()
-        self._timer = self.after(50, self._collect)
+        state = (self._monitor.snapshot, self._monitor.failed)
+        if state != self._last_state:
+            self._last_state = state
+            self._render(*state)
+        self._timer = self.after(500, self._refresh)
 
-    def _collect(self):
-        self._timer = None
-        if self._closed:
-            return
-        if not self._future.done():
-            self._timer = self.after(50, self._collect)
-            return
+    def _render(self, snapshot, failed):
         for child in self.winfo_children():
             child.destroy()
-        try:
-            events, health = self._future.result()
-        except Exception:
+        if failed:
             self._label("Calendar cache unavailable", self._ui.accent_warning)
+        if snapshot is None:
+            if not failed:
+                self._label("Loading appointments…", self._ui.text_muted)
         else:
+            events, health = snapshot
             if (
                 health.get("status") == "unavailable"
                 or health.get("last_data_refresh_age_seconds") is None
@@ -84,8 +67,6 @@ class UpcomingPanel(tk.Frame):
                 self._label(event.title or "Untitled", self._ui.text, 12)
                 if event.location:
                     self._label(event.location, self._ui.text_muted)
-        self._future = None
-        self._timer = self.after(30000, self._refresh)
 
     def _close(self, event):
         if event.widget is not self or self._closed:
@@ -94,6 +75,3 @@ class UpcomingPanel(tk.Frame):
         if self._timer is not None:
             self.after_cancel(self._timer)
             self._timer = None
-        if self._future is not None:
-            self._future.cancel()
-            self._future = None
