@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "repository": "markisrt4/OpenRoadCode",
+  "regions": {
+    "us/michigan": {
+      "title": "Michigan",
+      "tag": "navigation-data-45507335279-1",
+      "parts": [
+        "navigation-data.tar.gz.part-0000"
+      ],
+      "archive_bytes": 1324342971
+    }
+  }
+}
