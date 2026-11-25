@@ -4,94 +4,86 @@
 """Contract tests for source-independent audio analysis ownership."""
 
 import struct
-from dataclasses import dataclass
+from collections.abc import Callable, Sequence
 
 import pytest
 
+from controllers.audio.capture.audio_capture_if import AudioCaptureIf, AudioSamplesCallback
 from controllers.audio.music_analysis.music_analysis_session import (
     MusicAnalysisSession,
     PushAudioCapture,
 )
-
-
-@dataclass(frozen=True)
-class FakeState:
-    level: float
-    bass: float = 0.0
-    mid: float = 0.0
-    treble: float = 0.0
-    spectrum: tuple[float, ...] = (0.0, 0.0, 0.0)
-    percussion: object = None
-    sample_rate_hz: int = 48000
-    fft_size: int = 2048
+from controllers.audio.music_analysis.music_analysis_types import MusicAnalysisState
 
 
 class FakeAnalyzer:
     band_count = 3
     fft_size = 2048
 
-    def __init__(self):
-        self.frames = []
+    def __init__(self) -> None:
+        self.frames: list[tuple[tuple[float, ...], int]] = []
         self.is_zeroized = False
         self.collecting = False
         self.collected = 0
         self.clears = 0
 
-    def analyze(self, samples, rate):
-        self.frames.append((tuple(samples), rate))
+    def analyze(self, samples: Sequence[float], sample_rate_hz: int) -> MusicAnalysisState:
+        self.frames.append((tuple(samples), sample_rate_hz))
         if self.collecting:
             self.collected += 1
-        return FakeState(level=abs(float(samples[0])), sample_rate_hz=rate)
+        return MusicAnalysisState(level=abs(float(samples[0])), sample_rate_hz=sample_rate_hz)
 
-    def start_zeroize(self):
+    def start_zeroize(self) -> None:
         self.collecting = True
         self.collected = 0
 
-    def finish_zeroize(self):
+    def finish_zeroize(self) -> None:
         self.collecting = False
         if not self.collected:
             raise RuntimeError("zeroize requires at least one analyzed audio block")
         self.is_zeroized = True
 
-    def clear_zeroize(self):
+    def clear_zeroize(self) -> None:
         self.collecting = False
         self.collected = 0
         self.is_zeroized = False
         self.clears += 1
 
 
-class FakeCapture:
-    def __init__(self, events, name, fail=False):
+class FakeCapture(AudioCaptureIf):
+    def __init__(self, events: list[tuple[str, str]], name: str, fail: bool = False) -> None:
         self.events = events
         self.name = name
         self.fail = fail
-        self.callback = None
+        self.callback: AudioSamplesCallback | None = None
         self.running = False
 
     @property
-    def is_running(self):
+    def is_running(self) -> bool:
         return self.running
 
-    def start(self, callback):
+    def start(self, callback: AudioSamplesCallback) -> None:
         self.events.append((self.name, "start"))
         self.callback = callback
         if self.fail:
             raise RuntimeError("backend unavailable")
         self.running = True
 
-    def stop(self):
+    def stop(self) -> None:
         self.events.append((self.name, "stop"))
         self.running = False
 
-    def emit(self, samples=(0.25,), rate=48000):
+    def emit(self, samples: Sequence[float] = (0.25,), rate: int = 48000) -> None:
+        assert self.callback is not None
         self.callback(samples, rate)
 
 
-def test_source_selection_is_lazy_idempotent_and_exclusive():
-    events, captures = [], []
+def test_source_selection_is_lazy_idempotent_and_exclusive() -> None:
+    events: list[tuple[str, str]] = []
+    captures: list[FakeCapture] = []
 
-    def factory(name):
-        def create():
+    def factory(name: str) -> Callable[[], AudioCaptureIf]:
+        def create() -> FakeCapture:
             capture = FakeCapture(events, name)
             captures.append(capture)
             return capture
@@ -118,7 +110,7 @@ def test_source_selection_is_lazy_idempotent_and_exclusive():
     assert session.state()["source"] == "two"
 
 
-def test_unknown_source_does_not_interrupt_current_capture():
+def test_unknown_source_does_not_interrupt_current_capture() -> None:
     session = MusicAnalysisSession({"browser": PushAudioCapture}, analyzer=FakeAnalyzer())
     session.start("browser")
     with pytest.raises(ValueError, match="Unknown audio source"):
@@ -127,7 +119,7 @@ def test_unknown_source_does_not_interrupt_current_capture():
     assert session.state()["source"] == "browser"
 
 
-def test_push_pcm16_uses_same_analyzer_and_rejects_other_sources():
+def test_push_pcm16_uses_same_analyzer_and_rejects_other_sources() -> None:
     analyzer = FakeAnalyzer()
     session = MusicAnalysisSession(
         {"browser": PushAudioCapture, "other": PushAudioCapture}, analyzer=analyzer
@@ -148,7 +140,7 @@ def test_push_pcm16_uses_same_analyzer_and_rejects_other_sources():
         session.push_pcm16(b"\0\0", 48000)
 
 
-def test_calibration_is_shared_and_source_switch_resets_profile():
+def test_calibration_is_shared_and_source_switch_resets_profile() -> None:
     analyzer = FakeAnalyzer()
     session = MusicAnalysisSession(
         {"browser": PushAudioCapture, "other": PushAudioCapture}, analyzer=analyzer
@@ -169,7 +161,7 @@ def test_calibration_is_shared_and_source_switch_resets_profile():
     assert analyzer.clears == 2
 
 
-def test_stopping_during_calibration_discards_unfinished_collection():
+def test_stopping_during_calibration_discards_unfinished_collection() -> None:
     analyzer = FakeAnalyzer()
     session = MusicAnalysisSession({"browser": PushAudioCapture}, analyzer=analyzer)
     session.start("browser")
@@ -184,11 +176,13 @@ def test_stopping_during_calibration_discards_unfinished_collection():
     assert not session.state()["calibrating"]
 
 
-def test_stale_capture_callback_cannot_update_new_source():
-    events, captures, published = [], [], []
+def test_stale_capture_callback_cannot_update_new_source() -> None:
+    events: list[tuple[str, str]] = []
+    captures: list[FakeCapture] = []
+    published: list[MusicAnalysisState] = []
 
-    def factory(name):
-        def create():
+    def factory(name: str) -> Callable[[], AudioCaptureIf]:
+        def create() -> FakeCapture:
             capture = FakeCapture(events, name)
             captures.append(capture)
             return capture
@@ -212,8 +206,8 @@ def test_stale_capture_callback_cannot_update_new_source():
     assert len(published) == count + 1
 
 
-def test_failed_backend_start_can_be_retried_without_false_running_state():
-    events = []
+def test_failed_backend_start_can_be_retried_without_false_running_state() -> None:
+    events: list[tuple[str, str]] = []
     capture = FakeCapture(events, "broken", fail=True)
     session = MusicAnalysisSession({"broken": lambda: capture}, analyzer=FakeAnalyzer())
     with pytest.raises(RuntimeError, match="backend unavailable"):
@@ -227,7 +221,7 @@ def test_failed_backend_start_can_be_retried_without_false_running_state():
     assert not session.state()["running"]
 
 
-def test_push_source_requires_running_capture_and_valid_pcm():
+def test_push_source_requires_running_capture_and_valid_pcm() -> None:
     capture = PushAudioCapture()
     with pytest.raises(RuntimeError, match="not running"):
         capture.push((0.1,), 48000)
