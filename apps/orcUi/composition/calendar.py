@@ -23,6 +23,7 @@ from controllers.calendar.calendar_event_cache import CalendarEventCache
 from controllers.calendar.calendar_coverage import covered_calendar_days
 from controllers.calendar.calendar_query_if import CalendarQueryIf
 from controllers.calendar.upcoming_appointments import upcoming_appointments
+from controllers.connectivity.online_mode import saved_online_mode
 from ui.calendar.calendar_models import AppointmentSnapshot
 from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
 from ui.navigation.route_request_handler_if import RouteRequestHandlerIf
@@ -85,7 +86,9 @@ def configure_calendar(app, config: CalendarConfiguration | None = None):
             parent,
             agenda=CalendarAgendaPresentation(
                 config.query(),
-                lambda: calendar_health_view(config.cache_path.with_suffix(".health.json")),
+                lambda: calendar_health_view(
+                    config.cache_path.with_suffix(".health.json"), offline=not saved_online_mode()
+                ),
                 config.coverage,
             ),
             theme=theme_bundle(app.theme_mode),
@@ -119,7 +122,9 @@ class HomeCalendarFactory:
             events = upcoming_appointments(query, now, limit=1)
             return AppointmentSnapshot(
                 tuple(event_view(event) for event in events),
-                calendar_health_view(config.cache_path.with_suffix(".health.json")),
+                calendar_health_view(
+                    config.cache_path.with_suffix(".health.json"), offline=not saved_online_mode()
+                ),
                 len(config.coverage(now.date(), 7)) == 7,
                 estimates.estimate(query, events[0]) if events else None,
             )
