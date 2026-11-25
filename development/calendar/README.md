@@ -156,3 +156,19 @@ health separately from service process status.
 
 Calendar services are optional. Appointment geocoding, routing and departure
 estimates are not included in this release.
+
+## Presentation architecture
+
+The toolkit-independent contracts in `ui/calendar/` expose immutable agenda,
+appointment, selection, and synchronization health state. The adapters in
+`controllers/calendar/calendar_presentation.py` own agenda workers and selection
+persistence. Agenda reads are single-flight; superseded results are discarded.
+Selection changes are saved as a batch, preserving unknown calendar IDs.
+
+Application composition constructs the adapters and injects them into the Tk
+frontend. The dashboard screen owns its mounted agenda session; application
+composition owns the shared Home appointment monitor and closes it on shutdown.
+Closing a session cancels queued work and retires running results without waiting
+for database I/O. Widgets own rendering and toolkit timers, not worker threads.
+Calendar selection currently uses synchronous local configuration operations
+through its injected adapter. Calendar-driven navigation remains separate.
