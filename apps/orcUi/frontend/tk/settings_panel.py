@@ -35,6 +35,7 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
         host_location_state: HostLocationState = HostLocationState(),
         performance_overlay_enabled: Callable[[], bool] | None = None,
         on_performance_overlay_changed: Callable[[bool], None] | None = None,
+        configure_spotify: Callable[[], None] | None = None,
     ) -> None:
         self._theme_bundle = theme_bundle or packaged_theme_bundle(ThemeMode.DARK)
         ui = self._theme_bundle.ui
@@ -94,9 +95,10 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
         page_nav.grid_columnconfigure(0, weight=1)
         page_nav.grid_columnconfigure(1, weight=1)
         page_nav.grid_columnconfigure(2, weight=1)
+        page_nav.grid_columnconfigure(3, weight=1)
         self._page_buttons = {}
         for column, (page, title) in enumerate(
-            (("display", "DISPLAY & LOCATION"), ("vehicle", "VEHICLE"), ("rf", "RF"))
+            (("display", "DISPLAY & LOCATION"), ("vehicle", "VEHICLE"), ("rf", "RF"), ("media", "MEDIA"))
         ):
             button = tk.Button(
                 page_nav,
@@ -282,7 +284,29 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
         self._location_button.grid(row=0, column=1, rowspan=2, padx=14, pady=8)
         self.set_host_location_state(host_location_state)
         rf = self._build_rf_settings(body)
-        self._settings_pages = {"display": (location, display), "vehicle": (vehicle,), "rf": (rf,)}
+        media = tk.Frame(body, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
+        media.grid(row=1, column=0, sticky="ew", pady=4)
+        media.grid_columnconfigure(0, weight=1)
+        tk.Label(
+            media, text="SPOTIFY", bg=ui.surface, fg=ui.text,
+            font=("Sans", FONT_BODY + 1, "bold"),
+        ).grid(row=0, column=0, sticky="w", padx=14, pady=(14, 4))
+        tk.Label(
+            media, text="Manage the Spotify application Client ID.",
+            bg=ui.surface, fg=ui.text_muted, font=("Sans", FONT_SMALL),
+        ).grid(row=1, column=0, sticky="w", padx=14, pady=(0, 14))
+        tk.Button(
+            media, text="CONFIGURE SPOTIFY", command=configure_spotify,
+            state=tk.NORMAL if configure_spotify is not None else tk.DISABLED,
+            bg=ui.control_background, fg=ui.control_text,
+            font=("Sans", FONT_CONTROL, "bold"), relief=tk.FLAT, padx=16, pady=12,
+        ).grid(row=0, column=1, rowspan=2, padx=14, pady=8)
+        self._settings_pages = {
+            "display": (location, display),
+            "vehicle": (vehicle,),
+            "rf": (rf,),
+            "media": (media,),
+        }
         self._show_settings_page("display")
 
     def _show_settings_page(self, page: str) -> None:
