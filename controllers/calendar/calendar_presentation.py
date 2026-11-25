@@ -15,11 +15,11 @@ from ui.calendar.calendar_models import (
     CalendarSelectionView,
 )
 
-from controllers.system.calendar_health_sampler import sample_calendar_health
+from .calendar_health import sample_calendar_health
 
 from ui.calendar.calendar_presentation_if import CalendarAgendaIf, CalendarSelectionIf
 
-from .calendar_agenda import CalendarAgendaController
+from .calendar_query_if import CalendarQueryIf
 from .calendar_models import CalendarEvent
 from .calendar_selection import (
     load_calendar_catalog,
@@ -45,7 +45,7 @@ def event_view(event: CalendarEvent) -> CalendarEventView:
 
 def read_agenda(
     future: Future[AgendaSnapshot],
-    controller: CalendarAgendaController,
+    controller: CalendarQueryIf,
     day: date,
     days: int,
     health: Callable[[], CalendarHealthView],
@@ -68,7 +68,7 @@ class CalendarAgendaPresentation(CalendarAgendaIf):
 
     def __init__(
         self,
-        controller: CalendarAgendaController,
+        controller: CalendarQueryIf,
         health: Callable[[], CalendarHealthView],
     ) -> None:
         self._controller = controller
