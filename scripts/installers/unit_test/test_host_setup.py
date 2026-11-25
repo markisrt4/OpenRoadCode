@@ -90,6 +90,28 @@ class HostSetupPlanTests(unittest.TestCase):
         self.assertNotEqual(0, result.returncode)
         self.assertIn("--managed-rf requires target rpi5", result.stderr)
 
+    def test_verify_only_runs_both_checks_without_persisting_install_target(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            python_bin = root / "venv/bin/python"
+            python_bin.parent.mkdir(parents=True)
+            python_bin.write_text('#!/bin/sh\nprintf "%s\\n" "$@"\nexit 7\n')
+            python_bin.chmod(0o755)
+            environment = os.environ.copy()
+            try:
+                os.environ.update(
+                    VENV_DIR=str(root / "venv"),
+                    XDG_CONFIG_HOME=str(root / "config"),
+                )
+                result = self.run_installer("--target", "linux-dev", "--verify-only")
+            finally:
+                os.environ.clear()
+                os.environ.update(environment)
+            self.assertEqual(result.returncode, 7, result.stderr)
+            self.assertIn("verify_installation.py", result.stdout)
+            self.assertIn("verify_runtime.py", result.stdout)
+            self.assertFalse((root / "config").exists())
+
     def test_target_is_required(self) -> None:
         result = self.run_installer("--show-plan")
 

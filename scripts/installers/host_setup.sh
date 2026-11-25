@@ -28,6 +28,7 @@ NAVIGATION_MODE="${NAVIGATION_MODE:-auto}"
 TARGET=""
 FORCE_TARGET=0
 SHOW_PLAN=0
+VERIFY_ONLY=0
 SKIP_INSTALLS=0
 MANAGED_RF=0
 RUN_SYSTEM_PACKAGES=1
@@ -62,6 +63,7 @@ Options:
   --no-navigation-service Skip independent navigation service setup
   --navigation-mode MODE  auto, binary, or source
   --force-target          Continue without prompting when detection disagrees
+  --verify-only           Check the selected Linux installation without changing it
   --show-plan             Print the resolved plan without changing the system
   --skip-installs         Skip packages, Python setup, and group changes
   --no-system-packages    Skip system package installation
@@ -154,6 +156,7 @@ confirm_target_mismatch() {
   [[ -z "$model" ]] || echo "    Detected model:   $model" >&2
   echo "    Continuing may install incompatible packages or services." >&2
   if (( SHOW_PLAN )); then echo "[!] Plan-only mode: reporting the mismatch without prompting." >&2; return 0; fi
+  if (( VERIFY_ONLY )); then echo "[!] Verify-only mode: checking the selected profile." >&2; return 0; fi
   if (( FORCE_TARGET )); then echo "[!] Continuing because --force-target was supplied." >&2; return 0; fi
   if [[ ! -t 0 ]]; then
     echo "[!] Refusing a noninteractive mismatched install." >&2
@@ -188,6 +191,7 @@ while (( $# > 0 )); do
     --navigation-mode) shift; NAVIGATION_MODE="${1:?--navigation-mode requires a value}" ;;
     --force-target) FORCE_TARGET=1 ;;
     --show-plan) SHOW_PLAN=1 ;;
+    --verify-only) VERIFY_ONLY=1 ;;
     --skip-installs) SKIP_INSTALLS=1 ;;
     --managed-rf) MANAGED_RF=1 ;;
     --no-system-packages) RUN_SYSTEM_PACKAGES=0 ;;
@@ -337,6 +341,56 @@ fi
 
 if (( SHOW_PLAN )); then echo "[*] Plan only; no system changes were made."; exit 0; fi
 
+resolve_verification_inputs() {
+  VERIFY_PYTHON="python3"
+  [[ -x "$VENV_DIR/bin/python" ]] && VERIFY_PYTHON="$VENV_DIR/bin/python"
+  RUN_VALHALLA=0
+  if [[ " ${FEATURES[*]} " == *" navigation "* && -s "${DATA_ROOT:-/srv/openroadcode}/valhalla/valhalla.json" ]]; then
+    RUN_VALHALLA=1
+  fi
+}
+
+verify_runtime_health() {
+  echo
+  echo "[*] Verifying runtime health..."
+  runtime_config="$PROJECT_DIR/config/runtime.toml"
+  if [[ "$TARGET" == "linux-dev" ]]; then
+    runtime_config="$PROJECT_DIR/config/runtime.simulated.toml"
+  fi
+  runtime_args=("${FEATURES[@]}" --config "$runtime_config")
+  (( RUN_NAVIGATION )) && runtime_args+=(--navigation-service)
+  [[ -z "$NAVIGATION_REGION" ]] || runtime_args+=(--navigation-data-root "${DATA_ROOT:-/srv/openroadcode}" --navigation-region "$NAVIGATION_REGION")
+  (( RUN_RADIO )) && runtime_args+=(--radio-service)
+  (( RUN_VALHALLA )) && runtime_args+=(--valhalla-service)
+  (( RUN_VNC )) && runtime_args+=(--vnc-service)
+  (( MANAGED_RF )) && runtime_args+=(--managed-rf)
+  (( RUN_TELEMETRY_SERVICES )) && runtime_args+=(--telemetry-services)
+  (( RUN_GPSD_SERVICE )) && runtime_args+=(--gpsd-service)
+  if [[ -n "${OPENROAD_RUNTIME_REPORT:-}" ]]; then
+    "$VERIFY_PYTHON" "$SCRIPT_DIR/verify_runtime.py" "${runtime_args[@]}" 2>&1 |
+      tee -- "$OPENROAD_RUNTIME_REPORT"
+  else
+    "$VERIFY_PYTHON" "$SCRIPT_DIR/verify_runtime.py" "${runtime_args[@]}"
+  fi
+
+}
+
+if (( VERIFY_ONLY )); then
+  if [[ "$TARGET" == termux ]]; then
+    echo "[!] --verify-only is available for Linux host installations." >&2
+    exit 2
+  fi
+  if (( RUN_RADIO )) && [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/openroadcode/rf-acquisition.env" ]]; then
+    MANAGED_RF=1
+  fi
+  resolve_verification_inputs
+  verification_status=0
+  echo "[*] Verifying installed dependencies..."
+  "$VERIFY_PYTHON" "$SCRIPT_DIR/verify_installation.py" "${FEATURES[@]}" || verification_status=$?
+  verify_runtime_health || verification_status=$?
+  exit "$verification_status"
+fi
+
 persist_host_target "$TARGET"
 
 if [[ "$TARGET" == "termux" ]]; then
@@ -376,9 +430,6 @@ if [[ -n "$BLUETOOTH_SPP_ADDRESS" ]] && (( ! SKIP_INSTALLS )); then
   bash "$PROJECT_DIR/scripts/installers/setup_bluetooth_spp.sh" "${spp_args[@]}"
 fi
 
-VERIFY_PYTHON="python3"
-[[ -x "$VENV_DIR/bin/python" ]] && VERIFY_PYTHON="$VENV_DIR/bin/python"
-
 if (( ! SKIP_INSTALLS )) && [[ " ${FEATURES[*]} " == *" navigation "* ]]; then
   echo
   echo "[*] Installing navigation software stack..."
@@ -391,9 +442,8 @@ if (( ! SKIP_INSTALLS )) && [[ " ${FEATURES[*]} " == *" navigation "* ]]; then
   fi
 fi
 
-RUN_VALHALLA=0
-if [[ " ${FEATURES[*]} " == *" navigation "* ]] && [[ -s "${DATA_ROOT:-/srv/openroadcode}/valhalla/valhalla.json" ]]; then
-  RUN_VALHALLA=1
+resolve_verification_inputs
+if (( RUN_VALHALLA )); then
   sudo bash "$PROJECT_ROOT/scripts/systemd/install_valhalla_systemd.sh" "${DATA_ROOT:-/srv/openroadcode}/valhalla/valhalla.json"
 fi
 
@@ -414,27 +464,7 @@ if (( ! SKIP_INSTALLS )); then
   "$VERIFY_PYTHON" "$SCRIPT_DIR/verify_installation.py" "${FEATURES[@]}"
 fi
 
-echo
-echo "[*] Verifying runtime health..."
-runtime_config="$PROJECT_DIR/config/runtime.toml"
-if [[ "$TARGET" == "linux-dev" ]]; then
-  runtime_config="$PROJECT_DIR/config/runtime.simulated.toml"
-fi
-runtime_args=("${FEATURES[@]}" --config "$runtime_config")
-(( RUN_NAVIGATION )) && runtime_args+=(--navigation-service)
-[[ -z "$NAVIGATION_REGION" ]] || runtime_args+=(--navigation-data-root "${DATA_ROOT:-/srv/openroadcode}" --navigation-region "$NAVIGATION_REGION")
-(( RUN_RADIO )) && runtime_args+=(--radio-service)
-(( RUN_VALHALLA )) && runtime_args+=(--valhalla-service)
-(( RUN_VNC )) && runtime_args+=(--vnc-service)
-(( MANAGED_RF )) && runtime_args+=(--managed-rf)
-(( RUN_TELEMETRY_SERVICES )) && runtime_args+=(--telemetry-services)
-(( RUN_GPSD_SERVICE )) && runtime_args+=(--gpsd-service)
-if [[ -n "${OPENROAD_RUNTIME_REPORT:-}" ]]; then
-  "$VERIFY_PYTHON" "$SCRIPT_DIR/verify_runtime.py" "${runtime_args[@]}" 2>&1 |
-    tee -- "$OPENROAD_RUNTIME_REPORT"
-else
-  "$VERIFY_PYTHON" "$SCRIPT_DIR/verify_runtime.py" "${runtime_args[@]}"
-fi
+verify_runtime_health
 
 echo
 echo "[+] $TARGET setup complete."

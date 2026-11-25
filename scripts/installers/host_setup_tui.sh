@@ -94,9 +94,43 @@ choose_features() {
   SELECTED_RESULT="${selection//\"/}"
 }
 
+build_feature_args() {
+  ARGS=(--target "$SELECTED_TARGET" --no-default-features)
+  if (( INSTALL_ALL_FEATURES )); then
+    ARGS+=(--all-features)
+  else
+    for feature in ${SELECTED_GENERAL} ${SELECTED_STREAMING} ${SELECTED_AUDIO} ${SELECTED_NAVIGATION} ${SELECTED_ENVIRONMENTAL} ${SELECTED_RADIO} ${SELECTED_VIDEO} ${SELECTED_AUTOMOTIVE} ${SELECTED_BLUETOOTH}; do
+      ARGS+=(--feature "$feature")
+    done
+    [[ " $SELECTED_GENERAL " == *" base "* ]] || ARGS+=(--feature base)
+  fi
+}
+
+verify_current_installation() {
+  local report status=0
+  build_feature_args
+  if [[ " $SELECTED_NAVIGATION " == *" navigation "* ]] || { (( INSTALL_ALL_FEATURES )) && [[ "$SELECTED_TARGET" != linux-dev ]]; }; then
+    if [[ "$NAVIGATION_REGION" != none ]]; then ARGS+=(--navigation-region "$NAVIGATION_REGION"); fi
+    if (( WITH_NAVIGATION )); then ARGS+=(--with-navigation-service); else ARGS+=(--no-navigation-service); fi
+  fi
+  if [[ " $SELECTED_RADIO $SELECTED_GENERAL " == *" sdrforge "* ]] || (( INSTALL_ALL_FEATURES )); then
+    if (( WITH_RADIO )); then ARGS+=(--with-radio-service); else ARGS+=(--no-radio-service); fi
+  fi
+  if (( WITH_GPSD )); then ARGS+=(--with-gpsd-service); else ARGS+=(--no-gpsd-service); fi
+  if (( WITH_VNC )) && { [[ " $SELECTED_GENERAL " == *" vnc "* ]] || (( INSTALL_ALL_FEATURES )); }; then
+    ARGS+=(--with-vnc)
+  fi
+  if (( WITH_TELEMETRY )); then ARGS+=(--with-telemetry-services); fi
+  report="$(mktemp -t openroadcode-verify.XXXXXX)"
+  OPENROAD_RUNTIME_REPORT= bash "$PROJECT_DIR/scripts/installers/host_setup.sh" "${ARGS[@]}" --verify-only >"$report" 2>&1 || status=$?
+  printf '\nVerification exit status: %s\n' "$status" >> "$report"
+  whiptail --title "Current installation verification" --scrolltext --textbox "$report" 20 78 || true
+  rm -f -- "$report"
+}
+
 while true; do
   section=$(whiptail --title "OpenRoadCode installer" --default-item "$(if (( INSTALL_ALL_FEATURES )); then echo all; else echo install; fi)" --menu \
-    "Choose a section to configure, then select Install:" 24 76 12 \
+    "Choose a section to configure, then select Verify or Install:" 24 76 12 \
     "general" "General features and user interfaces" \
     "streaming" "Streaming and media" \
     "audio" "Audio output and Bluetooth speakers" \
@@ -107,6 +141,7 @@ while true; do
     "automotive" "Automotive devices" \
     "bluetooth" "Bluetooth" \
     "all" "Install every capability compatible with the target" \
+    "verify" "Verify current installation" \
     "install" "Install the selected features" \
     "cancel" "Exit without installing" 3>&1 1>&2 2>&3) || exit 0
   case "$section" in
@@ -142,20 +177,13 @@ while true; do
     bluetooth) choose_features "Bluetooth" "Select Bluetooth features:" "$SELECTED_BLUETOOTH" \
       "bluetooth|Bluetooth device support" && SELECTED_BLUETOOTH="$SELECTED_RESULT" ;;
     all) INSTALL_ALL_FEATURES=1; break ;;
+    verify) verify_current_installation ;;
     install) INSTALL_ALL_FEATURES=0; break ;;
     cancel) exit 0 ;;
   esac
 done
 
-ARGS=(--target "$SELECTED_TARGET" --no-default-features)
-if (( INSTALL_ALL_FEATURES )); then
-  ARGS+=(--all-features)
-else
-  for feature in ${SELECTED_GENERAL} ${SELECTED_STREAMING} ${SELECTED_AUDIO} ${SELECTED_NAVIGATION} ${SELECTED_ENVIRONMENTAL} ${SELECTED_RADIO} ${SELECTED_VIDEO} ${SELECTED_AUTOMOTIVE} ${SELECTED_BLUETOOTH}; do
-    ARGS+=(--feature "$feature")
-  done
-  [[ " $SELECTED_GENERAL " == *" base "* ]] || ARGS+=(--feature base)
-fi
+build_feature_args
 
 if [[ " $SELECTED_NAVIGATION " == *" navigation "* ]] || { (( INSTALL_ALL_FEATURES )) && [[ "$SELECTED_TARGET" != linux-dev ]]; }; then
   NAVIGATION_MODE="$(whiptail --title "Navigation installation" --default-item "$NAVIGATION_MODE" --menu \
