@@ -41,8 +41,10 @@ sv up openroadcode-carbonate
 sv status openroadcode-carbonate
 ```
 
-If the runit supervisor is not active, restart the Termux session.\nLogs are in ~/.local/state/openroadcode/current.
-Carbonate is located on PATH, in ~/go/bin, or in ~/src/carbonate.\nOverride with CARBONATE_BIN for another installation.
+If the runit supervisor is not active, restart the Termux session.
+Logs are in ~/.local/state/openroadcode/current.
+Carbonate is located on PATH, in ~/go/bin, or in ~/src/carbonate.
+Override with CARBONATE_BIN for another installation.
 Use `sv down openroadcode-carbonate` to stop it.
 
 ## Linux with systemd user services
@@ -76,30 +78,14 @@ events. `--timeout` and `--days` control each query and date window.
 Unsupported recurrence resources are counted as skipped, not silently
 treated as successful event expansion.
 
-These scripts manage Carbonate, **not** a standalone ORC calendar daemon.
-The initial ORC sync worker (`CalendarSyncWorker.sync_once`) and SQLite
-snapshot cache (`CalendarEventCache`) are available. They are not yet
-scheduled or connected to the UI. Call sync from a background worker, not
-the UI thread. Only successful, enabled calendar queries replace snapshots;
-failed calendars retain their last saved events. The current cache stores
-time-window snapshots and is a foundation for offline support, not yet a
-complete incremental-sync or recurrence-expansion implementation.
+## Offline cache and synchronization
 
-## Offline reads and scheduling foundation
-
-`CachedCalendarProvider(account_id, cache)` implements `CalendarProviderIf`
-and can be registered with `CalendarController` for offline event reads.
-`CalendarSyncScheduler(worker)` runs one synchronization immediately and
-repeats every 15 minutes by default (7 days past, 30 days future).
-The caller owns its background thread and stop event; it is **not yet**
-installed as a service.
-
-**Cache retention:** each successful calendar sync atomically replaces that
-calendar's previous snapshot, preventing stale overlapping windows and
-unbounded accumulation. Failed or disabled calendars retain their last
-successful snapshot. Only the latest queried time window remains available
-offline; this is not an archival calendar store. The periodic scheduler is
-still not installed as a background service.
+The separate ORC calendar daemon synchronizes immediately and every 15 minutes
+by default (7 days past, 30 days future). Successful enabled calendars replace
+their SQLite snapshots atomically; failed or disabled calendars retain their
+last successful snapshot. This is a rolling cache, not an archive.
+Recurring events are expanded within the query window; unsupported resources
+are counted as skipped.
 
 ## Calendar sync daemon (manual validation)
 
@@ -117,10 +103,9 @@ python -m controllers.calendar.calendar_sync_daemon \
 The default SQLite cache is
 `~/.local/share/openroadcode/calendar/events.sqlite3`. The daemon starts
 synchronizing immediately, then repeats every 900 seconds. Stop it with
-Ctrl+C. It does not print event contents. The selection file is loaded at
-startup, so restart the daemon after changing disabled calendars.
+Ctrl+C. It does not print event contents. Calendar selection is reloaded during synchronization.
 
-This entrypoint is not yet registered as a Termux or systemd service.
+Install the optional service using the platform instructions below.
 
 ## Monitored Termux calendar synchronization
 
@@ -142,5 +127,32 @@ A service marked running indicates process supervision, not necessarily that
 CalDAV synchronization succeeded; inspect logs for cycle results.
 
 Stop with `sv down openroadcode-calendar-sync`. If the supervisor is not
-active, restart the Termux session. Keep the secrets file private. Changes
-to calendar selection require restarting the sync service.
+active, restart the Termux session. Keep the secrets file private. Selection changes take effect on subsequent synchronization cycles.
+
+
+## Linux calendar synchronization
+
+Use a private user-owned secrets file for the user services:
+
+```sh
+export OPENROADCODE_SECRETS_FILE="$HOME/.config/openroadcode/secrets.env"
+sh development/calendar/install_linux_sync_service.sh 'YOUR_USERNAME@proton.me'
+systemctl --user status openroadcode-calendar-sync.service
+journalctl --user -u openroadcode-calendar-sync.service -n 50
+```
+
+Both bridge and sync passwords must be available in the configured secrets file.
+Install Python dependencies with the ORC development setup before starting
+the sync daemon.
+
+## Dashboard
+
+The Calendar destination displays cached events and calendar selection settings.
+Home's Personal context displays the next timed appointment. A passive dot
+appears on the Personal tab for an appointment within 60 minutes when cache
+freshness is known and not stale. The Home monitor reads asynchronously every
+30 seconds while Home is mounted. System diagnostics report synchronization
+health separately from service process status.
+
+Calendar services are optional. Appointment geocoding, routing and departure
+estimates are not included in this release.
