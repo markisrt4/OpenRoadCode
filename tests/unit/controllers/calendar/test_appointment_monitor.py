@@ -1,0 +1,55 @@
+# SPDX-License-Identifier: MIT
+"""Deterministic tests for the appointment monitor."""
+
+from unittest.mock import Mock, patch
+
+from controllers.calendar.appointment_monitor import AppointmentMonitor
+
+
+def test_monitor_single_flight_and_refresh_interval():
+    clock = Mock(return_value=0)
+    monitor = AppointmentMonitor(Mock(), clock=clock)
+    with patch("controllers.calendar.appointment_monitor.Thread") as thread:
+        monitor.poll()
+        monitor.poll()
+        assert thread.call_count == 1
+        monitor._future.set_result(("events", {}))
+        monitor.poll()
+        assert monitor.snapshot == ("events", {})
+        clock.return_value = 29
+        monitor.poll()
+        assert thread.call_count == 1
+        clock.return_value = 30
+        monitor.poll()
+        assert thread.call_count == 2
+
+
+def test_monitor_retains_snapshot_and_recovers():
+    clock = Mock(return_value=0)
+    monitor = AppointmentMonitor(Mock(), clock=clock)
+    with patch("controllers.calendar.appointment_monitor.Thread"):
+        monitor.poll()
+        monitor._future.set_result(("old", {}))
+        monitor.poll()
+        clock.return_value = 30
+        monitor.poll()
+        monitor._future.set_exception(OSError("cache unavailable"))
+        monitor.poll()
+        assert monitor.failed
+        assert monitor.snapshot == ("old", {})
+        clock.return_value = 60
+        monitor.poll()
+        monitor._future.set_result(("new", {}))
+        monitor.poll()
+        assert not monitor.failed
+        assert monitor.snapshot == ("new", {})
+
+
+def test_monitor_close_cancels_pending_read():
+    monitor = AppointmentMonitor(Mock(), clock=lambda: 0)
+    with patch("controllers.calendar.appointment_monitor.Thread"):
+        monitor.poll()
+        future = monitor._future
+        monitor.close()
+        assert future.cancelled()
+        assert monitor._future is None
