@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 from collections.abc import Mapping
 from datetime import datetime
+from enum import Enum
 from typing import Any
 
 from controllers.weather import (
@@ -59,7 +60,7 @@ def validate_weather_alert(p: Mapping[str, Any]) -> None:
         _ts(d[n], n, null)
 
 
-def _enum(v, t, n):
+def _enum(v: object, t: type[Enum], n: str) -> None:
     if not isinstance(v, str):
         raise ValueError(f"{n} must be a string")
     try:
@@ -68,7 +69,7 @@ def _enum(v, t, n):
         raise ValueError(f"unsupported weather alert {n}: {v}") from e
 
 
-def _ts(v, n, null):
+def _ts(v: object, n: str, null: bool) -> None:
     if v is None and null:
         return
     if not isinstance(v, str) or not v:

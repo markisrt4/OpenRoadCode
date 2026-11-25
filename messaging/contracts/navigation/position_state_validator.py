@@ -37,7 +37,7 @@ def _optional_finite(data: Mapping[str, Any], name: str) -> float | None:
 
 
 def _optional_nonnegative_int(data: Mapping[str, Any], name: str) -> int | None:
-    value = data[name]
+    value: object = data[name]
     if value is None:
         return None
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:

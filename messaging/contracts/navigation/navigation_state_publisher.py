@@ -9,6 +9,7 @@ import math
 
 from controllers.navigation.navigation_state import NavigationState
 from messaging.contracts.common import encode_timestamp
+from hardware_io.imu import Vector3
 from messaging.publisher_if import PublisherIf
 
 from .attitude_state_codec import encode_attitude_state
@@ -94,7 +95,7 @@ class NavigationStatePublisher:
         )
 
 
-def _vector(vector) -> dict[str, float]:
+def _vector(vector: Vector3) -> dict[str, float]:
     return {
         "x": float(vector.x),
         "y": float(vector.y),

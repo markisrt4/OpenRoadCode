@@ -6,8 +6,9 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from concurrent.futures import CancelledError, Executor, ThreadPoolExecutor
+from concurrent.futures import CancelledError, Executor, Future, ThreadPoolExecutor
 from dataclasses import dataclass
+from functools import partial
 from threading import Event, Lock, Thread
 from typing import Any
 
@@ -147,11 +148,9 @@ class MessageDispatcher:
                 if not self._stop_event.is_set():
                     self._report_error(topic, exc)
                 return
-            future.add_done_callback(
-                lambda completed, message_topic=topic: self._handler_done(message_topic, completed)
-            )
+            future.add_done_callback(partial(self._handler_done, topic))
 
-    def _handler_done(self, topic: str, future) -> None:
+    def _handler_done(self, topic: str, future: Future[None]) -> None:
         if future.cancelled():
             return
         try:

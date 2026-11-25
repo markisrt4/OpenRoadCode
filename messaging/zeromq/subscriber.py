@@ -30,8 +30,8 @@ class ZeroMqSubscriber(SubscriberIf):
         self._topics: list[str] = []
         self._topics_lock = Lock()
         self._close_event = Event()
-        self._context: zmq.Context | None = None
-        self._socket: zmq.Socket | None = None
+        self._context: zmq.Context[zmq.Socket[bytes]] | None = None
+        self._socket: zmq.Socket[bytes] | None = None
         self._owner_thread_id: int | None = None
 
     def subscribe(self, topic: str) -> None:

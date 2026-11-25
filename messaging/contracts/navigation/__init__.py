@@ -3,6 +3,8 @@
 
 """Public navigation message contracts with lazy runtime helpers."""
 
+from typing import TYPE_CHECKING
+
 from .attitude_state_message import AttitudeStateData, AttitudeStateMessage
 from .imu_state_message import ImuStateData, ImuStateMessage, Vector3Data
 from .motion_state_message import MotionStateData, MotionStateMessage
@@ -15,7 +17,20 @@ from .topics import (
 )
 
 
-def __getattr__(name: str):
+if TYPE_CHECKING:
+    from .attitude_state_codec import decode_attitude_state, encode_attitude_state
+    from .attitude_state_validator import validate_attitude_state
+    from .imu_state_codec import decode_imu_state, encode_imu_state
+    from .imu_state_validator import validate_imu_state
+    from .motion_state_codec import decode_motion_state, encode_motion_state
+    from .motion_state_validator import validate_motion_state
+    from .navigation_state_publisher import NavigationStatePublisher
+    from .position_state_codec import decode_position_state, encode_position_state
+    from .position_state_publisher import PositionStatePublisher
+    from .position_state_validator import validate_position_state
+
+
+def __getattr__(name: str) -> object:
     """Load codecs/publishers only when an application actually asks for them."""
     if name in {"encode_attitude_state", "decode_attitude_state", "validate_attitude_state"}:
         from .attitude_state_codec import decode_attitude_state, encode_attitude_state

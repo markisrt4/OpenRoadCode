@@ -16,12 +16,12 @@ def encode_motion_state(
     *,
     timestamp: Mapping[str, int],
     source: str,
-    heading_rad=None,
-    ground_speed_m_s=None,
-    course_rad=None,
-    vertical_speed_m_s=None,
-    turn_rate_rad_s=None,
-    is_cached=False,
+    heading_rad: float | None = None,
+    ground_speed_m_s: float | None = None,
+    course_rad: float | None = None,
+    vertical_speed_m_s: float | None = None,
+    turn_rate_rad_s: float | None = None,
+    is_cached: bool = False,
 ) -> dict[str, Any]:
     validate_timestamp(timestamp)
     payload = {
