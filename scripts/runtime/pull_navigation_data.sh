@@ -89,8 +89,8 @@ if [[ -n "$REGION" ]]; then
     exit 0
   fi
   release_work="$(mktemp -d "$RELEASE_CACHE.stage.XXXXXXXX" 2>/dev/null || { mkdir -p "$(dirname "$RELEASE_CACHE")"; mktemp -d "$RELEASE_CACHE.stage.XXXXXXXX"; })"
-  python3 "$SCRIPT_DIR/download_navigation_release.py" --region "$REGION" --cache "$RELEASE_CACHE" --stage "$release_work/data"
-  cp "$release_work/data/build-manifest.json" "$remote_manifest"
+  python3 "$SCRIPT_DIR/download_navigation_release.py" --region "$REGION" --cache "$RELEASE_CACHE" --stage "$release_work/manifest" --manifest-only
+  cp "$release_work/manifest/build-manifest.json" "$remote_manifest"
 else
 remote_host="${SOURCE%%:*}"
 remote_path="${SOURCE#*:}"
@@ -190,6 +190,10 @@ if (( DRY_RUN )); then
     --exclude='maps/routes/' --exclude=cesium/ --exclude=map-packs/ "${rsync_3d_filters[@]}" "${rsync_reuse[@]}" \
     "$SOURCE" "$STAGING_ROOT/"
   exit 0
+fi
+
+if [[ -n "$REGION" ]]; then
+  python3 "$SCRIPT_DIR/download_navigation_release.py" --region "$REGION" --cache "$RELEASE_CACHE" --stage "$release_work/data"
 fi
 
 echo "[*] Preparing staging directory: $STAGING_ROOT"
