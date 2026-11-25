@@ -15,8 +15,6 @@ from ui.calendar.calendar_models import (
     CalendarSelectionView,
 )
 
-from controllers.connectivity.online_mode import saved_online_mode
-
 from .calendar_health import sample_calendar_health
 
 from ui.calendar.calendar_presentation_if import CalendarAgendaIf, CalendarSelectionIf
@@ -152,14 +150,14 @@ class CalendarSelectionPresentation(CalendarSelectionIf):
         save_disabled_calendar_ids(self._selection, disabled)
 
 
-def calendar_health_view(path: Path | None = None) -> CalendarHealthView:
+def calendar_health_view(path: Path | None = None, *, offline: bool = False) -> CalendarHealthView:
     """Translate synchronization diagnostics into presentation state."""
     health = sample_calendar_health(path)
     status = health.get("status")
     age = health.get("last_data_refresh_age_seconds")
     return CalendarHealthView(
         status=status if isinstance(status, str) else "unavailable",
-        offline=not saved_online_mode(),
+        offline=offline,
         syncing=bool(health.get("syncing", False)),
         stale=bool(health.get("stale", False)),
         last_data_refresh_age_seconds=float(age) if isinstance(age, (int, float)) else None,
