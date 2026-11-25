@@ -253,8 +253,7 @@ DATA_ROOT="$DATA_ROOT" bash "$PROJECT_ROOT/scripts/runtime/install_navigation_st
 if (( ! NO_RESTART )) && command -v systemctl >/dev/null 2>&1; then
   if systemctl list-unit-files valhalla.service >/dev/null 2>&1; then
     echo "[*] Restarting Valhalla for the new routing dataset"
-    sudo systemctl restart valhalla.service
-    if ! systemctl is-active --quiet valhalla.service; then
+    if ! sudo systemctl restart valhalla.service || ! systemctl is-active --quiet valhalla.service; then
       echo "Valhalla failed after data promotion; rolling back dataset" >&2
       sudo rm -rf "$STAGING_ROOT"
       sudo mv "$DATA_ROOT" "$STAGING_ROOT"
