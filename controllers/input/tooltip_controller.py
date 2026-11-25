@@ -20,7 +20,7 @@ class TooltipController(TooltipRequestHandlerIf):
         self._view = view
         self._dispatcher = dispatcher
         self._delay_ms = delay_ms
-        self._pending = None
+        self._pending: object | None = None
         self._generation = 0
         self._closed = False
 
@@ -32,7 +32,7 @@ class TooltipController(TooltipRequestHandlerIf):
             return
         generation = self._generation
 
-        def show():
+        def show() -> None:
             if self._closed or generation != self._generation:
                 return
             self._pending = None
