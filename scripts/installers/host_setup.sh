@@ -35,6 +35,8 @@ RUN_VNC=""
 RUN_GPSD_SERVICE=""
 RUN_TELEMETRY_SERVICES=""
 RUN_RADIO=""
+RUN_NAVIGATION=""
+NAVIGATION_REGION=""
 BLUETOOTH_SPP_ADDRESS=""
 BLUETOOTH_SPP_CHANNEL=""
 BLUETOOTH_RFCOMM_ID="0"
@@ -54,6 +56,9 @@ Targets:
 
 Options:
   --target TARGET         Required installation target
+  --navigation-region REGION Install catalogued regional data
+  --with-navigation-service Enable broker/navigation services
+  --no-navigation-service Skip independent navigation service setup
   --navigation-mode MODE  auto, binary, or source
   --force-target          Continue without prompting when detection disagrees
   --show-plan             Print the resolved plan without changing the system
@@ -175,6 +180,9 @@ persist_host_target() {
 while (( $# > 0 )); do
   case "$1" in
     --target) shift; (( $# > 0 )) || { echo "[!] --target requires a value" >&2; exit 1; }; TARGET="${1,,}" ;;
+    --navigation-region) shift; NAVIGATION_REGION="${1:?--navigation-region requires a value}" ;;
+    --with-navigation-service) RUN_NAVIGATION=1 ;;
+    --no-navigation-service) RUN_NAVIGATION=0 ;;
     --navigation-mode) shift; NAVIGATION_MODE="${1:?--navigation-mode requires a value}" ;;
     --force-target) FORCE_TARGET=1 ;;
     --show-plan) SHOW_PLAN=1 ;;
@@ -248,7 +256,7 @@ case "$TARGET" in
   linux-dev|termux) GPIO_BACKEND="" ;;
 esac
 : "${RUN_VNC:=0}"
-: "${RUN_GPSD_SERVICE:=0}"
+
 : "${RUN_TELEMETRY_SERVICES:=0}"
 
 for feature in "${REQUESTED_FEATURES[@]}"; do
@@ -256,7 +264,7 @@ for feature in "${REQUESTED_FEATURES[@]}"; do
   append_feature "$feature"
 done
 (( RUN_VNC )) && append_feature vnc
-(( RUN_GPSD_SERVICE )) && append_feature gps
+[[ "$RUN_GPSD_SERVICE" != 1 ]] || append_feature gps
 
 if [[ " ${FEATURES[*]} " == *" desktop-ui "* ]]; then
   append_feature sdrforge
@@ -270,6 +278,17 @@ while (( feature_index < ${#FEATURES[@]} )); do
 done
 for feature in "${FEATURES[@]}"; do is_known_feature "$feature" || { echo "[!] Internal error: unknown resolved feature '$feature'" >&2; exit 1; }; done
 
+if [[ -z "$RUN_NAVIGATION" ]]; then
+  RUN_NAVIGATION=0
+  if [[ "$TARGET" != termux && " ${FEATURES[*]} " == *" navigation "* ]]; then RUN_NAVIGATION=1; fi
+fi
+if [[ -z "$RUN_GPSD_SERVICE" ]]; then
+  RUN_GPSD_SERVICE=0
+  if (( RUN_NAVIGATION )) && [[ "$TARGET" == rpi4 || "$TARGET" == rpi5 ]]; then RUN_GPSD_SERVICE=1; fi
+fi
+if [[ -n "$NAVIGATION_REGION" ]] && [[ "$TARGET" == termux || " ${FEATURES[*]} " != *" navigation "* ]]; then
+  echo "Regional data installation requires Linux navigation feature" >&2; exit 2
+fi
 if [[ -z "$RUN_RADIO" ]]; then
   RUN_RADIO=0
   if [[ "$TARGET" != termux && " ${FEATURES[*]} " == *" sdrforge "* ]]; then RUN_RADIO=1; fi
@@ -287,6 +306,8 @@ echo "[*] Detected architecture: $HOST_ARCH"
 echo "[*] Distribution:          ${DISTRO_ID:-unknown}"
 [[ -z "$RPI_MODEL" ]] || echo "[*] Raspberry Pi model:    $RPI_MODEL"
 [[ -z "$GPIO_BACKEND" ]] || echo "[*] GPIO backend:          $GPIO_BACKEND"
+echo "[*] Navigation services:   $RUN_NAVIGATION"
+echo "[*] Navigation region:     ${NAVIGATION_REGION:-none}"
 echo "[*] Navigation mode:       $NAVIGATION_MODE"
 echo "[*] Features:              ${FEATURES[*]}"
 echo "[*] VNC service setup:     $RUN_VNC"
@@ -338,8 +359,9 @@ if [[ -n "$BLUETOOTH_SPP_ADDRESS" ]] && (( ! SKIP_INSTALLS )); then
   bash "$PROJECT_DIR/scripts/installers/setup_bluetooth_spp.sh" "${spp_args[@]}"
 fi
 
-if (( RUN_VNC )) || (( RUN_GPSD_SERVICE )) || (( RUN_TELEMETRY_SERVICES )) || (( RUN_RADIO )); then
+if (( RUN_VNC )) || (( RUN_GPSD_SERVICE )) || (( RUN_TELEMETRY_SERVICES )) || (( RUN_RADIO )) || (( RUN_NAVIGATION )); then
   service_args=()
+  (( RUN_NAVIGATION )) && service_args+=(--navigation)
   (( RUN_RADIO )) && service_args+=(--radio)
   (( RUN_VNC )) && service_args+=(--vnc)
   (( RUN_GPSD_SERVICE )) && service_args+=(--gpsd --gps-device "$GPS_DEVICE")
@@ -357,6 +379,10 @@ if (( ! SKIP_INSTALLS )) && [[ " ${FEATURES[*]} " == *" navigation "* ]]; then
     --target "$TARGET" \
     --mode "$NAVIGATION_MODE" \
     --skip-host-packages
+  if [[ -n "$NAVIGATION_REGION" ]]; then
+    bash "$PROJECT_ROOT/scripts/runtime/pull_navigation_data.sh" --region "$NAVIGATION_REGION" --no-restart
+    sudo bash "$PROJECT_ROOT/scripts/systemd/install_navigation_runtime_systemd.sh"
+  fi
 fi
 
 if (( ! SKIP_INSTALLS )); then
