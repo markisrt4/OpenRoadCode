@@ -47,7 +47,9 @@ def discover(source_root: Path) -> list[dict[str, str]]:
     result = []
     for path in sorted(paths):
         relative = path.relative_to(root)
-        if IGNORED_DIRECTORIES.intersection(relative.parts) or not path.is_file():
+        if not path.is_file() or any(
+            part in IGNORED_DIRECTORIES or part.startswith(".venv-") for part in relative.parts
+        ):
             continue
         if path.name == "README.md":
             kind = "readme"

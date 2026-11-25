@@ -36,7 +36,7 @@ class RadioPanelLayoutMixin:
         )
         self._groups.grid(row=0, column=0, sticky="ew", pady=(0, 3))
         self._subcategory_strip = tk.Frame(self, bg=ui.surface)
-        self._subcategory_signature = None
+        self._subcategory_signature: tuple[str, tuple[tuple[str, str], ...], str] | None = None
 
         self._build_group_bar()
         self._body = tk.Frame(self, bg=ui.background)

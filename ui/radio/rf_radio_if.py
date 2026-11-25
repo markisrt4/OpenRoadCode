@@ -138,6 +138,10 @@ class RfRadioSession(Protocol):
         """
         ...
 
+    def refresh_spectrum(self) -> None:
+        """Refresh the receiver spectrum presentation on the frontend thread."""
+        ...
+
     def deactivate(self) -> None:
         """Retire requests/results and detach native clients before host destruction."""
         ...
