@@ -132,7 +132,7 @@ def test_queued_launch_and_delivery_are_dropped_after_close(receiver: ReceiverFi
 
 
 def test_embedding_is_cancelled_and_detached_before_close_returns(
-    receiver: ReceiverFixture
+    receiver: ReceiverFixture,
 ) -> None:
     r = receiver
     entered, retired = Event(), Event()
@@ -165,7 +165,7 @@ def test_embedding_is_cancelled_and_detached_before_close_returns(
 
 
 def test_adsb_explicitly_releases_rf_and_stop_is_owned_by_session(
-    receiver: ReceiverFixture
+    receiver: ReceiverFixture,
 ) -> None:
     r = receiver
     r.application.presented = False
@@ -223,7 +223,7 @@ def test_sdrforge_stop_clears_stale_rds_without_changing_profile(receiver: Recei
 
 
 def test_sdrforge_old_frequency_cannot_replace_new_station_identity(
-    receiver: ReceiverFixture
+    receiver: ReceiverFixture,
 ) -> None:
     r = receiver
     source = Mock()
@@ -324,7 +324,7 @@ def test_rest_stopped_status_wins_over_delayed_zmq_start(receiver: ReceiverFixtu
 
 
 def test_local_retune_immediately_invalidates_old_receiver_telemetry(
-    receiver: ReceiverFixture
+    receiver: ReceiverFixture,
 ) -> None:
     r = receiver
     r.session._state = replace(
@@ -476,7 +476,7 @@ def test_stopped_rest_does_not_resurrect_cached_rds(receiver: ReceiverFixture) -
 
 
 def test_profile_mode_change_on_same_frequency_invalidates_telemetry(
-    receiver: ReceiverFixture
+    receiver: ReceiverFixture,
 ) -> None:
     r = receiver
     r.session._state = replace(
@@ -496,7 +496,7 @@ def test_profile_mode_change_on_same_frequency_invalidates_telemetry(
 
 
 def test_profile_change_with_same_mode_and_frequency_invalidates_telemetry(
-    receiver: ReceiverFixture
+    receiver: ReceiverFixture,
 ) -> None:
     r = receiver
     r.session._state = replace(
@@ -593,7 +593,7 @@ def test_usb_disconnect_rest_outage_and_reconnect_lifecycle(
 
 
 def test_spectrum_frames_are_suppressed_while_rest_reports_stopped(
-    receiver: ReceiverFixture
+    receiver: ReceiverFixture,
 ) -> None:
     from ui.radio.sdrforge_spectrum_if import SpectrumPresentation
 
@@ -805,7 +805,7 @@ def test_native_refresh_tracks_receiver_lifecycle(
 
 
 def test_stale_zmq_running_flag_is_diagnostic_only_after_rest_stop(
-    receiver: ReceiverFixture
+    receiver: ReceiverFixture,
 ) -> None:
     r = receiver
     r.session._rest_receiver_running = False
@@ -848,7 +848,11 @@ def test_native_receiver_full_simulated_lifecycle(
     r.session._spectrum_source = source
     source.latest_spectrum.return_value = None
     source.latest_receiver.return_value = None
-    status: dict[str, bool | str | None] = {"running": False, "starting": False, "startup_error": None}
+    status: dict[str, bool | str | None] = {
+        "running": False,
+        "starting": False,
+        "startup_error": None,
+    }
     offline = {"value": False}
     starts: list[str] = []
 

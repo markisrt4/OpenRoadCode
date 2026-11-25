@@ -300,7 +300,10 @@ class CityWeatherOverlayController:
             # Stable ordering avoids another API request when vector-tile order changes.
             cities = tuple(
                 sorted(
-                    (WeatherCity(city.name, city.latitude, city.longitude) for city in viewport_cities),
+                    (
+                        WeatherCity(city.name, city.latitude, city.longitude)
+                        for city in viewport_cities
+                    ),
                     key=lambda city: (city.name, city.latitude, city.longitude),
                 )
             )

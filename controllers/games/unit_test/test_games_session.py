@@ -17,7 +17,6 @@ from ui.games import GameStatus, GamesUiIf
 from ui.games.game_window_embedder_if import GameWindowEmbedderIf
 from ui.games.games_session_if import GamesRuntimeUiIf
 
-
 RuntimeFixture = tuple[
     GamesSession,
     Mock,

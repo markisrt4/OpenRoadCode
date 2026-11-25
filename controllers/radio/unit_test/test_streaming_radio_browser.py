@@ -25,7 +25,6 @@ from ui.radio.streaming_radio_state import (
 )
 from ui.radio.streaming_radio_types import StreamingRadioStation
 
-
 BrowserFixture = tuple[
     StreamingRadioBrowser,
     Mock,

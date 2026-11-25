@@ -44,7 +44,9 @@ class ShellConnectivityController:
         self._internet_next_probe = 0
         self._network_available: bool | None = None
         self._network_results: SimpleQueue[bool | None] = SimpleQueue()
-        self._network_monitor = NetworkMonitor(lambda available: self._network_results.put(available))
+        self._network_monitor = NetworkMonitor(
+            lambda available: self._network_results.put(available)
+        )
 
     def start(self) -> None:
         """Start bounded network monitoring and scheduled presentation."""
