@@ -14,8 +14,16 @@ def sample_calendar_health(
     now = now or datetime.now(timezone.utc)
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
-        status = raw["status"]
         interval = float(raw["interval_seconds"])
+        attempt = raw.get("last_attempt")
+        syncing = (
+            raw.get("syncing") is True
+            and attempt is not None
+            and 0 <= (now - datetime.fromisoformat(attempt)).total_seconds() <= 2 * interval
+        )
+        if syncing and "last_completed" not in raw:
+            return {"status": "unavailable", "syncing": True}
+        status = raw["status"]
         completed = datetime.fromisoformat(raw["last_completed"])
         age = (now - completed).total_seconds()
         if status not in ("ok", "degraded", "failed") or not math.isfinite(interval):
@@ -33,6 +41,7 @@ def sample_calendar_health(
         metrics = raw.get("metrics") or {}
         return {
             "status": status,
+            "syncing": syncing,
             "stale": age > 2 * interval or (refresh_age is not None and refresh_age > 2 * interval),
             "last_success_age_seconds": success_age,
             "last_data_refresh_age_seconds": refresh_age,

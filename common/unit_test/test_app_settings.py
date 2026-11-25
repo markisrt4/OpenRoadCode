@@ -42,3 +42,23 @@ def test_invalid_radar_palette_uses_default(tmp_path) -> None:
     )
 
     assert AppSettingsStore(path).load() == AppSettings()
+
+
+def test_field_updates_preserve_other_preferences(tmp_path) -> None:
+    path = tmp_path / "settings.toml"
+    first = AppSettingsStore(path)
+    second = AppSettingsStore(path)
+    first.update(appointment_arrival_minutes=25)
+    second.update(unit_system=UnitSystem.METRIC)
+    first.update(radar_palette="classic")
+    assert second.load() == AppSettings(
+        unit_system=UnitSystem.METRIC,
+        radar_palette="classic",
+        appointment_arrival_minutes=25,
+    )
+
+
+def test_zero_arrival_buffer_is_persisted(tmp_path) -> None:
+    store = AppSettingsStore(tmp_path / "settings.toml")
+    store.update(appointment_arrival_minutes=0)
+    assert store.load().appointment_arrival_minutes == 0

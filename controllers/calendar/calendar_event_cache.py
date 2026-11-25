@@ -107,6 +107,23 @@ class CalendarEventCache:
                 key,
             )
 
+    def snapshot_windows(self, account_id: str) -> dict[str, tuple[datetime, datetime]]:
+        """Return successful snapshot coverage, including empty calendars.
+
+        @param account_id Account whose coverage is requested.
+        @return Calendar IDs mapped to their last successful window.
+        """
+        with self._connect() as connection:
+            rows = connection.execute(
+                """SELECT calendar_id, window_start, window_end
+                   FROM calendar_snapshot_windows WHERE account_id = ?""",
+                (account_id,),
+            ).fetchall()
+        return {
+            key: (datetime.fromisoformat(start), datetime.fromisoformat(end))
+            for key, start, end in rows
+        }
+
     def list_events(self, start: datetime, end: datetime) -> list[CalendarEvent]:
         """Read events from the latest successful snapshot per calendar."""
         self._window(start, end)
