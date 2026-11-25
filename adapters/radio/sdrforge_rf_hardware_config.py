@@ -8,6 +8,7 @@ import threading
 from collections.abc import Callable
 from urllib import request
 
+from protocols.sdrforge_control import authorize_local_sdrforge_request
 from ui.radio.rf_hardware_config_if import RfHardwareConfig, RfHardwareConfigIf
 
 
@@ -47,7 +48,9 @@ class SdrForgeRfHardwareConfig(RfHardwareConfigIf):
                     headers={"Content-Type": "application/json"},
                     method="POST",
                 )
-                with request.urlopen(operation, timeout=5.0) as response:
+                with request.urlopen(
+                    authorize_local_sdrforge_request(operation), timeout=5.0
+                ) as response:
                     response.read()
                 on_success()
             except (OSError, ValueError, TypeError) as exc:

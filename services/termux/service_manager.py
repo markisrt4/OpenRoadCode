@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.request import Request, urlopen
 
+from protocols.sdrforge_control import authorize_local_sdrforge_request
 from services.common.service_logging import (
     ServiceStatusLog,
     observed_status,
@@ -230,7 +231,7 @@ class RunitServiceManager:
                 data=b"",
                 method="POST",
             )
-            with urlopen(request, timeout=3) as response:
+            with urlopen(authorize_local_sdrforge_request(request), timeout=3) as response:
                 if response.status != 200:
                     raise RuntimeError("SDRForge hardware shutdown was rejected")
             self._wait_sdrforge_source(None)

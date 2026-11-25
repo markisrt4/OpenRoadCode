@@ -23,6 +23,7 @@ from apps.orcUi.frontend.tk.radio_panel import RadioPanel
 from apps.orcUi.theme_runtime import theme_bundle
 from common.resource_cleanup import ResourceCleanup, close_resources
 from controllers.radio.adapters.radio_browser_directory import RadioBrowserDirectory
+from controllers.radio.adapters.sdrforge_rest_radio_backend import SdrForgeRestRadioBackend
 from controllers.radio.adapters.sdrforge_zmq_spectrum_adapter import SdrForgeTelemetrySubscriber
 from controllers.radio.native_radio_control import NativeRadioControl
 from controllers.radio.radio_profile_controller import RadioProfileController
@@ -36,6 +37,7 @@ from frontends.tk.radio.persistent_streaming_radio_panel import PersistentStream
 from frontends.tk.radio.streaming_radio_now_playing import StreamingRadioNowPlaying
 from frontends.x11.x11_window_embedder import X11WindowEmbedder
 from protocols.rigctl.rigctl_client import RigctlClient
+from protocols.sdrforge_control import authorize_local_sdrforge_request
 from ui.radio import AircraftMenuRequestHandlerIf
 from ui.radio.radio_visualization_config import RadioRenderer, RadioVisualizationConfig
 from ui.theme import ThemeBundle, ThemeMode
@@ -63,10 +65,12 @@ def stop_sdrforge_receiver() -> None:
     """Release RF acquisition at application shutdown, not screen retirement."""
     try:
         with urllib.request.urlopen(
-            urllib.request.Request(
-                "http://127.0.0.1:5570/v1/receiver/stop",
-                data=b"",
-                method="POST",
+            authorize_local_sdrforge_request(
+                urllib.request.Request(
+                    "http://127.0.0.1:5570/v1/receiver/stop",
+                    data=b"",
+                    method="POST",
+                )
             ),
             timeout=5.0,
         ):
@@ -161,6 +165,11 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
 
     with ResourceCleanup() as cleanup:
         rigctl_client = RigctlClient()
+        managed_backend = (
+            SdrForgeRestRadioBackend(shared_receiver=True)
+            if os.environ.get("SDRFORGE_ACQUISITION_TOKEN")
+            else None
+        )
 
         def sync_theme(mode: ThemeMode) -> None:
             """Native radio widgets consume the ORC theme directly."""
@@ -236,7 +245,7 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
         def rf_panel_factory(parent: tk.Misc, theme: ThemeBundle) -> RadioPanel:
             if resources.closed:
                 raise RuntimeError("Radio composition is closed")
-            radio = RadioProfileController(client=rigctl_client)
+            radio = RadioProfileController(client=rigctl_client, backend=managed_backend)
             visualization = RadioVisualizationConfig(
                 renderer=RadioRenderer(os.environ.get("ORC_RADIO_RENDERER", "auto").lower()),
                 waterfall_rows=int(os.environ.get("ORC_RADIO_WATERFALL_ROWS", "180")),
@@ -322,7 +331,7 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
                 logger.info("NOAA worker started")
                 try:
                     state = play_weather_radio(
-                        RadioProfileController(),
+                        RadioProfileController(backend=managed_backend),
                         runtime.radio,
                         cancelled=lambda: resources.closed,
                         native_sdrforge=True,

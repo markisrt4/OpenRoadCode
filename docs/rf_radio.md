@@ -56,3 +56,14 @@ python -m apps.orcUi --follow-logs --log-component orc.radio.noaa --log-level IN
 
 Controller state reports requested tuning. Confirm actual tuning separately with
 `RigctlClient().get_frequency()`; a success label alone is not receiver readback.
+
+### Managed SDRForge control
+
+The desktop UI uses authenticated REST mutations when its environment contains
+`SDRFORGE_ACQUISITION_TOKEN`. The token must match the local SDRForge service's
+credential. REST client requests attach it only for local control mutations,
+and rigctl remains available for standalone control and read-only telemetry.
+
+The host installer currently leaves managed mode disabled. The radio, NOAA and
+ADS-B lifecycle paths still need to be wired to the receiver coordinator before
+managed mode can be enabled automatically.

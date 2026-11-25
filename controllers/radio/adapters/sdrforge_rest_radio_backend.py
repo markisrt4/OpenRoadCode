@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from protocols.sdrforge_control import authorize_local_sdrforge_request
+
 from ..radio_backend_if import RadioBackendIf
 from ..sdrforge_readiness import wait_for_sdrforge_ready
 
@@ -28,7 +30,14 @@ class SdrForgeConnectionDiagnostics:
 class SdrForgeRestRadioBackend(RadioBackendIf):
     """Control an existing SDRForge service; does not own the USB receiver."""
 
-    def __init__(self, base_url: str = "http://127.0.0.1:5570", timeout: float = 1.0) -> None:
+    def __init__(
+        self,
+        base_url: str = "http://127.0.0.1:5570",
+        timeout: float = 1.0,
+        *,
+        shared_receiver: bool = False,
+    ) -> None:
+        self.shared_receiver = shared_receiver
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout
         self._connection_state = "unknown"
@@ -78,7 +87,9 @@ class SdrForgeRestRadioBackend(RadioBackendIf):
             method="POST" if data is not None else "GET",
         )
         try:
-            with urlopen(request, timeout=self._timeout) as response:
+            with urlopen(
+                authorize_local_sdrforge_request(request), timeout=self._timeout
+            ) as response:
                 result = json.load(response)
         except (HTTPError, URLError, TimeoutError, OSError, ValueError) as exc:
             self._connection_state = "unavailable"

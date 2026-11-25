@@ -5,7 +5,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
-SOURCE="${LIBSDRFORGE_SOURCE:-git+https://github.com/markisrt4/libSDRForge.git@22a8cec06b21d4a9284e6e54972c6afb0765e256}"
+SOURCE="${LIBSDRFORGE_SOURCE:-git+https://github.com/markisrt4/libSDRForge.git@ae29afdb073ba38193c723b8ab94f7d8271fddcf}"
 
 if [[ "${PREFIX:-}" == /data/data/com.termux/files/usr ]]; then
   python -c 'import numpy, scipy, zmq'

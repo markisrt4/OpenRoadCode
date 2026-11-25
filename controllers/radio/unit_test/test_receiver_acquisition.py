@@ -3,6 +3,8 @@
 
 """Acquisition lifecycle tests using simulated consumers."""
 
+from threading import Event, Thread
+
 import pytest
 
 from controllers.radio.receiver_acquisition import ReceiverAcquisitionController
@@ -62,3 +64,36 @@ def test_unknown_identity_cannot_acquire() -> None:
     adapter = FakeAdapter()
     assert not controller.start("radio", ReceiverDevice("0bda", "2838", "", "1-1"), adapter)
     assert adapter.start_calls == 0
+
+
+def test_separate_receiver_can_start_while_first_receiver_is_starting() -> None:
+    controller = ReceiverAcquisitionController(ReceiverOwnershipController())
+    starting = Event()
+    proceed = Event()
+    acquired = Event()
+
+    class SlowAdapter(FakeAdapter):
+        def start(self, device: ReceiverDevice) -> bool:
+            starting.set()
+            return proceed.wait(timeout=5)
+
+    def start_other() -> None:
+        assert not controller.start("conflict", DEVICE, FakeAdapter())
+        second = ReceiverDevice("0bda", "2838", "00000002", "1-2")
+        if controller.start("adsb", second, FakeAdapter()):
+            acquired.set()
+
+    radio = Thread(target=controller.start, args=("radio", DEVICE, SlowAdapter()))
+    other = Thread(target=start_other)
+    radio.start()
+    try:
+        assert starting.wait(timeout=2)
+        other.start()
+        assert acquired.wait(timeout=2)
+    finally:
+        proceed.set()
+        radio.join(timeout=5)
+        if other.ident is not None:
+            other.join(timeout=5)
+    assert controller.stop("radio")
+    assert controller.stop("adsb")

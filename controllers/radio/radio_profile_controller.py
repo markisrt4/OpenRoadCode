@@ -9,6 +9,7 @@ from pathlib import Path
 
 from config.radio_config_manager import load_radio_config
 from controllers.radio.adapters.rigctl_radio_backend import RigctlRadioBackend
+from controllers.radio.radio_backend_if import RadioBackendIf
 from controllers.radio.radio_controller import RadioController, format_frequency
 from controllers.radio.radio_profiles import RadioProfileCatalog, RadioProfilePreset
 from protocols.rigctl.rigctl_client import RigctlClient
@@ -25,11 +26,14 @@ class RadioProfileController:
         *,
         catalog: RadioProfileCatalog | None = None,
         client: RigctlClient | None = None,
+        backend: RadioBackendIf | None = None,
     ) -> None:
         self._catalog = catalog or RadioProfileCatalog()
         if not self._catalog.profiles:
             raise ValueError("No usable radio profiles are installed")
-        self._client = client or RigctlClient()
+        self._backend = (
+            backend if backend is not None else RigctlRadioBackend(client or RigctlClient())
+        )
         self._radio: RadioController
         self._profile_key = ""
         if config_path is not None:
@@ -189,7 +193,7 @@ class RadioProfileController:
             else None
         )
         return RadioController(
-            backend=RigctlRadioBackend(self._client),
+            backend=self._backend,
             presets=presets,
             default_mode=default_mode,
             radio_range=radio_range,
