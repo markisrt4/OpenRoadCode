@@ -61,6 +61,7 @@ class AppointmentSnapshot:
 
     events: tuple[CalendarEventView, ...]
     health: CalendarHealthView
+    complete_coverage: bool | None = None
 
 
 @dataclass(frozen=True)
