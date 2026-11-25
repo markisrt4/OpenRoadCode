@@ -17,3 +17,7 @@ build-container
 
 # Downloaded camera perception model weights.
 yolo11n.pt
+
+# Local IDE settings and generated build output
+/.vscode/
+/build-output/
