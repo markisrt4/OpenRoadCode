@@ -269,7 +269,6 @@ done
 feature_index=0
 while (( feature_index < ${#FEATURES[@]} )); do
   feature="${FEATURES[$feature_index]}"
-  if [[ "$feature" == desktop-ui ]]; then append_feature sdrforge; fi
   while read -r dependency; do [[ -z "$dependency" ]] || append_feature "$dependency"; done < <(get_feature_dependencies "$feature" | tr ' ' '\n')
   feature_index=$((feature_index + 1))
 done
