@@ -101,10 +101,24 @@ class OrcUiComposition:
                 self.performance_status.start()
             self.app.schedule_ui_callback(1500, self.runtime.start_background_apps)
             self.core.start()
+            self._poll_route_start()
             _report(self.startup_progress, "ready", "OpenRoadCode UI ready")
             self.app.run()
 
         self.core.lifecycle.execute_requested_action()
+
+    def _poll_route_start(self) -> None:
+        if self._closed:
+            return
+        try:
+            if self.core.route_request_handler.poll_route_start():
+                self.app.set_screen_status("Appointment guidance started")
+                self.app.navigate_to("NAVIGATION")
+        except Exception:
+            self.app.set_screen_status("Unable to start appointment guidance")
+        finally:
+            if not self._closed:
+                self.app.schedule_ui_callback(100, self._poll_route_start)
 
     def close(self) -> None:
         """Attempt all owned cleanup once, including before the UI loop starts."""
