@@ -128,7 +128,7 @@ class UpcomingPanel(tk.Frame, UiWidget):
             return
         if journey.event is None or journey.event not in snapshot.events:
             return
-        if not self._confirm_destination(journey.event.location or "Unknown destination"):
+        if not self._confirm_destination(journey.destination_label or journey.event.location or "Unknown destination"):
             return
         if self._closed:
             return
@@ -141,6 +141,7 @@ class UpcomingPanel(tk.Frame, UiWidget):
             or journey.event not in current.events
             or current.journey is None
             or current.journey.event != journey.event
+            or current.journey.destination_label != journey.destination_label
             or current.journey.destination != journey.destination
         ):
             return
