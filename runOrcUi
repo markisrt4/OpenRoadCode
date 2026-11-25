@@ -14,21 +14,26 @@ if [[ -n "${TERMUX_VERSION:-}" || "${PREFIX:-}" == *com.termux* ]]; then
     default_venv="$PROJECT_ROOT/venv-termux"
 else
     export DISPLAY=:0
-    default_venv="$PROJECT_ROOT/.venv"
+    default_venv="$PROJECT_ROOT/../.venv"
 fi
 
-# Honor an explicit interpreter or activated environment before the local venv.
+# Honor explicit interpreter, activated environment, and installer venv overrides.
 if [[ -n "${PYTHON:-}" ]]; then
     python_bin="$PYTHON"
 elif [[ -n "${VIRTUAL_ENV:-}" && -x "$VIRTUAL_ENV/bin/python" ]]; then
     python_bin="$VIRTUAL_ENV/bin/python"
+elif [[ -n "${VENV_DIR:-}" && -x "$VENV_DIR/bin/python" ]]; then
+    python_bin="$VENV_DIR/bin/python"
 elif [[ -x "$default_venv/bin/python" ]]; then
     python_bin="$default_venv/bin/python"
+elif [[ -x "$PROJECT_ROOT/.venv/bin/python" ]]; then
+    python_bin="$PROJECT_ROOT/.venv/bin/python"
 elif [[ -x "$PROJECT_ROOT/venv/bin/python" ]]; then
     python_bin="$PROJECT_ROOT/venv/bin/python"
 else
     echo "[!] No Python virtual environment found for OpenRoadCode." >&2
-    echo "    Activate a venv or create one with: python3 -m venv .venv" >&2
+    echo "    Expected installer environment: $default_venv" >&2
+    echo "    Activate a venv or set VENV_DIR to an existing environment." >&2
     echo "    Install ORC dependencies using the repository installer." >&2
     exit 1
 fi
