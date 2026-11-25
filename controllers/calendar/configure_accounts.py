@@ -26,6 +26,7 @@ def main() -> None:
     parser.add_argument("action", choices=("list", "add", "enable", "disable"))
     parser.add_argument("--account-id")
     parser.add_argument("--provider", choices=("caldav", "proton"))
+    parser.add_argument("--endpoint-default", default="")
     args = parser.parse_args()
     accounts = load_accounts(args.accounts_file)
     if args.action == "list":
@@ -40,19 +41,21 @@ def main() -> None:
             parser.error("Account ID already exists")
         provider = args.provider or input("Provider (caldav/proton): ").strip().lower()
         username = input("Calendar username: ").strip()
-        url = input("CalDAV endpoint: ").strip()
-        if provider == "proton" and not url:
-            url = "http://127.0.0.1:8080/caldav/"
+        default = args.endpoint_default
+        if provider == "proton":
+            default = default or "http://127.0.0.1:8080/caldav/"
+        prompt = f"CalDAV endpoint [{default}]: " if default else "CalDAV endpoint: "
+        url = input(prompt).strip() or default
         account = CalendarAccount(account_id, provider, username, url)
-        secrets = EnvironmentVariableSecretManager(
-            secrets_file=args.accounts_file.parent / "secrets.env"
-        )
+        secrets = EnvironmentVariableSecretManager()
         password = getpass("Calendar password or app password: ")
         if not password.strip():
             parser.error("Password cannot be empty")
+        paths = CalendarAccountPaths(args.accounts_file.parent / "calendar-accounts", account)
+        paths.catalog.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         probe = create_calendar_provider(
             account,
-            CalendarAccountPaths(args.accounts_file.parent / "calendar-accounts", account),
+            paths,
             EnvironmentVariableSecretManager(environment={account.password_secret: password}),
         )
         now = datetime.now(timezone.utc)
