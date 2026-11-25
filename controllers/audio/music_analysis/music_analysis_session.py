@@ -10,11 +10,33 @@ import struct
 import threading
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict
+from typing import Protocol
 
 from controllers.audio.capture.audio_capture_if import AudioCaptureIf, AudioSamplesCallback
 
 from .music_analysis_types import MusicAnalysisState
 from .music_analyzer import MusicAnalyzer
+
+
+class _SessionAnalyzer(Protocol):
+    """Analyzer capabilities required by capture and calibration ownership."""
+
+    @property
+    def band_count(self) -> int: ...
+
+    @property
+    def fft_size(self) -> int: ...
+
+    @property
+    def is_zeroized(self) -> bool: ...
+
+    def analyze(self, samples: Sequence[float], sample_rate_hz: int) -> MusicAnalysisState: ...
+
+    def start_zeroize(self) -> None: ...
+
+    def finish_zeroize(self) -> None: ...
+
+    def clear_zeroize(self) -> None: ...
 
 
 class PushAudioCapture(AudioCaptureIf):
@@ -68,13 +90,13 @@ class MusicAnalysisSession:
         self,
         sources: Mapping[str, Callable[[], AudioCaptureIf]],
         *,
-        analyzer: MusicAnalyzer | None = None,
+        analyzer: _SessionAnalyzer | None = None,
         consumer: Callable[[MusicAnalysisState], None] | None = None,
     ) -> None:
         if not sources:
             raise ValueError("at least one audio source is required")
         self._sources = dict(sources)
-        self._analyzer = analyzer or MusicAnalyzer()
+        self._analyzer: _SessionAnalyzer = analyzer or MusicAnalyzer()
         self._consumer = consumer
         self._lock = threading.RLock()
         self._lifecycle = threading.RLock()
