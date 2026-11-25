@@ -4,7 +4,9 @@
 """NOAA index selection, bounded downloads, numeric coloring, and cache separation."""
 
 import json
+from collections.abc import Iterator
 from io import BytesIO
+from pathlib import Path
 from unittest.mock import Mock, patch
 from urllib.parse import parse_qs, urlparse
 
@@ -32,27 +34,27 @@ RUN = "2026100212"
 
 
 @pytest.fixture(autouse=True)
-def native_dependency_checked_separately():
+def native_dependency_checked_separately() -> Iterator[None]:
     with patch("controllers.weather.providers.hrrr_radar_provider.check_gdal_tools"):
         yield
 
 
-def _index(run=RUN):
+def _index(run: str = RUN) -> str:
     return f"1:0:d={run}:REFC:entire atmosphere:1 hour fcst:\n2:500:d={run}:TMP:2 m above ground:1 hour fcst:\n"
 
 
-def _response(index=None, status=200):
+def _response(index: str | None = None, status: int = 200) -> Mock:
     response = Mock(status_code=status, text=_index() if index is None else index)
     return response
 
 
-def _provider():
+def _provider() -> tuple[HrrrRadarProvider, Mock]:
     session = Mock()
     session.get.return_value = _response()
     return HrrrRadarProvider(session=session, clock=lambda: NOW), session
 
 
-def test_index_selects_only_reflectivity_and_not_the_whole_grib():
+def test_index_selects_only_reflectivity_and_not_the_whole_grib() -> None:
     assert reflectivity_range(_index(), RUN) == (0, 499)
     assert reflectivity_range(f"1:700:d={RUN}:REFC:entire atmosphere:1 hour fcst:\n", RUN) == (
         700,
@@ -68,12 +70,12 @@ def test_index_selects_only_reflectivity_and_not_the_whole_grib():
         f"1:500:d={RUN}:REFC:entire atmosphere:1 hour fcst:\n2:400:d={RUN}:TMP:surface:1 hour fcst:\n",
     ],
 )
-def test_wrong_field_run_or_offsets_are_rejected(index):
+def test_wrong_field_run_or_offsets_are_rejected(index: str) -> None:
     with pytest.raises(ValueError):
         reflectivity_range(index, RUN)
 
 
-def test_provider_returns_six_future_hours_from_one_run():
+def test_provider_returns_six_future_hours_from_one_run() -> None:
     provider, session = _provider()
     frames = provider.get_frames()
     assert [frame.timestamp for frame in frames] == [HOUR + step * 3600 for step in range(1, 7)]
@@ -83,7 +85,7 @@ def test_provider_returns_six_future_hours_from_one_run():
     assert parse_qs(urlparse(frames[0].tile_url).query)["end"] == ["499"]
 
 
-def test_partial_latest_run_falls_back_as_a_whole():
+def test_partial_latest_run_falls_back_as_a_whole() -> None:
     provider, session = _provider()
     session.get.side_effect = [
         _response(),
@@ -96,7 +98,7 @@ def test_partial_latest_run_falls_back_as_a_whole():
     assert "/f07/" in frames[-1].tile_url
 
 
-def test_no_model_data_is_reported_without_inventing_frames():
+def test_no_model_data_is_reported_without_inventing_frames() -> None:
     provider, session = _provider()
     session.get.return_value = _response(status=404)
     with pytest.raises(RuntimeError, match="no complete recent run"):
@@ -104,27 +106,27 @@ def test_no_model_data_is_reported_without_inventing_frames():
     assert session.get.call_count == 5
 
 
-def test_network_failure_is_not_treated_as_no_precipitation():
+def test_network_failure_is_not_treated_as_no_precipitation() -> None:
     provider, session = _provider()
     session.get.return_value.raise_for_status.side_effect = requests.HTTPError("403")
     with pytest.raises(requests.HTTPError):
         provider.get_frames()
 
 
-def test_forecast_opens_at_nearest_future_not_six_hour_edge():
+def test_forecast_opens_at_nearest_future_not_six_hour_edge() -> None:
     provider, _ = _provider()
     controller = WeatherRadarController(provider, Mock())
     assert controller.show_latest().timestamp == HOUR + 3600
     assert controller.is_forecast
 
 
-def test_web_mercator_bounds():
+def test_web_mercator_bounds() -> None:
     assert tile_bounds(1, 0, 0) == pytest.approx([-20037508.342789244, 0, 0, 20037508.342789244])
     with pytest.raises(ValueError):
         tile_bounds(4, 16, 1)
 
 
-def _grib_message():
+def _grib_message() -> bytes:
     data = bytearray(24)
     data[:4] = b"GRIB"
     data[7] = 2
@@ -133,14 +135,16 @@ def _grib_message():
     return bytes(data)
 
 
-def _range_response(data=None, status=206, content_range="bytes 100-123/10000"):
+def _range_response(
+    data: bytes | None = None, status: int = 206, content_range: str = "bytes 100-123/10000"
+) -> Mock:
     data = _grib_message() if data is None else data
     response = Mock(status_code=status, headers={"Content-Range": content_range})
     response.iter_content.return_value = iter([data])
     return response
 
 
-def test_download_requires_a_valid_single_message_byte_range(tmp_path):
+def test_download_requires_a_valid_single_message_byte_range(tmp_path: Path) -> None:
     session = Mock()
     session.get.return_value = _range_response()
     source = HrrrTileSource(tmp_path, session)
@@ -158,8 +162,8 @@ def test_download_requires_a_valid_single_message_byte_range(tmp_path):
     ],
 )
 def test_full_file_wrong_range_and_truncated_download_are_rejected(
-    tmp_path, status, content_range, data
-):
+    tmp_path: Path, status: int, content_range: str, data: bytes
+) -> None:
     session = Mock()
     session.get.return_value = _range_response(data, status, content_range)
     with pytest.raises(RuntimeError):
@@ -175,7 +179,9 @@ def test_full_file_wrong_range_and_truncated_download_are_rejected(
         {"GRIB_ELEMENT": "REFC", "GRIB_SHORT_NAME": "0-EATM", "GRIB_VALID_TIME": str(HOUR + 7200)},
     ],
 )
-def test_decoder_rejects_wrong_variable_surface_or_valid_time(tmp_path, attributes):
+def test_decoder_rejects_wrong_variable_surface_or_valid_time(
+    tmp_path: Path, attributes: dict[str, str]
+) -> None:
     provider, _ = _provider()
     source = HrrrTileSource(tmp_path, Mock())
     source._checked = True
@@ -186,7 +192,7 @@ def test_decoder_rejects_wrong_variable_surface_or_valid_time(tmp_path, attribut
     source._run.assert_called_once()
 
 
-def _tiff():
+def _tiff() -> bytes:
     image = Image.new("F", (256, 256), -9999)
     image.putpixel((0, 0), 20)
     image.putpixel((1, 0), 50)
@@ -196,7 +202,7 @@ def _tiff():
     return stream.getvalue()
 
 
-def test_raw_reflectivity_becomes_transparent_clear_and_colored_precipitation():
+def test_raw_reflectivity_becomes_transparent_clear_and_colored_precipitation() -> None:
     result = Image.open(BytesIO(color_hrrr_reflectivity(_tiff(), _UNIVERSAL_DBZ)))
     assert result.getpixel((0, 0)) == (0, 163, 224, 255)
     assert result.getpixel((1, 0)) == (193, 0, 0, 255)
@@ -213,7 +219,9 @@ def test_raw_reflectivity_becomes_transparent_clear_and_colored_precipitation():
         (20.0, 65536, 65536),
     ],
 )
-def test_summary_distinguishes_clear_weather_from_missing_coverage(value, covered, visible):
+def test_summary_distinguishes_clear_weather_from_missing_coverage(
+    value: float, covered: int, visible: int
+) -> None:
     stream = BytesIO()
     Image.new("F", (256, 256), value).save(stream, format="TIFF")
     result = reflectivity_summary(stream.getvalue())
@@ -222,20 +230,20 @@ def test_summary_distinguishes_clear_weather_from_missing_coverage(value, covere
     assert (result["max_dbz"] is None) == (covered == 0)
 
 
-def test_diagnostic_location_uses_correct_tile():
+def test_diagnostic_location_uses_correct_tile() -> None:
     assert location_tile(42.8, -83.0) == (7, 34, 47)
     with pytest.raises(ValueError):
         location_tile(float("nan"), -83.0)
 
 
-def test_colorized_output_is_not_misread_as_dbz():
+def test_colorized_output_is_not_misread_as_dbz() -> None:
     stream = BytesIO()
     Image.new("RGB", (256, 256)).save(stream, format="TIFF")
     with pytest.raises(ValueError, match="raw single-band"):
         color_hrrr_reflectivity(stream.getvalue(), _UNIVERSAL_DBZ)
 
 
-def test_same_timestamp_from_different_sources_has_separate_tiles(tmp_path):
+def test_same_timestamp_from_different_sources_has_separate_tiles(tmp_path: Path) -> None:
     service = RadarTileService(cache_root=tmp_path)
     try:
         observed = service.tile_url(
@@ -249,7 +257,7 @@ def test_same_timestamp_from_different_sources_has_separate_tiles(tmp_path):
         service.close()
 
 
-def test_hrrr_tiles_flow_through_local_cache_and_classic_palette(tmp_path):
+def test_hrrr_tiles_flow_through_local_cache_and_classic_palette(tmp_path: Path) -> None:
     provider, _ = _provider()
     service = RadarTileService(cache_root=tmp_path)
     service._hrrr_tiles.tile = Mock(return_value=_tiff())
@@ -266,7 +274,7 @@ def test_hrrr_tiles_flow_through_local_cache_and_classic_palette(tmp_path):
         service.close()
 
 
-def test_environmental_injection_restores_selected_forecast_source():
+def test_environmental_injection_restores_selected_forecast_source() -> None:
     provider, _ = _provider()
     radar = WeatherRadarController(provider, Mock())
     bridge = Mock()
