@@ -31,6 +31,7 @@ imu
 environmental
 spotify
 youtube
+calendar
 sdrforge
 video
 video-v4l2
@@ -66,6 +67,7 @@ imu
 environmental
 spotify
 youtube
+calendar
 sdrforge
 video
 video-v4l2
@@ -81,6 +83,7 @@ browser
 streamlit
 spotify
 youtube
+calendar
 sdrforge
 navigation
 EOF
@@ -213,6 +216,9 @@ get_feature_python_packages() {
     browser|vnc|adsb|audio|spotify|sdrforge|navigation)
       echo ""
       ;;
+    calendar)
+      printf '%s\n' python-dateutil
+      ;;
     video-perception)
       printf '%s\n' ultralytics supervision
       ;;
@@ -271,6 +277,7 @@ Available features:
   automotive    Serial and CAN-bus support
   imu           MPU-6050 and Adafruit Blinka I2C support
   environmental BMP3XX and Adafruit Blinka I2C support
+  calendar      Calendar cache and synchronization dependencies (account setup separate)
   spotify       Spotify integration extras (includes audio)
   youtube       YouTube music video playback (includes browser and desktop-ui)
   sdrforge         SDRForge support (includes RTL-SDR, desktop-ui, and audio)
