@@ -5,22 +5,24 @@
 
 from datetime import datetime, timezone
 
-from controllers.weather.city_weather import city_value
+from controllers.weather.city_weather import CityWeatherHours, WeatherCity, city_value
 from ui.weather.weather_overlay_state import CityWeatherDetails, CityWeatherHour
 
 
-def city_identity(city):
+def city_identity(city: WeatherCity) -> str:
     """Keep selection stable across viewport ordering and duplicate city names."""
     return f"weather-city:{city.name}:{city.latitude:.5f}:{city.longitude:.5f}"
 
 
-def city_details(weather, period, hours, anchor, fetched_at):
+def city_details(
+    weather: CityWeatherHours, period: str, hours: int, anchor: int, fetched_at: float
+) -> CityWeatherDetails:
     """Use the selected overlay window and its already downloaded hourly values."""
 
-    def utc(stamp):
+    def utc(stamp: float) -> datetime:
         return datetime.fromtimestamp(stamp, timezone.utc)
 
-    def convert(value, kind):
+    def convert(value: float | None, kind: str) -> float | None:
         if value is None:
             return None
         return (
@@ -50,10 +52,9 @@ def city_details(weather, period, hours, anchor, fetched_at):
         city_identity(weather.city),
         weather.city.name,
         utc(target),
-        *(
-            convert(city_value(weather, kind, hours, period, anchor), kind)
-            for kind in ("temperature", "wind", "precipitation")
-        ),
+        convert(city_value(weather, "temperature", hours, period, anchor), "temperature"),
+        convert(city_value(weather, "wind", hours, period, anchor), "wind"),
+        convert(city_value(weather, "precipitation", hours, period, anchor), "precipitation"),
         rows,
         utc(fetched_at),
     )
