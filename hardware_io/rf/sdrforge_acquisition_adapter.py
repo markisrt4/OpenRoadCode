@@ -25,9 +25,7 @@ class SdrforgeAcquisitionAdapter:
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout
 
-    def _request(
-        self, path: str, body: dict[str, object] | None = None
-    ) -> dict[str, object]:
+    def _request(self, path: str, body: dict[str, object] | None = None) -> dict[str, object]:
         request = Request(
             self._base_url + path,
             data=None if body is None else json.dumps(body).encode(),
