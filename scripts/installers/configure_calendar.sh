@@ -28,8 +28,22 @@ add_account() {
             fi
             "$PYTHON_BIN" -m controllers.calendar.configure_accounts add --provider proton
             ;;
-        2|3|4|5)
+        2)
             "$PYTHON_BIN" -m controllers.calendar.configure_accounts add --provider caldav
+            ;;
+        3)
+            echo "Use your Nextcloud server's DAV endpoint and an app password."
+            "$PYTHON_BIN" -m controllers.calendar.configure_accounts add --provider caldav
+            ;;
+        4)
+            echo "Use your Apple Account username and an app-specific password."
+            "$PYTHON_BIN" -m controllers.calendar.configure_accounts add --provider caldav \
+                --endpoint-default https://caldav.icloud.com/
+            ;;
+        5)
+            echo "Use your Fastmail username and an app password with calendar access."
+            "$PYTHON_BIN" -m controllers.calendar.configure_accounts add --provider caldav \
+                --endpoint-default https://caldav.fastmail.com/dav/
             ;;
         0) return 0 ;;
         *) echo "Invalid provider"; return 1 ;;
@@ -47,7 +61,8 @@ while true; do
         3) "$PYTHON_BIN" -m controllers.calendar.configure_accounts enable || true ;;
         4) "$PYTHON_BIN" -m controllers.calendar.configure_accounts disable || true ;;
         5) sh development/calendar/install_linux_sync_service.sh --accounts || true ;;
-        6) systemctl --user enable openroadcode-calendar-sync.service &&
+        6) sh development/calendar/install_linux_sync_service.sh --accounts &&
+            systemctl --user enable openroadcode-calendar-sync.service &&
             systemctl --user restart openroadcode-calendar-sync.service || true ;;
         7) systemctl --user --no-pager status openroadcode-calendar-sync.service || true ;;
         0) exit 0 ;;
