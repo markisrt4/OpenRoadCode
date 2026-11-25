@@ -2,7 +2,7 @@
 """Compose the dashboard calendar and own its visible panel lifecycle."""
 
 from dataclasses import dataclass, field
-from datetime import datetime, tzinfo
+from datetime import date, datetime, tzinfo
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -47,6 +47,18 @@ class CalendarConfiguration:
     account_id: str = "caldav"
     zone: tzinfo = field(default_factory=_local_zone)
 
+    def coverage(self, day: date, days: int) -> frozenset[date]:
+        """Read cached coverage for the configured account and timezone."""
+        return covered_calendar_days(
+            CalendarEventCache(self.cache_path),
+            self.account_id,
+            self.selection_path,
+            self.cache_path.with_suffix(".catalog.json"),
+            self.zone,
+            day,
+            days,
+        )
+
     def query(self) -> CalendarQueryIf:
         provider = CachedCalendarProvider(
             self.account_id,
@@ -65,15 +77,7 @@ def configure_calendar(app, config: CalendarConfiguration | None = None):
             agenda=CalendarAgendaPresentation(
                 config.query(),
                 lambda: calendar_health_view(config.cache_path.with_suffix(".health.json")),
-                lambda day, days: covered_calendar_days(
-                    CalendarEventCache(config.cache_path),
-                    config.account_id,
-                    config.selection_path,
-                    config.cache_path.with_suffix(".catalog.json"),
-                    config.zone,
-                    day,
-                    days,
-                ),
+                config.coverage,
             ),
             theme=theme_bundle(app.theme_mode),
             zone=config.zone,
@@ -94,10 +98,12 @@ class HomeCalendarFactory:
         self._zone = config.zone
 
         def load():
-            events = upcoming_appointments(config.query(), datetime.now(config.zone), limit=1)
+            now = datetime.now(config.zone)
+            events = upcoming_appointments(config.query(), now, limit=1)
             return AppointmentSnapshot(
                 tuple(event_view(event) for event in events),
                 calendar_health_view(config.cache_path.with_suffix(".health.json")),
+                len(config.coverage(now.date(), 7)) == 7,
             )
 
         self.monitor: AppointmentMonitorIf = AppointmentMonitor(load)
