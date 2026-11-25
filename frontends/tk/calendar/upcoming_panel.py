@@ -4,6 +4,7 @@
 import tkinter as tk
 from tkinter import messagebox
 
+from ui.navigation.async_route_request_if import AsyncRouteRequestIf
 from ui.navigation.route_request_handler_if import RouteRequestHandlerIf
 from ui.navigation.route_types import TravelMode
 
@@ -44,13 +45,15 @@ class UpcomingPanel(tk.Frame, UiWidget):
         self._timer = None
         if self._closed:
             return
-        state = (self._monitor.snapshot, self._monitor.failed)
+        handler = self._route_handler
+        pending = isinstance(handler, AsyncRouteRequestIf) and handler.route_start_pending
+        state = (self._monitor.snapshot, self._monitor.failed, pending)
         if state != self._last_state:
             self._last_state = state
             self._render(*state)
         self._timer = self.after(500, self._refresh)
 
-    def _render(self, snapshot, failed):
+    def _render(self, snapshot, failed, pending=False):
         for child in self.winfo_children():
             child.destroy()
         if failed:
@@ -99,7 +102,8 @@ class UpcomingPanel(tk.Frame, UiWidget):
                 ):
                     tk.Button(
                         self,
-                        text="Navigate to appointment",
+                        text="Starting guidance…" if pending else "Navigate to appointment",
+                        state=tk.DISABLED if pending else tk.NORMAL,
                         bg=self._ui.surface,
                         fg=self._ui.accent_primary,
                         activebackground=self._ui.surface,
@@ -135,7 +139,10 @@ class UpcomingPanel(tk.Frame, UiWidget):
         ):
             return
         try:
-            handler.request_start_route(journey.destination, TravelMode.AUTO)
+            if isinstance(handler, AsyncRouteRequestIf):
+                handler.request_start_route_async(journey.destination, TravelMode.AUTO)
+            else:
+                handler.request_start_route(journey.destination, TravelMode.AUTO)
         except Exception:
             messagebox.showerror("Navigation", "Unable to start guidance.", parent=self)
 
