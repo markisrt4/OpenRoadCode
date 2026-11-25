@@ -54,6 +54,11 @@ class CalendarSyncScheduler:
             attempted = datetime.now(timezone.utc)
             started = time.monotonic()
             result = None
+            if self._health is not None:
+                try:
+                    self._health.mark_started(attempted, self._interval)
+                except OSError:
+                    _LOG.exception("Unable to publish calendar synchronization start")
             try:
                 now = self._clock()
                 if now.tzinfo is None:
