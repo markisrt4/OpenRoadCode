@@ -16,7 +16,6 @@ except ModuleNotFoundError:  # Python 3.10
 from common.units import UnitSystem
 from common.xdg_paths import openroadcode_config_dir
 
-
 DEFAULT_APP_SETTINGS_PATH = openroadcode_config_dir("settings.toml")
 
 

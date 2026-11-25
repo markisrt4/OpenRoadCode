@@ -1,7 +1,8 @@
 """Immutable SI road and place geometry for an offline orientation overlay."""
 
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
+
 from ui.navigation import GeoPoint
 
 

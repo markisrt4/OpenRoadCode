@@ -4,19 +4,14 @@
 from __future__ import annotations
 
 import colorsys
-from collections.abc import Callable, Iterable
 import io
 import tkinter as tk
 import tkinter.font as tkfont
+from collections.abc import Callable, Iterable
 from typing import Any, cast
 
 from PIL import Image, ImageEnhance, ImageFilter, ImageOps, ImageTk
 
-from ui.media.spotify_presentation_if import (
-    SpotifyPresentationState,
-    SpotifyVideoRequests,
-    SpotifyRequestHandler,
-)
 from ui.media import (
     MediaAvailability,
     MediaState,
@@ -25,6 +20,11 @@ from ui.media import (
     SeekRequestHandlerIf,
     TrackRequestHandlerIf,
     VolumeRequestHandlerIf,
+)
+from ui.media.spotify_presentation_if import (
+    SpotifyPresentationState,
+    SpotifyRequestHandler,
+    SpotifyVideoRequests,
 )
 from ui.ui_widget import UiWidget
 

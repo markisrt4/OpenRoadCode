@@ -3,8 +3,8 @@
 
 from datetime import datetime, timezone
 
-from .calendar_query_if import CalendarQueryIf
 from .calendar_models import CalendarEvent
+from .calendar_query_if import CalendarQueryIf
 
 
 def upcoming_appointments(

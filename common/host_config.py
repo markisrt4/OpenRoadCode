@@ -15,7 +15,6 @@ except ModuleNotFoundError:  # Python 3.10 fallback used by supported venvs.
 
 from common.xdg_paths import openroadcode_config_dir
 
-
 _HOST_CONFIG = "host.toml"
 _RPI_TARGETS = {"rpi4", "rpi5"}
 _TRUE_VALUES = {"1", "true", "yes", "on"}

@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: MIT
 """Own automatic network recovery and discard stale internet probe results."""
 
-from queue import SimpleQueue, Empty
+from queue import Empty, SimpleQueue
 from threading import Thread
+
 from controllers.connectivity.internet_access import internet_reachable
 from controllers.connectivity.network_monitor import NetworkMonitor
 

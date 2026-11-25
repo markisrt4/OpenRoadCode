@@ -4,7 +4,6 @@
 
 import math
 
-
 _PLANET_COLORS = (
     (0.72, 0.31, 0.1),
     (0.05, 0.22, 0.65),

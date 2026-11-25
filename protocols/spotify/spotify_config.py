@@ -11,7 +11,6 @@ from typing import Optional
 from protocols.oauth import OAuthClientConfig
 from security.secret_manager_if import SecretManagerIf
 
-
 DEFAULT_REDIRECT_URI = "http://127.0.0.1:8888/callback"
 
 SPOTIFY_AUTHORIZATION_URL = "https://accounts.spotify.com/authorize"

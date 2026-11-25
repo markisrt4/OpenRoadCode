@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-import math
 import os
 from datetime import datetime
 from pathlib import Path
@@ -16,7 +15,6 @@ from controllers.weather import (
     OpenMeteoWeatherController,
     WeatherSnapshotCache,
 )
-
 
 REFRESH_SECONDS = 60
 CACHE_DIRECTORY = Path(
@@ -285,7 +283,7 @@ try:
             f"https://radar.weather.gov/?settings=v1_eyJhZ2VuZGEiOiJsb2NhbCJ9#/@{lat},{lon},9z"
         )
         st.markdown(
-            f"""
+            """
             <div class="radar-card">
                 <h3>Local Weather Radar</h3>
                 <p>Open NOAA radar centered near your current position.</p>

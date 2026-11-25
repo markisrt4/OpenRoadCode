@@ -11,7 +11,6 @@ from typing import Any
 
 from frontends.tk.media.spotify_browse_panel import SpotifyBrowsePanel
 from frontends.tk.media.spotify_playback_panel import SpotifyPlaybackPanel
-from ui.media.spotify_browse_if import SpotifyBrowseSession
 from frontends.tk.media.spotify_video_overlay import SpotifyVideoOverlay
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
@@ -23,17 +22,18 @@ from ui.media import (
     TrackRequestHandlerIf,
     VolumeRequestHandlerIf,
 )
-from ui.media.spotify_presentation_if import (
-    SpotifyNativeSurface,
-    SpotifyPresentationSession,
-    SpotifyPresentationState,
-    SpotifyVideoRequests,
-    SpotifyRequestHandler,
-)
 from ui.media.spotify_account_if import (
     SpotifyAccountRequests,
     SpotifyAccountSession,
     SpotifyAccountState,
+)
+from ui.media.spotify_browse_if import SpotifyBrowseSession
+from ui.media.spotify_presentation_if import (
+    SpotifyNativeSurface,
+    SpotifyPresentationSession,
+    SpotifyPresentationState,
+    SpotifyRequestHandler,
+    SpotifyVideoRequests,
 )
 from ui.screen_ui_if import ScreenId
 

@@ -3,8 +3,8 @@
 
 """Deterministic software simulation of changing SI vehicle telemetry."""
 
-from datetime import datetime
 import math
+from datetime import datetime
 
 from controllers.automotive.vehicle_state import VehicleState
 from controllers.automotive.vehicle_state_source_if import VehicleStateSourceIf

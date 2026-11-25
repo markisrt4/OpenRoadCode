@@ -5,11 +5,10 @@
 
 from __future__ import annotations
 
-from common.logging.diagnostics import ComponentLog, diagnostic_action
-
 import time
 from typing import Any
 
+from common.logging.diagnostics import ComponentLog, diagnostic_action
 from hardware_io.camera.camera_if import CameraFrame, CameraIf
 
 

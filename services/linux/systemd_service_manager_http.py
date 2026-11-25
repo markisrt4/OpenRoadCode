@@ -7,33 +7,36 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
+import logging
+import os
+import subprocess
 from dataclasses import asdict
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-import json
-import os
 from pathlib import Path
-import subprocess
-import logging
 
 from common.logging.lifecycle import failure_fields
 from common.logging.structured import configure_logging, event
-
+from services.common.network_usb_inventory import collect_inventory
 from services.common.service_manager_auth import (
     TOKEN_ENV,
-    authorized as _authorized,
-    binding_allowed as _binding_allowed,
     same_device_request,
 )
-from services.common.service_manager_client_store import ServiceManagerClientStore
+from services.common.service_manager_auth import (
+    authorized as _authorized,
+)
+from services.common.service_manager_auth import (
+    binding_allowed as _binding_allowed,
+)
 from services.common.service_manager_browser_pairing import (
     BrowserPairingConsumedError,
     ServiceManagerBrowserPairing,
 )
-from services.common.service_manager_pairing import ServiceManagerPairing
+from services.common.service_manager_client_store import ServiceManagerClientStore
 from services.common.service_manager_logs import serve_logs
+from services.common.service_manager_pairing import ServiceManagerPairing
 from services.common.system_performance_monitor import SystemPerformanceMonitor
-from services.common.network_usb_inventory import collect_inventory
 from services.linux.systemd_service_manager import ServiceStatus, SystemdServiceManager
 
 DEFAULT_HOST = "127.0.0.1"

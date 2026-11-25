@@ -4,11 +4,11 @@ import hashlib
 import json
 from unittest.mock import Mock
 
-from PIL import Image
 import pytest
+from PIL import Image
 
-from development.maps import regional_imagery
 from apps.launchers.local_imagery_pack import LocalImageryPack
+from development.maps import regional_imagery
 
 
 @pytest.mark.parametrize("image_size", [(2048, 1536), (4096, 4096)])

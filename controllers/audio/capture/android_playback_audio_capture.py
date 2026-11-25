@@ -14,9 +14,9 @@ from __future__ import annotations
 import ipaddress
 import struct
 import threading
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import urlopen
-from urllib.error import HTTPError, URLError
 
 import numpy as np
 

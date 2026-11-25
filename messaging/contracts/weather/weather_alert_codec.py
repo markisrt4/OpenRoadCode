@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: MIT
 from collections.abc import Mapping
 from typing import Any
+
 from controllers.weather import WeatherAlertEvent
+
 from .weather_alert_message import WeatherAlertData, WeatherAlertMessage
 from .weather_alert_validator import SCHEMA_VERSION, validate_weather_alert
 

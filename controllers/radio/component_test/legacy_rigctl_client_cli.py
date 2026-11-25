@@ -10,11 +10,9 @@ sys.path.insert(0, str(PROJECT_ROOT))
 print("PROJECT_ROOT:", PROJECT_ROOT)
 print("sys.path:", sys.path[:3])
 
-from modules.sdr.radio_controller import RadioController
-from modules.sdr.rigctl_client import RigctlClient
-from modules.sdr.rigctl_backend import RigctlBackend
 from modules.sdr.radio_controller import RadioController, RadioMode, Station
-
+from modules.sdr.rigctl_backend import RigctlBackend
+from modules.sdr.rigctl_client import RigctlClient
 
 AM = RadioMode("AM", 8000, 1000)
 NFM = RadioMode("FM", 12000, 5000)

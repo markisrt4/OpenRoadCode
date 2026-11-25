@@ -14,8 +14,8 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from ui.system_diagnostics import SystemDiagnosticsSnapshot, ThermalSourceSnapshot
 from controllers.system.gpu_sampler import GpuSampler
+from ui.system_diagnostics import SystemDiagnosticsSnapshot, ThermalSourceSnapshot
 
 _MIB = 1024.0 * 1024.0
 _GIB = 1024.0 * 1024.0 * 1024.0

@@ -1,8 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Hardware-free requested-versus-observed receiver mode checks."""
 
-from dataclasses import replace
-
 from ui.radio.radio_profile_state import RadioProfileState
 from ui.radio.rf_radio_if import (
     RadioTelemetry,

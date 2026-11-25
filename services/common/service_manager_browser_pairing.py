@@ -5,11 +5,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import hmac
 import secrets
 import time
+from dataclasses import dataclass
 
 from services.common.service_manager_pairing import ServiceManagerPairing
 

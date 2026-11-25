@@ -9,11 +9,11 @@ from unittest.mock import Mock
 
 from apps.orcUi.performance_status import PerformanceStatusPresenter, performance_status
 from ui.system_diagnostics import (
+    BatterySnapshot,
     OrcWorkloadSnapshot,
     SensorHealthSnapshot,
-    SystemDiagnosticsSnapshot,
     ServiceSocketSnapshot,
-    BatterySnapshot,
+    SystemDiagnosticsSnapshot,
 )
 
 

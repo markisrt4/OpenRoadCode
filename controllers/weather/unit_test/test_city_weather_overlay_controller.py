@@ -3,17 +3,16 @@
 
 """City weather must stay separate from radar and reject obsolete viewport results."""
 
-from unittest.mock import Mock
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from common.units.unit_system import UnitSystem
 from controllers.weather.city_weather import CityWeatherHours, WeatherCity
 from controllers.weather.city_weather_overlay_controller import CityWeatherOverlayController
 from frontends.common.map_weather_overlay_ui import MapWeatherOverlayUi
-from frontends.common.weather_overlay_ui_group import WeatherOverlayUiGroup
-from ui.weather.weather_overlay_ui_stub import WeatherOverlayUiStub
 from frontends.common.weather_overlay_format import city_time_label
+from frontends.common.weather_overlay_ui_group import WeatherOverlayUiGroup
 from protocols.map_renderer.map_weather_city_source import RawWeatherCity, decode_city_result
+from ui.weather.weather_overlay_ui_stub import WeatherOverlayUiStub
 
 ANCHOR = 1791028800
 CITY = WeatherCity("Detroit", 42.33, -83.05)

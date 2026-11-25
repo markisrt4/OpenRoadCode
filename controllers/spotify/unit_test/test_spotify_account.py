@@ -5,8 +5,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from controllers.spotify.spotify_account import SpotifyAccountBinding, SpotifyAccountController
 from controllers.spotify.guarded_token_store import GuardedTokenStore
+from controllers.spotify.spotify_account import SpotifyAccountBinding, SpotifyAccountController
 from protocols.spotify.spotify_auth import SpotifyAuthError
 from ui.media.spotify_account_if import SpotifyAccountState
 

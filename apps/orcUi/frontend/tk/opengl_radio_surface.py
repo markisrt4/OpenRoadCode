@@ -7,10 +7,10 @@ No receiver or transport logic belongs here.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from contextlib import redirect_stdout
 import io
 import logging
+from collections.abc import Sequence
+from contextlib import redirect_stdout
 
 _LOG = logging.getLogger(__name__)
 _GLX_PROGRESS = (
@@ -37,8 +37,8 @@ def _create_glx_context(create):
 
 
 try:
-    from pyopengltk import OpenGLFrame
     from OpenGL import GL
+    from pyopengltk import OpenGLFrame
 except (ImportError, OSError):
     OpenGLFrame = None
     GL = None

@@ -4,7 +4,7 @@
 
 from collections.abc import Callable
 
-from protocols.oauth import OAuthTokenStoreIf, OAuthTokens
+from protocols.oauth import OAuthTokens, OAuthTokenStoreIf
 from protocols.spotify.spotify_auth import SpotifyAuthError
 
 

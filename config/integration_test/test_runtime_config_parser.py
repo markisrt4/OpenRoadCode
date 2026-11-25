@@ -3,13 +3,12 @@
 
 from __future__ import annotations
 
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import unittest
 
 from config.component_test.runtime_config_test_app import main
 from config.runtime_config import RuntimeConfigParser
-
 
 VALID_TOML = """
 [runtime]
@@ -179,8 +178,8 @@ class RuntimeConfigTestAppTest(unittest.TestCase):
         self.assertEqual(1, result)
 
     def test_mixed_seesaw_and_gpio_encoders_are_parsed(self) -> None:
-        from config.runtime_config import GpioEncoderConfig, SeesawEncoderConfig
         from config.component_test.runtime_config_test_app import validate_config
+        from config.runtime_config import GpioEncoderConfig, SeesawEncoderConfig
 
         mixed_toml = VALID_TOML.replace(
             """[[input.rotary_encoders.devices]]

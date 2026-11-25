@@ -1,23 +1,23 @@
 """Composition root for an isolated Cesium rendering experiment on Termux/X11."""
 
 import argparse
-from contextlib import ExitStack
 import math
-from pathlib import Path
 import re
+from contextlib import ExitStack
+from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from apps.launchers.browser_launcher import BrowserKioskLauncher
 from apps.launchers.cesium_sdk import sdk_directory
+from apps.launchers.cesium_viewer_server import CesiumViewerServer
+from apps.launchers.local_building_pack import detroit_building_directory, load_buildings
 from apps.launchers.local_imagery_pack import (
     LocalImageryPack,
-    preferred_imagery_directory,
     load_imagery_stack,
+    preferred_imagery_directory,
 )
-from apps.launchers.cesium_viewer_server import CesiumViewerServer
-from apps.launchers.local_terrain_pack import load_terrain, preferred_terrain_directory
-from apps.launchers.local_building_pack import load_buildings, detroit_building_directory
 from apps.launchers.local_map_tiles_pack import load_viewer_tiles, preferred_tiles_directory
+from apps.launchers.local_terrain_pack import load_terrain, preferred_terrain_directory
 from common.logging.logging_paths import logging_file_path
 from ui.navigation import GeoPoint
 from ui.navigation.cesium_viewer_state import CesiumViewerState

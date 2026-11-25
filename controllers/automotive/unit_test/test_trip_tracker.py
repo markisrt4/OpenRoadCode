@@ -12,7 +12,6 @@ from controllers.automotive.trip_tracker import TripTracker
 from controllers.automotive.vehicle_state import VehicleState
 from controllers.navigation.navigation_state import GroundMotionState, PositionState
 
-
 BASE = datetime(2026, 9, 10, 16, 0, tzinfo=timezone.utc)
 
 

@@ -1,19 +1,19 @@
 """Build bounded, resumable regional building packs with optional imagery."""
 
 import argparse
-from datetime import datetime, timezone
 import hashlib
 import json
 import math
 import shutil
+from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from apps.launchers.local_map_tiles_pack import LocalMapTilesPack, detroit_tiles_directory
 from common.xdg_paths import openroadcode_data_dir
-from tools.map_builder.builder.map_3d import PRESETS
-from apps.launchers.local_map_tiles_pack import detroit_tiles_directory, LocalMapTilesPack
+from development.maps.download_detroit_buildings import parse_buildings, request_tile
 from development.maps.download_detroit_imagery import download as download_imagery
-from development.maps.download_detroit_buildings import request_tile, parse_buildings
+from tools.map_builder.builder.map_3d import PRESETS
 
 BOUNDS = (-83.085, 42.315, -83.025, 42.375)
 ATTRIBUTION = "USGS / USDA NAIP · © OpenStreetMap contributors · ODbL 1.0"
@@ -43,23 +43,23 @@ def download(destination, *, bounds=BOUNDS, title="Detroit Downtown–Midtown", 
     cache.mkdir(parents=True, exist_ok=True)
     records = []
     region_bounds = bounds
-    for index, (tile_id, bounds) in enumerate(tiles(bounds)):
+    for index, (tile_id, tile_bounds) in enumerate(tiles(region_bounds)):
         print(f"Tile {index + 1}/8: {tile_id}", flush=True)
         directory = cache / tile_id
         directory.mkdir(exist_ok=True)
         image_dir = directory / "imagery"
         if imagery:
-            download_imagery(image_dir, bounds=bounds, title=title)
+            download_imagery(image_dir, bounds=tile_bounds, title=title)
         source = directory / "source-osm.json"
         if not source.exists():
-            raw = request_tile(bounds)
+            raw = request_tile(tile_bounds)
             temporary = source.with_suffix(".tmp")
             temporary.write_bytes(raw)
             temporary.replace(source)
         buildings, skipped = parse_buildings(json.loads(source.read_bytes()), region_bounds)
         # Each complete outline belongs to one tile by mean vertex location.
         # Preserve boundary-crossing buildings without drawing them twice.
-        west, south, east, north = bounds
+        west, south, east, north = tile_bounds
         owned = []
         for building in buildings:
             ring = building.ring[:-1]
@@ -81,7 +81,7 @@ def download(destination, *, bounds=BOUNDS, title="Detroit Downtown–Midtown", 
         records.append(
             {
                 "id": tile_id,
-                "bounds_deg": bounds,
+                "bounds_deg": tile_bounds,
                 "title": image_manifest["title"],
                 "attribution": image_manifest["attribution"],
                 "buildings_count": len(owned),

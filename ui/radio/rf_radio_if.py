@@ -7,8 +7,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from typing import Protocol
-from ui.radio.radio_profiles import RadioProfilePreset
+
 from ui.radio.radio_profile_state import RadioProfileState
+from ui.radio.radio_profiles import RadioProfilePreset
 
 
 @dataclass(frozen=True)

@@ -6,15 +6,14 @@
 from __future__ import annotations
 
 import logging
-
-from collections.abc import Callable
 import time
+from collections.abc import Callable
 from typing import Protocol
 
+from common.logging.structured import current_operation, operation
+from controllers.weather.weather_logging import WeatherLog
 from controllers.weather.weather_provider_if import WeatherProviderIf
 from controllers.weather.weather_state import WeatherLocation, WeatherState
-from controllers.weather.weather_logging import WeatherLog
-from common.logging.structured import current_operation, operation
 
 
 class WeatherLocationProviderIf(Protocol):

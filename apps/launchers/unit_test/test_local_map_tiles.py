@@ -1,9 +1,9 @@
 import hashlib
 import json
-from pathlib import Path
 import shutil
 import subprocess
 import urllib.request
+from pathlib import Path
 
 import pytest
 
@@ -81,9 +81,6 @@ def test_camera_tile_lifecycle_js():
     )
     result = subprocess.run([node, "--test", str(path)], capture_output=True, text=True, timeout=20)
     assert result.returncode == 0, result.stdout + result.stderr
-
-
-from apps.launchers.unit_test.test_cesium_viewer import server, state  # noqa: E402,F401
 
 
 def test_interrupted_pack_resumes_completed_requests(tmp_path, monkeypatch):

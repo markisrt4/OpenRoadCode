@@ -9,7 +9,6 @@ import time
 from controllers.route_planning.route_planning_types import GeoPoint, RouteRequest
 from services.navigation.navigation_command_client import NavigationCommandClient
 from services.navigation.navigation_command_service import (
-    NavigationCommandResult,
     NavigationCommandService,
 )
 from services.navigation.zeromq_navigation_command_server import ZeroMqNavigationCommandServer

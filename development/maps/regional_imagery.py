@@ -1,10 +1,10 @@
 """Resumable regional overview exports, combined into the existing imagery format."""
 
-from datetime import datetime, timezone
 import hashlib
 import json
-from pathlib import Path
 import shutil
+from datetime import datetime, timezone
+from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from PIL import Image
@@ -13,6 +13,8 @@ from apps.launchers.local_imagery_pack import LocalImageryPack
 from development.maps.download_detroit_imagery import (
     MAX_BYTES,
     NoImageryCoverage,
+)
+from development.maps.download_detroit_imagery import (
     download as download_image,
 )
 
@@ -71,7 +73,7 @@ def download(destination, *, bounds, title, cache_directory, image_size=(2048, 1
                         len(manifest["bounds_deg"]) != 4
                         or any(
                             abs(a - b) > 0.000001
-                            for a, b in zip(manifest["bounds_deg"], tile_bounds)
+                            for a, b in zip(manifest["bounds_deg"], tile_bounds, strict=True)
                         )
                         or (manifest["width"], manifest["height"]) != tile_size
                     ):

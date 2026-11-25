@@ -3,8 +3,8 @@
 
 from time import sleep
 
-from modules.hardware.gpio.rpi_gpio import RpiGpio
 from modules.hardware.drivers.rotary_encoder import RotaryEncoder, RotaryEncoderPins
+from modules.hardware.gpio.rpi_gpio import RpiGpio
 
 
 def on_rotate(delta: int) -> None:

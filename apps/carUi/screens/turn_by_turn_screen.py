@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 import tkinter as tk
+from collections.abc import Callable
 
 from apps.carUi.screens.car_ui_screen import CarUiScreen
 from apps.carUi.screens.car_ui_screen_services import MenuTileFactory

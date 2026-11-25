@@ -4,9 +4,10 @@
 """Radar loading, pending requests and shared visibility through a headless UI contract."""
 
 from unittest.mock import Mock, patch
+
 from controllers.weather.radar_replay_controller import RadarReplayController
-from ui.weather.radar_ui_stub import RadarUiStub
 from ui.weather.radar_ui_if import RadarPalette
+from ui.weather.radar_ui_stub import RadarUiStub
 
 
 def component(enabled=False):

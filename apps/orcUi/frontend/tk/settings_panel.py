@@ -9,12 +9,13 @@ from collections.abc import Callable
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from common.units import UnitSystem
 from ui.automotive.vehicle_configuration import EngineInductionType, VehicleConfiguration
-from ui.theme import ThemeBundle, ThemeMode
 from ui.navigation.host_location_ui_if import HostLocationRequestHandlerIf, HostLocationState
-from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
-from ui.ui_widget import UiWidget
 from ui.radio.rf_hardware_config_if import RfHardwareConfigIf
+from ui.theme import ThemeBundle, ThemeMode
+from ui.ui_widget import UiWidget
+
 from .rf_settings_mixin import RfSettingsMixin
+from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
 
 
 class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
@@ -32,7 +33,7 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
         theme_bundle: ThemeBundle | None = None,
         host_location_handler: HostLocationRequestHandlerIf | None = None,
         rf_hardware_config: RfHardwareConfigIf | None = None,
-        host_location_state: HostLocationState = HostLocationState(),
+        host_location_state: HostLocationState | None = None,
         performance_overlay_enabled: Callable[[], bool] | None = None,
         on_performance_overlay_changed: Callable[[bool], None] | None = None,
         configure_spotify: Callable[[], None] | None = None,
@@ -255,6 +256,8 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
             fg=ui.accent_primary,
             font=("Sans", 10, "bold"),
         ).grid(row=0, column=0, sticky="w", padx=14, pady=(8, 2))
+        if host_location_state is None:
+            host_location_state = HostLocationState()
         self._location_status = tk.StringVar(value=host_location_state.status)
         status = tk.Label(
             location,

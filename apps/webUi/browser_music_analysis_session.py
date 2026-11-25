@@ -5,9 +5,9 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
 import struct
 import threading
+from dataclasses import asdict
 
 from controllers.audio.music_analysis import (
     MusicAnalysisConsumer,

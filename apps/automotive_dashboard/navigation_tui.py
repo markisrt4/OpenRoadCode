@@ -27,7 +27,6 @@ from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
 from services.navigation.endpoints import DEFAULT_NAVIGATION_COMMAND_ENDPOINT
 from ui.navigation.navigation_request_handler_if import NavigationRequestHandlerIf
 
-
 _fields = navigation_fields
 
 

@@ -42,6 +42,7 @@ def test_native_child_output_is_collected_and_drained(tmp_path, monkeypatch):
     """Exercise real pipe ownership without starting MapLibre or X11."""
     import json
     import sys
+
     from apps.launchers.map_renderer_launcher import MapRendererLauncher
 
     log_file = tmp_path / "renderer.jsonl"

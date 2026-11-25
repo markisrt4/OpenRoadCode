@@ -3,6 +3,6 @@
 
 """Compatibility export for the shared vehicle telemetry cache."""
 
-from common.telemetry.vehicle_bus_state import VehicleBusState, VehicleBusSnapshot
+from common.telemetry.vehicle_bus_state import VehicleBusSnapshot, VehicleBusState
 
 __all__ = ["VehicleBusState", "VehicleBusSnapshot"]

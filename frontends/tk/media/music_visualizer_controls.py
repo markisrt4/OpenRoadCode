@@ -10,6 +10,7 @@ from tkinter import font as tkfont
 
 from ui.music_visualizer import KickMode, MusicVisualizationMode, MusicVisualizerSource
 from ui.music_visualizer.music_visualizer_types import MusicVisualizerView
+
 from .analyzer_appearance_controls import AnalyzerAppearanceControls
 from .music_gl_scene import MODE_LABELS
 from .music_visualizer_icons import visualizer_icon

@@ -9,6 +9,7 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from common.xdg_paths import openroadcode_config_dir
+
 from .secret_manager_if import SecretManagerIf
 
 DEFAULT_SECRETS_FILE = Path("/etc/openroadcode/secrets.env")

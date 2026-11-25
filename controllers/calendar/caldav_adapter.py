@@ -6,13 +6,13 @@ from __future__ import annotations
 
 import base64
 import socket
-from urllib.error import HTTPError
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from urllib.error import HTTPError
 from urllib.parse import urljoin, urlsplit
-from xml.sax.saxutils import escape
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 from xml.etree import ElementTree
+from xml.sax.saxutils import escape
 
 from security.secret_manager_if import SecretManagerIf
 
@@ -110,7 +110,7 @@ class CalDavAdapter:
                 if response.status != 207:
                     raise CalDavHttpError(f"CalDAV {method} returned HTTP {response.status}")
                 document = response.read(_MAX_RESPONSE + 1)
-        except (TimeoutError, socket.timeout) as error:
+        except (TimeoutError, socket.timeout):
             raise CalDavTimeoutError(
                 f"CalDAV {method} timed out after {self._timeout_seconds:g}s"
             ) from None

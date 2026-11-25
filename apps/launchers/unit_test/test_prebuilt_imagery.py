@@ -3,8 +3,8 @@
 import hashlib
 import io
 import json
-from unittest.mock import Mock, patch
 import zipfile
+from unittest.mock import Mock, patch
 
 import pytest
 

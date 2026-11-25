@@ -3,8 +3,8 @@
 
 from __future__ import annotations
 
-import unittest
 import subprocess
+import unittest
 from unittest.mock import call, patch
 
 from controllers.audio import PipewireAudioController

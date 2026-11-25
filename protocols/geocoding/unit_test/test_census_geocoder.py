@@ -4,6 +4,7 @@
 import json
 import unittest
 from unittest.mock import Mock
+
 from protocols.geocoding.census_geocoder import CensusGeocoder
 
 

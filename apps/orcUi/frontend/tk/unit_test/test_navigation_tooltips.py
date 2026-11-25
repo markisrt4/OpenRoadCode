@@ -3,7 +3,8 @@
 
 """Verify camera help coverage and lifecycle at the frontend boundary."""
 
-from unittest.mock import Mock, patch, call
+from unittest.mock import Mock, call, patch
+
 import pytest
 
 from apps.orcUi.frontend.tk.navigation_panel import NavigationPanel

@@ -19,10 +19,10 @@ from controllers.computer_vision.perception_worker import PerceptionWorker
 from controllers.environmental.ambient_light_controller import AmbientLightController
 from controllers.environmental.barometric_controller import BarometricController
 from controllers.environmental.barometric_source_if import BarometricSample
+from hardware_io.camera.camera_controls_if import CameraProfile
 from hardware_io.camera.camera_if import CameraFrame
 from hardware_io.camera.v4l2_camera import V4L2Camera
 from hardware_io.camera.v4l2_camera_controls import V4L2CameraProfileController
-from hardware_io.camera.camera_controls_if import CameraProfile
 
 PRIVATE = "private-image /private/device https://private.test/?token=private 42.8028 -83.0127"
 
@@ -158,7 +158,7 @@ def test_perception_survives_failure_and_recovers_on_next_frame(caplog, stage):
     try:
         for index in range(3):
             worker.submit(CameraFrame(PRIVATE, 1, index))
-            wait_until(lambda: failing.call_count >= index + 1)
+            wait_until(lambda index=index: failing.call_count >= index + 1)
             # Wait until the failed frame is consumed before submitting another.
             if index < 2:
                 wait_until(lambda: any(r.event == "vision.failed" for r in caplog.records))

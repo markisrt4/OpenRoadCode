@@ -3,8 +3,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 
 from config.runtime_config import (
@@ -17,7 +17,6 @@ from hardware_io.rotary_encoder.rotary_encoder_if import (
     RotaryEncoderIf,
     RotationCallback,
 )
-
 
 LOGGER = logging.getLogger(__name__)
 
@@ -66,6 +65,7 @@ def _create_hardware_encoder(
 ) -> tuple[RotaryEncoderIf, object | None]:
     if isinstance(device, SeesawEncoderConfig):
         import board
+
         from hardware_io.rotary_encoder.seesaw_rotary_encoder import (
             SeesawRotaryEncoder,
         )

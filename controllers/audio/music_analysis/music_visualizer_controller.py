@@ -2,14 +2,15 @@
 # SPDX-License-Identifier: MIT
 """Reusable asynchronous capture coordination and bounded presentation."""
 
-from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor
 import queue
 import threading
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 
 from ui.music_visualizer import MusicVisualizerSource, VisualizerFrame
-from ui.music_visualizer.music_visualizer_types import MusicCaptureState, MusicVisualizerOptions
 from ui.music_visualizer.music_visualizer_control_if import MusicVisualizerControlIf
+from ui.music_visualizer.music_visualizer_types import MusicCaptureState, MusicVisualizerOptions
+
 from .music_visualizer_session import MusicVisualizerSession
 
 

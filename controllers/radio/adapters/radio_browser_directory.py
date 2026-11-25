@@ -4,8 +4,8 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
 import math
+from collections.abc import Callable
 from typing import Any
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen

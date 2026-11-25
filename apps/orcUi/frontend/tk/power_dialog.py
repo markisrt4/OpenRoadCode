@@ -9,8 +9,9 @@ import tkinter as tk
 from collections.abc import Callable
 
 from ui.theme import ThemeBundle
-from .shell_metrics import FONT_BODY, FONT_CONTROL
 from ui.ui_widget import UiWidget
+
+from .shell_metrics import FONT_BODY
 
 
 class PowerDialog(UiWidget):

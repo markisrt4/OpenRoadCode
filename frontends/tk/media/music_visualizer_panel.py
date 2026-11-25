@@ -16,10 +16,10 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Callable
 
-from ui.theme import ThemeBundle
 from ui.music_visualizer import MusicVisualizationMode, VisualizerFrame
-from ui.music_visualizer.music_visualizer_types import MusicVisualizerOptions
 from ui.music_visualizer.music_visualizer_presentation_if import MusicVisualizerPresentationIf
+from ui.music_visualizer.music_visualizer_types import MusicVisualizerOptions
+from ui.theme import ThemeBundle
 
 BLUE = "#168bd1"
 RED = "#f15a16"
@@ -424,5 +424,5 @@ class MusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
         else:
             amount = (position - 0.5) * 2.0
             start, end = stops[1], stops[2]
-        rgb = tuple(round(a + (b - a) * amount) for a, b in zip(start, end))
+        rgb = tuple(round(a + (b - a) * amount) for a, b in zip(start, end, strict=True))
         return "#" + "".join(f"{channel:02x}" for channel in rgb)

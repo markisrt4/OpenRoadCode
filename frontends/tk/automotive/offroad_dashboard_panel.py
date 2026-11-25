@@ -5,11 +5,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from dataclasses import dataclass, field
 import math
 import tkinter as tk
+from collections.abc import Sequence
+from dataclasses import dataclass, field
 
+from frontends.tk.automotive.offroad_theme import OffroadTheme
 from ui.navigation import (
     GroundTrackUiIf,
     HeadingReference,
@@ -20,11 +21,9 @@ from ui.navigation import (
     SatelliteInfo,
     TranslationUiIf,
 )
-from frontends.tk.automotive.offroad_theme import OffroadTheme
 from ui.system import StatusMessage, StatusSeverity, StatusUiIf, StatusValue
 from ui.theme import StyleSheet
 from ui.ui_widget import UiWidget
-
 
 # ORC automotive palette.
 BACKGROUND = "#05090d"
@@ -455,15 +454,6 @@ class OffroadDashboardPanel(
     ) -> None:
         self._canvas.create_rectangle(0, 0, width, 82, fill=self._theme.panel, outline="")
         heading = state.heading_deg if state is not None else 0.0
-        reference_text = (
-            {
-                HeadingReference.TRUE_NORTH: "TRUE",
-                HeadingReference.MAGNETIC_NORTH: "MAG",
-                HeadingReference.RELATIVE: "REL",
-            }[state.heading_reference]
-            if state is not None
-            else "REL"
-        )
         heading_text = f"{heading:03.0f}°" if state is not None else "---°"
         self._canvas.create_text(
             width / 2,

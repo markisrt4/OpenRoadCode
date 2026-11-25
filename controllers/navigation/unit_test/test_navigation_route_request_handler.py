@@ -9,11 +9,13 @@ from controllers.navigation.navigation_route_request_handler import (
 )
 from controllers.route_planning.route_planning_types import (
     GeoPoint as RouteGeoPoint,
+)
+from controllers.route_planning.route_planning_types import (
     RouteResult,
 )
-from ui.navigation import GeoPoint
-from ui.navigation.route_types import TravelMode
+from services.navigation.navigation_command_client import NavigationCommandClient
 from ui.navigation import (
+    GeoPoint,
     RouteAlternativeRequestHandlerIf,
     RouteRecalculationRequestHandlerIf,
     RouteRequestHandlerIf,
@@ -22,7 +24,7 @@ from ui.navigation import (
     RouteVoiceGuidanceRequestHandlerIf,
     RouteWaypointRequestHandlerIf,
 )
-from services.navigation.navigation_command_client import NavigationCommandClient
+from ui.navigation.route_types import TravelMode
 
 
 def test_start_route_converts_ui_point_and_presents_route() -> None:

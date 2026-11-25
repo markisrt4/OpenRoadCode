@@ -3,6 +3,7 @@
 """Detailed axis labels stay accurate and readable on narrow displays."""
 
 import math
+from itertools import pairwise
 
 import pytest
 
@@ -24,7 +25,7 @@ def test_frequency_labels_stay_in_bounds_without_overlapping(width):
         assert all(0 <= left < right <= width for left, right in bounds)
         assert all(
             left >= previous_right
-            for (_previous_left, previous_right), (left, _right) in zip(bounds, bounds[1:])
+            for (_previous_left, previous_right), (left, _right) in pairwise(bounds)
         )
     if width >= 394:
         assert len(ticks) >= 18

@@ -5,11 +5,10 @@
 
 from __future__ import annotations
 
-from common.logging.diagnostics import ComponentLog, diagnostic_action
-
-from datetime import datetime, timezone
 import math
+from datetime import datetime, timezone
 
+from common.logging.diagnostics import ComponentLog, diagnostic_action
 from hardware_io.environmental import AmbientLightSensorIf
 
 from .ambient_light_controller_if import AmbientLightControllerIf

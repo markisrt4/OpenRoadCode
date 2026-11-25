@@ -24,7 +24,6 @@ from messaging.message_dispatcher import MessageDispatcher
 from messaging.zeromq import ZeroMqSubscriber
 from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
 
-
 _fields = vehicle_fields
 
 

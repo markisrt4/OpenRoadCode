@@ -3,9 +3,9 @@
 
 """Construct and bind all Games dependencies at the application boundary."""
 
+import threading
 from collections.abc import Callable
 from pathlib import Path
-import threading
 
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.theme_runtime import theme_bundle

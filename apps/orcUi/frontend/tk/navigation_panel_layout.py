@@ -5,10 +5,10 @@
 
 import tkinter as tk
 
+from ui.navigation.poi_models import PoiActionKind, PoiCategory, TransitMode
+
 from .map_platform_bar import MapPlatformToggle
 from .navigation_earth_control import build_earth_control, build_poi_icon_button
-
-from ui.navigation.poi_models import PoiActionKind, PoiCategory, TransitMode
 
 
 def build_navigation_panel(panel) -> None:

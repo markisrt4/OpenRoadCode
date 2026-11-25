@@ -7,7 +7,6 @@ import argparse
 import json
 from pathlib import Path
 
-
 LINUX_DATA_ROOTS = ("/data/valhalla/", "/srv/openroadcode/valhalla/", "/output/valhalla/")
 
 

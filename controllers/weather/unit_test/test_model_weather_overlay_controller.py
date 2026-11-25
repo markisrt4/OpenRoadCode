@@ -3,16 +3,16 @@
 
 """Model overlay readiness and layer-change lifecycle."""
 
-from unittest.mock import Mock
 from time import monotonic
+from unittest.mock import Mock
 
 from common.units.unit_system import UnitSystem
-from controllers.weather.radar_provider_if import RadarFrame
 from controllers.weather.model_weather_overlay_controller import ModelWeatherOverlayController
+from controllers.weather.radar_provider_if import RadarFrame
 from frontends.common.map_weather_overlay_ui import MapWeatherOverlayUi
+from frontends.common.weather_overlay_format import model_legend
 from frontends.common.weather_overlay_ui_group import WeatherOverlayUiGroup
 from ui.weather.weather_overlay_ui_stub import WeatherOverlayUiStub
-from frontends.common.weather_overlay_format import model_legend
 
 
 def component():

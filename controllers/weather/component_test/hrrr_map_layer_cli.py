@@ -8,8 +8,8 @@ from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
 
-from PIL import Image
 import requests
+from PIL import Image
 
 from controllers.weather.hrrr_map_layers import HrrrMapLayerProvider
 from controllers.weather.hrrr_tiles import location_tile

@@ -6,8 +6,8 @@ from datetime import date
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from frontends.tk.calendar.calendar_screen import CalendarScreen
 from controllers.calendar.calendar_presentation import CalendarAgendaPresentation, read_agenda
+from frontends.tk.calendar.calendar_screen import CalendarScreen
 from ui.calendar.calendar_models import AgendaSnapshot, CalendarHealthView
 
 

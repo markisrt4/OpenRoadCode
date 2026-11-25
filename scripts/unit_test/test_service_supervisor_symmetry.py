@@ -8,7 +8,6 @@ from pathlib import Path
 from services.linux.systemd_service_manager import SystemdServiceManager
 from services.termux.service_manager import RunitServiceManager
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RUNIT_ROOT = PROJECT_ROOT / "scripts" / "runit"
 

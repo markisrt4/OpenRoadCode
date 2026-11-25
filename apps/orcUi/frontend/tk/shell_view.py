@@ -5,24 +5,23 @@
 
 from __future__ import annotations
 
-import tkinter as tk
 import math
+import tkinter as tk
 from collections.abc import Callable
 from datetime import datetime
 
-from apps.orcUi.performance_status import PerformanceStatus
 from apps.orcUi.orc_theme import ThemeMode, toggle_label
-from ui.theme import ThemeBundle
+from apps.orcUi.performance_status import PerformanceStatus
 from ui.radio import AircraftMenuRequestHandlerIf, AircraftMenuUiState
+from ui.theme import ThemeBundle
+from ui.ui_widget import UiWidget
 from ui.weather import WeatherAlertUiEvent
-
-from .weather_alert_banner import WeatherAlertBanner
 
 from .bottom_bar import OrcUiBottomBar
 from .shell_chrome import build_footer, build_top_bar
 from .shell_metrics import SHELL_PAD_X, SHELL_PAD_Y
 from .side_nav import OrcUiSideNav
-from ui.ui_widget import UiWidget
+from .weather_alert_banner import WeatherAlertBanner
 
 
 class OrcUiShellView(UiWidget):

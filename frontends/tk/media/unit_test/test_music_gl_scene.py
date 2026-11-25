@@ -29,6 +29,7 @@ def test_drum_response_rejects_sustained_activity_and_keeps_real_hits():
 
 def test_detailed_geometry_is_cached_and_released():
     from unittest.mock import Mock
+
     from frontends.tk.media.music_gl_scene import NativeSceneGeometry
 
     gl, build = Mock(), Mock()
@@ -60,6 +61,7 @@ def test_snare_and_both_kicks_have_clear_horizontal_gaps():
 def test_drum_flash_retriggers_on_new_attack_not_sustained_sound():
     from types import SimpleNamespace
     from unittest.mock import patch
+
     from frontends.tk.media.native_music_visualizer import NativeMusicVisualizerPanel
     from ui.music_visualizer import VisualizerFrame
 

@@ -6,6 +6,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Optional
 
+from apps.carUi.radio.radio_session_controller import RadioSessionController
 from apps.carUi.runtime.car_ui_runtime import RadioRuntime
 from apps.carUi.screens.car_ui_screen import CarUiScreen
 from apps.carUi.screens.car_ui_screen_services import (
@@ -13,9 +14,8 @@ from apps.carUi.screens.car_ui_screen_services import (
     RadioScreenBindingFactoryIf,
 )
 from frontends.tk.radio import RadioPanel, RadioPanelConfig, RadioPanelTileConfig
-from apps.carUi.radio.radio_session_controller import RadioSessionController
-from ui.screen_ui_if import ScreenId
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
+from ui.screen_ui_if import ScreenId
 
 
 class FMRadioScreen(CarUiScreen):

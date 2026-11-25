@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from controllers.navigation.position_source_if import PositionSourceIf, PositionStateCallback
 from controllers.navigation.navigation_state import PositionState
+from controllers.navigation.position_source_if import PositionSourceIf, PositionStateCallback
 
 if TYPE_CHECKING:
     from hardware_io.gps import GpsData, GpsReader

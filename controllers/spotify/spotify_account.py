@@ -2,9 +2,9 @@
 
 """Account operations and token commits scoped to their requesting view."""
 
+import threading
 from collections.abc import Callable
 from dataclasses import replace
-import threading
 
 from ui.media.spotify_account_if import (
     SpotifyAccountAction,

@@ -6,12 +6,10 @@
 from __future__ import annotations
 
 import tkinter as tk
-from datetime import datetime, timedelta, timezone
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 
-from .context_offroad_panel import ContextOffroadPanel
-from .context_vehicle_panel import ContextVehiclePanel
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from apps.orcUi.trip_presenter import TripPresentationState
@@ -20,8 +18,11 @@ from frontends.tk.automotive import FuelLevelGauge
 from frontends.tk.automotive.vehicle_gauge_widgets import LinearGauge, RoundGauge
 from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
 from ui.theme import ThemeBundle, ThemeMode
-from .shell_metrics import CONTEXT_RAIL_WIDTH, FONT_BODY, FONT_CONTROL, FONT_SMALL
 from ui.ui_widget import UiWidget
+
+from .context_offroad_panel import ContextOffroadPanel
+from .context_vehicle_panel import ContextVehiclePanel
+from .shell_metrics import CONTEXT_RAIL_WIDTH, FONT_BODY, FONT_CONTROL, FONT_SMALL
 
 
 @dataclass(frozen=True)

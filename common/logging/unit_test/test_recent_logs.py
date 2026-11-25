@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: MIT
 """Log paging and authenticated handler contracts without host sockets."""
 
-from io import BytesIO
-from http import HTTPStatus
 import json
 import os
+from http import HTTPStatus
+from io import BytesIO
 from unittest.mock import Mock, patch
 
 import pytest

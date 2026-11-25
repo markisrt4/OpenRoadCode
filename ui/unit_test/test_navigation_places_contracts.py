@@ -4,7 +4,9 @@
 """Incomplete bindings are rejected and screen lifecycle releases places sessions."""
 
 from unittest.mock import Mock
+
 import pytest
+
 from apps.orcUi.frontend.tk.navigation_screen import NavigationScreen
 from ui.navigation.navigation_places_request_handler_if import (
     NavigationPlacesFactoryIf,

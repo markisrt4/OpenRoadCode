@@ -1,13 +1,13 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
+import contextlib
+import io
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
-import contextlib
-import io
 
 from scripts.installers.setup_destinations import WhiptailDestinationDialog, main
 

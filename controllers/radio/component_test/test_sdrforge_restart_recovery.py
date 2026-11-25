@@ -3,11 +3,11 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import threading
 import time
+from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from controllers.radio.adapters.sdrforge_rest_radio_backend import SdrForgeRestRadioBackend
 

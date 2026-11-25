@@ -2,12 +2,12 @@
 
 import hashlib
 import json
-from pathlib import Path, PurePosixPath
 import re
-from tempfile import TemporaryDirectory
 import urllib.parse
 import urllib.request
 import zipfile
+from pathlib import Path, PurePosixPath
+from tempfile import TemporaryDirectory
 
 from apps.launchers.local_imagery_pack import LocalImageryPack
 from tools.map_builder.builder.imagery_artifact import MAX_ARCHIVE_BYTES

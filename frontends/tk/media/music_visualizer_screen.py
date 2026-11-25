@@ -4,25 +4,26 @@
 
 from __future__ import annotations
 
+import tkinter as tk
 from collections.abc import Callable
 from dataclasses import replace
-import tkinter as tk
 
+from frontends.tk.tk_screen import TkScreen
+from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from ui.music_visualizer import MusicVisualizationMode, MusicVisualizerSource
+from ui.music_visualizer.music_visualizer_control_if import MusicVisualizerControlIf
 from ui.music_visualizer.music_visualizer_types import (
     MusicCaptureState,
     MusicVisualizerOptions,
     MusicVisualizerView,
 )
-from ui.music_visualizer.music_visualizer_control_if import MusicVisualizerControlIf
-from frontends.tk.tk_screen import TkScreen
-from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from ui.screen_ui_if import ScreenId
 from ui.theme import ThemeBundle, ThemeMode
-from .music_visualizer_controls import MusicVisualizerControlsMixin
+
 from .music_gl_scene import MODE_LABELS
-from .visualizer_fullscreen import VisualizerFullscreen
+from .music_visualizer_controls import MusicVisualizerControlsMixin
 from .music_visualizer_panel import MusicVisualizerPanel
+from .visualizer_fullscreen import VisualizerFullscreen
 
 
 class MusicVisualizerScreen(MusicVisualizerControlsMixin, TkScreen):

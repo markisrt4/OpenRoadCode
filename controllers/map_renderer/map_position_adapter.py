@@ -14,7 +14,6 @@ from protocols.map_renderer.map_renderer_client import (
     MapRendererUnavailableError,
 )
 
-
 LOGGER = logging.getLogger(__name__)
 EARTH_RADIUS_M = 6_371_000.0
 

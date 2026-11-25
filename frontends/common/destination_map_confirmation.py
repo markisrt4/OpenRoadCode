@@ -4,8 +4,8 @@
 """Browser map confirmation for the installer without a web-framework dependency."""
 
 import math
-from ui.navigation.map_ui_if import GeoPoint
 
+from ui.navigation.map_ui_if import GeoPoint
 
 HTML = """<!doctype html><html><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Confirm destination</title><style>

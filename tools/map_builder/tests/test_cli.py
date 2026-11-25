@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: MIT
 
 import json
-from pathlib import Path
-from types import SimpleNamespace
 import tempfile
 import unittest
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from tools.map_builder.builder.cli import (

@@ -3,11 +3,11 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import signal
 import subprocess
 import time
-import logging
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path

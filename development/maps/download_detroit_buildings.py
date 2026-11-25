@@ -1,16 +1,16 @@
 """Explicit one-time OSM download; simple closed ways only, no hosted viewer layer."""
 
 import argparse
-from datetime import datetime, timezone
 import hashlib
 import json
 import math
 import time
 import urllib.error
-from pathlib import Path
-from tempfile import TemporaryDirectory
 import urllib.parse
 import urllib.request
+from datetime import datetime, timezone
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from apps.launchers.local_building_pack import detroit_building_directory, load_buildings
 from ui.navigation.local_building_state import LocalBuilding, LocalBuildingState

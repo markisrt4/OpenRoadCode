@@ -9,8 +9,8 @@ from urllib.parse import quote
 
 import requests
 
-from controllers.weather.radar_provider_if import RadarFrame, RadarProviderIf
 from controllers.weather.hrrr_tiles import check_gdal_tools
+from controllers.weather.radar_provider_if import RadarFrame, RadarProviderIf
 
 
 def reflectivity_range(index: str, run: str):

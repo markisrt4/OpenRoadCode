@@ -12,7 +12,6 @@ from controllers.calendar.caldav_adapter import (
 )
 from controllers.calendar.caldav_provider import CalDavCalendarProvider
 
-
 START = datetime(2026, 11, 23, tzinfo=timezone.utc)
 EVENT = (
     "BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:abc\n"

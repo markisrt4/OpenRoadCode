@@ -3,8 +3,8 @@
 """Composition support shared by ORC and legacy Car UI callers."""
 
 import io
-from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 
 from controllers.image import ImageCache
 from controllers.lyrics import LrclibLyricsClient

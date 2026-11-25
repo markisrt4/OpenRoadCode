@@ -4,6 +4,7 @@
 """Small theme-colored gradient controls for persistent shell chrome."""
 
 import tkinter as tk
+
 from ui.ui_widget import UiWidget
 
 

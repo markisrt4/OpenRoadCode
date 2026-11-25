@@ -12,8 +12,9 @@ import math
 import threading
 from queue import Empty, Queue
 from typing import Any
-from ui.radio.sdrforge_spectrum_if import SpectrumPresentation
+
 from ui.radio.rf_radio_if import RadioTelemetry
+from ui.radio.sdrforge_spectrum_if import SpectrumPresentation
 
 LOG = logging.getLogger(__name__)
 

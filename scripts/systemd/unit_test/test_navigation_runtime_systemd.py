@@ -5,7 +5,6 @@
 
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 SYSTEMD_DIR = PROJECT_ROOT / "scripts" / "systemd"
 RUNTIME_DIR = PROJECT_ROOT / "scripts" / "runtime"

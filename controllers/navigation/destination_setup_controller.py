@@ -7,8 +7,9 @@ Saved Home/Work candidates require address-level geocoding. Street and place
 centroids remain available to general search but never become installer matches.
 """
 
-import sqlite3
 import math
+import sqlite3
+
 from config.saved_destinations import SavedDestinationsConfig, normalize_destination
 from ui.navigation.destination_setup_request_handler_if import (
     DestinationSetupRequestHandlerIf,

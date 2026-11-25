@@ -7,12 +7,16 @@ import threading
 import unittest
 from unittest.mock import Mock
 
-from services.common.system_performance_monitor import SystemPerformanceMonitor
 from services.common.service_manager_pairing import ServiceManagerPairing
+from services.common.system_performance_monitor import SystemPerformanceMonitor
 from services.linux.systemd_service_manager_http import SystemdServiceManagerHandler
 from services.termux.service_manager_http import ServiceManagerHandler
-from ui.system_diagnostics import SystemDiagnosticsSnapshot
-from ui.system_diagnostics import OrcWorkloadSnapshot, ServiceSocketSnapshot, BatterySnapshot
+from ui.system_diagnostics import (
+    BatterySnapshot,
+    OrcWorkloadSnapshot,
+    ServiceSocketSnapshot,
+    SystemDiagnosticsSnapshot,
+)
 
 
 class SystemPerformanceMonitorTest(unittest.TestCase):

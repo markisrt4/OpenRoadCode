@@ -4,7 +4,12 @@
 """Curses proof-of-concept consuming position and motion ZMQ contracts."""
 
 from __future__ import annotations
-import argparse, curses, math, threading
+
+import argparse
+import curses
+import math
+import threading
+
 from messaging.contracts.navigation import (
     MOTION_STATE_TOPIC,
     POSITION_STATE_TOPIC,

@@ -113,6 +113,7 @@ if __name__ == "__main__":
 
 def test_connection_failure_explains_bridge_capture_and_consent():
     from urllib.error import URLError
+
     import pytest
 
     with patch(
@@ -125,6 +126,7 @@ def test_connection_failure_explains_bridge_capture_and_consent():
 
 def test_busy_bridge_reports_other_stream_client():
     from urllib.error import HTTPError
+
     import pytest
 
     with patch(

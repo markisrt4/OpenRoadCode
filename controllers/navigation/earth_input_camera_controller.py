@@ -5,15 +5,14 @@
 
 from __future__ import annotations
 
-from common.logging.diagnostics import ComponentLog, diagnostic_action
-
 from typing import Any
 
-from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
+from common.logging.diagnostics import ComponentLog, diagnostic_action
 from controllers.navigation.earth_camera_controller_if import (
     EarthCameraControllerIf,
     EarthCameraView,
 )
+from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
 
 
 class EarthInputCameraController(EarthCameraControllerIf):

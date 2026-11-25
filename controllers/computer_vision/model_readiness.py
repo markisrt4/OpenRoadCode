@@ -5,10 +5,10 @@
 
 from __future__ import annotations
 
-from common.logging.diagnostics import ComponentLog, diagnostic_action
-
 from pathlib import Path
 from typing import Any
+
+from common.logging.diagnostics import ComponentLog, diagnostic_action
 
 
 class YoloModelReadiness:

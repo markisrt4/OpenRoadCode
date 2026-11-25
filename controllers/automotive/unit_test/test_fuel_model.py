@@ -3,14 +3,13 @@
 
 """Unit tests for automotive fuel-flow resolution."""
 
-from datetime import datetime, timezone
 import math
+from datetime import datetime, timezone
 
 import pytest
 
 from controllers.automotive.fuel_model import FuelModel
 from controllers.automotive.vehicle_state import VehicleState
-
 
 NOW = datetime(2026, 9, 11, tzinfo=timezone.utc)
 

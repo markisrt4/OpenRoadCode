@@ -3,7 +3,6 @@
 import base64
 import hashlib
 import io
-from pathlib import Path
 import tarfile
 
 import pytest

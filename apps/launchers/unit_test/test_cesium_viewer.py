@@ -1,38 +1,18 @@
 """Standalone viewer state, transport isolation, and resource ownership."""
 
-from pathlib import Path
-import urllib.error
-import urllib.request
 import json
 import math
 import re
+import urllib.error
+import urllib.request
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
 
-from apps.launchers.cesium_viewer_server import CesiumViewerServer
 from apps.launchers.component_test.cesium_viewer_cli import run
 from ui.navigation import GeoPoint
 from ui.navigation.cesium_viewer_state import CesiumViewerState
-
-
-@pytest.fixture
-def state():
-    return CesiumViewerState(GeoPoint(math.radians(42.3314), math.radians(-83.0458)))
-
-
-@pytest.fixture
-def server(tmp_path, state):
-    sdk = tmp_path / "sdk"
-    (sdk / "Widgets").mkdir(parents=True)
-    (sdk / "Assets").mkdir()
-    (sdk / "Workers").mkdir()
-    (sdk / "Cesium.js").write_text("sdk")
-    (sdk / "Widgets/widgets.css").write_text("css")
-    server = CesiumViewerServer(sdk, state)
-    server.start()
-    yield server
-    server.close()
 
 
 @pytest.mark.parametrize("latitude,longitude", [(math.nan, 0), (2, 0), (0, 4)])
@@ -140,8 +120,8 @@ def test_terrain_visibility_is_explicit_boolean_snapshot_state(state):
 
 
 def test_pitch_control_contract_uses_finite_si_angles(state):
-    from dataclasses import replace
     import math
+    from dataclasses import replace
 
     assert state.document()["pitch_step_rad"] == math.pi / 18
     assert 0 < state.document()["maximum_tilt_rad"] < math.pi / 2

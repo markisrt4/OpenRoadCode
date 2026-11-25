@@ -14,7 +14,6 @@ from controllers.navigation.browser_orientation_adapter import BrowserOrientatio
 from controllers.navigation.browser_position_adapter import BrowserPositionAdapter
 from controllers.navigation.navigation_state import OrientationState, PositionState
 
-
 PositionStateSink = Callable[[PositionState], None]
 
 

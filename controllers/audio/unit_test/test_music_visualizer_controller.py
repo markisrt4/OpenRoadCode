@@ -58,8 +58,8 @@ def test_start_failure_releases_backend_and_reports_error():
 def test_home_and_full_visualizer_share_one_capture_and_preferences():
     from ui.music_visualizer import VisualizerFrame
     from ui.music_visualizer.music_visualizer_types import (
-        MusicVisualizerOptions,
         MusicVisualizationMode,
+        MusicVisualizerOptions,
     )
 
     released = Event()

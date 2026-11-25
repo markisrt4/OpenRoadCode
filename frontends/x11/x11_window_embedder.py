@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable
 import shutil
 import subprocess
 import time
+from collections.abc import Callable
 
 from .window_embedder_if import WindowEmbedderIf
 

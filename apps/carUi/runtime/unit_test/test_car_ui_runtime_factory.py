@@ -5,11 +5,13 @@
 
 from __future__ import annotations
 
+import unittest
 from dataclasses import dataclass
 from pathlib import Path
 from unittest.mock import Mock, patch
-import unittest
 
+from apps.carUi.runtime.car_ui_runtime_factory import CarUiRuntimeFactoryError, build_car_ui_runtime
+from apps.carUi.runtime.radio_runtime_registry import RadioRuntimeRegistry
 from config.application_config import (
     ApplicationConfig,
     ApplicationsConfig,
@@ -17,18 +19,14 @@ from config.application_config import (
     BrowserConfig,
 )
 from config.runtime_config import (
-    RuntimeConfig,
     InputConfig,
     RadioStackConfig,
     RigctlConfig,
     RotaryEncoderConfig,
-    SeesawEncoderConfig,
+    RuntimeConfig,
     RuntimeDisplayConfig,
+    SeesawEncoderConfig,
 )
-from apps.carUi.runtime.car_ui_runtime_factory import CarUiRuntimeFactoryError, build_car_ui_runtime
-from apps.carUi.runtime.radio_runtime_registry import RadioRuntimeRegistry
-from apps.launchers.google_earth_launcher import GoogleEarthLauncher
-from controllers.navigation.google_earth_map_presentation import GoogleEarthMapPresentation
 
 
 @dataclass(frozen=True)

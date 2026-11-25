@@ -9,12 +9,12 @@ import tkinter as tk
 from collections.abc import Callable, Sequence
 from functools import partial
 
-from ui.games import GameStatus, GameUiState, GamesRequestHandlerIf, GamesUiIf
+from ui.games import GamesRequestHandlerIf, GameStatus, GamesUiIf, GameUiState
 from ui.theme import ThemeBundle
 from ui.ui_widget import UiWidget
 
-from .game_catalog_icons import game_icon
 from .game_card_layout import bind_game_card_layout
+from .game_catalog_icons import game_icon
 
 PAGE_SIZE = 6
 FILTERS = (

@@ -2,9 +2,9 @@
 
 import argparse
 import json
-from pathlib import Path
 import re
 import shutil
+from pathlib import Path
 
 from .map_3d import validate_pack
 from .map_3d_menu import select_install_packs

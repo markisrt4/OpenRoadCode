@@ -62,4 +62,5 @@ class ObjectTrackerIf(ABC):
         """
 
     def reset(self) -> None:
-        """Forget all active tracks."""
+        """Forget all active tracks; stateless trackers need no reset."""
+        return None

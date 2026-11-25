@@ -2,15 +2,14 @@
 
 """Prove the configured type gate rejects contract drift and invalid callers."""
 
-from pathlib import Path
+import importlib.util
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
 from scripts.check_ui_types import is_quality_environment, is_termux, main, mypy_platform_args
-import importlib.util
-
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -276,8 +275,9 @@ def test_missing_mypy_is_explicitly_skipped_on_termux(monkeypatch, capsys):
 
 
 def test_termux_quality_gate_reports_skip_without_running_type_checker(monkeypatch, capsys):
-    from scripts import quality_gate
     from unittest.mock import Mock
+
+    from scripts import quality_gate
 
     monkeypatch.setenv("PREFIX", "/data/data/com.termux/files/usr")
     monkeypatch.setattr(quality_gate.importlib.util, "find_spec", lambda _: None)

@@ -5,10 +5,9 @@
 
 from __future__ import annotations
 
-from common.logging.diagnostics import ComponentLog, diagnostic_action
-
 from typing import Any
 
+from common.logging.diagnostics import ComponentLog, diagnostic_action
 from hardware_io.imu.imu_if import ImuIf
 from hardware_io.imu.imu_types import Vector3
 

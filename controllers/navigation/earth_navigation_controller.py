@@ -1,18 +1,18 @@
 """Feed navigation telemetry and semantic camera requests to Google Earth."""
 
-from common.logging.diagnostics import ComponentLog, diagnostic_action
 import math
 import threading
 import time
 
+from common.logging.diagnostics import ComponentLog, diagnostic_action
+from controllers.navigation.earth_chase_camera_controller import EarthChaseCameraController
 from controllers.navigation.earth_geolocation_bridge import EarthGeolocationBridge
 from controllers.navigation.earth_input_camera_controller import EarthInputCameraController
-from controllers.navigation.earth_chase_camera_controller import EarthChaseCameraController
 from messaging.contracts.navigation import (
-    POSITION_STATE_TOPIC,
     MOTION_STATE_TOPIC,
-    decode_position_state,
+    POSITION_STATE_TOPIC,
     decode_motion_state,
+    decode_position_state,
 )
 from messaging.message_dispatcher import MessageDispatcher
 from messaging.zeromq import ZeroMqSubscriber

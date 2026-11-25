@@ -2,17 +2,17 @@
 
 """Controller-owned artwork, lyrics, video work and presentation lifetime."""
 
+import time
 from collections.abc import Callable
 from dataclasses import replace
-import time
 
 from controllers.lyrics.lrclib_lyrics_client import LyricsResult
 from ui.media import (
     MediaAvailability,
     MediaState,
     PlaybackRequestHandlerIf,
-    TrackRequestHandlerIf,
     SeekRequestHandlerIf,
+    TrackRequestHandlerIf,
 )
 from ui.media.spotify_presentation_if import (
     SpotifyPresentationState,

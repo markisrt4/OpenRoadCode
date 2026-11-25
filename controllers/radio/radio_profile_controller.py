@@ -11,11 +11,9 @@ from config.radio_config_manager import load_radio_config
 from controllers.radio.adapters.rigctl_radio_backend import RigctlRadioBackend
 from controllers.radio.radio_controller import RadioController, format_frequency
 from controllers.radio.radio_profiles import RadioProfileCatalog, RadioProfilePreset
-from ui.radio.radio_types import RadioMode, RadioPreset, RadioRange
 from protocols.rigctl.rigctl_client import RigctlClient
-
-
 from ui.radio.radio_profile_state import RadioProfileState
+from ui.radio.radio_types import RadioMode, RadioPreset, RadioRange
 
 
 class RadioProfileController:
@@ -73,7 +71,7 @@ class RadioProfileController:
         return self._radio.get_rds()
 
     def select_profile(self, profile_key: str, *, start: bool = True) -> RadioProfileState:
-        profile = self._catalog.profile(profile_key)
+        self._catalog.profile(profile_key)
         changed = profile_key != self._profile_key
         was_started = hasattr(self, "_radio") and self._radio.is_started
         config = self._catalog.config_for(profile_key)

@@ -2,8 +2,8 @@
 
 import threading
 import unittest
-from unittest.mock import Mock
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 from apps.orcUi.navigation_map_runtime import NavigationMapRuntime
 from ui.navigation import MapRequestHandlerIf

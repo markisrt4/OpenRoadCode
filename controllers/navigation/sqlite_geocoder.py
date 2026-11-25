@@ -19,7 +19,6 @@ from pathlib import Path
 from controllers.navigation.geocoding_models import GeocodeResult
 from ui.navigation import GeoPoint
 
-
 _ADDRESS_RE = re.compile(r"^\s*([^,]+?)(?:\s*,\s*(.*))?$")
 _STREET_RE = re.compile(r"^\s*([0-9]+[A-Za-z0-9-]*)\s+(.+?)\s*$")
 
@@ -55,6 +54,7 @@ _MILE_NUMBERS = dict(
     zip(
         "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty".split(),
         map(str, range(1, 21)),
+        strict=True,
     )
 )
 
@@ -109,7 +109,6 @@ class SqliteGeocoder:
         ).fetchall()
 
         requested_street = _normalize_street(query.street)
-        postcode_center = self._postcode_center(query.postcode)
         ranked: list[tuple[int, float, sqlite3.Row]] = []
         for row in rows:
             # An explicitly requested locality must not silently resolve to a

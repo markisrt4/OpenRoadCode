@@ -9,9 +9,9 @@ import tkinter as tk
 from collections.abc import Callable
 
 from ui.theme import ThemeBundle
-from .shell_metrics import FONT_CONTROL, SIDE_NAV_WIDTH
 from ui.ui_widget import UiWidget
 
+from .shell_metrics import FONT_CONTROL, SIDE_NAV_WIDTH
 
 _NAV_LABELS = {"NAVIGATION": "NAV"}
 
@@ -21,7 +21,7 @@ def _blend(first: str, second: str, amount: float) -> str:
     amount = max(0.0, min(1.0, amount))
     a = tuple(int(first[index : index + 2], 16) for index in (1, 3, 5))
     b = tuple(int(second[index : index + 2], 16) for index in (1, 3, 5))
-    rgb = tuple(round(left + (right - left) * amount) for left, right in zip(a, b))
+    rgb = tuple(round(left + (right - left) * amount) for left, right in zip(a, b, strict=True))
     return "#{:02x}{:02x}{:02x}".format(*rgb)
 
 

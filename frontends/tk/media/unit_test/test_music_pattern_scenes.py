@@ -4,7 +4,7 @@
 
 from unittest.mock import Mock
 
-from frontends.tk.media.music_pattern_scenes import explosion_field, star_dance, kaleidoscope
+from frontends.tk.media.music_pattern_scenes import explosion_field, kaleidoscope, star_dance
 
 
 def test_sparks_and_stars_use_distinct_geometry():

@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-import os
 import logging
+import os
 import shutil
 import threading
 import time
@@ -14,9 +14,8 @@ from collections.abc import Callable, Sequence
 from typing import Protocol
 
 from common.logging.structured import current_operation, event, operation
-
 from controllers.spotify.spotify_state_service import SpotifyStateService
-from ui.media.spotify_browse_if import SpotifyPlaybackMode, SpotifyLocalPlayerState
+from ui.media.spotify_browse_if import SpotifyLocalPlayerState, SpotifyPlaybackMode
 
 LOGGER = logging.getLogger("media.spotify.player")
 

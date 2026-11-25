@@ -7,8 +7,8 @@ import time
 import tkinter as tk
 
 from ui import UiWidget
-
 from ui.automotive.engine_visual_state import EngineUpdateRates
+
 from .shell_metrics import FONT_SMALL
 
 

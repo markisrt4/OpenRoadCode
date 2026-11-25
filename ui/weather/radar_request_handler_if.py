@@ -4,6 +4,7 @@
 """Semantic requests from radar replay controls."""
 
 from abc import ABC, abstractmethod
+
 from ui.weather.radar_ui_if import RadarPalette
 
 

@@ -11,11 +11,11 @@ from apps.orcUi.frontend.tk.presentation_state import OrcUiPresentationState
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from frontends.tk.automotive import OffroadDashboardPanel
 from frontends.tk.tk_screen import TkScreen
-
-from .offroad_dashboard_presenter import apply_offroad_dashboard_state
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from ui.screen_ui_if import ScreenId
 from ui.theme import ThemeBundle
+
+from .offroad_dashboard_presenter import apply_offroad_dashboard_state
 
 
 class OffRoadScreen(TkScreen):

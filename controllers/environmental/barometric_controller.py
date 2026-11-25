@@ -5,13 +5,13 @@
 
 from __future__ import annotations
 
-from common.logging.diagnostics import ComponentLog, diagnostic_action
-
 import math
 import time
 from collections import deque
 from threading import Lock
 from typing import Callable
+
+from common.logging.diagnostics import ComponentLog, diagnostic_action
 
 from .barometric_controller_if import BarometricControllerIf
 from .barometric_source_if import BarometricSourceIf

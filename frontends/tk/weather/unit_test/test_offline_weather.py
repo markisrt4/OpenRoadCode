@@ -3,9 +3,10 @@
 """Offline weather behavior without a display server."""
 
 from unittest.mock import Mock, patch
+
+from apps.orcUi.frontend.tk.weather_alert_banner import WeatherAlertBanner
 from controllers.weather.weather_screen_controller import WeatherScreenController
 from frontends.tk.weather.orc_weather_panel import OrcWeatherPanel
-from apps.orcUi.frontend.tk.weather_alert_banner import WeatherAlertBanner
 
 
 def test_offline_refresh_starts_no_worker_and_invalidates_inflight_result():
@@ -62,7 +63,7 @@ def test_forced_refresh_bypasses_cache_and_reports_error_without_clearing_foreca
     host.dispatch_ui.side_effect = lambda callback: callback()
     controller = Mock()
     controller.refresh.side_effect = TimeoutError("forecast timed out")
-    from controllers.weather.weather_state import WeatherState, WeatherSource, CurrentWeather
+    from controllers.weather.weather_state import CurrentWeather, WeatherSource, WeatherState
 
     cached = WeatherState(
         latitude=0,

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 from controllers.weather import WeatherAlertEvent
 from messaging.publisher_if import PublisherIf
+
 from .topics import WEATHER_ALERT_TOPIC
 from .weather_alert_codec import encode_weather_alert
 

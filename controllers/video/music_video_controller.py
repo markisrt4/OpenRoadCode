@@ -3,12 +3,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 import logging
 import threading
+from collections.abc import Callable
 
 from common.logging.structured import current_operation, event, operation
-
 from controllers.spotify.spotify_controller_if import SpotifyControllerIf
 from controllers.video.music_video_if import MusicVideoIf
 from controllers.video.music_video_types import MusicVideo, MusicVideoQuery

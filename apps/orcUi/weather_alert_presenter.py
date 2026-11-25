@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 from datetime import datetime
+
 from messaging.contracts.weather import WeatherAlertData
 from ui.weather import WeatherAlertUiEvent
 

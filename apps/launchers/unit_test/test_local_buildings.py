@@ -5,7 +5,7 @@ import math
 import pytest
 
 from apps.launchers.local_building_pack import load_buildings
-from development.maps.download_detroit_buildings import prepare, height
+from development.maps.download_detroit_buildings import height, prepare
 from ui.navigation.local_building_state import LocalBuilding
 
 
@@ -50,6 +50,7 @@ def test_pack_integrity_and_invalid_geometry(tmp_path):
 
 def test_download_retains_source_and_installs_validated_pack(tmp_path, monkeypatch):
     from io import BytesIO
+
     from development.maps import download_detroit_buildings as downloader
 
     reply = {
@@ -82,6 +83,7 @@ def test_download_retains_source_and_installs_validated_pack(tmp_path, monkeypat
 def test_transient_gateway_timeout_retries(monkeypatch):
     from io import BytesIO
     from urllib.error import HTTPError
+
     from development.maps import download_detroit_buildings as downloader
 
     calls, delays = [], []

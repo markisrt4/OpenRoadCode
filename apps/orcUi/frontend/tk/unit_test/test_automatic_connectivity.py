@@ -5,8 +5,8 @@
 from queue import SimpleQueue
 from unittest.mock import Mock, patch
 
-from controllers.connectivity.shell_connectivity_controller import ShellConnectivityController
 from controllers.connectivity.online_mode import OnlineModeController
+from controllers.connectivity.shell_connectivity_controller import ShellConnectivityController
 
 
 def _app(tmp_path):

@@ -4,10 +4,10 @@ from unittest.mock import Mock
 
 import pytest
 
+from apps.launchers.local_map_tiles_pack import LocalMapTilesPack
 from tools.map_builder.builder import map_3d
 from tools.map_builder.builder.install_3d import validate_selection
-from tools.map_builder.builder.map_3d_menu import select_install_packs, choose_coverage
-from apps.launchers.local_map_tiles_pack import LocalMapTilesPack
+from tools.map_builder.builder.map_3d_menu import choose_coverage, select_install_packs
 
 
 def feature():
@@ -124,8 +124,8 @@ def test_stage_keeps_partial_selected_pack_and_removes_deselected(built):
 
 def test_termux_menu_cancels_or_validates_before_activation(built, tmp_path, monkeypatch):
     import os
-    from pathlib import Path
     import subprocess
+    from pathlib import Path
 
     root, path, run = built
     monkeypatch.setattr(map_3d.subprocess, "run", run.real_run)
@@ -215,6 +215,7 @@ else:
 
 def test_builder_geometry_reuses_matching_cached_imagery(built, tmp_path, monkeypatch):
     import shutil
+
     from apps.launchers import local_map_tiles_pack as runtime
 
     root, path, _ = built

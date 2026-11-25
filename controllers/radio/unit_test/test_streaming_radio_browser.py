@@ -8,15 +8,17 @@ from unittest.mock import Mock
 
 import pytest
 
-from controllers.radio.streaming_radio_browser import StreamingRadioBrowser
 from controllers.radio.streaming_radio_backend_if import (
     StreamingRadioBackendIf,
     StreamingRadioFavoritesIf,
 )
+from controllers.radio.streaming_radio_browser import StreamingRadioBrowser
 from controllers.radio.streaming_radio_directory_if import StreamingRadioDirectoryIf
 from ui.radio.streaming_radio_session_if import StreamingRadioUiIf
 from ui.radio.streaming_radio_state import (
     StreamingRadioBrowseMode as Mode,
+)
+from ui.radio.streaming_radio_state import (
     StreamingRadioPlaybackState,
 )
 from ui.radio.streaming_radio_types import StreamingRadioStation

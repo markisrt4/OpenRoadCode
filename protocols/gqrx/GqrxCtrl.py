@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: MIT
 
 import socket
-import sys
 
 
 class GqrxCtrl:

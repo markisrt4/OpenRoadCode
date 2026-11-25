@@ -5,7 +5,6 @@
 
 from dataclasses import FrozenInstanceError
 from datetime import datetime, timezone
-from ui.navigation.navigation_places_request_handler_if import NavigationPlacesFactoryIf
 from unittest.mock import Mock
 
 import pytest
@@ -13,14 +12,15 @@ import pytest
 from apps.orcUi.frontend.tk.navigation_route_weather import NavigationRouteWeather
 from apps.orcUi.frontend.tk.navigation_screen import NavigationScreen
 from controllers.weather.weather_overlay_controller import WeatherOverlayController
-from ui.weather.weather_overlay_request_handler_if import WeatherOverlayRequestHandlerIf
+from ui.navigation.navigation_places_request_handler_if import NavigationPlacesFactoryIf
+from ui.weather.radar_controls_if import RadarControlsIf
+from ui.weather.radar_request_handler_if import RadarRequestHandlerIf
+from ui.weather.radar_ui_if import RadarUiState
 from ui.weather.weather_overlay_controls_if import WeatherOverlayControlsIf
+from ui.weather.weather_overlay_request_handler_if import WeatherOverlayRequestHandlerIf
 from ui.weather.weather_overlay_state import CityWeatherOverlayState
 from ui.weather.weather_overlay_ui_if import WeatherOverlayUiIf
 from ui.weather.weather_overlay_ui_stub import WeatherOverlayUiStub
-from ui.weather.radar_request_handler_if import RadarRequestHandlerIf
-from ui.weather.radar_controls_if import RadarControlsIf
-from ui.weather.radar_ui_if import RadarUiState
 
 
 def test_overlay_state_is_immutable_and_naive_mutation_cannot_change_controls():

@@ -3,12 +3,11 @@
 
 """MPU-6050 adapter for the navigation controller."""
 
-from hardware_io.imu import Mpu6050Imu
-
 from controllers.navigation.navigation_sensor_if import (
     MotionSample,
     NavigationSensorIf,
 )
+from hardware_io.imu import Mpu6050Imu
 
 
 class Mpu6050NavigationAdapter(NavigationSensorIf):

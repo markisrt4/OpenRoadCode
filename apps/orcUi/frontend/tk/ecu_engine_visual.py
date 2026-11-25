@@ -29,7 +29,7 @@ def paint_engine_visual(
     animation_phase: float,
 ) -> None:
     """Render the ECU powertrain schematic and its interpretation summary."""
-    state, ui = vehicle_state, theme.ui
+    ui = theme.ui
     canvas.delete("all")
     w, h = max(260, canvas.winfo_width()), max(260, canvas.winfo_height())
     sx, sy = w / 400.0, h / 360.0

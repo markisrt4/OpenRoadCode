@@ -1,5 +1,6 @@
 from controllers.automotive.vehicle_state import VehicleState
 from messaging.publisher_if import PublisherIf
+
 from .topics import VEHICLE_STATE_TOPIC
 from .vehicle_state_codec import encode_vehicle_state
 

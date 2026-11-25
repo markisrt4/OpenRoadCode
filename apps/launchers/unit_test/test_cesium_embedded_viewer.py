@@ -3,7 +3,9 @@
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
+
 import pytest
+
 from apps.launchers import cesium_embedded_viewer as module
 from ui.navigation import GeoPoint
 from ui.navigation.cesium_viewer_state import CesiumViewerState
