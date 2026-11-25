@@ -11,10 +11,17 @@ class CalendarAgendaIf(Protocol):
     """Nonblocking agenda request and collection contract."""
 
     def request(self, day: date, days: int) -> None:
-        """Request a bounded agenda window."""
+        """Request a bounded agenda window.
+
+        @param day First local date.
+        @param days Number of days to request.
+        """
 
     def poll(self) -> AgendaSnapshot | None:
-        """Return a completed snapshot, or None while pending."""
+        """Collect completed work.
+
+        @return Completed snapshot, or None while pending.
+        """
 
     def close(self) -> None:
         """Retire pending work without blocking the UI."""
@@ -24,10 +31,16 @@ class CalendarSelectionIf(Protocol):
     """Calendar discovery and selection contract."""
 
     def list_calendars(self) -> tuple[CalendarSelectionView, ...]:
-        """Return discovered calendars and their enabled state."""
+        """Return discovered calendars and their enabled state.
+
+        @return Calendar selection values.
+        """
 
     def apply_selection(self, enabled: dict[str, bool]) -> None:
-        """Atomically persist selections while preserving unknown calendar IDs."""
+        """Atomically persist selections while preserving unknown calendar IDs.
+
+        @param enabled Mapping of calendar IDs to enabled states.
+        """
 
 
 class AppointmentMonitorIf(Protocol):
@@ -35,11 +48,17 @@ class AppointmentMonitorIf(Protocol):
 
     @property
     def snapshot(self) -> AppointmentSnapshot | None:
-        """Return the most recent completed snapshot."""
+        """Return the most recent completed snapshot.
+
+        @return Latest snapshot, or None before completion.
+        """
 
     @property
     def failed(self) -> bool:
-        """Indicate whether the latest read failed."""
+        """Indicate whether the latest read failed.
+
+        @return True if the latest read failed.
+        """
 
     def poll(self) -> None:
         """Advance background refresh without blocking."""
@@ -53,11 +72,17 @@ class CalendarPresentationIf(Protocol):
 
     @property
     def agenda(self) -> CalendarAgendaIf:
-        """Return the agenda request port."""
+        """Return the agenda request port.
+
+        @return Agenda interface.
+        """
 
     @property
     def selection(self) -> CalendarSelectionIf:
-        """Return the calendar selection port."""
+        """Return the calendar selection port.
+
+        @return Selection interface.
+        """
 
     def close(self) -> None:
         """Release presentation session resources."""
