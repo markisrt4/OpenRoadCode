@@ -23,6 +23,7 @@ from controllers.calendar.calendar_query_if import CalendarQueryIf
 from controllers.calendar.upcoming_appointments import upcoming_appointments
 from ui.calendar.calendar_models import AppointmentSnapshot
 from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
+from ui.navigation.route_request_handler_if import RouteRequestHandlerIf
 from frontends.tk.calendar.calendar_screen import CalendarScreen
 from frontends.tk.calendar.upcoming_panel import UpcomingPanel
 from frontends.tk.calendar.dashboard_screen import DashboardCalendarScreen
@@ -93,7 +94,11 @@ def configure_calendar(app, config: CalendarConfiguration | None = None):
 
 
 class HomeCalendarFactory:
-    def __init__(self, app, config: CalendarConfiguration | None = None):
+    def __init__(
+        self, app, config: CalendarConfiguration | None = None,
+        route_handler: RouteRequestHandlerIf | None = None,
+    ):
+        self._route_handler = route_handler
         self._app = app
         config = config or CalendarConfiguration()
         self._zone = config.zone
@@ -117,8 +122,12 @@ class HomeCalendarFactory:
             theme=theme_bundle(self._app.theme_mode),
             monitor=self.monitor,
             zone=self._zone,
+            route_handler=self._route_handler,
         )
 
 
-def create_home_calendar_factory(app, config: CalendarConfiguration | None = None):
-    return HomeCalendarFactory(app, config)
+def create_home_calendar_factory(
+    app, config: CalendarConfiguration | None = None,
+    route_handler: RouteRequestHandlerIf | None = None,
+):
+    return HomeCalendarFactory(app, config, route_handler)
