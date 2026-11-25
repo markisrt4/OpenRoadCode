@@ -5,13 +5,13 @@ from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock
 
-from apps.orcUi.composition import appointment_navigation as navigation
+from controllers.navigation.appointment_estimate_cache import AppointmentEstimateCache
 from common.app_settings import AppSettings
 from controllers.calendar.calendar_models import CalendarEvent
 from ui.navigation import GeoPoint
 
 
-def test_estimate_cache_invalidates_on_inputs_and_expiration(monkeypatch):
+def test_estimate_cache_invalidates_on_inputs_and_expiration():
     now = datetime.now(timezone.utc)
     event = CalendarEvent(
         "account", "calendar", "event", "Appointment",
@@ -22,11 +22,12 @@ def test_estimate_cache_invalidates_on_inputs_and_expiration(monkeypatch):
     estimate = Mock(return_value=Mock())
     settings = Mock()
     settings.load.return_value = AppSettings()
-    monkeypatch.setattr(navigation, "monotonic", clock)
-    monkeypatch.setattr(navigation, "get_current_position", position)
-    monkeypatch.setattr(navigation, "estimate_upcoming_journey", estimate)
-    monkeypatch.setattr(navigation, "AppSettingsStore", lambda: settings)
-    cache = navigation.AppointmentEstimateCache()
+    cache = AppointmentEstimateCache(
+        position=position,
+        arrival_minutes=lambda: settings.load().appointment_arrival_minutes,
+        calculate=estimate,
+        clock=clock,
+    )
     query = Mock()
 
     first = cache.estimate(query, event)
