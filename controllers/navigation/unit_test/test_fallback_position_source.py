@@ -12,7 +12,7 @@ from controllers.navigation.fallback_position_source import FallbackPositionSour
 from controllers.navigation.navigation_state import PositionState
 
 
-def setup_source():
+def setup_source() -> tuple[FallbackPositionSource, Mock, Mock, Mock, Mock]:
     primary, browser = Mock(), Mock()
     clock = Mock(return_value=0)
     source = FallbackPositionSource(primary, browser, clock=clock)
@@ -21,11 +21,11 @@ def setup_source():
     return source, primary, browser, clock, consumer
 
 
-def fix(source):
+def fix(source: str) -> PositionState:
     return PositionState(latitude_deg=42.33, longitude_deg=-83.05, fix_mode=3, source=source)
 
 
-def test_browser_only_takes_over_missing_or_stale_primary_and_bridge_recovers():
+def test_browser_only_takes_over_missing_or_stale_primary_and_bridge_recovers() -> None:
     _, primary, browser, clock, consumer = setup_source()
     bridge_report = primary.start.call_args.args[0]
     browser_report = browser.start.call_args.args[0]
@@ -55,7 +55,7 @@ def test_browser_only_takes_over_missing_or_stale_primary_and_bridge_recovers():
         replace(fix("android"), longitude_deg=float("nan")),
     ],
 )
-def test_unusable_primary_report_does_not_block_browser(invalid):
+def test_unusable_primary_report_does_not_block_browser(invalid: PositionState) -> None:
     _, primary, browser, _, consumer = setup_source()
     primary.start.call_args.args[0](invalid)
     browser.start.call_args.args[0](fix("browser"))
@@ -63,7 +63,7 @@ def test_unusable_primary_report_does_not_block_browser(invalid):
     assert consumer.call_args.args[0].source == "browser"
 
 
-def test_stop_and_restart_reject_old_reports_and_stop_both_providers():
+def test_stop_and_restart_reject_old_reports_and_stop_both_providers() -> None:
     source, primary, browser, _, consumer = setup_source()
     old_bridge = primary.start.call_args.args[0]
     old_browser = browser.start.call_args.args[0]
@@ -81,7 +81,7 @@ def test_stop_and_restart_reject_old_reports_and_stop_both_providers():
     assert consumer.call_count == 1
 
 
-def test_primary_start_failure_keeps_host_source_available():
+def test_primary_start_failure_keeps_host_source_available() -> None:
     primary, browser, consumer = Mock(), Mock(), Mock()
     primary.start.side_effect = OSError("bridge disconnected")
     source = FallbackPositionSource(primary, browser)
@@ -92,7 +92,7 @@ def test_primary_start_failure_keeps_host_source_available():
     source.stop()
 
 
-def test_port_conflict_does_not_disable_primary_gps():
+def test_port_conflict_does_not_disable_primary_gps() -> None:
     primary, browser, consumer = Mock(), Mock(), Mock()
     browser.start.side_effect = OSError("address already in use")
     source = FallbackPositionSource(primary, browser)
@@ -102,7 +102,7 @@ def test_port_conflict_does_not_disable_primary_gps():
     source.stop()
 
 
-def test_both_start_failures_clean_up_and_allow_retry():
+def test_both_start_failures_clean_up_and_allow_retry() -> None:
     primary, browser = Mock(), Mock()
     primary.start.side_effect = RuntimeError("unavailable")
     browser.start.side_effect = OSError("port busy")
