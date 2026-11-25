@@ -35,6 +35,7 @@ class CalendarHealthView:
     status: str = "unavailable"
     stale: bool = False
     last_data_refresh_age_seconds: float | None = None
+    offline: bool = False
 
     @property
     def empty_message(self) -> str:
