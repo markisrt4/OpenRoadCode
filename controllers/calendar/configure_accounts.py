@@ -36,14 +36,34 @@ def main() -> None:
         if not accounts:
             print("No calendar accounts configured.")
             return
-        for account in accounts:
-            print(
-                account.account_id, account.provider, "enabled" if account.enabled else "disabled"
-            )
+        for index, account in enumerate(accounts, start=1):
+            state = "enabled" if account.enabled else "disabled"
+            print(f"{index}. {account.username} ({account.provider}) [{state}]")
         return
     account_id = args.account_id
     if args.action != "add" and account_id is None:
-        account_id = input("Account ID: ").strip()
+        candidates = tuple(
+            account
+            for account in accounts
+            if (args.action != "enable" or not account.enabled)
+            and (args.action != "disable" or account.enabled)
+        )
+        if not candidates:
+            print(f"No accounts available to {args.action}.")
+            return
+        for index, account in enumerate(candidates, start=1):
+            state = "enabled" if account.enabled else "disabled"
+            print(f"{index}. {account.username} ({account.provider}) [{state}]")
+        print("0. Back")
+        choice = input("Select account: ").strip()
+        if choice == "0":
+            return
+        if not choice.isascii() or not choice.isdecimal() or len(choice) > 9:
+            parser.error("Select a listed account number")
+        index = int(choice)
+        if not 1 <= index <= len(candidates):
+            parser.error("Select a listed account number")
+        account_id = candidates[index - 1].account_id
     if args.action == "add":
         provider = args.provider or input("Provider (caldav/proton): ").strip().lower()
         username = input("Calendar username: ").strip()
