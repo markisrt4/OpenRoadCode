@@ -58,8 +58,16 @@ class UpcomingPanel(tk.Frame, UiWidget):
                 self._label("Calendar data stale", self._ui.accent_warning)
             elif health.status != "ok":
                 self._label("Calendar sync incomplete", self._ui.accent_warning)
+            if snapshot.complete_coverage is False:
+                self._label("Upcoming calendar coverage incomplete", self._ui.accent_warning)
             if not events:
-                self._label(health.empty_message, self._ui.text_muted)
+                message = health.empty_message
+                if (
+                    snapshot.complete_coverage is False
+                    and health.last_data_refresh_age_seconds is not None
+                ):
+                    message = "Upcoming appointments unknown"
+                self._label(message, self._ui.text_muted)
             for event in events:
                 start = event.starts_at.astimezone(self._zone)
                 self._label(start.strftime("%a %b %d · %I:%M %p"), self._ui.accent_primary)
