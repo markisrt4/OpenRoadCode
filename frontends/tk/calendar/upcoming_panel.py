@@ -52,6 +52,8 @@ class UpcomingPanel(tk.Frame, UiWidget):
                 self._label("Loading appointments…", self._ui.text_muted)
         else:
             events, health = snapshot.events, snapshot.health
+            if health.offline:
+                self._label("Offline · Saved calendar data", self._ui.text_muted)
             if health.status == "unavailable" or health.last_data_refresh_age_seconds is None:
                 self._label("Calendar freshness unknown", self._ui.accent_warning)
             elif health.stale:
