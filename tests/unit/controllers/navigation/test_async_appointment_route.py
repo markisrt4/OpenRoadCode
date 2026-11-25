@@ -60,3 +60,35 @@ def test_route_completion_is_collected_on_owner_thread(fails):
     finally:
         release.set()
         handler.close()
+
+
+def test_shutdown_discards_inflight_route_completion():
+    entered = Event()
+    release = Event()
+    client = Mock()
+    renderer = Mock()
+
+    def start(*args, **kwargs):
+        entered.set()
+        assert release.wait(5)
+        return Mock()
+
+    client.start_route.side_effect = start
+    handler = NavigationRouteRequestHandler(client, renderer)
+    observer = Mock()
+    handler.observe_route(observer)
+    try:
+        handler.request_start_route_async(GeoPoint(0.1, 0.2), TravelMode.AUTO)
+        assert entered.wait(5)
+        future = handler._pending
+        assert future is not None
+        handler.close()
+        release.set()
+        future.result(timeout=5)
+        assert not handler.poll_route_start()
+        assert not handler.route_start_pending
+        observer.assert_not_called()
+        renderer.set_route.assert_not_called()
+        renderer.close.assert_called_once()
+    finally:
+        release.set()
