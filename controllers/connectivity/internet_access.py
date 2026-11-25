@@ -12,6 +12,6 @@ def internet_reachable() -> bool:
             method="HEAD",
         )
         with urllib.request.urlopen(request, timeout=3) as response:
-            return response.status == 204
+            return bool(response.status == 204)
     except (OSError, ValueError):
         return False
