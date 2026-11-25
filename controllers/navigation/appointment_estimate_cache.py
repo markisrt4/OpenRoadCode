@@ -41,6 +41,9 @@ class AppointmentEstimateCache:
         origin = self._position()
         if origin is None or not event.location:
             self._event = None
+            self._origin = None
+            self._buffer_minutes = None
+            self._expires = 0.0
             self._estimate = None
             return None
         buffer_minutes = self._arrival_minutes()
