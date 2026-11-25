@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
+from typing import Any
 
 import requests
 
@@ -74,7 +75,7 @@ class OpenMeteoWeatherProvider(WeatherProviderIf):
         )
 
     @staticmethod
-    def _condition(code: int | None) -> WeatherCondition:
+    def _condition(code: float | None) -> WeatherCondition:
         if code == 0:
             return WeatherCondition.CLEAR
         if code in (1, 2):
@@ -96,7 +97,7 @@ class OpenMeteoWeatherProvider(WeatherProviderIf):
         return WeatherCondition.UNKNOWN
 
     @classmethod
-    def _current_weather(cls, data: dict) -> CurrentWeather:
+    def _current_weather(cls, data: dict[str, Any]) -> CurrentWeather:
         return CurrentWeather(
             temperature_k=celsius_to_kelvin(data.get("temperature_2m")),
             apparent_temperature_k=celsius_to_kelvin(data.get("apparent_temperature")),
@@ -168,7 +169,7 @@ class OpenMeteoWeatherProvider(WeatherProviderIf):
         return tuple(result)
 
     @staticmethod
-    def _at(data: dict, key: str, index: int):
+    def _at(data: dict, key: str, index: int) -> Any:
         values = data.get(key, [])
         return values[index] if index < len(values) else None
 
