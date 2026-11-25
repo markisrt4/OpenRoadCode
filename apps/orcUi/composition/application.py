@@ -7,12 +7,12 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from controllers.navigation.map_controls_drawer_controller import MapControlsDrawerController
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from common.resource_cleanup import ResourceCleanup, close_resources
 import math
 
-from common.app_settings import AppSettings, AppSettingsStore
+from common.app_settings import AppSettingsStore
 from apps.launchers.host_location_permission import HostLocationPermission
 from controllers.navigation.host_location_settings_controller import HostLocationSettingsController
 from controllers.weather.radar_palette import RadarPalette
@@ -207,7 +207,7 @@ def create_orc_ui_composition(
 
         def set_unit_system(value):
             nonlocal app_settings
-            app_settings = AppSettings(unit_system=value, radar_palette=app_settings.radar_palette)
+            app_settings = replace(app_settings, unit_system=value)
             settings_store.save(app_settings)
 
         def open_radar_map() -> None:
@@ -228,10 +228,7 @@ def create_orc_ui_composition(
 
         def set_radar_palette(value: RadarPalette) -> None:
             nonlocal app_settings
-            app_settings = AppSettings(
-                unit_system=app_settings.unit_system,
-                radar_palette=value.value,
-            )
+            app_settings = replace(app_settings, radar_palette=value.value)
             settings_store.save(app_settings)
 
         def navigate_home_context(name: str) -> None:
