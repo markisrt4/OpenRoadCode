@@ -1,0 +1,113 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
+"""Control a preconfigured, dedicated readsb systemd service."""
+
+import subprocess
+import time
+from pathlib import Path
+
+
+class ReadsbSystemdService:
+    """Use deployment-provisioned permissions and a fixed receiver assignment."""
+
+    def __init__(
+        self,
+        serial: str,
+        *,
+        timeout: float = 15.0,
+        unit: str = "readsb.service",
+        user_unit: bool = False,
+        usb_root: Path = Path("/sys/bus/usb/devices"),
+        proc_root: Path = Path("/proc"),
+    ) -> None:
+        if not serial or timeout <= 0:
+            raise ValueError("serial and positive timeout required")
+        self._serial = serial
+        self._timeout = timeout
+        self._unit = unit
+        self._scope = ["--user"] if user_unit else []
+        self._usb_root = usb_root
+        self._proc_root = proc_root
+
+    def _run(self, *args: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["systemctl", *self._scope, "--no-ask-password", *args, self._unit],
+            capture_output=True,
+            text=True,
+            timeout=self._timeout,
+            check=False,
+        )
+
+    def _state(self) -> dict[str, str]:
+        result = self._run(
+            "show",
+            "--property=ActiveState,SubState,MainPID,ControlPID,ControlGroup",
+        )
+        if result.returncode:
+            return {}
+        return dict(line.split("=", 1) for line in result.stdout.splitlines() if "=" in line)
+
+    def start(self, serial: str) -> bool:
+        """Start only the receiver provisioned by the deployment layer."""
+        if serial != self._serial:
+            return False
+        if not self.stop():
+            return False
+        if self._run("start").returncode:
+            return False
+        deadline = time.monotonic() + self._timeout
+        while time.monotonic() < deadline:
+            if self._receiver_ready(self._state()):
+                return True
+            time.sleep(0.2)
+        return False
+
+    def _receiver_ready(self, state: dict[str, str]) -> bool:
+        if state.get("ActiveState") != "active":
+            return False
+        pid = state.get("MainPID", "")
+        if not pid.isdecimal() or int(pid) <= 0:
+            return False
+        try:
+            matches = []
+            for device in self._usb_root.iterdir():
+                try:
+                    if (
+                        (device / "serial").read_text().strip() == self._serial
+                        and (device / "idVendor").read_text().strip() == "0bda"
+                        and (device / "idProduct").read_text().strip() in {"2832", "2838"}
+                    ):
+                        bus = int((device / "busnum").read_text())
+                        address = int((device / "devnum").read_text())
+                        matches.append(Path(f"/dev/bus/usb/{bus:03d}/{address:03d}"))
+                except (OSError, ValueError):
+                    continue
+            if len(matches) != 1:
+                return False
+            for fd in (self._proc_root / pid / "fd").iterdir():
+                try:
+                    if fd.readlink() == matches[0]:
+                        return True
+                except OSError:
+                    continue
+        except OSError:
+            return False
+        return False
+
+    def active(self) -> bool:
+        """Verify that the reported unit still holds its selected receiver."""
+        return self._receiver_ready(self._state())
+
+    def stop(self) -> bool:
+        """Require a stopped unit and no remaining systemd control group."""
+        if self._run("stop").returncode:
+            return False
+        state = self._state()
+        return (
+            (state.get("ActiveState"), state.get("SubState"))
+            in {("inactive", "dead"), ("failed", "failed")}
+            and state.get("MainPID") == "0"
+            and state.get("ControlPID") == "0"
+            and state.get("ControlGroup") == ""
+        )

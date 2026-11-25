@@ -7,6 +7,7 @@ set -euo pipefail
 GPS_DEVICE="${1:-/dev/ttyACM0}"
 GPSD_DEFAULTS="/etc/default/gpsd"
 LEGACY_SERVICE="/etc/systemd/system/gpsd-start.service"
+GPSD_BOOT_DROPIN="/etc/systemd/system/gpsd.service.d/90-openroadcode-boot.conf"
 
 if [[ $EUID -ne 0 ]]; then
     echo "This script needs root privileges." >&2
@@ -72,16 +73,20 @@ if systemctl list-unit-files gpsd-start.service >/dev/null 2>&1 || [[ -f "$LEGAC
     rm -f "$LEGACY_SERVICE"
 fi
 
-systemctl daemon-reload
-systemctl enable gpsd.socket
-systemctl restart gpsd.socket
+# Some distro packages only install GPSD for socket activation.
+install -d -m 0755 "$(dirname "$GPSD_BOOT_DROPIN")"
+cat > "$GPSD_BOOT_DROPIN" <<'EOF'
+[Install]
+WantedBy=multi-user.target
+EOF
 
-# Restart an already-running gpsd so the updated device configuration is used.
-if systemctl is-active --quiet gpsd.service; then
-    systemctl restart gpsd.service
-fi
+systemctl daemon-reload
+systemctl enable gpsd.socket gpsd.service
+systemctl start gpsd.socket
+# Restart also starts an inactive daemon and applies the receiver settings.
+systemctl restart gpsd.service
 
 echo "[+] Configured distro gpsd for OpenRoadCode"
 echo "    device: $GPS_DEVICE"
-echo "    socket: gpsd.socket"
+echo "    boot units: gpsd.service and gpsd.socket"
 echo "    verify: gpspipe -w -n 5"

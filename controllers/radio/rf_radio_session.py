@@ -13,6 +13,7 @@ from time import monotonic, sleep
 from typing import Protocol
 
 from controllers.radio.radio_profile_controller import RadioProfileController
+from protocols.sdrforge_control import authorize_local_sdrforge_request
 from ui.notification_if import Notification, NotificationSeverity, NotificationSinkIf
 from ui.radio.radio_profile_state import RadioProfileState
 from ui.radio.rf_radio_if import (
@@ -65,6 +66,9 @@ class ReceiverSession:
         on_close: Callable[[], None] = lambda: None,
         spectrum_source: SpectrumSourceIf | None = None,
         notification_sink: NotificationSinkIf | None = None,
+        start_receiver: Callable[[], None] | None = None,
+        stop_receiver: Callable[[], None] | None = None,
+        guard_receiver_control: Callable[[], None] | None = None,
     ) -> None:
         self._spectrum_source = spectrum_source
         self._radio = radio
@@ -77,6 +81,9 @@ class ReceiverSession:
         self._run_ui = run_ui
         self._on_close = on_close
         self._notification_sink = notification_sink
+        self._start_receiver = start_receiver
+        self._stop_receiver = stop_receiver
+        self._guard_receiver_control = guard_receiver_control
         self._lock = Lock()
         self._native_lock = RLock()
         self._generation = 0
@@ -320,6 +327,13 @@ class ReceiverSession:
 
     def _perform(self, request: RadioRequest, generation: int) -> None:
         action = request.action
+        if self._guard_receiver_control is not None and action in (
+            RadioAction.PAN_ACQUISITION,
+            RadioAction.RECENTER,
+            RadioAction.PLAY,
+            RadioAction.PAUSE,
+        ):
+            self._guard_receiver_control()
         if action in (RadioAction.LAUNCH, RadioAction.ADSB):
             self._launch(request, generation)
             if self._current(generation) and request.action is RadioAction.LAUNCH:
@@ -329,11 +343,13 @@ class ReceiverSession:
             if request.frequency_hz is None:
                 raise ValueError("pan requires an acquisition center")
             with urllib.request.urlopen(
-                urllib.request.Request(
-                    "http://127.0.0.1:5570/v1/receiver/pan",
-                    data=('{"center_hz": %d}' % request.frequency_hz).encode(),
-                    headers={"Content-Type": "application/json"},
-                    method="POST",
+                authorize_local_sdrforge_request(
+                    urllib.request.Request(
+                        "http://127.0.0.1:5570/v1/receiver/pan",
+                        data=('{"center_hz": %d}' % request.frequency_hz).encode(),
+                        headers={"Content-Type": "application/json"},
+                        method="POST",
+                    )
                 ),
                 timeout=6.0,
             ) as response:
@@ -342,10 +358,12 @@ class ReceiverSession:
             return
         if action is RadioAction.RECENTER:
             with urllib.request.urlopen(
-                urllib.request.Request(
-                    "http://127.0.0.1:5570/v1/receiver/recenter",
-                    data=b"",
-                    method="POST",
+                authorize_local_sdrforge_request(
+                    urllib.request.Request(
+                        "http://127.0.0.1:5570/v1/receiver/recenter",
+                        data=b"",
+                        method="POST",
+                    )
                 ),
                 timeout=6.0,
             ) as response:
@@ -355,16 +373,26 @@ class ReceiverSession:
             return
         if action in (RadioAction.START_RECEIVER, RadioAction.STOP_RECEIVER):
             endpoint = "start" if action is RadioAction.START_RECEIVER else "stop"
-            with urllib.request.urlopen(
-                urllib.request.Request(
-                    f"http://127.0.0.1:5570/v1/receiver/{endpoint}",
-                    data=b"",
-                    method="POST",
-                ),
-                timeout=6.0,
-            ) as response:
-                if response.status not in (200, 202):
-                    raise RuntimeError(f"SDRForge receiver {endpoint} failed")
+            lifecycle = (
+                self._start_receiver
+                if action is RadioAction.START_RECEIVER
+                else self._stop_receiver
+            )
+            if lifecycle is not None:
+                lifecycle()
+            else:
+                with urllib.request.urlopen(
+                    authorize_local_sdrforge_request(
+                        urllib.request.Request(
+                            f"http://127.0.0.1:5570/v1/receiver/{endpoint}",
+                            data=b"",
+                            method="POST",
+                        )
+                    ),
+                    timeout=6.0,
+                ) as response:
+                    if response.status not in (200, 202):
+                        raise RuntimeError(f"SDRForge receiver {endpoint} failed")
             # SDRForge is shared: leaving this UI must not stop acquisition.
             self._owns_receiver = False
             # HTTP 202 means startup was accepted, not that acquisition is running.
@@ -625,8 +653,10 @@ class ReceiverSession:
         def stop_owned() -> None:
             try:
                 with urllib.request.urlopen(
-                    urllib.request.Request(
-                        "http://127.0.0.1:5570/v1/receiver/stop", data=b"", method="POST"
+                    authorize_local_sdrforge_request(
+                        urllib.request.Request(
+                            "http://127.0.0.1:5570/v1/receiver/stop", data=b"", method="POST"
+                        )
                     ),
                     timeout=5.0,
                 ):

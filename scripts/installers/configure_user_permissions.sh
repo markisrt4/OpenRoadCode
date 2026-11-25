@@ -26,6 +26,9 @@ append_group() {
 
 for feature in "${features[@]}"; do
   case "$feature" in
+    video-v4l2)
+      append_group video
+      ;;
     input)
       append_group input
       ;;

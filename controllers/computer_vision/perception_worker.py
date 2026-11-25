@@ -76,7 +76,7 @@ class PerceptionWorker:
                 target=self._run,
                 args=(generation, operation_id),
                 name="PerceptionWorker",
-                daemon=True,
+                daemon=False,
             )
             try:
                 self._thread.start()

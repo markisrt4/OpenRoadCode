@@ -336,8 +336,11 @@ def create_orc_ui_composition(
             on_unit_system_changed=set_unit_system,
             on_back=lambda: app.navigate_to("HOME"),
             rf_hardware_config=SdrForgeRfHardwareConfig(),
+            receiver_settings=radio.receiver_settings,
             performance_overlay_enabled=app.performance_overlay_enabled,
             on_performance_overlay_changed=app.set_performance_overlay_enabled,
+            configure_spotify=media.configure_spotify,
+            close_spotify_configuration=media.close_spotify_configuration,
         )
         permission = HostLocationPermission()
         host_location = HostLocationSettingsController(

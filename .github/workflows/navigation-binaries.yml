@@ -1,0 +1,148 @@
+name: Navigation binaries
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/rpi5-integration]
+    paths:
+      - '.github/workflows/navigation-binaries.yml'
+      - 'tools/map_builder/toolchain.lock'
+      - 'scripts/installers/navigation_component_version.sh'
+      - 'apps/map_renderer/**'
+      - 'development/containers/maplibre/**'
+      - 'development/containers/valhalla/**'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+        distro: [ubuntu24.04, debian13]
+        include:
+          - runner: ubuntu-24.04
+            arch: amd64
+            target: linux-dev
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+            target: rpi5
+          - distro: ubuntu24.04
+            image: ubuntu:24.04
+          - distro: debian13
+            image: debian:trixie
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 180
+    defaults:
+      run:
+        working-directory: OpenRoadCode
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: OpenRoadCode
+      - name: Build navigation software
+        env:
+          HOST_SRC: ${{ github.workspace }}
+          BUILD_BASE_IMAGE: ${{ matrix.image }}
+          BUILD_JOBS: "2"
+          FORCE_NAVIGATION_REBUILD: "1"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rsync
+          bash scripts/installers/install_navigation_stack.sh \
+            --target "${{ matrix.target }}" --package-only
+      - name: Validate target runtime dependencies
+        env:
+          TARGET_IMAGE: ${{ matrix.image }}
+        run: |
+          docker run --rm \
+            -v /opt/openroadcode/navigation:/opt/openroadcode/navigation:ro \
+            -v "$PWD:/orc:ro" "$TARGET_IMAGE" bash -euc '
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y sudo libzmq3-dev libcurl4-openssl-dev libpng-dev libwebp-dev libsqlite3-dev libprotobuf-dev libspatialite-dev libssl-dev liblz4-dev libxxhash-dev libluajit-5.1-dev
+              bash /orc/development/containers/maplibre/host_setup.sh
+              bash /orc/development/containers/valhalla/host_setup.sh
+              echo /opt/openroadcode/navigation/valhalla/lib > /etc/ld.so.conf.d/orc.conf
+              ldconfig
+              for binary in /opt/openroadcode/navigation/bin/openroadcode-map-renderer /opt/openroadcode/navigation/valhalla/bin/valhalla_service; do
+                dependencies="$(ldd "$binary")"
+                printf "%s\n" "$dependencies"
+                if grep -q "not found" <<< "$dependencies"; then exit 1; fi
+              done
+            '
+      - name: Package and checksum
+        env:
+          ARCH: ${{ matrix.arch }}
+          DISTRO: ${{ matrix.distro }}
+          TARGET_IMAGE: ${{ matrix.image }}
+        run: |
+          mkdir -p dist
+          name="orc-navigation-${DISTRO}-${ARCH}-${GITHUB_SHA}"
+          printf 'revision=%s\ndistribution=%s\narchitecture=%s\nbuild_image=%s\n' \
+            "$GITHUB_SHA" "$DISTRO" "$ARCH" "$TARGET_IMAGE" > dist/manifest.txt
+          for dependency in maplibre-native valhalla prime_server; do
+            printf '%s=%s\n' "$dependency" "$(git -C "../$dependency" rev-parse HEAD)" >> dist/manifest.txt
+          done
+          component="$(bash scripts/installers/navigation_component_version.sh "$(git -C ../maplibre-native rev-parse HEAD)" "$(git -C ../valhalla rev-parse HEAD)" "$(git -C ../prime_server rev-parse HEAD)")"
+          printf 'component_version=%s\n' "$component" >> dist/manifest.txt
+          sudo tar -C /opt/openroadcode/navigation -czf "$PWD/dist/$name.tar.gz" bin valhalla
+          sudo chown "$(id -u):$(id -g)" "dist/$name.tar.gz"
+          (cd dist && sha256sum "$name.tar.gz" manifest.txt > SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: navigation-${{ matrix.distro }}-${{ matrix.arch }}
+          path: OpenRoadCode/dist/
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: navigation-*
+          path: packages
+      - name: Verify and assemble release assets
+        run: |
+          set -euo pipefail
+          mkdir release
+          component=""
+          for distro in ubuntu24.04 debian13; do
+            for arch in amd64 arm64; do
+              name="navigation-$distro-$arch"
+              version="$(sed -n 's/^component_version=//p' "packages/$name/manifest.txt")"
+              [[ "$version" =~ ^[0-9a-f]{64}$ ]]
+              [[ -z "$component" || "$component" == "$version" ]]
+              component="$version"
+              (
+                cd "packages/$name"
+                sha256sum -c SHA256SUMS
+                grep -Fx "revision=$GITHUB_SHA" manifest.txt
+                grep -Fx "distribution=$distro" manifest.txt
+                grep -Fx "architecture=$arch" manifest.txt
+                tar -czf "../../release/$name.tar.gz" -- *.tar.gz manifest.txt SHA256SUMS
+              )
+            done
+          done
+          (cd release && sha256sum *.tar.gz > SHA256SUMS)
+          echo "NAVIGATION_COMPONENT=$component" >> "$GITHUB_ENV"
+      - name: Publish revision-specific prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="navigation-$NAVIGATION_COMPONENT"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release already exists; refusing to overwrite revision assets."
+            exit 0
+          fi
+          gh release create "$tag" release/* --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" --prerelease --latest=false \
+            --title "Navigation binaries $NAVIGATION_COMPONENT" \
+            --notes "Native navigation packages for Debian 13 and Ubuntu 24.04, AMD64 and ARM64."

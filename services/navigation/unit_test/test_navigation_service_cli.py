@@ -99,24 +99,22 @@ def test_desktop_fallback_ignores_saved_rpi_build_target(monkeypatch) -> None:
     monkeypatch.delenv("TERMUX_VERSION", raising=False)
     monkeypatch.delenv("PREFIX", raising=False)
     monkeypatch.setenv("OPENROAD_INSTALL_TARGET", "rpi5")
-    monkeypatch.setattr(navigation_service_cli.Path, "read_text", lambda *args, **kwargs: "")
     source = navigation_service_cli._build_position_source(
         NavigationServiceRuntimeConfig(gps=GpsInputConfig(device="android"))
     )
     assert isinstance(source._live_source, FallbackPositionSource)
 
 
-def test_actual_pi_hardware_does_not_offer_desktop_listener(monkeypatch) -> None:
+def test_pi_target_offers_browser_fallback_for_gpsd(monkeypatch) -> None:
     monkeypatch.setattr(navigation_service_cli.sys, "platform", "linux")
     monkeypatch.delenv("TERMUX_VERSION", raising=False)
     monkeypatch.delenv("PREFIX", raising=False)
-    monkeypatch.setenv("OPENROAD_INSTALL_TARGET", "linux-dev")
-    monkeypatch.setattr(
-        navigation_service_cli.Path,
-        "read_text",
-        lambda *args, **kwargs: "Raspberry Pi 5 Model B Rev 1.0\0",
+    monkeypatch.setenv("OPENROAD_INSTALL_TARGET", "rpi5")
+    monkeypatch.setattr(navigation_service_cli, "_create_gps_reader", lambda *_args: object())
+    source = navigation_service_cli._build_position_source(
+        NavigationServiceRuntimeConfig(gps=GpsInputConfig(device="gpsd"))
     )
-    assert not navigation_service_cli._host_location_fallback_available()
+    assert isinstance(source._live_source, FallbackPositionSource)
 
 
 def test_actual_termux_runtime_does_not_offer_desktop_listener(monkeypatch) -> None:
