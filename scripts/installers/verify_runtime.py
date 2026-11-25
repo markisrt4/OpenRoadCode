@@ -14,8 +14,8 @@ import socket
 import subprocess
 import sys
 import time
-import urllib.parse
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -72,8 +72,16 @@ def systemd_enabled(service: str) -> tuple[bool, str]:
     return state == "enabled", state or result.stderr.strip()
 
 
+def http_error_detail(error: urllib.error.HTTPError) -> str:
+    """Preserve the server's diagnostic response, with bounded output."""
+    with error:
+        body = error.read(8192).decode("utf-8", errors="replace")
+    return f"{error}; response: {body or '(empty response body)'}"
+
+
 def routing_ready(root: Path, region: str) -> tuple[bool, str]:
     """Probe the local routing engine with a catalogued regional route."""
+    context = f"region={region}; config={root / 'valhalla/valhalla.json'}"
     try:
         catalog_path = Path(__file__).resolve().parents[1] / "runtime/navigation-data-catalog.json"
         catalog = json.loads(catalog_path.read_text())
@@ -88,19 +96,22 @@ def routing_ready(root: Path, region: str) -> tuple[bool, str]:
             if ok:
                 break
             if time.monotonic() >= deadline:
-                return False, detail
+                return False, f"{context}; GET {base}/status; {detail}"
             time.sleep(0.5)
+        context += f"; GET {base}/route; request={json.dumps(route)}"
         query = urllib.parse.urlencode({"json": json.dumps(route)})
         with urllib.request.urlopen(f"{base}/route?{query}", timeout=15) as response:
             trip = json.load(response)["trip"]
         summary = trip["summary"]
         if summary["length"] <= 0 or summary["time"] <= 0:
-            return False, "empty route summary"
+            return False, f"{context}; empty route summary: {summary!r}"
         if not trip["legs"] or not all(leg.get("shape") for leg in trip["legs"]):
-            return False, "missing route geometry"
+            return False, f"{context}; missing route geometry"
         return True, f"{summary['length']} {trip.get('units', 'km')}, {summary['time']} s"
+    except urllib.error.HTTPError as exc:
+        return False, f"{context}; {http_error_detail(exc)}"
     except (OSError, ValueError, KeyError, TypeError, IndexError) as exc:
-        return False, str(exc)
+        return False, f"{context}; {type(exc).__name__}: {exc}"
 
 
 def radio_service_ready() -> tuple[bool, str]:
@@ -153,7 +164,9 @@ def http_endpoint(url: str, timeout_s: float = 1.0) -> tuple[bool, str]:
     try:
         with urllib.request.urlopen(url, timeout=timeout_s) as response:
             return 200 <= response.status < 400, f"HTTP {response.status}"
-    except (OSError, urllib.error.URLError, ValueError) as exc:
+    except urllib.error.HTTPError as exc:
+        return False, http_error_detail(exc)
+    except (OSError, ValueError) as exc:
         return False, str(exc)
 
 
