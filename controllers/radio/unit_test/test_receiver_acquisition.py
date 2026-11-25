@@ -1,0 +1,64 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
+"""Acquisition lifecycle tests using simulated consumers."""
+
+import pytest
+
+from controllers.radio.receiver_acquisition import ReceiverAcquisitionController
+from controllers.radio.receiver_ownership import ReceiverOwnershipController
+from hardware_io.rf.receiver_discovery_if import ReceiverDevice
+
+
+class FakeAdapter:
+    def __init__(self, *, starts: bool = True, stops: bool = True) -> None:
+        self.starts = starts
+        self.stops = stops
+        self.start_calls = 0
+
+    def start(self, device: ReceiverDevice) -> bool:
+        self.start_calls += 1
+        return self.starts
+
+    def stop(self) -> bool:
+        return self.stops
+
+
+DEVICE = ReceiverDevice("0bda", "2838", "00000001", "1-1")
+
+
+def test_handover_requires_stop_confirmation() -> None:
+    controller = ReceiverAcquisitionController(ReceiverOwnershipController())
+    radio = FakeAdapter(stops=False)
+    adsb = FakeAdapter()
+    assert controller.start("radio", DEVICE, radio)
+    assert not controller.start("adsb", DEVICE, adsb)
+    assert not controller.stop("radio")
+    assert not controller.start("adsb", DEVICE, adsb)
+    assert adsb.start_calls == 0
+    radio.stops = True
+    assert controller.stop("radio")
+    assert controller.start("adsb", DEVICE, adsb)
+
+
+@pytest.mark.parametrize("stops", [True, False])
+def test_failed_start_requires_cleanup(stops: bool) -> None:
+    ownership = ReceiverOwnershipController()
+    controller = ReceiverAcquisitionController(ownership)
+    assert not controller.start("radio", DEVICE, FakeAdapter(starts=False, stops=stops))
+    assert bool(ownership.snapshot()) is not stops
+
+
+def test_same_adapter_cannot_start_twice() -> None:
+    controller = ReceiverAcquisitionController(ReceiverOwnershipController())
+    adapter = FakeAdapter()
+    second = ReceiverDevice("0bda", "2838", "00000002", "1-2")
+    assert controller.start("radio", DEVICE, adapter)
+    assert not controller.start("weather", second, adapter)
+
+
+def test_unknown_identity_cannot_acquire() -> None:
+    controller = ReceiverAcquisitionController(ReceiverOwnershipController())
+    adapter = FakeAdapter()
+    assert not controller.start("radio", ReceiverDevice("0bda", "2838", "", "1-1"), adapter)
+    assert adapter.start_calls == 0
