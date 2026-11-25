@@ -255,7 +255,9 @@ for provider in spotify youtube; do
   if has_media_secret "$secret"; then
     echo "[*] $provider credentials already configured; skipping."
   elif whiptail --title "Media credentials" --yesno "Configure $provider credentials now? You can skip and configure them later." 12 78; then
-    OPENROADCODE_SECRETS_FILE="${OPENROADCODE_SECRETS_FILE:-/etc/openroadcode/secrets.env}" bash "$PROJECT_DIR/development/debian/install_secrets.sh" --secrets-file "${OPENROADCODE_SECRETS_FILE:-/etc/openroadcode/secrets.env}" "${options[@]}" || echo "[!] $provider credential setup incomplete."
+    credential_platform=debian
+    if [[ "${PREFIX:-}" == */com.termux/files/usr ]]; then credential_platform=termux; fi
+    bash "$PROJECT_DIR/development/$credential_platform/install_secrets.sh" "${options[@]}" || echo "[!] $provider credential setup incomplete."
   fi
 done
 
