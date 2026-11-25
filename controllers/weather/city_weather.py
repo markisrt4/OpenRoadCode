@@ -6,6 +6,7 @@
 import math
 from dataclasses import dataclass
 from itertools import pairwise
+from typing import Any
 
 import requests
 
@@ -45,7 +46,9 @@ def city_value(
         end = anchor if period == "past" else anchor + hours * 3600
         selected = range(end - (hours - 1) * 3600, end + 1, 3600)
         values = [weather.precipitation_mm[lookup[t]] if t in lookup else None for t in selected]
-        return sum(values) if all(value is not None for value in values) else None
+        if any(value is None for value in values):
+            return None
+        return sum(value for value in values if value is not None)
     target = anchor + hours * 3600 * (-1 if period == "past" else 1)
     index = lookup.get(target)
     if index is None:
@@ -67,10 +70,10 @@ def city_label(value: float | None, kind: str, imperial: bool) -> str:
 class CityWeatherProvider:
     """Fetch recent model estimates and future hourly forecasts in one batch."""
 
-    def __init__(self, session=None):
+    def __init__(self, session: requests.Session | None = None) -> None:
         self._session = session or requests.Session()
 
-    def close(self):
+    def close(self) -> None:
         """Release the HTTP connection pool."""
         self._session.close()
 
@@ -87,20 +90,21 @@ class CityWeatherProvider:
             for city in cities
         ):
             raise ValueError("City weather requires up to twelve valid named locations")
+        params: dict[str, str | int] = {
+            "latitude": ",".join(str(city.latitude) for city in cities),
+            "longitude": ",".join(str(city.longitude) for city in cities),
+            "hourly": "temperature_2m,wind_speed_10m,precipitation",
+            "past_days": 2,
+            "forecast_days": 3,
+            "timezone": "UTC",
+            "timeformat": "unixtime",
+            "temperature_unit": "celsius",
+            "wind_speed_unit": "kmh",
+            "precipitation_unit": "mm",
+        }
         response = self._session.get(
             OpenMeteoWeatherProvider.URL,
-            params={
-                "latitude": ",".join(str(city.latitude) for city in cities),
-                "longitude": ",".join(str(city.longitude) for city in cities),
-                "hourly": "temperature_2m,wind_speed_10m,precipitation",
-                "past_days": 2,
-                "forecast_days": 3,
-                "timezone": "UTC",
-                "timeformat": "unixtime",
-                "temperature_unit": "celsius",
-                "wind_speed_unit": "kmh",
-                "precipitation_unit": "mm",
-            },
+            params=params,
             timeout=20,
         )
         response.raise_for_status()
@@ -127,7 +131,13 @@ class CityWeatherProvider:
                 if units.get(key) != unit:
                     raise ValueError(f"City weather returned unexpected {key} units")
 
-            def values(key, low, high, hourly=hourly, times=times):
+            def values(
+                key: str,
+                low: float,
+                high: float,
+                hourly: dict[str, Any] = hourly,
+                times: list[int] = times,
+            ) -> tuple[float | None, ...]:
                 raw = hourly.get(key, [])
                 return tuple(
                     item
