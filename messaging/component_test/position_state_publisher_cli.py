@@ -7,6 +7,7 @@ import argparse
 import math
 import time
 from datetime import datetime, timezone
+
 from controllers.navigation.navigation_state import PositionState
 from messaging.contracts.common.timestamp import encode_timestamp
 from messaging.contracts.navigation import (

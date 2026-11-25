@@ -3,10 +3,10 @@
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-import uuid
 
 try:
     import tomllib

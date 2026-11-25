@@ -11,12 +11,12 @@ from collections.abc import Callable
 
 from PIL import Image, ImageOps, ImageTk
 
+from ui.media import PlaybackState
 from ui.media.spotify_presentation_if import (
     SpotifyPresentationState,
-    SpotifyVideoRequests,
     SpotifyRequestHandler,
+    SpotifyVideoRequests,
 )
-from ui.media import PlaybackState
 from ui.theme import ThemeBundle
 from ui.ui_widget import UiWidget
 

@@ -19,7 +19,6 @@ from controllers.navigation.position_snapshot_cache import (
 from controllers.navigation.sqlite_geocoder import SqliteGeocoder
 from ui.navigation import GeoPoint
 
-
 DEFAULT_SEARCH_DATABASE = (
     Path(os.environ.get("OPENROADCODE_DATA_ROOT", "/srv/openroadcode"))
     / "maps"

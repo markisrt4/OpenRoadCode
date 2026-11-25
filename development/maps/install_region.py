@@ -1,22 +1,22 @@
 """Interactive device-side imagery packs; base navigation stays in the map builder."""
 
 import argparse
-from http.client import IncompleteRead
-from zipfile import BadZipFile
-from pathlib import Path
 import uuid
+from http.client import IncompleteRead
+from pathlib import Path
+from zipfile import BadZipFile
 
 from apps.launchers.local_imagery_pack import LocalImageryPack
-from tools.map_builder.builder.map_3d import PRESETS
 from common.xdg_paths import openroadcode_data_dir
-from development.maps.regional_imagery import download as download_overview
 from development.maps.prebuilt_imagery import (
+    fetch_archive,
     read_descriptor,
     read_local_archive,
-    verify_archive,
-    fetch_archive,
     unpack,
+    verify_archive,
 )
+from development.maps.regional_imagery import download as download_overview
+from tools.map_builder.builder.map_3d import PRESETS
 
 # Rectangular planning envelopes, not county boundaries. No Canadian imagery promised.
 COVERAGES = {

@@ -3,11 +3,12 @@
 
 """Compact radar timeline displayed above an embedded native map window."""
 
-from datetime import datetime
 import tkinter as tk
+from datetime import datetime
+
+from ui.ui_widget import UiWidget
 
 from .shell_metrics import FONT_CONTROL
-from ui.ui_widget import UiWidget
 
 
 class RadarReplayPanel(tk.Toplevel, UiWidget):

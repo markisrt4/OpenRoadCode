@@ -6,9 +6,9 @@
 import json
 import math
 from dataclasses import dataclass
+from urllib.error import URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
-from urllib.error import URLError
 
 
 @dataclass(frozen=True)

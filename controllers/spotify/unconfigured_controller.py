@@ -4,8 +4,8 @@
 """Spotify controller used when runtime credentials are unavailable."""
 
 from controllers.spotify.spotify_controller_if import SpotifyControllerIf
-from ui.media.spotify_library import SpotifyLibraryTrack
 from controllers.spotify.spotify_state import SpotifyState
+from ui.media.spotify_library import SpotifyLibraryTrack
 
 
 class UnconfiguredController(SpotifyControllerIf):

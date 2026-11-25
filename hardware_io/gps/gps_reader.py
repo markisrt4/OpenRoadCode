@@ -6,10 +6,10 @@ from __future__ import annotations
 import json
 import threading
 
+import gps
+
 from common.logging.diagnostics import ComponentLog, diagnostic_action
 from common.logging.structured import current_operation, operation
-
-import gps
 
 try:
     from gps.client import dictwrapper

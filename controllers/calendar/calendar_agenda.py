@@ -4,7 +4,8 @@
 from datetime import date, datetime, time, timedelta, timezone, tzinfo
 
 from .calendar_provider_if import CalendarProviderIf
-from .calendar_query_if import AgendaDay as AgendaDay, CalendarQueryIf
+from .calendar_query_if import AgendaDay as AgendaDay
+from .calendar_query_if import CalendarQueryIf
 
 
 class CalendarAgendaController(CalendarQueryIf):

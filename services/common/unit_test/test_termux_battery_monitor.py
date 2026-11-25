@@ -8,10 +8,9 @@ from unittest.mock import Mock, patch
 
 from services.common.termux_battery_monitor import (
     TermuxBatteryMonitor,
-    parse_battery,
     _read_battery,
+    parse_battery,
 )
-from ui.system_diagnostics import BatterySnapshot
 
 PAYLOAD = {
     "present": True,

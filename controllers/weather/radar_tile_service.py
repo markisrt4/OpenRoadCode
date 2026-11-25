@@ -5,24 +5,24 @@
 
 from __future__ import annotations
 
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import logging
 from hashlib import sha256
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from io import BytesIO
 from pathlib import Path
 from threading import Lock, Thread
 from urllib.parse import parse_qs, urlparse
-import logging
 
 import requests
 from PIL import Image, ImageDraw
 
-from common.xdg_paths import openroadcode_cache_dir
-from controllers.weather.radar_palette import RadarPalette
-from controllers.weather.radar_tile_status import RadarTileStatus
-from controllers.weather.radar_provider_if import RadarFrame
-from controllers.weather.hrrr_tiles import HrrrTileSource, color_hrrr_reflectivity
-from controllers.weather.weather_logging import WeatherLog
 from common.logging.structured import event, operation
+from common.xdg_paths import openroadcode_cache_dir
+from controllers.weather.hrrr_tiles import HrrrTileSource, color_hrrr_reflectivity
+from controllers.weather.radar_palette import RadarPalette
+from controllers.weather.radar_provider_if import RadarFrame
+from controllers.weather.radar_tile_status import RadarTileStatus
+from controllers.weather.weather_logging import WeatherLog
 
 LOGGER = logging.getLogger("weather.radar.tiles")
 

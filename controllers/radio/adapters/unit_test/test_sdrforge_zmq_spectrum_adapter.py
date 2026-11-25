@@ -7,8 +7,8 @@ import unittest
 
 from controllers.radio.adapters.sdrforge_zmq_spectrum_adapter import (
     SdrForgeTelemetrySubscriber,
-    spectrum_bins,
     receiver_telemetry,
+    spectrum_bins,
 )
 from ui.radio.sdrforge_spectrum_if import SpectrumPresentation
 

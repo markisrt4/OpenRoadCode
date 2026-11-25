@@ -43,7 +43,8 @@ def test_exception_only_allows_exact_existing_dependency_and_count(tmp_path):
 
 def test_existing_repository_matches_explicit_baseline():
     import json
-    from scripts.check_ui_boundaries import ROOT, BASELINE
+
+    from scripts.check_ui_boundaries import BASELINE, ROOT
 
     assert not check(ROOT, json.loads(BASELINE.read_text()))[1]
 

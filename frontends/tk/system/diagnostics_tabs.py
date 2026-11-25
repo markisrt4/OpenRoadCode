@@ -4,6 +4,7 @@
 """Semantic ORC tab controls without platform-native notebook styling."""
 
 import tkinter as tk
+
 from ui.theme import ThemeBundle
 from ui.ui_widget import UiWidget
 

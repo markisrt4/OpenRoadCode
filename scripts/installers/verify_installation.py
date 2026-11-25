@@ -13,7 +13,6 @@ import shutil
 import sys
 from collections.abc import Iterable
 
-
 PYTHON_IMPORTS: dict[str, tuple[str, ...]] = {
     "base": ("requests", "zmq"),
     "sdrforge": ("sdrforge", "scipy", "zmq", "sounddevice"),

@@ -5,9 +5,8 @@
 
 from __future__ import annotations
 
-from common.logging.diagnostics import ComponentLog, diagnostic_action
-
 from apps.launchers.google_earth_launcher import GoogleEarthLauncher
+from common.logging.diagnostics import ComponentLog, diagnostic_action
 from controllers.application_runtime import AppRuntimeManager
 from ui.navigation.map_presentation_if import MapPresentationIf
 

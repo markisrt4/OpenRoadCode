@@ -5,6 +5,7 @@
 
 from controllers.automotive.trip_state import TripState
 from messaging.publisher_if import PublisherIf
+
 from .topics import TRIP_STATE_TOPIC
 from .trip_state_codec import encode_trip_state
 

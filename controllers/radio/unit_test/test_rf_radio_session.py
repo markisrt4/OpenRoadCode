@@ -8,9 +8,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from controllers.radio.rf_radio_session import ReceiverSession
-from controllers.radio.radio_profile_controller import RadioProfileController
 from controllers.radio.native_radio_control import NativeRadioControl
+from controllers.radio.radio_profile_controller import RadioProfileController
+from controllers.radio.rf_radio_session import ReceiverSession
 from ui.radio.radio_profile_state import RadioProfileState
 from ui.radio.rf_radio_if import (
     AircraftPresentation,

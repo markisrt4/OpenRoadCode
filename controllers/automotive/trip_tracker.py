@@ -5,13 +5,12 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import replace
 from datetime import datetime
-import logging
 from uuid import uuid4
 
 from common.logging.structured import event
-
 from controllers.automotive.fuel_model import FuelModel
 from controllers.automotive.trip_if import TripIf
 from controllers.automotive.trip_state import TripState, TripStatus

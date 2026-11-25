@@ -7,10 +7,6 @@ from __future__ import annotations
 
 import math
 
-from .frequency_analyzer_scene import draw_analyzer
-from .music_pattern_scenes import explosion_field, star_dance, kaleidoscope
-from .music_space_scenes import orbital_system, electric_freeway
-
 from ui.music_visualizer.music_visualizer_types import (
     KickMode,
     MusicVisualizationMode,
@@ -19,6 +15,9 @@ from ui.music_visualizer.music_visualizer_types import (
     VisualizerFrame,
 )
 
+from .frequency_analyzer_scene import draw_analyzer
+from .music_pattern_scenes import explosion_field, kaleidoscope, star_dance
+from .music_space_scenes import electric_freeway, orbital_system
 
 SNARE_X, SNARE_RADIUS = -1.9, 0.5
 KICK_RADIUS = 0.55

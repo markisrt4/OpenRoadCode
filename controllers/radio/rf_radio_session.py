@@ -3,19 +3,18 @@
 
 from __future__ import annotations
 
+import json
+import urllib.error
+import urllib.request
 from collections.abc import Callable
 from dataclasses import replace
 from threading import Event, Lock, RLock, Thread
 from time import monotonic, sleep
-import json
-import urllib.request
-import urllib.error
+from typing import Protocol
 
 from controllers.radio.radio_profile_controller import RadioProfileController
-from typing import Protocol
 from ui.notification_if import Notification, NotificationSeverity, NotificationSinkIf
 from ui.radio.radio_profile_state import RadioProfileState
-from ui.radio.sdrforge_spectrum_if import SpectrumSourceIf, SpectrumPresentationIf
 from ui.radio.rf_radio_if import (
     AircraftPresentation,
     RadioAction,
@@ -28,6 +27,7 @@ from ui.radio.rf_radio_if import (
     RfRadioState,
     RfRadioUi,
 )
+from ui.radio.sdrforge_spectrum_if import SpectrumPresentationIf, SpectrumSourceIf
 
 
 class RadioDisplayControlIf(Protocol):

@@ -5,8 +5,8 @@
 
 from abc import abstractmethod
 
-from ui.weather.weather_overlay_ui_if import WeatherOverlayUiIf
 from ui.weather.weather_overlay_request_handler_if import WeatherOverlayRequestHandlerIf
+from ui.weather.weather_overlay_ui_if import WeatherOverlayUiIf
 
 
 class WeatherOverlayControlsIf(WeatherOverlayUiIf):

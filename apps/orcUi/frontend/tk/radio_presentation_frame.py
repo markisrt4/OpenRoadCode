@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: MIT
 """Declared Tk presentation fields shared by the receiver menu and drawer."""
 
-from abc import ABC, abstractmethod
 import tkinter as tk
+from abc import ABC, abstractmethod
 
 from ui.radio.rf_radio_if import RfRadioSession, RfRadioState
 from ui.theme import ThemeBundle

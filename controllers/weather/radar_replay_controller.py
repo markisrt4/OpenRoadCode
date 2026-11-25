@@ -4,18 +4,17 @@
 """Radar replay loading and timer lifecycle outside all frontend widgets."""
 
 import logging
-
-from collections.abc import Callable
 import math
 import threading
+from collections.abc import Callable
 from time import monotonic, time
-from common.logging.structured import operation
-from controllers.weather.weather_logging import WeatherLog
-from controllers.weather.radar_replay_health import radar_imagery_status
 
+from common.logging.structured import operation
+from controllers.weather.radar_replay_health import radar_imagery_status
+from controllers.weather.weather_logging import WeatherLog
 from ui.ui_dispatcher_if import UiDispatcherIf
-from ui.weather.radar_ui_if import RadarUiIf, RadarUiState, RadarPalette
 from ui.weather.radar_request_handler_if import RadarRequestHandlerIf
+from ui.weather.radar_ui_if import RadarPalette, RadarUiIf, RadarUiState
 
 
 class RadarReplayController(RadarRequestHandlerIf):

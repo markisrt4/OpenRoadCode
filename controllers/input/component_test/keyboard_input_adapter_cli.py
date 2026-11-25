@@ -9,11 +9,11 @@ import argparse
 import sys
 import time
 
-from input_events import InputDeviceId, InputDeviceType
 from controllers.input.input_manager import InputManager
 from controllers.input.input_mapper import InputMapper
 from controllers.input.keyboard_input_adapter import KeyboardInputAdapter
 from hardware_io.keyboard.keyboard_reader import KeyboardReader
+from input_events import InputDeviceId, InputDeviceType
 from ui.ui_action import UiAction
 from ui.ui_event_handler_if import UiEventHandlerIf
 

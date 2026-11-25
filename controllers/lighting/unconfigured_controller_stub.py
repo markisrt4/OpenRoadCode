@@ -4,7 +4,6 @@
 from concurrent.futures import Future
 
 from common.logging.diagnostics import ComponentLog
-
 from controllers.lighting.lighting_controller_stub import (
     LightingControllerStub,
 )

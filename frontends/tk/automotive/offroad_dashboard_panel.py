@@ -5,11 +5,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from dataclasses import dataclass, field
 import math
 import tkinter as tk
+from collections.abc import Sequence
+from dataclasses import dataclass, field
 
+from frontends.tk.automotive.offroad_theme import OffroadTheme
 from ui.navigation import (
     GroundTrackUiIf,
     HeadingReference,
@@ -20,11 +21,9 @@ from ui.navigation import (
     SatelliteInfo,
     TranslationUiIf,
 )
-from frontends.tk.automotive.offroad_theme import OffroadTheme
 from ui.system import StatusMessage, StatusSeverity, StatusUiIf, StatusValue
 from ui.theme import StyleSheet
 from ui.ui_widget import UiWidget
-
 
 # ORC automotive palette.
 BACKGROUND = "#05090d"

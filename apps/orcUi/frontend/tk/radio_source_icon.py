@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-import tkinter as tk
 import math
+import tkinter as tk
 
 from ui.theme import ThemeBundle
 

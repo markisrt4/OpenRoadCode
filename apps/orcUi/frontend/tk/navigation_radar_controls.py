@@ -6,8 +6,9 @@
 import tkinter as tk
 
 from ui.weather.radar_ui_if import RadarPalette
-from .shell_metrics import FONT_CONTROL
+
 from .radar_replay_panel import RadarReplayPanel
+from .shell_metrics import FONT_CONTROL
 
 
 class NavigationRadarControls:

@@ -2,8 +2,9 @@
 """Toolkit-independent aircraft presentation controller."""
 
 from dataclasses import replace
-from ui.adsb.aircraft_overlay_state import AircraftOverlayState
+
 from ui.adsb.aircraft_overlay_request_handler_if import AircraftOverlayRequestHandlerIf
+from ui.adsb.aircraft_overlay_state import AircraftOverlayState
 
 
 class AircraftOverlayController(AircraftOverlayRequestHandlerIf):

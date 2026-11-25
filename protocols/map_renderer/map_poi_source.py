@@ -6,14 +6,13 @@
 from __future__ import annotations
 
 import logging
-
-from common.logging.structured import event
 import math
 from dataclasses import dataclass
 from queue import Empty, SimpleQueue
 from threading import Thread
 from typing import Any
 
+from common.logging.structured import event
 from messaging.zeromq.publisher import ZeroMqPublisher
 from messaging.zeromq.subscriber import ZeroMqSubscriber
 from ui.navigation import GeoPoint

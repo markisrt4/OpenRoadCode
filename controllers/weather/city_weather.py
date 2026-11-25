@@ -3,8 +3,8 @@
 
 """Hourly city weather for a city weather map, using UTC throughout."""
 
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
 
 import requests
 

@@ -1,17 +1,17 @@
 """Read orientation layers from the installed MBTiles; no hosted map services."""
 
-from collections import OrderedDict
-from contextlib import closing
 import math
 import sqlite3
 import threading
 import zlib
+from collections import OrderedDict
+from contextlib import closing
 
 from common.navigation_data import navigation_data_root
 from tools.map_builder.builder.inspect_mvt import inspect_tile
 from tools.map_builder.builder.validate import _decode_packed_varints, _decode_zigzag32
 from ui.navigation import GeoPoint
-from ui.navigation.road_overlay_state import RoadOverlayLine, PlaceOverlayLabel, RoadOverlayState
+from ui.navigation.road_overlay_state import PlaceOverlayLabel, RoadOverlayLine, RoadOverlayState
 
 KINDS = {
     "motorway",

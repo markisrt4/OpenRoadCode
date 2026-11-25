@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-from . import COLORS, FONTS, FONT_FAMILY
+from . import COLORS, FONT_FAMILY, FONTS
 
 SPOTIFY_PANEL_THEME = {
     "colors": {

@@ -14,8 +14,8 @@ from apps.launchers.desktop_browser_launcher import (
     DesktopBrowserLauncher,
     DesktopBrowserLauncherError,
 )
-from tools.map_builder.builder.web_urls import valid_website
 from apps.launchers.waydroid_launcher import WaydroidLauncher, WaydroidLauncherError
+from tools.map_builder.builder.web_urls import valid_website
 
 
 class AndroidAppLauncherError(RuntimeError):

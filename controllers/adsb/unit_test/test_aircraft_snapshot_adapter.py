@@ -2,7 +2,9 @@
 
 from dataclasses import dataclass
 from math import degrees
+
 import pytest
+
 from controllers.adsb.aircraft_snapshot_adapter import aircraft_from_snapshot
 
 

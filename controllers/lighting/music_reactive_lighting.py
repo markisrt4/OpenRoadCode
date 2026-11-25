@@ -6,14 +6,13 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-
-from common.logging.diagnostics import ComponentLog, diagnostic_action
-from common.logging.structured import current_operation
 from concurrent.futures import Future
 from dataclasses import dataclass
 from time import monotonic
 from typing import TYPE_CHECKING
 
+from common.logging.diagnostics import ComponentLog, diagnostic_action
+from common.logging.structured import current_operation
 from controllers.lighting.lighting_controller_if import LightingControllerIf
 from controllers.lighting.lighting_types import RgbColor
 

@@ -1,11 +1,11 @@
 """Standalone viewer state, transport isolation, and resource ownership."""
 
-from pathlib import Path
-import urllib.error
-import urllib.request
 import json
 import math
 import re
+import urllib.error
+import urllib.request
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -140,8 +140,8 @@ def test_terrain_visibility_is_explicit_boolean_snapshot_state(state):
 
 
 def test_pitch_control_contract_uses_finite_si_angles(state):
-    from dataclasses import replace
     import math
+    from dataclasses import replace
 
     assert state.document()["pitch_step_rad"] == math.pi / 18
     assert 0 < state.document()["maximum_tilt_rad"] < math.pi / 2

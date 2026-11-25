@@ -3,7 +3,9 @@
 """Audio-independent presentation boundary for native visualizer renderers."""
 
 from abc import ABC, abstractmethod
+
 from ui.ui_widget import UiWidget
+
 from .music_visualizer_types import MusicVisualizerOptions, VisualizerFrame
 
 

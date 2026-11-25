@@ -6,8 +6,8 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 from collections.abc import Mapping
+from pathlib import Path
 
 ANDROID_BRIDGE_URL_ENV = "OPENROADCODE_ANDROID_BRIDGE_URL"
 RUNTIME_ENV_FILE_ENV = "OPENROADCODE_RUNTIME_ENV_FILE"

@@ -5,10 +5,9 @@
 
 from datetime import datetime, timezone
 
-from controllers.automotive import TripStatus
+from controllers.automotive import TripStatus, VehicleState
 from messaging.contracts.automotive import TRIP_STATE_TOPIC, encode_vehicle_state
 from messaging.contracts.automotive.vehicle_state_decoder import decode_vehicle_state
-from controllers.automotive import VehicleState
 from services.trip.trip_runtime import TripRuntime
 
 

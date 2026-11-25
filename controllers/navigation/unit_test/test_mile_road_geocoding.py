@@ -5,6 +5,7 @@ import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
+
 from controllers.navigation.sqlite_geocoder import SqliteGeocoder, _normalize_street, _parse_query
 
 

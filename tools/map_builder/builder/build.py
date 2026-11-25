@@ -4,10 +4,18 @@
 """Build OpenRoadCode offline map and routing data."""
 
 from __future__ import annotations
+
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+import time
 from dataclasses import asdict
-import hashlib, json, os, re, shutil, subprocess, time
 from pathlib import Path
 from urllib.request import Request, urlopen
+
 from .geofabrik import Region
 from .poi_index import build_search_index
 from .style import install_style

@@ -3,6 +3,6 @@
 
 """Compatibility export for the shared navigation telemetry cache."""
 
-from common.telemetry.navigation_bus_state import NavigationBusState, NavigationBusSnapshot
+from common.telemetry.navigation_bus_state import NavigationBusSnapshot, NavigationBusState
 
 __all__ = ["NavigationBusState", "NavigationBusSnapshot"]

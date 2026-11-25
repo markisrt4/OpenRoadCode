@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import math
 import tkinter as tk
+
 from ui.ui_widget import UiWidget
 
 

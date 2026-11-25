@@ -3,8 +3,11 @@
 """National Weather Service active-alert provider."""
 
 from __future__ import annotations
+
 from datetime import datetime
+
 import requests
+
 from controllers.weather.weather_alert import (
     WeatherAlert,
     WeatherAlertCertainty,

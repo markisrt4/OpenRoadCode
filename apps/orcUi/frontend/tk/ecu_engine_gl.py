@@ -9,13 +9,13 @@ The inline-four is illustrative, not a model of the connected vehicle.
 
 from __future__ import annotations
 
-import logging
 import io
-from contextlib import redirect_stdout
+import logging
 import math
-import time
 import os
+import time
 import tkinter as tk
+from contextlib import redirect_stdout
 
 from ui import UiWidget
 

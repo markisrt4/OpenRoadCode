@@ -3,9 +3,9 @@
 
 """Arrival-time forecasts sampled along an active route."""
 
+import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-import math
 
 import requests
 

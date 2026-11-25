@@ -6,6 +6,13 @@
 import tkinter as tk
 from tkinter import ttk
 
+from frontends.common.weather_overlay_format import (
+    city_time_label,
+    model_legend,
+    model_status,
+    route_weather_label,
+)
+from ui.ui_widget import UiWidget
 from ui.weather.weather_overlay_controls_if import WeatherOverlayControlsIf
 from ui.weather.weather_overlay_request_handler_if import WeatherOverlayRequestHandlerIf
 from ui.weather.weather_overlay_state import (
@@ -13,16 +20,10 @@ from ui.weather.weather_overlay_state import (
     ModelWeatherOverlayState,
     RouteWeatherOverlayState,
 )
-from frontends.common.weather_overlay_format import (
-    city_time_label,
-    model_legend,
-    model_status,
-    route_weather_label,
-)
-from .shell_metrics import FONT_CONTROL
+
 from .city_weather_controls import CityWeatherControls
 from .city_weather_details_popup import CityWeatherDetailsPopup
-from ui.ui_widget import UiWidget
+from .shell_metrics import FONT_CONTROL
 
 
 class NavigationRouteWeather(WeatherOverlayControlsIf, UiWidget):

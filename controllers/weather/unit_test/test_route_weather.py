@@ -11,7 +11,6 @@ import pytest
 from controllers.route_planning.route_planning_types import GeoPoint, RouteManeuver, RouteResult
 from controllers.weather.route_weather import RouteWeatherProvider, sample_route
 
-
 NOW = datetime(2026, 10, 3, 12, tzinfo=timezone.utc)
 
 

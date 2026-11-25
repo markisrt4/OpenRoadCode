@@ -2,17 +2,18 @@
 # SPDX-License-Identifier: MIT
 """Exercise the native ORC layout and every GL scene on X11, without microphone."""
 
-from dataclasses import replace
 import tkinter as tk
+from dataclasses import replace
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import numpy as np
 
 from apps.orcUi.frontend.tk.ecu_gl_backend import load_gl_backend
-from frontends.tk.media.native_music_visualizer import NativeMusicVisualizerPanel
-from frontends.tk.media.music_visualizer_screen import MusicVisualizerScreen
+from apps.orcUi.theme_runtime import theme_bundle
 from frontends.tk.media.music_gl_scene import MODE_LABELS
+from frontends.tk.media.music_visualizer_screen import MusicVisualizerScreen
+from frontends.tk.media.native_music_visualizer import NativeMusicVisualizerPanel
 from ui.music_visualizer import KickMode, MusicVisualizerSource, VisualizerFrame
 from ui.music_visualizer.music_visualizer_types import (
     AnalyzerAppearance,
@@ -22,7 +23,6 @@ from ui.music_visualizer.music_visualizer_types import (
     MusicVisualizerView,
 )
 from ui.theme import ThemeMode
-from apps.orcUi.theme_runtime import theme_bundle
 
 
 def main():

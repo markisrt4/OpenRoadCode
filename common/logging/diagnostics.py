@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: MIT
 """Quiet, private diagnostics for device and background operations."""
 
+import logging
 from contextlib import contextmanager
 from functools import wraps
-import logging
 from threading import Lock
 
 from common.logging.structured import current_operation, event, operation

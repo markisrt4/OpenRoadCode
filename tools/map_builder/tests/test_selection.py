@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: MIT
 
 import json
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 from tools.map_builder.builder.selection import load_region_ids, save_region_ids
 

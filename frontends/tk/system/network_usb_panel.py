@@ -5,9 +5,8 @@
 import ipaddress
 import tkinter as tk
 
-from ui.ui_widget import UiWidget
-
 from ui.theme import ThemeBundle
+from ui.ui_widget import UiWidget
 
 
 def primary_ip(addresses):

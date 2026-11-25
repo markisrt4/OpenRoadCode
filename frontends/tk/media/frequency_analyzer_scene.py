@@ -4,9 +4,9 @@
 
 import math
 
-from .music_scene_theme import ScenePalette
-
 from ui.music_visualizer.music_visualizer_types import AnalyzerPalette
+
+from .music_scene_theme import ScenePalette
 
 
 def measured_levels(frame, band_count=64):

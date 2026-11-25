@@ -3,9 +3,9 @@
 
 """Tests for ADS-B dashboard launch behavior."""
 
+import subprocess
 import tempfile
 import unittest
-import subprocess
 from pathlib import Path
 from unittest.mock import Mock, patch
 

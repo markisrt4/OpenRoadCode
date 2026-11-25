@@ -4,18 +4,18 @@
 """Own forecast refresh workers independently of frontend widgets."""
 
 import logging
-from common.resource_cleanup import close_resources
-
-from collections.abc import Callable
 import threading
 import time
+from collections.abc import Callable
+
 from common.logging.structured import operation
-from controllers.weather.weather_logging import WeatherLog
+from common.resource_cleanup import close_resources
 from controllers.weather.weather_controller import WeatherController
-from ui.ui_dispatcher_if import UiDispatcherIf
-from ui.weather.weather_ui_if import WeatherUiState
+from controllers.weather.weather_logging import WeatherLog
 from controllers.weather.weather_presenter import WeatherPresenter
+from ui.ui_dispatcher_if import UiDispatcherIf
 from ui.weather.weather_screen_ui_if import WeatherScreenRequestHandlerIf, WeatherScreenUiIf
+from ui.weather.weather_ui_if import WeatherUiState
 
 
 class WeatherScreenController(WeatherScreenRequestHandlerIf):

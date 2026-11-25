@@ -6,20 +6,15 @@
 from __future__ import annotations
 
 import json
+import math
 import tkinter as tk
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
-import math
 from pathlib import Path
 from tkinter import ttk
 from types import SimpleNamespace
 from typing import Callable, Protocol
 
-from ui.theme.vehicle_gauges import (
-    VEHICLE_GAUGE_REDLINE_THEME,
-    VEHICLE_GAUGE_THEME,
-    VehicleGaugeRedlineTheme,
-)
 from frontends.tk.automotive.vehicle_gauge_theme import (
     vehicle_gauge_theme_from_style_sheet,
 )
@@ -31,10 +26,9 @@ from frontends.tk.automotive.vehicle_gauge_widgets import (
     RoundGauge,
     TirePressurePanel,
 )
-from ui.theme import StyleSheet
 from ui.automotive import (
-    DiagnosticTroubleCode,
     DiagnosticsRequestHandlerIf,
+    DiagnosticTroubleCode,
     Gear,
     TirePosition,
     VehicleConnectionState,
@@ -43,6 +37,12 @@ from ui.automotive import (
     VehicleTireUiIf,
     VehicleTripUiIf,
     VehicleUiIf,
+)
+from ui.theme import StyleSheet
+from ui.theme.vehicle_gauges import (
+    VEHICLE_GAUGE_REDLINE_THEME,
+    VEHICLE_GAUGE_THEME,
+    VehicleGaugeRedlineTheme,
 )
 from ui.ui_widget import UiWidget
 

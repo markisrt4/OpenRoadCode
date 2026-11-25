@@ -10,8 +10,8 @@ from collections.abc import Sequence
 from threading import Lock
 
 from ui.automotive import (
-    DiagnosticTroubleCode,
     DiagnosticsRequestHandlerIf,
+    DiagnosticTroubleCode,
     ExteriorLight,
     Gear,
     SeatPosition,

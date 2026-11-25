@@ -1,10 +1,10 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-from collections.abc import Mapping
-from typing import Any
-from threading import Lock
 import json
+from collections.abc import Mapping
+from threading import Lock
+from typing import Any
 
 import zmq
 

@@ -3,6 +3,7 @@
 """Optional route capability; advertise only when implemented."""
 
 from abc import ABC, abstractmethod
+
 from ui.navigation.route_types import TravelMode
 
 

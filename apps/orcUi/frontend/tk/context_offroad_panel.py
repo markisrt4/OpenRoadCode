@@ -11,9 +11,10 @@ import tkinter as tk
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from ui.theme import ThemeBundle
+from ui.ui_widget import UiWidget
+
 from .offroad_widgets import PitchIndicator, RollIndicator
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
-from ui.ui_widget import UiWidget
 
 
 class ContextOffroadPanel(tk.Frame, UiWidget):

@@ -12,7 +12,6 @@ from __future__ import annotations
 import os
 from collections.abc import Callable
 from queue import Empty, SimpleQueue
-from typing import Protocol
 
 from apps.launchers.map_renderer_launcher import MapRendererLauncher
 from apps.orcUi.map_theme_runtime import install_map_style
@@ -21,8 +20,8 @@ from apps.orcUi.navigation_presenter import (
     NavigationPresenter,
     PositionPresentationState,
 )
-from apps.orcUi.trip_presenter import TripPresenter, TripPresentationState
-from apps.orcUi.vehicle_presenter import VehiclePresenter, VehiclePresentationState
+from apps.orcUi.trip_presenter import TripPresentationState, TripPresenter
+from apps.orcUi.vehicle_presenter import VehiclePresentationState, VehiclePresenter
 from apps.orcUi.weather_alert_presenter import WeatherAlertPresentationState, WeatherAlertPresenter
 from controllers.automotive import EngineAnalysis, EngineAnalyzer, VehicleConfiguration
 from messaging.contracts.automotive import (
@@ -47,7 +46,6 @@ from messaging.message_dispatcher import MessageDispatcher
 from messaging.zeromq import ZeroMqSubscriber
 from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
 from ui.theme import ThemeMode
-from ui.navigation.map_runtime_if import MapRuntimeIf
 
 
 class MapRuntime:

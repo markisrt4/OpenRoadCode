@@ -6,8 +6,8 @@
 from __future__ import annotations
 
 import tempfile
-from collections import namedtuple
 import unittest
+from collections import namedtuple
 from pathlib import Path
 from unittest.mock import patch
 

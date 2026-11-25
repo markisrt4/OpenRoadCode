@@ -4,14 +4,15 @@
 """Installer-owned loopback map server and browser lifecycle."""
 
 import json
+import math
 import secrets
 import shutil
 import subprocess
 import threading
-import math
 from dataclasses import replace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
+
 from frontends.common.destination_map_confirmation import HTML, validate_position
 
 

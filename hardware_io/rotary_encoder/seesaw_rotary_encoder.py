@@ -18,7 +18,6 @@ from hardware_io.rotary_encoder.rotary_encoder_if import (
     RotationCallback,
 )
 
-
 LOGGER = logging.getLogger(__name__)
 
 ENCODER_POSITION_HALF_RANGE = 1 << 31

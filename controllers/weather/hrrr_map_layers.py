@@ -3,19 +3,18 @@
 
 """Discover and color full-area HRRR temperature and wind-speed fields."""
 
+import math
 from datetime import datetime, timezone
 from io import BytesIO
-import math
 from time import time
 from urllib.parse import quote
 
-from PIL import Image
 import requests
+from PIL import Image
 
 from controllers.weather.hrrr_tiles import check_gdal_tools
 from controllers.weather.providers.hrrr_radar_provider import HrrrRadarProvider
 from controllers.weather.radar_provider_if import RadarFrame
-
 
 TEMPERATURE_COLORS = (
     (-30, (98, 61, 166)),

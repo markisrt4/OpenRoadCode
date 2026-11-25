@@ -6,11 +6,11 @@ import sys
 sys.path.append("../radioFreq")
 sys.path.append("../config")
 
-from RadioConfig import RadioConfig
-from RadioCtrl import RadioCtrl
-
 import curses
 import os
+
+from RadioConfig import RadioConfig
+from RadioCtrl import RadioCtrl
 
 # get the curses screen window
 screen = curses.initscr()

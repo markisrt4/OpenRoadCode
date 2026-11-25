@@ -9,7 +9,6 @@ import pytest
 
 from frontends.tk.media.native_music_visualizer import _create_glx_context
 
-
 PROGRESS = """GLX version: 1.4
 Screen is  0
 Number of FBconfigs 208

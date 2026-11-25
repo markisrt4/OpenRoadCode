@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-from datetime import datetime
 import math
 import unittest
+from datetime import datetime
 from unittest.mock import Mock
 
 from controllers.navigation import (

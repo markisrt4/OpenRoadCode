@@ -5,27 +5,30 @@ from __future__ import annotations
 
 from typing import Callable, Optional
 
-from ui.radio.rf_radio_if import RadioTelemetry
-
 from apps.carUi.radio.radio_session_config import RadioSessionConfig
 from apps.carUi.radio.radio_session_state import RadioSessionState
-from ui.radio.radio_formatter import format_frequency
-from ui.system.app_launcher_if import AppLauncherIf
 from controllers.radio.radio_controller_if import RadioControllerIf
-from ui.radio.radio_types import RadioPreset
 from ui.radio import (
     ModulationType,
     PlaybackRequestHandlerIf,
     PresetRequestHandlerIf,
     RadioApplicationRequestHandlerIf,
-    RadioMode as UiRadioMode,
-    RadioPreset as UiRadioPreset,
     RadioRefreshRequestHandlerIf,
     RadioUiIf,
     StationRequestHandlerIf,
     TunedSignal,
     TuningRequestHandlerIf,
 )
+from ui.radio import (
+    RadioMode as UiRadioMode,
+)
+from ui.radio import (
+    RadioPreset as UiRadioPreset,
+)
+from ui.radio.radio_formatter import format_frequency
+from ui.radio.radio_types import RadioPreset
+from ui.radio.rf_radio_if import RadioTelemetry
+from ui.system.app_launcher_if import AppLauncherIf
 
 
 class RadioSessionController(

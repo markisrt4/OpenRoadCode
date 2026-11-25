@@ -3,6 +3,7 @@
 
 import unittest
 from unittest.mock import Mock
+
 from apps.orcUi.frontend.tk.radio_panel import RadioPanel
 
 

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import math
 import tkinter as tk
+
 from ui.theme.vehicle_gauges import (
     VEHICLE_GAUGE_REDLINE_THEME,
     VEHICLE_GAUGE_THEME,

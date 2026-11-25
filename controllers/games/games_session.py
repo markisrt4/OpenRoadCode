@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
 import threading
+from collections.abc import Callable, Sequence
 
 from common.resource_cleanup import close_resources
 from ui.games import GamesUiIf
 from ui.games.game_window_embedder_if import GameWindowEmbedderIf
 from ui.games.games_session_if import GamesRuntimeUiIf
 
-from .game_controller import GameController, WorkScheduler, UiScheduler
+from .game_controller import GameController, UiScheduler, WorkScheduler
 from .game_installer_if import GameInstallerIf
 from .game_launcher_if import GameLauncherIf
 from .game_types import GameDefinition

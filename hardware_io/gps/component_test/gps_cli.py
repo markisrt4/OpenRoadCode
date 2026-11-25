@@ -7,7 +7,6 @@ import time
 
 from hardware_io.gps import GpsData, GpsReader
 
-
 _last_status: str | None = None
 
 

@@ -9,12 +9,13 @@ from collections.abc import Callable
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from common.units import UnitSystem
 from ui.automotive.vehicle_configuration import EngineInductionType, VehicleConfiguration
-from ui.theme import ThemeBundle, ThemeMode
 from ui.navigation.host_location_ui_if import HostLocationRequestHandlerIf, HostLocationState
-from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
-from ui.ui_widget import UiWidget
 from ui.radio.rf_hardware_config_if import RfHardwareConfigIf
+from ui.theme import ThemeBundle, ThemeMode
+from ui.ui_widget import UiWidget
+
 from .rf_settings_mixin import RfSettingsMixin
+from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
 
 
 class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):

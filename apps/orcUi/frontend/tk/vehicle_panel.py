@@ -9,14 +9,10 @@ import tkinter as tk
 from collections.abc import Callable
 
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
-from .ecu_panel import EcuPanel
-from .trip_panel import TripPanel
-from .performance_panel import PerformancePanel
-from .engine_panel import EnginePanel
-from .offroad_dashboard_presenter import apply_offroad_dashboard_state
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from apps.orcUi.trip_presenter import TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
+from frontends.tk.automotive import OffroadDashboardPanel
 from ui.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
 from ui.automotive.engine_analysis import (
     EngineAnalysis,
@@ -28,9 +24,14 @@ from ui.automotive.engine_analysis import (
     TrackingQuality,
 )
 from ui.automotive.vehicle_configuration import VehicleConfiguration
-from frontends.tk.automotive import OffroadDashboardPanel
 from ui.theme import ThemeBundle, ThemeMode
 from ui.ui_widget import UiWidget
+
+from .ecu_panel import EcuPanel
+from .engine_panel import EnginePanel
+from .offroad_dashboard_presenter import apply_offroad_dashboard_state
+from .performance_panel import PerformancePanel
+from .trip_panel import TripPanel
 
 
 class VehiclePanel(tk.Frame, UiWidget):

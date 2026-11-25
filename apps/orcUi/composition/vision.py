@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
 
 from apps.orcUi.frontend.tk.camera_vision_screen import CameraVisionScreen
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp

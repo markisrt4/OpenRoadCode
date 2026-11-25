@@ -5,13 +5,12 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
 import logging
 import threading
 import time
+from dataclasses import replace
 
 from common.logging.structured import current_operation, event, operation
-
 from controllers.automotive.gear_estimator import GearEstimator
 from controllers.automotive.vehicle_state_source_if import VehicleStateSourceIf
 from messaging.contracts.automotive import VehicleStatePublisher

@@ -5,10 +5,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any
-from threading import Lock
 import logging
+from collections.abc import Mapping
+from threading import Lock
+from typing import Any
+
 from common.logging.structured import current_operation, event
 
 LOGGER = logging.getLogger("map_renderer.client")

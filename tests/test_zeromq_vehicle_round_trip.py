@@ -3,11 +3,11 @@
 
 """End-to-end ZeroMQ round-trip test for the public vehicle-state contract."""
 
-from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
 import socket
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 
 import pytest
 

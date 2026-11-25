@@ -16,10 +16,10 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Callable
 
-from ui.theme import ThemeBundle
 from ui.music_visualizer import MusicVisualizationMode, VisualizerFrame
-from ui.music_visualizer.music_visualizer_types import MusicVisualizerOptions
 from ui.music_visualizer.music_visualizer_presentation_if import MusicVisualizerPresentationIf
+from ui.music_visualizer.music_visualizer_types import MusicVisualizerOptions
+from ui.theme import ThemeBundle
 
 BLUE = "#168bd1"
 RED = "#f15a16"

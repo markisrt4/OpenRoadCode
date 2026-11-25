@@ -5,28 +5,28 @@
 
 from __future__ import annotations
 
-from contextlib import redirect_stdout
-from dataclasses import replace
 import io
 import logging
 import math
 import time
 import tkinter as tk
+from contextlib import redirect_stdout
+from dataclasses import replace
 from tkinter import font as tkfont
 
 from ui.music_visualizer import VisualizerFrame
-from ui.ui_widget import UiWidget
 from ui.music_visualizer.music_visualizer_presentation_if import MusicVisualizerPresentationIf
 from ui.music_visualizer.music_visualizer_types import (
     MusicVisualizationMode,
     MusicVisualizerOptions,
     MusicVisualizerView,
 )
-from .music_gl_scene import MODE_LABELS, NativeSceneGeometry, draw_scene
+from ui.ui_widget import UiWidget
+
 from .frequency_analyzer_scene import AnalyzerDisplay
 from .frequency_axis import frequency_ticks
+from .music_gl_scene import MODE_LABELS, NativeSceneGeometry, draw_scene
 from .music_scene_theme import scene_palette
-
 
 _LOG = logging.getLogger(__name__)
 _GLX_PROGRESS = (

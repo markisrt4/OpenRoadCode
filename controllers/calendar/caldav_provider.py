@@ -6,8 +6,8 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass
 from collections.abc import Callable, Collection
+from dataclasses import dataclass
 from datetime import datetime
 
 from .caldav_adapter import (

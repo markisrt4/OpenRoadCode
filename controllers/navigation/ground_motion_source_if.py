@@ -8,7 +8,6 @@ from collections.abc import Callable
 
 from controllers.navigation.navigation_state import GroundMotionState
 
-
 GroundMotionStateCallback = Callable[[GroundMotionState], None]
 
 

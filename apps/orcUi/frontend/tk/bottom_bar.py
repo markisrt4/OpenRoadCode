@@ -8,16 +8,17 @@ from __future__ import annotations
 import tkinter as tk
 from collections.abc import Callable
 
-from ui.theme import ThemeBundle
-from ui.radio import AircraftMenuRequestHandlerIf, AircraftMenuUiState
 from apps.orcUi.performance_status import PerformanceStatus
+from ui.radio import AircraftMenuRequestHandlerIf, AircraftMenuUiState
+from ui.theme import ThemeBundle
+from ui.ui_widget import UiWidget
+
 from .gradient_control import GradientControl
 from .shell_metrics import (
     BOTTOM_BAR_HEIGHT,
     FONT_CONTROL,
     FONT_STATUS,
 )
-from ui.ui_widget import UiWidget
 
 
 def aircraft_button_text(*, enabled: bool, aircraft_count: int) -> str:

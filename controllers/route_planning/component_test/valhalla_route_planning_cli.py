@@ -4,29 +4,27 @@
 """Physical component test for Valhalla route planning."""
 
 from __future__ import annotations
+
+import argparse
+import json
 from pathlib import Path
 
 from controllers.route_planning.route_geojson_mapper import (
     route_to_geojson,
 )
-
 from controllers.route_planning.route_map_presenter import (
     present_route,
 )
-from protocols.map_renderer.map_renderer_client import (
-    MapRendererClient,
-    MapRendererUnavailableError,
-)
-
-import json
-import argparse
-
 from controllers.route_planning.route_planning_types import (
     GeoPoint,
     RouteRequest,
 )
 from controllers.route_planning.valhalla_route_planning_controller import (
     ValhallaRoutePlanningController,
+)
+from protocols.map_renderer.map_renderer_client import (
+    MapRendererClient,
+    MapRendererUnavailableError,
 )
 from protocols.valhalla.valhalla_http_client import (
     ValhallaHttpClient,

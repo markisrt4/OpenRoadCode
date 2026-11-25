@@ -10,10 +10,10 @@ from __future__ import annotations
 from subprocess import CompletedProcess
 from unittest.mock import patch
 
+import services.termux.service_manager as manager_module
 from controllers.radio.adapters.sdrforge_rest_radio_backend import SdrForgeRestRadioBackend
 from controllers.radio.component_test.test_sdrforge_restart_recovery import _server
 from services.termux.service_manager import RunitServiceManager
-import services.termux.service_manager as manager_module
 
 
 def test_supervisor_readiness_and_client_recovery_during_restart():

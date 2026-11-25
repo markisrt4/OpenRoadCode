@@ -7,48 +7,42 @@
 from __future__ import annotations
 
 import io
-from concurrent.futures import ThreadPoolExecutor
 import os
 import tkinter as tk
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
-from common.resource_cleanup import ResourceCleanup, close_resources
-
-from .media_spotify_theme import SPOTIFY_GREEN as SPOTIFY_GREEN, spotify_theme as spotify_theme
 from apps.common.spotify_presentation_factory import (
-    create_spotify_presentation,
     cached_artwork_loader,
+    create_spotify_presentation,
 )
 from apps.orcUi.adapters.managed_browser_media_player import ManagedBrowserMediaPlayer
-from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
-from frontends.tk.media.music_visualizer_screen import MusicVisualizerScreen
-from ui.music_visualizer import MusicVisualizerSource
+from apps.orcUi.adapters.music_visualizer_browser import WINDOW_CLASS, MusicVisualizerBrowser
 from apps.orcUi.composition.music_visualizer import (
     create_browser_visualizer,
     create_music_visualizer_session,
     selected_native_visualizer_source,
 )
-from apps.orcUi.adapters.music_visualizer_browser import MusicVisualizerBrowser, WINDOW_CLASS
-from controllers.audio.music_analysis.music_visualizer_controller import MusicVisualizerController
+from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.theme_runtime import theme_bundle
+from common.resource_cleanup import ResourceCleanup, close_resources
 from common.xdg_paths import openroadcode_cache_dir
 from config.runtime_target import RuntimeTarget, detect_runtime_target
-from controllers.spotify.spotify_presentation import SpotifyPresentation
-from controllers.spotify.spotify_browser import SpotifyBrowser
-from controllers.spotify.spotify_account import (
-    SpotifyAccountController,
-    SpotifyAccountBinding,
-    Current,
-    Commit,
-)
-from controllers.spotify.guarded_token_store import GuardedTokenStore
-from frontends.tk.media.spotify_account_dialog import SpotifyAccountDialog
+from controllers.audio.music_analysis.music_visualizer_controller import MusicVisualizerController
 from controllers.image import ImageCache
-from controllers.spotify.media_preview_controller import MediaPreviewController
 from controllers.lyrics import LrclibLyricsClient
+from controllers.spotify.guarded_token_store import GuardedTokenStore
+from controllers.spotify.media_preview_controller import MediaPreviewController
+from controllers.spotify.spotify_account import (
+    Commit,
+    Current,
+    SpotifyAccountBinding,
+    SpotifyAccountController,
+)
+from controllers.spotify.spotify_browser import SpotifyBrowser
+from controllers.spotify.spotify_presentation import SpotifyPresentation
 from controllers.video import MusicVideoController, NetflixPlayer, YouTubeMusicVideo, YouTubePlayer
-from frontends.x11 import X11WindowEmbedder
 from frontends.tk.media import (
     BrowserMediaScreen,
     MediaNavigationBar,
@@ -56,8 +50,10 @@ from frontends.tk.media import (
     SpotifyNowPlaying,
     SpotifyScreen,
 )
+from frontends.tk.media.music_visualizer_screen import MusicVisualizerScreen
+from frontends.tk.media.spotify_account_dialog import SpotifyAccountDialog
 from frontends.tk.media.youtube_music_coming_soon_screen import YouTubeMusicComingSoonScreen
-from ui.theme import ThemeMode
+from frontends.x11 import X11WindowEmbedder
 from protocols.spotify import (
     SPOTIFY_CLIENT_ID_SECRET_NAME,
     SpotifyAuth,
@@ -65,6 +61,11 @@ from protocols.spotify import (
     load_spotify_config_from_secrets,
 )
 from security.environment_variable_secret_manager import EnvironmentVariableSecretManager
+from ui.music_visualizer import MusicVisualizerSource
+from ui.theme import ThemeMode
+
+from .media_spotify_theme import SPOTIFY_GREEN as SPOTIFY_GREEN
+from .media_spotify_theme import spotify_theme as spotify_theme
 
 MUSIC_VIDEO_PORT = 8770
 MUSIC_VIDEO_WINDOW_CLASS = "OpenRoadCodeMusicVideo"
@@ -343,8 +344,9 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         panel_options = {}
         if renderer == "opengl":
             from functools import partial
-            from frontends.tk.media.native_music_visualizer import NativeMusicVisualizerPanel
+
             from apps.orcUi.frontend.tk.ecu_gl_backend import load_gl_backend
+            from frontends.tk.media.native_music_visualizer import NativeMusicVisualizerPanel
 
             panel_options["panel_factory"] = partial(
                 NativeMusicVisualizerPanel, gl_backend=load_gl_backend

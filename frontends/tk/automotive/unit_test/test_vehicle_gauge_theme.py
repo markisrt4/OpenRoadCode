@@ -7,19 +7,18 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock
 
-from ui.theme.vehicle_gauges import (
-    VEHICLE_GAUGE_REDLINE_THEME,
-    VEHICLE_GAUGE_THEME,
-    VehicleGaugeRedlineTheme,
-)
-from frontends.tk.automotive.vehicle_gauge_panel import DEFAULT_GAUGES
-from frontends.tk.automotive.vehicle_gauge_panel import VehicleGaugePanel
+from frontends.tk.automotive.vehicle_gauge_panel import DEFAULT_GAUGES, VehicleGaugePanel
 from ui.automotive import (
     VehicleConnectionUiIf,
     VehicleDiagnosticsUiIf,
     VehicleTireUiIf,
     VehicleTripUiIf,
     VehicleUiIf,
+)
+from ui.theme.vehicle_gauges import (
+    VEHICLE_GAUGE_REDLINE_THEME,
+    VEHICLE_GAUGE_THEME,
+    VehicleGaugeRedlineTheme,
 )
 
 

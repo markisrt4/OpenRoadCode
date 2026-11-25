@@ -3,9 +3,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from tools.map_builder.builder import terrain, map_3d
-from tools.map_builder.builder.install_3d import validate_selection
 from apps.launchers.local_terrain_pack import load_terrain
+from tools.map_builder.builder import map_3d, terrain
+from tools.map_builder.builder.install_3d import validate_selection
 
 
 def service(monkeypatch, *, missing=False, mixed=False):
@@ -59,7 +59,7 @@ def test_incomplete_or_mixed_datum_download_never_installs(tmp_path, monkeypatch
 
 
 def test_runtime_prefers_deployed_midtown_terrain(tmp_path, monkeypatch):
-    from apps.launchers import local_terrain_pack, local_map_tiles_pack
+    from apps.launchers import local_map_tiles_pack, local_terrain_pack
 
     service(monkeypatch)
     root = tmp_path / "maps/3d/packs/detroit-midtown-terrain"
@@ -126,8 +126,8 @@ def test_cli_download_failure_restores_original_dataset_certificate(tmp_path, mo
 
 
 def test_direct_device_install_downloads_and_viewer_discovers_local_midtown(tmp_path, monkeypatch):
-    from development.maps import install_terrain
     from apps.launchers import local_terrain_pack
+    from development.maps import install_terrain
 
     service(monkeypatch)
     destination = tmp_path / "device/map-packs/detroit-midtown-terrain-v1"
@@ -203,7 +203,7 @@ def test_epqs_no_data_does_not_install_partial_pack(tmp_path, monkeypatch):
 
 
 def test_epqs_query_requests_metres_and_validates_coordinates(monkeypatch):
-    from urllib.parse import urlsplit, parse_qs
+    from urllib.parse import parse_qs, urlsplit
 
     def reply(url):
         assert parse_qs(urlsplit(url).query)["units"] == ["Meters"]
@@ -217,8 +217,9 @@ def test_epqs_query_requests_metres_and_validates_coordinates(monkeypatch):
 
 def test_pine_knob_install_is_separate_and_selected_by_destination(tmp_path, monkeypatch):
     import math
-    from development.maps import install_terrain
+
     from apps.launchers import local_terrain_pack
+    from development.maps import install_terrain
     from ui.navigation import GeoPoint
 
     service(monkeypatch)

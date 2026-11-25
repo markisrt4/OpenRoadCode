@@ -15,7 +15,6 @@ from controllers.audio import (
     PipewireAudioController,
 )
 
-
 LOGGER = logging.getLogger(__name__)
 
 

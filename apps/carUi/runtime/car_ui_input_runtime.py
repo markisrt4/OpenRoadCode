@@ -5,10 +5,17 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 from typing import Protocol
-import logging
 
+from controllers.input import (
+    RotaryEncoderInputAdapter,
+)
+from frontends.common.input import UiInputEventDispatcher
+from hardware_io.buttons.push_button_if import PushButtonIf
+from hardware_io.keyboard import KeyboardReaderIf
+from hardware_io.rotary_encoder import RotaryEncoderIf
 from input_events import (
     InputDeviceId,
     InputDeviceType,
@@ -16,15 +23,7 @@ from input_events import (
     InputEventType,
     InputHandlerIf,
 )
-from controllers.input import (
-    RotaryEncoderInputAdapter,
-)
-from frontends.common.input import UiInputEventDispatcher
-from hardware_io.rotary_encoder import RotaryEncoderIf
-from hardware_io.buttons.push_button_if import PushButtonIf
-from hardware_io.keyboard import KeyboardReaderIf
 from ui import UiDispatcherIf
-
 
 LOGGER = logging.getLogger(__name__)
 

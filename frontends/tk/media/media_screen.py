@@ -7,12 +7,13 @@
 from __future__ import annotations
 
 import tkinter as tk
-from typing import cast
 from collections.abc import Callable
+from typing import cast
 
 from frontends.tk.offline_card import OfflineCardAppearance
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
+from ui.media.media_preview_if import MediaPreviewIf
 from ui.media.spotify_account_if import (
     SpotifyAccountRequests,
     SpotifyAccountSession,
@@ -20,7 +21,7 @@ from ui.media.spotify_account_if import (
 )
 from ui.screen_ui_if import ScreenId
 from ui.theme import ThemeBundle, ThemeMode
-from ui.media.media_preview_if import MediaPreviewIf
+
 from .media_preview import MediaPreview
 
 SPOTIFY_GREEN = "#1DB954"

@@ -15,6 +15,7 @@ from controllers.route_planning.route_planning_types import (
     RouteResult,
     TravelMode,
 )
+
 from .navigation_session_types import NavigationSessionState
 
 RouteCalculator = Callable[[RouteRequest], RouteResult]

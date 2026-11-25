@@ -12,7 +12,6 @@ from collections.abc import Callable
 
 from common.logging.diagnostics import ComponentLog, diagnostic_action
 from common.logging.structured import current_operation, operation
-
 from controllers.computer_vision.camera_frame_processor import CameraFrameProcessor, CameraMode
 from controllers.computer_vision.object_detector_if import DetectionFrame
 from controllers.computer_vision.object_tracker_if import TrackFrame

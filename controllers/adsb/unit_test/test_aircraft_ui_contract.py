@@ -2,7 +2,9 @@
 
 from dataclasses import FrozenInstanceError
 from math import radians
+
 import pytest
+
 from frontends.common.map_aircraft_overlay_ui import MapAircraftOverlayUi
 from ui.adsb.aircraft_overlay_state import AircraftOverlayState, AircraftPoint
 from ui.navigation.map_ui_if import GeoPoint

@@ -6,7 +6,6 @@ import ast
 import os
 from pathlib import Path
 
-
 MARKER = "ui.ui_widget.UiWidget"
 EXCLUDED = {
     "venv",

@@ -2,13 +2,13 @@
 # SPDX-License-Identifier: MIT
 
 
-from protocols.oauth.oauth_redirect_server import (
-    OAuthRedirectServer,
-)
 from protocols.oauth.oauth_client import (
     OAuthClient,
     OAuthError,
     OAuthHttpError,
+)
+from protocols.oauth.oauth_redirect_server import (
+    OAuthRedirectServer,
 )
 from protocols.oauth.oauth_token_store_if import (
     OAuthTokenStoreIf,

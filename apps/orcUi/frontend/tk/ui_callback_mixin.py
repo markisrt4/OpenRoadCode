@@ -3,8 +3,8 @@
 
 """Frontend-thread callback scheduling and cancellation."""
 
-from collections.abc import Callable
 import tkinter as tk
+from collections.abc import Callable
 
 from frontends.common.ui_callback_queue import UiCallbackQueue
 

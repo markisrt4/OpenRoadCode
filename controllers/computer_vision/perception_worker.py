@@ -5,12 +5,11 @@
 
 from __future__ import annotations
 
-import threading
 import logging
+import threading
 
 from common.logging.diagnostics import ComponentLog
 from common.logging.structured import operation
-
 from controllers.computer_vision.object_detector_if import DetectionFrame, ObjectDetectorIf
 from controllers.computer_vision.object_tracker_if import ObjectTrackerIf, TrackFrame
 from hardware_io.camera.camera_if import CameraFrame

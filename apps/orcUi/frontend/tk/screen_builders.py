@@ -5,17 +5,12 @@
 
 from __future__ import annotations
 
-from ui.system.online_mode_if import OnlineModeIf
-from ui.tooltip_if import TooltipFactoryIf
-
 import tkinter as tk
-from ui.navigation.map_platform_if import MapPlatformControlIf
 from collections.abc import Callable
 
 from apps.orcUi.trip_presenter import TripPresentationState
-from common.units import UnitSystem
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
-from ui.weather.radar_ui_if import RadarPalette
+from common.units import UnitSystem
 from ui.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
 from ui.automotive.engine_analysis import EngineAnalysis
 from ui.automotive.vehicle_configuration import VehicleConfiguration
@@ -24,13 +19,17 @@ from ui.navigation import (
     RouteRequestHandlerIf,
     RouteSimulationRequestHandlerIf,
 )
-from ui.theme import ThemeBundle
 from ui.navigation.host_location_ui_if import HostLocationRequestHandlerIf, HostLocationState
+from ui.navigation.map_platform_if import MapPlatformControlIf
 from ui.navigation.navigation_places_request_handler_if import NavigationPlacesRequestHandlerIf
+from ui.radio.rf_hardware_config_if import RfHardwareConfigIf
+from ui.system.online_mode_if import OnlineModeIf
+from ui.theme import ThemeBundle
+from ui.tooltip_if import TooltipFactoryIf
+from ui.weather.radar_ui_if import RadarPalette
 
 from .navigation_panel import NavigationPanel
 from .settings_panel import SettingsPanel
-from ui.radio.rf_hardware_config_if import RfHardwareConfigIf
 from .shell_content import panel
 from .vehicle_panel import VehiclePanel
 

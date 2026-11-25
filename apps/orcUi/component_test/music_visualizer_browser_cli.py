@@ -8,11 +8,11 @@ Run: python -m apps.orcUi.component_test.music_visualizer_browser_cli
 
 import argparse
 import math
-from pathlib import Path
 import struct
-from tempfile import TemporaryDirectory
 import time
 import wave
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 
 def main() -> None:
@@ -25,6 +25,7 @@ def main() -> None:
     )
     args = parser.parse_args()
     from playwright.sync_api import sync_playwright
+
     from apps.orcUi.composition.application import create_orc_ui_composition
 
     with TemporaryDirectory(prefix="orc-visualizer-test-") as directory:

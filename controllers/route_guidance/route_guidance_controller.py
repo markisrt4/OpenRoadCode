@@ -9,6 +9,7 @@ import math
 from dataclasses import dataclass
 
 from controllers.route_planning.route_planning_types import GeoPoint, RouteResult
+
 from .route_guidance_types import RouteGuidanceState
 
 _EARTH_RADIUS_MILES = 3958.7613

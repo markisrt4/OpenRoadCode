@@ -10,7 +10,6 @@ import pytest
 
 from controllers.audio.music_analysis import MusicAnalyzer
 
-
 _SAMPLE_RATE_HZ = 48_000
 _FFT_SIZE = 2048
 

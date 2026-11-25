@@ -5,10 +5,11 @@
 
 import tkinter as tk
 
-from .shell_metrics import FONT_CONTROL
+from frontends.common.weather_overlay_format import city_time_label
 from ui.weather.weather_overlay_request_handler_if import WeatherOverlayRequestHandlerIf
 from ui.weather.weather_overlay_state import CityWeatherOverlayState
-from frontends.common.weather_overlay_format import city_time_label
+
+from .shell_metrics import FONT_CONTROL
 
 
 class CityWeatherControls:

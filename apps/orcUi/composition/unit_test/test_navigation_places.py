@@ -4,7 +4,9 @@
 """Composition owns shared stores and fresh, independently closed search sessions."""
 
 from unittest.mock import Mock
+
 import pytest
+
 from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
 
 
@@ -60,9 +62,10 @@ def test_remount_reloads_saved_places_updated_by_another_store(tmp_path):
 
 
 def test_default_local_3d_action_uses_composition_injected_embedding():
-    from ui.navigation import GeoPoint
-    from ui.navigation.poi_models import PoiAction, PoiActionKind
     from types import SimpleNamespace
+
+    from ui.navigation import GeoPoint
+    from ui.navigation.poi_models import PoiActionKind
 
     embedded = Mock()
     factory = NavigationPlacesFactory(

@@ -4,8 +4,8 @@
 """No-op Spotify controller for application composition and tests."""
 
 from controllers.spotify.spotify_controller_if import SpotifyControllerIf
-from ui.media.spotify_library import SpotifyLibraryTrack
 from controllers.spotify.spotify_state import SpotifyState
+from ui.media.spotify_library import SpotifyLibraryTrack
 
 
 class SpotifyControllerStub(SpotifyControllerIf):

@@ -5,9 +5,9 @@
 
 from __future__ import annotations
 
-from hardware_io.android import AndroidSensorBridgeClient
 from controllers.weather.providers import InjectedRadarProvider, RainViewerRadarProvider
 from controllers.weather.weather_radar_controller import WeatherRadarController
+from hardware_io.android import AndroidSensorBridgeClient
 
 
 class EnvironmentalRadarInjectionController:

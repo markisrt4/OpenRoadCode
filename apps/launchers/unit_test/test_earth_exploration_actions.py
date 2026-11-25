@@ -3,6 +3,7 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
+
 import pytest
 
 from apps.launchers.earth_exploration_actions import EarthExplorationActions

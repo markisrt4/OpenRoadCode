@@ -5,9 +5,9 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-import logging
 
 from apps.carUi.runtime.car_ui_runtime import CarUiRuntime
 from controllers.audio.audio_controller_if import AudioControllerIf
@@ -16,10 +16,9 @@ from controllers.lighting.lighting_controller_if import LightingControllerIf
 from controllers.lyrics import LrclibLyricsClient
 from controllers.spotify import SpotifyControllerIf
 from controllers.video import MusicVideoController, NetflixPlayer, YouTubePlayer
-from hardware_io.rotary_encoder import RotaryEncoderIf
 from hardware_io.buttons.push_button_if import PushButtonIf
 from hardware_io.keyboard import KeyboardReaderIf
-
+from hardware_io.rotary_encoder import RotaryEncoderIf
 
 LOGGER = logging.getLogger(__name__)
 

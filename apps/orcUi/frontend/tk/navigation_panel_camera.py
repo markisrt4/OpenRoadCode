@@ -5,8 +5,7 @@
 
 import math
 
-from ui.navigation.map_platform_if import MapPlatform, ExplorationCameraAction
-
+from ui.navigation.map_platform_if import ExplorationCameraAction, MapPlatform
 from ui.navigation.navigation_places_request_handler_if import NavigationCameraState
 
 

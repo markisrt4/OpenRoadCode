@@ -6,7 +6,8 @@
 import math
 
 from ui.weather.weather_overlay_ui_if import WeatherOverlayUiIf
-from .weather_overlay_format import weather_value, route_weather_label
+
+from .weather_overlay_format import route_weather_label, weather_value
 
 
 class MapWeatherOverlayUi(WeatherOverlayUiIf):

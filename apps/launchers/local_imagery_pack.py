@@ -1,9 +1,9 @@
 """Load a checked local image and immutable coverage, outside web presentation."""
 
-from dataclasses import dataclass
 import hashlib
 import json
 import math
+from dataclasses import dataclass
 from pathlib import Path
 
 from common.xdg_paths import openroadcode_data_dir

@@ -3,6 +3,7 @@
 """Onset response must decay on sustained music and retrigger on a new hit."""
 
 import numpy as np
+
 from controllers.audio.music_analysis.music_analyzer import MusicAnalyzer
 from controllers.audio.music_analysis.music_visualizer_session import MusicVisualizerSession
 

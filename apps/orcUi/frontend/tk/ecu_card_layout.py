@@ -5,7 +5,7 @@
 
 import tkinter as tk
 
-from .shell_metrics import FONT_SMALL, FONT_BODY
+from .shell_metrics import FONT_BODY, FONT_SMALL
 
 
 def fit_ecu_card(body: tk.Frame, width: int, *, field_labels, labels, bars) -> None:

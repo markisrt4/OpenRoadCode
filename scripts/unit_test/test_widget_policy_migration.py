@@ -10,7 +10,6 @@ import pytest
 
 from ui import UiWidget
 
-
 ROOT = Path(__file__).resolve().parents[2]
 SCOPES = ("frontends/tk", "apps/orcUi/frontend/tk", "apps/common/instruments")
 # These compose toolkit widgets rather than inheriting a toolkit class.

@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 from tools.map_builder.builder.geofabrik import (
     load_index,

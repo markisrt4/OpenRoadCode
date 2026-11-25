@@ -1,13 +1,13 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
+import math
 import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import Mock
 from types import SimpleNamespace
-import math
+from unittest.mock import Mock
 
 from config.saved_destinations import SavedDestinationsConfig
 from controllers.navigation.destination_setup_controller import DestinationSetupController

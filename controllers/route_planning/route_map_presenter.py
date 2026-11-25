@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 from common.logging.structured import operation
-
 from controllers.route_planning.route_geojson_mapper import (
     route_to_geojson,
 )
@@ -16,7 +15,6 @@ from controllers.route_planning.route_planning_types import (
 from protocols.map_renderer.map_renderer_client import (
     MapRendererClient,
 )
-
 
 DEFAULT_ROUTE_PADDING = 50.0
 

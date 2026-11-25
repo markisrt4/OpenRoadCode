@@ -19,7 +19,6 @@ from pathlib import Path
 from controllers.navigation.geocoding_models import GeocodeResult
 from ui.navigation import GeoPoint
 
-
 _ADDRESS_RE = re.compile(r"^\s*([^,]+?)(?:\s*,\s*(.*))?$")
 _STREET_RE = re.compile(r"^\s*([0-9]+[A-Za-z0-9-]*)\s+(.+?)\s*$")
 

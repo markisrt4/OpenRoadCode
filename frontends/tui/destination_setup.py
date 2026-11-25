@@ -5,12 +5,12 @@
 
 import math
 
-from ui.navigation.map_ui_if import GeoPoint
 from ui.navigation.destination_setup_request_handler_if import (
     DestinationSetupRequestHandlerIf,
     SavedDestination,
 )
 from ui.navigation.destination_setup_ui_if import DestinationSetupUiIf
+from ui.navigation.map_ui_if import GeoPoint
 
 
 def run_destination_setup(

@@ -11,7 +11,6 @@ from pathlib import Path
 
 from controllers.navigation.geocoding import GeocodedLocation
 
-
 _ADDRESS_RE = re.compile(
     r"^\s*(?P<number>\S+)\s+(?P<street>[^,]+?)"
     r"(?:\s*,\s*(?P<city>[^,]+))?"

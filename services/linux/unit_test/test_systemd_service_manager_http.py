@@ -3,15 +3,16 @@
 
 """Authentication and request tests for the Linux service-manager HTTP control plane."""
 
-from http.client import HTTPConnection
 import json
 import subprocess
 import threading
 import unittest
+from http.client import HTTPConnection
 from unittest.mock import Mock
 
-from services.common.service_manager_pairing import ServiceManagerPairing
+from services.common.service_manager_auth import same_device_request
 from services.common.service_manager_browser_pairing import ServiceManagerBrowserPairing
+from services.common.service_manager_pairing import ServiceManagerPairing
 from services.linux.systemd_service_manager import ServiceStatus
 from services.linux.systemd_service_manager_http import (
     SystemdServiceManagerHandler,
@@ -19,7 +20,6 @@ from services.linux.systemd_service_manager_http import (
     _authorized,
     _binding_allowed,
 )
-from services.common.service_manager_auth import same_device_request
 
 
 class SystemdServiceManagerHttpPolicyTest(unittest.TestCase):

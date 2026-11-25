@@ -8,16 +8,16 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from common.units import UnitSystem
-from ui.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
-from ui.automotive.vehicle_configuration import VehicleConfiguration
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
+from ui.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
+from ui.automotive.vehicle_configuration import VehicleConfiguration
+from ui.navigation.host_location_ui_if import HostLocationRequestHandlerIf, HostLocationState
+from ui.radio.rf_hardware_config_if import RfHardwareConfigIf
 from ui.screen_ui_if import ScreenId
 from ui.theme import ThemeBundle
-from ui.navigation.host_location_ui_if import HostLocationRequestHandlerIf, HostLocationState
 
 from .screen_builders import build_settings_screen
-from ui.radio.rf_hardware_config_if import RfHardwareConfigIf
 
 
 class SettingsScreen(TkScreen):

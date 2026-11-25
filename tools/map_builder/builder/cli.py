@@ -8,14 +8,14 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from pathlib import Path
-import sys
 import subprocess
+import sys
 import time
+from pathlib import Path
 
-from .map_3d import PRESETS
 from .build import OUTPUT_ROOT, _write_manifest, build_regions
 from .geofabrik import fetch_index, resolve_region_ids
+from .map_3d import PRESETS
 from .selection import load_region_ids, save_region_ids
 from .tui import select_regions
 from .validate import ValidationError, validate_output

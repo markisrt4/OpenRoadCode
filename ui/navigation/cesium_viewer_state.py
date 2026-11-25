@@ -1,7 +1,7 @@
 """Immutable SI state for the standalone 3D map rendering experiment."""
 
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
 
 from ui.navigation import GeoPoint
 

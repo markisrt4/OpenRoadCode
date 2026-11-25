@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: MIT
 from datetime import datetime, timezone
 from unittest.mock import Mock
+
 import pytest
+
 from controllers.weather import (
     WeatherAlert,
     WeatherAlertCertainty,

@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from ui.music_visualizer import VisualizerFrame
 from controllers.audio.capture import AudioCaptureIf
 from controllers.audio.music_analysis.music_analysis_session import MusicAnalysisSession
 from controllers.audio.music_analysis.music_analysis_types import MusicAnalysisState
+from ui.music_visualizer import VisualizerFrame
 
 VisualizerFrameCallback = Callable[[VisualizerFrame], None]
 

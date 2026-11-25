@@ -4,8 +4,8 @@
 from __future__ import annotations
 
 import unittest
-from urllib.error import URLError
 from unittest.mock import patch
+from urllib.error import URLError
 
 from controllers.radio.adapters.sdrforge_rest_radio_backend import SdrForgeRestRadioBackend
 

@@ -6,13 +6,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import shutil
 import subprocess
 import threading
-import logging
-from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from apps.launchers.adsb_launcher import ADSBLauncher
 from config.application_config import ApplicationsConfigParser

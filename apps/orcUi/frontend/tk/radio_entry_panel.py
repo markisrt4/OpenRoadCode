@@ -6,17 +6,18 @@
 from __future__ import annotations
 
 import tkinter as tk
-from functools import partial
 from collections.abc import Callable
+from functools import partial
 
-from ui.system.online_mode_if import OnlineModeIf
-from frontends.tk.offline_card import OfflineCardAppearance
 from apps.orcUi.frontend.tk.radio_panel import RadioPanel
+from frontends.tk.offline_card import OfflineCardAppearance
 from frontends.tk.radio.persistent_streaming_radio_panel import PersistentStreamingRadioPanel
+from ui.system.online_mode_if import OnlineModeIf
 from ui.theme import ThemeBundle
-from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
-from .radio_source_icon import draw_source_icon, draw_source_scene
 from ui.ui_widget import UiWidget
+
+from .radio_source_icon import draw_source_icon, draw_source_scene
+from .shell_metrics import FONT_BODY, FONT_CONTROL
 
 
 class RadioEntryPanel(tk.Frame, UiWidget):

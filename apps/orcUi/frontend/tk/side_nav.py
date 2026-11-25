@@ -9,9 +9,9 @@ import tkinter as tk
 from collections.abc import Callable
 
 from ui.theme import ThemeBundle
-from .shell_metrics import FONT_CONTROL, SIDE_NAV_WIDTH
 from ui.ui_widget import UiWidget
 
+from .shell_metrics import FONT_CONTROL, SIDE_NAV_WIDTH
 
 _NAV_LABELS = {"NAVIGATION": "NAV"}
 

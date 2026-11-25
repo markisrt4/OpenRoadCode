@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 
 from apps.carUi.runtime.browser_position_source import BrowserPositionSource
+from config.runtime_config import PositionCacheConfig
 from controllers.cache import PersistentCache
 from controllers.navigation import (
     GpsdPositionSource,
@@ -17,7 +18,6 @@ from controllers.navigation import (
     PositionSourceIf,
 )
 from controllers.navigation.position_snapshot_cache import DEFAULT_POSITION_CACHE_DIRECTORY
-from config.runtime_config import PositionCacheConfig
 
 
 def create_position_source(

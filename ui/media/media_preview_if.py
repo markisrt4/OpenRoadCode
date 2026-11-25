@@ -5,6 +5,7 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+
 from ui.media.media_ui_if import MediaState
 
 

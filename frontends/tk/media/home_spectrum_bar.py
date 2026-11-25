@@ -4,9 +4,8 @@
 
 import tkinter as tk
 
-from ui.ui_widget import UiWidget
-
 from ui.music_visualizer.music_visualizer_types import MusicCaptureState, MusicVisualizerSource
+from ui.ui_widget import UiWidget
 
 
 class HomeSpectrumBar(tk.Frame, UiWidget):

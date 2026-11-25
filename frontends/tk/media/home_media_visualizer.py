@@ -6,11 +6,11 @@ from __future__ import annotations
 
 import tkinter as tk
 
-from ui.ui_widget import UiWidget
+from ui.music_visualizer import MusicVisualizerSource
 from ui.music_visualizer.music_visualizer_control_if import MusicVisualizerControlIf
 from ui.music_visualizer.music_visualizer_presentation_if import MusicVisualizerPresentationIf
-from ui.music_visualizer import MusicVisualizerSource
 from ui.music_visualizer.music_visualizer_types import MusicCaptureState
+from ui.ui_widget import UiWidget
 
 
 class HomeMediaVisualizer(tk.Frame, UiWidget):

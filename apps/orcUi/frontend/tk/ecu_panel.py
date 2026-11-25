@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-import tkinter as tk
 import time
+import tkinter as tk
 
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from ui.automotive.engine_analysis import (
@@ -19,11 +19,12 @@ from ui.automotive.engine_analysis import (
 )
 from ui.automotive.vehicle_configuration import VehicleConfiguration
 from ui.theme import ThemeBundle
-from .ecu_engine_visual import paint_engine_visual, paint_engine_summary
-from .ecu_panel_layout import EcuPanelLayoutMixin
-from .ecu_animation import EcuAnimationMixin, visual_engine_running
-from .ecu_update_rate import RateCounter
 from ui.ui_widget import UiWidget
+
+from .ecu_animation import EcuAnimationMixin
+from .ecu_engine_visual import paint_engine_summary, paint_engine_visual
+from .ecu_panel_layout import EcuPanelLayoutMixin
+from .ecu_update_rate import RateCounter
 
 
 def bounded_marker_x(

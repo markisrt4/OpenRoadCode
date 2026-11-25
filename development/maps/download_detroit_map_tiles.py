@@ -1,19 +1,19 @@
 """Build bounded, resumable regional building packs with optional imagery."""
 
 import argparse
-from datetime import datetime, timezone
 import hashlib
 import json
 import math
 import shutil
+from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from apps.launchers.local_map_tiles_pack import LocalMapTilesPack, detroit_tiles_directory
 from common.xdg_paths import openroadcode_data_dir
-from tools.map_builder.builder.map_3d import PRESETS
-from apps.launchers.local_map_tiles_pack import detroit_tiles_directory, LocalMapTilesPack
+from development.maps.download_detroit_buildings import parse_buildings, request_tile
 from development.maps.download_detroit_imagery import download as download_imagery
-from development.maps.download_detroit_buildings import request_tile, parse_buildings
+from tools.map_builder.builder.map_3d import PRESETS
 
 BOUNDS = (-83.085, 42.315, -83.025, 42.375)
 ATTRIBUTION = "USGS / USDA NAIP · © OpenStreetMap contributors · ODbL 1.0"

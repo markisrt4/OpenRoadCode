@@ -3,12 +3,13 @@
 from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
+
 from controllers.weather import (
     WeatherAlertCertainty,
+    WeatherAlertClearReason,
+    WeatherAlertOperation,
     WeatherAlertSeverity,
     WeatherAlertUrgency,
-    WeatherAlertOperation,
-    WeatherAlertClearReason,
 )
 
 SCHEMA_VERSION = 1

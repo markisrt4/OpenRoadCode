@@ -2,15 +2,15 @@
 # SPDX-License-Identifier: MIT
 """Weather correlation, quiet refreshes, invalidation, and privacy without sockets."""
 
-from datetime import datetime, timezone
-from io import BytesIO
 import json
 import logging
+from datetime import datetime, timezone
+from io import BytesIO
 from time import monotonic
 from unittest.mock import Mock, patch
 
-from PIL import Image
 import pytest
+from PIL import Image
 
 from common.logging.structured import JsonFormatter, validate_event
 from controllers.route_planning.route_planning_types import GeoPoint, RouteResult

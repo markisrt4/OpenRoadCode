@@ -12,15 +12,14 @@ from collections import deque
 from dataclasses import asdict, replace
 
 from common.logging.structured import event, operation
-
 from controllers.system.calendar_health_sampler import sample_calendar_health
-from controllers.system.system_diagnostics_controller import SystemDiagnosticsController
 from controllers.system.orc_process_sampler import OrcProcessSampler
 from controllers.system.service_socket_sampler import ServiceSocketSampler
+from controllers.system.system_diagnostics_controller import SystemDiagnosticsController
+from services.common.network_usb_inventory import collect_inventory
 from services.common.sensor_health_monitor import SensorHealthMonitor
 from services.common.termux_battery_monitor import TermuxBatteryMonitor
-from services.common.network_usb_inventory import collect_inventory
-from ui.system_diagnostics import SystemDiagnosticsSnapshot, OrcWorkloadSnapshot
+from ui.system_diagnostics import OrcWorkloadSnapshot, SystemDiagnosticsSnapshot
 
 LOGGER = logging.getLogger("runtime.performance")
 

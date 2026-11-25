@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: MIT
 """Display customization must preserve measurement and elapsed-time behavior."""
 
-from dataclasses import replace
 import math
+from dataclasses import replace
 
 import pytest
 
@@ -14,7 +14,6 @@ from frontends.tk.media.frequency_analyzer_scene import (
 )
 from ui.music_visualizer import VisualizerFrame
 from ui.music_visualizer.music_visualizer_types import AnalyzerAppearance, AnalyzerPalette
-
 
 SILENT = VisualizerFrame(0, 0, 0, 0, ())
 LOUD = replace(SILENT, spectrum_hz=(1000.0,), spectrum_dbfs=(-12.0,))
@@ -74,6 +73,7 @@ def test_color_presets_and_custom_gradients_preserve_endpoints():
 def test_smooth_render_preserves_height_and_gradient_with_bounded_geometry(palette):
     from types import SimpleNamespace
     from unittest.mock import Mock
+
     from frontends.tk.media.frequency_analyzer_scene import draw_analyzer
 
     options = AnalyzerAppearance(palette=palette)

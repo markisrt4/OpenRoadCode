@@ -5,10 +5,9 @@ import sys
 
 sys.path.append("../bluetooth")
 
-from BluetoothMetadata import BluetoothMetadata
-
-from threading import Thread
 from time import sleep
+
+from BluetoothMetadata import BluetoothMetadata
 
 btmd = BluetoothMetadata()
 btmd.initialize()

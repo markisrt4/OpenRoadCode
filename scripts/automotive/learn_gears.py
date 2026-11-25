@@ -13,11 +13,11 @@ and writes a small TOML profile that can later feed a runtime gear estimator.
 from __future__ import annotations
 
 import argparse
+import statistics
+import sys
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
-import statistics
-import sys
 
 try:
     import tomllib
@@ -159,7 +159,7 @@ def _write_profile(path: Path, groups: list[list[float]], sample_count: int) -> 
         maximum = max(group)
         lines.extend(
             [
-                f"[[gear]]",
+                "[[gear]]",
                 f"number = {gear}",
                 f"rpm_per_mph = {center:.6f}",
                 f"mean_rpm_per_mph = {mean:.6f}",
