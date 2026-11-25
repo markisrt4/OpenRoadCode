@@ -3,6 +3,7 @@
 
 """Run the scoped strict UI contract type gate with the current interpreter."""
 
+import argparse
 import importlib.util
 import os
 import subprocess
@@ -29,8 +30,15 @@ def mypy_platform_args() -> list[str]:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--controllers",
+        action="store_true",
+        help="Check the entire controller layer using the existing strict configuration.",
+    )
+    options = parser.parse_args()
     if importlib.util.find_spec("mypy") is None:
-        if is_termux() and not is_quality_environment():
+        if is_termux() and not is_quality_environment() and not options.controllers:
             print("[SKIP] Strict UI types: mypy unavailable on Termux; Linux/CI still requires it")
             return 0
         print(
@@ -40,6 +48,8 @@ def main() -> int:
         return 1
     args = [sys.executable, "-m", "mypy", "--config-file", "pyproject.toml"]
     args.extend(mypy_platform_args())
+    if options.controllers:
+        args.append("controllers/")
     return subprocess.run(
         args,
         cwd=ROOT,
