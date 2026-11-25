@@ -46,6 +46,11 @@ if [[ -f "$SETTINGS_FILE" ]]; then
     esac
   done < "$SETTINGS_FILE"
 fi
+# Retire Streamlit from interactive selections; legacy CLI remains available.
+SELECTED_STREAMING=" $SELECTED_STREAMING "
+SELECTED_STREAMING="${SELECTED_STREAMING/ streamlit / }"
+SELECTED_STREAMING="${SELECTED_STREAMING# }"
+SELECTED_STREAMING="${SELECTED_STREAMING% }"
 # Migrate audio selections saved by older versions of the streaming menu.
 if [[ " $SELECTED_STREAMING " == *" audio "* ]]; then
   [[ " $SELECTED_AUDIO " == *" audio "* ]] || SELECTED_AUDIO="${SELECTED_AUDIO:+$SELECTED_AUDIO }audio"
@@ -116,8 +121,8 @@ while true; do
       "audio|PipeWire and ALSA (USB, HDMI, supported analog)" \
       "audio-bluetooth|Bluetooth speakers and headphones (includes audio)" && SELECTED_AUDIO="$SELECTED_RESULT" ;;
     streaming) choose_features "Streaming and media" "Select media features:" "$SELECTED_STREAMING" \
-      "streamlit|Streamlit dashboard support" \
-      "spotify|Spotify integration" && SELECTED_STREAMING="$SELECTED_RESULT" ;;
+      "spotify|Spotify integration" \
+      "youtube|YouTube music video integration" && SELECTED_STREAMING="$SELECTED_RESULT" ;;
     navigation) choose_features "Navigation" "Select navigation software and positioning hardware:" "$SELECTED_NAVIGATION" \
       "navigation|Native MapLibre and Valhalla navigation stack" \
       "gps|GPS daemon and Python support" \
@@ -233,6 +238,24 @@ while true; do
   if ! whiptail --title "Installation incomplete" --defaultno --yesno \
     "Installation failed (exit $status). Your selections are saved. Retry now? Existing packages will be reused where possible." 12 78; then
     exit "$status"
+  fi
+done
+
+# Use the runtime secret parser; never source or print credential values.
+MEDIA_PYTHON="${VENV_DIR:-$PROJECT_DIR/../.venv}/bin/python"
+if [[ ! -x "$MEDIA_PYTHON" ]]; then MEDIA_PYTHON=python3; fi
+has_media_secret() {
+  (cd "$PROJECT_DIR" && "$MEDIA_PYTHON" -c 'import sys; from security.environment_variable_secret_manager import EnvironmentVariableSecretManager; sys.exit(not bool(EnvironmentVariableSecretManager().get_secret(sys.argv[1])))' "$1")
+}
+for provider in spotify youtube; do
+  if [[ " $SELECTED_STREAMING " != *" $provider "* ]] && (( ! INSTALL_ALL_FEATURES )); then continue; fi
+  secret=SPOTIFY_CLIENT_ID
+  options=()
+  if [[ "$provider" == youtube ]]; then secret=YOUTUBE_API_KEY; options+=(--prompt-youtube); fi
+  if has_media_secret "$secret"; then
+    echo "[*] $provider credentials already configured; skipping."
+  elif whiptail --title "Media credentials" --yesno "Configure $provider credentials now? You can skip and configure them later." 12 78; then
+    OPENROADCODE_SECRETS_FILE="${OPENROADCODE_SECRETS_FILE:-/etc/openroadcode/secrets.env}" bash "$PROJECT_DIR/development/debian/install_secrets.sh" --secrets-file "${OPENROADCODE_SECRETS_FILE:-/etc/openroadcode/secrets.env}" "${options[@]}" || echo "[!] $provider credential setup incomplete."
   fi
 done
 
