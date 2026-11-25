@@ -7,6 +7,7 @@ from math import hypot
 
 import requests
 
+from common.app_settings import AppSettingsStore
 from common.navigation_data import navigation_data_root
 from controllers.calendar.calendar_presentation import event_view
 from controllers.calendar.calendar_models import CalendarEvent
@@ -27,7 +28,7 @@ from ui.calendar.calendar_models import AppointmentJourneyView
 
 
 def estimate_upcoming_journey(
-    query: CalendarQueryIf, event: CalendarEvent, origin: GeoPoint
+    query: CalendarQueryIf, event: CalendarEvent, origin: GeoPoint, buffer_minutes: int = 10
 ) -> AppointmentJourneyView | None:
     """Estimate a journey using only installed local navigation resources."""
     try:
@@ -40,6 +41,7 @@ def estimate_upcoming_journey(
                 query,
                 lambda location: resolve_appointment_address(geocoder, location),
                 lambda start, end: estimate_appointment_route(router, start, end),
+                arrival_buffer_seconds=buffer_minutes * 60,
             )
             journey = planner.plan_event(event, origin)
             if journey is None:
@@ -61,6 +63,8 @@ class AppointmentEstimateCache:
         self._origin: GeoPoint | None = None
         self._estimate: AppointmentJourneyView | None = None
         self._expires = 0.0
+        self._buffer_minutes: int | None = None
+        self._settings = AppSettingsStore()
 
     def estimate(
         self, query: CalendarQueryIf, event: CalendarEvent
@@ -71,10 +75,12 @@ class AppointmentEstimateCache:
             self._event = None
             self._estimate = None
             return None
+        buffer_minutes = self._settings.load().appointment_arrival_minutes
         now = monotonic()
         previous = self._origin
         if (
             event == self._event
+            and buffer_minutes == self._buffer_minutes
             and previous is not None
             and now < self._expires
             and hypot(
@@ -83,7 +89,8 @@ class AppointmentEstimateCache:
             ) < 0.00004
         ):
             return self._estimate
-        self._estimate = estimate_upcoming_journey(query, event, origin)
+        self._estimate = estimate_upcoming_journey(query, event, origin, buffer_minutes)
+        self._buffer_minutes = buffer_minutes
         self._event = event
         self._origin = origin
         self._expires = monotonic() + (120 if self._estimate is not None else 30)
