@@ -58,6 +58,7 @@ from frontends.tk.media import (
 )
 from frontends.tk.media.youtube_music_coming_soon_screen import YouTubeMusicComingSoonScreen
 from ui.theme import ThemeMode
+from ui.notification_if import Notification, NotificationSeverity
 from protocols.spotify import (
     SPOTIFY_CLIENT_ID_SECRET_NAME,
     SpotifyAuth,
@@ -163,7 +164,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
             active=active,
             show_media=lambda: media_screen.show(),
             show_home=lambda: app.navigate_to("HOME"),
-            show_spotify=online_action(lambda: spotify_screen.show()),
+            show_spotify=show_spotify,
             show_youtube=online_action(lambda: youtube_screen.show()),
             show_netflix=online_action(lambda: netflix_screen.show()),
         )
@@ -211,18 +212,36 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         theme_bundle=lambda: theme_bundle(app.theme_mode),
     )
 
+    def show_spotify() -> None:
+        if not network_allowed():
+            return
+        spotify_screen.show()
+        if not spotify_client_id():
+            app.notification_sink.publish(
+                Notification(
+                    code="spotify.configuration_required",
+                    title="Spotify configuration required",
+                    message="Open Spotify account settings to enter your application Client ID.",
+                    severity=NotificationSeverity.WARNING,
+                    source="spotify",
+                )
+            )
+
     def show_spotify_remote() -> None:
         if not network_allowed():
             return
         media.spotify_local_player.request_remote()
         media.spotify.request_refresh()
-        spotify_screen.show()
+        show_spotify()
 
     def show_spotify_local() -> None:
         if not network_allowed():
             return
+        if not spotify_client_id():
+            show_spotify()
+            return
         media.spotify_local_player.request_player()
-        spotify_screen.show()
+        show_spotify()
 
     spotify_secrets = EnvironmentVariableSecretManager()
 
@@ -320,7 +339,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         dispatcher=app,
         load_artwork=cached_artwork_loader(image_cache, max_size=56),
         online=network_allowed,
-        show_now_playing=lambda: spotify_screen.show(),
+        show_now_playing=show_spotify,
     )
     browsers.append(browser_session)
     spotify_screen = SpotifyScreen(
@@ -382,7 +401,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         theme_bundle=lambda: theme_bundle(app.theme_mode),
         preview=preview,
         online_allowed=network_allowed,
-        show_spotify=spotify_screen.show,
+        show_spotify=show_spotify,
         show_youtube=youtube_screen.show,
         show_youtube_music=youtube_music_screen.show,
         show_netflix=netflix_screen.show,
@@ -419,7 +438,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         view = SpotifyNowPlaying(
             parent,
             online_allowed=network_allowed,
-            on_open=online_action(spotify_screen.show),
+            on_open=show_spotify,
             theme_bundle=lambda: theme_bundle(app.theme_mode),
             on_playback_changed=home_playback_changed,
         )
