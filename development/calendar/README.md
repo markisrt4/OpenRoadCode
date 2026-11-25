@@ -179,3 +179,12 @@ System diagnostics share the standalone health wire reader in `common/`,
 so restricted service deployments do not require calendar controllers. Application composition centralizes cache, account,
 selection and timezone defaults. The existing Detroit timezone default is
 preserved; callers can supply a different timezone explicitly.
+
+### Appointment journey planning
+
+`AppointmentJourneyPlanner` consumes `CalendarQueryIf` and injected destination
+resolution and read-only route estimation functions. It calculates departure
+in UTC before converting to the appointment timezone, with a configurable
+600-second arrival buffer. Missing position, missing location, ambiguous
+resolution and unavailable estimates produce no journey. Planning does not
+start guidance. Runtime resolver, routing adapter and UI wiring remain pending.
