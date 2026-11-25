@@ -29,7 +29,7 @@ def aircraft_geojson(aircraft: Iterable[Mapping[str, object]]) -> dict[str, obje
         icao = item.get("icao")
         if not isinstance(icao, str) or len(icao) != 6:
             continue
-        props = {"icao": icao.upper()}
+        props: dict[str, object] = {"icao": icao.upper()}
         for name in (
             "callsign",
             "altitude_ft",
