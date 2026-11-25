@@ -31,6 +31,9 @@ imu
 environmental
 spotify
 sdrforge
+video
+video-v4l2
+video-perception
 navigation
 raspberry-pi
 EOF
@@ -62,6 +65,9 @@ imu
 environmental
 spotify
 sdrforge
+video
+video-v4l2
+video-perception
 EOF
       ;;
     termux)
@@ -92,6 +98,9 @@ get_feature_dependencies() {
   local feature="$1"
   local target="${OPENROAD_INSTALL_TARGET:-linux-dev}"
   case "$feature" in
+    video) echo "desktop-ui" ;;
+    video-v4l2) echo "video" ;;
+    video-perception) echo "video" ;;
     vnc) echo "desktop-ui" ;;
     audio-bluetooth) echo "audio" ;;
     spotify)
@@ -170,6 +179,8 @@ get_feature_packages() {
     spotify)
       echo ""
       ;;
+    video) echo "python3-opencv" ;;
+    video-v4l2) echo "v4l-utils" ;;
     sdrforge) echo "libportaudio2" ;;
     navigation)
       echo "rsync curl python3-zmq libzmq3-dev libspdlog-dev libglfw3-dev libgles-dev libcurl4-openssl-dev libjpeg-dev libuv1-dev libwebp-dev libicu-dev libpng-dev libprotobuf-dev liblz4-dev libgeotiff-dev libczmq-dev libxxhash-dev libsqlite3-dev libspatialite-dev libssl-dev libluajit-5.1-dev"
@@ -197,6 +208,9 @@ get_feature_python_packages() {
       ;;
     browser|vnc|adsb|audio|spotify|sdrforge|navigation)
       echo ""
+      ;;
+    video-perception)
+      printf '%s\n' ultralytics supervision
       ;;
     input)
       printf '%s\n' evdev
@@ -256,6 +270,9 @@ Available features:
   spotify       Spotify integration extras (includes audio)
   sdrforge         SDRForge support (includes RTL-SDR, desktop-ui, and audio)
   navigation    MapLibre renderer + Valhalla navigation stack (includes desktop-ui and gps)
+  video         Common camera capture and preview support
+  video-v4l2    Linux USB camera support (includes video)
+  video-perception YOLO detection and tracking (includes video)
   raspberry-pi  Raspberry Pi GPIO, I2C, Blinka, and Seesaw support
 EOF
 }
