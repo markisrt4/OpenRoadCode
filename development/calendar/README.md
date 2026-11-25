@@ -198,3 +198,9 @@ longer offline periods may exhaust that coverage. Calendar freshness is shown
 independently of network connectivity. Appointment routing adapters reuse the
 local geocoder and route-planning contract, reject street-only approximations,
 and convert UI radians to routing degrees. Runtime wiring is still pending.
+
+Calendar agenda snapshots now include per-day coverage calculated from successful
+SQLite snapshot windows for all known enabled calendars. Empty successful
+snapshots count as coverage; missing catalogs or missing enabled-calendar
+snapshots do not. Dates outside complete coverage show an incomplete-data
+message instead of implying an empty schedule. Home coverage remains pending.
