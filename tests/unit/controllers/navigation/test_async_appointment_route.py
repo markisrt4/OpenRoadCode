@@ -18,7 +18,8 @@ def test_route_completion_is_collected_on_owner_thread(fails):
     client = Mock()
     renderer = Mock()
     route = Mock()
-    route.shape = ()
+    route.shape = (Mock(latitude=1.0, longitude=2.0),)
+    route.operation_id = None
     owner = get_ident()
     observed = []
 
