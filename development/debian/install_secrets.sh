@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SECRETS_FILE="${SECRETS_FILE:-/etc/openroadcode/secrets.env}"
+SECRETS_FILE="${OPENROADCODE_SECRETS_FILE:-${SECRETS_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/openroadcode/secrets.env}}"
 INSTALL_OWNER="$(id -un)"
 INSTALL_GROUP="$(id -gn)"
 declare -A UPDATES=()
@@ -147,8 +147,12 @@ if [[ "$SECRETS_FILE" == /etc/* ]]; then
         -- "$filtered_file" "$SECRETS_FILE"
 else
     mkdir -p -- "$secrets_dir"
-    chmod 0700 "$secrets_dir"
-    install -m 0600 -- "$filtered_file" "$SECRETS_FILE"
+    if [[ "$secrets_dir" == "${XDG_CONFIG_HOME:-$HOME/.config}/openroadcode" ]]; then
+        chmod 0700 "$secrets_dir"
+    fi
+    user_stage="$(mktemp "$secrets_dir/.orc-secrets.XXXXXX")"
+    install -m 0600 -- "$filtered_file" "$user_stage"
+    mv -f -- "$user_stage" "$SECRETS_FILE"
 fi
 
 [[ -r "$SECRETS_FILE" ]] \
