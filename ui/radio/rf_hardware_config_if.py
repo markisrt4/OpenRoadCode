@@ -21,11 +21,22 @@ class RfHardwareConfigIf(Protocol):
 
     def load(
         self, on_success: Callable[[RfHardwareConfig], None], on_error: Callable[[str], None]
-    ) -> None: ...
+    ) -> None:
+        """Request the current receiver configuration asynchronously.
+        @param on_success Callback receiving the configuration.
+        @param on_error Callback receiving an error message.
+        """
+        ...
 
     def apply(
         self,
         config: RfHardwareConfig,
         on_success: Callable[[], None],
         on_error: Callable[[str], None],
-    ) -> None: ...
+    ) -> None:
+        """Apply receiver configuration asynchronously.
+        @param config Requested receiver settings.
+        @param on_success Callback invoked on successful application.
+        @param on_error Callback receiving an error message.
+        """
+        ...

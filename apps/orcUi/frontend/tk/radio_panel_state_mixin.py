@@ -14,6 +14,7 @@ from ui.radio.rf_radio_if import (
     RadioAction,
     RadioHost,
     RadioRequest,
+    RfProfile,
     RfRadioSession,
     RfRadioState,
     receiver_mode_mismatch,
@@ -28,7 +29,11 @@ from .radio_group_menu import MAIN_GROUPS, RadioGroupMenuMixin
 class RadioPanelStateMixin:
     """Apply radio snapshots and update visible receiver state."""
 
-    def _browsed_profile(self, state: RfRadioState):
+    _pending_group: str | None
+    _last_receiver_running: bool | None
+    _scan_signature: tuple[tuple[int, ...], bool] | None
+
+    def _browsed_profile(self, state: RfRadioState) -> RfProfile | None:
         """Prefer the tuned profile within the browsed category."""
         group = self._active_group.split(":", 1)[0]
         profiles = tuple(p for p in state.profiles if p.group == group)
