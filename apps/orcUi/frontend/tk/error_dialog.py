@@ -30,13 +30,20 @@ class ErrorDialog:
         window.resizable(False, False)
         window.configure(bg=ui.background)
         window.protocol("WM_DELETE_WINDOW", self.dismiss)
-        window.geometry("440x180")
+        window.overrideredirect(True)
+        width = min(840, int(self._root.winfo_screenwidth() * 0.85))
+        compact = self._root.winfo_screenheight() < 600
+        height = 220 if compact else 300
+        x = (self._root.winfo_screenwidth() - width) // 2
+        y = (self._root.winfo_screenheight() - height) // 2
+        window.geometry(f"{width}x{height}+{x}+{y}")
+        window.bind("<Escape>", lambda _event: self.dismiss())
         tk.Label(
             window,
             text=title or "ERROR",
             bg=ui.background,
             fg=ui.accent_danger,
-            font=("Sans", 14, "bold"),
+            font=("Sans", 20 if compact else 28, "bold"),
             anchor="w",
         ).pack(fill=tk.X, padx=16, pady=(14, 6))
         tk.Label(
@@ -44,10 +51,10 @@ class ErrorDialog:
             text=message,
             bg=ui.background,
             fg=ui.text,
-            wraplength=400,
+            wraplength=width - 48,
             justify=tk.LEFT,
             anchor="nw",
-            font=("Sans", 11),
+            font=("Sans", 16 if compact else 22),
         ).pack(fill=tk.BOTH, expand=True, padx=16)
         tk.Button(
             window,
@@ -56,6 +63,9 @@ class ErrorDialog:
             bg=ui.control_background,
             fg=ui.control_text,
             relief=tk.FLAT,
+            font=("Sans", 16 if compact else 20, "bold"),
+            padx=24,
+            pady=12,
         ).pack(pady=(6, 14))
         window.lift()
 
