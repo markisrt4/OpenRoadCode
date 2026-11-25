@@ -4,7 +4,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime, tzinfo
 from pathlib import Path
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from apps.orcUi.theme_runtime import theme_bundle
 from controllers.calendar.appointment_monitor import AppointmentMonitor
@@ -27,7 +27,10 @@ from frontends.tk.calendar.dashboard_screen import DashboardCalendarScreen
 
 
 def _local_zone() -> tzinfo:
-    return datetime.now().astimezone().tzinfo or ZoneInfo("UTC")
+    try:
+        return ZoneInfo("America/Detroit")
+    except ZoneInfoNotFoundError:
+        return datetime.now().astimezone().tzinfo or ZoneInfo("UTC")
 
 
 @dataclass(frozen=True)
@@ -58,7 +61,10 @@ def configure_calendar(app, config: CalendarConfiguration | None = None):
     def create_panel(parent):
         return CalendarScreen(
             parent,
-            agenda=CalendarAgendaPresentation(config.query(), calendar_health_view),
+            agenda=CalendarAgendaPresentation(
+                config.query(),
+                lambda: calendar_health_view(config.cache_path.with_suffix(".health.json"))
+            ),
             theme=theme_bundle(app.theme_mode),
             zone=config.zone,
             selection=CalendarSelectionPresentation(
@@ -80,7 +86,8 @@ class HomeCalendarFactory:
         def load():
             events = upcoming_appointments(config.query(), datetime.now(config.zone), limit=1)
             return AppointmentSnapshot(
-                tuple(event_view(event) for event in events), calendar_health_view()
+                tuple(event_view(event) for event in events),
+                calendar_health_view(config.cache_path.with_suffix(".health.json")),
             )
 
         self.monitor: AppointmentMonitorIf = AppointmentMonitor(load)
