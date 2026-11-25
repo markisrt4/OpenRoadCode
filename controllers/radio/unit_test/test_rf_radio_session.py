@@ -746,7 +746,7 @@ def test_native_rest_reconnection_clears_outage_error(
         def __init__(self, payload: dict[str, bool | None]) -> None:
             self.payload = payload
 
-        def __enter__(self) -> Response:
+        def __enter__(self) -> "Response":
             return self
 
         def __exit__(self, *_args: object) -> None:
