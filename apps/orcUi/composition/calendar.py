@@ -6,6 +6,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from apps.orcUi.theme_runtime import theme_bundle
+from controllers.calendar.appointment_monitor import AppointmentMonitor
 from controllers.calendar.cached_calendar_provider import CachedCalendarProvider
 from controllers.calendar.calendar_agenda import CalendarAgendaController
 from controllers.calendar.calendar_event_cache import CalendarEventCache
@@ -66,12 +67,14 @@ def configure_calendar(app):
     return screen
 
 
-def create_home_calendar_factory(app):
-    def factory(parent):
+class HomeCalendarFactory:
+    def __init__(self, app):
+        self._app = app
         try:
-            zone = ZoneInfo("America/Detroit")
+            self._zone = ZoneInfo("America/Detroit")
         except ZoneInfoNotFoundError:
-            zone = datetime.now().astimezone().tzinfo
+            self._zone = datetime.now().astimezone().tzinfo
+        zone = self._zone
 
         def load():
             cache = CalendarEventCache(
@@ -87,6 +90,16 @@ def create_home_calendar_factory(app):
             )
             return events, sample_calendar_health()
 
-        return UpcomingPanel(parent, theme=theme_bundle(app.theme_mode), load=load, zone=zone)
+        self.monitor = AppointmentMonitor(load)
 
-    return factory
+    def __call__(self, parent):
+        return UpcomingPanel(
+            parent,
+            theme=theme_bundle(self._app.theme_mode),
+            monitor=self.monitor,
+            zone=self._zone,
+        )
+
+
+def create_home_calendar_factory(app):
+    return HomeCalendarFactory(app)
