@@ -6,6 +6,7 @@ import math
 import unittest
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
+
 from frontends.common.destination_map_confirmation import validate_position
 from scripts.installers.destination_map_runtime import confirm_on_map
 from ui.navigation.destination_setup_request_handler_if import SavedDestination

@@ -5,8 +5,8 @@
 
 from dataclasses import dataclass
 
-from config.runtime_config import RuntimeConfig
 from config.radio_config_manager import load_radio_config
+from config.runtime_config import RuntimeConfig
 from controllers.radio import (
     RadioController,
     RadioControllerIf,

@@ -9,10 +9,9 @@ import math
 import sqlite3
 from pathlib import Path
 
-from ui.navigation.poi_models import PoiCategory, PointOfInterest, TransitMode
 from controllers.poi.poi_search_source_if import PoiSearchQuery, PoiSearchSourceIf
 from ui.navigation import GeoPoint
-
+from ui.navigation.poi_models import PoiCategory, PointOfInterest, TransitMode
 
 _CATEGORY_NAME: dict[PoiCategory, str] = {
     PoiCategory.FOOD: "food",

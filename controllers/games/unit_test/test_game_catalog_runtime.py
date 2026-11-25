@@ -9,9 +9,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from controllers.games.game_catalog import load_game_catalog
 from controllers.games.debian_command_runner import DebianCommandRunner
 from controllers.games.debian_game_installer import DebianGameInstaller
+from controllers.games.game_catalog import load_game_catalog
 
 
 class GameCatalogRuntimeTest(unittest.TestCase):

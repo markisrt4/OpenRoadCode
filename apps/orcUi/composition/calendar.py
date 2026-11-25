@@ -2,34 +2,33 @@
 """Compose the dashboard calendar and own its visible panel lifecycle."""
 
 from dataclasses import dataclass, field, replace
-
-from common.app_settings import AppSettingsStore
 from datetime import date, datetime, tzinfo
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from apps.orcUi.composition.appointment_navigation import create_appointment_estimate_cache
 from apps.orcUi.theme_runtime import theme_bundle
+from common.app_settings import AppSettingsStore
 from controllers.calendar.appointment_monitor import AppointmentMonitor
 from controllers.calendar.cached_calendar_provider import CachedCalendarProvider
 from controllers.calendar.calendar_agenda import CalendarAgendaController
+from controllers.calendar.calendar_coverage import covered_calendar_days
+from controllers.calendar.calendar_event_cache import CalendarEventCache
 from controllers.calendar.calendar_presentation import (
     CalendarAgendaPresentation,
     CalendarSelectionPresentation,
     calendar_health_view,
     event_view,
 )
-from controllers.calendar.calendar_event_cache import CalendarEventCache
-from controllers.calendar.calendar_coverage import covered_calendar_days
 from controllers.calendar.calendar_query_if import CalendarQueryIf
 from controllers.calendar.upcoming_appointments import upcoming_appointments
 from controllers.connectivity.online_mode import saved_online_mode
+from frontends.tk.calendar.calendar_screen import CalendarScreen
+from frontends.tk.calendar.dashboard_screen import DashboardCalendarScreen
+from frontends.tk.calendar.upcoming_panel import UpcomingPanel
 from ui.calendar.calendar_models import AppointmentSnapshot
 from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
 from ui.navigation.route_request_handler_if import RouteRequestHandlerIf
-from frontends.tk.calendar.calendar_screen import CalendarScreen
-from frontends.tk.calendar.upcoming_panel import UpcomingPanel
-from frontends.tk.calendar.dashboard_screen import DashboardCalendarScreen
 
 
 def _local_zone() -> tzinfo:

@@ -6,9 +6,8 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from controllers.radio.adapters.radio_browser_directory import RadioBrowserDirectory
-
 from controllers.audio.streaming_audio_player_if import StreamingAudioPlayerIf
+from controllers.radio.adapters.radio_browser_directory import RadioBrowserDirectory
 from controllers.radio.streaming_radio_controller import StreamingRadioController
 from ui.radio.streaming_radio_types import StreamingRadioStation
 

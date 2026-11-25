@@ -6,6 +6,8 @@ from datetime import datetime
 import pytest
 
 from controllers.automotive import EngineInductionType, VehicleConfiguration
+from controllers.automotive.engine_analyzer import EngineAnalyzer
+from controllers.automotive.vehicle_state import VehicleState
 from ui.automotive.engine_analysis import (
     EngineLoadLevel,
     EngineOperatingMode,
@@ -14,8 +16,6 @@ from ui.automotive.engine_analysis import (
     MixtureMode,
     TrackingQuality,
 )
-from controllers.automotive.engine_analyzer import EngineAnalyzer
-from controllers.automotive.vehicle_state import VehicleState
 
 
 def _state(**overrides) -> VehicleState:

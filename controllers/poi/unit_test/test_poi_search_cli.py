@@ -4,8 +4,8 @@
 import argparse
 import unittest
 
-from ui.navigation.poi_models import PoiCategory
 from controllers.poi.poi_search_cli import _parse_category
+from ui.navigation.poi_models import PoiCategory
 
 
 class PoiSearchCliTest(unittest.TestCase):

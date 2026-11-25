@@ -3,9 +3,9 @@
 
 """Tests for browser process lifecycle behavior."""
 
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import unittest
 from unittest.mock import Mock, patch
 
 from apps.launchers.browser_launcher import BrowserKioskLauncher

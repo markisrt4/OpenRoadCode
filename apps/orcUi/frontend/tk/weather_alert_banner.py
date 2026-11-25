@@ -3,12 +3,14 @@
 """Persistent shell-level presentation for asynchronous weather alerts."""
 
 from __future__ import annotations
+
 import tkinter as tk
 from collections.abc import Callable
 from datetime import datetime
+
 from ui.theme import ThemeBundle
-from ui.weather import WeatherAlertUiEvent
 from ui.ui_widget import UiWidget
+from ui.weather import WeatherAlertUiEvent
 
 
 def weather_alert_expiration_text(alert: WeatherAlertUiEvent, now: datetime) -> str:

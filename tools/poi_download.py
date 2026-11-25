@@ -5,16 +5,16 @@
 from __future__ import annotations
 
 import argparse
-from contextlib import closing
-from datetime import datetime
 import json
 import math
 import os
-from pathlib import Path
 import sqlite3
 import tempfile
 import urllib.parse
 import urllib.request
+from contextlib import closing
+from datetime import datetime
+from pathlib import Path
 
 from common.navigation_data import search_database_path
 from tools.map_builder.builder.poi_index import _create_schema, _insert_point_feature

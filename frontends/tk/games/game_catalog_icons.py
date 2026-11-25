@@ -6,8 +6,8 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import tkinter as tk
+from pathlib import Path
 
 _ICON_SIZES = (128, 96, 64, 48, 32, 256)
 

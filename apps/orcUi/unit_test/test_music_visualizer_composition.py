@@ -65,6 +65,7 @@ def test_real_capture_rejects_incomplete_fft_blocks(monkeypatch):
 
 def test_termux_browser_defaults_to_android_playback_without_starting_capture(monkeypatch):
     from unittest.mock import Mock
+
     from apps.orcUi.composition.music_visualizer import create_browser_visualizer
     from ui.theme import ThemeMode
 
@@ -81,6 +82,7 @@ def test_termux_browser_defaults_to_android_playback_without_starting_capture(mo
 
 def test_explicit_browser_source_choice_is_preserved_on_termux(monkeypatch):
     from unittest.mock import Mock
+
     from apps.orcUi.composition.music_visualizer import create_browser_visualizer
     from ui.theme import ThemeMode
 
@@ -96,7 +98,9 @@ def test_explicit_browser_source_choice_is_preserved_on_termux(monkeypatch):
 
 def test_browser_visualizer_construction_failure_stops_analysis(monkeypatch):
     from unittest.mock import Mock
+
     import pytest
+
     from apps.orcUi.composition.music_visualizer import create_browser_visualizer
     from ui.theme import ThemeMode
 

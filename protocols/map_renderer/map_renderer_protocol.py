@@ -5,7 +5,6 @@
 
 from common.str_enum import StrEnum
 
-
 MAP_RENDERER_COMMAND_TOPIC = "map.command"
 
 

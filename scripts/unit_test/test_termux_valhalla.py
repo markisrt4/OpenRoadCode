@@ -5,11 +5,10 @@
 
 import json
 import os
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 from scripts.runtime.prepare_termux_valhalla import prepare
-
 
 SCRIPT = Path(__file__).resolve().parents[1] / "runtime/start_valhalla.sh"
 

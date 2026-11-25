@@ -5,8 +5,8 @@
 import io
 from unittest.mock import Mock
 
-from PIL import Image
 import pytest
+from PIL import Image
 
 from apps.common.spotify_presentation_factory import cached_artwork_loader
 from controllers.image import ImageCache

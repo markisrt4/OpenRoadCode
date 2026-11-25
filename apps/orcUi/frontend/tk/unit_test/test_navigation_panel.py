@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 
 from apps.orcUi.frontend.tk.navigation_panel import NavigationPanel
 from controllers.navigation.map_favorites import MapFavorite
+from ui.navigation import GeoPoint, MapControlsDrawerState
 from ui.navigation.poi_models import (
     PoiAction,
     PoiActionKind,
@@ -16,8 +17,6 @@ from ui.navigation.poi_models import (
     PointOfInterest,
     TransitMode,
 )
-from ui.navigation import GeoPoint
-from ui.navigation import MapControlsDrawerState
 from ui.navigation.route_types import TravelMode
 
 
@@ -373,8 +372,8 @@ class NavigationPanelControlTest(unittest.TestCase):
 
     def test_poi_order_action_delegates_to_platform_executor(self) -> None:
         panel = self._panel()
-        from ui.navigation.navigation_places_request_handler_if import PlaceActionResult
         from apps.orcUi.frontend.tk.navigation_poi_actions import poll_poi_launch_results
+        from ui.navigation.navigation_places_request_handler_if import PlaceActionResult
 
         panel._places_handler.request_action.return_value = 1
         panel._places_handler.poll_action_result.return_value = PlaceActionResult(
@@ -440,7 +439,7 @@ def test_embedded_platform_keeps_host_geometry_and_enables_follow():
 
 
 def test_terrain_toolbar_routes_camera_actions_without_native_requests():
-    from ui.navigation.map_platform_if import MapPlatform, MapPlatformState, ExplorationCameraAction
+    from ui.navigation.map_platform_if import ExplorationCameraAction, MapPlatform, MapPlatformState
 
     panel = object.__new__(NavigationPanel)
     panel._map_platform = Mock(

@@ -1,6 +1,5 @@
 """Open user-selected Earth destinations in an ordinary native browser window."""
 
-from common.logging.diagnostics import ComponentLog, diagnostic_action
 import os
 import shutil
 import subprocess
@@ -8,6 +7,7 @@ from urllib.parse import urlsplit
 
 from apps.launchers.external_window_manager import x11_environment
 from apps.launchers.graphics_environment import graphics_environment
+from common.logging.diagnostics import ComponentLog, diagnostic_action
 from common.logging.logging_paths import logging_file_path
 from controllers.poi.poi_action_executor_if import PoiActionExecutorIf
 from ui.navigation.poi_models import PoiActionKind

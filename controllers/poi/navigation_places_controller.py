@@ -3,33 +3,32 @@
 
 """Adapt POI discovery, saved places, and platform actions to UI contracts."""
 
-from common.logging.diagnostics import ComponentLog, diagnostic_action
 import logging
 import math
-
-from common.logging.structured import current_operation, operation
-from dataclasses import replace
 import threading
-from queue import SimpleQueue, Empty
 from collections.abc import Callable
+from dataclasses import replace
+from queue import Empty, SimpleQueue
+
+from common.logging.diagnostics import ComponentLog, diagnostic_action
+from common.logging.structured import current_operation, operation
+from controllers.navigation.map_favorites import MapFavorites
+from controllers.poi.poi_action_executor_if import PoiActionExecutorIf
+from controllers.poi.poi_search_controller_if import PoiSearchControllerIf
 from protocols.map_renderer.map_poi_source import RawMapCamera
 from ui.navigation import GeoPoint
-
-from controllers.navigation.map_favorites import MapFavorites
-from controllers.poi.poi_search_controller_if import PoiSearchControllerIf
-from controllers.poi.poi_action_executor_if import PoiActionExecutorIf
 from ui.navigation.navigation_places_request_handler_if import (
     MapFavorite,
-    NavigationPlacesRequestHandlerIf,
     NavigationCameraState,
+    NavigationPlacesRequestHandlerIf,
     PlaceActionResult,
 )
 from ui.navigation.poi_models import (
     PoiAction,
     PoiActionKind,
     PoiCategory,
-    PoiSearchResult,
     PointOfInterest,
+    PoiSearchResult,
     TransitMode,
 )
 

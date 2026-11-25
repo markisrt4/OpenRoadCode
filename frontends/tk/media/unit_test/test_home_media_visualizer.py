@@ -3,6 +3,7 @@
 """HOME presentation cleanup does not stop a capture retained by another view."""
 
 from unittest.mock import Mock
+
 from frontends.tk.media.home_media_visualizer import HomeMediaVisualizer
 
 

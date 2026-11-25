@@ -13,10 +13,10 @@ from tempfile import TemporaryDirectory
 from apps.launchers.browser_launcher import BrowserKioskLauncher
 from apps.launchers.google_earth_launcher import GoogleEarthLauncher
 from common.logging.logging_paths import logging_file_path
-from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
 from controllers.navigation.earth_geolocation_bridge import EarthGeolocationBridge
 from controllers.navigation.earth_input_camera_controller import EarthInputCameraController
 from controllers.navigation.earth_navigation_controller import EarthNavigationController
+from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
 
 
 def main() -> int:

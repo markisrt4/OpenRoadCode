@@ -10,10 +10,10 @@ from concurrent.futures import Future
 from threading import Thread
 from collections.abc import Callable
 
+from controllers.route_planning.route_map_presenter import present_route
 from controllers.route_planning.route_planning_types import GeoPoint as RouteGeoPoint
 from controllers.route_planning.route_planning_types import RouteResult
 from controllers.route_planning.route_planning_types import TravelMode as RouteTravelMode
-from controllers.route_planning.route_map_presenter import present_route
 from protocols.map_renderer.map_renderer_client import MapRendererClient
 from services.navigation.navigation_command_client import NavigationCommandClient
 from ui.navigation import GeoPoint, RouteRequestHandlerIf, RouteSimulationRequestHandlerIf

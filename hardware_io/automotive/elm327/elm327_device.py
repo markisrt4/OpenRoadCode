@@ -5,12 +5,12 @@ from __future__ import annotations
 
 import time
 
-from hardware_io.automotive.stream_transport_if import StreamTransportIf
 from hardware_io.automotive.elm327.elm327_errors import (
     Elm327CommandError,
     Elm327ConnectionError,
 )
 from hardware_io.automotive.elm327.elm327_response import Elm327Response
+from hardware_io.automotive.stream_transport_if import StreamTransportIf
 
 
 class Elm327Device:

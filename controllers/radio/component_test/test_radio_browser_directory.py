@@ -8,7 +8,6 @@ import unittest
 
 from controllers.radio.adapters.radio_browser_directory import RadioBrowserDirectory
 
-
 _RUN_NETWORK_TESTS = os.environ.get("ORC_RUN_NETWORK_COMPONENT_TESTS") == "1"
 
 

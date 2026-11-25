@@ -17,8 +17,8 @@ except ModuleNotFoundError:
     import tomli as tomllib
 
 from common.xdg_paths import openroadcode_config_dir
-from ui.navigation.map_ui_if import GeoPoint
 from ui.navigation.destination_setup_request_handler_if import SavedDestination
+from ui.navigation.map_ui_if import GeoPoint
 
 
 def normalize_destination(destination: SavedDestination) -> SavedDestination:

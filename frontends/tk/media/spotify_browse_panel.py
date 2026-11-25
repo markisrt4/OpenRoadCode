@@ -6,20 +6,20 @@
 from __future__ import annotations
 
 import io
-from functools import partial
 import tkinter as tk
 from collections.abc import Callable
+from functools import partial
 from typing import Any
 
 from PIL import Image, ImageOps, ImageTk
 
-from ui.media.spotify_library import SpotifyLibraryTrack, SpotifyPlaylist
 from ui.media.spotify_browse_if import (
     SpotifyBrowseRequests,
     SpotifyBrowseState,
     SpotifyCollection,
     SpotifyPlaybackMode,
 )
+from ui.media.spotify_library import SpotifyLibraryTrack, SpotifyPlaylist
 from ui.ui_widget import UiWidget
 
 ART_SIZE = 56

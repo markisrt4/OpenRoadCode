@@ -5,8 +5,9 @@ import sys
 
 sys.path.append("../hardwareDevices")
 
-from MultiTurnPot import MultiTurnPot
 from time import sleep
+
+from MultiTurnPot import MultiTurnPot
 
 
 def TurnNotifier(deltaVal):

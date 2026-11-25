@@ -3,10 +3,10 @@
 
 """Tests for terminal dashboard value formatting."""
 
-from datetime import datetime
 import math
-from types import SimpleNamespace
 import unittest
+from datetime import datetime
+from types import SimpleNamespace
 
 from common.units import UnitSystem
 from frontends.tui.automotive.navigation_dashboard_view import navigation_fields

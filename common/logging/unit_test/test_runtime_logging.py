@@ -447,9 +447,9 @@ def test_host_clear_and_unavailable_poweroff_do_not_claim_dispatch(caplog):
 
 def test_restricted_install_can_import_http_and_write_logs_without_checkout(tmp_path):
     import os
-    from pathlib import Path
     import shutil
     import sys
+    from pathlib import Path
 
     root = Path(__file__).resolve().parents[3]
     script = (root / "scripts/systemd/install_service_manager_systemd.sh").read_text()

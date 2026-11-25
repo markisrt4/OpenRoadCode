@@ -3,7 +3,6 @@
 
 from apps.common.uiTheme.uiTheme import COLORS
 
-
 WEATHER_PANEL_THEME = {
     "colors": {
         "background": COLORS["app_bg"],

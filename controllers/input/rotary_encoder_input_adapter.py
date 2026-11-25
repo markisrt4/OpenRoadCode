@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from hardware_io.rotary_encoder.rotary_encoder_if import RotaryEncoderIf
 from input_events import (
     InputDeviceId,
     InputDeviceType,
@@ -12,7 +13,6 @@ from input_events import (
     InputEventType,
     InputHandlerIf,
 )
-from hardware_io.rotary_encoder.rotary_encoder_if import RotaryEncoderIf
 
 
 class RotaryEncoderInputAdapter:

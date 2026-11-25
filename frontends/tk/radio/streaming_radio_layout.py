@@ -9,13 +9,13 @@ import tkinter as tk
 from functools import partial
 from typing import TYPE_CHECKING
 
-from ui.radio.streaming_radio_types import StreamingRadioStation
 from ui.radio.station_filters import (
     BAND_FILTERS,
     GENRE_FILTERS,
     QUALITY_FILTERS,
     is_explicit_internet_only,
 )
+from ui.radio.streaming_radio_types import StreamingRadioStation
 
 if TYPE_CHECKING:
     from .streaming_radio_panel import StreamingRadioPanel

@@ -10,7 +10,6 @@ from controllers.navigation.complementary_orientation_estimator import (
     ComplementaryOrientationEstimator,
 )
 from controllers.navigation.magnetometer_source_if import MagnetometerSample, MagnetometerSourceIf
-from ui.navigation.map_presentation_if import MapPresentationIf
 from controllers.navigation.motion_calibration import MotionCalibration
 from controllers.navigation.navigation_controller import NavigationController
 from controllers.navigation.navigation_controller_if import NavigationControllerIf
@@ -18,15 +17,16 @@ from controllers.navigation.navigation_controller_stub import NavigationControll
 from controllers.navigation.navigation_gps_source_if import NavigationGpsSourceIf
 from controllers.navigation.navigation_sensor_if import MotionSample, NavigationSensorIf
 from controllers.navigation.navigation_state import (
-    GroundMotionState,
     GpsState,
+    GroundMotionState,
     NavigationState,
     OrientationState,
     PositionState,
 )
 from controllers.navigation.orientation_estimator_if import Orientation, OrientationEstimatorIf
-from controllers.navigation.position_source_if import PositionSourceIf
 from controllers.navigation.position_snapshot_cache import PositionSnapshotCache
+from controllers.navigation.position_source_if import PositionSourceIf
+from ui.navigation.map_presentation_if import MapPresentationIf
 
 __all__ = [
     "AndroidMagnetometerAdapter",

@@ -6,10 +6,8 @@
 from __future__ import annotations
 
 import tkinter as tk
-
 from collections.abc import Callable
-from ui.radio.streaming_radio_session_if import StreamingRadioSessionIf
-from ui.radio.streaming_radio_types import StreamingRadioStation
+
 from frontends.tk.radio.streaming_radio_panel import (
     BG,
     BLUE,
@@ -23,6 +21,8 @@ from frontends.tk.radio.streaming_radio_panel import (
     TEXT,
     StreamingRadioPanel,
 )
+from ui.radio.streaming_radio_session_if import StreamingRadioSessionIf
+from ui.radio.streaming_radio_types import StreamingRadioStation
 from ui.theme import ThemeBundle
 
 

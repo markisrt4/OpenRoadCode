@@ -19,7 +19,6 @@ from networking.router.router_manager import (
 )
 from networking.router.router_status import RouterStatus
 
-
 DEFAULT_CONFIG = Path(__file__).resolve().parents[1] / "config" / "vm_bench.toml"
 
 

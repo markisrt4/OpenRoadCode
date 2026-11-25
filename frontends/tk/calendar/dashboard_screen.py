@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: MIT
 """Dashboard calendar lifecycle using an injected panel factory."""
 
-from collections.abc import Callable
 import tkinter as tk
+from collections.abc import Callable
 
 from frontends.tk.tk_screen import TkScreen
 from ui.screen_ui_if import ScreenId

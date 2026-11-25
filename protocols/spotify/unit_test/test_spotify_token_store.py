@@ -4,10 +4,10 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import stat
 import tempfile
 import unittest
+from pathlib import Path
 
 from protocols.oauth import OAuthTokens
 from protocols.spotify.spotify_token_store import SpotifyTokenStore

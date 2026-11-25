@@ -1,7 +1,8 @@
 """Presentation-only platform selection for the navigation map."""
 
-from dataclasses import replace
 import tkinter as tk
+from dataclasses import replace
+
 from ui import UiWidget
 from ui.navigation.map_platform_if import MapPlatform, MapPlatformControlIf, MapPlatformState
 from ui.theme import ThemeBundle

@@ -5,12 +5,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ui.system.app_launcher_if import StatusCallback
 from apps.launchers.browser_launcher import BrowserKioskLauncher
 from apps.launchers.streamlit_launcher import StreamlitLauncher
 from common.logging.logging_paths import logging_file_path
 from common.xdg_paths import openroadcode_cache_dir
-
+from ui.system.app_launcher_if import StatusCallback
 
 DEFAULT_WEATHER_CACHE_DIRECTORY = openroadcode_cache_dir("weather")
 

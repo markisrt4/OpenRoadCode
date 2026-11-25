@@ -3,8 +3,8 @@
 
 """Tests for the WebUI song-recognition adapter."""
 
-from controllers.song_recognition import SongRecognitionIf, SongRecognitionResult
 from apps.webUi.song_recognition_session import WebSongRecognitionSession
+from controllers.song_recognition import SongRecognitionIf, SongRecognitionResult
 
 
 class _Recognizer(SongRecognitionIf):

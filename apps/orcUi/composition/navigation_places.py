@@ -12,9 +12,9 @@ from apps.launchers.earth_exploration_actions import EarthExplorationActions
 from controllers.navigation.map_favorites import MapFavorites
 from controllers.poi.android_poi_action_executor import AndroidPoiActionExecutor
 from controllers.poi.navigation_places_controller import NavigationPlacesController
+from controllers.poi.poi_action_executor_if import PoiActionExecutorIf
 from controllers.poi.poi_search_controller import PoiSearchController
 from controllers.poi.poi_search_controller_if import PoiSearchControllerIf
-from controllers.poi.poi_action_executor_if import PoiActionExecutorIf
 from ui.navigation.navigation_places_request_handler_if import NavigationPlacesFactoryIf
 
 

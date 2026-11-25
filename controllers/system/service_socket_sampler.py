@@ -11,13 +11,13 @@ import subprocess
 import time
 from pathlib import Path
 
-from ui.system_diagnostics import OrcWorkloadSnapshot, ServiceSocketSnapshot
 from controllers.system.service_socket_parser import (
-    parse_socket_table,
-    parse_tcp_counters,
-    parse_ss_sockets,
     counter_rate,
+    parse_socket_table,
+    parse_ss_sockets,
+    parse_tcp_counters,
 )
+from ui.system_diagnostics import OrcWorkloadSnapshot, ServiceSocketSnapshot
 
 # Absent optional integrations are unknown, not failed services.
 KNOWN_SERVICES = {

@@ -4,9 +4,11 @@
 """Places sessions obey semantic requests and reject late results after close."""
 
 from unittest.mock import Mock
+
 import pytest
 
 from controllers.poi.navigation_places_controller import NavigationPlacesController
+from ui.navigation import GeoPoint
 from ui.navigation.navigation_places_request_handler_if import (
     MapFavorite,
     NavigationPlacesRequestHandlerIf,
@@ -15,10 +17,9 @@ from ui.navigation.poi_models import (
     PoiAction,
     PoiActionKind,
     PoiCategory,
-    TransitMode,
     PointOfInterest,
+    TransitMode,
 )
-from ui.navigation import GeoPoint
 
 
 def session():
@@ -87,6 +88,7 @@ def test_actions_return_status_and_wrap_platform_errors():
 
 def test_camera_feedback_is_normalized_and_shared_with_backend_observer():
     import math
+
     from protocols.map_renderer.map_poi_source import RawMapCamera
 
     search, observer = Mock(), Mock()

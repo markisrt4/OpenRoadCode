@@ -6,13 +6,13 @@ from abc import abstractmethod
 from dataclasses import dataclass
 from typing import Protocol
 
-from ui.media.media_ui_if import MediaState
 from ui.media import (
     PlaybackRequestHandlerIf,
-    TrackRequestHandlerIf,
     SeekRequestHandlerIf,
+    TrackRequestHandlerIf,
     VolumeRequestHandlerIf,
 )
+from ui.media.media_ui_if import MediaState
 
 
 @dataclass(frozen=True, slots=True)

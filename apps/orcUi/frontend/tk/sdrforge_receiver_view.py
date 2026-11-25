@@ -8,25 +8,25 @@ spectrum bins, keeping transport and DSP outside Tk's UI thread.
 
 from __future__ import annotations
 
-import tkinter as tk
-from ui.ui_widget import UiWidget
-from dataclasses import replace
 import re
+import tkinter as tk
+from collections import deque
+from collections.abc import Sequence
+from dataclasses import replace
 from time import monotonic
 
 from ui.radio.radio_visualization_config import (
     RadioRenderer,
     RadioVisualizationConfig,
-    select_renderer,
     load_rf_visualization_settings,
-    save_rf_visualization_settings,
+    select_renderer,
 )
-from collections import deque
-from collections.abc import Sequence
-
 from ui.radio.sdrforge_spectrum_if import SpectrumViewport
 from ui.theme import ThemeBundle
-from .opengl_radio_surface import OpenGLRadioSurface, available as opengl_available
+from ui.ui_widget import UiWidget
+
+from .opengl_radio_surface import OpenGLRadioSurface
+from .opengl_radio_surface import available as opengl_available
 from .sdrforge_render_mixin import SdrForgeRenderMixin
 from .sdrforge_viewport_mixin import SdrForgeViewportMixin
 
@@ -396,9 +396,14 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, SdrForgeViewportMixin,
                 )
             self._constrain_viewport()
         if len(self._bins) == len(raw):
-            self._bins = tuple(0.40 * value + 0.60 * old for value, old in zip(raw, self._bins))
+            self._bins = tuple(
+                0.40 * value + 0.60 * old for value, old in zip(raw, self._bins, strict=True)
+            )
             self._peak_bins = (
-                tuple(max(value, peak) for value, peak in zip(self._bins, self._peak_bins))
+                tuple(
+                    max(value, peak)
+                    for value, peak in zip(self._bins, self._peak_bins, strict=False)
+                )
                 if self._peak_hold_enabled
                 else self._bins
             )

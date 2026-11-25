@@ -4,6 +4,7 @@
 import unittest
 from threading import Event, get_ident
 from unittest.mock import Mock
+
 from controllers.spotify.media_preview_controller import MediaPreviewController
 from ui.media import MediaState
 

@@ -2,6 +2,7 @@
 """Immutable, SI-unit aircraft presentation state."""
 
 from dataclasses import dataclass
+
 from ui.navigation.map_ui_if import GeoPoint
 
 

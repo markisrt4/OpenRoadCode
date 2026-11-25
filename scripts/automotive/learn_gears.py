@@ -13,11 +13,12 @@ and writes a small TOML profile that can later feed a runtime gear estimator.
 from __future__ import annotations
 
 import argparse
-from collections import deque
-from dataclasses import dataclass
-from pathlib import Path
 import statistics
 import sys
+from collections import deque
+from dataclasses import dataclass
+from itertools import pairwise
+from pathlib import Path
 
 try:
     import tomllib
@@ -131,11 +132,11 @@ def _kmeans_1d(values: list[float], clusters: int) -> list[list[float]]:
         new_centers = [
             statistics.median(group) if group else centers[i] for i, group in enumerate(assignments)
         ]
-        if max(abs(a - b) for a, b in zip(centers, new_centers)) < 1e-6:
+        if max(abs(a - b) for a, b in zip(centers, new_centers, strict=True)) < 1e-6:
             break
         centers = new_centers
 
-    paired = sorted(zip(centers, assignments), key=lambda item: item[0], reverse=True)
+    paired = sorted(zip(centers, assignments, strict=True), key=lambda item: item[0], reverse=True)
     return [group for _center, group in paired]
 
 
@@ -159,7 +160,7 @@ def _write_profile(path: Path, groups: list[list[float]], sample_count: int) -> 
         maximum = max(group)
         lines.extend(
             [
-                f"[[gear]]",
+                "[[gear]]",
                 f"number = {gear}",
                 f"rpm_per_mph = {center:.6f}",
                 f"mean_rpm_per_mph = {mean:.6f}",
@@ -258,9 +259,7 @@ def _single_gear_learn(subscriber: ZeroMqSubscriber, args: argparse.Namespace) -
     groups[gear - 1] = values
 
     learned = [(index + 1, statistics.median(group)) for index, group in enumerate(groups) if group]
-    if any(
-        a_ratio <= b_ratio for (_a_gear, a_ratio), (_b_gear, b_ratio) in zip(learned, learned[1:])
-    ):
+    if any(a_ratio <= b_ratio for (_a_gear, a_ratio), (_b_gear, b_ratio) in pairwise(learned)):
         print(
             "Calibration rejected: learned ratios must decrease as gear number increases.",
             file=sys.stderr,

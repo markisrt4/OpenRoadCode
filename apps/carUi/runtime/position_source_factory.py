@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 
 from apps.carUi.runtime.browser_position_source import BrowserPositionSource
+from config.runtime_config import PositionCacheConfig
 from controllers.cache import PersistentCache
 from controllers.navigation import (
     GpsdPositionSource,
@@ -17,15 +18,16 @@ from controllers.navigation import (
     PositionSourceIf,
 )
 from controllers.navigation.position_snapshot_cache import DEFAULT_POSITION_CACHE_DIRECTORY
-from config.runtime_config import PositionCacheConfig
 
 
 def create_position_source(
     provider: str | None = None,
     *,
-    cache_config: PositionCacheConfig = PositionCacheConfig(),
+    cache_config: PositionCacheConfig | None = None,
 ) -> PositionSourceIf:
     """Create the configured position provider."""
+    if cache_config is None:
+        cache_config = PositionCacheConfig()
     selected = (provider or os.getenv("CARUI_POSITION_SOURCE", "gpsd")).strip().lower()
     if selected == "gpsd":
         source: PositionSourceIf = GpsdPositionSource()

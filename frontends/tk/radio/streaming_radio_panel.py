@@ -7,41 +7,61 @@ from __future__ import annotations
 
 import tkinter as tk
 from collections.abc import Callable
-from io import BytesIO
 from functools import partial
+from io import BytesIO
 
 from PIL import Image, ImageOps, ImageTk
 
-from ui.radio.streaming_radio_types import StreamingRadioStation
-from ui.radio.streaming_radio_session_if import (
-    StreamingRadioSessionIf,
-    StreamingRadioRequestHandlerIf,
-)
-from ui.radio.streaming_radio_state import (
-    StreamingRadioBrowserState,
-    StreamingRadioBrowseMode,
-    StreamingRadioPlaybackState,
-)
 from ui.radio.station_filters import (
     StationFilters,
 )
+from ui.radio.streaming_radio_session_if import (
+    StreamingRadioRequestHandlerIf,
+    StreamingRadioSessionIf,
+)
+from ui.radio.streaming_radio_state import (
+    StreamingRadioBrowseMode,
+    StreamingRadioBrowserState,
+    StreamingRadioPlaybackState,
+)
+from ui.radio.streaming_radio_types import StreamingRadioStation
 from ui.ui_widget import UiWidget
 
 from .streaming_radio_layout import (
     BG as BG,
-    PANEL as PANEL,
-    CARD as CARD,
-    CARD_SELECTED as CARD_SELECTED,
-    BORDER as BORDER,
-    TEXT as TEXT,
-    MUTED as MUTED,
-    GREEN as GREEN,
+)
+from .streaming_radio_layout import (
     BLUE as BLUE,
+)
+from .streaming_radio_layout import (
+    BORDER as BORDER,
+)
+from .streaming_radio_layout import (
+    CARD as CARD,
+)
+from .streaming_radio_layout import (
+    CARD_SELECTED as CARD_SELECTED,
+)
+from .streaming_radio_layout import (
     DANGER as DANGER,
-    build_streaming_header,
+)
+from .streaming_radio_layout import (
+    GREEN as GREEN,
+)
+from .streaming_radio_layout import (
+    MUTED as MUTED,
+)
+from .streaming_radio_layout import (
+    PANEL as PANEL,
+)
+from .streaming_radio_layout import (
+    TEXT as TEXT,
+)
+from .streaming_radio_layout import (
     build_filter_drawer,
     build_filter_group,
     build_station_card,
+    build_streaming_header,
 )
 
 ARTWORK_SIZE = 64

@@ -9,7 +9,6 @@ from apps.common.instruments.gauge_style import GaugeStyle
 from apps.common.instruments.instrument_panel import InstrumentPanel
 from messaging.contracts.automotive import VehicleStateData
 
-
 RPM_PER_RAD_S = 60.0 / (2.0 * math.pi)
 MPH_PER_MPS = 2.2369362920544
 PSI_PER_PA = 0.00014503773773020923

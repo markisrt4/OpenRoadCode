@@ -6,7 +6,6 @@ import ast
 import os
 from pathlib import Path
 
-
 MARKER = "ui.ui_widget.UiWidget"
 EXCLUDED = {
     "venv",
@@ -84,7 +83,7 @@ def discover_widgets(root):
                         imports[local] = target
                         edges.setdefault(f"{module}.{local}", set()).add(target)
 
-        def resolve(node):
+        def resolve(node, imports=imports, module=module):
             name = _name(node)
             if name is None:
                 return None

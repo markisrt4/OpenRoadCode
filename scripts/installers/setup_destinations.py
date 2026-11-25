@@ -17,9 +17,9 @@ from config.saved_destinations import SavedDestinationsConfig
 from controllers.navigation.destination_setup_controller import DestinationSetupController
 from controllers.navigation.sqlite_geocoder import SqliteGeocoder
 from frontends.tui.destination_setup import run_destination_setup
-from ui.navigation.destination_setup_ui_if import DestinationSetupUiIf
 from protocols.geocoding.census_geocoder import CensusGeocoder
 from scripts.installers.destination_map_runtime import confirm_on_map
+from ui.navigation.destination_setup_ui_if import DestinationSetupUiIf
 
 
 class WhiptailDestinationDialog(DestinationSetupUiIf):

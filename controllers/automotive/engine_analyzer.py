@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from controllers.automotive.vehicle_state import VehicleState
 from ui.automotive.engine_analysis import (
     EngineAnalysis,
     EngineLoadLevel,
@@ -13,7 +14,6 @@ from ui.automotive.engine_analysis import (
     TrackingQuality,
 )
 from ui.automotive.vehicle_configuration import VehicleConfiguration
-from controllers.automotive.vehicle_state import VehicleState
 
 
 class EngineAnalyzer:

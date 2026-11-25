@@ -2,6 +2,7 @@
 """Native map presentation adapter for aircraft overlay snapshots."""
 
 from math import degrees, isfinite
+
 from ui.adsb.aircraft_overlay_ui_if import AircraftOverlayUiIf
 
 

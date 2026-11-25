@@ -6,6 +6,7 @@ Run from the repository root: python -m component_test.adsb_overlay_cli
 
 import argparse
 import time
+
 from controllers.adsb.aircraft_overlay_controller import AircraftOverlayController
 from controllers.adsb.aircraft_snapshot_adapter import aircraft_from_snapshot
 from frontends.common.map_aircraft_overlay_ui import MapAircraftOverlayUi
@@ -29,7 +30,7 @@ def main(argv=None):
 
     try:
         from sdrforge.adsb.simulation import simulated_aircraft
-    except ImportError as exc:
+    except ImportError:
         parser.error("Install libSDRForge in this environment: pip install -e ../libSDRForge")
 
     with_client = MapRendererClient(endpoint=args.endpoint)

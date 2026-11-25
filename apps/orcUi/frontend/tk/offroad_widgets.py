@@ -9,8 +9,9 @@ import math
 import tkinter as tk
 
 from ui.theme import ThemeBundle
-from .shell_metrics import FONT_SMALL
 from ui.ui_widget import UiWidget
+
+from .shell_metrics import FONT_SMALL
 
 
 class RollIndicator(tk.Canvas, UiWidget):

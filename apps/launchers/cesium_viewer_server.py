@@ -1,19 +1,19 @@
 """Loopback transport adapter for local viewer assets and semantic close requests."""
 
-from functools import partial
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import mimetypes
-from pathlib import Path
 import secrets
+import sqlite3
 import threading
+from functools import partial
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 from apps.launchers.cesium_sdk import require_sdk
+from tools.map_builder.builder.validate import ValidationError
 from ui.navigation.cesium_viewer_state import CesiumViewerState
 from ui.navigation.local_imagery_state import LocalImageryStackState
-import sqlite3
-from tools.map_builder.builder.validate import ValidationError
 
 _WEB = Path(__file__).resolve().parents[2] / "frontends/web/cesium"
 

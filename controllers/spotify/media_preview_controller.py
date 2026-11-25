@@ -3,9 +3,10 @@
 
 """Share existing media state and artwork loading with a lightweight preview."""
 
-from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
+
 from ui.media.media_preview_if import MediaPreviewIf
 from ui.media.media_ui_if import MediaState
 

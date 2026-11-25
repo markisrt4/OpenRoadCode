@@ -2,11 +2,10 @@
 # SPDX-License-Identifier: MIT
 
 import os
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 import pytest
-
 
 HELPER = Path(__file__).resolve().parents[2] / "development/termux/maplibre_build_state.sh"
 

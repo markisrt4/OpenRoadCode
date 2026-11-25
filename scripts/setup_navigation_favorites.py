@@ -19,7 +19,6 @@ from controllers.navigation.position_snapshot_cache import (
 from controllers.navigation.sqlite_geocoder import SqliteGeocoder
 from ui.navigation import GeoPoint
 
-
 DEFAULT_SEARCH_DATABASE = (
     Path(os.environ.get("OPENROADCODE_DATA_ROOT", "/srv/openroadcode"))
     / "maps"
@@ -173,4 +172,4 @@ if __name__ == "__main__":
         raise SystemExit(main())
     except KeyboardInterrupt:
         print("\nOpenRoadCode Home / Work setup cancelled.")
-        raise SystemExit(130)
+        raise SystemExit(130) from None

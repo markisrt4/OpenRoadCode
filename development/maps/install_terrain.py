@@ -8,9 +8,9 @@ from pathlib import Path
 
 from apps.launchers.local_terrain_pack import (
     detroit_terrain_directory,
+    load_terrain,
     midtown_terrain_directory,
     pine_knob_terrain_directory,
-    load_terrain,
 )
 from common.xdg_paths import openroadcode_data_dir
 from tools.map_builder.builder.map_3d import PRESETS

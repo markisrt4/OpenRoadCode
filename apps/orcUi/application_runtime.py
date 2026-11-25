@@ -7,8 +7,6 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-
-from common.resource_cleanup import ResourceCleanup, close_resources
 from pathlib import Path
 
 from apps.common.spotify_controller_factory import create_spotify_controller
@@ -16,6 +14,7 @@ from apps.launchers.browser_app_factory import BrowserApplicationFactory
 from apps.launchers.google_earth_launcher import GoogleEarthLauncher
 from apps.orcUi.media_application_service import MediaApplicationService
 from apps.orcUi.native_radio_application_service import NativeRadioApplicationService
+from common.resource_cleanup import ResourceCleanup, close_resources
 from config.application_config import ApplicationsConfigParser
 from controllers.application_runtime import AppRuntimeManager
 from controllers.radio.streaming_radio_controller import StreamingRadioController

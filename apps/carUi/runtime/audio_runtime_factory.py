@@ -15,7 +15,6 @@ from controllers.audio import (
     PipewireAudioController,
 )
 
-
 LOGGER = logging.getLogger(__name__)
 
 
@@ -23,7 +22,7 @@ def create_audio_controller(
     *,
     target: RuntimeTarget | None = None,
     steps: int = 20,
-    config: AudioConfig = AudioConfig(),
+    config: AudioConfig | None = None,
 ) -> AudioControllerIf:
     """Create the audio controller appropriate for a runtime target.
 
@@ -32,6 +31,8 @@ def create_audio_controller(
     @param config Preferred output and optional stable device-name match.
     @return Platform-appropriate system audio controller.
     """
+    if config is None:
+        config = AudioConfig()
     resolved_target = target or detect_runtime_target()
     output = _resolve_output(config.output, resolved_target)
     if resolved_target is RuntimeTarget.LINUX_DEV:

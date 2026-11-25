@@ -4,9 +4,10 @@
 """Forecast refresh lifecycle regression tests."""
 
 from unittest.mock import Mock, patch
+
 from controllers.weather.weather_screen_controller import WeatherScreenController
-from ui.weather.weather_screen_ui_if import WeatherScreenUiIf
 from frontends.tk.weather.weather_screen import WeatherScreen
+from ui.weather.weather_screen_ui_if import WeatherScreenUiIf
 
 
 def test_weather_screen_implements_contract():
@@ -46,7 +47,7 @@ def test_visible_failure_stops_loading_and_preserves_forecast():
 
 
 def test_cached_fallback_is_labelled_stale_and_keeps_weather_visible():
-    from controllers.weather.weather_state import WeatherState, WeatherSource, CurrentWeather
+    from controllers.weather.weather_state import CurrentWeather, WeatherSource, WeatherState
 
     dispatcher, backend, view = Mock(), Mock(), Mock()
     state = WeatherState(
@@ -73,7 +74,7 @@ def test_cached_fallback_is_labelled_stale_and_keeps_weather_visible():
 
 
 def test_data_becomes_stale_while_open_without_hidden_timer_updates():
-    from controllers.weather.weather_state import WeatherState, WeatherSource, CurrentWeather
+    from controllers.weather.weather_state import CurrentWeather, WeatherSource, WeatherState
 
     dispatcher, backend, view = Mock(), Mock(), Mock()
     state = WeatherState(

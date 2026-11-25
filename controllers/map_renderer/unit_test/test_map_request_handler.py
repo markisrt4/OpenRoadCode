@@ -70,7 +70,7 @@ class MapRequestHandlerTest(unittest.TestCase):
         self.assertEqual(self.renderer.cameras, [])
         self.handler.refresh_renderer_state()
         camera = self.renderer.cameras[-1]
-        for actual, expected in zip(camera, (42.81, -83.02, 18.5, 25, 40)):
+        for actual, expected in zip(camera, (42.81, -83.02, 18.5, 25, 40), strict=True):
             self.assertAlmostEqual(actual, expected)
         self.assertFalse(self.handler.follow_enabled)
 

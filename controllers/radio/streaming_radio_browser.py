@@ -4,9 +4,9 @@
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable
 from dataclasses import replace
-import threading
 
 from ui.radio.streaming_radio_session_if import StreamingRadioRequestHandlerIf, StreamingRadioUiIf
 from ui.radio.streaming_radio_state import StreamingRadioBrowseMode, StreamingRadioBrowserState

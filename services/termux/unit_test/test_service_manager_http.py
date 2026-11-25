@@ -3,14 +3,14 @@
 
 """Authentication and request tests for the Termux runit HTTP control plane."""
 
-from http.client import HTTPConnection
 import json
 import threading
 import unittest
+from http.client import HTTPConnection
 from unittest.mock import Mock
 
-from services.common.service_manager_pairing import ServiceManagerPairing
 from services.common.service_manager_browser_pairing import ServiceManagerBrowserPairing
+from services.common.service_manager_pairing import ServiceManagerPairing
 from services.termux.service_manager import ServiceStatus
 from services.termux.service_manager_http import ServiceManagerHandler, ThreadingHTTPServer
 

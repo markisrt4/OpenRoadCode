@@ -8,10 +8,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from common.resource_cleanup import ResourceCleanup, close_resources
-
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.theme_runtime import theme_bundle
+from common.resource_cleanup import ResourceCleanup, close_resources
 from common.units import UnitSystem, kelvin_to_celsius, kelvin_to_fahrenheit
 from config.runtime_environment import android_bridge_url
 from config.service_runtime_config import ServiceRuntimeConfigParser

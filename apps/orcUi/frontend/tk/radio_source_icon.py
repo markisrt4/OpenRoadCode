@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-import tkinter as tk
 import math
+import tkinter as tk
 
 from ui.theme import ThemeBundle
 
@@ -24,7 +24,7 @@ def draw_source_scene(
     for index in range(32):
         amount = 0.22 * (1 - index / 31)
         color = "#" + "".join(
-            f"{round((a + (b - a) * amount) / 257):02x}" for a, b in zip(base, tint)
+            f"{round((a + (b - a) * amount) / 257):02x}" for a, b in zip(base, tint, strict=True)
         )
         canvas.create_rectangle(
             width * index / 32, 0, width * (index + 1) / 32 + 1, height, fill=color, outline=""

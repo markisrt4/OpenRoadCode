@@ -8,17 +8,16 @@ from io import BytesIO
 from unittest.mock import Mock
 from urllib.parse import parse_qs, urlparse
 
-from PIL import Image
 import pytest
+from PIL import Image
 
 from controllers.weather.hrrr_map_layers import (
-    HrrrMapLayerProvider,
-    field_range,
-    color_model_layer,
     TEMPERATURE_COLORS,
     WIND_COLORS,
+    HrrrMapLayerProvider,
+    color_model_layer,
+    field_range,
 )
-
 
 RUN = "2026100212"
 HOUR = int(datetime(2026, 10, 2, 12, tzinfo=timezone.utc).timestamp())

@@ -6,23 +6,10 @@
 from __future__ import annotations
 
 import tkinter as tk
-from .sdrforge_receiver_view import SdrForgeReceiverView
+
 from .automotive_radio_button import AutomotiveRadioButton
-from ui.radio.sdrforge_spectrum_if import SpectrumPresentation
-from ui.radio.radio_visualization_config import RadioVisualizationConfig
-from ui.radio.rf_radio_if import (
-    RadioAction,
-    RadioHost,
-    RadioRequest,
-    RfRadioSession,
-    RfRadioState,
-    receiver_mode_mismatch,
-)
-from ui.radio.radio_profile_state import RadioProfileState
-from ui.theme import ThemeBundle
+from .sdrforge_receiver_view import SdrForgeReceiverView
 from .shell_metrics import FONT_SMALL
-from .radio_display_controls import RadioDisplayControlsMixin
-from .radio_group_menu import MAIN_GROUPS, RadioGroupMenuMixin
 
 
 class RadioPanelLayoutMixin:

@@ -1,7 +1,7 @@
 """Immutable sampled ground relief in SI units, independent of its renderer."""
 
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
 
 from ui.navigation.local_imagery_state import LocalImageryState
 

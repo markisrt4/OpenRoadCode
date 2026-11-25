@@ -8,7 +8,6 @@ import argparse
 import math
 import time
 
-from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
 from controllers.navigation.earth_geolocation_bridge import EarthGeolocationBridge
 from messaging.contracts.navigation import (
     MOTION_STATE_TOPIC,
@@ -19,6 +18,7 @@ from messaging.contracts.navigation import (
 from messaging.message_dispatcher import MessageDispatcher
 from messaging.zeromq import ZeroMqSubscriber
 from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
+from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
 
 
 def main() -> int:

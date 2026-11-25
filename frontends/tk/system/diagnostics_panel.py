@@ -10,11 +10,12 @@ from collections import deque
 
 from ui.system_diagnostics import SystemDiagnosticsSnapshot
 from ui.theme import ThemeBundle
+from ui.ui_widget import UiWidget
+
+from .diagnostics_table import DiagnosticsTable
 from .diagnostics_tabs import DiagnosticsTabs
 from .network_usb_panel import NetworkUsbPanel
-from .diagnostics_table import DiagnosticsTable
 from .system_metrics_panel import SystemMetricsPanel, pressure_color
-from ui.ui_widget import UiWidget
 
 
 class DiagnosticsPanel(tk.Frame, UiWidget):

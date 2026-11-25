@@ -9,7 +9,6 @@ from common.xdg_paths import xdg_config_home
 from protocols.auth import SecureJsonStore
 from protocols.oauth import OAuthTokens, OAuthTokenStoreIf
 
-
 DEFAULT_TOKEN_PATH = xdg_config_home() / "spotify" / "tokens.json"
 
 

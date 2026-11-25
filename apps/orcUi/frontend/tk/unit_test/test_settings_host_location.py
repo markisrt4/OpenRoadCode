@@ -3,9 +3,9 @@
 
 from unittest.mock import Mock, patch
 
-from common.units import UnitSystem
-from apps.orcUi.frontend.tk.settings_screen import SettingsScreen
 from apps.orcUi.frontend.tk.settings_panel import SettingsPanel
+from apps.orcUi.frontend.tk.settings_screen import SettingsScreen
+from common.units import UnitSystem
 from ui.navigation.host_location_ui_if import HostLocationState
 
 

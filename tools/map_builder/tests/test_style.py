@@ -1,10 +1,10 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-from pathlib import Path
 import json
 import tempfile
 import unittest
+from pathlib import Path
 
 from tools.map_builder.builder.style import install_style
 from tools.map_builder.builder.validate import validate_style

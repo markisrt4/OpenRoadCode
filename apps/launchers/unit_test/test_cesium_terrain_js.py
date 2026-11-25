@@ -1,8 +1,8 @@
 """Exercise renderer sampling math when the optional Node test runner is available."""
 
-from pathlib import Path
 import shutil
 import subprocess
+from pathlib import Path
 
 import pytest
 

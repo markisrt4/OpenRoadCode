@@ -1,23 +1,23 @@
 """Download a bounded USGS/USDA NAIP image once, retaining source evidence."""
 
 import argparse
-from datetime import datetime, timezone
-from email.utils import parsedate_to_datetime
 import hashlib
-from http.client import IncompleteRead
 import json
 import re
 import time
-from urllib.error import HTTPError, URLError
-from pathlib import Path
-from tempfile import TemporaryDirectory
 import urllib.parse
 import urllib.request
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
+from http.client import IncompleteRead
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from urllib.error import HTTPError, URLError
 
 from apps.launchers.local_imagery_pack import (
+    LocalImageryPack,
     detroit_pack_directory,
     pine_knob_imagery_directory,
-    LocalImageryPack,
 )
 from tools.map_builder.builder.map_3d import PRESETS
 
@@ -311,7 +311,8 @@ def download(
         raise RuntimeError("USGS export is not geographic WGS84")
     bounds = [extent[k] for k in ("xmin", "ymin", "xmax", "ymax")]
     if any(
-        abs(actual - requested) > 0.000001 for actual, requested in zip(bounds, requested_bounds)
+        abs(actual - requested) > 0.000001
+        for actual, requested in zip(bounds, requested_bounds, strict=True)
     ):
         raise RuntimeError("Export coverage differs from the requested bounded area")
     if (export["width"], export["height"]) != image_size:

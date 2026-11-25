@@ -11,9 +11,10 @@ import tkinter as tk
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from ui.theme import ThemeBundle
+from ui.ui_widget import UiWidget
+
 from .offroad_widgets import PitchIndicator, RollIndicator
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
-from ui.ui_widget import UiWidget
 
 
 class ContextOffroadPanel(tk.Frame, UiWidget):
@@ -185,7 +186,6 @@ class ContextOffroadPanel(tk.Frame, UiWidget):
         return card
 
     def _paint(self) -> None:
-        ui = self._theme.ui
         heading = self._attitude.heading_deg
         heading_text = (
             "--" if heading is None else f"{_cardinal_direction(heading)} {heading:03.0f}°"

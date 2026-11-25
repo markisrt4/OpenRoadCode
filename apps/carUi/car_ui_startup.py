@@ -8,21 +8,20 @@ from __future__ import annotations
 import os
 from contextlib import ExitStack
 from pathlib import Path
-from config.runtime_target import RuntimeTarget, detect_runtime_target
 
 from apps.carUi.car_ui_dependencies import CarUiDependencies
+from apps.carUi.runtime.audio_runtime_factory import create_audio_controller
 from apps.carUi.runtime.car_ui_runtime_factory import create_car_ui_runtime
-from apps.carUi.runtime.lighting_runtime_factory import create_lighting_controller
 from apps.carUi.runtime.input_device_runtime import InputDeviceRuntime, create_input_device_runtime
+from apps.carUi.runtime.lighting_runtime_factory import create_lighting_controller
 from apps.carUi.runtime.rotary_encoder_runtime import create_rotary_encoder_runtime
 from apps.carUi.runtime.spotify_runtime_factory import create_spotify_controller
 from apps.common.uiTheme.uiTheme import CAR_UI_THEME
-from apps.carUi.runtime.audio_runtime_factory import create_audio_controller
+from config.runtime_target import RuntimeTarget, detect_runtime_target
 from controllers.image import ImageCache
 from controllers.lyrics import LrclibLyricsClient
 from controllers.video import MusicVideoController, NetflixPlayer, YouTubeMusicVideo, YouTubePlayer
 from frontends.tk.system import StartupItem, StartupSplash, StartupState, StartupStatusCallback
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RUNTIME_CONFIG_PATH = PROJECT_ROOT / "config" / "runtime.toml"

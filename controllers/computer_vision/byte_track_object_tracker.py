@@ -8,7 +8,6 @@ from __future__ import annotations
 import warnings
 
 from common.logging.diagnostics import ComponentLog, diagnostic_action
-
 from controllers.computer_vision.object_detector_if import DetectionFrame
 from controllers.computer_vision.object_tracker_if import ObjectTrack, ObjectTrackerIf, TrackFrame
 

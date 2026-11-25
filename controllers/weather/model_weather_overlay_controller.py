@@ -4,22 +4,21 @@
 """Asynchronous full-area HRRR model overlays independent of radar playback."""
 
 import logging
-
-from datetime import datetime, timezone
 import threading
+from datetime import datetime, timezone
 from time import monotonic
-from common.logging.structured import operation
-from controllers.weather.weather_logging import WeatherLog
 
+from common.logging.structured import operation
 from controllers.weather.hrrr_map_layers import TEMPERATURE_COLORS, WIND_COLORS
+from controllers.weather.radar_palette import RadarPalette
+from controllers.weather.weather_logging import WeatherLog
 from ui.ui_dispatcher_if import UiDispatcherIf
-from ui.weather.weather_overlay_ui_if import WeatherOverlayUiIf
 from ui.weather.weather_overlay_state import (
     ModelWeatherOverlayState,
     WeatherColorStop,
     WeatherRaster,
 )
-from controllers.weather.radar_palette import RadarPalette
+from ui.weather.weather_overlay_ui_if import WeatherOverlayUiIf
 
 
 class ModelWeatherOverlayController:

@@ -14,13 +14,11 @@ from ui.calendar.calendar_models import (
     CalendarHealthView,
     CalendarSelectionView,
 )
-
-from .calendar_health import sample_calendar_health
-
 from ui.calendar.calendar_presentation_if import CalendarAgendaIf, CalendarSelectionIf
 
-from .calendar_query_if import CalendarQueryIf
+from .calendar_health import sample_calendar_health
 from .calendar_models import CalendarEvent
+from .calendar_query_if import CalendarQueryIf
 from .calendar_selection import (
     load_calendar_catalog,
     load_disabled_calendar_ids,

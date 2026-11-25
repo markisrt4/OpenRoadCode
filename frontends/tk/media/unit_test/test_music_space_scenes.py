@@ -5,7 +5,7 @@
 from unittest.mock import Mock
 
 from frontends.tk.media.music_gl_scene import NativeSceneGeometry
-from frontends.tk.media.music_space_scenes import orbital_system, electric_freeway
+from frontends.tk.media.music_space_scenes import electric_freeway, orbital_system
 
 
 def test_planet_surfaces_are_cached_per_context_and_include_moons_and_rings():

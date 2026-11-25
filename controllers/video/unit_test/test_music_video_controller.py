@@ -3,10 +3,10 @@
 
 """Tests for track-specific music-video availability."""
 
-import unittest
 import threading
-from unittest.mock import Mock
+import unittest
 from dataclasses import replace
+from unittest.mock import Mock
 
 from controllers.spotify.spotify_state import SpotifyState
 from controllers.video.music_video_controller import MusicVideoController

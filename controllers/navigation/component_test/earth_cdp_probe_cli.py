@@ -8,8 +8,8 @@ from __future__ import annotations
 import argparse
 import json
 
-from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
 from controllers.navigation.earth_cdp_camera_controller import EarthCdpCameraController
+from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
 
 
 def _command_name(call: dict) -> str:

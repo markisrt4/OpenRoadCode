@@ -10,23 +10,22 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from config.runtime_config import (
-    RuntimeConfigParser,
-    RotaryEncoderConfig,
-)
 from apps.carUi.runtime.car_ui_input_runtime import CarUiInputRuntime
 from apps.carUi.runtime.rotary_encoder_runtime import (
     create_rotary_encoder_runtime,
 )
-from input_events import InputDeviceId, InputDeviceType
+from config.runtime_config import (
+    RotaryEncoderConfig,
+    RuntimeConfigParser,
+)
 from controllers.audio import PipewireAudioController
 from controllers.input import (
     InputManager,
     InputMapper,
 )
+from input_events import InputDeviceId, InputDeviceType
 from ui.ui_action import UiAction
 from ui.ui_event_handler_if import UiEventHandlerIf
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "config" / "runtime.toml"

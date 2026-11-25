@@ -6,7 +6,6 @@ from __future__ import annotations
 import logging
 
 from common.logging.structured import current_operation, event, operation
-
 from hardware_io.automotive.elm327 import (
     Elm327CommandError,
     Elm327ConnectionError,
@@ -18,10 +17,10 @@ from protocols.obd2 import (
     Obd2AdapterIf,
     Obd2CommandError,
     Obd2ConnectionError,
+    Obd2Error,
     Obd2ProtocolError,
     Obd2Request,
     Obd2Response,
-    Obd2Error,
 )
 
 LOGGER = logging.getLogger("automotive.elm327")

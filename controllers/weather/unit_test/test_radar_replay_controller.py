@@ -7,9 +7,9 @@ from unittest.mock import Mock
 
 import pytest
 
+from controllers.weather import RadarFrame, WeatherRadarController
 from controllers.weather.radar_replay_controller import RadarReplayController
 from ui.weather.radar_ui_stub import RadarUiStub
-from controllers.weather import RadarFrame, WeatherRadarController
 
 
 @pytest.fixture

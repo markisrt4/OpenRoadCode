@@ -5,8 +5,8 @@
 
 from abc import ABC, abstractmethod
 
-from ui.media.spotify_library import SpotifyLibraryTrack, SpotifyPlaylist
 from controllers.spotify.spotify_state import SpotifyState
+from ui.media.spotify_library import SpotifyLibraryTrack, SpotifyPlaylist
 
 
 class SpotifyControllerIf(ABC):

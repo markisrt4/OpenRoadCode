@@ -5,43 +5,40 @@
 
 from __future__ import annotations
 
-import os
 import logging
-import tkinter as tk
+import os
 import threading
+import tkinter as tk
 import urllib.request
-from queue import Empty, SimpleQueue
 from collections.abc import Callable
-from dataclasses import dataclass, field
 from concurrent.futures import ThreadPoolExecutor
-
-from apps.orcUi.application_runtime import OrcUiApplicationRuntime
-from common.resource_cleanup import ResourceCleanup, close_resources
+from dataclasses import dataclass, field
+from queue import Empty, SimpleQueue
 
 from apps.orcUi.adapters.adsb_control import OrcUiAdsbControl
+from apps.orcUi.application_runtime import OrcUiApplicationRuntime
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.radio_entry_panel import RadioEntryPanel
-from apps.orcUi.theme_runtime import theme_bundle
-from controllers.radio.adapters.radio_browser_directory import RadioBrowserDirectory
-from controllers.radio.weather_radio import play_weather_radio
-from controllers.radio.rf_radio_session import ReceiverSession
-from ui.radio.radio_visualization_config import RadioRenderer, RadioVisualizationConfig
-from controllers.radio.native_radio_control import NativeRadioControl
 from apps.orcUi.frontend.tk.radio_panel import RadioPanel
+from apps.orcUi.theme_runtime import theme_bundle
+from common.resource_cleanup import ResourceCleanup, close_resources
+from controllers.radio.adapters.radio_browser_directory import RadioBrowserDirectory
 from controllers.radio.adapters.sdrforge_zmq_spectrum_adapter import SdrForgeTelemetrySubscriber
+from controllers.radio.native_radio_control import NativeRadioControl
 from controllers.radio.radio_profile_controller import RadioProfileController
-from protocols.rigctl.rigctl_client import RigctlClient
-from controllers.radio.streaming_radio_favorites import StreamingRadioFavorites
-from controllers.radio.streaming_radio_browser import StreamingRadioBrowser
+from controllers.radio.rf_radio_session import ReceiverSession
 from controllers.radio.streaming_radio_artwork import download_station_artwork
-from frontends.tk.radio.persistent_streaming_radio_panel import PersistentStreamingRadioPanel
-from frontends.x11.x11_window_embedder import X11WindowEmbedder
+from controllers.radio.streaming_radio_browser import StreamingRadioBrowser
+from controllers.radio.streaming_radio_favorites import StreamingRadioFavorites
+from controllers.radio.weather_radio import play_weather_radio
 from frontends.tk.radio import RadioScreen
+from frontends.tk.radio.persistent_streaming_radio_panel import PersistentStreamingRadioPanel
 from frontends.tk.radio.streaming_radio_now_playing import StreamingRadioNowPlaying
-from ui.theme import ThemeBundle, ThemeMode
-
-
+from frontends.x11.x11_window_embedder import X11WindowEmbedder
+from protocols.rigctl.rigctl_client import RigctlClient
 from ui.radio import AircraftMenuRequestHandlerIf
+from ui.radio.radio_visualization_config import RadioRenderer, RadioVisualizationConfig
+from ui.theme import ThemeBundle, ThemeMode
 
 
 @dataclass(frozen=True, slots=True)

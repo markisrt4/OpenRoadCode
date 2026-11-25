@@ -11,7 +11,6 @@ from typing import Any
 from flask import render_template_string
 from markupsafe import Markup
 
-
 _TEMPLATE = """
 <!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1">

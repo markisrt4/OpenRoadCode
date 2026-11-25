@@ -6,13 +6,12 @@
 from __future__ import annotations
 
 import logging
-
-from common.logging.structured import current_operation
-from common.logging.diagnostics import ComponentLog, diagnostic_action
 import math
 import sqlite3
 from collections.abc import Callable
 
+from common.logging.diagnostics import ComponentLog, diagnostic_action
+from common.logging.structured import current_operation
 from common.navigation_data import search_database_path
 from controllers.cache import PersistentCache
 from controllers.navigation.current_position import get_current_position
@@ -21,13 +20,12 @@ from controllers.navigation.position_snapshot_cache import (
     PositionSnapshotCache,
 )
 from controllers.poi.poi_enricher import enrich_poi
-from ui.navigation.poi_models import PoiCategory, PoiSearchResult, PointOfInterest, TransitMode
 from controllers.poi.poi_search_controller_if import PoiSearchControllerIf
 from controllers.poi.poi_search_source_if import PoiSearchBounds, PoiSearchQuery, PoiSearchSourceIf
 from controllers.poi.sqlite_poi_search_source import SqlitePoiSearchSource
 from protocols.map_renderer.map_poi_source import MapPoiSource, RawMapPoi
 from ui.navigation import GeoPoint
-
+from ui.navigation.poi_models import PoiCategory, PointOfInterest, PoiSearchResult, TransitMode
 
 _EARTH_RADIUS_M = 6_378_137.0
 _NEARBY_RADIUS_M = 20_000.0

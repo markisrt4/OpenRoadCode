@@ -3,35 +3,38 @@
 """Integrated OpenRoadCode automotive application shell."""
 
 from __future__ import annotations
+
 import os
 import signal
 import tkinter as tk
+from collections.abc import Callable
+
+from apps.orcUi.notification_dispatcher import NotificationDispatcher
+from apps.orcUi.orc_theme import toggle
+from apps.orcUi.performance_status import PerformanceStatus
+from apps.orcUi.theme_runtime import theme_bundle
+from common.host_config import installed_target, orcui_borderless_default, orcui_fullscreen_default
 from common.resource_cleanup import ResourceCleanup, close_resources
 from frontends.common.ui_callback_queue import UiCallbackQueue
-from ui.system.online_mode_if import OnlineModeIf
-from collections.abc import Callable
-from apps.orcUi.performance_status import PerformanceStatus
-from ui.system_diagnostics import SystemDiagnosticsSnapshot
-from apps.orcUi.orc_theme import toggle
-from ui.theme import ThemeMode
-from .ui_callback_mixin import UiCallbackMixin
-from .power_dialog import PowerDialog
-from .error_dialog import ErrorDialog
-from apps.orcUi.notification_dispatcher import NotificationDispatcher
 from ui.notification_if import Notification
+from ui.radio import AircraftMenuRequestHandlerIf, AircraftMenuUiState
+from ui.screen_ui_if import ScreenUiIf
+from ui.system import SystemLifecycleRequestHandlerIf, VolumeRequestHandlerIf, VolumeUiIf
+from ui.system.online_mode_if import OnlineModeIf
+from ui.system_diagnostics import SystemDiagnosticsSnapshot
+from ui.theme import ThemeMode
+from ui.ui_widget import UiWidget
+from ui.weather import WeatherAlertUiEvent
+
+from .error_dialog import ErrorDialog
 from .performance_overlay import PerformanceOverlay
+from .power_dialog import PowerDialog
 from .screen_builders import (
     build_placeholder,
 )
 from .shell_metrics import TARGET_GEOMETRY, TARGET_HEIGHT, TARGET_WIDTH
 from .shell_view import OrcUiShellView
-from apps.orcUi.theme_runtime import theme_bundle
-from common.host_config import installed_target, orcui_borderless_default, orcui_fullscreen_default
-from ui.screen_ui_if import ScreenUiIf
-from ui.system import SystemLifecycleRequestHandlerIf, VolumeRequestHandlerIf, VolumeUiIf
-from ui.weather import WeatherAlertUiEvent
-from ui.radio import AircraftMenuRequestHandlerIf, AircraftMenuUiState
-from ui.ui_widget import UiWidget
+from .ui_callback_mixin import UiCallbackMixin
 
 
 class OrcUiApp(UiCallbackMixin, VolumeUiIf, UiWidget):

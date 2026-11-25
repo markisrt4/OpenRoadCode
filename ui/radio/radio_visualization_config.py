@@ -3,10 +3,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
-from pathlib import Path
+from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 
 
 class RadioRenderer(str, Enum):

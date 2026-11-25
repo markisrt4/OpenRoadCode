@@ -5,11 +5,12 @@
 
 import ctypes.util
 import os
-from pathlib import Path
 import sys
 import tkinter as tk
+from pathlib import Path
 
 from ui.theme import load_theme_bundle
+
 from .ecu_engine_gl import create_engine_gl
 from .ecu_gl_backend import load_gl_backend
 

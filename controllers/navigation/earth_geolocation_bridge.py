@@ -7,14 +7,11 @@ from __future__ import annotations
 
 import json
 import logging
-
-from common.logging.diagnostics import ComponentLog
 import os
 import time
 
-from protocols.chromium.chromium_devtools_client import DevToolsTarget
-
-from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
+from common.logging.diagnostics import ComponentLog
+from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient, DevToolsTarget
 
 
 class EarthGeolocationBridge:

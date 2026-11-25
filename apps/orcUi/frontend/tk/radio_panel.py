@@ -7,9 +7,8 @@ from __future__ import annotations
 
 import tkinter as tk
 from functools import partial
-from .sdrforge_receiver_view import SdrForgeReceiverView
-from .automotive_radio_button import AutomotiveRadioButton
-from ui.radio.sdrforge_spectrum_if import SpectrumPresentation
+
+from ui.radio.radio_profile_state import RadioProfileState
 from ui.radio.radio_visualization_config import RadioVisualizationConfig
 from ui.radio.rf_radio_if import (
     RadioAction,
@@ -19,15 +18,16 @@ from ui.radio.rf_radio_if import (
     RfRadioState,
     receiver_mode_mismatch,
 )
-from ui.radio.radio_profile_state import RadioProfileState
+from ui.radio.sdrforge_spectrum_if import SpectrumPresentation
 from ui.theme import ThemeBundle
-from .shell_metrics import FONT_SMALL
-from .radio_scan_mixin import RadioScanMixin
+
+from .automotive_radio_button import AutomotiveRadioButton
 from .radio_display_controls import RadioDisplayControlsMixin
+from .radio_group_menu import MAIN_GROUPS, RadioGroupMenuMixin
 from .radio_panel_layout_mixin import RadioPanelLayoutMixin
 from .radio_panel_state_mixin import RadioPanelStateMixin
+from .radio_scan_mixin import RadioScanMixin
 from .radio_tuning_gestures_mixin import RadioTuningGesturesMixin
-from .radio_group_menu import MAIN_GROUPS, RadioGroupMenuMixin
 
 RADIO_GROUPS = tuple(name for name, _ in MAIN_GROUPS)
 

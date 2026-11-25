@@ -7,11 +7,11 @@ import struct
 
 from flask import Flask
 
-from frontends.web.audio_analysis.music_analysis_routes import create_music_analysis_routes
 from controllers.audio.music_analysis.music_analysis_session import (
     MusicAnalysisSession,
     PushAudioCapture,
 )
+from frontends.web.audio_analysis.music_analysis_routes import create_music_analysis_routes
 
 
 def test_source_discovery_selection_pcm_and_calibration():

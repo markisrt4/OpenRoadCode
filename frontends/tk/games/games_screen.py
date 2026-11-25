@@ -5,10 +5,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from common.resource_cleanup import ResourceCleanup, close_resources
 import tkinter as tk
+from collections.abc import Callable
 
+from common.resource_cleanup import ResourceCleanup, close_resources
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from ui.games.games_session_if import GamesSessionIf

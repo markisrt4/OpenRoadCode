@@ -7,8 +7,9 @@ import tkinter as tk
 from functools import partial
 from tkinter import simpledialog
 
-from ui.radio.rf_radio_if import RadioAction, RadioRequest, RfProfile
 from ui.radio.radio_profiles import RadioProfilePreset
+from ui.radio.rf_radio_if import RadioAction, RadioRequest, RfProfile
+
 from .radio_presentation_frame import RadioPresentationFrame
 from .shell_metrics import FONT_CONTROL
 

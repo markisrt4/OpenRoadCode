@@ -4,21 +4,20 @@
 """City weather state, asynchronous data and viewport discovery."""
 
 import logging
-from common.resource_cleanup import close_resources
-
-from datetime import datetime, timezone
 import math
 import threading
+from datetime import datetime, timezone
 from time import monotonic, time
-from common.logging.structured import operation
-from controllers.weather.weather_logging import WeatherLog
 
+from common.logging.structured import operation
+from common.resource_cleanup import close_resources
 from controllers.weather.city_weather import WeatherCity, city_value
-from controllers.weather.city_weather_details import city_identity, city_details
+from controllers.weather.city_weather_details import city_details, city_identity
+from controllers.weather.weather_logging import WeatherLog
 from ui.navigation import GeoPoint
 from ui.ui_dispatcher_if import UiDispatcherIf
-from ui.weather.weather_overlay_ui_if import WeatherOverlayUiIf
 from ui.weather.weather_overlay_state import CityWeatherOverlayState, CityWeatherPoint
+from ui.weather.weather_overlay_ui_if import WeatherOverlayUiIf
 
 
 class CityWeatherOverlayController:

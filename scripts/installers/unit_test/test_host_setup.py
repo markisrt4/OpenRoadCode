@@ -6,11 +6,10 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import subprocess
-from tempfile import TemporaryDirectory
 import unittest
-
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 INSTALLER = PROJECT_ROOT / "scripts" / "installers" / "host_setup.sh"

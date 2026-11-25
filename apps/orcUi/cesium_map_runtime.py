@@ -1,15 +1,15 @@
 """Serialize optional embedded Cesium exploration and native-map fallback."""
 
-from concurrent.futures import ThreadPoolExecutor
-from dataclasses import replace
-import math
 import logging
+import math
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 
 from ui.navigation import GeoPoint
 from ui.navigation.cesium_viewer_state import CesiumViewerState
-from ui.navigation.map_platform_if import MapPlatform, MapPlatformState, ExplorationCameraAction
+from ui.navigation.map_platform_if import ExplorationCameraAction, MapPlatform, MapPlatformState
 
 _PLATFORMS = (MapPlatform.MAPLIBRE, MapPlatform.CESIUM)
 

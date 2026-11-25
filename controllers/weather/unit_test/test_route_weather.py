@@ -4,13 +4,13 @@
 """Route sampling and hourly forecast selection regressions."""
 
 from datetime import datetime, timedelta, timezone
+from itertools import pairwise
 from unittest.mock import Mock
 
 import pytest
 
 from controllers.route_planning.route_planning_types import GeoPoint, RouteManeuver, RouteResult
 from controllers.weather.route_weather import RouteWeatherProvider, sample_route
-
 
 NOW = datetime(2026, 10, 3, 12, tzinfo=timezone.utc)
 
@@ -28,7 +28,7 @@ def test_sampling_includes_origin_destination_and_bounds_requests():
     assert points[-1].point == route().shape[-1]
     assert points[0].arrival == NOW
     assert points[-1].arrival == NOW + timedelta(hours=2)
-    assert all(a.distance_m < b.distance_m for a, b in zip(points, points[1:]))
+    assert all(a.distance_m < b.distance_m for a, b in pairwise(points))
 
 
 def test_maneuver_time_changes_midpoint_eta():

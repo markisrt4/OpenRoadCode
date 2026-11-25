@@ -5,10 +5,10 @@
 
 from __future__ import annotations
 
+import logging
+import tkinter as tk
 from collections.abc import Callable
 from datetime import datetime
-import tkinter as tk
-import logging
 
 from common.units import (
     UnitSystem,
@@ -19,11 +19,13 @@ from common.units import (
     pascals_to_kilopascals,
 )
 from ui.theme import ThemeBundle
-from ui.weather import WeatherRequestHandlerIf, WeatherUiIf, WeatherUiState
 from ui.ui_widget import UiWidget
+from ui.weather import WeatherRequestHandlerIf, WeatherUiIf, WeatherUiState
 
 from .weather_condition_style import (
     weather_accent as weather_accent,
+)
+from .weather_condition_style import (
     weather_symbol as weather_symbol,
 )
 

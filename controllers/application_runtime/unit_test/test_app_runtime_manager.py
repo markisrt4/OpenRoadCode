@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import unittest
 
-from controllers.application_runtime import AppRuntimeManager
 from config.application_config import (
     ApplicationConfig,
     ApplicationsConfig,
@@ -15,6 +14,7 @@ from config.application_config import (
     PresentationTargetType,
     StartupPolicy,
 )
+from controllers.application_runtime import AppRuntimeManager
 
 
 class FakeLauncher:

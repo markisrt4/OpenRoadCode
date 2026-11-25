@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-from datetime import datetime, timezone
 import math
 import unittest
+from datetime import datetime, timezone
 
 from controllers.automotive.vehicle_state import VehicleState
 from messaging.contracts.automotive import VEHICLE_STATE_TOPIC, VehicleStatePublisher

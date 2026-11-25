@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import json
 import urllib.request
-from urllib.parse import quote
 from dataclasses import dataclass
+from urllib.parse import quote
 
 from controllers.radio.sdrforge_readiness import wait_for_sdrforge_ready
 

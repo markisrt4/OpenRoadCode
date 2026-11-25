@@ -5,10 +5,8 @@ import sys
 
 sys.path.append("../config")
 
+
 from RadioConfig import RadioConfig
-
-import curses
-
 
 # Create Radio Config object
 radioConfig = RadioConfig()

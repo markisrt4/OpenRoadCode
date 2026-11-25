@@ -20,7 +20,7 @@ def valid_website(value: str | None) -> str | None:
             or parsed.password is not None
         ):
             return None
-        parsed.port  # Reject malformed port numbers.
+        _ = parsed.port  # Reject malformed port numbers.
     except ValueError:
         return None
     return value

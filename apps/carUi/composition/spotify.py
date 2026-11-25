@@ -2,6 +2,7 @@
 
 """Keep the shared Spotify screen's legacy Car UI caller on contract wiring."""
 
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 
 from apps.carUi.car_ui_dependencies import CarUiDependencies
@@ -13,7 +14,6 @@ from controllers.spotify.spotify_state_service import SpotifyStateService
 from frontends.tk.media import SpotifyScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from frontends.x11 import X11WindowEmbedder
-from collections.abc import Callable
 
 
 def create_spotify_screen(

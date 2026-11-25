@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
 # SPDX-License-Identifier: MIT
 
-from datetime import datetime
 import math
+from datetime import datetime
 
 import pytest
 

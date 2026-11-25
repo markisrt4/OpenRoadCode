@@ -4,8 +4,8 @@
 from __future__ import annotations
 
 import unittest
-from unittest.mock import Mock
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 from apps.launchers.google_earth_launcher import GoogleEarthLauncher
 
