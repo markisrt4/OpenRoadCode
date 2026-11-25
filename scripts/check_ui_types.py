@@ -47,6 +47,9 @@ def main() -> int:
         )
         return 1
     args = [sys.executable, "-m", "mypy", "--config-file", "pyproject.toml"]
+    # Keep incremental metadata isolated between the two strict scopes.
+    cache_scope = "controllers" if options.controllers else "ui"
+    args.extend(["--cache-dir", str(ROOT / ".mypy_cache" / cache_scope)])
     args.extend(mypy_platform_args())
     if options.controllers:
         args.append("controllers/")
