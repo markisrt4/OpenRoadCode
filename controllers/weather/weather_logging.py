@@ -4,30 +4,37 @@
 
 import logging
 from threading import Lock
+from typing import Protocol
 
 from common.logging.structured import current_operation, event, operation
+
+
+class _Worker(Protocol):
+    def start(self) -> None: ...
 
 
 class WeatherLog:
     """Keep repeated background refreshes quiet without retaining provider payloads."""
 
-    def __init__(self, component: str):
+    def __init__(self, component: str) -> None:
         self._logger = logging.getLogger(component)
         self._lock = Lock()
-        self._failures = {}
-        self._states = {}
+        self._failures: dict[str, tuple[str, str | None]] = {}
+        self._states: dict[str, object] = {}
 
-    def emit(self, level, name, message, operation_id=None, **fields):
+    def emit(
+        self, level: int, name: str, message: str, operation_id: str | None = None, **fields: object
+    ) -> None:
         if operation_id is not None:
             fields["operation_id"] = operation_id
         event(self._logger, level, name, message, **fields)
 
-    def requested(self):
+    def requested(self) -> str:
         with operation(current_operation()) as operation_id:
             self.emit(logging.DEBUG, "weather.requested", "Weather operation requested")
         return operation_id
 
-    def start(self, worker, operation_id):
+    def start(self, worker: _Worker, operation_id: str | None) -> None:
         try:
             worker.start()
         except Exception as error:
@@ -35,7 +42,14 @@ class WeatherLog:
             raise
         self.succeeded(operation_id, stage="worker")
 
-    def failed(self, error=None, operation_id=None, *, stage="provider", reason="exception"):
+    def failed(
+        self,
+        error: BaseException | None = None,
+        operation_id: str | None = None,
+        *,
+        stage: str = "provider",
+        reason: str = "exception",
+    ) -> None:
         # Callers supply exceptions, never UI error text or provider responses.
         exception_type = type(error).__name__ if error is not None else None
         failure = (reason, exception_type)
@@ -54,7 +68,9 @@ class WeatherLog:
                 **fields,
             )
 
-    def succeeded(self, operation_id=None, *, stage="provider", **fields):
+    def succeeded(
+        self, operation_id: str | None = None, *, stage: str = "provider", **fields: object
+    ) -> None:
         with self._lock:
             recovered = self._failures.pop(stage, None) is not None
         if recovered:
@@ -74,7 +90,7 @@ class WeatherLog:
             **fields,
         )
 
-    def stale(self, operation_id=None):
+    def stale(self, operation_id: str | None = None) -> None:
         self.emit(
             logging.DEBUG,
             "weather.result_discarded",
@@ -82,7 +98,9 @@ class WeatherLog:
             operation_id,
         )
 
-    def changed(self, key, value, name, message, **fields):
+    def changed(
+        self, key: str, value: object, name: str, message: str, **fields: object
+    ) -> None:
         with self._lock:
             if key in self._states and self._states[key] == value:
                 return
