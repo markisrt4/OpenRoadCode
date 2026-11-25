@@ -414,7 +414,7 @@ class CalendarScreen(tk.Frame, UiWidget):
                 return
             self._groups = snapshot.groups
             self._update_footer(snapshot.health)
-            self._message = "No cached appointments on this day."
+            self._message = snapshot.health.empty_message
         except Exception:
             self._message = "Calendar cache unavailable."
             self._footer.configure(text=self._message, fg=self._ui.accent_warning)
