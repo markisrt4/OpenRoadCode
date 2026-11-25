@@ -433,7 +433,10 @@ class CalendarScreen(tk.Frame, UiWidget):
         freshness = "not yet refreshed" if age is None else f"refreshed {age / 60:.0f} min ago"
         stale = health.stale
         self._footer.configure(
-            text=f"Calendar sync: {status.upper()} · {freshness}" + (" · Stale" if stale else ""),
+            text=(
+                f"Calendar sync: {'OFFLINE' if health.offline else status.upper()} · {freshness}"
+                + (" · Stale" if stale else "")
+            ),
             fg=self._ui.accent_warning if stale or status != "ok" else self._ui.text_muted,
         )
 
