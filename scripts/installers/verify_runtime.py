@@ -82,7 +82,7 @@ def verify_boot_services(args: argparse.Namespace, features: set[str]) -> int:
     if args.valhalla_service or args.navigation_data_root is not None:
         units.append("valhalla.service")
     if args.gpsd_service:
-        units.append("gpsd.socket")
+        units.extend(("gpsd.socket", "gpsd.service"))
     if "adsb" in features:
         units.append("lighttpd.service")
 
@@ -283,7 +283,7 @@ def main() -> int:
     parser.add_argument(
         "--gpsd-service",
         action="store_true",
-        help="Require gpsd.service or gpsd.socket to be active",
+        help="Require gpsd.service and gpsd.socket to be enabled and active",
     )
     parser.add_argument(
         "--strict-hardware",
