@@ -2,17 +2,25 @@
 """Compact upcoming appointments presentation for a mounted context page."""
 
 import tkinter as tk
+from tkinter import messagebox
+
+from ui.navigation.route_request_handler_if import RouteRequestHandlerIf
+from ui.navigation.route_types import TravelMode
 
 from ui import UiWidget
 from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
 
 
 class UpcomingPanel(tk.Frame, UiWidget):
-    def __init__(self, parent, *, theme, monitor: AppointmentMonitorIf, zone):
+    def __init__(
+        self, parent, *, theme, monitor: AppointmentMonitorIf, zone,
+        route_handler: RouteRequestHandlerIf | None = None,
+    ):
         super().__init__(parent, bg=theme.ui.surface)
         self._ui = theme.ui
         self._monitor = monitor
         self._zone = zone
+        self._route_handler = route_handler
         self._last_state = None
         self._timer = None
         self._closed = False
@@ -76,13 +84,45 @@ class UpcomingPanel(tk.Frame, UiWidget):
                 self._label(event.title or "Untitled", self._ui.text, 12)
                 if event.location:
                     self._label(event.location, self._ui.text_muted)
-            if snapshot.journey is not None:
+            if snapshot.journey is not None and snapshot.journey.event in events:
                 departure = snapshot.journey.leave_by.astimezone(self._zone)
                 minutes = int((snapshot.journey.travel_seconds + 59) // 60)
                 self._label(f"Travel: {minutes} min", self._ui.text_muted)
                 self._label(
                     departure.strftime("Leave by %a %I:%M %p"), self._ui.accent_primary
                 )
+                if (
+                    not failed
+                    and self._route_handler is not None
+                    and snapshot.journey.destination is not None
+                    and TravelMode.AUTO in self._route_handler.supported_travel_modes
+                ):
+                    tk.Button(
+                        self,
+                        text="Navigate to appointment",
+                        command=lambda: self._navigate(snapshot),
+                    ).pack(fill=tk.X, pady=3)
+
+    def _navigate(self, snapshot):
+        journey = snapshot.journey
+        handler = self._route_handler
+        if journey is None or journey.destination is None or handler is None:
+            return
+        if journey.event is None or journey.event not in snapshot.events:
+            return
+        if not messagebox.askyesno(
+            "Navigate to appointment",
+            f"Start driving guidance to {journey.event.location}? "
+            "This may replace active guidance.",
+            parent=self,
+        ):
+            return
+        if self._monitor.snapshot != snapshot or self._monitor.failed:
+            return
+        try:
+            handler.request_start_route(journey.destination, TravelMode.AUTO)
+        except Exception:
+            messagebox.showerror("Navigation", "Unable to start guidance.", parent=self)
 
     def _close(self, event):
         if event.widget is not self or self._closed:
