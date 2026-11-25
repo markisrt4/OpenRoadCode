@@ -19,6 +19,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from socket import socket
+from socketserver import BaseServer
+from types import TracebackType
 
 from security.environment_variable_secret_manager import EnvironmentVariableSecretManager
 from security.secret_manager_if import SecretManagerIf
@@ -88,11 +91,11 @@ class YouTubeMusicVideo(MusicVideoIf):
         self._software_rendering = software_rendering
         self._window_class = window_class
         self._show_return_button = show_return_button
-        self._server = None
-        self._server_thread = None
-        self._browser_process = None
-        self._temporary_directory = None
-        self._ranked_video_ids = []
+        self._server: ThreadingHTTPServer | None = None
+        self._server_thread: threading.Thread | None = None
+        self._browser_process: subprocess.Popen[bytes] | None = None
+        self._temporary_directory: tempfile.TemporaryDirectory[str] | None = None
+        self._ranked_video_ids: list[str] = []
 
     @property
     def browser_process_id(self) -> int | None:
@@ -119,8 +122,15 @@ class YouTubeMusicVideo(MusicVideoIf):
         items = payload.get("items", [])
         if not isinstance(items, list) or not items:
             return None
-        ids = [item.get("id", {}).get("videoId") for item in items if isinstance(item, dict)]
-        ids = [v for v in ids if isinstance(v, str)]
+        ids: list[str] = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            identifier = item.get("id")
+            if isinstance(identifier, dict):
+                video_id = identifier.get("videoId")
+                if isinstance(video_id, str):
+                    ids.append(video_id)
         durations, embeddable = self._fetch_video_details(ids, api_key)
         candidates = []
         for item in items:
@@ -134,7 +144,12 @@ class YouTubeMusicVideo(MusicVideoIf):
             title = snippet.get("title")
             channel = snippet.get("channelTitle")
             if (
-                not all(isinstance(v, str) and v for v in (video_id, title, channel))
+                not isinstance(video_id, str)
+                or not video_id
+                or not isinstance(title, str)
+                or not title
+                or not isinstance(channel, str)
+                or not channel
                 or video_id not in embeddable
             ):
                 continue
@@ -244,7 +259,10 @@ class YouTubeMusicVideo(MusicVideoIf):
         )
         durations = {}
         embeddable = set()
-        for item in payload.get("items", []):
+        items = payload.get("items", [])
+        if not isinstance(items, list):
+            return {}, set()
+        for item in items:
             if not isinstance(item, dict):
                 continue
             vid = item.get("id")
@@ -269,7 +287,7 @@ class YouTubeMusicVideo(MusicVideoIf):
             ) from error
 
     @staticmethod
-    def _score_candidate(video, query):
+    def _score_candidate(video: MusicVideo, query: MusicVideoQuery) -> int:
         title = video.title.casefold()
         channel = video.channel_name.casefold()
         artist = query.artist.casefold().strip()
@@ -319,7 +337,7 @@ class YouTubeMusicVideo(MusicVideoIf):
         return score
 
     @staticmethod
-    def _looks_official(title, channel, artist):
+    def _looks_official(title: str, channel: str, artist: str) -> bool:
         t = title.casefold()
         c = channel.casefold()
         a = artist.casefold().strip()
@@ -332,7 +350,7 @@ class YouTubeMusicVideo(MusicVideoIf):
         )
 
     @staticmethod
-    def _extract_thumbnail_url(snippet):
+    def _extract_thumbnail_url(snippet: dict[str, object]) -> str | None:
         thumbnails = snippet.get("thumbnails")
         if not isinstance(thumbnails, dict):
             return None
@@ -343,11 +361,13 @@ class YouTubeMusicVideo(MusicVideoIf):
                 and isinstance(thumbnail.get("url"), str)
                 and thumbnail["url"]
             ):
-                return thumbnail["url"]
+                url = thumbnail["url"]
+                if isinstance(url, str):
+                    return url
         return None
 
     @staticmethod
-    def _parse_duration_ms(value):
+    def _parse_duration_ms(value: str) -> int | None:
         match = _ISO_8601_DURATION.fullmatch(value)
         if match is None:
             return None
@@ -359,7 +379,7 @@ class YouTubeMusicVideo(MusicVideoIf):
         ) * 1000
 
     @staticmethod
-    def _get_json(url, parameters):
+    def _get_json(url: str, parameters: dict[str, str]) -> dict[str, object]:
         request = urllib.request.Request(
             f"{url}?{urllib.parse.urlencode(parameters)}", headers={"Accept": "application/json"}
         )
@@ -378,7 +398,7 @@ class YouTubeMusicVideo(MusicVideoIf):
             raise RuntimeError("YouTube API returned an unexpected response")
         return value
 
-    def _find_chromium(self):
+    def _find_chromium(self) -> str | None:
         if self._chromium_executable is not None:
             return self._chromium_executable
         for candidate in ("chromium", "chromium-browser", "google-chrome", "google-chrome-stable"):
@@ -388,12 +408,14 @@ class YouTubeMusicVideo(MusicVideoIf):
         return None
 
     @staticmethod
-    def _make_request_handler(root: Path, *, close_callback: Callable[[], None]):
+    def _make_request_handler(
+        root: Path, *, close_callback: Callable[[], None]
+    ) -> type[SimpleHTTPRequestHandler]:
         class Handler(SimpleHTTPRequestHandler):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, directory=str(root), **kwargs)
+            def __init__(self, request: socket, client_address: tuple[str, int], server: BaseServer) -> None:
+                super().__init__(request, client_address, server, directory=str(root))
 
-            def do_POST(self):
+            def do_POST(self) -> None:
                 if self.path != "/close":
                     self.send_error(404)
                     return
@@ -403,12 +425,12 @@ class YouTubeMusicVideo(MusicVideoIf):
                     target=close_callback, name="youtube-music-video-close", daemon=True
                 ).start()
 
-            def log_message(self, format_string, *args):
+            def log_message(self, format_string: str, *args: object) -> None:
                 return
 
         return Handler
 
-    def _cleanup(self):
+    def _cleanup(self) -> None:
         if self._server is not None:
             self._server.shutdown()
             self._server.server_close()
@@ -419,7 +441,9 @@ class YouTubeMusicVideo(MusicVideoIf):
             self._temporary_directory.cleanup()
         self._temporary_directory = None
 
-    def _build_player_html(self, video_id, position_ms, fallback_video_ids=None):
+    def _build_player_html(
+        self, video_id: str, position_ms: int, fallback_video_ids: list[str] | None = None
+    ) -> str:
         start = position_ms / 1000
         origin = f"http://{self._host}:{self._port}"
         ids = list(dict.fromkeys(fallback_video_ids or [video_id]))
@@ -437,8 +461,13 @@ class YouTubeMusicVideo(MusicVideoIf):
         )
         return f"""<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'><title>YouTube Music Video</title><style>html,body,#player{{width:100%;height:100%;margin:0;overflow:hidden;background:black}}#message{{position:fixed;left:16px;bottom:16px;z-index:10;display:none;padding:8px 12px;color:white;background:rgba(0,0,0,.72);font-family:sans-serif}}#return-to-carui{{position:fixed;top:16px;right:16px;z-index:20;padding:14px 20px;color:white;background:rgba(0,0,0,.78);font:bold 16px sans-serif}}</style></head><body><div id='player'></div><div id='message'></div>{return_button}<script>const candidateVideoIds={json.dumps(ids)};const startSeconds={start};const playerOrigin={json.dumps(origin)};let candidateIndex=0;let player;{return_script}function msg(t){{let m=document.getElementById('message');m.textContent=t;m.style.display='block'}}function err(e){{candidateIndex++;if(candidateIndex<candidateVideoIds.length){{player.loadVideoById({{videoId:candidateVideoIds[candidateIndex],startSeconds:Math.floor(startSeconds)}});return}}msg('No matching YouTube video is available for in-app playback.')}}function onYouTubeIframeAPIReady(){{player=new YT.Player('player',{{width:'100%',height:'100%',videoId:candidateVideoIds[0],playerVars:{{autoplay:1,controls:1,enablejsapi:1,playsinline:1,rel:0,start:Math.floor(startSeconds),origin:playerOrigin}},events:{{onReady:e=>{{if(startSeconds>0)e.target.seekTo(startSeconds,true);e.target.playVideo()}},onError:err,onAutoplayBlocked:()=>{{player.mute();player.playVideo();setTimeout(()=>player.unMute(),200)}}}}}})}}let s=document.createElement('script');s.src='https://www.youtube.com/iframe_api';document.head.appendChild(s);</script></body></html>"""
 
-    def __enter__(self):
+    def __enter__(self) -> YouTubeMusicVideo:
         return self
 
-    def __exit__(self, exception_type, exception, traceback):
+    def __exit__(
+        self,
+        exception_type: type[BaseException] | None,
+        exception: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         self.stop_video()
