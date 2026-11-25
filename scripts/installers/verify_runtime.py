@@ -9,13 +9,15 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from pathlib import Path
 import re
 import socket
 import subprocess
 import sys
+import time
+import urllib.parse
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 try:
     import tomllib
@@ -59,6 +61,46 @@ def systemd_active(service: str) -> tuple[bool, str]:
     )
     state = result.stdout.strip() or result.stderr.strip() or f"exit {result.returncode}"
     return result.returncode == 0 and state == "active", state
+
+
+def systemd_enabled(service: str) -> tuple[bool, str]:
+    result = subprocess.run(
+        ["systemctl", "is-enabled", service],
+        capture_output=True, text=True, check=False, timeout=5,
+    )
+    state = result.stdout.strip()
+    return state == "enabled", state or result.stderr.strip()
+
+
+def routing_ready(root: Path, region: str) -> tuple[bool, str]:
+    """Probe the local routing engine with a catalogued regional route."""
+    try:
+        catalog_path = Path(__file__).resolve().parents[1] / "runtime/navigation-data-catalog.json"
+        catalog = json.loads(catalog_path.read_text())
+        route = catalog["regions"][region]["smoke_route"]
+        config = json.loads((root / "valhalla/valhalla.json").read_text())
+        listen = config["httpd"]["service"]["listen"]
+        port = int(listen.rsplit(":", 1)[1])
+        base = f"http://127.0.0.1:{port}"
+        deadline = time.monotonic() + 30
+        while True:
+            ok, detail = http_endpoint(f"{base}/status", timeout_s=1)
+            if ok:
+                break
+            if time.monotonic() >= deadline:
+                return False, detail
+            time.sleep(0.5)
+        query = urllib.parse.urlencode({"json": json.dumps(route)})
+        with urllib.request.urlopen(f"{base}/route?{query}", timeout=15) as response:
+            trip = json.load(response)["trip"]
+        summary = trip["summary"]
+        if summary["length"] <= 0 or summary["time"] <= 0:
+            return False, "empty route summary"
+        if not trip["legs"] or not all(leg.get("shape") for leg in trip["legs"]):
+            return False, "missing route geometry"
+        return True, f"{summary['length']} {trip.get('units', 'km')}, {summary['time']} s"
+    except (OSError, ValueError, KeyError, TypeError, IndexError) as exc:
+        return False, str(exc)
 
 
 def radio_service_ready() -> tuple[bool, str]:
@@ -172,7 +214,10 @@ def main() -> int:
     )
     parser.add_argument("--navigation-service", action="store_true")
     parser.add_argument("--navigation-data-root", type=Path)
+    parser.add_argument("--navigation-region")
     args = parser.parse_args()
+    if args.navigation_region and args.navigation_data_root is None:
+        parser.error("--navigation-region requires --navigation-data-root")
 
     config_path = Path(args.config).expanduser().resolve()
     print("OpenRoadCode runtime verification")
@@ -221,6 +266,20 @@ def main() -> int:
         ok, detail = systemd_active("valhalla.service")
         report("PASS" if ok else "FAIL", "valhalla.service", detail)
         failures += not ok
+
+    if args.navigation_service or args.telemetry_services:
+        for service in TELEMETRY_SERVICES[:2]:
+            ok, detail = systemd_enabled(service)
+            report("PASS" if ok else "FAIL", f"{service} boot persistence", detail)
+            failures += not ok
+    if args.navigation_data_root is not None:
+        ok, detail = systemd_enabled("valhalla.service")
+        report("PASS" if ok else "FAIL", "Valhalla boot persistence", detail)
+        failures += not ok
+        if args.navigation_region:
+            ok, detail = routing_ready(args.navigation_data_root, args.navigation_region)
+            report("PASS" if ok else "FAIL", "Offline routing", detail)
+            failures += not ok
 
     if args.radio_service:
         if not (args.telemetry_services or args.navigation_service):
