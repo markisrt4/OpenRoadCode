@@ -188,3 +188,13 @@ in UTC before converting to the appointment timezone, with a configurable
 600-second arrival buffer. Missing position, missing location, ambiguous
 resolution and unavailable estimates produce no journey. Planning does not
 start guidance. Runtime resolver, routing adapter and UI wiring remain pending.
+
+### Offline operation
+
+Agenda and Home read the persisted SQLite snapshot, not the CalDAV endpoint.
+A failed synchronization does not erase the last successful calendar snapshot.
+The default synchronization window covers seven past and thirty future days;
+longer offline periods may exhaust that coverage. Calendar freshness is shown
+independently of network connectivity. Appointment routing adapters reuse the
+local geocoder and route-planning contract, reject street-only approximations,
+and convert UI radians to routing degrees. Runtime wiring is still pending.
