@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: MIT
 
 import io
+import subprocess
+import sys
 import tarfile
 
 import pytest
@@ -94,3 +96,68 @@ def test_existing_stage_preserved(tmp_path):
     with pytest.raises(ValueError):
         release.extract([], stage)
     assert marker.exists()
+
+
+def test_manifest_only(tmp_path, monkeypatch):
+    cache = tmp_path / "cache"
+    stage = tmp_path / "stage"
+    requested = []
+    manifest = b'{"generated_unix": 1}'
+
+    def fake_download(url, path, expected=None):
+        requested.append(path.name)
+        if path.name == "SHA256SUMS":
+            path.write_text(
+                f"{'a' * 64}  navigation-data.tar.gz.part-0000\n"
+                f"{'b' * 64}  build-manifest.json\n"
+            )
+        elif path.name == "build-manifest.json":
+            path.write_bytes(manifest)
+        else:
+            pytest.fail("Manifest-only mode requested an archive part")
+
+    monkeypatch.setattr(release, "download", fake_download)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "download_navigation_release",
+            "--region", "us/michigan",
+            "--cache", str(cache),
+            "--stage", str(stage),
+            "--manifest-only",
+        ],
+    )
+    release.main()
+    assert requested == ["SHA256SUMS", "build-manifest.json"]
+    assert (stage / "build-manifest.json").read_bytes() == manifest
+
+
+def test_interrupted_download_resumes(tmp_path, monkeypatch):
+    path = tmp_path / "part"
+    partial = path.with_suffix(".partial")
+    payload = b"complete payload"
+    reference = tmp_path / "reference"
+    reference.write_bytes(payload)
+    expected = release.digest(reference)
+
+    def interrupted(command, **kwargs):
+        partial.write_bytes(payload[:5])
+        raise subprocess.CalledProcessError(18, command)
+
+    monkeypatch.setattr(release.subprocess, "run", interrupted)
+    with pytest.raises(subprocess.CalledProcessError):
+        release.download("unused", path, expected)
+    assert partial.read_bytes() == payload[:5]
+    assert not path.exists()
+
+    def resumed(command, **kwargs):
+        assert command[command.index("--continue-at") + 1] == "-"
+        assert partial.read_bytes() == payload[:5]
+        with partial.open("ab") as stream:
+            stream.write(payload[5:])
+
+    monkeypatch.setattr(release.subprocess, "run", resumed)
+    release.download("unused", path, expected)
+    assert path.read_bytes() == payload
+    assert not partial.exists()
