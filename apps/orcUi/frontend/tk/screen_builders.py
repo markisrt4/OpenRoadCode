@@ -131,6 +131,7 @@ def build_settings_screen(
     rf_hardware_config: RfHardwareConfigIf | None = None,
     performance_overlay_enabled: Callable[[], bool] | None = None,
     on_performance_overlay_changed: Callable[[bool], None] | None = None,
+    configure_spotify: Callable[[], None] | None = None,
 ) -> SettingsPanel:
     screen = SettingsPanel(
         parent,
@@ -145,6 +146,7 @@ def build_settings_screen(
         rf_hardware_config=rf_hardware_config,
         performance_overlay_enabled=performance_overlay_enabled,
         on_performance_overlay_changed=on_performance_overlay_changed,
+        configure_spotify=configure_spotify,
     )
     screen.pack(fill=tk.BOTH, expand=True)
     return screen
