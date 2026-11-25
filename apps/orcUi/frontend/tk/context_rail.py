@@ -6,17 +6,19 @@
 from __future__ import annotations
 
 import tkinter as tk
+from datetime import datetime, timedelta, timezone
 from collections.abc import Callable
 from dataclasses import dataclass
 
 from .context_offroad_panel import ContextOffroadPanel
+from .context_vehicle_panel import ContextVehiclePanel
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from apps.orcUi.trip_presenter import TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from frontends.tk.automotive import FuelLevelGauge
-from frontends.tk.automotive.vehicle_gauge_theme import vehicle_gauge_theme_from_style_sheet
 from frontends.tk.automotive.vehicle_gauge_widgets import LinearGauge, RoundGauge
+from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
 from ui.theme import ThemeBundle, ThemeMode
 from .shell_metrics import CONTEXT_RAIL_WIDTH, FONT_BODY, FONT_CONTROL, FONT_SMALL
 from ui.ui_widget import UiWidget
@@ -29,7 +31,7 @@ class ContextPage:
     builder: Callable[[tk.Frame], None]
 
 
-class ContextRail(tk.Frame, UiWidget):
+class ContextRail(tk.Frame, UiWidget, ContextVehiclePanel):
     """Compact, user-switchable secondary information panel."""
 
     WIDTH = CONTEXT_RAIL_WIDTH
@@ -61,7 +63,15 @@ class ContextRail(tk.Frame, UiWidget):
         self._trip_value_labels: dict[str, tk.Label] = {}
         self._gear_value_label: tk.Label | None = None
         self._offroad_panel: ContextOffroadPanel | None = None
+        self._appointment_monitor: AppointmentMonitorIf | None = None
+        self._calendar_factory: Callable[[tk.Misc], tk.Widget] | None = None
+        self._calendar_timer = None
+        self._personal_tab = None
+        self.bind("<Destroy>", self._stop_calendar_poll, add="+")
+        self._group = "AUTOMOTIVE"
+        self._group_pages = {"AUTOMOTIVE": 0, "PERSONAL": 0}
         self._page_index = 0
+        self._swipe_start: tuple[int, int] | None = None
         self._title: tk.Label
         self._body: tk.Frame
         self._rebuild()
@@ -102,11 +112,70 @@ class ContextRail(tk.Frame, UiWidget):
 
     def _pages(self) -> tuple[ContextPage, ...]:
         ui = self._theme.ui
-        return (
+        pages = (
             ContextPage("VEHICLE", ui.accent_success, self._build_vehicle),
             ContextPage("TRIP", ui.accent_primary, self._build_trip),
             ContextPage("OFF-ROAD", ui.accent_warning, self._build_offroad),
         )
+        if self._group == "PERSONAL" and self._calendar_factory is not None:
+            return (ContextPage("CALENDAR", ui.accent_primary, self._build_calendar),)
+        return pages
+
+    def selection(self) -> tuple[str, dict[str, int]]:
+        pages = dict(self._group_pages)
+        pages[self._group] = self._page_index
+        return self._group, pages
+
+    def restore_selection(self, selection: tuple[str, dict[str, int]]) -> None:
+        group, pages = selection
+        self._group_pages = dict(pages)
+        self._group = group if self._calendar_factory is not None else "AUTOMOTIVE"
+        self._page_index = self._group_pages[self._group] % len(self._pages())
+        self._rebuild()
+
+    def set_calendar_factory(
+        self, factory: Callable[[tk.Misc], tk.Widget], monitor: AppointmentMonitorIf
+    ) -> None:
+        self._appointment_monitor = monitor
+        self._calendar_factory = factory
+        self._rebuild()
+        if self._calendar_timer is None:
+            self._poll_calendar()
+
+    def _poll_calendar(self) -> None:
+        self._calendar_timer = None
+        monitor = self._appointment_monitor
+        if monitor is None:
+            return
+        monitor.poll()
+        upcoming = False
+        if monitor.snapshot is not None and not monitor.failed:
+            events, health = monitor.snapshot.events, monitor.snapshot.health
+            if not health.stale and health.last_data_refresh_age_seconds is not None:
+                now = datetime.now(timezone.utc)
+                upcoming = any(
+                    timedelta(0) <= event.starts_at - now <= timedelta(hours=1) for event in events
+                )
+        if self._personal_tab is not None:
+            self._personal_tab.configure(text="PERSONAL •" if upcoming else "PERSONAL")
+        self._calendar_timer = self.after(500, self._poll_calendar)
+
+    def _stop_calendar_poll(self, event: tk.Event) -> None:
+        if event.widget is self and self._calendar_timer is not None:
+            self.after_cancel(self._calendar_timer)
+            self._calendar_timer = None
+
+    def _select_group(self, group: str) -> None:
+        if group == self._group:
+            return
+        self._group_pages[self._group] = self._page_index
+        self._group = group
+        self._page_index = self._group_pages[group]
+        self._rebuild()
+
+    def _build_calendar(self, parent: tk.Frame) -> None:
+        if self._calendar_factory is not None:
+            self._calendar_factory(parent).pack(fill=tk.BOTH, expand=True)
 
     def _rebuild(self) -> None:
         for child in self.winfo_children():
@@ -122,13 +191,32 @@ class ContextRail(tk.Frame, UiWidget):
 
     def _build_header(self) -> None:
         ui = self._theme.ui
+        if self._calendar_factory is not None:
+            tabs = tk.Frame(self, bg=ui.surface)
+            tabs.pack(fill=tk.X, padx=8, pady=(4, 0))
+            for group in ("AUTOMOTIVE", "PERSONAL"):
+                button = tk.Button(
+                    tabs,
+                    text=group,
+                    command=lambda value=group: self._select_group(value),
+                    bg=ui.control_active if group == self._group else ui.control_background,
+                    fg=ui.control_text,
+                    relief=tk.FLAT,
+                    bd=0,
+                    highlightthickness=0,
+                    font=("Sans", FONT_SMALL, "bold"),
+                )
+                button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
+                if group == "PERSONAL":
+                    self._personal_tab = button
         header = tk.Frame(self, bg=ui.surface)
         header.pack(fill=tk.X, padx=8, pady=(7, 3))
         header.grid_columnconfigure(1, weight=1)
         self._title = tk.Label(
             header, text="", bg=ui.surface, font=("Sans", FONT_CONTROL + 1, "bold")
         )
-        self._nav_button(header, "‹", self._previous_page).grid(row=0, column=0, sticky="w")
+        if len(self._pages()) > 1:
+            self._nav_button(header, "‹", self._previous_page).grid(row=0, column=0, sticky="w")
         self._title.grid(row=0, column=1)
         controls = tk.Frame(header, bg=ui.surface)
         controls.grid(row=0, column=2, sticky="e")
@@ -148,7 +236,8 @@ class ContextRail(tk.Frame, UiWidget):
                 font=("Sans", 15, "bold"),
                 cursor="hand2",
             ).pack(side=tk.LEFT)
-        self._nav_button(controls, "›", self._next_page).pack(side=tk.LEFT)
+        if len(self._pages()) > 1:
+            self._nav_button(controls, "›", self._next_page).pack(side=tk.LEFT)
 
     def _nav_button(
         self,
@@ -200,6 +289,11 @@ class ContextRail(tk.Frame, UiWidget):
         page = pages[self._page_index]
         self._title.configure(text=page.name, fg=page.accent, bg=ui.surface)
         page.builder(self._body)
+        self._swipe_start = None
+        for child in self._body.winfo_children():
+            self._bind_swipe(child)
+        if len(pages) == 1:
+            return
         dots = tk.Frame(self._body, bg=ui.surface)
         dots.pack(side=tk.BOTTOM, pady=(4, 0))
         for index in range(len(pages)):
@@ -211,140 +305,28 @@ class ContextRail(tk.Frame, UiWidget):
                 font=("Sans", FONT_SMALL),
             ).pack(side=tk.LEFT, padx=2)
 
-    def _build_vehicle(self, parent: tk.Frame) -> None:
-        ui = self._theme.ui
-        gauge_style = vehicle_gauge_theme_from_style_sheet(self._theme.style_sheet)
-        cluster = tk.Frame(parent, bg=ui.surface)
-        cluster.pack(fill=tk.BOTH, expand=True)
-        cluster.grid_columnconfigure(0, weight=1)
-        cluster.grid_columnconfigure(1, weight=1)
-        cluster.grid_rowconfigure(0, weight=3)
-        cluster.grid_rowconfigure(1, weight=3)
-        cluster.grid_rowconfigure(2, weight=1)
+    def _bind_swipe(self, widget: tk.Misc) -> None:
+        if isinstance(widget, tk.Button):
+            return
+        widget.bind("<ButtonPress-1>", self._begin_swipe, add="+")
+        widget.bind("<ButtonRelease-1>", self._end_swipe, add="+")
+        for child in widget.winfo_children():
+            self._bind_swipe(child)
 
-        rpm_cell = self._compact_gauge_cell(cluster, "RPM", "×1000", 0, 0, (0, 2), (0, 2))
-        rpm = RoundGauge(
-            rpm_cell,
-            title="",
-            unit="",
-            minimum=0.0,
-            maximum=8.0,
-            major_step=1.0,
-            caution_start=6.0,
-            danger_start=6.8,
-            precision=1,
-            style=gauge_style,
-            size=112,
-        )
-        rpm.pack(fill=tk.BOTH, expand=True)
+    def _begin_swipe(self, event: tk.Event) -> None:
+        self._swipe_start = (event.x_root, event.y_root)
 
-        speed_cell = self._compact_gauge_cell(cluster, "SPEED", "MPH", 0, 1, (2, 0), (0, 2))
-        speed = RoundGauge(
-            speed_cell,
-            title="",
-            unit="",
-            minimum=0.0,
-            maximum=160.0,
-            major_step=40.0,
-            precision=0,
-            style=gauge_style,
-            size=112,
-        )
-        speed.pack(fill=tk.BOTH, expand=True)
-
-        boost_cell = self._compact_gauge_cell(cluster, "BOOST", "PSI", 1, 0, (0, 2), 2)
-        boost = RoundGauge(
-            boost_cell,
-            title="",
-            unit="",
-            minimum=-15.0,
-            maximum=25.0,
-            major_step=5.0,
-            caution_start=18.0,
-            danger_start=22.0,
-            precision=1,
-            style=gauge_style,
-            size=112,
-        )
-        boost.pack(fill=tk.BOTH, expand=True)
-
-        fuel_cell = self._compact_gauge_cell(cluster, "FUEL", "%", 1, 1, (2, 0), 2)
-        fuel = FuelLevelGauge(fuel_cell, style=gauge_style, size=112, show_title=False)
-        fuel.pack(fill=tk.BOTH, expand=True)
-
-        status = tk.Frame(cluster, bg=ui.surface)
-        status.grid(row=2, column=0, columnspan=2, sticky="nsew", pady=(2, 0))
-        status.grid_columnconfigure(0, weight=1)
-        coolant = LinearGauge(
-            status,
-            title="Coolant",
-            unit="°F",
-            minimum=100.0,
-            maximum=260.0,
-            caution_high=225.0,
-            danger_high=240.0,
-            icon="coolant",
-            normal_segment_color="#36b8f5",
-            precision=0,
-            style=gauge_style,
-            width=190,
-            height=58,
-        )
-        coolant.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
-        gear = self._card(status)
-        gear.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
-        tk.Label(
-            gear, text="GEAR", fg=ui.text_muted, bg=ui.surface, font=("Sans", FONT_SMALL, "bold")
-        ).pack(padx=10, pady=(4, 0))
-        self._gear_value_label = tk.Label(
-            gear,
-            text="—",
-            fg=ui.accent_danger,
-            bg=ui.surface,
-            font=("Sans", 22, "bold"),
-        )
-        self._gear_value_label.pack(padx=10, pady=(0, 3))
-        self._vehicle_gauges.update(rpm=rpm, speed=speed, boost=boost, fuel=fuel, coolant=coolant)
-        self._paint_vehicle_values()
-
-    def _compact_gauge_cell(
-        self,
-        parent: tk.Frame,
-        title: str,
-        unit: str,
-        row: int,
-        column: int,
-        padx: tuple[int, int] | int,
-        pady: tuple[int, int] | int,
-    ) -> tk.Frame:
-        ui = self._theme.ui
-        cell = tk.Frame(parent, bg=ui.surface)
-        cell.grid(row=row, column=column, sticky="nsew", padx=padx, pady=pady)
-        label = tk.Frame(cell, bg=ui.surface)
-        label.pack(side=tk.BOTTOM, fill=tk.X, pady=(0, 1))
-        tk.Label(
-            label, text=title, fg=ui.text, bg=ui.surface, font=("Sans", FONT_CONTROL, "bold")
-        ).pack(side=tk.LEFT, expand=True, anchor="e")
-        tk.Label(label, text=unit, fg=ui.text_muted, bg=ui.surface, font=("Sans", FONT_SMALL)).pack(
-            side=tk.LEFT, expand=True, anchor="w", padx=(4, 0)
-        )
-        return cell
-
-    def _paint_vehicle_values(self) -> None:
-        state = self._vehicle_state
-        values = {
-            "rpm": None if state.engine_speed_rpm is None else state.engine_speed_rpm / 1000.0,
-            "speed": state.speed_mph,
-            "boost": state.boost_psi,
-            "fuel": state.fuel_percent,
-            "coolant": state.coolant_temperature_f,
-        }
-        for key, value in values.items():
-            gauge = self._vehicle_gauges.get(key)
-            if gauge is not None:
-                gauge.set_value(value)
-        if self._gear_value_label is not None:
-            self._gear_value_label.configure(text=state.gear or "—")
+    def _end_swipe(self, event: tk.Event) -> None:
+        start, self._swipe_start = self._swipe_start, None
+        if start is None or len(self._pages()) < 2:
+            return
+        dx = event.x_root - start[0]
+        dy = event.y_root - start[1]
+        if abs(dx) >= 50 and abs(dx) > 2 * abs(dy):
+            if dx < 0:
+                self._next_page()
+            else:
+                self._previous_page()
 
     def _build_trip(self, parent: tk.Frame) -> None:
         self._metric_table(
@@ -396,16 +378,6 @@ class ContextRail(tk.Frame, UiWidget):
             vehicle=self._vehicle_state,
             position=self._position_state,
             attitude=self._attitude_state,
-        )
-
-    def _card(self, parent: tk.Misc) -> tk.Frame:
-        ui = self._theme.ui
-        return tk.Frame(
-            parent,
-            bg=ui.surface,
-            highlightthickness=1,
-            highlightcolor=ui.border,
-            highlightbackground=ui.border,
         )
 
     def _metric_table(

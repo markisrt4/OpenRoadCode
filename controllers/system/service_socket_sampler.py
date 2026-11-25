@@ -27,6 +27,8 @@ KNOWN_SERVICES = {
     "services.android.android_sensor_service_cli": "Android sensors",
     "services.trip": "Trip",
     "services.weather": "Weather",
+    "controllers.calendar.calendar_sync_daemon": "Calendar sync",
+    "Carbonate bridge": "Carbonate bridge",
     "services.common.service_manager_http": "Service manager",
     "services.linux.systemd_service_manager_http": "Service manager",
     "services.termux.service_manager_http": "Service manager",

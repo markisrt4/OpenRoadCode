@@ -189,6 +189,7 @@ def _classify(args: tuple[str, ...]) -> tuple[str, str] | None:
         "openroadcode-map-renderer": "Map renderer",
         "readsb": "ADS-B integration",
         "gpsd": "GPSD integration",
+        "carbonate": "Carbonate bridge",
     }
     if executable in native:
         return native[executable], "workload"
@@ -217,6 +218,7 @@ def _classify(args: tuple[str, ...]) -> tuple[str, str] | None:
             "services.trip",
             "services.weather",
             "messaging.zeromq.broker_cli",
+            "controllers.calendar.calendar_sync_daemon",
         )
         if any(module == root or module.startswith(root + ".") for root in roots):
             return module, "workload"

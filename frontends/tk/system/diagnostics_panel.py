@@ -123,6 +123,8 @@ class DiagnosticsPanel(tk.Frame, UiWidget):
         self._sensor_rows = {}
         self._sensor_table.bind("<<TreeviewSelect>>", self._show_sensor_detail)
 
+        self._calendar_status = self._label(services, "Calendar sync: unavailable", 12)
+        self._calendar_metrics = self._label(services, "", 10)
         self._sdrforge_connection = self._label(
             services, "SDRForge REST: diagnostics not connected", 12
         )
@@ -217,6 +219,32 @@ class DiagnosticsPanel(tk.Frame, UiWidget):
         """Refresh tables using cached samples without sampling on the Tk thread."""
         self._system.apply_snapshot(snapshot)
         self._inventory_panel.render(snapshot.network_usb or {})
+        health = snapshot.calendar_health
+        status = health.get("status", "unavailable")
+        ui = self._theme.ui
+        stale = health.get("stale", False)
+        age = health.get("last_data_refresh_age_seconds")
+        freshness = "--" if age is None else f"{age / 60:.1f} min ago"
+        self._calendar_status.configure(
+            text=f"Calendar sync: {status.title()}{' · Stale' if stale else ''} · Data refreshed: {freshness}",
+            fg=ui.accent_danger
+            if status == "failed"
+            else ui.accent_warning
+            if stale or status == "degraded"
+            else ui.accent_success
+            if status == "ok"
+            else ui.text_muted,
+        )
+        metrics = health.get("metrics", {})
+        self._calendar_metrics.configure(
+            text=(
+                f"Calendars: {metrics.get('cached_calendars', '--')} · "
+                f"Events: {metrics.get('synced_events', '--')} · "
+                f"Failed: {metrics.get('failed_calendars', '--')} · "
+                f"Skipped: {metrics.get('skipped_resources', '--')} · "
+                f"Duration: {_format(health.get('duration_seconds'))} s"
+            )
+        )
         self._service_status.configure(text=snapshot.service_monitor_status)
         self._service_rows = {str(index): row for index, row in enumerate(snapshot.services)}
         service_selection = self._service_table.selection()
