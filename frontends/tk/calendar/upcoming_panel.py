@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Compact upcoming appointments presentation for a mounted context page."""
 
+from math import ceil
 import tkinter as tk
 from tkinter import messagebox
 
@@ -14,7 +15,12 @@ from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
 
 class UpcomingPanel(tk.Frame, UiWidget):
     def __init__(
-        self, parent, *, theme, monitor: AppointmentMonitorIf, zone,
+        self,
+        parent,
+        *,
+        theme,
+        monitor: AppointmentMonitorIf,
+        zone,
         route_handler: RouteRequestHandlerIf | None = None,
     ):
         super().__init__(parent, bg=theme.ui.surface)
@@ -89,7 +95,7 @@ class UpcomingPanel(tk.Frame, UiWidget):
                     self._label(event.location, self._ui.text_muted)
             if snapshot.journey is not None and snapshot.journey.event in events:
                 departure = snapshot.journey.leave_by.astimezone(self._zone)
-                minutes = int((snapshot.journey.travel_seconds + 59) // 60)
+                minutes = ceil(snapshot.journey.travel_seconds / 60)
                 self._label(f"Travel: {minutes} min", self._ui.text_muted)
                 self._label(
                     departure.strftime("Leave by %a %I:%M %p"), self._ui.accent_primary
@@ -121,12 +127,9 @@ class UpcomingPanel(tk.Frame, UiWidget):
             return
         if journey.event is None or journey.event not in snapshot.events:
             return
-        if not messagebox.askyesno(
-            "Navigate to appointment",
-            f"Start driving guidance to {journey.event.location}? "
-            "This may replace active guidance.",
-            parent=self,
-        ):
+        if not self._confirm_destination(journey.event.location or "Unknown destination"):
+            return
+        if self._closed:
             return
         current = self._monitor.snapshot
         if (
@@ -135,6 +138,7 @@ class UpcomingPanel(tk.Frame, UiWidget):
             or current is None
             or journey.event not in current.events
             or current.journey is None
+            or current.journey.event != journey.event
             or current.journey.destination != journey.destination
         ):
             return
@@ -145,6 +149,47 @@ class UpcomingPanel(tk.Frame, UiWidget):
                 handler.request_start_route(journey.destination, TravelMode.AUTO)
         except Exception:
             messagebox.showerror("Navigation", "Unable to start guidance.", parent=self)
+
+    def _confirm_destination(self, location: str) -> bool:
+        """Ask for explicit confirmation using the active dashboard theme."""
+        ui = self._ui
+        dialog = tk.Toplevel(self.winfo_toplevel(), bg=ui.surface)
+        dialog.title("Navigate to appointment")
+        dialog.transient(self.winfo_toplevel())
+        confirmed = False
+
+        def accept():
+            nonlocal confirmed
+            confirmed = True
+            dialog.destroy()
+
+        tk.Label(
+            dialog, text="Navigate to appointment", bg=ui.surface, fg=ui.text,
+            font=("Sans", 16, "bold"),
+        ).pack(padx=20, pady=(16, 8))
+        tk.Label(
+            dialog, text=location, bg=ui.surface, fg=ui.accent_primary,
+            wraplength=340, justify=tk.LEFT, font=("Sans", 13),
+        ).pack(padx=20, pady=8)
+        tk.Label(
+            dialog, text="This may replace active guidance.", bg=ui.surface,
+            fg=ui.text_muted, wraplength=340,
+        ).pack(padx=20, pady=8)
+        buttons = tk.Frame(dialog, bg=ui.surface)
+        buttons.pack(fill=tk.X, padx=16, pady=16)
+        for title, command, color in (
+            ("Cancel", dialog.destroy, ui.text),
+            ("Navigate", accept, ui.accent_primary),
+        ):
+            tk.Button(
+                buttons, text=title, command=command, bg=ui.background, fg=color,
+                font=("Sans", 13), relief=tk.FLAT, pady=12,
+            ).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=4)
+        dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
+        dialog.bind("<Escape>", lambda event: dialog.destroy())
+        dialog.grab_set()
+        self.wait_window(dialog)
+        return confirmed
 
     def _close(self, event):
         if event.widget is not self or self._closed:
