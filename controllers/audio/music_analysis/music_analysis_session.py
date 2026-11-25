@@ -11,7 +11,7 @@ import threading
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict
 
-from controllers.audio.capture.audio_capture_if import AudioCaptureIf
+from controllers.audio.capture.audio_capture_if import AudioCaptureIf, AudioSamplesCallback
 
 from .music_analysis_types import MusicAnalysisState
 from .music_analyzer import MusicAnalyzer
@@ -21,14 +21,14 @@ class PushAudioCapture(AudioCaptureIf):
     """Adapt external PCM transport to the standard capture contract."""
 
     def __init__(self) -> None:
-        self._callback = None
+        self._callback: AudioSamplesCallback | None = None
         self._running = False
 
     @property
     def is_running(self) -> bool:
         return self._running
 
-    def start(self, callback) -> None:
+    def start(self, callback: AudioSamplesCallback) -> None:
         if self._running:
             raise RuntimeError("audio capture is already running")
         self._callback = callback
@@ -69,7 +69,7 @@ class MusicAnalysisSession:
         sources: Mapping[str, Callable[[], AudioCaptureIf]],
         *,
         analyzer: MusicAnalyzer | None = None,
-        consumer=None,
+        consumer: Callable[[MusicAnalysisState], None] | None = None,
     ) -> None:
         if not sources:
             raise ValueError("at least one audio source is required")
