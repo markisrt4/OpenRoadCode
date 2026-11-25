@@ -10,6 +10,11 @@ from zoneinfo import ZoneInfo
 from apps.orcUi.theme_runtime import theme_bundle
 from controllers.calendar.cached_calendar_provider import CachedCalendarProvider
 from controllers.calendar.calendar_agenda import CalendarAgendaController
+from controllers.calendar.calendar_presentation import (
+    CalendarAgendaPresentation,
+    CalendarSelectionPresentation,
+    calendar_health_view,
+)
 from controllers.calendar.calendar_event_cache import CalendarEventCache
 from controllers.calendar.calendar_models import CalendarCapabilities, CalendarEvent
 from controllers.calendar.calendar_provider_if import CalendarProviderIf
@@ -68,11 +73,14 @@ def main():
     root.geometry(args.size)
     screen = CalendarScreen(
         root,
-        controller=CalendarAgendaController(provider, zone),
+        agenda=CalendarAgendaPresentation(
+            CalendarAgendaController(provider, zone), calendar_health_view
+        ),
         theme=theme_bundle(ThemeMode.LIGHT if args.light else ThemeMode.DARK),
         zone=zone,
-        selection_file=selection if args.cached else None,
-        catalog_file=cache_path.with_suffix(".catalog.json") if args.cached else None,
+        selection=CalendarSelectionPresentation(selection, cache_path.with_suffix(".catalog.json"))
+        if args.cached
+        else None,
     )
     screen.pack(fill=tk.BOTH, expand=True)
     root.mainloop()
