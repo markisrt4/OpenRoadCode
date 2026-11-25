@@ -9,7 +9,7 @@ from unittest.mock import Mock
 import pytest
 
 from controllers.calendar.upcoming_appointments import upcoming_appointments
-from frontends.tk.calendar.upcoming_panel import _read
+from controllers.calendar.appointment_monitor import read_snapshot as _read
 
 NOW = datetime(2026, 11, 24, 12, tzinfo=timezone.utc)
 

@@ -72,6 +72,7 @@ for package in services services/common services/linux protocols protocols/auth 
     done < <(find "$PROJECT_ROOT/$package" -maxdepth 1 -type f -name '*.py' -print0)
 done
 install -D -o root -g root -m 644 "$PROJECT_ROOT/common/xdg_paths.py" "$INSTALL_ROOT/common/xdg_paths.py"
+install -D -o root -g root -m 644 "$PROJECT_ROOT/common/calendar_health.py" "$INSTALL_ROOT/common/calendar_health.py"
 
 mkdir -p "$ENV_DIR"
 # Shared runtime configuration such as navigation.toml lives in this directory

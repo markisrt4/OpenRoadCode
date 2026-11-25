@@ -8,6 +8,7 @@ from __future__ import annotations
 import tkinter as tk
 from collections.abc import Callable
 
+from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
 from ui.navigation.map_runtime_if import MapRuntimeIf
 from apps.orcUi.frontend.tk.presentation_state import OrcUiPresentationState
 from apps.orcUi.navigation_presenter import (
@@ -131,6 +132,7 @@ class HomeScreen(TkScreen):
         self._on_radar_toggle = on_radar_toggle
         self._refresh_radar = refresh_radar
 
+        self._appointment_monitor: AppointmentMonitorIf | None = None
         self._calendar_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._radio_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._media_factory: Callable[[tk.Misc], tk.Widget] | None = None
@@ -144,7 +146,10 @@ class HomeScreen(TkScreen):
         """Return the active HOME context rail, when HOME is displayed."""
         return self._context_rail
 
-    def set_calendar_factory(self, factory: Callable[[tk.Misc], tk.Widget]) -> None:
+    def set_calendar_factory(
+        self, factory: Callable[[tk.Misc], tk.Widget], monitor: AppointmentMonitorIf
+    ) -> None:
+        self._appointment_monitor = monitor
         self._calendar_factory = factory
 
     def set_radio_factory(
@@ -214,8 +219,10 @@ class HomeScreen(TkScreen):
             on_radar_toggle=self._on_radar_toggle,
         )
 
-        if self._calendar_factory is not None:
-            self._context_rail.set_calendar_factory(self._calendar_factory)
+        if self._calendar_factory is not None and self._appointment_monitor is not None:
+            self._context_rail.set_calendar_factory(
+                self._calendar_factory, self._appointment_monitor
+            )
         if self._context_selection is not None:
             self._context_rail.restore_selection(self._context_selection)
 

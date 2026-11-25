@@ -20,6 +20,7 @@ from controllers.calendar.calendar_selection import (
 from controllers.calendar.calendar_sync_health import CalendarSyncHealth
 from controllers.calendar.calendar_sync_scheduler import CalendarSyncScheduler
 from controllers.calendar.calendar_sync_worker import CalendarSyncWorker
+from controllers.connectivity.online_mode import saved_online_mode
 from security.environment_variable_secret_manager import EnvironmentVariableSecretManager
 
 
@@ -74,6 +75,7 @@ def main() -> None:
         interval_seconds=args.interval_seconds,
         past_days=args.past_days,
         future_days=args.future_days,
+        online_allowed=saved_online_mode,
         health=CalendarSyncHealth(args.cache_file.with_suffix(".health.json")),
     )
     stop = threading.Event()

@@ -1,96 +1,135 @@
 # SPDX-License-Identifier: MIT
 """Compose the dashboard calendar and own its visible panel lifecycle."""
 
-from datetime import datetime
+from dataclasses import dataclass, field, replace
+
+from common.app_settings import AppSettingsStore
+from datetime import date, datetime, tzinfo
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from apps.orcUi.composition.appointment_navigation import create_appointment_estimate_cache
 from apps.orcUi.theme_runtime import theme_bundle
 from controllers.calendar.appointment_monitor import AppointmentMonitor
 from controllers.calendar.cached_calendar_provider import CachedCalendarProvider
 from controllers.calendar.calendar_agenda import CalendarAgendaController
+from controllers.calendar.calendar_presentation import (
+    CalendarAgendaPresentation,
+    CalendarSelectionPresentation,
+    calendar_health_view,
+    event_view,
+)
 from controllers.calendar.calendar_event_cache import CalendarEventCache
+from controllers.calendar.calendar_coverage import covered_calendar_days
+from controllers.calendar.calendar_query_if import CalendarQueryIf
 from controllers.calendar.upcoming_appointments import upcoming_appointments
-from controllers.system.calendar_health_sampler import sample_calendar_health
+from controllers.connectivity.online_mode import saved_online_mode
+from ui.calendar.calendar_models import AppointmentSnapshot
+from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
+from ui.navigation.route_request_handler_if import RouteRequestHandlerIf
 from frontends.tk.calendar.calendar_screen import CalendarScreen
 from frontends.tk.calendar.upcoming_panel import UpcomingPanel
-from frontends.tk.tk_screen import TkScreen
-from ui.screen_ui_if import ScreenId
+from frontends.tk.calendar.dashboard_screen import DashboardCalendarScreen
 
 
-class DashboardCalendarScreen(TkScreen):
-    """Create the calendar only while its dashboard destination is active."""
+def _local_zone() -> tzinfo:
+    try:
+        return ZoneInfo("America/Detroit")
+    except ZoneInfoNotFoundError:
+        return datetime.now().astimezone().tzinfo or ZoneInfo("UTC")
 
-    def __init__(self, app):
-        super().__init__(ScreenId("calendar"))
-        self._app = app
-        self._panel = None
 
-    def show(self):
-        self.hide()
-        self._app.activate_screen(self)
-        self._app.clear_screen_content()
-        self._app.set_screen_title("CALENDAR")
-        cache_path = Path.home() / ".local/share/openroadcode/calendar/events.sqlite3"
-        selection = Path.home() / ".config/openroadcode/calendar-selection.json"
-        try:
-            zone = ZoneInfo("America/Detroit")
-        except ZoneInfoNotFoundError:
-            zone = datetime.now().astimezone().tzinfo
+@dataclass(frozen=True)
+class CalendarConfiguration:
+    """Shared configuration for all calendar consumers."""
+
+    cache_path: Path = field(
+        default_factory=lambda: Path.home() / ".local/share/openroadcode/calendar/events.sqlite3"
+    )
+    selection_path: Path = field(
+        default_factory=lambda: Path.home() / ".config/openroadcode/calendar-selection.json"
+    )
+    account_id: str = "caldav"
+    zone: tzinfo = field(default_factory=_local_zone)
+
+    def coverage(self, day: date, days: int) -> frozenset[date]:
+        """Read cached coverage for the configured account and timezone."""
+        return covered_calendar_days(
+            CalendarEventCache(self.cache_path),
+            self.account_id,
+            self.selection_path,
+            self.cache_path.with_suffix(".catalog.json"),
+            self.zone,
+            day,
+            days,
+        )
+
+    def query(self) -> CalendarQueryIf:
         provider = CachedCalendarProvider(
-            "caldav", CalendarEventCache(cache_path), selection_file=selection
+            self.account_id,
+            CalendarEventCache(self.cache_path),
+            selection_file=self.selection_path,
         )
-        self._panel = CalendarScreen(
-            self._app.screen_parent,
-            controller=CalendarAgendaController(provider, zone),
-            theme=theme_bundle(self._app.theme_mode),
-            zone=zone,
-            selection_file=selection,
-            catalog_file=cache_path.with_suffix(".catalog.json"),
+        return CalendarAgendaController(provider, self.zone)
+
+
+def configure_calendar(app, config: CalendarConfiguration | None = None):
+    config = config or CalendarConfiguration()
+
+    settings = AppSettingsStore()
+
+    def save_buffer(minutes: int) -> None:
+        settings.save(replace(settings.load(), appointment_arrival_minutes=minutes))
+
+    def create_panel(parent):
+        return CalendarScreen(
+            parent,
+            agenda=CalendarAgendaPresentation(
+                config.query(),
+                lambda: calendar_health_view(
+                    config.cache_path.with_suffix(".health.json"), offline=not saved_online_mode()
+                ),
+                config.coverage,
+            ),
+            theme=theme_bundle(app.theme_mode),
+            zone=config.zone,
+            arrival_buffer=lambda: settings.load().appointment_arrival_minutes,
+            save_arrival_buffer=save_buffer,
+            selection=CalendarSelectionPresentation(
+                config.selection_path, config.cache_path.with_suffix(".catalog.json")
+            ),
         )
-        self._panel.pack(fill="both", expand=True)
 
-    def hide(self):
-        panel, self._panel = self._panel, None
-        if panel is not None and panel.winfo_exists():
-            panel.destroy()
-
-    def set_theme_mode(self, mode):
-        del mode
-        if self._panel is not None:
-            self.show()
-
-
-def configure_calendar(app):
-    screen = DashboardCalendarScreen(app)
+    screen = DashboardCalendarScreen(app, create_panel)
     app.register_screen("CALENDAR", screen, before="MEDIA")
     return screen
 
 
 class HomeCalendarFactory:
-    def __init__(self, app):
+    def __init__(
+        self, app, config: CalendarConfiguration | None = None,
+        route_handler: RouteRequestHandlerIf | None = None,
+    ):
+        self._route_handler = route_handler
         self._app = app
-        try:
-            self._zone = ZoneInfo("America/Detroit")
-        except ZoneInfoNotFoundError:
-            self._zone = datetime.now().astimezone().tzinfo
-        zone = self._zone
+        config = config or CalendarConfiguration()
+        self._zone = config.zone
+        estimates = create_appointment_estimate_cache()
 
         def load():
-            cache = CalendarEventCache(
-                Path.home() / ".local/share/openroadcode/calendar/events.sqlite3"
+            now = datetime.now(config.zone)
+            query = config.query()
+            events = upcoming_appointments(query, now, limit=1)
+            return AppointmentSnapshot(
+                tuple(event_view(event) for event in events),
+                calendar_health_view(
+                    config.cache_path.with_suffix(".health.json"), offline=not saved_online_mode()
+                ),
+                len(config.coverage(now.date(), 7)) == 7,
+                estimates.estimate(query, events[0]) if events else None,
             )
-            provider = CachedCalendarProvider(
-                "caldav",
-                cache,
-                selection_file=Path.home() / ".config/openroadcode/calendar-selection.json",
-            )
-            events = upcoming_appointments(
-                CalendarAgendaController(provider, zone), datetime.now(zone), limit=1
-            )
-            return events, sample_calendar_health()
 
-        self.monitor = AppointmentMonitor(load)
+        self.monitor: AppointmentMonitorIf = AppointmentMonitor(load)
 
     def __call__(self, parent):
         return UpcomingPanel(
@@ -98,8 +137,12 @@ class HomeCalendarFactory:
             theme=theme_bundle(self._app.theme_mode),
             monitor=self.monitor,
             zone=self._zone,
+            route_handler=self._route_handler,
         )
 
 
-def create_home_calendar_factory(app):
-    return HomeCalendarFactory(app)
+def create_home_calendar_factory(
+    app, config: CalendarConfiguration | None = None,
+    route_handler: RouteRequestHandlerIf | None = None,
+):
+    return HomeCalendarFactory(app, config, route_handler)

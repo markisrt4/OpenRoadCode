@@ -156,3 +156,51 @@ health separately from service process status.
 
 Calendar services are optional. Appointment geocoding, routing and departure
 estimates are not included in this release.
+
+## Presentation architecture
+
+The toolkit-independent contracts in `ui/calendar/` expose immutable agenda,
+appointment, selection, and synchronization health state. The adapters in
+`controllers/calendar/calendar_presentation.py` own agenda workers and selection
+persistence. Agenda reads are single-flight; superseded results are discarded.
+Selection changes are saved as a batch, preserving unknown calendar IDs.
+
+Application composition constructs the adapters and injects them into the Tk
+frontend. The dashboard screen owns its mounted agenda session; application
+composition owns the shared Home appointment monitor and closes it on shutdown.
+Closing a session cancels queued work and retires running results without waiting
+for database I/O. Widgets own rendering and toolkit timers, not worker threads.
+Calendar selection currently uses synchronous local configuration operations
+through its injected adapter. Calendar-driven navigation remains separate.
+
+Calendar domain consumers use `CalendarQueryIf` in `controllers/calendar/`.
+The calendar subsystem owns synchronization health production. Calendar and
+System diagnostics share the standalone health wire reader in `common/`,
+so restricted service deployments do not require calendar controllers. Application composition centralizes cache, account,
+selection and timezone defaults. The existing Detroit timezone default is
+preserved; callers can supply a different timezone explicitly.
+
+### Appointment journey planning
+
+`AppointmentJourneyPlanner` consumes `CalendarQueryIf` and injected destination
+resolution and read-only route estimation functions. It calculates departure
+in UTC before converting to the appointment timezone, with a configurable
+600-second arrival buffer. Missing position, missing location, ambiguous
+resolution and unavailable estimates produce no journey. Planning does not
+start guidance. Runtime resolver, routing adapter and UI wiring remain pending.
+
+### Offline operation
+
+Agenda and Home read the persisted SQLite snapshot, not the CalDAV endpoint.
+A failed synchronization does not erase the last successful calendar snapshot.
+The default synchronization window covers seven past and thirty future days;
+longer offline periods may exhaust that coverage. Calendar freshness is shown
+independently of network connectivity. Appointment routing adapters reuse the
+local geocoder and route-planning contract, reject street-only approximations,
+and convert UI radians to routing degrees. Runtime wiring is still pending.
+
+Calendar agenda snapshots now include per-day coverage calculated from successful
+SQLite snapshot windows for all known enabled calendars. Empty successful
+snapshots count as coverage; missing catalogs or missing enabled-calendar
+snapshots do not. Dates outside complete coverage show an incomplete-data
+message instead of implying an empty schedule. Home coverage remains pending.

@@ -7,12 +7,12 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from controllers.navigation.map_controls_drawer_controller import MapControlsDrawerController
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from common.resource_cleanup import ResourceCleanup, close_resources
 import math
 
-from common.app_settings import AppSettings, AppSettingsStore
+from common.app_settings import AppSettingsStore
 from apps.launchers.host_location_permission import HostLocationPermission
 from controllers.navigation.host_location_settings_controller import HostLocationSettingsController
 from controllers.weather.radar_palette import RadarPalette
@@ -25,9 +25,14 @@ from apps.orcUi.composition.core import CoreComposition, create_core_composition
 from apps.orcUi.cesium_map_runtime import CesiumMapRuntime
 from apps.launchers.cesium_embedded_viewer import CesiumEmbeddedViewer
 from controllers.navigation.current_position import get_current_position
+from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
 from ui.navigation.cesium_viewer_state import CesiumViewerState
 from ui.navigation import GeoPoint
-from apps.orcUi.composition.calendar import configure_calendar, create_home_calendar_factory
+from apps.orcUi.composition.calendar import (
+    CalendarConfiguration,
+    configure_calendar,
+    create_home_calendar_factory,
+)
 from apps.orcUi.composition.games import configure_games
 from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
 from apps.orcUi.composition.tooltips import TooltipFactory
@@ -65,6 +70,7 @@ class OrcUiComposition:
     weather: WeatherComposition
     vision: VisionComposition | None = None
     home: HomeScreen | None = None
+    appointment_monitor: AppointmentMonitorIf | None = None
     navigation: NavigationScreen | None = None
     vehicle: VehicleScreen | None = None
     offroad: OffRoadScreen | None = None
@@ -95,10 +101,24 @@ class OrcUiComposition:
                 self.performance_status.start()
             self.app.schedule_ui_callback(1500, self.runtime.start_background_apps)
             self.core.start()
+            self._poll_route_start()
             _report(self.startup_progress, "ready", "OpenRoadCode UI ready")
             self.app.run()
 
         self.core.lifecycle.execute_requested_action()
+
+    def _poll_route_start(self) -> None:
+        if self._closed:
+            return
+        try:
+            if self.core.route_request_handler.poll_route_start():
+                self.app.set_screen_status("Appointment guidance started")
+                self.app.navigate_to("NAVIGATION")
+        except Exception:
+            self.app.set_screen_status("Unable to start appointment guidance")
+        finally:
+            if not self._closed:
+                self.app.schedule_ui_callback(100, self._poll_route_start)
 
     def close(self) -> None:
         """Attempt all owned cleanup once, including before the UI loop starts."""
@@ -110,6 +130,7 @@ class OrcUiComposition:
             *(
                 resource.close
                 for resource in (
+                    self.appointment_monitor,
                     self.host_location,
                     self.performance_status,
                     self.performance,
@@ -186,7 +207,7 @@ def create_orc_ui_composition(
 
         def set_unit_system(value):
             nonlocal app_settings
-            app_settings = AppSettings(unit_system=value, radar_palette=app_settings.radar_palette)
+            app_settings = replace(settings_store.load(), unit_system=value)
             settings_store.save(app_settings)
 
         def open_radar_map() -> None:
@@ -207,10 +228,7 @@ def create_orc_ui_composition(
 
         def set_radar_palette(value: RadarPalette) -> None:
             nonlocal app_settings
-            app_settings = AppSettings(
-                unit_system=app_settings.unit_system,
-                radar_palette=value.value,
-            )
+            app_settings = replace(settings_store.load(), radar_palette=value.value)
             settings_store.save(app_settings)
 
         def navigate_home_context(name: str) -> None:
@@ -370,8 +388,12 @@ def create_orc_ui_composition(
         app.register_screen("OFF-ROAD", offroad, show_in_navigation=False)
         app.register_screen("SETTINGS", settings, show_in_navigation=False)
         app.register_screen("DIAGNOSTICS", diagnostics, show_in_navigation=False)
-        configure_calendar(app)
-        home.set_calendar_factory(create_home_calendar_factory(app))
+        calendar_config = CalendarConfiguration()
+        configure_calendar(app, calendar_config)
+        calendar_factory = create_home_calendar_factory(
+            app, calendar_config, core.route_request_handler
+        )
+        home.set_calendar_factory(calendar_factory, calendar_factory.monitor)
         app.set_initial_destination("HOME")
         app.set_settings_action(lambda: app.navigate_to("SETTINGS"))
         _report(progress, "screens", "Application screens loaded")
@@ -384,6 +406,7 @@ def create_orc_ui_composition(
             weather=weather,
             vision=vision,
             home=home,
+            appointment_monitor=calendar_factory.monitor,
             navigation=navigation,
             vehicle=vehicle,
             offroad=offroad,

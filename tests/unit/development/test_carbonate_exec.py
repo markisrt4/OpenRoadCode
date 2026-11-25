@@ -17,9 +17,7 @@ def test_missing_executable_argument() -> None:
 def test_missing_secret_does_not_launch() -> None:
     with (
         patch("sys.argv", ["carbonate_exec.py", "/bin/carbonate"]),
-        patch(
-            "development.calendar.carbonate_exec.EnvironmentVariableSecretManager"
-        ) as manager,
+        patch("development.calendar.carbonate_exec.EnvironmentVariableSecretManager") as manager,
     ):
         manager.return_value.require_secret.side_effect = RuntimeError("missing")
         assert main() == 1
@@ -28,9 +26,7 @@ def test_missing_secret_does_not_launch() -> None:
 def test_launch_passes_secret_in_environment_only() -> None:
     with (
         patch("sys.argv", ["carbonate_exec.py", "/bin/carbonate"]),
-        patch(
-            "development.calendar.carbonate_exec.EnvironmentVariableSecretManager"
-        ) as manager,
+        patch("development.calendar.carbonate_exec.EnvironmentVariableSecretManager") as manager,
         patch("development.calendar.carbonate_exec.os.execve") as execve,
     ):
         manager.return_value.require_secret.return_value = "test-bridge-secret"

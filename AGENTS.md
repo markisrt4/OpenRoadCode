@@ -16,6 +16,54 @@
 
 *ORC's Law: Inspect what exists. Reuse what works. Extend what's missing. Don't reinvent the wheel.*
 
+## New subsystem architecture requirements
+
+These requirements apply to every new subsystem and substantial extension of an
+existing subsystem, not just features that introduce a new screen. Architecture
+is an implementation prerequisite, not a merge-preparation cleanup task.
+
+- **Before implementation**, inspect existing contracts, composition roots,
+  adapters, presentation controllers, architecture checks, and test conventions.
+  Identify the subsystem's responsibilities, dependency direction, public
+  interfaces, lifecycle owner, and reusable components. Discuss major design
+  decisions with the user under the existing approval policy.
+- Define or extend typed, toolkit-independent contracts before implementing
+  consumers. Separate domain/provider interfaces from UI state and semantic
+  request interfaces under `ui/<subsystem>/`. Use immutable presentation models
+  and explicit interfaces rather than untyped dictionaries, concrete backend
+  objects, or duck-typed access to implementation details.
+- Keep hardware, protocols, persistence, services, domain logic, presentation
+  controllers, and rendering in their appropriate layers. Inject contracts at
+  composition roots. Composition modules must not define presentation widgets
+  or screen subclasses; keep those in the frontend. Frontends must not import
+  concrete controllers, providers, service clients, or worker primitives.
+- Define ownership of background work, cancellation, stale results, errors,
+  refresh, and shutdown before connecting asynchronous behavior. Controllers
+  own execution and state transitions; widgets render state and emit semantic
+  requests. Keep persistence and transport operations outside widgets.
+- Implement a complete vertical slice early: contracts, concrete implementation,
+  composition wiring, frontend consumer (where applicable), and meaningful tests
+  using injected fakes. Do not build an entire subsystem against concrete
+  dependencies and retrofit interfaces later.
+- In the same implementation slice, register applicable contracts and typed
+  implementations with strict mypy coverage and implementation witnesses,
+  verify automatic architecture discovery, and update dependency manifests,
+  CI setup, test discovery, and documentation inventory as needed. Do not
+  postpone these tasks until merge preparation.
+- Review the dependency direction and module-size limits before committing
+  each substantial slice. Use existing GitHub Actions checks early in branch
+  development, consistent with the asynchronous CI and Codex execution policies
+  below. Do not run checks in the Codex VM without specific authorization.
+- A new subsystem is not complete until its contracts are actually consumed,
+  its lifecycle and failure behavior are covered by tests, and applicable
+  architecture, typing, documentation, and regression checks are verified.
+  Do not add boundary exceptions, weaken gates, or bypass static discovery to
+  accommodate new code.
+
+**Required handoff:** Identify the contracts and their implementations, the
+composition wiring, lifecycle ownership, tests added, and CI evidence or
+outstanding validation. A contract definition alone is not a completed migration.
+
 ## Primary UI display target
 
 - **Design and validate the ORC interface for 1280×720 first.** Treat this as

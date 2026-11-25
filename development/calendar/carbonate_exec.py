@@ -20,9 +20,7 @@ def main() -> int:
         print("Usage: carbonate_exec.py CARBONATE_EXECUTABLE", file=sys.stderr)
         return 2
     try:
-        password = EnvironmentVariableSecretManager().require_secret(
-            "CARBONATE_BRIDGE_PASSWORD"
-        )
+        password = EnvironmentVariableSecretManager().require_secret("CARBONATE_BRIDGE_PASSWORD")
     except (RuntimeError, OSError, ValueError) as error:
         print(f"Carbonate startup: {error}", file=sys.stderr)
         return 1

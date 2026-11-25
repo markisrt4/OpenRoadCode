@@ -4,6 +4,7 @@
 from unittest.mock import Mock, patch
 
 from controllers.calendar.appointment_monitor import AppointmentMonitor
+from ui.calendar.calendar_models import AppointmentSnapshot, CalendarHealthView
 
 
 def test_monitor_single_flight_and_refresh_interval():
@@ -13,9 +14,9 @@ def test_monitor_single_flight_and_refresh_interval():
         monitor.poll()
         monitor.poll()
         assert thread.call_count == 1
-        monitor._future.set_result(("events", {}))
+        monitor._future.set_result(AppointmentSnapshot((), CalendarHealthView()))
         monitor.poll()
-        assert monitor.snapshot == ("events", {})
+        assert monitor.snapshot == AppointmentSnapshot((), CalendarHealthView())
         clock.return_value = 29
         monitor.poll()
         assert thread.call_count == 1
@@ -29,27 +30,30 @@ def test_monitor_retains_snapshot_and_recovers():
     monitor = AppointmentMonitor(Mock(), clock=clock)
     with patch("controllers.calendar.appointment_monitor.Thread"):
         monitor.poll()
-        monitor._future.set_result(("old", {}))
+        monitor._future.set_result(AppointmentSnapshot((), CalendarHealthView(status="degraded")))
         monitor.poll()
         clock.return_value = 30
         monitor.poll()
         monitor._future.set_exception(OSError("cache unavailable"))
         monitor.poll()
         assert monitor.failed
-        assert monitor.snapshot == ("old", {})
+        assert monitor.snapshot == AppointmentSnapshot((), CalendarHealthView(status="degraded"))
         clock.return_value = 60
         monitor.poll()
-        monitor._future.set_result(("new", {}))
+        monitor._future.set_result(AppointmentSnapshot((), CalendarHealthView(status="ok")))
         monitor.poll()
         assert not monitor.failed
-        assert monitor.snapshot == ("new", {})
+        assert monitor.snapshot == AppointmentSnapshot((), CalendarHealthView(status="ok"))
 
 
 def test_monitor_close_cancels_pending_read():
     monitor = AppointmentMonitor(Mock(), clock=lambda: 0)
-    with patch("controllers.calendar.appointment_monitor.Thread"):
+    with patch("controllers.calendar.appointment_monitor.Thread") as thread:
         monitor.poll()
         future = monitor._future
         monitor.close()
         assert future.cancelled()
         assert monitor._future is None
+
+        monitor.poll()
+        assert thread.call_count == 1

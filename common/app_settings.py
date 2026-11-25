@@ -26,6 +26,7 @@ class AppSettings:
 
     unit_system: UnitSystem = UnitSystem.IMPERIAL
     radar_palette: str = "universal"
+    appointment_arrival_minutes: int = 10
 
 
 class AppSettingsStore:
@@ -56,9 +57,14 @@ class AppSettingsStore:
             radar_palette = weather.get("radar_palette", self._default.radar_palette)
             if radar_palette not in ("universal", "classic"):
                 raise ValueError("invalid radar palette")
+            navigation = data.get("navigation", {})
+            buffer = navigation.get("appointment_arrival_minutes", self._default.appointment_arrival_minutes)
+            if type(buffer) is not int or not 0 <= buffer <= 120:
+                buffer = self._default.appointment_arrival_minutes
             return AppSettings(
                 unit_system=UnitSystem(display.get("unit_system", self._default.unit_system.value)),
                 radar_palette=radar_palette,
+                appointment_arrival_minutes=buffer,
             )
         except (OSError, ValueError, TypeError, tomllib.TOMLDecodeError):
             return self._default
@@ -70,6 +76,8 @@ class AppSettingsStore:
             "[display]\n"
             f'unit_system = "{settings.unit_system.value}"\n'
             "\n[weather]\n"
-            f'radar_palette = "{settings.radar_palette}"\n',
+            f'radar_palette = "{settings.radar_palette}"\n'
+            "\n[navigation]\n"
+            f"appointment_arrival_minutes = {settings.appointment_arrival_minutes}\n",
             encoding="utf-8",
         )

@@ -1,21 +1,16 @@
 # SPDX-License-Identifier: MIT
 """Touch-friendly cached calendar agenda."""
 
+from collections.abc import Callable
 import calendar
 import hashlib
 import tkinter as tk
-from concurrent.futures import Future
-from datetime import datetime, timedelta
-from pathlib import Path
-from threading import Thread
 
-from controllers.calendar.calendar_agenda import CalendarAgendaController
-from controllers.calendar.calendar_selection import (
-    load_calendar_catalog,
-    load_disabled_calendar_ids,
-    save_disabled_calendar_ids,
-)
-from controllers.system.calendar_health_sampler import sample_calendar_health
+from ui import UiWidget
+from datetime import datetime, timedelta
+
+from ui.calendar.calendar_models import CalendarHealthView
+from ui.calendar.calendar_presentation_if import CalendarAgendaIf, CalendarSelectionIf
 from ui.theme import ThemeBundle
 
 
@@ -26,54 +21,36 @@ def _calendar_color(account_id: str, calendar_id: str) -> str:
     return palette[int.from_bytes(digest[:4], "big") % len(palette)]
 
 
-def _load_agenda(future, controller, day, days, health_path):
-    """Read-only worker; never retain or call a Tk widget."""
-    if not future.set_running_or_notify_cancel():
-        return
-    try:
-        groups = controller.load(day, days)
-        health = sample_calendar_health(health_path) if health_path is not None else {}
-        future.set_result((groups, health))
-    except Exception as error:
-        future.set_exception(error)
-
-
-class CalendarScreen(tk.Frame):
+class CalendarScreen(tk.Frame, UiWidget):
     """Load agenda data off the Tk thread and render on the Tk thread."""
 
     def __init__(
         self,
         parent,
         *,
-        controller: CalendarAgendaController,
+        agenda: CalendarAgendaIf,
         theme: ThemeBundle,
         zone,
-        selection_file: Path | None = None,
-        catalog_file: Path | None = None,
+        selection: CalendarSelectionIf | None = None,
+        arrival_buffer: Callable[[], int] | None = None,
+        save_arrival_buffer: Callable[[int], None] | None = None,
     ):
         ui = theme.ui
         super().__init__(parent, bg=ui.background)
         self._ui = ui
         self._month = False
         self._groups = ()
-        self._controller = controller
+        self._agenda = agenda
         self._zone = zone
-        self._selection_file = selection_file
-        self._catalog_file = catalog_file
-        self._generation = 0
+        self._selection = selection
+        self._arrival_buffer = arrival_buffer
+        self._save_arrival_buffer = save_arrival_buffer
         self._day = datetime.now(zone).date()
         self._selected = self._day
         self._day -= timedelta(days=self._day.weekday())
         self._closed = False
-        self._future = None
         self._poll = None
         self._refresh_timer = None
-        self._health_path = (
-            catalog_file.with_suffix("").with_suffix(".health.json")
-            if catalog_file is not None
-            else None
-        )
-        self._requested = None
         bar = tk.Frame(self, bg=ui.background)
         bar.pack(fill=tk.X, padx=8, pady=(8, 18))
         tk.Label(
@@ -107,7 +84,7 @@ class CalendarScreen(tk.Frame):
             pady=6,
         )
         self._toggle.pack(side=tk.LEFT, padx=4)
-        if selection_file is not None and catalog_file is not None:
+        if selection is not None or arrival_buffer is not None:
             tk.Button(
                 bar,
                 text="⚙",
@@ -134,6 +111,7 @@ class CalendarScreen(tk.Frame):
         )
         self._body.bind("<Button-4>", lambda event: self._body.yview_scroll(-1, "units"))
         self._body.bind("<Button-5>", lambda event: self._body.yview_scroll(1, "units"))
+        self._covered_days = None
         self._message = "Loading appointments..."
         self._footer = tk.Label(
             self, text="Local calendar agenda", bg=ui.background, fg=ui.text_muted
@@ -155,22 +133,36 @@ class CalendarScreen(tk.Frame):
         from tkinter import messagebox
 
         try:
-            catalog = load_calendar_catalog(self._catalog_file)
-            disabled = load_disabled_calendar_ids(self._selection_file)
+            catalog = self._selection.list_calendars() if self._selection is not None else ()
         except (OSError, ValueError) as error:
             messagebox.showerror("Calendar settings", str(error), parent=self)
-            return
-        if not catalog:
-            messagebox.showinfo("Calendar settings", "Waiting for calendar discovery.", parent=self)
             return
         ui = self._ui
         dialog = tk.Toplevel(self, bg=ui.background)
         dialog.title("Calendar settings")
         dialog.transient(self.winfo_toplevel())
         dialog.grab_set()
+        buffer = tk.IntVar(dialog, value=self._arrival_buffer() if self._arrival_buffer else 10)
+        if self._save_arrival_buffer is not None:
+            row = tk.Frame(dialog, bg=ui.background)
+            row.pack(fill=tk.X, padx=12, pady=8)
+            tk.Label(row, text="Arrive early (minutes)", bg=ui.background, fg=ui.text).pack()
+            controls = tk.Frame(row, bg=ui.background)
+            controls.pack()
+            for label, delta in (("−", -5), ("+", 5)):
+                tk.Button(
+                    controls, text=label, width=4, pady=8, bg=ui.surface, fg=ui.text,
+                    command=lambda step=delta: buffer.set(max(0, min(120, buffer.get() + step))),
+                ).pack(side=tk.LEFT if delta < 0 else tk.RIGHT, padx=8)
+            tk.Label(controls, textvariable=buffer, bg=ui.background, fg=ui.text,
+                     font=("Sans", 16)).pack(side=tk.LEFT)
+        if not catalog:
+            tk.Label(dialog, text="Waiting for calendar discovery.", bg=ui.background,
+                     fg=ui.text_muted).pack(padx=12, pady=6)
         variables = {}
-        for calendar_id, name in sorted(catalog.items(), key=lambda item: item[1].casefold()):
-            variable = tk.BooleanVar(dialog, value=calendar_id not in disabled)
+        for item in sorted(catalog, key=lambda item: item.name.casefold()):
+            calendar_id, name = item.calendar_id, item.name
+            variable = tk.BooleanVar(dialog, value=item.enabled)
             variables[calendar_id] = variable
             row = tk.Frame(dialog, bg=ui.background)
             row.pack(fill=tk.X, padx=12, pady=3)
@@ -190,17 +182,22 @@ class CalendarScreen(tk.Frame):
             ).pack(side=tk.LEFT, padx=8)
 
         def apply():
-            updated = set(disabled) - variables.keys()
-            updated.update(key for key, value in variables.items() if not value.get())
+            updated = {key: value.get() for key, value in variables.items()}
             try:
-                save_disabled_calendar_ids(self._selection_file, updated)
+                if self._selection is not None and updated:
+                    self._selection.apply_selection(updated)
+                if self._save_arrival_buffer is not None:
+                    self._save_arrival_buffer(buffer.get())
             except OSError as error:
                 messagebox.showerror("Calendar settings", str(error), parent=dialog)
                 return
             dialog.destroy()
             self._reload()
 
-        tk.Button(dialog, text="Apply", command=apply).pack(pady=10)
+        tk.Button(dialog, text="Apply", command=apply, bg=ui.surface, fg=ui.text,
+                  pady=8).pack(pady=10)
+        tk.Button(dialog, text="Cancel", command=dialog.destroy, bg=ui.surface,
+                  fg=ui.text).pack(pady=(0, 8))
 
     def _layout(self):
         self._week.grid_forget()
@@ -259,7 +256,7 @@ class CalendarScreen(tk.Frame):
         self._reload()
 
     def _reload(self):
-        self._generation += 1
+        self._covered_days = None
         self._groups = ()
         self._message = "Loading appointments..."
         self._refresh()
@@ -322,7 +319,15 @@ class CalendarScreen(tk.Frame):
         y += 34
         events = next((group.events for group in self._groups if group.day == self._selected), ())
         if not events:
-            canvas.create_text(margin, y, anchor="nw", text=self._message, fill=ui.text_muted)
+            message = self._message
+            covered = getattr(self, "_covered_days", None)
+            if (
+                covered is not None
+                and self._selected not in covered
+                and message == "No cached appointments."
+            ):
+                message = "Calendar data incomplete or unavailable for this date."
+            canvas.create_text(margin, y, anchor="nw", text=message, fill=ui.text_muted)
         for event in events:
             start = event.starts_at.astimezone(self._zone)
             end = event.ends_at.astimezone(self._zone)
@@ -427,47 +432,41 @@ class CalendarScreen(tk.Frame):
             if self._month
             else f"{self._day:%b %d} – {end:%b %d, %Y}"
         )
-        if self._future is None:
-            self._requested = (self._day, self._month, self._generation)
-            self._future = Future()
-            Thread(
-                target=_load_agenda,
-                args=(self._future, self._controller, self._day, days, self._health_path),
-                name="calendar-agenda-read",
-                daemon=True,
-            ).start()
+        self._agenda.request(self._day, days)
+        if self._poll is None:
             self._poll = self.after(50, self._collect)
 
     def _collect(self):
         self._poll = None
-        if self._closed or self._future is None:
-            return
-        if not self._future.done():
-            self._poll = self.after(50, self._collect)
-            return
-        future, self._future = self._future, None
-        if self._requested != (self._day, self._month, self._generation):
-            self._refresh()
+        if self._closed:
             return
         try:
-            groups, health = future.result()
-            self._groups = groups
-            self._update_footer(health)
-            self._message = "No cached appointments on this day."
+            snapshot = self._agenda.poll()
+            if snapshot is None:
+                self._poll = self.after(50, self._collect)
+                return
+            self._groups = snapshot.groups
+            self._covered_days = snapshot.covered_days
+            self._update_footer(snapshot.health)
+            self._message = snapshot.health.empty_message
         except Exception:
+            self._covered_days = None
             self._message = "Calendar cache unavailable."
             self._footer.configure(text=self._message, fg=self._ui.accent_warning)
         self._render(preserve_scroll=True)
 
-    def _update_footer(self, health):
-        if not health:
-            return
-        status = health.get("status", "unavailable")
-        age = health.get("last_data_refresh_age_seconds")
+    def _update_footer(self, health: CalendarHealthView):
+        status = health.status
+        age = health.last_data_refresh_age_seconds
         freshness = "not yet refreshed" if age is None else f"refreshed {age / 60:.0f} min ago"
-        stale = health.get("stale", False)
+        stale = health.stale
+        if health.syncing and not health.offline:
+            status = "syncing"
         self._footer.configure(
-            text=f"Calendar sync: {status.upper()} · {freshness}" + (" · Stale" if stale else ""),
+            text=(
+                f"Calendar sync: {'OFFLINE' if health.offline else status.upper()} · {freshness}"
+                + (" · Stale" if stale else "")
+            ),
             fg=self._ui.accent_warning if stale or status != "ok" else self._ui.text_muted,
         )
 
@@ -480,6 +479,4 @@ class CalendarScreen(tk.Frame):
             if self._poll is not None:
                 self.after_cancel(self._poll)
                 self._poll = None
-            if self._future is not None:
-                self._future.cancel()
-                self._future = None
+            self._agenda.close()

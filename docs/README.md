@@ -85,6 +85,7 @@ Generated from the canonical documentation files. Every component README and sta
 
 ### Development
 
+- [Calendar (`development/calendar`)](../development/calendar/README.md)
 - [Maplibre (`development/containers/maplibre`)](../development/containers/maplibre/README.md)
 - [Scripts (`development/containers/maplibre/scripts`)](../development/containers/maplibre/scripts/README.md)
 - [Termux (`development/termux`)](../development/termux/README.md)
