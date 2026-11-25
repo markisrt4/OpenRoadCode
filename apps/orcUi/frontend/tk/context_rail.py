@@ -149,8 +149,7 @@ class ContextRail(tk.Frame, UiWidget):
             if not health.get("stale") and health.get("last_data_refresh_age_seconds") is not None:
                 now = datetime.now(timezone.utc)
                 upcoming = any(
-                    timedelta(0) <= event.starts_at - now <= timedelta(hours=1)
-                    for event in events
+                    timedelta(0) <= event.starts_at - now <= timedelta(hours=1) for event in events
                 )
         if self._personal_tab is not None:
             self._personal_tab.configure(text="PERSONAL •" if upcoming else "PERSONAL")
