@@ -51,11 +51,13 @@ class VehiclePanel(tk.Frame, UiWidget):
         position: PositionPresentationState | None = None,
         attitude: AttitudePresentationState | None = None,
         theme_bundle: ThemeBundle | None = None,
-        vehicle_configuration: VehicleConfiguration = VehicleConfiguration(),
+        vehicle_configuration: VehicleConfiguration | None = None,
         engine_analysis: EngineAnalysis | None = None,
     ) -> None:
         self._theme_bundle = theme_bundle or packaged_theme_bundle(ThemeMode.DARK)
-        self._vehicle_configuration = vehicle_configuration
+        self._vehicle_configuration = (
+            vehicle_configuration if vehicle_configuration is not None else VehicleConfiguration()
+        )
         self._engine_analysis = engine_analysis or EngineAnalysis(
             operating_mode=EngineOperatingMode.UNKNOWN,
             fuel_control_mode=FuelControlMode.UNKNOWN,

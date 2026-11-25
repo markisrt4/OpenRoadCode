@@ -101,7 +101,7 @@ class StateIngressRuntime:
         apply_vehicle_state: Callable[[VehiclePresentationState], None],
         apply_engine_analysis: Callable[[EngineAnalysis], None],
         apply_trip_state: Callable[[TripPresentationState], None],
-        vehicle_configuration: VehicleConfiguration = VehicleConfiguration(),
+        vehicle_configuration: VehicleConfiguration | None = None,
         apply_position_state: Callable[[PositionPresentationState], None],
         apply_attitude_state: Callable[[AttitudePresentationState], None],
         apply_route_guidance_state: Callable[[RouteGuidanceStateMessage], None],
@@ -111,6 +111,8 @@ class StateIngressRuntime:
         self._schedule_ui = schedule_ui
         self._apply_vehicle_state = apply_vehicle_state
         self._apply_engine_analysis = apply_engine_analysis
+        if vehicle_configuration is None:
+            vehicle_configuration = VehicleConfiguration()
         self._engine_analyzer = EngineAnalyzer(vehicle_configuration)
         self._apply_trip_state = apply_trip_state
         self._apply_position_state = apply_position_state

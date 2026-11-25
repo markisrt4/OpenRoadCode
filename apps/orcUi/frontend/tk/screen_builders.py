@@ -126,7 +126,7 @@ def build_settings_screen(
     on_back: Callable[[], None],
     theme: ThemeBundle,
     host_location_handler: HostLocationRequestHandlerIf | None = None,
-    host_location_state: HostLocationState = HostLocationState(),
+    host_location_state: HostLocationState | None = None,
     rf_hardware_config: RfHardwareConfigIf | None = None,
     performance_overlay_enabled: Callable[[], bool] | None = None,
     on_performance_overlay_changed: Callable[[bool], None] | None = None,

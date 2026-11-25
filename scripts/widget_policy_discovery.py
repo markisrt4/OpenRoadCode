@@ -83,7 +83,7 @@ def discover_widgets(root):
                         imports[local] = target
                         edges.setdefault(f"{module}.{local}", set()).add(target)
 
-        def resolve(node):
+        def resolve(node, imports=imports, module=module):
             name = _name(node)
             if name is None:
                 return None

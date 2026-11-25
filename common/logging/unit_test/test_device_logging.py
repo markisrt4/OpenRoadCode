@@ -158,7 +158,7 @@ def test_perception_survives_failure_and_recovers_on_next_frame(caplog, stage):
     try:
         for index in range(3):
             worker.submit(CameraFrame(PRIVATE, 1, index))
-            wait_until(lambda: failing.call_count >= index + 1)
+            wait_until(lambda index=index: failing.call_count >= index + 1)
             # Wait until the failed frame is consumed before submitting another.
             if index < 2:
                 wait_until(lambda: any(r.event == "vision.failed" for r in caplog.records))

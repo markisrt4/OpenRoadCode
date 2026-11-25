@@ -33,7 +33,7 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
         theme_bundle: ThemeBundle | None = None,
         host_location_handler: HostLocationRequestHandlerIf | None = None,
         rf_hardware_config: RfHardwareConfigIf | None = None,
-        host_location_state: HostLocationState = HostLocationState(),
+        host_location_state: HostLocationState | None = None,
         performance_overlay_enabled: Callable[[], bool] | None = None,
         on_performance_overlay_changed: Callable[[bool], None] | None = None,
     ) -> None:
@@ -254,6 +254,8 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
             fg=ui.accent_primary,
             font=("Sans", 10, "bold"),
         ).grid(row=0, column=0, sticky="w", padx=14, pady=(8, 2))
+        if host_location_state is None:
+            host_location_state = HostLocationState()
         self._location_status = tk.StringVar(value=host_location_state.status)
         status = tk.Label(
             location,

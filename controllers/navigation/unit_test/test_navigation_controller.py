@@ -21,11 +21,13 @@ from hardware_io.imu import Vector3
 class FakeNavigationSensor:
     def __init__(
         self,
-        acceleration: Vector3 = Vector3(0.0, 0.0, 9.80665),
-        angular_velocity: Vector3 = Vector3(0.0, 0.0, 0.0),
+        acceleration: Vector3 | None = None,
+        angular_velocity: Vector3 | None = None,
     ) -> None:
-        self.acceleration = acceleration
-        self.angular_velocity = angular_velocity
+        self.acceleration = acceleration if acceleration is not None else Vector3(0.0, 0.0, 9.80665)
+        self.angular_velocity = (
+            angular_velocity if angular_velocity is not None else Vector3(0.0, 0.0, 0.0)
+        )
         self.started = False
 
     def connect(self) -> None:
