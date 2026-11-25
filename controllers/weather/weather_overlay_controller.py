@@ -7,11 +7,21 @@ from common.resource_cleanup import close_resources
 from ui.ui_dispatcher_if import UiDispatcherIf
 from ui.weather.weather_overlay_request_handler_if import WeatherOverlayRequestHandlerIf
 
+from .city_weather_overlay_controller import CityWeatherOverlayController
+from .model_weather_overlay_controller import ModelWeatherOverlayController
+from .route_weather_overlay_controller import RouteWeatherOverlayController
+
 
 class WeatherOverlayController(WeatherOverlayRequestHandlerIf):
     """Translate UI intent to domain controllers without coupling them to Tk widgets."""
 
-    def __init__(self, dispatcher: UiDispatcherIf, city, model, route):
+    def __init__(
+        self,
+        dispatcher: UiDispatcherIf,
+        city: CityWeatherOverlayController,
+        model: ModelWeatherOverlayController,
+        route: RouteWeatherOverlayController,
+    ) -> None:
         self._dispatcher = dispatcher
         self._city, self._model, self._route = city, model, route
         self._visible = self._closed = False
@@ -65,14 +75,14 @@ class WeatherOverlayController(WeatherOverlayRequestHandlerIf):
             self._model.publish()
             self._route.publish()
 
-    def _poll(self, generation):
+    def _poll(self, generation: int) -> None:
         if self._closed or not self._visible or generation != self._generation:
             return
         self._route.refresh()
         self._model.refresh()
         self._dispatcher.schedule_ui_callback(900000, lambda: self._poll(generation))
 
-    def close(self):
+    def close(self) -> None:
         """Release all overlay controllers when the composition shuts down."""
         if self._closed:
             return
