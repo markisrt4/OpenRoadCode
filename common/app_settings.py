@@ -5,8 +5,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
+from tempfile import NamedTemporaryFile
+from threading import RLock
 
 try:
     import tomllib
@@ -17,6 +19,7 @@ from common.units import UnitSystem
 from common.xdg_paths import openroadcode_config_dir
 
 DEFAULT_APP_SETTINGS_PATH = openroadcode_config_dir("settings.toml")
+_SETTINGS_LOCK = RLock()
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,13 +75,50 @@ class AppSettingsStore:
 
     def save(self, settings: AppSettings) -> None:
         """Persist the complete global preference state."""
+        with _SETTINGS_LOCK:
+            self._save(settings)
+
+    def update(
+        self,
+        *,
+        unit_system: UnitSystem | None = None,
+        radar_palette: str | None = None,
+        appointment_arrival_minutes: int | None = None,
+    ) -> AppSettings:
+        """Update selected preferences without losing other in-process changes."""
+        with _SETTINGS_LOCK:
+            current = self.load()
+            settings = replace(
+                current,
+                unit_system=current.unit_system if unit_system is None else unit_system,
+                radar_palette=current.radar_palette if radar_palette is None else radar_palette,
+                appointment_arrival_minutes=(
+                    current.appointment_arrival_minutes
+                    if appointment_arrival_minutes is None
+                    else appointment_arrival_minutes
+                ),
+            )
+            self._save(settings)
+            return settings
+
+    def _save(self, settings: AppSettings) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._path.write_text(
+        contents = (
             "[display]\n"
             f'unit_system = "{settings.unit_system.value}"\n'
             "\n[weather]\n"
             f'radar_palette = "{settings.radar_palette}"\n'
             "\n[navigation]\n"
-            f"appointment_arrival_minutes = {settings.appointment_arrival_minutes}\n",
-            encoding="utf-8",
+            f"appointment_arrival_minutes = {settings.appointment_arrival_minutes}\n"
         )
+        temporary: Path | None = None
+        try:
+            with NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=self._path.parent, delete=False
+            ) as file:
+                temporary = Path(file.name)
+                file.write(contents)
+            temporary.replace(self._path)
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
