@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: MIT
 """Compose the dashboard calendar and own its visible panel lifecycle."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+
+from common.app_settings import AppSettingsStore
 from datetime import date, datetime, tzinfo
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -73,6 +75,11 @@ class CalendarConfiguration:
 def configure_calendar(app, config: CalendarConfiguration | None = None):
     config = config or CalendarConfiguration()
 
+    settings = AppSettingsStore()
+
+    def save_buffer(minutes: int) -> None:
+        settings.save(replace(settings.load(), appointment_arrival_minutes=minutes))
+
     def create_panel(parent):
         return CalendarScreen(
             parent,
@@ -83,6 +90,8 @@ def configure_calendar(app, config: CalendarConfiguration | None = None):
             ),
             theme=theme_bundle(app.theme_mode),
             zone=config.zone,
+            arrival_buffer=lambda: settings.load().appointment_arrival_minutes,
+            save_arrival_buffer=save_buffer,
             selection=CalendarSelectionPresentation(
                 config.selection_path, config.cache_path.with_suffix(".catalog.json")
             ),
