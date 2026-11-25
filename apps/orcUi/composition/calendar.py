@@ -8,7 +8,7 @@ from datetime import date, datetime, tzinfo
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from apps.orcUi.composition.appointment_navigation import AppointmentEstimateCache
+from apps.orcUi.composition.appointment_navigation import create_appointment_estimate_cache
 from apps.orcUi.theme_runtime import theme_bundle
 from controllers.calendar.appointment_monitor import AppointmentMonitor
 from controllers.calendar.cached_calendar_provider import CachedCalendarProvider
@@ -111,7 +111,7 @@ class HomeCalendarFactory:
         self._app = app
         config = config or CalendarConfiguration()
         self._zone = config.zone
-        estimates = AppointmentEstimateCache()
+        estimates = create_appointment_estimate_cache()
 
         def load():
             now = datetime.now(config.zone)
