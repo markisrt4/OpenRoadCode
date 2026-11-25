@@ -58,7 +58,7 @@ def test_tile_identifier_cannot_escape_pack(tmp_path, monkeypatch):
         LocalMapTilesPack.load(destination)
 
 
-def test_only_manifested_assets_are_served(tmp_path, monkeypatch, server):  # noqa: F811
+def test_only_manifested_assets_are_served(tmp_path, monkeypatch, server):
     # Shared server fixture keeps the test independent of the native browser.
     server._tiles = LocalMapTilesPack.load(install(tmp_path, monkeypatch))
     with urllib.request.urlopen(server.url + "config.json") as response:
@@ -81,9 +81,6 @@ def test_camera_tile_lifecycle_js():
     )
     result = subprocess.run([node, "--test", str(path)], capture_output=True, text=True, timeout=20)
     assert result.returncode == 0, result.stdout + result.stderr
-
-
-from apps.launchers.unit_test.test_cesium_viewer import server, state  # noqa: E402,F401
 
 
 def test_interrupted_pack_resumes_completed_requests(tmp_path, monkeypatch):
