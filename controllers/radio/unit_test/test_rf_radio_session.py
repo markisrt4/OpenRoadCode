@@ -6,6 +6,7 @@ from dataclasses import dataclass, replace
 from threading import Event, Thread
 from types import SimpleNamespace
 from unittest.mock import Mock
+from urllib.request import Request
 
 import pytest
 
@@ -19,6 +20,7 @@ from ui.radio.rf_radio_if import (
     RadioHost,
     RadioRequest,
     RadioTelemetry,
+    RfRadioState,
 )
 
 
@@ -522,7 +524,7 @@ def test_usb_disconnect_rest_outage_and_reconnect_lifecycle(
     status: dict[str, bool | str] = {"running": True}
     outage = {"active": False}
 
-    def urlopen(request, timeout=1.5):
+    def urlopen(request: str | Request, timeout: float = 1.5) -> BytesIO:
         if outage["active"]:
             raise OSError("SDRForge temporarily unreachable")
         url = request if isinstance(request, str) else request.full_url
@@ -610,13 +612,13 @@ def test_spectrum_frames_are_suppressed_while_rest_reports_stopped(
     # Mock is not a SpectrumPresentationIf, so register a protocol-compliant
     # concrete test view to verify no spectrum presentation occurs.
     class View:
-        def __init__(self):
-            self.frames = []
+        def __init__(self) -> None:
+            self.frames: list[SpectrumPresentation] = []
 
-        def set_radio_state(self, state):
+        def set_radio_state(self, state: RfRadioState) -> None:
             self.state = state
 
-        def set_spectrum_presentation(self, snapshot):
+        def set_spectrum_presentation(self, snapshot: SpectrumPresentation) -> None:
             self.frames.append(snapshot)
 
     view = View()
@@ -741,21 +743,21 @@ def test_native_rest_reconnection_clears_outage_error(
     )
 
     class Response:
-        def __init__(self, payload):
+        def __init__(self, payload: dict[str, bool | None]) -> None:
             self.payload = payload
 
-        def __enter__(self):
+        def __enter__(self) -> Response:
             return self
 
-        def __exit__(self, *_args):
-            return False
+        def __exit__(self, *_args: object) -> None:
+            return None
 
-        def read(self):
+        def read(self) -> bytes:
             import json
 
             return json.dumps(self.payload).encode()
 
-    def connected(url, timeout):
+    def connected(url: str, timeout: float) -> Response:
         if url.endswith("/v1/audio"):
             return Response({"muted": False})
         return Response({"running": True, "startup_error": None})
@@ -788,10 +790,11 @@ def test_native_refresh_tracks_receiver_lifecycle(
     calls: list[str] = []
 
     def urlopen(request, timeout=1.5):
-        calls.append(request)
+        url = request if isinstance(request, str) else request.full_url
+        calls.append(url)
         payload = (
             {"muted": False}
-            if request.endswith("/v1/audio")
+            if url.endswith("/v1/audio")
             else {"running": running, "starting": starting, "startup_error": None}
         )
         return BytesIO(json.dumps(payload).encode())
@@ -876,11 +879,13 @@ def test_native_receiver_full_simulated_lifecycle(
     monkeypatch.setattr("controllers.radio.rf_radio_session.urllib.request.urlopen", urlopen)
     r.radio.refresh.return_value = r.session._state.station
 
-    def execute(action):
+    def execute(action: RadioAction) -> RfRadioState:
         r.session.request(RadioRequest(action))
         r.work.pop(0)()
         r.ui.pop(0)()
-        return r.view.set_radio_state.call_args.args[0]
+        state = r.view.set_radio_state.call_args.args[0]
+        assert isinstance(state, RfRadioState)
+        return state
 
     assert not execute(RadioAction.REFRESH).receiver_running
     assert len(starts) == 0
