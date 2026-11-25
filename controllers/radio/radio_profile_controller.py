@@ -140,32 +140,8 @@ class RadioProfileController:
         return self.state
 
     def refresh(self) -> RadioProfileState:
-        # A shared rigctl receiver may be active even if this controller never started it.
-        self._radio.refresh_frequency()
-        return self.state
-
-    def next_preset(self) -> RadioProfileState:
-        self._ensure_started()
-        self._radio.next_preset()
-        return self.state
-
-    def previous_preset(self) -> RadioProfileState:
-        self._ensure_started()
-        self._radio.previous_preset()
-        return self.state
-
-    def tune_up(self) -> RadioProfileState:
-        self._ensure_started()
-        self._radio.frequency_up()
-        return self.state
-
-    def tune_down(self) -> RadioProfileState:
-        self._ensure_started()
-        self._radio.frequency_down()
-        return self.state
-
-    def refresh(self) -> RadioProfileState:
-        if self._radio.is_started:
+        """Observe shared receiver tuning even before local acquisition starts."""
+        if self._radio.is_started or getattr(self._radio.backend, "shared_receiver", False):
             self._radio.refresh_frequency()
         return self.state
 
