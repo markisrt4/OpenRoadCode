@@ -23,10 +23,8 @@ class _Dispatcher:
     def __init__(self) -> None:
         self.callbacks = []
 
-    def schedule_ui_callback(self, delay_ms, callback):
-        assert delay_ms == 0
+    def dispatch_ui(self, callback):
         self.callbacks.append(callback)
-        return callback
 
     def run_all(self) -> None:
         while self.callbacks:

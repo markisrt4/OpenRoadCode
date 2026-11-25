@@ -71,9 +71,7 @@ class HostLocationSettingsController:
             except Exception as error:
                 message = str(error)
             if not cancelled():
-                self._dispatcher.schedule_ui_callback(
-                    0, lambda: self._complete(generation, message)
-                )
+                self._dispatcher.dispatch_ui(lambda: self._complete(generation, message))
 
         threading.Thread(target=work, name="host-location-permission", daemon=True).start()
 
