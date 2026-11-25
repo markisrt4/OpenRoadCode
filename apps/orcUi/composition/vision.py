@@ -44,7 +44,7 @@ class VisionComposition:
 
 def configure_vision(app: OrcUiApp) -> VisionComposition:
     """Create and register the isolated VISION destination."""
-    readiness = YoloModelReadiness("yolo11n.pt")
+    readiness = YoloModelReadiness()
     screen = CameraVisionScreen(
         app,
         theme_bundle=lambda: theme_bundle(app.theme_mode),

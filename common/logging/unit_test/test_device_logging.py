@@ -121,10 +121,12 @@ def test_camera_profile_failure_and_recovery_do_not_log_control_output(caplog):
     assert len([r for r in emitted if r["event"] == "camera.state_changed"]) == 1
 
 
-def test_model_loading_is_correlated_and_cached_without_logging_paths(caplog):
+def test_model_loading_is_correlated_and_cached_without_logging_paths(caplog, tmp_path):
     caplog.set_level(logging.DEBUG)
     yolo = Mock(side_effect=[OSError(PRIVATE), OSError(PRIVATE), object()])
-    readiness = YoloModelReadiness(PRIVATE)
+    weights = tmp_path / "model.pt"
+    weights.touch()
+    readiness = YoloModelReadiness(str(weights))
     with patch.dict(sys.modules, ultralytics=SimpleNamespace(YOLO=yolo)):
         for _ in range(2):
             with pytest.raises(OSError):

@@ -15,7 +15,13 @@ git pull --ff-only
 ./scripts/installers/host_setup.sh --target rpi5 --feature video-v4l2
 ```
 
-Select **YOLO object detection and tracking** only if you want inference.
+Select **YOLO object detection and tracking** (`--feature video-perception`)
+to install the AI runtime and verify and download the pinned `yolo11n.pt`
+weights. The installer stores them in
+`${XDG_DATA_HOME:-$HOME/.local/share}/openroadcode/vision/models` and reuses
+verified weights on subsequent runs. Vision loads this file locally. If the
+download fails, the installer reports incomplete AI setup and you can still
+use the camera preview. Rerun with `--feature video-perception` to retry.
 If the installer adds the `video` group, log out and back in before opening
 Vision. The desktop capture backend supports USB V4L2 cameras.
 

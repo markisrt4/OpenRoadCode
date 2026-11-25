@@ -210,4 +210,11 @@ if [[ " ${FEATURES[*]} " == *" sdrforge "* ]]; then
   bash "$SCRIPT_DIR/install_libsdrforge.sh"
 fi
 
+if [[ " ${FEATURES[*]} " == *" video-perception "* ]]; then
+  if ! (cd "$PROJECT_ROOT" && python -m scripts.installers.install_vision_model); then
+    echo "[!] Vision AI setup is incomplete. Camera preview remains available." >&2
+    echo "[!] Re-run the installer with --feature video-perception to retry." >&2
+  fi
+fi
+
 deactivate
