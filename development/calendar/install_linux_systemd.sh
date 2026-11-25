@@ -50,4 +50,4 @@ echo "Installed user service. Start with:"
 echo "  systemctl --user enable --now openroadcode-carbonate.service"
 echo "Status: systemctl --user status openroadcode-carbonate.service"
 echo "Logs: journalctl --user -u openroadcode-carbonate.service -f"
-echo "Carbonate must be installed and authenticated separately."
+
