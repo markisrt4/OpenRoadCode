@@ -468,6 +468,8 @@ def test_restricted_install_can_import_http_and_write_logs_without_checkout(tmp_
     # The installer explicitly ships this namespace-package dependency.
     assert '"$PROJECT_ROOT/common/xdg_paths.py"' in script
     shutil.copyfile(root / "common/xdg_paths.py", deployed / "common/xdg_paths.py")
+    assert '"$PROJECT_ROOT/common/calendar_health.py"' in script
+    shutil.copyfile(root / "common/calendar_health.py", deployed / "common/calendar_health.py")
     log_dir = tmp_path / "logs"
     code = (
         "import logging; import services.linux.systemd_service_manager_http; "
