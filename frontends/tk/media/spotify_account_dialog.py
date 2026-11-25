@@ -44,7 +44,9 @@ class SpotifyAccountDialog(UiWidget):
         self._hydrated = False
         self._saving = False
         dialog.title("Spotify configuration")
-        dialog.configure(bg=theme.surface, highlightthickness=2, highlightbackground=theme.text_muted)
+        dialog.configure(
+            bg=theme.surface, highlightthickness=2, highlightbackground=theme.text_muted
+        )
         dialog.transient(self._parent.winfo_toplevel())
         dialog.overrideredirect(True)
         width = min(840, int(dialog.winfo_screenwidth() * 0.9))
@@ -71,7 +73,15 @@ class SpotifyAccountDialog(UiWidget):
             font=("Sans", 14 if compact else 20),
         ).pack(anchor="w", padx=18, pady=(0, 12))
         self._client_id = tk.StringVar(master=dialog)
-        entry = tk.Entry(dialog, textvariable=self._client_id, width=32, font=("Sans", 18 if compact else 24), bg=theme.control_background, fg=theme.control_text, insertbackground=theme.control_text)
+        entry = tk.Entry(
+            dialog,
+            textvariable=self._client_id,
+            width=32,
+            font=("Sans", 18 if compact else 24),
+            bg=theme.control_background,
+            fg=theme.control_text,
+            insertbackground=theme.control_text,
+        )
         entry.pack(fill=tk.X, padx=18)
         entry.focus_set()
         self._status = tk.StringVar(master=dialog)
@@ -86,9 +96,14 @@ class SpotifyAccountDialog(UiWidget):
         buttons = tk.Frame(dialog, bg=theme.surface)
         buttons.pack(fill=tk.X, padx=18, pady=16)
         tk.Button(
-            buttons, text="CANCEL", command=self.close,
-            bg=theme.control_background, fg=theme.control_text,
-            font=("Sans", 16, "bold"), padx=24, pady=12,
+            buttons,
+            text="CANCEL",
+            command=self.close,
+            bg=theme.control_background,
+            fg=theme.control_text,
+            font=("Sans", 16, "bold"),
+            padx=24,
+            pady=12,
         ).pack(side=tk.RIGHT)
         self._save = tk.Button(
             buttons,

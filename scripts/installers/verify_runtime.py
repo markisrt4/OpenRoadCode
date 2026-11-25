@@ -72,7 +72,10 @@ def systemd_active(service: str) -> tuple[bool, str]:
 def systemd_enabled(service: str) -> tuple[bool, str]:
     result = subprocess.run(
         ["systemctl", "is-enabled", service],
-        capture_output=True, text=True, check=False, timeout=5,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=5,
     )
     state = result.stdout.strip()
     return state == "enabled", state or result.stderr.strip()

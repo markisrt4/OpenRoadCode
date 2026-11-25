@@ -26,9 +26,18 @@ def download(url: str, path: Path, expected: str | None = None) -> None:
         partial.unlink(missing_ok=True)
     subprocess.run(
         [
-            "curl", "--fail", "--location", "--retry", "5",
-            "--connect-timeout", "20", "--continue-at", "-",
-            "--output", str(partial), url,
+            "curl",
+            "--fail",
+            "--location",
+            "--retry",
+            "5",
+            "--connect-timeout",
+            "20",
+            "--continue-at",
+            "-",
+            "--output",
+            str(partial),
+            url,
         ],
         check=True,
     )
@@ -87,21 +96,20 @@ def main() -> None:
     parser.add_argument("--manifest-only", action="store_true")
     args = parser.parse_args()
     catalog = json.loads(
-        Path(__file__).with_name("navigation-data-catalog.json").read_text(
-            encoding="utf-8"
-        )
+        Path(__file__).with_name("navigation-data-catalog.json").read_text(encoding="utf-8")
     )
     entry = catalog["regions"][args.region]
     cache = args.cache / entry["tag"]
     cache.mkdir(parents=True, exist_ok=True)
-    base = (
-        f"https://github.com/{catalog['repository']}/releases/download/"
-        f"{entry['tag']}"
-    )
+    base = f"https://github.com/{catalog['repository']}/releases/download/{entry['tag']}"
     names = [*entry["parts"], "build-manifest.json"]
     download(f"{base}/SHA256SUMS", cache / "SHA256SUMS")
     checksums = parse_checksums(cache / "SHA256SUMS", names)
-    download(f"{base}/build-manifest.json", cache / "build-manifest.json", checksums["build-manifest.json"])
+    download(
+        f"{base}/build-manifest.json",
+        cache / "build-manifest.json",
+        checksums["build-manifest.json"],
+    )
     if args.manifest_only:
         args.stage.mkdir(parents=True, exist_ok=False)
         shutil.copyfile(cache / "build-manifest.json", args.stage / "build-manifest.json")

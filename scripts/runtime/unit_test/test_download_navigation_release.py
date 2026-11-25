@@ -108,8 +108,7 @@ def test_manifest_only(tmp_path, monkeypatch):
         requested.append(path.name)
         if path.name == "SHA256SUMS":
             path.write_text(
-                f"{'a' * 64}  navigation-data.tar.gz.part-0000\n"
-                f"{'b' * 64}  build-manifest.json\n"
+                f"{'a' * 64}  navigation-data.tar.gz.part-0000\n{'b' * 64}  build-manifest.json\n"
             )
         elif path.name == "build-manifest.json":
             path.write_bytes(manifest)
@@ -122,9 +121,12 @@ def test_manifest_only(tmp_path, monkeypatch):
         "argv",
         [
             "download_navigation_release",
-            "--region", "us/michigan",
-            "--cache", str(cache),
-            "--stage", str(stage),
+            "--region",
+            "us/michigan",
+            "--cache",
+            str(cache),
+            "--stage",
+            str(stage),
             "--manifest-only",
         ],
     )

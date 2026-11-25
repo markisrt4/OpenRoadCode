@@ -99,7 +99,12 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
         page_nav.grid_columnconfigure(3, weight=1)
         self._page_buttons = {}
         for column, (page, title) in enumerate(
-            (("display", "DISPLAY & LOCATION"), ("vehicle", "VEHICLE"), ("rf", "RF"), ("media", "MEDIA"))
+            (
+                ("display", "DISPLAY & LOCATION"),
+                ("vehicle", "VEHICLE"),
+                ("rf", "RF"),
+                ("media", "MEDIA"),
+            )
         ):
             button = tk.Button(
                 page_nav,
@@ -291,18 +296,30 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
         media.grid(row=1, column=0, sticky="ew", pady=4)
         media.grid_columnconfigure(0, weight=1)
         tk.Label(
-            media, text="SPOTIFY", bg=ui.surface, fg=ui.text,
+            media,
+            text="SPOTIFY",
+            bg=ui.surface,
+            fg=ui.text,
             font=("Sans", FONT_BODY + 1, "bold"),
         ).grid(row=0, column=0, sticky="w", padx=14, pady=(14, 4))
         tk.Label(
-            media, text="Manage the Spotify application Client ID.",
-            bg=ui.surface, fg=ui.text_muted, font=("Sans", FONT_SMALL),
+            media,
+            text="Manage the Spotify application Client ID.",
+            bg=ui.surface,
+            fg=ui.text_muted,
+            font=("Sans", FONT_SMALL),
         ).grid(row=1, column=0, sticky="w", padx=14, pady=(0, 14))
         tk.Button(
-            media, text="CONFIGURE SPOTIFY", command=configure_spotify,
+            media,
+            text="CONFIGURE SPOTIFY",
+            command=configure_spotify,
             state=tk.NORMAL if configure_spotify is not None else tk.DISABLED,
-            bg=ui.control_background, fg=ui.control_text,
-            font=("Sans", FONT_CONTROL, "bold"), relief=tk.FLAT, padx=16, pady=12,
+            bg=ui.control_background,
+            fg=ui.control_text,
+            font=("Sans", FONT_CONTROL, "bold"),
+            relief=tk.FLAT,
+            padx=16,
+            pady=12,
         ).grid(row=0, column=1, rowspan=2, padx=14, pady=8)
         self._settings_pages = {
             "display": (location, display),

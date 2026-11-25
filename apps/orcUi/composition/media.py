@@ -54,8 +54,6 @@ from frontends.tk.media.music_visualizer_screen import MusicVisualizerScreen
 from frontends.tk.media.spotify_account_dialog import SpotifyAccountDialog
 from frontends.tk.media.youtube_music_coming_soon_screen import YouTubeMusicComingSoonScreen
 from frontends.x11 import X11WindowEmbedder
-from ui.theme import ThemeMode
-from ui.notification_if import Notification, NotificationSeverity
 from protocols.spotify import (
     SPOTIFY_CLIENT_ID_SECRET_NAME,
     SpotifyAuth,
@@ -64,6 +62,8 @@ from protocols.spotify import (
 )
 from security.environment_variable_secret_manager import EnvironmentVariableSecretManager
 from ui.music_visualizer import MusicVisualizerSource
+from ui.notification_if import Notification, NotificationSeverity
+from ui.theme import ThemeMode
 
 from .media_spotify_theme import SPOTIFY_GREEN as SPOTIFY_GREEN
 from .media_spotify_theme import spotify_theme as spotify_theme

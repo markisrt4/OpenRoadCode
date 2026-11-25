@@ -268,24 +268,37 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         center = tk.Frame(card, bg=surface)
         center.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
         tk.Label(
-            center, text="SPOTIFY", bg=surface,
-            fg=colors.get("detail", "#888888"), font=("Sans", 26, "bold"),
+            center,
+            text="SPOTIFY",
+            bg=surface,
+            fg=colors.get("detail", "#888888"),
+            font=("Sans", 26, "bold"),
         ).pack(pady=12)
         if self._show_account_configuration is not None:
             self._configuration_button = tk.Button(
-                center, text="CONFIGURE SPOTIFY",
+                center,
+                text="CONFIGURE SPOTIFY",
                 command=self._show_account_configuration,
-                bg=SPOTIFY_GREEN, fg="#000000", relief=tk.FLAT,
-                font=("Sans", 22, "bold"), padx=28, pady=16,
+                bg=SPOTIFY_GREEN,
+                fg="#000000",
+                relief=tk.FLAT,
+                font=("Sans", 22, "bold"),
+                padx=28,
+                pady=16,
             )
             self._configuration_button.pack(pady=12)
         controls = tk.Frame(center, bg=surface)
         controls.pack(pady=16)
         for label in ("−10s", "◀◀", "▶", "▶▶", "+10s"):
             tk.Button(
-                controls, text=label, state=tk.DISABLED,
-                bg=surface, disabledforeground=colors.get("detail", "#888888"),
-                font=("Sans", 18), padx=12, pady=8,
+                controls,
+                text=label,
+                state=tk.DISABLED,
+                bg=surface,
+                disabledforeground=colors.get("detail", "#888888"),
+                font=("Sans", 18),
+                padx=12,
+                pady=8,
             ).pack(side=tk.LEFT, padx=4)
         self._host.set_screen_status("")
         if self._account_session is not None:
