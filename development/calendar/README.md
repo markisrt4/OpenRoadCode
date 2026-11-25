@@ -174,7 +174,8 @@ Calendar selection currently uses synchronous local configuration operations
 through its injected adapter. Calendar-driven navigation remains separate.
 
 Calendar domain consumers use `CalendarQueryIf` in `controllers/calendar/`.
-The calendar subsystem owns synchronization health; System diagnostics retains
-a compatibility adapter. Application composition centralizes cache, account,
+The calendar subsystem owns synchronization health production. Calendar and
+System diagnostics share the standalone health wire reader in `common/`,
+so restricted service deployments do not require calendar controllers. Application composition centralizes cache, account,
 selection and timezone defaults. The existing Detroit timezone default is
 preserved; callers can supply a different timezone explicitly.
