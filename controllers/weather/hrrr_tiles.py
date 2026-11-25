@@ -8,6 +8,7 @@ import math
 import re
 import shutil
 import subprocess
+from collections.abc import Sequence
 from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
@@ -15,10 +16,11 @@ from tempfile import TemporaryDirectory
 from threading import Lock
 from urllib.parse import parse_qs, urlparse
 
+import requests
 from PIL import Image
 
 
-def check_gdal_tools():
+def check_gdal_tools() -> None:
     """Require native tools packaged by Termux, without Python GDAL bindings."""
     for tool in ("gdal_translate", "gdalwarp", "gdalinfo"):
         if shutil.which(tool) is None:
@@ -28,7 +30,7 @@ def check_gdal_tools():
         raise RuntimeError("Installed GDAL does not provide the GRIB decoder required for HRRR")
 
 
-def tile_bounds(z, x, y):
+def tile_bounds(z: int, x: int, y: int) -> tuple[float, float, float, float]:
     """Return an XYZ tile's EPSG:3857 bounds."""
     if not (0 <= z <= 9 and 0 <= x < 2**z and 0 <= y < 2**z):
         raise ValueError("invalid HRRR tile coordinates")
@@ -38,7 +40,7 @@ def tile_bounds(z, x, y):
     return left, top - span, left + span, top
 
 
-def location_tile(latitude, longitude, zoom=7):
+def location_tile(latitude: float, longitude: float, zoom: int = 7) -> tuple[int, int, int]:
     """Return the XYZ tile containing a geographic location."""
     if not (
         math.isfinite(latitude)
@@ -55,13 +57,15 @@ def location_tile(latitude, longitude, zoom=7):
     return zoom, x, y
 
 
-def reflectivity_summary(data):
+def reflectivity_summary(data: bytes) -> dict[str, int | float | None]:
     """Count covered and visible-reflectivity pixels without confusing missing data with clear weather."""
     with Image.open(BytesIO(data)) as image:
         if image.mode not in ("F", "I", "I;16", "I;16B", "I;16L"):
             raise ValueError("HRRR did not produce raw single-band reflectivity")
         covered, visible, maximum = 0, 0, None
         for value in image.get_flattened_data():
+            if not isinstance(value, (int, float)):
+                raise ValueError("HRRR did not produce numeric reflectivity")
             if math.isfinite(value) and -100 <= value <= 95:
                 covered += 1
                 visible += value >= 5
@@ -77,7 +81,7 @@ def reflectivity_summary(data):
 class HrrrTileSource:
     """Cache decoded fields and serialize native work to limit phone memory use."""
 
-    def __init__(self, cache_root, session, timeout=30):
+    def __init__(self, cache_root: str | Path, session: requests.Session, timeout: float = 30) -> None:
         self._root = Path(cache_root)
         self._session = session
         self._timeout = timeout
@@ -85,7 +89,7 @@ class HrrrTileSource:
         self._checked = False
 
     @staticmethod
-    def _run(arguments):
+    def _run(arguments: Sequence[str]) -> str:
         try:
             result = subprocess.run(arguments, capture_output=True, text=True, timeout=180)
         except subprocess.TimeoutExpired as error:
@@ -94,7 +98,7 @@ class HrrrTileSource:
             raise RuntimeError(f"HRRR GDAL processing failed: {result.stderr[-1000:]}")
         return result.stdout
 
-    def _download(self, url, start, end):
+    def _download(self, url: str, start: int, end: int | None) -> bytes:
         response = self._session.get(
             url,
             headers={"Range": f"bytes={start}-{'' if end is None else end}"},
@@ -134,7 +138,7 @@ class HrrrTileSource:
         finally:
             response.close()
 
-    def tile(self, template, z, x, y):
+    def tile(self, template: str, z: int, x: int, y: int) -> bytes:
         """Return a numeric TIFF tile in Web Mercator for subsequent coloring."""
         bounds = tile_bounds(z, x, y)
         parsed = urlparse(template)
@@ -276,7 +280,9 @@ class HrrrTileSource:
                 return output.read_bytes()
 
 
-def color_hrrr_reflectivity(data, color_table):
+def color_hrrr_reflectivity(
+    data: bytes, color_table: Sequence[tuple[float, tuple[int, int, int]]]
+) -> bytes:
     """Convert raw numeric reflectivity into a transparent Universal PNG."""
     with Image.open(BytesIO(data)) as image:
         if image.mode not in ("F", "I", "I;16", "I;16B", "I;16L"):
@@ -285,6 +291,8 @@ def color_hrrr_reflectivity(data, color_table):
             raise ValueError("HRRR produced an unexpected tile size")
         colors = []
         for value in image.get_flattened_data():
+            if not isinstance(value, (int, float)):
+                raise ValueError("HRRR did not produce numeric reflectivity")
             if not math.isfinite(value) or value < 5 or value > 95:
                 colors.append((0, 0, 0, 0))
             else:
