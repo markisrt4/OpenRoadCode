@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: MIT
 """Receiver requests, UI dispatch, retirement, and native cleanup contracts."""
 
-from dataclasses import replace
+from collections.abc import Callable
+from dataclasses import dataclass, replace
 from threading import Event, Thread
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -21,8 +22,22 @@ from ui.radio.rf_radio_if import (
 )
 
 
+@dataclass
+class ReceiverFixture:
+    session: ReceiverSession
+    radio: Mock
+    control: Mock
+    application: Mock
+    aircraft: Mock
+    surface: Mock
+    work: list[Callable[[], None]]
+    ui: list[Callable[[], None]]
+    closed: Mock
+    view: Mock
+
+
 @pytest.fixture
-def receiver():
+def receiver() -> ReceiverFixture:
     radio = Mock(spec=RadioProfileController)
     radio.state = RadioProfileState("FM", 100_000_000, "WFM", "fm_radio", "FM")
     radio.active_profile_key = "fm_radio"
@@ -39,7 +54,8 @@ def receiver():
     control.fft_hold_enabled.return_value = False
     application.fullscreen = False
     application.window_process_id.return_value = 123
-    work, ui = [], []
+    work: list[Callable[[], None]] = []
+    ui: list[Callable[[], None]] = []
     closed = Mock()
     session = ReceiverSession(
         radio,
@@ -54,15 +70,17 @@ def receiver():
     )
     view = Mock()
     session.bind(view)
-    return SimpleNamespace(**locals())
+    return ReceiverFixture(
+        session, radio, control, application, aircraft, surface, work, ui, closed, view
+    )
 
 
-def launch(r):
+def launch(r: ReceiverFixture) -> None:
     r.session.request(RadioRequest(RadioAction.LAUNCH, host=RadioHost(10, 20, 800, 400)))
     r.work.pop(0)()
 
 
-def test_native_launch_dispatches_immutable_state(receiver):
+def test_native_launch_dispatches_immutable_state(receiver: ReceiverFixture) -> None:
     r = receiver
     launch(r)
     r.application.present.assert_not_called()
@@ -85,7 +103,9 @@ def test_native_launch_dispatches_immutable_state(receiver):
         (RadioAction.TUNE_DOWN, "tune_down"),
     ],
 )
-def test_tuning_requests_execute_off_frontend(receiver, action, method):
+def test_tuning_requests_execute_off_frontend(
+    receiver: ReceiverFixture, action: RadioAction, method: str
+) -> None:
     r = receiver
     r.session.request(RadioRequest(action))
     getattr(r.radio, method).assert_not_called()
@@ -93,7 +113,7 @@ def test_tuning_requests_execute_off_frontend(receiver, action, method):
     getattr(r.radio, method).assert_called_once()
 
 
-def test_queued_launch_and_delivery_are_dropped_after_close(receiver):
+def test_queued_launch_and_delivery_are_dropped_after_close(receiver: ReceiverFixture) -> None:
     r = receiver
     r.session.request(RadioRequest(RadioAction.LAUNCH, host=RadioHost(10, 20, 800, 400)))
     r.session.close()
@@ -111,11 +131,13 @@ def test_queued_launch_and_delivery_are_dropped_after_close(receiver):
         r.session.bind(Mock())
 
 
-def test_embedding_is_cancelled_and_detached_before_close_returns(receiver):
+def test_embedding_is_cancelled_and_detached_before_close_returns(
+    receiver: ReceiverFixture
+) -> None:
     r = receiver
     entered, retired = Event(), Event()
 
-    def embed(*args, cancelled, **kwargs):
+    def embed(*args: object, cancelled: Callable[[], bool], **kwargs: object) -> None:
         entered.set()
         from time import monotonic
 
@@ -142,7 +164,9 @@ def test_embedding_is_cancelled_and_detached_before_close_returns(receiver):
     assert r.view.set_radio_state.call_count == 1
 
 
-def test_adsb_explicitly_releases_rf_and_stop_is_owned_by_session(receiver):
+def test_adsb_explicitly_releases_rf_and_stop_is_owned_by_session(
+    receiver: ReceiverFixture
+) -> None:
     r = receiver
     r.application.presented = False
     r.session.request(
@@ -158,7 +182,7 @@ def test_adsb_explicitly_releases_rf_and_stop_is_owned_by_session(receiver):
     r.aircraft.stop.assert_called_once()
 
 
-def test_cleanup_failure_still_releases_ownership(receiver):
+def test_cleanup_failure_still_releases_ownership(receiver: ReceiverFixture) -> None:
     r = receiver
     r.surface.detach.side_effect = RuntimeError("detach failed")
     r.session._host = RadioHost(10, 20, 800, 400)
@@ -168,7 +192,7 @@ def test_cleanup_failure_still_releases_ownership(receiver):
     r.closed.assert_called_once()
 
 
-def test_sdrforge_stop_clears_stale_rds_without_changing_profile(receiver):
+def test_sdrforge_stop_clears_stale_rds_without_changing_profile(receiver: ReceiverFixture) -> None:
     r = receiver
     source = Mock()
     r.session._spectrum_source = source
@@ -198,7 +222,9 @@ def test_sdrforge_stop_clears_stale_rds_without_changing_profile(receiver):
     assert state.receiver_running is False
 
 
-def test_sdrforge_old_frequency_cannot_replace_new_station_identity(receiver):
+def test_sdrforge_old_frequency_cannot_replace_new_station_identity(
+    receiver: ReceiverFixture
+) -> None:
     r = receiver
     source = Mock()
     r.session._spectrum_source = source
@@ -235,7 +261,7 @@ def test_sdrforge_old_frequency_cannot_replace_new_station_identity(receiver):
     assert state.telemetry.receiver_running is None
 
 
-def test_sdrforge_same_frequency_preserves_rds_between_updates(receiver):
+def test_sdrforge_same_frequency_preserves_rds_between_updates(receiver: ReceiverFixture) -> None:
     r = receiver
     source = Mock()
     r.session._spectrum_source = source
@@ -263,7 +289,7 @@ def test_sdrforge_same_frequency_preserves_rds_between_updates(receiver):
     assert state.telemetry.mode == "WFM"
 
 
-def test_rest_running_status_wins_over_delayed_zmq_stop(receiver):
+def test_rest_running_status_wins_over_delayed_zmq_stop(receiver: ReceiverFixture) -> None:
     r = receiver
     source = Mock()
     r.session._spectrum_source = source
@@ -280,7 +306,7 @@ def test_rest_running_status_wins_over_delayed_zmq_stop(receiver):
     assert state.telemetry.receiver_running is False
 
 
-def test_rest_stopped_status_wins_over_delayed_zmq_start(receiver):
+def test_rest_stopped_status_wins_over_delayed_zmq_start(receiver: ReceiverFixture) -> None:
     r = receiver
     source = Mock()
     r.session._spectrum_source = source
@@ -297,7 +323,9 @@ def test_rest_stopped_status_wins_over_delayed_zmq_start(receiver):
     assert state.telemetry.receiver_running is True
 
 
-def test_local_retune_immediately_invalidates_old_receiver_telemetry(receiver):
+def test_local_retune_immediately_invalidates_old_receiver_telemetry(
+    receiver: ReceiverFixture
+) -> None:
     r = receiver
     r.session._state = replace(
         r.session._state,
@@ -317,7 +345,7 @@ def test_local_retune_immediately_invalidates_old_receiver_telemetry(receiver):
     assert state.telemetry == RadioTelemetry()
 
 
-def test_same_frequency_station_refresh_preserves_live_telemetry(receiver):
+def test_same_frequency_station_refresh_preserves_live_telemetry(receiver: ReceiverFixture) -> None:
     r = receiver
     live = RadioTelemetry(
         frequency_hz=100_000_000, mode="WFM", station_name="LIVE", receiver_running=True
@@ -327,7 +355,7 @@ def test_same_frequency_station_refresh_preserves_live_telemetry(receiver):
     assert r.session._state.telemetry == live
 
 
-def test_external_rigctl_retune_invalidates_previous_mode(receiver):
+def test_external_rigctl_retune_invalidates_previous_mode(receiver: ReceiverFixture) -> None:
     r = receiver
     r.session._state = replace(
         r.session._state,
@@ -341,7 +369,9 @@ def test_external_rigctl_retune_invalidates_previous_mode(receiver):
     assert r.session._state.telemetry == RadioTelemetry()
 
 
-def test_receiver_stop_clears_old_station_and_ignores_late_zmq(receiver, monkeypatch):
+def test_receiver_stop_clears_old_station_and_ignores_late_zmq(
+    receiver: ReceiverFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     r = receiver
     from unittest.mock import MagicMock
 
@@ -390,7 +420,9 @@ def test_receiver_stop_clears_old_station_and_ignores_late_zmq(receiver, monkeyp
     assert state.telemetry.receiver_running is True
 
 
-def test_accepted_restart_does_not_claim_acquisition_is_running(receiver, monkeypatch):
+def test_accepted_restart_does_not_claim_acquisition_is_running(
+    receiver: ReceiverFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     r = receiver
     from unittest.mock import MagicMock
 
@@ -413,7 +445,7 @@ def test_accepted_restart_does_not_claim_acquisition_is_running(receiver, monkey
     assert r.session._state.telemetry == RadioTelemetry()
 
 
-def test_stopped_rest_does_not_resurrect_cached_rds(receiver):
+def test_stopped_rest_does_not_resurrect_cached_rds(receiver: ReceiverFixture) -> None:
     r = receiver
     source = Mock()
     r.session._spectrum_source = source
@@ -443,7 +475,9 @@ def test_stopped_rest_does_not_resurrect_cached_rds(receiver):
     assert state.telemetry.receiver_running is True
 
 
-def test_profile_mode_change_on_same_frequency_invalidates_telemetry(receiver):
+def test_profile_mode_change_on_same_frequency_invalidates_telemetry(
+    receiver: ReceiverFixture
+) -> None:
     r = receiver
     r.session._state = replace(
         r.session._state,
@@ -461,7 +495,9 @@ def test_profile_mode_change_on_same_frequency_invalidates_telemetry(receiver):
     assert r.session._state.telemetry == RadioTelemetry()
 
 
-def test_profile_change_with_same_mode_and_frequency_invalidates_telemetry(receiver):
+def test_profile_change_with_same_mode_and_frequency_invalidates_telemetry(
+    receiver: ReceiverFixture
+) -> None:
     r = receiver
     r.session._state = replace(
         r.session._state,
@@ -472,7 +508,9 @@ def test_profile_change_with_same_mode_and_frequency_invalidates_telemetry(recei
     assert r.session._state.telemetry == RadioTelemetry()
 
 
-def test_usb_disconnect_rest_outage_and_reconnect_lifecycle(receiver, monkeypatch):
+def test_usb_disconnect_rest_outage_and_reconnect_lifecycle(
+    receiver: ReceiverFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Exercise acquisition recovery without hardware, sockets, or Tk."""
     import json
     from io import BytesIO
@@ -481,7 +519,7 @@ def test_usb_disconnect_rest_outage_and_reconnect_lifecycle(receiver, monkeypatc
     source = Mock()
     r.session._spectrum_source = source
     r.session._native_view = "none"
-    status = {"running": True}
+    status: dict[str, bool | str] = {"running": True}
     outage = {"active": False}
 
     def urlopen(request, timeout=1.5):
@@ -554,7 +592,9 @@ def test_usb_disconnect_rest_outage_and_reconnect_lifecycle(receiver, monkeypatc
     assert r.session._state.receiver_running is True
 
 
-def test_spectrum_frames_are_suppressed_while_rest_reports_stopped(receiver):
+def test_spectrum_frames_are_suppressed_while_rest_reports_stopped(
+    receiver: ReceiverFixture
+) -> None:
     from ui.radio.sdrforge_spectrum_if import SpectrumPresentation
 
     r = receiver
@@ -585,7 +625,7 @@ def test_spectrum_frames_are_suppressed_while_rest_reports_stopped(receiver):
     assert view.frames == []
 
 
-def test_spectrum_recovery_follows_acquisition_while_running(receiver):
+def test_spectrum_recovery_follows_acquisition_while_running(receiver: ReceiverFixture) -> None:
     from ui.radio.sdrforge_spectrum_if import SpectrumPresentation
 
     r = receiver
@@ -625,7 +665,9 @@ def test_spectrum_recovery_follows_acquisition_while_running(receiver):
     assert view.frames == [old, fresh, in_band]
 
 
-def test_native_receiver_does_not_require_legacy_telemetry(receiver, monkeypatch):
+def test_native_receiver_does_not_require_legacy_telemetry(
+    receiver: ReceiverFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Native SDRForge status refresh works with no SDR++ telemetry client."""
     r = receiver
     r.session._native_view = "none"
@@ -639,7 +681,7 @@ def test_native_receiver_does_not_require_legacy_telemetry(receiver, monkeypatch
     assert r.session._state.station.frequency_hz == 100_000_000
 
 
-def test_native_launch_never_starts_or_embeds_sdrpp(receiver):
+def test_native_launch_never_starts_or_embeds_sdrpp(receiver: ReceiverFixture) -> None:
     r = receiver
     r.session.request(RadioRequest(RadioAction.LAUNCH))
     r.work.pop(0)()
@@ -650,7 +692,7 @@ def test_native_launch_never_starts_or_embeds_sdrpp(receiver):
     assert not r.session._state.loading
 
 
-def test_native_launch_preserves_adsb_embedding_path(receiver):
+def test_native_launch_preserves_adsb_embedding_path(receiver: ReceiverFixture) -> None:
     r = receiver
     r.session.request(RadioRequest(RadioAction.ADSB, host=RadioHost(10, 20, 800, 400)))
     r.work.pop(0)()
@@ -659,7 +701,9 @@ def test_native_launch_preserves_adsb_embedding_path(receiver):
     r.application.present.assert_not_called()
 
 
-def test_native_rest_outage_clears_running_state_and_stale_telemetry(receiver, monkeypatch):
+def test_native_rest_outage_clears_running_state_and_stale_telemetry(
+    receiver: ReceiverFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     r = receiver
     r.session._state = replace(
         r.session._state,
@@ -671,7 +715,7 @@ def test_native_rest_outage_clears_running_state_and_stale_telemetry(receiver, m
         ),
     )
 
-    def unavailable(*_args, **_kwargs):
+    def unavailable(*_args: object, **_kwargs: object) -> None:
         raise ConnectionRefusedError("connection refused")
 
     monkeypatch.setattr("controllers.radio.rf_radio_session.urllib.request.urlopen", unavailable)
@@ -686,7 +730,9 @@ def test_native_rest_outage_clears_running_state_and_stale_telemetry(receiver, m
     assert "connection refused" in state.error
 
 
-def test_native_rest_reconnection_clears_outage_error(receiver, monkeypatch):
+def test_native_rest_reconnection_clears_outage_error(
+    receiver: ReceiverFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     r = receiver
     r.session._state = replace(
         r.session._state,
@@ -731,13 +777,15 @@ def test_native_rest_reconnection_clears_outage_error(receiver, monkeypatch):
         (True, False),
     ],
 )
-def test_native_refresh_tracks_receiver_lifecycle(receiver, monkeypatch, running, starting):
+def test_native_refresh_tracks_receiver_lifecycle(
+    receiver: ReceiverFixture, monkeypatch: pytest.MonkeyPatch, running: bool, starting: bool
+) -> None:
     import json
     from io import BytesIO
 
     r = receiver
     r.session._native_view = "none"
-    calls = []
+    calls: list[str] = []
 
     def urlopen(request, timeout=1.5):
         calls.append(request)
@@ -756,7 +804,9 @@ def test_native_refresh_tracks_receiver_lifecycle(receiver, monkeypatch, running
     assert not any(isinstance(call, str) and call.endswith("/v1/receiver/start") for call in calls)
 
 
-def test_stale_zmq_running_flag_is_diagnostic_only_after_rest_stop(receiver):
+def test_stale_zmq_running_flag_is_diagnostic_only_after_rest_stop(
+    receiver: ReceiverFixture
+) -> None:
     r = receiver
     r.session._rest_receiver_running = False
     r.session._state = replace(r.session._state, receiver_running=False)
@@ -774,7 +824,9 @@ def test_stale_zmq_running_flag_is_diagnostic_only_after_rest_stop(receiver):
     assert state.telemetry.rds == ""
 
 
-def test_native_close_never_stops_shared_receiver(receiver, monkeypatch):
+def test_native_close_never_stops_shared_receiver(
+    receiver: ReceiverFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     r = receiver
     r.session._owns_receiver = False
     requests = Mock()
@@ -783,7 +835,9 @@ def test_native_close_never_stops_shared_receiver(receiver, monkeypatch):
     requests.assert_not_called()
 
 
-def test_native_receiver_full_simulated_lifecycle(receiver, monkeypatch):
+def test_native_receiver_full_simulated_lifecycle(
+    receiver: ReceiverFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Start, fail, reconnect, stop and recover without RF hardware or Tk."""
     import json
     from io import BytesIO
@@ -794,9 +848,9 @@ def test_native_receiver_full_simulated_lifecycle(receiver, monkeypatch):
     r.session._spectrum_source = source
     source.latest_spectrum.return_value = None
     source.latest_receiver.return_value = None
-    status = {"running": False, "starting": False, "startup_error": None}
+    status: dict[str, bool | str | None] = {"running": False, "starting": False, "startup_error": None}
     offline = {"value": False}
-    starts = []
+    starts: list[str] = []
 
     class Response(BytesIO):
         status = 202
