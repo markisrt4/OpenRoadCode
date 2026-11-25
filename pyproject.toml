@@ -34,6 +34,8 @@ files = [
     "ui/calendar/calendar_presentation_if.py",
     "controllers/calendar/appointment_monitor.py",
     "controllers/calendar/calendar_presentation.py",
+    "controllers/calendar/calendar_query_if.py",
+    "controllers/calendar/calendar_agenda.py",
     "ui/media/spotify_presentation_if.py",
     "ui/media/spotify_browse_if.py",
     "ui/media/spotify_account_if.py",
