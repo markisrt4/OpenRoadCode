@@ -36,6 +36,15 @@ class CalendarHealthView:
     stale: bool = False
     last_data_refresh_age_seconds: float | None = None
 
+    @property
+    def empty_message(self) -> str:
+        """Distinguish an empty result from unknown calendar availability."""
+        if self.last_data_refresh_age_seconds is None:
+            if self.status == "failed":
+                return "Calendar sync failed; no confirmed data."
+            return "No confirmed calendar sync yet."
+        return "No cached appointments."
+
 
 @dataclass(frozen=True)
 class AgendaSnapshot:
