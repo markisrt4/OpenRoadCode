@@ -162,6 +162,7 @@ def calendar_health_view(path: Path | None = None) -> CalendarHealthView:
     return CalendarHealthView(
         status=status if isinstance(status, str) else "unavailable",
         offline=not saved_online_mode(),
+        syncing=bool(health.get("syncing", False)),
         stale=bool(health.get("stale", False)),
         last_data_refresh_age_seconds=float(age) if isinstance(age, (int, float)) else None,
     )
