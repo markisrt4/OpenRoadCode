@@ -108,6 +108,7 @@ def image_to_terminal_art(
         for x in range(resized.width):
             top = resized.getpixel((x, y))
             bottom = resized.getpixel((x, y + 1))
+            assert isinstance(top, tuple) and isinstance(bottom, tuple)
 
             line.append(
                 "\033[38;2;"
@@ -146,6 +147,7 @@ def image_to_ascii(
 
         for x in range(resized.width):
             value = resized.getpixel((x, y))
+            assert isinstance(value, int)
 
             index = round(value * (len(ASCII_CHARACTERS) - 1) / 255)
 

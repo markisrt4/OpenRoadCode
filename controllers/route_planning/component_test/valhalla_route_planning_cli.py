@@ -18,6 +18,7 @@ from controllers.route_planning.route_map_presenter import (
 from controllers.route_planning.route_planning_types import (
     GeoPoint,
     RouteRequest,
+    RouteResult,
 )
 from controllers.route_planning.valhalla_route_planning_controller import (
     ValhallaRoutePlanningController,
@@ -76,7 +77,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def write_route_geojson(
-    route,
+    route: RouteResult,
     output_path: Path,
 ) -> None:
     geojson = route_to_geojson(route)

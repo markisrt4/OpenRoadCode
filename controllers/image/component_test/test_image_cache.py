@@ -11,11 +11,12 @@ from tempfile import TemporaryDirectory
 from PIL import Image
 
 from controllers.image.image_cache import ImageCache
-from controllers.image.image_downloader import DownloadedImage
+from controllers.image.image_downloader import DownloadedImage, ImageDownloader
 
 
-class _Downloader:
+class _Downloader(ImageDownloader):
     def __init__(self, data: bytes) -> None:
+        super().__init__()
         self.data = data
         self.calls = 0
 

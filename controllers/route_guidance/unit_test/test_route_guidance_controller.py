@@ -32,6 +32,8 @@ def test_progress_selects_maneuver_and_decreases_distance() -> None:
     assert later.current_maneuver_index == 0
     assert later.distance_along_route_miles > start.distance_along_route_miles
     assert later.distance_remaining_miles < start.distance_remaining_miles
+    assert later.distance_to_maneuver_miles is not None
+    assert start.distance_to_maneuver_miles is not None
     assert later.distance_to_maneuver_miles < start.distance_to_maneuver_miles
     assert not later.off_route
 

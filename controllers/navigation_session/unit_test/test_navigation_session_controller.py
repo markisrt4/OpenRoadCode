@@ -96,7 +96,7 @@ def test_sustained_off_route_calculates_from_current_position() -> None:
 def test_route_changed_callback_receives_replacement() -> None:
     initial = _route()
     replacement = _route(0.01)
-    changed = []
+    changed: list[RouteResult] = []
     guidance = RouteGuidanceController(initial)
     session = NavigationSessionController(
         lambda request: replacement,
@@ -117,10 +117,15 @@ def test_route_changed_callback_receives_replacement() -> None:
 
 def test_cancel_prevents_reroute() -> None:
     initial = _route()
-    calls = []
+    calls: list[RouteRequest] = []
+
+    def calculate(request: RouteRequest) -> RouteResult:
+        calls.append(request)
+        return _route(0.01)
+
     guidance = RouteGuidanceController(initial)
     session = NavigationSessionController(
-        lambda request: calls.append(request) or _route(0.01),
+        calculate,
         guidance,
         ReroutePolicy(off_route_delay_s=0.0),
     )

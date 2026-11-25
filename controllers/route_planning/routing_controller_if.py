@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from .routing_types import RouteRequest, RouteResult
+from .route_planning_types import RouteRequest, RouteResult
 
 
 class RoutingControllerIf(ABC):
