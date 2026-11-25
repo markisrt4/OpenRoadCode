@@ -3,6 +3,7 @@
 """Exercise browser contracts and lifecycle without Tk, network, or audio processes."""
 
 from collections import deque
+from collections.abc import Callable
 from dataclasses import replace
 from unittest.mock import Mock
 
@@ -19,13 +20,27 @@ from ui.radio.streaming_radio_state import (
     StreamingRadioBrowseMode as Mode,
 )
 from ui.radio.streaming_radio_state import (
+    StreamingRadioBrowserState,
     StreamingRadioPlaybackState,
 )
 from ui.radio.streaming_radio_types import StreamingRadioStation
 
 
+BrowserFixture = tuple[
+    StreamingRadioBrowser,
+    Mock,
+    Mock,
+    Mock,
+    Mock,
+    Mock,
+    deque[Callable[[], None]],
+    deque[Callable[[], None]],
+    StreamingRadioStation,
+]
+
+
 @pytest.fixture
-def browser():
+def browser() -> BrowserFixture:
     station = StreamingRadioStation(
         "one", "Station One", "https://radio.test/one", artwork_url="https://radio.test/art.png"
     )
@@ -39,15 +54,16 @@ def browser():
     favorites.station_ids = frozenset()
     favorites.ordered_station_ids = ()
 
-    def toggle(station_id):
+    def toggle(station_id: str) -> bool:
         ids = set(favorites.station_ids)
         ids.symmetric_difference_update((station_id,))
         favorites.station_ids = frozenset(ids)
         favorites.ordered_station_ids = tuple(sorted(ids))
-        return station_id in ids
+        return bool(station_id in ids)
 
     favorites.toggle.side_effect = toggle
-    work, ui = deque(), deque()
+    work: deque[Callable[[], None]] = deque()
+    ui: deque[Callable[[], None]] = deque()
     artwork = Mock(return_value=b"image bytes")
     view = Mock(spec=StreamingRadioUiIf)
     session = StreamingRadioBrowser(
@@ -62,18 +78,22 @@ def browser():
     return session, directory, playback, favorites, artwork, view, work, ui, station
 
 
-def drain(queue):
+def drain(queue: deque[Callable[[], None]]) -> None:
     while queue:
         queue.popleft()()
 
 
-def loaded(browser):
+def loaded(browser: BrowserFixture) -> StreamingRadioBrowserState:
     drain(browser[6])
     drain(browser[7])
-    return browser[5].set_streaming_state.call_args.args[0]
+    state = browser[5].set_streaming_state.call_args.args[0]
+    assert isinstance(state, StreamingRadioBrowserState)
+    return state
 
 
-def test_directory_worker_delivers_immutable_state_only_through_dispatch(browser):
+def test_directory_worker_delivers_immutable_state_only_through_dispatch(
+    browser: BrowserFixture,
+) -> None:
     session, directory, playback, favorites, artwork, view, work, ui, station = browser
     view.set_streaming_request_handler.assert_called_once_with(session)
     assert view.set_streaming_state.call_args.args[0].loading
@@ -96,7 +116,9 @@ def test_directory_worker_delivers_immutable_state_only_through_dispatch(browser
     )
 
 
-def test_latest_mode_wins_when_directory_results_arrive_out_of_order(browser):
+def test_latest_mode_wins_when_directory_results_arrive_out_of_order(
+    browser: BrowserFixture,
+) -> None:
     session, directory, playback, favorites, artwork, view, work, ui, station = browser
     session.request_mode(Mode.REGIONAL)
     local, regional = work.popleft(), work.popleft()
@@ -107,7 +129,9 @@ def test_latest_mode_wins_when_directory_results_arrive_out_of_order(browser):
     assert state.mode is Mode.REGIONAL and state.stations == ()
 
 
-def test_hide_before_worker_starts_drops_directory_and_queued_playback(browser):
+def test_hide_before_worker_starts_drops_directory_and_queued_playback(
+    browser: BrowserFixture,
+) -> None:
     session, directory, playback, favorites, artwork, view, work, ui, station = browser
     session.deactivate()
     view.set_streaming_request_handler.assert_called_with(None)
@@ -119,7 +143,7 @@ def test_hide_before_worker_starts_drops_directory_and_queued_playback(browser):
     assert not playback.stop.called
 
 
-def test_close_drops_directory_results_already_queued(browser):
+def test_close_drops_directory_results_already_queued(browser: BrowserFixture) -> None:
     session, directory, playback, favorites, artwork, view, work, ui, station = browser
     drain(work)
     session.close()
@@ -132,7 +156,7 @@ def test_close_drops_directory_results_already_queued(browser):
         session.activate(view)
 
 
-def test_favorites_resolve_persisted_identifiers_in_user_order(browser):
+def test_favorites_resolve_persisted_identifiers_in_user_order(browser: BrowserFixture) -> None:
     session, directory, playback, favorites, artwork, view, work, ui, station = browser
     favorites.station_ids = frozenset(("two", "one"))
     favorites.ordered_station_ids = ("two", "one")
@@ -144,21 +168,23 @@ def test_favorites_resolve_persisted_identifiers_in_user_order(browser):
     )
 
 
-def test_empty_favorites_do_not_issue_directory_request(browser):
+def test_empty_favorites_do_not_issue_directory_request(browser: BrowserFixture) -> None:
     browser[0].request_mode(Mode.FAVORITES)
     state = loaded(browser)
     browser[1].stations_by_ids.assert_not_called()
     assert state.stations == () and not state.loading
 
 
-def test_directory_failure_is_reported_as_display_state(browser):
+def test_directory_failure_is_reported_as_display_state(browser: BrowserFixture) -> None:
     browser[1].stations_near.side_effect = OSError("unreachable")
     state = loaded(browser)
     assert state.error and not state.loading and not state.stations
     assert "unreachable" in state.message
 
 
-def test_playback_requests_are_serialized_and_duplicate_requests_are_ignored(browser):
+def test_playback_requests_are_serialized_and_duplicate_requests_are_ignored(
+    browser: BrowserFixture,
+) -> None:
     session, directory, playback, favorites, artwork, view, work, ui, station = browser
     loaded(browser)
     session.request_play("one")
@@ -177,7 +203,7 @@ def test_playback_requests_are_serialized_and_duplicate_requests_are_ignored(bro
     playback.stop.assert_called_once()
 
 
-def test_hidden_play_request_that_has_not_started_has_no_effect(browser):
+def test_hidden_play_request_that_has_not_started_has_no_effect(browser: BrowserFixture) -> None:
     loaded(browser)
     browser[0].request_play("one")
     browser[0].deactivate()
@@ -188,7 +214,9 @@ def test_hidden_play_request_that_has_not_started_has_no_effect(browser):
     assert not browser[5].mock_calls
 
 
-def test_old_playback_completion_cannot_release_new_session_busy_state(browser):
+def test_old_playback_completion_cannot_release_new_session_busy_state(
+    browser: BrowserFixture,
+) -> None:
     session, directory, playback, favorites, artwork, view, work, ui, station = browser
     loaded(browser)
     session.request_play("one")
@@ -204,7 +232,7 @@ def test_old_playback_completion_cannot_release_new_session_busy_state(browser):
     assert not next_view.set_streaming_state.call_args.args[0].playback_busy
 
 
-def test_playback_failure_does_not_leave_browser_busy(browser):
+def test_playback_failure_does_not_leave_browser_busy(browser: BrowserFixture) -> None:
     loaded(browser)
     browser[2].play.side_effect = OSError("no player")
     browser[0].request_play("one")
@@ -213,11 +241,13 @@ def test_playback_failure_does_not_leave_browser_busy(browser):
     assert "no player" in state.message
 
 
-def test_in_flight_playback_can_finish_after_hide_without_touching_view(browser):
+def test_in_flight_playback_can_finish_after_hide_without_touching_view(
+    browser: BrowserFixture,
+) -> None:
     session, directory, playback, favorites, artwork, view, work, ui, station = browser
     loaded(browser)
 
-    def play(item):
+    def play(item: StreamingRadioStation) -> None:
         session.deactivate()
         playback.snapshot.return_value = StreamingRadioPlaybackState(item, True)
 
@@ -231,7 +261,9 @@ def test_in_flight_playback_can_finish_after_hide_without_touching_view(browser)
     playback.stop.assert_not_called()
 
 
-def test_favorite_save_runs_on_worker_and_failure_preserves_membership(browser):
+def test_favorite_save_runs_on_worker_and_failure_preserves_membership(
+    browser: BrowserFixture,
+) -> None:
     session, directory, playback, favorites, artwork, view, work, ui, station = browser
     loaded(browser)
     favorites.toggle.side_effect = OSError("disk full")
@@ -244,7 +276,9 @@ def test_favorite_save_runs_on_worker_and_failure_preserves_membership(browser):
     assert state.error and "disk full" in state.message
 
 
-def test_favorite_mode_reloads_current_metadata_after_membership_change(browser):
+def test_favorite_mode_reloads_current_metadata_after_membership_change(
+    browser: BrowserFixture,
+) -> None:
     session, directory, playback, favorites, artwork, view, work, ui, station = browser
     loaded(browser)
     session.request_toggle_favorite("one")
@@ -258,7 +292,9 @@ def test_favorite_mode_reloads_current_metadata_after_membership_change(browser)
     assert not view.set_streaming_state.call_args.args[0].stations
 
 
-def test_artwork_download_is_deduplicated_and_never_delivered_after_close(browser):
+def test_artwork_download_is_deduplicated_and_never_delivered_after_close(
+    browser: BrowserFixture,
+) -> None:
     session, directory, playback, favorites, artwork, view, work, ui, station = browser
     loaded(browser)
     session.request_artwork("one")
@@ -271,7 +307,7 @@ def test_artwork_download_is_deduplicated_and_never_delivered_after_close(browse
     view.set_station_artwork.assert_not_called()
 
 
-def test_cached_artwork_is_reused_but_old_url_result_is_rejected(browser):
+def test_cached_artwork_is_reused_but_old_url_result_is_rejected(browser: BrowserFixture) -> None:
     session, directory, playback, favorites, artwork, view, work, ui, station = browser
     loaded(browser)
     session.request_artwork("one")
@@ -290,7 +326,9 @@ def test_cached_artwork_is_reused_but_old_url_result_is_rejected(browser):
     assert artwork.call_args.args == ("https://radio.test/new.png",)
 
 
-def test_artwork_failure_keeps_placeholder_and_invalid_station_requests_are_ignored(browser):
+def test_artwork_failure_keeps_placeholder_and_invalid_station_requests_are_ignored(
+    browser: BrowserFixture,
+) -> None:
     session, directory, playback, favorites, artwork, view, work, ui, station = browser
     loaded(browser)
     artwork.side_effect = OSError("bad image")
@@ -303,7 +341,7 @@ def test_artwork_failure_keeps_placeholder_and_invalid_station_requests_are_igno
     assert not work
 
 
-def test_pending_favorite_and_artwork_work_are_dropped_on_hide(browser):
+def test_pending_favorite_and_artwork_work_are_dropped_on_hide(browser: BrowserFixture) -> None:
     loaded(browser)
     browser[0].request_artwork("one")
     browser[0].request_toggle_favorite("one")
