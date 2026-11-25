@@ -172,3 +172,9 @@ Closing a session cancels queued work and retires running results without waitin
 for database I/O. Widgets own rendering and toolkit timers, not worker threads.
 Calendar selection currently uses synchronous local configuration operations
 through its injected adapter. Calendar-driven navigation remains separate.
+
+Calendar domain consumers use `CalendarQueryIf` in `controllers/calendar/`.
+The calendar subsystem owns synchronization health; System diagnostics retains
+a compatibility adapter. Application composition centralizes cache, account,
+selection and timezone defaults. The existing Detroit timezone default is
+preserved; callers can supply a different timezone explicitly.
