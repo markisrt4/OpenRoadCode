@@ -31,10 +31,12 @@ class CalendarSyncScheduler:
         future_days: int = 30,
         clock: Callable[[], datetime] | None = None,
         health: CalendarSyncHealth | None = None,
+        online_allowed: Callable[[], bool] | None = None,
     ) -> None:
         if interval_seconds <= 0 or past_days < 0 or future_days <= 0:
             raise ValueError("Invalid synchronization interval or window")
         self._worker = worker
+        self._online_allowed = online_allowed or (lambda: True)
         self._health = health
         self._interval = interval_seconds
         self._past_days = past_days
@@ -46,6 +48,9 @@ class CalendarSyncScheduler:
         startup_delays = iter((5, 10, 20, 30))
         startup = True
         while not stop.is_set():
+            if not self._online_allowed():
+                stop.wait(1.0)
+                continue
             attempted = datetime.now(timezone.utc)
             started = time.monotonic()
             result = None
@@ -87,5 +92,8 @@ class CalendarSyncScheduler:
                     _LOG.info("Retrying calendar startup in %s seconds", delay)
             else:
                 startup = False
-            if stop.wait(delay):
-                break
+            deadline = time.monotonic() + delay
+            while not stop.is_set() and self._online_allowed():
+                remaining = deadline - time.monotonic()
+                if remaining <= 0 or stop.wait(min(1.0, remaining)):
+                    break
