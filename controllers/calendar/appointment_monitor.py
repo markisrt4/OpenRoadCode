@@ -34,7 +34,7 @@ class AppointmentMonitor:
         self._interval = interval
         self._clock = clock
         self._future: Future[AppointmentSnapshot] | None = None
-        self._next_read = 0
+        self._next_read = 0.0
         self.snapshot: AppointmentSnapshot | None = None
         self._closed = False
         self.failed = False
