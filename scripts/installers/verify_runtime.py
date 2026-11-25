@@ -15,7 +15,6 @@ import subprocess
 import sys
 import time
 import urllib.error
-import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -32,7 +31,14 @@ TELEMETRY_SERVICES = (
 )
 
 
+FAILURE_DETAILS: list[tuple[str, str]] = []
+
+
 def report(level: str, label: str, detail: str = "") -> None:
+    if level == "FAIL":
+        FAILURE_DETAILS.append((label, detail))
+        print(f"[FAIL] {label} (see failure summary)")
+        return
     suffix = f" ({detail})" if detail else ""
     print(f"[{level}] {label}{suffix}")
 
@@ -98,9 +104,15 @@ def routing_ready(root: Path, region: str) -> tuple[bool, str]:
             if time.monotonic() >= deadline:
                 return False, f"{context}; GET {base}/status; {detail}"
             time.sleep(0.5)
-        context += f"; GET {base}/route; request={json.dumps(route)}"
-        query = urllib.parse.urlencode({"json": json.dumps(route)})
-        with urllib.request.urlopen(f"{base}/route?{query}", timeout=15) as response:
+        payload = json.dumps(route, separators=(",", ":"))
+        context += f"; POST {base}/route; request={payload}"
+        request = urllib.request.Request(
+            f"{base}/route",
+            data=payload.encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=15) as response:
             trip = json.load(response)["trip"]
         summary = trip["summary"]
         if summary["length"] <= 0 or summary["time"] <= 0:
@@ -194,6 +206,7 @@ def hardware_result(
 
 
 def main() -> int:
+    FAILURE_DETAILS.clear()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "features",
@@ -402,6 +415,12 @@ def main() -> int:
 
     print()
     if failures:
+        print("Failure summary:")
+        for label, detail in FAILURE_DETAILS:
+            print(f"[FAIL] {label}")
+            if detail:
+                print(f"    {detail}")
+        print()
         print(f"Runtime verification FAILED: {failures} required check(s) failed.")
         return 1
 
