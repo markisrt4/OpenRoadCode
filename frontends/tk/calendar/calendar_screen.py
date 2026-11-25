@@ -4,6 +4,8 @@
 import calendar
 import hashlib
 import tkinter as tk
+
+from ui import UiWidget
 from datetime import datetime, timedelta
 
 from ui.calendar.calendar_models import CalendarHealthView
@@ -18,7 +20,7 @@ def _calendar_color(account_id: str, calendar_id: str) -> str:
     return palette[int.from_bytes(digest[:4], "big") % len(palette)]
 
 
-class CalendarScreen(tk.Frame):
+class CalendarScreen(tk.Frame, UiWidget):
     """Load agenda data off the Tk thread and render on the Tk thread."""
 
     def __init__(
