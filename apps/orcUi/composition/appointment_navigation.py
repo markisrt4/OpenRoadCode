@@ -2,8 +2,6 @@
 """Compose local-only appointment journey estimates in the monitor worker."""
 
 import sqlite3
-from time import monotonic
-from math import cos, hypot, pi
 
 import requests
 
@@ -13,6 +11,7 @@ from controllers.calendar.calendar_presentation import event_view
 from controllers.calendar.calendar_models import CalendarEvent
 from ui.navigation.map_ui_if import GeoPoint
 from controllers.calendar.calendar_query_if import CalendarQueryIf
+from controllers.navigation.appointment_estimate_cache import AppointmentEstimateCache
 from controllers.navigation.appointment_journey import AppointmentJourneyPlanner
 from controllers.navigation.appointment_route_estimator import (
     estimate_appointment_route,
@@ -55,44 +54,11 @@ def estimate_upcoming_journey(
         return None
 
 
-class AppointmentEstimateCache:
-    """Throttle repeated local route estimates in the single monitor worker."""
-
-    def __init__(self) -> None:
-        self._event: CalendarEvent | None = None
-        self._origin: GeoPoint | None = None
-        self._estimate: AppointmentJourneyView | None = None
-        self._expires = 0.0
-        self._buffer_minutes: int | None = None
-        self._settings = AppSettingsStore()
-
-    def estimate(
-        self, query: CalendarQueryIf, event: CalendarEvent
-    ) -> AppointmentJourneyView | None:
-        """Reuse recent estimates until the event or vehicle position changes."""
-        origin = get_current_position()
-        if origin is None or not event.location:
-            self._event = None
-            self._estimate = None
-            return None
-        buffer_minutes = self._settings.load().appointment_arrival_minutes
-        now = monotonic()
-        previous = self._origin
-        if (
-            event == self._event
-            and buffer_minutes == self._buffer_minutes
-            and previous is not None
-            and now < self._expires
-            and hypot(
-                origin.latitude_rad - previous.latitude_rad,
-                ((origin.longitude_rad - previous.longitude_rad + pi) % (2 * pi) - pi)
-                * cos((origin.latitude_rad + previous.latitude_rad) / 2),
-            ) < 0.00004
-        ):
-            return self._estimate
-        self._estimate = estimate_upcoming_journey(query, event, origin, buffer_minutes)
-        self._buffer_minutes = buffer_minutes
-        self._event = event
-        self._origin = origin
-        self._expires = monotonic() + (120 if self._estimate is not None else 30)
-        return self._estimate
+def create_appointment_estimate_cache() -> AppointmentEstimateCache:
+    """Wire the cache controller to local navigation and settings providers."""
+    settings = AppSettingsStore()
+    return AppointmentEstimateCache(
+        position=get_current_position,
+        arrival_minutes=lambda: settings.load().appointment_arrival_minutes,
+        calculate=estimate_upcoming_journey,
+    )
