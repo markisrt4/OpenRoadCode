@@ -16,6 +16,7 @@ import os
 import time
 import tkinter as tk
 from contextlib import redirect_stdout
+from itertools import pairwise
 
 from ui import UiWidget
 
@@ -31,11 +32,11 @@ def piston_position(phase: float, cylinder: int) -> tuple[float, float, float]:
 
 def point_on_path(points, fraction):
     """Interpolate by distance so flow keeps a steady speed through elbows."""
-    lengths = [math.dist(a, b) for a, b in zip(points, points[1:])]
+    lengths = [math.dist(a, b) for a, b in pairwise(points)]
     remaining = max(0.0, min(1.0, fraction)) * sum(lengths)
-    for start, end, length in zip(points, points[1:], lengths):
+    for start, end, length in zip(points[:-1], points[1:], lengths, strict=True):
         if length > 0 and remaining <= length:
-            return tuple(a + (b - a) * remaining / length for a, b in zip(start, end))
+            return tuple(a + (b - a) * remaining / length for a, b in zip(start, end, strict=True))
         remaining -= length
     return points[-1]
 
@@ -216,7 +217,7 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None, on_frame
         def tube(self, start, end, radius, color):
             if self._dynamic_pass != self._moving:
                 return
-            delta = tuple(b - a for a, b in zip(start, end))
+            delta = tuple(b - a for a, b in zip(start, end, strict=True))
             length = math.sqrt(sum(v * v for v in delta))
             if length < 1e-6:
                 return
@@ -234,7 +235,7 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None, on_frame
         def pipe(self, points, radius, color, *, flow=False):
             """Join pipe segments with round elbows."""
             if not self._dynamic_pass:
-                for start, end in zip(points, points[1:]):
+                for start, end in pairwise(points):
                     self.tube(start, end, radius, color)
                 for point in points[1:-1]:
                     gl.glPushMatrix()

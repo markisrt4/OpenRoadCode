@@ -21,7 +21,7 @@ def _blend(first: str, second: str, amount: float) -> str:
     amount = max(0.0, min(1.0, amount))
     a = tuple(int(first[index : index + 2], 16) for index in (1, 3, 5))
     b = tuple(int(second[index : index + 2], 16) for index in (1, 3, 5))
-    rgb = tuple(round(left + (right - left) * amount) for left, right in zip(a, b))
+    rgb = tuple(round(left + (right - left) * amount) for left, right in zip(a, b, strict=True))
     return "#{:02x}{:02x}{:02x}".format(*rgb)
 
 

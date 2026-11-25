@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from itertools import pairwise
 
 from controllers.route_planning.route_planning_types import GeoPoint, RouteResult
 
@@ -189,7 +190,7 @@ class RouteGuidanceController:
     @staticmethod
     def _build_cumulative_distances(shape: tuple[GeoPoint, ...]) -> tuple[float, ...]:
         distances = [0.0]
-        for start, end in zip(shape, shape[1:]):
+        for start, end in pairwise(shape):
             distances.append(distances[-1] + RouteGuidanceController._distance_miles(start, end))
         return tuple(distances)
 
