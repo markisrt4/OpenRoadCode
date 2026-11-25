@@ -61,7 +61,7 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         if not isinstance(places_factory, NavigationPlacesFactoryIf):
             raise TypeError("Navigation requires NavigationPlacesFactoryIf")
         self._places_factory = places_factory
-        self._places_session = None
+        self._places_session: NavigationPlacesRequestHandlerIf | None = None
         self._route_weather = route_weather
         self._online_mode = online_mode
         self._tooltip_factory = tooltip_factory
