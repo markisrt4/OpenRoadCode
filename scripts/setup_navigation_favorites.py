@@ -172,4 +172,4 @@ if __name__ == "__main__":
         raise SystemExit(main())
     except KeyboardInterrupt:
         print("\nOpenRoadCode Home / Work setup cancelled.")
-        raise SystemExit(130)
+        raise SystemExit(130) from None

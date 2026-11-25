@@ -65,7 +65,7 @@ class HomeSpectrumBar(tk.Frame, UiWidget):
             segment = min(len(palette) - 2, int(position * (len(palette) - 1)))
             blend = position * (len(palette) - 1) - segment
             start, end = palette[segment], palette[segment + 1]
-            rgb = tuple(round(a + (b - a) * blend) for a, b in zip(start, end))
+            rgb = tuple(round(a + (b - a) * blend) for a, b in zip(start, end, strict=True))
             if not active:
                 base = (18, 32, 44)
                 rgb = tuple(round(base[i] * 0.40 + rgb[i] * 0.60) for i in range(3))

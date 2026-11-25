@@ -195,7 +195,7 @@ class TripMetricCard(tk.Canvas, UiWidget):
         widths = (0.26, 0.40, 0.54)
         heights = (0.55, 0.85, 1.15)
         starts = (-0.75, -0.22, 0.38)
-        for start, w, h in zip(starts, widths, heights):
+        for start, w, h in zip(starts, widths, heights, strict=True):
             x0 = cx + start * r
             self.create_rectangle(
                 x0,

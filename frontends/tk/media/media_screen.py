@@ -262,7 +262,9 @@ class MediaScreen(TkScreen):
         base = tuple(value // 256 for value in canvas.winfo_rgb(canvas.cget("bg")))
 
         def mix(left: tuple[int, ...], right: tuple[int, ...], amount: float) -> str:
-            return "#" + "".join(f"{round(a + (b - a) * amount):02x}" for a, b in zip(left, right))
+            return "#" + "".join(
+                f"{round(a + (b - a) * amount):02x}" for a, b in zip(left, right, strict=True)
+            )
 
         palette = ((35, 210, 186), (66, 145, 245), (165, 104, 238))
         profile = (0.24, 0.40, 0.32, 0.62, 0.85, 0.56, 0.96, 0.72, 0.48, 0.68, 0.38, 0.54)
@@ -406,7 +408,7 @@ class MediaScreen(TkScreen):
         left = widget.winfo_rgb(base)
         right = widget.winfo_rgb(accent)
         return "#" + "".join(
-            f"{round((a + (b - a) * amount) / 257):02x}" for a, b in zip(left, right)
+            f"{round((a + (b - a) * amount) / 257):02x}" for a, b in zip(left, right, strict=True)
         )
 
     def _paint_provider_glow(self, canvas: tk.Canvas, width: int, height: int, accent: str) -> None:

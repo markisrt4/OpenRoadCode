@@ -61,11 +61,11 @@ def main() -> None:
     except ConnectionRefusedError:
         print("Unable to connect to gpsd at 127.0.0.1:2947.")
         print("Start gpsd first with component_test/start_gpsd.sh.")
-        raise SystemExit(1)
+        raise SystemExit(1) from None
 
     except OSError as error:
         print(f"Unable to connect to gpsd: {error}")
-        raise SystemExit(1)
+        raise SystemExit(1) from None
 
     except KeyboardInterrupt:
         print("\nStopping GPS reader...")

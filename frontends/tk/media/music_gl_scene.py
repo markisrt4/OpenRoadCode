@@ -285,7 +285,7 @@ def _chrome(gl):
 
 
 def _rod(gl, glu, q, start, end, radius):
-    dx, dy, dz = (b - a for a, b in zip(start, end))
+    dx, dy, dz = (b - a for a, b in zip(start, end, strict=True))
     length = math.sqrt(dx * dx + dy * dy + dz * dz)
     if length < 1e-6:
         return

@@ -4,6 +4,7 @@
 
 import math
 from dataclasses import replace
+from itertools import pairwise
 
 import pytest
 
@@ -101,7 +102,7 @@ def test_smooth_render_preserves_height_and_gradient_with_bounded_geometry(palet
         assert max(v[1] for q in column for v in q) == pytest.approx(0.08 + height * 0.86)
         assert column[0][0][2] == pytest.approx(analyzer_color(options, 0))
         assert column[-1][2][2] == pytest.approx(analyzer_color(options, 1))
-        for previous, following in zip(column, column[1:]):
+        for previous, following in pairwise(column):
             assert previous[2][1] == pytest.approx(following[0][1])
             assert previous[2][2] == pytest.approx(following[0][2])
         if palette is AnalyzerPalette.RETRO:

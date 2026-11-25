@@ -311,7 +311,8 @@ def download(
         raise RuntimeError("USGS export is not geographic WGS84")
     bounds = [extent[k] for k in ("xmin", "ymin", "xmax", "ymax")]
     if any(
-        abs(actual - requested) > 0.000001 for actual, requested in zip(bounds, requested_bounds)
+        abs(actual - requested) > 0.000001
+        for actual, requested in zip(bounds, requested_bounds, strict=True)
     ):
         raise RuntimeError("Export coverage differs from the requested bounded area")
     if (export["width"], export["height"]) != image_size:

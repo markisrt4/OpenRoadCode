@@ -424,5 +424,5 @@ class MusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
         else:
             amount = (position - 0.5) * 2.0
             start, end = stops[1], stops[2]
-        rgb = tuple(round(a + (b - a) * amount) for a, b in zip(start, end))
+        rgb = tuple(round(a + (b - a) * amount) for a, b in zip(start, end, strict=True))
         return "#" + "".join(f"{channel:02x}" for channel in rgb)

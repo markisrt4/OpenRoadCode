@@ -73,7 +73,7 @@ def download(destination, *, bounds, title, cache_directory, image_size=(2048, 1
                         len(manifest["bounds_deg"]) != 4
                         or any(
                             abs(a - b) > 0.000001
-                            for a, b in zip(manifest["bounds_deg"], tile_bounds)
+                            for a, b in zip(manifest["bounds_deg"], tile_bounds, strict=True)
                         )
                         or (manifest["width"], manifest["height"]) != tile_size
                     ):
