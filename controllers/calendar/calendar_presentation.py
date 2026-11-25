@@ -15,6 +15,8 @@ from ui.calendar.calendar_models import (
     CalendarSelectionView,
 )
 
+from controllers.system.calendar_health_sampler import sample_calendar_health
+
 from .calendar_agenda import CalendarAgendaController
 from .calendar_models import CalendarEvent
 from .calendar_selection import (
@@ -141,3 +143,13 @@ class CalendarSelectionPresentation:
             else:
                 disabled.add(key)
         save_disabled_calendar_ids(self._selection, disabled)
+
+
+def calendar_health_view(path: Path | None = None) -> CalendarHealthView:
+    """Translate synchronization diagnostics into presentation state."""
+    health = sample_calendar_health(path)
+    return CalendarHealthView(
+        status=health.get("status", "unavailable"),
+        stale=health.get("stale", False),
+        last_data_refresh_age_seconds=health.get("last_data_refresh_age_seconds"),
+    )
