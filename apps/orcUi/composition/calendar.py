@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: MIT
 """Compose the dashboard calendar and own its visible panel lifecycle."""
 
-from datetime import datetime
+from dataclasses import dataclass, field
+from datetime import datetime, tzinfo
 from pathlib import Path
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from zoneinfo import ZoneInfo
 
 from apps.orcUi.theme_runtime import theme_bundle
 from controllers.calendar.appointment_monitor import AppointmentMonitor
@@ -16,6 +17,7 @@ from controllers.calendar.calendar_presentation import (
     event_view,
 )
 from controllers.calendar.calendar_event_cache import CalendarEventCache
+from controllers.calendar.calendar_query_if import CalendarQueryIf
 from controllers.calendar.upcoming_appointments import upcoming_appointments
 from ui.calendar.calendar_models import AppointmentSnapshot
 from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
@@ -24,26 +26,43 @@ from frontends.tk.calendar.upcoming_panel import UpcomingPanel
 from frontends.tk.calendar.dashboard_screen import DashboardCalendarScreen
 
 
-def configure_calendar(app):
-    def create_panel(parent):
-        cache_path = Path.home() / ".local/share/openroadcode/calendar/events.sqlite3"
-        selection = Path.home() / ".config/openroadcode/calendar-selection.json"
-        try:
-            zone = ZoneInfo("America/Detroit")
-        except ZoneInfoNotFoundError:
-            zone = datetime.now().astimezone().tzinfo
+def _local_zone() -> tzinfo:
+    return datetime.now().astimezone().tzinfo or ZoneInfo("UTC")
+
+
+@dataclass(frozen=True)
+class CalendarConfiguration:
+    """Shared configuration for all calendar consumers."""
+
+    cache_path: Path = field(
+        default_factory=lambda: Path.home() / ".local/share/openroadcode/calendar/events.sqlite3"
+    )
+    selection_path: Path = field(
+        default_factory=lambda: Path.home() / ".config/openroadcode/calendar-selection.json"
+    )
+    account_id: str = "caldav"
+    zone: tzinfo = field(default_factory=_local_zone)
+
+    def query(self) -> CalendarQueryIf:
         provider = CachedCalendarProvider(
-            "caldav", CalendarEventCache(cache_path), selection_file=selection
+            self.account_id,
+            CalendarEventCache(self.cache_path),
+            selection_file=self.selection_path,
         )
+        return CalendarAgendaController(provider, self.zone)
+
+
+def configure_calendar(app, config: CalendarConfiguration | None = None):
+    config = config or CalendarConfiguration()
+
+    def create_panel(parent):
         return CalendarScreen(
             parent,
-            agenda=CalendarAgendaPresentation(
-                CalendarAgendaController(provider, zone), calendar_health_view
-            ),
+            agenda=CalendarAgendaPresentation(config.query(), calendar_health_view),
             theme=theme_bundle(app.theme_mode),
-            zone=zone,
+            zone=config.zone,
             selection=CalendarSelectionPresentation(
-                selection, cache_path.with_suffix(".catalog.json")
+                config.selection_path, config.cache_path.with_suffix(".catalog.json")
             ),
         )
 
@@ -53,26 +72,13 @@ def configure_calendar(app):
 
 
 class HomeCalendarFactory:
-    def __init__(self, app):
+    def __init__(self, app, config: CalendarConfiguration | None = None):
         self._app = app
-        try:
-            self._zone = ZoneInfo("America/Detroit")
-        except ZoneInfoNotFoundError:
-            self._zone = datetime.now().astimezone().tzinfo
-        zone = self._zone
+        config = config or CalendarConfiguration()
+        self._zone = config.zone
 
         def load():
-            cache = CalendarEventCache(
-                Path.home() / ".local/share/openroadcode/calendar/events.sqlite3"
-            )
-            provider = CachedCalendarProvider(
-                "caldav",
-                cache,
-                selection_file=Path.home() / ".config/openroadcode/calendar-selection.json",
-            )
-            events = upcoming_appointments(
-                CalendarAgendaController(provider, zone), datetime.now(zone), limit=1
-            )
+            events = upcoming_appointments(config.query(), datetime.now(config.zone), limit=1)
             return AppointmentSnapshot(
                 tuple(event_view(event) for event in events), calendar_health_view()
             )
@@ -88,5 +94,5 @@ class HomeCalendarFactory:
         )
 
 
-def create_home_calendar_factory(app):
-    return HomeCalendarFactory(app)
+def create_home_calendar_factory(app, config: CalendarConfiguration | None = None):
+    return HomeCalendarFactory(app, config)
