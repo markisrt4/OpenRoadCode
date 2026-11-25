@@ -1,19 +1,42 @@
 # SPDX-License-Identifier: MIT
 
+from collections.abc import Callable
 from dataclasses import FrozenInstanceError
 from unittest.mock import Mock
 
 import pytest
 
 from controllers.spotify.guarded_token_store import GuardedTokenStore
-from controllers.spotify.spotify_account import SpotifyAccountBinding, SpotifyAccountController
+from controllers.spotify.spotify_account import (
+    Commit,
+    Current,
+    SpotifyAccountBinding,
+    SpotifyAccountController,
+)
 from protocols.spotify.spotify_auth import SpotifyAuthError
 from ui.media.spotify_account_if import SpotifyAccountState
 
 
+AccountFixture = tuple[
+    SpotifyAccountController,
+    SpotifyAccountBinding,
+    Mock,
+    Mock,
+    list[Callable[[], None]],
+    list[Callable[[], None]],
+    list[bool],
+    Mock,
+    Mock,
+    Mock,
+    Mock,
+]
+
+
 @pytest.fixture
-def account():
-    work, ui, online = [], [], [True]
+def account() -> AccountFixture:
+    work: list[Callable[[], None]] = []
+    ui: list[Callable[[], None]] = []
+    online = [True]
     dispatcher = Mock()
     dispatcher.dispatch_ui.side_effect = ui.append
     read = Mock(return_value=("public-client", False))
@@ -36,7 +59,7 @@ def account():
     return controller, session, view, handler, work, ui, online, save, connect, disconnect, refresh
 
 
-def drain(work, ui):
+def drain(work: list[Callable[[], None]], ui: list[Callable[[], None]]) -> None:
     while work or ui:
         while work:
             work.pop(0)()
@@ -44,16 +67,18 @@ def drain(work, ui):
             ui.pop(0)()
 
 
-def state(view):
-    return view.set_spotify_account_state.call_args.args[0]
+def state(view: Mock) -> SpotifyAccountState:
+    value = view.set_spotify_account_state.call_args.args[0]
+    assert isinstance(value, SpotifyAccountState)
+    return value
 
 
-def test_state_is_immutable():
+def test_state_is_immutable() -> None:
     with pytest.raises(FrozenInstanceError):
-        SpotifyAccountState().connected = True
+        setattr(SpotifyAccountState(), "connected", True)
 
 
-def test_configuration_runs_off_frontend_and_normalizes_input(account):
+def test_configuration_runs_off_frontend_and_normalizes_input(account: AccountFixture) -> None:
     _, _, view, handler, work, ui, _, save, _, _, refresh = account
     handler.request_configure("  changed-client  ")
     save.assert_not_called()
@@ -68,7 +93,7 @@ def test_configuration_runs_off_frontend_and_normalizes_input(account):
 
 
 @pytest.mark.parametrize("retire", ["deactivate", "close"])
-def test_retired_view_drops_queued_work_and_old_handler(account, retire):
+def test_retired_view_drops_queued_work_and_old_handler(account: AccountFixture, retire: str) -> None:
     _, session, view, handler, work, ui, _, save, connect, _, _ = account
     handler.request_configure("changed")
     getattr(session, retire)()
@@ -80,11 +105,13 @@ def test_retired_view_drops_queued_work_and_old_handler(account, retire):
     view.set_spotify_account_state.assert_not_called()
 
 
-def test_close_during_token_exchange_rejects_persistence_and_completion(account):
+def test_close_during_token_exchange_rejects_persistence_and_completion(
+    account: AccountFixture,
+) -> None:
     controller, _, view, handler, work, ui, _, _, connect, _, refresh = account
     store = Mock()
 
-    def exchange(current, commit):
+    def exchange(current: Current, commit: Commit) -> None:
         assert current()
         controller.close()
         GuardedTokenStore(store, commit).save(Mock())
@@ -99,9 +126,9 @@ def test_close_during_token_exchange_rejects_persistence_and_completion(account)
     view.set_spotify_account_state.assert_not_called()
 
 
-def test_disconnect_supersedes_pending_authorization(account):
+def test_disconnect_supersedes_pending_authorization(account: AccountFixture) -> None:
     _, _, view, handler, work, ui, _, _, connect, disconnect, _ = account
-    captured = []
+    captured: list[tuple[Current, Commit]] = []
     connect.side_effect = lambda current, commit: captured.append((current, commit))
     handler.request_connect()
     work.pop(0)()
@@ -117,7 +144,7 @@ def test_disconnect_supersedes_pending_authorization(account):
     assert "disconnected" in state(view).message
 
 
-def test_offline_transition_cancels_sign_in_and_clears_busy(account):
+def test_offline_transition_cancels_sign_in_and_clears_busy(account: AccountFixture) -> None:
     controller, _, view, handler, work, ui, online, _, connect, _, _ = account
     handler.request_connect()
     online[0] = False
@@ -129,7 +156,7 @@ def test_offline_transition_cancels_sign_in_and_clears_busy(account):
     assert state(view).error
 
 
-def test_completed_hidden_action_does_not_restore_navigation(account):
+def test_completed_hidden_action_does_not_restore_navigation(account: AccountFixture) -> None:
     _, session, view, handler, work, ui, _, _, _, _, refresh = account
     handler.request_connect()
     work.pop(0)()
@@ -140,7 +167,7 @@ def test_completed_hidden_action_does_not_restore_navigation(account):
     refresh.assert_not_called()
 
 
-def test_shared_view_retirement_only_cancels_its_own_action(account):
+def test_shared_view_retirement_only_cancels_its_own_action(account: AccountFixture) -> None:
     controller, session, _, handler, work, ui, _, save, _, _, _ = account
     other = SpotifyAccountBinding(controller)
     other_view = Mock()
@@ -152,7 +179,7 @@ def test_shared_view_retirement_only_cancels_its_own_action(account):
     session.close()
 
 
-def test_old_requests_remain_retired_after_reactivation(account):
+def test_old_requests_remain_retired_after_reactivation(account: AccountFixture) -> None:
     _, session, view, handler, work, ui, _, save, _, _, _ = account
     session.deactivate()
     session.activate(view)
@@ -161,7 +188,7 @@ def test_old_requests_remain_retired_after_reactivation(account):
     save.assert_not_called()
 
 
-def test_failure_is_rendered_and_allows_retry(account):
+def test_failure_is_rendered_and_allows_retry(account: AccountFixture) -> None:
     _, _, view, handler, work, ui, _, _, connect, _, _ = account
     connect.side_effect = RuntimeError("authorization rejected")
     handler.request_connect()
@@ -174,7 +201,7 @@ def test_failure_is_rendered_and_allows_retry(account):
     assert not state(view).error
 
 
-def test_empty_configuration_does_not_write(account):
+def test_empty_configuration_does_not_write(account: AccountFixture) -> None:
     _, _, view, handler, work, ui, _, save, _, _, _ = account
     handler.request_configure("  ")
     drain(work, ui)
@@ -182,7 +209,7 @@ def test_empty_configuration_does_not_write(account):
     assert state(view).error
 
 
-def test_activation_failure_retires_partially_bound_view(account):
+def test_activation_failure_retires_partially_bound_view(account: AccountFixture) -> None:
     controller, _, _, _, _, _, _, _, _, _, _ = account
     controller.close()
     session, view = SpotifyAccountBinding(controller), Mock()
