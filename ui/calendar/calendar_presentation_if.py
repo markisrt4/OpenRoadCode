@@ -26,8 +26,8 @@ class CalendarSelectionIf(Protocol):
     def list_calendars(self) -> tuple[CalendarSelectionView, ...]:
         """Return discovered calendars and their enabled state."""
 
-    def set_enabled(self, calendar_id: str, enabled: bool) -> None:
-        """Persist a calendar selection."""
+    def apply_selection(self, enabled: dict[str, bool]) -> None:
+        """Atomically persist selections while preserving unknown calendar IDs."""
 
 
 class AppointmentMonitorIf(Protocol):
