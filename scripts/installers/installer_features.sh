@@ -30,6 +30,7 @@ automotive
 imu
 environmental
 spotify
+youtube
 sdrforge
 video
 video-v4l2
@@ -64,6 +65,7 @@ automotive
 imu
 environmental
 spotify
+youtube
 sdrforge
 video
 video-v4l2
@@ -78,6 +80,7 @@ web-ui
 browser
 streamlit
 spotify
+youtube
 sdrforge
 navigation
 EOF
@@ -103,6 +106,7 @@ get_feature_dependencies() {
     video-perception) echo "video" ;;
     vnc) echo "desktop-ui" ;;
     audio-bluetooth) echo "audio" ;;
+    youtube) echo "browser desktop-ui" ;;
     spotify)
       [[ "$target" == "termux" ]] && echo "" || echo "audio"
       ;;
@@ -268,6 +272,7 @@ Available features:
   imu           MPU-6050 and Adafruit Blinka I2C support
   environmental BMP3XX and Adafruit Blinka I2C support
   spotify       Spotify integration extras (includes audio)
+  youtube       YouTube music video playback (includes browser and desktop-ui)
   sdrforge         SDRForge support (includes RTL-SDR, desktop-ui, and audio)
   navigation    MapLibre renderer + Valhalla navigation stack (includes desktop-ui and gps)
   video         Common camera capture and preview support
