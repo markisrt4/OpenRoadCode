@@ -177,7 +177,7 @@ elif [[ "$relation" == "older" ]]; then
 fi
 
 if (( ! FORCE && ! INTERACTIVE && selection_matches )) && [[ -f "$DATA_ROOT/build-manifest.json" ]] \
-    && cmp -s "$remote_manifest" "$DATA_ROOT/build-manifest.json"     && [[ -s "$DATA_ROOT/maps/search/openroadcode-search.sqlite" ]]; then
+    && cmp -s "$remote_manifest" "$DATA_ROOT/build-manifest.json"     && [[ -s "$DATA_ROOT/maps/search/openroadcode-search.sqlite" && -s "$DATA_ROOT/maps/vector/openroadcode.mbtiles" && -s "$DATA_ROOT/valhalla/valhalla.json" ]]; then
   echo "[+] Navigation data already match the remote build manifest; refreshing software-owned map style."
   DATA_ROOT="$DATA_ROOT" bash "$PROJECT_ROOT/scripts/runtime/install_navigation_style.sh"
   exit 0
@@ -193,7 +193,20 @@ if (( DRY_RUN )); then
 fi
 
 if [[ -n "$REGION" ]]; then
-  python3 "$SCRIPT_DIR/download_navigation_release.py" --region "$REGION" --cache "$RELEASE_CACHE" --stage "$release_work/data"
+  # Extract directly on the deployment filesystem, not in the download cache.
+  sudo mkdir -p "$(dirname "$STAGING_ROOT")"
+  if [[ -e "$STAGING_ROOT" || -L "$STAGING_ROOT" ]]; then
+    echo "Existing staging tree: $STAGING_ROOT; inspect and move it before retrying." >&2
+    exit 1
+  fi
+  sudo mkdir "$STAGING_ROOT"
+  sudo chown "$(id -u):$(id -g)" "$STAGING_ROOT"
+  python3 "$SCRIPT_DIR/download_navigation_release.py" --region "$REGION" --cache "$RELEASE_CACHE" --stage "$STAGING_ROOT/data"
+  # Rename within the same filesystem; no second extracted copy.
+  shopt -s dotglob nullglob
+  mv -- "$STAGING_ROOT/data/"* "$STAGING_ROOT/"
+  shopt -u dotglob nullglob
+  rmdir "$STAGING_ROOT/data"
 fi
 
 echo "[*] Preparing staging directory: $STAGING_ROOT"
@@ -218,9 +231,7 @@ done
 
 echo "[*] Pulling navigation data from $SOURCE"
 if [[ -n "$REGION" ]]; then
-  rsync -aH --delete-delay --itemize-changes \
-    --exclude='maps/routes/' --exclude=cesium/ --exclude=map-packs/ "${rsync_3d_filters[@]}" \
-    "$release_work/data/" "$STAGING_ROOT/"
+  echo "[*] Release already extracted into deployment staging"
 else
 rsync -aH --delete-delay --itemize-changes \
   -e "$rsync_shell" \
