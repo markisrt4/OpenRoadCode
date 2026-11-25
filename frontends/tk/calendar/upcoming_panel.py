@@ -59,7 +59,7 @@ class UpcomingPanel(tk.Frame, UiWidget):
             elif health.status != "ok":
                 self._label("Calendar sync incomplete", self._ui.accent_warning)
             if not events:
-                self._label("No upcoming timed appointments in cache", self._ui.text_muted)
+                self._label(health.empty_message, self._ui.text_muted)
             for event in events:
                 start = event.starts_at.astimezone(self._zone)
                 self._label(start.strftime("%a %b %d · %I:%M %p"), self._ui.accent_primary)
