@@ -95,19 +95,18 @@ add_account() {
 account_menu() {
     while true; do
         printf '\nCalendar Account Management\n'
-        printf '%s\n' '1. List accounts' '2. Add or register account' '3. Enable account' \
-            '4. Disable account' '5. Update account password' '6. Remove account' '0. Back'
+        printf '%s\n' '1. List accounts' '2. Add or register account' '3. Manage account status' \
+            '4. Update account password' '5. Remove account' '0. Back'
         read -r -p 'Select: ' choice || return 0
         case "$choice" in
             1) "$PYTHON_BIN" -m controllers.calendar.configure_accounts list || true
                 if systemctl --user is-active --quiet openroadcode-carbonate.service; then
-                    echo "Proton bridge is running. If not listed above, register it using option 2."
+                    echo "Proton bridge status: running."
                 fi ;;
             2) add_account || true ;;
-            3) "$PYTHON_BIN" -m controllers.calendar.configure_accounts enable || true ;;
-            4) "$PYTHON_BIN" -m controllers.calendar.configure_accounts disable || true ;;
-            5) "$PYTHON_BIN" -m controllers.calendar.configure_accounts password || true ;;
-            6) "$PYTHON_BIN" -m controllers.calendar.configure_accounts remove || true ;;
+            3) "$PYTHON_BIN" -m controllers.calendar.configure_accounts status || true ;;
+            4) "$PYTHON_BIN" -m controllers.calendar.configure_accounts password || true ;;
+            5) "$PYTHON_BIN" -m controllers.calendar.configure_accounts remove || true ;;
             0) return 0 ;;
             *) echo "Invalid selection" ;;
         esac
