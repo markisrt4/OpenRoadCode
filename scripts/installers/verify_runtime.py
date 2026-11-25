@@ -170,6 +170,8 @@ def main() -> int:
         action="store_true",
         help="Treat missing configured hardware/resources as failures instead of warnings",
     )
+    parser.add_argument("--navigation-service", action="store_true")
+    parser.add_argument("--navigation-data-root", type=Path)
     args = parser.parse_args()
 
     config_path = Path(args.config).expanduser().resolve()
@@ -199,8 +201,29 @@ def main() -> int:
     else:
         report("SKIP", "OpenRoadCode telemetry services", "not requested")
 
+    if args.navigation_service and not args.telemetry_services:
+        for service in TELEMETRY_SERVICES[:2]:
+            ok, detail = systemd_active(service)
+            report("PASS" if ok else "FAIL", service, detail)
+            failures += not ok
+
+    if args.navigation_data_root is not None:
+        for relative in (
+            "build-manifest.json",
+            "maps/vector/openroadcode.mbtiles",
+            "maps/search/openroadcode-search.sqlite",
+            "valhalla/valhalla.json",
+        ):
+            path = args.navigation_data_root / relative
+            ok = path.is_file() and path.stat().st_size > 0
+            report("PASS" if ok else "FAIL", str(path))
+            failures += not ok
+        ok, detail = systemd_active("valhalla.service")
+        report("PASS" if ok else "FAIL", "valhalla.service", detail)
+        failures += not ok
+
     if args.radio_service:
-        if not args.telemetry_services:
+        if not (args.telemetry_services or args.navigation_service):
             ok, detail = systemd_active(TELEMETRY_SERVICES[0])
             report("PASS" if ok else "FAIL", TELEMETRY_SERVICES[0], detail)
             failures += not ok
@@ -217,13 +240,13 @@ def main() -> int:
         failures += not ok
 
     print("\nMessaging endpoints:")
-    if args.telemetry_services or args.radio_service:
+    if args.telemetry_services or args.radio_service or args.navigation_service:
         endpoint_paths = (
             ("publisher ingress", nested(config, "messaging", "publisher_endpoint")),
             ("subscriber egress", nested(config, "messaging", "subscriber_endpoint")),
             ("navigation commands", nested(config, "services", "navigation", "command_endpoint")),
         )
-        if not args.telemetry_services:
+        if not (args.telemetry_services or args.navigation_service):
             endpoint_paths = endpoint_paths[:2]
         for label, value in endpoint_paths:
             if not isinstance(value, str) or not value:
