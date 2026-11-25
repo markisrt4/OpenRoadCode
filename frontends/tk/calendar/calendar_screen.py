@@ -297,7 +297,11 @@ class CalendarScreen(tk.Frame, UiWidget):
         if not events:
             message = self._message
             covered = getattr(self, "_covered_days", None)
-            if covered is not None and self._selected not in covered:
+            if (
+                covered is not None
+                and self._selected not in covered
+                and message == "No cached appointments."
+            ):
                 message = "Calendar data incomplete or unavailable for this date."
             canvas.create_text(margin, y, anchor="nw", text=message, fill=ui.text_muted)
         for event in events:
@@ -432,6 +436,8 @@ class CalendarScreen(tk.Frame, UiWidget):
         age = health.last_data_refresh_age_seconds
         freshness = "not yet refreshed" if age is None else f"refreshed {age / 60:.0f} min ago"
         stale = health.stale
+        if health.syncing and not health.offline:
+            status = "syncing"
         self._footer.configure(
             text=(
                 f"Calendar sync: {'OFFLINE' if health.offline else status.upper()} · {freshness}"
