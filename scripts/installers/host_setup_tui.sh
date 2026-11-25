@@ -28,18 +28,19 @@ SELECTED_BLUETOOTH=""
 SELECTED_ENVIRONMENTAL=""
 INSTALL_ALL_FEATURES=0
 WITH_VNC=0
+WITH_ORC_AUTOSTART=0
 WITH_GPSD=0
 WITH_TELEMETRY=0
 WITH_RADIO=1
 SETTINGS_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/openroadcode/installer-selection.conf"
-settings_keys=(NAVIGATION_MODE NAVIGATION_REGION WITH_NAVIGATION SELECTED_TARGET SELECTED_GENERAL SELECTED_STREAMING SELECTED_AUDIO SELECTED_NAVIGATION SELECTED_RADIO SELECTED_VIDEO SELECTED_AUTOMOTIVE SELECTED_BLUETOOTH SELECTED_ENVIRONMENTAL INSTALL_ALL_FEATURES WITH_VNC WITH_GPSD WITH_TELEMETRY WITH_RADIO)
+settings_keys=(NAVIGATION_MODE NAVIGATION_REGION WITH_NAVIGATION SELECTED_TARGET SELECTED_GENERAL SELECTED_STREAMING SELECTED_AUDIO SELECTED_NAVIGATION SELECTED_RADIO SELECTED_VIDEO SELECTED_AUTOMOTIVE SELECTED_BLUETOOTH SELECTED_ENVIRONMENTAL INSTALL_ALL_FEATURES WITH_VNC WITH_ORC_AUTOSTART WITH_GPSD WITH_TELEMETRY WITH_RADIO)
 if [[ -f "$SETTINGS_FILE" ]]; then
   while IFS='=' read -r key value; do
     case "$key" in
       NAVIGATION_REGION) [[ "$value" =~ ^[a-z0-9/-]+$ ]] && NAVIGATION_REGION="$value" ;;
       NAVIGATION_MODE) case "$value" in auto|binary|source) NAVIGATION_MODE="$value" ;; esac ;;
       SELECTED_TARGET) case "$value" in rpi4|rpi5|linux-dev) SELECTED_TARGET="$value" ;; esac ;;
-      INSTALL_ALL_FEATURES|WITH_NAVIGATION|WITH_VNC|WITH_GPSD|WITH_TELEMETRY|WITH_RADIO)
+      INSTALL_ALL_FEATURES|WITH_NAVIGATION|WITH_VNC|WITH_ORC_AUTOSTART|WITH_GPSD|WITH_TELEMETRY|WITH_RADIO)
         [[ "$value" == 0 || "$value" == 1 ]] && printf -v "$key" '%s' "$value" ;;
       SELECTED_GENERAL|SELECTED_STREAMING|SELECTED_AUDIO|SELECTED_NAVIGATION|SELECTED_RADIO|SELECTED_VIDEO|SELECTED_AUTOMOTIVE|SELECTED_BLUETOOTH|SELECTED_ENVIRONMENTAL)
         [[ "$value" =~ ^[a-z0-9[:space:]-]*$ ]] && printf -v "$key" '%s' "$value" ;;
@@ -314,6 +315,14 @@ ask_service WITH_TELEMETRY "OpenRoadCode telemetry" "Configure and enable the Ze
 if (( WITH_VNC )); then ARGS+=(--with-vnc); fi
 if (( WITH_GPSD )); then ARGS+=(--with-gpsd-service); else ARGS+=(--no-gpsd-service); fi
 if (( WITH_TELEMETRY )); then ARGS+=(--with-telemetry-services); fi
+
+ask_service WITH_ORC_AUTOSTART "ORC desktop autostart" \
+  "Launch OpenRoadCode when this user signs into the desktop? On a Pi with desktop auto-login, ORC will launch after boot."
+if (( WITH_ORC_AUTOSTART )); then
+  ARGS+=(--with-orc-autostart)
+else
+  ARGS+=(--no-orc-autostart)
+fi
 
 save_settings
 runtime_report="$(mktemp -t openroadcode-runtime.XXXXXX)"

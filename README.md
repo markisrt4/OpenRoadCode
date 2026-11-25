@@ -269,6 +269,11 @@ cd OpenRoadCode
 ./scripts/installers/host_setup.sh --target linux-dev
 ```
 
+To launch ORC when the desktop user signs in, enable **ORC desktop
+autostart** in the installer TUI or pass `--with-orc-autostart` to host setup.
+On a Raspberry Pi configured for desktop auto-login, this launches ORC after
+boot. Use `--no-orc-autostart` to remove the launcher.
+
 Features can be selected explicitly. Use `--all-features` to install all compatible software capabilities, `--show-plan` to inspect the resolved plan without modifying the machine, and `--with-vnc` or `--with-gpsd-service` only when those services should be configured.
 
 The `desktop-ui` and `navigation` features use the native Tk/X11 and MapLibre

@@ -34,6 +34,7 @@ MANAGED_RF=0
 RUN_SYSTEM_PACKAGES=1
 RUN_PYTHON_ENV=1
 RUN_VNC=""
+ORC_AUTOSTART=""
 RUN_GPSD_SERVICE=""
 RUN_TELEMETRY_SERVICES=""
 RUN_RADIO=""
@@ -71,6 +72,8 @@ Options:
   --with-radio-service    Enable broker and SDRForge user service
   --managed-rf            Enable coordinated SDRForge and readsb on Pi 5
   --no-radio-service      Skip radio service setup
+  --with-orc-autostart     Launch ORC when this user logs into the Linux desktop
+  --no-orc-autostart       Remove the ORC desktop autostart entry
   --with-vnc              Enable VNC service setup
   --no-vnc                Disable VNC service setup
   --with-gpsd-service     Enable GPSD service setup
@@ -198,6 +201,8 @@ while (( $# > 0 )); do
     --no-python-env) RUN_PYTHON_ENV=0 ;;
     --with-radio-service) RUN_RADIO=1 ;;
     --no-radio-service) RUN_RADIO=0 ;;
+    --with-orc-autostart) ORC_AUTOSTART=enable ;;
+    --no-orc-autostart) ORC_AUTOSTART=disable ;;
     --with-vnc) RUN_VNC=1 ;;
     --no-vnc) RUN_VNC=0 ;;
     --with-gpsd-service) RUN_GPSD_SERVICE=1 ;;
@@ -270,6 +275,17 @@ for feature in "${REQUESTED_FEATURES[@]}"; do
   is_known_feature "$feature" || { echo "[!] Unknown feature: $feature" >&2; get_feature_help >&2; exit 1; }
   append_feature "$feature"
 done
+if [[ -n "$ORC_AUTOSTART" && "$TARGET" == termux ]]; then
+  echo "[!] ORC desktop autostart requires a Linux desktop target." >&2
+  exit 2
+fi
+if [[ "$ORC_AUTOSTART" == enable ]]; then
+  if (( EUID == 0 && ! SHOW_PLAN && ! VERIFY_ONLY )); then
+    echo "[!] Run the installer as the desktop user to enable ORC autostart." >&2
+    exit 2
+  fi
+  append_feature desktop-ui
+fi
 (( RUN_VNC )) && append_feature vnc
 (( MANAGED_RF )) && append_feature browser
 [[ "$RUN_GPSD_SERVICE" != 1 ]] || append_feature gps
@@ -331,6 +347,7 @@ echo "[*] Navigation region:     ${NAVIGATION_REGION:-none}"
 echo "[*] Navigation mode:       $NAVIGATION_MODE"
 echo "[*] Features:              ${FEATURES[*]}"
 echo "[*] VNC service setup:     $RUN_VNC"
+echo "[*] ORC autostart:         ${ORC_AUTOSTART:-keep existing}"
 echo "[*] GPSD service setup:    $RUN_GPSD_SERVICE"
 echo "[*] Radio service setup:   $RUN_RADIO"
 echo "[*] Managed RF:            $MANAGED_RF"
@@ -465,6 +482,11 @@ if (( ! SKIP_INSTALLS )); then
 fi
 
 verify_runtime_health
+
+if [[ -n "$ORC_AUTOSTART" ]]; then
+  python3 "$SCRIPT_DIR/configure_orc_autostart.py" "$ORC_AUTOSTART" \
+    "$PROJECT_DIR/runOrcUi" "$VENV_DIR/bin/python"
+fi
 
 echo
 echo "[+] $TARGET setup complete."

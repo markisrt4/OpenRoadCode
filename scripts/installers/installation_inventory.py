@@ -137,6 +137,10 @@ def main() -> None:
     print("\nConfiguration and model files:")
     for label, path in (
         ("Host profile", openroadcode_config_dir("host.toml")),
+        (
+            "ORC desktop autostart",
+            openroadcode_config_dir().parent / "autostart/openroadcode-orcui.desktop",
+        ),
         ("Managed RF credentials", openroadcode_config_dir("rf-acquisition.env")),
         ("RF assignments", openroadcode_config_dir("rf-receivers.json")),
         ("Vision model", openroadcode_data_dir("vision", "models", "yolo11n.pt")),
