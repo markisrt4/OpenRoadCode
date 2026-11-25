@@ -399,7 +399,7 @@ if [[ "$TARGET" == "linux-dev" ]]; then
 fi
 runtime_args=("${FEATURES[@]}" --config "$runtime_config")
 (( RUN_NAVIGATION )) && runtime_args+=(--navigation-service)
-[[ -z "$NAVIGATION_REGION" ]] || runtime_args+=(--navigation-data-root "${DATA_ROOT:-/srv/openroadcode}")
+[[ -z "$NAVIGATION_REGION" ]] || runtime_args+=(--navigation-data-root "${DATA_ROOT:-/srv/openroadcode}" --navigation-region "$NAVIGATION_REGION")
 (( RUN_RADIO )) && runtime_args+=(--radio-service)
 (( RUN_TELEMETRY_SERVICES )) && runtime_args+=(--telemetry-services)
 (( RUN_GPSD_SERVICE )) && runtime_args+=(--gpsd-service)
