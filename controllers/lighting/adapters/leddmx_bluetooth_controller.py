@@ -8,7 +8,7 @@ import logging
 import threading
 from collections.abc import Coroutine
 from concurrent.futures import Future
-from typing import Any
+from typing import Any, Unpack
 
 from common.logging.diagnostics import ComponentLog
 from common.logging.structured import current_operation, operation
@@ -17,6 +17,7 @@ from controllers.lighting.lighting_types import (
     CustomPatternMode,
     LightingState,
     RgbColor,
+    _LightingChanges,
 )
 from controllers.lighting.parsers.leddmx_config_parser import (
     LedDmxBluetoothConfig,
@@ -219,7 +220,9 @@ class LedDmxBluetoothController(LightingControllerIf):
                 self._diagnostics.failed("submit", error)
                 raise
 
-    async def _run_command(self, coroutine, operation_id):
+    async def _run_command(
+        self, coroutine: Coroutine[Any, Any, None], operation_id: str
+    ) -> None:
         with self._diagnostics.action("command", operation_id):
             await coroutine
 
@@ -271,6 +274,7 @@ class LedDmxBluetoothController(LightingControllerIf):
 
     async def _connect_configured_address_unlocked(self) -> None:
         assert BleakClient is not None
+        assert self._address is not None
 
         if self._client is None:
             self._client = BleakClient(
@@ -373,12 +377,12 @@ class LedDmxBluetoothController(LightingControllerIf):
     async def _write_and_update(
         self,
         packet: bytes,
-        **state_changes: object,
+        **state_changes: Unpack[_LightingChanges],
     ) -> None:
         await self._write(packet)
         self._update_state(**state_changes)
 
-    def _update_state(self, **changes: object) -> None:
+    def _update_state(self, **changes: Unpack[_LightingChanges]) -> None:
         with self._state_lock:
             self._state = self._state.updated(**changes)
             connected = self._state.connected
