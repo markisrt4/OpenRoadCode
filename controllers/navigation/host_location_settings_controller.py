@@ -12,6 +12,7 @@ from controllers.navigation.host_location_permission_if import (
 from ui.navigation.host_location_ui_if import HostLocationState, HostLocationUiIf
 from ui.ui_dispatcher_if import UiDispatcherIf
 
+
 class HostLocationSettingsController:
     def __init__(
         self,
@@ -65,7 +66,9 @@ class HostLocationSettingsController:
                 message = "Permission page opened. Click Share host location and allow access."
                 can_restart = False
             except HostLocationServiceUnavailable:
-                message = "Location service is not running. Restart it to share this computer's location."
+                message = (
+                    "Location service is not running. Restart it to share this computer's location."
+                )
                 can_restart = True
             except Exception as error:
                 message = str(error)
@@ -78,8 +81,7 @@ class HostLocationSettingsController:
         threading.Thread(target=work, name="host-location-permission", daemon=True).start()
 
     def restart_location_service(self) -> None:
-        if (not self._visible or self._closed or self._state.busy
-                or not self._state.can_restart):
+        if not self._visible or self._closed or self._state.busy or not self._state.can_restart:
             return
         self._generation += 1
         generation = self._generation

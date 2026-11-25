@@ -16,13 +16,11 @@ from dataclasses import dataclass, field
 from queue import Empty, SimpleQueue
 
 from apps.orcUi.adapters.adsb_control import OrcUiAdsbControl
+from apps.orcUi.adapters.managed_browser_media_player import ManagedBrowserMediaPlayer
 from apps.orcUi.application_runtime import OrcUiApplicationRuntime
+from apps.orcUi.composition.trending_radio import configure_trending
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.radio_entry_panel import RadioEntryPanel
-from apps.orcUi.frontend.tk.trending_radio_panel import TrendingRadioPanel
-from apps.orcUi.adapters.musicforge_api_adapter import MusicForgeApiAdapter
-from ui.media.song_launch import SongLaunchRequest
-from apps.orcUi.adapters.managed_browser_media_player import ManagedBrowserMediaPlayer
 from apps.orcUi.frontend.tk.radio_panel import RadioPanel
 from apps.orcUi.theme_runtime import theme_bundle
 from common.resource_cleanup import ResourceCleanup, close_resources
@@ -40,6 +38,7 @@ from frontends.tk.radio.persistent_streaming_radio_panel import PersistentStream
 from frontends.tk.radio.streaming_radio_now_playing import StreamingRadioNowPlaying
 from frontends.x11.x11_window_embedder import X11WindowEmbedder
 from protocols.rigctl.rigctl_client import RigctlClient
+from ui.media.song_launch import SongLaunchRequest
 from ui.radio import AircraftMenuRequestHandlerIf
 from ui.radio.radio_visualization_config import RadioRenderer, RadioVisualizationConfig
 from ui.theme import ThemeBundle, ThemeMode
@@ -156,7 +155,9 @@ class RadioComposition:
     bind_song_launch: Callable[[Callable[[SongLaunchRequest], None]], None] = lambda _handler: None
     close_charts: Callable[[], None] = lambda: None
     bind_video_player: Callable[[ManagedBrowserMediaPlayer], None] = lambda _player: None
-    bind_spotify_factory: Callable[[Callable], None] = lambda _factory: None
+    bind_spotify_factory: Callable[
+        [Callable[[tk.Misc, Callable[[], None], str, str], tk.Widget]], None
+    ] = lambda _factory: None
     rigctl_client: RigctlClient | None = None
 
     def close(self) -> None:
@@ -205,71 +206,6 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
             resources.unsubscribe = online_mode.subscribe(mode_changed)
         mode_changed(network_allowed())
         directory = RadioBrowserDirectory(timeout_s=10.0, network_allowed=network_allowed)
-        charts = MusicForgeApiAdapter(os.getenv("MUSICFORGE_AIRPLAY_URL", "http://127.0.0.1:8000"))
-        cleanup.callback(charts.close)
-        song_launch: list[Callable[[SongLaunchRequest], None]] = []
-        video_players: list[ManagedBrowserMediaPlayer] = []
-        spotify_factories: list[Callable] = []
-
-        def bind_spotify_factory(factory: Callable) -> None:
-            spotify_factories[:] = [factory]
-
-        def bind_video_player(player: ManagedBrowserMediaPlayer) -> None:
-            video_players[:] = [player]
-
-        def bind_song_launch(handler: Callable[[SongLaunchRequest], None]) -> None:
-            song_launch[:] = [handler]
-
-        def trending_panel_factory(parent: tk.Misc, theme: ThemeBundle,
-                                   on_back: Callable[[], None]) -> TrendingRadioPanel:
-            generation = [0]
-            panel: TrendingRadioPanel
-
-            def refresh(station: str, period: str, kind: str = 'songs') -> None:
-                generation[0] += 1
-                request = generation[0]
-                if not network_allowed():
-                    panel.set_error("Offline mode")
-                    return
-
-                def work() -> None:
-                    try:
-                        stations = charts.stations()
-                        chart = (charts.artists if kind == 'artists' else charts.songs)(
-                            station=None if station == "All stations" else station,
-                            period=period, limit=40,
-                        )
-                        error = None
-                    except Exception as exc:
-                        stations, chart, error = [], {}, str(exc)
-
-                    def deliver() -> None:
-                        if resources.closed or request != generation[0] or not panel.winfo_exists():
-                            return
-                        if error is not None:
-                            panel.set_error(error)
-                        else:
-                            panel.set_stations(stations)
-                            panel.set_chart(chart, kind=kind)
-
-                    app.dispatch_ui(deliver)
-
-                resources.run_work(work)
-
-            def play(request: SongLaunchRequest) -> None:
-                if not song_launch:
-                    app.set_screen_status("YouTube search not configured")
-                    return
-                song_launch[0](request)
-
-            panel = TrendingRadioPanel(parent, theme=theme, on_back=on_back,
-                                       on_refresh=refresh, on_play=play,
-                                       radio_factory=lambda host, colors: rf_panel_factory(host, colors, fm_only=True),
-                                       video_player=lambda: video_players[0] if video_players else None,
-                                       spotify_factory=lambda host, back, artist, title: spotify_factories[0](host, back, artist, title) if spotify_factories else None,
-                                       online_allowed=network_allowed)
-            return panel
-
         favorites = StreamingRadioFavorites()
         adsb = OrcUiAdsbControl()
 
@@ -307,7 +243,18 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
                 rollback.release()
             return panel
 
-        def rf_panel_factory(parent: tk.Misc, theme: ThemeBundle, *, fm_only: bool = False) -> RadioPanel:
+        trending = configure_trending(
+            register_cleanup=cleanup.callback,
+            dispatch_ui=app.dispatch_ui,
+            run_work=resources.run_work,
+            network_allowed=network_allowed,
+            closed=lambda: resources.closed,
+            notification_sink=app.notification_sink,
+        )
+
+        def rf_panel_factory(
+            parent: tk.Misc, theme: ThemeBundle, *, fm_only: bool = False
+        ) -> RadioPanel:
             if resources.closed:
                 raise RuntimeError("Radio composition is closed")
             radio = RadioProfileController(client=rigctl_client)
@@ -358,7 +305,7 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
                 rf_panel_factory=rf_panel_factory,
                 online_mode=app.online_mode,
                 streaming_panel_factory=streaming_panel_factory,
-                trending_panel_factory=trending_panel_factory,
+                trending_panel_factory=trending.panel_factory,
                 on_location_changed=lambda leaf: app.set_breadcrumb("RADIO", leaf),
             ),
             sync_theme=sync_theme,
@@ -503,10 +450,10 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
             home_factory=home_radio_factory,
             open_weather_radio=open_weather_radio,
             streaming_resources=resources,
-            bind_song_launch=bind_song_launch,
-            close_charts=charts.close,
-            bind_video_player=bind_video_player,
-            bind_spotify_factory=bind_spotify_factory,
+            bind_song_launch=trending.bind_song_launch,
+            close_charts=trending.close_charts,
+            bind_video_player=trending.bind_video_player,
+            bind_spotify_factory=trending.bind_spotify_factory,
             rigctl_client=rigctl_client,
         )
         cleanup.release()

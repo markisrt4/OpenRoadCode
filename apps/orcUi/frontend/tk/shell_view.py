@@ -14,7 +14,7 @@ from apps.orcUi.navigation_presenter import PositionPresentationState
 from apps.orcUi.orc_theme import toggle_label
 from apps.orcUi.performance_status import PerformanceStatus
 from ui.radio import AircraftMenuRequestHandlerIf, AircraftMenuUiState
-from ui.theme import ThemeBundle
+from ui.theme import ThemeBundle, ThemeMode
 from ui.ui_widget import UiWidget
 from ui.weather import WeatherAlertUiEvent
 

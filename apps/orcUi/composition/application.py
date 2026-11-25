@@ -23,10 +23,6 @@ from apps.orcUi.composition.calendar import (
     create_home_calendar_factory,
 )
 from apps.orcUi.composition.core import CoreComposition, create_core_composition
-from apps.orcUi.map_platform_requests import MapPlatformRequests
-from controllers.navigation.route_overlay_controller import RouteOverlayController
-from controllers.poi.poi_search_controller import PoiSearchController
-from ui.navigation.map_platform_if import MapPlatform
 from apps.orcUi.composition.games import configure_games
 from apps.orcUi.composition.media import MediaComposition, configure_media
 from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
@@ -42,6 +38,7 @@ from apps.orcUi.frontend.tk.offroad_screen import OffRoadScreen
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.settings_screen import SettingsScreen
 from apps.orcUi.frontend.tk.vehicle_screen import VehicleScreen
+from apps.orcUi.map_platform_requests import MapPlatformRequests
 from apps.orcUi.performance_status import PerformanceStatusPresenter
 from apps.orcUi.theme_runtime import theme_bundle
 from common.app_settings import AppSettings, AppSettingsStore
@@ -49,6 +46,8 @@ from common.resource_cleanup import ResourceCleanup, close_resources
 from controllers.navigation.current_position import get_current_position
 from controllers.navigation.host_location_settings_controller import HostLocationSettingsController
 from controllers.navigation.map_controls_drawer_controller import MapControlsDrawerController
+from controllers.navigation.route_overlay_controller import RouteOverlayController
+from controllers.poi.poi_search_controller import PoiSearchController
 from controllers.weather.radar_palette import RadarPalette
 from controllers.weather.radar_replay_controller import RadarReplayController
 from controllers.weather.weather_overlay_controller import WeatherOverlayController
@@ -58,6 +57,7 @@ from services.common.system_performance_monitor import SystemPerformanceMonitor
 from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
 from ui.navigation import GeoPoint
 from ui.navigation.cesium_viewer_state import CesiumViewerState
+from ui.navigation.map_platform_if import MapPlatform
 
 
 @dataclass(slots=True)
@@ -264,13 +264,21 @@ def create_orc_ui_composition(
             core.presentation,
         )
         cleanup.callback(overlays.close)
-        navigation_maps = CesiumMapRuntime(core.map_runtime, CesiumEmbeddedViewer(),
-            initial_view=lambda: CesiumViewerState(get_current_position() or
-                GeoPoint(math.radians(42.3314),math.radians(-83.0458)), label="3D map", destination_marker_visible=False))
+        navigation_maps = CesiumMapRuntime(
+            core.map_runtime,
+            CesiumEmbeddedViewer(),
+            initial_view=lambda: CesiumViewerState(
+                get_current_position() or GeoPoint(math.radians(42.3314), math.radians(-83.0458)),
+                label="3D map",
+                destination_marker_visible=False,
+            ),
+        )
         cleanup.callback(navigation_maps.close)
         navigation_map_requests = MapPlatformRequests(
-            core.map_camera.request_handler, lambda _name, _args, _kwargs: None,
-            navigation_maps.update_poi_overlay)
+            core.map_camera.request_handler,
+            lambda _name, _args, _kwargs: None,
+            navigation_maps.update_poi_overlay,
+        )
         core.map_camera.observe_position(navigation_maps.update_position)
         route_overlay = RouteOverlayController(navigation_maps.update_route_overlay)
         core.route_request_handler.observe_route(route_overlay.update_route)
@@ -282,10 +290,14 @@ def create_orc_ui_composition(
         navigation_places = NavigationPlacesFactory(
             online_allowed=lambda: app.online_mode.online,
             camera_observer=core.map_camera.request_handler.observe_camera,
-            search_factory=lambda: PoiSearchController(viewport_search_enabled=lambda:
-                navigation_maps.state.active is MapPlatform.MAPLIBRE,
-                marker_selection_source=navigation_maps),
-            embedded_explore=navigation_maps.request_explore)
+            search_factory=lambda: PoiSearchController(
+                viewport_search_enabled=lambda: (
+                    navigation_maps.state.active is MapPlatform.MAPLIBRE
+                ),
+                marker_selection_source=navigation_maps,
+            ),
+            embedded_explore=navigation_maps.request_explore,
+        )
         cleanup.callback(navigation_places.close)
         navigation = NavigationScreen(
             app,

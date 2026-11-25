@@ -39,10 +39,15 @@ def _default_search_database():
 class PoiSearchController(PoiSearchControllerIf):
     """Discover POIs offline while keeping renderer selection independent."""
 
-    def __init__(self, source: MapPoiSource | None = None, *, search_source: PoiSearchSourceIf | None = None,
-                 position_provider: Callable[[], GeoPoint | None] | None = None,
-                 viewport_search_enabled: Callable[[], bool] = lambda: True,
-                 marker_selection_source=None) -> None:
+    def __init__(
+        self,
+        source: MapPoiSource | None = None,
+        *,
+        search_source: PoiSearchSourceIf | None = None,
+        position_provider: Callable[[], GeoPoint | None] | None = None,
+        viewport_search_enabled: Callable[[], bool] = lambda: True,
+        marker_selection_source=None,
+    ) -> None:
         self._diagnostics = ComponentLog("navigation.poi", "poi")
         self._search_operation_id = None
         self._source = source or MapPoiSource()
@@ -65,8 +70,11 @@ class PoiSearchController(PoiSearchControllerIf):
 
         request_viewport = getattr(self._source, "request_search", None)
         poll_viewport = getattr(self._source, "poll_search_result", None)
-        if (self._viewport_search_enabled() and request_viewport is not None
-                and poll_viewport is not None):
+        if (
+            self._viewport_search_enabled()
+            and request_viewport is not None
+            and poll_viewport is not None
+        ):
             self._pending_viewport_search = (category, transit_mode)
             request_viewport(category.name.casefold())
             return
@@ -100,8 +108,12 @@ class PoiSearchController(PoiSearchControllerIf):
             if marker_id is not None:
                 for poi in self._visible_pois:
                     if poi.poi_id == marker_id:
-                        self._diagnostics.emit(logging.DEBUG, "selected", self._search_operation_id,
-                                               stage="semantic_marker_id")
+                        self._diagnostics.emit(
+                            logging.DEBUG,
+                            "selected",
+                            self._search_operation_id,
+                            stage="semantic_marker_id",
+                        )
                         return enrich_poi(poi)
         raw = self._source.poll_selected()
         if raw is not None:

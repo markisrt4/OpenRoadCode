@@ -224,22 +224,23 @@ def test_position_updates_are_coalesced_and_old_generation_cannot_follow(mounted
 
 
 def test_poi_results_are_cached_and_sent_only_to_the_active_3d_view(mounted):
-    runtime,native,viewer = mounted
-    overlay = PoiOverlayState((MapMarker('fuel',GeoPoint(.7,-1.4),
-                              MapMarkerKind.SEARCH_RESULT,'Fuel'),),'fuel')
+    runtime, native, viewer = mounted
+    overlay = PoiOverlayState(
+        (MapMarker("fuel", GeoPoint(0.7, -1.4), MapMarkerKind.SEARCH_RESULT, "Fuel"),), "fuel"
+    )
     runtime.update_poi_overlay(overlay)
     flush(runtime)
     viewer.update_poi_overlay.assert_not_called()
     explore(runtime)
     viewer.update_poi_overlay.assert_called_once_with(overlay)
-    replacement = PoiOverlayState((), '')
+    replacement = PoiOverlayState((), "")
     runtime.update_poi_overlay(replacement)
     flush(runtime)
     viewer.update_poi_overlay.assert_called_with(replacement)
 
 
 def test_route_is_cached_replaced_and_cleared_only_on_active_3d_view(mounted):
-    runtime,native,viewer = mounted
+    runtime, native, viewer = mounted
     route = RouteOverlayState()
     runtime.update_route_overlay(route)
     flush(runtime)
@@ -252,12 +253,12 @@ def test_route_is_cached_replaced_and_cleared_only_on_active_3d_view(mounted):
 
 
 def test_cesium_marker_selection_is_exposed_once_to_places(mounted):
-    runtime,native,viewer = mounted
+    runtime, native, viewer = mounted
     explore(runtime)
-    viewer.consume_poi_selection.return_value = 'fuel-1'
-    runtime._worker.submit(runtime._tick,runtime._generation).result(timeout=3)
+    viewer.consume_poi_selection.return_value = "fuel-1"
+    runtime._worker.submit(runtime._tick, runtime._generation).result(timeout=3)
     viewer.consume_poi_selection.return_value = None
-    assert runtime.poll_selected_marker_id() == 'fuel-1'
+    assert runtime.poll_selected_marker_id() == "fuel-1"
     assert runtime.poll_selected_marker_id() is None
 
 
@@ -284,5 +285,5 @@ def test_repeated_browser_poll_timeouts_restore_map_with_reason(mounted, caplog)
     for _ in range(3):
         runtime._worker.submit(runtime._tick, runtime._generation).result(timeout=3)
     assert runtime.state.active is MapPlatform.MAPLIBRE
-    assert 'browser timed out' in runtime.state.status
-    assert '3D map returned to Map' in caplog.text
+    assert "browser timed out" in runtime.state.status
+    assert "3D map returned to Map" in caplog.text

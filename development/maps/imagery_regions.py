@@ -15,8 +15,11 @@ def catalog_document():
         "bounds_deg": MICHIGAN_BOUNDS,
         "overview": "michigan-overview",
         "detail_shards": [
-            {"coverage": coverage, "title": title.replace("terrain", "imagery"),
-             "bounds_deg": bounds}
+            {
+                "coverage": coverage,
+                "title": title.replace("terrain", "imagery"),
+                "bounds_deg": bounds,
+            }
             for coverage, (title, bounds) in MICHIGAN_SHARDS.items()
         ],
         "image_pixels": [8192, 8192],

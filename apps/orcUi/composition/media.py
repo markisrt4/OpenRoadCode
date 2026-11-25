@@ -22,6 +22,7 @@ from apps.orcUi.adapters.music_visualizer_browser import WINDOW_CLASS, MusicVisu
 from apps.orcUi.composition.music_visualizer import (
     create_browser_visualizer,
     create_music_visualizer_session,
+    home_spectrum_factory,
     selected_native_visualizer_source,
 )
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
@@ -48,12 +49,10 @@ from frontends.tk.media import (
     BrowserMediaScreen,
     MediaNavigationBar,
     MediaScreen,
-    SpotifyNowPlaying,
     SpotifyScreen,
 )
 from frontends.tk.media.music_visualizer_screen import MusicVisualizerScreen
 from frontends.tk.media.spotify_account_dialog import SpotifyAccountDialog
-from frontends.tk.media.spotify_playback_panel import SpotifyPlaybackPanel
 from frontends.tk.media.youtube_music_coming_soon_screen import YouTubeMusicComingSoonScreen
 from frontends.x11 import X11WindowEmbedder
 from protocols.spotify import (
@@ -68,6 +67,7 @@ from ui.theme import ThemeMode
 
 from .media_spotify_theme import SPOTIFY_GREEN as SPOTIFY_GREEN
 from .media_spotify_theme import spotify_theme as spotify_theme
+from .media_spotify_views import SpotifyFactory, bind_spotify_views
 
 MUSIC_VIDEO_PORT = 8770
 MUSIC_VIDEO_WINDOW_CLASS = "OpenRoadCodeMusicVideo"
@@ -81,7 +81,7 @@ class MediaComposition:
     music_video_controller: MusicVideoController
     song_launch_controller: SongLaunchController
     trending_youtube_player: ManagedBrowserMediaPlayer
-    trending_spotify_factory: Callable
+    trending_spotify_factory: SpotifyFactory
     home_factory: Callable[[tk.Misc], tk.Widget]
     home_visualizer_factory: Callable[[tk.Misc], tk.Widget] | None
     visualizer: MusicVisualizerScreen | BrowserMediaScreen
@@ -201,10 +201,10 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         theme_bundle=lambda: theme_bundle(app.theme_mode),
     )
     song_launch_controller = SongLaunchController(
-        open_spotify_search=lambda query: online_action(
-            lambda: open_trending_spotify(query)
+        open_spotify_search=lambda query: online_action(lambda: open_trending_spotify(query))(),
+        open_youtube_search=lambda query: online_action(
+            lambda: youtube_screen.show_target(query)
         )(),
-        open_youtube_search=lambda query: online_action(lambda: youtube_screen.show_target(query))(),
     )
     youtube_music_screen = YouTubeMusicComingSoonScreen(
         app,
@@ -435,107 +435,21 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
             home_capture_attached = False
             visualizer_runtime.detach_view("home-playback")
 
-    def home_now_playing_factory(parent: tk.Misc) -> tk.Widget:
-        view = SpotifyNowPlaying(
-            parent,
-            online_allowed=network_allowed,
-            on_open=online_action(spotify_screen.show),
-            theme_bundle=lambda: theme_bundle(app.theme_mode),
-            on_playback_changed=home_playback_changed,
-        )
-        session = create_presentation(rich=True)
-
-        def retire(event: tk.Event) -> None:
-            if event.widget is view:
-                home_playback_changed(False)
-                session.close()
-                if session in presentations:
-                    presentations.remove(session)
-
-        view.bind("<Destroy>", retire, add="+")
-        session.activate(view)
-        return view
-
-    def trending_spotify_factory(parent: tk.Misc, on_back: Callable[[], None], artist: str, title: str) -> tk.Widget:
-        """Mount the existing Spotify playback view inside Trending, with independent ownership."""
-        host = tk.Frame(parent, bg=spotify_theme(app)["colors"]["background"])
-        host.grid_rowconfigure(1, weight=1)
-        host.grid_columnconfigure(0, weight=1)
-        back = tk.Button(host, text="‹ BACK TO FM", command=on_back)
-        back.grid(row=0, column=0, sticky="w", padx=8, pady=4)
-        panel = SpotifyPlaybackPanel(host, theme=spotify_theme(app), show_video=False)
-        panel.grid(row=1, column=0, sticky="nsew")
-        session = create_presentation(rich=True)
-        session.activate(panel)
-        status = tk.Label(host, text=f"Looking up {artist} - {title}…",
-                          bg=spotify_theme(app)["colors"]["background"],
-                          fg="#d8dee9", anchor="w", wraplength=340)
-        status.grid(row=2, column=0, sticky="ew", padx=8, pady=3)
-
-        def report(message: str) -> None:
-            def update() -> None:
-                if host.winfo_exists():
-                    status.configure(text=message)
-                app.set_screen_status(message)
-            app.dispatch_ui(update)
-
-        # On Termux, Spotify plays in the Android app. Never launch the SDK browser.
-        if bool(os.environ.get("TERMUX_VERSION") or os.environ.get("TERMUX__PREFIX") or os.environ.get("PREFIX", "").startswith("/data/data/com.termux/")):
-            # The existing Spotify presentation already supplies metadata,
-            # artwork, progress, and controls from Spotify Web API. Do not
-            # duplicate or overwrite its status with MediaSession polling.
-            # Android Bridge remains available as a separate transport adapter.
-            # Resolve the selected MusicForge song and request it on the active
-            # Spotify Connect device (normally the Android Spotify app).
-            # Keep Web API calls on its existing worker, never on Tk's thread.
-            if network_allowed():
-                media.spotify.request_play_song(artist, title, report)
-                report(f"Requesting {artist} - {title} on active Spotify device")
-        else:
-            # Register the SDK playback device before queuing a track. The local
-            # player queues its transfer first, so subsequent play uses that device.
-            from ui.media.spotify_browse_if import SpotifyPlaybackMode
-            from time import monotonic
-            player = media.spotify_local_player
-            state = player.state()
-            if not state.available:
-                report("Local Spotify player unavailable: " + state.message)
-            else:
-                deadline = monotonic() + 25.0
-                player.request_player()
-
-                def await_device() -> None:
-                    if not host.winfo_exists() or not network_allowed():
-                        return
-                    current = player.state()
-                    if current.mode is SpotifyPlaybackMode.PLAYER and not current.busy:
-                        report("ORC Spotify device ready. Loading selected track…")
-                        media.spotify.request_play_song(artist, title, report)
-                    elif current.mode is SpotifyPlaybackMode.REMOTE and not current.busy:
-                        report(current.message)
-                    elif monotonic() >= deadline:
-                        report("Timed out waiting for ORC Spotify player registration")
-                    else:
-                        host.after(200, await_device)
-
-                host.after(200, await_device)
-        def retire(event: tk.Event) -> None:
-            if event.widget is host:
-                session.close()
-                if session in presentations:
-                    presentations.remove(session)
-        host.bind("<Destroy>", retire, add="+")
-        return host
-
-    def home_spectrum_factory(parent: tk.Misc) -> tk.Widget:
-        from frontends.tk.media.home_spectrum_bar import HomeSpectrumBar
-
-        return HomeSpectrumBar(
-            parent,
-            controller=visualizer_runtime,
-            theme_bundle=lambda: theme_bundle(app.theme_mode),
-            on_open=visualizer.show,
-        )
+    home_now_playing_factory, trending_spotify_factory = bind_spotify_views(
+        create_presentation=lambda: create_presentation(rich=True),
+        presentations=presentations,
+        network_allowed=network_allowed,
+        home_theme=lambda: theme_bundle(app.theme_mode),
+        open_spotify=online_action(spotify_screen.show),
+        home_playback_changed=home_playback_changed,
+        spotify_colors=lambda: spotify_theme(app),
+        report_status=app.set_screen_status,
+        dispatch_ui=app.dispatch_ui,
+        request_song=media.spotify.request_play_song,
+        player_state=media.spotify_local_player.state,
+        request_player=media.spotify_local_player.request_player,
+        spotify_configured=lambda: bool(spotify_client_id()),
+    )
 
     def mode_changed(online: bool) -> None:
         account_controller.network_changed()
@@ -571,7 +485,11 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         trending_youtube_player=youtube_player,
         trending_spotify_factory=trending_spotify_factory,
         home_factory=home_now_playing_factory,
-        home_visualizer_factory=home_spectrum_factory if renderer == "opengl" else None,
+        home_visualizer_factory=home_spectrum_factory(
+            lambda: theme_bundle(app.theme_mode), visualizer_runtime, visualizer.show
+        )
+        if renderer == "opengl"
+        else None,
         visualizer=visualizer,
         visualizer_runtime=visualizer_runtime,
         unsubscribe_online=unsubscribe_online,

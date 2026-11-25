@@ -428,6 +428,7 @@ class ReceiverSession:
                     ) as response:
                         audio_status = json.load(response)
                     startup_error = status.get("startup_error")
+                    prior_error = self._state.error
                     running = bool(status.get("running", False))
                     starting = bool(status.get("starting", False)) and not running
                     self._rest_receiver_running = running
@@ -449,6 +450,21 @@ class ReceiverSession:
                             else self._state.error
                         ),
                     )
+                    if (
+                        startup_error
+                        and self._state.error != prior_error
+                        and self._notification_sink is not None
+                        and self._current(generation)
+                    ):
+                        self._notification_sink.publish(
+                            Notification(
+                                code="radio.receiver_start_failed",
+                                title="SDRForge Startup Failed",
+                                message=str(startup_error),
+                                severity=NotificationSeverity.ERROR,
+                                source="radio",
+                            )
+                        )
                 except (OSError, ValueError, RuntimeError) as exc:
                     # REST is authoritative for acquisition. A disconnected
                     # service must not leave the last receiver marked running.

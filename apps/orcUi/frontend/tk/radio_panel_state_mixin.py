@@ -88,6 +88,26 @@ class RadioPanelStateMixin:
         snr = "--" if state.telemetry.snr_db is None else f"{state.telemetry.snr_db:.1f} dB"
         self._signal_label.configure(text=f"SIGNAL {signal}")
         if self._receiver_controls is not None:
+            if hasattr(self, "_driving_frequency"):
+                fm_selected = self._active_group == "FM"
+                if not fm_selected:
+                    self._set_fm_plots_visible(True)
+                self._plot_toggle.set_enabled(fm_selected)
+                frequency = state.station.frequency_hz
+                self._driving_frequency.configure(
+                    text=f"{frequency / 1_000_000:.1f} MHz" if frequency else "-- MHz"
+                )
+                if not self._plots_visible:
+                    self._fm_dial.set_frequency(frequency)
+                    meter = self._signal_meter
+                    meter.delete("all")
+                    meter.create_rectangle(0, 2, 180, 10, fill=self._theme.ui.border, outline="")
+                    level = state.telemetry.signal_db
+                    if level is not None:
+                        width = 180 * max(0.0, min(1.0, (level + 110) / 75))
+                        meter.create_rectangle(
+                            0, 2, width, 10, fill=self._theme.ui.accent_success, outline=""
+                        )
             mismatch = receiver_mode_mismatch(state)
             observed = state.telemetry.mode
             requested = state.station.mode_name or "--"
@@ -179,8 +199,11 @@ class RadioPanelStateMixin:
             self._scan_button.set_selected(state.scanning)
         self._snr_label.configure(text=f"SNR {snr}")
         if state.loading or state.error:
+            message = state.error or "Loading radio…"
+            if state.error.startswith("SDRForge startup failed:"):
+                message = "Receiver startup failed"
             self._launch_status.configure(
-                text=state.error or "Loading radio…",
+                text=message,
                 fg=self._theme.ui.accent_danger if state.error else self._theme.ui.text,
             )
             self._launch_status.configure(wraplength=max(120, self._host.winfo_width() - 40))

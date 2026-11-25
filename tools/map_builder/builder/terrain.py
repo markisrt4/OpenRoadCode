@@ -1,7 +1,7 @@
 """Download a coarse 65x65 USGS 3DEP ground grid; preserve raw source responses."""
 
-import hashlib
 import gzip
+import hashlib
 import json
 import math
 import time
@@ -43,10 +43,15 @@ def _json_request(url, data=None):
                 result = json.load(response)
             break
         except (URLError, TimeoutError) as error:
-            if (isinstance(error, HTTPError) and error.code not in (429,500,502,503,504)) or attempt == _REQUEST_ATTEMPTS - 1:
+            if (
+                isinstance(error, HTTPError) and error.code not in (429, 500, 502, 503, 504)
+            ) or attempt == _REQUEST_ATTEMPTS - 1:
                 raise
             delay = min(_MAX_RETRY_DELAY_SECONDS, 2**attempt)
-            print(f"USGS request failed; retry {attempt+1}/{_REQUEST_ATTEMPTS-1} in {delay}s: {error}", flush=True)
+            print(
+                f"USGS request failed; retry {attempt + 1}/{_REQUEST_ATTEMPTS - 1} in {delay}s: {error}",
+                flush=True,
+            )
             time.sleep(delay)
     if "error" in result:
         raise ElevationServiceError(result["error"])
@@ -88,7 +93,7 @@ def _download_image_server(destination, preset, *, size):
 def download_bounds(destination, title, bounds, *, size=65):
     """Download one explicitly bounded grid for a validated regional mosaic."""
     if type(size) is not int or not 2 <= size <= 129:
-        raise ValueError('Terrain grid size must be between 2 and 129')
+        raise ValueError("Terrain grid size must be between 2 and 129")
     if destination.exists():
         validate_terrain(destination)
         print(f"Terrain already installed: {destination}")
@@ -189,11 +194,12 @@ def _install_pack(
     destination.parent.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory(prefix="detroit-terrain-", dir=destination.parent) as temporary:
         root = Path(temporary)
-        (root/"terrain.json").write_bytes(content)
-        (root/"manifest.json").write_text(json.dumps(manifest,indent=2))
-        (root/"source-service.json").write_text(json.dumps(metadata,indent=2))
-        (root/"source-samples.json.gz").write_bytes(
-            gzip.compress(json.dumps(responses).encode(), compresslevel=9, mtime=0))
+        (root / "terrain.json").write_bytes(content)
+        (root / "manifest.json").write_text(json.dumps(manifest, indent=2))
+        (root / "source-service.json").write_text(json.dumps(metadata, indent=2))
+        (root / "source-samples.json.gz").write_bytes(
+            gzip.compress(json.dumps(responses).encode(), compresslevel=9, mtime=0)
+        )
         validate_terrain(root)
         root.rename(destination)
     print(f"Installed {len(content):,} terrain bytes at {destination}")

@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: MIT
 """Tests for the native Spotify Connect receiver lifecycle."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
+
 import pytest
 
 from controllers.spotify.librespot_receiver import LibrespotReceiver
@@ -24,9 +26,14 @@ def test_offline_does_not_launch(tmp_path):
 def test_start_stop_and_idempotency(tmp_path):
     process = MagicMock()
     process.poll.return_value = None
-    with patch("controllers.spotify.librespot_receiver.shutil.which", return_value="/usr/bin/librespot"), patch(
-        "controllers.spotify.librespot_receiver.subprocess.Popen", return_value=process
-    ) as popen:
+    with (
+        patch(
+            "controllers.spotify.librespot_receiver.shutil.which", return_value="/usr/bin/librespot"
+        ),
+        patch(
+            "controllers.spotify.librespot_receiver.subprocess.Popen", return_value=process
+        ) as popen,
+    ):
         receiver = LibrespotReceiver(cache_dir=tmp_path, backend="pulseaudio")
         receiver.start()
         receiver.start()

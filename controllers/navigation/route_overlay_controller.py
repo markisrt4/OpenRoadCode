@@ -55,10 +55,13 @@ class RouteOverlayController:
                 if 0 <= shape_index < len(shape):
                     maneuver = self._point(shape[shape_index])
             instruction = guidance.instruction
-        self._update(RouteOverlayState(
-            RouteGeometry(tuple(self._point(point) for point in selected)),
-            destination=self._point(shape[-1]), maneuver=maneuver,
-            instruction=instruction,
-            off_route=bool(guidance and guidance.off_route),
-            route_complete=bool(guidance and guidance.route_complete),
-        ))
+        self._update(
+            RouteOverlayState(
+                RouteGeometry(tuple(self._point(point) for point in selected)),
+                destination=self._point(shape[-1]),
+                maneuver=maneuver,
+                instruction=instruction,
+                off_route=bool(guidance and guidance.off_route),
+                route_complete=bool(guidance and guidance.route_complete),
+            )
+        )

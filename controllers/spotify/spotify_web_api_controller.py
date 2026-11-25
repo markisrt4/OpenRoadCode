@@ -71,21 +71,45 @@ class SpotifyWebApiController(SpotifyControllerIf):
             value = re.sub(
                 r"\s*[-–—]\s*(?:\d{4}\s*)?(?:remaster(?:ed)?|"
                 r"radio edit|mono|stereo|live|version)\b.*$",
-                "", value, flags=re.IGNORECASE,
+                "",
+                value,
+                flags=re.IGNORECASE,
             )
             value = re.sub(
                 r"\s*[([](?:\d{4}\s*)?(?:remaster(?:ed)?|"
                 r"radio edit|mono|stereo|live|version)\b[^)\]]*[)\]]",
-                "", value, flags=re.IGNORECASE,
+                "",
+                value,
+                flags=re.IGNORECASE,
             )
             return normalize(value)
 
-        primary_artist = re.split(r"\s+(?:feat\.?|ft\.?)\s+", artist, maxsplit=1, flags=re.I)[0].strip()
-        query = urlencode({"q": f"track:{title} artist:{primary_artist}", "type": "track", "limit": 10})
+        primary_artist = re.split(r"\s+(?:feat\.?|ft\.?)\s+", artist, maxsplit=1, flags=re.I)[
+            0
+        ].strip()
+        query = urlencode(
+            {"q": f"track:{title} artist:{primary_artist}", "type": "track", "limit": 10}
+        )
         response = self._client.request_json("GET", f"/search?{query}") or {}
         items = (response.get("tracks") or {}).get("items") or []
         target_artist, target_title = normalize(primary_artist), base_title(title)
-        LOGGER.info("Spotify search artist=%r title=%r candidates=%r", artist, title, [(item.get("name"), [entry.get("name") for entry in item.get("artists") or [] if isinstance(entry, dict)]) for item in items if isinstance(item, dict)])
+        LOGGER.info(
+            "Spotify search artist=%r title=%r candidates=%r",
+            artist,
+            title,
+            [
+                (
+                    item.get("name"),
+                    [
+                        entry.get("name")
+                        for entry in item.get("artists") or []
+                        if isinstance(entry, dict)
+                    ],
+                )
+                for item in items
+                if isinstance(item, dict)
+            ],
+        )
         for item in items:
             if not isinstance(item, dict):
                 continue
@@ -233,13 +257,18 @@ class SpotifyWebApiController(SpotifyControllerIf):
     def available_devices(self) -> tuple[dict[str, Any], ...]:
         """Return currently visible Spotify Connect devices."""
         response = self._client.request_json("GET", "/me/player/devices") or {}
-        return tuple(d for d in response.get("devices", [])
-                     if isinstance(d, dict) and isinstance(d.get("id"), str) and d["id"])
+        return tuple(
+            d
+            for d in response.get("devices", [])
+            if isinstance(d, dict) and isinstance(d.get("id"), str) and d["id"]
+        )
 
     def select_playback_device(self) -> dict[str, Any]:
         devices = self.available_devices()
         if not devices:
-            raise RuntimeError("No Spotify Connect devices available. Open Spotify on your phone and start a track, then retry.")
+            raise RuntimeError(
+                "No Spotify Connect devices available. Open Spotify on your phone and start a track, then retry."
+            )
         active = next((d for d in devices if d.get("is_active")), None)
         if active:
             return active

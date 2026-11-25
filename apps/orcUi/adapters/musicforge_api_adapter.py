@@ -1,4 +1,5 @@
 """HTTP adapter for the versioned MusicForge charts API."""
+
 from __future__ import annotations
 
 import httpx
@@ -13,12 +14,12 @@ class MusicForgeApiAdapter:
         response.raise_for_status()
         return response.json()["stations"]
 
-    def songs(self, *, station: str | None = None, period: str = "today",
-              limit: int = 20) -> dict:
+    def songs(self, *, station: str | None = None, period: str = "today", limit: int = 20) -> dict:
         return self._chart("songs", station, period, limit)
 
-    def artists(self, *, station: str | None = None, period: str = "today",
-                limit: int = 20) -> dict:
+    def artists(
+        self, *, station: str | None = None, period: str = "today", limit: int = 20
+    ) -> dict:
         return self._chart("artists", station, period, limit)
 
     def _chart(self, kind: str, station: str | None, period: str, limit: int) -> dict:

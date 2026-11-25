@@ -135,10 +135,16 @@ class _Handler(BaseHTTPRequestHandler):
                 self.send_error(404)
                 return
             image = self.owner._imagery_layers[int(index)].image
-            self._send(image.read_bytes(), mimetypes.guess_type(image.name)[0] or 'application/octet-stream')
+            self._send(
+                image.read_bytes(),
+                mimetypes.guess_type(image.name)[0] or "application/octet-stream",
+            )
             return
         if path == "/data/imagery.jpg" and self.owner._imagery is not None:
-            content_type = mimetypes.guess_type(self.owner._imagery.image.name)[0] or 'application/octet-stream'
+            content_type = (
+                mimetypes.guess_type(self.owner._imagery.image.name)[0]
+                or "application/octet-stream"
+            )
             self._send(self.owner._imagery.image.read_bytes(), content_type)
             return
         if path.startswith("/data/tiles/") and self.owner._tiles is not None:

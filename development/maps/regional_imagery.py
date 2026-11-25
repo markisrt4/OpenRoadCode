@@ -22,26 +22,26 @@ from development.maps.download_detroit_imagery import (
 def _save_overview(image, output, *, transparent):
     """Encode bounded imagery below the runtime cap while preserving gap alpha."""
     if not transparent:
-        with image.convert('RGB') as opaque:
+        with image.convert("RGB") as opaque:
             for quality in (90, 86, 82, 78, 74, 68, 62):
-                opaque.save(output, format='JPEG', quality=quality, optimize=True)
+                opaque.save(output, format="JPEG", quality=quality, optimize=True)
                 if output.stat().st_size <= MAX_BYTES:
                     return
-        raise ValueError('Regional imagery cannot fit the 20 MiB runtime limit')
+        raise ValueError("Regional imagery cannot fit the 20 MiB runtime limit")
     # Lossless PNG frequently exceeds 20 MiB for 4096px aerial photography.
     # WebP retains the transparent no-coverage cells with bounded lossy imagery.
     for quality in (88, 82, 76, 70, 64):
-        image.save(output, format='WEBP', quality=quality, method=4, exact=True)
+        image.save(output, format="WEBP", quality=quality, method=4, exact=True)
         if output.stat().st_size <= MAX_BYTES:
             return
-    raise ValueError('Transparent regional imagery cannot fit the 20 MiB runtime limit')
+    raise ValueError("Transparent regional imagery cannot fit the 20 MiB runtime limit")
 
 
-def download(destination, *, bounds, title, cache_directory, image_size=(2048,1536)):
+def download(destination, *, bounds, title, cache_directory, image_size=(2048, 1536)):
     # Keep large exports away from ImageServer: each request covers one sixteenth
     # of the envelope and produces one sixteenth of the final pixel count.
-    if image_size not in ((2048,1536), (4096,4096), (8192,8192)):
-        raise ValueError('Unsupported regional image dimensions')
+    if image_size not in ((2048, 1536), (4096, 4096), (8192, 8192)):
+        raise ValueError("Unsupported regional image dimensions")
     if destination.exists():
         LocalImageryPack.load(destination)
         existing = json.loads((destination / "manifest.json").read_text())
@@ -60,7 +60,7 @@ def download(destination, *, bounds, title, cache_directory, image_size=(2048,15
     manifests = []
     gaps = []
     has_nodata = False
-    with Image.new('RGBA', image_size, (0,0,0,0)) as overview:
+    with Image.new("RGBA", image_size, (0, 0, 0, 0)) as overview:
         for row in range(4):
             for column in range(4):
                 tile_bounds = (
@@ -98,9 +98,15 @@ def download(destination, *, bounds, title, cache_directory, image_size=(2048,15
                     ):
                         raise ValueError("Resume tile does not match the requested overview")
                 try:
-                    download_image(tile, bounds=tile_bounds, title=title,
-                                   image_size=tile_size,
-                                   max_bytes=8*1024*1024 if image_size == (8192,8192) else MAX_BYTES//16)
+                    download_image(
+                        tile,
+                        bounds=tile_bounds,
+                        title=title,
+                        image_size=tile_size,
+                        max_bytes=8 * 1024 * 1024
+                        if image_size == (8192, 8192)
+                        else MAX_BYTES // 16,
+                    )
                 except NoImageryCoverage as error:
                     gap = {
                         "bounds_deg": tile_bounds,
@@ -124,47 +130,66 @@ def download(destination, *, bounds, title, cache_directory, image_size=(2048,15
                     raise ValueError("Resume image exceeds the tile payload limit")
                 with Image.open(pack.image) as image:
                     if image.size != tile_size:
-                        raise ValueError('Overview tile has unexpected JPEG dimensions')
-                    rgb = image.convert('RGB')
+                        raise ValueError("Overview tile has unexpected JPEG dimensions")
+                    rgb = image.convert("RGB")
                     # ArcGIS encodes pixels outside locked raster footprints as
                     # true black JPEG. Make only that near-zero sentinel
                     # transparent; ordinary dark imagery remains visible.
-                    alpha = rgb.convert('L').point(lambda value: 0 if value <= 4 else 255)
+                    alpha = rgb.convert("L").point(lambda value: 0 if value <= 4 else 255)
                     has_nodata = has_nodata or alpha.getextrema()[0] == 0
-                    rgba = rgb.convert('RGBA')
+                    rgba = rgb.convert("RGBA")
                     rgba.putalpha(alpha)
-                    overview.paste(rgba, (column*tile_size[0], row*tile_size[1]), rgba)
+                    overview.paste(rgba, (column * tile_size[0], row * tile_size[1]), rgba)
                 manifests.append(manifest)
         if not manifests:
-            raise ValueError('No supported NAIP imagery anywhere in the selected region')
-        alpha_histogram = overview.getchannel('A').histogram()
-        visible_fraction = (image_size[0]*image_size[1]-alpha_histogram[0])/(image_size[0]*image_size[1])
-        if visible_fraction < .10:
+            raise ValueError("No supported NAIP imagery anywhere in the selected region")
+        alpha_histogram = overview.getchannel("A").histogram()
+        visible_fraction = (image_size[0] * image_size[1] - alpha_histogram[0]) / (
+            image_size[0] * image_size[1]
+        )
+        if visible_fraction < 0.10:
             raise ValueError(
-                f'Regional imagery contains only {visible_fraction:.1%} usable pixels; '
-                'source mosaic is too incomplete to publish'
+                f"Regional imagery contains only {visible_fraction:.1%} usable pixels; "
+                "source mosaic is too incomplete to publish"
             )
-        print(f'Overview: 16/16 areas checked · 100% · {len(gaps)} coverage gaps · combining and validating…', flush=True)
+        print(
+            f"Overview: 16/16 areas checked · 100% · {len(gaps)} coverage gaps · combining and validating…",
+            flush=True,
+        )
         destination.parent.mkdir(parents=True, exist_ok=True)
         with TemporaryDirectory(dir=destination.parent, prefix=".overview-") as temporary:
             prepared = Path(temporary) / "pack"
             prepared.mkdir()
             transparent = bool(gaps) or has_nodata
-            output = prepared/('imagery.webp' if transparent else 'imagery.jpg')
+            output = prepared / ("imagery.webp" if transparent else "imagery.jpg")
             _save_overview(overview, output, transparent=transparent)
-            records = [record for manifest in manifests for record in manifest['source_records']]
-            attribution = ' · '.join(dict.fromkeys(manifest['attribution'] for manifest in manifests))
-            suffix = f' · {len(gaps)} coverage gaps' if gaps else ''
-            manifest = {'schema':1, 'image':output.name, 'title':title+' NAIP '+('detail' if image_size == (4096,4096) else 'overview')+suffix,
-                        'bounds_deg':bounds, 'width':image_size[0], 'height':image_size[1], 'attribution':attribution,
-                        'sha256':hashlib.sha256(output.read_bytes()).hexdigest(),
-                        'source_records':records, 'downloaded_at':datetime.now(timezone.utc).isoformat(),
-                        'assembly':'4×4 north-first bounded exports; source years may differ by tile',
-                        'encoding':'WebP with alpha' if transparent else 'JPEG',
-                        'export_nodata_transparent':has_nodata,
-                        'usable_pixel_fraction':visible_fraction,
-                        'bytes':output.stat().st_size, 'missing_coverage':gaps}
-            (prepared/'manifest.json').write_text(json.dumps(manifest, indent=2))
+            records = [record for manifest in manifests for record in manifest["source_records"]]
+            attribution = " · ".join(
+                dict.fromkeys(manifest["attribution"] for manifest in manifests)
+            )
+            suffix = f" · {len(gaps)} coverage gaps" if gaps else ""
+            manifest = {
+                "schema": 1,
+                "image": output.name,
+                "title": title
+                + " NAIP "
+                + ("detail" if image_size == (4096, 4096) else "overview")
+                + suffix,
+                "bounds_deg": bounds,
+                "width": image_size[0],
+                "height": image_size[1],
+                "attribution": attribution,
+                "sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
+                "source_records": records,
+                "downloaded_at": datetime.now(timezone.utc).isoformat(),
+                "assembly": "4×4 north-first bounded exports; source years may differ by tile",
+                "encoding": "WebP with alpha" if transparent else "JPEG",
+                "export_nodata_transparent": has_nodata,
+                "usable_pixel_fraction": visible_fraction,
+                "bytes": output.stat().st_size,
+                "missing_coverage": gaps,
+            }
+            (prepared / "manifest.json").write_text(json.dumps(manifest, indent=2))
             for tile in sorted(cache.iterdir()):
                 if tile.is_dir():
                     evidence = prepared / "sources" / tile.name

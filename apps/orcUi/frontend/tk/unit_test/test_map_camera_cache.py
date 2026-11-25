@@ -69,12 +69,14 @@ class MapCameraCacheTest(unittest.TestCase):
     def test_expired_cached_position_does_not_seed_camera(self) -> None:
         with TemporaryDirectory() as directory:
             cache = PositionSnapshotCache(PersistentCache(Path(directory)))
-            cache.store(PositionState(
-                received_at=datetime(2026, 9, 1, 12, 0, 0),
-                latitude_deg=42.8028,
-                longitude_deg=-83.0127,
-                fix_mode=3,
-            ))
+            cache.store(
+                PositionState(
+                    received_at=datetime(2026, 9, 1, 12, 0, 0),
+                    latitude_deg=42.8028,
+                    longitude_deg=-83.0127,
+                    fix_mode=3,
+                )
+            )
 
             point = MapCameraRuntime._load_cached_center(
                 Path(directory),

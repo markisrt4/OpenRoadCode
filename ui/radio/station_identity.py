@@ -3,6 +3,7 @@
 
 Unknown stations retain their original labels; never infer a frequency.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

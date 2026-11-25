@@ -1,5 +1,6 @@
 """Shared FM identity mapping tests."""
-from ui.radio.station_identity import station_label, preset_label
+
+from ui.radio.station_identity import preset_label, station_label
 
 
 def test_known_call_sign_has_frequency() -> None:

@@ -10,9 +10,15 @@ from common.xdg_paths import openroadcode_data_dir
 from ui.navigation.local_imagery_state import LocalImageryState
 
 MICHIGAN_IMAGERY_COVERAGES = (
-    'michigan-overview', 'mi-lower-southwest', 'mi-lower-southeast',
-    'mi-lower-central-west', 'mi-lower-central-east', 'mi-lower-northwest',
-    'mi-lower-northeast', 'mi-upper-west', 'mi-upper-east',
+    "michigan-overview",
+    "mi-lower-southwest",
+    "mi-lower-southeast",
+    "mi-lower-central-west",
+    "mi-lower-central-east",
+    "mi-lower-northwest",
+    "mi-lower-northeast",
+    "mi-upper-west",
+    "mi-upper-east",
 )
 
 
@@ -25,13 +31,18 @@ def pine_knob_imagery_directory():
 
 
 def installed_imagery_directories():
-    return (pine_knob_imagery_directory(), detroit_pack_directory(),
-            openroadcode_data_dir('map-packs', 'detroit-midtown-imagery-active'),
-            openroadcode_data_dir('map-packs', 'metro-detroit-imagery-active'),
-            openroadcode_data_dir('map-packs', 'rochester-imagery-active'),
-            openroadcode_data_dir('map-packs', 'southfield-imagery-active'),
-            *(openroadcode_data_dir('map-packs', coverage+'-imagery-active')
-              for coverage in MICHIGAN_IMAGERY_COVERAGES))
+    return (
+        pine_knob_imagery_directory(),
+        detroit_pack_directory(),
+        openroadcode_data_dir("map-packs", "detroit-midtown-imagery-active"),
+        openroadcode_data_dir("map-packs", "metro-detroit-imagery-active"),
+        openroadcode_data_dir("map-packs", "rochester-imagery-active"),
+        openroadcode_data_dir("map-packs", "southfield-imagery-active"),
+        *(
+            openroadcode_data_dir("map-packs", coverage + "-imagery-active")
+            for coverage in MICHIGAN_IMAGERY_COVERAGES
+        ),
+    )
 
 
 def load_imagery_stack():

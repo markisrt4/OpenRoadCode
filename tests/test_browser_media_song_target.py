@@ -1,4 +1,5 @@
 """One-shot browser search target behavior without requiring an X display."""
+
 from unittest.mock import Mock
 
 import pytest

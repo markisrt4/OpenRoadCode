@@ -12,24 +12,30 @@ from ui.navigation.cesium_viewer_state import CesiumViewerState
 
 
 @pytest.fixture
-def native(tmp_path,monkeypatch):
-    events=[]
-    absent=tmp_path/'absent'
-    for name in ('preferred_imagery_directory','preferred_terrain_directory','detroit_building_directory','preferred_tiles_directory'):
-        monkeypatch.setattr(module,name,lambda *args:absent)
-    monkeypatch.setattr(module,'load_imagery_stack',lambda:())
-    roads = Mock(name='roads')
-    monkeypatch.setattr(module.LocalRoadOverlay, 'installed', lambda: roads)
-    monkeypatch.setattr(module,'sdk_directory',lambda:tmp_path/'sdk')
-    monkeypatch.setattr(module,'logging_file_path',lambda app,name:tmp_path/name)
-    browser=Mock()
-    browser.is_running.return_value=True
-    server=Mock(url='http://127.0.0.1:12345/')
-    server.close_requested.is_set.return_value=False
-    server.close.side_effect=lambda:events.append('server.close')
-    browser.stop.side_effect=lambda *args,**kwargs:events.append('browser.stop')
-    servers=Mock(return_value=server)
-    monkeypatch.setattr(module,'CesiumViewerServer',servers)
+def native(tmp_path, monkeypatch):
+    events = []
+    absent = tmp_path / "absent"
+    for name in (
+        "preferred_imagery_directory",
+        "preferred_terrain_directory",
+        "detroit_building_directory",
+        "preferred_tiles_directory",
+    ):
+        monkeypatch.setattr(module, name, lambda *args: absent)
+    monkeypatch.setattr(module, "load_imagery_stack", lambda: ())
+    roads = Mock(name="roads")
+    monkeypatch.setattr(module.LocalRoadOverlay, "installed", lambda: roads)
+    monkeypatch.setattr(module, "sdk_directory", lambda: tmp_path / "sdk")
+    monkeypatch.setattr(module, "logging_file_path", lambda app, name: tmp_path / name)
+    browser = Mock()
+    browser.is_running.return_value = True
+    server = Mock(url="http://127.0.0.1:12345/")
+    server.close_requested.is_set.return_value = False
+    server.close.side_effect = lambda: events.append("server.close")
+    browser.stop.side_effect = lambda *args, **kwargs: events.append("browser.stop")
+    servers = Mock(return_value=server)
+    monkeypatch.setattr(module, "CesiumViewerServer", servers)
+
     def make_browser(**kwargs):
         assert kwargs["url"] == server.url + "embedded-start.html"
         assert "--no-first-run" in kwargs["extra_arguments"]
@@ -53,19 +59,28 @@ def native(tmp_path,monkeypatch):
         return {"result": {"value": {"ready": True}}}
 
     devtools.command.side_effect = command
-    monkeypatch.setattr(module,'ChromiumDevToolsClient',Mock(return_value=devtools))
-    embedder=Mock()
-    embedder.supported.return_value=True
-    embedder.embed.side_effect=lambda *args,**kwargs:events.append('window.embed')
-    viewer=module.CesiumEmbeddedViewer(embedder=embedder)
-    yield SimpleNamespace(viewer=viewer,browser=browser,server=server,servers=servers,roads=roads,
-        browsers=browsers,embedder=embedder,devtools=devtools,events=events)
+    monkeypatch.setattr(module, "ChromiumDevToolsClient", Mock(return_value=devtools))
+    embedder = Mock()
+    embedder.supported.return_value = True
+    embedder.embed.side_effect = lambda *args, **kwargs: events.append("window.embed")
+    viewer = module.CesiumEmbeddedViewer(embedder=embedder)
+    yield SimpleNamespace(
+        viewer=viewer,
+        browser=browser,
+        server=server,
+        servers=servers,
+        roads=roads,
+        browsers=browsers,
+        embedder=embedder,
+        devtools=devtools,
+        events=events,
+    )
     viewer.close()
 
 
 def test_installed_roads_are_passed_to_local_viewer(native):
     native.viewer.open(CesiumViewerState(GeoPoint(0.7, -1.4)), 42, (800, 600))
-    assert native.servers.call_args.kwargs['roads'] is native.roads
+    assert native.servers.call_args.kwargs["roads"] is native.roads
 
 
 def state():
@@ -191,12 +206,12 @@ def test_cancellation_while_waiting_for_frame_closes_surface(native, monkeypatch
 def test_vehicle_fix_and_manual_camera_observation_use_owned_browser(native):
     native.viewer.open(state(), 100, (640, 320))
     native.devtools.command.side_effect = None
-    native.devtools.command.return_value = {'result':{'value':True}}
-    native.viewer.update_position(GeoPoint(.7,-1.4),True)
-    expression = native.devtools.command.call_args.args[2]['expression']
-    assert 'latitude_rad' in expression and ', true)' in expression
-    native.devtools.command.return_value = {'result':{'value':{'revision':2,'poi':None}}}
-    native.viewer.tick((640,320))
+    native.devtools.command.return_value = {"result": {"value": True}}
+    native.viewer.update_position(GeoPoint(0.7, -1.4), True)
+    expression = native.devtools.command.call_args.args[2]["expression"]
+    assert "latitude_rad" in expression and ", true)" in expression
+    native.devtools.command.return_value = {"result": {"value": {"revision": 2, "poi": None}}}
+    native.viewer.tick((640, 320))
     assert native.viewer.consume_manual_camera()
     assert not native.viewer.consume_manual_camera()
     native.viewer.tick((640, 320))
@@ -209,54 +224,47 @@ def test_vehicle_fix_and_manual_camera_observation_use_owned_browser(native):
 def test_poi_overlay_is_sent_as_semantic_marker_document(native):
     from ui.navigation import MapMarker, MapMarkerKind
     from ui.navigation.poi_overlay_state import PoiOverlayState
-    native.viewer.open(state(),100,(640,320))
+
+    native.viewer.open(state(), 100, (640, 320))
     native.devtools.command.side_effect = None
-    native.devtools.command.return_value = {'result':{'value':True}}
-    overlay = PoiOverlayState((MapMarker('cafe',GeoPoint(.7,-1.4),
-                              MapMarkerKind.SEARCH_RESULT,'Cafe'),),'food')
+    native.devtools.command.return_value = {"result": {"value": True}}
+    overlay = PoiOverlayState(
+        (MapMarker("cafe", GeoPoint(0.7, -1.4), MapMarkerKind.SEARCH_RESULT, "Cafe"),), "food"
+    )
     native.viewer.update_poi_overlay(overlay)
-    expression = native.devtools.command.call_args.args[2]['expression']
-    assert 'ORCUpdatePois' in expression and 'Cafe' in expression and 'search_result' in expression
+    expression = native.devtools.command.call_args.args[2]["expression"]
+    assert "ORCUpdatePois" in expression and "Cafe" in expression and "search_result" in expression
 
 
 def test_tick_consumes_semantic_poi_selection(native):
-    native.viewer.open(state(),100,(640,320))
+    native.viewer.open(state(), 100, (640, 320))
     native.devtools.command.side_effect = None
-    native.devtools.command.return_value = {'result':{'value':{'revision':0,'poi':'cafe'}}}
-    native.viewer.tick((640,320))
-    assert native.viewer.consume_poi_selection() == 'cafe'
+    native.devtools.command.return_value = {"result": {"value": {"revision": 0, "poi": "cafe"}}}
+    native.viewer.tick((640, 320))
+    assert native.viewer.consume_poi_selection() == "cafe"
     assert native.viewer.consume_poi_selection() is None
 
 
 def test_route_overlay_is_sent_as_semantic_route_document(native):
     from ui.navigation import RouteGeometry, RouteOverlayState
-    native.viewer.open(state(),100,(640,320))
+
+    native.viewer.open(state(), 100, (640, 320))
     native.devtools.command.side_effect = None
-    native.devtools.command.return_value = {'result':{'value':True}}
-    overlay = RouteOverlayState(RouteGeometry((GeoPoint(.7,-1.4),GeoPoint(.71,-1.39))),
-                                destination=GeoPoint(.71,-1.39))
+    native.devtools.command.return_value = {"result": {"value": True}}
+    overlay = RouteOverlayState(
+        RouteGeometry((GeoPoint(0.7, -1.4), GeoPoint(0.71, -1.39))),
+        destination=GeoPoint(0.71, -1.39),
+    )
     native.viewer.update_route_overlay(overlay)
-    expression = native.devtools.command.call_args.args[2]['expression']
-    assert 'ORCUpdateRoute' in expression and 'latitude_rad' in expression
+    expression = native.devtools.command.call_args.args[2]["expression"]
+    assert "ORCUpdateRoute" in expression and "latitude_rad" in expression
 
 
 def test_renderer_overrides_are_explicit_and_preserve_default(monkeypatch):
-    monkeypatch.delenv('OPENROAD_CESIUM_RENDERER',raising=False)
-    assert module._rendering_arguments()==()
-    monkeypatch.setenv('OPENROAD_CESIUM_RENDERER','hardware-override')
-    assert module._rendering_arguments()==('--ignore-gpu-blocklist',)
-    monkeypatch.setenv('OPENROAD_CESIUM_RENDERER','software')
-    flags=module._rendering_arguments()
-    assert '--use-angle=swiftshader' in flags
-    assert '--disable-gpu-compositing' in flags
-    assert '--disable-features=Vulkan' in flags
-    monkeypatch.setenv('OPENROAD_CESIUM_RENDERER','unknown')
-    with pytest.raises(ValueError,match='OPENROAD_CESIUM_RENDERER'):
-
-
-def test_software_diagnostic_renderer_is_explicit_and_preserves_default(monkeypatch):
     monkeypatch.delenv("OPENROAD_CESIUM_RENDERER", raising=False)
     assert module._rendering_arguments() == ()
+    monkeypatch.setenv("OPENROAD_CESIUM_RENDERER", "hardware-override")
+    assert module._rendering_arguments() == ("--ignore-gpu-blocklist",)
     monkeypatch.setenv("OPENROAD_CESIUM_RENDERER", "software")
     flags = module._rendering_arguments()
     assert "--use-angle=swiftshader" in flags

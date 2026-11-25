@@ -288,6 +288,11 @@ For the integrated media path on Debian/Ubuntu, run:
 
 Concrete devices and credentials remain separate from package installation. Run `./scripts/installers/host_setup.sh --help` for current options.
 
+If `./runOrcUi` finds no configured or existing Python environment, it creates
+`.venv` on Linux or `venv-termux` on Termux. Dependency installation remains
+with the host installer. Set `VENV_DIR` to the created environment's absolute
+path when running the installer to populate that environment.
+
 Third-party tar1090 source installs use the reviewed revisions in
 `scripts/installers/toolchain.lock`. Their setup scripts use isolated,
 OpenRoadCode-managed checkouts and do not reset unrelated source trees.

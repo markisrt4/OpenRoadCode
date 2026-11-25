@@ -3,8 +3,8 @@
 import argparse
 import hashlib
 import json
-from pathlib import Path
 import zipfile
+from pathlib import Path
 
 from apps.launchers.local_terrain_pack import load_terrain
 
@@ -40,8 +40,9 @@ def package(root, output, coverage):
             "bounds_deg": manifest["bounds_deg"],
             "terrain_schema": manifest["schema"],
             "tile_count": len(manifest.get("tiles", ())),
-            "lod_levels": sorted({tile.get("detail_level", 0)
-                                  for tile in manifest.get("tiles", ())}),
+            "lod_levels": sorted(
+                {tile.get("detail_level", 0) for tile in manifest.get("tiles", ())}
+            ),
         }
         temporary.replace(output)
         output.with_suffix(output.suffix + ".json").write_text(json.dumps(descriptor, indent=2))
@@ -57,8 +58,10 @@ def main():
     parser.add_argument("--coverage", default="metro-detroit")
     args = parser.parse_args()
     descriptor = package(args.pack, args.output, args.coverage)
-    print(f"Packaged {descriptor['tile_count']} terrain tiles across "
-          f"{len(descriptor['lod_levels'])} LODs: {descriptor['bytes']:,} bytes")
+    print(
+        f"Packaged {descriptor['tile_count']} terrain tiles across "
+        f"{len(descriptor['lod_levels'])} LODs: {descriptor['bytes']:,} bytes"
+    )
 
 
 if __name__ == "__main__":

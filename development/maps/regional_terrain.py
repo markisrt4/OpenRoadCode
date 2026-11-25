@@ -1,18 +1,18 @@
 """Build a resumable multi-resolution USGS 3DEP terrain pack for Metro Detroit."""
 
-from datetime import datetime, timezone
-from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
-from pathlib import Path
 import shutil
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
+from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from apps.launchers.local_terrain_pack import load_terrain
 from development.maps.install_region import COVERAGES
-from tools.map_builder.builder.terrain import download_bounds
-from tools.map_builder.builder.map_3d import PRESETS
 from development.maps.terrain_regions import MICHIGAN_COVERAGES
+from tools.map_builder.builder.map_3d import PRESETS
+from tools.map_builder.builder.terrain import download_bounds
 
 
 def terrain_tiles(bounds, divisions=4):
@@ -22,10 +22,10 @@ def terrain_tiles(bounds, divisions=4):
             yield (
                 f"r{row}-c{column}",
                 (
-                    west + (east-west)*column/divisions,
-                    south + (north-south)*row/divisions,
-                    west + (east-west)*(column+1)/divisions,
-                    south + (north-south)*(row+1)/divisions,
+                    west + (east - west) * column / divisions,
+                    south + (north - south) * row / divisions,
+                    west + (east - west) * (column + 1) / divisions,
+                    south + (north - south) * (row + 1) / divisions,
                 ),
             )
 
@@ -40,12 +40,12 @@ def _metro_lod_tiles(bounds):
 
 def _definitions(coverage, bounds, size=None):
     if size is not None:
-        return [(tile_id, tile_bounds, size, 0, 0)
-                for tile_id, tile_bounds in terrain_tiles(bounds)]
+        return [
+            (tile_id, tile_bounds, size, 0, 0) for tile_id, tile_bounds in terrain_tiles(bounds)
+        ]
     if coverage == "metro-detroit":
         return list(_metro_lod_tiles(bounds))
-    return [(tile_id, tile_bounds, 129, 0, 0)
-            for tile_id, tile_bounds in terrain_tiles(bounds, 8)]
+    return [(tile_id, tile_bounds, 129, 0, 0) for tile_id, tile_bounds in terrain_tiles(bounds, 8)]
 
 
 def _build_tile(cache, title, index, total, definition):
@@ -73,18 +73,24 @@ def build_michigan_row(cache: Path, *, coverage: str, row: int) -> None:
     cache = Path(cache)
     cache.mkdir(parents=True, exist_ok=True)
     definitions = _definitions(coverage, bounds)
-    selected = [(index, definition) for index, definition in enumerate(definitions, 1)
-                if definition[0].startswith(f"r{row}-")]
+    selected = [
+        (index, definition)
+        for index, definition in enumerate(definitions, 1)
+        if definition[0].startswith(f"r{row}-")
+    ]
     with ThreadPoolExecutor(max_workers=2) as executor:
-        list(executor.map(
-            lambda item: _build_tile(cache, title, item[0], len(definitions), item[1]),
-            selected,
-        ))
+        list(
+            executor.map(
+                lambda item: _build_tile(cache, title, item[0], len(definitions), item[1]),
+                selected,
+            )
+        )
 
 
 def build(destination: Path, *, coverage: str = "metro-detroit", size: int | None = None) -> None:
-    title, bounds = (COVERAGES[coverage] if coverage == "metro-detroit"
-                     else MICHIGAN_COVERAGES[coverage])
+    title, bounds = (
+        COVERAGES[coverage] if coverage == "metro-detroit" else MICHIGAN_COVERAGES[coverage]
+    )
     destination = Path(destination)
     if destination.exists():
         load_terrain(destination)
@@ -92,8 +98,10 @@ def build(destination: Path, *, coverage: str = "metro-detroit", size: int | Non
     cache = destination.with_name(destination.name + ".download")
     cache.mkdir(parents=True, exist_ok=True)
     definitions = _definitions(coverage, bounds, size)
+
     def build_tile(item):
         return _build_tile(cache, title, item[0], len(definitions), item[1])
+
     indexed = list(enumerate(definitions, 1))
     if coverage in MICHIGAN_COVERAGES:
         # Statewide grids generate many USGS sampling calls. Two concurrent
@@ -117,9 +125,11 @@ def build(destination: Path, *, coverage: str = "metro-detroit", size: int | Non
             "bounds_deg": bounds,
             "tiles": records,
             "maximum_zoom": 16,
-            "lod": ("overview 33×33; regional 4×4 and focus areas at 129×129"
-                    if coverage == "metro-detroit" else
-                    "8×8 regional tiles at 129×129"),
+            "lod": (
+                "overview 33×33; regional 4×4 and focus areas at 129×129"
+                if coverage == "metro-detroit"
+                else "8×8 regional tiles at 129×129"
+            ),
             "downloaded_at": datetime.now(timezone.utc).isoformat(),
         }
         (prepared / "manifest.json").write_text(json.dumps(manifest, indent=2))

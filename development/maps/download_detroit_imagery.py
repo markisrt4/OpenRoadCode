@@ -215,30 +215,46 @@ def open_source(url, *, timeout, attempts=None):
 
 
 def get_json(endpoint, *, timeout=60, attempts=None, **parameters):
-    stage = {"":"service metadata", "/query":"NAIP source catalog", "/exportImage":"bounded image export"}.get(endpoint, endpoint)
-    print(f'USGS imagery: requesting {stage}…', flush=True)
+    stage = {
+        "": "service metadata",
+        "/query": "NAIP source catalog",
+        "/exportImage": "bounded image export",
+    }.get(endpoint, endpoint)
+    print(f"USGS imagery: requesting {stage}…", flush=True)
     address = SERVICE + endpoint
-    encoded = urllib.parse.urlencode({"f":"json", **parameters}).encode()
+    encoded = urllib.parse.urlencode({"f": "json", **parameters}).encode()
     # Large statewide mosaics can lock hundreds of source rasters. ArcGIS
     # accepts the same form parameters by POST, avoiding proxy/server URI caps.
-    request = (urllib.request.Request(address, data=encoded, headers={
-        'Content-Type': 'application/x-www-form-urlencoded',
-    }) if len(encoded) > 1800 else address + "?" + encoded.decode())
+    request = (
+        urllib.request.Request(
+            address,
+            data=encoded,
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+        )
+        if len(encoded) > 1800
+        else address + "?" + encoded.decode()
+    )
 
     def read():
         with open_source(request, timeout=timeout, attempts=1) as response:
             document = json.load(response)
-        if 'error' in document:
-            error = document['error']
-            if error.get('code') in (429, 500, 502, 503, 504):
-                raise HTTPError(address, error['code'], error.get('message', 'Service unavailable'), {}, None)
-            raise RuntimeError(f'USGS service error: {error}')
+        if "error" in document:
+            error = document["error"]
+            if error.get("code") in (429, 500, 502, 503, 504):
+                raise HTTPError(
+                    address, error["code"], error.get("message", "Service unavailable"), {}, None
+                )
+            raise RuntimeError(f"USGS service error: {error}")
         return document
 
     try:
         return retry_request(read, stage=stage, attempts=attempts)
     except (URLError, TimeoutError, IncompleteRead) as error:
-        raise SourceRequestError(f'{stage} failed after retries: {error} · endpoint {address}') from error
+        raise SourceRequestError(
+            f"{stage} failed after retries: {error} · endpoint {address}"
+        ) from error
 
 
 def download_image_bytes(href, max_bytes):
@@ -289,15 +305,31 @@ def download(
     # Acquisition years vary within large regions. Lock every approved dated
     # NAIP raster, newest first, so MT_FIRST can use older flights only where
     # the newest year has no coverage instead of exporting black holes.
-    selected = sorted(candidates, key=lambda record: (
-        record["Year"], record.get("acquisition_date") or 0,
-        record.get("OBJECTID") or 0,
-    ), reverse=True)
-    mosaic = {"mosaicMethod":"esriMosaicLockRaster", "lockRasterIds":[r["OBJECTID"] for r in selected],
-              "mosaicOperation":"MT_FIRST"}
-    export = get_json("/exportImage", bbox=",".join(map(str, bounds)), bboxSR=4326, imageSR=4326,
-                      size=','.join(map(str, image_size)), format="jpg", adjustAspectRatio="false",
-                      mosaicRule=json.dumps(mosaic), renderingRule=json.dumps({"rasterFunction":"NaturalColor"}))
+    selected = sorted(
+        candidates,
+        key=lambda record: (
+            record["Year"],
+            record.get("acquisition_date") or 0,
+            record.get("OBJECTID") or 0,
+        ),
+        reverse=True,
+    )
+    mosaic = {
+        "mosaicMethod": "esriMosaicLockRaster",
+        "lockRasterIds": [r["OBJECTID"] for r in selected],
+        "mosaicOperation": "MT_FIRST",
+    }
+    export = get_json(
+        "/exportImage",
+        bbox=",".join(map(str, bounds)),
+        bboxSR=4326,
+        imageSR=4326,
+        size=",".join(map(str, image_size)),
+        format="jpg",
+        adjustAspectRatio="false",
+        mosaicRule=json.dumps(mosaic),
+        renderingRule=json.dumps({"rasterFunction": "NaturalColor"}),
+    )
     requested_bounds = bounds
     extent = export["extent"]
     if extent.get("spatialReference", {}).get("wkid") != 4326:
@@ -327,12 +359,22 @@ def download(
         if len(image) > MAX_BYTES or not image.startswith(b"\xff\xd8"):
             raise RuntimeError("USGS export is oversized or not a JPEG image")
         (root / "imagery.jpg").write_bytes(image)
-        manifest = {"schema":1, "image":"imagery.jpg", "sha256":hashlib.sha256(image).hexdigest(),
-                    "title":f"{title} NAIP through {year}", "attribution":f"USGS / USDA NAIP through {year} · The National Map",
-                    "bounds_deg":bounds, "width":export["width"], "height":export["height"],
-                    "source":SERVICE, "source_records":selected, "downloaded_at":datetime.now(timezone.utc).isoformat(),
-                    "rights":"Public-domain NAIP imagery; USGS service description retained in source-service.json",
-                    "rights_reference":SERVICE, "bytes":len(image)}
+        manifest = {
+            "schema": 1,
+            "image": "imagery.jpg",
+            "sha256": hashlib.sha256(image).hexdigest(),
+            "title": f"{title} NAIP through {year}",
+            "attribution": f"USGS / USDA NAIP through {year} · The National Map",
+            "bounds_deg": bounds,
+            "width": export["width"],
+            "height": export["height"],
+            "source": SERVICE,
+            "source_records": selected,
+            "downloaded_at": datetime.now(timezone.utc).isoformat(),
+            "rights": "Public-domain NAIP imagery; USGS service description retained in source-service.json",
+            "rights_reference": SERVICE,
+            "bytes": len(image),
+        }
         (root / "manifest.json").write_text(json.dumps(manifest, indent=2))
         (root / "source-service.json").write_text(json.dumps(metadata, indent=2))
         (root / "source-catalog.json").write_text(json.dumps(catalog, indent=2))

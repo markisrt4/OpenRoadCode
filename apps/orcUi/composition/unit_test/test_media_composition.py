@@ -20,6 +20,9 @@ def test_close_unsubscribes_and_releases_visualizer_runtime_even_if_hide_fails(h
     calls.attach_mock(video, "video")
     composition = MediaComposition(
         music_video_controller=video,
+        song_launch_controller=Mock(),
+        trending_youtube_player=Mock(),
+        trending_spotify_factory=Mock(),
         home_factory=Mock(),
         home_visualizer_factory=None,
         visualizer=visualizer,
@@ -50,11 +53,14 @@ def test_account_cleanup_precedes_presentations_and_survives_failure():
     calls.attach_mock(runtime, "runtime")
     calls.attach_mock(video, "video")
     composition = MediaComposition(
-        video,
-        Mock(),
-        None,
-        visualizer,
-        runtime,
+        music_video_controller=video,
+        song_launch_controller=Mock(),
+        trending_youtube_player=Mock(),
+        trending_spotify_factory=Mock(),
+        home_factory=Mock(),
+        home_visualizer_factory=None,
+        visualizer=visualizer,
+        visualizer_runtime=runtime,
         close_spotify_accounts=accounts,
         close_spotify_presentations=presentations,
     )
@@ -75,11 +81,14 @@ def test_preview_cleanup_failure_does_not_skip_sessions_or_visualizer():
     preview.close.side_effect = RuntimeError("preview failed")
     accounts, presentations, visualizer, runtime, video = (Mock() for _ in range(5))
     composition = MediaComposition(
-        video,
-        Mock(),
-        None,
-        visualizer,
-        runtime,
+        music_video_controller=video,
+        song_launch_controller=Mock(),
+        trending_youtube_player=Mock(),
+        trending_spotify_factory=Mock(),
+        home_factory=Mock(),
+        home_visualizer_factory=None,
+        visualizer=visualizer,
+        visualizer_runtime=runtime,
         preview=preview,
         close_spotify_accounts=accounts,
         close_spotify_presentations=presentations,

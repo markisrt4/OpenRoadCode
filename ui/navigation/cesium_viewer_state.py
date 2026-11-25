@@ -26,9 +26,17 @@ class CesiumViewerState:
     destination_marker_visible: bool = True
 
     def __post_init__(self):
-        if any(type(value) is not bool for value in
-               (self.buildings_visible, self.references_visible, self.terrain_visible,
-                self.terrain_shading_visible, self.embedded, self.destination_marker_visible)):
+        if any(
+            type(value) is not bool
+            for value in (
+                self.buildings_visible,
+                self.references_visible,
+                self.terrain_visible,
+                self.terrain_shading_visible,
+                self.embedded,
+                self.destination_marker_visible,
+            )
+        ):
             raise ValueError("Layer visibility must be boolean")
         if not (
             math.isfinite(self.pitch_step_rad)

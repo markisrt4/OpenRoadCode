@@ -1,4 +1,5 @@
 """Focused song-launch contract tests."""
+
 import pytest
 
 from controllers.media.song_launch_controller import SongLaunchController
@@ -18,12 +19,16 @@ def test_song_launch_routes_to_requested_provider_only():
         open_spotify_search=lambda text: opened.append(("spotify", text)),
         open_youtube_search=lambda text: opened.append(("youtube", text)),
     )
-    controller.launch_song(SongLaunchRequest("Loving Life Again", "Ella Langley", SongDestination.YOUTUBE))
+    controller.launch_song(
+        SongLaunchRequest("Loving Life Again", "Ella Langley", SongDestination.YOUTUBE)
+    )
     assert opened == [("youtube", "Ella Langley Loving Life Again")]
 
 
 def test_unavailable_destination_fails_without_fallback():
-    controller = SongLaunchController(open_spotify_search=lambda _: None, open_youtube_search=lambda _: None)
+    controller = SongLaunchController(
+        open_spotify_search=lambda _: None, open_youtube_search=lambda _: None
+    )
     with pytest.raises(ValueError, match="unavailable"):
         controller.launch_song(SongLaunchRequest("Song", "Artist", SongDestination.YOUTUBE_MUSIC))
 

@@ -123,9 +123,7 @@ class ServiceRuntimeConfigParser:
             "position_cache.max_age_seconds",
         )
         if max_age < 0:
-            raise ServiceRuntimeConfigError(
-                "position_cache.max_age_seconds must be non-negative"
-            )
+            raise ServiceRuntimeConfigError("position_cache.max_age_seconds must be non-negative")
         return PositionCacheConfig(
             enabled=self._bool(data.get("enabled", True), "position_cache.enabled"),
             directory=directory.resolve(),

@@ -27,10 +27,12 @@ elif [[ -x "$default_venv/bin/python" ]]; then
 elif [[ -x "$PROJECT_ROOT/venv/bin/python" ]]; then
     python_bin="$PROJECT_ROOT/venv/bin/python"
 else
-    echo "[!] No Python virtual environment found for OpenRoadCode." >&2
-    echo "    Activate a venv or create one with: python3 -m venv .venv" >&2
-    echo "    Install ORC dependencies using the repository installer." >&2
-    exit 1
+    echo "[*] Creating OpenRoadCode virtual environment: $default_venv" >&2
+    if ! python3 -m venv --system-site-packages "$default_venv"; then
+        echo "[!] Could not create the virtual environment. Run the ORC host installer for this device." >&2
+        exit 1
+    fi
+    python_bin="$default_venv/bin/python"
 fi
 
 # Require an actual venv even when PYTHON overrides interpreter selection.
@@ -43,6 +45,7 @@ fi
 if ! "$python_bin" -c 'import requests, tinycss2' 2>/dev/null; then
     echo "[!] Missing required ORC UI dependencies in $python_bin (requests/tinycss2)." >&2
     echo "    Install the base and desktop-ui Python packages using the ORC installer." >&2
+    echo "    If using a repository venv, set VENV_DIR to its path when running the installer." >&2
     echo "    Quick repair: \"$python_bin\" -m pip install requests tinycss2" >&2
     exit 1
 fi

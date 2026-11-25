@@ -1,7 +1,7 @@
 """Sample ordering, source heights, and complete-pack installation are explicit."""
 
-import hashlib
 import gzip
+import hashlib
 import json
 import math
 from unittest.mock import Mock
@@ -78,14 +78,27 @@ def test_incomplete_sample_reply_is_not_installed(tmp_path, monkeypatch):
 
 def _terrain_tile(root, bounds, heights, reference):
     root.mkdir()
-    payload = json.dumps({"width": 2, "height": 2, "heights_m": heights,
-                          "reference_height_m": reference, "vertical_datum": "NAVD88"})
+    payload = json.dumps(
+        {
+            "width": 2,
+            "height": 2,
+            "heights_m": heights,
+            "reference_height_m": reference,
+            "vertical_datum": "NAVD88",
+        }
+    )
     (root / "terrain.json").write_text(payload)
-    (root / "manifest.json").write_text(json.dumps({
-        "schema": 1, "title": root.name, "attribution": "USGS",
-        "bounds_deg": bounds,
-        "sha256": hashlib.sha256(payload.encode()).hexdigest(),
-    }))
+    (root / "manifest.json").write_text(
+        json.dumps(
+            {
+                "schema": 1,
+                "title": root.name,
+                "attribution": "USGS",
+                "bounds_deg": bounds,
+                "sha256": hashlib.sha256(payload.encode()).hexdigest(),
+            }
+        )
+    )
 
 
 def test_mosaic_uses_one_reference_plane_and_validates_child_records(tmp_path):
@@ -95,8 +108,13 @@ def test_mosaic_uses_one_reference_plane_and_validates_child_records(tmp_path):
     _terrain_tile(root / "east", [-83, 42, -82, 43], [200, 201, 202, 203], 200)
     records = []
     for name, bounds in (("west", [-84, 42, -83, 43]), ("east", [-83, 42, -82, 43])):
-        records.append({"path": name, "bounds_deg": bounds,
-                        "sha256": hashlib.sha256((root / name / "terrain.json").read_bytes()).hexdigest()})
+        records.append(
+            {
+                "path": name,
+                "bounds_deg": bounds,
+                "sha256": hashlib.sha256((root / name / "terrain.json").read_bytes()).hexdigest(),
+            }
+        )
     manifest = {"schema": 2, "layers": ["terrain"], "attribution": "USGS", "tiles": records}
     (root / "manifest.json").write_text(json.dumps(manifest))
 
@@ -117,15 +135,29 @@ def test_lod_mosaic_uses_overview_reference_and_exposes_detail_metadata(tmp_path
     _terrain_tile(root / "focus", [-83.1, 42.3, -83.0, 42.4], [200, 201, 202, 203], 200)
     records = []
     for name, bounds, detail, zoom in (
-            ("overview", [-84, 42, -82, 43], 0, 0),
-            ("focus", [-83.1, 42.3, -83.0, 42.4], 2, 12)):
-        records.append({"path": name, "bounds_deg": bounds, "detail_level": detail,
-                        "minimum_zoom": zoom,
-                        "sha256": hashlib.sha256((root/name/"terrain.json").read_bytes()).hexdigest()})
-    (root / "manifest.json").write_text(json.dumps({
-        "schema": 3, "layers": ["terrain"], "attribution": "USGS",
-        "maximum_zoom": 16, "tiles": records,
-    }))
+        ("overview", [-84, 42, -82, 43], 0, 0),
+        ("focus", [-83.1, 42.3, -83.0, 42.4], 2, 12),
+    ):
+        records.append(
+            {
+                "path": name,
+                "bounds_deg": bounds,
+                "detail_level": detail,
+                "minimum_zoom": zoom,
+                "sha256": hashlib.sha256((root / name / "terrain.json").read_bytes()).hexdigest(),
+            }
+        )
+    (root / "manifest.json").write_text(
+        json.dumps(
+            {
+                "schema": 3,
+                "layers": ["terrain"],
+                "attribution": "USGS",
+                "maximum_zoom": 16,
+                "tiles": records,
+            }
+        )
+    )
     state = load_terrain(root)
     document = state.document()
     assert document["maximum_zoom"] == 16

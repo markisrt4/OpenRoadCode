@@ -4,6 +4,7 @@
 This adapter owns the receiver process, not the Spotify Web API or UI.
 The receiver needs Spotify Premium and a compatible local audio backend.
 """
+
 from __future__ import annotations
 
 import logging
@@ -32,7 +33,11 @@ class LibrespotReceiver:
         self._executable = executable
         self._name = name
         self._backend = backend
-        self._cache_dir = Path(cache_dir).expanduser() if cache_dir else Path.home() / ".cache" / "openroadcode" / "librespot"
+        self._cache_dir = (
+            Path(cache_dir).expanduser()
+            if cache_dir
+            else Path.home() / ".cache" / "openroadcode" / "librespot"
+        )
         self._network_allowed = network_allowed
         self._lock = threading.RLock()
         self._process: subprocess.Popen | None = None
@@ -62,8 +67,10 @@ class LibrespotReceiver:
             if self._backend:
                 command.extend(["--backend", self._backend])
             self._process = subprocess.Popen(
-                command, stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                command,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
                 start_new_session=True,
             )
             LOGGER.info("Started librespot receiver pid=%s", self._process.pid)

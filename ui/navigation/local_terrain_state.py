@@ -35,10 +35,16 @@ class LocalTerrainState:
 
     def document(self):
         document = self.coverage.document()
-        document.update(width=self.width, height=self.height, heights_m=self.heights_m,
-                        reference_height_m=self.reference_height_m, vertical_datum=self.vertical_datum,
-                        detail_level=self.detail_level, minimum_zoom=self.minimum_zoom,
-                        display_mode="relative-relief")
+        document.update(
+            width=self.width,
+            height=self.height,
+            heights_m=self.heights_m,
+            reference_height_m=self.reference_height_m,
+            vertical_datum=self.vertical_datum,
+            detail_level=self.detail_level,
+            minimum_zoom=self.minimum_zoom,
+            display_mode="relative-relief",
+        )
         return document
 
 
@@ -51,14 +57,19 @@ class LocalTerrainMosaicState:
     maximum_zoom: int = 13
 
     def __post_init__(self):
-        if (not 1 <= len(self.tiles) <= 64 or not self.attribution.strip()
-                or type(self.maximum_zoom) is not int or not 1 <= self.maximum_zoom <= 18):
+        if (
+            not 1 <= len(self.tiles) <= 64
+            or not self.attribution.strip()
+            or type(self.maximum_zoom) is not int
+            or not 1 <= self.maximum_zoom <= 18
+        ):
             raise ValueError("Terrain mosaic requires 1–64 attributed tiles")
 
     def document(self):
         lowest_detail = min(tile.detail_level for tile in self.tiles)
-        baseline = [tile.reference_height_m for tile in self.tiles
-                    if tile.detail_level == lowest_detail]
+        baseline = [
+            tile.reference_height_m for tile in self.tiles if tile.detail_level == lowest_detail
+        ]
         reference = sum(baseline) / len(baseline)
         tiles = []
         for tile in self.tiles:

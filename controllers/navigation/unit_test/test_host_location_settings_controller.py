@@ -5,8 +5,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from controllers.navigation.host_location_settings_controller import HostLocationSettingsController
 from controllers.navigation.host_location_permission_if import HostLocationServiceUnavailable
+from controllers.navigation.host_location_settings_controller import HostLocationSettingsController
 
 
 def setup_controller(monkeypatch):
@@ -68,8 +68,10 @@ def test_unavailable_service_offers_restart_then_opens_permission(monkeypatch):
     assert "Permission page opened" in state.status
 
 
-@pytest.mark.parametrize('lifecycle', ['hide', 'close'])
-def test_late_worker_and_ui_callbacks_cannot_update_a_hidden_or_closed_screen(monkeypatch, lifecycle):
+@pytest.mark.parametrize("lifecycle", ["hide", "close"])
+def test_late_worker_and_ui_callbacks_cannot_update_a_hidden_or_closed_screen(
+    monkeypatch, lifecycle
+):
     controller, ui, permission, jobs, callbacks = setup_controller(monkeypatch)
     controller.share_host_location()
     jobs.pop()()

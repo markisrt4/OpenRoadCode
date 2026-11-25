@@ -194,6 +194,10 @@ class BrowserKioskLauncher(AppLauncherIf):
         if self.kiosk:
             command.append("--kiosk")
         if self.app_mode:
+            if self.window_position is not None and self.window_size is not None:
+                command.extend(
+                    ("--ozone-platform=x11", "--no-first-run", "--no-default-browser-check")
+                )
             command.append(f"--app={self.url}")
         if self.profile_path is not None:
             self.profile_path.mkdir(parents=True, exist_ok=True)

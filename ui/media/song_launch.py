@@ -1,4 +1,5 @@
 """Toolkit-independent requests for opening a discovered song."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

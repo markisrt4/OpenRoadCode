@@ -33,16 +33,24 @@ def regional_terrain_directory(coverage):
 
 
 def preferred_terrain_directory(destination=None):
-    packs = navigation_data_root()/'maps/3d/packs'
+    packs = navigation_data_root() / "maps/3d/packs"
     from development.maps.terrain_regions import MICHIGAN_SHARDS
-    candidates = (openroadcode_data_dir('map-packs','metro-detroit-terrain-active'),
-                  *(regional_terrain_directory(name) for name in MICHIGAN_SHARDS),
-                  regional_terrain_directory('michigan-overview'),
-                  packs/'detroit-midtown-terrain', midtown_terrain_directory(),
-                  packs/'detroit-downtown-terrain', detroit_terrain_directory(),
-                  packs/'pine-knob-terrain', pine_knob_terrain_directory(),
-                  packs/'rochester-terrain',openroadcode_data_dir('map-packs','rochester-terrain-v1'),
-                  packs/'southfield-terrain',openroadcode_data_dir('map-packs','southfield-terrain-v1'))
+
+    candidates = (
+        openroadcode_data_dir("map-packs", "metro-detroit-terrain-active"),
+        *(regional_terrain_directory(name) for name in MICHIGAN_SHARDS),
+        regional_terrain_directory("michigan-overview"),
+        packs / "detroit-midtown-terrain",
+        midtown_terrain_directory(),
+        packs / "detroit-downtown-terrain",
+        detroit_terrain_directory(),
+        packs / "pine-knob-terrain",
+        pine_knob_terrain_directory(),
+        packs / "rochester-terrain",
+        openroadcode_data_dir("map-packs", "rochester-terrain-v1"),
+        packs / "southfield-terrain",
+        openroadcode_data_dir("map-packs", "southfield-terrain-v1"),
+    )
     if destination is not None:
         longitude = math.degrees(destination.longitude_rad)
         latitude = math.degrees(destination.latitude_rad)
@@ -53,7 +61,7 @@ def preferred_terrain_directory(destination=None):
                 if west <= longitude <= east and south <= latitude <= north:
                     return directory
     for directory in candidates:
-        if (directory/'manifest.json').is_file():
+        if (directory / "manifest.json").is_file():
             return directory
     return detroit_terrain_directory()
 
@@ -73,24 +81,46 @@ def load_terrain(directory):
                 raise ValueError("Invalid terrain mosaic tile")
             relative = Path(record["path"])
             tile_root = (root / relative).resolve()
-            if (relative.is_absolute() or ".." in relative.parts or tile_root == root
-                    or not tile_root.is_relative_to(root) or record["path"] in names):
+            if (
+                relative.is_absolute()
+                or ".." in relative.parts
+                or tile_root == root
+                or not tile_root.is_relative_to(root)
+                or record["path"] in names
+            ):
                 raise ValueError("Terrain tile must be a unique directory inside the pack")
             names.add(record["path"])
             detail_level = record.get("detail_level", 0)
             minimum_zoom = record.get("minimum_zoom", 0)
-            if (type(detail_level) is not int or not 0 <= detail_level <= 8
-                    or type(minimum_zoom) is not int or not 0 <= minimum_zoom <= 18
-                    or (schema == 2 and (detail_level or minimum_zoom))):
+            if (
+                type(detail_level) is not int
+                or not 0 <= detail_level <= 8
+                or type(minimum_zoom) is not int
+                or not 0 <= minimum_zoom <= 18
+                or (schema == 2 and (detail_level or minimum_zoom))
+            ):
                 raise ValueError("Invalid terrain tile detail metadata")
-            state = _load_single_terrain(tile_root, detail_level=detail_level,
-                                         minimum_zoom=minimum_zoom)
+            state = _load_single_terrain(
+                tile_root, detail_level=detail_level, minimum_zoom=minimum_zoom
+            )
             expected_bounds = record.get("bounds_deg")
-            actual_bounds = [math.degrees(value) for value in (
-                state.coverage.west_rad, state.coverage.south_rad,
-                state.coverage.east_rad, state.coverage.north_rad)]
-            if (not isinstance(expected_bounds, list) or len(expected_bounds) != 4
-                    or any(abs(float(a)-b) > 1e-9 for a, b in zip(expected_bounds, actual_bounds))):
+            actual_bounds = [
+                math.degrees(value)
+                for value in (
+                    state.coverage.west_rad,
+                    state.coverage.south_rad,
+                    state.coverage.east_rad,
+                    state.coverage.north_rad,
+                )
+            ]
+            if (
+                not isinstance(expected_bounds, list)
+                or len(expected_bounds) != 4
+                or any(
+                    abs(float(a) - b) > 1e-9
+                    for a, b in zip(expected_bounds, actual_bounds, strict=True)
+                )
+            ):
                 raise ValueError("Terrain mosaic tile bounds do not match its manifest")
             digest = hashlib.sha256((tile_root / "terrain.json").read_bytes()).hexdigest()
             if record.get("sha256") != digest:
@@ -118,8 +148,18 @@ def _load_single_terrain(root, *, detail_level=0, minimum_zoom=0):
     if hashlib.sha256(content).hexdigest() != manifest["sha256"]:
         raise ValueError("Terrain checksum does not match manifest")
     data = json.loads(content)
-    coverage = LocalImageryState(manifest["title"], manifest["attribution"],
-                                 *(math.radians(v) for v in manifest["bounds_deg"]))
-    return LocalTerrainState(coverage, data["width"], data["height"], tuple(data["heights_m"]),
-                              data["reference_height_m"], data["vertical_datum"],
-                              detail_level, minimum_zoom)
+    coverage = LocalImageryState(
+        manifest["title"],
+        manifest["attribution"],
+        *(math.radians(v) for v in manifest["bounds_deg"]),
+    )
+    return LocalTerrainState(
+        coverage,
+        data["width"],
+        data["height"],
+        tuple(data["heights_m"]),
+        data["reference_height_m"],
+        data["vertical_datum"],
+        detail_level,
+        minimum_zoom,
+    )

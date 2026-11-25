@@ -272,9 +272,17 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
         self._location_handler = host_location_handler
         self._host_location_state = host_location_state
         self._location_button = tk.Button(
-            location, text="SHARE HOST LOCATION", command=self._location_action,
-            bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active,
-            relief=tk.FLAT, font=("Sans", FONT_CONTROL, "bold"), padx=10, pady=6)
+            location,
+            text="SHARE HOST LOCATION",
+            command=self._location_action,
+            bg=ui.control_background,
+            fg=ui.control_text,
+            activebackground=ui.control_active,
+            relief=tk.FLAT,
+            font=("Sans", FONT_CONTROL, "bold"),
+            padx=10,
+            pady=6,
+        )
         self._location_button.grid(row=0, column=1, rowspan=2, padx=14, pady=8)
         self.set_host_location_state(host_location_state)
         rf = self._build_rf_settings(body)
@@ -312,8 +320,11 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
         self._location_status.set(state.status)
         self._location_button.configure(
             text="RESTART LOCATION SERVICE" if state.can_restart else "SHARE HOST LOCATION",
-            state=tk.DISABLED if state.busy or (not state.can_share and not state.can_restart)
-            or self._location_handler is None else tk.NORMAL,
+            state=tk.DISABLED
+            if state.busy
+            or (not state.can_share and not state.can_restart)
+            or self._location_handler is None
+            else tk.NORMAL,
         )
 
     @property

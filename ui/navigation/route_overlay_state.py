@@ -1,7 +1,7 @@
 """Immutable renderer-neutral state for an active navigation route."""
 
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
 
 from ui.navigation.map_ui_if import GeoPoint, RouteGeometry
 
@@ -23,20 +23,27 @@ class RouteOverlayState:
         for point in (*self.geometry.points, self.destination, self.maneuver):
             if point is None:
                 continue
-            if (not math.isfinite(point.latitude_rad)
-                    or not math.isfinite(point.longitude_rad)
-                    or abs(point.latitude_rad) > math.pi / 2
-                    or abs(point.longitude_rad) > math.pi):
+            if (
+                not math.isfinite(point.latitude_rad)
+                or not math.isfinite(point.longitude_rad)
+                or abs(point.latitude_rad) > math.pi / 2
+                or abs(point.longitude_rad) > math.pi
+            ):
                 raise ValueError("Route overlay contains an invalid point")
         if self.instruction is not None and len(self.instruction) > 240:
             raise ValueError("Route instruction is too long")
 
     def document(self):
         def point(value):
-            return None if value is None else {
-                "latitude_rad": value.latitude_rad,
-                "longitude_rad": value.longitude_rad,
-            }
+            return (
+                None
+                if value is None
+                else {
+                    "latitude_rad": value.latitude_rad,
+                    "longitude_rad": value.longitude_rad,
+                }
+            )
+
         return {
             "points": [point(value) for value in self.geometry.points],
             "destination": point(self.destination),

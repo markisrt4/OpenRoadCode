@@ -3,41 +3,49 @@
 
 from __future__ import annotations
 
-import os
-import subprocess
 import tkinter as tk
-from concurrent.futures import ThreadPoolExecutor
-from controllers.media.youtube_search_resolver import first_video_url
 from collections.abc import Callable
 
 from frontends.x11 import X11WindowEmbedder
+from ui.media.trending_video import TrendingVideoSession
+from ui.ui_widget import UiWidget
 
 
-class TrendingVideoPane(tk.Frame):
+class TrendingVideoPane(tk.Frame, UiWidget):
     """Own a single browser embedding and its managed process lifecycle."""
 
-    def __init__(self, parent: tk.Misc, *, query: str,
-                 play: Callable[..., bool], stop: Callable[[], None],
-                 on_back: Callable[[], None], window_class: str,
-                 background: str, foreground: str) -> None:
+    def __init__(
+        self,
+        parent: tk.Misc,
+        *,
+        session: TrendingVideoSession,
+        on_back: Callable[[], None],
+        window_class: str,
+        background: str,
+        foreground: str,
+        on_error: Callable[[str], None],
+    ) -> None:
         super().__init__(parent, bg=background)
-        self._play = play
-        self._stop = stop
-        self._query = query
+        self._session = session
+        self._on_error = on_error
         self._window_class = window_class
         self._embedder = X11WindowEmbedder()
         self._pending: str | None = None
         self._closed = False
-        self._resolver = ThreadPoolExecutor(max_workers=1, thread_name_prefix="trending-youtube")
-        self._future = self._resolver.submit(first_video_url, query)
-        self._resolved_target = query
         bar = tk.Frame(self, bg=background)
         bar.pack(fill=tk.X)
-        tk.Button(bar, text="‹ BACK TO FM", command=on_back,
-                  bg=background, fg=foreground, relief=tk.FLAT,
-                  font=("Sans", 11, "bold")).pack(side=tk.LEFT)
-        self._status = tk.Label(bar, text="Opening YouTube…", bg=background,
-                                fg=foreground, anchor="w")
+        tk.Button(
+            bar,
+            text="‹ BACK",
+            command=on_back,
+            bg=background,
+            fg=foreground,
+            relief=tk.FLAT,
+            font=("Sans", 11, "bold"),
+        ).pack(side=tk.LEFT)
+        self._status = tk.Label(
+            bar, text="Opening YouTube…", bg=background, fg=foreground, anchor="w"
+        )
         self._status.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self._host = tk.Frame(self, bg=background)
         self._host.pack(fill=tk.BOTH, expand=True)
@@ -48,16 +56,13 @@ class TrendingVideoPane(tk.Frame):
         self._pending = None
         if self._closed:
             return
-        if not self._future.done():
+        target = self._session.poll_target()
+        if target is None:
             self._pending = self.after(100, self._await_result)
             return
-        try:
-            self._resolved_target = self._future.result()
-        except Exception:
-            self._resolved_target = self._query
-        self._launch()
+        self._launch(target)
 
-    def _launch(self) -> None:
+    def _launch(self, target: str) -> None:
         self._pending = None
         if self._closed or not self._host.winfo_exists():
             return
@@ -65,30 +70,32 @@ class TrendingVideoPane(tk.Frame):
             self._host.update_idletasks()
             width = max(1, self._host.winfo_width())
             height = max(1, self._host.winfo_height())
-            if not self._play(
-                self._resolved_target, display=os.environ.get("DISPLAY", ":1"),
-                window_position=(self._host.winfo_rootx(), self._host.winfo_rooty()),
-                window_size=(width, height),
+            if not self._session.play(
+                target,
+                (self._host.winfo_rootx(), self._host.winfo_rooty()),
+                (width, height),
             ):
                 raise RuntimeError("YouTube browser could not start")
-            self._embedder.embed(0, int(self._host.winfo_id()), width, height,
-                                 window_class=self._window_class)
-            self._status.configure(text="YOUTUBE")
+            self._embedder.embed(
+                0,
+                int(self._host.winfo_id()),
+                width,
+                height,
+                window_class=self._window_class,
+                relax_size_hints=True,
+            )
+            self._status.configure(text="")
             self.after(900, self._maximize_player)
         except Exception as exc:
-            self._status.configure(text=f"YouTube unavailable: {exc}")
+            self._session.close()
+            self._status.configure(text="YouTube unavailable")
+            self._on_error(str(exc))
 
     def _maximize_player(self) -> None:
         """Request YouTube theater mode without fullscreening the ORC window."""
         if self._closed or self._embedder.window_id is None:
             return
-        try:
-            subprocess.run(
-                ["xdotool", "key", "--window", str(self._embedder.window_id), "t"],
-                check=False, timeout=1, capture_output=True,
-            )
-        except (OSError, subprocess.TimeoutExpired):
-            pass
+        self._session.theater(self._embedder.window_id)
 
     def _resize(self, event: tk.Event) -> None:
         if self._embedder.window_id is not None:
@@ -103,7 +110,5 @@ class TrendingVideoPane(tk.Frame):
         # Reparenting it during shutdown races Chromium's own window destruction
         # and produces BadWindow errors on Termux X11. Stop the process instead.
         self._embedder.clear()
-        self._resolver.shutdown(wait=False, cancel_futures=True)
-        from threading import Thread
-        Thread(target=self._stop, name="trending-browser-close", daemon=True).start()
+        self._session.close()
         super().destroy()

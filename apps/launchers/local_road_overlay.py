@@ -55,34 +55,46 @@ def decode_overlay(blob, z, x, y):
         decoder = zlib.decompressobj(31)
         blob = decoder.decompress(blob, 8 * 1024 * 1024 + 1)
         if not decoder.eof:
-            raise ValueError('Road tile decompression exceeds limit')
-    if len(blob)>8*1024*1024:
-        raise ValueError('Road tile exceeds limit')
-    roads=[];places=[];point_budget=12000
-    features=inspect_tile(blob)
+            raise ValueError("Road tile decompression exceeds limit")
+    if len(blob) > 8 * 1024 * 1024:
+        raise ValueError("Road tile exceeds limit")
+    roads = []
+    places = []
+    point_budget = 12000
+    features = inspect_tile(blob)
+
     def priority(feature):
-        layer = feature['layer']
-        attrs = feature['attributes']
-        kind = attrs.get('class', '')
-        road_rank = {'motorway': 0, 'trunk': 1, 'primary': 2, 'secondary': 3,
-                     'tertiary': 4, 'minor': 5, 'residential': 6,
-                     'unclassified': 7, 'service': 8}.get(kind, 9)
-        if layer == 'transportation':
+        layer = feature["layer"]
+        attrs = feature["attributes"]
+        kind = attrs.get("class", "")
+        road_rank = {
+            "motorway": 0,
+            "trunk": 1,
+            "primary": 2,
+            "secondary": 3,
+            "tertiary": 4,
+            "minor": 5,
+            "residential": 6,
+            "unclassified": 7,
+            "service": 8,
+        }.get(kind, 9)
+        if layer == "transportation":
             return (0, road_rank, 0, 0)
-        if layer == 'transportation_name':
+        if layer == "transportation_name":
             return (1, road_rank, 0, 0)
-        if layer != 'place':
+        if layer != "place":
             return (3, 0, 0, 0)
-        kind_rank = {'city': 0, 'town': 1, 'village': 2, 'suburb': 3}.get(kind, 9)
+        kind_rank = {"city": 0, "town": 1, "village": 2, "suburb": 3}.get(kind, 9)
         try:
-            rank = int(attrs.get('rank', 99))
+            rank = int(attrs.get("rank", 99))
         except (TypeError, ValueError):
             rank = 99
         try:
-            population = int(str(attrs.get('population', '0')).replace(',', ''))
+            population = int(str(attrs.get("population", "0")).replace(",", ""))
         except (TypeError, ValueError):
             population = 0
         return (2, kind_rank, rank, -population)
+
     features.sort(key=priority)
     for feature in features:
         layer = feature["layer"]
@@ -90,36 +102,64 @@ def decode_overlay(blob, z, x, y):
         kind = attrs.get("class", "")
         if layer not in ("transportation", "transportation_name", "place"):
             continue
-        if layer=='place':
-            allowed = ({'city'} if z <= 10 else {'city','town'} if z == 11
-                       else {'city','town','village'} if z == 12
-                       else {'city','town','village','suburb'})
+        if layer == "place":
+            allowed = (
+                {"city"}
+                if z <= 10
+                else {"city", "town"}
+                if z == 11
+                else {"city", "town", "village"}
+                if z == 12
+                else {"city", "town", "village", "suburb"}
+            )
             budget = 1 if z <= 11 else 2 if z <= 12 else 3
             if kind not in allowed or len(places) >= budget:
                 continue
-        if layer!='place' and (kind not in KINDS or feature['geometry_type']!=2
-                               or (kind in {'minor','residential','unclassified','service'} and z<13)):
+        if layer != "place" and (
+            kind not in KINDS
+            or feature["geometry_type"] != 2
+            or (kind in {"minor", "residential", "unclassified", "service"} and z < 13)
+        ):
             continue
-        extent=feature['extent']
-        if not 256<=extent<=8192:
-            raise ValueError('Unsupported road tile extent')
-        def point(px,py):
-            n=2**z
-            return GeoPoint(math.atan(math.sinh(math.pi*(1-2*(y+py/extent)/n))),
-                            (((x+px/extent)/n*2*math.pi)%(2*math.pi))-math.pi)
-        name=str(attrs.get('name:en') or attrs.get('name:latin') or attrs.get('name') or '')[:80]
-        for path in geometry_paths(feature['geometry']):
-            if layer=='place' and path:
-                px,py=path[0]
-                if name and 0<=px<extent and 0<=py<extent:
-                    places.append(PlaceOverlayLabel(name,point(px,py)))
-            elif feature['geometry_type']==2 and 1<len(path)<=point_budget and len(roads)<500:
-                point_budget-=len(path)
-                label=str((attrs.get('ref') or name) if kind in {'motorway','trunk'} else (name or attrs.get('ref') or ''))[:80] if layer=='transportation_name' else ''
-                roads.append(RoadOverlayLine(
-                    kind, tuple(point(px,py) for px,py in path), label,
-                    geometry_visible=layer == 'transportation'))
-    return RoadOverlayState(tuple(roads),tuple(places))
+        extent = feature["extent"]
+        if not 256 <= extent <= 8192:
+            raise ValueError("Unsupported road tile extent")
+
+        def point(px, py, extent=extent):
+            n = 2**z
+            return GeoPoint(
+                math.atan(math.sinh(math.pi * (1 - 2 * (y + py / extent) / n))),
+                (((x + px / extent) / n * 2 * math.pi) % (2 * math.pi)) - math.pi,
+            )
+
+        name = str(attrs.get("name:en") or attrs.get("name:latin") or attrs.get("name") or "")[:80]
+        for path in geometry_paths(feature["geometry"]):
+            if layer == "place" and path:
+                px, py = path[0]
+                if name and 0 <= px < extent and 0 <= py < extent:
+                    places.append(PlaceOverlayLabel(name, point(px, py)))
+            elif (
+                feature["geometry_type"] == 2 and 1 < len(path) <= point_budget and len(roads) < 500
+            ):
+                point_budget -= len(path)
+                label = (
+                    str(
+                        (attrs.get("ref") or name)
+                        if kind in {"motorway", "trunk"}
+                        else (name or attrs.get("ref") or "")
+                    )[:80]
+                    if layer == "transportation_name"
+                    else ""
+                )
+                roads.append(
+                    RoadOverlayLine(
+                        kind,
+                        tuple(point(px, py) for px, py in path),
+                        label,
+                        geometry_visible=layer == "transportation",
+                    )
+                )
+    return RoadOverlayState(tuple(roads), tuple(places))
 
 
 class LocalRoadOverlay:

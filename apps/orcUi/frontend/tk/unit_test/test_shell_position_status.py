@@ -21,12 +21,14 @@ def shell():
 def test_cached_fix_is_presented_as_estimated():
     view = shell()
 
-    view.set_position_state(PositionPresentationState(
-        latitude_deg=42.3,
-        longitude_deg=-83.0,
-        fix_mode=3,
-        is_cached=True,
-    ))
+    view.set_position_state(
+        PositionPresentationState(
+            latitude_deg=42.3,
+            longitude_deg=-83.0,
+            fix_mode=3,
+            is_cached=True,
+        )
+    )
 
     view._position_status_label.configure.assert_called_once_with(
         text="GPS EST   ◌🚗",
@@ -37,11 +39,13 @@ def test_cached_fix_is_presented_as_estimated():
 def test_live_fix_replaces_estimated_status():
     view = shell()
 
-    view.set_position_state(PositionPresentationState(
-        latitude_deg=42.3,
-        longitude_deg=-83.0,
-        fix_mode=3,
-    ))
+    view.set_position_state(
+        PositionPresentationState(
+            latitude_deg=42.3,
+            longitude_deg=-83.0,
+            fix_mode=3,
+        )
+    )
 
     view._position_status_label.configure.assert_called_once_with(
         text="GPS LIVE   🚗",

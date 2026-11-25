@@ -26,11 +26,10 @@ from apps.launchers.local_terrain_pack import load_terrain, preferred_terrain_di
 from common.logging.logging_paths import logging_file_path
 from frontends.x11.x11_window_embedder import X11WindowEmbedder
 from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
+from ui.navigation import GeoPoint
 from ui.navigation.map_platform_if import ExplorationCameraAction
 from ui.navigation.poi_overlay_state import PoiOverlayState
 from ui.navigation.route_overlay_state import RouteOverlayState
-from ui.navigation import GeoPoint
-from ui.navigation.map_platform_if import ExplorationCameraAction
 
 
 def _diagnostic(stage, **details):
@@ -50,8 +49,8 @@ def _rendering_arguments():
     mode = os.environ.get("OPENROAD_CESIUM_RENDERER", "default")
     if mode == "default":
         return ()
-    if mode == 'hardware-override':
-        return ('--ignore-gpu-blocklist',)
+    if mode == "hardware-override":
+        return ("--ignore-gpu-blocklist",)
     if mode == "software":
         return (
             "--use-gl=angle",
@@ -60,7 +59,7 @@ def _rendering_arguments():
             "--disable-gpu-compositing",
             "--disable-features=Vulkan",
         )
-    raise ValueError('OPENROAD_CESIUM_RENDERER must be default, hardware-override or software')
+    raise ValueError("OPENROAD_CESIUM_RENDERER must be default, hardware-override or software")
 
 
 class CesiumEmbeddedViewer:
@@ -277,15 +276,20 @@ class CesiumEmbeddedViewer:
         if size != self._size:
             self._embedder.resize(*size)
             self._size = size
-        result = self._devtools.command(self._target, 'Runtime.evaluate', {
-            'expression':'({revision:window.ORCManualCameraRevision||0,poi:window.ORCConsumePoiSelection?window.ORCConsumePoiSelection():null})',
-            'returnByValue':True})
-        value = result.get('result', {}).get('value', {})
-        revision = value.get('revision', 0)
+        result = self._devtools.command(
+            self._target,
+            "Runtime.evaluate",
+            {
+                "expression": "({revision:window.ORCManualCameraRevision||0,poi:window.ORCConsumePoiSelection?window.ORCConsumePoiSelection():null})",
+                "returnByValue": True,
+            },
+        )
+        value = result.get("result", {}).get("value", {})
+        revision = value.get("revision", 0)
         if type(revision) is int and revision != self._manual_revision:
             self._manual_pending = True
             self._manual_revision = revision
-        marker_id = value.get('poi')
+        marker_id = value.get("poi")
         if isinstance(marker_id, str) and marker_id:
             self._poi_selection = marker_id
         return True
@@ -321,25 +325,35 @@ class CesiumEmbeddedViewer:
 
     def update_poi_overlay(self, state):
         if self._devtools is None:
-            raise RuntimeError('3D POI overlay is not ready')
+            raise RuntimeError("3D POI overlay is not ready")
         if not isinstance(state, PoiOverlayState):
-            raise TypeError('3D POI overlay requires PoiOverlayState')
-        result = self._devtools.command(self._target, 'Runtime.evaluate', {
-            'expression':f'window.ORCUpdatePois({json.dumps(state.document())})',
-            'returnByValue':True})
-        if result.get('exceptionDetails') or result.get('result', {}).get('value') is not True:
-            raise RuntimeError('3D POI overlay rejected the update')
+            raise TypeError("3D POI overlay requires PoiOverlayState")
+        result = self._devtools.command(
+            self._target,
+            "Runtime.evaluate",
+            {
+                "expression": f"window.ORCUpdatePois({json.dumps(state.document())})",
+                "returnByValue": True,
+            },
+        )
+        if result.get("exceptionDetails") or result.get("result", {}).get("value") is not True:
+            raise RuntimeError("3D POI overlay rejected the update")
 
     def update_route_overlay(self, state):
         if self._devtools is None:
-            raise RuntimeError('3D route overlay is not ready')
+            raise RuntimeError("3D route overlay is not ready")
         if not isinstance(state, RouteOverlayState):
-            raise TypeError('3D route overlay requires RouteOverlayState')
-        result = self._devtools.command(self._target, 'Runtime.evaluate', {
-            'expression':f'window.ORCUpdateRoute({json.dumps(state.document())})',
-            'returnByValue':True})
-        if result.get('exceptionDetails') or result.get('result', {}).get('value') is not True:
-            raise RuntimeError('3D route overlay rejected the update')
+            raise TypeError("3D route overlay requires RouteOverlayState")
+        result = self._devtools.command(
+            self._target,
+            "Runtime.evaluate",
+            {
+                "expression": f"window.ORCUpdateRoute({json.dumps(state.document())})",
+                "returnByValue": True,
+            },
+        )
+        if result.get("exceptionDetails") or result.get("result", {}).get("value") is not True:
+            raise RuntimeError("3D route overlay rejected the update")
 
     def close(self):
         resources, self._resources = self._resources, None

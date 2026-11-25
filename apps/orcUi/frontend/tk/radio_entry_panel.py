@@ -17,7 +17,7 @@ from ui.theme import ThemeBundle
 from ui.ui_widget import UiWidget
 
 from .radio_source_icon import draw_source_icon, draw_source_scene
-from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
+from .shell_metrics import FONT_BODY, FONT_CONTROL
 from .trending_radio_panel import TrendingRadioPanel
 
 
@@ -33,7 +33,10 @@ class RadioEntryPanel(tk.Frame, UiWidget):
             [tk.Misc, ThemeBundle, Callable[[], None]], PersistentStreamingRadioPanel
         ],
         theme: ThemeBundle,
-        trending_panel_factory: Callable[[tk.Misc, ThemeBundle, Callable[[], None]], TrendingRadioPanel] | None = None,
+        trending_panel_factory: Callable[
+            [tk.Misc, ThemeBundle, Callable[[], None]], TrendingRadioPanel
+        ]
+        | None = None,
         on_location_changed: Callable[[str], None] | None = None,
         online_mode: OnlineModeIf | None = None,
     ) -> None:
@@ -127,7 +130,9 @@ class RadioEntryPanel(tk.Frame, UiWidget):
             self._streaming_page.grid_remove()
         self._chooser.grid_remove()
         if self._trending_page is None or not self._trending_page.winfo_exists():
-            self._trending_page = self._trending_panel_factory(self, self._theme, self._show_chooser)
+            self._trending_page = self._trending_panel_factory(
+                self, self._theme, self._show_chooser
+            )
         self._trending_page.grid(row=0, column=0, sticky="nsew")
         self._trending_page.refresh()
         self._set_location("TRENDING")
@@ -181,12 +186,15 @@ class RadioEntryPanel(tk.Frame, UiWidget):
         self._trending_button = None
         if self._trending_panel_factory is not None:
             trending_card, self._trending_button = self._build_source_card(
-                parent=self._chooser, title="TRENDING",
+                parent=self._chooser,
+                title="TRENDING",
                 eyebrow="MUSICFORGE · AIRPLAY CHARTS",
                 description="Explore songs heard on Detroit radio and search for them on YouTube.",
                 features="TODAY  •  7 DAYS  •  30 DAYS",
-                action_text="EXPLORE TRENDING  ›", accent="#C58AF9",
-                icon_kind="trending", command=self.open_trending,
+                action_text="EXPLORE TRENDING  ›",
+                accent="#C58AF9",
+                icon_kind="trending",
+                command=self.open_trending,
             )
             trending_card.grid(row=0, column=1, sticky="nsew", padx=5, pady=(18, 12))
 
@@ -288,10 +296,13 @@ class RadioEntryPanel(tk.Frame, UiWidget):
             anchor="w",
         )
         title_label.grid(row=1, column=1, sticky="nw")
-        heading.bind("<Configure>", lambda event: (
-            eyebrow_label.configure(wraplength=max(50, event.width - 70)),
-            title_label.configure(wraplength=max(50, event.width - 70)),
-        ))
+        heading.bind(
+            "<Configure>",
+            lambda event: (
+                eyebrow_label.configure(wraplength=max(50, event.width - 70)),
+                title_label.configure(wraplength=max(50, event.width - 70)),
+            ),
+        )
 
         body = tk.Frame(card, bg=ui.surface)
         body.grid(row=2, column=0, sticky="nsew", padx=12, pady=(4, 10))
@@ -317,10 +328,13 @@ class RadioEntryPanel(tk.Frame, UiWidget):
             anchor="w",
         )
         feature_label.grid(row=1, column=0, sticky="ew", pady=(14, 8))
-        body.bind("<Configure>", lambda event: (
-            description_label.configure(wraplength=max(1, event.width - 8)),
-            feature_label.configure(wraplength=max(1, event.width - 8)),
-        ))
+        body.bind(
+            "<Configure>",
+            lambda event: (
+                description_label.configure(wraplength=max(1, event.width - 8)),
+                feature_label.configure(wraplength=max(1, event.width - 8)),
+            ),
+        )
         button = tk.Button(
             body,
             text=action_text,

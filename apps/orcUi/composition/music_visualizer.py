@@ -7,12 +7,35 @@
 from __future__ import annotations
 
 import os
+import tkinter as tk
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from common.resource_cleanup import ResourceCleanup
 from controllers.audio.capture import AndroidPlaybackAudioCapture, PipewireAudioCapture
 from controllers.audio.music_analysis.music_visualizer_session import MusicVisualizerSession
 from ui.music_visualizer import MusicVisualizerSource, VisualizerFrame
+from ui.theme import ThemeBundle
+
+if TYPE_CHECKING:
+    from apps.orcUi.adapters.music_visualizer_browser import MusicVisualizerBrowser
+    from controllers.audio.music_analysis.music_visualizer_controller import (
+        MusicVisualizerController,
+    )
+
+
+def home_spectrum_factory(
+    theme: Callable[[], ThemeBundle],
+    runtime: MusicVisualizerController | MusicVisualizerBrowser,
+    on_open: Callable[[], None],
+) -> Callable[[tk.Misc], tk.Widget]:
+    """Bind the shared Home spectrum strip."""
+    from frontends.tk.media.home_spectrum_bar import HomeSpectrumBar
+
+    def create(parent: tk.Misc) -> tk.Widget:
+        return HomeSpectrumBar(parent, controller=runtime, theme_bundle=theme, on_open=on_open)
+
+    return create
 
 
 def selected_music_visualizer_source() -> MusicVisualizerSource:

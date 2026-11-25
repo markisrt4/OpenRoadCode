@@ -16,6 +16,7 @@ from config.service_runtime_config import (
     NavigationServiceRuntimeConfig,
     ServiceRuntimeConfigParser,
 )
+from controllers.cache import PersistentCache
 from controllers.geocoding.sqlite_geocoder import SqliteGeocoder
 from controllers.navigation import (
     AndroidNavigationSensor,
@@ -25,7 +26,6 @@ from controllers.navigation import (
     PersistentPositionSource,
     PositionSnapshotCache,
 )
-from controllers.cache import PersistentCache
 from controllers.navigation.android_position_source import AndroidPositionSource
 from controllers.navigation.browser_position_source import BrowserPositionSource
 from controllers.navigation.fallback_position_source import FallbackPositionSource
@@ -243,9 +243,7 @@ def main() -> int:
         return 0
 
     position_source = _build_position_source(config)
-    route_simulator = (
-        position_source if isinstance(position_source, RouteSimulationIf) else None
-    )
+    route_simulator = position_source if isinstance(position_source, RouteSimulationIf) else None
     if system.position_cache.enabled and config.gps.source != "simulation":
         position_source = PersistentPositionSource(
             position_source,

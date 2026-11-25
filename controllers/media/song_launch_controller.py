@@ -1,4 +1,5 @@
 """Route discovered songs to existing provider search experiences."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
