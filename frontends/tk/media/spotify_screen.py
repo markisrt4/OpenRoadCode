@@ -211,20 +211,6 @@ class SpotifyScreen(TkScreen, MediaUiIf):
             row, text="SPOTIFY", bg=surface, fg=SPOTIFY_GREEN, font=("Sans", 9, "bold")
         )
         self._account_label.pack(side=tk.LEFT, padx=10, pady=8)
-        if self._show_account_configuration is not None:
-            self._configuration_button = tk.Button(
-                row,
-                text="CONFIGURE",
-                command=self._show_account_configuration,
-                bg=button_bg,
-                fg=button_fg,
-                relief=tk.FLAT,
-                bd=0,
-                font=("Sans", 8, "bold"),
-                padx=10,
-                pady=5,
-            )
-            self._configuration_button.pack(side=tk.RIGHT, padx=(4, 8), pady=5)
         if self._account_session is not None:
             self._account_button = tk.Button(
                 row,
