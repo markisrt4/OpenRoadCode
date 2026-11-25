@@ -2,6 +2,8 @@
 
 import threading
 from collections import deque
+from collections.abc import Callable
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
@@ -16,8 +18,20 @@ from ui.games.game_window_embedder_if import GameWindowEmbedderIf
 from ui.games.games_session_if import GamesRuntimeUiIf
 
 
+RuntimeFixture = tuple[
+    GamesSession,
+    Mock,
+    Mock,
+    Mock,
+    Mock,
+    Mock,
+    deque[Callable[[], None]],
+    deque[Callable[[], None]],
+]
+
+
 @pytest.fixture
-def runtime(tmp_path, monkeypatch):
+def runtime(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> RuntimeFixture:
     monkeypatch.setattr(
         "controllers.games.game_controller.GameInventoryCache",
         lambda: GameInventoryCache(tmp_path / "inventory.json"),
@@ -34,7 +48,8 @@ def runtime(tmp_path, monkeypatch):
     launcher.process_id = 42
     embedder = Mock(spec=GameWindowEmbedderIf)
     embedder.supported.return_value = True
-    work, ui = deque(), deque()
+    work: deque[Callable[[], None]] = deque()
+    ui: deque[Callable[[], None]] = deque()
     session = GamesSession(
         [game],
         [backend],
@@ -53,16 +68,18 @@ def runtime(tmp_path, monkeypatch):
     return session, launcher, embedder, view, inventory, handler, work, ui
 
 
-def drain(queue):
+def drain(queue: deque[Callable[[], None]]) -> None:
     while queue:
         queue.popleft()()
 
 
-def launch(runtime):
+def launch(runtime: RuntimeFixture) -> None:
     runtime[5].request_launch_game("Mines")
 
 
-def test_launch_uses_actual_launcher_contract_and_embedding_selectors(runtime):
+def test_launch_uses_actual_launcher_contract_and_embedding_selectors(
+    runtime: RuntimeFixture,
+) -> None:
     session, launcher, embedder, view, inventory, handler, work, ui = runtime
     launch(runtime)
     assert launcher.launch.call_args.args[1] == ("runtime", "mines")
@@ -84,7 +101,9 @@ def test_launch_uses_actual_launcher_contract_and_embedding_selectors(runtime):
     assert inventory.set_games.call_args.args[0][0].status is GameStatus.RUNNING
 
 
-def test_hide_before_embedding_drops_native_work_and_late_process_exit(runtime):
+def test_hide_before_embedding_drops_native_work_and_late_process_exit(
+    runtime: RuntimeFixture,
+) -> None:
     session, launcher, embedder, view, inventory, handler, work, ui = runtime
     launch(runtime)
     exited = launcher.launch.call_args.kwargs["on_exit"]
@@ -100,7 +119,9 @@ def test_hide_before_embedding_drops_native_work_and_late_process_exit(runtime):
     assert not view.mock_calls
 
 
-def test_queued_embed_completion_cannot_touch_reactivated_destination(runtime):
+def test_queued_embed_completion_cannot_touch_reactivated_destination(
+    runtime: RuntimeFixture,
+) -> None:
     session, launcher, embedder, view, inventory, handler, work, ui = runtime
     launch(runtime)
     work.popleft()()  # Successful embed completion queued.
@@ -114,7 +135,7 @@ def test_queued_embed_completion_cannot_touch_reactivated_destination(runtime):
     assert next_inventory.set_games.call_args.args[0][0].status is GameStatus.READY
 
 
-def test_old_exit_does_not_stop_a_new_launch(runtime):
+def test_old_exit_does_not_stop_a_new_launch(runtime: RuntimeFixture) -> None:
     session, launcher, embedder, view, inventory, handler, work, ui = runtime
     launch(runtime)
     old_exit = launcher.launch.call_args.kwargs["on_exit"]
@@ -128,7 +149,7 @@ def test_old_exit_does_not_stop_a_new_launch(runtime):
     assert inventory.set_games.call_args.args[0][0].status is GameStatus.RUNNING
 
 
-def test_embed_failure_stops_process_and_restores_inventory(runtime):
+def test_embed_failure_stops_process_and_restores_inventory(runtime: RuntimeFixture) -> None:
     session, launcher, embedder, view, inventory, handler, work, ui = runtime
     embedder.embed.side_effect = RuntimeError("native host disappeared")
     launch(runtime)
@@ -141,7 +162,7 @@ def test_embed_failure_stops_process_and_restores_inventory(runtime):
     assert inventory.set_games.call_args.args[0][0].status is GameStatus.READY
 
 
-def test_missing_platform_support_does_not_launch_or_create_host(runtime):
+def test_missing_platform_support_does_not_launch_or_create_host(runtime: RuntimeFixture) -> None:
     session, launcher, embedder, view, inventory, handler, work, ui = runtime
     embedder.supported.return_value = False
     launch(runtime)
@@ -150,7 +171,7 @@ def test_missing_platform_support_does_not_launch_or_create_host(runtime):
     assert inventory.set_games.call_args.args[0][0].status is GameStatus.ERROR
 
 
-def test_failed_launch_releases_native_resources_and_restores_view(runtime):
+def test_failed_launch_releases_native_resources_and_restores_view(runtime: RuntimeFixture) -> None:
     session, launcher, embedder, view, inventory, handler, work, ui = runtime
     launcher.launch.side_effect = OSError("executable missing")
     launch(runtime)
@@ -162,7 +183,7 @@ def test_failed_launch_releases_native_resources_and_restores_view(runtime):
     assert inventory.set_games.call_args.args[0][0].status is GameStatus.ERROR
 
 
-def test_close_attempts_all_native_cleanup_and_is_idempotent(runtime):
+def test_close_attempts_all_native_cleanup_and_is_idempotent(runtime: RuntimeFixture) -> None:
     session, launcher, embedder, view, inventory, handler, work, ui = runtime
     launch(runtime)
     launcher.stop.side_effect = RuntimeError("stop failed")
@@ -178,7 +199,7 @@ def test_close_attempts_all_native_cleanup_and_is_idempotent(runtime):
         session.activate(inventory, view)
 
 
-def test_stale_resize_after_hide_is_not_sent_to_native_adapter(runtime):
+def test_stale_resize_after_hide_is_not_sent_to_native_adapter(runtime: RuntimeFixture) -> None:
     session, launcher, embedder, view, inventory, handler, work, ui = runtime
     launch(runtime)
     drain(work)
@@ -190,11 +211,11 @@ def test_stale_resize_after_hide_is_not_sent_to_native_adapter(runtime):
     embedder.resize.assert_not_called()
 
 
-def test_stop_cannot_clear_adapter_while_embedding_is_in_flight(runtime):
+def test_stop_cannot_clear_adapter_while_embedding_is_in_flight(runtime: RuntimeFixture) -> None:
     session, launcher, embedder, view, inventory, handler, work, ui = runtime
     entered, release, stop_started = threading.Event(), threading.Event(), threading.Event()
 
-    def embed(*args, **kwargs):
+    def embed(*args: object, **kwargs: object) -> int:
         entered.set()
         assert release.wait(3)
         return 1
@@ -207,7 +228,7 @@ def test_stop_cannot_clear_adapter_while_embedding_is_in_flight(runtime):
     session.deactivate()
     stop = work.popleft()
 
-    def stop_work():
+    def stop_work() -> None:
         stop_started.set()
         stop()
 
@@ -228,7 +249,9 @@ def test_stop_cannot_clear_adapter_while_embedding_is_in_flight(runtime):
     assert not view.mock_calls
 
 
-def test_stop_requested_before_hide_cannot_stop_a_replacement_session(runtime):
+def test_stop_requested_before_hide_cannot_stop_a_replacement_session(
+    runtime: RuntimeFixture,
+) -> None:
     session, launcher, embedder, view, inventory, handler, work, ui = runtime
     launch(runtime)
     drain(work)
@@ -242,7 +265,9 @@ def test_stop_requested_before_hide_cannot_stop_a_replacement_session(runtime):
     assert not work
 
 
-def test_close_releases_native_resources_even_when_ui_detachment_fails(runtime):
+def test_close_releases_native_resources_even_when_ui_detachment_fails(
+    runtime: RuntimeFixture,
+) -> None:
     session, launcher, embedder, view, inventory, handler, work, ui = runtime
     inventory.set_games_request_handler.side_effect = RuntimeError("detach failed")
     with pytest.raises(RuntimeError, match="detach failed"):
@@ -251,14 +276,14 @@ def test_close_releases_native_resources_even_when_ui_detachment_fails(runtime):
     embedder.clear.assert_called_once()
 
 
-def test_delayed_duplicate_cleanup_cannot_stop_a_new_process(runtime):
+def test_delayed_duplicate_cleanup_cannot_stop_a_new_process(runtime: RuntimeFixture) -> None:
     session, launcher, embedder, view, inventory, handler, work, ui = runtime
     launch(runtime)
     drain(work)
     drain(ui)
     entered, release = threading.Event(), threading.Event()
 
-    def stop():
+    def stop() -> None:
         entered.set()
         assert release.wait(3)
 
