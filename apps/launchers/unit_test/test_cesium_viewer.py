@@ -10,7 +10,6 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from apps.launchers.cesium_viewer_server import CesiumViewerServer
 from apps.launchers.component_test.cesium_viewer_cli import run
 from ui.navigation import GeoPoint
 from ui.navigation.cesium_viewer_state import CesiumViewerState
