@@ -43,10 +43,10 @@ case "$mode" in
         git pull --ff-only origin "$branch"
         mapfile -d '' -t python_files < <(git ls-files -z -- '*.py')
         if (( ${#python_files[@]} > 0 )); then
-            ruff check --fix --no-unsafe-fixes -- "${python_files[@]}"
-            ruff format -- "${python_files[@]}"
-            ruff check -- "${python_files[@]}"
-            ruff format --check -- "${python_files[@]}"
+            ruff check --force-exclude --fix --no-unsafe-fixes -- "${python_files[@]}"
+            ruff format --force-exclude -- "${python_files[@]}"
+            ruff check --force-exclude -- "${python_files[@]}"
+            ruff format --force-exclude --check -- "${python_files[@]}"
         fi
         git diff --check
         git --no-pager diff
