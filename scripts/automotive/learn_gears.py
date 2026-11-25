@@ -259,9 +259,7 @@ def _single_gear_learn(subscriber: ZeroMqSubscriber, args: argparse.Namespace) -
     groups[gear - 1] = values
 
     learned = [(index + 1, statistics.median(group)) for index, group in enumerate(groups) if group]
-    if any(
-        a_ratio <= b_ratio for (_a_gear, a_ratio), (_b_gear, b_ratio) in pairwise(learned)
-    ):
+    if any(a_ratio <= b_ratio for (_a_gear, a_ratio), (_b_gear, b_ratio) in pairwise(learned)):
         print(
             "Calibration rejected: learned ratios must decrease as gear number increases.",
             file=sys.stderr,

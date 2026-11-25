@@ -46,9 +46,7 @@ def field_range(index, run, element, level):
                 records.append((int(parts[1]), parts))
             except ValueError:
                 continue
-    if any(offset < 0 for offset, _ in records) or any(
-        a[0] >= b[0] for a, b in pairwise(records)
-    ):
+    if any(offset < 0 for offset, _ in records) or any(a[0] >= b[0] for a, b in pairwise(records)):
         raise ValueError("HRRR index contains invalid byte offsets")
     matches = [
         i

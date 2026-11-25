@@ -400,7 +400,10 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, SdrForgeViewportMixin,
                 0.40 * value + 0.60 * old for value, old in zip(raw, self._bins, strict=True)
             )
             self._peak_bins = (
-                tuple(max(value, peak) for value, peak in zip(self._bins, self._peak_bins, strict=False))
+                tuple(
+                    max(value, peak)
+                    for value, peak in zip(self._bins, self._peak_bins, strict=False)
+                )
                 if self._peak_hold_enabled
                 else self._bins
             )

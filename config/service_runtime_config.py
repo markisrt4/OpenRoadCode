@@ -7,9 +7,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from controllers.automotive.vehicle_configuration import EngineInductionType, VehicleConfiguration
-
 from config.toml_overlay import TomlOverlayError, load_toml_layers
+from controllers.automotive.vehicle_configuration import EngineInductionType, VehicleConfiguration
 from messaging.zeromq.endpoints import LOCAL_PUBLISHER_ENDPOINT, LOCAL_SUBSCRIBER_ENDPOINT
 from services.navigation.zeromq_navigation_command_server import DEFAULT_NAVIGATION_COMMAND_ENDPOINT
 
