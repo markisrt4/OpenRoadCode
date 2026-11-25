@@ -31,3 +31,11 @@ class RadioPresentationFrame(tk.Frame, UiWidget, ABC):
     @abstractmethod
     def _show_adsb(self) -> None:
         """Emit an aircraft presentation request."""
+
+    @abstractmethod
+    def select_group(self, name: str) -> None:
+        """Select a radio category."""
+
+    @abstractmethod
+    def auto_range_spectrum(self) -> None:
+        """Reset frontend spectrum scaling."""

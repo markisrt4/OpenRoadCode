@@ -27,7 +27,10 @@ def find_suites(kind: str) -> tuple[Path, ...]:
     suites = {
         test_file.parent
         for test_file in PROJECT_ROOT.rglob(f"{directory_name}/test_*.py")
-        if ".git" not in test_file.parts
+        if not any(
+            part in {".git", ".venv", "venv", "build"} or part.startswith(".venv-")
+            for part in test_file.relative_to(PROJECT_ROOT).parts
+        )
     }
     return tuple(sorted(suites))
 

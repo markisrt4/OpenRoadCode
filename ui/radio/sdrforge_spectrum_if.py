@@ -35,20 +35,36 @@ class SpectrumPresentation:
 class SpectrumSourceIf(Protocol):
     """Application-owned source; polling must not block the UI thread."""
 
-    def start(self) -> None: ...
+    def start(self) -> None:
+        """Start spectrum acquisition."""
+        ...
 
-    def latest_spectrum(self) -> SpectrumPresentation | None: ...
+    def latest_spectrum(self) -> SpectrumPresentation | None:
+        """Read the latest spectrum without blocking.
+        @return Latest spectrum snapshot, or None if unavailable.
+        """
+        ...
 
-    def latest_receiver(self) -> RadioTelemetry | None: ...
+    def latest_receiver(self) -> RadioTelemetry | None:
+        """Read the latest receiver telemetry without blocking.
+        @return Latest receiver telemetry, or None if unavailable.
+        """
+        ...
 
-    def close(self) -> None: ...
+    def close(self) -> None:
+        """Release spectrum acquisition resources."""
+        ...
 
 
 @runtime_checkable
 class SpectrumPresentationIf(Protocol):
     """Frontend receives only validated, immutable spectrum snapshots."""
 
-    def set_spectrum_presentation(self, snapshot: SpectrumPresentation) -> None: ...
+    def set_spectrum_presentation(self, snapshot: SpectrumPresentation) -> None:
+        """Present an immutable spectrum snapshot.
+        @param snapshot Validated spectrum display values.
+        """
+        ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,11 +76,17 @@ class SpectrumViewport:
     recenter_on_tune: bool = True
 
     def frequency_at(self, position: float) -> float:
-        """Map normalized horizontal position to displayed frequency."""
+        """Map normalized horizontal position to displayed frequency.
+        @param position Normalized horizontal position (0 to 1 across the viewport).
+        @return Displayed frequency in Hz.
+        """
         return self.center_hz + (position - 0.5) * self.span_hz
 
     def pan(self, fraction: float) -> "SpectrumViewport":
-        """Shift the viewport by a fraction of its visible bandwidth."""
+        """Shift the viewport by a fraction of its visible bandwidth.
+        @param fraction Signed fraction of the current span to shift.
+        @return New viewport with the shifted center frequency.
+        """
         from dataclasses import replace
 
         return replace(self, center_hz=self.center_hz + fraction * self.span_hz)
@@ -72,7 +94,12 @@ class SpectrumViewport:
     def zoom(
         self, factor: float, *, min_span_hz: float = 100_000, max_span_hz: float | None = None
     ) -> "SpectrumViewport":
-        """Zoom without changing the receiver's tuned frequency."""
+        """Zoom without changing the receiver's tuned frequency.
+        @param factor Positive finite multiplier of the current span.
+        @param min_span_hz Minimum requested span in Hz.
+        @param max_span_hz Optional maximum span in Hz.
+        @return New viewport with the adjusted span.
+        """
         from dataclasses import replace
 
         if not math.isfinite(factor) or factor <= 0:
@@ -86,6 +113,20 @@ class SpectrumViewport:
 class SpectrumViewportControlIf(Protocol):
     """Frontend-neutral viewport operations; none retune the receiver."""
 
-    def pan_spectrum(self, fraction: float) -> None: ...
-    def zoom_spectrum(self, factor: float) -> None: ...
-    def set_recenter_on_tune(self, enabled: bool) -> None: ...
+    def pan_spectrum(self, fraction: float) -> None:
+        """Shift the displayed spectrum window.
+        @param fraction Signed fraction of the visible span to shift.
+        """
+        ...
+
+    def zoom_spectrum(self, factor: float) -> None:
+        """Scale the displayed spectrum window.
+        @param factor Positive multiplier of the visible span.
+        """
+        ...
+
+    def set_recenter_on_tune(self, enabled: bool) -> None:
+        """Set the viewport recentering policy.
+        @param enabled Whether tuning should recenter the viewport.
+        """
+        ...

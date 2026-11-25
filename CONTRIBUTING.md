@@ -115,7 +115,22 @@ When an installer has created the project environment, activate it with:
 source venv/bin/activate
 ```
 
-Install the separate development tools after creating the runtime environment:
+The existing runtime installer remains unchanged. For the isolated quality
+tooling baseline on Linux, run:
+
+```bash
+bash scripts/setup_quality_env.sh
+```
+
+This creates `.venv-quality` without inheriting system packages and installs
+the pinned development tools and portable application dependencies from the
+existing feature definitions. Shared libraries are installed at explicit Git
+revisions, without invoking hardware or region configuration installers.
+Hardware-only dependencies and full runtime parity remain outside this initial
+portable environment. Termux setup is deferred.
+
+For the existing runtime-based verification workflow, install development tools
+after creating the runtime environment:
 
 ```bash
 python -m pip install -r requirements-dev.txt
@@ -456,3 +471,12 @@ person who wrote it.
 OpenRoadCode is an ambitious experiment assembled from many disciplines. No
 one arrives knowing all of them. Share what you know, ask when you do not, and
 help make the next contributor's first drive a little smoother.
+
+The Linux quality environment uses `constraints-quality-linux.txt`, captured from a
+validated Ubuntu Python 3.12 installation. Forge dependencies remain pinned to Git
+commits in `scripts/setup_quality_env.sh`. Runtime installation is independent.
+
+Run `bash scripts/dev_check.sh --docs` for documentation validation and API
+reference generation. The documentation command installs checksum-verified
+Doxygen 1.15.0 into `.venv-quality` on Linux x86-64. Other platforms can use
+Ubuntu CI for this gate. No system Doxygen installation is modified.

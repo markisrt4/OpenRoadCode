@@ -43,7 +43,7 @@ def _markdown_files() -> list[Path]:
     files: list[Path] = []
     for path in PROJECT_ROOT.rglob("*.md"):
         relative = path.relative_to(PROJECT_ROOT)
-        if EXCLUDED_PARTS.intersection(relative.parts):
+        if any(part in EXCLUDED_PARTS or part.startswith(".venv-") for part in relative.parts):
             continue
         files.append(path)
     return sorted(files)

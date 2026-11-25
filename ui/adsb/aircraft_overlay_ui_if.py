@@ -8,5 +8,7 @@ from ui.adsb.aircraft_overlay_state import AircraftOverlayState
 class AircraftOverlayUiIf(ABC):
     @abstractmethod
     def set_aircraft_overlay_state(self, state: AircraftOverlayState) -> None:
-        """Present a complete immutable aircraft snapshot."""
+        """Present a complete immutable aircraft snapshot.
+        @param state Immutable aircraft overlay snapshot.
+        """
         ...
