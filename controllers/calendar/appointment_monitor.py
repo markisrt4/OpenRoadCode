@@ -2,6 +2,7 @@
 """Single-flight cache reader shared by Home calendar consumers."""
 
 from concurrent.futures import Future
+from math import isfinite
 from threading import Thread
 from time import monotonic
 from typing import Callable, TypeVar
@@ -30,6 +31,8 @@ class AppointmentMonitor:
         interval: float = 30,
         clock: Callable[[], float] = monotonic,
     ) -> None:
+        if not isfinite(interval) or interval <= 0:
+            raise ValueError("interval must be finite and positive")
         self._load = load
         self._interval = interval
         self._clock = clock
@@ -54,12 +57,18 @@ class AppointmentMonitor:
             self._next_read = self._clock() + self._interval
         if self._clock() >= self._next_read:
             self._future = Future()
-            Thread(
-                target=read_snapshot,
-                args=(self._future, self._load),
-                daemon=True,
-                name="upcoming-calendar-read",
-            ).start()
+            try:
+                Thread(
+                    target=read_snapshot,
+                    args=(self._future, self._load),
+                    daemon=True,
+                    name="upcoming-calendar-read",
+                ).start()
+            except RuntimeError:
+                self._future.cancel()
+                self._future = None
+                self.failed = True
+                self._next_read = self._clock() + self._interval
 
     def close(self) -> None:
         self._closed = True
