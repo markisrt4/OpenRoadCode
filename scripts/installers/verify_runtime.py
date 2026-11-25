@@ -57,28 +57,77 @@ def nested(mapping: dict[str, object], *keys: str) -> object | None:
     return value
 
 
-def systemd_active(service: str) -> tuple[bool, str]:
-    result = subprocess.run(
-        ["systemctl", "is-active", service],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        check=False,
-    )
-    state = result.stdout.strip() or result.stderr.strip() or f"exit {result.returncode}"
-    return result.returncode == 0 and state == "active", state
+def command_output(*command: str) -> str:
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, check=False, timeout=5)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return str(exc)
+    return result.stdout.strip() or result.stderr.strip() or f"exit {result.returncode}"
 
 
-def systemd_enabled(service: str) -> tuple[bool, str]:
-    result = subprocess.run(
-        ["systemctl", "is-enabled", service],
-        capture_output=True,
-        text=True,
-        check=False,
-        timeout=5,
-    )
-    state = result.stdout.strip()
-    return state == "enabled", state or result.stderr.strip()
+def systemd_state(query: str, service: str, *, user: bool = False) -> str:
+    scope = ("--user",) if user else ()
+    return command_output("systemctl", *scope, query, service)
+
+
+def verify_boot_services(args: argparse.Namespace, features: set[str]) -> int:
+    """Verify persistent enablement for selected units and managed RF policy."""
+    units = []
+    if args.telemetry_services:
+        units.extend(TELEMETRY_SERVICES)
+    elif args.navigation_service:
+        units.extend(TELEMETRY_SERVICES[:2])
+    elif args.radio_service:
+        units.append(TELEMETRY_SERVICES[0])
+    if args.valhalla_service or args.navigation_data_root is not None:
+        units.append("valhalla.service")
+    if args.gpsd_service:
+        units.append("gpsd.socket")
+    if "adsb" in features:
+        units.append("lighttpd.service")
+
+    user_units = []
+    if args.radio_service:
+        user_units.append("libsdrforge.service")
+    if args.vnc_service:
+        user_units.append("carui-vnc.service")
+
+    failures = 0
+    for user, services in ((False, units), (True, user_units)):
+        for unit in services:
+            enabled = systemd_state("is-enabled", unit, user=user)
+            active = systemd_state("is-active", unit, user=user)
+            ok = enabled == "enabled" and active == "active"
+            scope = "user" if user else "system"
+            report(
+                "PASS" if ok else "FAIL",
+                f"{unit} boot persistence",
+                f"{scope}: {enabled}, {active}",
+            )
+            failures += not ok
+
+    if user_units:
+        linger = command_output(
+            "loginctl", "show-user", str(os.getuid()), "-p", "Linger", "--value"
+        )
+        report(
+            "PASS" if linger == "yes" else "FAIL",
+            "User services start before login",
+            f"Linger={linger}",
+        )
+        failures += linger != "yes"
+
+    if args.managed_rf:
+        for unit in ("libsdrforge-weather.service", "openroadcode-readsb@.service"):
+            state = systemd_state("is-enabled", unit, user=True)
+            ok = state in {"static", "disabled"}
+            report("PASS" if ok else "FAIL", f"{unit} on-demand unit", state)
+            failures += not ok
+        state = systemd_state("is-enabled", "readsb.service")
+        ok = state == "masked"
+        report("PASS" if ok else "FAIL", "Stock readsb boot protection", state)
+        failures += not ok
+    return failures
 
 
 def http_error_detail(error: urllib.error.HTTPError) -> str:
@@ -242,6 +291,9 @@ def main() -> int:
         help="Treat missing configured hardware/resources as failures instead of warnings",
     )
     parser.add_argument("--navigation-service", action="store_true")
+    parser.add_argument("--valhalla-service", action="store_true")
+    parser.add_argument("--vnc-service", action="store_true")
+    parser.add_argument("--managed-rf", action="store_true")
     parser.add_argument("--navigation-data-root", type=Path)
     parser.add_argument("--navigation-region")
     args = parser.parse_args()
@@ -267,20 +319,6 @@ def main() -> int:
     feature_set = set(args.features)
 
     print("\nServices:")
-    if args.telemetry_services:
-        for service in TELEMETRY_SERVICES:
-            ok, detail = systemd_active(service)
-            report("PASS" if ok else "FAIL", service, detail)
-            failures += not ok
-    else:
-        report("SKIP", "OpenRoadCode telemetry services", "not requested")
-
-    if args.navigation_service and not args.telemetry_services:
-        for service in TELEMETRY_SERVICES[:2]:
-            ok, detail = systemd_active(service)
-            report("PASS" if ok else "FAIL", service, detail)
-            failures += not ok
-
     if args.navigation_data_root is not None:
         for relative in (
             "build-manifest.json",
@@ -292,39 +330,17 @@ def main() -> int:
             ok = path.is_file() and path.stat().st_size > 0
             report("PASS" if ok else "FAIL", str(path))
             failures += not ok
-        ok, detail = systemd_active("valhalla.service")
-        report("PASS" if ok else "FAIL", "valhalla.service", detail)
+
+    if args.navigation_region:
+        ok, detail = routing_ready(args.navigation_data_root, args.navigation_region)
+        report("PASS" if ok else "FAIL", "Offline routing", detail)
         failures += not ok
 
-    if args.navigation_service or args.telemetry_services:
-        for service in TELEMETRY_SERVICES[:2]:
-            ok, detail = systemd_enabled(service)
-            report("PASS" if ok else "FAIL", f"{service} boot persistence", detail)
-            failures += not ok
-    if args.navigation_data_root is not None:
-        ok, detail = systemd_enabled("valhalla.service")
-        report("PASS" if ok else "FAIL", "Valhalla boot persistence", detail)
-        failures += not ok
-        if args.navigation_region:
-            ok, detail = routing_ready(args.navigation_data_root, args.navigation_region)
-            report("PASS" if ok else "FAIL", "Offline routing", detail)
-            failures += not ok
+    failures += verify_boot_services(args, feature_set)
 
     if args.radio_service:
-        if not (args.telemetry_services or args.navigation_service):
-            ok, detail = systemd_active(TELEMETRY_SERVICES[0])
-            report("PASS" if ok else "FAIL", TELEMETRY_SERVICES[0], detail)
-            failures += not ok
         ok, detail = radio_service_ready()
-        report("PASS" if ok else "FAIL", "libsdrforge.service", detail)
-        failures += not ok
-
-    if args.gpsd_service:
-        service_ok, service_detail = systemd_active("gpsd.service")
-        socket_ok, socket_detail = systemd_active("gpsd.socket")
-        ok = service_ok or socket_ok
-        detail = f"service={service_detail}, socket={socket_detail}"
-        report("PASS" if ok else "FAIL", "gpsd", detail)
+        report("PASS" if ok else "FAIL", "libsdrforge.service radio transport", detail)
         failures += not ok
 
     print("\nMessaging endpoints:")

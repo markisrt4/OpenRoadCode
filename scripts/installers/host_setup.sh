@@ -391,7 +391,9 @@ if (( ! SKIP_INSTALLS )) && [[ " ${FEATURES[*]} " == *" navigation "* ]]; then
   fi
 fi
 
+RUN_VALHALLA=0
 if [[ " ${FEATURES[*]} " == *" navigation "* ]] && [[ -s "${DATA_ROOT:-/srv/openroadcode}/valhalla/valhalla.json" ]]; then
+  RUN_VALHALLA=1
   sudo bash "$PROJECT_ROOT/scripts/systemd/install_valhalla_systemd.sh" "${DATA_ROOT:-/srv/openroadcode}/valhalla/valhalla.json"
 fi
 
@@ -422,6 +424,9 @@ runtime_args=("${FEATURES[@]}" --config "$runtime_config")
 (( RUN_NAVIGATION )) && runtime_args+=(--navigation-service)
 [[ -z "$NAVIGATION_REGION" ]] || runtime_args+=(--navigation-data-root "${DATA_ROOT:-/srv/openroadcode}" --navigation-region "$NAVIGATION_REGION")
 (( RUN_RADIO )) && runtime_args+=(--radio-service)
+(( RUN_VALHALLA )) && runtime_args+=(--valhalla-service)
+(( RUN_VNC )) && runtime_args+=(--vnc-service)
+(( MANAGED_RF )) && runtime_args+=(--managed-rf)
 (( RUN_TELEMETRY_SERVICES )) && runtime_args+=(--telemetry-services)
 (( RUN_GPSD_SERVICE )) && runtime_args+=(--gpsd-service)
 "$VERIFY_PYTHON" "$SCRIPT_DIR/verify_runtime.py" "${runtime_args[@]}"
