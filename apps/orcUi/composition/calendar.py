@@ -13,10 +13,12 @@ from controllers.calendar.calendar_presentation import (
     CalendarAgendaPresentation,
     CalendarSelectionPresentation,
     calendar_health_view,
+    event_view,
 )
 from controllers.calendar.calendar_event_cache import CalendarEventCache
 from controllers.calendar.upcoming_appointments import upcoming_appointments
-from controllers.system.calendar_health_sampler import sample_calendar_health
+from ui.calendar.calendar_models import AppointmentSnapshot
+from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
 from frontends.tk.calendar.calendar_screen import CalendarScreen
 from frontends.tk.calendar.upcoming_panel import UpcomingPanel
 from frontends.tk.calendar.dashboard_screen import DashboardCalendarScreen
@@ -71,9 +73,9 @@ class HomeCalendarFactory:
             events = upcoming_appointments(
                 CalendarAgendaController(provider, zone), datetime.now(zone), limit=1
             )
-            return events, sample_calendar_health()
+            return AppointmentSnapshot(tuple(event_view(event) for event in events), calendar_health_view())
 
-        self.monitor = AppointmentMonitor(load)
+        self.monitor: AppointmentMonitorIf = AppointmentMonitor(load)
 
     def __call__(self, parent):
         return UpcomingPanel(
