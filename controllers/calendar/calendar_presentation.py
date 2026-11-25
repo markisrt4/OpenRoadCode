@@ -17,6 +17,8 @@ from ui.calendar.calendar_models import (
 
 from controllers.system.calendar_health_sampler import sample_calendar_health
 
+from ui.calendar.calendar_presentation_if import CalendarAgendaIf, CalendarSelectionIf
+
 from .calendar_agenda import CalendarAgendaController
 from .calendar_models import CalendarEvent
 from .calendar_selection import (
@@ -61,7 +63,7 @@ def read_agenda(
         future.set_exception(error)
 
 
-class CalendarAgendaPresentation:
+class CalendarAgendaPresentation(CalendarAgendaIf):
     """Single-flight agenda adapter with latest-request semantics."""
 
     def __init__(
@@ -119,7 +121,7 @@ class CalendarAgendaPresentation:
             self._future = None
 
 
-class CalendarSelectionPresentation:
+class CalendarSelectionPresentation(CalendarSelectionIf):
     """Adapt persistent calendar selection to the UI contract."""
 
     def __init__(self, selection: Path, catalog: Path) -> None:
@@ -148,8 +150,10 @@ class CalendarSelectionPresentation:
 def calendar_health_view(path: Path | None = None) -> CalendarHealthView:
     """Translate synchronization diagnostics into presentation state."""
     health = sample_calendar_health(path)
+    status = health.get("status")
+    age = health.get("last_data_refresh_age_seconds")
     return CalendarHealthView(
-        status=health.get("status", "unavailable"),
-        stale=health.get("stale", False),
-        last_data_refresh_age_seconds=health.get("last_data_refresh_age_seconds"),
+        status=status if isinstance(status, str) else "unavailable",
+        stale=bool(health.get("stale", False)),
+        last_data_refresh_age_seconds=float(age) if isinstance(age, (int, float)) else None,
     )
