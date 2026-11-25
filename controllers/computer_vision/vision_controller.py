@@ -90,7 +90,7 @@ class VisionController(VisionRequestHandlerIf):
                 target=self._run,
                 args=(generation, self._operation_id),
                 name="VisionController",
-                daemon=True,
+                daemon=False,
             )
             self._thread = thread
             self._publish(generation, self._state(VisionLifecycle.STARTING, "Starting camera…"))
@@ -116,7 +116,7 @@ class VisionController(VisionRequestHandlerIf):
             self._generation += 1
             generation = self._generation
             thread = self._thread
-        self._camera.close()
+        # The capture thread owns release. Releasing OpenCV here can race read().
         if thread is not None and thread is not threading.current_thread():
             thread.join(timeout=2.0)
         with self._lock:

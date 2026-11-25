@@ -241,3 +241,29 @@ def test_close_disconnects_requests_and_rejects_later_activation() -> None:
 
     assert ui.handler is None
     assert not camera.opened.is_set()
+
+
+def test_camera_close_runs_on_capture_thread_after_read_returns() -> None:
+    class Camera(_Camera):
+        release_read = threading.Event()
+        close_threads: list[str] = []
+
+        def read(self):
+            self.read_once.set()
+            self.release_read.wait(timeout=2)
+            raise RuntimeError("read ended")
+
+        def close(self) -> None:
+            self.close_threads.append(threading.current_thread().name)
+            super().close()
+
+    camera = Camera()
+    controller, _dispatcher, _ui, _controls = _controller(camera)
+    controller.request_activate()
+    try:
+        _wait(camera.read_once)
+        camera.release_read.set()
+    finally:
+        controller.close()
+    _wait(camera.closed)
+    assert camera.close_threads == ["VisionController"]
