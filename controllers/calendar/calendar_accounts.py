@@ -69,9 +69,7 @@ def save_accounts(path: Path, accounts: tuple[CalendarAccount, ...]) -> None:
     if len({account.account_id for account in accounts}) != len(accounts):
         raise ValueError("Duplicate calendar account ID")
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    with NamedTemporaryFile(
-        mode="w", encoding="utf-8", dir=path.parent, delete=False
-    ) as stream:
+    with NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent, delete=False) as stream:
         temporary = Path(stream.name)
         try:
             json.dump([asdict(account) for account in accounts], stream, indent=2)

@@ -71,7 +71,9 @@ class MultiAccountPresentation(CalendarSelectionIf):
                 view.enabled,
             )
             for paths in self._paths()
-            for view in CalendarSelectionPresentation(paths.selection, paths.catalog).list_calendars()
+            for view in CalendarSelectionPresentation(
+                paths.selection, paths.catalog
+            ).list_calendars()
         )
 
     def apply_selection(self, enabled: dict[str, bool]) -> None:

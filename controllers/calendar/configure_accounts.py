@@ -23,7 +23,9 @@ def main() -> None:
         type=Path,
         default=Path.home() / ".config/openroadcode/calendar-accounts.json",
     )
-    parser.add_argument("action", choices=("list", "add", "enable", "disable", "password", "remove"))
+    parser.add_argument(
+        "action", choices=("list", "add", "enable", "disable", "password", "remove")
+    )
     parser.add_argument("--account-id")
     parser.add_argument("--provider", choices=("caldav", "proton"))
     parser.add_argument("--endpoint-default", default="")
@@ -78,9 +80,7 @@ def main() -> None:
             print("Account removed from configuration; cached data and secret retained.")
         else:
             password = getpass("New calendar password or app password: ")
-            paths = CalendarAccountPaths(
-                args.accounts_file.parent / "calendar-accounts", existing
-            )
+            paths = CalendarAccountPaths(args.accounts_file.parent / "calendar-accounts", existing)
             paths.catalog.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             probe = create_calendar_provider(
                 existing,
