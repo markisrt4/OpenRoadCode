@@ -2,7 +2,7 @@
 """Regression coverage for asynchronous route initiation."""
 
 from threading import Event, get_ident
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -92,3 +92,19 @@ def test_shutdown_discards_inflight_route_completion():
         renderer.close.assert_called_once()
     finally:
         release.set()
+
+
+def test_worker_start_failure_clears_pending_request():
+    handler = NavigationRouteRequestHandler(Mock(), Mock())
+    try:
+        with patch("controllers.navigation.navigation_route_request_handler.Thread") as thread:
+            thread.return_value.start.side_effect = RuntimeError("thread unavailable")
+            with pytest.raises(RuntimeError, match="thread unavailable"):
+                handler.request_start_route_async(GeoPoint(0.1, 0.2), TravelMode.AUTO)
+            assert not handler.route_start_pending
+            assert not handler.poll_route_start()
+            thread.return_value.start.side_effect = None
+            handler.request_start_route_async(GeoPoint(0.1, 0.2), TravelMode.AUTO)
+            assert handler.route_start_pending
+    finally:
+        handler.close()
