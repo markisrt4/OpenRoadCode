@@ -1,4 +1,4 @@
 # SPDX-License-Identifier: MIT
-"""System diagnostics compatibility adapter for calendar-owned health."""
+"""Adapter for the shared calendar health wire reader."""
 
-from controllers.calendar.calendar_health import sample_calendar_health as sample_calendar_health
+from common.calendar_health import sample_calendar_health as sample_calendar_health
