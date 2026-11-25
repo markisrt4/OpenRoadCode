@@ -18,7 +18,7 @@ ANCHOR = 1791028800
 CITY = WeatherCity("Detroit", 42.33, -83.05)
 
 
-def hourly():
+def hourly() -> CityWeatherHours:
     return CityWeatherHours(
         CITY,
         tuple(ANCHOR + hour * 3600 for hour in range(-24, 25)),
@@ -28,7 +28,7 @@ def hourly():
     )
 
 
-def controller():
+def controller() -> tuple[CityWeatherOverlayController, WeatherOverlayUiStub, Mock]:
     source = Mock()
     source.poll.return_value = source.poll_selected_city.return_value = None
     sink = WeatherOverlayUiStub()
@@ -40,7 +40,7 @@ def controller():
     return backend, sink, source
 
 
-def test_details_are_si_and_match_selected_snapshot_and_rain_window():
+def test_details_are_si_and_match_selected_snapshot_and_rain_window() -> None:
     details = city_details(hourly(), "future", 6, ANCHOR, ANCHOR)
     assert details.selected_at.timestamp() == ANCHOR + 6 * 3600
     assert details.temperature_k == 283.15 and details.wind_speed_m_s == 10
@@ -51,28 +51,33 @@ def test_details_are_si_and_match_selected_snapshot_and_rain_window():
     assert city_identity(CITY) != city_identity(replace(CITY, latitude=40))
 
 
-def test_missing_values_are_unavailable_not_zero():
+def test_missing_values_are_unavailable_not_zero() -> None:
     data = replace(hourly(), temperature_c=(None,) * 49, precipitation_mm=(None,) * 49)
     details = city_details(data, "past", 24, ANCHOR, ANCHOR)
     assert details.temperature_k is None and details.precipitation_m is None
     assert details.hours[0].temperature_k is None
 
 
-def test_click_selection_uses_cache_pauses_city_playback_and_dismisses():
+def test_click_selection_uses_cache_pauses_city_playback_and_dismisses() -> None:
     backend, sink, source = controller()
     backend.playing = True
     source.poll_selected_city.side_effect = [city_identity(CITY), None]
     backend._poll(backend._poll_generation)
-    assert sink.city_state.details.name == "Detroit"
+    details = sink.city_state.details
+    assert details is not None
+    assert details.name == "Detroit"
     assert not backend.playing
+    assert isinstance(backend._provider, Mock)
     backend._provider.hourly.assert_not_called()
     backend.select(period="future", hours=6)
-    assert sink.city_state.details.selected_at.timestamp() == ANCHOR + 6 * 3600
+    selected = sink.city_state.details
+    assert selected is not None
+    assert selected.selected_at.timestamp() == ANCHOR + 6 * 3600
     backend.select_details(None)
     assert sink.city_state.details is None
 
 
-def test_unknown_city_and_hidden_or_disabled_clicks_do_not_open():
+def test_unknown_city_and_hidden_or_disabled_clicks_do_not_open() -> None:
     backend, sink, _ = controller()
     backend.select_details("weather-city:unknown")
     assert sink.city_state.details is None
@@ -86,7 +91,7 @@ def test_unknown_city_and_hidden_or_disabled_clicks_do_not_open():
     assert sink.city_state.details is None
 
 
-def test_reopening_discards_queued_hidden_clicks():
+def test_reopening_discards_queued_hidden_clicks() -> None:
     backend, sink, source = controller()
     backend.hide()
     source.poll_selected_city.side_effect = [city_identity(CITY), None, None]
@@ -94,7 +99,7 @@ def test_reopening_discards_queued_hidden_clicks():
     assert sink.city_state.details is None
 
 
-def test_weather_click_adapter_routes_only_weather_features():
+def test_weather_click_adapter_routes_only_weather_features() -> None:
     identity = city_identity(CITY)
     payload = {
         "marker_id": identity,
@@ -118,7 +123,7 @@ def test_weather_click_adapter_routes_only_weather_features():
     subscriber.close.assert_called_once()
 
 
-def test_semantic_request_handler_forwards_city_selection_and_dismissal():
+def test_semantic_request_handler_forwards_city_selection_and_dismissal() -> None:
     city = Mock()
     handler = WeatherOverlayController(Mock(), city, Mock(), Mock())
     handler.request_city_details(city_identity(CITY))
@@ -127,7 +132,7 @@ def test_semantic_request_handler_forwards_city_selection_and_dismissal():
     assert city.select_details.call_args.args == (None,)
 
 
-def test_close_clears_details_and_rejects_late_click_callbacks():
+def test_close_clears_details_and_rejects_late_click_callbacks() -> None:
     backend, sink, source = controller()
     backend.select_details(city_identity(CITY))
     generation = backend._poll_generation
@@ -138,4 +143,5 @@ def test_close_clears_details_and_rejects_late_click_callbacks():
     backend.select_details(city_identity(CITY))
     assert sink.city_state.details is None
     backend.close()
+    assert isinstance(backend._provider, Mock)
     backend._provider.close.assert_called_once()
