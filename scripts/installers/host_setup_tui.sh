@@ -24,6 +24,7 @@ SELECTED_STREAMING=""
 SELECTED_AUDIO=""
 SELECTED_NAVIGATION=""
 SELECTED_RADIO="sdrforge"
+SELECTED_VIDEO=""
 SELECTED_AUTOMOTIVE=""
 SELECTED_BLUETOOTH=""
 SELECTED_ENVIRONMENTAL=""
@@ -33,7 +34,7 @@ WITH_GPSD=0
 WITH_TELEMETRY=0
 WITH_RADIO=1
 SETTINGS_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/openroadcode/installer-selection.conf"
-settings_keys=(NAVIGATION_MODE NAVIGATION_REGION WITH_NAVIGATION SELECTED_TARGET SELECTED_GENERAL SELECTED_STREAMING SELECTED_AUDIO SELECTED_NAVIGATION SELECTED_RADIO SELECTED_AUTOMOTIVE SELECTED_BLUETOOTH SELECTED_ENVIRONMENTAL INSTALL_ALL_FEATURES WITH_VNC WITH_GPSD WITH_TELEMETRY WITH_RADIO)
+settings_keys=(NAVIGATION_MODE NAVIGATION_REGION WITH_NAVIGATION SELECTED_TARGET SELECTED_GENERAL SELECTED_STREAMING SELECTED_AUDIO SELECTED_NAVIGATION SELECTED_RADIO SELECTED_VIDEO SELECTED_AUTOMOTIVE SELECTED_BLUETOOTH SELECTED_ENVIRONMENTAL INSTALL_ALL_FEATURES WITH_VNC WITH_GPSD WITH_TELEMETRY WITH_RADIO)
 if [[ -f "$SETTINGS_FILE" ]]; then
   while IFS='=' read -r key value; do
     case "$key" in
@@ -42,7 +43,7 @@ if [[ -f "$SETTINGS_FILE" ]]; then
       SELECTED_TARGET) case "$value" in rpi4|rpi5|linux-dev) SELECTED_TARGET="$value" ;; esac ;;
       INSTALL_ALL_FEATURES|WITH_NAVIGATION|WITH_VNC|WITH_GPSD|WITH_TELEMETRY|WITH_RADIO)
         [[ "$value" == 0 || "$value" == 1 ]] && printf -v "$key" '%s' "$value" ;;
-      SELECTED_GENERAL|SELECTED_STREAMING|SELECTED_AUDIO|SELECTED_NAVIGATION|SELECTED_RADIO|SELECTED_AUTOMOTIVE|SELECTED_BLUETOOTH|SELECTED_ENVIRONMENTAL)
+      SELECTED_GENERAL|SELECTED_STREAMING|SELECTED_AUDIO|SELECTED_NAVIGATION|SELECTED_RADIO|SELECTED_VIDEO|SELECTED_AUTOMOTIVE|SELECTED_BLUETOOTH|SELECTED_ENVIRONMENTAL)
         [[ "$value" =~ ^[a-z0-9[:space:]-]*$ ]] && printf -v "$key" '%s' "$value" ;;
     esac
   done < "$SETTINGS_FILE"
@@ -92,13 +93,14 @@ choose_features() {
 
 while true; do
   section=$(whiptail --title "OpenRoadCode installer" --default-item "$(if (( INSTALL_ALL_FEATURES )); then echo all; else echo install; fi)" --menu \
-    "Choose a section to configure, then select Install:" 23 76 11 \
+    "Choose a section to configure, then select Install:" 24 76 12 \
     "general" "General features and user interfaces" \
     "streaming" "Streaming and media" \
     "audio" "Audio output and Bluetooth speakers" \
     "navigation" "Navigation" \
     "environmental" "Environmental sensors" \
     "radio" "Radio" \
+    "video" "Video and camera perception" \
     "automotive" "Automotive devices" \
     "bluetooth" "Bluetooth" \
     "all" "Install every capability compatible with the target" \
@@ -128,6 +130,10 @@ while true; do
       "rtl-sdr|RTL-SDR and SoapySDR support" \
       "adsb|ADS-B/readsb support" \
       "sdrforge|Native SDRForge radio (included with desktop UI)" && SELECTED_RADIO="$SELECTED_RESULT" ;;
+    video) choose_features "Video" "Select camera and perception capabilities:" "$SELECTED_VIDEO" \
+      "video|Common camera capture and preview" \
+      "video-v4l2|Linux USB cameras and V4L2 controls" \
+      "video-perception|YOLO object detection and tracking" && SELECTED_VIDEO="$SELECTED_RESULT" ;;
     automotive) choose_features "Automotive" "Select automotive devices:" "$SELECTED_AUTOMOTIVE" \
       "automotive|Generic serial and CAN-bus support" && SELECTED_AUTOMOTIVE="$SELECTED_RESULT" ;;
     bluetooth) choose_features "Bluetooth" "Select Bluetooth features:" "$SELECTED_BLUETOOTH" \
@@ -142,7 +148,7 @@ ARGS=(--target "$SELECTED_TARGET" --no-default-features)
 if (( INSTALL_ALL_FEATURES )); then
   ARGS+=(--all-features)
 else
-  for feature in ${SELECTED_GENERAL} ${SELECTED_STREAMING} ${SELECTED_AUDIO} ${SELECTED_NAVIGATION} ${SELECTED_ENVIRONMENTAL} ${SELECTED_RADIO} ${SELECTED_AUTOMOTIVE} ${SELECTED_BLUETOOTH}; do
+  for feature in ${SELECTED_GENERAL} ${SELECTED_STREAMING} ${SELECTED_AUDIO} ${SELECTED_NAVIGATION} ${SELECTED_ENVIRONMENTAL} ${SELECTED_RADIO} ${SELECTED_VIDEO} ${SELECTED_AUTOMOTIVE} ${SELECTED_BLUETOOTH}; do
     ARGS+=(--feature "$feature")
   done
   [[ " $SELECTED_GENERAL " == *" base "* ]] || ARGS+=(--feature base)
