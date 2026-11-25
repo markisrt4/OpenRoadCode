@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import getpass
 import importlib.util
 import os
@@ -72,11 +73,8 @@ def show_units(units: tuple[str, ...], *, user: bool = False) -> None:
             )
 
 
-def main() -> None:
-    """Inspect known services, package records and installer artifacts."""
-    print("OpenRoadCode installation inventory")
-    print(f"Python: {sys.executable}")
-    print(f"User: {getpass.getuser()}")
+def show_services() -> None:
+    """Show system and user services."""
     print("\nSystem units:")
     show_units(SYSTEM_UNITS)
     print("\nUser units:")
@@ -95,9 +93,11 @@ def main() -> None:
     linger = command_output("loginctl", "show-user", str(os.getuid()), "-p", "Linger", "--value")
     print(f"User manager linger: {linger}")
 
+
+def show_software(catalog: set[str]) -> None:
+    """Show package records, modules and commands."""
     print("\nInstalled Debian packages from the installer catalog:")
     package_records = command_output("dpkg-query", "-W", "-f=${Package}\t${Status}\t${Version}\\n")
-    catalog = set(sys.argv[1:])
     records = [line.split("\t", 2) for line in package_records.splitlines()]
     installed = [
         f"  {name} {version}"
@@ -117,6 +117,22 @@ def main() -> None:
     for alternatives in sorted({names for group in COMMANDS.values() for names in group}):
         ok, detail = check_command(alternatives)
         print(f"  {' / '.join(alternatives)}: {detail if ok else 'missing'}")
+
+
+def main() -> None:
+    """Inspect known services, package records and installer artifacts."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--hide-software", action="store_true")
+    parser.add_argument("--hide-services", action="store_true")
+    parser.add_argument("packages", nargs="*")
+    args = parser.parse_args()
+    print("OpenRoadCode installation inventory")
+    print(f"Python: {sys.executable}")
+    print(f"User: {getpass.getuser()}")
+    if not args.hide_services:
+        show_services()
+    if not args.hide_software:
+        show_software(set(args.packages))
 
     print("\nConfiguration and model files:")
     for label, path in (

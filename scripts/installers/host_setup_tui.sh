@@ -107,8 +107,9 @@ build_feature_args() {
 }
 
 show_installation_inventory() {
-  local report python_bin feature
-  local -a packages
+  local report python_bin feature action destination
+  local software=ON services=ON
+  local -a packages filters
   python_bin="${VENV_DIR:-$PROJECT_DIR/venv}/bin/python"
   if [[ ! -x "$python_bin" ]]; then
     if [[ -x "$PROJECT_DIR/../.venv/bin/python" ]]; then
@@ -124,11 +125,42 @@ show_installation_inventory() {
     while read -r feature; do get_feature_packages "$feature"; done < <(get_known_features) |
       tr -s '[:space:]' '\n' | sort -u
   )
-  report="$(mktemp -t openroadcode-inventory.XXXXXX)"
-  (cd "$PROJECT_DIR" && "$python_bin" -m scripts.installers.installation_inventory "${packages[@]}") >"$report" 2>&1 ||
-    printf '\nInventory could not finish. See the output above.\n' >>"$report"
-  whiptail --title "Installed software and services" --scrolltext --textbox "$report" 20 78 || true
-  rm -f -- "$report"
+  while true; do
+    action="$(whiptail --title "Installed software and services" --menu \
+      "Choose sections to include, view the inventory, or export it." 16 78 4 \
+      software "Show software: $software" \
+      services "Show services: $services" \
+      view "View inventory" \
+      export "Export inventory to a text file" \
+      3>&1 1>&2 2>&3)" || return 0
+    case "$action" in
+      software) if [[ "$software" == ON ]]; then software=OFF; else software=ON; fi; continue ;;
+      services) if [[ "$services" == ON ]]; then services=OFF; else services=ON; fi; continue ;;
+      export)
+        destination="$(whiptail --title "Export inventory" --inputbox \
+          "Save the selected inventory sections to this file:" 11 78 \
+          "$PWD/openroadcode-inventory-$(date +%Y%m%d-%H%M%S).txt" 3>&1 1>&2 2>&3)" || continue
+        [[ -n "$destination" ]] || continue
+        ;;
+    esac
+
+    filters=()
+    if [[ "$software" == OFF ]]; then filters+=(--hide-software); fi
+    if [[ "$services" == OFF ]]; then filters+=(--hide-services); fi
+    report="$(mktemp -t openroadcode-inventory.XXXXXX)"
+    (cd "$PROJECT_DIR" && "$python_bin" -m scripts.installers.installation_inventory "${filters[@]}" -- "${packages[@]}") >"$report" 2>&1 ||
+      printf '\nInventory could not finish. See the output above.\n' >>"$report"
+    if [[ "$action" == export ]]; then
+      if (umask 077; set -o noclobber; cat -- "$report" >"$destination"); then
+        whiptail --title "Inventory exported" --msgbox "Saved to $destination" 10 78 || true
+      else
+        whiptail --title "Export failed" --msgbox "Could not create $destination. Choose a new filename in a writable directory." 11 78 || true
+      fi
+    else
+      whiptail --title "Installation inventory" --scrolltext --textbox "$report" 20 78 || true
+    fi
+    rm -f -- "$report"
+  done
 }
 
 verify_current_installation() {
