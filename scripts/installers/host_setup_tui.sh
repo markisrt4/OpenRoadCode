@@ -16,6 +16,8 @@ fi
 whiptail --title "OpenRoadCode installer" --yesno "Would you like to run the interactive installer?" 10 60 || exit 0
 
 NAVIGATION_MODE=auto
+NAVIGATION_REGION=none
+WITH_NAVIGATION=1
 SELECTED_TARGET=linux-dev
 SELECTED_GENERAL="base"
 SELECTED_STREAMING=""
@@ -31,13 +33,14 @@ WITH_GPSD=0
 WITH_TELEMETRY=0
 WITH_RADIO=1
 SETTINGS_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/openroadcode/installer-selection.conf"
-settings_keys=(NAVIGATION_MODE SELECTED_TARGET SELECTED_GENERAL SELECTED_STREAMING SELECTED_AUDIO SELECTED_NAVIGATION SELECTED_RADIO SELECTED_AUTOMOTIVE SELECTED_BLUETOOTH SELECTED_ENVIRONMENTAL INSTALL_ALL_FEATURES WITH_VNC WITH_GPSD WITH_TELEMETRY WITH_RADIO)
+settings_keys=(NAVIGATION_MODE NAVIGATION_REGION WITH_NAVIGATION SELECTED_TARGET SELECTED_GENERAL SELECTED_STREAMING SELECTED_AUDIO SELECTED_NAVIGATION SELECTED_RADIO SELECTED_AUTOMOTIVE SELECTED_BLUETOOTH SELECTED_ENVIRONMENTAL INSTALL_ALL_FEATURES WITH_VNC WITH_GPSD WITH_TELEMETRY WITH_RADIO)
 if [[ -f "$SETTINGS_FILE" ]]; then
   while IFS='=' read -r key value; do
     case "$key" in
+      NAVIGATION_REGION) [[ "$value" =~ ^[a-z0-9/-]+$ ]] && NAVIGATION_REGION="$value" ;;
       NAVIGATION_MODE) case "$value" in auto|binary|source) NAVIGATION_MODE="$value" ;; esac ;;
       SELECTED_TARGET) case "$value" in rpi4|rpi5|linux-dev) SELECTED_TARGET="$value" ;; esac ;;
-      INSTALL_ALL_FEATURES|WITH_VNC|WITH_GPSD|WITH_TELEMETRY|WITH_RADIO)
+      INSTALL_ALL_FEATURES|WITH_NAVIGATION|WITH_VNC|WITH_GPSD|WITH_TELEMETRY|WITH_RADIO)
         [[ "$value" == 0 || "$value" == 1 ]] && printf -v "$key" '%s' "$value" ;;
       SELECTED_GENERAL|SELECTED_STREAMING|SELECTED_AUDIO|SELECTED_NAVIGATION|SELECTED_RADIO|SELECTED_AUTOMOTIVE|SELECTED_BLUETOOTH|SELECTED_ENVIRONMENTAL)
         [[ "$value" =~ ^[a-z0-9[:space:]-]*$ ]] && printf -v "$key" '%s' "$value" ;;
@@ -153,6 +156,98 @@ if [[ " $SELECTED_NAVIGATION " == *" navigation "* ]] || { (( INSTALL_ALL_FEATUR
     source "Build from source when needed" 3>&1 1>&2 2>&3)" || exit 0
 fi
 ARGS+=(--navigation-mode "$NAVIGATION_MODE")
+
+NAVIGATION_SELECTED=0
+if [[ " $SELECTED_NAVIGATION " == *" navigation "* ]] || { (( INSTALL_ALL_FEATURES )) && [[ "$SELECTED_TARGET" != linux-dev ]]; }; then
+  NAVIGATION_SELECTED=1
+  catalog_rows="$(python3 - "$PROJECT_DIR/scripts/runtime/navigation-data-catalog.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as stream:
+    catalog = json.load(stream)
+for region, entry in sorted(catalog["regions"].items()):
+    print(f"{region}\t{entry['title']} ({entry['archive_bytes'] / 1024**3:.2f} GiB download)")
+PY
+)"
+  region_options=(none "Skip regional data; manage datasets separately")
+  region_default=none
+  while IFS=
+
+ask_service() {
+  local variable="$1" title="$2" prompt="$3"
+  local options=()
+  if [[ "${!variable}" == 0 ]]; then options+=(--defaultno); fi
+  if whiptail --title "$title" "${options[@]}" --yesno "$prompt" 14 78; then
+    printf -v "$variable" 1
+  else
+    printf -v "$variable" 0
+  fi
+}
+
+if [[ " $SELECTED_GENERAL " == *" vnc "* ]] || (( INSTALL_ALL_FEATURES )); then
+  ask_service WITH_VNC "VNC service" "Configure and enable the VNC service?"
+else
+  WITH_VNC=0
+fi
+if [[ " $SELECTED_NAVIGATION " == *" gps "* || " $SELECTED_NAVIGATION " == *" navigation "* ]] || (( INSTALL_ALL_FEATURES )); then
+  ask_service WITH_GPSD "GPSD service" "Configure the default GPSD service?"
+else
+  WITH_GPSD=0
+fi
+if [[ "$SELECTED_TARGET" != termux ]] && { (( INSTALL_ALL_FEATURES )) || [[ " $SELECTED_RADIO $SELECTED_GENERAL " == *" sdrforge "* || " $SELECTED_GENERAL " == *" desktop-ui "* ]]; }; then
+  ask_service WITH_RADIO "Native radio service" "Enable SDRForge and the ZeroMQ message broker at startup?"
+  if (( WITH_RADIO )); then ARGS+=(--with-radio-service); else ARGS+=(--no-radio-service); fi
+fi
+if (( NAVIGATION_SELECTED )); then
+  ask_service WITH_NAVIGATION "Navigation services" "Enable the message broker and navigation controller at startup?"
+  if (( WITH_NAVIGATION )); then ARGS+=(--with-navigation-service); else ARGS+=(--no-navigation-service); fi
+fi
+ask_service WITH_TELEMETRY "OpenRoadCode telemetry" "Configure and enable the ZeroMQ broker, navigation producer, and automotive producer services?"
+if (( WITH_VNC )); then ARGS+=(--with-vnc); fi
+if (( WITH_GPSD )); then ARGS+=(--with-gpsd-service); else ARGS+=(--no-gpsd-service); fi
+if (( WITH_TELEMETRY )); then ARGS+=(--with-telemetry-services); fi
+
+save_settings
+while true; do
+  if bash "$PROJECT_DIR/scripts/installers/host_setup.sh" "${ARGS[@]}"; then
+    break
+  else
+    status=$?
+  fi
+  if ! whiptail --title "Installation incomplete" --defaultno --yesno \
+    "Installation failed (exit $status). Your selections are saved. Retry now? Existing packages will be reused where possible." 12 78; then
+    exit "$status"
+  fi
+done
+
+if [[ " $SELECTED_NAVIGATION " == *" navigation "* ]] || (( INSTALL_ALL_FEATURES )); then
+  if whiptail --title "Home and Work addresses" --yesno \
+    "Configure Home and Work destinations now?\n\nAddresses stay in your user configuration. You can skip this and configure them later." 12 78; then
+    SETUP_PYTHON="python3"
+    [[ -x "${VENV_DIR:-$PROJECT_DIR/venv}/bin/python" ]] && SETUP_PYTHON="${VENV_DIR:-$PROJECT_DIR/venv}/bin/python"
+    (cd "$PROJECT_DIR" && "$SETUP_PYTHON" -m scripts.installers.setup_destinations) || \
+      echo "[!] Address setup did not finish. Run it again as the ORC user."
+  fi
+fi
+
+if [[ " $SELECTED_BLUETOOTH " == *" bluetooth "* ]] || (( INSTALL_ALL_FEATURES )); then
+  if whiptail --title "Post-install configuration" --yesno "Configure a Bluetooth Serial Port Profile device now?" 10 72; then
+    bash "$PROJECT_DIR/scripts/installers/setup_bluetooth_spp.sh"
+  fi
+fi
+\t' read -r region description; do
+    [[ -n "$region" ]] || continue
+    region_options+=("$region" "$description")
+    [[ "$region" != "$NAVIGATION_REGION" ]] || region_default="$region"
+  done <<< "$catalog_rows"
+  NAVIGATION_REGION="$(whiptail --title "Offline navigation data" --default-item "$region_default" --menu \
+    "Select a regional dataset. Downloads are cached and verified before deployment." 18 78 8 \
+    "${region_options[@]}" 3>&1 1>&2 2>&3)" || exit 0
+  if [[ "$NAVIGATION_REGION" != none ]]; then
+    ARGS+=(--navigation-region "$NAVIGATION_REGION")
+  fi
+fi
 
 ask_service() {
   local variable="$1" title="$2" prompt="$3"
