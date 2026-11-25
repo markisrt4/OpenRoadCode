@@ -62,7 +62,7 @@ class NetworkMonitor:
     def __init__(self, notify: Callable[[bool | None], None]) -> None:
         self._notify = notify
         self._stop = threading.Event()
-        self._process: subprocess.Popen | None = None
+        self._process: subprocess.Popen[str] | None = None
         self._process_lock = threading.Lock()
         self._last = object()
         self._thread: threading.Thread | None = None
@@ -119,7 +119,7 @@ class NetworkMonitor:
             self._stop.wait(5)
 
     @staticmethod
-    def _terminate(process: subprocess.Popen | None) -> None:
+    def _terminate(process: subprocess.Popen[str] | None) -> None:
         if process is None:
             return
         try:
