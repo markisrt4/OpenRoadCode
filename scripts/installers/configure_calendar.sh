@@ -112,27 +112,54 @@ account_menu() {
         esac
     done
 }
+service_summary() {
+    local label="$1" unit="$2" loaded active enabled
+    loaded=$(systemctl --user show "$unit" -p LoadState --value 2>/dev/null) || loaded=unknown
+    if [[ "$loaded" == not-found ]]; then
+        printf '%s: Not configured\n' "$label"
+        return
+    fi
+    if [[ "$loaded" != loaded ]]; then
+        printf '%s: Status unavailable (%s)\n' "$label" "$loaded"
+        return
+    fi
+    active=$(systemctl --user is-active "$unit" 2>/dev/null) || true
+    enabled=$(systemctl --user is-enabled "$unit" 2>/dev/null) || true
+    case "$active" in
+        active) active=Running ;;
+        inactive) active=Stopped ;;
+        failed) active=Failed ;;
+    esac
+    printf '%s: %s (automatic startup: %s)\n' "$label" "$active" "$enabled"
+}
 service_menu() {
     while true; do
         printf '\nCalendar Service Management\n'
-        echo "Calendar sync downloads appointments into the local offline cache."
-        echo "The Proton bridge connects to Proton; other providers do not require it."
-        echo "These background services can run while the dashboard is closed."
-        printf '%s\n' '1. Show service status' '2. Install or refresh sync service' \
-            '3. Enable automatic sync and restart now' '4. Stop sync' \
-            '5. Disable automatic sync and stop' '6. Show recent sync logs' '0. Back'
+        service_summary "Calendar synchronization" openroadcode-calendar-sync.service
+        service_summary "Proton bridge" openroadcode-carbonate.service
+        echo "Synchronization keeps appointments available offline, even when the dashboard is closed."
+        printf '%s\n' '1. Set up and start automatic synchronization' \
+            '2. Turn off automatic synchronization' '3. Refresh status' \
+            '4. Troubleshooting (service details and recent logs)' '0. Back'
         read -r -p 'Select: ' choice || return 0
         case "$choice" in
-            1) for unit in openroadcode-calendar-sync openroadcode-carbonate; do
+            1) if sh development/calendar/install_linux_sync_service.sh --accounts &&
+                    systemctl --user enable openroadcode-calendar-sync.service &&
+                    systemctl --user restart openroadcode-calendar-sync.service; then
+                    echo "Synchronization started. Appointments will be downloaded in the background."
+                else
+                    echo "Could not start synchronization. See troubleshooting for details." >&2
+                fi ;;
+            2) if systemctl --user disable --now openroadcode-calendar-sync.service; then
+                    echo "Automatic synchronization is off. Cached appointments are retained."
+                else
+                    echo "Could not turn off synchronization." >&2
+                fi ;;
+            3) ;;
+            4) for unit in openroadcode-calendar-sync openroadcode-carbonate; do
                     systemctl --user --no-pager status "$unit.service" || true
-                done ;;
-            2) sh development/calendar/install_linux_sync_service.sh --accounts || true ;;
-            3) sh development/calendar/install_linux_sync_service.sh --accounts &&
-                systemctl --user enable openroadcode-calendar-sync.service &&
-                systemctl --user restart openroadcode-calendar-sync.service || true ;;
-            4) systemctl --user stop openroadcode-calendar-sync.service || true ;;
-            5) systemctl --user disable --now openroadcode-calendar-sync.service || true ;;
-            6) journalctl --user -u openroadcode-calendar-sync.service -n 30 --no-pager || true ;;
+                done
+                journalctl --user -u openroadcode-calendar-sync.service -n 30 --no-pager || true ;;
             0) return 0 ;;
             *) echo "Invalid selection" ;;
         esac
