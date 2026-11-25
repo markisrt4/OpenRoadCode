@@ -52,7 +52,12 @@ class AppointmentJourneyPlanner:
         events = upcoming_appointments(self._calendar, now, limit=1)
         if not events:
             return None
-        event = events[0]
+        return self.plan_event(events[0], origin)
+
+    def plan_event(
+        self, event: CalendarEvent, origin: GeoPoint
+    ) -> AppointmentJourney | None:
+        """Estimate the exact event already selected by the consumer."""
         location = (event.location or "").strip()
         if not location:
             return None
