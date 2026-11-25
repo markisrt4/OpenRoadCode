@@ -13,6 +13,7 @@ class ReceiverSetting:
     usb_path: str
     owner: str | None
     available: bool
+    phase: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

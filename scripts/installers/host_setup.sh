@@ -267,6 +267,7 @@ for feature in "${REQUESTED_FEATURES[@]}"; do
   append_feature "$feature"
 done
 (( RUN_VNC )) && append_feature vnc
+(( MANAGED_RF )) && append_feature browser
 [[ "$RUN_GPSD_SERVICE" != 1 ]] || append_feature gps
 
 feature_index=0

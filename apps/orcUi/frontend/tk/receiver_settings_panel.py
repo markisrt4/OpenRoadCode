@@ -102,7 +102,7 @@ class ReceiverSettingsPanel(tk.Frame, UiWidget):
         lines = []
         for receiver in state.receivers:
             description = (
-                f"Reserved by {receiver.owner}"
+                f"{receiver.owner} · {receiver.phase or 'Reserved'}"
                 if receiver.owner
                 else "Available"
                 if receiver.available

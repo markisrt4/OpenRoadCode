@@ -4,6 +4,7 @@
 from collections import Counter
 from collections.abc import Callable
 
+from controllers.radio.receiver_acquisition import ReceiverAcquisitionController
 from controllers.radio.receiver_assignments import ReceiverAssignments, ReceiverAssignmentStore
 from controllers.radio.receiver_ownership import ReceiverOwnershipController
 from hardware_io.rf.receiver_discovery_if import ReceiverDiscoveryIf
@@ -19,12 +20,14 @@ class ReceiverSettingsController:
         store: ReceiverAssignmentStore,
         ownership: ReceiverOwnershipController,
         *,
+        acquisition: ReceiverAcquisitionController | None = None,
         run_work: Callable[[Callable[[], None]], None],
         run_ui: Callable[[Callable[[], None]], None],
     ) -> None:
         self._discovery = discovery
         self._store = store
         self._ownership = ownership
+        self._acquisition = acquisition
         self._run_work = run_work
         self._run_ui = run_ui
 
@@ -33,6 +36,11 @@ class ReceiverSettingsController:
         devices = self._discovery.discover()
         counts = Counter(device.serial for device in devices)
         owners = {lease.identity: lease.consumer for lease in self._ownership.snapshot()}
+        phases = (
+            {lease.identity: phase for lease, phase in self._acquisition.status()}
+            if self._acquisition is not None
+            else {}
+        )
         receivers = tuple(
             ReceiverSetting(
                 device.serial,
@@ -40,6 +48,7 @@ class ReceiverSettingsController:
                 device.usb_path,
                 owners.get(device.identity) if device.identity is not None else None,
                 device.identity is not None and counts[device.serial] == 1,
+                phases.get(device.identity) if device.identity is not None else None,
             )
             for device in devices
         )

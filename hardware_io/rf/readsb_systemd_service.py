@@ -18,6 +18,8 @@ class ReadsbSystemdService:
         timeout: float = 15.0,
         unit: str = "readsb.service",
         user_unit: bool = False,
+        usb_root: Path = Path("/sys/bus/usb/devices"),
+        proc_root: Path = Path("/proc"),
     ) -> None:
         if not serial or timeout <= 0:
             raise ValueError("serial and positive timeout required")
@@ -25,6 +27,8 @@ class ReadsbSystemdService:
         self._timeout = timeout
         self._unit = unit
         self._scope = ["--user"] if user_unit else []
+        self._usb_root = usb_root
+        self._proc_root = proc_root
 
     def _run(self, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
@@ -67,7 +71,7 @@ class ReadsbSystemdService:
             return False
         try:
             matches = []
-            for device in Path("/sys/bus/usb/devices").iterdir():
+            for device in self._usb_root.iterdir():
                 try:
                     if (
                         (device / "serial").read_text().strip() == self._serial
@@ -81,7 +85,7 @@ class ReadsbSystemdService:
                     continue
             if len(matches) != 1:
                 return False
-            for fd in (Path("/proc") / pid / "fd").iterdir():
+            for fd in (self._proc_root / pid / "fd").iterdir():
                 try:
                     if fd.readlink() == matches[0]:
                         return True

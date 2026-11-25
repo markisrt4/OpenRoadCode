@@ -65,6 +65,31 @@ class HostSetupPlanTests(unittest.TestCase):
         self.assertNotIn("sdrforge", result.stdout)
         self.assertNotIn("sdrpp", result.stdout)
 
+    def test_managed_rf_plan_includes_radio_adsb_and_browser(self) -> None:
+        result = self.run_installer(
+            "--target",
+            "rpi5",
+            "--feature",
+            "sdrforge",
+            "--feature",
+            "adsb",
+            "--managed-rf",
+            "--show-plan",
+            architecture="arm64",
+            model="Raspberry Pi 5 Model B Rev 1.0",
+            distribution="debian",
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn("Managed RF:            1", result.stdout)
+        self.assertIn("Radio service setup:   1", result.stdout)
+        self.assertIn("browser", result.stdout)
+        self.assertIn("Plan only; no system changes were made.", result.stdout)
+
+    def test_managed_rf_requires_pi_5_and_both_rf_features(self) -> None:
+        result = self.run_installer("--target", "linux-dev", "--managed-rf", "--show-plan")
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("--managed-rf requires target rpi5", result.stderr)
+
     def test_target_is_required(self) -> None:
         result = self.run_installer("--show-plan")
 

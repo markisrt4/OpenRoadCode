@@ -62,17 +62,31 @@ class SdrforgeAcquisitionAdapter:
         while time.monotonic() < deadline:
             status = self._request("/v1/receiver")
             if status.get("startup_error"):
-                return False
+                raise RuntimeError(f"SDRForge startup failed: {status['startup_error']}")
             if status.get("running") is True and status.get("starting") is False:
                 config = self._request("/v1/rf/config")
                 return config.get("device_serial") == device.serial
             time.sleep(0.1)
         return False
 
+    def active(self, device: ReceiverDevice) -> bool:
+        """Check whether the configured receiver is still running."""
+        try:
+            status = self._request("/v1/receiver")
+            return (
+                status.get("running") is True
+                and status.get("starting") is False
+                and self._request("/v1/rf/config").get("device_serial") == device.serial
+            )
+        except (OSError, ValueError):
+            return False
+
     def stop(self) -> bool:
         """Stop acquisition and wait for explicit release confirmation."""
         if not self._start_requested:
             return self._released(self._request("/v1/receiver"))
+        if self._ensure_ready is not None:
+            self._ensure_ready()
         self._request("/v1/receiver/stop", {})
         deadline = time.monotonic() + self._timeout
         while time.monotonic() < deadline:

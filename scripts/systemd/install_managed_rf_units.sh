@@ -11,6 +11,13 @@ command -v flock >/dev/null || {
   exit 1
 }
 
+mkdir -p "$(dirname -- "$rf_config")"
+exec 8>"${rf_config}.lock"
+if ! flock --nonblock 8; then
+  echo "[!] Close OpenRoadCode before updating managed RF services." >&2
+  exit 1
+fi
+
 # The vendor unit must never acquire hardware on its own after managed setup.
 sudo systemctl disable --now readsb.service
 sudo systemctl mask readsb.service
@@ -43,7 +50,6 @@ ExecStart="$python_bin" -m sdrforge.live_transport_server --rest-port=5572 --rig
 Restart=no
 EOF
 
-mkdir -p "$(dirname -- "$rf_config")"
 if [[ -L "$rf_config" ]] || [[ -e "$rf_config" && ( ! -O "$rf_config" || "$(stat -c %a "$rf_config")" != 600 ) ]]; then
   echo "[!] Managed RF credential file must be owned by this user with mode 0600." >&2
   exit 1
@@ -55,7 +61,8 @@ if [[ ! -f "$rf_config" ]]; then
   fi
   rm -f -- "$rf_credential_tmp"
 fi
-grep -Eq '^SDRFORGE_ACQUISITION_TOKEN=[a-f0-9]{64}$' "$rf_config" || {
+mapfile -t rf_credentials < "$rf_config"
+if (( ${#rf_credentials[@]} != 1 )) || [[ ! "${rf_credentials[0]:-}" =~ ^SDRFORGE_ACQUISITION_TOKEN=[a-f0-9]{64}$ ]]; then
   echo "[!] Managed RF credential file is invalid." >&2
   exit 1
-}
+fi

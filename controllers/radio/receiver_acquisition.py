@@ -17,6 +17,7 @@ class _AcquisitionSession:
     lease: ReceiverLease
     adapter: ReceiverAcquisitionIf
     lock: LockType = field(default_factory=Lock)
+    phase: str = "Acquiring"
 
 
 class ReceiverAcquisitionController:
@@ -43,20 +44,40 @@ class ReceiverAcquisitionController:
         try:
             try:
                 if adapter.start(device):
+                    self._set_phase(session, "Acquired")
                     return True
-            except Exception:
-                self._stop_session(consumer, session)
+            except Exception as error:
+                try:
+                    self._stop_session(consumer, session)
+                except Exception as cleanup:
+                    error.add_note(f"Receiver cleanup also failed: {cleanup}")
                 raise
             self._stop_session(consumer, session)
             return False
         finally:
             session.lock.release()
 
+    def _set_phase(self, session: _AcquisitionSession, phase: str) -> None:
+        with self._lock:
+            session.phase = phase
+
+    def status(self) -> tuple[tuple[ReceiverLease, str], ...]:
+        with self._lock:
+            return tuple((session.lease, session.phase) for session in self._sessions.values())
+
     def _stop_session(self, consumer: str, session: _AcquisitionSession) -> bool:
-        if not session.adapter.stop():
+        self._set_phase(session, "Releasing")
+        try:
+            released = session.adapter.stop()
+        except Exception:
+            self._set_phase(session, "Release unconfirmed")
+            raise
+        if not released:
+            self._set_phase(session, "Release unconfirmed")
             return False
         with self._lock:
             if not self._ownership.release(session.lease, stopped=True):
+                session.phase = "Release unconfirmed"
                 return False
             del self._sessions[consumer]
         return True

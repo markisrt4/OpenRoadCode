@@ -78,6 +78,13 @@ if ! "$is_termux"; then
             echo "[!] Another OpenRoadCode instance owns managed RF acquisition." >&2
             exit 1
         fi
+        rf_marker="${rf_config}.in-use"
+        if [[ -f "$rf_marker" ]]; then
+            echo "[*] Recovering supervised receivers from the previous managed session."
+            systemctl --user stop 'openroadcode-readsb@*.service' libsdrforge-weather.service
+            systemctl --user restart libsdrforge.service
+        fi
+        (umask 077; printf '%s\n' "$$" > "$rf_marker")
     fi
     exec "$python_bin" -m apps.orcUi "$@"
 fi

@@ -199,6 +199,7 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
                 discovery,
                 assignments,
                 ownership,
+                acquisition=managed.acquisition if managed is not None else None,
                 run_work=resources.run_work,
                 run_ui=app.dispatch_ui,
             )
@@ -229,9 +230,13 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
         mode_changed(network_allowed())
         directory = RadioBrowserDirectory(timeout_s=10.0, network_allowed=network_allowed)
         favorites = StreamingRadioFavorites()
-        adsb = OrcUiAdsbControl(
-            set_managed_tracking=managed.set_adsb_tracking if managed is not None else None,
-            managed_tracking=managed.adsb_active if managed is not None else None,
+        adsb = (
+            OrcUiAdsbControl(
+                set_managed_tracking=managed.set_adsb_tracking,
+                managed_tracking=managed.adsb_active,
+            )
+            if managed is not None
+            else OrcUiAdsbControl()
         )
 
         def load_artwork(url: str) -> bytes:

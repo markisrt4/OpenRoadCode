@@ -3,16 +3,18 @@
 
 from __future__ import annotations
 
+import os
 import re
 
 from common.resource_cleanup import close_resources
+from common.xdg_paths import openroadcode_config_dir
 from controllers.radio.managed_receivers import ManagedReceivers
 from controllers.radio.receiver_acquisition import ReceiverAcquisitionController
 from controllers.radio.receiver_assignments import ReceiverAssignmentStore
 from controllers.radio.receiver_ownership import ReceiverOwnershipController
 from hardware_io.rf.readsb_acquisition_adapter import ReadsbAcquisitionAdapter
 from hardware_io.rf.readsb_systemd_service import ReadsbSystemdService
-from hardware_io.rf.receiver_discovery_if import ReceiverDiscoveryIf
+from hardware_io.rf.receiver_discovery_if import ReceiverDevice, ReceiverDiscoveryIf
 from hardware_io.rf.sdrforge_acquisition_adapter import SdrforgeAcquisitionAdapter
 from services.linux.sdrforge_instance import SdrForgeSystemdInstance
 
@@ -32,9 +34,8 @@ class ManagedReceiverServices:
     ) -> None:
         self._ownership = ownership
         self._assignments = assignments
-        self._consumers = ManagedReceivers(
-            ReceiverAcquisitionController(ownership), assignments, discovery
-        )
+        self.acquisition = ReceiverAcquisitionController(ownership)
+        self._consumers = ManagedReceivers(self.acquisition, assignments, discovery)
         self._radio = self._adapter(token, "libsdrforge.service", RADIO_REST)
         self._weather = self._adapter(token, "libsdrforge-weather.service", WEATHER_REST)
         self._adsb_service: ReadsbSystemdService | None = None
@@ -49,7 +50,7 @@ class ManagedReceiverServices:
         for lease in self._ownership.snapshot():
             if lease.identity == device.identity and lease.consumer == "weather":
                 self._consumers.stop("weather")
-        self._consumers.start("radio", device, self._radio)
+        self._start_sdrforge("radio", device, self._radio)
 
     def stop_radio(self) -> None:
         self._consumers.stop("radio")
@@ -58,8 +59,18 @@ class ManagedReceiverServices:
         device = self._consumers.assignment("weather")
         shared = self._assignments.load().radio == device.identity
         adapter = self._radio if shared else self._weather
-        self._consumers.start("weather", device, adapter)
+        self._start_sdrforge("weather", device, adapter)
         return RADIO_REST if shared else WEATHER_REST
+
+    def _start_sdrforge(
+        self, consumer: str, device: ReceiverDevice, adapter: SdrforgeAcquisitionAdapter
+    ) -> None:
+        for lease in self._ownership.snapshot():
+            if lease.consumer == consumer:
+                if lease.identity == device.identity and adapter.active(device):
+                    return
+                self._consumers.stop(consumer)
+        self._consumers.start(consumer, device, adapter)
 
     def adsb_active(self) -> bool:
         return self._adsb_service is not None and self._adsb_service.active()
@@ -94,3 +105,9 @@ class ManagedReceiverServices:
             lambda: self._consumers.stop("weather"),
             lambda: self.set_adsb_tracking(False),
         )
+        marker = openroadcode_config_dir("rf-acquisition.env.in-use")
+        try:
+            if marker.read_text().strip() == str(os.getpid()):
+                marker.unlink()
+        except FileNotFoundError:
+            pass
