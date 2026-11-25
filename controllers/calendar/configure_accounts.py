@@ -23,7 +23,7 @@ def main() -> None:
         type=Path,
         default=Path.home() / ".config/openroadcode/calendar-accounts.json",
     )
-    parser.add_argument("action", choices=("list", "add", "enable", "disable"))
+    parser.add_argument("action", choices=("list", "add", "enable", "disable", "password", "remove"))
     parser.add_argument("--account-id")
     parser.add_argument("--provider", choices=("caldav", "proton"))
     parser.add_argument("--endpoint-default", default="")
@@ -64,6 +64,34 @@ def main() -> None:
             parser.error("No calendar could be read; account was not saved")
         secrets.set_secret(account.password_secret, password)
         save_accounts(args.accounts_file, (*accounts, account))
+    elif args.action in ("password", "remove"):
+        existing = next((account for account in accounts if account.account_id == account_id), None)
+        if existing is None:
+            parser.error("Unknown account ID")
+        if args.action == "remove":
+            if input(f"Remove {account_id} from configuration? [y/N] ").lower() != "y":
+                return
+            save_accounts(
+                args.accounts_file,
+                tuple(account for account in accounts if account.account_id != account_id),
+            )
+            print("Account removed from configuration; cached data and secret retained.")
+        else:
+            password = getpass("New calendar password or app password: ")
+            paths = CalendarAccountPaths(
+                args.accounts_file.parent / "calendar-accounts", existing
+            )
+            paths.catalog.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            probe = create_calendar_provider(
+                existing,
+                paths,
+                EnvironmentVariableSecretManager(environment={existing.password_secret: password}),
+            )
+            now = datetime.now(timezone.utc)
+            probe.list_events(now, now + timedelta(days=1))
+            if not any(status.ok and not status.disabled for status in probe.last_sync_status):
+                parser.error("Credential validation failed; existing password retained")
+            EnvironmentVariableSecretManager().set_secret(existing.password_secret, password)
     else:
         if not any(account.account_id == account_id for account in accounts):
             parser.error("Unknown account ID")
