@@ -21,6 +21,11 @@ add_account() {
     case "$provider" in
         1)
             echo "Proton uses the unofficial Carbonate bridge."
+            if systemctl --user is-active --quiet openroadcode-carbonate.service; then
+                echo "Existing Proton bridge is running. Registering an ORC account without reauthentication."
+                "$PYTHON_BIN" -m controllers.calendar.configure_accounts add --provider proton
+                return $?
+            fi
             if [[ -x "$HOME/.local/bin/carbonate" ]]; then
                 export CARBONATE_BIN="$HOME/.local/bin/carbonate"
             elif [[ -x "$HOME/go/bin/carbonate" ]]; then
@@ -78,25 +83,60 @@ add_account() {
         *) echo "Invalid provider"; return 1 ;;
     esac
 }
+account_menu() {
+    while true; do
+        printf '\nCalendar Account Management\n'
+        printf '%s\n' '1. List accounts' '2. Add or register account' '3. Enable account' \
+            '4. Disable account' '5. Update account password' '6. Remove account' '0. Back'
+        read -r -p 'Select: ' choice || return 0
+        case "$choice" in
+            1) "$PYTHON_BIN" -m controllers.calendar.configure_accounts list || true
+                if systemctl --user is-active --quiet openroadcode-carbonate.service; then
+                    echo "Proton bridge is running. If not listed above, register it using option 2."
+                fi ;;
+            2) add_account || true ;;
+            3) "$PYTHON_BIN" -m controllers.calendar.configure_accounts enable || true ;;
+            4) "$PYTHON_BIN" -m controllers.calendar.configure_accounts disable || true ;;
+            5) "$PYTHON_BIN" -m controllers.calendar.configure_accounts password || true ;;
+            6) "$PYTHON_BIN" -m controllers.calendar.configure_accounts remove || true ;;
+            0) return 0 ;;
+            *) echo "Invalid selection" ;;
+        esac
+    done
+}
+service_menu() {
+    while true; do
+        printf '\nCalendar Service Management\n'
+        echo "Calendar sync downloads appointments into the local offline cache."
+        echo "The Proton bridge connects to Proton; other providers do not require it."
+        echo "These background services can run while the dashboard is closed."
+        printf '%s\n' '1. Show service status' '2. Install or refresh sync service' \
+            '3. Enable automatic sync and restart now' '4. Stop sync' \
+            '5. Disable automatic sync and stop' '6. Show recent sync logs' '0. Back'
+        read -r -p 'Select: ' choice || return 0
+        case "$choice" in
+            1) for unit in openroadcode-calendar-sync openroadcode-carbonate; do
+                    systemctl --user --no-pager status "$unit.service" || true
+                done ;;
+            2) sh development/calendar/install_linux_sync_service.sh --accounts || true ;;
+            3) sh development/calendar/install_linux_sync_service.sh --accounts &&
+                systemctl --user enable openroadcode-calendar-sync.service &&
+                systemctl --user restart openroadcode-calendar-sync.service || true ;;
+            4) systemctl --user stop openroadcode-calendar-sync.service || true ;;
+            5) systemctl --user disable --now openroadcode-calendar-sync.service || true ;;
+            6) journalctl --user -u openroadcode-calendar-sync.service -n 30 --no-pager || true ;;
+            0) return 0 ;;
+            *) echo "Invalid selection" ;;
+        esac
+    done
+}
 while true; do
     printf '\nOpenRoadCode Calendar Configuration\n'
-    printf '%s\n' '1. List accounts' '2. Add account' '3. Enable account' \
-        '4. Disable account' '5. Install synchronization service' \
-        '6. Enable or restart synchronization' '7. Service status' \
-        '8. Update account password' '9. Remove account' '0. Exit'
+    printf '%s\n' '1. Account management' '2. Service management' '0. Exit'
     read -r -p 'Select: ' choice || exit 0
     case "$choice" in
-        1) "$PYTHON_BIN" -m controllers.calendar.configure_accounts list || true ;;
-        2) add_account || true ;;
-        3) "$PYTHON_BIN" -m controllers.calendar.configure_accounts enable || true ;;
-        4) "$PYTHON_BIN" -m controllers.calendar.configure_accounts disable || true ;;
-        5) sh development/calendar/install_linux_sync_service.sh --accounts || true ;;
-        6) sh development/calendar/install_linux_sync_service.sh --accounts &&
-            systemctl --user enable openroadcode-calendar-sync.service &&
-            systemctl --user restart openroadcode-calendar-sync.service || true ;;
-        7) systemctl --user --no-pager status openroadcode-calendar-sync.service || true ;;
-        8) "$PYTHON_BIN" -m controllers.calendar.configure_accounts password || true ;;
-        9) "$PYTHON_BIN" -m controllers.calendar.configure_accounts remove || true ;;
+        1) account_menu ;;
+        2) service_menu ;;
         0) exit 0 ;;
         *) echo "Invalid selection" ;;
     esac
