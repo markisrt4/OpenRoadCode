@@ -113,8 +113,8 @@ def test_hidden_navigation_cancels_periodic_forecasts_and_replay_requests() -> N
 def test_closed_overlay_composition_releases_each_owned_backend_once() -> None:
     city, model, route = Mock(), Mock(), Mock()
     controller = WeatherOverlayController(Mock(), city, model, route)
-    controller.close()  # type: ignore[no-untyped-call]
-    controller.close()  # type: ignore[no-untyped-call]
+    controller.close()
+    controller.close()
     for child in (city, model, route):
         child.close.assert_called_once()
 
@@ -124,6 +124,6 @@ def test_one_failing_backend_close_cannot_skip_other_owned_resources() -> None:
     city.close.side_effect = RuntimeError("failed close")
     controller = WeatherOverlayController(Mock(), city, model, route)
     with pytest.raises(RuntimeError, match="failed close"):
-        controller.close()  # type: ignore[no-untyped-call]
+        controller.close()
     model.close.assert_called_once()
     route.close.assert_called_once()
