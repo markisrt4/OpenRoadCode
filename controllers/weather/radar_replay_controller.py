@@ -27,10 +27,10 @@ class RadarReplayController(RadarRequestHandlerIf):
         controller,
         *,
         injection=None,
-        on_palette=None,
-        on_source=None,
-        on_visibility=None,
-        refresh_renderer=None,
+        on_palette: Callable[[RadarPalette], None] | None = None,
+        on_source: Callable[[bool], None] | None = None,
+        on_visibility: Callable[[], None] | None = None,
+        refresh_renderer: Callable[[], None] | None = None,
     ):
         self._host, self._ui, self._radar_controller = dispatcher, ui, controller
         self._radar_injection_controller = injection
@@ -42,11 +42,11 @@ class RadarReplayController(RadarRequestHandlerIf):
         self._radar_playback_speed = 1.0
         self._status = ""
         self._refreshing = False
-        self._refreshed_at = None
+        self._refreshed_at: float | None = None
         self._health_generation = 0
         self._clock = time
         self._log = WeatherLog("weather.radar.replay")
-        self._play_operation_id = None
+        self._play_operation_id: str | None = None
         self._emit()
 
     def request_enabled(self, enabled: bool) -> None:
@@ -112,7 +112,7 @@ class RadarReplayController(RadarRequestHandlerIf):
     def request_replay(self) -> None:
         self._replay_requested_radar()
 
-    def close(self):
+    def close(self) -> None:
         """Invalidate outstanding callbacks without taking ownership of provider resources."""
         if self._closed:
             return
@@ -122,11 +122,11 @@ class RadarReplayController(RadarRequestHandlerIf):
         self._radar_load_generation += 1
         self._health_generation += 1
 
-    def _set_status(self, status):
+    def _set_status(self, status: str) -> None:
         self._status = status
         self._emit()
 
-    def _emit(self):
+    def _emit(self) -> None:
         if self._closed:
             return
         controller = self._radar_controller
@@ -147,7 +147,7 @@ class RadarReplayController(RadarRequestHandlerIf):
             )
         )
 
-    def _data_status(self):
+    def _data_status(self) -> str:
         if self._status:
             return (
                 "Radar unavailable"
@@ -160,7 +160,7 @@ class RadarReplayController(RadarRequestHandlerIf):
             return "Refreshing radar data…"
         return radar_imagery_status(self._radar_controller, self._clock)
 
-    def _poll_radar_health(self, generation):
+    def _poll_radar_health(self, generation: int) -> None:
         if self._closed or not self._visible or generation != self._health_generation:
             return
         self._emit()
@@ -458,7 +458,12 @@ class RadarReplayController(RadarRequestHandlerIf):
                 self._radar_controller.refresh_renderer_state()
 
     def _radar_load_failed(
-        self, detail: str, generation=None, operation_id=None, *, error=None
+        self,
+        detail: str,
+        generation: int | None = None,
+        operation_id: str | None = None,
+        *,
+        error: Exception | None = None,
     ) -> None:
         if self._closed or (generation is not None and generation != self._radar_load_generation):
             self._log.stale(operation_id)
