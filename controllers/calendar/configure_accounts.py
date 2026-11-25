@@ -25,7 +25,7 @@ def main() -> None:
         default=Path.home() / ".config/openroadcode/calendar-accounts.json",
     )
     parser.add_argument(
-        "action", choices=("list", "add", "enable", "disable", "password", "remove")
+        "action", choices=("list", "add", "enable", "disable", "password", "remove", "status")
     )
     parser.add_argument("--account-id")
     parser.add_argument("--provider", choices=("caldav", "proton"))
@@ -49,7 +49,7 @@ def main() -> None:
             and (args.action != "disable" or account.enabled)
         )
         if not candidates:
-            print(f"No accounts available to {args.action}.")
+            print("No calendar accounts configured." if not accounts else f"All accounts are already {args.action}d.")
             return
         for index, account in enumerate(candidates, start=1):
             state = "enabled" if account.enabled else "disabled"
@@ -64,6 +64,14 @@ def main() -> None:
         if not 1 <= index <= len(candidates):
             parser.error("Select a listed account number")
         account_id = candidates[index - 1].account_id
+    if args.action == "status":
+        selected = next((account for account in accounts if account.account_id == account_id), None)
+        if selected is None:
+            parser.error("Unknown account ID")
+        action = "disable" if selected.enabled else "enable"
+        if input(f"{action.capitalize()} {selected.username}? [y/N] ").strip().lower() != "y":
+            return
+        args.action = action
     if args.action == "add":
         provider = args.provider or input("Provider (caldav/proton): ").strip().lower()
         username = input("Calendar username: ").strip()
