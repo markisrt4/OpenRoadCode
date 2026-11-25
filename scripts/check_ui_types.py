@@ -19,9 +19,19 @@ def is_termux() -> bool:
     )
 
 
+def is_quality_environment() -> bool:
+    return Path(sys.prefix).resolve() == (ROOT / ".venv-quality").resolve()
+
+
+def mypy_platform_args() -> list[str]:
+    if is_termux() and is_quality_environment():
+        return ["--no-native-parser", "--no-incremental"]
+    return []
+
+
 def main() -> int:
     if importlib.util.find_spec("mypy") is None:
-        if is_termux() and Path(sys.prefix).resolve() != (ROOT / ".venv-quality").resolve():
+        if is_termux() and not is_quality_environment():
             print("[SKIP] Strict UI types: mypy unavailable on Termux; Linux/CI still requires it")
             return 0
         print(
@@ -30,8 +40,7 @@ def main() -> int:
         )
         return 1
     args = [sys.executable, "-m", "mypy", "--config-file", "pyproject.toml"]
-    if is_termux() and (ROOT / ".venv-quality").resolve() == Path(sys.prefix).resolve():
-        args.extend(["--no-native-parser", "--no-incremental"])
+    args.extend(mypy_platform_args())
     return subprocess.run(
         args,
         cwd=ROOT,

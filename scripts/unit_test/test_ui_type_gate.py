@@ -8,7 +8,7 @@ import sys
 
 import pytest
 
-from scripts.check_ui_types import main, is_termux
+from scripts.check_ui_types import is_quality_environment, is_termux, main, mypy_platform_args
 import importlib.util
 
 
@@ -16,7 +16,11 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def check_source(tmp_path, source):
-    if is_termux() and importlib.util.find_spec("mypy") is None:
+    if (
+        is_termux()
+        and not is_quality_environment()
+        and importlib.util.find_spec("mypy") is None
+    ):
         pytest.skip("mypy unavailable on Termux; strict type tests run in Linux/CI")
     path = tmp_path / "contract_example.py"
     path.write_text(source)
@@ -25,6 +29,7 @@ def check_source(tmp_path, source):
             sys.executable,
             "-m",
             "mypy",
+            *mypy_platform_args(),
             "--config-file",
             str(ROOT / "pyproject.toml"),
             "--cache-dir",
@@ -267,6 +272,7 @@ def tune(session: RfRadioSession) -> None:
 
 
 def test_missing_mypy_is_explicitly_skipped_on_termux(monkeypatch, capsys):
+    monkeypatch.setattr("scripts.check_ui_types.is_quality_environment", lambda: False)
     monkeypatch.setenv("PREFIX", "/data/data/com.termux/files/usr")
     monkeypatch.setattr("scripts.check_ui_types.importlib.util.find_spec", lambda _: None)
     assert main() == 0
@@ -284,3 +290,19 @@ def test_termux_quality_gate_reports_skip_without_running_type_checker(monkeypat
     assert quality_gate._run_ui_types()
     run.assert_not_called()
     assert "[SKIP]" in capsys.readouterr().out
+
+
+def test_missing_mypy_fails_in_termux_quality_environment(monkeypatch, capsys):
+    monkeypatch.setenv("PREFIX", "/data/data/com.termux/files/usr")
+    monkeypatch.setattr("scripts.check_ui_types.is_quality_environment", lambda: True)
+    monkeypatch.setattr("scripts.check_ui_types.importlib.util.find_spec", lambda _: None)
+    assert main() == 1
+    assert "mypy is required" in capsys.readouterr().err
+
+
+def test_mypy_platform_args(monkeypatch):
+    monkeypatch.setattr("scripts.check_ui_types.is_quality_environment", lambda: True)
+    monkeypatch.setattr("scripts.check_ui_types.is_termux", lambda: True)
+    assert mypy_platform_args() == ["--no-native-parser", "--no-incremental"]
+    monkeypatch.setattr("scripts.check_ui_types.is_termux", lambda: False)
+    assert mypy_platform_args() == []
