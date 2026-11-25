@@ -60,12 +60,21 @@ class AgendaSnapshot:
 
 
 @dataclass(frozen=True)
+class AppointmentJourneyView:
+    """Estimated travel duration and recommended departure."""
+
+    leave_by: datetime
+    travel_seconds: float
+
+
+@dataclass(frozen=True)
 class AppointmentSnapshot:
     """Completed upcoming appointment read."""
 
     events: tuple[CalendarEventView, ...]
     health: CalendarHealthView
     complete_coverage: bool | None = None
+    journey: AppointmentJourneyView | None = None
 
 
 @dataclass(frozen=True)
