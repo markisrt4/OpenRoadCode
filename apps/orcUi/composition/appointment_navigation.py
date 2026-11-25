@@ -3,7 +3,7 @@
 
 import sqlite3
 from time import monotonic
-from math import hypot
+from math import cos, hypot, pi
 
 import requests
 
@@ -85,7 +85,8 @@ class AppointmentEstimateCache:
             and now < self._expires
             and hypot(
                 origin.latitude_rad - previous.latitude_rad,
-                origin.longitude_rad - previous.longitude_rad,
+                ((origin.longitude_rad - previous.longitude_rad + pi) % (2 * pi) - pi)
+                * cos((origin.latitude_rad + previous.latitude_rad) / 2),
             ) < 0.00004
         ):
             return self._estimate
