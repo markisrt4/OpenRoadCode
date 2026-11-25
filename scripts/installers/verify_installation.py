@@ -15,6 +15,7 @@ from collections.abc import Iterable
 
 PYTHON_IMPORTS: dict[str, tuple[str, ...]] = {
     "base": ("requests", "zmq"),
+    "calendar": ("dateutil", "sqlite3"),
     "sdrforge": ("sdrforge", "scipy", "zmq", "sounddevice"),
     "desktop-ui": ("tkinter", "PIL", "numpy", "flask"),
     "web-ui": ("flask",),
