@@ -61,9 +61,7 @@ def read_agenda(
             AgendaDayView(group.day, tuple(event_view(event) for event in group.events))
             for group in controller.load(day, days)
         )
-        future.set_result(
-            AgendaSnapshot(groups, health(), coverage(day, days) if coverage else None)
-        )
+        future.set_result(AgendaSnapshot(groups, health(), coverage(day, days) if coverage else None))
     except Exception as error:
         future.set_exception(error)
 
