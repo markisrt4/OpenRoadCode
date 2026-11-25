@@ -15,14 +15,14 @@ from ui.navigation.poi_models import PoiCategory
 from ui.radio.radio_types import RadioPreset
 
 
-def test_compatibility_exports_preserve_value_identity():
+def test_compatibility_exports_preserve_value_identity() -> None:
     assert BackendAnalysis is EngineAnalysis
     assert BackendConfiguration is VehicleConfiguration
     assert BackendCategory is PoiCategory
     assert BackendPreset is RadioPreset
 
 
-def test_headless_navigation_contracts_do_not_import_css_parser():
+def test_headless_navigation_contracts_do_not_import_css_parser() -> None:
     import subprocess
     import sys
 

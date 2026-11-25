@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 """Optional route operations do not burden baseline implementations."""
 
+from collections.abc import Sequence
+
 import pytest
 
 from ui.navigation import (
@@ -26,7 +28,7 @@ OPTIONAL_CAPABILITIES = (
 )
 
 
-def test_baseline_stub_does_not_advertise_advanced_capabilities():
+def test_baseline_stub_does_not_advertise_advanced_capabilities() -> None:
     handler = RouteRequestHandlerStub()
     assert isinstance(handler, RouteRequestHandlerIf)
     handler.request_start_route(GeoPoint(0, 0), TravelMode.AUTO)
@@ -36,27 +38,29 @@ def test_baseline_stub_does_not_advertise_advanced_capabilities():
 
 
 @pytest.mark.parametrize("capability", OPTIONAL_CAPABILITIES)
-def test_unimplemented_capabilities_cannot_be_instantiated(capability):
+def test_unimplemented_capabilities_cannot_be_instantiated(capability: type[object]) -> None:
     with pytest.raises(TypeError, match="abstract"):
         capability()
 
 
-def test_waypoint_capability_can_extend_baseline_without_other_features():
+def test_waypoint_capability_can_extend_baseline_without_other_features() -> None:
     class WaypointHandler(RouteRequestHandlerStub, RouteWaypointRequestHandlerIf):
-        def __init__(self):
-            self.waypoints = []
-            self.destination = None
-            self.travel_mode = None
+        def __init__(self) -> None:
+            self.waypoints: list[GeoPoint] = []
+            self.destination: GeoPoint | None = None
+            self.travel_mode: TravelMode | None = None
 
-        def request_start_route_with_waypoints(self, destination, waypoints, travel_mode):
+        def request_start_route_with_waypoints(
+            self, destination: GeoPoint, waypoints: Sequence[GeoPoint], travel_mode: TravelMode
+        ) -> None:
             self.destination = destination
             self.waypoints = list(waypoints)
             self.travel_mode = travel_mode
 
-        def request_add_waypoint(self, waypoint):
+        def request_add_waypoint(self, waypoint: GeoPoint) -> None:
             self.waypoints.append(waypoint)
 
-        def request_remove_waypoint(self, waypoint_index):
+        def request_remove_waypoint(self, waypoint_index: int) -> None:
             self.waypoints.pop(waypoint_index)
 
     handler = WaypointHandler()

@@ -7,15 +7,15 @@ from frontends.tk.weather.orc_weather_panel import OrcWeatherPanel
 from ui import ScreenUiIf, UiWidget
 
 
-def test_screen_policy_is_inherited_and_panels_can_opt_in_independently():
+def test_screen_policy_is_inherited_and_panels_can_opt_in_independently() -> None:
     assert issubclass(ScreenUiIf, UiWidget)
     assert issubclass(TkScreen, UiWidget)
     assert issubclass(OrcWeatherPanel, UiWidget)
 
 
-def test_marker_does_not_change_widget_constructor_or_require_screen_lifecycle():
+def test_marker_does_not_change_widget_constructor_or_require_screen_lifecycle() -> None:
     class Panel(UiWidget):
-        def __init__(self, request_handler):
+        def __init__(self, request_handler: object) -> None:
             self.request_handler = request_handler
 
     supplied_contract = object()
