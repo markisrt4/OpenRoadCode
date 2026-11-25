@@ -2,12 +2,15 @@
 """Compose local-only appointment journey estimates in the monitor worker."""
 
 import sqlite3
-from datetime import datetime
+from time import monotonic
+from math import hypot
 
 import requests
 
 from common.navigation_data import navigation_data_root
 from controllers.calendar.calendar_presentation import event_view
+from controllers.calendar.calendar_models import CalendarEvent
+from ui.navigation.map_ui_if import GeoPoint
 from controllers.calendar.calendar_query_if import CalendarQueryIf
 from controllers.navigation.appointment_journey import AppointmentJourneyPlanner
 from controllers.navigation.appointment_route_estimator import (
@@ -24,12 +27,9 @@ from ui.calendar.calendar_models import AppointmentJourneyView
 
 
 def estimate_upcoming_journey(
-    query: CalendarQueryIf, now: datetime
+    query: CalendarQueryIf, event: CalendarEvent, origin: GeoPoint
 ) -> AppointmentJourneyView | None:
     """Estimate a journey using only installed local navigation resources."""
-    origin = get_current_position()
-    if origin is None:
-        return None
     try:
         geocoder = SqliteGeocoder(
             navigation_data_root() / "maps/search/openroadcode-search.sqlite"
@@ -41,7 +41,7 @@ def estimate_upcoming_journey(
                 lambda location: resolve_appointment_address(geocoder, location),
                 lambda start, end: estimate_appointment_route(router, start, end),
             )
-            journey = planner.plan(now, origin)
+            journey = planner.plan_event(event, origin)
             if journey is None:
                 return None
             return AppointmentJourneyView(
@@ -51,3 +51,40 @@ def estimate_upcoming_journey(
             geocoder.close()
     except (OSError, sqlite3.Error, requests.RequestException, ValueError, RuntimeError):
         return None
+
+
+class AppointmentEstimateCache:
+    """Throttle repeated local route estimates in the single monitor worker."""
+
+    def __init__(self) -> None:
+        self._event: CalendarEvent | None = None
+        self._origin: GeoPoint | None = None
+        self._estimate: AppointmentJourneyView | None = None
+        self._expires = 0.0
+
+    def estimate(
+        self, query: CalendarQueryIf, event: CalendarEvent
+    ) -> AppointmentJourneyView | None:
+        """Reuse recent estimates until the event or vehicle position changes."""
+        origin = get_current_position()
+        if origin is None or not event.location:
+            self._event = None
+            self._estimate = None
+            return None
+        now = monotonic()
+        previous = self._origin
+        if (
+            event == self._event
+            and previous is not None
+            and now < self._expires
+            and hypot(
+                origin.latitude_rad - previous.latitude_rad,
+                origin.longitude_rad - previous.longitude_rad,
+            ) < 0.00004
+        ):
+            return self._estimate
+        self._estimate = estimate_upcoming_journey(query, event, origin)
+        self._event = event
+        self._origin = origin
+        self._expires = monotonic() + (120 if self._estimate is not None else 30)
+        return self._estimate
