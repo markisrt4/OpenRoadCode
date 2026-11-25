@@ -29,13 +29,23 @@ class SdrForgeSpectrumFrame:
         first = payload["first_bin_frequency_hz"]
         spacing = payload["bin_spacing_hz"]
         values = payload["power_db"]
-        if not all(type(value) is int for value in (timestamp, center, rate, count)):
+        if not (
+            type(timestamp) is int
+            and type(center) is int
+            and type(rate) is int
+            and type(count) is int
+        ):
             raise TypeError("spectrum timestamp, frequency, rate and count must be integers")
         if timestamp < 0 or center <= 0 or rate <= 0 or count <= 0:
             raise ValueError("invalid spectrum metadata")
         if not isinstance(values, (list, tuple)) or len(values) != count:
             raise ValueError("spectrum bin count mismatch")
-        if type(first) not in (int, float) or type(spacing) not in (int, float):
+        if not (
+            isinstance(first, (int, float))
+            and isinstance(spacing, (int, float))
+            and type(first) in (int, float)
+            and type(spacing) in (int, float)
+        ):
             raise TypeError("spectrum frequency coordinates must be numeric")
         if not isfinite(first) or not isfinite(spacing) or spacing <= 0:
             raise ValueError("invalid spectrum frequency coordinates")
