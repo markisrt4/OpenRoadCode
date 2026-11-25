@@ -11,14 +11,13 @@ import os
 import tkinter as tk
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
 
 from apps.common.spotify_presentation_factory import (
     cached_artwork_loader,
     create_spotify_presentation,
 )
 from apps.orcUi.adapters.managed_browser_media_player import ManagedBrowserMediaPlayer
-from apps.orcUi.adapters.music_visualizer_browser import WINDOW_CLASS, MusicVisualizerBrowser
+from apps.orcUi.adapters.music_visualizer_browser import WINDOW_CLASS
 from apps.orcUi.composition.music_visualizer import (
     create_browser_visualizer,
     create_music_visualizer_session,
@@ -65,6 +64,7 @@ from ui.music_visualizer import MusicVisualizerSource
 from ui.notification_if import Notification, NotificationSeverity
 from ui.theme import ThemeMode
 
+from .media_resources import MediaComposition
 from .media_spotify_theme import SPOTIFY_GREEN as SPOTIFY_GREEN
 from .media_spotify_theme import spotify_theme as spotify_theme
 
@@ -73,38 +73,6 @@ MUSIC_VIDEO_WINDOW_CLASS = "OpenRoadCodeMusicVideo"
 YOUTUBE_WINDOW_CLASS = "openroadcode-youtube"
 YOUTUBE_MUSIC_WINDOW_CLASS = "openroadcode-youtube-music"
 NETFLIX_WINDOW_CLASS = "openroadcode-netflix"
-
-
-@dataclass(slots=True)
-class MediaComposition:
-    music_video_controller: MusicVideoController
-    home_factory: Callable[[tk.Misc], tk.Widget]
-    home_visualizer_factory: Callable[[tk.Misc], tk.Widget] | None
-    visualizer: MusicVisualizerScreen | BrowserMediaScreen
-    visualizer_runtime: MusicVisualizerController | MusicVisualizerBrowser
-    unsubscribe_online: Callable[[], None] = lambda: None
-    preview: MediaPreviewController | None = None
-    close_spotify_presentations: Callable[[], None] = lambda: None
-    close_spotify_accounts: Callable[[], None] = lambda: None
-
-    configure_spotify: Callable[[], None] | None = None
-    close_spotify_configuration: Callable[[], None] = lambda: None
-
-    _closed: bool = field(default=False, init=False)
-
-    def close(self) -> None:
-        if self._closed:
-            return
-        self._closed = True
-        close_resources(
-            self.unsubscribe_online,
-            self.preview.close if self.preview is not None else lambda: None,
-            self.close_spotify_accounts,
-            self.close_spotify_presentations,
-            self.visualizer.hide,
-            self.visualizer_runtime.close,
-            self.music_video_controller.stop_video,
-        )
 
 
 def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
