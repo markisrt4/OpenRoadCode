@@ -44,7 +44,9 @@ esac
 UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 mkdir -p "$UNIT_DIR"
 umask 077
-cat > "$UNIT_DIR/openroadcode-calendar-sync.service" <<EOF
+STAGING_DIR=$(mktemp -d "$UNIT_DIR/.calendar-sync.XXXXXX")
+trap 'rm -rf "$STAGING_DIR"' EXIT
+cat > "$STAGING_DIR/openroadcode-calendar-sync.service" <<EOF
 [Unit]
 Description=OpenRoadCode calendar synchronization
 $DEPENDENCIES
@@ -52,7 +54,7 @@ $DEPENDENCIES
 [Service]
 Type=simple
 Environment="OPENROADCODE_SECRETS_FILE=$SECRETS_FILE"
-WorkingDirectory="$REPO_DIR"
+WorkingDirectory=$REPO_DIR
 ExecStart="$PYTHON_BIN" -m controllers.calendar.calendar_sync_daemon $ARGS
 Restart=on-failure
 RestartSec=10
@@ -60,8 +62,8 @@ RestartSec=10
 [Install]
 WantedBy=default.target
 EOF
+systemd-analyze --user verify "$STAGING_DIR/openroadcode-calendar-sync.service"
+mv "$STAGING_DIR/openroadcode-calendar-sync.service" "$UNIT_DIR/openroadcode-calendar-sync.service"
 systemctl --user daemon-reload
 echo "Installed openroadcode-calendar-sync.service"
-echo "Start: systemctl --user enable --now openroadcode-calendar-sync.service"
-echo "Status: systemctl --user status openroadcode-calendar-sync.service"
-echo "Logs: journalctl --user -u openroadcode-calendar-sync.service -f"
+
