@@ -3,12 +3,12 @@
 
 from datetime import datetime, timezone
 
-from .calendar_agenda import CalendarAgendaController
+from .calendar_query_if import CalendarQueryIf
 from .calendar_models import CalendarEvent
 
 
 def upcoming_appointments(
-    controller: CalendarAgendaController, now: datetime, *, limit: int = 3
+    controller: CalendarQueryIf, now: datetime, *, limit: int = 3
 ) -> tuple[CalendarEvent, ...]:
     """Return the next timed appointments within seven local calendar days."""
     if now.utcoffset() is None:
