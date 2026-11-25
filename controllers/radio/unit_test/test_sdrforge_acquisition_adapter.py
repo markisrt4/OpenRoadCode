@@ -17,7 +17,7 @@ def test_start_requires_released_receiver() -> None:
     adapter._request.assert_called_once_with("/v1/receiver")
 
 
-def test_start_confirms_serial() -> None:
+def _acquire_receiver() -> SdrforgeAcquisitionAdapter:
     adapter = SdrforgeAcquisitionAdapter("test")
     adapter._request = Mock(
         side_effect=[
@@ -30,10 +30,25 @@ def test_start_confirms_serial() -> None:
     )
     device = ReceiverDevice("0bda", "2838", "00000001", "1-1")
     assert adapter.start(device)
+    return adapter
+
+
+def test_start_confirms_serial() -> None:
+    _acquire_receiver()
+
+
+def test_stop_does_not_interrupt_preexisting_service_acquisition() -> None:
+    adapter = SdrforgeAcquisitionAdapter("test")
+    adapter._request = Mock(return_value={"running": True, "hardware_released": False})
+    device = ReceiverDevice("0bda", "2838", "00000001", "1-1")
+    assert not adapter.start(device)
+    adapter._request.reset_mock()
+    assert not adapter.stop()
+    adapter._request.assert_called_once_with("/v1/receiver")
 
 
 def test_stop_requires_release_confirmation() -> None:
-    adapter = SdrforgeAcquisitionAdapter("test")
+    adapter = _acquire_receiver()
     adapter._request = Mock(
         side_effect=[
             {},
@@ -44,6 +59,6 @@ def test_stop_requires_release_confirmation() -> None:
 
 
 def test_stop_rejects_release_error() -> None:
-    adapter = SdrforgeAcquisitionAdapter("test")
+    adapter = _acquire_receiver()
     adapter._request = Mock(side_effect=[{}, {"release_error": "close failed"}])
     assert not adapter.stop()

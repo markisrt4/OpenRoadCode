@@ -24,16 +24,16 @@ class SdrforgeAcquisitionAdapter:
         self._token = token
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout
+        self._start_requested = False
 
     def _request(self, path: str, body: dict[str, object] | None = None) -> dict[str, object]:
         request = Request(
             self._base_url + path,
             data=None if body is None else json.dumps(body).encode(),
-            headers={
-                "Content-Type": "application/json",
-                "X-SDRForge-Acquisition-Token": self._token,
-            },
+            headers={"Content-Type": "application/json"} if body is not None else {},
         )
+        if body is not None:
+            request.add_unredirected_header("X-SDRForge-Acquisition-Token", self._token)
         with urlopen(request, timeout=min(2.0, self._timeout)) as response:
             result = json.load(response)
         if not isinstance(result, dict):
@@ -45,13 +45,12 @@ class SdrforgeAcquisitionAdapter:
         if not device.identity:
             return False
         status = self._request("/v1/receiver")
-        if (
-            status.get("running") is not False
-            or status.get("starting") is not False
-            or status.get("hardware_released") is not True
-        ):
+        if not self._released(status):
             return False
         self._request("/v1/rf/config", {"device_serial": device.serial})
+        # Record the attempt before sending it: a lost reply can still mean
+        # the service started acquisition.
+        self._start_requested = True
         self._request("/v1/receiver/start", {})
         deadline = time.monotonic() + self._timeout
         while time.monotonic() < deadline:
@@ -66,17 +65,25 @@ class SdrforgeAcquisitionAdapter:
 
     def stop(self) -> bool:
         """Stop acquisition and wait for explicit release confirmation."""
+        if not self._start_requested:
+            return self._released(self._request("/v1/receiver"))
         self._request("/v1/receiver/stop", {})
         deadline = time.monotonic() + self._timeout
         while time.monotonic() < deadline:
             status = self._request("/v1/receiver")
             if status.get("release_error"):
                 return False
-            if (
-                status.get("running") is False
-                and status.get("starting") is False
-                and status.get("hardware_released") is True
-            ):
+            if self._released(status):
+                self._start_requested = False
                 return True
             time.sleep(0.1)
         return False
+
+    @staticmethod
+    def _released(status: dict[str, object]) -> bool:
+        return (
+            status.get("running") is False
+            and status.get("starting") is False
+            and status.get("hardware_released") is True
+            and not status.get("release_error")
+        )
