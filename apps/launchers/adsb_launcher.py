@@ -120,6 +120,12 @@ class ADSBLauncher(AppLauncherIf):
         *,
         manage_receiver: bool = True,
     ) -> None:
+        """Open the ADS-B dashboard.
+
+        @param remote_display Display used for the dashboard.
+        @param set_status Optional status callback.
+        @param manage_receiver Whether this launcher also starts the receiver.
+        """
         _status(set_status, "Launching ADS-B dashboard...")
         receiver_ready = not manage_receiver
         direct = manage_receiver and self.data_source == RTLSDR_DATA_SOURCE
@@ -167,6 +173,12 @@ class ADSBLauncher(AppLauncherIf):
         *,
         manage_receiver: bool = True,
     ) -> None:
+        """Close the ADS-B dashboard.
+
+        @param remote_display Display used for the dashboard.
+        @param set_status Optional status callback.
+        @param manage_receiver Whether this launcher also stops the receiver.
+        """
         self.browser.stop(remote_display, None)
         if manage_receiver and self.data_source == RTLSDR_DATA_SOURCE:
             _set_systemd_service_state(self.readsb_service, "stop")
