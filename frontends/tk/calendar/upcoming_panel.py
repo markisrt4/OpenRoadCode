@@ -76,6 +76,13 @@ class UpcomingPanel(tk.Frame, UiWidget):
                 self._label(event.title or "Untitled", self._ui.text, 12)
                 if event.location:
                     self._label(event.location, self._ui.text_muted)
+            if snapshot.journey is not None:
+                departure = snapshot.journey.leave_by.astimezone(self._zone)
+                minutes = int((snapshot.journey.travel_seconds + 59) // 60)
+                self._label(f"Travel: {minutes} min", self._ui.text_muted)
+                self._label(
+                    departure.strftime("Leave by %a %I:%M %p"), self._ui.accent_primary
+                )
 
     def _close(self, event):
         if event.widget is not self or self._closed:
