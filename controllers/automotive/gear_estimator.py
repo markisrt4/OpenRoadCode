@@ -5,12 +5,13 @@
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-try:
+if sys.version_info >= (3, 11):
     import tomllib
-except ModuleNotFoundError:  # Python 3.10
+else:  # Python 3.10
     import tomli as tomllib
 
 RPM_PER_RAD_S = 60.0 / (2.0 * 3.141592653589793)
@@ -95,12 +96,14 @@ class GearEstimator:
         vehicle_speed_m_s: float | None,
     ) -> int | None:
         if engine_speed_rad_s is None or vehicle_speed_m_s is None:
-            return self._reject()
+            self._reject()
+            return None
 
         rpm = engine_speed_rad_s * RPM_PER_RAD_S
         speed_mph = vehicle_speed_m_s * MPH_PER_MPS
         if rpm < self._min_rpm or speed_mph < self._min_speed_mph:
-            return self._reject()
+            self._reject()
+            return None
 
         ratio = rpm / speed_mph
         nearest = min(
@@ -109,7 +112,8 @@ class GearEstimator:
         )
         error_fraction = abs(ratio - nearest.rpm_per_mph) / nearest.rpm_per_mph
         if error_fraction > nearest.tolerance_fraction:
-            return self._reject()
+            self._reject()
+            return None
 
         if nearest.number == self._current:
             self._candidate = None
