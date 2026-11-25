@@ -3,6 +3,7 @@
 """Quiet, private diagnostics for device and background operations."""
 
 import logging
+from collections.abc import Iterator
 from contextlib import contextmanager
 from functools import wraps
 from threading import Lock
@@ -13,14 +14,16 @@ from common.logging.structured import current_operation, event, operation
 class ComponentLog:
     """Record fixed stages and transitions without storing external payloads."""
 
-    def __init__(self, component: str, prefix: str):
+    def __init__(self, component: str, prefix: str) -> None:
         self._logger = logging.getLogger(component)
         self._prefix = prefix
         self._lock = Lock()
-        self._failures = {}
-        self._states = {}
+        self._failures: dict[str, tuple[str, str | None]] = {}
+        self._states: dict[str, object] = {}
 
-    def emit(self, level, suffix, operation_id=None, **fields):
+    def emit(
+        self, level: int, suffix: str, operation_id: str | None = None, **fields: object
+    ) -> None:
         if operation_id is not None:
             fields["operation_id"] = operation_id
         event(
@@ -31,7 +34,10 @@ class ComponentLog:
             **fields,
         )
 
-    def failed(self, stage, error=None, operation_id=None, *, reason="exception"):
+    def failed(
+        self, stage: str, error: BaseException | None = None,
+        operation_id: str | None = None, *, reason: str = "exception",
+    ) -> None:
         failure = (reason, type(error).__name__ if error is not None else None)
         with self._lock:
             previous = self._failures.get(stage)
@@ -42,14 +48,14 @@ class ComponentLog:
                 fields["exception_type"] = failure[1]
             self.emit(logging.WARNING, "failed", operation_id, **fields)
 
-    def succeeded(self, stage, operation_id=None):
+    def succeeded(self, stage: str, operation_id: str | None = None) -> None:
         with self._lock:
             recovered = self._failures.pop(stage, None) is not None
         if recovered:
             self.emit(logging.INFO, "recovered", operation_id, stage=stage)
         self.emit(logging.DEBUG, "completed", operation_id, stage=stage)
 
-    def changed(self, stage, value, operation_id=None):
+    def changed(self, stage: str, value: object, operation_id: str | None = None) -> None:
         with self._lock:
             if stage in self._states and self._states[stage] == value:
                 return
@@ -57,7 +63,7 @@ class ComponentLog:
         self.emit(logging.INFO, "state_changed", operation_id, stage=stage, state=value)
 
     @contextmanager
-    def action(self, stage, operation_id=None):
+    def action(self, stage: str, operation_id: str | None = None) -> Iterator[str]:
         with operation(operation_id or current_operation()) as identifier:
             self.emit(logging.DEBUG, "requested", stage=stage)
             try:
