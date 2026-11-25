@@ -25,6 +25,7 @@ def main() -> None:
     )
     parser.add_argument("action", choices=("list", "add", "enable", "disable"))
     parser.add_argument("--account-id")
+    parser.add_argument("--provider", choices=("caldav", "proton"))
     args = parser.parse_args()
     accounts = load_accounts(args.accounts_file)
     if args.action == "list":
@@ -37,7 +38,7 @@ def main() -> None:
     if args.action == "add":
         if any(account.account_id == account_id for account in accounts):
             parser.error("Account ID already exists")
-        provider = input("Provider (caldav/proton): ").strip().lower()
+        provider = args.provider or input("Provider (caldav/proton): ").strip().lower()
         username = input("Calendar username: ").strip()
         url = input("CalDAV endpoint: ").strip()
         if provider == "proton" and not url:
