@@ -86,6 +86,9 @@ class MediaComposition:
     close_spotify_presentations: Callable[[], None] = lambda: None
     close_spotify_accounts: Callable[[], None] = lambda: None
 
+    configure_spotify: Callable[[], None] | None = None
+    close_spotify_configuration: Callable[[], None] = lambda: None
+
     _closed: bool = field(default=False, init=False)
 
     def close(self) -> None:
@@ -221,7 +224,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
                 Notification(
                     code="spotify.configuration_required",
                     title="Spotify configuration required",
-                    message="Open Spotify account settings to enter your application Client ID.",
+                    message="Open Settings > Media > Spotify to enter your application Client ID.",
                     severity=NotificationSeverity.WARNING,
                     source="spotify",
                 )
@@ -410,7 +413,6 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         show_spotify_local=show_spotify_local,
         spotify_local_available=lambda: media.spotify_local_player.state().available,
         account_session=media_account,
-        show_account_configuration=account_dialog.show,
         close_account_configuration=account_dialog.close,
     )
     app.register_screen("MEDIA", media_screen)
@@ -506,4 +508,6 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         unsubscribe_online=unsubscribe_online,
         close_spotify_presentations=close_presentations,
         close_spotify_accounts=close_accounts,
+        configure_spotify=account_dialog.show,
+        close_spotify_configuration=account_dialog.close,
     )
