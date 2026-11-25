@@ -480,3 +480,7 @@ Run `bash scripts/dev_check.sh --docs` for documentation validation and API
 reference generation. The documentation command installs checksum-verified
 Doxygen 1.15.0 into `.venv-quality` on Linux x86-64. Other platforms can use
 Ubuntu CI for this gate. No system Doxygen installation is modified.
+
+### Termux quality environment
+
+Use native Termux Python, NumPy, SciPy, Pillow, PyZMQ and Ruff. Run `bash scripts/setup_quality_env.sh` to link the native packages into the isolated quality environment after checking Python ABI compatibility. Termux uses mypy 2.4.1 with the pure Python parser; Linux pins remain unchanged. Run `bash scripts/dev_check.sh --all` and `bash scripts/dev_check.sh --test`. Failed checks are copied to the Termux clipboard when available. Pinned Doxygen generation remains a Linux CI check.
