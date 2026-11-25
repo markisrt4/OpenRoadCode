@@ -14,7 +14,7 @@ from controllers.map_renderer.map_request_handler import MapRequestHandler
 from ui.navigation import GeoPoint
 
 
-def _camera_runtime():
+def _camera_runtime() -> MapCameraRuntime:
     runtime = _runtime_for_filter()
     runtime._renderer_client = Mock()
     runtime._position_observers = []
@@ -30,7 +30,9 @@ def _camera_runtime():
     return runtime
 
 
-def _motion(speed, course=None, *, cached=False):
+def _motion(
+    speed: float | None, course: float | None = None, *, cached: bool = False
+) -> SimpleNamespace:
     return SimpleNamespace(
         data=SimpleNamespace(
             ground_speed_m_s=speed,
@@ -41,7 +43,7 @@ def _motion(speed, course=None, *, cached=False):
     )
 
 
-def _position(latitude, longitude):
+def _position(latitude: float | None, longitude: float) -> SimpleNamespace:
     return SimpleNamespace(
         data=SimpleNamespace(
             latitude_rad=latitude,
@@ -54,31 +56,32 @@ def _position(latitude, longitude):
 
 
 @pytest.mark.parametrize("speed", [None, 0.0, 0.5, 1.49, float("nan")])
-def test_stationary_position_drift_does_not_rotate_camera(speed):
+def test_stationary_position_drift_does_not_rotate_camera(speed: float | None) -> None:
     runtime = _camera_runtime()
     runtime._on_motion_message(_motion(speed, math.pi))
     # Ten metres of GPS drift exceeds the old four-metre course threshold.
     runtime._on_position_message(_position(10 / 6_378_137, 0.0))
     runtime._on_position_message(_position(0.0, -10 / 6_378_137))
     assert runtime._handler.bearing_rad == pytest.approx(math.pi / 2)
+    assert isinstance(runtime._renderer_client, Mock)
     assert runtime._renderer_client.set_position.call_count == 2
 
 
-def test_cached_motion_does_not_enable_position_heading():
+def test_cached_motion_does_not_enable_position_heading() -> None:
     runtime = _camera_runtime()
     runtime._on_motion_message(_motion(10.0, math.pi, cached=True))
     runtime._on_position_message(_position(10 / 6_378_137, 0.0))
     assert runtime._handler.bearing_rad == pytest.approx(math.pi / 2)
 
 
-def test_moving_position_fallback_still_tracks_course():
+def test_moving_position_fallback_still_tracks_course() -> None:
     runtime = _camera_runtime()
     runtime._on_motion_message(_motion(3.0))
     runtime._on_position_message(_position(10 / 6_378_137, 0.0))
     assert runtime._handler.bearing_rad == pytest.approx(0.0)
 
 
-def test_stopping_holds_last_moving_bearing_despite_drift():
+def test_stopping_holds_last_moving_bearing_despite_drift() -> None:
     runtime = _camera_runtime()
     runtime._on_motion_message(_motion(3.0, math.pi))
     bearing = runtime._handler.bearing_rad
@@ -136,7 +139,7 @@ def test_angular_delta_uses_shortest_direction() -> None:
     ) == pytest.approx(-2.0)
 
 
-def test_renderer_restart_replays_true_vehicle_position():
+def test_renderer_restart_replays_true_vehicle_position() -> None:
     from unittest.mock import Mock
 
     from ui.navigation import GeoPoint
@@ -145,23 +148,27 @@ def test_renderer_restart_replays_true_vehicle_position():
     runtime._renderer_client = Mock()
     runtime._current_position = GeoPoint(math.radians(42.8), math.radians(-83.0))
     runtime.refresh_renderer_position()
+    assert isinstance(runtime._renderer_client, Mock)
     runtime._renderer_client.set_position.assert_called_once_with(latitude=42.8, longitude=-83.0)
 
 
-def test_renderer_restart_does_not_invent_missing_vehicle_position():
+def test_renderer_restart_does_not_invent_missing_vehicle_position() -> None:
     from unittest.mock import Mock
 
     runtime = object.__new__(MapCameraRuntime)
     runtime._renderer_client = Mock()
     runtime._current_position = None
     runtime.refresh_renderer_position()
+    assert isinstance(runtime._renderer_client, Mock)
     runtime._renderer_client.set_position.assert_not_called()
 
 
 @pytest.mark.parametrize(
     "cached,fix_mode,latitude", [(False, 3, 0.7), (True, 3, 0.7), (False, 1, 0.7), (False, 3, None)]
 )
-def test_live_position_observer_excludes_cached_or_missing_fixes(cached, fix_mode, latitude):
+def test_live_position_observer_excludes_cached_or_missing_fixes(
+    cached: bool, fix_mode: int, latitude: float | None
+) -> None:
     runtime = _camera_runtime()
     observer = Mock()
     runtime.observe_position(observer)
