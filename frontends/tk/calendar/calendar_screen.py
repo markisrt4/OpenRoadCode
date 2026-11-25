@@ -106,6 +106,7 @@ class CalendarScreen(tk.Frame, UiWidget):
         )
         self._body.bind("<Button-4>", lambda event: self._body.yview_scroll(-1, "units"))
         self._body.bind("<Button-5>", lambda event: self._body.yview_scroll(1, "units"))
+        self._covered_days = None
         self._message = "Loading appointments..."
         self._footer = tk.Label(
             self, text="Local calendar agenda", bg=ui.background, fg=ui.text_muted
@@ -294,7 +295,11 @@ class CalendarScreen(tk.Frame, UiWidget):
         y += 34
         events = next((group.events for group in self._groups if group.day == self._selected), ())
         if not events:
-            canvas.create_text(margin, y, anchor="nw", text=self._message, fill=ui.text_muted)
+            message = self._message
+            covered = getattr(self, "_covered_days", None)
+            if covered is not None and self._selected not in covered:
+                message = "Calendar data incomplete or unavailable for this date."
+            canvas.create_text(margin, y, anchor="nw", text=message, fill=ui.text_muted)
         for event in events:
             start = event.starts_at.astimezone(self._zone)
             end = event.ends_at.astimezone(self._zone)
@@ -413,9 +418,11 @@ class CalendarScreen(tk.Frame, UiWidget):
                 self._poll = self.after(50, self._collect)
                 return
             self._groups = snapshot.groups
+            self._covered_days = snapshot.covered_days
             self._update_footer(snapshot.health)
             self._message = snapshot.health.empty_message
         except Exception:
+            self._covered_days = None
             self._message = "Calendar cache unavailable."
             self._footer.configure(text=self._message, fg=self._ui.accent_warning)
         self._render(preserve_scroll=True)
