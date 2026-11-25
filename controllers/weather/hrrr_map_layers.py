@@ -6,6 +6,7 @@
 import math
 from datetime import datetime, timezone
 from io import BytesIO
+from itertools import pairwise
 from time import time
 from urllib.parse import quote
 
@@ -46,7 +47,7 @@ def field_range(index, run, element, level):
             except ValueError:
                 continue
     if any(offset < 0 for offset, _ in records) or any(
-        a[0] >= b[0] for a, b in zip(records, records[1:])
+        a[0] >= b[0] for a, b in pairwise(records)
     ):
         raise ValueError("HRRR index contains invalid byte offsets")
     matches = [
@@ -92,7 +93,7 @@ class HrrrMapLayerProvider:
             finally:
                 response.close()
 
-            def template(element, level):
+            def template(element, level, index=index, run=run, lead=lead, url=url):
                 start, end = field_range(index, run, element, level)
                 return (
                     f"orc-hrrr-layer://{run}/f{lead:02d}/{{z}}/{{x}}/{{y}}.tiff"
@@ -129,7 +130,7 @@ def color_model_layer(data, kind, secondary=None):
             math.hypot(u, v)
             if math.isfinite(u) and math.isfinite(v) and abs(u) <= 200 and abs(v) <= 200
             else float("nan")
-            for u, v in zip(values, north)
+            for u, v in zip(values, north, strict=True)
         ]
     table = TEMPERATURE_COLORS if kind == "temperature" else WIND_COLORS
     colors = []
@@ -141,12 +142,13 @@ def color_model_layer(data, kind, secondary=None):
             colors.append((0, 0, 0, 0))
             continue
         lower, upper = table[0], table[-1]
-        for a, b in zip(table, table[1:]):
+        for a, b in pairwise(table):
             if value <= b[0]:
                 lower, upper = a, b
                 break
         fraction = max(0, min(1, (value - lower[0]) / (upper[0] - lower[0])))
-        colors.append((*[round(a + fraction * (b - a)) for a, b in zip(lower[1], upper[1])], 255))
+        rgb = [round(a + fraction * (b - a)) for a, b in zip(lower[1], upper[1], strict=True)]
+        colors.append((*rgb, 255))
     image = Image.new("RGBA", (256, 256))
     image.putdata(colors)
     output = BytesIO()

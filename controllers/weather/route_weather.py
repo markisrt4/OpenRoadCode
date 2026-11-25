@@ -6,6 +6,7 @@
 import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from itertools import pairwise
 
 import requests
 
@@ -40,7 +41,7 @@ def sample_route(
     if not route.shape or not math.isfinite(route.duration_seconds) or route.duration_seconds < 0:
         raise ValueError("Route has no usable geometry or travel time")
     distances = [0.0]
-    for a, b in zip(route.shape, route.shape[1:]):
+    for a, b in pairwise(route.shape):
         lat1, lat2 = math.radians(a.latitude), math.radians(b.latitude)
         angle = (
             math.sin((lat2 - lat1) / 2) ** 2
@@ -145,7 +146,7 @@ class RouteWeatherProvider:
         if len(locations) != len(checkpoints):
             raise ValueError("Route forecast returned an unexpected number of locations")
         results = []
-        for checkpoint, location in zip(checkpoints, locations):
+        for checkpoint, location in zip(checkpoints, locations, strict=True):
             hourly = location.get("hourly", {})
             times = hourly.get("time", [])
             if not times:
@@ -155,7 +156,7 @@ class RouteWeatherProvider:
             if abs(times[index] - arrival) > 3600:
                 raise ValueError("Route arrival is outside the available hourly forecast")
 
-            def value(key, low, high):
+            def value(key, low, high, hourly=hourly, index=index):
                 values = hourly.get(key, [])
                 item = values[index] if index < len(values) else None
                 return (

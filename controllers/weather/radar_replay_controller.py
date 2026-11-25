@@ -217,7 +217,10 @@ class RadarReplayController(RadarRequestHandlerIf):
             self._log.stale(operation_id)
             return
         try:
-            frame = self._radar_controller.show_frames(frames) if frames is not None else selector()
+            if frames is not None:
+                self._radar_controller.show_frames(frames)
+            else:
+                selector()
             self._refreshing = False
             self._log.succeeded(operation_id)
             if frames is not None:
@@ -434,7 +437,7 @@ class RadarReplayController(RadarRequestHandlerIf):
             self._log.stale(operation_id)
             return
         try:
-            frame = self._radar_controller.show_frames(frames)
+            self._radar_controller.show_frames(frames)
             self._refreshing = False
             self._refreshed_at = self._clock()
             self._log.succeeded(operation_id)
