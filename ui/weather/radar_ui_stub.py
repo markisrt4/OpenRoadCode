@@ -7,8 +7,8 @@ from ui.weather.radar_ui_if import RadarUiIf, RadarUiState
 
 
 class RadarUiStub(RadarUiIf):
-    def __init__(self):
+    def __init__(self) -> None:
         self.state = RadarUiState()
 
-    def set_radar_state(self, state):
+    def set_radar_state(self, state: RadarUiState) -> None:
         self.state = state

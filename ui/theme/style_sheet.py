@@ -8,10 +8,14 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import tinycss2
+import tinycss2  # type: ignore[import-untyped]
 
 from .ui_theme import UiTheme
+
+if TYPE_CHECKING:
+    from .theme_bundle import ThemeBundle
 
 _VAR_PATTERN = re.compile(r"var\(\s*(--[A-Za-z0-9_-]+)\s*\)")
 
@@ -78,7 +82,7 @@ def load_ui_theme(path: str | Path) -> UiTheme:
     return _ui_theme_from_sheet(load_style_sheet(path), path)
 
 
-def load_theme_bundle(path: str | Path):
+def load_theme_bundle(path: str | Path) -> ThemeBundle:
     """Load one stylesheet and its resolved semantic UI theme."""
 
     # Local import avoids a module cycle: ThemeBundle contains a StyleSheet.

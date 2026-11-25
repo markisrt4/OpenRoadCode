@@ -3,6 +3,8 @@
 
 """Frontend-neutral UI theme contracts."""
 
+from typing import TYPE_CHECKING
+
 from .theme_bundle import ThemeBundle
 from .theme_mode import ThemeMode
 from .theme_ui_if import ThemeUiIf
@@ -13,6 +15,9 @@ from .vehicle_gauges import (
     VehicleGaugeRedlineTheme,
     VehicleGaugeTheme,
 )
+
+if TYPE_CHECKING:
+    from .style_sheet import StyleSheet, load_style_sheet, load_theme_bundle, load_ui_theme
 
 __all__ = [
     "VEHICLE_GAUGE_REDLINE_THEME",
@@ -31,7 +36,7 @@ __all__ = [
 ]
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> object:
     """Load CSS helpers only when requested. @param name Export. @return Exported helper."""
     if name in {"StyleSheet", "load_style_sheet", "load_theme_bundle", "load_ui_theme"}:
         from . import style_sheet

@@ -12,16 +12,16 @@ from ui.weather.weather_overlay_ui_if import WeatherOverlayUiIf
 
 
 class WeatherOverlayUiStub(WeatherOverlayUiIf):
-    def __init__(self):
+    def __init__(self) -> None:
         self.city_state = CityWeatherOverlayState()
         self.model_state = ModelWeatherOverlayState()
         self.route_state = RouteWeatherOverlayState()
 
-    def set_city_weather_state(self, state):
+    def set_city_weather_state(self, state: CityWeatherOverlayState) -> None:
         self.city_state = state
 
-    def set_model_weather_state(self, state):
+    def set_model_weather_state(self, state: ModelWeatherOverlayState) -> None:
         self.model_state = state
 
-    def set_route_weather_state(self, state):
+    def set_route_weather_state(self, state: RouteWeatherOverlayState) -> None:
         self.route_state = state
