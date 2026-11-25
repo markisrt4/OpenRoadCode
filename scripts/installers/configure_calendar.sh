@@ -53,7 +53,8 @@ while true; do
     printf '\nOpenRoadCode Calendar Configuration\n'
     printf '%s\n' '1. List accounts' '2. Add account' '3. Enable account' \
         '4. Disable account' '5. Install synchronization service' \
-        '6. Enable or restart synchronization' '7. Service status' '0. Exit'
+        '6. Enable or restart synchronization' '7. Service status' \
+        '8. Update account password' '9. Remove account' '0. Exit'
     read -r -p 'Select: ' choice || exit 0
     case "$choice" in
         1) "$PYTHON_BIN" -m controllers.calendar.configure_accounts list || true ;;
@@ -65,6 +66,8 @@ while true; do
             systemctl --user enable openroadcode-calendar-sync.service &&
             systemctl --user restart openroadcode-calendar-sync.service || true ;;
         7) systemctl --user --no-pager status openroadcode-calendar-sync.service || true ;;
+        8) "$PYTHON_BIN" -m controllers.calendar.configure_accounts password || true ;;
+        9) "$PYTHON_BIN" -m controllers.calendar.configure_accounts remove || true ;;
         0) exit 0 ;;
         *) echo "Invalid selection" ;;
     esac
