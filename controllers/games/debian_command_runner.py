@@ -9,6 +9,7 @@ import subprocess
 import time
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 
 class DebianCommandRunner:
@@ -157,6 +158,6 @@ class DebianCommandRunner:
             probe.close()
         return True
 
-    def run(self, args: Sequence[str], **kwargs: object) -> subprocess.CompletedProcess:
+    def run(self, args: Sequence[str], **kwargs: Any) -> subprocess.CompletedProcess[Any]:
         """Execute *args* in Debian and return the completed process."""
         return subprocess.run(self.command(args), **kwargs)
