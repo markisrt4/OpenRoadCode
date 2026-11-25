@@ -65,4 +65,3 @@ class AppointmentMonitorIf(Protocol):
 
     def close(self) -> None:
         """Retire pending refresh work."""
-
