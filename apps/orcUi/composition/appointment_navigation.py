@@ -7,6 +7,7 @@ from datetime import datetime
 import requests
 
 from common.navigation_data import navigation_data_root
+from controllers.calendar.calendar_presentation import event_view
 from controllers.calendar.calendar_query_if import CalendarQueryIf
 from controllers.navigation.appointment_journey import AppointmentJourneyPlanner
 from controllers.navigation.appointment_route_estimator import (
@@ -43,7 +44,9 @@ def estimate_upcoming_journey(
             journey = planner.plan(now, origin)
             if journey is None:
                 return None
-            return AppointmentJourneyView(journey.leave_by, journey.travel_seconds)
+            return AppointmentJourneyView(
+                journey.leave_by, journey.travel_seconds, journey.destination, event_view(journey.event)
+            )
         finally:
             geocoder.close()
     except (OSError, sqlite3.Error, requests.RequestException, ValueError, RuntimeError):
