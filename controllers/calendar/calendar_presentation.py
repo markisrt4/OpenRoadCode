@@ -15,6 +15,8 @@ from ui.calendar.calendar_models import (
     CalendarSelectionView,
 )
 
+from controllers.connectivity.online_mode import saved_online_mode
+
 from .calendar_health import sample_calendar_health
 
 from ui.calendar.calendar_presentation_if import CalendarAgendaIf, CalendarSelectionIf
@@ -159,6 +161,7 @@ def calendar_health_view(path: Path | None = None) -> CalendarHealthView:
     age = health.get("last_data_refresh_age_seconds")
     return CalendarHealthView(
         status=status if isinstance(status, str) else "unavailable",
+        offline=not saved_online_mode(),
         stale=bool(health.get("stale", False)),
         last_data_refresh_age_seconds=float(age) if isinstance(age, (int, float)) else None,
     )
