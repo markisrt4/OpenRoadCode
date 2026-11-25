@@ -207,7 +207,7 @@ def create_orc_ui_composition(
 
         def set_unit_system(value):
             nonlocal app_settings
-            app_settings = replace(app_settings, unit_system=value)
+            app_settings = replace(settings_store.load(), unit_system=value)
             settings_store.save(app_settings)
 
         def open_radar_map() -> None:
@@ -228,7 +228,7 @@ def create_orc_ui_composition(
 
         def set_radar_palette(value: RadarPalette) -> None:
             nonlocal app_settings
-            app_settings = replace(app_settings, radar_palette=value.value)
+            app_settings = replace(settings_store.load(), radar_palette=value.value)
             settings_store.save(app_settings)
 
         def navigate_home_context(name: str) -> None:
