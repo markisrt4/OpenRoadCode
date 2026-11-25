@@ -27,6 +27,16 @@ class CalendarSyncHealth:
         except (OSError, ValueError):
             return {}
 
+    def mark_started(self, attempted_at: datetime, interval: float) -> None:
+        """Publish an attempt in progress while retaining prior refresh metadata."""
+        snapshot = self.read()
+        snapshot.update(
+            last_attempt=attempted_at.isoformat(),
+            interval_seconds=interval,
+            syncing=True,
+        )
+        self._write(snapshot)
+
     def record(
         self,
         attempted_at: datetime,
@@ -39,6 +49,7 @@ class CalendarSyncHealth:
         previous = self.read()
         snapshot = {
             "version": 1,
+            "syncing": False,
             "last_attempt": attempted_at.isoformat(),
             "last_completed": completed_at.isoformat(),
             "interval_seconds": interval,
@@ -66,6 +77,9 @@ class CalendarSyncHealth:
                 snapshot["status"] = "ok"
                 snapshot["last_success"] = completed_at.isoformat()
                 snapshot["last_success_metrics"] = metrics
+        self._write(snapshot)
+
+    def _write(self, snapshot: dict) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         temporary = None
         try:

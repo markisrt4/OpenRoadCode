@@ -4,6 +4,8 @@
 from dataclasses import dataclass
 from datetime import date, datetime
 
+from ui.navigation.map_ui_if import GeoPoint
+
 
 @dataclass(frozen=True)
 class CalendarEventView:
@@ -35,6 +37,19 @@ class CalendarHealthView:
     status: str = "unavailable"
     stale: bool = False
     last_data_refresh_age_seconds: float | None = None
+    offline: bool = False
+    syncing: bool = False
+
+    @property
+    def empty_message(self) -> str:
+        """Distinguish an empty result from unknown calendar availability."""
+        if self.last_data_refresh_age_seconds is None:
+            if self.syncing and not self.offline:
+                return "Downloading calendar data…"
+            if self.status == "failed":
+                return "Calendar sync failed; no confirmed data."
+            return "No confirmed calendar sync yet."
+        return "No cached appointments."
 
 
 @dataclass(frozen=True)
@@ -43,6 +58,18 @@ class AgendaSnapshot:
 
     groups: tuple[AgendaDayView, ...]
     health: CalendarHealthView
+    covered_days: frozenset[date] | None = None
+
+
+@dataclass(frozen=True)
+class AppointmentJourneyView:
+    """Estimated travel duration and recommended departure."""
+
+    leave_by: datetime
+    travel_seconds: float
+    destination: GeoPoint | None = None
+    event: CalendarEventView | None = None
+    destination_label: str | None = None
 
 
 @dataclass(frozen=True)
@@ -51,6 +78,8 @@ class AppointmentSnapshot:
 
     events: tuple[CalendarEventView, ...]
     health: CalendarHealthView
+    complete_coverage: bool | None = None
+    journey: AppointmentJourneyView | None = None
 
 
 @dataclass(frozen=True)

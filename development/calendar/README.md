@@ -137,6 +137,7 @@ Use a private user-owned secrets file for the user services:
 ```sh
 export OPENROADCODE_SECRETS_FILE="$HOME/.config/openroadcode/secrets.env"
 sh development/calendar/install_linux_sync_service.sh 'YOUR_USERNAME@proton.me'
+systemctl --user enable --now openroadcode-calendar-sync.service
 systemctl --user status openroadcode-calendar-sync.service
 journalctl --user -u openroadcode-calendar-sync.service -n 50
 ```
@@ -155,7 +156,8 @@ freshness is known and not stale. The Home monitor reads asynchronously every
 health separately from service process status.
 
 Calendar services are optional. Appointment geocoding, routing and departure
-estimates are not included in this release.
+estimates use installed local navigation resources. See
+[Appointment-driven navigation](appointment_navigation.md) for requirements and validation.
 
 ## Presentation architecture
 
@@ -179,3 +181,30 @@ System diagnostics share the standalone health wire reader in `common/`,
 so restricted service deployments do not require calendar controllers. Application composition centralizes cache, account,
 selection and timezone defaults. The existing Detroit timezone default is
 preserved; callers can supply a different timezone explicitly.
+
+### Appointment journey planning
+
+`AppointmentJourneyPlanner` consumes `CalendarQueryIf` and injected destination
+resolution and read-only route estimation functions. It calculates departure
+in UTC before converting to the appointment timezone, with a configurable
+600-second arrival buffer. Missing position, missing location, ambiguous
+resolution and unavailable estimates produce no journey. Planning does not
+start guidance. The Home monitor uses the local SQLite address resolver and
+Valhalla routing adapter; guidance requires explicit driver confirmation.
+
+### Offline operation
+
+Agenda and Home read the persisted SQLite snapshot, not the CalDAV endpoint.
+A failed synchronization does not erase the last successful calendar snapshot.
+The default synchronization window covers seven past and thirty future days;
+longer offline periods may exhaust that coverage. Calendar freshness is shown
+independently of network connectivity. Appointment routing adapters reuse the
+local geocoder and route-planning contract, reject street-only approximations,
+and convert UI radians to routing degrees. These adapters are wired into Home.
+
+Calendar agenda snapshots now include per-day coverage calculated from successful
+SQLite snapshot windows for all known enabled calendars. Empty successful
+snapshots count as coverage; missing catalogs or missing enabled-calendar
+snapshots do not. Dates outside complete coverage show an incomplete-data
+message instead of implying an empty schedule. Home also reports incomplete
+coverage for its seven-day lookahead.

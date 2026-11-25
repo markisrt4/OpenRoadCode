@@ -68,7 +68,9 @@ class OrcUiCompositionTest(unittest.TestCase):
 
         composition.run()
 
-        app.schedule_ui_callback.assert_called_once_with(1500, runtime.start_background_apps)
+        app.schedule_ui_callback.assert_any_call(1500, runtime.start_background_apps)
+        app.schedule_ui_callback.assert_any_call(100, composition._poll_route_start)
+        self.assertEqual(app.schedule_ui_callback.call_count, 2)
         core.start.assert_called_once_with()
         app.run.assert_called_once_with()
         self.assertEqual(
