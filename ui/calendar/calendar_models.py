@@ -36,11 +36,14 @@ class CalendarHealthView:
     stale: bool = False
     last_data_refresh_age_seconds: float | None = None
     offline: bool = False
+    syncing: bool = False
 
     @property
     def empty_message(self) -> str:
         """Distinguish an empty result from unknown calendar availability."""
         if self.last_data_refresh_age_seconds is None:
+            if self.syncing and not self.offline:
+                return "Downloading calendar data…"
             if self.status == "failed":
                 return "Calendar sync failed; no confirmed data."
             return "No confirmed calendar sync yet."
