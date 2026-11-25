@@ -16,9 +16,7 @@ class ReceiverAcquisitionController:
         self._lock = Lock()
         self._sessions: dict[str, tuple[ReceiverLease, ReceiverAcquisitionIf]] = {}
 
-    def start(
-        self, consumer: str, device: ReceiverDevice, adapter: ReceiverAcquisitionIf
-    ) -> bool:
+    def start(self, consumer: str, device: ReceiverDevice, adapter: ReceiverAcquisitionIf) -> bool:
         identity = device.identity
         if identity is None:
             return False
