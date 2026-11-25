@@ -15,7 +15,6 @@ from controllers.navigation.appointment_estimate_cache import AppointmentEstimat
 from controllers.navigation.appointment_journey import AppointmentJourneyPlanner
 from controllers.navigation.appointment_route_estimator import (
     estimate_appointment_route,
-    resolve_appointment_address,
 )
 from controllers.navigation.current_position import get_current_position
 from controllers.navigation.sqlite_geocoder import SqliteGeocoder
@@ -36,9 +35,15 @@ def estimate_upcoming_journey(
         )
         try:
             router = ValhallaRoutePlanningController(ValhallaHttpClient())
+            candidates = tuple(
+                result for result in geocoder.geocode((event.location or "").strip())
+                if result.source == "address"
+            ) if event.location else ()
+            if len(candidates) != 1:
+                return None
             planner = AppointmentJourneyPlanner(
                 query,
-                lambda location: resolve_appointment_address(geocoder, location),
+                lambda location: (candidates[0].position,),
                 lambda start, end: estimate_appointment_route(router, start, end),
                 arrival_buffer_seconds=buffer_minutes * 60,
             )
@@ -46,7 +51,11 @@ def estimate_upcoming_journey(
             if journey is None:
                 return None
             return AppointmentJourneyView(
-                journey.leave_by, journey.travel_seconds, journey.destination, event_view(journey.event)
+                journey.leave_by,
+                journey.travel_seconds,
+                journey.destination,
+                event_view(journey.event),
+                candidates[0].display_name,
             )
         finally:
             geocoder.close()
