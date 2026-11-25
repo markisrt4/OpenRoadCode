@@ -77,7 +77,7 @@ for feature in base desktop-ui web-ui gps automotive bluetooth; do
 done
 "$env_dir/bin/python" -m pip --isolated install -c "$constraints" "${dev_requirements[@]}" \
     "${packages[@]}" PyYAML scipy python-dateutil \
-    'libmusicforge[analysis] @ git+https://github.com/markisrt4/libMusicForge.git@459baf6de7e76e0813999ea8ca2b6a8f928396ef' \
+    'libmusicforge[analysis] @ git+https://github.com/markisrt4/libMusicForge.git@9edc8a51bca70bbd98fbb866272a44a212e351af' \
     'libsdrforge[zmq,audio] @ git+https://github.com/markisrt4/libSDRForge.git@55b0829e1a3b8d94f78a4e1f1ce9591d46c822f5'
 "$env_dir/bin/python" -m pip check
 "$env_dir/bin/ruff" --version
