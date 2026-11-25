@@ -21,6 +21,8 @@ from controllers.calendar.calendar_presentation import (
     event_view,
 )
 from controllers.calendar.calendar_query_if import CalendarQueryIf
+from controllers.calendar.multi_account_cached_provider import MultiAccountCachedProvider
+from controllers.calendar.multi_account_presentation import MultiAccountPresentation
 from controllers.calendar.upcoming_appointments import upcoming_appointments
 from controllers.connectivity.online_mode import saved_online_mode
 from frontends.tk.calendar.calendar_screen import CalendarScreen
@@ -48,11 +50,37 @@ class CalendarConfiguration:
     selection_path: Path = field(
         default_factory=lambda: Path.home() / ".config/openroadcode/calendar-selection.json"
     )
+    accounts_path: Path = field(
+        default_factory=lambda: Path.home() / ".config/openroadcode/calendar-accounts.json"
+    )
     account_id: str = "caldav"
     zone: tzinfo = field(default_factory=_local_zone)
 
+    def multi_account(self) -> MultiAccountPresentation:
+        return MultiAccountPresentation(
+            self.accounts_path, self.accounts_path.parent / "calendar-accounts"
+        )
+
+    def health(self):
+        if self.accounts_path.exists():
+            return self.multi_account().health(offline=not saved_online_mode())
+        return calendar_health_view(
+            self.cache_path.with_suffix(".health.json"), offline=not saved_online_mode()
+        )
+
+    def selection(self):
+        if self.accounts_path.exists():
+            return self.multi_account()
+        return CalendarSelectionPresentation(
+            self.selection_path, self.cache_path.with_suffix(".catalog.json")
+        )
+
     def coverage(self, day: date, days: int) -> frozenset[date]:
         """Read cached coverage for the configured account and timezone."""
+        if self.accounts_path.exists():
+            return self.multi_account().coverage(
+                CalendarEventCache(self.cache_path), self.zone, day, days
+            )
         return covered_calendar_days(
             CalendarEventCache(self.cache_path),
             self.account_id,
@@ -64,6 +92,15 @@ class CalendarConfiguration:
         )
 
     def query(self) -> CalendarQueryIf:
+        if self.accounts_path.exists():
+            return CalendarAgendaController(
+                MultiAccountCachedProvider(
+                    self.accounts_path,
+                    self.accounts_path.parent / "calendar-accounts",
+                    CalendarEventCache(self.cache_path),
+                ),
+                self.zone,
+            )
         provider = CachedCalendarProvider(
             self.account_id,
             CalendarEventCache(self.cache_path),
@@ -85,18 +122,14 @@ def configure_calendar(app, config: CalendarConfiguration | None = None):
             parent,
             agenda=CalendarAgendaPresentation(
                 config.query(),
-                lambda: calendar_health_view(
-                    config.cache_path.with_suffix(".health.json"), offline=not saved_online_mode()
-                ),
+                config.health,
                 config.coverage,
             ),
             theme=theme_bundle(app.theme_mode),
             zone=config.zone,
             arrival_buffer=lambda: settings.load().appointment_arrival_minutes,
             save_arrival_buffer=save_buffer,
-            selection=CalendarSelectionPresentation(
-                config.selection_path, config.cache_path.with_suffix(".catalog.json")
-            ),
+            selection=config.selection(),
         )
 
     screen = DashboardCalendarScreen(app, create_panel)
@@ -123,9 +156,7 @@ class HomeCalendarFactory:
             events = upcoming_appointments(query, now, limit=1)
             return AppointmentSnapshot(
                 tuple(event_view(event) for event in events),
-                calendar_health_view(
-                    config.cache_path.with_suffix(".health.json"), offline=not saved_online_mode()
-                ),
+                config.health(),
                 len(config.coverage(now.date(), 7)) == 7,
                 estimates.estimate(query, events[0]) if events else None,
             )
