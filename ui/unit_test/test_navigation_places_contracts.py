@@ -14,7 +14,7 @@ from ui.navigation.navigation_places_request_handler_if import (
 )
 
 
-def make_screen(factory):
+def make_screen(factory: NavigationPlacesFactoryIf) -> NavigationScreen:
     return NavigationScreen(
         Mock(),
         places_factory=factory,
@@ -28,14 +28,14 @@ def make_screen(factory):
     )
 
 
-def test_invalid_factory_and_incomplete_handler_are_rejected():
+def test_invalid_factory_and_incomplete_handler_are_rejected() -> None:
     with pytest.raises(TypeError, match="NavigationPlacesFactoryIf"):
-        make_screen(object())
+        make_screen(object())  # type: ignore[arg-type]
     with pytest.raises(TypeError):
-        NavigationPlacesRequestHandlerIf()
+        NavigationPlacesRequestHandlerIf()  # type: ignore[abstract]
 
 
-def test_hide_and_close_release_session_once():
+def test_hide_and_close_release_session_once() -> None:
     screen = make_screen(Mock(spec=NavigationPlacesFactoryIf))
     session = Mock(spec=NavigationPlacesRequestHandlerIf)
     screen._places_session = session
@@ -45,19 +45,23 @@ def test_hide_and_close_release_session_once():
     screen.close()
     session.close.assert_called_once_with()
     panel.close_places.assert_called_once_with()
+    assert isinstance(screen._map_runtime, Mock)
     screen._map_runtime.stop.assert_called_once_with()
 
 
-def test_invalid_panel_binding_fails_before_tk_initialization():
+def test_invalid_panel_binding_fails_before_tk_initialization() -> None:
     from apps.orcUi.frontend.tk.navigation_panel import NavigationPanel
 
     with pytest.raises(TypeError, match="NavigationPlacesRequestHandlerIf"):
         NavigationPanel(
-            Mock(), map_request_handler=Mock(), places_handler=object(), drawer_handler=Mock()
+            Mock(),
+            map_request_handler=Mock(),
+            places_handler=object(),  # type: ignore[arg-type]
+            drawer_handler=Mock(),
         )
 
 
-def test_invalid_factory_result_is_rejected_before_panel_construction():
+def test_invalid_factory_result_is_rejected_before_panel_construction() -> None:
     factory = Mock(spec=NavigationPlacesFactoryIf)
     factory.create.return_value = object()
     screen = make_screen(factory)
@@ -66,7 +70,7 @@ def test_invalid_factory_result_is_rejected_before_panel_construction():
     assert screen._places_session is None
 
 
-def test_failed_panel_construction_closes_session():
+def test_failed_panel_construction_closes_session() -> None:
     from unittest.mock import patch
 
     factory = Mock(spec=NavigationPlacesFactoryIf)

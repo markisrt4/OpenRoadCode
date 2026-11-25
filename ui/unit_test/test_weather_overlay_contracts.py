@@ -23,52 +23,54 @@ from ui.weather.weather_overlay_ui_if import WeatherOverlayUiIf
 from ui.weather.weather_overlay_ui_stub import WeatherOverlayUiStub
 
 
-def test_overlay_state_is_immutable_and_naive_mutation_cannot_change_controls():
+def test_overlay_state_is_immutable_and_naive_mutation_cannot_change_controls() -> None:
     state = CityWeatherOverlayState(anchor=datetime.now(timezone.utc))
     with pytest.raises(FrozenInstanceError):
-        state.hours = 24
+        state.hours = 24  # type: ignore[misc]
     assert WeatherOverlayUiStub().city_state == CityWeatherOverlayState()
 
 
-def test_both_weather_control_views_implement_explicit_contracts():
+def test_both_weather_control_views_implement_explicit_contracts() -> None:
     assert issubclass(NavigationRouteWeather, WeatherOverlayControlsIf)
     assert issubclass(NavigationScreen, RadarControlsIf)
     assert not NavigationRouteWeather.__abstractmethods__
     assert not NavigationScreen.__abstractmethods__
     with pytest.raises(TypeError):
-        WeatherOverlayRequestHandlerIf()
+        WeatherOverlayRequestHandlerIf()  # type: ignore[abstract]
     with pytest.raises(TypeError):
-        RadarRequestHandlerIf()
+        RadarRequestHandlerIf()  # type: ignore[abstract]
     with pytest.raises(TypeError):
-        WeatherOverlayUiIf()
+        WeatherOverlayUiIf()  # type: ignore[abstract]
 
 
-def test_weather_view_rejects_an_arbitrary_backend_object_as_a_handler():
-    view = NavigationRouteWeather(Mock(), Mock(), Mock())
+def test_weather_view_rejects_an_arbitrary_backend_object_as_a_handler() -> None:
+    view = NavigationRouteWeather(Mock(), Mock(), Mock())  # type: ignore[no-untyped-call]
     with pytest.raises(TypeError):
-        view.set_weather_overlay_request_handler(object())
+        view.set_weather_overlay_request_handler(object())  # type: ignore[arg-type]
     view.set_weather_overlay_request_handler(None)
 
 
-def test_weather_controls_emit_semantic_requests_and_only_store_snapshots():
-    view = NavigationRouteWeather(Mock(), Mock(), Mock())
+def test_weather_controls_emit_semantic_requests_and_only_store_snapshots() -> None:
+    view = NavigationRouteWeather(Mock(), Mock(), Mock())  # type: ignore[no-untyped-call]
     handler = Mock(spec=WeatherOverlayRequestHandlerIf)
     view.set_weather_overlay_request_handler(handler)
     state = CityWeatherOverlayState(hours=12)
-    view.set_city_weather_state(state)
+    view.set_city_weather_state(state)  # type: ignore[no-untyped-call]
     assert view._city_state is state
-    view._enabled_var = Mock()
-    view._enabled_var.get.return_value = True
-    view._set_enabled()
+    enabled_var = Mock()
+    enabled_var.get.return_value = True
+    view._enabled_var = enabled_var
+    view._set_enabled()  # type: ignore[no-untyped-call]
     handler.request_route_enabled.assert_called_once_with(True)
-    view._layer_vars = {"temperature": Mock(), "wind": Mock()}
-    view._layer_vars["temperature"].get.return_value = True
-    view._layer_vars["wind"].get.return_value = False
-    view._set_layers()
+    temperature_var, wind_var = Mock(), Mock()
+    temperature_var.get.return_value = True
+    wind_var.get.return_value = False
+    view._layer_vars = {"temperature": temperature_var, "wind": wind_var}
+    view._set_layers()  # type: ignore[no-untyped-call]
     handler.request_route_layers.assert_called_once_with(frozenset({"temperature"}))
 
 
-def test_radar_view_uses_requests_and_presentation_without_a_controller():
+def test_radar_view_uses_requests_and_presentation_without_a_controller() -> None:
     view = NavigationScreen(
         Mock(),
         places_factory=Mock(spec=NavigationPlacesFactoryIf),
@@ -81,19 +83,19 @@ def test_radar_view_uses_requests_and_presentation_without_a_controller():
         on_back=Mock(),
     )
     with pytest.raises(TypeError):
-        view.set_radar_request_handler(object())
+        view.set_radar_request_handler(object())  # type: ignore[arg-type]
     handler = Mock(spec=RadarRequestHandlerIf)
     view.set_radar_request_handler(handler)
     view.set_radar_enabled(True)
     handler.request_enabled.assert_called_once_with(True)
     view.set_radar_state(RadarUiState(enabled=True, times=(100, 200)))
     assert view.radar_enabled
-    view._radar_seek(1)
+    view._radar_seek(1)  # type: ignore[no-untyped-call]
     handler.request_seek.assert_called_once_with(1)
     assert "_radar_controller" not in view.__dict__
 
 
-def test_hidden_navigation_cancels_periodic_forecasts_and_replay_requests():
+def test_hidden_navigation_cancels_periodic_forecasts_and_replay_requests() -> None:
     city, model, route, dispatcher = Mock(), Mock(), Mock(), Mock()
     controller = WeatherOverlayController(dispatcher, city, model, route)
     controller.request_navigation_visible(True)
@@ -108,20 +110,20 @@ def test_hidden_navigation_cancels_periodic_forecasts_and_replay_requests():
     city.hide.assert_called_once()
 
 
-def test_closed_overlay_composition_releases_each_owned_backend_once():
+def test_closed_overlay_composition_releases_each_owned_backend_once() -> None:
     city, model, route = Mock(), Mock(), Mock()
     controller = WeatherOverlayController(Mock(), city, model, route)
-    controller.close()
-    controller.close()
+    controller.close()  # type: ignore[no-untyped-call]
+    controller.close()  # type: ignore[no-untyped-call]
     for child in (city, model, route):
         child.close.assert_called_once()
 
 
-def test_one_failing_backend_close_cannot_skip_other_owned_resources():
+def test_one_failing_backend_close_cannot_skip_other_owned_resources() -> None:
     city, model, route = Mock(), Mock(), Mock()
     city.close.side_effect = RuntimeError("failed close")
     controller = WeatherOverlayController(Mock(), city, model, route)
     with pytest.raises(RuntimeError, match="failed close"):
-        controller.close()
+        controller.close()  # type: ignore[no-untyped-call]
     model.close.assert_called_once()
     route.close.assert_called_once()
