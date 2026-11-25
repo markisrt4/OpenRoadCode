@@ -17,9 +17,7 @@ def resolve_appointment_address(geocoder: GeocoderIf, location: str) -> tuple[Ge
     @return Candidate address coordinates.
     """
     return tuple(
-        result.position
-        for result in geocoder.geocode(location)
-        if result.source == "address"
+        result.position for result in geocoder.geocode(location) if result.source == "address"
     )
 
 
