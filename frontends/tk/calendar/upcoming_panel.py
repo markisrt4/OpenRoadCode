@@ -2,10 +2,12 @@
 """Compact upcoming appointments presentation for a mounted context page."""
 
 import tkinter as tk
+
+from ui import UiWidget
 from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
 
 
-class UpcomingPanel(tk.Frame):
+class UpcomingPanel(tk.Frame, UiWidget):
     def __init__(self, parent, *, theme, monitor: AppointmentMonitorIf, zone):
         super().__init__(parent, bg=theme.ui.surface)
         self._ui = theme.ui
