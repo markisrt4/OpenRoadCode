@@ -289,7 +289,7 @@ class CityWeatherOverlayController:
         if self._source is None:
             return
         while (reply := self._source.poll()) is not None:
-            request_id, cities = reply
+            request_id, viewport_cities = reply
             if request_id != self._pending_id:
                 self._log.stale()
                 continue
@@ -300,7 +300,7 @@ class CityWeatherOverlayController:
             # Stable ordering avoids another API request when vector-tile order changes.
             cities = tuple(
                 sorted(
-                    (WeatherCity(city.name, city.latitude, city.longitude) for city in cities),
+                    (WeatherCity(city.name, city.latitude, city.longitude) for city in viewport_cities),
                     key=lambda city: (city.name, city.latitude, city.longitude),
                 )
             )
