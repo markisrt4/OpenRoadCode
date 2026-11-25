@@ -28,7 +28,11 @@ from controllers.navigation.current_position import get_current_position
 from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
 from ui.navigation.cesium_viewer_state import CesiumViewerState
 from ui.navigation import GeoPoint
-from apps.orcUi.composition.calendar import configure_calendar, create_home_calendar_factory
+from apps.orcUi.composition.calendar import (
+    CalendarConfiguration,
+    configure_calendar,
+    create_home_calendar_factory,
+)
 from apps.orcUi.composition.games import configure_games
 from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
 from apps.orcUi.composition.tooltips import TooltipFactory
@@ -373,8 +377,9 @@ def create_orc_ui_composition(
         app.register_screen("OFF-ROAD", offroad, show_in_navigation=False)
         app.register_screen("SETTINGS", settings, show_in_navigation=False)
         app.register_screen("DIAGNOSTICS", diagnostics, show_in_navigation=False)
-        configure_calendar(app)
-        calendar_factory = create_home_calendar_factory(app)
+        calendar_config = CalendarConfiguration()
+        configure_calendar(app, calendar_config)
+        calendar_factory = create_home_calendar_factory(app, calendar_config)
         home.set_calendar_factory(calendar_factory, calendar_factory.monitor)
         app.set_initial_destination("HOME")
         app.set_settings_action(lambda: app.navigate_to("SETTINGS"))
