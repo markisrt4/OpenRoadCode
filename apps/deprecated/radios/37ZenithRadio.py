@@ -1,23 +1,21 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import QObject, QThread, pyqtSignal, pyqtSlot
-
-import sys
 import subprocess
+import sys
+
+from PyQt5 import QtWidgets
+from PyQt5.QtCore import QThread, pyqtSignal
 
 sys.path.append("../bluetooth")
 sys.path.append("../hardwareDevices")
 sys.path.append("../qtUi")
 
-import mainwindow  # This file holds our MainWindow and all design related things
-import bluetoothplayer
-
-from BluetoothMetadata import BluetoothMetadata
-
-from threading import Thread
 from time import sleep
+
+import bluetoothplayer
+import mainwindow  # This file holds our MainWindow and all design related things
+from BluetoothMetadata import BluetoothMetadata
 
 
 class RadioApp(QtWidgets.QMainWindow, mainwindow.Ui_MainWindow):
