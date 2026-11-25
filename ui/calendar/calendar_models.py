@@ -4,6 +4,8 @@
 from dataclasses import dataclass
 from datetime import date, datetime
 
+from ui.navigation.map_ui_if import GeoPoint
+
 
 @dataclass(frozen=True)
 class CalendarEventView:
@@ -65,6 +67,8 @@ class AppointmentJourneyView:
 
     leave_by: datetime
     travel_seconds: float
+    destination: GeoPoint | None = None
+    event: CalendarEventView | None = None
 
 
 @dataclass(frozen=True)
