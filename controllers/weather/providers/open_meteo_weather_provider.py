@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
+from typing import Any
 
 import requests
 
@@ -96,7 +97,7 @@ class OpenMeteoWeatherProvider(WeatherProviderIf):
         return WeatherCondition.UNKNOWN
 
     @classmethod
-    def _current_weather(cls, data: dict) -> CurrentWeather:
+    def _current_weather(cls, data: dict[str, Any]) -> CurrentWeather:
         return CurrentWeather(
             temperature_k=celsius_to_kelvin(data.get("temperature_2m")),
             apparent_temperature_k=celsius_to_kelvin(data.get("apparent_temperature")),
@@ -115,7 +116,7 @@ class OpenMeteoWeatherProvider(WeatherProviderIf):
         )
 
     @classmethod
-    def _hourly_forecast(cls, data: dict) -> tuple[HourlyForecast, ...]:
+    def _hourly_forecast(cls, data: dict[str, Any]) -> tuple[HourlyForecast, ...]:
         times = data.get("time", [])
         result = []
         for index, timestamp in enumerate(times):
@@ -140,7 +141,7 @@ class OpenMeteoWeatherProvider(WeatherProviderIf):
         return tuple(result)
 
     @classmethod
-    def _daily_forecast(cls, data: dict) -> tuple[DailyForecast, ...]:
+    def _daily_forecast(cls, data: dict[str, Any]) -> tuple[DailyForecast, ...]:
         from datetime import date, datetime
 
         result = []
@@ -168,7 +169,7 @@ class OpenMeteoWeatherProvider(WeatherProviderIf):
         return tuple(result)
 
     @staticmethod
-    def _at(data: dict, key: str, index: int):
+    def _at(data: dict[str, Any], key: str, index: int) -> Any:
         values = data.get(key, [])
         return values[index] if index < len(values) else None
 
