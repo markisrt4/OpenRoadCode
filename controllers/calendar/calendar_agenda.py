@@ -1,22 +1,13 @@
 # SPDX-License-Identifier: MIT
 """Toolkit-independent calendar agenda presentation."""
 
-from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone, tzinfo
 
-from .calendar_models import CalendarEvent
 from .calendar_provider_if import CalendarProviderIf
+from .calendar_query_if import AgendaDay as AgendaDay, CalendarQueryIf
 
 
-@dataclass(frozen=True)
-class AgendaDay:
-    """Events visible on one local calendar date."""
-
-    day: date
-    events: tuple[CalendarEvent, ...]
-
-
-class CalendarAgendaController:
+class CalendarAgendaController(CalendarQueryIf):
     """Build a bounded agenda from an injected read-only calendar provider."""
 
     def __init__(self, provider: CalendarProviderIf, display_timezone: tzinfo) -> None:
