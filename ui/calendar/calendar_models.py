@@ -69,6 +69,7 @@ class AppointmentJourneyView:
     travel_seconds: float
     destination: GeoPoint | None = None
     event: CalendarEventView | None = None
+    destination_label: str | None = None
 
 
 @dataclass(frozen=True)
