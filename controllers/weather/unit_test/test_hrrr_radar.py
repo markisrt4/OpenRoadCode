@@ -185,11 +185,15 @@ def test_decoder_rejects_wrong_variable_surface_or_valid_time(
     provider, _ = _provider()
     source = HrrrTileSource(tmp_path, Mock())
     source._checked = True
-    source._download = Mock(return_value=_grib_message())
-    source._run = Mock(return_value=json.dumps({"bands": [{"metadata": {"": attributes}}]}))
-    with pytest.raises(RuntimeError, match="not composite reflectivity"):
+    with (
+        patch.object(source, "_download", return_value=_grib_message()),
+        patch.object(
+            source, "_run", return_value=json.dumps({"bands": [{"metadata": {"": attributes}}]})
+        ) as run,
+        pytest.raises(RuntimeError, match="not composite reflectivity"),
+    ):
         source.tile(provider.get_frames()[0].tile_url, 4, 3, 6)
-    source._run.assert_called_once()
+    run.assert_called_once()
 
 
 def _tiff() -> bytes:
@@ -206,8 +210,10 @@ def test_raw_reflectivity_becomes_transparent_clear_and_colored_precipitation() 
     result = Image.open(BytesIO(color_hrrr_reflectivity(_tiff(), _UNIVERSAL_DBZ)))
     assert result.getpixel((0, 0)) == (0, 163, 224, 255)
     assert result.getpixel((1, 0)) == (193, 0, 0, 255)
-    assert result.getpixel((2, 0))[3] == 0
-    assert result.getpixel((3, 0))[3] == 0
+    for coordinate in ((2, 0), (3, 0)):
+        pixel = result.getpixel(coordinate)
+        assert isinstance(pixel, tuple)
+        assert pixel[3] == 0
 
 
 @pytest.mark.parametrize(
@@ -260,16 +266,18 @@ def test_same_timestamp_from_different_sources_has_separate_tiles(tmp_path: Path
 def test_hrrr_tiles_flow_through_local_cache_and_classic_palette(tmp_path: Path) -> None:
     provider, _ = _provider()
     service = RadarTileService(cache_root=tmp_path)
-    service._hrrr_tiles.tile = Mock(return_value=_tiff())
     try:
-        path = urlparse(
-            service.tile_url(provider.get_frames()[0], RadarPalette.UNIVERSAL)
-        ).path.format(z=4, x=3, y=6)
-        universal = service._handle_path(path)
-        classic = service._handle_path(path.replace("/universal/", "/classic/"))
-        assert Image.open(BytesIO(universal)).getpixel((0, 0)) == (0, 163, 224, 255)
-        assert Image.open(BytesIO(classic)).getpixel((0, 0)) == (0, 200, 0, 255)
-        service._hrrr_tiles.tile.assert_called_once()
+        with patch.object(service._hrrr_tiles, "tile", return_value=_tiff()) as tile:
+            path = urlparse(
+                service.tile_url(provider.get_frames()[0], RadarPalette.UNIVERSAL)
+            ).path.format(z=4, x=3, y=6)
+            universal = service._handle_path(path)
+            classic = service._handle_path(path.replace("/universal/", "/classic/"))
+            assert universal is not None
+            assert classic is not None
+            assert Image.open(BytesIO(universal)).getpixel((0, 0)) == (0, 163, 224, 255)
+            assert Image.open(BytesIO(classic)).getpixel((0, 0)) == (0, 200, 0, 255)
+            tile.assert_called_once()
     finally:
         service.close()
 
