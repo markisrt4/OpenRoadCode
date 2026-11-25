@@ -66,6 +66,8 @@ class ReceiverSession:
         on_close: Callable[[], None] = lambda: None,
         spectrum_source: SpectrumSourceIf | None = None,
         notification_sink: NotificationSinkIf | None = None,
+        start_receiver: Callable[[], None] | None = None,
+        stop_receiver: Callable[[], None] | None = None,
     ) -> None:
         self._spectrum_source = spectrum_source
         self._radio = radio
@@ -78,6 +80,8 @@ class ReceiverSession:
         self._run_ui = run_ui
         self._on_close = on_close
         self._notification_sink = notification_sink
+        self._start_receiver = start_receiver
+        self._stop_receiver = stop_receiver
         self._lock = Lock()
         self._native_lock = RLock()
         self._generation = 0
@@ -360,18 +364,26 @@ class ReceiverSession:
             return
         if action in (RadioAction.START_RECEIVER, RadioAction.STOP_RECEIVER):
             endpoint = "start" if action is RadioAction.START_RECEIVER else "stop"
-            with urllib.request.urlopen(
-                authorize_local_sdrforge_request(
-                    urllib.request.Request(
-                        f"http://127.0.0.1:5570/v1/receiver/{endpoint}",
-                        data=b"",
-                        method="POST",
-                    )
-                ),
-                timeout=6.0,
-            ) as response:
-                if response.status not in (200, 202):
-                    raise RuntimeError(f"SDRForge receiver {endpoint} failed")
+            lifecycle = (
+                self._start_receiver
+                if action is RadioAction.START_RECEIVER
+                else self._stop_receiver
+            )
+            if lifecycle is not None:
+                lifecycle()
+            else:
+                with urllib.request.urlopen(
+                    authorize_local_sdrforge_request(
+                        urllib.request.Request(
+                            f"http://127.0.0.1:5570/v1/receiver/{endpoint}",
+                            data=b"",
+                            method="POST",
+                        )
+                    ),
+                    timeout=6.0,
+                ) as response:
+                    if response.status not in (200, 202):
+                        raise RuntimeError(f"SDRForge receiver {endpoint} failed")
             # SDRForge is shared: leaving this UI must not stop acquisition.
             self._owns_receiver = False
             # HTTP 202 means startup was accepted, not that acquisition is running.

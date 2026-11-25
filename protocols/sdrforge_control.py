@@ -12,7 +12,7 @@ def authorize_local_sdrforge_request(request: Request) -> Request:
         token
         and request.get_method() == "POST"
         and request.type == "http"
-        and request.host in {"localhost:5570", "127.0.0.1:5570", "[::1]:5570"}
+        and request.host in {"localhost:5570", "127.0.0.1:5570", "[::1]:5570", "127.0.0.1:5572"}
     ):
         request.add_unredirected_header("X-SDRForge-Acquisition-Token", token)
     return request

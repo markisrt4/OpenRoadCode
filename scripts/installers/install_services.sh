@@ -8,6 +8,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 
 RUN_RADIO=0
+MANAGED_RF=0
 RUN_NAVIGATION=0
 RUN_VNC=0
 RUN_GPSD_SERVICE=0
@@ -21,6 +22,7 @@ Usage: $0 [options]
 Options:
   --navigation         Configure broker and navigation services
   --radio              Configure broker and SDRForge user service
+  --managed-rf         Provision coordinated SDRForge and readsb user units
   --vnc                Configure the VNC user service
   --gpsd               Configure the GPSD system service
   --telemetry          Configure OpenRoadCode broker/navigation/automotive services
@@ -33,6 +35,7 @@ while (( $# > 0 )); do
   case "$1" in
     --navigation) RUN_NAVIGATION=1 ;;
     --radio) RUN_RADIO=1 ;;
+    --managed-rf) MANAGED_RF=1 ;;
     --vnc) RUN_VNC=1 ;;
     --gpsd) RUN_GPSD_SERVICE=1 ;;
     --telemetry) RUN_TELEMETRY_SERVICES=1 ;;
@@ -99,6 +102,7 @@ if (( RUN_TELEMETRY_SERVICES || RUN_RADIO || RUN_NAVIGATION )); then
     sudo env OPENROADCODE_RUNTIME_CONFIG="$runtime_config" OPENROADCODE_PYTHON="$python_bin" bash "$PROJECT_ROOT/scripts/systemd/install_navigation_service_systemd.sh"
   fi
   if (( RUN_RADIO )); then
-    OPENROADCODE_PYTHON="$python_bin" bash "$PROJECT_ROOT/scripts/systemd/install_sdrforge_user_systemd.sh"
+    OPENROADCODE_PYTHON="$python_bin" OPENROADCODE_MANAGED_RF="$MANAGED_RF" \
+      bash "$PROJECT_ROOT/scripts/systemd/install_sdrforge_user_systemd.sh"
   fi
 fi

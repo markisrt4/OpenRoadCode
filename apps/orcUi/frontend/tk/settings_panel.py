@@ -10,10 +10,12 @@ from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from common.units import UnitSystem
 from ui.automotive.vehicle_configuration import EngineInductionType, VehicleConfiguration
 from ui.navigation.host_location_ui_if import HostLocationRequestHandlerIf, HostLocationState
+from ui.radio.receiver_settings_if import ReceiverSettingsIf
 from ui.radio.rf_hardware_config_if import RfHardwareConfigIf
 from ui.theme import ThemeBundle, ThemeMode
 from ui.ui_widget import UiWidget
 
+from .receiver_settings_panel import ReceiverSettingsPanel
 from .rf_settings_mixin import RfSettingsMixin
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
 
@@ -33,6 +35,7 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
         theme_bundle: ThemeBundle | None = None,
         host_location_handler: HostLocationRequestHandlerIf | None = None,
         rf_hardware_config: RfHardwareConfigIf | None = None,
+        receiver_settings: ReceiverSettingsIf | None = None,
         host_location_state: HostLocationState | None = None,
         performance_overlay_enabled: Callable[[], bool] | None = None,
         on_performance_overlay_changed: Callable[[bool], None] | None = None,
@@ -45,6 +48,7 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
         self._on_unit_system_changed = on_unit_system_changed
         self._on_back = on_back
         self._rf_hardware_config = rf_hardware_config
+        self._receiver_settings = receiver_settings
         self._vehicle_configuration = vehicle_configuration
         self._induction_var = tk.StringVar(value=vehicle_configuration.induction.value)
         self._unit_system = unit_system
@@ -93,19 +97,13 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
 
         page_nav = tk.Frame(body, bg=ui.background)
         page_nav.grid(row=0, column=0, sticky="ew", pady=(0, 3))
-        page_nav.grid_columnconfigure(0, weight=1)
-        page_nav.grid_columnconfigure(1, weight=1)
-        page_nav.grid_columnconfigure(2, weight=1)
-        page_nav.grid_columnconfigure(3, weight=1)
         self._page_buttons = {}
-        for column, (page, title) in enumerate(
-            (
-                ("display", "DISPLAY & LOCATION"),
-                ("vehicle", "VEHICLE"),
-                ("rf", "RF"),
-                ("media", "MEDIA"),
-            )
-        ):
+        pages = [("display", "DISPLAY & LOCATION"), ("vehicle", "VEHICLE")]
+        if receiver_settings is not None:
+            pages.append(("receivers", "RF RECEIVERS"))
+        pages.extend((("rf", "RF DISPLAY"), ("media", "MEDIA")))
+        for column, (page, title) in enumerate(pages):
+            page_nav.grid_columnconfigure(column, weight=1)
             button = tk.Button(
                 page_nav,
                 text=title,
@@ -292,6 +290,12 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
         self._location_button.grid(row=0, column=1, rowspan=2, padx=14, pady=8)
         self.set_host_location_state(host_location_state)
         rf = self._build_rf_settings(body)
+        self._receiver_settings_panel = None
+        if self._receiver_settings is not None:
+            self._receiver_settings_panel = ReceiverSettingsPanel(
+                body, self._receiver_settings, self._theme_bundle
+            )
+            self._receiver_settings_panel.grid(row=1, column=0, sticky="ew", padx=14, pady=8)
         media = tk.Frame(body, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
         media.grid(row=1, column=0, sticky="ew", pady=4)
         media.grid_columnconfigure(0, weight=1)
@@ -327,6 +331,8 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
             "rf": (rf,),
             "media": (media,),
         }
+        if self._receiver_settings_panel is not None:
+            self._settings_pages["receivers"] = (self._receiver_settings_panel,)
         self._show_settings_page("display")
 
     def _show_settings_page(self, page: str) -> None:
@@ -339,6 +345,8 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
             self._style_choice(button, name == page)
         if page == "rf":
             self._load_rf_hardware()
+        if page == "receivers" and self._receiver_settings_panel is not None:
+            self._receiver_settings_panel.refresh()
 
     def _share_host_location(self) -> None:
         if self._location_handler is not None:

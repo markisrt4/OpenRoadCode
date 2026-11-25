@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Sourced by install_sdrforge_user_systemd.sh after checking the primary ports.
+
+readsb_bin="$(command -v readsb)" || {
+  echo "[!] Install the ADS-B feature before enabling managed RF." >&2
+  exit 1
+}
+command -v flock >/dev/null || {
+  echo "[!] Install util-linux before enabling managed RF." >&2
+  exit 1
+}
+
+# The vendor unit must never acquire hardware on its own after managed setup.
+sudo systemctl disable --now readsb.service
+sudo systemctl mask readsb.service
+printf 'd /run/readsb 0755 %s %s -\n' "$(id -u)" "$(id -g)" |
+  sudo tee /etc/tmpfiles.d/openroadcode-readsb.conf >/dev/null
+sudo systemd-tmpfiles --create /etc/tmpfiles.d/openroadcode-readsb.conf
+
+cat > "$unit_dir/openroadcode-readsb@.service" <<EOF
+[Unit]
+Description=OpenRoadCode readsb receiver %I
+After=network.target
+
+[Service]
+Type=simple
+ExecStart="$readsb_bin" --quiet --device-type=rtlsdr --device=%I --gain=auto --write-json=/run/readsb
+NoNewPrivileges=yes
+KillMode=control-group
+Restart=no
+EOF
+
+cat > "$unit_dir/libsdrforge-weather.service" <<EOF
+[Unit]
+Description=SDRForge NOAA receiver transports
+After=pipewire.service wireplumber.service
+
+[Service]
+Type=simple
+EnvironmentFile="${rf_config//%/%%}"
+ExecStart="$python_bin" -m sdrforge.live_transport_server --rest-port=5572 --rigctl-port=4533 --zmq-endpoint=tcp://127.0.0.1:5573 --presets-path=%t/openroadcode-weather-presets.json
+Restart=no
+EOF
+
+mkdir -p "$(dirname -- "$rf_config")"
+if [[ -L "$rf_config" ]] || [[ -e "$rf_config" && ( ! -O "$rf_config" || "$(stat -c %a "$rf_config")" != 600 ) ]]; then
+  echo "[!] Managed RF credential file must be owned by this user with mode 0600." >&2
+  exit 1
+fi
+if [[ ! -f "$rf_config" ]]; then
+  rf_credential_tmp="$(mktemp "${rf_config}.XXXXXX")"
+  if "$python_bin" -c 'import secrets; print("SDRFORGE_ACQUISITION_TOKEN=" + secrets.token_hex(32))' > "$rf_credential_tmp"; then
+    mv -n -- "$rf_credential_tmp" "$rf_config"
+  fi
+  rm -f -- "$rf_credential_tmp"
+fi
+grep -Eq '^SDRFORGE_ACQUISITION_TOKEN=[a-f0-9]{64}$' "$rf_config" || {
+  echo "[!] Managed RF credential file is invalid." >&2
+  exit 1
+}

@@ -29,6 +29,7 @@ TARGET=""
 FORCE_TARGET=0
 SHOW_PLAN=0
 SKIP_INSTALLS=0
+MANAGED_RF=0
 RUN_SYSTEM_PACKAGES=1
 RUN_PYTHON_ENV=1
 RUN_VNC=""
@@ -66,6 +67,7 @@ Options:
   --no-system-packages    Skip system package installation
   --no-python-env         Skip Python virtualenv/package setup
   --with-radio-service    Enable broker and SDRForge user service
+  --managed-rf            Enable coordinated SDRForge and readsb on Pi 5
   --no-radio-service      Skip radio service setup
   --with-vnc              Enable VNC service setup
   --no-vnc                Disable VNC service setup
@@ -187,6 +189,7 @@ while (( $# > 0 )); do
     --force-target) FORCE_TARGET=1 ;;
     --show-plan) SHOW_PLAN=1 ;;
     --skip-installs) SKIP_INSTALLS=1 ;;
+    --managed-rf) MANAGED_RF=1 ;;
     --no-system-packages) RUN_SYSTEM_PACKAGES=0 ;;
     --no-python-env) RUN_PYTHON_ENV=0 ;;
     --with-radio-service) RUN_RADIO=1 ;;
@@ -303,6 +306,12 @@ if (( RUN_RADIO )) && [[ "$TARGET" == termux || " ${FEATURES[*]} " != *" sdrforg
   echo "[!] Radio service requires the Linux sdrforge feature." >&2
   exit 1
 fi
+if (( MANAGED_RF )) && {
+  [[ "$TARGET" != rpi5 || " ${FEATURES[*]} " != *" adsb "* ]] || (( ! RUN_RADIO ));
+}; then
+  echo "[!] --managed-rf requires target rpi5 with both the sdrforge and adsb features and radio services." >&2
+  exit 1
+fi
 
 export OPENROAD_RPI_GPIO_BACKEND="$GPIO_BACKEND"
 
@@ -319,6 +328,7 @@ echo "[*] Features:              ${FEATURES[*]}"
 echo "[*] VNC service setup:     $RUN_VNC"
 echo "[*] GPSD service setup:    $RUN_GPSD_SERVICE"
 echo "[*] Radio service setup:   $RUN_RADIO"
+echo "[*] Managed RF:            $MANAGED_RF"
 echo "[*] Telemetry services:    $RUN_TELEMETRY_SERVICES"
 if [[ -n "$BLUETOOTH_SPP_ADDRESS" ]]; then
   echo "[*] Bluetooth SPP:         $BLUETOOTH_SPP_ADDRESS (rfcomm$BLUETOOTH_RFCOMM_ID)"
@@ -388,6 +398,7 @@ if (( RUN_VNC )) || (( RUN_GPSD_SERVICE )) || (( RUN_TELEMETRY_SERVICES )) || ((
   service_args=()
   (( RUN_NAVIGATION )) && service_args+=(--navigation)
   (( RUN_RADIO )) && service_args+=(--radio)
+  (( MANAGED_RF )) && service_args+=(--managed-rf)
   (( RUN_VNC )) && service_args+=(--vnc)
   (( RUN_GPSD_SERVICE )) && service_args+=(--gpsd --gps-device "$GPS_DEVICE")
   (( RUN_TELEMETRY_SERVICES )) && service_args+=(--telemetry)

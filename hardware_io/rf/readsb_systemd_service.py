@@ -11,15 +11,24 @@ from pathlib import Path
 class ReadsbSystemdService:
     """Use deployment-provisioned permissions and a fixed receiver assignment."""
 
-    def __init__(self, serial: str, *, timeout: float = 15.0) -> None:
+    def __init__(
+        self,
+        serial: str,
+        *,
+        timeout: float = 15.0,
+        unit: str = "readsb.service",
+        user_unit: bool = False,
+    ) -> None:
         if not serial or timeout <= 0:
             raise ValueError("serial and positive timeout required")
         self._serial = serial
         self._timeout = timeout
+        self._unit = unit
+        self._scope = ["--user"] if user_unit else []
 
     def _run(self, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            ["systemctl", "--no-ask-password", *args, "readsb.service"],
+            ["systemctl", *self._scope, "--no-ask-password", *args, self._unit],
             capture_output=True,
             text=True,
             timeout=self._timeout,
@@ -82,14 +91,18 @@ class ReadsbSystemdService:
             return False
         return False
 
+    def active(self) -> bool:
+        """Verify that the reported unit still holds its selected receiver."""
+        return self._receiver_ready(self._state())
+
     def stop(self) -> bool:
         """Require a stopped unit and no remaining systemd control group."""
         if self._run("stop").returncode:
             return False
         state = self._state()
         return (
-            state.get("ActiveState") == "inactive"
-            and state.get("SubState") == "dead"
+            (state.get("ActiveState"), state.get("SubState"))
+            in {("inactive", "dead"), ("failed", "failed")}
             and state.get("MainPID") == "0"
             and state.get("ControlPID") == "0"
             and state.get("ControlGroup") == ""

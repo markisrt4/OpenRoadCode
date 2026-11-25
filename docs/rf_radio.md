@@ -64,6 +64,20 @@ The desktop UI uses authenticated REST mutations when its environment contains
 credential. REST client requests attach it only for local control mutations,
 and rigctl remains available for standalone control and read-only telemetry.
 
-The host installer currently leaves managed mode disabled. The radio, NOAA and
-ADS-B lifecycle paths still need to be wired to the receiver coordinator before
-managed mode can be enabled automatically.
+On a Pi 5, opt in during host setup with
+`--target rpi5 --feature sdrforge --feature adsb --managed-rf`. Use `./runOrcUi`
+so the launcher loads the private per-user credential and excludes a second
+managed UI process. The settings tab **RF Receivers** discovers USB devices and
+saves assignments for **Radio / Airband**, **NOAA Weather Radio**, and **ADS-B**.
+
+Radio uses the primary user service. NOAA shares the primary instance when
+assigned the same serial and uses a separate supervised instance when assigned a
+different serial. To free a shared radio receiver, stop reception before
+starting NOAA or ADS-B. The on-demand readsb unit runs with the desktop user's
+USB permissions, with automatic restart disabled. Opening or leaving its
+dashboard does not stop tracking. Use the aircraft tracking control.
+
+readsb can interpret a plain integer as a device index. For an ADS-B assignment,
+use a unique alphanumeric receiver serial or a numeric serial with leading
+zeroes. The coordinator verifies the USB device held by the readsb process
+before reporting tracking active.

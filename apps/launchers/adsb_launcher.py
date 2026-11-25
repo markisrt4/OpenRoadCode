@@ -113,11 +113,18 @@ class ADSBLauncher(AppLauncherIf):
     def configure_browser_window(self, *, position: tuple[int, int], size: tuple[int, int]) -> None:
         self.browser.configure_app_window(position=position, size=size)
 
-    def launch(self, remote_display: str, set_status: StatusCallback = None) -> None:
+    def launch(
+        self,
+        remote_display: str,
+        set_status: StatusCallback = None,
+        *,
+        manage_receiver: bool = True,
+    ) -> None:
         _status(set_status, "Launching ADS-B dashboard...")
-        receiver_ready = False
+        receiver_ready = not manage_receiver
+        direct = manage_receiver and self.data_source == RTLSDR_DATA_SOURCE
 
-        if self.data_source == RTLSDR_DATA_SOURCE:
+        if direct:
             self.assert_available()
             if self.resource_manager is not None:
                 acquired = self.resource_manager.acquire(
@@ -140,22 +147,28 @@ class ADSBLauncher(AppLauncherIf):
             receiver_ready = self._readsb_is_running()
 
         dashboard_ready = self._dashboard_is_reachable()
-        if not dashboard_ready and self.data_source == RTLSDR_DATA_SOURCE:
+        if not dashboard_ready and direct:
             receiver_ready = self._wait_for_readsb()
             dashboard_ready = self._dashboard_is_reachable()
         if not dashboard_ready:
-            if self.data_source == RTLSDR_DATA_SOURCE and self.resource_manager is not None:
+            if direct and self.resource_manager is not None:
                 self.resource_manager.release(self.owner_name, set_status=set_status)
             raise RuntimeError(f"tar1090 dashboard is unavailable at {self.url}")
-        if self.data_source == RTLSDR_DATA_SOURCE and not receiver_ready:
+        if direct and not receiver_ready:
             _status(set_status, "ADS-B receiver unavailable; opening dashboard without live data")
 
         self.browser.launch(remote_display, set_status)
         _status(set_status, "ADS-B dashboard launched")
 
-    def stop(self, remote_display: str, set_status: StatusCallback = None) -> None:
+    def stop(
+        self,
+        remote_display: str,
+        set_status: StatusCallback = None,
+        *,
+        manage_receiver: bool = True,
+    ) -> None:
         self.browser.stop(remote_display, None)
-        if self.data_source == RTLSDR_DATA_SOURCE:
+        if manage_receiver and self.data_source == RTLSDR_DATA_SOURCE:
             _set_systemd_service_state(self.readsb_service, "stop")
             if self.resource_manager is not None:
                 self.resource_manager.release(self.owner_name, set_status=set_status)

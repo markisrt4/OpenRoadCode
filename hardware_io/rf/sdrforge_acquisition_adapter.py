@@ -5,6 +5,7 @@
 
 import json
 import time
+from collections.abc import Callable
 from urllib.request import Request, urlopen
 
 from hardware_io.rf.receiver_discovery_if import ReceiverDevice
@@ -18,12 +19,15 @@ class SdrforgeAcquisitionAdapter:
         token: str,
         base_url: str = "http://127.0.0.1:5570",
         timeout: float = 35.0,
+        *,
+        ensure_ready: Callable[[], None] | None = None,
     ) -> None:
         if not token or timeout <= 0:
             raise ValueError("credential and positive timeout required")
         self._token = token
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout
+        self._ensure_ready = ensure_ready
         self._start_requested = False
 
     def _request(self, path: str, body: dict[str, object] | None = None) -> dict[str, object]:
@@ -44,6 +48,8 @@ class SdrforgeAcquisitionAdapter:
         """Start the selected receiver and wait for acquisition evidence."""
         if not device.identity:
             return False
+        if self._ensure_ready is not None:
+            self._ensure_ready()
         status = self._request("/v1/receiver")
         if not self._released(status):
             return False

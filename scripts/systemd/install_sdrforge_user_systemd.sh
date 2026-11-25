@@ -42,6 +42,12 @@ if [[ -n "$(ss -H -lnt '( sport = :5570 or sport = :5571 or sport = :4532 )')" ]
     exit 1
   fi
 fi
+rf_config="${XDG_CONFIG_HOME:-$HOME/.config}/openroadcode/rf-acquisition.env"
+rf_environment=""
+if [[ "${OPENROADCODE_MANAGED_RF:-0}" == 1 || -f "$rf_config" ]]; then
+  source "$(dirname -- "${BASH_SOURCE[0]}")/install_managed_rf_units.sh"
+  printf -v rf_environment 'EnvironmentFile="%s"' "${rf_config//%/%%}"
+fi
 cat > "$unit_dir/libsdrforge.service" <<EOF
 [Unit]
 Description=SDRForge native radio server
@@ -50,6 +56,7 @@ After=pipewire.service wireplumber.service
 [Service]
 Type=simple
 Environment=PYTHONUNBUFFERED=1
+$rf_environment
 ExecStart="$python_bin" -m sdrforge.live_transport_server
 Restart=on-failure
 RestartSec=2

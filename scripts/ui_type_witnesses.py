@@ -56,6 +56,12 @@ if TYPE_CHECKING:
     def radio_favorites(storage: StreamingRadioFavorites) -> StreamingRadioFavoritesIf:
         return storage
 
+    from controllers.radio.receiver_settings_controller import ReceiverSettingsController
+    from ui.radio.receiver_settings_if import ReceiverSettingsIf
+
+    def receiver_settings(controller: ReceiverSettingsController) -> ReceiverSettingsIf:
+        return controller
+
     from apps.orcUi.frontend.tk.radio_panel import RadioPanel
     from controllers.radio.rf_radio_session import ReceiverSession
     from ui.radio.rf_radio_if import RadioNativeSurface, RfRadioSession, RfRadioUi

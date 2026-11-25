@@ -61,6 +61,24 @@ if [[ "${1:-}" == "--check-ecu-gl" ]]; then
 fi
 
 if ! "$is_termux"; then
+    rf_config="${XDG_CONFIG_HOME:-$HOME/.config}/openroadcode/rf-acquisition.env"
+    if [[ -f "$rf_config" ]]; then
+        if [[ -L "$rf_config" || ! -O "$rf_config" || "$(stat -c %a "$rf_config")" != 600 ]]; then
+            echo "[!] Managed RF credential file must be owned by this user with mode 0600." >&2
+            exit 1
+        fi
+        read -r rf_credential < "$rf_config"
+        if [[ ! "$rf_credential" =~ ^SDRFORGE_ACQUISITION_TOKEN=([a-f0-9]{64})$ ]]; then
+            echo "[!] Managed RF credential has an invalid format." >&2
+            exit 1
+        fi
+        export SDRFORGE_ACQUISITION_TOKEN="${BASH_REMATCH[1]}"
+        exec 9>"${rf_config}.lock"
+        if ! flock --nonblock 9; then
+            echo "[!] Another OpenRoadCode instance owns managed RF acquisition." >&2
+            exit 1
+        fi
+    fi
     exec "$python_bin" -m apps.orcUi "$@"
 fi
 
