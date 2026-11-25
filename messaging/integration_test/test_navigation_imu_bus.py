@@ -15,6 +15,8 @@ from controllers.navigation import SimulatedNavigationController
 from messaging.contracts.navigation import (
     ATTITUDE_STATE_TOPIC,
     IMU_STATE_TOPIC,
+    AttitudeStateMessage,
+    ImuStateMessage,
     NavigationStatePublisher,
     decode_attitude_state,
     decode_imu_state,
@@ -30,7 +32,7 @@ def _free_tcp_port() -> int:
         return int(sock.getsockname()[1])
 
 
-def test_one_navigation_sample_delivers_attitude_and_imu():
+def test_one_navigation_sample_delivers_attitude_and_imu() -> None:
     ingress = f"tcp://127.0.0.1:{_free_tcp_port()}"
     egress = f"tcp://127.0.0.1:{_free_tcp_port()}"
     while egress == ingress:
@@ -45,20 +47,29 @@ def test_one_navigation_sample_delivers_attitude_and_imu():
         time.sleep(0.01)
     assert broker.is_running, "ZeroMQ broker did not start"
 
-    attitude_messages = []
-    imu_messages = []
+    attitude_messages: list[AttitudeStateMessage] = []
+    imu_messages: list[ImuStateMessage] = []
     attitude_delivered = threading.Event()
     imu_delivered = threading.Event()
+
+    def handle_attitude(message: AttitudeStateMessage) -> None:
+        attitude_messages.append(message)
+        attitude_delivered.set()
+
+    def handle_imu(message: ImuStateMessage) -> None:
+        imu_messages.append(message)
+        imu_delivered.set()
+
     dispatcher = MessageDispatcher(ZeroMqSubscriber(egress))
     dispatcher.register(
         ATTITUDE_STATE_TOPIC,
         decode_attitude_state,
-        lambda message: (attitude_messages.append(message), attitude_delivered.set()),
+        handle_attitude,
     )
     dispatcher.register(
         IMU_STATE_TOPIC,
         decode_imu_state,
-        lambda message: (imu_messages.append(message), imu_delivered.set()),
+        handle_imu,
     )
     dispatcher.start()
 
@@ -88,6 +99,7 @@ def test_one_navigation_sample_delivers_attitude_and_imu():
         assert attitude.source == "integration-test-navigation"
         assert imu.source == attitude.source
         assert imu.timestamp == attitude.timestamp
+        assert attitude.data.heading_rad is not None
         assert 0.0 <= attitude.data.heading_rad < 2.0 * 3.141592653589793
         assert imu.data.acceleration_m_s2.z == pytest.approx(
             9.80665 + imu.data.linear_acceleration_m_s2.z

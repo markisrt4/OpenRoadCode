@@ -21,13 +21,17 @@ from messaging.contracts.navigation import (
     IMU_STATE_TOPIC,
     MOTION_STATE_TOPIC,
     POSITION_STATE_TOPIC,
+    AttitudeStateMessage,
+    ImuStateMessage,
+    MotionStateMessage,
     NavigationStatePublisher,
+    PositionStateMessage,
     decode_attitude_state,
     decode_imu_state,
     decode_motion_state,
     decode_position_state,
 )
-from messaging.message_dispatcher import MessageDispatcher
+from messaging.message_dispatcher import Decoder, MessageDispatcher
 from messaging.zeromq import ZeroMqPublisher, ZeroMqSubscriber
 from messaging.zeromq.broker import ZeroMqBroker
 from services.navigation.navigation_service_cli import build_controller
@@ -60,7 +64,7 @@ def _simulated_config() -> NavigationServiceRuntimeConfig:
     )
 
 
-def test_simulated_inputs_produce_complete_navigation_solution_over_bus():
+def test_simulated_inputs_produce_complete_navigation_solution_over_bus() -> None:
     ingress = f"tcp://127.0.0.1:{_free_tcp_port()}"
     egress = f"tcp://127.0.0.1:{_free_tcp_port()}"
     while egress == ingress:
@@ -86,8 +90,8 @@ def test_simulated_inputs_produce_complete_navigation_solution_over_bus():
     }
     dispatcher = MessageDispatcher(ZeroMqSubscriber(egress))
 
-    def register(topic, decoder):
-        def handler(message):
+    def register(topic: str, decoder: Decoder) -> None:
+        def handler(message: object) -> None:
             received[topic] = message
             delivered[topic].set()
 
@@ -122,6 +126,11 @@ def test_simulated_inputs_produce_complete_navigation_solution_over_bus():
         attitude = received[ATTITUDE_STATE_TOPIC]
         imu = received[IMU_STATE_TOPIC]
 
+        assert isinstance(position, PositionStateMessage)
+        assert isinstance(motion, MotionStateMessage)
+        assert isinstance(attitude, AttitudeStateMessage)
+        assert isinstance(imu, ImuStateMessage)
+
         # Position retains the source of the configured GPS input, while the
         # converged solution topics carry the navigation publisher's source.
         assert position.source == "simulation"
@@ -129,15 +138,20 @@ def test_simulated_inputs_produce_complete_navigation_solution_over_bus():
         assert attitude.source == motion.source == imu.source
         assert attitude.timestamp == motion.timestamp == imu.timestamp
 
+        assert position.data.latitude_rad is not None
+        assert position.data.longitude_rad is not None
         assert abs(position.data.latitude_rad) > 0.1
         assert abs(position.data.longitude_rad) > 0.1
 
         # Ground speed belongs to the motion contract. The driving profile
         # intentionally varies around its configured base speed by +/- 1.5 m/s.
+        assert motion.data.ground_speed_m_s is not None
         assert 11.9 <= motion.data.ground_speed_m_s <= 14.9
 
         assert imu.data.acceleration_m_s2.z > 9.0
         assert imu.data.angular_velocity_rad_s.z == 0.04
+        assert attitude.data.pitch_rad is not None
+        assert attitude.data.roll_rad is not None
         assert -1.5707963267948966 <= attitude.data.pitch_rad <= 1.5707963267948966
         assert -3.141592653589793 <= attitude.data.roll_rad <= 3.141592653589793
     finally:

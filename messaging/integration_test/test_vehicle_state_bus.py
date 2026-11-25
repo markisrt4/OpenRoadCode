@@ -14,6 +14,7 @@ import pytest
 from controllers.automotive.obd2.obd2_manager import Obd2Manager
 from messaging.contracts.automotive import (
     VEHICLE_STATE_TOPIC,
+    VehicleStateMessage,
     VehicleStatePublisher,
     decode_vehicle_state,
 )
@@ -29,7 +30,7 @@ def _free_tcp_port() -> int:
         return int(sock.getsockname()[1])
 
 
-def test_simulated_obd_vehicle_state_crosses_message_bus():
+def test_simulated_obd_vehicle_state_crosses_message_bus() -> None:
     ingress = f"tcp://127.0.0.1:{_free_tcp_port()}"
     egress = f"tcp://127.0.0.1:{_free_tcp_port()}"
     while egress == ingress:
@@ -44,13 +45,18 @@ def test_simulated_obd_vehicle_state_crosses_message_bus():
         time.sleep(0.01)
     assert broker.is_running, "ZeroMQ broker did not start"
 
-    received = []
+    received: list[VehicleStateMessage] = []
     delivered = threading.Event()
+
+    def handle_vehicle(message: VehicleStateMessage) -> None:
+        received.append(message)
+        delivered.set()
+
     dispatcher = MessageDispatcher(ZeroMqSubscriber(egress))
     dispatcher.register(
         VEHICLE_STATE_TOPIC,
         decode_vehicle_state,
-        lambda message: (received.append(message), delivered.set()),
+        handle_vehicle,
     )
     dispatcher.start()
 
@@ -91,6 +97,8 @@ def test_simulated_obd_vehicle_state_crosses_message_bus():
         )
         assert message.source == "integration-test-obd2"
         assert message.data.vehicle_speed_m_s is None
+        assert message.data.intake_manifold_pressure_pa is not None
+        assert message.data.barometric_pressure_pa is not None
         assert message.data.boost_pressure_pa == pytest.approx(
             message.data.intake_manifold_pressure_pa - message.data.barometric_pressure_pa
         )
