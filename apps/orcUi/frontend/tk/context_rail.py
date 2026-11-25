@@ -145,8 +145,8 @@ class ContextRail(tk.Frame, UiWidget, ContextVehiclePanel):
         monitor.poll()
         upcoming = False
         if monitor.snapshot is not None and not monitor.failed:
-            events, health = monitor.snapshot
-            if not health.get("stale") and health.get("last_data_refresh_age_seconds") is not None:
+            events, health = monitor.snapshot.events, monitor.snapshot.health
+            if not health.stale and health.last_data_refresh_age_seconds is not None:
                 now = datetime.now(timezone.utc)
                 upcoming = any(
                     timedelta(0) <= event.starts_at - now <= timedelta(hours=1) for event in events
