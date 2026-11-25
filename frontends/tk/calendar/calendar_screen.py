@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: MIT
 """Touch-friendly cached calendar agenda."""
 
-from collections.abc import Callable
 import calendar
 import hashlib
 import tkinter as tk
+from collections.abc import Callable
 from datetime import datetime, timedelta
 
 from ui import UiWidget

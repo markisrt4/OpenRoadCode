@@ -6,9 +6,9 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from concurrent.futures import Future
 from threading import Thread
-from collections.abc import Callable
 
 from controllers.route_planning.route_map_presenter import present_route
 from controllers.route_planning.route_planning_types import GeoPoint as RouteGeoPoint

@@ -13,7 +13,8 @@ from controllers.navigation.appointment_route_estimator import (
     resolve_appointment_address,
 )
 from controllers.navigation.geocoding_models import GeocodeResult
-from controllers.route_planning.route_planning_types import GeoPoint as RoutePoint, RouteRequest
+from controllers.route_planning.route_planning_types import GeoPoint as RoutePoint
+from controllers.route_planning.route_planning_types import RouteRequest
 from ui.navigation.map_ui_if import GeoPoint
 
 

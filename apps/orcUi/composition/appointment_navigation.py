@@ -7,9 +7,8 @@ import requests
 
 from common.app_settings import AppSettingsStore
 from common.navigation_data import navigation_data_root
-from controllers.calendar.calendar_presentation import event_view
 from controllers.calendar.calendar_models import CalendarEvent
-from ui.navigation.map_ui_if import GeoPoint
+from controllers.calendar.calendar_presentation import event_view
 from controllers.calendar.calendar_query_if import CalendarQueryIf
 from controllers.navigation.appointment_estimate_cache import AppointmentEstimateCache
 from controllers.navigation.appointment_journey import AppointmentJourneyPlanner
@@ -23,6 +22,7 @@ from controllers.route_planning.valhalla_route_planning_controller import (
 )
 from protocols.valhalla.valhalla_http_client import ValhallaHttpClient
 from ui.calendar.calendar_models import AppointmentJourneyView
+from ui.navigation.map_ui_if import GeoPoint
 
 
 def estimate_upcoming_journey(

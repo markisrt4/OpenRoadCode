@@ -1,17 +1,16 @@
 # SPDX-License-Identifier: MIT
 """Compact upcoming appointments presentation for a mounted context page."""
 
+import tkinter as tk
 from datetime import datetime, timezone
 from math import ceil
-import tkinter as tk
 from tkinter import messagebox
-
-from ui.navigation.async_route_request_if import AsyncRouteRequestIf
-from ui.navigation.route_request_handler_if import RouteRequestHandlerIf
-from ui.navigation.route_types import TravelMode
 
 from ui import UiWidget
 from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
+from ui.navigation.async_route_request_if import AsyncRouteRequestIf
+from ui.navigation.route_request_handler_if import RouteRequestHandlerIf
+from ui.navigation.route_types import TravelMode
 
 
 class UpcomingPanel(tk.Frame, UiWidget):

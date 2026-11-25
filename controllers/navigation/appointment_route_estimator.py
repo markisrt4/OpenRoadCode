@@ -5,7 +5,8 @@ from math import degrees
 
 from controllers.navigation.geocoder_if import GeocoderIf
 from controllers.route_planning.route_planning_controller_if import RoutePlanningControllerIf
-from controllers.route_planning.route_planning_types import GeoPoint as RoutePoint, RouteRequest
+from controllers.route_planning.route_planning_types import GeoPoint as RoutePoint
+from controllers.route_planning.route_planning_types import RouteRequest
 from ui.navigation.map_ui_if import GeoPoint
 
 

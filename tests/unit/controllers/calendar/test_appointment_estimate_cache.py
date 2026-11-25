@@ -5,9 +5,9 @@ from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock
 
-from controllers.navigation.appointment_estimate_cache import AppointmentEstimateCache
 from common.app_settings import AppSettings
 from controllers.calendar.calendar_models import CalendarEvent
+from controllers.navigation.appointment_estimate_cache import AppointmentEstimateCache
 from ui.navigation import GeoPoint
 
 
