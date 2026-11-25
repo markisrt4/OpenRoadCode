@@ -60,16 +60,20 @@ def extract(parts: list[Path], stage: Path) -> None:
             ["cat", *(str(part) for part in parts)], stdout=subprocess.PIPE
         ) as process:
             assert process.stdout is not None
-            with tarfile.open(fileobj=process.stdout, mode="r|gz") as archive:
-                for member in archive:
-                    if not (member.isfile() or member.isdir()):
-                        raise ValueError(f"Unsupported archive entry: {member.name}")
-                    archive.extract(member, stage, filter="data")
-            # Drain any remaining compressed bytes before waiting for cat.
-            while process.stdout.read(1024 * 1024):
-                pass
-            if process.wait():
-                raise RuntimeError("Failed to read archive parts")
+            try:
+                with tarfile.open(fileobj=process.stdout, mode="r|gz") as archive:
+                    for member in archive:
+                        if not (member.isfile() or member.isdir()):
+                            raise ValueError(f"Unsupported archive entry: {member.name}")
+                        archive.extract(member, stage, filter="data")
+                # Drain any remaining compressed bytes before waiting for cat.
+                while process.stdout.read(1024 * 1024):
+                    pass
+                if process.wait():
+                    raise RuntimeError("Failed to read archive parts")
+            except BaseException:
+                process.kill()
+                raise
     except BaseException:
         shutil.rmtree(stage)
         raise
