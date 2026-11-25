@@ -22,6 +22,7 @@ from ui.theme import ThemeBundle
 from ui.ui_widget import UiWidget
 
 from .ecu_animation import EcuAnimationMixin
+from .ecu_animation import visual_engine_running as visual_engine_running
 from .ecu_engine_visual import paint_engine_summary, paint_engine_visual
 from .ecu_panel_layout import EcuPanelLayoutMixin
 from .ecu_update_rate import RateCounter
