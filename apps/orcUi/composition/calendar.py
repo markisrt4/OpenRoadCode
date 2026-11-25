@@ -73,7 +73,9 @@ class HomeCalendarFactory:
             events = upcoming_appointments(
                 CalendarAgendaController(provider, zone), datetime.now(zone), limit=1
             )
-            return AppointmentSnapshot(tuple(event_view(event) for event in events), calendar_health_view())
+            return AppointmentSnapshot(
+                tuple(event_view(event) for event in events), calendar_health_view()
+            )
 
         self.monitor: AppointmentMonitorIf = AppointmentMonitor(load)
 
