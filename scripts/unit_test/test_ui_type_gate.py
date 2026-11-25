@@ -16,11 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def check_source(tmp_path, source):
-    if (
-        is_termux()
-        and not is_quality_environment()
-        and importlib.util.find_spec("mypy") is None
-    ):
+    if is_termux() and not is_quality_environment() and importlib.util.find_spec("mypy") is None:
         pytest.skip("mypy unavailable on Termux; strict type tests run in Linux/CI")
     path = tmp_path / "contract_example.py"
     path.write_text(source)
