@@ -46,20 +46,17 @@ def test_ready_model_keeps_existing_vision_controller_lifecycle():
         controller.return_value.close.assert_called_once_with()
 
 
-def test_missing_tracking_dependency_also_keeps_cockpit_available():
+def test_missing_tracking_dependency_keeps_camera_preview_available():
     with (
         patch("apps.orcUi.composition.vision.YoloModelReadiness"),
-        patch("apps.orcUi.composition.vision.CameraVisionScreen") as screen,
+        patch("apps.orcUi.composition.vision.CameraVisionScreen"),
         patch("apps.orcUi.composition.vision.LazyYoloObjectDetector"),
         patch("apps.orcUi.composition.vision.ByteTrackObjectTracker") as tracker,
         patch("apps.orcUi.composition.vision.VisionController") as controller,
     ):
         tracker.side_effect = RuntimeError("supervision missing")
         composition = configure_vision(Mock())
-        assert composition.controller is None
-        controller.assert_not_called()
-        assert (
-            "supervision missing"
-            in screen.return_value.set_vision_state.call_args.args[0].status_message
-        )
+        assert composition.controller is controller.return_value
+        assert controller.call_args.args[-1] is None
+        assert controller.call_args.kwargs["prepare_model"] is None
         composition.close()

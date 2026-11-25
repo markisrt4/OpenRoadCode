@@ -181,8 +181,12 @@ class CameraVisionScreen(TkScreen, VisionUiIf):
             self._mode_label.configure(text=f"Mode: {text}")
         if self._ai_button is not None:
             self._ai_button.configure(
-                text="Disable AI" if state.ai_enabled else "Enable AI",
-                state=tk.NORMAL if state.lifecycle is not VisionLifecycle.STARTING else tk.DISABLED,
+                text=("Disable AI" if state.ai_enabled else "Enable AI")
+                if state.ai_available
+                else "AI unavailable",
+                state=tk.NORMAL
+                if state.ai_available and state.lifecycle is not VisionLifecycle.STARTING
+                else tk.DISABLED,
             )
         if self._status_label is not None:
             oldest = max((item.track_age_s or 0.0 for item in state.objects), default=0.0)

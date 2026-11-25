@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 
 from apps.orcUi.frontend.tk.camera_vision_screen import CameraVisionScreen
@@ -19,7 +20,6 @@ from controllers.computer_vision.vision_controller import VisionController
 from controllers.computer_vision.yolo_object_detector import LazyYoloObjectDetector
 from hardware_io.camera.v4l2_camera import V4L2Camera
 from hardware_io.camera.v4l2_camera_controls import V4L2CameraProfileController
-from ui.vision.vision_ui_state import VisionLifecycle, VisionUiState
 
 _LOG = logging.getLogger(__name__)
 
@@ -49,35 +49,25 @@ def configure_vision(app: OrcUiApp) -> VisionComposition:
         app,
         theme_bundle=lambda: theme_bundle(app.theme_mode),
     )
+    worker = None
+    prepare_model = None
     try:
-        detector = LazyYoloObjectDetector(
-            readiness,
-            confidence=0.10,
-            image_size=640,
-        )
+        detector = LazyYoloObjectDetector(readiness, confidence=0.10, image_size=640)
         tracker = ByteTrackObjectTracker(frame_rate=30)
+        worker = PerceptionWorker(detector, tracker)
+        prepare_model = detector.prepare
     except (RuntimeError, ImportError, OSError) as exc:
-        # VISION is optional; absent inference dependencies or unusable weights
-        # should disable this destination rather than abort the entire cockpit.
-        _LOG.warning("VISION unavailable: %s", exc)
-        screen.set_vision_state(
-            VisionUiState(
-                lifecycle=VisionLifecycle.ERROR,
-                ai_enabled=False,
-                status_message=f"VISION unavailable: {exc}",
-            )
-        )
-        app.register_screen("VISION", screen, before="CONTROLS")
-        return VisionComposition(screen=screen, controller=None, model_readiness=readiness)
+        _LOG.info("Vision detection unavailable: %s", exc)
+    device = os.environ.get("ORC_CAMERA_DEVICE") or "/dev/video0"
     controller = VisionController(
         app,
         screen,
-        V4L2Camera("/dev/video0", width=1920, height=1080, fps=30.0, pixel_format="MJPG"),
-        V4L2CameraProfileController("/dev/video0"),
+        V4L2Camera(device, width=1920, height=1080, fps=30.0, pixel_format="MJPG"),
+        V4L2CameraProfileController(device),
         CameraFrameProcessor(),
-        PerceptionWorker(detector, tracker),
-        source_label="/dev/video0",
-        prepare_model=detector.prepare,
+        worker,
+        source_label=device,
+        prepare_model=prepare_model,
     )
     app.register_screen("VISION", screen, before="CONTROLS")
     return VisionComposition(
