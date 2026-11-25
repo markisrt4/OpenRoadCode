@@ -66,23 +66,3 @@ class AppointmentMonitorIf(Protocol):
     def close(self) -> None:
         """Retire pending refresh work."""
 
-
-class CalendarPresentationIf(Protocol):
-    """Aggregate calendar ports for an agenda presentation session."""
-
-    @property
-    def agenda(self) -> CalendarAgendaIf:
-        """Return the agenda request port.
-
-        @return Agenda interface.
-        """
-
-    @property
-    def selection(self) -> CalendarSelectionIf:
-        """Return the calendar selection port.
-
-        @return Selection interface.
-        """
-
-    def close(self) -> None:
-        """Release presentation session resources."""
