@@ -28,6 +28,7 @@ show_error_codes = true
 pretty = false
 files = [
     "ui/",
+    "messaging/",
     "controllers/calendar/appointment_monitor.py",
     "controllers/calendar/calendar_presentation.py",
     "controllers/calendar/calendar_query_if.py",
