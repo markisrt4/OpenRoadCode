@@ -14,6 +14,15 @@ else
     exit 1
 fi
 export OPENROADCODE_PYTHON="$PYTHON_BIN"
+if ! "$PYTHON_BIN" -c "import dateutil.rrule" >/dev/null 2>&1; then
+    echo "Calendar recurrence support is missing from $PYTHON_BIN."
+    read -r -p "Install python-dateutil into the OpenRoadCode environment? [Y/n] " answer
+    if [[ "$answer" == [nN] ]]; then
+        exit 1
+    fi
+    "$PYTHON_BIN" -m pip install python-dateutil
+    "$PYTHON_BIN" -c "import dateutil.rrule"
+fi
 add_account() {
     printf '%s\n' '1. Proton Calendar' '2. Generic CalDAV' \
         '3. Nextcloud (CalDAV)' '4. iCloud (CalDAV)' '5. Fastmail (CalDAV)' '0. Back'
