@@ -49,7 +49,11 @@ def main() -> None:
             and (args.action != "disable" or account.enabled)
         )
         if not candidates:
-            print("No calendar accounts configured." if not accounts else f"All accounts are already {args.action}d.")
+            print(
+                "No calendar accounts configured."
+                if not accounts
+                else f"All accounts are already {args.action}d."
+            )
             return
         for index, account in enumerate(candidates, start=1):
             state = "enabled" if account.enabled else "disabled"
