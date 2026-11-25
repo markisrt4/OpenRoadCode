@@ -98,7 +98,12 @@ class NavigationRouteRequestHandler(
             except Exception as error:
                 future.set_exception(error)
 
-        Thread(target=work, daemon=True, name="navigation-route-start").start()
+        try:
+            Thread(target=work, daemon=True, name="navigation-route-start").start()
+        except RuntimeError:
+            future.cancel()
+            self._pending = None
+            raise
 
     def poll_route_start(self) -> bool:
         """Publish completed requests on the owning UI thread."""
