@@ -34,6 +34,7 @@ from .screen_builders import (
 )
 from .shell_metrics import TARGET_GEOMETRY, TARGET_HEIGHT, TARGET_WIDTH
 from .shell_view import OrcUiShellView
+from .software_update_dialog import SoftwareUpdateDialog
 from .ui_callback_mixin import UiCallbackMixin
 
 
@@ -59,6 +60,7 @@ class OrcUiApp(UiCallbackMixin, VolumeUiIf, UiWidget):
         self._root = tk.Tk()
         self._performance_overlay = PerformanceOverlay(self._root)
         self._error_dialog = ErrorDialog(self._root, lambda: self._theme)
+        self._software_update_dialog = SoftwareUpdateDialog(self._root, lambda: self._theme)
         self.notification_sink = NotificationDispatcher(
             self.dispatch_ui,
             self._present_notification,
@@ -277,6 +279,10 @@ class OrcUiApp(UiCallbackMixin, VolumeUiIf, UiWidget):
     def show_error(self, title: str, message: str) -> None:
         """Present a shell-level error without painting over native content."""
         self._error_dialog.show(title, message)
+
+    def offer_software_update(self, revision: str, on_accept: Callable[[], None]) -> None:
+        """Present an available ORC checkout update for user approval."""
+        self._software_update_dialog.show(revision, on_accept)
 
     def set_screen_status(self, message: str) -> None:
         if self._shell is not None:

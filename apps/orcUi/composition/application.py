@@ -8,6 +8,7 @@ from __future__ import annotations
 import math
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from adapters.radio.sdrforge_rf_hardware_config import SdrForgeRfHardwareConfig
 from apps.launchers.cesium_embedded_viewer import CesiumEmbeddedViewer
@@ -45,6 +46,7 @@ from common.resource_cleanup import ResourceCleanup, close_resources
 from controllers.navigation.current_position import get_current_position
 from controllers.navigation.host_location_settings_controller import HostLocationSettingsController
 from controllers.navigation.map_controls_drawer_controller import MapControlsDrawerController
+from controllers.system.software_update import CheckoutUpdates, SoftwareUpdateController
 from controllers.weather.radar_palette import RadarPalette
 from controllers.weather.radar_replay_controller import RadarReplayController
 from controllers.weather.weather_overlay_controller import WeatherOverlayController
@@ -81,6 +83,7 @@ class OrcUiComposition:
     performance_status: PerformanceStatusPresenter | None = None
     host_location: HostLocationSettingsController | None = None
     startup_progress: Callable[[str, str], None] | None = None
+    software_update: SoftwareUpdateController | None = None
 
     _closed: bool = field(default=False, init=False)
 
@@ -99,6 +102,8 @@ class OrcUiComposition:
                 self.performance_status.start()
             self.app.schedule_ui_callback(1500, self.runtime.start_background_apps)
             self.core.start()
+            if self.software_update is not None:
+                self.software_update.start()
             self._poll_route_start()
             _report(self.startup_progress, "ready", "OpenRoadCode UI ready")
             self.app.run()
@@ -124,6 +129,7 @@ class OrcUiComposition:
             return
         self._closed = True
         close_resources(
+            *([self.software_update.close] if self.software_update is not None else []),
             self.app.shutdown,
             *(
                 resource.close
@@ -396,6 +402,21 @@ def create_orc_ui_composition(
         app.set_initial_destination("HOME")
         app.set_settings_action(lambda: app.navigate_to("SETTINGS"))
         _report(progress, "screens", "Application screens loaded")
+        online_mode = app.online_mode
+
+        def restart_after_update() -> None:
+            core.lifecycle.request_restart_ui()
+            app.shutdown()
+
+        software_update = SoftwareUpdateController(
+            CheckoutUpdates(Path(__file__).resolve().parents[3]),
+            app,
+            online=lambda: online_mode is not None and online_mode.online,
+            offer=app.offer_software_update,
+            report_error=lambda message: app.show_error("ORC update failed", message),
+            restart=restart_after_update,
+        )
+        cleanup.callback(software_update.close)
         composition = OrcUiComposition(
             core=core,
             runtime=runtime,
@@ -418,6 +439,7 @@ def create_orc_ui_composition(
             performance_status=performance_status,
             host_location=host_location,
             startup_progress=progress,
+            software_update=software_update,
         )
         cleanup.release()
         return composition
