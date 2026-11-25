@@ -6,12 +6,14 @@
 import logging
 import math
 import threading
+from collections.abc import Callable
 from datetime import datetime, timezone
 from time import monotonic, time
+from typing import Protocol
 
 from common.logging.structured import operation
 from common.resource_cleanup import close_resources
-from controllers.weather.city_weather import WeatherCity, city_value
+from controllers.weather.city_weather import CityWeatherHours, WeatherCity, city_value
 from controllers.weather.city_weather_details import city_details, city_identity
 from controllers.weather.weather_logging import WeatherLog
 from ui.navigation import GeoPoint
@@ -20,19 +22,38 @@ from ui.weather.weather_overlay_state import CityWeatherOverlayState, CityWeathe
 from ui.weather.weather_overlay_ui_if import WeatherOverlayUiIf
 
 
+class _CityProvider(Protocol):
+    def hourly(self, cities: tuple[WeatherCity, ...]) -> tuple[CityWeatherHours, ...]: ...
+    def close(self) -> None: ...
+
+
+class _ViewportCity(Protocol):
+    @property
+    def name(self) -> str: ...
+    @property
+    def latitude(self) -> float: ...
+    @property
+    def longitude(self) -> float: ...
+
+
+class _CitySource(Protocol):
+    def poll(self) -> tuple[int, tuple[_ViewportCity, ...]] | None: ...
+    def close(self) -> None: ...
+
+
 class CityWeatherOverlayController:
     """Keep city map labels independent of radar, heatmaps and route weather."""
 
     def __init__(
         self,
         dispatcher: UiDispatcherIf,
-        provider,
-        source,
-        query,
+        provider: _CityProvider,
+        source: _CitySource | None,
+        query: Callable[[int], None],
         ui: WeatherOverlayUiIf,
         *,
-        clock=time,
-    ):
+        clock: Callable[[], float] = time,
+    ) -> None:
         self._host, self._ui, self._query_cities = dispatcher, ui, query
         self._provider, self._source = provider, source
         self._clock = clock
@@ -42,9 +63,9 @@ class CityWeatherOverlayController:
         self.hours = 1
         self.playing = False
         self.status = "Enable city weather, then pan or zoom to an area"
-        self._cities = ()
-        self._weather = ()
-        self._cache = {}
+        self._cities: tuple[WeatherCity, ...] = ()
+        self._weather: tuple[CityWeatherHours, ...] = ()
+        self._cache: dict[WeatherCity, tuple[float, CityWeatherHours]] = {}
         self._generation = 0
         self._poll_generation = 0
         self._play_generation = 0
@@ -52,17 +73,17 @@ class CityWeatherOverlayController:
         self._closed = False
         self._busy = False
         self._request_id = 0
-        self._pending_id = None
-        self._last_query = 0
-        self._loaded_at = 0
-        self._retry_at = 0
+        self._pending_id: int | None = None
+        self._last_query: float = 0
+        self._loaded_at: float = 0
+        self._retry_at: float = 0
         self._anchor = 0
         self._query_warning = False
-        self._selected_city = None
+        self._selected_city: str | None = None
         self._log = WeatherLog("weather.city")
-        self._query_operation_id = None
+        self._query_operation_id: str | None = None
 
-    def set_enabled(self, enabled):
+    def set_enabled(self, enabled: bool) -> None:
         """Enable independent city labels or clear them without changing the map camera."""
         self._poll_city_clicks(select=False)
         previous = self.enabled
@@ -93,7 +114,9 @@ class CityWeatherOverlayController:
                 self._query()
         self.publish()
 
-    def select(self, *, kind=None, period=None, hours=None):
+    def select(
+        self, *, kind: str | None = None, period: str | None = None, hours: int | None = None
+    ) -> None:
         """Change the field or time without making another weather request."""
         if kind is not None:
             if kind not in {"temperature", "wind", "precipitation"}:
@@ -109,7 +132,7 @@ class CityWeatherOverlayController:
             self.hours = hours
         self.publish()
 
-    def show(self):
+    def show(self) -> None:
         """Poll cities only while Navigation is visible; replay labels after renderer startup."""
         if self._closed:
             return
@@ -129,7 +152,7 @@ class CityWeatherOverlayController:
         self.publish()
         self._poll(self._poll_generation)
 
-    def hide(self):
+    def hide(self) -> None:
         """Pause playback and viewport requests while Navigation is hidden."""
         previous = self._visible
         self._visible = False
@@ -146,13 +169,13 @@ class CityWeatherOverlayController:
                 visible=False,
             )
 
-    def close(self):
+    def close(self) -> None:
         """Invalidate late weather workers and release the independent map subscription."""
         if self._closed:
             return
         self._generation += 1
 
-        def hide_and_invalidate():
+        def hide_and_invalidate() -> None:
             try:
                 self.hide()
             finally:
@@ -164,7 +187,7 @@ class CityWeatherOverlayController:
             self._provider.close,
         )
 
-    def refresh(self):
+    def refresh(self) -> None:
         """Refresh the batch while reusing current city names and coordinates."""
         if self._closed or not self.enabled or not self._cities or self._busy:
             return
@@ -174,10 +197,11 @@ class CityWeatherOverlayController:
         generation, cities = self._generation, self._cities
         operation_id = self._log.requested()
 
-        def load():
+        def load() -> None:
             with operation(operation_id):
                 try:
-                    weather, error = self._provider.hourly(cities), None
+                    weather = self._provider.hourly(cities)
+                    error: str | None = None
                     self._log.succeeded(item_count=len(weather))
                 except Exception as failure:
                     self._log.failed(failure)
@@ -193,7 +217,13 @@ class CityWeatherOverlayController:
             threading.Thread(target=load, name="city-weather", daemon=True), operation_id
         )
 
-    def _complete(self, generation, weather, error, operation_id=None):
+    def _complete(
+        self,
+        generation: int,
+        weather: tuple[CityWeatherHours, ...],
+        error: str | None,
+        operation_id: str | None = None,
+    ) -> None:
         self._busy = False
         if self._closed or not self.enabled:
             self._log.stale(operation_id)
@@ -228,14 +258,14 @@ class CityWeatherOverlayController:
             self.status = f"{len(weather)} cities · Forecasts and recent weather estimates"
         self.publish()
 
-    def _query(self):
+    def _query(self) -> None:
         self._query_operation_id = self._log.requested()
         self._request_id += 1
         self._pending_id = self._request_id
         self._last_query = monotonic()
         self._query_cities(self._pending_id)
 
-    def _poll(self, generation):
+    def _poll(self, generation: int) -> None:
         if self._closed or not self._visible or generation != self._poll_generation:
             return
         if self.enabled:
@@ -255,7 +285,7 @@ class CityWeatherOverlayController:
                 self.refresh()
         self._host.schedule_ui_callback(500, lambda: self._poll(generation))
 
-    def _drain_cities(self):
+    def _drain_cities(self) -> None:
         if self._source is None:
             return
         while (reply := self._source.poll()) is not None:
@@ -290,8 +320,10 @@ class CityWeatherOverlayController:
             self._retry_at = 0
             self.publish()
             if cities:
-                cached = [self._cache.get(city) for city in cities]
-                if all(item is not None and self._clock() - item[0] < 900 for item in cached):
+                cached = [self._cache[city] for city in cities if city in self._cache]
+                if len(cached) == len(cities) and all(
+                    self._clock() - item[0] < 900 for item in cached
+                ):
                     self._log.emit(
                         logging.DEBUG,
                         "weather.cache_used",
@@ -312,7 +344,7 @@ class CityWeatherOverlayController:
                 self.status = "No city names here · zoom out or pan to a town"
                 self.publish()
 
-    def set_playing(self, playing):
+    def set_playing(self, playing: bool) -> None:
         """Animate local cached hourly data, leaving radar playback untouched."""
         previous = self.playing
         self.playing = bool(playing and self.enabled and self._weather and self._visible)
@@ -330,7 +362,7 @@ class CityWeatherOverlayController:
             generation = self._play_generation
             self._host.schedule_ui_callback(1500, lambda: self._advance(generation))
 
-    def _advance(self, generation):
+    def _advance(self, generation: int) -> None:
         if self._closed or not self.playing or generation != self._play_generation:
             return
         # History plays oldest-to-newest. Rain totals grow from 1 to 24 hours.
@@ -341,7 +373,7 @@ class CityWeatherOverlayController:
         self.select(hours=hours)
         self._host.schedule_ui_callback(1500, lambda: self._advance(generation))
 
-    def _poll_city_clicks(self, *, select):
+    def _poll_city_clicks(self, *, select: bool) -> None:
         poll_city = getattr(self._source, "poll_selected_city", None)
         if poll_city is not None:
             for _ in range(16):
@@ -351,7 +383,7 @@ class CityWeatherOverlayController:
                 if select:
                     self.select_details(identity)
 
-    def select_details(self, city_id):
+    def select_details(self, city_id: str | None) -> None:
         """Select only a currently displayed city, or dismiss its details."""
         if self._closed or not self._visible or not self.enabled:
             return
@@ -364,7 +396,7 @@ class CityWeatherOverlayController:
             self.set_playing(False)
         self.publish()
 
-    def publish(self):
+    def publish(self) -> None:
         """Present selected city values as Kelvin, m/s or metres through the UI contract."""
         if self._closed:
             return
