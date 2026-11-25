@@ -5,12 +5,28 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
+from typing import Protocol
 
 from controllers.weather.radar_tile_status import RadarTileStatus
 
 
-def radar_imagery_status(controller, clock: Callable[[], float]) -> str:
+class RadarReplayHealthSource(Protocol):
+    """Read-only radar frame metadata required by the health presentation."""
+
+    @property
+    def frame_tile_status(self) -> RadarTileStatus | None: ...
+
+    @property
+    def frame_times(self) -> Iterable[float]: ...
+
+    @property
+    def is_forecast(self) -> bool: ...
+
+
+def radar_imagery_status(
+    controller: RadarReplayHealthSource, clock: Callable[[], float]
+) -> str:
     tiles = controller.frame_tile_status
     if not isinstance(tiles, RadarTileStatus):
         return "Loading map imagery…"
