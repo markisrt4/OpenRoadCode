@@ -233,6 +233,7 @@ class CalendarScreen(tk.Frame, UiWidget):
         self._reload()
 
     def _reload(self):
+        self._covered_days = None
         self._groups = ()
         self._message = "Loading appointments..."
         self._refresh()
