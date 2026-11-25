@@ -78,7 +78,7 @@ done
 "$env_dir/bin/python" -m pip --isolated install -c "$constraints" "${dev_requirements[@]}" \
     "${packages[@]}" PyYAML scipy python-dateutil \
     'libmusicforge[analysis] @ git+https://github.com/markisrt4/libMusicForge.git@459baf6de7e76e0813999ea8ca2b6a8f928396ef' \
-    'libsdrforge[zmq,audio] @ git+https://github.com/markisrt4/libSDRForge.git@b13bfe105e7cb4eae2f7b2a41a6e39f6c841e667'
+    'libsdrforge[zmq,audio] @ git+https://github.com/markisrt4/libSDRForge.git@7871e0d392fa8af6ca7af8f7648ad17ee0ada9b3'
 "$env_dir/bin/python" -m pip check
 "$env_dir/bin/ruff" --version
 "$env_dir/bin/python" -m mypy --version

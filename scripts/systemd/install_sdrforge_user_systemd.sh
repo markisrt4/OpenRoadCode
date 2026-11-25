@@ -19,8 +19,10 @@ listener_pids() {
 }
 owns_ports() {
   local pid="$1" port
+  shift
   [[ "$pid" =~ ^[1-9][0-9]*$ ]] || return 1
-  for port in 5570 5571 4532; do
+  (( $# )) || set -- 5570 5571 4532
+  for port in "$@"; do
     [[ "$(listener_pids "$port")" == "$pid" ]] || return 1
   done
 }
@@ -74,6 +76,9 @@ for (( attempt=0; attempt<30; attempt++ )); do
   if systemctl --user is-active --quiet libsdrforge.service && owns_ports "$pid" &&
      "$python_bin" -c 'import json, urllib.request; assert json.load(urllib.request.urlopen("http://127.0.0.1:5570/v1/health", timeout=1))["status"] == "ok"' 2>/dev/null; then
     echo "[+] SDRForge ready; systemd PID $pid owns REST, ZMQ and rigctl."
+    if [[ -n "$rf_environment" ]]; then
+      verify_managed_rf_units
+    fi
     exit 0
   fi
   sleep 1

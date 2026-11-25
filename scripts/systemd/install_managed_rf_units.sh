@@ -66,3 +66,21 @@ if (( ${#rf_credentials[@]} != 1 )) || [[ ! "${rf_credentials[0]:-}" =~ ^SDRFORG
   echo "[!] Managed RF credential file is invalid." >&2
   exit 1
 fi
+
+verify_managed_rf_units() {
+  local unit=libsdrforge-weather.service pid attempt
+  systemctl --user start "$unit"
+  for (( attempt=0; attempt<10; attempt++ )); do
+    pid="$(systemctl --user show "$unit" -p MainPID --value)"
+    if owns_ports "$pid" 5572 5573 4533 &&
+       "$python_bin" -c 'import json, urllib.request; status = json.load(urllib.request.urlopen("http://127.0.0.1:5572/v1/receiver", timeout=1)); assert not status["running"] and not status["starting"] and status["hardware_released"] is True' 2>/dev/null; then
+      echo "[+] NOAA transport is ready and RF acquisition is idle."
+      systemctl --user stop "$unit"
+      return
+    fi
+    sleep 1
+  done
+  echo "[!] NOAA transport failed readiness or receiver release verification." >&2
+  systemctl --user status "$unit" --no-pager >&2 || true
+  return 1
+}
