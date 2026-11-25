@@ -10,9 +10,16 @@ from hardware_io.rf.receiver_discovery_if import ReceiverDevice
 
 class ReceiverAcquisitionIf(Protocol):
     def start(self, device: ReceiverDevice) -> bool:
-        """Return true only when acquisition is confirmed active."""
+        """!
+        @brief Request acquisition of the assigned receiver.
+        @param device Discovered receiver with a persistent identity.
+        @return True only when acquisition is confirmed active.
+        """
         ...
 
     def stop(self) -> bool:
-        """Return true only when hardware release is confirmed."""
+        """!
+        @brief Request release of the acquired receiver.
+        @return True only when hardware release is confirmed.
+        """
         ...

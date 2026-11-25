@@ -33,9 +33,7 @@ class ReadsbSystemdService:
         )
         if result.returncode:
             return {}
-        return dict(
-            line.split("=", 1) for line in result.stdout.splitlines() if "=" in line
-        )
+        return dict(line.split("=", 1) for line in result.stdout.splitlines() if "=" in line)
 
     def start(self, serial: str) -> bool:
         """Start only the receiver provisioned by the deployment layer."""

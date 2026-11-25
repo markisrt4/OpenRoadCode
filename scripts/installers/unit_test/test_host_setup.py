@@ -57,12 +57,12 @@ class HostSetupPlanTests(unittest.TestCase):
                 check=False,
             )
 
-    def test_desktop_plan_includes_native_radio(self) -> None:
+    def test_desktop_plan_leaves_native_radio_optional(self) -> None:
         result = self.run_installer(
             "--target", "linux-dev", "--feature", "desktop-ui", "--show-plan"
         )
         self.assertEqual(0, result.returncode, result.stderr)
-        self.assertIn("sdrforge", result.stdout)
+        self.assertNotIn("sdrforge", result.stdout)
         self.assertNotIn("sdrpp", result.stdout)
 
     def test_target_is_required(self) -> None:

@@ -13,10 +13,19 @@ class ReceiverDevice:
 
     @property
     def identity(self) -> str | None:
+        """!
+        @brief Derive a persistent USB identity from the device descriptor.
+        @return Vendor, product and serial identity, or None when serial is missing.
+        """
         if not self.serial:
             return None
         return f"{self.vendor_id}:{self.product_id}:{self.serial}"
 
 
 class ReceiverDiscoveryIf(Protocol):
-    def discover(self) -> tuple[ReceiverDevice, ...]: ...
+    def discover(self) -> tuple[ReceiverDevice, ...]:
+        """!
+        @brief Discover connected RF receivers visible to the platform.
+        @return A snapshot of connected devices, including ambiguous identities.
+        """
+        ...
