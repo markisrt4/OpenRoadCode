@@ -21,7 +21,7 @@ def is_termux() -> bool:
 
 def main() -> int:
     if importlib.util.find_spec("mypy") is None:
-        if is_termux():
+        if is_termux() and Path(sys.prefix).resolve() != (ROOT / ".venv-quality").resolve():
             print("[SKIP] Strict UI types: mypy unavailable on Termux; Linux/CI still requires it")
             return 0
         print(
@@ -29,8 +29,11 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
+    args = [sys.executable, "-m", "mypy", "--config-file", "pyproject.toml"]
+    if is_termux() and (ROOT / ".venv-quality").resolve() == Path(sys.prefix).resolve():
+        args.extend(["--no-native-parser", "--no-incremental"])
     return subprocess.run(
-        [sys.executable, "-m", "mypy", "--config-file", "pyproject.toml"],
+        args,
         cwd=ROOT,
         check=False,
     ).returncode
