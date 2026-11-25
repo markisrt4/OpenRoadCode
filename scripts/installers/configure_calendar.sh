@@ -20,7 +20,36 @@ add_account() {
     read -r -p 'Calendar provider: ' provider || return 0
     case "$provider" in
         1)
-            echo "Proton requires an installed and authenticated Carbonate bridge."
+            echo "Proton uses the unofficial Carbonate bridge."
+            if [[ -x "$HOME/.local/bin/carbonate" ]]; then
+                export CARBONATE_BIN="$HOME/.local/bin/carbonate"
+            elif [[ -x "$HOME/go/bin/carbonate" ]]; then
+                export CARBONATE_BIN="$HOME/go/bin/carbonate"
+            elif [[ -x "$HOME/src/carbonate/carbonate" ]]; then
+                export CARBONATE_BIN="$HOME/src/carbonate/carbonate"
+            elif ! command -v "${CARBONATE_BIN:-carbonate}" >/dev/null 2>&1; then
+                read -r -p 'Download and build Carbonate from upstream main? [y/N] ' answer
+                [[ "$answer" == [yY] ]] || return 1
+                if ! command -v go >/dev/null 2>&1; then
+                    sudo apt-get install -y golang-go || return 1
+                fi
+                mkdir -p "$HOME/.local/bin"
+                local build_dir
+                build_dir=$(mktemp -d "${TMPDIR:-$HOME}/orc-carbonate.XXXXXX") || return 1
+                if ! git clone --depth 1 https://github.com/develonrails/carbonate.git "$build_dir" ||
+                    ! (cd "$build_dir" && GOTOOLCHAIN=auto CGO_ENABLED=0 go build -o "$HOME/.local/bin/carbonate" ./cmd/carbonate); then
+                    echo "Carbonate build failed. Source retained at $build_dir" >&2
+                    return 1
+                fi
+                git -C "$build_dir" rev-parse HEAD
+                export CARBONATE_BIN="$HOME/.local/bin/carbonate"
+            fi
+            read -r -p 'Authenticate Carbonate with Proton now? [y/N] ' answer
+            if [[ "$answer" == [yY] ]]; then
+                read -r -p 'Proton username: ' username
+                "${CARBONATE_BIN:-carbonate}" auth "$username" || return 1
+                "$PYTHON_BIN" -c 'from getpass import getpass; from security.environment_variable_secret_manager import EnvironmentVariableSecretManager; EnvironmentVariableSecretManager().set_secret("CARBONATE_BRIDGE_PASSWORD", getpass("Generated bridge password: "))' || return 1
+            fi
             read -r -p 'Install or refresh the bridge service and start it? [y/N] ' answer
             if [[ "$answer" == [yY] ]]; then
                 sh development/calendar/install_linux_systemd.sh || return 1
