@@ -5,10 +5,10 @@
 """Discover UI/domain modules and reject new architectural dependency violations."""
 
 import ast
-from collections import Counter
 import json
-from pathlib import Path
 import sys
+from collections import Counter
+from pathlib import Path
 
 # Support both `python scripts/check_ui_boundaries.py` and package imports in tests.
 if __package__:

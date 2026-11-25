@@ -5,9 +5,9 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator
 from dataclasses import dataclass
-import json
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 

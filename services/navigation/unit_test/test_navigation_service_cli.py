@@ -11,12 +11,12 @@ from config.service_runtime_config import (
     SimulationProfileConfig,
 )
 from controllers.navigation import NavigationController
+from controllers.navigation.browser_position_source import BrowserPositionSource
+from controllers.navigation.fallback_position_source import FallbackPositionSource
+from controllers.navigation.route_playback_position_source import RoutePlaybackPositionSource
+from controllers.navigation.route_simulation_if import RouteSimulationIf
 from controllers.navigation.simulated_navigation_sensor import SimulatedNavigationSensor
 from controllers.navigation.simulated_position_source import SimulatedPositionSource
-from controllers.navigation.route_playback_position_source import RoutePlaybackPositionSource
-from controllers.navigation.fallback_position_source import FallbackPositionSource
-from controllers.navigation.browser_position_source import BrowserPositionSource
-from controllers.navigation.route_simulation_if import RouteSimulationIf
 from services.navigation import navigation_service_cli
 from services.navigation.navigation_service_cli import build_controller
 

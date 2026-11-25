@@ -3,8 +3,8 @@
 
 """Tests for provider-neutral map and route-guidance contracts."""
 
-from dataclasses import FrozenInstanceError
 import unittest
+from dataclasses import FrozenInstanceError
 
 from ui.navigation import (
     GeoPoint,

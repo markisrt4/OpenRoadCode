@@ -12,16 +12,16 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from messaging.contracts.navigation.position_state_validator import validate_position_state
-from messaging.contracts.navigation.imu_state_validator import validate_imu_state
-from messaging.contracts.navigation.magnetic_field_state_validator import (
-    validate_magnetic_field_state,
-)
-from messaging.contracts.navigation.attitude_state_validator import validate_attitude_state
 from messaging.contracts.environmental.ambient_light_state_validator import (
     validate_ambient_light_state,
 )
 from messaging.contracts.environmental.barometric_state_validator import validate_barometric_state
+from messaging.contracts.navigation.attitude_state_validator import validate_attitude_state
+from messaging.contracts.navigation.imu_state_validator import validate_imu_state
+from messaging.contracts.navigation.magnetic_field_state_validator import (
+    validate_magnetic_field_state,
+)
+from messaging.contracts.navigation.position_state_validator import validate_position_state
 from ui.system_diagnostics import SensorHealthSnapshot
 
 # A quiet, disabled, or unconfigured topic is unknown, not failed hardware.

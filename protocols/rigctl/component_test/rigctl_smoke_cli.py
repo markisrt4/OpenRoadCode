@@ -7,6 +7,7 @@ Example: python -m protocols.rigctl.component_test.rigctl_smoke_cli --port 4532
 from __future__ import annotations
 
 import argparse
+
 from protocols.rigctl.rigctl_client import RigctlClient
 
 

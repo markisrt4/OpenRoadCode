@@ -8,7 +8,8 @@ from __future__ import annotations
 import math
 import tkinter as tk
 
-from ui.navigation.map_presentation_if import MapPresentationIf
+from apps.carUi.screens.car_ui_screen import CarUiScreen
+from apps.carUi.screens.car_ui_screen_services import MenuTileFactory
 from frontends.tk.automotive import OffroadDashboardPanel
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from messaging.contracts.navigation import (
@@ -18,11 +19,9 @@ from messaging.contracts.navigation import (
     PositionStateMessage,
 )
 from ui.navigation import HeadingReference, NavigationRequestHandlerIf, PositionFix
+from ui.navigation.map_presentation_if import MapPresentationIf
 from ui.screen_ui_if import ScreenId
 from ui.system import StatusMessage, StatusSeverity
-
-from apps.carUi.screens.car_ui_screen import CarUiScreen
-from apps.carUi.screens.car_ui_screen_services import MenuTileFactory
 
 
 class OffroadDashboardScreen(CarUiScreen):

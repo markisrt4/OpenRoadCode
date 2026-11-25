@@ -4,12 +4,12 @@
 
 from __future__ import annotations
 
-import socket
-import os
 import json
-from urllib.request import urlopen
+import os
+import socket
 import time
 from pathlib import Path
+from urllib.request import urlopen
 
 
 def _read(path: Path) -> str | None:

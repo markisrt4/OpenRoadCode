@@ -6,8 +6,8 @@ from unittest.mock import patch
 
 import pytest
 
-from development.maps import install_region
 from apps.launchers.local_imagery_pack import LocalImageryPack
+from development.maps import install_region
 
 
 def write_pack(destination, **kwargs):
@@ -55,6 +55,7 @@ def test_declining_plan_does_not_download(monkeypatch):
 
 def test_viewer_prefers_detail_and_uses_overview_outside_detail(tmp_path, monkeypatch):
     import math
+
     from apps.launchers import local_imagery_pack
     from ui.navigation import GeoPoint
 

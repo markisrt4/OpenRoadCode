@@ -4,18 +4,17 @@
 """Asynchronous route forecasts presented through immutable UI state."""
 
 import logging
-
-from datetime import datetime, timezone
 import math
 import threading
-from common.logging.structured import operation
-from controllers.weather.weather_logging import WeatherLog
+from datetime import datetime, timezone
 
+from common.logging.structured import operation
 from controllers.weather.route_weather import sample_route
+from controllers.weather.weather_logging import WeatherLog
 from ui.navigation import GeoPoint
 from ui.ui_dispatcher_if import UiDispatcherIf
-from ui.weather.weather_overlay_ui_if import WeatherOverlayUiIf
 from ui.weather.weather_overlay_state import RouteWeatherOverlayState, RouteWeatherPoint
+from ui.weather.weather_overlay_ui_if import WeatherOverlayUiIf
 
 
 class RouteWeatherOverlayController:

@@ -8,8 +8,6 @@ from __future__ import annotations
 import tkinter as tk
 from collections.abc import Callable
 
-from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
-from ui.navigation.map_runtime_if import MapRuntimeIf
 from apps.orcUi.frontend.tk.presentation_state import OrcUiPresentationState
 from apps.orcUi.navigation_presenter import (
     AttitudePresentationState,
@@ -17,10 +15,12 @@ from apps.orcUi.navigation_presenter import (
 )
 from apps.orcUi.trip_presenter import TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
-from ui.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
+from ui.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
+from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
 from ui.navigation import MapRequestHandlerIf
+from ui.navigation.map_runtime_if import MapRuntimeIf
 from ui.screen_ui_if import ScreenId
 from ui.theme import ThemeBundle
 

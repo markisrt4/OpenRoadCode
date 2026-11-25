@@ -3,8 +3,8 @@
 """Exercise the actual embedded host HTTP and capture lifecycle."""
 
 import json
-from urllib.request import Request, urlopen
 from unittest.mock import Mock
+from urllib.request import Request, urlopen
 
 from apps.orcUi.adapters.music_visualizer_browser import MusicVisualizerBrowser
 from controllers.audio.music_analysis.music_analysis_session import (

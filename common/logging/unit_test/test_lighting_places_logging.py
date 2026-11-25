@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: MIT
 """Async lighting and Earth/POI diagnostics stay quiet, correlated and private."""
 
-from concurrent.futures import Future
 import logging
 import sqlite3
 import threading
+from concurrent.futures import Future
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest

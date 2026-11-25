@@ -7,12 +7,12 @@ sys.path.append("../radioFreq")
 sys.path.append("../config")
 sys.path.append("../network")
 
-from RadioConfig import RadioConfig
-from RadioCtrl import RadioCtrl
-from GqrxCtrl import GqrxCtrl
-
 import curses
 import os
+
+from GqrxCtrl import GqrxCtrl
+from RadioConfig import RadioConfig
+from RadioCtrl import RadioCtrl
 
 # get the curses screen window
 screen = curses.initscr()

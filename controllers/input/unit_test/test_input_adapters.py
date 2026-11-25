@@ -3,10 +3,10 @@
 
 import unittest
 
-from input_events import InputDeviceId, InputDeviceType, InputEventType
 from controllers.input.keyboard_input_adapter import KeyboardInputAdapter
-from hardware_io.keyboard import KeyboardReaderIf
 from controllers.input.push_button_input_adapter import PushButtonInputAdapter
+from hardware_io.keyboard import KeyboardReaderIf
+from input_events import InputDeviceId, InputDeviceType, InputEventType
 
 
 class RecordingHandler:

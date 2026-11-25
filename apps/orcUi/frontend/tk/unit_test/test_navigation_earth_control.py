@@ -5,8 +5,8 @@ import unittest
 from unittest.mock import Mock
 
 from apps.orcUi.frontend.tk.navigation_panel import NavigationPanel
-from controllers.navigation.map_controls_drawer_controller import MapControlsDrawerController
 from apps.orcUi.frontend.tk.navigation_poi_actions import poll_poi_launch_results
+from controllers.navigation.map_controls_drawer_controller import MapControlsDrawerController
 from ui.navigation import GeoPoint
 from ui.navigation.navigation_places_request_handler_if import (
     NavigationPlacesRequestHandlerIf,

@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import argparse
 import os
-from pathlib import Path
 import time
+from pathlib import Path
 
 from controllers.computer_vision.perception_worker import PerceptionWorker
 from controllers.computer_vision.yolo_object_detector import YoloObjectDetector

@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-from input_events import InputEvent, InputHandlerIf
 from controllers.input.input_mapper_if import InputMapperIf
+from input_events import InputEvent, InputHandlerIf
 from ui.ui_event_handler_if import UiEventHandlerIf
 
 

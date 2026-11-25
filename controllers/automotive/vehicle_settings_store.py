@@ -12,7 +12,6 @@ except ModuleNotFoundError:  # Python 3.10
 
 from ui.automotive.vehicle_configuration import EngineInductionType, VehicleConfiguration
 
-
 DEFAULT_VEHICLE_SETTINGS_PATH = Path.home() / ".config" / "openroadcode" / "vehicle.toml"
 
 
@@ -23,10 +22,10 @@ class VehicleSettingsStore:
         self,
         path: str | Path = DEFAULT_VEHICLE_SETTINGS_PATH,
         *,
-        default: VehicleConfiguration = VehicleConfiguration(),
+        default: VehicleConfiguration | None = None,
     ) -> None:
         self._path = Path(path).expanduser()
-        self._default = default
+        self._default = default if default is not None else VehicleConfiguration()
 
     @property
     def path(self) -> Path:

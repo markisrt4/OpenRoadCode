@@ -12,8 +12,8 @@ from pathlib import Path
 from config.radio_config_manager import (
     RadioConfig,
     RadioModeConfig,
-    RadioRangeConfig,
     RadioPresetConfig,
+    RadioRangeConfig,
     RadioTileConfig,
     load_radio_config,
 )
@@ -25,7 +25,7 @@ _RADIO_ROOT = _PROJECT_ROOT / "config" / "radio"
 _DEFAULT_USER_PRESETS = Path.home() / ".config" / "openroadcode" / "radio_presets.json"
 
 
-from ui.radio.radio_profiles import RadioProfilePreset, RadioProfile
+from ui.radio.radio_profiles import RadioProfile, RadioProfilePreset
 
 
 class RadioProfileCatalog:

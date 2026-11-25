@@ -10,8 +10,8 @@ from apps.launchers.android_app_launcher import (
     AndroidAppLauncherError,
 )
 from apps.launchers.android_bridge_launcher import AndroidBridgeLauncherError
-from apps.launchers.waydroid_launcher import AndroidApp, WaydroidLauncherError
 from apps.launchers.desktop_browser_launcher import DesktopBrowserLauncherError
+from apps.launchers.waydroid_launcher import AndroidApp, WaydroidLauncherError
 
 
 @patch("apps.launchers.android_app_launcher.os.path.exists", return_value=False)

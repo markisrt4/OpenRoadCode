@@ -5,11 +5,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 import logging
+from collections.abc import Callable
 
 from common.logging.structured import event
-
 from controllers.spotify.spotify_controller_if import SpotifyControllerIf
 from controllers.spotify.spotify_state import SpotifyState
 from ui.media import (

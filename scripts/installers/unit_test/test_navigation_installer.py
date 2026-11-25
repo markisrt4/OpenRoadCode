@@ -3,9 +3,8 @@
 
 """Contract tests for navigation installer orchestration."""
 
-from pathlib import Path
 import unittest
-
+from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 NAV_INSTALLER = PROJECT_ROOT / "scripts" / "installers" / "install_navigation_stack.sh"

@@ -6,8 +6,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from development.maps import download_detroit_imagery as downloader
 from apps.launchers.local_imagery_pack import LocalImageryPack
+from development.maps import download_detroit_imagery as downloader
 
 
 @pytest.mark.parametrize(
@@ -78,6 +78,7 @@ def test_source_rights_change_stops_download(tmp_path, monkeypatch):
 
 def test_pine_imagery_is_selected_only_inside_its_coverage(tmp_path, monkeypatch):
     import math
+
     from apps.launchers import local_imagery_pack as packs
     from ui.navigation import GeoPoint
     from ui.navigation.local_imagery_state import LocalImageryState

@@ -7,7 +7,7 @@ from .ambient_light import AndroidAmbientLight
 from .barometer import AndroidBarometer, PressureSample
 from .imu import AndroidImu, ImuSample
 from .magnetometer import AndroidMagnetometer, MagnetometerSample
-from .sensor_bridge_client import AndroidSensorBridgeClient, AndroidImuSample
+from .sensor_bridge_client import AndroidImuSample, AndroidSensorBridgeClient
 
 __all__ = [
     "AndroidAmbientLight",

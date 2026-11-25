@@ -10,10 +10,9 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageEnhance, ImageOps
 
 from controllers.image import ImageCache
-from PIL import Image, ImageEnhance, ImageOps
 
 ASCII_CHARACTERS = " .,:;irsXA253hMHGS#9B&@"
 

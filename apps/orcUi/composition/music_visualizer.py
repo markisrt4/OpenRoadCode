@@ -7,12 +7,12 @@
 from __future__ import annotations
 
 import os
-from common.resource_cleanup import ResourceCleanup
 from collections.abc import Callable
 
-from ui.music_visualizer import VisualizerFrame, MusicVisualizerSource
-from controllers.audio.music_analysis.music_visualizer_session import MusicVisualizerSession
+from common.resource_cleanup import ResourceCleanup
 from controllers.audio.capture import AndroidPlaybackAudioCapture, PipewireAudioCapture
+from controllers.audio.music_analysis.music_visualizer_session import MusicVisualizerSession
+from ui.music_visualizer import MusicVisualizerSource, VisualizerFrame
 
 
 def selected_music_visualizer_source() -> MusicVisualizerSource:
@@ -81,8 +81,9 @@ def create_music_visualizer_session(
 def create_browser_visualizer(app):
     """Wire shared analysis and the ORC-selected browser host."""
     import shutil
+
     from apps.launchers.browser_launcher import BrowserKioskLauncher
-    from apps.orcUi.adapters.music_visualizer_browser import MusicVisualizerBrowser, WINDOW_CLASS
+    from apps.orcUi.adapters.music_visualizer_browser import WINDOW_CLASS, MusicVisualizerBrowser
     from common.xdg_paths import openroadcode_data_dir
     from controllers.audio.music_analysis.music_analysis_session import (
         MusicAnalysisSession,

@@ -6,9 +6,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from apps.orcUi.composition.core import create_core_composition
-from apps.orcUi.composition.application import OrcUiComposition
 from apps.orcUi.application_runtime import OrcUiApplicationRuntime
+from apps.orcUi.composition.application import OrcUiComposition
+from apps.orcUi.composition.core import create_core_composition
 
 
 @pytest.mark.parametrize(

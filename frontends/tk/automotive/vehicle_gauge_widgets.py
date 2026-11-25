@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import math
 import tkinter as tk
+
 from ui.theme.vehicle_gauges import (
     VEHICLE_GAUGE_REDLINE_THEME,
     VEHICLE_GAUGE_THEME,
@@ -779,7 +780,7 @@ class TirePressurePanel(_ValueGauge):
                 str(key): float(pressure) for key, pressure in value.items() if pressure is not None
             }
         elif isinstance(value, (tuple, list)) and len(value) == 4:
-            self._pressures = dict(zip(self.TIRE_KEYS, map(float, value)))
+            self._pressures = dict(zip(self.TIRE_KEYS, map(float, value), strict=True))
         else:
             self._pressures = {}
         self._draw()

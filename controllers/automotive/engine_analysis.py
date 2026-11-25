@@ -4,13 +4,13 @@
 """Compatibility exports; shared contracts live in the independent UI package."""
 
 from ui.automotive.engine_analysis import (
-    FuelControlMode,
+    EngineAnalysis,
+    EngineLoadLevel,
     EngineOperatingMode,
+    FuelControlMode,
+    FuelCorrectionStatus,
     MixtureMode,
     TrackingQuality,
-    FuelCorrectionStatus,
-    EngineLoadLevel,
-    EngineAnalysis,
 )
 
 __all__ = [

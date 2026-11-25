@@ -4,7 +4,6 @@
 """Construct weather providers/controllers outside all frontend widget modules."""
 
 from common.resource_cleanup import ResourceCleanup
-
 from controllers.weather.city_weather import CityWeatherProvider
 from controllers.weather.city_weather_overlay_controller import CityWeatherOverlayController
 from controllers.weather.hrrr_map_layers import HrrrMapLayerProvider

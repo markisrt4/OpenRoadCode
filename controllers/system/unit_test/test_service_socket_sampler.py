@@ -9,13 +9,12 @@ import unittest
 from pathlib import Path
 
 from controllers.system.service_socket_parser import (
+    counter_rate,
     parse_socket_table,
     parse_tcp_counters,
-    counter_rate,
 )
 from controllers.system.service_socket_sampler import ServiceSocketSampler
 from ui.system_diagnostics import OrcProcessSnapshot, OrcWorkloadSnapshot
-
 
 HEADER = "sl local_address rem_address st tx_queue:rx_queue tr tm retrnsmt uid timeout inode\n"
 

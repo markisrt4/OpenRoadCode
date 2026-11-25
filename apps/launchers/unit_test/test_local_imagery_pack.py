@@ -3,20 +3,13 @@
 import hashlib
 import json
 import math
-from urllib.error import HTTPError
 import urllib.request
+from urllib.error import HTTPError
 
 import pytest
 
 from apps.launchers.local_imagery_pack import LocalImageryPack
-from apps.launchers.cesium_viewer_server import CesiumViewerServer
-from ui.navigation import GeoPoint
-from ui.navigation.cesium_viewer_state import CesiumViewerState
 from ui.navigation.local_imagery_state import LocalImageryState
-from apps.launchers.unit_test.test_cesium_viewer import (
-    server,
-    state,
-)  # shared isolated HTTP fixture
 
 
 @pytest.fixture
@@ -120,6 +113,7 @@ def test_server_mounts_checked_stack_layers_without_exposing_paths(server, pack)
 
 def test_server_exposes_only_bounded_offline_road_tiles(server):
     from unittest.mock import Mock
+
     from ui.navigation.road_overlay_state import RoadOverlayState
 
     server._roads = Mock(max_zoom=14)

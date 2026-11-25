@@ -1,6 +1,5 @@
 """Sample ordering, source heights, and complete-pack installation are explicit."""
 
-import hashlib
 import json
 import math
 from unittest.mock import Mock

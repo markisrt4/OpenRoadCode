@@ -4,10 +4,9 @@
 import calendar
 import hashlib
 import tkinter as tk
-
-from ui import UiWidget
 from datetime import datetime, timedelta
 
+from ui import UiWidget
 from ui.calendar.calendar_models import CalendarHealthView
 from ui.calendar.calendar_presentation_if import CalendarAgendaIf, CalendarSelectionIf
 from ui.theme import ThemeBundle

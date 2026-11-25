@@ -13,7 +13,6 @@ from common.xdg_paths import openroadcode_cache_dir
 from controllers.cache import PersistentCacheIf
 from controllers.navigation.navigation_state import PositionState
 
-
 DEFAULT_POSITION_CACHE_DIRECTORY = openroadcode_cache_dir("position")
 
 

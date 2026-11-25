@@ -10,14 +10,12 @@ extend-exclude = [
 ]
 
 [tool.ruff.lint]
-# Begin with high-confidence correctness failures so CI can be enabled without
-# demanding a repository-wide style cleanup in the same change. Expand this
-# ruleset as existing code is brought under lint discipline.
+# Enforce syntax, Pyflakes correctness, Bugbear and import ordering.
 select = [
     "E9",
-    "F63",
-    "F7",
-    "F82",
+    "F",
+    "B",
+    "I",
 ]
 
 [tool.mypy]

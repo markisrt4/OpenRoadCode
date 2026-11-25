@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 from datetime import datetime, timezone
+
 from apps.orcUi.weather_alert_presenter import WeatherAlertPresenter
 from messaging.contracts.weather import WeatherAlertData
 

@@ -25,12 +25,13 @@ from controllers.environmental.component_test.barometric_cli import (
 class FakeBarometricSource:
     def __init__(
         self,
-        sample: BarometricSample = BarometricSample(
-            pressure_pa=101_325.0,
-            temperature_c=20.0,
-        ),
+        sample: BarometricSample | None = None,
     ) -> None:
-        self.sample = sample
+        self.sample = (
+            sample
+            if sample is not None
+            else BarometricSample(pressure_pa=101_325.0, temperature_c=20.0)
+        )
         self.connected = False
 
     @property

@@ -3,8 +3,8 @@
 
 """Read viewport city names from the native map without interfering with POIs."""
 
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
 from queue import Empty, SimpleQueue
 from threading import Thread
 

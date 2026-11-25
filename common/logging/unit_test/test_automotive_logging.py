@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: MIT
 """Automotive logging contracts without hardware or a running broker."""
 
-from datetime import datetime, timedelta
 import json
 import logging
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 

@@ -5,8 +5,8 @@
 """Enforce the weather frontend/domain boundary, not just interface documentation."""
 
 import ast
-from pathlib import Path
 import sys
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "apps/orcUi/frontend/tk"

@@ -1,7 +1,7 @@
 """Renderer-independent presentation metadata for a bounded local imagery layer."""
 
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True, slots=True)

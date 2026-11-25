@@ -5,13 +5,13 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
 import json
 import re
 import socket
 import subprocess
 import time
+from dataclasses import dataclass
+from pathlib import Path
 from urllib.request import Request, urlopen
 
 from services.common.service_logging import (

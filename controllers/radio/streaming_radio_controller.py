@@ -3,12 +3,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 import threading
-
-from ui.radio.streaming_radio_state import StreamingRadioPlaybackState
+from collections.abc import Callable
 
 from controllers.audio.streaming_audio_player_if import StreamingAudioPlayerIf
+from ui.radio.streaming_radio_state import StreamingRadioPlaybackState
 from ui.radio.streaming_radio_types import StreamingRadioStation
 
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 
-from ui.games import GameStatus, GameUiState, GamesRequestHandlerIf, GamesUiIf
+from ui.games import GamesRequestHandlerIf, GameStatus, GamesUiIf, GameUiState
 
 from .game_installer_if import GameInstallerIf
 from .game_inventory_cache import GameInventoryCache

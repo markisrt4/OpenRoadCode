@@ -138,6 +138,7 @@ def test_angular_delta_uses_shortest_direction() -> None:
 
 def test_renderer_restart_replays_true_vehicle_position():
     from unittest.mock import Mock
+
     from ui.navigation import GeoPoint
 
     runtime = object.__new__(MapCameraRuntime)

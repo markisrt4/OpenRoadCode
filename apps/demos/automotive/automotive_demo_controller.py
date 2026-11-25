@@ -11,9 +11,9 @@ from threading import Event, Thread
 
 from ui.automotive import (
     DiagnosticSeverity,
+    DiagnosticsRequestHandlerIf,
     DiagnosticStatus,
     DiagnosticTroubleCode,
-    DiagnosticsRequestHandlerIf,
     ExteriorLight,
     Gear,
     SeatPosition,

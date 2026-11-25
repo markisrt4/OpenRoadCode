@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: MIT
 """Verify HOME/full native view handoff with one shared synthetic PCM session."""
 
-from functools import partial
 import tkinter as tk
+from functools import partial
 from types import SimpleNamespace
 
 import numpy as np

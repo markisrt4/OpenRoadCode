@@ -8,26 +8,6 @@ spectrum bins, keeping transport and DSP outside Tk's UI thread.
 
 from __future__ import annotations
 
-import tkinter as tk
-from ui.ui_widget import UiWidget
-from dataclasses import replace
-import re
-from time import monotonic
-
-from ui.radio.radio_visualization_config import (
-    RadioRenderer,
-    RadioVisualizationConfig,
-    select_renderer,
-    load_rf_visualization_settings,
-    save_rf_visualization_settings,
-)
-from collections import deque
-from collections.abc import Sequence
-
-from ui.radio.sdrforge_spectrum_if import SpectrumViewport
-from ui.theme import ThemeBundle
-from .opengl_radio_surface import OpenGLRadioSurface, available as opengl_available
-
 
 class SdrForgeRenderMixin:
     """Draw spectrum and waterfall from cached presentation data."""

@@ -10,11 +10,10 @@ from collections.abc import Callable
 from typing import Protocol
 
 from apps.carUi.radio.radio_screen_binding import RadioPanelBinding
-from ui.system.app_launcher_if import AppLauncherIf
 from controllers.radio.radio_controller_if import RadioControllerIf
-from ui.radio.radio_types import RadioPreset
 from frontends.tk.radio import RadioPanelConfig
-
+from ui.radio.radio_types import RadioPreset
+from ui.system.app_launcher_if import AppLauncherIf
 
 MenuTileFactory = Callable[
     [tk.Widget, str, str, str, str],

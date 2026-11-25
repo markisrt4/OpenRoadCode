@@ -6,12 +6,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
-from dataclasses import asdict
 import struct
 import threading
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import asdict
 
 from controllers.audio.capture.audio_capture_if import AudioCaptureIf
+
 from .music_analysis_types import MusicAnalysisState
 from .music_analyzer import MusicAnalyzer
 

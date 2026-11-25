@@ -6,17 +6,17 @@
 from __future__ import annotations
 
 import argparse
-import os
 import logging
+import os
 import sys
-from common.logging.structured import configure_logging, event
 from pathlib import Path
 
-from controllers.geocoding.sqlite_geocoder import SqliteGeocoder
+from common.logging.structured import configure_logging, event
 from config.service_runtime_config import (
     NavigationServiceRuntimeConfig,
     ServiceRuntimeConfigParser,
 )
+from controllers.geocoding.sqlite_geocoder import SqliteGeocoder
 from controllers.navigation import (
     AndroidNavigationSensor,
     GpsdNavigationAdapter,
@@ -26,8 +26,8 @@ from controllers.navigation import (
 from controllers.navigation.android_position_source import AndroidPositionSource
 from controllers.navigation.browser_position_source import BrowserPositionSource
 from controllers.navigation.fallback_position_source import FallbackPositionSource
-from controllers.navigation.route_simulation_if import RouteSimulationIf
 from controllers.navigation.route_playback_position_source import RoutePlaybackPositionSource
+from controllers.navigation.route_simulation_if import RouteSimulationIf
 from controllers.navigation.simulated_ground_motion_source import (
     SimulatedGroundMotionSource,
 )

@@ -7,9 +7,9 @@ from __future__ import annotations
 
 import logging
 from dataclasses import replace
-from common.logging.structured import event, operation
 from typing import Any
 
+from common.logging.structured import event, operation
 from controllers.route_planning.route_planning_controller_if import (
     RoutePlanningControllerIf,
 )
@@ -23,7 +23,6 @@ from controllers.route_planning.route_planning_types import (
 from protocols.valhalla.valhalla_http_client import (
     ValhallaHttpClient,
 )
-
 
 LOGGER = logging.getLogger("navigation.routing")
 

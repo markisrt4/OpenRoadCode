@@ -3,6 +3,7 @@
 """Online-mode button with Android-style ascending signal bars."""
 
 import tkinter as tk
+
 from ui.ui_widget import UiWidget
 
 

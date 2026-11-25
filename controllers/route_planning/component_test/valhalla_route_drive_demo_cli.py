@@ -26,7 +26,6 @@ from protocols.valhalla.valhalla_http_client import (
     ValhallaHttpClient,
 )
 
-
 DEFAULT_ORIGIN_LAT = 42.3500
 DEFAULT_ORIGIN_LON = -83.1000
 

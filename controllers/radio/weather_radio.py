@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: MIT
 """Background NOAA presentation and bounded tuning retries."""
 
-from collections.abc import Callable
-from time import sleep
 import json
 import urllib.request
+from collections.abc import Callable
+from time import sleep
 
 from controllers.radio.radio_profile_controller import RadioProfileController
 from ui.radio.radio_profile_state import RadioProfileState

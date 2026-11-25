@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: MIT
 
 from datetime import datetime, timezone
+
 import pytest
+
 from controllers.weather import (
     WeatherAlert,
     WeatherAlertCertainty,
@@ -113,6 +115,7 @@ def test_rejects_polling_faster_than_nws_guidance():
 
 def test_service_reads_persisted_mode_and_preserves_alerts_offline(tmp_path):
     from unittest.mock import Mock
+
     from controllers.connectivity.online_mode import OnlineModeController, saved_online_mode
 
     path = tmp_path / "online-mode.json"

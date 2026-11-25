@@ -1,8 +1,7 @@
 """Compose native-map and browser-map lifecycle outside the Tk widgets."""
 
-import os
 import logging
-import subprocess
+import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor

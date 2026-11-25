@@ -8,14 +8,14 @@ import tkinter as tk
 from dataclasses import dataclass
 from typing import Callable, Optional
 
-from frontends.tk.radio import RadioPanel, RadioPanelConfig
 from apps.carUi.radio.radio_session_config import RadioSessionConfig
 from apps.carUi.radio.radio_session_controller import RadioSessionController
-from ui.system.app_launcher_if import AppLauncherIf
-from controllers.radio.radio_controller_if import RadioControllerIf
-from controllers.radio.adapters.sdrforge_zmq_spectrum_adapter import SdrForgeTelemetrySubscriber
-from ui.radio.radio_types import RadioPreset
 from apps.common.uiTheme import RADIO_PANEL_THEME
+from controllers.radio.adapters.sdrforge_zmq_spectrum_adapter import SdrForgeTelemetrySubscriber
+from controllers.radio.radio_controller_if import RadioControllerIf
+from frontends.tk.radio import RadioPanel, RadioPanelConfig
+from ui.radio.radio_types import RadioPreset
+from ui.system.app_launcher_if import AppLauncherIf
 
 
 @dataclass(frozen=True)

@@ -3,11 +3,14 @@
 """Background NWS alert polling driven by public navigation position telemetry."""
 
 from __future__ import annotations
-from datetime import datetime, timezone
+
+import math
+import threading
 from collections.abc import Callable
-from controllers.connectivity.online_mode import saved_online_mode
-import math, threading
+from datetime import datetime, timezone
 from uuid import uuid4
+
+from controllers.connectivity.online_mode import saved_online_mode
 from controllers.weather import (
     WeatherAlertClearReason,
     WeatherAlertEvent,

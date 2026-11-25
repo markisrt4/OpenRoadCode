@@ -1,19 +1,18 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-import math
 import json
 import logging
+import math
 
 from common.logging.structured import JsonFormatter, validate_event
-
 from controllers.poi import (
     PoiActionKind,
     PoiCategory,
+    PointOfInterest,
     PoiSearchBounds,
     PoiSearchController,
     PoiSearchQuery,
-    PointOfInterest,
 )
 from protocols.map_renderer.map_poi_source import (
     RawMapClick,

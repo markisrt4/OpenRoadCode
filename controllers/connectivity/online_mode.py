@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: MIT
 """Combine the user's internet preference with observed reachability."""
 
-from collections.abc import Callable
 import json
+from collections.abc import Callable
 from pathlib import Path
 
 from common.xdg_paths import openroadcode_config_dir

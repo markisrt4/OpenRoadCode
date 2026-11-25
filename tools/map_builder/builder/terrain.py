@@ -1,16 +1,16 @@
 """Download a coarse 65x65 USGS 3DEP ground grid; preserve raw source responses."""
 
-from datetime import datetime, timezone
 import hashlib
 import json
 import math
-from pathlib import Path
-from tempfile import TemporaryDirectory
+import time
 import urllib.parse
 import urllib.request
-from urllib.error import HTTPError, URLError
-import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from urllib.error import HTTPError, URLError
 
 from .map_3d import PRESETS
 

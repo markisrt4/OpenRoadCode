@@ -4,13 +4,13 @@
 
 import unittest
 from datetime import datetime, timezone
-from urllib.error import HTTPError
 from unittest.mock import patch
+from urllib.error import HTTPError
 
 from controllers.calendar.caldav_adapter import (
     CalDavAdapter,
-    CalDavCalendar,
     CalDavAuthenticationError,
+    CalDavCalendar,
     CalDavHttpError,
 )
 

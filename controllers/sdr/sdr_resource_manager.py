@@ -2,8 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 from dataclasses import dataclass
-from typing import Optional, Callable
-
+from typing import Callable, Optional
 
 StatusCallback = Optional[Callable[[str], None]]
 

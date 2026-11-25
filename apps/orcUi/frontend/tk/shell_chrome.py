@@ -9,6 +9,7 @@ import tkinter as tk
 from collections.abc import Callable
 
 from ui.theme import ThemeBundle
+
 from .connectivity_button import ConnectivityButton
 from .shell_metrics import (
     FONT_BRAND,

@@ -2,17 +2,15 @@
 
 """Test presentation contract consumption without creating a Tk root."""
 
-from dataclasses import replace
 from io import BytesIO
 from unittest.mock import Mock
 
 from PIL import Image
 
-from frontends.tk.radio.streaming_radio_panel import StreamingRadioPanel
 from frontends.tk.radio.streaming_radio_now_playing import StreamingRadioNowPlaying
+from frontends.tk.radio.streaming_radio_panel import StreamingRadioPanel
 from ui.radio.streaming_radio_state import StreamingRadioBrowserState, StreamingRadioPlaybackState
 from ui.radio.streaming_radio_types import StreamingRadioStation
-
 
 STATION = StreamingRadioStation(
     "one", "One", "https://radio.test/one", artwork_url="https://radio.test/logo"

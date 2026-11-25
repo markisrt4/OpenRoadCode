@@ -3,8 +3,9 @@
 
 """Hourly city weather for a city weather map, using UTC throughout."""
 
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
+from itertools import pairwise
 
 import requests
 
@@ -108,13 +109,13 @@ class CityWeatherProvider:
         if len(locations) != len(cities):
             raise ValueError("City weather returned an unexpected number of locations")
         results = []
-        for city, location in zip(cities, locations):
+        for city, location in zip(cities, locations, strict=True):
             hourly = location.get("hourly", {})
             times = hourly.get("time", [])
             if (
                 not times
                 or any(not isinstance(t, int) or isinstance(t, bool) for t in times)
-                or any(b <= a for a, b in zip(times, times[1:]))
+                or any(b <= a for a, b in pairwise(times))
             ):
                 raise ValueError("City weather has no usable ordered hourly timestamps")
             units = location.get("hourly_units", {})
@@ -126,7 +127,7 @@ class CityWeatherProvider:
                 if units.get(key) != unit:
                     raise ValueError(f"City weather returned unexpected {key} units")
 
-            def values(key, low, high):
+            def values(key, low, high, hourly=hourly, times=times):
                 raw = hourly.get(key, [])
                 return tuple(
                     item

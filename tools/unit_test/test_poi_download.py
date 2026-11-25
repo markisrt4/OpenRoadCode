@@ -113,6 +113,7 @@ def test_cli_reads_bridge_without_cached_position(tmp_path, monkeypatch):
 @pytest.mark.parametrize("provider,age", [("simulated_drive", 0), ("gps", 120001)])
 def test_bridge_rejects_simulated_or_stale_location(provider, age):
     from types import SimpleNamespace
+
     from tools.poi_download import bridge_position
 
     with patch("hardware_io.android.sensor_bridge_client.AndroidSensorBridgeClient") as client:

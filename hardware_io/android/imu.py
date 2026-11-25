@@ -63,6 +63,4 @@ class AndroidImu:
 
 
 def _vector(value: object) -> Vector3:
-    return Vector3(
-        x=float(getattr(value, "x")), y=float(getattr(value, "y")), z=float(getattr(value, "z"))
-    )
+    return Vector3(x=float(value.x), y=float(value.y), z=float(value.z))

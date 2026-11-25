@@ -5,12 +5,11 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from threading import Lock
-import logging
 
 from common.logging.structured import event
-
 from controllers.automotive.vehicle_state import VehicleState
 from controllers.automotive.vehicle_state_source_if import VehicleStateSourceIf
 from messaging.contracts.navigation import (

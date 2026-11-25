@@ -3,6 +3,7 @@
 """Frontend-neutral audio lifecycle and presentation boundary."""
 
 from abc import ABC, abstractmethod
+
 from .music_visualizer_types import (
     MusicCaptureState,
     MusicVisualizerOptions,

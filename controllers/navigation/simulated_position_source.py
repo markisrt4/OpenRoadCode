@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import math
 import threading
+from itertools import pairwise
 
 from controllers.navigation.navigation_state import PositionState
 from controllers.navigation.position_source_if import PositionSourceIf, PositionStateCallback
@@ -74,7 +75,7 @@ class SimulatedPositionSource(PositionSourceIf, RouteSimulationIf):
             raise ValueError("route shape must contain at least two points")
 
         segment_lengths = tuple(
-            self._distance_m(start, end) for start, end in zip(route.shape, route.shape[1:])
+            self._distance_m(start, end) for start, end in pairwise(route.shape)
         )
         total_m = sum(segment_lengths)
         if total_m <= 0.0:

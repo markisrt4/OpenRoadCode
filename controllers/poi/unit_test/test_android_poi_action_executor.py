@@ -4,8 +4,8 @@
 from unittest.mock import Mock
 
 from controllers.poi.android_poi_action_executor import AndroidPoiActionExecutor
-from ui.navigation.poi_models import PoiAction, PoiActionKind, PoiCategory, PointOfInterest
 from ui.navigation import GeoPoint
+from ui.navigation.poi_models import PoiAction, PoiActionKind, PoiCategory, PointOfInterest
 
 
 def _panera() -> PointOfInterest:

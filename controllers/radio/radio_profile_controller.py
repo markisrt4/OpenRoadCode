@@ -11,11 +11,9 @@ from config.radio_config_manager import load_radio_config
 from controllers.radio.adapters.rigctl_radio_backend import RigctlRadioBackend
 from controllers.radio.radio_controller import RadioController, format_frequency
 from controllers.radio.radio_profiles import RadioProfileCatalog, RadioProfilePreset
-from ui.radio.radio_types import RadioMode, RadioPreset, RadioRange
 from protocols.rigctl.rigctl_client import RigctlClient
-
-
 from ui.radio.radio_profile_state import RadioProfileState
+from ui.radio.radio_types import RadioMode, RadioPreset, RadioRange
 
 
 class RadioProfileController:
@@ -73,7 +71,7 @@ class RadioProfileController:
         return self._radio.get_rds()
 
     def select_profile(self, profile_key: str, *, start: bool = True) -> RadioProfileState:
-        profile = self._catalog.profile(profile_key)
+        self._catalog.profile(profile_key)
         changed = profile_key != self._profile_key
         was_started = hasattr(self, "_radio") and self._radio.is_started
         config = self._catalog.config_for(profile_key)
@@ -117,31 +115,6 @@ class RadioProfileController:
         )
         self._ensure_started()
         self._radio.tune_preset(domain_preset)
-        return self.state
-
-    def next_preset(self) -> RadioProfileState:
-        self._ensure_started()
-        self._radio.next_preset()
-        return self.state
-
-    def previous_preset(self) -> RadioProfileState:
-        self._ensure_started()
-        self._radio.previous_preset()
-        return self.state
-
-    def tune_up(self) -> RadioProfileState:
-        self._ensure_started()
-        self._radio.frequency_up()
-        return self.state
-
-    def tune_down(self) -> RadioProfileState:
-        self._ensure_started()
-        self._radio.frequency_down()
-        return self.state
-
-    def refresh(self) -> RadioProfileState:
-        # A shared rigctl receiver may be active even if this controller never started it.
-        self._radio.refresh_frequency()
         return self.state
 
     def next_preset(self) -> RadioProfileState:

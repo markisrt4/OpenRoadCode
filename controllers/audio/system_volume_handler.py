@@ -5,11 +5,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 import logging
+from collections.abc import Callable
 
 from common.logging.structured import current_operation, event, operation
-
 from controllers.audio.audio_controller_if import AudioControllerIf
 from ui.system import VolumeRequestHandlerIf, VolumeUiIf
 
@@ -58,7 +57,7 @@ class SystemVolumeHandler(VolumeRequestHandlerIf):
                 "volume",
                 lambda: self._publish_level(self._audio_controller.set_volume_level(level)),
             )
-        except (OSError, RuntimeError) as error:
+        except (OSError, RuntimeError):
             self._set_status("Volume change failed")
 
     def request_volume_up(self) -> None:
@@ -67,7 +66,7 @@ class SystemVolumeHandler(VolumeRequestHandlerIf):
             self._execute(
                 "volume_up", lambda: self._publish_level(self._audio_controller.volume_up())
             )
-        except (OSError, RuntimeError) as error:
+        except (OSError, RuntimeError):
             self._set_status("Volume up failed")
 
     def request_volume_down(self) -> None:
@@ -76,14 +75,14 @@ class SystemVolumeHandler(VolumeRequestHandlerIf):
             self._execute(
                 "volume_down", lambda: self._publish_level(self._audio_controller.volume_down())
             )
-        except (OSError, RuntimeError) as error:
+        except (OSError, RuntimeError):
             self._set_status("Volume down failed")
 
     def request_mute(self, muted: bool) -> None:
         """Apply an explicit system mute state."""
         try:
             self._execute("mute", lambda: self._apply_mute(muted))
-        except (OSError, RuntimeError) as error:
+        except (OSError, RuntimeError):
             self._set_status("Mute request failed")
 
     def _apply_mute(self, muted: bool) -> None:

@@ -3,48 +3,48 @@
 
 from __future__ import annotations
 
+import logging
 import math
 import time
-import logging
 from datetime import datetime
 from typing import TypeVar
 
 from common.logging.structured import current_operation, event, operation
-from ui.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
-from controllers.automotive.vehicle_state import VehicleState
 from controllers.automotive.obd2.obd2_poll_scheduler import (
     Obd2PollingProfile,
     Obd2PollScheduler,
 )
+from controllers.automotive.vehicle_state import VehicleState
 from controllers.automotive.vehicle_state_source_if import VehicleStateSourceIf
 from protocols.obd2 import Obd2AdapterIf, Obd2Error, Obd2Request
 from protocols.obd2.obd_pid_decoder import ObdPidDecoder
 from protocols.obd2.obd_pids import (
     AbsoluteEngineLoadPid,
-    ActualEngineTorquePid,
-    ReferenceEngineTorquePid,
     AcceleratorPedalPositionPid,
+    ActualEngineTorquePid,
     BarometricPressurePid,
-    CommandedThrottleActuatorPid,
     CommandedEquivalenceRatioPid,
+    CommandedThrottleActuatorPid,
     ControlModuleVoltagePid,
     CoolantTempPid,
-    FuelRailGaugePressurePid,
-    FuelSystemStatusPid,
-    EngineLoadPid,
-    IgnitionTimingAdvancePid,
-    LongTermFuelTrimBank1Pid,
     EngineFuelRatePid,
+    EngineLoadPid,
     EngineRpmPid,
     FuelLevelPid,
+    FuelRailGaugePressurePid,
+    FuelSystemStatusPid,
+    IgnitionTimingAdvancePid,
     IntakeAirTempPid,
     IntakeManifoldPressurePid,
+    LongTermFuelTrimBank1Pid,
     MassAirFlowPid,
     OxygenSensor1EquivalenceRatioPid,
+    ReferenceEngineTorquePid,
     ShortTermFuelTrimBank1Pid,
     ThrottlePositionPid,
     VehicleSpeedPid,
 )
+from ui.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
 
 T = TypeVar("T")
 LOGGER = logging.getLogger("automotive.obd")

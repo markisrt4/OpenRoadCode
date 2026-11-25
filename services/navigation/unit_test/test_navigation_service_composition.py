@@ -12,9 +12,9 @@ from config.service_runtime_config import (
 )
 from controllers.navigation.fallback_position_source import FallbackPositionSource
 from controllers.navigation.navigation_controller import NavigationController
+from controllers.navigation.route_playback_position_source import RoutePlaybackPositionSource
 from controllers.navigation.simulated_navigation_sensor import SimulatedNavigationSensor
 from controllers.navigation.simulated_position_source import SimulatedPositionSource
-from controllers.navigation.route_playback_position_source import RoutePlaybackPositionSource
 from services.navigation import navigation_service_cli
 
 

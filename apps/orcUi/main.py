@@ -12,6 +12,7 @@ import threading
 import time
 from collections.abc import Callable
 from typing import TextIO
+
 from common.logging.structured import configure_logging, event
 from common.logging.viewer import follow
 

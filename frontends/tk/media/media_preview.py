@@ -6,10 +6,12 @@
 import io
 import queue
 import tkinter as tk
-from ui.ui_widget import UiWidget
+
 from PIL import Image, ImageTk
-from ui.media.media_preview_if import MediaPreviewIf
+
 from ui.media import PlaybackState
+from ui.media.media_preview_if import MediaPreviewIf
+from ui.ui_widget import UiWidget
 
 
 class MediaPreview(tk.Frame, UiWidget):

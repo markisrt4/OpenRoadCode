@@ -3,6 +3,7 @@
 
 from dataclasses import asdict, is_dataclass
 from math import radians
+
 from ui.adsb.aircraft_overlay_state import AircraftPoint
 from ui.navigation.map_ui_if import GeoPoint
 

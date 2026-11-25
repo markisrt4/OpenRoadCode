@@ -11,7 +11,9 @@ from ui.weather.radar_ui_if import RadarPalette
 from ui.weather.radar_ui_stub import RadarUiStub
 
 
-def replay(tiles=RadarTileStatus(), *, forecast=False):
+def replay(tiles=None, *, forecast=False):
+    if tiles is None:
+        tiles = RadarTileStatus()
     backend = Mock(
         enabled=True,
         frame_time=1000,

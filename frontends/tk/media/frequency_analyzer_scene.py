@@ -4,9 +4,9 @@
 
 import math
 
-from .music_scene_theme import ScenePalette
-
 from ui.music_visualizer.music_visualizer_types import AnalyzerPalette
+
+from .music_scene_theme import ScenePalette
 
 
 def measured_levels(frame, band_count=64):
@@ -15,7 +15,11 @@ def measured_levels(frame, band_count=64):
     for i in range(band_count):
         low, high = 31.25 * 512 ** (i / band_count), 31.25 * 512 ** ((i + 1) / band_count)
         db = max(
-            (db for hz, db in zip(frame.spectrum_hz, frame.spectrum_dbfs) if low <= hz < high),
+            (
+                db
+                for hz, db in zip(frame.spectrum_hz, frame.spectrum_dbfs, strict=False)
+                if low <= hz < high
+            ),
             default=-60,
         )
         result.append(max(0, min(1, (db + 60) / 60)))
@@ -73,7 +77,7 @@ def analyzer_color(appearance, height):
         AnalyzerPalette.FIRE: ((0.9, 0.2, 0.02), (1, 0.85, 0.15)),
     }
     low, high = endpoints.get(appearance.palette, (appearance.low_color, appearance.high_color))
-    return tuple(a + (b - a) * t for a, b in zip(low, high))
+    return tuple(a + (b - a) * t for a, b in zip(low, high, strict=True))
 
 
 def draw_analyzer(gl, frame, decay, appearance, display, palette=None):

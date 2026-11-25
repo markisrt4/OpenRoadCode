@@ -5,13 +5,13 @@
 
 import unittest
 
+from controllers.input import InputMapper
 from input_events import (
     InputDeviceId,
     InputDeviceType,
     InputEvent,
     InputEventType,
 )
-from controllers.input import InputMapper
 from ui.ui_action import UiAction
 
 

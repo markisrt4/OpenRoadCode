@@ -3,15 +3,14 @@
 
 from __future__ import annotations
 
-from threading import RLock
-from pathlib import Path
 import re
 import time
-
-from ui.system.app_launcher_if import StatusCallback
+from pathlib import Path
+from threading import RLock
 
 from apps.launchers.browser_launcher import BrowserKioskLauncher
 from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient, DevToolsTarget
+from ui.system.app_launcher_if import StatusCallback
 
 
 class GoogleEarthLauncher:

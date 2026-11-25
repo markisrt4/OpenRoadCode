@@ -7,7 +7,6 @@ import json
 import threading
 from collections.abc import Callable
 from urllib import request
-from urllib.error import HTTPError, URLError
 
 from ui.radio.rf_hardware_config_if import RfHardwareConfig, RfHardwareConfigIf
 

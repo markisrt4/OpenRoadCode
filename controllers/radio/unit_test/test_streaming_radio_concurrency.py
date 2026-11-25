@@ -11,7 +11,6 @@ from controllers.audio.streaming_audio_player_if import StreamingAudioPlayerIf
 from controllers.radio.streaming_radio_controller import StreamingRadioController
 from ui.radio.streaming_radio_types import StreamingRadioStation
 
-
 STATION = StreamingRadioStation("one", "One", "https://radio.test/one")
 
 

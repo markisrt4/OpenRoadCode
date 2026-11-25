@@ -14,7 +14,6 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-
 _TIMESTAMP = re.compile(r"\[(?P<minutes>\d+):(?P<seconds>\d+(?:\.\d+)?)\]")
 
 

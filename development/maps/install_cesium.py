@@ -2,13 +2,13 @@
 
 import base64
 import hashlib
-from pathlib import Path
 import shutil
 import tarfile
-from tempfile import TemporaryDirectory
 import urllib.request
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
-from apps.launchers.cesium_sdk import INTEGRITY, TARBALL, VERSION, sdk_directory, require_sdk
+from apps.launchers.cesium_sdk import INTEGRITY, TARBALL, VERSION, require_sdk, sdk_directory
 
 
 def install(destination: Path) -> None:

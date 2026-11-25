@@ -2,8 +2,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from controllers.connectivity.online_mode import OnlineModeController
 from controllers.connectivity.internet_access import internet_reachable
+from controllers.connectivity.online_mode import OnlineModeController
 
 
 def test_mode_persists_and_notifies_subscribers(tmp_path):

@@ -4,7 +4,8 @@
 import unittest
 from threading import Event
 from unittest.mock import Mock, patch
-from urllib.parse import urlsplit, parse_qs
+from urllib.parse import parse_qs, urlsplit
+
 from apps.orcUi.adapters.adsb_control import OrcUiAdsbControl
 
 

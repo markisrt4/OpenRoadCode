@@ -6,6 +6,7 @@
 from collections.abc import Callable
 
 from apps.carUi.car_ui_dependencies import CarUiDependencies
+from apps.carUi.composition.spotify import create_spotify_screen
 from apps.carUi.radio.radio_screen_binding import create_radio_screen_binding
 from apps.carUi.screens.aircraft_screen import AircraftScreen
 from apps.carUi.screens.car_ui_screen_factory_if import CarUiScreens
@@ -14,12 +15,11 @@ from apps.carUi.screens.netflix_screen import NetflixScreen
 from apps.carUi.screens.offroad_dashboard_screen import OffroadDashboardScreen
 from apps.carUi.screens.scanner_screen import ScannerScreen
 from apps.carUi.screens.turn_by_turn_screen import TurnByTurnScreen
+from apps.carUi.screens.vehicle_gauges_screen import VehicleGaugesScreen
 from apps.carUi.screens.weather_screen import WeatherScreen
 from apps.carUi.screens.youtube_screen import YouTubeScreen
-from apps.carUi.screens.vehicle_gauges_screen import VehicleGaugesScreen
 from apps.common.uiTheme import LIGHTING_PANEL_THEME
 from apps.common.uiTheme.uiTheme import CAR_UI_THEME
-from apps.carUi.composition.spotify import create_spotify_screen
 from controllers.lighting import LightingPresenter
 from frontends.tk.lighting import LightingScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf

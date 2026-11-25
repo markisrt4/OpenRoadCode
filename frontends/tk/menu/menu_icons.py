@@ -9,7 +9,6 @@ import tkinter as tk
 
 from ui.icon import IconId
 
-
 _GLYPH_ICONS: dict[IconId, str] = {
     IconId.RADIO: "◉",
     IconId.AIRCRAFT: "✈",

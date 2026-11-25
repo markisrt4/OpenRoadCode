@@ -1,12 +1,12 @@
-from threading import Event
 import time
+from threading import Event
 from unittest.mock import Mock, patch
 
 import pytest
 
 from apps.launchers import cesium_poi_actions as module
 from ui.navigation import GeoPoint
-from ui.navigation.poi_models import PointOfInterest, PoiCategory, PoiAction, PoiActionKind
+from ui.navigation.poi_models import PoiAction, PoiActionKind, PoiCategory, PointOfInterest
 
 
 @pytest.fixture
@@ -83,9 +83,9 @@ def test_other_actions_delegate():
 
 
 def test_embedded_action_requests_semantic_view_without_launching_a_browser(monkeypatch):
+    import apps.launchers.cesium_poi_actions as module
     from ui.navigation import GeoPoint
     from ui.navigation.poi_models import PoiAction, PoiActionKind
-    import apps.launchers.cesium_poi_actions as module
 
     request = Mock()
     fallback = Mock()

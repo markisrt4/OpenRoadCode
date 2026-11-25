@@ -7,12 +7,11 @@ from __future__ import annotations
 
 import math
 
-from hardware_io.imu import Vector3
-
 from controllers.navigation.orientation_estimator_if import (
     Orientation,
     OrientationEstimatorIf,
 )
+from hardware_io.imu import Vector3
 
 
 class ComplementaryOrientationEstimator(OrientationEstimatorIf):

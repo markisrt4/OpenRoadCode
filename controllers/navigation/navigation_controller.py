@@ -11,15 +11,13 @@ from collections.abc import Callable
 from datetime import datetime
 from threading import Lock
 
-from hardware_io.imu import Vector3
-
 from controllers.navigation.complementary_orientation_estimator import (
     ComplementaryOrientationEstimator,
 )
 from controllers.navigation.ground_motion_source_if import GroundMotionSourceIf
-from controllers.navigation.navigation_gps_source_if import NavigationGpsSourceIf
-from controllers.navigation.navigation_controller_if import NavigationControllerIf
 from controllers.navigation.motion_calibration import MotionCalibration
+from controllers.navigation.navigation_controller_if import NavigationControllerIf
+from controllers.navigation.navigation_gps_source_if import NavigationGpsSourceIf
 from controllers.navigation.navigation_sensor_if import MotionSample, NavigationSensorIf
 from controllers.navigation.navigation_state import (
     GroundMotionState,
@@ -27,6 +25,7 @@ from controllers.navigation.navigation_state import (
     PositionState,
 )
 from controllers.navigation.orientation_estimator_if import OrientationEstimatorIf
+from hardware_io.imu import Vector3
 
 
 class NavigationController(NavigationControllerIf):

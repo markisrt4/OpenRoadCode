@@ -8,7 +8,7 @@ from __future__ import annotations
 from threading import Event, Thread
 
 from controllers.navigation.navigation_state import PositionState
-from controllers.navigation.position_source_if import PositionStateCallback, PositionSourceIf
+from controllers.navigation.position_source_if import PositionSourceIf, PositionStateCallback
 from hardware_io.android.sensor_bridge_client import AndroidSensorBridgeClient
 
 

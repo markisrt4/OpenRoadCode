@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: MIT
 """Compact presentation controls for the frequency analyzer."""
 
-from dataclasses import replace
 import tkinter as tk
+from dataclasses import replace
 from tkinter import colorchooser
 
-from ui.ui_widget import UiWidget
 from ui.music_visualizer.music_visualizer_types import AnalyzerAppearance, AnalyzerPalette
+from ui.ui_widget import UiWidget
 
 
 class AnalyzerAppearanceControls(tk.Frame, UiWidget):

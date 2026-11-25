@@ -19,12 +19,12 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any
+
+from security.environment_variable_secret_manager import EnvironmentVariableSecretManager
+from security.secret_manager_if import SecretManagerIf
 
 from .music_video_if import MusicVideoIf
 from .music_video_types import MusicVideo, MusicVideoQuery
-from security.environment_variable_secret_manager import EnvironmentVariableSecretManager
-from security.secret_manager_if import SecretManagerIf
 
 _YOUTUBE_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
 _YOUTUBE_VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos"

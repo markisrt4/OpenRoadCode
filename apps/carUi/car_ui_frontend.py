@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-import os
 import logging
+import os
 import threading
 import tkinter as tk
 from collections.abc import Callable
@@ -17,21 +17,20 @@ from apps.carUi.car_ui_composition import CarUiComposition
 from apps.carUi.car_ui_dependencies import CarUiDependencies
 from apps.carUi.car_ui_menu_catalog import create_car_ui_menu_pages
 from apps.carUi.screens.tk_car_ui_screen_factory import TkCarUiScreenFactory
-from frontends.tk.menu import MenuRenderer
-from ui.menu import MenuTile
-from frontends.tk.runtime import apply_fullscreen
 from apps.common.uiTheme.uiTheme import (
     CAR_UI_THEME,
     STATUS_BAR_THEME,
     TOP_BAR_THEME,
 )
+from frontends.tk.menu import MenuRenderer
+from frontends.tk.runtime import apply_fullscreen
 from frontends.tk.system import StatusBarPanel, TopBarPanel, VolumePanel
+from ui.menu import MenuTile
 from ui.screen_navigator_if import ScreenNavigatorIf
 from ui.screen_ui_if import ScreenId, ScreenUiIf
 from ui.ui_action import UiAction
 from ui.ui_event_handler_if import UiEventHandlerIf
 from ui.ui_if import UiIf
-
 
 CAR_UI_LOGO_PATH = Path(__file__).parent / "assets" / "openroadcode.png"
 LOGGER = logging.getLogger(__name__)

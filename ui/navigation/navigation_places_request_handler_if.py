@@ -10,8 +10,8 @@ from ui.navigation.map_ui_if import GeoPoint
 from ui.navigation.poi_models import (
     PoiAction,
     PoiCategory,
-    PoiSearchResult,
     PointOfInterest,
+    PoiSearchResult,
     TransitMode,
 )
 

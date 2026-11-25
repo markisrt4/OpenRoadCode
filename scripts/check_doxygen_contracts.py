@@ -11,7 +11,6 @@ import re
 import sys
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 EXCLUDED_PARTS = {".git", ".venv", "venv", "__pycache__"}
 PARAM_PATTERN = r"(?m)^\s*[@\\]param(?:\s+\[[^]]+\])?\s+{name}\b"

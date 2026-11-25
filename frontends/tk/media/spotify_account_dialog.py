@@ -2,8 +2,8 @@
 
 """Tk-owned account configuration input with no persistence or workers."""
 
-from collections.abc import Callable
 import tkinter as tk
+from collections.abc import Callable
 
 from ui.media.spotify_account_if import (
     SpotifyAccountAction,

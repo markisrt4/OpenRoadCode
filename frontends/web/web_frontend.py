@@ -4,10 +4,12 @@
 """Flask renderer for toolkit-independent OpenRoadCode menu models."""
 
 from __future__ import annotations
+
 import json
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
+
 from flask import (
     Flask,
     Response,
@@ -21,6 +23,7 @@ from flask import (
     url_for,
 )
 from markupsafe import Markup
+
 from frontends.web.screen_catalog import WebScreen, create_web_screens
 from frontends.web.spotify_screen import render_spotify_screen
 from ui.menu import MenuPage

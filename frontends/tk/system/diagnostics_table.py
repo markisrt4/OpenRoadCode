@@ -5,6 +5,7 @@
 
 import tkinter as tk
 from tkinter import font
+
 from ui.ui_widget import UiWidget
 
 

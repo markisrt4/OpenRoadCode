@@ -234,7 +234,7 @@ class PipewireAudioController(AudioControllerIf):
                 text=True,
                 check=True,
             )
-        except FileNotFoundError as exc:
+        except FileNotFoundError:
             raise RuntimeError("Neither wpctl nor pactl was found") from wpctl_error
         except subprocess.CalledProcessError as exc:
             message = exc.stderr.strip() or exc.stdout.strip() or "unknown pactl error"

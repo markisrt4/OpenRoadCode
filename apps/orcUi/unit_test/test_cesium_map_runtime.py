@@ -2,7 +2,9 @@
 
 import threading
 from unittest.mock import Mock
+
 import pytest
+
 from apps.orcUi.cesium_map_runtime import CesiumMapRuntime
 from ui.navigation import GeoPoint
 from ui.navigation.cesium_viewer_state import CesiumViewerState

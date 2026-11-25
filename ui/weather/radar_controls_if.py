@@ -4,8 +4,9 @@
 """Interactive radar views bind requests through the shared UI contracts."""
 
 from abc import abstractmethod
-from ui.weather.radar_ui_if import RadarUiIf
+
 from ui.weather.radar_request_handler_if import RadarRequestHandlerIf
+from ui.weather.radar_ui_if import RadarUiIf
 
 
 class RadarControlsIf(RadarUiIf):

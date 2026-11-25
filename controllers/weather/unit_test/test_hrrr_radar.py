@@ -3,29 +3,28 @@
 
 """NOAA index selection, bounded downloads, numeric coloring, and cache separation."""
 
-from io import BytesIO
 import json
+from io import BytesIO
 from unittest.mock import Mock, patch
 from urllib.parse import parse_qs, urlparse
 
-from PIL import Image
 import pytest
 import requests
+from PIL import Image
 
-from controllers.weather.hrrr_tiles import (
-    HrrrTileSource,
-    color_hrrr_reflectivity,
-    tile_bounds,
-    location_tile,
-    reflectivity_summary,
-)
-from controllers.weather.providers.hrrr_radar_provider import HrrrRadarProvider, reflectivity_range
-from controllers.weather.radar_tile_service import _UNIVERSAL_DBZ
 from controllers.weather import RadarFrame, RadarPalette, RadarTileService, WeatherRadarController
 from controllers.weather.environmental_radar_injection_controller import (
     EnvironmentalRadarInjectionController,
 )
-
+from controllers.weather.hrrr_tiles import (
+    HrrrTileSource,
+    color_hrrr_reflectivity,
+    location_tile,
+    reflectivity_summary,
+    tile_bounds,
+)
+from controllers.weather.providers.hrrr_radar_provider import HrrrRadarProvider, reflectivity_range
+from controllers.weather.radar_tile_service import _UNIVERSAL_DBZ
 
 NOW = 1790945700  # 2026-10-02 12:55 UTC
 HOUR = NOW // 3600 * 3600

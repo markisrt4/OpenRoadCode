@@ -1,13 +1,13 @@
 """Exercise native runtime ownership and stale completion behavior without Tk/X11."""
 
-from collections import deque
 import threading
+from collections import deque
 from unittest.mock import Mock
 
 import pytest
 
-from controllers.games.game_inventory_cache import GameInventoryCache
 from controllers.games.game_installer_if import GameInstallerIf
+from controllers.games.game_inventory_cache import GameInventoryCache
 from controllers.games.game_launcher_if import GameLauncherIf
 from controllers.games.game_types import GameDefinition
 from controllers.games.games_session import GamesSession

@@ -16,7 +16,6 @@ from hardware_io.rotary_encoder.rotary_encoder_if import (
     RotationCallback,
 )
 
-
 LOGGER = logging.getLogger(__name__)
 
 

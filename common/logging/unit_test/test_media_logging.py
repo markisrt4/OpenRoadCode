@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: MIT
 """Verify safe media events across workers, caches, and player boundaries."""
 
-from dataclasses import replace
 import json
 import logging
 import threading
+from dataclasses import replace
 from unittest.mock import Mock, patch
 
 import pytest

@@ -5,6 +5,7 @@
 """Browser-native leaf screens used by the standalone web frontend."""
 
 from __future__ import annotations
+
 from dataclasses import dataclass
 
 

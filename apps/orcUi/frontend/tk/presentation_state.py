@@ -15,7 +15,6 @@ from apps.orcUi.navigation_presenter import (
 from apps.orcUi.trip_presenter import TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from messaging.contracts.route_guidance import RouteGuidanceStateMessage
-from ui.weather import WeatherAlertUiEvent
 from ui.automotive.engine_analysis import (
     EngineAnalysis,
     EngineLoadLevel,
@@ -25,6 +24,7 @@ from ui.automotive.engine_analysis import (
     MixtureMode,
     TrackingQuality,
 )
+from ui.weather import WeatherAlertUiEvent
 
 
 def _empty_engine_analysis() -> EngineAnalysis:

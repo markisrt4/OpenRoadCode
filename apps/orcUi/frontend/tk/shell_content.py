@@ -8,6 +8,7 @@ from __future__ import annotations
 import tkinter as tk
 
 from ui.theme import ThemeBundle
+
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
 
 

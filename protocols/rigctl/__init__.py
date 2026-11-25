@@ -3,6 +3,6 @@
 
 """Rigctl protocol client and development utilities."""
 
-from .rigctl_client import RigctlClient, SDRPP_MODE_MAP
+from .rigctl_client import SDRPP_MODE_MAP, RigctlClient
 
 __all__ = ["RigctlClient", "SDRPP_MODE_MAP"]

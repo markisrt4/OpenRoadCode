@@ -6,25 +6,24 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Optional
 
+from apps.carUi.radio.radio_session_controller import RadioSessionController
 from apps.carUi.runtime.car_ui_runtime import RadioRuntime
 from apps.carUi.screens.car_ui_screen import CarUiScreen
 from apps.carUi.screens.car_ui_screen_services import (
     MenuTileFactory,
     RadioScreenBindingFactoryIf,
 )
+from apps.common.uiTheme import WEATHER_PANEL_THEME
 from controllers.application_runtime import AppRuntimeManager
-from frontends.tk.weather import WeatherMenuPanel
 from frontends.tk.media.browser_return_overlay import BrowserReturnOverlay
 from frontends.tk.radio import RadioPanel
 from frontends.tk.radio.radio_panel_config import (
     RadioPanelConfig,
     RadioPanelTileConfig,
 )
-from apps.carUi.radio.radio_session_controller import RadioSessionController
-from apps.common.uiTheme import WEATHER_PANEL_THEME
-from ui.screen_ui_if import ScreenId
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
-
+from frontends.tk.weather import WeatherMenuPanel
+from ui.screen_ui_if import ScreenId
 
 WEATHER_APP_KEY = "weather"
 

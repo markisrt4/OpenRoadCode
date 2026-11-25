@@ -3,8 +3,8 @@
 
 """Verify playback arbitration and stale callback rejection without a receiver."""
 
-from unittest.mock import Mock
 import threading
+from unittest.mock import Mock
 
 import pytest
 

@@ -6,24 +6,23 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
-
-from common.logging.diagnostics import ComponentLog
-from common.logging.structured import current_operation, operation
 from collections.abc import Coroutine
 from concurrent.futures import Future
 from typing import Any
 
+from common.logging.diagnostics import ComponentLog
+from common.logging.structured import current_operation, operation
 from controllers.lighting.lighting_controller_if import LightingControllerIf
 from controllers.lighting.lighting_types import (
     CustomPatternMode,
     LightingState,
     RgbColor,
 )
-from protocols.leddmx.leddmx_protocol import LedDmxProtocol
 from controllers.lighting.parsers.leddmx_config_parser import (
     LedDmxBluetoothConfig,
     load_leddmx_config,
 )
+from protocols.leddmx.leddmx_protocol import LedDmxProtocol
 
 try:
     from bleak import BleakClient, BleakScanner

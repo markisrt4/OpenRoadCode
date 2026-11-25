@@ -8,6 +8,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from messaging.contracts.common import validate_timestamp
+
 from .trip_state_codec import SCHEMA_VERSION
 
 TOP_LEVEL_FIELDS = {"version", "timestamp", "source", "data"}
