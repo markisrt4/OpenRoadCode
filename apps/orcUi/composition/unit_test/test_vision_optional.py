@@ -3,6 +3,8 @@
 
 """Optional perception setup must not prevent the cockpit from starting."""
 
+import sys
+from types import ModuleType
 from unittest.mock import Mock, patch
 
 from apps.orcUi.composition.vision import configure_vision
@@ -46,15 +48,14 @@ def test_ready_model_keeps_existing_vision_controller_lifecycle():
         controller.return_value.close.assert_called_once_with()
 
 
-def test_missing_tracking_dependency_keeps_camera_preview_available():
+def test_missing_bytetrack_api_keeps_camera_preview_available():
     with (
         patch("apps.orcUi.composition.vision.YoloModelReadiness"),
         patch("apps.orcUi.composition.vision.CameraVisionScreen"),
         patch("apps.orcUi.composition.vision.LazyYoloObjectDetector"),
-        patch("apps.orcUi.composition.vision.ByteTrackObjectTracker") as tracker,
+        patch.dict(sys.modules, supervision=ModuleType("supervision")),
         patch("apps.orcUi.composition.vision.VisionController") as controller,
     ):
-        tracker.side_effect = RuntimeError("supervision missing")
         composition = configure_vision(Mock())
         assert composition.controller is controller.return_value
         assert controller.call_args.args[-1] is None

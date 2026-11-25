@@ -220,7 +220,7 @@ get_feature_python_packages() {
       printf '%s\n' python-dateutil
       ;;
     video-perception)
-      printf '%s\n' ultralytics supervision
+      printf '%s\n' ultralytics 'supervision==0.28.0'
       ;;
     input)
       printf '%s\n' evdev
