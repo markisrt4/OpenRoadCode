@@ -8,6 +8,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 
 RUN_RADIO=0
+RUN_NAVIGATION=0
 RUN_VNC=0
 RUN_GPSD_SERVICE=0
 RUN_TELEMETRY_SERVICES=0
@@ -18,6 +19,7 @@ usage() {
 Usage: $0 [options]
 
 Options:
+  --navigation         Configure broker and navigation services
   --radio              Configure broker and SDRForge user service
   --vnc                Configure the VNC user service
   --gpsd               Configure the GPSD system service
@@ -29,6 +31,7 @@ EOF
 
 while (( $# > 0 )); do
   case "$1" in
+    --navigation) RUN_NAVIGATION=1 ;;
     --radio) RUN_RADIO=1 ;;
     --vnc) RUN_VNC=1 ;;
     --gpsd) RUN_GPSD_SERVICE=1 ;;
@@ -54,7 +57,7 @@ while (( $# > 0 )); do
   shift
 done
 
-if (( ! RUN_VNC && ! RUN_GPSD_SERVICE && ! RUN_TELEMETRY_SERVICES && ! RUN_RADIO )); then
+if (( ! RUN_VNC && ! RUN_GPSD_SERVICE && ! RUN_TELEMETRY_SERVICES && ! RUN_RADIO && ! RUN_NAVIGATION )); then
   echo "[*] No services selected."
   exit 0
 fi
@@ -69,7 +72,7 @@ if (( RUN_GPSD_SERVICE )); then
   sudo bash "$PROJECT_ROOT/scripts/systemd/install_gpsd_systemd.sh" "$GPS_DEVICE"
 fi
 
-if (( RUN_TELEMETRY_SERVICES || RUN_RADIO )); then
+if (( RUN_TELEMETRY_SERVICES || RUN_RADIO || RUN_NAVIGATION )); then
   if (( RUN_TELEMETRY_SERVICES )); then
     echo "[*] Installing OpenRoadCode telemetry services..."
   else
@@ -92,6 +95,9 @@ if (( RUN_TELEMETRY_SERVICES || RUN_RADIO )); then
     OPENROADCODE_RUNTIME_CONFIG="$runtime_config" \
     OPENROADCODE_PYTHON="$python_bin" \
     bash "$PROJECT_ROOT/scripts/systemd/$installer"
+  if (( RUN_NAVIGATION && ! RUN_TELEMETRY_SERVICES )); then
+    sudo env OPENROADCODE_RUNTIME_CONFIG="$runtime_config" OPENROADCODE_PYTHON="$python_bin" bash "$PROJECT_ROOT/scripts/systemd/install_navigation_service_systemd.sh"
+  fi
   if (( RUN_RADIO )); then
     OPENROADCODE_PYTHON="$python_bin" bash "$PROJECT_ROOT/scripts/systemd/install_sdrforge_user_systemd.sh"
   fi
