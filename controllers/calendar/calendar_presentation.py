@@ -49,6 +49,7 @@ def read_agenda(
     day: date,
     days: int,
     health: Callable[[], CalendarHealthView],
+    coverage: Callable[[date, int], frozenset[date]] | None = None,
 ) -> None:
     """Complete an agenda request without retaining a frontend."""
     if not future.set_running_or_notify_cancel():
@@ -58,7 +59,9 @@ def read_agenda(
             AgendaDayView(group.day, tuple(event_view(event) for event in group.events))
             for group in controller.load(day, days)
         )
-        future.set_result(AgendaSnapshot(groups, health()))
+        future.set_result(
+            AgendaSnapshot(groups, health(), coverage(day, days) if coverage else None)
+        )
     except Exception as error:
         future.set_exception(error)
 
@@ -70,9 +73,11 @@ class CalendarAgendaPresentation(CalendarAgendaIf):
         self,
         controller: CalendarQueryIf,
         health: Callable[[], CalendarHealthView],
+        coverage: Callable[[date, int], frozenset[date]] | None = None,
     ) -> None:
         self._controller = controller
         self._health = health
+        self._coverage = coverage
         self._future: Future[AgendaSnapshot] | None = None
         self._pending: tuple[date, int] | None = None
         self._closed = False
@@ -96,7 +101,7 @@ class CalendarAgendaPresentation(CalendarAgendaIf):
         self._future = future
         Thread(
             target=read_agenda,
-            args=(future, self._controller, day, days, self._health),
+            args=(future, self._controller, day, days, self._health, self._coverage),
             name="calendar-agenda-read",
             daemon=True,
         ).start()
