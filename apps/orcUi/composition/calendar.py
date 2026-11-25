@@ -6,6 +6,7 @@ from datetime import date, datetime, tzinfo
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from apps.orcUi.composition.appointment_navigation import estimate_upcoming_journey
 from apps.orcUi.theme_runtime import theme_bundle
 from controllers.calendar.appointment_monitor import AppointmentMonitor
 from controllers.calendar.cached_calendar_provider import CachedCalendarProvider
@@ -99,11 +100,13 @@ class HomeCalendarFactory:
 
         def load():
             now = datetime.now(config.zone)
-            events = upcoming_appointments(config.query(), now, limit=1)
+            query = config.query()
+            events = upcoming_appointments(query, now, limit=1)
             return AppointmentSnapshot(
                 tuple(event_view(event) for event in events),
                 calendar_health_view(config.cache_path.with_suffix(".health.json")),
                 len(config.coverage(now.date(), 7)) == 7,
+                estimate_upcoming_journey(query, now) if events else None,
             )
 
         self.monitor: AppointmentMonitorIf = AppointmentMonitor(load)
