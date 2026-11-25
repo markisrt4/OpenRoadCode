@@ -52,6 +52,7 @@ class AgendaSnapshot:
 
     groups: tuple[AgendaDayView, ...]
     health: CalendarHealthView
+    covered_days: frozenset[date] | None = None
 
 
 @dataclass(frozen=True)
