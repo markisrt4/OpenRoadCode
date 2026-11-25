@@ -93,17 +93,18 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
 
         body = tk.Frame(self, bg=ui.background)
         body.grid(row=1, column=0, sticky="nsew", padx=6, pady=(0, 6))
-        body.grid_columnconfigure(0, weight=1)
+        body.grid_columnconfigure(1, weight=1)
+        body.grid_rowconfigure(0, weight=1)
 
         page_nav = tk.Frame(body, bg=ui.background)
-        page_nav.grid(row=0, column=0, sticky="ew", pady=(0, 3))
+        page_nav.grid(row=0, column=0, sticky="nw", padx=(0, 8))
+        page_nav.grid_columnconfigure(0, weight=1)
         self._page_buttons = {}
         pages = [("display", "DISPLAY & LOCATION"), ("vehicle", "VEHICLE")]
         if receiver_settings is not None:
             pages.append(("receivers", "RF RECEIVERS"))
         pages.extend((("rf", "RF DISPLAY"), ("media", "MEDIA")))
-        for column, (page, title) in enumerate(pages):
-            page_nav.grid_columnconfigure(column, weight=1)
+        for row, (page, title) in enumerate(pages):
             button = tk.Button(
                 page_nav,
                 text=title,
@@ -113,11 +114,15 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
                 font=("Sans", FONT_CONTROL, "bold"),
                 command=lambda selected=page: self._show_settings_page(selected),
             )
-            button.grid(row=0, column=column, sticky="ew", padx=3)
+            button.grid(row=row, column=0, sticky="ew", pady=(0, 4))
             self._page_buttons[page] = button
 
+        content = tk.Frame(body, bg=ui.background)
+        content.grid(row=0, column=1, sticky="nsew")
+        content.grid_columnconfigure(0, weight=1)
+
         display = tk.Frame(
-            body,
+            content,
             bg=ui.surface,
             highlightthickness=1,
             highlightbackground=ui.border,
@@ -197,7 +202,7 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
             self._refresh_hud_button()
 
         vehicle = tk.Frame(
-            body,
+            content,
             bg=ui.surface,
             highlightthickness=1,
             highlightbackground=ui.border,
@@ -248,7 +253,7 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
         self._refresh_induction_buttons()
 
         location = tk.Frame(
-            body, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border
+            content, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border
         )
         location.grid(row=1, column=0, sticky="ew", pady=4)
         location.grid_columnconfigure(0, weight=1)
@@ -289,14 +294,16 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
         )
         self._location_button.grid(row=0, column=1, rowspan=2, padx=14, pady=8)
         self.set_host_location_state(host_location_state)
-        rf = self._build_rf_settings(body)
+        rf = self._build_rf_settings(content)
         self._receiver_settings_panel = None
         if self._receiver_settings is not None:
             self._receiver_settings_panel = ReceiverSettingsPanel(
-                body, self._receiver_settings, self._theme_bundle
+                content, self._receiver_settings, self._theme_bundle
             )
             self._receiver_settings_panel.grid(row=1, column=0, sticky="ew", padx=14, pady=8)
-        media = tk.Frame(body, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
+        media = tk.Frame(
+            content, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border
+        )
         media.grid(row=1, column=0, sticky="ew", pady=4)
         media.grid_columnconfigure(0, weight=1)
         tk.Label(
