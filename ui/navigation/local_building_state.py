@@ -10,7 +10,7 @@ class LocalBuilding:
     height_m: float
     height_source: str
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not 4 <= len(self.ring) <= 2000 or self.ring[0] != self.ring[-1]:
             raise ValueError("Building outline must be a bounded closed ring")
         if any(not math.isfinite(v) for point in self.ring for v in point):
@@ -25,7 +25,7 @@ class LocalBuilding:
         if self.height_source not in ("osm-height", "levels-estimate", "placeholder"):
             raise ValueError("Unknown building height source")
 
-    def document(self):
+    def document(self) -> dict[str, str | float | tuple[tuple[float, float], ...]]:
         return {
             "ring_rad": self.ring,
             "height_m": self.height_m,
@@ -38,11 +38,11 @@ class LocalBuildingState:
     buildings: tuple[LocalBuilding, ...]
     attribution: str = "© OpenStreetMap contributors · ODbL 1.0"
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.buildings or len(self.buildings) > 10000 or not self.attribution.strip():
             raise ValueError("Building pack must contain 1–10000 attributed outlines")
 
-    def document(self):
+    def document(self) -> dict[str, object]:
         return {
             "attribution": self.attribution,
             "buildings": [building.document() for building in self.buildings],

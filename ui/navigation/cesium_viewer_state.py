@@ -24,7 +24,7 @@ class CesiumViewerState:
     maximum_tilt_rad: float = math.radians(80)
     destination_marker_visible: bool = True
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if any(
             type(value) is not bool
             for value in (
@@ -61,7 +61,7 @@ class CesiumViewerState:
         if not self.label.strip() or len(self.label) > 120:
             raise ValueError("Destination label must contain 1–120 characters")
 
-    def document(self) -> dict:
+    def document(self) -> dict[str, str | float | bool]:
         """Serialize the presentation snapshot without browser-specific units."""
         return {
             "latitude_rad": self.destination.latitude_rad,

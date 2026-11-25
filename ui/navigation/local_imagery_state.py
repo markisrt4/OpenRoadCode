@@ -15,7 +15,7 @@ class LocalImageryState:
     east_rad: float
     north_rad: float
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         values = (self.west_rad, self.south_rad, self.east_rad, self.north_rad)
         if not all(math.isfinite(v) for v in values):
             raise ValueError("Imagery coverage must be finite")
@@ -27,7 +27,7 @@ class LocalImageryState:
         if not self.title.strip() or not self.attribution.strip():
             raise ValueError("Imagery needs a title and source attribution")
 
-    def document(self):
+    def document(self) -> dict[str, str | float]:
         """Produce a local-layer snapshot, not provider credentials or paths."""
         return {
             "title": self.title,
@@ -45,7 +45,7 @@ class LocalImageryStackState:
 
     layers: tuple[LocalImageryState, ...] = ()
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if (
             not isinstance(self.layers, tuple)
             or len(self.layers) > 6
@@ -53,5 +53,5 @@ class LocalImageryStackState:
         ):
             raise ValueError("Imagery stack must contain at most six immutable layers")
 
-    def document(self):
+    def document(self) -> list[dict[str, str | float]]:
         return [layer.document() for layer in self.layers]

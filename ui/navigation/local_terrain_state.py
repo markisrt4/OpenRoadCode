@@ -17,7 +17,7 @@ class LocalTerrainState:
     reference_height_m: float
     vertical_datum: str
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not (2 <= self.width <= 129 and 2 <= self.height <= 129):
             raise ValueError("Terrain dimensions must be between 2 and 129")
         if len(self.heights_m) != self.width * self.height:
@@ -27,8 +27,8 @@ class LocalTerrainState:
         if not math.isfinite(self.reference_height_m) or not self.vertical_datum.strip():
             raise ValueError("Terrain requires a reference height and source datum")
 
-    def document(self):
-        document = self.coverage.document()
+    def document(self) -> dict[str, object]:
+        document: dict[str, object] = dict(self.coverage.document())
         document.update(
             width=self.width,
             height=self.height,

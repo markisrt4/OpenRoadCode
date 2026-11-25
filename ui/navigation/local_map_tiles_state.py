@@ -12,8 +12,8 @@ class LocalMapTile:
     buildings_count: int
     imagery_available: bool = True
 
-    def document(self):
-        document = {
+    def document(self) -> dict[str, str | float | None]:
+        document: dict[str, str | float | None] = {
             **self.coverage.document(),
             "id": self.tile_id,
             "imagery_url": f"/data/tiles/{self.tile_id}/imagery.jpg"
@@ -30,5 +30,5 @@ class LocalMapTilesState:
     coverage: LocalImageryState
     tiles: tuple[LocalMapTile, ...]
 
-    def document(self):
+    def document(self) -> dict[str, object]:
         return {"coverage": self.coverage.document(), "tiles": [t.document() for t in self.tiles]}

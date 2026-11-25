@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from ui.navigation import GeoPoint
 
 
-def _valid_point(point):
+def _valid_point(point: object) -> bool:
     return (
         isinstance(point, GeoPoint)
         and math.isfinite(point.latitude_rad)
@@ -22,7 +22,7 @@ class RoadOverlayLine:
     points: tuple[GeoPoint, ...]
     label: str = ""
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if (
             self.kind
             not in {
@@ -43,7 +43,7 @@ class RoadOverlayLine:
         ):
             raise ValueError("Invalid SI road segment")
 
-    def document(self):
+    def document(self) -> dict[str, str | list[list[float]]]:
         return {
             "kind": self.kind,
             "points": [[point.longitude_rad, point.latitude_rad] for point in self.points],
@@ -56,11 +56,11 @@ class PlaceOverlayLabel:
     name: str
     point: GeoPoint
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.name.strip() or len(self.name) > 80 or not _valid_point(self.point):
             raise ValueError("Invalid SI place label")
 
-    def document(self):
+    def document(self) -> dict[str, str | list[float]]:
         return {"name": self.name, "position": [self.point.longitude_rad, self.point.latitude_rad]}
 
 
@@ -69,7 +69,7 @@ class RoadOverlayState:
     roads: tuple[RoadOverlayLine, ...] = ()
     places: tuple[PlaceOverlayLabel, ...] = ()
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if (
             not isinstance(self.roads, tuple)
             or not isinstance(self.places, tuple)
@@ -79,7 +79,7 @@ class RoadOverlayState:
         ):
             raise ValueError("Road overlay exceeds immutable tile limits")
 
-    def document(self):
+    def document(self) -> dict[str, object]:
         return {
             "roads": [road.document() for road in self.roads],
             "places": [place.document() for place in self.places],
