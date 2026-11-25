@@ -24,9 +24,7 @@ class RadarReplayHealthSource(Protocol):
     def is_forecast(self) -> bool: ...
 
 
-def radar_imagery_status(
-    controller: RadarReplayHealthSource, clock: Callable[[], float]
-) -> str:
+def radar_imagery_status(controller: RadarReplayHealthSource, clock: Callable[[], float]) -> str:
     tiles = controller.frame_tile_status
     if not isinstance(tiles, RadarTileStatus):
         return "Loading map imagery…"
