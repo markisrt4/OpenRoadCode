@@ -429,7 +429,12 @@ runtime_args=("${FEATURES[@]}" --config "$runtime_config")
 (( MANAGED_RF )) && runtime_args+=(--managed-rf)
 (( RUN_TELEMETRY_SERVICES )) && runtime_args+=(--telemetry-services)
 (( RUN_GPSD_SERVICE )) && runtime_args+=(--gpsd-service)
-"$VERIFY_PYTHON" "$SCRIPT_DIR/verify_runtime.py" "${runtime_args[@]}"
+if [[ -n "${OPENROAD_RUNTIME_REPORT:-}" ]]; then
+  "$VERIFY_PYTHON" "$SCRIPT_DIR/verify_runtime.py" "${runtime_args[@]}" 2>&1 |
+    tee -- "$OPENROAD_RUNTIME_REPORT"
+else
+  "$VERIFY_PYTHON" "$SCRIPT_DIR/verify_runtime.py" "${runtime_args[@]}"
+fi
 
 echo
 echo "[+] $TARGET setup complete."

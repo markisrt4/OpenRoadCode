@@ -229,11 +229,22 @@ if (( WITH_GPSD )); then ARGS+=(--with-gpsd-service); else ARGS+=(--no-gpsd-serv
 if (( WITH_TELEMETRY )); then ARGS+=(--with-telemetry-services); fi
 
 save_settings
+runtime_report="$(mktemp -t openroadcode-runtime.XXXXXX)"
+trap 'rm -f -- "$runtime_report"' EXIT
 while true; do
-  if bash "$PROJECT_DIR/scripts/installers/host_setup.sh" "${ARGS[@]}"; then
+  : > "$runtime_report"
+  status=0
+  OPENROAD_RUNTIME_REPORT="$runtime_report" \
+    bash "$PROJECT_DIR/scripts/installers/host_setup.sh" "${ARGS[@]}" || status=$?
+  if [[ -s "$runtime_report" ]]; then
+    whiptail --title "Runtime verification results" --scrolltext \
+      --textbox "$runtime_report" 20 78 || true
+  elif (( status != 0 )) && [[ "$SELECTED_TARGET" != termux ]]; then
+    whiptail --title "Runtime verification not reached" --msgbox \
+      "Setup stopped before runtime verification. See the preceding terminal output for the error." 10 72 || true
+  fi
+  if (( status == 0 )); then
     break
-  else
-    status=$?
   fi
   if ! whiptail --title "Installation incomplete" --defaultno --yesno \
     "Installation failed (exit $status). Your selections are saved. Retry now? Existing packages will be reused where possible." 12 78; then
