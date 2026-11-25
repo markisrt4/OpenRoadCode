@@ -3,6 +3,7 @@
 
 """Discover composite-reflectivity fields in NOAA's public HRRR GRIB2 archive."""
 
+from collections.abc import Callable
 from datetime import datetime, timezone
 from time import time
 from urllib.parse import quote
@@ -13,7 +14,7 @@ from controllers.weather.hrrr_tiles import check_gdal_tools
 from controllers.weather.radar_provider_if import RadarFrame, RadarProviderIf
 
 
-def reflectivity_range(index: str, run: str):
+def reflectivity_range(index: str, run: str) -> tuple[int, int | None]:
     """Find the REFC entire-atmosphere message and its inclusive byte range."""
     records = []
     for line in index.splitlines():
@@ -46,16 +47,19 @@ class HrrrRadarProvider(RadarProviderIf):
 
     ARCHIVE = "https://noaa-hrrr-bdp-pds.s3.amazonaws.com"
 
-    def __init__(self, *, session=None, timeout_seconds=20.0, clock=time):
+    def __init__(
+        self, *, session: requests.Session | None = None, timeout_seconds: float = 20.0,
+        clock: Callable[[], float] = time,
+    ) -> None:
         self._session = session or requests.Session()
         self._timeout = timeout_seconds
         self._clock = clock
 
     @property
-    def provider_id(self):
+    def provider_id(self) -> str:
         return "hrrr"
 
-    def get_frames(self):
+    def get_frames(self) -> tuple[RadarFrame, ...]:
         check_gdal_tools()
         now = int(self._clock())
         current_hour = now // 3600 * 3600
