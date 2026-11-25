@@ -10,6 +10,8 @@ DATA_ROOT="${DATA_ROOT:-/srv/openroadcode}"
 STAGING_ROOT="${STAGING_ROOT:-/srv/openroadcode-update}"
 BACKUP_ROOT="${BACKUP_ROOT:-/srv/openroadcode-previous}"
 SOURCE="${NAVIGATION_DATA_SOURCE:-}"
+REGION=""
+RELEASE_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/openroadcode/navigation"
 SSH_OPTS="${NAVIGATION_DATA_SSH_OPTS:-}"
 DRY_RUN=0
 FORCE=0
@@ -18,7 +20,7 @@ NO_RESTART=0
 
 usage() {
   cat <<EOF
-Usage: $0 --source USER@HOST:/srv/openroadcode [options]
+Usage: $0 (--source USER@HOST:/srv/openroadcode | --region REGION) [options]
 
 Pull a validated OpenRoadCode map/routing dataset onto this vehicle.
 
@@ -28,6 +30,7 @@ to $DATA_ROOT. The previous deployed dataset is retained at $BACKUP_ROOT.
 
 Options:
   --source SOURCE      rsync/SSH source (or set NAVIGATION_DATA_SOURCE)
+  --region REGION      install a catalogued GitHub release (e.g. us/michigan)
   --dry-run            show rsync changes without modifying data
   --interactive  review dataset and choose optional 3D packs before installing
   --force              deploy even when the remote dataset is older or already installed
@@ -44,6 +47,8 @@ while (( $# > 0 )); do
   case "$1" in
     --source)
       shift; SOURCE="${1:?--source requires a value}" ;;
+    --region)
+      shift; REGION="${1:?--region requires a value}" ;;
     --dry-run) DRY_RUN=1 ;;
     --interactive) INTERACTIVE=1 ;;
     --force) FORCE=1 ;;
@@ -54,13 +59,14 @@ while (( $# > 0 )); do
   shift
 done
 
-[[ -n "$SOURCE" ]] || { echo "--source is required" >&2; usage >&2; exit 2; }
+[[ -n "$SOURCE" || -n "$REGION" ]] || { usage >&2; exit 2; }
+[[ -z "$SOURCE" || -z "$REGION" ]] || { echo "Choose one data source" >&2; exit 2; }
 command -v rsync >/dev/null 2>&1 || { echo "rsync is required" >&2; exit 1; }
 command -v ssh >/dev/null 2>&1 || { echo "ssh is required" >&2; exit 1; }
 
 # Normalize the source so rsync copies the contents rather than nesting the
 # remote openroadcode directory inside staging.
-SOURCE="${SOURCE%/}/"
+if [[ -n "$SOURCE" ]]; then SOURCE="${SOURCE%/}/"; fi
 
 rsync_ssh=(ssh)
 if [[ -n "$SSH_OPTS" ]]; then
@@ -74,8 +80,18 @@ rsync_shell="${rsync_shell% }"
 
 selection_file="$(mktemp)"
 remote_manifest="$(mktemp)"
-trap 'rm -f "$remote_manifest" "$selection_file"' EXIT
+release_work=""
+trap 'rm -f "$remote_manifest" "$selection_file"; if [[ -n "$release_work" ]]; then rm -rf -- "$release_work"; fi' EXIT
 
+if [[ -n "$REGION" ]]; then
+  if (( DRY_RUN )); then
+    echo "Release dry-run: $REGION (no download or deployment)"
+    exit 0
+  fi
+  release_work="$(mktemp -d "$RELEASE_CACHE.stage.XXXXXXXX" 2>/dev/null || { mkdir -p "$(dirname "$RELEASE_CACHE")"; mktemp -d "$RELEASE_CACHE.stage.XXXXXXXX"; })"
+  python3 "$SCRIPT_DIR/download_navigation_release.py" --region "$REGION" --cache "$RELEASE_CACHE" --stage "$release_work/data"
+  cp "$release_work/data/build-manifest.json" "$remote_manifest"
+else
 remote_host="${SOURCE%%:*}"
 remote_path="${SOURCE#*:}"
 remote_manifest_path="${remote_path%/}/build-manifest.json"
@@ -87,6 +103,7 @@ fi
 
 echo "[*] Checking remote navigation-data manifest"
 "${rsync_ssh[@]}" "$remote_host" "cat -- '$remote_manifest_path'" > "$remote_manifest"
+fi
 [[ -s "$remote_manifest" ]] || { echo "Remote build-manifest.json is empty" >&2; exit 1; }
 
 selection_args=(--all)
@@ -196,10 +213,16 @@ for local_dir in cesium map-packs; do
 done
 
 echo "[*] Pulling navigation data from $SOURCE"
+if [[ -n "$REGION" ]]; then
+  rsync -aH --delete-delay --itemize-changes \
+    --exclude='maps/routes/' --exclude=cesium/ --exclude=map-packs/ "${rsync_3d_filters[@]}" \
+    "$release_work/data/" "$STAGING_ROOT/"
+else
 rsync -aH --delete-delay --itemize-changes \
   -e "$rsync_shell" \
   --exclude='maps/routes/' --exclude=cesium/ --exclude=map-packs/ "${rsync_3d_filters[@]}" "${rsync_reuse[@]}" \
   "$SOURCE" "$STAGING_ROOT/"
+fi
 
 # Validation deliberately checks the deployment contract rather than trusting
 # rsync success alone.
