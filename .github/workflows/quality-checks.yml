@@ -46,6 +46,12 @@ jobs:
       - name: Validate Doxygen contracts
         run: python scripts/check_doxygen_contracts.py
 
+      - name: Cache pinned Doxygen
+        uses: actions/cache@v4
+        with:
+          path: .venv-quality/tools
+          key: doxygen-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/install_quality_doxygen.sh') }}
+
       - name: Install Doxygen
         run: |
           python -m venv .venv-quality
