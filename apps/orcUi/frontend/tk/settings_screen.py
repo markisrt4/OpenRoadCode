@@ -39,6 +39,8 @@ class SettingsScreen(TkScreen):
         rf_hardware_config: RfHardwareConfigIf | None = None,
         performance_overlay_enabled: Callable[[], bool] | None = None,
         on_performance_overlay_changed: Callable[[bool], None] | None = None,
+        configure_spotify: Callable[[], None] | None = None,
+        close_spotify_configuration: Callable[[], None] = lambda: None,
     ) -> None:
         super().__init__(self.SCREEN_ID)
         self._host = host
@@ -55,6 +57,8 @@ class SettingsScreen(TkScreen):
         self._host_location_handler: HostLocationRequestHandlerIf | None = None
         self._host_location_state = HostLocationState()
         self._panel = None
+        self._configure_spotify = configure_spotify
+        self._close_spotify_configuration = close_spotify_configuration
 
     def set_host_location_request_handler(self, handler: HostLocationRequestHandlerIf) -> None:
         self._host_location_handler = handler
@@ -65,6 +69,7 @@ class SettingsScreen(TkScreen):
             self._panel.set_host_location_state(state)
 
     def hide(self) -> None:
+        self._close_spotify_configuration()
         self._panel = None
         if self._host_location_handler is not None:
             self._host_location_handler.hide()
@@ -97,4 +102,5 @@ class SettingsScreen(TkScreen):
             rf_hardware_config=self._rf_hardware_config,
             performance_overlay_enabled=self._performance_overlay_enabled,
             on_performance_overlay_changed=self._on_performance_overlay_changed,
+            configure_spotify=self._configure_spotify,
         )
