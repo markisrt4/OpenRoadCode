@@ -6,15 +6,47 @@
 import logging
 import math
 import threading
+from collections.abc import Callable, Collection
 from datetime import datetime, timezone
+from typing import Protocol
 
 from common.logging.structured import operation
-from controllers.weather.route_weather import sample_route
+from controllers.route_planning.route_planning_types import RouteResult
+from controllers.weather.route_weather import RouteCheckpoint, RouteWeather, sample_route
 from controllers.weather.weather_logging import WeatherLog
 from ui.navigation import GeoPoint
 from ui.ui_dispatcher_if import UiDispatcherIf
 from ui.weather.weather_overlay_state import RouteWeatherOverlayState, RouteWeatherPoint
 from ui.weather.weather_overlay_ui_if import WeatherOverlayUiIf
+
+
+class _RouteProvider(Protocol):
+    def forecast(self, checkpoints: tuple[RouteCheckpoint, ...]) -> tuple[RouteWeather, ...]: ...
+    def close(self) -> None: ...
+
+
+class _RouteSource(Protocol):
+    @property
+    def active_route(self) -> RouteResult | None: ...
+    def observe_route(self, callback: Callable[[RouteResult | None], None]) -> None: ...
+
+
+class _GuidanceData(Protocol):
+    @property
+    def route_complete(self) -> bool: ...
+    @property
+    def distance_along_route_m(self) -> float: ...
+    @property
+    def distance_remaining_m(self) -> float: ...
+
+
+class _GuidanceMessage(Protocol):
+    @property
+    def data(self) -> _GuidanceData: ...
+
+
+class _GuidanceSource(Protocol):
+    def observe_route_guidance(self, callback: Callable[[_GuidanceMessage], None]) -> None: ...
 
 
 class RouteWeatherOverlayController:
@@ -23,25 +55,25 @@ class RouteWeatherOverlayController:
     def __init__(
         self,
         dispatcher: UiDispatcherIf,
-        route_handler,
-        presentation,
-        provider,
+        route_handler: _RouteSource,
+        presentation: _GuidanceSource,
+        provider: _RouteProvider,
         ui: WeatherOverlayUiIf,
-    ):
+    ) -> None:
         self._host, self._provider, self._ui = dispatcher, provider, ui
         self._route = route_handler.active_route
-        self._progress = 0
+        self._progress: float = 0
         self._generation = 0
         self._enabled = False
         self._layers = frozenset({"temperature", "rain", "wind"})
-        self._forecasts = ()
+        self._forecasts: tuple[RouteWeather, ...] = ()
         self._status = "Start a route to see weather along the way"
         self._busy = self._closed = False
         self._log = WeatherLog("weather.route")
         route_handler.observe_route(self._route_changed)
         presentation.observe_route_guidance(self._guidance_changed)
 
-    def _route_changed(self, route):
+    def _route_changed(self, route: RouteResult | None) -> None:
         self._generation += 1
         self._route = route
         self._progress = 0
@@ -54,7 +86,7 @@ class RouteWeatherOverlayController:
         if self._enabled and route is not None:
             self.refresh()
 
-    def _guidance_changed(self, message):
+    def _guidance_changed(self, message: _GuidanceMessage) -> None:
         data = message.data
         if data.route_complete:
             self._route_changed(None)
@@ -62,7 +94,7 @@ class RouteWeatherOverlayController:
         total = data.distance_along_route_m + data.distance_remaining_m
         self._progress = max(0, min(1, data.distance_along_route_m / total)) if total > 0 else 0
 
-    def refresh(self):
+    def refresh(self) -> None:
         """Fetch the remaining route at estimated arrival times with one batch request."""
         if self._closed or not self._enabled or self._route is None:
             return
@@ -75,12 +107,12 @@ class RouteWeatherOverlayController:
         self._status = "Loading route forecast…"
         self.publish()
 
-        def load():
+        def load() -> None:
             with operation(operation_id):
                 try:
                     points = sample_route(route, datetime.now(timezone.utc), progress)
                     forecasts = self._provider.forecast(points)
-                    error = None
+                    error: str | None = None
                     self._log.succeeded(item_count=len(forecasts))
                 except Exception as failure:
                     self._log.failed(failure)
@@ -96,7 +128,13 @@ class RouteWeatherOverlayController:
             threading.Thread(target=load, name="route-weather", daemon=True), operation_id
         )
 
-    def _complete(self, generation, forecasts, error, operation_id=None):
+    def _complete(
+        self,
+        generation: int,
+        forecasts: tuple[RouteWeather, ...],
+        error: str | None,
+        operation_id: str | None = None,
+    ) -> None:
         self._busy = False
         if self._closed:
             self._log.stale(operation_id)
@@ -121,7 +159,7 @@ class RouteWeatherOverlayController:
             self._status = f"Updated {datetime.now().strftime('%I:%M %p').lstrip('0')} · Open-Meteo"
         self.publish()
 
-    def set_enabled(self, enabled):
+    def set_enabled(self, enabled: bool) -> None:
         """Enable route forecasts or clear the last route snapshot."""
         previous = self._enabled
         self._enabled = bool(enabled)
@@ -142,14 +180,14 @@ class RouteWeatherOverlayController:
         if self._enabled:
             self.refresh()
 
-    def set_layers(self, layers):
+    def set_layers(self, layers: Collection[str]) -> None:
         """Choose checkpoint fields without another provider request."""
         if not set(layers) <= {"temperature", "rain", "wind"}:
             raise ValueError("Unknown route weather layer")
         self._layers = frozenset(layers)
         self.publish()
 
-    def publish(self):
+    def publish(self) -> None:
         """Emit a renderer-neutral checkpoint snapshot using normalized SI values."""
         if self._closed:
             return
@@ -171,7 +209,7 @@ class RouteWeatherOverlayController:
             RouteWeatherOverlayState(self._enabled, self._layers, self._status, points)
         )
 
-    def close(self):
+    def close(self) -> None:
         """Invalidate pending forecasts and close the provider connection pool."""
         if self._closed:
             return
