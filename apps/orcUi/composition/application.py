@@ -25,8 +25,14 @@ from apps.orcUi.composition.core import CoreComposition, create_core_composition
 from apps.orcUi.cesium_map_runtime import CesiumMapRuntime
 from apps.launchers.cesium_embedded_viewer import CesiumEmbeddedViewer
 from controllers.navigation.current_position import get_current_position
+from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
 from ui.navigation.cesium_viewer_state import CesiumViewerState
 from ui.navigation import GeoPoint
+from apps.orcUi.composition.calendar import (
+    CalendarConfiguration,
+    configure_calendar,
+    create_home_calendar_factory,
+)
 from apps.orcUi.composition.games import configure_games
 from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
 from apps.orcUi.composition.tooltips import TooltipFactory
@@ -64,6 +70,7 @@ class OrcUiComposition:
     weather: WeatherComposition
     vision: VisionComposition | None = None
     home: HomeScreen | None = None
+    appointment_monitor: AppointmentMonitorIf | None = None
     navigation: NavigationScreen | None = None
     vehicle: VehicleScreen | None = None
     offroad: OffRoadScreen | None = None
@@ -109,6 +116,7 @@ class OrcUiComposition:
             *(
                 resource.close
                 for resource in (
+                    self.appointment_monitor,
                     self.host_location,
                     self.performance_status,
                     self.performance,
@@ -369,6 +377,10 @@ def create_orc_ui_composition(
         app.register_screen("OFF-ROAD", offroad, show_in_navigation=False)
         app.register_screen("SETTINGS", settings, show_in_navigation=False)
         app.register_screen("DIAGNOSTICS", diagnostics, show_in_navigation=False)
+        calendar_config = CalendarConfiguration()
+        configure_calendar(app, calendar_config)
+        calendar_factory = create_home_calendar_factory(app, calendar_config)
+        home.set_calendar_factory(calendar_factory, calendar_factory.monitor)
         app.set_initial_destination("HOME")
         app.set_settings_action(lambda: app.navigate_to("SETTINGS"))
         _report(progress, "screens", "Application screens loaded")
@@ -381,6 +393,7 @@ def create_orc_ui_composition(
             weather=weather,
             vision=vision,
             home=home,
+            appointment_monitor=calendar_factory.monitor,
             navigation=navigation,
             vehicle=vehicle,
             offroad=offroad,

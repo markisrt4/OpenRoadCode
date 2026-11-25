@@ -50,8 +50,11 @@ class SystemdServiceManager:
         "openroadcode-navigation": "openroadcode-navigation.service",
         "openroadcode-automotive": "openroadcode-automotive.service",
         "openroadcode-adsb": "readsb.service",
+        "openroadcode-carbonate": "openroadcode-carbonate.service",
+        "openroadcode-calendar-sync": "openroadcode-calendar-sync.service",
         "openroadcode-sdrforge": "libsdrforge.service",
     }
+    USER_UNITS = frozenset({"openroadcode-carbonate.service", "openroadcode-calendar-sync.service"})
     USER_SERVICE_UNITS = frozenset({"libsdrforge.service"})
     SERVICES = tuple(SERVICE_UNITS)
     CORE_STACK = (
@@ -237,7 +240,9 @@ class SystemdServiceManager:
             command = ["sudo", "-n", "/usr/local/sbin/orc-sdrforge-user-service", action]
         else:
             command = [SYSTEMCTL_BIN, action, unit, *extra]
-            if action in PRIVILEGED_ACTIONS:
+            if unit in SystemdServiceManager.USER_UNITS:
+                command.insert(1, "--user")
+            elif action in PRIVILEGED_ACTIONS:
                 command = ["sudo", "-n", *command]
         service = next(
             (

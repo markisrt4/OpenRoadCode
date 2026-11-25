@@ -8,6 +8,7 @@ from __future__ import annotations
 import tkinter as tk
 from collections.abc import Callable
 
+from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
 from ui.navigation.map_runtime_if import MapRuntimeIf
 from apps.orcUi.frontend.tk.presentation_state import OrcUiPresentationState
 from apps.orcUi.navigation_presenter import (
@@ -131,16 +132,25 @@ class HomeScreen(TkScreen):
         self._on_radar_toggle = on_radar_toggle
         self._refresh_radar = refresh_radar
 
+        self._appointment_monitor: AppointmentMonitorIf | None = None
+        self._calendar_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._radio_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._media_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._visualizer_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._map_panel: HomeMapPanel | None = None
         self._context_rail: ContextRail | None = None
+        self._context_selection: tuple[str, dict[str, int]] | None = None
 
     @property
     def context_rail(self) -> ContextRail | None:
         """Return the active HOME context rail, when HOME is displayed."""
         return self._context_rail
+
+    def set_calendar_factory(
+        self, factory: Callable[[tk.Misc], tk.Widget], monitor: AppointmentMonitorIf
+    ) -> None:
+        self._appointment_monitor = monitor
+        self._calendar_factory = factory
 
     def set_radio_factory(
         self,
@@ -188,6 +198,7 @@ class HomeScreen(TkScreen):
 
     def show(self) -> None:
         """Build HOME content and start its embedded map renderer."""
+        self._remember_context()
         self._host.activate_screen(self)
         self._host.clear_screen_content()
         self._host.set_screen_title("")
@@ -208,6 +219,13 @@ class HomeScreen(TkScreen):
             on_radar_toggle=self._on_radar_toggle,
         )
 
+        if self._calendar_factory is not None and self._appointment_monitor is not None:
+            self._context_rail.set_calendar_factory(
+                self._calendar_factory, self._appointment_monitor
+            )
+        if self._context_selection is not None:
+            self._context_rail.restore_selection(self._context_selection)
+
         if self._telemetry_profile_request is not None:
             self._telemetry_profile_request(AutomotiveTelemetryProfile.HOME)
 
@@ -219,9 +237,15 @@ class HomeScreen(TkScreen):
 
     def hide(self) -> None:
         """Stop transient HOME resources when navigating away."""
+        self._remember_context()
         self._map_runtime.stop()
         self._map_panel = None
         self._context_rail = None
+
+    def _remember_context(self) -> None:
+        context = self._context_rail
+        if context is not None and context.winfo_exists():
+            self._context_selection = context.selection()
 
     def refresh_radar_state(self) -> None:
         """Refresh the mounted Home toggle after shared radar-state changes."""

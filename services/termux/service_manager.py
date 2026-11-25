@@ -53,6 +53,8 @@ class RunitServiceManager:
         "openroadcode-navigation",
         "openroadcode-automotive",
         "openroadcode-adsb",
+        "openroadcode-carbonate",
+        "openroadcode-calendar-sync",
         "openroadcode-sdrforge",
     )
     CORE_STACK = (

@@ -13,6 +13,7 @@ from dataclasses import asdict, replace
 
 from common.logging.structured import event, operation
 
+from controllers.system.calendar_health_sampler import sample_calendar_health
 from controllers.system.system_diagnostics_controller import SystemDiagnosticsController
 from controllers.system.orc_process_sampler import OrcProcessSampler
 from controllers.system.service_socket_sampler import ServiceSocketSampler
@@ -179,6 +180,7 @@ class SystemPerformanceMonitor:
                 sample = replace(
                     sample,
                     network_usb=self._inventory,
+                    calendar_health=sample_calendar_health(),
                     workload=workload,
                     sensors=self._sensor_monitor.snapshots(),
                     sensor_monitor_status=self._sensor_monitor.status,
