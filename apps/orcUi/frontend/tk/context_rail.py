@@ -18,6 +18,7 @@ from apps.orcUi.trip_presenter import TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from frontends.tk.automotive import FuelLevelGauge
 from frontends.tk.automotive.vehicle_gauge_widgets import LinearGauge, RoundGauge
+from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
 from ui.theme import ThemeBundle, ThemeMode
 from .shell_metrics import CONTEXT_RAIL_WIDTH, FONT_BODY, FONT_CONTROL, FONT_SMALL
 from ui.ui_widget import UiWidget
@@ -62,6 +63,7 @@ class ContextRail(tk.Frame, UiWidget, ContextVehiclePanel):
         self._trip_value_labels: dict[str, tk.Label] = {}
         self._gear_value_label: tk.Label | None = None
         self._offroad_panel: ContextOffroadPanel | None = None
+        self._appointment_monitor: AppointmentMonitorIf | None = None
         self._calendar_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._calendar_timer = None
         self._personal_tab = None
@@ -131,7 +133,10 @@ class ContextRail(tk.Frame, UiWidget, ContextVehiclePanel):
         self._page_index = self._group_pages[self._group] % len(self._pages())
         self._rebuild()
 
-    def set_calendar_factory(self, factory: Callable[[tk.Misc], tk.Widget]) -> None:
+    def set_calendar_factory(
+        self, factory: Callable[[tk.Misc], tk.Widget], monitor: AppointmentMonitorIf
+    ) -> None:
+        self._appointment_monitor = monitor
         self._calendar_factory = factory
         self._rebuild()
         if self._calendar_timer is None:
@@ -139,7 +144,7 @@ class ContextRail(tk.Frame, UiWidget, ContextVehiclePanel):
 
     def _poll_calendar(self) -> None:
         self._calendar_timer = None
-        monitor = getattr(self._calendar_factory, "monitor", None)
+        monitor = self._appointment_monitor
         if monitor is None:
             return
         monitor.poll()
