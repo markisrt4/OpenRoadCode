@@ -3,11 +3,12 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
-try:
+if sys.version_info >= (3, 11):
     import tomllib
-except ModuleNotFoundError:  # Python 3.10
+else:  # Python 3.10
     import tomli as tomllib
 
 from ui.automotive.vehicle_configuration import EngineInductionType, VehicleConfiguration
