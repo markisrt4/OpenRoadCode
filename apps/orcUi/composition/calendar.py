@@ -63,7 +63,7 @@ def configure_calendar(app, config: CalendarConfiguration | None = None):
             parent,
             agenda=CalendarAgendaPresentation(
                 config.query(),
-                lambda: calendar_health_view(config.cache_path.with_suffix(".health.json"))
+                lambda: calendar_health_view(config.cache_path.with_suffix(".health.json")),
             ),
             theme=theme_bundle(app.theme_mode),
             zone=config.zone,
