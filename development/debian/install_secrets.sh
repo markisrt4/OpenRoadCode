@@ -8,6 +8,7 @@ SECRETS_FILE="${SECRETS_FILE:-/etc/openroadcode/secrets.env}"
 INSTALL_OWNER="$(id -un)"
 INSTALL_GROUP="$(id -gn)"
 declare -A UPDATES=()
+PROMPT_YOUTUBE=0
 
 usage() {
     cat <<EOF
@@ -16,6 +17,7 @@ Usage: $(basename "$0") [options]
 Configure OpenRoadCode secrets on Debian/Linux while preserving unrelated entries.
 
 Options:
+  --prompt-youtube           Prompt privately for a YouTube API key
   --youtube-api-key KEY      Set YOUTUBE_API_KEY
   --spotify-client-id ID     Set SPOTIFY_CLIENT_ID
   --spotify-redirect-uri URI Set SPOTIFY_REDIRECT_URI
@@ -43,6 +45,10 @@ set_update() {
 
 while (( $# > 0 )); do
     case "$1" in
+        --prompt-youtube)
+            PROMPT_YOUTUBE=1
+            shift
+            ;;
         --youtube-api-key)
             (( $# >= 2 )) || fail "--youtube-api-key requires a value"
             set_update "YOUTUBE_API_KEY" "$2"
@@ -73,6 +79,13 @@ while (( $# > 0 )); do
     esac
 done
 
+if (( PROMPT_YOUTUBE )); then
+    read -r -s -p "YouTube Data API key (blank to skip): " youtube_api_key || exit 0
+    echo
+    [[ -n "$youtube_api_key" ]] || exit 0
+    set_update YOUTUBE_API_KEY "$youtube_api_key"
+fi
+
 if (( ${#UPDATES[@]} == 0 )); then
     echo
     echo "OpenRoadCode Secrets Setup (Debian/Linux)"
@@ -80,6 +93,7 @@ if (( ${#UPDATES[@]} == 0 )); then
     echo
     read -r -p "Spotify client ID: " spotify_client_id
     spotify_client_id="${spotify_client_id//[[:space:]]/}"
+    [[ -n "$spotify_client_id" ]] || exit 0
     set_update "SPOTIFY_CLIENT_ID" "$spotify_client_id"
 
     read -r -p "Spotify redirect URI [http://127.0.0.1:8888/callback]: " spotify_redirect_uri
