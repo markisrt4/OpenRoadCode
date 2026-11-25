@@ -7,6 +7,7 @@ import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from itertools import pairwise
+from typing import Any
 
 import requests
 
@@ -81,7 +82,7 @@ def sample_route(
     else:
         times = [value * route.duration_seconds / elapsed for value in times]
 
-    def interpolate(distance):
+    def interpolate(distance: float) -> tuple[GeoPoint, float]:
         index = next(
             (i for i in range(1, len(distances)) if distances[i] >= distance), len(distances) - 1
         )
@@ -116,7 +117,7 @@ def sample_route(
 class RouteWeatherProvider:
     """Fetch a single batch of hourly forecasts in UTC for route checkpoints."""
 
-    def __init__(self, session=None):
+    def __init__(self, session: requests.Session | None = None) -> None:
         self._session = session or requests.Session()
 
     def close(self) -> None:
@@ -126,18 +127,19 @@ class RouteWeatherProvider:
     def forecast(self, checkpoints: tuple[RouteCheckpoint, ...]) -> tuple[RouteWeather, ...]:
         if not checkpoints:
             return ()
+        params: dict[str, str | int] = {
+            "latitude": ",".join(str(c.point.latitude) for c in checkpoints),
+            "longitude": ",".join(str(c.point.longitude) for c in checkpoints),
+            "hourly": "temperature_2m,precipitation_probability,wind_speed_10m,weather_code",
+            "timezone": "UTC",
+            "timeformat": "unixtime",
+            "forecast_days": 7,
+            "temperature_unit": "celsius",
+            "wind_speed_unit": "kmh",
+        }
         response = self._session.get(
             OpenMeteoWeatherProvider.URL,
-            params={
-                "latitude": ",".join(str(c.point.latitude) for c in checkpoints),
-                "longitude": ",".join(str(c.point.longitude) for c in checkpoints),
-                "hourly": "temperature_2m,precipitation_probability,wind_speed_10m,weather_code",
-                "timezone": "UTC",
-                "timeformat": "unixtime",
-                "forecast_days": 7,
-                "temperature_unit": "celsius",
-                "wind_speed_unit": "kmh",
-            },
+            params=params,
             timeout=15,
         )
         response.raise_for_status()
@@ -156,7 +158,13 @@ class RouteWeatherProvider:
             if abs(times[index] - arrival) > 3600:
                 raise ValueError("Route arrival is outside the available hourly forecast")
 
-            def value(key, low, high, hourly=hourly, index=index):
+            def value(
+                key: str,
+                low: float,
+                high: float,
+                hourly: dict[str, Any] = hourly,
+                index: int = index,
+            ) -> float | None:
                 values = hourly.get(key, [])
                 item = values[index] if index < len(values) else None
                 return (
