@@ -18,12 +18,20 @@ ANCHOR = 1791028800
 CITY = WeatherCity("Detroit", 42.33, -83.05)
 
 
-def component():
+class TestableOverlay(CityWeatherOverlayController):
+    native: Mock
+    _host: Mock
+    _provider: Mock
+    _source: Mock
+    sink: WeatherOverlayUiStub
+
+
+def component() -> TestableOverlay:
     source = Mock()
     source.poll.return_value = None
     native, sink = Mock(), WeatherOverlayUiStub()
     group = WeatherOverlayUiGroup(MapWeatherOverlayUi(native, lambda: UnitSystem.IMPERIAL), sink)
-    ui = CityWeatherOverlayController(
+    ui = TestableOverlay(
         Mock(), Mock(), source, native.search_weather_cities, group, clock=lambda: ANCHOR
     )
     ui.native, ui.sink = native, sink
@@ -31,7 +39,7 @@ def component():
     return ui
 
 
-def weather():
+def weather() -> tuple[CityWeatherHours, ...]:
     return (
         CityWeatherHours(
             CITY,
@@ -43,7 +51,7 @@ def weather():
     )
 
 
-def test_city_query_timeout_reports_transport_failure_and_retries():
+def test_city_query_timeout_reports_transport_failure_and_retries() -> None:
     ui = component()
     ui.enabled = True
     ui._pending_id = 1
@@ -56,7 +64,7 @@ def test_city_query_timeout_reports_transport_failure_and_retries():
     ui._host.schedule_ui_callback.assert_called_once()
 
 
-def test_label_field_and_units_change_locally_without_resetting_radar_route_or_camera():
+def test_label_field_and_units_change_locally_without_resetting_radar_route_or_camera() -> None:
     ui = component()
     ui.enabled = True
     ui._complete(0, weather(), None)
@@ -80,19 +88,20 @@ def test_label_field_and_units_change_locally_without_resetting_radar_route_or_c
     ui.native.set_route_weather.assert_not_called()
 
 
-def test_late_previous_viewport_weather_cannot_replace_current_labels():
+def test_late_previous_viewport_weather_cannot_replace_current_labels() -> None:
     ui = component()
     ui.enabled = True
     ui._visible = True
     ui._generation = 2
-    ui.refresh = Mock()
+    refresh = Mock()
+    ui.refresh = refresh
     ui._complete(1, weather(), None)
     assert ui._weather == ()
-    ui.refresh.assert_called_once()
+    refresh.assert_called_once()
     ui.native.set_city_weather.assert_not_called()
 
 
-def test_off_and_closed_reject_late_weather_and_clear_labels():
+def test_off_and_closed_reject_late_weather_and_clear_labels() -> None:
     ui = component()
     ui.set_enabled(False)
     ui._complete(0, weather(), None)
@@ -104,7 +113,7 @@ def test_off_and_closed_reject_late_weather_and_clear_labels():
     ui._source.close.assert_called_once()
 
 
-def test_failed_refresh_clears_stale_numbers_and_stops_playback():
+def test_failed_refresh_clears_stale_numbers_and_stops_playback() -> None:
     ui = component()
     ui.enabled = True
     ui._visible = True
@@ -116,7 +125,7 @@ def test_failed_refresh_clears_stale_numbers_and_stops_playback():
     assert ui.native.set_city_weather.call_args.args[0]["features"] == []
 
 
-def test_history_plays_toward_now_but_precipitation_accumulations_grow():
+def test_history_plays_toward_now_but_precipitation_accumulations_grow() -> None:
     ui = component()
     ui.enabled = True
     ui._visible = True
@@ -134,7 +143,7 @@ def test_history_plays_toward_now_but_precipitation_accumulations_grow():
     assert not ui.playing and ui.hours == 2
 
 
-def test_queued_old_playback_tick_does_not_run_after_play_pause_play():
+def test_queued_old_playback_tick_does_not_run_after_play_pause_play() -> None:
     ui = component()
     ui.enabled = True
     ui._visible = True
@@ -147,21 +156,22 @@ def test_queued_old_playback_tick_does_not_run_after_play_pause_play():
     assert ui.hours == 1
 
 
-def test_cached_viewport_does_not_make_another_api_request_and_ignores_old_reply_ids():
+def test_cached_viewport_does_not_make_another_api_request_and_ignores_old_reply_ids() -> None:
     ui = component()
     ui.enabled = True
     ui._complete(0, weather(), None)
     ui._cities = ()
     ui._pending_id = 3
     ui._source.poll.side_effect = [(2, (WeatherCity("Old", 1, 2),)), (3, (CITY,)), None]
-    ui.refresh = Mock()
+    refresh = Mock()
+    ui.refresh = refresh
     ui._drain_cities()
     assert ui._cities == (CITY,)
     assert ui._weather == weather()
-    ui.refresh.assert_not_called()
+    refresh.assert_not_called()
 
 
-def test_missing_city_names_provide_zoom_hint_and_clear_overlay():
+def test_missing_city_names_provide_zoom_hint_and_clear_overlay() -> None:
     ui = component()
     ui.enabled = True
     ui._pending_id = 1
@@ -170,7 +180,7 @@ def test_missing_city_names_provide_zoom_hint_and_clear_overlay():
     assert "zoom out" in ui.status
 
 
-def test_hourly_caption_includes_selected_period_and_precipitation_window():
+def test_hourly_caption_includes_selected_period_and_precipitation_window() -> None:
     ui = component()
     ui._anchor = ANCHOR
     ui.publish()
@@ -181,7 +191,7 @@ def test_hourly_caption_includes_selected_period_and_precipitation_window():
     )
 
 
-def test_city_reply_validation_drops_invalid_coordinates_and_duplicates():
+def test_city_reply_validation_drops_invalid_coordinates_and_duplicates() -> None:
     good = {"name": "Detroit", "latitude": 42.33, "longitude": -83.05}
     reply = decode_city_result(
         {
@@ -199,7 +209,7 @@ def test_city_reply_validation_drops_invalid_coordinates_and_duplicates():
     assert decode_city_result({"request_id": True, "cities": [good]}) is None
 
 
-def test_hidden_navigation_cannot_publish_city_numbers_over_the_home_map():
+def test_hidden_navigation_cannot_publish_city_numbers_over_the_home_map() -> None:
     ui = component()
     ui.enabled = True
     ui._complete(0, weather(), None)
@@ -211,7 +221,7 @@ def test_hidden_navigation_cannot_publish_city_numbers_over_the_home_map():
     assert ui.native.set_city_weather.call_args.args[0]["features"]
 
 
-def test_controller_publishes_si_values_and_radian_coordinates_to_any_ui():
+def test_controller_publishes_si_values_and_radian_coordinates_to_any_ui() -> None:
     from math import radians
 
     ui = component()
