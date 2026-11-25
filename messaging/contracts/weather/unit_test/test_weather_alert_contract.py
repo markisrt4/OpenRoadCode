@@ -22,7 +22,7 @@ from messaging.contracts.weather import (
 )
 
 
-def _alert():
+def _alert() -> WeatherAlert:
     return WeatherAlert(
         identifier="urn:nws:alert:test-123",
         event="Severe Thunderstorm Warning",
@@ -40,11 +40,11 @@ def _alert():
     )
 
 
-def _event():
+def _event() -> WeatherAlertEvent:
     return WeatherAlertEvent(_alert(), "corr-1", WeatherAlertOperation.ACTIVE)
 
 
-def test_encode_preserves_lifecycle_fields():
+def test_encode_preserves_lifecycle_fields() -> None:
     p = encode_weather_alert(_event())
     assert p["version"] == 1 and p["source"] == "nws"
     assert p["data"]["identifier"] == "urn:nws:alert:test-123"
@@ -52,12 +52,12 @@ def test_encode_preserves_lifecycle_fields():
     assert p["data"]["operation"] == "active" and p["data"]["clear_reason"] is None
 
 
-def test_decode_returns_typed_message():
+def test_decode_returns_typed_message() -> None:
     m = decode_weather_alert(encode_weather_alert(_event()))
     assert m.data.identifier == "urn:nws:alert:test-123" and m.data.correlation_id == "corr-1"
 
 
-def test_nullable_fields_are_supported():
+def test_nullable_fields_are_supported() -> None:
     a = _alert()
     a = WeatherAlert(
         a.identifier,
@@ -82,21 +82,21 @@ def test_nullable_fields_are_supported():
     )
 
 
-def test_validator_rejects_unknown_severity():
+def test_validator_rejects_unknown_severity() -> None:
     p = encode_weather_alert(_event())
     p["data"]["severity"] = "catastrophically-inconvenient"
     with pytest.raises(ValueError):
         validate_weather_alert(p)
 
 
-def test_validator_rejects_naive_timestamp():
+def test_validator_rejects_naive_timestamp() -> None:
     p = encode_weather_alert(_event())
     p["data"]["effective_at"] = "2026-09-17T18:00:00"
     with pytest.raises(ValueError):
         validate_weather_alert(p)
 
 
-def test_publisher_uses_weather_alert_topic():
+def test_publisher_uses_weather_alert_topic() -> None:
     transport = Mock()
     WeatherAlertPublisher(transport).publish(_event())
     topic, payload = transport.publish.call_args.args

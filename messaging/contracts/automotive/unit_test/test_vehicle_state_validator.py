@@ -4,6 +4,7 @@
 """Tests for diagnostic vehicle-state schema validation."""
 
 from datetime import datetime, timezone
+from typing import Any
 
 import pytest
 
@@ -12,7 +13,7 @@ from messaging.contracts.automotive.vehicle_state_codec import encode_vehicle_st
 from messaging.contracts.automotive.vehicle_state_validator import validate_vehicle_state
 
 
-def _valid_payload():
+def _valid_payload() -> dict[str, Any]:
     return encode_vehicle_state(
         VehicleState(timestamp=datetime.now(timezone.utc)),
         source="test-automotive",

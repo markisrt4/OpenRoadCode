@@ -5,6 +5,7 @@
 
 import json
 import time
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 from unittest.mock import Mock, patch
@@ -13,23 +14,23 @@ from messaging.zeromq.publisher import ZeroMqPublisher
 
 
 class RecordingSocket:
-    def __init__(self):
-        self.pending = []
-        self.messages = []
+    def __init__(self) -> None:
+        self.pending: list[bytes] = []
+        self.messages: list[list[bytes]] = []
 
-    def connect(self, endpoint):
+    def connect(self, endpoint: str) -> None:
         pass
 
-    def send_string(self, topic, flags):
+    def send_string(self, topic: str, flags: int) -> None:
         self.pending.append(topic.encode())
         time.sleep(0.001)  # Allow the other producer between multipart frames.
 
-    def send_json(self, payload):
+    def send_json(self, payload: object) -> None:
         self.pending.append(json.dumps(payload).encode())
         self.messages.append(self.pending)
         self.pending = []
 
-    def send_multipart(self, frames):
+    def send_multipart(self, frames: Sequence[bytes]) -> None:
         # Simulate GIL-releasing transport work within a multipart send.
         self.pending.append(frames[0])
         time.sleep(0.001)
@@ -37,11 +38,11 @@ class RecordingSocket:
         self.messages.append(self.pending)
         self.pending = []
 
-    def close(self, linger):
+    def close(self, linger: int) -> None:
         assert not self.pending
 
 
-def test_parallel_camera_and_marker_publications_keep_two_matching_frames():
+def test_parallel_camera_and_marker_publications_keep_two_matching_frames() -> None:
     socket = RecordingSocket()
     context = Mock()
     context.socket.return_value = socket
@@ -49,7 +50,7 @@ def test_parallel_camera_and_marker_publications_keep_two_matching_frames():
         publisher = ZeroMqPublisher()
         barrier = Barrier(4)
 
-        def produce(worker):
+        def produce(worker: int) -> None:
             barrier.wait(timeout=2)
             for sequence in range(20):
                 publisher.publish(f"producer.{worker}", {"worker": worker, "sequence": sequence})
