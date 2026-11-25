@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from getpass import getpass
@@ -40,18 +41,30 @@ def main() -> None:
                 account.account_id, account.provider, "enabled" if account.enabled else "disabled"
             )
         return
-    account_id = args.account_id or input("Account ID: ").strip()
+    account_id = args.account_id
+    if args.action != "add" and account_id is None:
+        account_id = input("Account ID: ").strip()
     if args.action == "add":
-        if any(account.account_id == account_id for account in accounts):
-            parser.error("Account ID already exists")
         provider = args.provider or input("Provider (caldav/proton): ").strip().lower()
         username = input("Calendar username: ").strip()
+        if account_id is None:
+            base = re.sub(r"[^a-z0-9_]+", "_", f"{provider}_{username.lower()}")[:55]
+            account_id = base
+            suffix = 2
+            while any(account.account_id == account_id for account in accounts):
+                account_id = f"{base}_{suffix}"
+                suffix += 1
+        if any(account.account_id == account_id for account in accounts):
+            parser.error("Account ID already exists")
         default = args.endpoint_default
         if provider == "proton":
             default = default or "http://127.0.0.1:8080/caldav/"
         prompt = f"CalDAV endpoint [{default}]: " if default else "CalDAV endpoint: "
         url = input(prompt).strip() or default
-        account = CalendarAccount(account_id, provider, username, url)
+        try:
+            account = CalendarAccount(account_id, provider, username, url)
+        except ValueError as exc:
+            parser.error(str(exc))
         secrets = EnvironmentVariableSecretManager()
         password = getpass("Calendar password or app password: ")
         if not password.strip():
