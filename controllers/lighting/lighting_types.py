@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from enum import Enum
+from typing import TypedDict, Unpack
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +41,18 @@ class CustomPatternMode(Enum):
     HOP = 7
 
 
+class _LightingChanges(TypedDict, total=False):
+    connected: bool
+    power_enabled: bool
+    color: RgbColor
+    brightness_percent: int
+    color_temperature_percent: int
+    pattern_index: int
+    music_mode: int
+    custom_pattern_mode: CustomPatternMode
+    custom_pattern_forward: bool
+
+
 @dataclass(frozen=True, slots=True)
 class LightingState:
     """Immutable snapshot of lighting connection and output settings."""
@@ -70,7 +83,7 @@ class LightingState:
         _validate_range("pattern_index", self.pattern_index, 0, 210)
         _validate_range("music_mode", self.music_mode, 0, 255)
 
-    def updated(self, **changes: object) -> "LightingState":
+    def updated(self, **changes: Unpack[_LightingChanges]) -> "LightingState":
         """Return a copy with selected fields replaced.
 
         @param changes Field names and replacement values.
