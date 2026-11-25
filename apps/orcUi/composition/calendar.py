@@ -17,6 +17,7 @@ from controllers.calendar.calendar_presentation import (
     event_view,
 )
 from controllers.calendar.calendar_event_cache import CalendarEventCache
+from controllers.calendar.calendar_coverage import covered_calendar_days
 from controllers.calendar.calendar_query_if import CalendarQueryIf
 from controllers.calendar.upcoming_appointments import upcoming_appointments
 from ui.calendar.calendar_models import AppointmentSnapshot
@@ -64,6 +65,15 @@ def configure_calendar(app, config: CalendarConfiguration | None = None):
             agenda=CalendarAgendaPresentation(
                 config.query(),
                 lambda: calendar_health_view(config.cache_path.with_suffix(".health.json")),
+                lambda day, days: covered_calendar_days(
+                    CalendarEventCache(config.cache_path),
+                    config.account_id,
+                    config.selection_path,
+                    config.cache_path.with_suffix(".catalog.json"),
+                    config.zone,
+                    day,
+                    days,
+                ),
             ),
             theme=theme_bundle(app.theme_mode),
             zone=config.zone,
