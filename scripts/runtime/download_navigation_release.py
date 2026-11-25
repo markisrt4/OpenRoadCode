@@ -80,6 +80,7 @@ def main() -> None:
     parser.add_argument("--region", required=True)
     parser.add_argument("--cache", required=True, type=Path)
     parser.add_argument("--stage", required=True, type=Path)
+    parser.add_argument("--manifest-only", action="store_true")
     args = parser.parse_args()
     catalog = json.loads(
         Path(__file__).with_name("navigation-data-catalog.json").read_text(
@@ -96,7 +97,12 @@ def main() -> None:
     names = [*entry["parts"], "build-manifest.json"]
     download(f"{base}/SHA256SUMS", cache / "SHA256SUMS")
     checksums = parse_checksums(cache / "SHA256SUMS", names)
-    for name in names:
+    download(f"{base}/build-manifest.json", cache / "build-manifest.json", checksums["build-manifest.json"])
+    if args.manifest_only:
+        args.stage.mkdir(parents=True, exist_ok=False)
+        shutil.copyfile(cache / "build-manifest.json", args.stage / "build-manifest.json")
+        return
+    for name in entry["parts"]:
         download(f"{base}/{name}", cache / name, checksums[name])
     parts = [cache / name for name in entry["parts"]]
     if sum(part.stat().st_size for part in parts) != entry["archive_bytes"]:
