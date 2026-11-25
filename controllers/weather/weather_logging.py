@@ -93,9 +93,7 @@ class WeatherLog:
             operation_id,
         )
 
-    def changed(
-        self, key: str, value: object, name: str, message: str, **fields: object
-    ) -> None:
+    def changed(self, key: str, value: object, name: str, message: str, **fields: object) -> None:
         with self._lock:
             if key in self._states and self._states[key] == value:
                 return
