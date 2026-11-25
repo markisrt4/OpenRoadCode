@@ -121,6 +121,10 @@ class UpcomingPanel(tk.Frame, UiWidget):
     def _navigate(self, snapshot):
         journey = snapshot.journey
         handler = self._route_handler
+        if self._closed or self._monitor.failed:
+            return
+        if isinstance(handler, AsyncRouteRequestIf) and handler.route_start_pending:
+            return
         if journey is None or journey.destination is None or handler is None:
             return
         if journey.event is None or journey.event not in snapshot.events:
@@ -143,6 +147,10 @@ class UpcomingPanel(tk.Frame, UiWidget):
             or current.journey.destination_label != journey.destination_label
             or current.journey.destination != journey.destination
         ):
+            return
+        if isinstance(handler, AsyncRouteRequestIf) and handler.route_start_pending:
+            return
+        if TravelMode.AUTO not in handler.supported_travel_modes:
             return
         try:
             if isinstance(handler, AsyncRouteRequestIf):
