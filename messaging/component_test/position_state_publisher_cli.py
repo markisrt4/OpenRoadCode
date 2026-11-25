@@ -18,7 +18,7 @@ from messaging.contracts.navigation import (
 from messaging.zeromq import ZeroMqPublisher
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--endpoint", default="tcp://127.0.0.1:5556")
     parser.add_argument("--rate-hz", type=float, default=5.0)
@@ -26,7 +26,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():
+def main() -> None:
     args = parse_args()
     publisher = ZeroMqPublisher(args.endpoint)
     position_publisher = PositionStatePublisher(publisher)
@@ -38,8 +38,7 @@ def main():
     motion = None
     try:
         while True:
-            fresh = state is None or sample_index % fresh_every == 0
-            if fresh:
+            if state is None or motion is None or sample_index % fresh_every == 0:
                 now = datetime.now(timezone.utc)
                 altitude = 250.0 + 20.0 * math.sin(phase / 2.0)
                 vertical_speed = 1.6 * math.cos(phase / 2.0)

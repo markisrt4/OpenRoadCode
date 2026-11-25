@@ -12,6 +12,8 @@ import time
 from messaging.contracts.navigation import (
     ATTITUDE_STATE_TOPIC,
     IMU_STATE_TOPIC,
+    AttitudeStateMessage,
+    ImuStateMessage,
     decode_attitude_state,
     decode_imu_state,
 )
@@ -28,7 +30,7 @@ def main() -> None:
     attitude_count = 0
     imu_count = 0
 
-    def handle_attitude(message) -> None:
+    def handle_attitude(message: AttitudeStateMessage) -> None:
         nonlocal attitude_count
         attitude_count += 1
         data = message.data
@@ -39,7 +41,7 @@ def main() -> None:
             f"roll={_degrees(data.roll_rad)}"
         )
 
-    def handle_imu(message) -> None:
+    def handle_imu(message: ImuStateMessage) -> None:
         nonlocal imu_count
         imu_count += 1
         data = message.data

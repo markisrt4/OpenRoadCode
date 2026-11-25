@@ -8,7 +8,7 @@ from __future__ import annotations
 import argparse
 import time
 
-from messaging.contracts.automotive import VEHICLE_STATE_TOPIC, decode_vehicle_state
+from messaging.contracts.automotive import VEHICLE_STATE_TOPIC, VehicleStateMessage, decode_vehicle_state
 from messaging.message_dispatcher import MessageDispatcher
 from messaging.zeromq import ZeroMqSubscriber
 from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
@@ -21,7 +21,7 @@ def main() -> None:
 
     received = 0
 
-    def handle_vehicle(message) -> None:
+    def handle_vehicle(message: VehicleStateMessage) -> None:
         nonlocal received
         received += 1
         data = message.data
