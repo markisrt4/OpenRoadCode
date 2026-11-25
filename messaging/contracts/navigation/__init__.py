@@ -16,7 +16,6 @@ from .topics import (
     POSITION_STATE_TOPIC,
 )
 
-
 if TYPE_CHECKING:
     from .attitude_state_codec import decode_attitude_state, encode_attitude_state
     from .attitude_state_validator import validate_attitude_state
