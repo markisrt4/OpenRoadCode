@@ -50,7 +50,10 @@ def main() -> int:
     checked_methods = 0
 
     for path in sorted(PROJECT_ROOT.rglob("*_if.py")):
-        if EXCLUDED_PARTS.intersection(path.parts):
+        if any(
+            part in EXCLUDED_PARTS or part.startswith(".venv-")
+            for part in path.relative_to(PROJECT_ROOT).parts
+        ):
             continue
 
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))

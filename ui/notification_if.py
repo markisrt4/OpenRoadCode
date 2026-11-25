@@ -34,4 +34,8 @@ class Notification:
 class NotificationSinkIf(Protocol):
     """Receive notifications independently of the chosen UI toolkit."""
 
-    def publish(self, notification: Notification) -> None: ...
+    def publish(self, notification: Notification) -> None:
+        """Deliver a semantic application notification.
+        @param notification Notification to deliver.
+        """
+        ...

@@ -14,6 +14,7 @@ from apps.orcUi.performance_status import PerformanceStatus
 from ui.system_diagnostics import SystemDiagnosticsSnapshot
 from apps.orcUi.orc_theme import toggle
 from ui.theme import ThemeMode
+from .ui_callback_mixin import UiCallbackMixin
 from .power_dialog import PowerDialog
 from .error_dialog import ErrorDialog
 from apps.orcUi.notification_dispatcher import NotificationDispatcher
@@ -33,7 +34,7 @@ from ui.radio import AircraftMenuRequestHandlerIf, AircraftMenuUiState
 from ui.ui_widget import UiWidget
 
 
-class OrcUiApp(VolumeUiIf, UiWidget):
+class OrcUiApp(UiCallbackMixin, VolumeUiIf, UiWidget):
     """Own the integrated Tk application shell."""
 
     def __init__(
@@ -277,41 +278,6 @@ class OrcUiApp(VolumeUiIf, UiWidget):
     def set_screen_status(self, message: str) -> None:
         if self._shell is not None:
             self._shell.set_status(message)
-
-    def dispatch_ui(self, callback: Callable[[], None]) -> None:
-        """Queue work from any thread without calling Tk; discard it after shutdown."""
-        self._callback_queue.dispatch_ui(callback)
-
-    def _drain_ui_callbacks(self) -> None:
-        try:
-            self._callback_queue.dispatch_pending()
-        finally:
-            if not self._closing:
-                self.schedule_ui_callback(16, self._drain_ui_callbacks)
-
-    def schedule_ui_callback(self, delay_ms: int, callback: Callable[[], None]) -> object:
-        """Schedule a timer from the frontend thread only; closed timers are inert."""
-        if self._closing:
-            return None
-
-        def invoke() -> None:
-            self._ui_callbacks.discard(token)
-            if not self._closing:
-                callback()
-
-        token = self._root.after(delay_ms, invoke)
-        self._ui_callbacks.add(token)
-        return token
-
-    def cancel_ui_callback(self, callback_id: object) -> None:
-        """Cancel a timer on the frontend thread, tolerating destroyed Tk resources."""
-        if not isinstance(callback_id, str):
-            return
-        self._ui_callbacks.discard(callback_id)
-        try:
-            self._root.after_cancel(callback_id)
-        except tk.TclError:
-            pass
 
     def run(self) -> None:
         old_signal_handler = signal.getsignal(signal.SIGINT)
