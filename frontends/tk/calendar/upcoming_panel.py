@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Compact upcoming appointments presentation for a mounted context page."""
 
+from datetime import datetime, timezone
 from math import ceil
 import tkinter as tk
 from tkinter import messagebox
@@ -136,6 +137,7 @@ class UpcomingPanel(tk.Frame, UiWidget):
             self._closed
             or self._monitor.failed
             or current is None
+            or journey.event.starts_at.astimezone(timezone.utc) <= datetime.now(timezone.utc)
             or journey.event not in current.events
             or current.journey is None
             or current.journey.event != journey.event
