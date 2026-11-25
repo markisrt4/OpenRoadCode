@@ -59,3 +59,4 @@ class PoiSearchSourceIf(ABC):
 
     def close(self) -> None:
         """Release source resources, if any."""
+        return None

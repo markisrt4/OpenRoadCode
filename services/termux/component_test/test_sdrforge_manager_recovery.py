@@ -53,7 +53,7 @@ def test_supervisor_readiness_and_client_recovery_during_restart():
 
 
 def test_stopped_supervisor_is_not_ready_even_if_api_is_healthy():
-    with _server() as port:
+    with _server():
         manager = RunitServiceManager()
         with patch.object(
             manager,

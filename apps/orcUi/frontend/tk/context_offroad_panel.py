@@ -186,7 +186,6 @@ class ContextOffroadPanel(tk.Frame, UiWidget):
         return card
 
     def _paint(self) -> None:
-        ui = self._theme.ui
         heading = self._attitude.heading_deg
         heading_text = (
             "--" if heading is None else f"{_cardinal_direction(heading)} {heading:03.0f}°"

@@ -58,7 +58,7 @@ def test_tile_identifier_cannot_escape_pack(tmp_path, monkeypatch):
         LocalMapTilesPack.load(destination)
 
 
-def test_only_manifested_assets_are_served(tmp_path, monkeypatch, server):
+def test_only_manifested_assets_are_served(tmp_path, monkeypatch, server):  # noqa: F811
     # Shared server fixture keeps the test independent of the native browser.
     server._tiles = LocalMapTilesPack.load(install(tmp_path, monkeypatch))
     with urllib.request.urlopen(server.url + "config.json") as response:

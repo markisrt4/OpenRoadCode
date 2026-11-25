@@ -454,15 +454,6 @@ class OffroadDashboardPanel(
     ) -> None:
         self._canvas.create_rectangle(0, 0, width, 82, fill=self._theme.panel, outline="")
         heading = state.heading_deg if state is not None else 0.0
-        reference_text = (
-            {
-                HeadingReference.TRUE_NORTH: "TRUE",
-                HeadingReference.MAGNETIC_NORTH: "MAG",
-                HeadingReference.RELATIVE: "REL",
-            }[state.heading_reference]
-            if state is not None
-            else "REL"
-        )
         heading_text = f"{heading:03.0f}°" if state is not None else "---°"
         self._canvas.create_text(
             width / 2,

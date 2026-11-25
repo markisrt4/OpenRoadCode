@@ -132,7 +132,7 @@ def main() -> int:
         try:
             present_route(
                 route=route,
-                map_renderer=MapRendererClient(),
+                map_renderer=map_renderer,
             )
 
             print()

@@ -72,7 +72,7 @@ def test_default_local_3d_action_uses_composition_injected_embedding():
         favorites=Mock(), search_factory=Mock, embedded_explore=embedded
     )
     try:
-        session = factory.create()
+        factory.create()
         poi = SimpleNamespace(position=GeoPoint(0.7, -1.4), name="Place")
         action = factory._owned_3d.action_for(poi)
         assert action.kind is PoiActionKind.EXPLORE_3D

@@ -55,3 +55,4 @@ class RotaryEncoderIf(ABC):
         Callback-driven encoders may leave this as a no-op. Implementations
         that accumulate hardware events can dispatch them here.
         """
+        return None

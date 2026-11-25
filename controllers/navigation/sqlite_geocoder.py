@@ -54,6 +54,7 @@ _MILE_NUMBERS = dict(
     zip(
         "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty".split(),
         map(str, range(1, 21)),
+        strict=True,
     )
 )
 
@@ -108,7 +109,6 @@ class SqliteGeocoder:
         ).fetchall()
 
         requested_street = _normalize_street(query.street)
-        postcode_center = self._postcode_center(query.postcode)
         ranked: list[tuple[int, float, sqlite3.Row]] = []
         for row in rows:
             # An explicitly requested locality must not silently resolve to a
