@@ -92,7 +92,13 @@ def build_trending_spotify_pane(
             def present() -> None:
                 if host.winfo_exists():
                     status.configure(text="Spotify playback unavailable.")
-                    details = f"{local_error}\n\n{message}" if local_error else message
+                    cause = local_error.removeprefix("PLAYER failed: ").removeprefix(
+                        "initialization_error: "
+                    )
+                    remedy = message.removeprefix("Spotify playback unavailable: ")
+                    if remedy.startswith(("No Spotify Connect devices", "No active Spotify")):
+                        remedy = "Start a song on a Spotify Connect device, then retry."
+                    details = f"{cause}\n{remedy}" if cause else remedy
                     show_error("Spotify playback failed", details)
 
             dispatch_ui(present)

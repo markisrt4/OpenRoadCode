@@ -48,7 +48,7 @@ async function reportFailure(name,message){
       ]);
     }catch(error){
       if(!navigator.requestMediaKeySystemAccess || error.name==='NotSupportedError'){
-        message='This browser profile cannot use Widevine protected audio. Check protected content in Chromium, or use Spotify Connect.';
+        message='Chromium cannot use Widevine protected audio.';
       }
     }
   }

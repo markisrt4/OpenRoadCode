@@ -80,7 +80,11 @@ itself fails to download, check internet access from the Pi's browser.
 To isolate a browser playback failure, open `https://open.spotify.com` in
 Chromium on the Pi desktop and try playing a track. If Chromium reports that
 protected content is unavailable, check its protected-content settings and
-Widevine support for your Raspberry Pi OS release. If the web player works
+Widevine support for your Raspberry Pi OS release. On Raspberry Pi OS
+Bookworm and Trixie, the Raspberry Pi APT archive provides
+`libwidevinecdm0`. Check availability with `apt-cache policy libwidevinecdm0`
+and install it with `sudo apt install libwidevinecdm0` if missing. Fully quit
+Chromium and ORC before retesting. If the web player works
 but ORC still fails, retry ORC PLAYER and record the exact ORC popup text.
 During troubleshooting, Trending can play on an available Spotify Connect
 device controlled from ORC.
