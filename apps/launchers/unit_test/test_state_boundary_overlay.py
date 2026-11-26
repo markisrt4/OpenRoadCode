@@ -19,7 +19,7 @@ def test_census_boundaries_are_normalized_to_immutable_radians():
     assert 'source' not in str(document).lower()
     assert document['regions'][0]['kind'] == 'country'
     edges = [tuple(sorted((start, end))) for path in state.regions[2].paths_rad
-             for start, end in zip(path, path[1:])]
+             for start, end in zip(path, path[1:], strict=False)]
     assert len(edges) == len(set(edges))
 
 
