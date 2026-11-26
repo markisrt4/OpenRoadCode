@@ -35,7 +35,7 @@ def _segments(features):
         is_michigan = feature['properties']['GEOID'] == '26'
         for ring in _rings(feature.get('geometry', {})):
             points = [tuple(map(float, point[:2])) for point in ring]
-            for start, end in zip(points, points[1:]):
+            for start, end in zip(points, points[1:], strict=False):
                 key = tuple(sorted((start, end)))
                 unique.setdefault(key, (start, end))
                 counts[key] = counts.get(key, 0) + 1
