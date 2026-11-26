@@ -16,6 +16,7 @@ from ui.navigation.host_location_ui_if import HostLocationRequestHandlerIf, Host
 from ui.radio.receiver_settings_if import ReceiverSettingsIf
 from ui.radio.rf_hardware_config_if import RfHardwareConfigIf
 from ui.screen_ui_if import ScreenId
+from ui.system.audio_settings_if import AudioSettingsIf
 from ui.theme import ThemeBundle
 
 from .screen_builders import build_settings_screen
@@ -39,6 +40,7 @@ class SettingsScreen(TkScreen):
         on_back: Callable[[], None],
         rf_hardware_config: RfHardwareConfigIf | None = None,
         receiver_settings: ReceiverSettingsIf | None = None,
+        audio_settings: AudioSettingsIf | None = None,
         performance_overlay_enabled: Callable[[], bool] | None = None,
         on_performance_overlay_changed: Callable[[bool], None] | None = None,
         configure_spotify: Callable[[], None] | None = None,
@@ -55,6 +57,7 @@ class SettingsScreen(TkScreen):
         self._on_back = on_back
         self._rf_hardware_config = rf_hardware_config
         self._receiver_settings = receiver_settings
+        self._audio_settings = audio_settings
         self._performance_overlay_enabled = performance_overlay_enabled
         self._on_performance_overlay_changed = on_performance_overlay_changed
         self._host_location_handler: HostLocationRequestHandlerIf | None = None
@@ -104,6 +107,7 @@ class SettingsScreen(TkScreen):
             host_location_state=self._host_location_state,
             rf_hardware_config=self._rf_hardware_config,
             receiver_settings=self._receiver_settings,
+            audio_settings=self._audio_settings,
             performance_overlay_enabled=self._performance_overlay_enabled,
             on_performance_overlay_changed=self._on_performance_overlay_changed,
             configure_spotify=self._configure_spotify,

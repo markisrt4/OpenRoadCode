@@ -5,6 +5,12 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from controllers.audio.linux_audio_settings import LinuxAudioSettings
+    from ui.system.audio_settings_if import AudioSettingsIf
+
+    def audio_settings(controller: LinuxAudioSettings) -> AudioSettingsIf:
+        return controller
+
     from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
     from frontends.tk.tk_screen_host_if import TkScreenHostIf
     from ui.ui_dispatcher_if import UiDispatcherIf

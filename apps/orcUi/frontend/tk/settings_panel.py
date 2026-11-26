@@ -12,9 +12,11 @@ from ui.automotive.vehicle_configuration import EngineInductionType, VehicleConf
 from ui.navigation.host_location_ui_if import HostLocationRequestHandlerIf, HostLocationState
 from ui.radio.receiver_settings_if import ReceiverSettingsIf
 from ui.radio.rf_hardware_config_if import RfHardwareConfigIf
+from ui.system.audio_settings_if import AudioSettingsIf
 from ui.theme import ThemeBundle, ThemeMode
 from ui.ui_widget import UiWidget
 
+from .audio_settings_panel import AudioSettingsPanel
 from .receiver_settings_panel import ReceiverSettingsPanel
 from .rf_settings_mixin import RfSettingsMixin
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
@@ -36,6 +38,7 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
         host_location_handler: HostLocationRequestHandlerIf | None = None,
         rf_hardware_config: RfHardwareConfigIf | None = None,
         receiver_settings: ReceiverSettingsIf | None = None,
+        audio_settings: AudioSettingsIf | None = None,
         host_location_state: HostLocationState | None = None,
         performance_overlay_enabled: Callable[[], bool] | None = None,
         on_performance_overlay_changed: Callable[[bool], None] | None = None,
@@ -104,6 +107,8 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
         if receiver_settings is not None:
             pages.append(("receivers", "RF RECEIVERS"))
         pages.extend((("rf", "RF DISPLAY"), ("media", "MEDIA")))
+        if audio_settings is not None:
+            pages.append(("audio", "AUDIO"))
         for row, (page, title) in enumerate(pages):
             button = tk.Button(
                 page_nav,
@@ -340,6 +345,13 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
         }
         if self._receiver_settings_panel is not None:
             self._settings_pages["receivers"] = (self._receiver_settings_panel,)
+        self._audio_settings_panel = None
+        if audio_settings is not None:
+            self._audio_settings_panel = AudioSettingsPanel(
+                content, audio_settings, self._theme_bundle
+            )
+            self._audio_settings_panel.grid(row=1, column=0, sticky="ew", pady=4)
+            self._settings_pages["audio"] = (self._audio_settings_panel,)
         self._show_settings_page("display")
 
     def _show_settings_page(self, page: str) -> None:
@@ -354,6 +366,8 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
             self._load_rf_hardware()
         if page == "receivers" and self._receiver_settings_panel is not None:
             self._receiver_settings_panel.refresh()
+        if page == "audio" and self._audio_settings_panel is not None:
+            self._audio_settings_panel.refresh()
 
     def _share_host_location(self) -> None:
         if self._location_handler is not None:

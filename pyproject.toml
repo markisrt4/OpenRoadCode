@@ -27,6 +27,8 @@ warn_unused_configs = true
 show_error_codes = true
 pretty = false
 files = [
+    "controllers/audio/linux_audio_settings.py",
+    "ui/system/audio_settings_if.py",
     "controllers/radio/receiver_settings_controller.py",
     "ui/radio/receiver_settings_if.py",
     "ui/ui_widget.py",

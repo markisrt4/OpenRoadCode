@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import math
+import os
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -43,6 +45,7 @@ from apps.orcUi.performance_status import PerformanceStatusPresenter
 from apps.orcUi.theme_runtime import theme_bundle
 from common.app_settings import AppSettingsStore
 from common.resource_cleanup import ResourceCleanup, close_resources
+from controllers.audio.linux_audio_settings import LinuxAudioSettings
 from controllers.navigation.current_position import get_current_position
 from controllers.navigation.host_location_settings_controller import HostLocationSettingsController
 from controllers.navigation.map_controls_drawer_controller import MapControlsDrawerController
@@ -84,6 +87,7 @@ class OrcUiComposition:
     host_location: HostLocationSettingsController | None = None
     startup_progress: Callable[[str, str], None] | None = None
     software_update: SoftwareUpdateController | None = None
+    audio_settings: LinuxAudioSettings | None = None
 
     _closed: bool = field(default=False, init=False)
 
@@ -136,6 +140,7 @@ class OrcUiComposition:
                 for resource in (
                     self.appointment_monitor,
                     self.host_location,
+                    self.audio_settings,
                     self.performance_status,
                     self.performance,
                     self.vision,
@@ -332,6 +337,12 @@ def create_orc_ui_composition(
             presentation=core.presentation,
             on_back=lambda: app.navigate_to("HOME"),
         )
+        audio_settings = None
+        if sys.platform == "linux" and not (
+            os.environ.get("TERMUX_VERSION") or "/com.termux/" in os.environ.get("PREFIX", "")
+        ):
+            audio_settings = LinuxAudioSettings(app)
+            cleanup.callback(audio_settings.close)
         settings = SettingsScreen(
             app,
             theme_bundle=lambda: theme_bundle(app.theme_mode),
@@ -343,6 +354,7 @@ def create_orc_ui_composition(
             on_back=lambda: app.navigate_to("HOME"),
             rf_hardware_config=SdrForgeRfHardwareConfig(),
             receiver_settings=radio.receiver_settings,
+            audio_settings=audio_settings,
             performance_overlay_enabled=app.performance_overlay_enabled,
             on_performance_overlay_changed=app.set_performance_overlay_enabled,
             configure_spotify=media.configure_spotify,
@@ -440,6 +452,7 @@ def create_orc_ui_composition(
             host_location=host_location,
             startup_progress=progress,
             software_update=software_update,
+            audio_settings=audio_settings,
         )
         cleanup.release()
         return composition
