@@ -15,7 +15,7 @@ from apps.launchers.local_statewide_detail import (
     StatewideDetailIndex,
     StatewideImagery,
 )
-from apps.launchers.unit_test.test_cesium_viewer import server, state  # noqa: F401
+from apps.launchers.unit_test.test_cesium_viewer import server as viewer_server, state  # noqa: F401
 from development.maps.install_statewide_detail import install
 from development.maps.statewide_detail_plan import (
     PROFILE,
@@ -97,7 +97,8 @@ def test_cells_install_atomically_and_imagery_opens_only_on_request(cell_archive
     assert (root/'active').resolve()==previous
 
 
-def test_loopback_page_and_chunks_use_si_metadata_and_deny_arbitrary_paths(server,cell_archive,tmp_path):
+def test_loopback_page_and_chunks_use_si_metadata_and_deny_arbitrary_paths(viewer_server,cell_archive,tmp_path):
+    server = viewer_server
     downloads,key,_,_=cell_archive;index=index_for(downloads,tmp_path/'device')
     server._terrain=PagedTerrainCatalog(LocalPagedTerrainState((),maximum_zoom=16),(),index)
     # Cesium GeographicTilingScheme has 2^(z+1) longitude cells and 2^z rows.
