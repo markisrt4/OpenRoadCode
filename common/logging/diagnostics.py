@@ -36,8 +36,12 @@ class ComponentLog:
         )
 
     def failed(
-        self, stage: str, error: BaseException | None = None,
-        operation_id: str | None = None, *, reason: str = "exception",
+        self,
+        stage: str,
+        error: BaseException | None = None,
+        operation_id: str | None = None,
+        *,
+        reason: str = "exception",
     ) -> None:
         failure = (reason, type(error).__name__ if error is not None else None)
         with self._lock:

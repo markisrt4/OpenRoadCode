@@ -99,7 +99,9 @@ def test_native_weather_starts_stopped_shared_receiver(monkeypatch: pytest.Monke
         b'{"running": false, "starting": true}',
     ],
 )
-def test_native_weather_does_not_restart_active_receiver(monkeypatch: pytest.MonkeyPatch, status: bytes) -> None:
+def test_native_weather_does_not_restart_active_receiver(
+    monkeypatch: pytest.MonkeyPatch, status: bytes
+) -> None:
     radio, application = Mock(), Mock()
     radio.active_profile_key = "weather_band"
     radio.catalog.profile.return_value.key = "weather_band"
@@ -187,7 +189,9 @@ def test_native_startup_failure_does_not_retune_or_retry(monkeypatch: pytest.Mon
     pause.assert_not_called()
 
 
-def test_native_cancelled_during_startup_does_not_claim_playing(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_native_cancelled_during_startup_does_not_claim_playing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     radio, application = Mock(), Mock()
     radio.active_profile_key = "weather_band"
     radio.catalog.profile.return_value.key = "weather_band"

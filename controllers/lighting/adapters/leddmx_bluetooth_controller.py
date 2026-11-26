@@ -220,9 +220,7 @@ class LedDmxBluetoothController(LightingControllerIf):
                 self._diagnostics.failed("submit", error)
                 raise
 
-    async def _run_command(
-        self, coroutine: Coroutine[Any, Any, None], operation_id: str
-    ) -> None:
+    async def _run_command(self, coroutine: Coroutine[Any, Any, None], operation_id: str) -> None:
         with self._diagnostics.action("command", operation_id):
             await coroutine
 

@@ -81,7 +81,9 @@ def reflectivity_summary(data: bytes) -> dict[str, int | float | None]:
 class HrrrTileSource:
     """Cache decoded fields and serialize native work to limit phone memory use."""
 
-    def __init__(self, cache_root: str | Path, session: requests.Session, timeout: float = 30) -> None:
+    def __init__(
+        self, cache_root: str | Path, session: requests.Session, timeout: float = 30
+    ) -> None:
         self._root = Path(cache_root)
         self._session = session
         self._timeout = timeout

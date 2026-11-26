@@ -70,7 +70,9 @@ class _Controls:
 
 
 class _Camera:
-    def __init__(self, frame: CameraFrame | None = None, *, open_error: Exception | None = None) -> None:
+    def __init__(
+        self, frame: CameraFrame | None = None, *, open_error: Exception | None = None
+    ) -> None:
         self.is_open = False
         self.frame = frame
         self.open_error = open_error
@@ -130,8 +132,10 @@ class _Worker:
 
 
 def _controller(
-    camera: _Camera, worker: _Worker | None = None,
-    *, prepare_model: Callable[[], object] | None = None,
+    camera: _Camera,
+    worker: _Worker | None = None,
+    *,
+    prepare_model: Callable[[], object] | None = None,
 ) -> tuple[VisionController, _Dispatcher, _Ui, _Controls]:
     dispatcher, ui, controls = _Dispatcher(), _Ui(), _Controls()
     controller = VisionController(

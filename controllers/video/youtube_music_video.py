@@ -412,7 +412,9 @@ class YouTubeMusicVideo(MusicVideoIf):
         root: Path, *, close_callback: Callable[[], None]
     ) -> type[SimpleHTTPRequestHandler]:
         class Handler(SimpleHTTPRequestHandler):
-            def __init__(self, request: socket, client_address: tuple[str, int], server: BaseServer) -> None:
+            def __init__(
+                self, request: socket, client_address: tuple[str, int], server: BaseServer
+            ) -> None:
                 super().__init__(request, client_address, server, directory=str(root))
 
             def do_POST(self) -> None:

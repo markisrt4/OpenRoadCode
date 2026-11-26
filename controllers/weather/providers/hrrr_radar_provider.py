@@ -48,7 +48,10 @@ class HrrrRadarProvider(RadarProviderIf):
     ARCHIVE = "https://noaa-hrrr-bdp-pds.s3.amazonaws.com"
 
     def __init__(
-        self, *, session: requests.Session | None = None, timeout_seconds: float = 20.0,
+        self,
+        *,
+        session: requests.Session | None = None,
+        timeout_seconds: float = 20.0,
         clock: Callable[[], float] = time,
     ) -> None:
         self._session = session or requests.Session()
