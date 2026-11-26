@@ -402,23 +402,18 @@ class NavigationExperienceControls(tk.Frame, UiWidget):
             }[kind]
         )
         width = max(230, min(310, int(self._drawer_parent.winfo_width() * 0.42)))
-        self._drawer.configure(width=width)
-        self._drawer_parent.grid_columnconfigure(self._drawer_column, minsize=width, weight=0)
-        self._drawer.grid(row=self._drawer_row, column=self._drawer_column, sticky="nsew")
         self._drawer_parent.update_idletasks()
-        # Nested native hosts can leave grid's first allocation at its requested
-        # 1px height. Reassert the content track after mapping the new sibling.
-        self._drawer_parent.grid_columnconfigure(self._drawer_column - 1, weight=1)
+        _, y, _, height = self._drawer_parent.grid_bbox(
+            0, self._drawer_row, self._drawer_column - 1, self._drawer_row
+        )
+        self._drawer.place(relx=1.0, y=y, anchor="ne", width=width, height=max(1, height))
         self._drawer.lift()
         self._canvas.yview_moveto(0)
 
     def close_drawer(self):
         self._on_close()
         self._drawer_kind = None
-        self._drawer.grid_remove()
-        self._drawer_parent.grid_columnconfigure(self._drawer_column, minsize=0, weight=0)
-        self._drawer_parent.update_idletasks()
-        self._drawer_parent.grid_columnconfigure(self._drawer_column - 1, weight=1)
+        self._drawer.place_forget()
 
     def set_theme(self, theme):
         self._ui = ui = theme.ui
