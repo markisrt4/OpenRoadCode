@@ -13,6 +13,8 @@ from common.resource_cleanup import close_resources
 from controllers.weather.weather_controller import WeatherController
 from controllers.weather.weather_logging import WeatherLog
 from controllers.weather.weather_presenter import WeatherPresenter
+from controllers.weather.weather_state import WeatherState
+from ui.system.online_mode_if import OnlineModeIf
 from ui.ui_dispatcher_if import UiDispatcherIf
 from ui.weather.weather_screen_ui_if import WeatherScreenRequestHandlerIf, WeatherScreenUiIf
 from ui.weather.weather_ui_if import WeatherUiState
@@ -29,7 +31,7 @@ class WeatherScreenController(WeatherScreenRequestHandlerIf):
         on_weather_state: Callable[[WeatherUiState], None] | None = None,
         *,
         online_allowed: Callable[[], bool] = lambda: True,
-    ):
+    ) -> None:
         self._dispatcher = dispatcher
         self._controller = controller
         self._ui = ui
@@ -39,11 +41,11 @@ class WeatherScreenController(WeatherScreenRequestHandlerIf):
         self._visible = False
         self._closed = False
         self._clock = time.time
-        self._last_state = None
+        self._last_state: WeatherState | None = None
         self._last_error = ""
         self._stale_refresh = False
         self._online_allowed = online_allowed
-        self._unsubscribe_mode = lambda: None
+        self._unsubscribe_mode: Callable[[], None] = lambda: None
         self._log = WeatherLog("weather.screen")
 
     def set_visible(self, visible: bool) -> None:
@@ -67,7 +69,7 @@ class WeatherScreenController(WeatherScreenRequestHandlerIf):
             self._ui.set_online(self._online_allowed())
             self.request_refresh(force=False)
 
-    def bind_online_mode(self, mode) -> None:
+    def bind_online_mode(self, mode: OnlineModeIf) -> None:
         """Observe backend connectivity. @param mode Connectivity mode source."""
         self._unsubscribe_mode()
         self._unsubscribe_mode = mode.subscribe(self.mode_changed)
@@ -106,7 +108,10 @@ class WeatherScreenController(WeatherScreenRequestHandlerIf):
             operation_id,
         )
 
-    def _refresh(self, generation, force=False, operation_id=None):
+    def _refresh(
+        self, generation: int, force: bool = False, operation_id: str | None = None
+    ) -> None:
+        state: WeatherState | None
         with operation(operation_id) as operation_id:
             try:
                 state = (
@@ -123,7 +128,13 @@ class WeatherScreenController(WeatherScreenRequestHandlerIf):
             lambda: self._complete(generation, state, detail, operation_id)
         )
 
-    def _complete(self, generation, state, detail, operation_id=None):
+    def _complete(
+        self,
+        generation: int,
+        state: WeatherState | None,
+        detail: str,
+        operation_id: str | None = None,
+    ) -> None:
         if self._closed or not self._visible or generation != self._generation:
             self._log.stale(operation_id)
             return
@@ -140,7 +151,7 @@ class WeatherScreenController(WeatherScreenRequestHandlerIf):
         self._stale_refresh = state is not None and self._clock() - state.fetched_at > 300
         self._monitor_status(generation)
 
-    def _monitor_status(self, generation):
+    def _monitor_status(self, generation: int) -> None:
         if self._closed or not self._visible or generation != self._generation:
             return
         state = self._last_state
@@ -157,7 +168,7 @@ class WeatherScreenController(WeatherScreenRequestHandlerIf):
         if state is not None:
             self._dispatcher.schedule_ui_callback(60000, lambda: self._monitor_status(generation))
 
-    def close(self):
+    def close(self) -> None:
         """Invalidate pending refresh callbacks and disconnect the view."""
         if self._closed:
             return

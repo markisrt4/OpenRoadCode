@@ -10,12 +10,12 @@ from frontends.tk.weather.weather_screen import WeatherScreen
 from ui.weather.weather_screen_ui_if import WeatherScreenUiIf
 
 
-def test_weather_screen_implements_contract():
+def test_weather_screen_implements_contract() -> None:
     assert issubclass(WeatherScreen, WeatherScreenUiIf)
     assert not WeatherScreen.__abstractmethods__
 
 
-def test_hidden_screen_discards_failure_and_close_disconnects():
+def test_hidden_screen_discards_failure_and_close_disconnects() -> None:
     dispatcher, backend, view = Mock(), Mock(), Mock()
     backend.latest.return_value = None
     backend.refresh_if_stale.side_effect = RuntimeError("offline")
@@ -32,7 +32,7 @@ def test_hidden_screen_discards_failure_and_close_disconnects():
     view.set_weather_request_handler.assert_called_once_with(None)
 
 
-def test_visible_failure_stops_loading_and_preserves_forecast():
+def test_visible_failure_stops_loading_and_preserves_forecast() -> None:
     dispatcher, backend, view = Mock(), Mock(), Mock()
     backend.latest.return_value = None
     backend.refresh_if_stale.side_effect = RuntimeError("offline")
@@ -46,7 +46,7 @@ def test_visible_failure_stops_loading_and_preserves_forecast():
     view.set_weather_state.assert_not_called()
 
 
-def test_cached_fallback_is_labelled_stale_and_keeps_weather_visible():
+def test_cached_fallback_is_labelled_stale_and_keeps_weather_visible() -> None:
     from controllers.weather.weather_state import CurrentWeather, WeatherSource, WeatherState
 
     dispatcher, backend, view = Mock(), Mock(), Mock()
@@ -73,7 +73,7 @@ def test_cached_fallback_is_labelled_stale_and_keeps_weather_visible():
     )
 
 
-def test_data_becomes_stale_while_open_without_hidden_timer_updates():
+def test_data_becomes_stale_while_open_without_hidden_timer_updates() -> None:
     from controllers.weather.weather_state import CurrentWeather, WeatherSource, WeatherState
 
     dispatcher, backend, view = Mock(), Mock(), Mock()
