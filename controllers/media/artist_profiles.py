@@ -25,6 +25,8 @@ def _download(url: str, limit: int) -> bytes:
     )
     with urlopen(request, timeout=5) as response:
         data = response.read(limit + 1)
+    if not isinstance(data, bytes):
+        raise TypeError("Artist profile response must contain bytes")
     if len(data) > limit:
         raise ValueError("Artist profile response is too large")
     return data
@@ -47,15 +49,17 @@ class ArtistProfiles:
             try:
                 entry = json.loads(cached)
                 if time() - entry["saved"] < _TTL:
-                    profile = entry["profile"]
-                    if profile is None:
+                    cached_profile = entry["profile"]
+                    if cached_profile is None:
                         return None
-                    if profile["portrait"]:
-                        profile["portrait"] = base64.b64decode(profile["portrait"], validate=True)
-                    return ArtistProfile(**profile)
+                    if cached_profile["portrait"]:
+                        cached_profile["portrait"] = base64.b64decode(
+                            cached_profile["portrait"], validate=True
+                        )
+                    return ArtistProfile(**cached_profile)
             except (TypeError, KeyError, ValueError):
                 pass
-        profile = self._lookup(artist.strip())
+        profile: ArtistProfile | None = self._lookup(artist.strip())
         payload = asdict(profile) if profile else None
         if payload is not None and profile is not None and profile.portrait:
             payload["portrait"] = base64.b64encode(profile.portrait).decode("ascii")
