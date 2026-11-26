@@ -8,6 +8,8 @@ from __future__ import annotations
 import shutil
 import subprocess
 import threading
+from collections.abc import Sequence
+from typing import cast
 
 import numpy as np
 
@@ -111,6 +113,6 @@ class PipewireAudioCapture(AudioCaptureIf):
 
                 samples = np.frombuffer(pending, dtype=np.float32).copy()
                 pending.clear()
-                callback(samples, self.sample_rate_hz)
+                callback(cast(Sequence[float], samples), self.sample_rate_hz)
         finally:
             self._running = False

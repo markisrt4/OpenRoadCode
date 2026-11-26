@@ -86,6 +86,7 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         self._video_overlay: SpotifyVideoOverlay | None = None
         self.spotify_panel: SpotifyPlaybackPanel | None = None
         self._visible = False
+        self._setup_only = False
         self._view = "now"
         self._browse_action: Callable[[SpotifyBrowsePanel], None] | None = None
         self._browse_panel_view: SpotifyBrowsePanel | None = None
@@ -162,6 +163,10 @@ class SpotifyScreen(TkScreen, MediaUiIf):
 
     def set_spotify_account_state(self, state: SpotifyAccountState) -> None:
         self._account = state
+        if self._visible and self._view == "now" and not state.loading:
+            if self._setup_only != (not state.configured):
+                self._host.screen_parent.after_idle(self._refresh_account_layout)
+                return
         if self._account_label is not None:
             text = (
                 "Spotify setup required"
@@ -183,7 +188,7 @@ class SpotifyScreen(TkScreen, MediaUiIf):
             )
         if self._configuration_button is not None:
             self._configuration_button.configure(state=tk.DISABLED if state.busy else tk.NORMAL)
-        if state.message:
+        if state.message and (state.configured or state.error):
             self._host.set_screen_status(state.message)
 
     def _request_account_action(self) -> None:
@@ -206,20 +211,6 @@ class SpotifyScreen(TkScreen, MediaUiIf):
             row, text="SPOTIFY", bg=surface, fg=SPOTIFY_GREEN, font=("Sans", 9, "bold")
         )
         self._account_label.pack(side=tk.LEFT, padx=10, pady=8)
-        if self._show_account_configuration is not None:
-            self._configuration_button = tk.Button(
-                row,
-                text="CONFIGURE",
-                command=self._show_account_configuration,
-                bg=button_bg,
-                fg=button_fg,
-                relief=tk.FLAT,
-                bd=0,
-                font=("Sans", 8, "bold"),
-                padx=10,
-                pady=5,
-            )
-            self._configuration_button.pack(side=tk.RIGHT, padx=(4, 8), pady=5)
         if self._account_session is not None:
             self._account_button = tk.Button(
                 row,
@@ -263,12 +254,66 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         self._browse_session.activate(panel)
         return panel
 
+    def _refresh_account_layout(self) -> None:
+        if self._visible and self._view == "now":
+            if self._setup_only != (not self._account.configured):
+                self._show_now_playing()
+
+    def _show_setup_only(self, root: tk.Frame) -> None:
+        colors = self._theme["colors"]
+        surface = colors.get("card_background", colors["background"])
+        self._build_media_navigation(root)
+        card = tk.Frame(root, bg=surface)
+        card.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
+        center = tk.Frame(card, bg=surface)
+        center.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+        tk.Label(
+            center,
+            text="SPOTIFY",
+            bg=surface,
+            fg=colors.get("detail", "#888888"),
+            font=("Sans", 26, "bold"),
+        ).pack(pady=12)
+        if self._show_account_configuration is not None:
+            self._configuration_button = tk.Button(
+                center,
+                text="CONFIGURE SPOTIFY",
+                command=self._show_account_configuration,
+                bg=SPOTIFY_GREEN,
+                fg="#000000",
+                relief=tk.FLAT,
+                font=("Sans", 22, "bold"),
+                padx=28,
+                pady=16,
+            )
+            self._configuration_button.pack(pady=12)
+        controls = tk.Frame(center, bg=surface)
+        controls.pack(pady=16)
+        for label in ("−10s", "◀◀", "▶", "▶▶", "+10s"):
+            tk.Button(
+                controls,
+                text=label,
+                state=tk.DISABLED,
+                bg=surface,
+                disabledforeground=colors.get("detail", "#888888"),
+                font=("Sans", 18),
+                padx=12,
+                pady=8,
+            ).pack(side=tk.LEFT, padx=4)
+        self._host.set_screen_status("")
+        if self._account_session is not None:
+            self._account_session.activate(self)
+
     def _show_now_playing(self) -> None:
         self._begin_screen()
         self._view = "now"
         self._browse_action = None
         root = tk.Frame(self._host.screen_parent, bg=self._theme["colors"]["background"])
         root.pack(fill=tk.BOTH, expand=True)
+        self._setup_only = self._account_session is not None and not self._account.configured
+        if self._setup_only:
+            self._show_setup_only(root)
+            return
         self._build_setup_banner(root)
         if self._account_session is not None:
             self._account_session.activate(self)

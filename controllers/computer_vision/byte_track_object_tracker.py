@@ -24,6 +24,11 @@ class ByteTrackObjectTracker(ObjectTrackerIf):
             raise RuntimeError(
                 "supervision is required for ByteTrack; run the camera perception setup script"
             ) from exc
+        if not callable(getattr(sv, "ByteTrack", None)):
+            raise RuntimeError(
+                "Installed supervision does not provide ByteTrack. "
+                "Rerun the installer with --feature video-perception."
+            )
         self._sv = sv
         self._frame_rate = frame_rate
         with self._diagnostics.action("tracker_load"):

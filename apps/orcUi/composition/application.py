@@ -41,7 +41,7 @@ from apps.orcUi.frontend.tk.vehicle_screen import VehicleScreen
 from apps.orcUi.map_platform_requests import MapPlatformRequests
 from apps.orcUi.performance_status import PerformanceStatusPresenter
 from apps.orcUi.theme_runtime import theme_bundle
-from common.app_settings import AppSettings, AppSettingsStore
+from common.app_settings import AppSettingsStore
 from common.resource_cleanup import ResourceCleanup, close_resources
 from controllers.navigation.current_position import get_current_position
 from controllers.navigation.host_location_settings_controller import HostLocationSettingsController
@@ -103,10 +103,24 @@ class OrcUiComposition:
                 self.performance_status.start()
             self.app.schedule_ui_callback(1500, self.runtime.start_background_apps)
             self.core.start()
+            self._poll_route_start()
             _report(self.startup_progress, "ready", "OpenRoadCode UI ready")
             self.app.run()
 
         self.core.lifecycle.execute_requested_action()
+
+    def _poll_route_start(self) -> None:
+        if self._closed:
+            return
+        try:
+            if self.core.route_request_handler.poll_route_start():
+                self.app.set_screen_status("Appointment guidance started")
+                self.app.navigate_to("NAVIGATION")
+        except Exception:
+            self.app.set_screen_status("Unable to start appointment guidance")
+        finally:
+            if not self._closed:
+                self.app.schedule_ui_callback(100, self._poll_route_start)
 
     def close(self) -> None:
         """Attempt all owned cleanup once, including before the UI loop starts."""
@@ -198,8 +212,7 @@ def create_orc_ui_composition(
 
         def set_unit_system(value):
             nonlocal app_settings
-            app_settings = AppSettings(unit_system=value, radar_palette=app_settings.radar_palette)
-            settings_store.save(app_settings)
+            app_settings = settings_store.update(unit_system=value)
 
         def open_radar_map() -> None:
             app.navigate_to("NAVIGATION")
@@ -219,11 +232,7 @@ def create_orc_ui_composition(
 
         def set_radar_palette(value: RadarPalette) -> None:
             nonlocal app_settings
-            app_settings = AppSettings(
-                unit_system=app_settings.unit_system,
-                radar_palette=value.value,
-            )
-            settings_store.save(app_settings)
+            app_settings = settings_store.update(radar_palette=value.value)
 
         def navigate_home_context(name: str) -> None:
             context_name = name.strip().upper()
@@ -352,8 +361,11 @@ def create_orc_ui_composition(
             on_unit_system_changed=set_unit_system,
             on_back=lambda: app.navigate_to("HOME"),
             rf_hardware_config=SdrForgeRfHardwareConfig(),
+            receiver_settings=radio.receiver_settings,
             performance_overlay_enabled=app.performance_overlay_enabled,
             on_performance_overlay_changed=app.set_performance_overlay_enabled,
+            configure_spotify=media.configure_spotify,
+            close_spotify_configuration=media.close_spotify_configuration,
         )
         permission = HostLocationPermission()
         host_location = HostLocationSettingsController(
@@ -403,7 +415,9 @@ def create_orc_ui_composition(
         app.register_screen("DIAGNOSTICS", diagnostics, show_in_navigation=False)
         calendar_config = CalendarConfiguration()
         configure_calendar(app, calendar_config)
-        calendar_factory = create_home_calendar_factory(app, calendar_config)
+        calendar_factory = create_home_calendar_factory(
+            app, calendar_config, core.route_request_handler
+        )
         home.set_calendar_factory(calendar_factory, calendar_factory.monitor)
         app.set_initial_destination("HOME")
         app.set_settings_action(lambda: app.navigate_to("SETTINGS"))

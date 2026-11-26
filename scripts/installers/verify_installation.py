@@ -15,9 +15,12 @@ from collections.abc import Iterable
 
 PYTHON_IMPORTS: dict[str, tuple[str, ...]] = {
     "base": ("requests", "zmq"),
+    "calendar": ("dateutil", "sqlite3"),
     "sdrforge": ("sdrforge", "scipy", "zmq", "sounddevice"),
     "desktop-ui": ("tkinter", "PIL", "numpy", "flask"),
     "web-ui": ("flask",),
+    "video": ("cv2",),
+    "video-perception": ("ultralytics", "supervision"),
     "input": ("evdev",),
     "gps": ("gps", "gpsd", "geocoder"),
     "streamlit": ("streamlit",),
@@ -31,6 +34,7 @@ PYTHON_IMPORTS: dict[str, tuple[str, ...]] = {
 COMMANDS: dict[str, tuple[tuple[str, ...], ...]] = {
     "base": (("git",), ("curl",), ("wget",), ("sudo",), ("pgrep",)),
     "desktop-ui": (("wmctrl",), ("xprop",), ("xdotool",)),
+    "video-v4l2": (("v4l2-ctl",),),
     "browser": (("chromium", "chromium-browser", "google-chrome"),),
     "vnc": (("tigervncserver", "vncserver"),),
     "audio": (("wpctl", "pactl"),),
@@ -46,6 +50,9 @@ COMMANDS: dict[str, tuple[tuple[str, ...], ...]] = {
 
 DEPENDENCIES: dict[str, tuple[str, ...]] = {
     "vnc": ("desktop-ui",),
+    "video": ("desktop-ui",),
+    "video-v4l2": ("video",),
+    "video-perception": ("video",),
     "spotify": ("audio",),
     "adsb": ("rtl-sdr", "browser"),
     "sdrforge": ("rtl-sdr", "desktop-ui", "audio"),

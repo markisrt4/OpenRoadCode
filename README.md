@@ -114,7 +114,7 @@ OpenRoadCode uses libSDRForge for RF acquisition and DSP, with native ORC spectr
 | 5570 | REST | Receiver control, status and health |
 | 5571 | ZeroMQ | Spectrum and receiver telemetry |
 
-Desktop UI installations include the native SDRForge engine automatically. Headless installations can explicitly select the `sdrforge` feature. SDR++ is not required. RF service lifecycle is separate from UI presentation. See [RF radio contracts](docs/rf_radio.md) for details.
+Select the `sdrforge` feature to install the native SDRForge engine. SDR++ is not required. RF service lifecycle is separate from UI presentation. See [RF radio contracts](docs/rf_radio.md) for details.
 
 FM opens with the spectrum and waterfall visible. **Hide Spectrum** switches
 to a compact dashboard with an FM dial, large tune controls, station and RDS
@@ -279,13 +279,18 @@ cd OpenRoadCode
 ./scripts/installers/host_setup.sh --target linux-dev
 ```
 
+To launch ORC when the desktop user signs in, enable **ORC desktop
+autostart** in the installer TUI or pass `--with-orc-autostart` to host setup.
+On a Raspberry Pi configured for desktop auto-login, this launches ORC after
+boot. Use `--no-orc-autostart` to remove the launcher.
+
 Features can be selected explicitly. Use `--all-features` to install all compatible software capabilities, `--show-plan` to inspect the resolved plan without modifying the machine, and `--with-vnc` or `--with-gpsd-service` only when those services should be configured.
 
 The `desktop-ui` and `navigation` features use the native Tk/X11 and MapLibre
 interfaces and do not install a web browser. Select `--feature browser`
 explicitly for browser-backed applications.
 
-Linux and Raspberry Pi desktop installations include SDRForge. The installer uses a pinned compatible upstream revision; developers can explicitly set `LIBSDRFORGE_SOURCE` to a local checkout.
+On Linux and Raspberry Pi, select `--feature sdrforge` to install native radio support. The installer uses a pinned upstream revision. Developers can set `LIBSDRFORGE_SOURCE` to use a local checkout.
 
 For the integrated media path on Debian/Ubuntu, run:
 

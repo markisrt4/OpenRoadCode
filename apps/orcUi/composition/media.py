@@ -8,17 +8,15 @@ from __future__ import annotations
 
 import io
 import os
-import tkinter as tk
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
 
 from apps.common.spotify_presentation_factory import (
     cached_artwork_loader,
     create_spotify_presentation,
 )
 from apps.orcUi.adapters.managed_browser_media_player import ManagedBrowserMediaPlayer
-from apps.orcUi.adapters.music_visualizer_browser import WINDOW_CLASS, MusicVisualizerBrowser
+from apps.orcUi.adapters.music_visualizer_browser import WINDOW_CLASS
 from apps.orcUi.composition.music_visualizer import (
     create_browser_visualizer,
     create_music_visualizer_session,
@@ -63,49 +61,19 @@ from protocols.spotify import (
 )
 from security.environment_variable_secret_manager import EnvironmentVariableSecretManager
 from ui.music_visualizer import MusicVisualizerSource
+from ui.notification_if import Notification, NotificationSeverity
 from ui.theme import ThemeMode
 
+from .media_resources import MediaComposition
 from .media_spotify_theme import SPOTIFY_GREEN as SPOTIFY_GREEN
 from .media_spotify_theme import spotify_theme as spotify_theme
-from .media_spotify_views import SpotifyFactory, bind_spotify_views
+from .media_spotify_views import bind_spotify_views
 
 MUSIC_VIDEO_PORT = 8770
 MUSIC_VIDEO_WINDOW_CLASS = "OpenRoadCodeMusicVideo"
 YOUTUBE_WINDOW_CLASS = "openroadcode-youtube"
 YOUTUBE_MUSIC_WINDOW_CLASS = "openroadcode-youtube-music"
 NETFLIX_WINDOW_CLASS = "openroadcode-netflix"
-
-
-@dataclass(slots=True)
-class MediaComposition:
-    music_video_controller: MusicVideoController
-    song_launch_controller: SongLaunchController
-    trending_youtube_player: ManagedBrowserMediaPlayer
-    trending_spotify_factory: SpotifyFactory
-    home_factory: Callable[[tk.Misc], tk.Widget]
-    home_visualizer_factory: Callable[[tk.Misc], tk.Widget] | None
-    visualizer: MusicVisualizerScreen | BrowserMediaScreen
-    visualizer_runtime: MusicVisualizerController | MusicVisualizerBrowser
-    unsubscribe_online: Callable[[], None] = lambda: None
-    preview: MediaPreviewController | None = None
-    close_spotify_presentations: Callable[[], None] = lambda: None
-    close_spotify_accounts: Callable[[], None] = lambda: None
-
-    _closed: bool = field(default=False, init=False)
-
-    def close(self) -> None:
-        if self._closed:
-            return
-        self._closed = True
-        close_resources(
-            self.unsubscribe_online,
-            self.preview.close if self.preview is not None else lambda: None,
-            self.close_spotify_accounts,
-            self.close_spotify_presentations,
-            self.visualizer.hide,
-            self.visualizer_runtime.close,
-            self.music_video_controller.stop_video,
-        )
 
 
 def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
@@ -169,7 +137,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
             active=active,
             show_media=lambda: media_screen.show(),
             show_home=lambda: app.navigate_to("HOME"),
-            show_spotify=online_action(lambda: spotify_screen.show()),
+            show_spotify=show_spotify,
             show_youtube=online_action(lambda: youtube_screen.show()),
             show_netflix=online_action(lambda: netflix_screen.show()),
         )
@@ -223,9 +191,24 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         theme_bundle=lambda: theme_bundle(app.theme_mode),
     )
 
+    def show_spotify() -> None:
+        if not network_allowed():
+            return
+        spotify_screen.show()
+        if not spotify_client_id():
+            app.notification_sink.publish(
+                Notification(
+                    code="spotify.configuration_required",
+                    title="Spotify configuration required",
+                    message="Open Settings > Media > Spotify to enter your application Client ID.",
+                    severity=NotificationSeverity.WARNING,
+                    source="spotify",
+                )
+            )
+
     def open_trending_spotify(query: str) -> None:
         """Keep MusicForge handoff inside ORC's native Spotify screen."""
-        spotify_screen.show()
+        show_spotify()
         app.set_screen_status(
             f"Spotify opened for {query}. Automatic track lookup is not available yet."
         )
@@ -235,13 +218,16 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
             return
         media.spotify_local_player.request_remote()
         media.spotify.request_refresh()
-        spotify_screen.show()
+        show_spotify()
 
     def show_spotify_local() -> None:
         if not network_allowed():
             return
+        if not spotify_client_id():
+            show_spotify()
+            return
         media.spotify_local_player.request_player()
-        spotify_screen.show()
+        show_spotify()
 
     spotify_secrets = EnvironmentVariableSecretManager()
 
@@ -339,7 +325,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         dispatcher=app,
         load_artwork=cached_artwork_loader(image_cache, max_size=56),
         online=network_allowed,
-        show_now_playing=lambda: spotify_screen.show(),
+        show_now_playing=show_spotify,
     )
     browsers.append(browser_session)
     spotify_screen = SpotifyScreen(
@@ -402,7 +388,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         theme_bundle=lambda: theme_bundle(app.theme_mode),
         preview=preview,
         online_allowed=network_allowed,
-        show_spotify=spotify_screen.show,
+        show_spotify=show_spotify,
         show_youtube=youtube_screen.show,
         show_youtube_music=youtube_music_screen.show,
         show_netflix=netflix_screen.show,
@@ -411,7 +397,6 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         show_spotify_local=show_spotify_local,
         spotify_local_available=lambda: media.spotify_local_player.state().available,
         account_session=media_account,
-        show_account_configuration=account_dialog.show,
         close_account_configuration=account_dialog.close,
     )
     app.register_screen("MEDIA", media_screen)
@@ -440,7 +425,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         presentations=presentations,
         network_allowed=network_allowed,
         home_theme=lambda: theme_bundle(app.theme_mode),
-        open_spotify=online_action(spotify_screen.show),
+        open_spotify=show_spotify,
         home_playback_changed=home_playback_changed,
         spotify_colors=lambda: spotify_theme(app),
         report_status=app.set_screen_status,
@@ -495,4 +480,6 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         unsubscribe_online=unsubscribe_online,
         close_spotify_presentations=close_presentations,
         close_spotify_accounts=close_accounts,
+        configure_spotify=account_dialog.show,
+        close_spotify_configuration=account_dialog.close,
     )

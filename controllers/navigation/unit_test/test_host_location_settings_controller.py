@@ -16,7 +16,7 @@ def setup_controller(monkeypatch):
         lambda **kwargs: Mock(start=lambda: jobs.append(kwargs["target"])),
     )
     dispatcher, ui, permission = Mock(), Mock(), Mock()
-    dispatcher.schedule_ui_callback.side_effect = lambda delay, callback: callbacks.append(callback)
+    dispatcher.dispatch_ui.side_effect = callbacks.append
     controller = HostLocationSettingsController(dispatcher, ui, permission)
     controller.show()
     return controller, ui, permission, jobs, callbacks

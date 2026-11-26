@@ -5,9 +5,7 @@
 set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 RUNNER="$SCRIPT_DIR/run_carbonate.sh"
-if ! command -v go >/dev/null 2>&1; then
-    sudo apt-get install -y golang-go
-fi
+PYTHON_BIN="${OPENROADCODE_PYTHON:-$(command -v python3)}"
 CARBONATE_BIN="${CARBONATE_BIN:-carbonate}"
 if ! command -v "$CARBONATE_BIN" >/dev/null 2>&1; then
     if [ "$CARBONATE_BIN" = carbonate ] && [ -x "$HOME/go/bin/carbonate" ]; then
@@ -24,7 +22,7 @@ case "$CARBONATE_BIN" in
     /*) ;;
     *) echo "Carbonate executable must resolve to an absolute path" >&2; exit 1 ;;
 esac
-case "$CARBONATE_BIN" in
+case "$CARBONATE_BIN$PYTHON_BIN$RUNNER" in
     *%*|*\\*|*\"*) echo "Unsupported executable path characters" >&2; exit 1 ;;
 esac
 UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
@@ -38,7 +36,8 @@ After=network-online.target
 Type=simple
 Environment="OPENROADCODE_SECRETS_FILE=%h/.config/openroadcode/secrets.env"
 Environment="CARBONATE_BIN=$CARBONATE_BIN"
-ExecStart=/bin/sh $RUNNER
+Environment="OPENROADCODE_PYTHON=$PYTHON_BIN"
+ExecStart=/bin/sh "$RUNNER"
 Restart=on-failure
 RestartPreventExitStatus=127
 RestartSec=10
@@ -51,4 +50,3 @@ echo "Installed user service. Start with:"
 echo "  systemctl --user enable --now openroadcode-carbonate.service"
 echo "Status: systemctl --user status openroadcode-carbonate.service"
 echo "Logs: journalctl --user -u openroadcode-carbonate.service -f"
-echo "Carbonate must be installed and authenticated separately."

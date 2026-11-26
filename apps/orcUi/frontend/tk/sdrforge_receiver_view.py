@@ -70,6 +70,7 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, SdrForgeViewportMixin,
         self._center_frequency_hz: int | None = None
         self._sample_rate_hz: int | None = None
         self._viewport: SpectrumViewport | None = None
+        self._pending_viewport_center: float | None = None
         self._recenter_on_tune = False
         self._db_floor: float | None = None
         self._db_ceiling: float | None = None
@@ -335,6 +336,7 @@ class SdrForgeReceiverView(tk.Frame, SdrForgeRenderMixin, SdrForgeViewportMixin,
         self._center_frequency_hz = None
         self._sample_rate_hz = None
         self._viewport = None
+        self._pending_viewport_center = None
         if self._gl_surface is not None:
             self._gl_surface.update_data((), (), self._visualization.palette)
         self._schedule_render()

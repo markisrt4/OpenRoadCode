@@ -5,9 +5,10 @@
 set -euo pipefail
 
 CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
-SECRETS_FILE="${SECRETS_FILE:-${CONFIG_HOME}/openroadcode/secrets.env}"
+SECRETS_FILE="${OPENROADCODE_SECRETS_FILE:-${SECRETS_FILE:-${CONFIG_HOME}/openroadcode/secrets.env}}"
 
 declare -A UPDATES=()
+PROMPT_YOUTUBE=0
 
 usage() {
     cat <<EOF
@@ -16,6 +17,7 @@ Usage: $(basename "$0") [options]
 Configure OpenRoadCode secrets on Termux while preserving unrelated entries.
 
 Options:
+  --prompt-youtube           Prompt privately for a YouTube API key
   --youtube-api-key KEY      Set YOUTUBE_API_KEY
   --spotify-client-id ID     Set SPOTIFY_CLIENT_ID
   --spotify-redirect-uri URI Set SPOTIFY_REDIRECT_URI
@@ -42,6 +44,10 @@ set_update() {
 
 while (( $# > 0 )); do
     case "$1" in
+        --prompt-youtube)
+            PROMPT_YOUTUBE=1
+            shift
+            ;;
         --youtube-api-key)
             (( $# >= 2 )) || fail "--youtube-api-key requires a value"
             set_update "YOUTUBE_API_KEY" "$2"
@@ -77,20 +83,28 @@ case "${PREFIX:-}" in
     *) fail "this installer is intended for Termux; PREFIX=${PREFIX:-<unset>}" ;;
 esac
 
+if (( PROMPT_YOUTUBE )); then
+    read -r -s -p "YouTube Data API key (blank to skip): " youtube_api_key || exit 0
+    echo
+    [[ -n "$youtube_api_key" ]] || exit 0
+    set_update YOUTUBE_API_KEY "$youtube_api_key"
+fi
+
 if (( ${#UPDATES[@]} == 0 )); then
     echo
     echo "OpenRoadCode Secrets Setup (Termux)"
     echo "==================================="
     echo
-    read -r -p "YouTube Data API key: " youtube_api_key
-    youtube_api_key="${youtube_api_key//[[:space:]]/}"
-    [[ -n "$youtube_api_key" ]] || fail "YouTube API key cannot be empty"
-    set_update "YOUTUBE_API_KEY" "$youtube_api_key"
+    read -r -p "Spotify client ID (blank to skip): " spotify_client_id || exit 0
+    [[ -n "$spotify_client_id" ]] || exit 0
+    set_update SPOTIFY_CLIENT_ID "$spotify_client_id"
+    read -r -p "Spotify redirect URI [http://127.0.0.1:8888/callback]: " spotify_redirect_uri
+    set_update SPOTIFY_REDIRECT_URI "${spotify_redirect_uri:-http://127.0.0.1:8888/callback}"
 fi
 
 secrets_dir="$(dirname -- "$SECRETS_FILE")"
 mkdir -p -- "$secrets_dir"
-chmod 0700 "$secrets_dir"
+if [[ "$secrets_dir" == "$CONFIG_HOME/openroadcode" ]]; then chmod 0700 "$secrets_dir"; fi
 [[ -w "$secrets_dir" ]] || fail "secrets directory is not writable: $secrets_dir"
 
 touch -- "$SECRETS_FILE"

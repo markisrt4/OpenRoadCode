@@ -46,7 +46,7 @@ if [[ -z "${venv_python}" ]]; then
 fi
 
 "${venv_python}" -m pip install --upgrade pip
-"${venv_python}" -m pip install --upgrade ultralytics pillow supervision
+"${venv_python}" -m pip install --upgrade ultralytics pillow 'supervision==0.28.0'
 
 echo
 "${venv_python}" - <<'PY'

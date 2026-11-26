@@ -24,15 +24,22 @@ GEOMETRY="${GEOMETRY:-1280x720}"
 DEPTH="${DEPTH:-24}"
 GPS_DEVICE="${GPS_DEVICE:-/dev/ttyACM0}"
 
+NAVIGATION_MODE="${NAVIGATION_MODE:-auto}"
 TARGET=""
 FORCE_TARGET=0
 SHOW_PLAN=0
+VERIFY_ONLY=0
 SKIP_INSTALLS=0
+MANAGED_RF=0
 RUN_SYSTEM_PACKAGES=1
 RUN_PYTHON_ENV=1
 RUN_VNC=""
+ORC_AUTOSTART=""
 RUN_GPSD_SERVICE=""
 RUN_TELEMETRY_SERVICES=""
+RUN_RADIO=""
+RUN_NAVIGATION=""
+NAVIGATION_REGION=""
 BLUETOOTH_SPP_ADDRESS=""
 BLUETOOTH_SPP_CHANNEL=""
 BLUETOOTH_RFCOMM_ID="0"
@@ -52,11 +59,21 @@ Targets:
 
 Options:
   --target TARGET         Required installation target
+  --navigation-region REGION Install catalogued regional data
+  --with-navigation-service Enable broker/navigation services
+  --no-navigation-service Skip independent navigation service setup
+  --navigation-mode MODE  auto, binary, or source
   --force-target          Continue without prompting when detection disagrees
+  --verify-only           Check the selected Linux installation without changing it
   --show-plan             Print the resolved plan without changing the system
   --skip-installs         Skip packages, Python setup, and group changes
   --no-system-packages    Skip system package installation
   --no-python-env         Skip Python virtualenv/package setup
+  --with-radio-service    Enable broker and SDRForge user service
+  --managed-rf            Enable coordinated SDRForge and readsb on Pi 5
+  --no-radio-service      Skip radio service setup
+  --with-orc-autostart     Launch ORC when this user logs into the Linux desktop
+  --no-orc-autostart       Remove the ORC desktop autostart entry
   --with-vnc              Enable VNC service setup
   --no-vnc                Disable VNC service setup
   --with-gpsd-service     Enable GPSD service setup
@@ -142,6 +159,7 @@ confirm_target_mismatch() {
   [[ -z "$model" ]] || echo "    Detected model:   $model" >&2
   echo "    Continuing may install incompatible packages or services." >&2
   if (( SHOW_PLAN )); then echo "[!] Plan-only mode: reporting the mismatch without prompting." >&2; return 0; fi
+  if (( VERIFY_ONLY )); then echo "[!] Verify-only mode: checking the selected profile." >&2; return 0; fi
   if (( FORCE_TARGET )); then echo "[!] Continuing because --force-target was supplied." >&2; return 0; fi
   if [[ ! -t 0 ]]; then
     echo "[!] Refusing a noninteractive mismatched install." >&2
@@ -169,12 +187,22 @@ persist_host_target() {
 
 while (( $# > 0 )); do
   case "$1" in
-    --target) shift; (( $# > 0 )) || { echo "[!] --target requires a value" >&2; exit 1; }; TARGET="$1" ;;
+    --target) shift; (( $# > 0 )) || { echo "[!] --target requires a value" >&2; exit 1; }; TARGET="${1,,}" ;;
+    --navigation-region) shift; NAVIGATION_REGION="${1:?--navigation-region requires a value}" ;;
+    --with-navigation-service) RUN_NAVIGATION=1 ;;
+    --no-navigation-service) RUN_NAVIGATION=0 ;;
+    --navigation-mode) shift; NAVIGATION_MODE="${1:?--navigation-mode requires a value}" ;;
     --force-target) FORCE_TARGET=1 ;;
     --show-plan) SHOW_PLAN=1 ;;
+    --verify-only) VERIFY_ONLY=1 ;;
     --skip-installs) SKIP_INSTALLS=1 ;;
+    --managed-rf) MANAGED_RF=1 ;;
     --no-system-packages) RUN_SYSTEM_PACKAGES=0 ;;
     --no-python-env) RUN_PYTHON_ENV=0 ;;
+    --with-radio-service) RUN_RADIO=1 ;;
+    --no-radio-service) RUN_RADIO=0 ;;
+    --with-orc-autostart) ORC_AUTOSTART=enable ;;
+    --no-orc-autostart) ORC_AUTOSTART=disable ;;
     --with-vnc) RUN_VNC=1 ;;
     --no-vnc) RUN_VNC=0 ;;
     --with-gpsd-service) RUN_GPSD_SERVICE=1 ;;
@@ -195,6 +223,12 @@ done
 
 [[ -n "$TARGET" ]] || { echo "[!] --target is required" >&2; usage >&2; exit 1; }
 case "$TARGET" in rpi4|rpi5|linux-dev|termux) ;; *) echo "[!] Unknown target: $TARGET" >&2; usage >&2; exit 1 ;; esac
+
+NAVIGATION_MODE="${NAVIGATION_MODE,,}"
+case "$NAVIGATION_MODE" in auto|binary|source) ;; *) echo "Invalid navigation mode: $NAVIGATION_MODE" >&2; exit 2 ;; esac
+if [[ "$TARGET" == "termux" && "$NAVIGATION_MODE" == binary ]]; then
+  echo "No Termux navigation binary packages available" >&2; exit 2
+fi
 
 if [[ "$TARGET" == "termux" ]]; then
   if [[ -n "$BLUETOOTH_SPP_ADDRESS" ]]; then
@@ -234,19 +268,27 @@ case "$TARGET" in
   linux-dev|termux) GPIO_BACKEND="" ;;
 esac
 : "${RUN_VNC:=0}"
-: "${RUN_GPSD_SERVICE:=0}"
+
 : "${RUN_TELEMETRY_SERVICES:=0}"
 
 for feature in "${REQUESTED_FEATURES[@]}"; do
   is_known_feature "$feature" || { echo "[!] Unknown feature: $feature" >&2; get_feature_help >&2; exit 1; }
   append_feature "$feature"
 done
-(( RUN_VNC )) && append_feature vnc
-(( RUN_GPSD_SERVICE )) && append_feature gps
-
-if [[ " ${FEATURES[*]} " == *" desktop-ui "* ]]; then
-  append_feature sdrforge
+if [[ -n "$ORC_AUTOSTART" && "$TARGET" == termux ]]; then
+  echo "[!] ORC desktop autostart requires a Linux desktop target." >&2
+  exit 2
 fi
+if [[ "$ORC_AUTOSTART" == enable ]]; then
+  if (( EUID == 0 && ! SHOW_PLAN && ! VERIFY_ONLY )); then
+    echo "[!] Run the installer as the desktop user to enable ORC autostart." >&2
+    exit 2
+  fi
+  append_feature desktop-ui
+fi
+(( RUN_VNC )) && append_feature vnc
+(( MANAGED_RF )) && append_feature browser
+[[ "$RUN_GPSD_SERVICE" != 1 ]] || append_feature gps
 
 feature_index=0
 while (( feature_index < ${#FEATURES[@]} )); do
@@ -256,6 +298,42 @@ while (( feature_index < ${#FEATURES[@]} )); do
 done
 for feature in "${FEATURES[@]}"; do is_known_feature "$feature" || { echo "[!] Internal error: unknown resolved feature '$feature'" >&2; exit 1; }; done
 
+if [[ -z "$RUN_NAVIGATION" ]]; then
+  RUN_NAVIGATION=0
+  if [[ "$TARGET" != termux && " ${FEATURES[*]} " == *" navigation "* ]]; then RUN_NAVIGATION=1; fi
+fi
+if [[ -z "$RUN_GPSD_SERVICE" ]]; then
+  RUN_GPSD_SERVICE=0
+  if (( RUN_NAVIGATION )) && [[ "$TARGET" == rpi4 || "$TARGET" == rpi5 ]]; then RUN_GPSD_SERVICE=1; fi
+fi
+if [[ -n "$NAVIGATION_REGION" ]]; then
+  python3 - "$PROJECT_ROOT/scripts/runtime/navigation-data-catalog.json" "$NAVIGATION_REGION" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as stream:
+    if sys.argv[2] not in json.load(stream)["regions"]:
+        raise SystemExit(f"Unknown navigation region: {sys.argv[2]}")
+PY
+fi
+if [[ -n "$NAVIGATION_REGION" ]] && [[ "$TARGET" == termux || " ${FEATURES[*]} " != *" navigation "* ]]; then
+  echo "Regional data installation requires Linux navigation feature" >&2; exit 2
+fi
+if [[ -z "$RUN_RADIO" ]]; then
+  RUN_RADIO=0
+  if [[ "$TARGET" != termux && " ${FEATURES[*]} " == *" sdrforge "* ]]; then RUN_RADIO=1; fi
+fi
+if (( RUN_RADIO )) && [[ "$TARGET" == termux || " ${FEATURES[*]} " != *" sdrforge "* ]]; then
+  echo "[!] Radio service requires the Linux sdrforge feature." >&2
+  exit 1
+fi
+if (( MANAGED_RF )) && {
+  [[ "$TARGET" != rpi5 || " ${FEATURES[*]} " != *" adsb "* ]] || (( ! RUN_RADIO ));
+}; then
+  echo "[!] --managed-rf requires target rpi5 with both the sdrforge and adsb features and radio services." >&2
+  exit 1
+fi
+
 export OPENROAD_RPI_GPIO_BACKEND="$GPIO_BACKEND"
 
 echo "[*] Requested target:      $TARGET"
@@ -264,15 +342,71 @@ echo "[*] Detected architecture: $HOST_ARCH"
 echo "[*] Distribution:          ${DISTRO_ID:-unknown}"
 [[ -z "$RPI_MODEL" ]] || echo "[*] Raspberry Pi model:    $RPI_MODEL"
 [[ -z "$GPIO_BACKEND" ]] || echo "[*] GPIO backend:          $GPIO_BACKEND"
+echo "[*] Navigation services:   $RUN_NAVIGATION"
+echo "[*] Navigation region:     ${NAVIGATION_REGION:-none}"
+echo "[*] Navigation mode:       $NAVIGATION_MODE"
 echo "[*] Features:              ${FEATURES[*]}"
 echo "[*] VNC service setup:     $RUN_VNC"
+echo "[*] ORC autostart:         ${ORC_AUTOSTART:-keep existing}"
 echo "[*] GPSD service setup:    $RUN_GPSD_SERVICE"
+echo "[*] Radio service setup:   $RUN_RADIO"
+echo "[*] Managed RF:            $MANAGED_RF"
 echo "[*] Telemetry services:    $RUN_TELEMETRY_SERVICES"
 if [[ -n "$BLUETOOTH_SPP_ADDRESS" ]]; then
   echo "[*] Bluetooth SPP:         $BLUETOOTH_SPP_ADDRESS (rfcomm$BLUETOOTH_RFCOMM_ID)"
 fi
 
 if (( SHOW_PLAN )); then echo "[*] Plan only; no system changes were made."; exit 0; fi
+
+resolve_verification_inputs() {
+  VERIFY_PYTHON="python3"
+  [[ -x "$VENV_DIR/bin/python" ]] && VERIFY_PYTHON="$VENV_DIR/bin/python"
+  RUN_VALHALLA=0
+  if [[ " ${FEATURES[*]} " == *" navigation "* && -s "${DATA_ROOT:-/srv/openroadcode}/valhalla/valhalla.json" ]]; then
+    RUN_VALHALLA=1
+  fi
+}
+
+verify_runtime_health() {
+  echo
+  echo "[*] Verifying runtime health..."
+  runtime_config="$PROJECT_DIR/config/runtime.toml"
+  if [[ "$TARGET" == "linux-dev" ]]; then
+    runtime_config="$PROJECT_DIR/config/runtime.simulated.toml"
+  fi
+  runtime_args=("${FEATURES[@]}" --config "$runtime_config")
+  (( RUN_NAVIGATION )) && runtime_args+=(--navigation-service)
+  [[ -z "$NAVIGATION_REGION" ]] || runtime_args+=(--navigation-data-root "${DATA_ROOT:-/srv/openroadcode}" --navigation-region "$NAVIGATION_REGION")
+  (( RUN_RADIO )) && runtime_args+=(--radio-service)
+  (( RUN_VALHALLA )) && runtime_args+=(--valhalla-service)
+  (( RUN_VNC )) && runtime_args+=(--vnc-service)
+  (( MANAGED_RF )) && runtime_args+=(--managed-rf)
+  (( RUN_TELEMETRY_SERVICES )) && runtime_args+=(--telemetry-services)
+  (( RUN_GPSD_SERVICE )) && runtime_args+=(--gpsd-service)
+  if [[ -n "${OPENROAD_RUNTIME_REPORT:-}" ]]; then
+    "$VERIFY_PYTHON" "$SCRIPT_DIR/verify_runtime.py" "${runtime_args[@]}" 2>&1 |
+      tee -- "$OPENROAD_RUNTIME_REPORT"
+  else
+    "$VERIFY_PYTHON" "$SCRIPT_DIR/verify_runtime.py" "${runtime_args[@]}"
+  fi
+
+}
+
+if (( VERIFY_ONLY )); then
+  if [[ "$TARGET" == termux ]]; then
+    echo "[!] --verify-only is available for Linux host installations." >&2
+    exit 2
+  fi
+  if (( RUN_RADIO )) && [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/openroadcode/rf-acquisition.env" ]]; then
+    MANAGED_RF=1
+  fi
+  resolve_verification_inputs
+  verification_status=0
+  echo "[*] Verifying installed dependencies..."
+  "$VERIFY_PYTHON" "$SCRIPT_DIR/verify_installation.py" "${FEATURES[@]}" || verification_status=$?
+  verify_runtime_health || verification_status=$?
+  exit "$verification_status"
+fi
 
 persist_host_target "$TARGET"
 
@@ -281,7 +415,7 @@ if [[ "$TARGET" == "termux" ]]; then
     bash "$PROJECT_DIR/scripts/termux/install.sh" "${FEATURES[@]}"
   fi
   if [[ " ${FEATURES[*]} " == *" navigation "* ]]; then
-    bash "$SCRIPT_DIR/install_navigation_stack.sh" --target termux
+    bash "$SCRIPT_DIR/install_navigation_stack.sh" --target termux --mode "$NAVIGATION_MODE"
   fi
   echo
   echo "[+] termux setup complete."
@@ -313,23 +447,32 @@ if [[ -n "$BLUETOOTH_SPP_ADDRESS" ]] && (( ! SKIP_INSTALLS )); then
   bash "$PROJECT_DIR/scripts/installers/setup_bluetooth_spp.sh" "${spp_args[@]}"
 fi
 
-if (( RUN_VNC )) || (( RUN_GPSD_SERVICE )) || (( RUN_TELEMETRY_SERVICES )); then
-  service_args=()
-  (( RUN_VNC )) && service_args+=(--vnc)
-  (( RUN_GPSD_SERVICE )) && service_args+=(--gpsd --gps-device "$GPS_DEVICE")
-  (( RUN_TELEMETRY_SERVICES )) && service_args+=(--telemetry)
-  bash "$PROJECT_DIR/scripts/installers/install_services.sh" "${service_args[@]}"
-fi
-
-VERIFY_PYTHON="python3"
-[[ -x "$VENV_DIR/bin/python" ]] && VERIFY_PYTHON="$VENV_DIR/bin/python"
-
 if (( ! SKIP_INSTALLS )) && [[ " ${FEATURES[*]} " == *" navigation "* ]]; then
   echo
   echo "[*] Installing navigation software stack..."
   bash "$SCRIPT_DIR/install_navigation_stack.sh" \
     --target "$TARGET" \
-    --skip-host-packages
+    --mode "$NAVIGATION_MODE" \
+    --skip-host-packages --skip-services
+  if [[ -n "$NAVIGATION_REGION" ]]; then
+    bash "$PROJECT_ROOT/scripts/runtime/pull_navigation_data.sh" --region "$NAVIGATION_REGION" --no-restart
+  fi
+fi
+
+resolve_verification_inputs
+if (( RUN_VALHALLA )); then
+  sudo bash "$PROJECT_ROOT/scripts/systemd/install_valhalla_systemd.sh" "${DATA_ROOT:-/srv/openroadcode}/valhalla/valhalla.json"
+fi
+
+if (( RUN_VNC )) || (( RUN_GPSD_SERVICE )) || (( RUN_TELEMETRY_SERVICES )) || (( RUN_RADIO )) || (( RUN_NAVIGATION )); then
+  service_args=()
+  (( RUN_NAVIGATION )) && service_args+=(--navigation)
+  (( RUN_RADIO )) && service_args+=(--radio)
+  (( MANAGED_RF )) && service_args+=(--managed-rf)
+  (( RUN_VNC )) && service_args+=(--vnc)
+  (( RUN_GPSD_SERVICE )) && service_args+=(--gpsd --gps-device "$GPS_DEVICE")
+  (( RUN_TELEMETRY_SERVICES )) && service_args+=(--telemetry)
+  bash "$PROJECT_DIR/scripts/installers/install_services.sh" "${service_args[@]}"
 fi
 
 if (( ! SKIP_INSTALLS )); then
@@ -338,16 +481,12 @@ if (( ! SKIP_INSTALLS )); then
   "$VERIFY_PYTHON" "$SCRIPT_DIR/verify_installation.py" "${FEATURES[@]}"
 fi
 
-echo
-echo "[*] Verifying runtime health..."
-runtime_config="$PROJECT_DIR/config/runtime.toml"
-if [[ "$TARGET" == "linux-dev" ]]; then
-  runtime_config="$PROJECT_DIR/config/runtime.simulated.toml"
+verify_runtime_health
+
+if [[ -n "$ORC_AUTOSTART" ]]; then
+  python3 "$SCRIPT_DIR/configure_orc_autostart.py" "$ORC_AUTOSTART" \
+    "$PROJECT_DIR/runOrcUi" "$VENV_DIR/bin/python"
 fi
-runtime_args=("${FEATURES[@]}" --config "$runtime_config")
-(( RUN_TELEMETRY_SERVICES )) && runtime_args+=(--telemetry-services)
-(( RUN_GPSD_SERVICE )) && runtime_args+=(--gpsd-service)
-"$VERIFY_PYTHON" "$SCRIPT_DIR/verify_runtime.py" "${runtime_args[@]}"
 
 echo
 echo "[+] $TARGET setup complete."

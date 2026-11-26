@@ -20,6 +20,7 @@ browser
 vnc
 input
 audio
+audio-bluetooth
 gps
 rtl-sdr
 streamlit
@@ -29,7 +30,12 @@ automotive
 imu
 environmental
 spotify
+youtube
+calendar
 sdrforge
+video
+video-v4l2
+video-perception
 navigation
 raspberry-pi
 EOF
@@ -50,6 +56,7 @@ browser
 vnc
 input
 audio
+audio-bluetooth
 gps
 rtl-sdr
 streamlit
@@ -59,7 +66,12 @@ automotive
 imu
 environmental
 spotify
+youtube
+calendar
 sdrforge
+video
+video-v4l2
+video-perception
 EOF
       ;;
     termux)
@@ -70,6 +82,8 @@ web-ui
 browser
 streamlit
 spotify
+youtube
+calendar
 sdrforge
 navigation
 EOF
@@ -90,7 +104,12 @@ get_feature_dependencies() {
   local feature="$1"
   local target="${OPENROAD_INSTALL_TARGET:-linux-dev}"
   case "$feature" in
+    video) echo "desktop-ui" ;;
+    video-v4l2) echo "video" ;;
+    video-perception) echo "video" ;;
     vnc) echo "desktop-ui" ;;
+    audio-bluetooth) echo "audio" ;;
+    youtube) echo "browser desktop-ui" ;;
     spotify)
       [[ "$target" == "termux" ]] && echo "" || echo "audio"
       ;;
@@ -138,10 +157,13 @@ get_feature_packages() {
       ;;
     audio)
       case "${OPENROAD_INSTALL_TARGET:-linux-dev}" in
-        rpi4|rpi5) echo "wireplumber pipewire-pulse pipewire-bin pulseaudio-utils alsa-utils python3-numpy" ;;
-        linux-dev) echo "pipewire-bin pulseaudio-utils python3-numpy" ;;
+        rpi4|rpi5) echo "wireplumber pipewire-pulse pipewire-bin pipewire-alsa pulseaudio-utils alsa-utils python3-numpy" ;;
+        linux-dev) echo "pipewire-bin pipewire-alsa pulseaudio-utils alsa-utils python3-numpy" ;;
         *) echo "" ;;
       esac
+      ;;
+    audio-bluetooth)
+      echo "bluez libspa-0.2-bluetooth wireplumber pipewire-pulse"
       ;;
     gps)
       echo "gpsd gpsd-clients python3-gps"
@@ -164,9 +186,11 @@ get_feature_packages() {
     spotify)
       echo ""
       ;;
+    video) echo "python3-opencv" ;;
+    video-v4l2) echo "v4l-utils" ;;
     sdrforge) echo "libportaudio2" ;;
     navigation)
-      echo ""
+      echo "rsync curl python3-zmq libzmq3-dev libspdlog-dev libglfw3-dev libgles-dev libcurl4-openssl-dev libjpeg-dev libuv1-dev libwebp-dev libicu-dev libpng-dev libprotobuf-dev liblz4-dev libgeotiff-dev libczmq-dev libxxhash-dev libsqlite3-dev libspatialite-dev libssl-dev libluajit-5.1-dev"
       ;;
     *)
       echo ""
@@ -191,6 +215,12 @@ get_feature_python_packages() {
       ;;
     browser|vnc|adsb|audio|spotify|sdrforge|navigation)
       echo ""
+      ;;
+    calendar)
+      printf '%s\n' python-dateutil
+      ;;
+    video-perception)
+      printf '%s\n' ultralytics 'supervision==0.28.0'
       ;;
     input)
       printf '%s\n' evdev
@@ -238,17 +268,23 @@ Available features:
   vnc           TigerVNC server support (includes desktop-ui)
   input         Linux input/evdev support
   audio         PipeWire/PulseAudio control, capture, and native music analysis
+  audio-bluetooth Bluetooth audio playback via PipeWire (includes audio)
   gps           GPSD and Python GPS/navigation support
   rtl-sdr       RTL-SDR device and SoapySDR support
   streamlit     Streamlit dashboard support
-  adsb          readsb + tar1090 ADS-B support (includes rtl-sdr)
+  adsb          readsb + lighttpd ADS-B support (includes rtl-sdr)
   bluetooth     Bluetooth system and Python support
   automotive    Serial and CAN-bus support
   imu           MPU-6050 and Adafruit Blinka I2C support
   environmental BMP3XX and Adafruit Blinka I2C support
+  calendar      Calendar cache and synchronization dependencies (account setup separate)
   spotify       Spotify integration extras (includes audio)
+  youtube       YouTube music video playback (includes browser and desktop-ui)
   sdrforge         SDRForge support (includes RTL-SDR, desktop-ui, and audio)
   navigation    MapLibre renderer + Valhalla navigation stack (includes desktop-ui and gps)
+  video         Common camera capture and preview support
+  video-v4l2    Linux USB camera support (includes video)
+  video-perception YOLO detection and tracking (includes video)
   raspberry-pi  Raspberry Pi GPIO, I2C, Blinka, and Seesaw support
 EOF
 }

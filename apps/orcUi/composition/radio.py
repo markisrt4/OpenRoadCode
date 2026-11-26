@@ -18,6 +18,7 @@ from queue import Empty, SimpleQueue
 from apps.orcUi.adapters.adsb_control import OrcUiAdsbControl
 from apps.orcUi.adapters.managed_browser_media_player import ManagedBrowserMediaPlayer
 from apps.orcUi.application_runtime import OrcUiApplicationRuntime
+from apps.orcUi.composition.rf_receivers import ManagedReceiverServices
 from apps.orcUi.composition.trending_radio import configure_trending
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.radio_entry_panel import RadioEntryPanel
@@ -25,9 +26,13 @@ from apps.orcUi.frontend.tk.radio_panel import RadioPanel
 from apps.orcUi.theme_runtime import theme_bundle
 from common.resource_cleanup import ResourceCleanup, close_resources
 from controllers.radio.adapters.radio_browser_directory import RadioBrowserDirectory
+from controllers.radio.adapters.sdrforge_rest_radio_backend import SdrForgeRestRadioBackend
 from controllers.radio.adapters.sdrforge_zmq_spectrum_adapter import SdrForgeTelemetrySubscriber
 from controllers.radio.native_radio_control import NativeRadioControl
 from controllers.radio.radio_profile_controller import RadioProfileController
+from controllers.radio.receiver_assignments import ReceiverAssignmentStore
+from controllers.radio.receiver_ownership import ReceiverOwnershipController
+from controllers.radio.receiver_settings_controller import ReceiverSettingsController
 from controllers.radio.rf_radio_session import ReceiverSession
 from controllers.radio.streaming_radio_artwork import download_station_artwork
 from controllers.radio.streaming_radio_browser import StreamingRadioBrowser
@@ -37,10 +42,13 @@ from frontends.tk.radio import RadioScreen
 from frontends.tk.radio.persistent_streaming_radio_panel import PersistentStreamingRadioPanel
 from frontends.tk.radio.streaming_radio_now_playing import StreamingRadioNowPlaying
 from frontends.x11.x11_window_embedder import X11WindowEmbedder
+from hardware_io.rf.linux_usb_receiver_adapter import LinuxUsbReceiverAdapter
 from protocols.rigctl.rigctl_client import RigctlClient
+from protocols.sdrforge_control import authorize_local_sdrforge_request
 from ui.media.song_launch import SongLaunchRequest
 from ui.radio import AircraftMenuRequestHandlerIf
 from ui.radio.radio_visualization_config import RadioRenderer, RadioVisualizationConfig
+from ui.radio.receiver_settings_if import ReceiverSettingsIf
 from ui.theme import ThemeBundle, ThemeMode
 
 
@@ -66,10 +74,12 @@ def stop_sdrforge_receiver() -> None:
     """Release RF acquisition at application shutdown, not screen retirement."""
     try:
         with urllib.request.urlopen(
-            urllib.request.Request(
-                "http://127.0.0.1:5570/v1/receiver/stop",
-                data=b"",
-                method="POST",
+            authorize_local_sdrforge_request(
+                urllib.request.Request(
+                    "http://127.0.0.1:5570/v1/receiver/stop",
+                    data=b"",
+                    method="POST",
+                )
             ),
             timeout=5.0,
         ):
@@ -159,6 +169,7 @@ class RadioComposition:
         [Callable[[tk.Misc, Callable[[], None], str, str], tk.Widget]], None
     ] = lambda _factory: None
     rigctl_client: RigctlClient | None = None
+    receiver_settings: ReceiverSettingsIf | None = None
 
     def close(self) -> None:
         """Retire browser sessions and workers; runtime retains playback ownership."""
@@ -171,6 +182,7 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
 
     with ResourceCleanup() as cleanup:
         rigctl_client = RigctlClient()
+        token = os.environ.get("SDRFORGE_ACQUISITION_TOKEN")
 
         def sync_theme(mode: ThemeMode) -> None:
             """Native radio widgets consume the ORC theme directly."""
@@ -181,6 +193,33 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
             stop_receiver=stop_sdrforge_receiver,
         )
         cleanup.callback(resources.close)
+        ownership = ReceiverOwnershipController()
+        assignments = ReceiverAssignmentStore()
+        discovery = LinuxUsbReceiverAdapter()
+        managed = (
+            ManagedReceiverServices(token, ownership, assignments, discovery) if token else None
+        )
+        if managed is not None:
+            resources.stop_receiver = managed.close
+        managed_backend = (
+            SdrForgeRestRadioBackend(
+                shared_receiver=True, before_mutation=managed.guard_radio_control
+            )
+            if managed is not None
+            else None
+        )
+        receiver_settings = (
+            None
+            if not os.path.isdir("/sys/bus/usb/devices")
+            else ReceiverSettingsController(
+                discovery,
+                assignments,
+                ownership,
+                acquisition=managed.acquisition if managed is not None else None,
+                run_work=resources.run_work,
+                run_ui=app.dispatch_ui,
+            )
+        )
         online_mode = app.online_mode
 
         def network_allowed() -> bool:
@@ -207,7 +246,14 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
         mode_changed(network_allowed())
         directory = RadioBrowserDirectory(timeout_s=10.0, network_allowed=network_allowed)
         favorites = StreamingRadioFavorites()
-        adsb = OrcUiAdsbControl()
+        adsb = (
+            OrcUiAdsbControl(
+                set_managed_tracking=managed.set_adsb_tracking,
+                managed_tracking=managed.adsb_active,
+            )
+            if managed is not None
+            else OrcUiAdsbControl()
+        )
 
         def load_artwork(url: str) -> bytes:
             if not network_allowed():
@@ -257,7 +303,7 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
         ) -> RadioPanel:
             if resources.closed:
                 raise RuntimeError("Radio composition is closed")
-            radio = RadioProfileController(client=rigctl_client)
+            radio = RadioProfileController(client=rigctl_client, backend=managed_backend)
             visualization = RadioVisualizationConfig(
                 renderer=RadioRenderer(os.environ.get("ORC_RADIO_RENDERER", "auto").lower()),
                 waterfall_rows=int(os.environ.get("ORC_RADIO_WATERFALL_ROWS", "180")),
@@ -280,6 +326,9 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
                 on_close=lambda: resources.rf_sessions.discard(session),
                 spectrum_source=source,
                 notification_sink=app.notification_sink,
+                start_receiver=managed.start_radio if managed is not None else None,
+                stop_receiver=managed.stop_radio if managed is not None else None,
+                guard_receiver_control=managed.guard_radio_control if managed is not None else None,
             )
             with ResourceCleanup() as rollback:
                 rollback.callback(session.close)
@@ -344,11 +393,16 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
                     return
                 logger.info("NOAA worker started")
                 try:
+                    weather_backend = (
+                        SdrForgeRestRadioBackend(managed.start_weather(), shared_receiver=True)
+                        if managed is not None
+                        else managed_backend
+                    )
                     state = play_weather_radio(
-                        RadioProfileController(),
+                        RadioProfileController(backend=weather_backend),
                         runtime.radio,
                         cancelled=lambda: resources.closed,
-                        native_sdrforge=True,
+                        native_sdrforge=managed is None,
                     )
                     if state is None:
                         logger.info("NOAA request cancelled")
@@ -380,7 +434,7 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
         def toggle_adsb(enabled: bool) -> tuple[bool, str | None]:
             # An explicit ADS-B selection wins the shared SDR. Relinquish RF first.
             try:
-                if enabled and runtime.radio.presented:
+                if enabled and managed is None and runtime.radio.presented:
                     runtime.radio.relinquish_for_adsb()
                 return adsb.set_tracking(enabled), None
             except (OSError, RuntimeError, ValueError) as error:
@@ -455,6 +509,7 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
             bind_video_player=trending.bind_video_player,
             bind_spotify_factory=trending.bind_spotify_factory,
             rigctl_client=rigctl_client,
+            receiver_settings=receiver_settings,
         )
         cleanup.release()
     return composition

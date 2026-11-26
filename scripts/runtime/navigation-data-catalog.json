@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "repository": "markisrt4/OpenRoadCode",
+  "regions": {
+    "us/michigan": {
+      "title": "Michigan",
+      "tag": "navigation-data-45507335279-1",
+      "parts": [
+        "navigation-data.tar.gz.part-0000"
+      ],
+      "archive_bytes": 1324342971,
+      "smoke_route": {
+        "locations": [
+          {
+            "lat": 42.8027,
+            "lon": -83.0129
+          },
+          {
+            "lat": 42.6806,
+            "lon": -83.1338
+          }
+        ],
+        "costing": "auto"
+      }
+    }
+  }
+}

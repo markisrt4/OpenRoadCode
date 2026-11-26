@@ -74,8 +74,8 @@ class HostLocationSettingsController:
                 message = str(error)
                 can_restart = False
             if not cancelled():
-                self._dispatcher.schedule_ui_callback(
-                    0, lambda: self._complete(generation, message, can_restart)
+                self._dispatcher.dispatch_ui(
+                    lambda: self._complete(generation, message, can_restart)
                 )
 
         threading.Thread(target=work, name="host-location-permission", daemon=True).start()
@@ -101,9 +101,7 @@ class HostLocationSettingsController:
             except Exception as error:
                 message = str(error)
             if not cancelled():
-                self._dispatcher.schedule_ui_callback(
-                    0, lambda: self._complete(generation, message, False)
-                )
+                self._dispatcher.dispatch_ui(lambda: self._complete(generation, message, False))
 
         threading.Thread(target=work, name="host-location-restart", daemon=True).start()
 

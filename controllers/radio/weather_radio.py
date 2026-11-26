@@ -7,6 +7,7 @@ from collections.abc import Callable
 from time import sleep
 
 from controllers.radio.radio_profile_controller import RadioProfileController
+from protocols.sdrforge_control import authorize_local_sdrforge_request
 from ui.radio.radio_profile_state import RadioProfileState
 from ui.radio.rf_radio_if import RadioApplication
 
@@ -58,7 +59,9 @@ def _ensure_native_receiver_started(*, cancelled: Callable[[], bool]) -> bool:
         raise RuntimeError(f"SDRForge receiver failed: {status['startup_error']}")
     if not status.get("starting"):
         with urllib.request.urlopen(
-            urllib.request.Request(endpoint + "/start", data=b"", method="POST"),
+            authorize_local_sdrforge_request(
+                urllib.request.Request(endpoint + "/start", data=b"", method="POST")
+            ),
             timeout=6.0,
         ) as response:
             if response.status not in (200, 202):

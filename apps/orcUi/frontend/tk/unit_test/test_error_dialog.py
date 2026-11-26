@@ -26,6 +26,7 @@ def test_dismiss_closes_window_once():
 
 def test_show_replaces_existing_dialog():
     root = MagicMock()
+    root.winfo_screenheight.return_value = 720
     theme = MagicMock()
     dialog = ErrorDialog(root, lambda: theme)
     old = MagicMock()
