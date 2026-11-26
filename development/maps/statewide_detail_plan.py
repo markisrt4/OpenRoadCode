@@ -53,7 +53,7 @@ def intersects(polygon,box):
     corners=[(w,s),(e,s),(e,n),(w,n),(w,s)]
     if any(w<=x<=e and s<=y<=n for x,y in outer):return True
     if any(inside_or_boundary(point,outer) and not any(inside_or_boundary(point,h) for h in polygon[1:]) for point in corners[:-1]):return True
-    return any(crosses(a,b,c,d) for a,b in zip(outer,outer[1:]) for c,d in zip(corners,corners[1:]))
+    return any(crosses(a,b,c,d) for a,b in zip(outer,outer[1:], strict=False) for c,d in zip(corners,corners[1:], strict=False))
 
 
 def plan():
