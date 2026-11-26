@@ -1,6 +1,10 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
+from unittest.mock import Mock
+
+import pytest
+
 from controllers.weather.providers.nws_weather_alert_provider import NwsWeatherAlertProvider
 from controllers.weather.weather_alert import (
     WeatherAlertCertainty,
@@ -11,28 +15,18 @@ from controllers.weather.weather_state import WeatherLocation
 
 
 class _Response:
-    def __init__(self, payload):
+    def __init__(self, payload: object) -> None:
         self._payload = payload
 
-    def raise_for_status(self):
+    def raise_for_status(self) -> None:
         pass
 
-    def json(self):
+    def json(self) -> object:
         return self._payload
 
 
-class _Session:
-    def __init__(self, payload):
-        self.payload = payload
-        self.request = None
-
-    def get(self, url, **kwargs):
-        self.request = (url, kwargs)
-        return _Response(self.payload)
-
-
-def test_normalizes_active_nws_alert():
-    session = _Session(
+def test_normalizes_active_nws_alert() -> None:
+    response = _Response(
         {
             "features": [
                 {
@@ -54,7 +48,8 @@ def test_normalizes_active_nws_alert():
             ]
         }
     )
-    provider = NwsWeatherAlertProvider(session=session)
+    get = Mock(return_value=response)
+    provider = NwsWeatherAlertProvider(session=Mock(get=get))
     alerts = provider.active_alerts(WeatherLocation(42.8028, -83.0127, "Romeo", "test"))
 
     assert len(alerts) == 1
@@ -66,14 +61,18 @@ def test_normalizes_active_nws_alert():
     assert alert.certainty is WeatherAlertCertainty.OBSERVED
     assert alert.source == "nws"
     assert alert.effective_at.tzinfo is not None
-    url, request = session.request
-    assert url == provider.URL
-    assert request["params"]["point"] == "42.8028,-83.0127"
-    assert request["headers"]["Accept"] == "application/geo+json"
-    assert "openroadcode.org" in request["headers"]["User-Agent"]
+    get.assert_called_once_with(
+        provider.URL,
+        params={"point": "42.8028,-83.0127"},
+        headers={
+            "Accept": "application/geo+json",
+            "User-Agent": "(openroadcode.org, OpenRoadCode)",
+        },
+        timeout=10.0,
+    )
 
 
-def test_unknown_cap_values_normalize_to_unknown():
+def test_unknown_cap_values_normalize_to_unknown() -> None:
     alert = NwsWeatherAlertProvider._alert(
         {
             "id": "alert-1",
@@ -89,3 +88,11 @@ def test_unknown_cap_values_normalize_to_unknown():
     assert alert.severity is WeatherAlertSeverity.UNKNOWN
     assert alert.urgency is WeatherAlertUrgency.UNKNOWN
     assert alert.certainty is WeatherAlertCertainty.UNKNOWN
+
+
+def test_rejects_non_object_alert_feature() -> None:
+    get = Mock(return_value=_Response({"features": ["invalid alert"]}))
+    provider = NwsWeatherAlertProvider(session=Mock(get=get))
+
+    with pytest.raises(ValueError, match="NWS alert must be an object"):
+        provider.active_alerts(WeatherLocation(42.8028, -83.0127, "Romeo", "test"))
