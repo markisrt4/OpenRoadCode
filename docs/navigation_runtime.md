@@ -85,6 +85,15 @@ Runtime wrapper: `scripts/runtime/start_navigation_service.sh`
 
 Installer: `scripts/systemd/install_navigation_service_systemd.sh`
 
+When launched manually, the runtime wrapper detects an active installed
+`openroadcode-navigation.service`, stops that known unit, and restores it when
+the foreground process exits or receives a terminal signal. It never terminates
+an unidentified process merely because a navigation port is occupied. The
+handoff requires permission to control the system unit; if sudo or the host
+security policy denies that operation, the wrapper exits before opening another
+navigation runtime. The installed unit marks its own wrapper invocation so the
+handoff cannot recursively stop the service during systemd startup.
+
 ## Startup
 
 Install the complete runtime stack from the repository root:
@@ -228,6 +237,17 @@ Terrain street labels appear within 1 km of the camera; distant streets in tilte
 
 The Terrain road/place overlay is temporarily disabled for all viewer launches while investigating repeated Termux:X11 crashes. Its Roads control is disabled. Regular Map labels and installed imagery, terrain and building packs are unchanged. This isolation step does not establish the GPU/X11 crash cause.
 
-For embedded Terrain crash diagnosis, `OPENROAD_CESIUM_RENDERER=software ./runOrcUi` requests Chromium ANGLE SwiftShader WebGL, disables Vulkan and GPU compositing, and leaves the normal launch unchanged. This diagnostic is slower and requires Chromium to ship SwiftShader. It isolates the browser rendering backend, not every native ORC/X11 graphics path; Android process kills and memory pressure still require device evidence.
+For embedded Terrain renderer selection, the normal launch obeys Chromium's GPU
+safety decisions. `OPENROAD_CESIUM_RENDERER=hardware-override ./runOrcUi` passes
+`--ignore-gpu-blocklist` for explicitly qualified virtual GPUs such as a tested
+VMware SVGA3D configuration. This can be faster, but remains opt-in because a
+blocklisted driver can corrupt rendering, lose its WebGL context or crash the
+GPU process. `OPENROAD_CESIUM_RENDERER=software ./runOrcUi` instead requests
+Chromium ANGLE SwiftShader WebGL, disables Vulkan and GPU compositing, and is the
+slower fallback when hardware WebGL is unavailable. Both modes leave the normal
+launch unchanged. They isolate the browser rendering backend, not every native
+ORC/X11 graphics path; Android process kills and memory pressure still require
+device evidence. The Cesium stage log records the selected mode, effective flags
+and Chromium GPU report for diagnosis.
 
 Embedded Terrain writes flushed JSON stage records to `cesium-stages.log` alongside `cesium-embedded.log`. Records include requested backend/flags, attachment, Chromium browser-target `SystemInfo.getInfo` GPU attributes before navigation (when available), page initialization stages, first-frame readiness and startup failure. Diagnostics create no extra WebGL context and missing diagnostic support does not block launch.

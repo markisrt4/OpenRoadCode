@@ -9,7 +9,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 from security.environment_variable_secret_manager import (
-    DEFAULT_SECRETS_FILE,
     EnvironmentVariableSecretManager,
     resolve_default_secrets_file,
 )
@@ -62,9 +61,14 @@ class EnvironmentVariableSecretManagerTest(unittest.TestCase):
                 manager.get_secret("SPOTIFY_CLIENT_ID"),
             )
 
-    def test_default_secrets_file_is_linux_path(self) -> None:
-        with patch.dict("os.environ", {}, clear=True):
-            self.assertEqual(DEFAULT_SECRETS_FILE, resolve_default_secrets_file())
+    def test_default_secrets_file_uses_xdg_config_home(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            environment = {"XDG_CONFIG_HOME": directory}
+            with patch.dict("os.environ", environment, clear=True):
+                self.assertEqual(
+                    Path(directory) / "openroadcode" / "secrets.env",
+                    resolve_default_secrets_file(),
+                )
 
     def test_default_secrets_file_uses_termux_config_home(self) -> None:
         environment = {

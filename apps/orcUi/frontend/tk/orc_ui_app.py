@@ -9,6 +9,7 @@ import signal
 import tkinter as tk
 from collections.abc import Callable
 
+from apps.orcUi.navigation_presenter import PositionPresentationState
 from apps.orcUi.notification_dispatcher import NotificationDispatcher
 from apps.orcUi.orc_theme import toggle
 from apps.orcUi.performance_status import PerformanceStatus
@@ -241,6 +242,11 @@ class OrcUiApp(UiCallbackMixin, VolumeUiIf, UiWidget):
         """Present computing-unit health in persistent shell chrome."""
         if self._shell is not None:
             self._shell.set_performance_status(status)
+
+    def set_position_state(self, state: PositionPresentationState) -> None:
+        """Present semantic vehicle-position availability in shell chrome."""
+        if self._shell is not None:
+            self._shell.set_position_state(state)
 
     def activate_screen(self, screen: ScreenUiIf) -> None:
         previous = self._active_screen

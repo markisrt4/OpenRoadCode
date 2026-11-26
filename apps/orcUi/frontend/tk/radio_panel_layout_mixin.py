@@ -8,6 +8,7 @@ from __future__ import annotations
 import tkinter as tk
 
 from .automotive_radio_button import AutomotiveRadioButton
+from .compact_fm_layout import CompactFmDial, place_fm_controls
 from .sdrforge_receiver_view import SdrForgeReceiverView
 from .shell_metrics import FONT_SMALL
 
@@ -308,7 +309,7 @@ class RadioPanelLayoutMixin:
                 pady=2,
             )
             self._bands_heading.grid(row=0, column=0, columnspan=2, sticky="ew")
-            tk.Label(
+            self._tuning_heading = tk.Label(
                 self._receiver_controls,
                 text="TUNING",
                 bg=ui.surface,
@@ -317,7 +318,8 @@ class RadioPanelLayoutMixin:
                 anchor="w",
                 padx=10,
                 pady=2,
-            ).grid(row=2, column=0, columnspan=2, sticky="ew")
+            )
+            self._tuning_heading.grid(row=2, column=0, columnspan=2, sticky="ew")
             for label, callback, row, col in (
                 ("◀  STEP −", self._tune_down, 3, 0),
                 ("+ STEP  ▶", self._tune_up, 3, 1),
@@ -411,5 +413,85 @@ class RadioPanelLayoutMixin:
             font=("Sans", 12, "bold"),
             justify="center",
         )
+        if native_sdrforge:
+            self._driving_frequency = tk.Label(
+                self._receiver_controls,
+                bg=ui.surface,
+                fg=ui.text,
+                font=("Sans", 28, "bold"),
+                text="-- MHz",
+            )
+            self._plot_toggle = AutomotiveRadioButton(
+                self._groups,
+                text="HIDE SPECTRUM",
+                command=self._toggle_fm_plots,
+                height=44,
+                background=ui.control_background,
+                accent=ui.accent_primary,
+                foreground=ui.text,
+                border=ui.border,
+            )
+            self._plot_toggle.configure(width=160)
+            self._plot_toggle.pack(side=tk.RIGHT, fill=tk.Y, padx=4, pady=3)
+            self._fm_dial = CompactFmDial(self._receiver_controls, theme)
+            self._signal_meter = tk.Canvas(
+                self._receiver_controls,
+                width=180,
+                height=12,
+                bg=ui.surface,
+                highlightthickness=0,
+                bd=0,
+            )
+            self._layout_fm_plots()
         self._session.bind(self)
         self._schedule_telemetry_refresh()
+
+    def _toggle_fm_plots(self) -> None:
+        if self._active_group != "FM":
+            return
+        self._set_fm_plots_visible(not self._plots_visible)
+
+    def _set_fm_plots_visible(self, visible: bool) -> None:
+        if self._plots_visible == visible:
+            return
+        self._plots_visible = visible
+        self._layout_fm_plots()
+        if self._plots_visible:
+            self._poll_sdrforge_spectrum()
+        elif self._sdrforge_after_id is not None:
+            self.after_cancel(self._sdrforge_after_id)
+            self._sdrforge_after_id = None
+
+    def _layout_fm_plots(self) -> None:
+        compact = not self._plots_visible
+        self._receiver_controls.grid_rowconfigure(1, minsize=88 if compact else 132)
+        self._receiver_controls.grid_rowconfigure(2, weight=int(compact))
+        for button in (*self._live_rf_buttons, self._receiver_power_button):
+            button.set_size(height=52 if compact else 44, font_size=14 if compact else 11)
+            button.grid_configure(padx=8 if compact else 2)
+        place_fm_controls(
+            self._receiver_controls,
+            self._live_rf_buttons,
+            self._receiver_power_button,
+            self._station_info,
+            self._receiver_signal_label,
+            self._tuning_heading,
+            self._signal_meter,
+            compact=compact,
+        )
+        if self._plots_visible:
+            self._host.grid()
+            self._receiver_controls.grid(column=1, padx=(6, 0))
+            self._body.grid_columnconfigure(1, minsize=int(self._receiver_controls.cget("width")))
+            self._driving_frequency.grid_remove()
+            self._fm_dial.grid_remove()
+            self._bands_heading.grid()
+            self._plot_toggle.set_text("HIDE SPECTRUM")
+        else:
+            self._host.grid_remove()
+            self._body.grid_columnconfigure(1, minsize=0)
+            self._receiver_controls.grid(column=0, padx=0)
+            self._bands_heading.grid_remove()
+            self._driving_frequency.grid(row=0, column=1, columnspan=3, sticky="ew", pady=12)
+            self._fm_dial.grid(row=2, column=0, columnspan=5, sticky="ew", padx=24)
+            self._plot_toggle.set_text("SHOW SPECTRUM")

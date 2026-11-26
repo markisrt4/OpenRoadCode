@@ -38,6 +38,7 @@ from apps.orcUi.frontend.tk.offroad_screen import OffRoadScreen
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.settings_screen import SettingsScreen
 from apps.orcUi.frontend.tk.vehicle_screen import VehicleScreen
+from apps.orcUi.map_platform_requests import MapPlatformRequests
 from apps.orcUi.performance_status import PerformanceStatusPresenter
 from apps.orcUi.theme_runtime import theme_bundle
 from common.app_settings import AppSettingsStore
@@ -45,6 +46,8 @@ from common.resource_cleanup import ResourceCleanup, close_resources
 from controllers.navigation.current_position import get_current_position
 from controllers.navigation.host_location_settings_controller import HostLocationSettingsController
 from controllers.navigation.map_controls_drawer_controller import MapControlsDrawerController
+from controllers.navigation.route_overlay_controller import RouteOverlayController
+from controllers.poi.poi_search_controller import PoiSearchController
 from controllers.weather.radar_palette import RadarPalette
 from controllers.weather.radar_replay_controller import RadarReplayController
 from controllers.weather.weather_overlay_controller import WeatherOverlayController
@@ -54,6 +57,7 @@ from services.common.system_performance_monitor import SystemPerformanceMonitor
 from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
 from ui.navigation import GeoPoint
 from ui.navigation.cesium_viewer_state import CesiumViewerState
+from ui.navigation.map_platform_if import MapPlatform
 
 
 @dataclass(slots=True)
@@ -196,6 +200,9 @@ def create_orc_ui_composition(
         _report(progress, "vision", "Vision subsystem loaded")
         media = configure_media(app, runtime)
         cleanup.callback(media.close)
+        radio.bind_song_launch(media.song_launch_controller.launch_song)
+        radio.bind_video_player(media.trending_youtube_player)
+        radio.bind_spotify_factory(media.trending_spotify_factory)
         _report(progress, "media", "Media subsystem loaded")
         settings_store = AppSettingsStore()
         app_settings = settings_store.load()
@@ -271,15 +278,33 @@ def create_orc_ui_composition(
             CesiumEmbeddedViewer(),
             initial_view=lambda: CesiumViewerState(
                 get_current_position() or GeoPoint(math.radians(42.3314), math.radians(-83.0458)),
-                label="Terrain",
+                label="3D map",
                 destination_marker_visible=False,
             ),
         )
         cleanup.callback(navigation_maps.close)
+        navigation_map_requests = MapPlatformRequests(
+            core.map_camera.request_handler,
+            lambda _name, _args, _kwargs: None,
+            navigation_maps.update_poi_overlay,
+        )
         core.map_camera.observe_position(navigation_maps.update_position)
+        route_overlay = RouteOverlayController(navigation_maps.update_route_overlay)
+        core.route_request_handler.observe_route(route_overlay.update_route)
+        core.presentation.observe_route_guidance(route_overlay.update_guidance)
+        if core.route_request_handler.active_route is not None:
+            route_overlay.update_route(core.route_request_handler.active_route)
+        if core.presentation.route_guidance is not None:
+            route_overlay.update_guidance(core.presentation.route_guidance)
         navigation_places = NavigationPlacesFactory(
             online_allowed=lambda: app.online_mode.online,
             camera_observer=core.map_camera.request_handler.observe_camera,
+            search_factory=lambda: PoiSearchController(
+                viewport_search_enabled=lambda: (
+                    navigation_maps.state.active is MapPlatform.MAPLIBRE
+                ),
+                marker_selection_source=navigation_maps,
+            ),
             embedded_explore=navigation_maps.request_explore,
         )
         cleanup.callback(navigation_places.close)
@@ -291,7 +316,7 @@ def create_orc_ui_composition(
             map_platform=navigation_maps,
             places_factory=navigation_places,
             tooltip_factory=TooltipFactory(app),
-            map_request_handler=core.map_camera.request_handler,
+            map_request_handler=navigation_map_requests,
             route_request_handler=core.route_request_handler,
             route_simulation_handler=core.route_request_handler,
             theme_bundle=lambda: theme_bundle(app.theme_mode),
@@ -372,6 +397,7 @@ def create_orc_ui_composition(
         core.presentation.observe_vehicle(home.apply_vehicle_state)
         core.presentation.observe_trip(home.apply_trip_state)
         core.presentation.observe_position(home.apply_position_state)
+        core.presentation.observe_position(app.set_position_state)
         core.presentation.observe_attitude(home.apply_attitude_state)
         core.presentation.observe_vehicle(vehicle.apply_vehicle_state)
         core.presentation.observe_trip(vehicle.apply_trip_state)

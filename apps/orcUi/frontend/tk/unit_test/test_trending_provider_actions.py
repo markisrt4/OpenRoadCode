@@ -1,0 +1,44 @@
+"""Trending routes provider launch failures through the shell notification callback."""
+
+from unittest.mock import Mock
+
+import pytest
+
+from apps.orcUi.frontend.tk.trending_radio_panel import TrendingRadioPanel
+from ui.media.artist_profile import ArtistProfile
+from ui.media.song_launch import SongDestination
+
+
+def test_late_artist_profile_is_ignored_after_selection_changes():
+    panel = Mock(_kind="artists", _selected={"artist": "Elton John"})
+    profile = ArtistProfile("Burl Ives", "American singer", "https://example.test")
+
+    TrendingRadioPanel.set_artist_profile(panel, "Burl Ives", profile)
+
+    panel._track_details.set_profile.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("action", "destination"),
+    [
+        (TrendingRadioPanel._play_selected, SongDestination.YOUTUBE),
+        (TrendingRadioPanel._open_spotify, SongDestination.SPOTIFY),
+    ],
+)
+def test_artist_selection_opens_provider_search(action, destination):
+    panel = Mock(_kind="artists", _selected={"artist": "Burl Ives"})
+
+    action(panel)
+
+    panel._on_artist_search.assert_called_once_with(destination, "Burl Ives")
+
+
+@pytest.mark.parametrize(("provider", "title"), [("youtube", "YouTube"), ("spotify", "Spotify")])
+def test_provider_action_reports_launch_failure(provider, title):
+    panel = Mock()
+    action = Mock(side_effect=RuntimeError("Player could not open"))
+
+    TrendingRadioPanel._invoke_provider(panel, provider, action)
+
+    action.assert_called_once_with()
+    panel._on_media_error.assert_called_once_with(title, "Player could not open")

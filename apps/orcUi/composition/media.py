@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import io
 import os
-import tkinter as tk
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 
@@ -21,6 +20,7 @@ from apps.orcUi.adapters.music_visualizer_browser import WINDOW_CLASS
 from apps.orcUi.composition.music_visualizer import (
     create_browser_visualizer,
     create_music_visualizer_session,
+    home_spectrum_factory,
     selected_native_visualizer_source,
 )
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
@@ -31,6 +31,7 @@ from config.runtime_target import RuntimeTarget, detect_runtime_target
 from controllers.audio.music_analysis.music_visualizer_controller import MusicVisualizerController
 from controllers.image import ImageCache
 from controllers.lyrics import LrclibLyricsClient
+from controllers.media.song_launch_controller import SongLaunchController
 from controllers.spotify.guarded_token_store import GuardedTokenStore
 from controllers.spotify.media_preview_controller import MediaPreviewController
 from controllers.spotify.spotify_account import (
@@ -46,7 +47,6 @@ from frontends.tk.media import (
     BrowserMediaScreen,
     MediaNavigationBar,
     MediaScreen,
-    SpotifyNowPlaying,
     SpotifyScreen,
 )
 from frontends.tk.media.music_visualizer_screen import MusicVisualizerScreen
@@ -67,6 +67,7 @@ from ui.theme import ThemeMode
 from .media_resources import MediaComposition
 from .media_spotify_theme import SPOTIFY_GREEN as SPOTIFY_GREEN
 from .media_spotify_theme import spotify_theme as spotify_theme
+from .media_spotify_views import bind_spotify_views
 
 MUSIC_VIDEO_PORT = 8770
 MUSIC_VIDEO_WINDOW_CLASS = "OpenRoadCodeMusicVideo"
@@ -167,6 +168,12 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         media_navigation_factory=media_navigation,
         theme_bundle=lambda: theme_bundle(app.theme_mode),
     )
+    song_launch_controller = SongLaunchController(
+        open_spotify_search=lambda query: online_action(lambda: open_trending_spotify(query))(),
+        open_youtube_search=lambda query: online_action(
+            lambda: youtube_screen.show_target(query)
+        )(),
+    )
     youtube_music_screen = YouTubeMusicComingSoonScreen(
         app,
         back_action=lambda: media_screen.show(),
@@ -198,6 +205,13 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
                     source="spotify",
                 )
             )
+
+    def open_trending_spotify(query: str) -> None:
+        """Keep MusicForge handoff inside ORC's native Spotify screen."""
+        show_spotify()
+        app.set_screen_status(
+            f"Spotify opened for {query}. Automatic track lookup is not available yet."
+        )
 
     def show_spotify_remote() -> None:
         if not network_allowed():
@@ -406,40 +420,21 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
             home_capture_attached = False
             visualizer_runtime.detach_view("home-playback")
 
-    def home_now_playing_factory(parent: tk.Misc) -> tk.Widget:
-        view = SpotifyNowPlaying(
-            parent,
-            online_allowed=network_allowed,
-            on_open=show_spotify,
-            theme_bundle=lambda: theme_bundle(app.theme_mode),
-            on_playback_changed=home_playback_changed,
-        )
-        session = create_presentation(rich=True)
-
-        def retire(event: tk.Event) -> None:
-            if event.widget is view:
-                home_playback_changed(False)
-                session.close()
-                if session in presentations:
-                    presentations.remove(session)
-
-        view.bind("<Destroy>", retire, add="+")
-        session.activate(view)
-        return view
-
-    def home_media_factory(parent: tk.Misc) -> tk.Widget:
-        """Keep HOME focused on playback; the shared strip owns spectrum preview."""
-        return home_now_playing_factory(parent)
-
-    def home_spectrum_factory(parent: tk.Misc) -> tk.Widget:
-        from frontends.tk.media.home_spectrum_bar import HomeSpectrumBar
-
-        return HomeSpectrumBar(
-            parent,
-            controller=visualizer_runtime,
-            theme_bundle=lambda: theme_bundle(app.theme_mode),
-            on_open=visualizer.show,
-        )
+    home_now_playing_factory, trending_spotify_factory = bind_spotify_views(
+        create_presentation=lambda: create_presentation(rich=True),
+        presentations=presentations,
+        network_allowed=network_allowed,
+        home_theme=lambda: theme_bundle(app.theme_mode),
+        open_spotify=show_spotify,
+        home_playback_changed=home_playback_changed,
+        spotify_colors=lambda: spotify_theme(app),
+        report_status=app.set_screen_status,
+        dispatch_ui=app.dispatch_ui,
+        request_song=media.spotify.request_play_song,
+        player_state=media.spotify_local_player.state,
+        request_player=media.spotify_local_player.request_player,
+        spotify_configured=lambda: bool(spotify_client_id()),
+    )
 
     def mode_changed(online: bool) -> None:
         account_controller.network_changed()
@@ -471,8 +466,15 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
     return MediaComposition(
         preview=preview,
         music_video_controller=music_video_controller,
+        song_launch_controller=song_launch_controller,
+        trending_youtube_player=youtube_player,
+        trending_spotify_factory=trending_spotify_factory,
         home_factory=home_now_playing_factory,
-        home_visualizer_factory=home_spectrum_factory if renderer == "opengl" else None,
+        home_visualizer_factory=home_spectrum_factory(
+            lambda: theme_bundle(app.theme_mode), visualizer_runtime, visualizer.show
+        )
+        if renderer == "opengl"
+        else None,
         visualizer=visualizer,
         visualizer_runtime=visualizer_runtime,
         unsubscribe_online=unsubscribe_online,

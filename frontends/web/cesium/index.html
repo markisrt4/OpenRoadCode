@@ -6,6 +6,8 @@
 <link rel="stylesheet" href="/sdk/Widgets/widgets.css"><link rel="stylesheet" href="/viewer.css">
 <script>window.CESIUM_BASE_URL = '/sdk/';</script><script src="/sdk/Cesium.js"></script>
 <script src="/local_terrain.js" defer></script>
+<script src="/terrain_cues.js" defer></script>
+<script src="/terrain_hillshade.js" defer></script>
 <script src="/reference_grid.js" defer></script>
 <script src="/local_buildings.js" defer></script>
 <script src="/local_map_tiles.js" defer></script>
@@ -13,6 +15,8 @@
 <script src="/camera_controls.js" defer></script>
 <script src="/vehicle_follow.js" defer></script>
 <script src="/road_overlay.js" defer></script>
+<script src="/poi_overlay.js" defer></script>
+<script src="/route_overlay.js" defer></script>
 <script src="/viewer.js" defer></script>
 </head>
 <body>
@@ -27,9 +31,11 @@
 <button id="pan-right" aria-label="Pan right in the current view">→</button>
 <button id="pan-down" aria-label="Pan backward in the current view">↓</button>
 </div>
-<button id="roads" aria-pressed="true">Roads &amp; places</button>
-<button id="terrain" aria-pressed="true">Terrain</button>
-<button id="terrain-scale" aria-label="Cycle terrain scale: 1, 2, or 3 times">Relief 1×</button>
+<button id="roads" aria-pressed="true">Roads</button>
+<button id="places" aria-pressed="false">Places</button>
+<button id="terrain" aria-pressed="true">Ground: Relief</button>
+<button id="terrain-scale" aria-label="Cycle terrain height: 1, 2, or 3 times">Height 1×</button>
+<button id="terrain-cues" aria-pressed="false">Terrain cues</button>
 <button id="buildings" aria-pressed="true">Buildings</button>
 <button id="references" aria-pressed="false">Grid</button>
 <button id="pitch-up" aria-label="More tilt: view the destination from a lower angle">More tilt</button>

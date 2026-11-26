@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from config.runtime_config_models import PositionCacheConfig
 from controllers.automotive.vehicle_configuration import VehicleConfiguration
 from messaging.zeromq.endpoints import LOCAL_PUBLISHER_ENDPOINT, LOCAL_SUBSCRIBER_ENDPOINT
 from services.navigation.zeromq_navigation_command_server import DEFAULT_NAVIGATION_COMMAND_ENDPOINT
@@ -142,3 +143,4 @@ class ServiceRuntimeConfig:
     automotive: AutomotiveServiceRuntimeConfig = AutomotiveServiceRuntimeConfig()
     environmental: EnvironmentalServiceRuntimeConfig = EnvironmentalServiceRuntimeConfig()
     vehicle: VehicleConfiguration = VehicleConfiguration()
+    position_cache: PositionCacheConfig = PositionCacheConfig()

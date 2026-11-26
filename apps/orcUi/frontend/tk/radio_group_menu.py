@@ -9,6 +9,7 @@ from tkinter import simpledialog
 
 from ui.radio.radio_profiles import RadioProfilePreset
 from ui.radio.rf_radio_if import RadioAction, RadioRequest, RfProfile
+from ui.radio.station_identity import preset_label
 
 from .radio_presentation_frame import RadioPresentationFrame
 from .shell_metrics import FONT_CONTROL
@@ -27,8 +28,9 @@ class RadioGroupMenuMixin(RadioPresentationFrame):
 
     def _build_group_bar(self) -> None:
         ui = self._theme.ui
+        groups = MAIN_GROUPS[:1] if getattr(self, "_fm_only", False) else MAIN_GROUPS
         driving = getattr(self, "_driving_radio", False)
-        for name, label in MAIN_GROUPS:
+        for name, label in groups:
             command = (
                 partial(self.select_group, name)
                 if driving
@@ -131,7 +133,7 @@ class RadioGroupMenuMixin(RadioPresentationFrame):
         for preset in profile.presets:
             marker = "★ " if preset.user_defined else ""
             menu.add_command(
-                label=f"{marker}{preset.label}",
+                label=f"{marker}{preset_label(preset.label, preset.frequency_hz)}",
                 command=partial(self._select_preset, profile, preset),
             )
 

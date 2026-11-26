@@ -4,17 +4,20 @@ import logging
 import math
 import threading
 import time
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 
-from ui.navigation import GeoPoint
+from ui.navigation import GeoPoint, MapMarkerSelectionSourceIf
 from ui.navigation.cesium_viewer_state import CesiumViewerState
 from ui.navigation.map_platform_if import ExplorationCameraAction, MapPlatform, MapPlatformState
+from ui.navigation.poi_overlay_state import PoiOverlayState
+from ui.navigation.route_overlay_state import RouteOverlayState
 
 _PLATFORMS = (MapPlatform.MAPLIBRE, MapPlatform.CESIUM)
 
 
-class CesiumMapRuntime:
+class CesiumMapRuntime(MapMarkerSelectionSourceIf):
     """Composition-owned lifecycle adapter; no browser access from widgets."""
 
     def __init__(self, native, viewer, *, initial_view=None):
@@ -22,7 +25,7 @@ class CesiumMapRuntime:
         self._initial_view = initial_view or (
             lambda: CesiumViewerState(
                 GeoPoint(math.radians(42.3314), math.radians(-83.0458)),
-                label="Terrain",
+                label="3D map",
                 destination_marker_visible=False,
             )
         )
@@ -32,6 +35,11 @@ class CesiumMapRuntime:
         self._position_revision = 0
         self._poll_timeouts = 0
         self._sent_position = None
+        self._poi_overlay = PoiOverlayState()
+        self._sent_poi_overlay = None
+        self._poi_selections = deque(maxlen=16)
+        self._route_overlay = RouteOverlayState()
+        self._sent_route_overlay = None
         self._follow_enabled = True
         self._lock = threading.RLock()
         self._state = MapPlatformState(available_platforms=_PLATFORMS)
@@ -127,6 +135,65 @@ class CesiumMapRuntime:
             self._position_received = time.monotonic()
             self._position_revision += 1
 
+    def update_poi_overlay(self, state):
+        """Cache one semantic marker snapshot and update the active 3D renderer."""
+        if not isinstance(state, PoiOverlayState):
+            raise TypeError("3D POI overlay requires PoiOverlayState")
+        with self._lock:
+            if self._closed:
+                return
+            self._poi_overlay = state
+            generation = self._generation
+            active = self._state.active is MapPlatform.CESIUM and not self._state.busy
+        if active:
+            self._worker.submit(self._send_poi_overlay, generation)
+
+    def poll_selected_marker_id(self):
+        """Consume a semantic selection reported by the active 3D renderer."""
+        with self._lock:
+            return self._poi_selections.popleft() if self._poi_selections else None
+
+    def update_route_overlay(self, state):
+        """Cache one semantic route snapshot and update the active 3D renderer."""
+        if not isinstance(state, RouteOverlayState):
+            raise TypeError("3D route overlay requires RouteOverlayState")
+        with self._lock:
+            if self._closed:
+                return
+            self._route_overlay = state
+            generation = self._generation
+            active = self._state.active is MapPlatform.CESIUM and not self._state.busy
+        if active:
+            self._worker.submit(self._send_route_overlay, generation)
+
+    def _send_route_overlay(self, generation):
+        with self._lock:
+            if not self._current(generation):
+                return
+            state = self._route_overlay
+        if state != self._sent_route_overlay:
+            try:
+                self._viewer.update_route_overlay(state)
+                self._sent_route_overlay = state
+            except (OSError, RuntimeError, ValueError, TypeError) as error:
+                with self._lock:
+                    if self._current(generation):
+                        self._state = replace(self._state, status=f"3D route unavailable: {error}")
+
+    def _send_poi_overlay(self, generation):
+        with self._lock:
+            if not self._current(generation):
+                return
+            state = self._poi_overlay
+        if state != self._sent_poi_overlay:
+            try:
+                self._viewer.update_poi_overlay(state)
+                self._sent_poi_overlay = state
+            except (OSError, RuntimeError, ValueError, TypeError) as error:
+                with self._lock:
+                    if self._current(generation):
+                        self._state = replace(self._state, status=f"3D POIs unavailable: {error}")
+
     def request_follow(self, enabled):
         if type(enabled) is not bool:
             raise TypeError("Follow enabled must be a boolean")
@@ -155,9 +222,9 @@ class CesiumMapRuntime:
                 position_available=point is not None,
                 status="Waiting for live vehicle position"
                 if follow and point is None
-                else "Terrain · vehicle follow"
+                else "3D map · vehicle follow"
                 if follow
-                else "Terrain · exploration",
+                else "3D map · exploration",
             )
 
     def _camera(self, action, generation):
@@ -191,6 +258,10 @@ class CesiumMapRuntime:
                     self._view, self._host, self._size, lambda: self._current(generation)
                 )
                 self._sent_position = None
+                self._sent_poi_overlay = None
+                self._sent_route_overlay = None
+                self._send_poi_overlay(generation)
+                self._send_route_overlay(generation)
             elif self._current(generation):
                 self._native.launch(self._host)
             with self._lock:
@@ -199,9 +270,7 @@ class CesiumMapRuntime:
                         platform,
                         platform,
                         False,
-                        "3D exploration · routes and radar use MapLibre"
-                        if platform is MapPlatform.CESIUM
-                        else "MapLibre",
+                        "3D map · vehicle follow" if platform is MapPlatform.CESIUM else "MapLibre",
                         available_platforms=_PLATFORMS,
                         follow_enabled=self._follow_enabled,
                     )
@@ -215,7 +284,7 @@ class CesiumMapRuntime:
     def _fallback(self, generation, status):
         if not self._current(generation):
             return
-        logging.getLogger(__name__).warning("Terrain returned to Map: %s", status)
+        logging.getLogger(__name__).warning("3D map returned to Map: %s", status)
         try:
             self._native.launch(self._host)
         except (OSError, RuntimeError) as error:
@@ -248,6 +317,11 @@ class CesiumMapRuntime:
             else:
                 if self._viewer.consume_manual_camera() is True:
                     self.request_follow(False)
+                marker_id = self._viewer.consume_poi_selection()
+                if isinstance(marker_id, str) and marker_id:
+                    with self._lock:
+                        if self._current(generation):
+                            self._poi_selections.append(marker_id)
                 self._send_position(generation)
                 self._poll_timeouts = 0
         except Exception as error:
@@ -257,7 +331,7 @@ class CesiumMapRuntime:
                     with self._lock:
                         if self._current(generation):
                             self._state = replace(
-                                self._state, status="Terrain busy · retrying browser connection…"
+                                self._state, status="3D map busy · retrying browser connection…"
                             )
                     return
             try:

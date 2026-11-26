@@ -94,6 +94,10 @@ files = [
     "frontends/tk/radio/streaming_radio_now_playing.py",
     "frontends/tk/radio/radio_screen.py",
     "apps/orcUi/composition/radio.py",
+    "ui/media/trending_video.py",
+    "ui/media/artist_profile.py",
+    "controllers/media/artist_profiles.py",
+    "apps/orcUi/adapters/trending_video_session.py",
 ]
 
 # Imported legacy modules keep their type information but are outside the strict
