@@ -273,6 +273,10 @@ esac
 
 for feature in "${REQUESTED_FEATURES[@]}"; do
   is_known_feature "$feature" || { echo "[!] Unknown feature: $feature" >&2; get_feature_help >&2; exit 1; }
+  if [[ "$feature" == waydroid && "$TARGET" != rpi5 && "$TARGET" != linux-dev ]]; then
+    echo "[!] Waydroid requires a Pi 5 or Linux desktop target." >&2
+    exit 2
+  fi
   append_feature "$feature"
 done
 if [[ -n "$ORC_AUTOSTART" && "$TARGET" == termux ]]; then
