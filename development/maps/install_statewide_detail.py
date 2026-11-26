@@ -37,7 +37,7 @@ def install(directory,*,allow_partial=False,destination=None):
     if not 1<=len(expected)<=768:raise ValueError('Invalid statewide cell count')
     for key,cell in expected.items():
         x,y=parse_cell(key)
-        if any(abs(a-b)>1e-9 for a,b in zip(cell['bounds_deg'],bounds(x,y))):
+        if any(abs(a-b)>1e-9 for a,b in zip(cell['bounds_deg'],bounds(x,y), strict=True)):
             raise ValueError('Detail plan bounds mismatch')
     candidates={}
     for path in directory.rglob('mi-z10-*.zip'):
@@ -65,7 +65,7 @@ def install(directory,*,allow_partial=False,destination=None):
     for number,(key,archive) in enumerate(available.items(),1):
         descriptor=descriptors[key];revision=cells/(key+'-'+descriptor['sha256'])
         if not revision.exists():
-            unpack(archive,revision,expected[key]['bounds_deg'],loader=lambda path:validate_cell(path,key),
+            unpack(archive,revision,expected[key]['bounds_deg'],loader=lambda path, key=key:validate_cell(path,key),
                    max_unpacked_bytes=2*1024**3+128*1024**2)
         else:validate_cell(revision,key)
         rows[key]=dict(id=key,sha256=descriptor['sha256'])
