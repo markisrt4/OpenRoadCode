@@ -9,7 +9,7 @@ from typing import Any
 try:
     import tomllib
 except ModuleNotFoundError:  # Python 3.10
-    import tomli as tomllib
+    import tomli as tomllib  # type: ignore[no-redef]
 
 from .runtime_config_models import (
     AudioConfig as AudioConfig,
@@ -173,7 +173,7 @@ class RuntimeConfigParser:
         directory = Path(directory_value.strip()).expanduser()
         if not directory.is_absolute():
             directory = self.project_root / directory
-        max_age = section.get("max_age_seconds", 604800.0)
+        max_age = section.get("max_age_seconds", 86400.0)
         if isinstance(max_age, bool) or not isinstance(max_age, (int, float)) or max_age < 0:
             raise RuntimeConfigError("position_cache.max_age_seconds must be non-negative")
         return PositionCacheConfig(

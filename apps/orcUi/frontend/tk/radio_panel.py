@@ -55,9 +55,12 @@ class RadioPanel(
         theme: ThemeBundle,
         native_sdrforge: bool = False,
         visualization: RadioVisualizationConfig | None = None,
+        fm_only: bool = False,
     ) -> None:
         self._theme = theme
         self._driving_radio = native_sdrforge
+        self._fm_only = fm_only
+        self._plots_visible = not fm_only
         ui = theme.ui
         super().__init__(parent, bg=ui.background)
         self._session = session
@@ -90,7 +93,7 @@ class RadioPanel(
 
     def _resize_receiver_sidebar(self, event: tk.Event) -> None:
         """Keep the waterfall dominant as the radio panel is resized."""
-        if event.widget is not self or self._receiver_controls is None:
+        if event.widget is not self or self._receiver_controls is None or not self._plots_visible:
             return
         width = receiver_sidebar_width(event.width)
         if self._receiver_controls.winfo_reqwidth() != width:
@@ -99,7 +102,8 @@ class RadioPanel(
             self._info_text.configure(wraplength=max(180, width - 32))
 
     def _poll_sdrforge_spectrum(self) -> None:
-        if self._sdrforge_view is not None:
+        self._sdrforge_after_id = None
+        if self._sdrforge_view is not None and self._plots_visible:
             self._session.refresh_spectrum()
             self._sdrforge_after_id = self.after(100, self._poll_sdrforge_spectrum)
 
@@ -139,6 +143,12 @@ class RadioPanel(
         self._controls.configure(bg=ui.surface, highlightbackground=ui.border)
         if self._receiver_controls is not None:
             self._receiver_controls.configure(bg=ui.surface, highlightbackground=ui.border)
+            self._plot_toggle.set_palette(
+                background=ui.control_background,
+                accent=ui.accent_primary,
+                foreground=ui.text,
+                border=ui.border,
+            )
         self._favorites.configure(bg=ui.surface)
         self._subcategory_strip.configure(bg=ui.surface)
         if self._receiver_controls is not None:

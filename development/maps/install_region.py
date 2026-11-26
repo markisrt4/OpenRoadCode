@@ -10,12 +10,14 @@ from apps.launchers.local_imagery_pack import LocalImageryPack
 from common.xdg_paths import openroadcode_data_dir
 from development.maps.prebuilt_imagery import (
     fetch_archive,
+    github_release_descriptor,
     read_descriptor,
     read_local_archive,
     unpack,
     verify_archive,
 )
 from development.maps.regional_imagery import download as download_overview
+from development.maps.terrain_regions import MICHIGAN_COVERAGES
 from tools.map_builder.builder.map_3d import PRESETS
 
 # Rectangular planning envelopes, not county boundaries. No Canadian imagery promised.
@@ -24,14 +26,24 @@ COVERAGES = {
     "detroit-midtown": ("Detroit Downtown–Midtown detail", (-83.085, 42.315, -83.025, 42.375)),
     "rochester": PRESETS["rochester"],
     "southfield": PRESETS["southfield"],
+    **{
+        coverage: (title.replace("terrain overview", "imagery overview"), bounds)
+        for coverage, (title, bounds) in MICHIGAN_COVERAGES.items()
+    },
 }
+
+
+def build_image_size(coverage, detail=False):
+    if coverage in MICHIGAN_COVERAGES:
+        return (8192, 8192)
+    return (4096, 4096) if detail or coverage != "metro-detroit" else (2048, 1536)
 
 
 def imagery_directory(coverage):
     return openroadcode_data_dir("map-packs", coverage + "-imagery-active")
 
 
-def install(coverage, *, update=False, artifact=None):
+def install(coverage, *, update=False, artifact=None, detail=False):
     """Validate a new revision before atomically switching the active symlink."""
     active = imagery_directory(coverage)
     if active.exists() and not update:
@@ -61,7 +73,7 @@ def install(coverage, *, update=False, artifact=None):
             bounds=bounds,
             title=title,
             cache_directory=active.with_name(active.name + ".download"),
-            image_size=(4096, 4096) if coverage != "metro-detroit" else (2048, 1536),
+            image_size=build_image_size(coverage, detail),
         )
     LocalImageryPack.load(revision)
     pending = active.parent / (".active-" + uuid.uuid4().hex)
@@ -87,6 +99,11 @@ def main():
         help="HTTPS URL of a published .zip.json; downloads a prebuilt pack instead of contacting USGS",
     )
     parser.add_argument(
+        "--github-release",
+        metavar="TAG",
+        help="Install latest or a versioned published Metro Detroit GitHub Release",
+    )
+    parser.add_argument(
         "--pack-file",
         type=Path,
         help="Install a local .zip and its adjacent .zip.json without network access",
@@ -96,11 +113,24 @@ def main():
         type=Path,
         help="Build imagery into this directory for packaging; do not activate it on this host",
     )
+    parser.add_argument(
+        "--detail",
+        action="store_true",
+        help="Build 4096×4096 detail imagery, including Metro Detroit",
+    )
     args = parser.parse_args()
     if args.yes and not args.coverage:
         parser.error("--yes requires --coverage")
-    if sum(bool(value) for value in (args.pack_manifest, args.pack_file, args.build_only)) > 1:
-        parser.error("--pack-manifest, --pack-file and --build-only cannot be combined")
+    if (
+        sum(
+            bool(value)
+            for value in (args.pack_manifest, args.github_release, args.pack_file, args.build_only)
+        )
+        > 1
+    ):
+        parser.error(
+            "--pack-manifest, --github-release, --pack-file and --build-only cannot be combined"
+        )
     try:
         coverage = args.coverage
         if coverage is None:
@@ -114,7 +144,13 @@ def main():
             coverage = tuple(COVERAGES)[int(choice) - 1]
         title, bounds = COVERAGES[coverage]
         print(f"{title}: rectangular bounds {bounds}; not exact county boundaries.")
-        artifact = read_descriptor(args.pack_manifest, coverage) if args.pack_manifest else None
+        manifest_url = args.pack_manifest
+        if args.github_release:
+            if coverage != "metro-detroit":
+                raise ValueError("Published GitHub releases currently support metro-detroit only")
+            manifest_url = github_release_descriptor(args.github_release)
+            print(f"Published release descriptor: {manifest_url}")
+        artifact = read_descriptor(manifest_url, coverage) if manifest_url else None
         if args.pack_file:
             artifact = read_local_archive(args.pack_file, coverage)
         if artifact:
@@ -169,14 +205,14 @@ def main():
                 bounds=bounds,
                 title=title,
                 cache_directory=args.build_only.with_name(args.build_only.name + ".download"),
-                image_size=(4096, 4096) if coverage != "metro-detroit" else (2048, 1536),
+                image_size=build_image_size(coverage, args.detail),
             )
             LocalImageryPack.load(args.build_only)
             print(
                 f"Validated build output: {args.build_only}. Ready for imagery_artifact packaging."
             )
         else:
-            install(coverage, update=args.update, artifact=artifact)
+            install(coverage, update=args.update, artifact=artifact, detail=args.detail)
         return 0
     except (EOFError, KeyboardInterrupt):
         print("\nCancelled; active pack unchanged unless installation already completed.")

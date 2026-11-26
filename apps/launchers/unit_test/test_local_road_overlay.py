@@ -52,6 +52,7 @@ def vector_tile():
 def test_roads_and_places_decode_with_si_points():
     state = decode_overlay(gzip.compress(vector_tile()), 14, 4000, 5000)
     assert state.roads[0].label == "I-75"
+    assert not state.roads[0].geometry_visible
     assert len(state.roads[0].points) == 2
     assert state.places[0].name == "Southfield"
     assert all(
@@ -105,6 +106,16 @@ def test_local_street_and_city_latin_names_are_read():
     assert not decode_overlay(tile, 12, 400, 500).roads
 
 
+def test_transportation_geometry_draws_but_name_placement_path_does_not():
+    move = b"".join(varint(value) for value in (9, 4000, 4000))
+    line = move + b"".join(varint(value) for value in (10, 100, 100))
+    tile = layer("transportation_name", "primary", "Woodward Avenue", 2, line) + layer(
+        "transportation", "primary", "Woodward Avenue", 2, line
+    )
+    state = decode_overlay(tile, 13, 2000, 2500)
+    assert [road.geometry_visible for road in state.roads] == [True, False]
+
+
 def test_overview_city_label_survives_detail_tile_without_places(tmp_path):
     path = tmp_path / "places.mbtiles"
     move = b"".join(varint(value) for value in (9, 4000, 4000))
@@ -118,3 +129,17 @@ def test_overview_city_label_survives_detail_tile_without_places(tmp_path):
     state = LocalRoadOverlay(path).tile(14, 250 * 16 + 7, 312 * 16 + 7)
     assert [place.name for place in state.places] == ["Rochester"]
     assert not LocalRoadOverlay(path).tile(14, 250 * 16 + 6, 312 * 16 + 7).places
+
+
+def test_place_labels_are_budgeted_and_filtered_by_zoom():
+    move = b"".join(varint(value) for value in (9, 4000, 4000))
+    suburbs = b"".join(layer("place", "suburb", name, 1, move) for name in ("One", "Two", "Three"))
+    cities = b"".join(
+        layer("place", "city", name, 1, move) for name in ("Detroit", "Pontiac", "Troy")
+    )
+
+    overview = decode_overlay(suburbs + cities, 10, 250, 312)
+    detail = decode_overlay(suburbs + cities, 14, 4000, 5000)
+
+    assert [place.name for place in overview.places] == ["Detroit"]
+    assert [place.name for place in detail.places] == ["Detroit", "Pontiac", "Troy"]

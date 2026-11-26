@@ -17,6 +17,7 @@ class CesiumViewerState:
     buildings_visible: bool = True
     references_visible: bool = False
     terrain_visible: bool = True
+    terrain_shading_visible: bool = False
     embedded: bool = False
     terrain_scale: int = 1
     pan_step_fraction: float = 0.15
@@ -31,6 +32,7 @@ class CesiumViewerState:
                 self.buildings_visible,
                 self.references_visible,
                 self.terrain_visible,
+                self.terrain_shading_visible,
                 self.embedded,
                 self.destination_marker_visible,
             )
@@ -72,6 +74,7 @@ class CesiumViewerState:
             "buildings_visible": self.buildings_visible,
             "references_visible": self.references_visible,
             "terrain_visible": self.terrain_visible,
+            "terrain_shading_visible": self.terrain_shading_visible,
             "embedded": self.embedded,
             "terrain_scale": self.terrain_scale,
             "pan_step_fraction": self.pan_step_fraction,

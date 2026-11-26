@@ -221,16 +221,30 @@ def get_json(endpoint, *, timeout=60, attempts=None, **parameters):
         "/exportImage": "bounded image export",
     }.get(endpoint, endpoint)
     print(f"USGS imagery: requesting {stage}…", flush=True)
-    url = SERVICE + endpoint + "?" + urllib.parse.urlencode({"f": "json", **parameters})
+    address = SERVICE + endpoint
+    encoded = urllib.parse.urlencode({"f": "json", **parameters}).encode()
+    # Large statewide mosaics can lock hundreds of source rasters. ArcGIS
+    # accepts the same form parameters by POST, avoiding proxy/server URI caps.
+    request = (
+        urllib.request.Request(
+            address,
+            data=encoded,
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+        )
+        if len(encoded) > 1800
+        else address + "?" + encoded.decode()
+    )
 
     def read():
-        with open_source(url, timeout=timeout, attempts=1) as response:
+        with open_source(request, timeout=timeout, attempts=1) as response:
             document = json.load(response)
         if "error" in document:
             error = document["error"]
             if error.get("code") in (429, 500, 502, 503, 504):
                 raise HTTPError(
-                    url, error["code"], error.get("message", "Service unavailable"), {}, None
+                    address, error["code"], error.get("message", "Service unavailable"), {}, None
                 )
             raise RuntimeError(f"USGS service error: {error}")
         return document
@@ -239,7 +253,7 @@ def get_json(endpoint, *, timeout=60, attempts=None, **parameters):
         return retry_request(read, stage=stage, attempts=attempts)
     except (URLError, TimeoutError, IncompleteRead) as error:
         raise SourceRequestError(
-            f"{stage} failed after retries: {error} · endpoint {SERVICE + endpoint}"
+            f"{stage} failed after retries: {error} · endpoint {address}"
         ) from error
 
 
@@ -288,7 +302,18 @@ def download(
             "No identifiable dated NAIP/USDA source found for selected coverage; source review required"
         )
     year = max(record["Year"] for record in candidates)
-    selected = [record for record in candidates if record["Year"] == year]
+    # Acquisition years vary within large regions. Lock every approved dated
+    # NAIP raster, newest first, so MT_FIRST can use older flights only where
+    # the newest year has no coverage instead of exporting black holes.
+    selected = sorted(
+        candidates,
+        key=lambda record: (
+            record["Year"],
+            record.get("acquisition_date") or 0,
+            record.get("OBJECTID") or 0,
+        ),
+        reverse=True,
+    )
     mosaic = {
         "mosaicMethod": "esriMosaicLockRaster",
         "lockRasterIds": [r["OBJECTID"] for r in selected],
@@ -338,8 +363,8 @@ def download(
             "schema": 1,
             "image": "imagery.jpg",
             "sha256": hashlib.sha256(image).hexdigest(),
-            "title": f"{title} NAIP {year}",
-            "attribution": f"USGS / USDA NAIP {year} · The National Map",
+            "title": f"{title} NAIP through {year}",
+            "attribution": f"USGS / USDA NAIP through {year} · The National Map",
             "bounds_deg": bounds,
             "width": export["width"],
             "height": export["height"],

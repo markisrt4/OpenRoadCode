@@ -16,12 +16,15 @@ from config.service_runtime_config import (
     NavigationServiceRuntimeConfig,
     ServiceRuntimeConfigParser,
 )
+from controllers.cache import PersistentCache
 from controllers.geocoding.sqlite_geocoder import SqliteGeocoder
 from controllers.navigation import (
     AndroidNavigationSensor,
     GpsdNavigationAdapter,
     Mpu6050NavigationAdapter,
     NavigationController,
+    PersistentPositionSource,
+    PositionSnapshotCache,
 )
 from controllers.navigation.android_position_source import AndroidPositionSource
 from controllers.navigation.browser_position_source import BrowserPositionSource
@@ -234,10 +237,16 @@ def main() -> int:
         return 0
 
     position_source = _build_position_source(config)
+    route_simulator = position_source if isinstance(position_source, RouteSimulationIf) else None
+    if system.position_cache.enabled and config.gps.source != "simulation":
+        position_source = PersistentPositionSource(
+            position_source,
+            PositionSnapshotCache(PersistentCache(system.position_cache.directory)),
+            max_age_seconds=system.position_cache.max_age_seconds,
+        )
     controller = build_controller(config, position_source=position_source)
     route_planning_controller = build_route_planning_controller(config)
     geocoder = build_geocoder(args.search_database)
-    route_simulator = position_source if isinstance(position_source, RouteSimulationIf) else None
 
     publish_source = config.publish.source
     publisher = ZeroMqPublisher(system.messaging.publisher_endpoint)
@@ -266,6 +275,10 @@ def main() -> int:
     if geocoder is not None:
         print(f"  search database:   {Path(args.search_database).expanduser()}")
     print(f"  route simulation:  {'available' if route_simulator is not None else 'disabled'}")
+    print(
+        "  position cache:    "
+        f"{'disabled' if not system.position_cache.enabled else f'{system.position_cache.max_age_seconds:g}s'}"
+    )
     print(f"  telemetry ingress: {system.messaging.publisher_endpoint}")
     print(f"  command endpoint:  {config.command_endpoint}")
     print(f"  publish rate:      {config.rate_hz:g} Hz")

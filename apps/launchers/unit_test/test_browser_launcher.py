@@ -25,7 +25,7 @@ class BrowserKioskLauncherTest(unittest.TestCase):
         activate.assert_called_once_with(":0")
         self.assertFalse(launcher._hidden)
 
-    def test_launch_uses_basic_password_store(self) -> None:
+    def test_embedded_app_launch_uses_x11_and_skips_first_run(self) -> None:
         with TemporaryDirectory() as temporary:
             launcher = BrowserKioskLauncher(
                 url="https://example.com",
@@ -33,6 +33,7 @@ class BrowserKioskLauncherTest(unittest.TestCase):
             )
             process = Mock()
             process.poll.return_value = None
+            launcher.configure_app_window(position=(10, 20), size=(800, 450))
 
             with (
                 patch.object(launcher, "is_running", return_value=False),
@@ -49,6 +50,40 @@ class BrowserKioskLauncherTest(unittest.TestCase):
 
             command = popen.call_args.args[0]
             self.assertIn("--password-store=basic", command)
+            self.assertIn("--ozone-platform=x11", command)
+            self.assertIn("--no-first-run", command)
+            self.assertIn("--no-default-browser-check", command)
+            self.assertIn("--app=https://example.com", command)
+
+    def test_launch_does_not_inherit_opencv_qt_resources(self) -> None:
+        with TemporaryDirectory() as temporary:
+            launcher = BrowserKioskLauncher(
+                url="https://example.com",
+                log_file=Path(temporary) / "browser.log",
+            )
+            process = Mock()
+            process.poll.return_value = None
+            contaminated = {
+                "DISPLAY": ":1",
+                "QT_QPA_PLATFORM_PLUGIN_PATH": "/venv/cv2/qt/plugins",
+                "QT_QPA_FONTDIR": "/venv/cv2/qt/fonts",
+                "QT_IM_MODULE": "ibus",
+            }
+
+            with (
+                patch.object(launcher, "is_running", return_value=False),
+                patch.object(launcher, "_find_browser", return_value="/usr/bin/google-chrome"),
+                patch("apps.launchers.browser_launcher.x11_environment", return_value=contaminated),
+                patch(
+                    "apps.launchers.browser_launcher.subprocess.Popen", return_value=process
+                ) as popen,
+            ):
+                launcher.launch(":1")
+
+            environment = popen.call_args.kwargs["env"]
+            self.assertNotIn("QT_QPA_PLATFORM_PLUGIN_PATH", environment)
+            self.assertNotIn("QT_QPA_FONTDIR", environment)
+            self.assertEqual(environment["QT_IM_MODULE"], "ibus")
 
     @patch("apps.launchers.browser_launcher.close_matching_display_apps")
     @patch("apps.launchers.browser_launcher.terminate_process")

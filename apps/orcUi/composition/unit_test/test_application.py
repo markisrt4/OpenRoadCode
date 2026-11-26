@@ -243,6 +243,8 @@ class OrcUiCompositionTest(unittest.TestCase):
         media = configure_media.return_value
         weather = configure_weather.return_value
 
+        core.route_request_handler.active_route = None
+        core.presentation.route_guidance = None
         progress = Mock()
         composition = create_orc_ui_composition(progress=progress)
 

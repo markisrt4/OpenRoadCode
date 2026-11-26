@@ -44,10 +44,10 @@ def test_export_locks_newest_naip_sources_and_retains_provenance(
     destination = tmp_path / "pack"
     downloader.download(destination, bounds=(west, south, east, north), title=title)
     rule = json.loads(service.call_args.kwargs["mosaicRule"])
-    assert rule["lockRasterIds"] == [2]
+    assert rule["lockRasterIds"] == [2, 1]
     document = json.loads((destination / "manifest.json").read_text())
-    assert document["source_records"] == [records[1]["attributes"]]
-    assert document["title"] == f"{title} NAIP 2022"
+    assert document["source_records"] == [records[1]["attributes"], records[0]["attributes"]]
+    assert document["title"] == f"{title} NAIP through 2022"
     assert (destination / "source-service.json").exists()
     assert LocalImageryPack.load(destination).state.attribution.startswith("USGS / USDA")
 
@@ -124,6 +124,18 @@ def test_catalog_network_failure_identifies_stage_and_endpoint(monkeypatch):
     with pytest.raises(RuntimeError, match="NAIP source catalog failed after retries") as error:
         downloader.get_json("/query", attempts=3, where="State='MI'")
     assert downloader.SERVICE + "/query" in str(error.value)
+
+
+def test_large_export_parameters_use_arcgis_form_post(monkeypatch):
+    opened = Mock(return_value=io.BytesIO(b'{"width": 1}'))
+    monkeypatch.setattr(downloader, "open_source", opened)
+    document = downloader.get_json("/exportImage", mosaicRule="x" * 3000)
+    assert document == {"width": 1}
+    request = opened.call_args.args[0]
+    assert isinstance(request, downloader.urllib.request.Request)
+    assert request.full_url == downloader.SERVICE + "/exportImage"
+    assert request.get_header("Content-type") == "application/x-www-form-urlencoded"
+    assert b"mosaicRule=" in request.data
 
 
 def test_truncated_catalog_fetches_complete_ids_with_smaller_batches(monkeypatch):

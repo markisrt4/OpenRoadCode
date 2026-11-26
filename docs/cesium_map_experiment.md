@@ -7,8 +7,7 @@ ellipsoid globe, procedural geographic grid, and a static Detroit marker. Around
 the marker, a synthetic 250-metre checkerboard grid, 250/500/1,000-metre distance
 rings, and labelled compass directions make camera movement visible. A yellow
 ground arrow points north; the footer reports camera height, tilt, and heading.
-These reference graphics are not real streets or buildings. Without an installed imagery pack it has no aerial imagery. An optional coarse terrain pack adds relative relief. Building datasets, routing,
-and GPS follow are not implemented yet. Zoom, rotation/pan gestures, north-up, tilt, and reset are available. The
+These reference graphics are not real streets or buildings. Without an installed imagery pack it has no aerial imagery. An optional terrain pack adds relative relief. Installed map packs can provide buildings, roads, and places. The embedded viewer consumes the existing navigation service's active route and guidance state to draw the route, destination, and current maneuver, and it can follow live GPS. Zoom, rotation/pan gestures, north-up, tilt, and reset are available. The
 viewer is an owned, isolated Chromium app window; Return to ORC, window close, or
 Ctrl+C stops only this experiment and its local server.
 
@@ -344,6 +343,88 @@ ground with buildings on, toggle 2D/3D, and confirm the destination remains
 visible. Repeat offline. Detroit is fairly flat, so large mountains would
 indicate bad samples rather than successful terrain rendering.
 
+### Multi-resolution Metro Detroit terrain
+
+The regional release pipeline builds terrain schema 3 as a bounded offline LOD
+pack. It contains a 33×33 Metro Detroit overview, sixteen 129×129 regional grids
+that become eligible at Cesium level 9, and 129×129 focus grids for Downtown–Midtown,
+Rochester, Southfield, and Pine Knob that become eligible at level 12. Cesium
+selects the most detailed eligible grid for each requested heightmap and stops
+refining at level 16. Vehicle, building, and POI placement use the best installed
+sample at their coordinate.
+
+Schema-1 single grids and schema-2 mosaics remain readable. The source datum is
+still preserved as relative relief; this change does not claim ellipsoid-height
+conversion or navigation-grade altitude. All grids and original USGS response
+metadata remain offline after installation. The terrain artifact command reports
+tile count, LOD count, and compressed bytes and rejects archives above 64 MiB.
+
+The optional **Terrain cues** control adds Cesium globe lighting, restrained
+10-metre contours, and a locally generated contrast hillshade over installed imagery. It changes presentation only: source
+elevations and the selected 1×/2×/3× relief scale are unchanged. Cues turn off
+while Ground is Flat and return to their prior selection when Relief is restored.
+They default off to avoid extra GPU work on constrained virtual and mobile GPUs.
+Contour presentation remains equivalent to a 10-metre source interval: Cesium
+uses 10/20/30-metre rendered spacing at 1×/2×/3× so exaggeration does not create
+three times as many lines. Hillshade generation uses fourfold slope contrast to reveal Michigan's subtle
+relief, attaches no more than six visible tiles, and caches each generated image;
+it does not exaggerate the terrain mesh or require another data download.
+Contours use a translucent cool blue-gray rather than the road overlay's
+yellow/white hierarchy, so terrain shape and navigation geometry remain distinct.
+
+Metro Detroit's schema-3 regional tier uses sixteen 129×129 grids, approximately
+200 metres apart, while retaining its four finer focus grids. The separately
+triggered **Build Michigan terrain shard** workflow publishes a draft release for
+one bounded statewide package at a time. `michigan-overview` is an 8×8 set of
+129×129 grids (roughly 600-metre sampling). Eight selectable peninsula shards use
+the same tile layout over smaller envelopes for approximately 200–300-metre
+sampling. Each release includes `michigan-terrain-index.json`; its rectangles are
+planning envelopes and include lakes plus some neighboring territory.
+Complete USGS response records are retained as deterministic gzip JSON so large
+statewide builds preserve provenance without exceeding the device's extracted-
+pack limit; elevation payloads remain ordinary validated JSON.
+
+Install the statewide overview or the shard containing the intended destination
+with `development.maps.install_terrain --coverage COVERAGE --pack-manifest URL
+--yes`. An installed Metro Detroit pack takes precedence, followed by a matching
+Michigan detail shard and then the statewide overview. Each Michigan build is
+independent. GitHub Actions builds the eight terrain rows as bounded matrix jobs,
+with no more than two rows running at once. Each row restores and saves its own
+validated `.download` tile cache, then passes successful tiles to a final assembly
+job through a seven-day workflow artifact. Rerunning a failed coverage therefore
+reuses completed rows instead of resampling them. Each row uses two concurrent
+tiles plus bounded exponential request backoff to reduce pressure on the public
+endpoint. Packaging and draft release creation still require all eight rows and
+every tile to pass validation; the temporary row artifacts are not the published
+map package. Building all nine
+packages is intentionally not one workflow job because USGS request time and
+release inspection remain explicit.
+
+The same Michigan workflow builds a separately installable 8192×8192 USGS aerial
+image for the selected envelope. The statewide overview is intentionally broad
+background context; the eight smaller peninsula envelopes provide the useful
+regional tier, and existing Metro Detroit/focus imagery remains the most detailed
+layer. Imagery and terrain archives retain independent descriptors and checksums
+in one draft release. Runtime selection orders installed imagery broad-to-fine,
+so the smallest matching validated pack draws on top without stretching outside
+its declared rectangle. Each image remains under the runtime's 20 MiB payload
+limit; source export evidence is retained in its archive.
+
+After publishing a successful draft release, install both descriptors from the
+same tag and reopen the 3D viewer:
+
+```bash
+git switch navigation-cesium
+python -m development.maps.install_region --coverage COVERAGE --pack-manifest "https://github.com/markisrt4/OpenRoadCode/releases/download/TAG/COVERAGE-imagery.zip.json" --yes
+python -m development.maps.install_terrain --coverage COVERAGE --pack-manifest "https://github.com/markisrt4/OpenRoadCode/releases/download/TAG/COVERAGE-terrain.zip.json" --yes
+```
+
+Until the Michigan workflow file reaches the default branch, GitHub cannot
+dispatch that new filename directly. On `navigation-cesium`, use the already
+registered `build-metro-detroit-imagery.yml` dispatcher with a Michigan
+`build_target`; it calls the reusable Michigan workflow from the selected branch.
+Direct `build-michigan-terrain.yml` dispatch becomes available after merge.
+
 ### Pine Knob relief comparison (Termux)
 
 Pine Knob in Clarkston is coverage 3 in the optional terrain menu. Its separate
@@ -478,6 +559,23 @@ git pull --ff-only
 python -m apps.orcUi
 ```
 
+Chromium normally applies its GPU safety list. On a separately qualified VMware
+SVGA3D VM where `chrome://gpu` confirms hardware WebGL after bypassing that list,
+launch the opt-in hardware path with:
+
+```bash
+git switch navigation-cesium
+OPENROAD_CESIUM_RENDERER=hardware-override ./runOrcUi
+```
+
+This passes `--ignore-gpu-blocklist`; it does not repair or certify the virtual
+GPU driver. Rendering corruption, context loss or GPU-process failure should be
+treated as a failed qualification. Use
+`OPENROAD_CESIUM_RENDERER=software ./runOrcUi` to return to the slower ANGLE
+SwiftShader fallback. With no variable, Chromium's normal safety decisions remain
+unchanged. Renderer selection, effective flags and the Chromium GPU report are
+recorded in `cesium-stages.log`.
+
 On Termux/X11, open Navigation and toggle Map to Terrain, or search for Pine Knob and use
 its 3D action. Verify it stays inside the map area; pan, pitch and relief controls
 should respond while ORC sidebar navigation remains usable. Resize ORC, switch
@@ -590,8 +688,8 @@ assembly removes that cache so later updates fetch fresh acquisitions.
 ### Build once, distribute a checked imagery artifact
 
 For regular device installation, prefer a prebuilt archive over on-demand USGS
-exports. This path exists now, but **no Metro Detroit artifact or public hosting
-URL is bundled**. A build machine must first finish and inspect the imagery;
+exports. GitHub Releases is the distribution channel for inspected Metro Detroit
+packs. A build machine must first finish and inspect the imagery;
 packaging does not repair USGS outages or certify that exported imagery has no
 gaps. The existing navigation dataset still uses its SSH/rsync deployment.
 
@@ -644,16 +742,18 @@ artifact retention period. Each run uses a new tag such as
 available for rollback. Do not reuse a tag or replace assets in a published
 version.
 
-After publishing the draft, copy the version-specific descriptor URL from the
-workflow summary or release page and install it on Termux:
+After publishing the draft, install the newest published pack on Termux:
 
 ```bash
 git switch navigation-cesium
-python -m development.maps.install_region --coverage metro-detroit --pack-manifest https://github.com/markisrt4/OpenRoadCode/releases/download/metro-detroit-imagery-VERSION/metro-detroit-imagery.zip.json
+bash development/termux/install_metro_detroit_imagery.sh
 ./runOrcUi
 ```
 
-Add `--update` when replacing an already installed pack. Release assets remain
+The launcher selects the newest published, non-prerelease Metro Detroit imagery
+release. Add `--update` when replacing an already installed pack, or use
+`--version metro-detroit-imagery-VERSION` to install a specific revision for
+rollback. Pass `--yes` for a non-interactive install. Release assets remain
 available until the corresponding asset, release, or repository is deleted.
 The version-specific URL intentionally remains fixed; select a newer release
 explicitly when updating a device.
@@ -670,11 +770,22 @@ Regional envelopes can include areas with no approved US NAIP sources (for
 example, across the border or over water). If a complete catalog contains no
 NAIP/USDA source for an overview piece, the builder leaves that piece transparent
 and records its bounds and source evidence in `missing_coverage`. Such overviews
-use PNG, with a coverage-gap count in the title. It does not substitute partner
+use size-bounded WebP with alpha, with a coverage-gap count in the title. This
+avoids lossless PNG exceeding the viewer's 20 MiB image limit. It does not substitute partner
 imagery or invent ground detail. Undated identifiable NAIP, invalid rights,
 incomplete catalogs and network failures are not treated as coverage gaps. A
 region with no supported imagery at all still fails. Re-running reuses completed
 pieces, including checked gap records, until the pack is successfully assembled.
+
+The optional Cesium road overlay limits detail to zoom 13 and covers the visible
+camera rectangle with at most six vector tiles, reducing zoom when necessary.
+Roads and settlement names are separate
+controls; Places starts disabled, and its Cesium label entities are not created
+until enabled. Transportation-name placement paths supply labels but are never
+drawn as road geometry. Tile decoding admits drawable major-road geometry before
+local-road and label-placement paths so metadata cannot exhaust the bounded tile
+budget ahead of the roads themselves. This bounds entity and label work on virtual
+or embedded GPUs.
 
 ### Inspect a locally built archive without hosting
 
@@ -691,7 +802,8 @@ The installer shows size and asks for confirmation, checks the descriptor's
 region, filename, size and SHA256, then extracts and validates the imagery before
 activation. `--update` allows replacing an existing managed imagery revision;
 the previous revision remains available. Reopen Terrain if ORC is already running.
-`--pack-file`, `--pack-manifest` and `--build-only` are mutually exclusive.
+`--pack-file`, `--pack-manifest`, `--github-release` and `--build-only` are
+mutually exclusive.
 
 ### Shared ORC camera rail and detail imagery
 

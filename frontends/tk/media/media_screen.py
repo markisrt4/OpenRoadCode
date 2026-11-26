@@ -23,9 +23,8 @@ from ui.screen_ui_if import ScreenId
 from ui.theme import ThemeBundle, ThemeMode
 
 from .media_preview import MediaPreview
+from .provider_brand import SPOTIFY_GREEN, YOUTUBE_RED, draw_provider_logo
 
-SPOTIFY_GREEN = "#1DB954"
-YOUTUBE_RED = "#FF0033"
 NETFLIX_RED = "#E50914"
 YOUTUBE_MUSIC_RED = "#FF0000"
 
@@ -649,20 +648,7 @@ class MediaScreen(TkScreen):
                 bd=0,
             )
             canvas.pack(fill=tk.BOTH, expand=True)
-            for bounds, width in (
-                ((9, 12, 49, 35), 4),
-                ((12, 20, 46, 40), 3),
-                ((15, 28, 43, 45), 3),
-            ):
-                canvas.create_arc(
-                    *bounds,
-                    start=24,
-                    extent=135,
-                    style=tk.ARC,
-                    outline="#000000",
-                    width=width,
-                )
-            canvas.scale("all", 0, 0, 50 / 58, 50 / 58)
+            draw_provider_logo(canvas, "spotify", 50)
             return
         if glyph == "youtube_music":
             canvas = tk.Canvas(
@@ -684,9 +670,7 @@ class MediaScreen(TkScreen):
                 bd=0,
             )
             canvas.pack(fill=tk.BOTH, expand=True)
-            canvas.create_rectangle(8, 16, 50, 42, fill=YOUTUBE_RED, outline=YOUTUBE_RED)
-            canvas.create_polygon(24, 21, 24, 37, 37, 29, fill="#FFFFFF", outline="#FFFFFF")
-            canvas.scale("all", 0, 0, 50 / 58, 50 / 58)
+            draw_provider_logo(canvas, "youtube", 50)
             return
         tk.Label(
             parent,

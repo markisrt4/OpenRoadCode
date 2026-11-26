@@ -388,6 +388,13 @@ New features should follow the same sequence: define semantic contracts, impleme
 
 Semantic theme intent may originate from the active application shell. Provider-specific brand colors are allowed where intentional, but application chrome should continue to come from the shared theme model.
 
+The local Cesium building layer uses camera-height level of detail because OSM
+height coverage is incomplete. Regional views suppress building geometry;
+city-scale views retain explicit tagged heights; close views additionally show
+floor-count estimates. Generic-height placeholders remain hidden. This is a
+presentation policy in the local Cesium adapter and does not rewrite or imply
+greater accuracy in the immutable downloaded OSM building pack.
+
 ## Lifecycle
 
 A resource has one clear owner. The object that creates a process, worker, subscriber, browser host, or other managed resource must expose and own its cleanup behavior.
@@ -591,6 +598,32 @@ and expose snapshots through the places contract. POI action workers live in
 so a late successful handoff cannot close a replacement popup. Closed sessions
 discard completions. Canonical POI values include the validated website as well
 as missing-index error reporting. Platform launchers are injected by composition.
+
+Dynamic search markers cross renderer boundaries as immutable `PoiOverlayState`
+snapshots. Composition wraps the native map request handler so MapLibre remains
+the authoritative request consumer while the active Cesium runtime receives the
+same complete marker replacement. Cesium updates its owned browser through the
+embedded-viewer adapter; widgets do not evaluate JavaScript or inspect renderer
+state. While MapLibre is stopped for Cesium, `PoiSearchController` uses its
+existing offline nearby-position query instead of waiting for a viewport reply
+from the stopped renderer. Stale Cesium generations reject queued overlay work.
+Offline road tiles expose roads and settlement names through separate Cesium
+data sources and controls, allowing label rendering to be disabled independently.
+Cesium POI entity clicks return only the selected semantic marker identifier
+through `MapMarkerSelectionSourceIf`; the existing places controller resolves
+that identifier against its current result set and the Tk view presents the same
+place card and Navigate request used by MapLibre.
+Cesium uses the MapLibre search-result category palette and glyph semantics but
+reveals names on hover or selection. This avoids drawing every name in a tilted
+scene, where Cesium dynamic entities have no equivalent of MapLibre symbol
+collision placement.
+
+Active routes follow the same boundary. `RouteOverlayController` merges the
+navigation service's route result and guidance messages into an immutable,
+SI-normalized `RouteOverlayState`. Composition sends complete replacements to
+the Cesium runtime, which caches them across renderer switches and rejects stale
+viewer generations. The web frontend only draws the terrain-clamped route,
+destination, and current maneuver; it owns no routing or guidance policy.
 
 Termux updates retain `--renderer-only` and the configurable renderer build
 directory. Full navigation updates always rebuild the ORC-owned renderer, while

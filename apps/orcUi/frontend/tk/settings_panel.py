@@ -288,10 +288,11 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
         status.grid(row=1, column=0, sticky="ew", padx=14, pady=(0, 8))
         status.bind("<Configure>", lambda event: self._update_location_wrap(status, event.width))
         self._location_handler = host_location_handler
+        self._host_location_state = host_location_state
         self._location_button = tk.Button(
             location,
             text="SHARE HOST LOCATION",
-            command=self._share_host_location,
+            command=self._location_action,
             bg=ui.control_background,
             fg=ui.control_text,
             activebackground=ui.control_active,
@@ -372,9 +373,12 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
         if page == "audio" and self._audio_settings_panel is not None:
             self._audio_settings_panel.refresh()
 
-    def _share_host_location(self) -> None:
+    def _location_action(self) -> None:
         if self._location_handler is not None:
-            self._location_handler.share_host_location()
+            if self._host_location_state.can_restart:
+                self._location_handler.restart_location_service()
+            else:
+                self._location_handler.share_host_location()
 
     @staticmethod
     def _update_location_wrap(label: tk.Label, width: int) -> None:
@@ -385,11 +389,15 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
             label.configure(wraplength=wraplength)
 
     def set_host_location_state(self, state: HostLocationState) -> None:
+        self._host_location_state = state
         self._location_status.set(state.status)
         self._location_button.configure(
+            text="RESTART LOCATION SERVICE" if state.can_restart else "SHARE HOST LOCATION",
             state=tk.DISABLED
-            if state.busy or not state.can_share or self._location_handler is None
-            else tk.NORMAL
+            if state.busy
+            or (not state.can_share and not state.can_restart)
+            or self._location_handler is None
+            else tk.NORMAL,
         )
 
     @property

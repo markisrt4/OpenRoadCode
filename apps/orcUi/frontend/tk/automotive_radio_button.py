@@ -64,6 +64,12 @@ class AutomotiveRadioButton(tk.Canvas, UiWidget):
         self._selected = selected
         self._paint()
 
+    def set_size(self, *, height: int, font_size: int) -> None:
+        """Resize the touch target and its label together."""
+        self._font_size = font_size
+        self.configure(height=height)
+        self._paint()
+
     def set_palette(self, *, background: str, accent: str, foreground: str, border: str) -> None:
         self._background, self._accent = background, accent
         self._foreground, self._border = foreground, border

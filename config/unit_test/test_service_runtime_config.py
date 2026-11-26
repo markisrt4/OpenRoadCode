@@ -124,6 +124,26 @@ def test_defaults_build_a_device_navigation_pipeline(tmp_path: Path) -> None:
     assert config.navigation.gps.device == "gpsd"
     assert config.navigation.solution.algorithm == "complementary_filter"
     assert config.navigation.publish.enabled
+    assert config.position_cache.enabled
+    assert config.position_cache.max_age_seconds == 86400.0
+
+
+def test_position_cache_is_parsed_for_navigation_service(tmp_path: Path) -> None:
+    config = ServiceRuntimeConfigParser(
+        _write(
+            tmp_path,
+            """
+[position_cache]
+enabled = false
+directory = "var/position"
+max_age_seconds = 3600
+""",
+        )
+    ).load()
+
+    assert not config.position_cache.enabled
+    assert config.position_cache.directory == (tmp_path.parent / "var/position").resolve()
+    assert config.position_cache.max_age_seconds == 3600.0
 
 
 @pytest.mark.parametrize(

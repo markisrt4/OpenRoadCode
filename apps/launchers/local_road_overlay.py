@@ -62,15 +62,59 @@ def decode_overlay(blob, z, x, y):
     places = []
     point_budget = 12000
     features = inspect_tile(blob)
-    features.sort(key=lambda feature: feature["layer"] != "transportation_name")
+
+    def priority(feature):
+        layer = feature["layer"]
+        attrs = feature["attributes"]
+        kind = attrs.get("class", "")
+        road_rank = {
+            "motorway": 0,
+            "trunk": 1,
+            "primary": 2,
+            "secondary": 3,
+            "tertiary": 4,
+            "minor": 5,
+            "residential": 6,
+            "unclassified": 7,
+            "service": 8,
+        }.get(kind, 9)
+        if layer == "transportation":
+            return (0, road_rank, 0, 0)
+        if layer == "transportation_name":
+            return (1, road_rank, 0, 0)
+        if layer != "place":
+            return (3, 0, 0, 0)
+        kind_rank = {"city": 0, "town": 1, "village": 2, "suburb": 3}.get(kind, 9)
+        try:
+            rank = int(attrs.get("rank", 99))
+        except (TypeError, ValueError):
+            rank = 99
+        try:
+            population = int(str(attrs.get("population", "0")).replace(",", ""))
+        except (TypeError, ValueError):
+            population = 0
+        return (2, kind_rank, rank, -population)
+
+    features.sort(key=priority)
     for feature in features:
         layer = feature["layer"]
         attrs = feature["attributes"]
         kind = attrs.get("class", "")
         if layer not in ("transportation", "transportation_name", "place"):
             continue
-        if layer == "place" and kind not in ("city", "town", "village", "suburb"):
-            continue
+        if layer == "place":
+            allowed = (
+                {"city"}
+                if z <= 10
+                else {"city", "town"}
+                if z == 11
+                else {"city", "town", "village"}
+                if z == 12
+                else {"city", "town", "village", "suburb"}
+            )
+            budget = 1 if z <= 11 else 2 if z <= 12 else 3
+            if kind not in allowed or len(places) >= budget:
+                continue
         if layer != "place" and (
             kind not in KINDS
             or feature["geometry_type"] != 2
@@ -90,7 +134,7 @@ def decode_overlay(blob, z, x, y):
 
         name = str(attrs.get("name:en") or attrs.get("name:latin") or attrs.get("name") or "")[:80]
         for path in geometry_paths(feature["geometry"]):
-            if layer == "place" and path and len(places) < 60:
+            if layer == "place" and path:
                 px, py = path[0]
                 if name and 0 <= px < extent and 0 <= py < extent:
                     places.append(PlaceOverlayLabel(name, point(px, py)))
@@ -107,7 +151,14 @@ def decode_overlay(blob, z, x, y):
                     if layer == "transportation_name"
                     else ""
                 )
-                roads.append(RoadOverlayLine(kind, tuple(point(px, py) for px, py in path), label))
+                roads.append(
+                    RoadOverlayLine(
+                        kind,
+                        tuple(point(px, py) for px, py in path),
+                        label,
+                        geometry_visible=layer == "transportation",
+                    )
+                )
     return RoadOverlayState(tuple(roads), tuple(places))
 
 

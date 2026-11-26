@@ -31,6 +31,7 @@ class CesiumViewerServer:
         terrain=None,
         buildings=None,
         tiles=None,
+        roads=None,
     ):
         self._sdk = require_sdk(sdk)
         self._state = state
@@ -42,9 +43,7 @@ class CesiumViewerServer:
         self._terrain = terrain
         self._buildings = buildings
         self._tiles = tiles
-        # Disabled while isolating Termux:X11 crashes introduced by the overlay.
-        # Keep the base terrain/imagery/building viewer available.
-        self._roads = None
+        self._roads = roads
         self._token = secrets.token_urlsafe(32)
         self.close_requested = threading.Event()
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), partial(_Handler, owner=self))
@@ -136,11 +135,15 @@ class _Handler(BaseHTTPRequestHandler):
                 self.send_error(404)
                 return
             image = self.owner._imagery_layers[int(index)].image
-            self._send(image.read_bytes(), "image/png" if image.suffix == ".png" else "image/jpeg")
+            self._send(
+                image.read_bytes(),
+                mimetypes.guess_type(image.name)[0] or "application/octet-stream",
+            )
             return
         if path == "/data/imagery.jpg" and self.owner._imagery is not None:
             content_type = (
-                "image/png" if self.owner._imagery.image.suffix == ".png" else "image/jpeg"
+                mimetypes.guess_type(self.owner._imagery.image.name)[0]
+                or "application/octet-stream"
             )
             self._send(self.owner._imagery.image.read_bytes(), content_type)
             return

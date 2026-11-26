@@ -7,6 +7,7 @@ import zipfile
 from pathlib import Path
 
 from apps.launchers.local_imagery_pack import LocalImageryPack
+from development.maps.terrain_regions import MICHIGAN_COVERAGES
 
 MAX_ARCHIVE_BYTES = 64 * 1024 * 1024
 
@@ -55,7 +56,13 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
         "--coverage",
-        choices=("metro-detroit", "detroit-midtown", "rochester", "southfield"),
+        choices=(
+            "metro-detroit",
+            "detroit-midtown",
+            "rochester",
+            "southfield",
+            *MICHIGAN_COVERAGES,
+        ),
         required=True,
     )
     args = parser.parse_args()

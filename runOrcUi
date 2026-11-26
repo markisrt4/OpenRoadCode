@@ -51,6 +51,7 @@ fi
 if ! "$python_bin" -c 'import requests, tinycss2' 2>/dev/null; then
     echo "[!] Missing required ORC UI dependencies in $python_bin (requests/tinycss2)." >&2
     echo "    Install the base and desktop-ui Python packages using the ORC installer." >&2
+    echo "    If using a repository venv, set VENV_DIR to its path when running the installer." >&2
     echo "    Quick repair: \"$python_bin\" -m pip install requests tinycss2" >&2
     exit 1
 fi

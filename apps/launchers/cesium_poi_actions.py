@@ -17,6 +17,7 @@ from apps.launchers.local_imagery_pack import (
     preferred_imagery_directory,
 )
 from apps.launchers.local_map_tiles_pack import load_viewer_tiles, preferred_tiles_directory
+from apps.launchers.local_road_overlay import LocalRoadOverlay
 from apps.launchers.local_terrain_pack import load_terrain, preferred_terrain_directory
 from common.logging.logging_paths import logging_file_path
 from controllers.poi.poi_action_executor_if import PoiActionExecutorIf
@@ -87,6 +88,7 @@ class CesiumPoiActions(PoiActionExecutorIf):
                     terrain=terrain,
                     buildings=buildings,
                     tiles=tiles,
+                    roads=LocalRoadOverlay.installed(),
                 )
                 resources.callback(server.close)
                 profile = resources.enter_context(TemporaryDirectory(prefix="orc-cesium-poi-"))

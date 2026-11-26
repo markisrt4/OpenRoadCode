@@ -76,7 +76,12 @@ Current and partially integrated capabilities include:
 * Configurable startup and splash-screen behavior
 * Mock, stub, and simulation implementations for development without hardware
 
-The Radio entry screen separates RF Radio from Streaming Radio. RF Radio opens the native SDRForge receiver; Streaming Radio currently presents a Coming Soon screen while its provider/controller plumbing remains under development.
+The Radio entry screen offers **RF Radio**, **Streaming Radio**, and **Trending**.
+RF Radio opens the native SDRForge receiver. Streaming Radio provides internet
+station browsing and playback. Trending shows songs and artists observed by
+MusicForge, with cached artist information and YouTube and Spotify actions.
+Trending uses the Airplay API and does not require an SDR receiver. See
+[Streaming Radio and Trending setup](docs/streaming_radio.md).
 
 Not every feature is supported on every target. In particular, Android/Termux is a development and portability target and does not provide hardware parity with the Raspberry Pi installation.
 
@@ -110,6 +115,11 @@ OpenRoadCode uses libSDRForge for RF acquisition and DSP, with native ORC spectr
 | 5571 | ZeroMQ | Spectrum and receiver telemetry |
 
 Select the `sdrforge` feature to install the native SDRForge engine. SDR++ is not required. RF service lifecycle is separate from UI presentation. See [RF radio contracts](docs/rf_radio.md) for details.
+
+FM opens with the spectrum and waterfall visible. **Hide Spectrum** switches
+to a compact dashboard with an FM dial, large tune controls, station and RDS
+information, presets, and receiver power. **Show Spectrum** restores the plots
+within the same receiver session.
 
 ---
 ## Native Games
@@ -298,6 +308,11 @@ For the integrated media path on Debian/Ubuntu, run:
 `setup_media.sh` installs the X11 integration utility and, on AMD64, Google Chrome stable for Spotify PLAYER mode. `install_secrets.sh` configures Spotify's PKCE client ID/redirect URI and other supported media credentials without placing secrets in the repository. If Spotify credentials are already configured, the secrets installer does not need to be rerun merely to update the media runtime.
 
 Concrete devices and credentials remain separate from package installation. Run `./scripts/installers/host_setup.sh --help` for current options.
+
+If `./runOrcUi` finds no configured or existing Python environment, it creates
+`.venv` on Linux or `venv-termux` on Termux. Dependency installation remains
+with the host installer. Set `VENV_DIR` to the created environment's absolute
+path when running the installer to populate that environment.
 
 Third-party tar1090 source installs use the reviewed revisions in
 `scripts/installers/toolchain.lock`. Their setup scripts use isolated,

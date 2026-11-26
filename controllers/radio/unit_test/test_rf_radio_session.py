@@ -837,10 +837,15 @@ def test_native_receiver_full_simulated_lifecycle(receiver, monkeypatch):
     assert not starting.receiver_running
 
     status.update(running=False, starting=False, startup_error="USB disconnected")
+    notifications = Mock()
+    r.session._notification_sink = notifications
     failed = execute(RadioAction.REFRESH)
     assert not failed.receiver_starting
     assert not failed.receiver_running
     assert "USB disconnected" in failed.error
+    execute(RadioAction.REFRESH)
+    notifications.publish.assert_called_once()
+    assert notifications.publish.call_args.args[0].message == "USB disconnected"
 
     offline["value"] = True
     unavailable = execute(RadioAction.REFRESH)

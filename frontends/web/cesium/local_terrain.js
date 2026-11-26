@@ -4,18 +4,31 @@ window.ORCLocalTerrain = function (data, C) {
   let scale = 1;
   let visible = true;
   const scheme = new C.GeographicTilingScheme();
-  function sampledHeightAt(longitude, latitude) {
-    if (longitude<data.west_rad || longitude>data.east_rad || latitude<data.south_rad || latitude>data.north_rad) return 0;
-    const x = (longitude-data.west_rad)/(data.east_rad-data.west_rad)*(data.width-1);
-    const y = (data.north_rad-latitude)/(data.north_rad-data.south_rad)*(data.height-1);
-    const col = Math.min(Math.floor(x),data.width-2), row = Math.min(Math.floor(y),data.height-2);
+  const tiles = (data.tiles || [data]).slice().sort((a,b)=>(b.detail_level||0)-(a.detail_level||0));
+  let minimumSourceHeight=Infinity, maximumSourceHeight=-Infinity;
+  for (const tile of tiles) for (const height of tile.heights_m) {
+    if (height<minimumSourceHeight) minimumSourceHeight=height;
+    if (height>maximumSourceHeight) maximumSourceHeight=height;
+  }
+  const sourceReliefM=maximumSourceHeight-minimumSourceHeight;
+  function sample(tile,longitude,latitude) {
+    const x = (longitude-tile.west_rad)/(tile.east_rad-tile.west_rad)*(tile.width-1);
+    const y = (tile.north_rad-latitude)/(tile.north_rad-tile.south_rad)*(tile.height-1);
+    const col = Math.min(Math.floor(x),tile.width-2), row = Math.min(Math.floor(y),tile.height-2);
     const fx=x-col, fy=y-row;
-    const at = (r,c) => data.heights_m[r*data.width+c]-data.reference_height_m;
+    const at = (r,c) => tile.heights_m[r*tile.width+c]-tile.reference_height_m;
     const value=(at(row,col)*(1-fx)+at(row,col+1)*fx)*(1-fy)+
       (at(row+1,col)*(1-fx)+at(row+1,col+1)*fx)*fy;
     // Fade the boundary to the zero-relief outside region to avoid vertical seams.
-    const margin = Math.min(x,y,data.width-1-x,data.height-1-y);
+    // A single pack fades at its outer boundary. Mosaic tile edges stay continuous.
+    const margin = tiles.length === 1 ? Math.min(x,y,tile.width-1-x,tile.height-1-y) : 1;
     return scale*value*Math.min(1,Math.max(0,margin));
+  }
+  function sampledHeightAt(longitude, latitude, zoom=Infinity) {
+    const tile = tiles.find(item => (item.minimum_zoom||0)<=zoom
+      && longitude>=item.west_rad && longitude<=item.east_rad
+      && latitude>=item.south_rad && latitude<=item.north_rad);
+    return tile ? sample(tile,longitude,latitude) : 0;
   }
   function heightAt(longitude, latitude) {
     return visible ? sampledHeightAt(longitude, latitude) : 0;
@@ -28,14 +41,15 @@ window.ORCLocalTerrain = function (data, C) {
         const buffer=new Float32Array(33*33);
         for (let row=0;row<33;row++) for (let col=0;col<33;col++) {
           buffer[row*33+col]=sampledHeightAt(rectangle.west+(rectangle.east-rectangle.west)*col/32,
-            rectangle.north-(rectangle.north-rectangle.south)*row/32);
+            rectangle.north-(rectangle.north-rectangle.south)*row/32,level);
         }
         return buffer;
       }
     });
     const geometricError=provider.getLevelMaximumGeometricError.bind(provider);
     // Do not keep subdividing a ~100 m source grid into metre-scale meshes.
-    provider.getLevelMaximumGeometricError=level => level>=13 ? 0 : geometricError(level);
+    const maximumZoom=data.maximum_zoom||13;
+    provider.getLevelMaximumGeometricError=level => level>=maximumZoom ? 0 : geometricError(level);
     return provider;
   }
   let provider = createProvider();
@@ -54,5 +68,5 @@ window.ORCLocalTerrain = function (data, C) {
     viewer.terrainProvider = visible ? provider : flat;
     viewer.scene.requestRender();
   }
-  return {get provider(){return provider;},heightAt,setVisible,setScale};
+  return {get provider(){return provider;},heightAt,setVisible,setScale,sourceReliefM};
 };

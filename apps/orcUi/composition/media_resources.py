@@ -13,10 +13,15 @@ if TYPE_CHECKING:
     import tkinter as tk
     from collections.abc import Callable
 
+    from apps.orcUi.adapters.managed_browser_media_player import (
+        ManagedBrowserMediaPlayer,
+    )
     from apps.orcUi.adapters.music_visualizer_browser import MusicVisualizerBrowser
+    from apps.orcUi.composition.media_spotify_views import SpotifyFactory
     from controllers.audio.music_analysis.music_visualizer_controller import (
         MusicVisualizerController,
     )
+    from controllers.media.song_launch_controller import SongLaunchController
     from controllers.spotify.media_preview_controller import MediaPreviewController
     from controllers.video import MusicVideoController
     from frontends.tk.media.browser_media_screen import BrowserMediaScreen
@@ -26,6 +31,9 @@ if TYPE_CHECKING:
 @dataclass(slots=True)
 class MediaComposition:
     music_video_controller: MusicVideoController
+    song_launch_controller: SongLaunchController
+    trending_youtube_player: ManagedBrowserMediaPlayer
+    trending_spotify_factory: SpotifyFactory
     home_factory: Callable[[tk.Misc], tk.Widget]
     home_visualizer_factory: Callable[[tk.Misc], tk.Widget] | None
     visualizer: MusicVisualizerScreen | BrowserMediaScreen

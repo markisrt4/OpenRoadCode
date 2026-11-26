@@ -174,6 +174,11 @@ class BrowserKioskLauncher(AppLauncherIf):
         self._hidden = False
         browser_path = self._find_browser()
         environment = graphics_environment(x11_environment(remote_display))
+        # Importing opencv-python mutates the parent process environment to point
+        # at its bundled Qt plugins. External browsers must use their system UI
+        # libraries; inheriting OpenCV's private xcb plugin makes Chrome abort.
+        environment.pop("QT_QPA_PLATFORM_PLUGIN_PATH", None)
+        environment.pop("QT_QPA_FONTDIR", None)
         if self._color_scheme == "dark":
             environment["GTK_THEME"] = "Adwaita:dark"
         elif self._color_scheme == "light":
@@ -189,6 +194,10 @@ class BrowserKioskLauncher(AppLauncherIf):
         if self.kiosk:
             command.append("--kiosk")
         if self.app_mode:
+            if self.window_position is not None and self.window_size is not None:
+                command.extend(
+                    ("--ozone-platform=x11", "--no-first-run", "--no-default-browser-check")
+                )
             command.append(f"--app={self.url}")
         if self.profile_path is not None:
             self.profile_path.mkdir(parents=True, exist_ok=True)

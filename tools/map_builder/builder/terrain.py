@@ -1,5 +1,6 @@
 """Download a coarse 65x65 USGS 3DEP ground grid; preserve raw source responses."""
 
+import gzip
 import hashlib
 import json
 import math
@@ -16,6 +17,8 @@ from .map_3d import PRESETS
 
 SERVICE = "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer"
 EPQS = "https://epqs.nationalmap.gov/v1/json"
+_REQUEST_ATTEMPTS = 6
+_MAX_RETRY_DELAY_SECONDS = 30
 
 
 class ElevationServiceError(RuntimeError):
@@ -31,7 +34,7 @@ def request(endpoint, parameters):
 
 
 def _json_request(url, data=None):
-    for attempt in range(3):
+    for attempt in range(_REQUEST_ATTEMPTS):
         try:
             req = urllib.request.Request(
                 url, data=data, headers={"User-Agent": "OpenRoadCode terrain installer"}
@@ -42,10 +45,14 @@ def _json_request(url, data=None):
         except (URLError, TimeoutError) as error:
             if (
                 isinstance(error, HTTPError) and error.code not in (429, 500, 502, 503, 504)
-            ) or attempt == 2:
+            ) or attempt == _REQUEST_ATTEMPTS - 1:
                 raise
-            print(f"USGS request failed; retry {attempt + 1}/2: {error}")
-            time.sleep(attempt + 1)
+            delay = min(_MAX_RETRY_DELAY_SECONDS, 2**attempt)
+            print(
+                f"USGS request failed; retry {attempt + 1}/{_REQUEST_ATTEMPTS - 1} in {delay}s: {error}",
+                flush=True,
+            )
+            time.sleep(delay)
     if "error" in result:
         raise ElevationServiceError(result["error"])
     return result
@@ -80,6 +87,13 @@ def _download_image_server(destination, preset, *, size):
     if type(size) is not int or not 2 <= size <= 129:
         raise ValueError("Terrain grid size must be between 2 and 129")
     title, bounds = PRESETS[preset]
+    return download_bounds(destination, title, bounds, size=size)
+
+
+def download_bounds(destination, title, bounds, *, size=65):
+    """Download one explicitly bounded grid for a validated regional mosaic."""
+    if type(size) is not int or not 2 <= size <= 129:
+        raise ValueError("Terrain grid size must be between 2 and 129")
     if destination.exists():
         validate_terrain(destination)
         print(f"Terrain already installed: {destination}")
@@ -183,7 +197,9 @@ def _install_pack(
         (root / "terrain.json").write_bytes(content)
         (root / "manifest.json").write_text(json.dumps(manifest, indent=2))
         (root / "source-service.json").write_text(json.dumps(metadata, indent=2))
-        (root / "source-samples.json").write_text(json.dumps(responses))
+        (root / "source-samples.json.gz").write_bytes(
+            gzip.compress(json.dumps(responses).encode(), compresslevel=9, mtime=0)
+        )
         validate_terrain(root)
         root.rename(destination)
     print(f"Installed {len(content):,} terrain bytes at {destination}")
