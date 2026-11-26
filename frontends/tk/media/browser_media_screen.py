@@ -53,6 +53,7 @@ class BrowserMediaScreen(TkScreen):
         self._title = title
         self._player = player
         self._default_target = default_target
+        self._active_target = default_target
         self._window_class = window_class
         self._window_name = window_name
         self._back_action = back_action
