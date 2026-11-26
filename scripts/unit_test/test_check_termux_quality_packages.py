@@ -21,3 +21,22 @@ def test_only_native_platform_notices_can_clear_pip_failure(monkeypatch, capsys)
 
     result.stdout = "another-wheel 1 is not supported on this platform\n"
     assert checker.check_packages() == 1
+
+
+
+def test_platform_notice_can_use_stderr_and_distribution_casing(monkeypatch, capsys):
+    monkeypatch.setattr(
+        checker,
+        "native_platform_notices",
+        lambda: {"pillow 13.0.0 is not supported on this platform"},
+    )
+    result = subprocess.CompletedProcess(
+        [], 1, "", "Pillow 13.0.0 is not supported on this platform\n"
+    )
+    monkeypatch.setattr(checker.subprocess, "run", lambda *_args, **_kwargs: result)
+
+    assert checker.check_packages() == 0
+
+    result.stderr += "Unexpected pip error\n"
+    assert checker.check_packages() == 1
+    assert "Unexpected pip error" in capsys.readouterr().err

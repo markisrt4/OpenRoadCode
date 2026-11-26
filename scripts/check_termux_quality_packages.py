@@ -22,8 +22,11 @@ def native_platform_notices() -> set[str]:
         if not package.is_symlink():
             continue
         version = importlib.metadata.version(name)
-        metadata = site / f"{name}-{version}.dist-info"
-        if not metadata.is_symlink() or not metadata.is_dir():
+        metadata_name = f"{name}-{version}.dist-info".casefold()
+        if not any(
+            entry.name.casefold() == metadata_name and entry.is_symlink() and entry.is_dir()
+            for entry in site.iterdir()
+        ):
             continue
         module = importlib.import_module(module_name)
         if getattr(module, "__version__", None) == version:
@@ -32,22 +35,22 @@ def native_platform_notices() -> set[str]:
 
 
 def check_packages() -> int:
-    allowed = native_platform_notices()
+    allowed = {notice.casefold() for notice in native_platform_notices()}
     result = subprocess.run(
         [sys.executable, "-m", "pip", "check"], capture_output=True, text=True, check=False
     )
     ignored = False
     unexpected = False
-    for line in result.stdout.splitlines():
-        if line in allowed:
-            print(f"Using linked Termux build: {line.split(' is not supported', 1)[0]}")
-            ignored = True
-        else:
-            print(line)
-            unexpected = unexpected or bool(line.strip())
-    if result.stderr:
-        sys.stderr.write(result.stderr)
-    if result.returncode == 1 and ignored and not unexpected and not result.stderr.strip():
+    for output, stream in ((result.stdout, sys.stdout), (result.stderr, sys.stderr)):
+        for line in output.splitlines():
+            notice = line.strip()
+            if notice.casefold() in allowed:
+                print(f"Using linked Termux build: {notice.split(' is not supported', 1)[0]}")
+                ignored = True
+            else:
+                print(line, file=stream)
+                unexpected = unexpected or bool(notice)
+    if result.returncode == 1 and ignored and not unexpected:
         return 0
     return result.returncode
 
