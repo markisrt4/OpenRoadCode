@@ -42,7 +42,7 @@ class StatewideDetailIndex:
             manifest=json.loads((directory/'manifest.json').read_text())
             if manifest.get('id')!=key or manifest.get('profile')!=PROFILE:
                 raise ValueError('Detail cell identity mismatch')
-            if len(manifest['bounds_deg'])!=4 or any(abs(a-b)>1e-9 for a,b in zip(manifest['bounds_deg'],bounds(x,y))):
+            if len(manifest['bounds_deg'])!=4 or any(abs(a-b)>1e-9 for a,b in zip(manifest['bounds_deg'],bounds(x,y), strict=True)):
                 raise ValueError('Detail cell bounds mismatch')
             self.cells[key]=(directory,manifest)
 
