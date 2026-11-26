@@ -36,7 +36,7 @@ If Spotify's local browser player cannot start, Trending tries an available
 Spotify Connect device. If playback still fails, ORC displays the failure in
 its error popup.
 
-Each chart row shows the reported play count. Tap **↗** to compare today's,
+Each chart row shows the reported play count. Tap the green and red trend arrows to compare today's,
 seven-day, and thirty-day counts for the selected station filter. Tap **ⓘ**
 for station-by-station counts in the selected period. Both views use the
 existing ranked charts API, so an entry outside a chart has an unknown
