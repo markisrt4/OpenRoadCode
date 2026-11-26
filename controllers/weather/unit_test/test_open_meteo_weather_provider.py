@@ -3,6 +3,8 @@
 
 """Tests for Open-Meteo normalization into the ORC weather domain."""
 
+from unittest.mock import Mock
+
 import pytest
 
 from controllers.weather.providers import OpenMeteoWeatherProvider
@@ -25,11 +27,11 @@ from controllers.weather.weather_state import WeatherCondition, WeatherLocation
         (12345, WeatherCondition.UNKNOWN),
     ],
 )
-def test_wmo_codes_are_normalized(code, condition):
+def test_wmo_codes_are_normalized(code: float | None, condition: WeatherCondition) -> None:
     assert OpenMeteoWeatherProvider._condition(code) is condition
 
 
-def test_current_weather_is_normalized_to_si():
+def test_current_weather_is_normalized_to_si() -> None:
     current = OpenMeteoWeatherProvider._current_weather(
         {
             "temperature_2m": 19.3,
@@ -60,10 +62,10 @@ def test_current_weather_is_normalized_to_si():
 
 
 class _Response:
-    def raise_for_status(self):
+    def raise_for_status(self) -> None:
         pass
 
-    def json(self):
+    def json(self) -> dict[str, object]:
         return {
             "current": {
                 "temperature_2m": 10.0,
@@ -83,15 +85,9 @@ class _Response:
         }
 
 
-class _Session:
-    def get(self, *args, **kwargs):
-        self.args = args
-        self.kwargs = kwargs
-        return _Response()
-
-
-def test_refresh_returns_typed_forecasts():
-    session = _Session()
+def test_refresh_returns_typed_forecasts() -> None:
+    session = Mock()
+    session.get.return_value = _Response()
     provider = OpenMeteoWeatherProvider(session=session, clock=lambda: 123.0)
     state = provider.refresh(WeatherLocation(42.8028, -83.0127, "Romeo", "test"))
 
@@ -102,3 +98,23 @@ def test_refresh_returns_typed_forecasts():
     assert state.hourly[0].temperature_k == pytest.approx(283.15)
     assert len(state.daily) == 1
     assert state.daily[0].temperature_high_k == pytest.approx(288.15)
+
+
+@pytest.mark.parametrize(
+    ("key", "payload", "message"),
+    [
+        ("current", [], "current forecast must be an object"),
+        ("hourly", {"time": [123]}, "forecast timestamps must be strings"),
+        ("hourly", {"time": ["2026-09-16T19:00"], "temperature_2m": "10"}, "must be an array"),
+        ("daily", {"time": ["2026-09-16"], "temperature_2m_max": [True]}, "must be numeric"),
+    ],
+)
+def test_refresh_rejects_malformed_forecasts(key: str, payload: object, message: str) -> None:
+    forecast = _Response().json()
+    forecast[key] = payload
+    session = Mock()
+    session.get.return_value.json.return_value = forecast
+    provider = OpenMeteoWeatherProvider(session=session)
+
+    with pytest.raises(ValueError, match=message):
+        provider.refresh(WeatherLocation(42.8028, -83.0127, "Romeo", "test"))

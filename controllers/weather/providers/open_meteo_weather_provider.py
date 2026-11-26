@@ -6,8 +6,8 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Callable
-from typing import Any
+from collections.abc import Callable, Mapping
+from datetime import date, datetime
 
 import requests
 
@@ -69,9 +69,9 @@ class OpenMeteoWeatherProvider(WeatherProviderIf):
             location_source=location.source,
             source=WeatherSource("open_meteo", "Open-Meteo"),
             fetched_at=self._clock(),
-            current=self._current_weather(forecast["current"]),
-            hourly=self._hourly_forecast(forecast["hourly"]),
-            daily=self._daily_forecast(forecast["daily"]),
+            current=self._current_weather(self._section(forecast["current"], "current")),
+            hourly=self._hourly_forecast(self._section(forecast["hourly"], "hourly")),
+            daily=self._daily_forecast(self._section(forecast["daily"], "daily")),
         )
 
     @staticmethod
@@ -97,81 +97,126 @@ class OpenMeteoWeatherProvider(WeatherProviderIf):
         return WeatherCondition.UNKNOWN
 
     @classmethod
-    def _current_weather(cls, data: dict[str, Any]) -> CurrentWeather:
+    def _current_weather(cls, data: Mapping[str, object]) -> CurrentWeather:
+        def number(key: str) -> float | None:
+            return cls._number(data.get(key), key)
+
         return CurrentWeather(
-            temperature_k=celsius_to_kelvin(data.get("temperature_2m")),
-            apparent_temperature_k=celsius_to_kelvin(data.get("apparent_temperature")),
-            relative_humidity=percent_to_ratio(data.get("relative_humidity_2m")),
-            condition=cls._condition(data.get("weather_code")),
-            precipitation_m=millimeters_to_meters(data.get("precipitation")),
-            rain_m=millimeters_to_meters(data.get("rain")),
-            showers_m=millimeters_to_meters(data.get("showers")),
-            snowfall_m=millimeters_to_meters(data.get("snowfall")),
-            cloud_cover=percent_to_ratio(data.get("cloud_cover")),
-            pressure_msl_pa=hectopascals_to_pascals(data.get("pressure_msl")),
-            surface_pressure_pa=hectopascals_to_pascals(data.get("surface_pressure")),
-            wind_speed_m_s=kilometers_per_hour_to_meters_per_second(data.get("wind_speed_10m")),
-            wind_direction_deg=data.get("wind_direction_10m"),
-            wind_gust_m_s=kilometers_per_hour_to_meters_per_second(data.get("wind_gusts_10m")),
+            temperature_k=celsius_to_kelvin(number("temperature_2m")),
+            apparent_temperature_k=celsius_to_kelvin(number("apparent_temperature")),
+            relative_humidity=percent_to_ratio(number("relative_humidity_2m")),
+            condition=cls._condition(number("weather_code")),
+            precipitation_m=millimeters_to_meters(number("precipitation")),
+            rain_m=millimeters_to_meters(number("rain")),
+            showers_m=millimeters_to_meters(number("showers")),
+            snowfall_m=millimeters_to_meters(number("snowfall")),
+            cloud_cover=percent_to_ratio(number("cloud_cover")),
+            pressure_msl_pa=hectopascals_to_pascals(number("pressure_msl")),
+            surface_pressure_pa=hectopascals_to_pascals(number("surface_pressure")),
+            wind_speed_m_s=kilometers_per_hour_to_meters_per_second(number("wind_speed_10m")),
+            wind_direction_deg=number("wind_direction_10m"),
+            wind_gust_m_s=kilometers_per_hour_to_meters_per_second(number("wind_gusts_10m")),
         )
 
     @classmethod
-    def _hourly_forecast(cls, data: dict) -> tuple[HourlyForecast, ...]:
-        times = data.get("time", [])
+    def _hourly_forecast(cls, data: Mapping[str, object]) -> tuple[HourlyForecast, ...]:
+        times = cls._times(data)
         result = []
         for index, timestamp in enumerate(times):
             result.append(
                 HourlyForecast(
-                    timestamp=__import__("datetime").datetime.fromisoformat(timestamp),
-                    temperature_k=celsius_to_kelvin(cls._at(data, "temperature_2m", index)),
+                    timestamp=datetime.fromisoformat(timestamp),
+                    temperature_k=celsius_to_kelvin(cls._number_at(data, "temperature_2m", index)),
                     apparent_temperature_k=celsius_to_kelvin(
-                        cls._at(data, "apparent_temperature", index)
+                        cls._number_at(data, "apparent_temperature", index)
                     ),
                     precipitation_probability=percent_to_ratio(
-                        cls._at(data, "precipitation_probability", index)
+                        cls._number_at(data, "precipitation_probability", index)
                     ),
-                    precipitation_m=millimeters_to_meters(cls._at(data, "precipitation", index)),
-                    condition=cls._condition(cls._at(data, "weather_code", index)),
-                    cloud_cover=percent_to_ratio(cls._at(data, "cloud_cover", index)),
+                    precipitation_m=millimeters_to_meters(
+                        cls._number_at(data, "precipitation", index)
+                    ),
+                    condition=cls._condition(cls._number_at(data, "weather_code", index)),
+                    cloud_cover=percent_to_ratio(cls._number_at(data, "cloud_cover", index)),
                     wind_speed_m_s=kilometers_per_hour_to_meters_per_second(
-                        cls._at(data, "wind_speed_10m", index)
+                        cls._number_at(data, "wind_speed_10m", index)
                     ),
                 )
             )
         return tuple(result)
 
     @classmethod
-    def _daily_forecast(cls, data: dict) -> tuple[DailyForecast, ...]:
-        from datetime import date, datetime
-
+    def _daily_forecast(cls, data: Mapping[str, object]) -> tuple[DailyForecast, ...]:
         result = []
-        for index, day in enumerate(data.get("time", [])):
-            sunrise = cls._at(data, "sunrise", index)
-            sunset = cls._at(data, "sunset", index)
+        for index, day in enumerate(cls._times(data)):
+            sunrise = cls._datetime_at(data, "sunrise", index)
+            sunset = cls._datetime_at(data, "sunset", index)
             result.append(
                 DailyForecast(
                     date=date.fromisoformat(day),
-                    condition=cls._condition(cls._at(data, "weather_code", index)),
+                    condition=cls._condition(cls._number_at(data, "weather_code", index)),
                     temperature_high_k=celsius_to_kelvin(
-                        cls._at(data, "temperature_2m_max", index)
+                        cls._number_at(data, "temperature_2m_max", index)
                     ),
-                    temperature_low_k=celsius_to_kelvin(cls._at(data, "temperature_2m_min", index)),
-                    sunrise=datetime.fromisoformat(sunrise) if sunrise else None,
-                    sunset=datetime.fromisoformat(sunset) if sunset else None,
+                    temperature_low_k=celsius_to_kelvin(
+                        cls._number_at(data, "temperature_2m_min", index)
+                    ),
+                    sunrise=sunrise,
+                    sunset=sunset,
                     precipitation_probability=percent_to_ratio(
-                        cls._at(data, "precipitation_probability_max", index)
+                        cls._number_at(data, "precipitation_probability_max", index)
                     ),
                     wind_speed_max_m_s=kilometers_per_hour_to_meters_per_second(
-                        cls._at(data, "wind_speed_10m_max", index)
+                        cls._number_at(data, "wind_speed_10m_max", index)
                     ),
                 )
             )
         return tuple(result)
 
     @staticmethod
-    def _at(data: dict, key: str, index: int) -> Any:
+    def _section(value: object, key: str) -> Mapping[str, object]:
+        if not isinstance(value, dict):
+            raise ValueError(f"Open-Meteo {key} forecast must be an object")
+        return value
+
+    @staticmethod
+    def _series(data: Mapping[str, object], key: str) -> list[object]:
         values = data.get(key, [])
-        return values[index] if index < len(values) else None
+        if not isinstance(values, list):
+            raise ValueError(f"Open-Meteo {key} forecast must be an array")
+        return values
+
+    @classmethod
+    def _times(cls, data: Mapping[str, object]) -> list[str]:
+        times = []
+        for value in cls._series(data, "time"):
+            if not isinstance(value, str):
+                raise ValueError("Open-Meteo forecast timestamps must be strings")
+            times.append(value)
+        return times
+
+    @staticmethod
+    def _number(value: object, key: str) -> float | None:
+        if value is None:
+            return None
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"Open-Meteo {key} forecast must be numeric")
+        return value
+
+    @classmethod
+    def _number_at(cls, data: Mapping[str, object], key: str, index: int) -> float | None:
+        values = cls._series(data, key)
+        return cls._number(values[index], key) if index < len(values) else None
+
+    @classmethod
+    def _datetime_at(cls, data: Mapping[str, object], key: str, index: int) -> datetime | None:
+        values = cls._series(data, key)
+        value = values[index] if index < len(values) else None
+        if value is None or value == "":
+            return None
+        if not isinstance(value, str):
+            raise ValueError(f"Open-Meteo {key} forecast must be a timestamp string")
+        return datetime.fromisoformat(value)
 
     @staticmethod
     def _request_params(location: WeatherLocation) -> dict[str, str | float | int]:
