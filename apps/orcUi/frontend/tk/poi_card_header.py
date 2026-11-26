@@ -37,7 +37,7 @@ class PoiCardHeader(tk.Canvas, UiWidget):
 
     def _blend(self, first, second, amount):
         left, right = self.winfo_rgb(first), self.winfo_rgb(second)
-        return '#' + ''.join(f'{round((a + (b - a) * amount) / 257):02x}' for a, b in zip(left, right))
+        return '#' + ''.join(f'{round((a + (b - a) * amount) / 257):02x}' for a, b in zip(left, right, strict=True))
 
     def _draw(self):
         self.delete('all')
@@ -71,6 +71,6 @@ class PoiCardHeader(tk.Canvas, UiWidget):
         def luminance(color):
             values = [value / 65535 for value in self.winfo_rgb(color)]
             values = [v / 12.92 if v <= .04045 else ((v + .055) / 1.055) ** 2.4 for v in values]
-            return sum(value * weight for value, weight in zip(values, (.2126, .7152, .0722)))
+            return sum(value * weight for value, weight in zip(values, (.2126, .7152, .0722), strict=True))
         left, right = sorted((luminance(first), luminance(second)))
         return (right + .05) / (left + .05)
