@@ -30,6 +30,10 @@ class NoaaRfWeatherPreview:
     received_at: float
     reception_age_seconds: float
     geographically_scoped: bool
+    high_f: float | None = None
+    low_f: float | None = None
+    precipitation_chance_percent: float | None = None
+    location_verified: bool = False
 
 
 class NoaaRfWeatherService:
@@ -60,6 +64,7 @@ class NoaaRfWeatherService:
         )
         self._online_provider = online_provider
         self._clock = clock
+        self._area_matches = area_matches
 
     def start(self) -> None:
         """Begin listening; absence of SDR hardware does not block startup."""
@@ -69,7 +74,7 @@ class NoaaRfWeatherService:
         """Stop listening and release the subscriber's socket."""
         self.subscriber.stop()
 
-    def preview(self) -> NoaaRfWeatherPreview | None:
+    def preview(self, location: WeatherLocation | None = None) -> NoaaRfWeatherPreview | None:
         """Expose the latest broadcast without claiming that it is local."""
         snapshot: NoaaForecastSnapshot | None = self.store.latest()
         if snapshot is None:
@@ -82,6 +87,14 @@ class NoaaRfWeatherService:
             received_at=snapshot.received_at,
             reception_age_seconds=max(0.0, self._clock() - snapshot.received_at),
             geographically_scoped=snapshot.geographically_scoped,
+            high_f=snapshot.high_f,
+            low_f=snapshot.low_f,
+            precipitation_chance_percent=snapshot.precipitation_chance_percent,
+            location_verified=(
+                location is not None
+                and snapshot.area is not None
+                and self._area_matches(snapshot.area, location)
+            ),
         )
 
     def make_controller(self, **kwargs: object) -> WeatherController:
