@@ -47,7 +47,9 @@ def install(directory, *, allow_partial=False, destination=None):
         raise ValueError("Invalid statewide cell count")
     for key, cell in expected.items():
         x, y = parse_cell(key)
-        if any(abs(a - b) > 1e-9 for a, b in zip(cell["bounds_deg"], bounds(x, y), strict=True)):
+        if len(cell["bounds_deg"]) != 4 or any(
+            abs(a - b) > 1e-9 for a, b in zip(cell["bounds_deg"], bounds(x, y), strict=True)
+        ):
             raise ValueError("Detail plan bounds mismatch")
     candidates = {}
     for path in directory.rglob("mi-z10-*.zip"):

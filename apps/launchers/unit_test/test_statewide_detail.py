@@ -297,3 +297,17 @@ def test_point_source_halo_reaches_across_root_cell_border_without_loading_grids
     assert len(rows) == 1 and rows[0].supports(lon, lat)
     assert not index._terrain
     assert index.point_sources(math.radians(east + (east - west) / 10), lat) == []
+
+
+@pytest.mark.parametrize("extra", [False, True])
+def test_detail_plan_requires_exactly_four_bounds_before_install(cell_archive, tmp_path, extra):
+    downloads, _, _, _ = cell_archive
+    plan_path = downloads / "statewide-plan.json"
+    document = json.loads(plan_path.read_text())
+    extent = document["cells"][0]["bounds_deg"]
+    document["cells"][0]["bounds_deg"] = [*extent, 0] if extra else extent[:3]
+    write_json(plan_path, document)
+    destination = tmp_path / "device"
+    with pytest.raises(ValueError, match="Detail plan bounds mismatch"):
+        install(downloads, destination=destination)
+    assert not destination.exists()
