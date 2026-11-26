@@ -16,17 +16,10 @@ context when available.
 
 Trending's embedded video pane requests playback through a per-pane session. Radio
 composition creates the session, which owns search work and browser cleanup.
-The pane retires the session when it closes. Set `MUSICFORGE_AIRPLAY_URL` if the
-charts service runs somewhere other than `http://127.0.0.1:8000`.
-
-For the Raspberry Pi 5 deployment that forwards local port 8003 to the private
-VPS API on port 8003, run `scripts/systemd/install_musicforge_airplay_tunnel.sh`
-with Bash as the ORC user. It uses your interactive VPS login once to register a
-dedicated tunnel key. The systemd user service starts at login and reconnects
-automatically. Set `MUSICFORGE_AIRPLAY_URL=http://127.0.0.1:8003` when launching
-ORC. To start the service before login, enable systemd lingering for the ORC user.
-See the [Ethernet IDD](ethernet_idd.md#musicforge-airplay) for port ownership and
-the HTTP interface.
+The pane retires the session when it closes. The Linux installer's optional
+**Trending music** step can save a direct API URL or set up a private SSH tunnel.
+See [MusicForge Airplay self-hosting](musicforge_airplay.md) for server
+requirements and Raspberry Pi setup.
 
 ## Overview
 

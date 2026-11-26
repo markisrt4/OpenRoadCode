@@ -1,6 +1,5 @@
 """Composition wiring for Trending charts and playback."""
 
-import os
 import tkinter as tk
 import webbrowser
 from collections.abc import Callable
@@ -11,6 +10,7 @@ from apps.orcUi.adapters.managed_browser_media_player import ManagedBrowserMedia
 from apps.orcUi.adapters.musicforge_api_adapter import MusicForgeApiAdapter
 from apps.orcUi.adapters.trending_video_session import ManagedTrendingVideoSession
 from apps.orcUi.frontend.tk.trending_radio_panel import TrendingRadioPanel
+from common.musicforge_airplay import musicforge_airplay_url
 from common.xdg_paths import openroadcode_cache_dir
 from controllers.cache.persistent_cache import PersistentCache
 from controllers.media.artist_profiles import ArtistProfiles
@@ -40,7 +40,7 @@ def configure_trending(
     closed: Callable[[], bool],
     notification_sink: NotificationSinkIf,
 ) -> TrendingBindings:
-    charts = MusicForgeApiAdapter(os.getenv("MUSICFORGE_AIRPLAY_URL", "http://127.0.0.1:8000"))
+    charts = MusicForgeApiAdapter(musicforge_airplay_url())
     register_cleanup(charts.close)
     profiles = ArtistProfiles(PersistentCache(openroadcode_cache_dir("artist-profiles")))
     song_launch: list[Callable[[SongLaunchRequest], None]] = []

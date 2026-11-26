@@ -348,6 +348,36 @@ while true; do
   fi
 done
 
+if [[ "$SELECTED_TARGET" != termux ]]; then
+  airplay_mode=""
+  if airplay_mode="$(whiptail --title "Trending music" --menu \
+    "Connect ORC to a MusicForge Airplay server now?" 13 76 3 \
+    skip "Keep current settings" direct "Connect to an API URL" \
+    tunnel "Set up a private SSH tunnel" 3>&1 1>&2 2>&3)"; then
+    case "$airplay_mode" in
+      direct)
+        if url="$(whiptail --inputbox "MusicForge Airplay base URL" 10 76 \
+          "https://airplay.example.com" 3>&1 1>&2 2>&3)"; then
+          (cd "$PROJECT_DIR" && python3 -m scripts.installers.setup_musicforge_airplay "$url") || \
+            echo "[!] Trending setup incomplete."
+        fi
+        ;;
+      tunnel)
+        if destination="$(whiptail --inputbox "VPS SSH destination (user@host)" 10 76 \
+          "" 3>&1 1>&2 2>&3)" &&
+           ssh_port="$(whiptail --inputbox "VPS SSH port" 10 76 "22" 3>&1 1>&2 2>&3)" &&
+           api_port="$(whiptail --inputbox "VPS Airplay API port" 10 76 "8003" 3>&1 1>&2 2>&3)" &&
+           login_key="$(whiptail --inputbox "One-time VPS login key path (optional)" 10 76 \
+             "" 3>&1 1>&2 2>&3)"; then
+          bash "$PROJECT_DIR/scripts/systemd/install_musicforge_airplay_tunnel.sh" \
+            "$destination" "$ssh_port" "$api_port" "$login_key" || \
+            echo "[!] Trending tunnel setup incomplete."
+        fi
+        ;;
+    esac
+  fi
+fi
+
 # Use the runtime secret parser; never source or print credential values.
 MEDIA_PYTHON="${VENV_DIR:-$PROJECT_DIR/../.venv}/bin/python"
 if [[ ! -x "$MEDIA_PYTHON" ]]; then MEDIA_PYTHON=python3; fi
