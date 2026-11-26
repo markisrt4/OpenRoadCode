@@ -11,7 +11,8 @@ from development.maps.build_regional_buildings import michigan_region
 from development.maps.state_map_catalog import _coordinates
 from tools.map_builder.builder.build import _download_and_verify
 from tools.map_builder.builder.geofabrik import fetch_index
-from tools.map_builder.builder.map_3d import PRESETS, digest, height, normalize_components
+from tools.map_builder.builder.building_geometry import height, normalize_components
+from tools.map_builder.builder.map_3d import PRESETS, digest
 
 SITE_BOUNDS = (-83.26, 42.635, -83.21, 42.67)
 
