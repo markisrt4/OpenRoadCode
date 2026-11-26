@@ -25,9 +25,16 @@ class CesiumViewerState:
     destination_marker_visible: bool = True
 
     def __post_init__(self):
-        if any(type(value) is not bool for value in
-               (self.buildings_visible, self.terrain_visible,
-                self.terrain_shading_visible, self.embedded, self.destination_marker_visible)):
+        if any(
+            type(value) is not bool
+            for value in (
+                self.buildings_visible,
+                self.terrain_visible,
+                self.terrain_shading_visible,
+                self.embedded,
+                self.destination_marker_visible,
+            )
+        ):
             raise ValueError("Layer visibility must be boolean")
         if not (
             math.isfinite(self.pitch_step_rad)
@@ -56,16 +63,19 @@ class CesiumViewerState:
 
     def document(self) -> dict:
         """Serialize the presentation snapshot without browser-specific units."""
-        return {"latitude_rad": self.destination.latitude_rad,
-                "longitude_rad": self.destination.longitude_rad,
-                "label": self.label, "distance_m": self.distance_m,
-                "tilt_rad": self.tilt_rad,
-                "buildings_visible": self.buildings_visible,
-                "terrain_visible": self.terrain_visible,
-                "terrain_shading_visible": self.terrain_shading_visible,
-                "embedded": self.embedded,
-                "terrain_scale": self.terrain_scale,
-                "pan_step_fraction": self.pan_step_fraction,
-                "pitch_step_rad": self.pitch_step_rad,
-                "maximum_tilt_rad": self.maximum_tilt_rad,
-                "destination_marker_visible": self.destination_marker_visible}
+        return {
+            "latitude_rad": self.destination.latitude_rad,
+            "longitude_rad": self.destination.longitude_rad,
+            "label": self.label,
+            "distance_m": self.distance_m,
+            "tilt_rad": self.tilt_rad,
+            "buildings_visible": self.buildings_visible,
+            "terrain_visible": self.terrain_visible,
+            "terrain_shading_visible": self.terrain_shading_visible,
+            "embedded": self.embedded,
+            "terrain_scale": self.terrain_scale,
+            "pan_step_fraction": self.pan_step_fraction,
+            "pitch_step_rad": self.pitch_step_rad,
+            "maximum_tilt_rad": self.maximum_tilt_rad,
+            "destination_marker_visible": self.destination_marker_visible,
+        }

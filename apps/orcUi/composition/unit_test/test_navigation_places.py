@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 """Composition owns shared stores and fresh, independently closed search sessions."""
+
 from unittest.mock import Mock, patch
 
 import pytest
@@ -9,7 +10,7 @@ import pytest
 from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
 
 
-@pytest.mark.parametrize('terrain', [False, True])
+@pytest.mark.parametrize("terrain", [False, True])
 def test_panera_marker_reopens_after_real_session_close_and_factory_remount(terrain):
     from controllers.poi.poi_search_controller import PoiSearchController
     from protocols.map_renderer.map_poi_source import RawMapClick
@@ -17,40 +18,47 @@ def test_panera_marker_reopens_after_real_session_close_and_factory_remount(terr
     from ui.navigation.poi_models import PoiActionKind, PoiCategory, PointOfInterest
 
     position = GeoPoint(0.74, -1.45)
-    pois = tuple(PointOfInterest(str(index), 'Other', PoiCategory.FOOD, position)
-                 for index in range(4)) + (
-        PointOfInterest('osm:node:11952787417', 'Panera Bread', PoiCategory.FOOD, position),)
+    pois = tuple(
+        PointOfInterest(str(index), "Other", PoiCategory.FOOD, position) for index in range(4)
+    ) + (PointOfInterest("osm:node:11952787417", "Panera Bread", PoiCategory.FOOD, position),)
     sources = []
+
     def build_search(**kwargs):
-        source = Mock(spec=['poll_selected', 'poll_click', 'close', 'clear'])
+        source = Mock(spec=["poll_selected", "poll_click", "close", "clear"])
         source.poll_selected.return_value = None
         source.poll_click.return_value = None
         sources.append(source)
         database = Mock()
         database.search.return_value = pois
-        return PoiSearchController(source, search_source=database,
-                                   position_provider=lambda: position, **kwargs)
+        return PoiSearchController(
+            source, search_source=database, position_provider=lambda: position, **kwargs
+        )
 
-    with patch('apps.orcUi.composition.navigation_places.PoiSearchController', side_effect=build_search):
+    with patch(
+        "apps.orcUi.composition.navigation_places.PoiSearchController", side_effect=build_search
+    ):
         marker_source = Mock()
         marker_source.poll_selected_marker_id.return_value = None
-        factory = NavigationPlacesFactory(favorites=Mock(), actions=Mock(),
+        factory = NavigationPlacesFactory(
+            favorites=Mock(),
+            actions=Mock(),
             viewport_search_enabled=lambda: not terrain,
-            marker_selection_source=marker_source if terrain else None)
+            marker_selection_source=marker_source if terrain else None,
+        )
         first = factory.create()
         first.search(PoiCategory.FOOD)
         assert len(first.poll_search_result().pois) == 5
         first.close()  # Exact production wrapper that previously cleared the cache.
         sources[0].close.assert_called_once()
         second = factory.create()
-        click = RawMapClick(position, 20, marker_id='osm:node:11952787417', marker_index=4)
+        click = RawMapClick(position, 20, marker_id="osm:node:11952787417", marker_index=4)
         if terrain:
             marker_source.poll_selected_marker_id.side_effect = [click.marker_id, None]
         else:
             sources[1].poll_click.return_value = click
         selected = second.poll_selected()
         assert selected is not None
-        assert selected.name == 'Panera Bread'
+        assert selected.name == "Panera Bread"
         assert any(action.kind is PoiActionKind.ORDER for action in selected.actions)
         assert first.poll_selected() is None
         second.clear()

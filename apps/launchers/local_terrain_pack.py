@@ -100,24 +100,35 @@ def load_preferred_terrain(destination=None):
         return None
     if len(states) == 1:
         return states[0]
-    tiles = tuple(tile for state in states for tile in (
-        state.tiles if isinstance(state, LocalTerrainMosaicState) else (state,)))
+    tiles = tuple(
+        tile
+        for state in states
+        for tile in (state.tiles if isinstance(state, LocalTerrainMosaicState) else (state,))
+    )
     return LocalTerrainMosaicState(
         tiles,
         "USGS 3DEP · The National Map",
-        max(state.maximum_zoom if isinstance(state, LocalTerrainMosaicState) else 13
-            for state in states),
+        max(
+            state.maximum_zoom if isinstance(state, LocalTerrainMosaicState) else 13
+            for state in states
+        ),
     )
 
 
 def load_installed_terrain_catalog():
     """Index installed state tiers without retaining sample arrays in memory."""
     from development.maps.terrain_regions import MICHIGAN_SHARDS
+
     root = openroadcode_data_dir("map-packs")
-    installed = sorted(path for path in root.glob("*-terrain-active")
-                       if (path / "manifest.json").is_file()) if root.is_dir() else []
-    local_names={name+'-terrain-v1' for name in ('rochester','southfield')}
-    installed += [root/name for name in sorted(local_names) if (root/name/'manifest.json').is_file()]
+    installed = (
+        sorted(path for path in root.glob("*-terrain-active") if (path / "manifest.json").is_file())
+        if root.is_dir()
+        else []
+    )
+    local_names = {name + "-terrain-v1" for name in ("rochester", "southfield")}
+    installed += [
+        root / name for name in sorted(local_names) if (root / name / "manifest.json").is_file()
+    ]
     directories = []
     for directory in installed:
         coverage = directory.name.removesuffix("-terrain-active")
@@ -146,28 +157,49 @@ def load_installed_terrain_catalog():
         for index, record in enumerate(records):
             relative = Path(record["path"])
             tile_root = (directory / relative).resolve()
-            if (relative.is_absolute() or ".." in relative.parts
-                    or not tile_root.is_relative_to(directory.resolve())):
+            if (
+                relative.is_absolute()
+                or ".." in relative.parts
+                or not tile_root.is_relative_to(directory.resolve())
+            ):
                 raise ValueError("Terrain tile must remain inside its pack")
-            state = _load_single_terrain(tile_root,
+            state = _load_single_terrain(
+                tile_root,
                 detail_level=int(record.get("detail_level", 0)) + priority,
-                minimum_zoom=max(minimum_zoom, int(record.get("minimum_zoom", 0))))
+                minimum_zoom=max(minimum_zoom, int(record.get("minimum_zoom", 0))),
+            )
             tile_id = f"{directory.name}-{index}"
-            metadata = LocalTerrainTileIndexState(tile_id, state.coverage, state.width,
-                state.height, state.reference_height_m, state.vertical_datum,
-                state.detail_level, state.minimum_zoom)
+            metadata = LocalTerrainTileIndexState(
+                tile_id,
+                state.coverage,
+                state.width,
+                state.height,
+                state.reference_height_m,
+                state.vertical_datum,
+                state.detail_level,
+                state.minimum_zoom,
+            )
             indexed.append((metadata, tile_root / "terrain.json"))
     if not indexed:
         from apps.launchers.local_statewide_detail import paged_terrain
+
         return paged_terrain(None)
     lowest_detail = min(metadata.detail_level for metadata, _ in indexed)
-    baseline = [metadata.reference_height_m for metadata, _ in indexed
-                if metadata.detail_level == lowest_detail]
+    baseline = [
+        metadata.reference_height_m
+        for metadata, _ in indexed
+        if metadata.detail_level == lowest_detail
+    ]
     reference = sum(baseline) / len(baseline)
     metadata = tuple(replace(item, reference_height_m=reference) for item, _ in indexed)
     from apps.launchers.local_statewide_detail import paged_terrain
-    return paged_terrain(LocalTerrainCatalog(LocalTerrainCatalogState(metadata,
-        maximum_zoom=maximum_zoom), tuple(path for _, path in indexed)))
+
+    return paged_terrain(
+        LocalTerrainCatalog(
+            LocalTerrainCatalogState(metadata, maximum_zoom=maximum_zoom),
+            tuple(path for _, path in indexed),
+        )
+    )
 
 
 def load_terrain(directory):

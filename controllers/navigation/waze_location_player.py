@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Supply fresh ORC fixes to a visible Waze browser through local CDP."""
+
 from __future__ import annotations
 
 import logging
@@ -16,18 +17,25 @@ from ui.navigation import GeoPoint
 
 LOGGER = logging.getLogger(__name__)
 WAZE_DEVTOOLS_PORT = 9224
-WAZE_HOSTS = frozenset({'embed.waze.com', 'www.waze.com', 'waze.com'})
+WAZE_HOSTS = frozenset({"embed.waze.com", "www.waze.com", "waze.com"})
 
 
 class WazeLocationPlayer(BrowserThemeRequestHandlerIf):
     """Own the GPS connection for exactly one managed browser lifetime."""
 
-    def __init__(self, player: BrowserMediaPlayerIf, *, client=None, clock=time.monotonic,
-                 preferred_color_scheme: Callable[[], str] | None = None,
-                 startup_timeout_seconds: float = 8.0, retain_session=False,
-                 session_active: Callable[[], bool] = lambda: False):
+    def __init__(
+        self,
+        player: BrowserMediaPlayerIf,
+        *,
+        client=None,
+        clock=time.monotonic,
+        preferred_color_scheme: Callable[[], str] | None = None,
+        startup_timeout_seconds: float = 8.0,
+        retain_session=False,
+        session_active: Callable[[], bool] = lambda: False,
+    ):
         if startup_timeout_seconds <= 0:
-            raise ValueError('startup_timeout_seconds must be positive')
+            raise ValueError("startup_timeout_seconds must be positive")
         self._startup_timeout = startup_timeout_seconds
         self._retain_session = retain_session
         self._session_alive = session_active
@@ -57,17 +65,22 @@ class WazeLocationPlayer(BrowserThemeRequestHandlerIf):
         if self._preferred_color_scheme is None or stop.is_set():
             return previous
         scheme = self._preferred_color_scheme()
-        if scheme not in ('dark', 'light'):
+        if scheme not in ("dark", "light"):
             return previous
         dirty = self._theme_dirty.is_set()
         self._theme_dirty.clear()
         if scheme == previous and not dirty:
             return previous
         for method, params in (
-            ('Emulation.setEmulatedMedia', {'features': [
-                {'name': 'prefers-color-scheme', 'value': scheme},
-            ]}),
-            ('Emulation.setAutoDarkModeOverride', {'enabled': scheme == 'dark'}),
+            (
+                "Emulation.setEmulatedMedia",
+                {
+                    "features": [
+                        {"name": "prefers-color-scheme", "value": scheme},
+                    ]
+                },
+            ),
+            ("Emulation.setAutoDarkModeOverride", {"enabled": scheme == "dark"}),
         ):
             if stop.is_set():
                 break
@@ -76,7 +89,7 @@ class WazeLocationPlayer(BrowserThemeRequestHandlerIf):
             except RuntimeError:
                 # Older Chromium may not implement experimental auto-dark.
                 # Keep GPS and the remaining theme controls working.
-                LOGGER.warning('Waze browser does not support theme command %s', method)
+                LOGGER.warning("Waze browser does not support theme command %s", method)
         return scheme
 
     def update_position(self, point: GeoPoint | None) -> None:
@@ -85,8 +98,10 @@ class WazeLocationPlayer(BrowserThemeRequestHandlerIf):
             if self._closed:
                 return
             if point is not None and (
-                not math.isfinite(point.latitude_rad) or not math.isfinite(point.longitude_rad)
-                or abs(point.latitude_rad) > math.pi / 2 or abs(point.longitude_rad) > math.pi
+                not math.isfinite(point.latitude_rad)
+                or not math.isfinite(point.longitude_rad)
+                or abs(point.latitude_rad) > math.pi / 2
+                or abs(point.longitude_rad) > math.pi
             ):
                 point = None
             self._position = point
@@ -99,24 +114,26 @@ class WazeLocationPlayer(BrowserThemeRequestHandlerIf):
         if self._closed:
             return False
         parsed = urlsplit(target)
-        managed_waze = parsed.scheme == 'https' and parsed.hostname in WAZE_HOSTS
+        managed_waze = parsed.scheme == "https" and parsed.hostname in WAZE_HOSTS
         # Chromium app mode does not reliably create an about:blank app window.
         # Launch the real URL, then reload once with the bridge already attached.
-        opened = self._player.play(target, display=display,
-            window_position=window_position, window_size=window_size)
+        opened = self._player.play(
+            target, display=display, window_position=window_position, window_size=window_size
+        )
         if opened and managed_waze:
             self._stop = Event()
             self._startup_complete = Event()
             self._ready = Event()
-            self._thread = Thread(target=self._run, args=(self._stop, target),
-                                  name='waze-location', daemon=True)
+            self._thread = Thread(
+                target=self._run, args=(self._stop, target), name="waze-location", daemon=True
+            )
             self._thread.start()
             self._startup_complete.wait(self._startup_timeout)
             if self._stop.is_set():
                 return False
             if not self._ready.is_set():
                 self.stop()
-                raise RuntimeError('Waze browser control did not become ready; see the ORC log')
+                raise RuntimeError("Waze browser control did not become ready; see the ORC log")
         return opened
 
     def stop(self) -> None:
@@ -144,19 +161,28 @@ class WazeLocationPlayer(BrowserThemeRequestHandlerIf):
                 # Empty params explicitly report position unavailable, rather than
                 # presenting a cached/default location as the current GPS fix.
                 return {}
-            params = {'latitude': math.degrees(point.latitude_rad),
-                      'longitude': math.degrees(point.longitude_rad), 'accuracy': 50.0}
+            params = {
+                "latitude": math.degrees(point.latitude_rad),
+                "longitude": math.degrees(point.longitude_rad),
+                "accuracy": 50.0,
+            }
             if point.altitude_m is not None and math.isfinite(point.altitude_m):
-                params['altitude'] = point.altitude_m
+                params["altitude"] = point.altitude_m
             return params
 
     def _run(self, stop: Event, initial_url: str | None = None) -> None:
         reported = False
         while not stop.is_set():
             try:
-                target = next((target for target in self._client.targets()
-                    if urlsplit(target.url).scheme == 'https'
-                    and urlsplit(target.url).hostname in WAZE_HOSTS), None)
+                target = next(
+                    (
+                        target
+                        for target in self._client.targets()
+                        if urlsplit(target.url).scheme == "https"
+                        and urlsplit(target.url).hostname in WAZE_HOSTS
+                    ),
+                    None,
+                )
                 if target is not None and not stop.is_set():
                     with self._client.session(target) as session:
                         if stop.is_set():
@@ -165,28 +191,34 @@ class WazeLocationPlayer(BrowserThemeRequestHandlerIf):
                         if stop.is_set():
                             return
                         parsed = urlsplit(target.url)
-                        origin = parsed.scheme + '://' + parsed.netloc
+                        origin = parsed.scheme + "://" + parsed.netloc
                         # Install the provider before granting access, since a
                         # permission-change listener can immediately request GPS.
-                        session.command('Emulation.setGeolocationOverride', self._params())
+                        session.command("Emulation.setGeolocationOverride", self._params())
                         if stop.is_set():
                             return
-                        session.command('Browser.grantPermissions', {
-                            'origin': origin, 'permissions': ['geolocation'],
-                        })
+                        session.command(
+                            "Browser.grantPermissions",
+                            {
+                                "origin": origin,
+                                "permissions": ["geolocation"],
+                            },
+                        )
                         if initial_url is not None:
                             if stop.is_set():
                                 return
-                            session.command('Page.reload', {'ignoreCache': False})
+                            session.command("Page.reload", {"ignoreCache": False})
                             initial_url = None
                         while not stop.is_set():
-                            page = next((page for page in self._client.targets()
-                                         if page.id == target.id), None)
+                            page = next(
+                                (page for page in self._client.targets() if page.id == target.id),
+                                None,
+                            )
                             if stop.is_set() or page is None:
                                 break
                             parsed = urlsplit(page.url)
-                            current_origin = parsed.scheme + '://' + parsed.netloc
-                            if page.url not in ('', 'about:blank') and current_origin != origin:
+                            current_origin = parsed.scheme + "://" + parsed.netloc
+                            if page.url not in ("", "about:blank") and current_origin != origin:
                                 # Retain this session across route/query changes
                                 # and Chromium's empty URL during navigation.
                                 # A confirmed different origin releases the grant.
@@ -197,13 +229,13 @@ class WazeLocationPlayer(BrowserThemeRequestHandlerIf):
                             applied_theme = self._apply_theme(session, applied_theme, stop)
                             if stop.is_set():
                                 return
-                            session.command('Emulation.setGeolocationOverride', self._params())
+                            session.command("Emulation.setGeolocationOverride", self._params())
                             reported = False
                             if stop.wait(1.0):
                                 return
             except (OSError, ValueError, RuntimeError) as error:
                 if not stop.is_set() and not reported:
-                    LOGGER.warning('Waze location connection unavailable: %s', error)
+                    LOGGER.warning("Waze location connection unavailable: %s", error)
                     reported = True
             if stop.wait(1.0):
                 return

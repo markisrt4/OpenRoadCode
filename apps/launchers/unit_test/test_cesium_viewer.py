@@ -99,10 +99,11 @@ def test_launcher_owns_only_isolated_browser_and_cleans_up_on_start_failure(stat
 
 def test_layer_defaults_and_visibility_contract(state):
     from dataclasses import replace
-    assert state.document()['buildings_visible'] is True
+
+    assert state.document()["buildings_visible"] is True
     assert state.distance_m == 1500
     changed = replace(state, buildings_visible=False)
-    assert changed.document()['buildings_visible'] is False
+    assert changed.document()["buildings_visible"] is False
 
 
 def test_terrain_visibility_is_explicit_boolean_snapshot_state(state):
@@ -138,11 +139,12 @@ def test_pitch_control_contract_uses_finite_si_angles(state):
 
 def test_relief_and_pan_contracts_have_safe_defaults(state):
     from dataclasses import replace
-    assert state.document()['terrain_scale'] == 1
-    assert state.document()['pan_step_fraction'] == .15
-    assert replace(state, terrain_scale=4).document()['terrain_scale'] == 4
+
+    assert state.document()["terrain_scale"] == 1
+    assert state.document()["pan_step_fraction"] == 0.15
+    assert replace(state, terrain_scale=4).document()["terrain_scale"] == 4
     for value in (0, 5, True, 2.5):
-        with pytest.raises(ValueError, match='Terrain scale'):
+        with pytest.raises(ValueError, match="Terrain scale"):
             replace(state, terrain_scale=value)
     for value in (0, 2, float("nan")):
         with pytest.raises(ValueError, match="Pan step"):

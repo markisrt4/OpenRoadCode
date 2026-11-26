@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Text-entry session ownership independent of GUI and keyboard implementation."""
+
 from dataclasses import replace
 from typing import Any
 
@@ -41,7 +42,8 @@ class TextInputController(TextInputRequestHandlerIf):
 
     def _current(self, session_id: int) -> bool:
         return (
-            not self._state.closed and self._state.session_id == session_id
+            not self._state.closed
+            and self._state.session_id == session_id
             and self._target is not None
         )
 
@@ -52,7 +54,7 @@ class TextInputController(TextInputRequestHandlerIf):
             try:
                 self._keyboard.hide()
             except Exception:
-                self._publish(error='Could not hide the system keyboard')
+                self._publish(error="Could not hide the system keyboard")
                 return None
         self._target = None
         self._next_session += 1
@@ -65,7 +67,7 @@ class TextInputController(TextInputRequestHandlerIf):
             target.focus()
         except Exception:
             if self._state.session_id == session_id:
-                self._publish(session_id=None, error='Could not prepare text input')
+                self._publish(session_id=None, error="Could not prepare text input")
             return None
         if self._state.session_id != session_id or self._state.closed:
             return None
@@ -81,7 +83,7 @@ class TextInputController(TextInputRequestHandlerIf):
         try:
             available = self._keyboard.available
             if not available:
-                self._publish(keyboard_available=False, error='System keyboard unavailable')
+                self._publish(keyboard_available=False, error="System keyboard unavailable")
                 return
             self._keyboard.show()
             # Restore field focus through its supplied native/browser contract.
@@ -95,9 +97,11 @@ class TextInputController(TextInputRequestHandlerIf):
                 try:
                     self._keyboard.hide()
                 except Exception:
-                    self._publish(keyboard_requested=True, error='Could not release the system keyboard')
+                    self._publish(
+                        keyboard_requested=True, error="Could not release the system keyboard"
+                    )
                     return
-                self._publish(keyboard_requested=False, error='Could not show the system keyboard')
+                self._publish(keyboard_requested=False, error="Could not show the system keyboard")
             return
         if self._current(session_id):
             self._publish(keyboard_available=True, keyboard_requested=True, error=None)
@@ -108,7 +112,7 @@ class TextInputController(TextInputRequestHandlerIf):
         try:
             self._keyboard.hide()
         except Exception:
-            self._publish(error='Could not hide the system keyboard')
+            self._publish(error="Could not hide the system keyboard")
             return
         self._publish(keyboard_requested=False, error=None)
 
@@ -124,7 +128,7 @@ class TextInputController(TextInputRequestHandlerIf):
                 target.cancel()
         except Exception:
             if self._current(session_id):
-                self._publish(error='Could not complete text input')
+                self._publish(error="Could not complete text input")
             return
         # A target's submit/cancel callback may already have opened another field.
         if self._current(session_id):
@@ -146,7 +150,7 @@ class TextInputController(TextInputRequestHandlerIf):
         try:
             self._keyboard.close()
         except Exception:
-            self._publish(error='Could not close the system keyboard')
+            self._publish(error="Could not close the system keyboard")
             raise
         else:
             self._publish(keyboard_available=False, keyboard_requested=False, error=None)

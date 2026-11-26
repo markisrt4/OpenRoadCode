@@ -68,7 +68,10 @@ def test_core_factory_rolls_back_every_acquired_owner(failed):
 
 
 def test_application_start_failure_preserves_error_and_closes_once():
-    resources = {name: Mock() for name in ("core", "runtime", "radio", "games", "media", "weather", "waze_gestures")}
+    resources = {
+        name: Mock()
+        for name in ("core", "runtime", "radio", "games", "media", "weather", "waze_gestures")
+    }
     composition = OrcUiComposition(**resources)
     startup = RuntimeError("ingress startup")
     resources["core"].start.side_effect = startup

@@ -74,7 +74,10 @@ class ReusableBuildTests(unittest.TestCase):
                 SimpleNamespace(id="north-america/us/ohio"),
             ]
             manifest = json.loads((root / "build-manifest.json").read_text())
-            manifest["national_freeways"] = {"url": CENSUS_PRIMARY_ROADS_URL, "vintage": CENSUS_PRIMARY_ROADS_VINTAGE}
+            manifest["national_freeways"] = {
+                "url": CENSUS_PRIMARY_ROADS_URL,
+                "vintage": CENSUS_PRIMARY_ROADS_VINTAGE,
+            }
             (root / "build-manifest.json").write_text(json.dumps(manifest))
             validation = {"mbtiles": {"tiles": 1}}
             with patch(
@@ -127,7 +130,10 @@ class ReusableBuildTests(unittest.TestCase):
             )
             selected = [SimpleNamespace(id="north-america/us/michigan")]
             manifest = json.loads((root / "build-manifest.json").read_text())
-            manifest["national_freeways"] = {"url": CENSUS_PRIMARY_ROADS_URL, "vintage": CENSUS_PRIMARY_ROADS_VINTAGE}
+            manifest["national_freeways"] = {
+                "url": CENSUS_PRIMARY_ROADS_URL,
+                "vintage": CENSUS_PRIMARY_ROADS_VINTAGE,
+            }
             (root / "build-manifest.json").write_text(json.dumps(manifest))
             with patch(
                 "tools.map_builder.builder.cli.validate_output",
@@ -174,17 +180,29 @@ class Optional3DRecoveryTests(unittest.TestCase):
             root = Path(directory)
             sources = root / "maps/source"
             sources.mkdir(parents=True)
-            for state in ('michigan','ohio'):
-                (sources/f'north-america__us__{state}.osm.pbf').write_bytes(b'fixture')
-            args=SimpleNamespace(command='validate',installed_regions=True,regions=None,
-                                 write_manifest=True,service_smoke=False,refresh_index=False,json=False)
-            with (patch.object(cli,'parse_args',return_value=args),
-                  patch.object(cli,'OUTPUT_ROOT',root),
-                  patch.object(cli,'validate_output',return_value={'source_pbfs':2}),
-                  patch.object(cli,'fetch_index',return_value=[]),
-                  patch.object(cli,'resolve_region_ids',return_value=[Mock(),Mock()]) as resolve,
-                  patch.object(cli,'_write_manifest') as write,
-                  patch.object(cli,'print_validation_summary')):
-                self.assertEqual(cli.main(),0)
-                self.assertEqual(resolve.call_args.args[1],['north-america/us/michigan','north-america/us/ohio'])
-                write.assert_called_once_with(resolve.return_value, {'source_pbfs':2}, {}, None)
+            for state in ("michigan", "ohio"):
+                (sources / f"north-america__us__{state}.osm.pbf").write_bytes(b"fixture")
+            args = SimpleNamespace(
+                command="validate",
+                installed_regions=True,
+                regions=None,
+                write_manifest=True,
+                service_smoke=False,
+                refresh_index=False,
+                json=False,
+            )
+            with (
+                patch.object(cli, "parse_args", return_value=args),
+                patch.object(cli, "OUTPUT_ROOT", root),
+                patch.object(cli, "validate_output", return_value={"source_pbfs": 2}),
+                patch.object(cli, "fetch_index", return_value=[]),
+                patch.object(cli, "resolve_region_ids", return_value=[Mock(), Mock()]) as resolve,
+                patch.object(cli, "_write_manifest") as write,
+                patch.object(cli, "print_validation_summary"),
+            ):
+                self.assertEqual(cli.main(), 0)
+                self.assertEqual(
+                    resolve.call_args.args[1],
+                    ["north-america/us/michigan", "north-america/us/ohio"],
+                )
+                write.assert_called_once_with(resolve.return_value, {"source_pbfs": 2}, {}, None)

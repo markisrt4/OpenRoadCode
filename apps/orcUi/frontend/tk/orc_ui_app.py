@@ -44,7 +44,7 @@ class OrcUiApp(UiCallbackMixin, VolumeUiIf, UiWidget):
         *,
         lifecycle_handler: SystemLifecycleRequestHandlerIf,
         online_mode: OnlineModeIf | None = None,
-        application_name: str = 'OpenRoadCode',
+        application_name: str = "OpenRoadCode",
     ) -> None:
         self._lifecycle_handler = lifecycle_handler
         self._application_name = application_name
@@ -186,27 +186,36 @@ class OrcUiApp(UiCallbackMixin, VolumeUiIf, UiWidget):
         self._rebuild_side_nav()
 
     def register_navigation_action(self, label: str, action: Callable[[], None]) -> None:
-        if not hasattr(self, '_navigation_actions'):
+        if not hasattr(self, "_navigation_actions"):
             self._navigation_actions = {}
         self._navigation_actions[label.strip().upper()] = action
 
     def _navigate_from_sidebar(self, label: str) -> None:
-        action = getattr(self, '_navigation_actions', {}).get(label)
+        action = getattr(self, "_navigation_actions", {}).get(label)
         if action is not None:
             action()
         else:
             self.navigate_to(label)
 
-    def register_screen(self, label: str, screen: ScreenUiIf, *, before: str | None = None, show_in_navigation: bool = True, navigation_label: str | None = None) -> None:
+    def register_screen(
+        self,
+        label: str,
+        screen: ScreenUiIf,
+        *,
+        before: str | None = None,
+        show_in_navigation: bool = True,
+        navigation_label: str | None = None,
+    ) -> None:
         nav_label = label.strip().upper()
         if not nav_label:
             raise ValueError("Screen navigation label must not be empty")
         self._screen_registry[nav_label] = screen
-        if not hasattr(self, '_screen_navigation_labels'):
+        if not hasattr(self, "_screen_navigation_labels"):
             self._screen_navigation_labels = {}
         self._screen_navigation_labels[nav_label] = navigation_label or nav_label
         if show_in_navigation:
             self.register_navigation_destination(navigation_label or nav_label, before=before)
+
     def navigate_to(self, name: str) -> None:
         """Show a registered screen or built-in shell destination."""
         nav_name = name.strip().upper()
@@ -270,14 +279,24 @@ class OrcUiApp(UiCallbackMixin, VolumeUiIf, UiWidget):
 
     def set_screen_title(self, title: str) -> None:
         title = title.strip()
-        base = getattr(self, '_application_name', 'OpenRoadCode')
-        self._root.title(base if not title else f'{base} | {title}')
+        base = getattr(self, "_application_name", "OpenRoadCode")
+        self._root.title(base if not title else f"{base} | {title}")
         if self._shell is not None:
             leaf = title.upper()
             if not leaf or leaf == self._active_nav:
-                self._shell.set_breadcrumb(getattr(self, '_screen_navigation_labels', {}).get(self._active_nav, self._active_nav))
+                self._shell.set_breadcrumb(
+                    getattr(self, "_screen_navigation_labels", {}).get(
+                        self._active_nav, self._active_nav
+                    )
+                )
             else:
-                self._shell.set_breadcrumb(getattr(self, '_screen_navigation_labels', {}).get(self._active_nav, self._active_nav), leaf)
+                self._shell.set_breadcrumb(
+                    getattr(self, "_screen_navigation_labels", {}).get(
+                        self._active_nav, self._active_nav
+                    ),
+                    leaf,
+                )
+
     def set_screen_back_action(self, action: Callable[[], None]) -> None:
         """Show the active screen's semantic back action in persistent chrome."""
         if self._shell is not None:
@@ -479,10 +498,16 @@ class OrcUiApp(UiCallbackMixin, VolumeUiIf, UiWidget):
         if self._shell is not None:
             self._shell.set_back_action(None)
             self._shell.set_status("")
-        self._root.title(getattr(self, '_application_name', 'OpenRoadCode'))
+        self._root.title(getattr(self, "_application_name", "OpenRoadCode"))
+
     def _paint_nav(self) -> None:
         if self._shell is not None:
-            self._shell.set_active_navigation(getattr(self, '_screen_navigation_labels', {}).get(self._active_nav, self._active_nav))
+            self._shell.set_active_navigation(
+                getattr(self, "_screen_navigation_labels", {}).get(
+                    self._active_nav, self._active_nav
+                )
+            )
+
     def _clear_content(self) -> None:
         for child in self._content.winfo_children():
             child.destroy()

@@ -74,7 +74,9 @@ class MapThemeRuntimeTest(unittest.TestCase):
             self.assertEqual(layers["national-motorways"]["source"], "national-freeways")
             self.assertEqual(layers["motorways"]["source"], "openroad")
             self.assertEqual(layers["state-boundaries"]["minzoom"], 0)
-            self.assertIn('us_state_boundaries.geojson', document['sources']['state-boundaries']['data'])
+            self.assertIn(
+                "us_state_boundaries.geojson", document["sources"]["state-boundaries"]["data"]
+            )
             self.assertEqual(layers["state-boundaries"]["paint"]["line-dasharray"], [1, 2])
             self.assertEqual(layers["country-boundaries"]["paint"]["line-color"], "#dce8ef")
             self.assertEqual(layers["michigan-boundary"]["paint"]["line-color"], "#59d8ff")
@@ -133,10 +135,10 @@ if __name__ == "__main__":
 
 
 def test_theme_upgrade_installs_missing_global_reference_sources(tmp_path):
-    (tmp_path / 'maps/styles').mkdir(parents=True)
+    (tmp_path / "maps/styles").mkdir(parents=True)
     document = json.loads(install_map_style(ThemeMode.DARK, tmp_path).read_text())
-    for name in ('reference-land', 'reference-lakes', 'country-boundaries', 'state-boundaries'):
-        filename = Path(document['sources'][name]['data']).name
-        data = json.loads((tmp_path / 'maps/boundaries' / filename).read_text())
-        assert data['type'] == 'FeatureCollection'
-        assert data['features']
+    for name in ("reference-land", "reference-lakes", "country-boundaries", "state-boundaries"):
+        filename = Path(document["sources"][name]["data"]).name
+        data = json.loads((tmp_path / "maps/boundaries" / filename).read_text())
+        assert data["type"] == "FeatureCollection"
+        assert data["features"]

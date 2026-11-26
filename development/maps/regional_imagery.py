@@ -44,7 +44,7 @@ def _nodata_alpha(rgb):
     return maximum.point(lambda value: 0 if value <= 24 else 255)
 
 
-def download(destination, *, bounds, title, cache_directory, image_size=(2048,1536)):
+def download(destination, *, bounds, title, cache_directory, image_size=(2048, 1536)):
     # Keep large exports away from ImageServer: each request covers one sixteenth
     # of the envelope and produces one sixteenth of the final pixel count.
     if image_size not in ((2048, 1536), (4096, 4096), (8192, 8192)):
@@ -137,8 +137,8 @@ def download(destination, *, bounds, title, cache_directory, image_size=(2048,15
                     raise ValueError("Resume image exceeds the tile payload limit")
                 with Image.open(pack.image) as image:
                     if image.size != tile_size:
-                        raise ValueError('Overview tile has unexpected JPEG dimensions')
-                    rgb = image.convert('RGB')
+                        raise ValueError("Overview tile has unexpected JPEG dimensions")
+                    rgb = image.convert("RGB")
                     # ArcGIS/JPEG encodes pixels outside raster footprints as
                     # black with a small compression halo. Remove only pixels
                     # whose every channel is near zero; dark colored imagery

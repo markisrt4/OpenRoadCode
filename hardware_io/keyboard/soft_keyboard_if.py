@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Platform boundary for an existing system on-screen keyboard."""
+
 from typing import Protocol
 
 

@@ -18,14 +18,26 @@ def test_bus_stop_normalizes_to_bus() -> None:
 
 
 def test_index_retains_structured_business_identity():
-    with sqlite3.connect(':memory:') as connection:
+    with sqlite3.connect(":memory:") as connection:
         _create_schema(connection)
-        _insert_point_feature(connection, {
-            'properties': {'@id': '123', '@type': 'node', 'name': 'Village Square Cafe',
-                           'amenity': 'cafe', 'brand:wikidata': 'Q7130852', 'operator': 'Panera Bread'},
-            'geometry': {'type': 'Point', 'coordinates': [-83.0, 42.5]},
-        })
-        assert connection.execute('SELECT brand_wikidata, operator FROM poi').fetchone() == ('Q7130852', 'Panera Bread')
+        _insert_point_feature(
+            connection,
+            {
+                "properties": {
+                    "@id": "123",
+                    "@type": "node",
+                    "name": "Village Square Cafe",
+                    "amenity": "cafe",
+                    "brand:wikidata": "Q7130852",
+                    "operator": "Panera Bread",
+                },
+                "geometry": {"type": "Point", "coordinates": [-83.0, 42.5]},
+            },
+        )
+        assert connection.execute("SELECT brand_wikidata, operator FROM poi").fetchone() == (
+            "Q7130852",
+            "Panera Bread",
+        )
 
 
 def test_public_transport_station_preserves_rail_mode() -> None:

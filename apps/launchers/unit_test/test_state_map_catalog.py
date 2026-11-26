@@ -27,6 +27,7 @@ def test_other_states_receive_deterministic_overview_and_detail_ids():
     assert state["overview"]["coverage"] == "us-wi-overview"
     assert state["detail_shards"][0]["coverage"] == "us-wi-detail-r0-c0"
     assert coverage_definition("us-wi-detail-r0-c0")[1] == tuple(
-        state["detail_shards"][0]["bounds_deg"])
+        state["detail_shards"][0]["bounds_deg"]
+    )
     with pytest.raises(ValueError, match="Unknown state"):
         state_plan("Atlantis")

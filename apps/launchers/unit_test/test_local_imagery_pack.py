@@ -114,27 +114,30 @@ def test_server_mounts_checked_stack_layers_without_exposing_paths(server, pack)
 
 def test_server_exposes_boundary_contract_without_asset_paths(server):
     server._boundaries = load_state_boundary_overlay()
-    with urllib.request.urlopen(server.url+'config.json') as response:
-        overlay = json.load(response)['boundary_overlay']
-    assert [region['name'] for region in overlay['regions']] == [
-        'International boundaries', 'Disputed or indefinite boundaries',
-        'United States state boundaries', 'Michigan']
-    assert overlay['regions'][3]['emphasized'] is True
-    assert 'source' not in json.dumps(overlay).lower()
+    with urllib.request.urlopen(server.url + "config.json") as response:
+        overlay = json.load(response)["boundary_overlay"]
+    assert [region["name"] for region in overlay["regions"]] == [
+        "International boundaries",
+        "Disputed or indefinite boundaries",
+        "United States state boundaries",
+        "Michigan",
+    ]
+    assert overlay["regions"][3]["emphasized"] is True
+    assert "source" not in json.dumps(overlay).lower()
 
 
 def test_server_exposes_bundled_world_land_without_a_remote_service(server):
-    with urllib.request.urlopen(server.url+'data/world-reference.png') as response:
-        assert response.headers['Content-Type'] == 'image/png'
-        assert response.read(8) == b'\x89PNG\r\n\x1a\n'
-    with urllib.request.urlopen(server.url+'data/world-land.geojson') as response:
+    with urllib.request.urlopen(server.url + "data/world-reference.png") as response:
+        assert response.headers["Content-Type"] == "image/png"
+        assert response.read(8) == b"\x89PNG\r\n\x1a\n"
+    with urllib.request.urlopen(server.url + "data/world-land.geojson") as response:
         document = json.load(response)
-    assert document['type'] == 'FeatureCollection'
-    assert len(document['features']) > 150
-    with urllib.request.urlopen(server.url+'data/world-lakes.geojson') as response:
+    assert document["type"] == "FeatureCollection"
+    assert len(document["features"]) > 150
+    with urllib.request.urlopen(server.url + "data/world-lakes.geojson") as response:
         lakes = json.load(response)
-    assert lakes['type'] == 'FeatureCollection'
-    assert len(lakes['features']) > 10
+    assert lakes["type"] == "FeatureCollection"
+    assert len(lakes["features"]) > 10
 
 
 def test_server_exposes_lazy_terrain_metadata_and_bounded_payload_urls(server, tmp_path):
@@ -144,20 +147,21 @@ def test_server_exposes_lazy_terrain_metadata_and_bounded_payload_urls(server, t
         LocalTerrainCatalogState,
         LocalTerrainTileIndexState,
     )
-    payload = tmp_path / 'terrain.json'
+
+    payload = tmp_path / "terrain.json"
     payload.write_text('{"width":2,"height":2,"heights_m":[1,2,3,4]}')
-    coverage = LocalImageryState('tile', 'USGS', -.1, .1, .1, .2)
-    tile = LocalTerrainTileIndexState('tile-0', coverage, 2, 2, 2, 'NAVD88')
+    coverage = LocalImageryState("tile", "USGS", -0.1, 0.1, 0.1, 0.2)
+    tile = LocalTerrainTileIndexState("tile-0", coverage, 2, 2, 2, "NAVD88")
     server._terrain = LocalTerrainCatalog(LocalTerrainCatalogState((tile,)), (payload,))
-    with urllib.request.urlopen(server.url+'config.json') as response:
-        terrain = json.load(response)['terrain']
-    assert terrain['lazy'] is True
-    assert terrain['tiles'][0]['url'] == '/data/terrain/0'
-    assert 'heights_m' not in terrain['tiles'][0]
-    with urllib.request.urlopen(server.url+'data/terrain/0') as response:
-        assert json.load(response)['heights_m'] == [1, 2, 3, 4]
+    with urllib.request.urlopen(server.url + "config.json") as response:
+        terrain = json.load(response)["terrain"]
+    assert terrain["lazy"] is True
+    assert terrain["tiles"][0]["url"] == "/data/terrain/0"
+    assert "heights_m" not in terrain["tiles"][0]
+    with urllib.request.urlopen(server.url + "data/terrain/0") as response:
+        assert json.load(response)["heights_m"] == [1, 2, 3, 4]
     with pytest.raises(HTTPError):
-        urllib.request.urlopen(server.url+'data/terrain/1')
+        urllib.request.urlopen(server.url + "data/terrain/1")
 
 
 def test_server_exposes_only_bounded_offline_road_tiles(server):
@@ -185,24 +189,28 @@ def test_seven_installed_packs_can_be_mounted_as_metadata(tmp_path, monkeypatch,
     from apps.launchers import local_imagery_pack as packs
     from apps.launchers.unit_test.test_region_install import write_pack
     from ui.navigation.local_imagery_state import LocalImageryStackState
-    directories=tuple(tmp_path/str(index) for index in range(7))
+
+    directories = tuple(tmp_path / str(index) for index in range(7))
     for index, directory in enumerate(directories):
-        write_pack(directory,title=f'Pack {index}',bounds=(-84,42,-82,44))
-    monkeypatch.setattr(packs,'installed_imagery_directories',lambda:directories)
-    server._imagery_layers=packs.load_imagery_stack()
-    server._imagery_stack=LocalImageryStackState(tuple(pack.state for pack in server._imagery_layers))
-    with urllib.request.urlopen(server.url+'config.json') as response:
-        layers=json.load(response)['imagery_layers']
-    assert len(layers)==7
-    assert layers[-1]['title']=='Pack 6'
-    with pytest.raises(ValueError,match='64'):
-        LocalImageryStackState((server._imagery_layers[0].state,)*65)
+        write_pack(directory, title=f"Pack {index}", bounds=(-84, 42, -82, 44))
+    monkeypatch.setattr(packs, "installed_imagery_directories", lambda: directories)
+    server._imagery_layers = packs.load_imagery_stack()
+    server._imagery_stack = LocalImageryStackState(
+        tuple(pack.state for pack in server._imagery_layers)
+    )
+    with urllib.request.urlopen(server.url + "config.json") as response:
+        layers = json.load(response)["imagery_layers"]
+    assert len(layers) == 7
+    assert layers[-1]["title"] == "Pack 6"
+    with pytest.raises(ValueError, match="64"):
+        LocalImageryStackState((server._imagery_layers[0].state,) * 65)
 
 
-def test_server_can_serve_coarse_layer_indices_above_nine(server,pack):
+def test_server_can_serve_coarse_layer_indices_above_nine(server, pack):
     from ui.navigation.local_imagery_state import LocalImageryStackState
-    loaded=LocalImageryPack.load(pack)
-    server._imagery_layers=(loaded,)*12
-    server._imagery_stack=LocalImageryStackState((loaded.state,)*12)
-    with urllib.request.urlopen(server.url+'data/imagery/10') as response:
-        assert response.read()==loaded.image.read_bytes()
+
+    loaded = LocalImageryPack.load(pack)
+    server._imagery_layers = (loaded,) * 12
+    server._imagery_stack = LocalImageryStackState((loaded.state,) * 12)
+    with urllib.request.urlopen(server.url + "data/imagery/10") as response:
+        assert response.read() == loaded.image.read_bytes()

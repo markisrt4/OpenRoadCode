@@ -62,7 +62,7 @@ class PoiTitleStyle:
     """Business title color and preferred locally available font families."""
 
     color: str
-    font_families: tuple[str, ...] = ('Sans',)
+    font_families: tuple[str, ...] = ("Sans",)
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,7 +80,7 @@ class PoiIcon:
     """Validated business image bytes supplied to presentation without file access."""
 
     data: bytes
-    media_type: str = 'image/png'
+    media_type: str = "image/png"
 
 
 @dataclass(frozen=True, slots=True)

@@ -127,7 +127,9 @@ def _build_position_source(config: NavigationServiceRuntimeConfig, *, host_locat
         )
 
     if config.gps.source == "browser":
-        return host_location_source if host_location_source is not None else _browser_position_source()
+        return (
+            host_location_source if host_location_source is not None else _browser_position_source()
+        )
 
     if config.gps.device == "android":
         live_source = AndroidPositionSource(
@@ -139,7 +141,12 @@ def _build_position_source(config: NavigationServiceRuntimeConfig, *, host_locat
         raise ValueError(f"Unsupported GPS device: {config.gps.device}")
 
     if _host_location_fallback_available():
-        live_source = FallbackPositionSource(live_source, host_location_source if host_location_source is not None else _browser_position_source())
+        live_source = FallbackPositionSource(
+            live_source,
+            host_location_source
+            if host_location_source is not None
+            else _browser_position_source(),
+        )
     return RoutePlaybackPositionSource(live_source)
 
 
@@ -229,11 +236,11 @@ def main() -> int:
         print("Navigation service disabled by runtime configuration")
         return 0
 
-    host_location_source = _browser_position_source() if _host_location_fallback_available() else None
-    position_source = _build_position_source(config, host_location_source=host_location_source)
-    route_simulator = (
-        position_source if isinstance(position_source, RouteSimulationIf) else None
+    host_location_source = (
+        _browser_position_source() if _host_location_fallback_available() else None
     )
+    position_source = _build_position_source(config, host_location_source=host_location_source)
+    route_simulator = position_source if isinstance(position_source, RouteSimulationIf) else None
     if system.position_cache.enabled and config.gps.source != "simulation":
         position_source = PersistentPositionSource(
             position_source,

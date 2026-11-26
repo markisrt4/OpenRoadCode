@@ -127,10 +127,14 @@ class ReferenceMapValidationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for name in REFERENCE_MAP_FILES:
-                (root / name).write_text(json.dumps({
-                    "type": "FeatureCollection",
-                    "features": [{"type": "Feature", "properties": {}, "geometry": None}],
-                }))
+                (root / name).write_text(
+                    json.dumps(
+                        {
+                            "type": "FeatureCollection",
+                            "features": [{"type": "Feature", "properties": {}, "geometry": None}],
+                        }
+                    )
+                )
             result = validate_reference_maps(root)
             self.assertEqual(set(result), set(REFERENCE_MAP_FILES))
             self.assertTrue(all(record["features"] == 1 for record in result.values()))

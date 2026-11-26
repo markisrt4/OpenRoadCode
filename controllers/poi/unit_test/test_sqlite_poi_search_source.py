@@ -105,18 +105,20 @@ def test_search_is_bounded_and_category_specific(tmp_path) -> None:
 def test_structured_brand_survives_index_read_and_resolves_android_app(tmp_path):
     path = _database(tmp_path)
     with sqlite3.connect(path) as connection:
-        connection.execute('ALTER TABLE poi ADD COLUMN brand_wikidata TEXT')
-        connection.execute('ALTER TABLE poi ADD COLUMN operator TEXT')
-        connection.execute("UPDATE poi SET brand_wikidata='Q7130852', operator='Franchise LLC' WHERE id='restaurant'")
+        connection.execute("ALTER TABLE poi ADD COLUMN brand_wikidata TEXT")
+        connection.execute("ALTER TABLE poi ADD COLUMN operator TEXT")
+        connection.execute(
+            "UPDATE poi SET brand_wikidata='Q7130852', operator='Franchise LLC' WHERE id='restaurant'"
+        )
     source = SqlitePoiSearchSource(path)
     try:
         poi = enrich_poi(source.search(_query(PoiCategory.FOOD))[0])
     finally:
         source.close()
-    assert poi.name == 'Lunch'
-    assert poi.operator == 'Franchise LLC'
-    assert poi.brand == 'Panera Bread'
-    assert get_business_provider(poi.actions[0].provider_id).android_package == 'com.panera.bread'
+    assert poi.name == "Lunch"
+    assert poi.operator == "Franchise LLC"
+    assert poi.brand == "Panera Bread"
+    assert get_business_provider(poi.actions[0].provider_id).android_package == "com.panera.bread"
 
 
 def test_public_transit_matches_bus_stop_schema(tmp_path) -> None:

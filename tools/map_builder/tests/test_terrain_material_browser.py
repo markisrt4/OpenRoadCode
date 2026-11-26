@@ -1,4 +1,5 @@
 """Compile the lake-aware material in real headless Chromium, not a GL mock."""
+
 import json
 import math
 import re
@@ -15,7 +16,7 @@ import pytest
 from apps.launchers.cesium_sdk import sdk_directory
 
 ROOT = Path(__file__).resolve().parents[3]
-HTML = b'''<!doctype html><html><head><script>window.CESIUM_BASE_URL='/';</script>
+HTML = b"""<!doctype html><html><head><script>window.CESIUM_BASE_URL='/';</script>
 <script src="/Cesium.js"></script><script src="/terrain_cues.js"></script>
 <style>html,body,#map{width:100%;height:100%;margin:0}</style></head>
 <body data-result="pending"><div id="map"></div><script>
@@ -45,10 +46,10 @@ viewer.scene.postRender.addEventListener(()=>{
 });
 setInterval(()=>{try{viewer.render();}catch(error){document.body.dataset.result='FAIL: '+error.message;}},50);
 } catch(error){document.body.dataset.result='FAIL: '+error.message;}
-</script></body></html>'''
+</script></body></html>"""
 
 
-RELIEF_HTML = b'''<!doctype html><html><head><script>window.CESIUM_BASE_URL='/';</script>
+RELIEF_HTML = b"""<!doctype html><html><head><script>window.CESIUM_BASE_URL='/';</script>
 <script src="/Cesium.js"></script><script src="/local_terrain.js"></script>
 <style>html,body,#map{width:100%;height:100%;margin:0}</style></head>
 <body data-result="pending"><div id="map"></div><script>
@@ -71,60 +72,107 @@ viewer.scene.postRender.addEventListener(()=>{
 });
 setInterval(()=>{try{viewer.render();}catch(error){document.body.dataset.result='FAIL: '+error.message;}},50);
 }catch(error){document.body.dataset.result='FAIL: '+error.message;}})();
-</script></body></html>'''
+</script></body></html>"""
 
 
 def relief_sampler():
     from apps.launchers.terrain_mesh_sampler import TerrainMeshSampler, TerrainSource
     from ui.navigation.local_imagery_state import LocalImageryState
     from ui.navigation.local_terrain_state import LocalTerrainState
-    bounds=tuple(map(math.radians,(-89,47,-88,48)))
-    heights=tuple(100+300*math.exp(-((row-64)**2+(col-64)**2)/100)
-                  for row in range(129) for col in range(129))
-    state=LocalTerrainState(LocalImageryState('UP hill','test',*bounds),129,129,heights,0,'source')
-    source=TerrainSource('hill',bounds,129,129,7,lambda:state)
+
+    bounds = tuple(map(math.radians, (-89, 47, -88, 48)))
+    heights = tuple(
+        100 + 300 * math.exp(-((row - 64) ** 2 + (col - 64) ** 2) / 100)
+        for row in range(129)
+        for col in range(129)
+    )
+    state = LocalTerrainState(
+        LocalImageryState("UP hill", "test", *bounds), 129, 129, heights, 0, "source"
+    )
+    source = TerrainSource("hill", bounds, 129, 129, 7, lambda: state)
+
     class Index:
-        def point_sources(self,x,y):return [source] if source.supports(x,y) else []
-    return TerrainMeshSampler(SimpleNamespace(state=SimpleNamespace(tiles=()),payloads=(),index=Index()))
+        def point_sources(self, x, y):
+            return [source] if source.supports(x, y) else []
+
+    return TerrainMeshSampler(
+        SimpleNamespace(state=SimpleNamespace(tiles=()), payloads=(), index=Index())
+    )
 
 
-@pytest.mark.parametrize('scenario',['water-material','rendered-relief'])
+@pytest.mark.parametrize("scenario", ["water-material", "rendered-relief"])
 def test_local_terrain_in_chromium(tmp_path, scenario):
-    chrome = shutil.which('google-chrome') or shutil.which('chromium')
+    chrome = shutil.which("google-chrome") or shutil.which("chromium")
     sdk = sdk_directory()
-    if not chrome or not (sdk/'Cesium.js').is_file():
-        pytest.skip('Requires installed Chromium and pinned Cesium SDK')
+    if not chrome or not (sdk / "Cesium.js").is_file():
+        pytest.skip("Requires installed Chromium and pinned Cesium SDK")
     seen = []
-    sampler=relief_sampler() if scenario=='rendered-relief' else None
+    sampler = relief_sampler() if scenario == "rendered-relief" else None
+
     class Handler(SimpleHTTPRequestHandler):
         def do_GET(self):
-            if self.path == '/test.html':
-                body, mime = (RELIEF_HTML if sampler else HTML), 'text/html'
-            elif self.path.startswith('/mesh/') and sampler:
-                body,mime=json.dumps(sampler.mesh(*map(int,self.path.split('/')[2:]))).encode(),'application/json'
-                seen.append('mesh')
-            elif self.path == '/local_terrain.js':
-                body,mime=(ROOT/'frontends/web/cesium/local_terrain.js').read_bytes(),'text/javascript'
-            elif self.path == '/terrain_cues.js':
-                body, mime = (ROOT/'frontends/web/cesium/terrain_cues.js').read_bytes(), 'text/javascript'
-            elif self.path == '/data/world-reference.png':
-                body, mime = (ROOT/'resources/maps/world_reference.png').read_bytes(), 'image/png'
-                seen.append('water-mask')
+            if self.path == "/test.html":
+                body, mime = (RELIEF_HTML if sampler else HTML), "text/html"
+            elif self.path.startswith("/mesh/") and sampler:
+                body, mime = (
+                    json.dumps(sampler.mesh(*map(int, self.path.split("/")[2:]))).encode(),
+                    "application/json",
+                )
+                seen.append("mesh")
+            elif self.path == "/local_terrain.js":
+                body, mime = (
+                    (ROOT / "frontends/web/cesium/local_terrain.js").read_bytes(),
+                    "text/javascript",
+                )
+            elif self.path == "/terrain_cues.js":
+                body, mime = (
+                    (ROOT / "frontends/web/cesium/terrain_cues.js").read_bytes(),
+                    "text/javascript",
+                )
+            elif self.path == "/data/world-reference.png":
+                body, mime = (ROOT / "resources/maps/world_reference.png").read_bytes(), "image/png"
+                seen.append("water-mask")
             else:
                 return super().do_GET()
-            self.send_response(200);self.send_header('Content-Type',mime)
-            self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body)
-        def log_message(self,*args):
+            self.send_response(200)
+            self.send_header("Content-Type", mime)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *args):
             pass
-    server = ThreadingHTTPServer(('127.0.0.1',0),partial(Handler,directory=str(sdk)))
-    worker = threading.Thread(target=server.serve_forever,daemon=True);worker.start()
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), partial(Handler, directory=str(sdk)))
+    worker = threading.Thread(target=server.serve_forever, daemon=True)
+    worker.start()
     try:
-        result = subprocess.run([chrome,'--headless','--no-sandbox','--disable-dev-shm-usage',
-            '--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader',
-            '--user-data-dir='+str(tmp_path/'profile'),'--virtual-time-budget=20000','--dump-dom',
-            f'http://127.0.0.1:{server.server_port}/test.html'],capture_output=True,text=True,timeout=60)
-        status=re.search(r'data-result="([^"]+)"',result.stdout)
-        assert status and status[1]=='PASS', (status[1] if status else 'No browser result')+result.stderr[-1000:]
-        assert ('mesh' if sampler else 'water-mask') in seen, 'Actual terrain transport/texture was never requested'
+        result = subprocess.run(
+            [
+                chrome,
+                "--headless",
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--use-gl=angle",
+                "--use-angle=swiftshader",
+                "--enable-unsafe-swiftshader",
+                "--user-data-dir=" + str(tmp_path / "profile"),
+                "--virtual-time-budget=20000",
+                "--dump-dom",
+                f"http://127.0.0.1:{server.server_port}/test.html",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        status = re.search(r'data-result="([^"]+)"', result.stdout)
+        assert status and status[1] == "PASS", (
+            status[1] if status else "No browser result"
+        ) + result.stderr[-1000:]
+        assert ("mesh" if sampler else "water-mask") in seen, (
+            "Actual terrain transport/texture was never requested"
+        )
     finally:
-        server.shutdown();server.server_close();worker.join(timeout=5)
+        server.shutdown()
+        server.server_close()
+        worker.join(timeout=5)

@@ -28,8 +28,14 @@ class BrowserMediaScreen(TkScreen):
     """Launch and reparent one managed browser directly into an ORC screen."""
 
     def __init__(
-        self, screen_id: str, host: TkScreenHostIf, *, title: str,
-        player: BrowserMediaPlayerIf, default_target: str, window_class: str | None,
+        self,
+        screen_id: str,
+        host: TkScreenHostIf,
+        *,
+        title: str,
+        player: BrowserMediaPlayerIf,
+        default_target: str,
+        window_class: str | None,
         back_action: Callable[[], None],
         media_navigation_factory: MediaNavigationFactory | None = None,
         theme_bundle: Callable[[], ThemeBundle] | None = None,
@@ -110,19 +116,35 @@ class BrowserMediaScreen(TkScreen):
             return None
         ui = self._theme_provider().ui if self._theme_provider is not None else None
         bar = tk.Frame(root, bg=self._background())
-        tk.Button(bar, text=self._back_label, command=self._back_action,
-                  bg=ui.control_background if ui else '#101b23',
-                  fg=ui.control_text if ui else '#ffffff',
-                  activebackground=ui.control_active if ui else '#20313e',
-                  activeforeground=ui.text if ui else '#ffffff',
-                  relief=tk.FLAT, bd=0, highlightthickness=0,
-                  font=('Sans', 11, 'bold'), padx=12, pady=8).pack(side=tk.LEFT)
+        tk.Button(
+            bar,
+            text=self._back_label,
+            command=self._back_action,
+            bg=ui.control_background if ui else "#101b23",
+            fg=ui.control_text if ui else "#ffffff",
+            activebackground=ui.control_active if ui else "#20313e",
+            activeforeground=ui.text if ui else "#ffffff",
+            relief=tk.FLAT,
+            bd=0,
+            highlightthickness=0,
+            font=("Sans", 11, "bold"),
+            padx=12,
+            pady=8,
+        ).pack(side=tk.LEFT)
         if self._close_action is not None:
-            tk.Button(bar, text='CLOSE WAZE', command=self._close_action,
-                      bg=ui.control_background if ui else '#101b23',
-                      fg=ui.control_text if ui else '#ffffff', relief=tk.FLAT,
-                      bd=0, highlightthickness=0, font=('Sans', 11, 'bold'),
-                      padx=12, pady=8).pack(side=tk.RIGHT)
+            tk.Button(
+                bar,
+                text="CLOSE WAZE",
+                command=self._close_action,
+                bg=ui.control_background if ui else "#101b23",
+                fg=ui.control_text if ui else "#ffffff",
+                relief=tk.FLAT,
+                bd=0,
+                highlightthickness=0,
+                font=("Sans", 11, "bold"),
+                padx=12,
+                pady=8,
+            ).pack(side=tk.RIGHT)
         return bar
 
     def set_theme_mode(self, _mode: object) -> None:
@@ -208,21 +230,27 @@ class BrowserMediaScreen(TkScreen):
             height = max(1, host.winfo_height())
             position = (host.winfo_rootx(), host.winfo_rooty())
             display = os.environ.get("DISPLAY", ":1")
-            if not self._player.play(self._active_target, display=display, window_position=position, window_size=(width, height)):
+            if not self._player.play(
+                self._active_target,
+                display=display,
+                window_position=position,
+                window_size=(width, height),
+            ):
                 self._host.set_screen_status(f"{self._title} unavailable")
                 return
             options = {}
             window_name = self._window_name() if callable(self._window_name) else self._window_name
             if window_name is not None:
-                options['window_name'] = window_name
+                options["window_name"] = window_name
             if self._surface_geometry is not None:
                 self._vertical_crop = self._surface_geometry.vertical_crop()
             if self._preserve_external_window or self._keep_player_on_hide:
-                options['failure_parent_window_id'] = self._detach_parent_id()
+                options["failure_parent_window_id"] = self._detach_parent_id()
             if self._vertical_crop != (0, 0):
-                options['vertical_crop'] = self._vertical_crop
-            self._embedder.embed(0, int(host.winfo_id()), width, height,
-                                 window_class=self._window_class, **options)
+                options["vertical_crop"] = self._vertical_crop
+            self._embedder.embed(
+                0, int(host.winfo_id()), width, height, window_class=self._window_class, **options
+            )
             self._host.set_screen_status(f"{self._title} ready")
         except Exception as error:
             self._embedder.clear()

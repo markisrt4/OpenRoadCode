@@ -55,8 +55,15 @@ def validate_reference_maps(path):
         except (OSError, json.JSONDecodeError) as exc:
             raise ValidationError(f"Invalid reference map asset: {asset}") from exc
         features = document.get("features") if isinstance(document, dict) else None
-        if not isinstance(document, dict) or document.get("type") != "FeatureCollection" or not isinstance(features, list) or not features:
-            raise ValidationError(f"Reference map asset is not a non-empty FeatureCollection: {asset}")
+        if (
+            not isinstance(document, dict)
+            or document.get("type") != "FeatureCollection"
+            or not isinstance(features, list)
+            or not features
+        ):
+            raise ValidationError(
+                f"Reference map asset is not a non-empty FeatureCollection: {asset}"
+            )
         result[name] = {"features": len(features), "sha256": sha256(asset)}
     return result
 

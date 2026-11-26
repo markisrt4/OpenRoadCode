@@ -75,13 +75,16 @@ def read_descriptor(url, coverage):
 
 def validate_descriptor(raw, coverage, *, max_archive_bytes=MAX_ARCHIVE_BYTES):
     descriptor = json.loads(raw)
-    name = descriptor.get('archive', '')
-    if (descriptor.get('schema') != 1 or descriptor.get('coverage') != coverage
-            or not re.fullmatch(r'[a-zA-Z0-9_-]+\.zip', name)
-            or type(descriptor.get('bytes')) is not int
-            or not 0 < descriptor['bytes'] <= max_archive_bytes
-            or not re.fullmatch(r'[a-f0-9]{64}', descriptor.get('sha256', ''))):
-        raise ValueError('Invalid imagery artifact descriptor or coverage')
+    name = descriptor.get("archive", "")
+    if (
+        descriptor.get("schema") != 1
+        or descriptor.get("coverage") != coverage
+        or not re.fullmatch(r"[a-zA-Z0-9_-]+\.zip", name)
+        or type(descriptor.get("bytes")) is not int
+        or not 0 < descriptor["bytes"] <= max_archive_bytes
+        or not re.fullmatch(r"[a-f0-9]{64}", descriptor.get("sha256", ""))
+    ):
+        raise ValueError("Invalid imagery artifact descriptor or coverage")
     return descriptor
 
 
@@ -90,10 +93,10 @@ def read_local_archive(path, coverage, *, max_archive_bytes=MAX_ARCHIVE_BYTES):
     with archive.with_suffix(archive.suffix + ".json").open("rb") as source:
         raw = source.read(65537)
     if len(raw) > 65536:
-        raise ValueError('Pack descriptor exceeds 64 KiB')
+        raise ValueError("Pack descriptor exceeds 64 KiB")
     descriptor = validate_descriptor(raw, coverage, max_archive_bytes=max_archive_bytes)
-    if descriptor['archive'] != archive.name:
-        raise ValueError('Descriptor names a different local archive')
+    if descriptor["archive"] != archive.name:
+        raise ValueError("Descriptor names a different local archive")
     verify_archive(archive, descriptor)
     return descriptor, archive
 
@@ -156,8 +159,14 @@ def fetch_archive(url, descriptor, cache):
     return partial
 
 
-def unpack(archive, destination, bounds, *, loader=LocalImageryPack.load,
-           max_unpacked_bytes=MAX_ARCHIVE_BYTES):
+def unpack(
+    archive,
+    destination,
+    bounds,
+    *,
+    loader=LocalImageryPack.load,
+    max_unpacked_bytes=MAX_ARCHIVE_BYTES,
+):
     destination.parent.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory(dir=destination.parent, prefix=".imagery-unpack-") as temporary:
         root = Path(temporary) / "pack"
@@ -165,7 +174,7 @@ def unpack(archive, destination, bounds, *, loader=LocalImageryPack.load,
         with zipfile.ZipFile(archive) as source:
             members = source.infolist()
             if len(members) > 2048 or sum(item.file_size for item in members) > max_unpacked_bytes:
-                raise ValueError('Imagery archive exceeds extraction limits')
+                raise ValueError("Imagery archive exceeds extraction limits")
             names = set()
             for item in members:
                 path = PurePosixPath(item.filename)
@@ -188,7 +197,7 @@ def unpack(archive, destination, bounds, *, loader=LocalImageryPack.load,
                         while chunk := incoming.read(65536):
                             outgoing.write(chunk)
         loader(root)
-        manifest = json.loads((root/'manifest.json').read_text())
-        if manifest['bounds_deg'] != list(bounds):
-            raise ValueError('Artifact bounds do not match the selected region')
+        manifest = json.loads((root / "manifest.json").read_text())
+        if manifest["bounds_deg"] != list(bounds):
+            raise ValueError("Artifact bounds do not match the selected region")
         root.rename(destination)

@@ -28,20 +28,20 @@ _CONTAINER_TOKEN = None
 def source_request_url(url):
     """Share a short-lived, memory-only public-container token across workers."""
     approved_url(url)
-    if urlsplit(url).hostname != 'naipeuwest.blob.core.windows.net':
+    if urlsplit(url).hostname != "naipeuwest.blob.core.windows.net":
         return url
     global _CONTAINER_TOKEN
     with _TOKEN_LOCK:
-        if _CONTAINER_TOKEN is None or _CONTAINER_TOKEN[0] <= time.time()+300:
-            response = get_json(PC+'/sas/v1/token/naipeuwest/naip')
-            expiry = datetime.fromisoformat(response['msft:expiry'].replace('Z', '+00:00'))
+        if _CONTAINER_TOKEN is None or _CONTAINER_TOKEN[0] <= time.time() + 300:
+            response = get_json(PC + "/sas/v1/token/naipeuwest/naip")
+            expiry = datetime.fromisoformat(response["msft:expiry"].replace("Z", "+00:00"))
             if expiry.tzinfo is None:
                 expiry = expiry.replace(tzinfo=timezone.utc)
-            if expiry.timestamp() <= time.time()+300 or not response.get('token'):
-                raise ValueError('NAIP public-container token is missing or expires too soon')
-            _CONTAINER_TOKEN = (expiry.timestamp(), response['token'].lstrip('?'))
+            if expiry.timestamp() <= time.time() + 300 or not response.get("token"):
+                raise ValueError("NAIP public-container token is missing or expires too soon")
+            _CONTAINER_TOKEN = (expiry.timestamp(), response["token"].lstrip("?"))
         token = _CONTAINER_TOKEN[1]
-    return url+'?'+token
+    return url + "?" + token
 
 
 def intersect(a, b):
@@ -56,160 +56,222 @@ def discover_imagery(bounds, fetch=get_json, *, _depth=0):
     except HTTPError as error:
         if error.code not in (429, 500, 502, 503, 504) or _depth >= 2:
             raise
-        print(f'NAIP catalog remains unavailable; splitting footprint at depth {_depth+1}', flush=True)
+        print(
+            f"NAIP catalog remains unavailable; splitting footprint at depth {_depth + 1}",
+            flush=True,
+        )
     west, south, east, north = bounds
-    middle_x, middle_y = (west+east)/2, (south+north)/2
+    middle_x, middle_y = (west + east) / 2, (south + north) / 2
     selected = {}
-    for child in ((west,south,middle_x,middle_y), (middle_x,south,east,middle_y),
-                  (west,middle_y,middle_x,north), (middle_x,middle_y,east,north)):
+    for child in (
+        (west, south, middle_x, middle_y),
+        (middle_x, south, east, middle_y),
+        (west, middle_y, middle_x, north),
+        (middle_x, middle_y, east, north),
+    ):
         try:
-            records = discover_imagery(child, fetch, _depth=_depth+1)
+            records = discover_imagery(child, fetch, _depth=_depth + 1)
         except ValueError as error:
-            if str(error).startswith('No dated NAIP files'):
+            if str(error).startswith("No dated NAIP files"):
                 continue
             raise
         for record in records:
-            tile = re.match(r'(m_[0-9]{7}_[a-z]{2}_[0-9]{2})_', Path(urlsplit(record['url']).path).name)
-            footprint = tile[1] if tile else tuple(round(value,5) for value in record['bounds_deg'])
-            if record['date'] > selected.get(footprint, {}).get('date', ''):
+            tile = re.match(
+                r"(m_[0-9]{7}_[a-z]{2}_[0-9]{2})_", Path(urlsplit(record["url"]).path).name
+            )
+            footprint = (
+                tile[1] if tile else tuple(round(value, 5) for value in record["bounds_deg"])
+            )
+            if record["date"] > selected.get(footprint, {}).get("date", ""):
                 selected[footprint] = record
     if not selected:
-        raise ValueError('No dated NAIP files in regional catalog')
-    return sorted(selected.values(), key=lambda record: (record['date'], record['url']))
+        raise ValueError("No dated NAIP files in regional catalog")
+    return sorted(selected.values(), key=lambda record: (record["date"], record["url"]))
 
 
 def _discover_imagery(bounds, fetch=get_json):
     """Follow bounded STAC pages; retain newest dated NAIP per source footprint."""
-    collection = fetch(PC + '/stac/v1/collections/naip')
-    if not any('USDA' in p.get('name', '') and 'licensor' in p.get('roles', [])
-               for p in collection.get('providers', [])):
-        raise ValueError('NAIP collection must identify USDA as licensor')
-    url = PC + '/stac/v1/search'
-    parameters = dict(collections='naip', bbox=','.join(map(str, bounds)), limit=100)
+    collection = fetch(PC + "/stac/v1/collections/naip")
+    if not any(
+        "USDA" in p.get("name", "") and "licensor" in p.get("roles", [])
+        for p in collection.get("providers", [])
+    ):
+        raise ValueError("NAIP collection must identify USDA as licensor")
+    url = PC + "/stac/v1/search"
+    parameters = dict(collections="naip", bbox=",".join(map(str, bounds)), limit=100)
     seen = set()
     selected = {}
     for _ in range(300):
         key = (url, json.dumps(parameters, sort_keys=True))
         if key in seen:
-            raise ValueError('Repeated NAIP catalog page')
+            raise ValueError("Repeated NAIP catalog page")
         seen.add(key)
         page = fetch(url, **parameters)
-        for item in page.get('features', []):
-            date = item.get('properties', {}).get('datetime') or item.get('properties', {}).get('start_datetime', '')
-            if item.get('collection') != 'naip' or len(date) < 10 or not date[:4].isdigit():
-                raise ValueError('Unexpected or undated NAIP source')
-            box = item.get('bbox', [])
+        for item in page.get("features", []):
+            date = item.get("properties", {}).get("datetime") or item.get("properties", {}).get(
+                "start_datetime", ""
+            )
+            if item.get("collection") != "naip" or len(date) < 10 or not date[:4].isdigit():
+                raise ValueError("Unexpected or undated NAIP source")
+            box = item.get("bbox", [])
             if len(box) != 4 or not intersect(bounds, box):
                 continue
-            address = approved_url(item['assets']['image']['href'])
-            if urlsplit(address).hostname != 'naipeuwest.blob.core.windows.net':
-                raise ValueError('Unexpected NAIP mirror')
-            tile = re.match(r'(m_[0-9]{7}_[a-z]{2}_[0-9]{2})_', Path(urlsplit(address).path).name)
+            address = approved_url(item["assets"]["image"]["href"])
+            if urlsplit(address).hostname != "naipeuwest.blob.core.windows.net":
+                raise ValueError("Unexpected NAIP mirror")
+            tile = re.match(r"(m_[0-9]{7}_[a-z]{2}_[0-9]{2})_", Path(urlsplit(address).path).name)
             footprint = tile[1] if tile else tuple(round(v, 5) for v in box)
             record = dict(url=address, bounds_deg=box, date=date, record=item)
-            if date > selected.get(footprint, {}).get('date', ''):
+            if date > selected.get(footprint, {}).get("date", ""):
                 selected[footprint] = record
-        links = [link for link in page.get('links', []) if link.get('rel') == 'next']
+        links = [link for link in page.get("links", []) if link.get("rel") == "next"]
         if not links:
             break
         link = links[0]
-        url = link['href']
+        url = link["href"]
         parsed = urlsplit(url)
-        if (parsed.scheme != 'https' or parsed.hostname != 'planetarycomputer.microsoft.com'
-                or parsed.path != '/api/stac/v1/search' or link.get('method', 'GET') != 'GET'):
-            raise ValueError('Unapproved NAIP pagination link')
+        if (
+            parsed.scheme != "https"
+            or parsed.hostname != "planetarycomputer.microsoft.com"
+            or parsed.path != "/api/stac/v1/search"
+            or link.get("method", "GET") != "GET"
+        ):
+            raise ValueError("Unapproved NAIP pagination link")
         parameters = {}
     else:
-        raise ValueError('NAIP catalog exceeds 300-page build limit')
-    result = sorted(selected.values(), key=lambda item: (item['date'], item['url']))
+        raise ValueError("NAIP catalog exceeds 300-page build limit")
+    result = sorted(selected.values(), key=lambda item: (item["date"], item["url"]))
     if not result:
-        raise ValueError('No dated NAIP files in regional catalog')
+        raise ValueError("No dated NAIP files in regional catalog")
     return result
 
 
-def discover_terrain(bounds, fetch=get_json, *, dataset='National Elevation Dataset (NED) 1/3 arc-second'):
-    if dataset not in ('National Elevation Dataset (NED) 1/3 arc-second',
-                        'National Elevation Dataset (NED) 1 arc-second'):
-        raise ValueError('Unsupported staged terrain product')
+def discover_terrain(
+    bounds, fetch=get_json, *, dataset="National Elevation Dataset (NED) 1/3 arc-second"
+):
+    if dataset not in (
+        "National Elevation Dataset (NED) 1/3 arc-second",
+        "National Elevation Dataset (NED) 1 arc-second",
+    ):
+        raise ValueError("Unsupported staged terrain product")
     selected = {}
     for offset in range(0, 2000, 100):
-        page = fetch(TNM, bbox=','.join(map(str, bounds)),
-                     datasets=dataset,
-                     max=100, offset=offset, outputFormat='JSON')
-        items = page.get('items', [])
+        page = fetch(
+            TNM,
+            bbox=",".join(map(str, bounds)),
+            datasets=dataset,
+            max=100,
+            offset=offset,
+            outputFormat="JSON",
+        )
+        items = page.get("items", [])
         for item in items:
-            box = item.get('boundingBox', {})
-            box = [box.get(k) for k in ('minX', 'minY', 'maxX', 'maxY')]
+            box = item.get("boundingBox", {})
+            box = [box.get(k) for k in ("minX", "minY", "maxX", "maxY")]
             if any(v is None for v in box) or not intersect(bounds, box):
                 continue
-            url = item.get('downloadURL', '')
-            if not url.lower().endswith('.tif'):
+            url = item.get("downloadURL", "")
+            if not url.lower().endswith(".tif"):
                 continue
             url = approved_url(url)
-            date = str(item.get('lastUpdated') or item.get('publicationDate') or '')
+            date = str(item.get("lastUpdated") or item.get("publicationDate") or "")
             footprint = tuple(round(v, 5) for v in box)
-            candidate=dict(url=url,bounds_deg=box,date=date,record=item)
+            candidate = dict(url=url, bounds_deg=box, date=date, record=item)
+
             def rank(record):
                 # Historical records can have newer metadata edits than the
                 # current DEM. Those edits do not mean a newer elevation survey.
-                address=record['url']
-                current='/current/' in address
-                historical='/historical/' in address
-                publication=str(record['record'].get('publicationDate') or record['date'])
-                return (2 if current else 0 if historical else 1,publication,record['date'],address)
-            if footprint not in selected or rank(candidate)>rank(selected[footprint]):
-                selected[footprint]=candidate
-        total = int(page.get('total', len(items)))
+                address = record["url"]
+                current = "/current/" in address
+                historical = "/historical/" in address
+                publication = str(record["record"].get("publicationDate") or record["date"])
+                return (
+                    2 if current else 0 if historical else 1,
+                    publication,
+                    record["date"],
+                    address,
+                )
+
+            if footprint not in selected or rank(candidate) > rank(selected[footprint]):
+                selected[footprint] = candidate
+        total = int(page.get("total", len(items)))
         if offset + len(items) >= total:
             break
         if not items:
-            raise ValueError('Incomplete terrain catalog pagination')
+            raise ValueError("Incomplete terrain catalog pagination")
     else:
-        raise ValueError('Terrain catalog exceeds 2000-record limit')
+        raise ValueError("Terrain catalog exceeds 2000-record limit")
     if not selected:
-        raise ValueError('No staged 3DEP files in regional catalog')
-    return sorted(selected.values(), key=lambda item: (item['date'], item['url']))
+        raise ValueError("No staged 3DEP files in regional catalog")
+    return sorted(selected.values(), key=lambda item: (item["date"], item["url"]))
 
 
 def crop_spec(source_bounds, bounds, size):
     """Align each small source crop to the final raster pixel lattice."""
     overlap = intersect(source_bounds, bounds)
     if overlap is None:
-        raise ValueError('Source does not intersect output grid')
+        raise ValueError("Source does not intersect output grid")
     west, south, east, north = bounds
-    dx, dy = (east-west)/size, (north-south)/size
-    left = max(0, math.floor((overlap[0]-west)/dx))
-    right = min(size, math.ceil((overlap[2]-west)/dx))
-    top = max(0, math.floor((north-overlap[3])/dy))
-    bottom = min(size, math.ceil((north-overlap[1])/dy))
-    return (west+left*dx, north-bottom*dy, west+right*dx, north-top*dy), (right-left, bottom-top)
+    dx, dy = (east - west) / size, (north - south) / size
+    left = max(0, math.floor((overlap[0] - west) / dx))
+    right = min(size, math.ceil((overlap[2] - west) / dx))
+    top = max(0, math.floor((north - overlap[3]) / dy))
+    bottom = min(size, math.ceil((north - overlap[1]) / dy))
+    return (west + left * dx, north - bottom * dy, west + right * dx, north - top * dy), (
+        right - left,
+        bottom - top,
+    )
 
 
 def crop_source(item, cache, bounds, size, kind):
-    extent, dimensions = crop_spec(item['bounds_deg'], bounds, size)
-    spec = dict(url=item['url'], bounds_deg=extent, dimensions=dimensions, kind=kind, revision=1)
+    extent, dimensions = crop_spec(item["bounds_deg"], bounds, size)
+    spec = dict(url=item["url"], bounds_deg=extent, dimensions=dimensions, kind=kind, revision=1)
     key = hashlib.sha256(json.dumps(spec, sort_keys=True).encode()).hexdigest()
-    target, receipt = cache/(key+'.tif'), cache/(key+'.json')
+    target, receipt = cache / (key + ".tif"), cache / (key + ".json")
     if target.is_file() and receipt.is_file():
         saved = json.loads(receipt.read_text())
-        if saved['sha256'] == digest(target) and saved['spec'] == json.loads(json.dumps(spec)):
+        if saved["sha256"] == digest(target) and saved["spec"] == json.loads(json.dumps(spec)):
             return target, saved
-    temporary = cache/(key+'.part.tif')
-    options = ('-srcband', '1', '-srcband', '2', '-srcband', '3', '-dstalpha') if kind == 'imagery' else ('-ot', 'Float32', '-dstnodata', '-9999')
+    temporary = cache / (key + ".part.tif")
+    options = (
+        ("-srcband", "1", "-srcband", "2", "-srcband", "3", "-dstalpha")
+        if kind == "imagery"
+        else ("-ot", "Float32", "-dstnodata", "-9999")
+    )
     try:
         for attempt in range(3):
             try:
-                command('gdalwarp', '-overwrite', '-wm', '64', '-t_srs', 'EPSG:4326',
-                        '-te', *extent, '-ts', *dimensions, '-r', 'bilinear', *options,
-                        '-co', 'COMPRESS=DEFLATE', '/vsicurl/'+source_request_url(item['url']), temporary)
+                command(
+                    "gdalwarp",
+                    "-overwrite",
+                    "-wm",
+                    "64",
+                    "-t_srs",
+                    "EPSG:4326",
+                    "-te",
+                    *extent,
+                    "-ts",
+                    *dimensions,
+                    "-r",
+                    "bilinear",
+                    *options,
+                    "-co",
+                    "COMPRESS=DEFLATE",
+                    "/vsicurl/" + source_request_url(item["url"]),
+                    temporary,
+                )
                 break
             except RuntimeError:
                 if attempt == 2:
                     raise
-        if temporary.stat().st_size > 64*1024*1024:
-            raise ValueError('Regional source crop exceeds 64 MiB')
-        saved = dict(spec=spec, sha256=digest(temporary), cached_bytes=temporary.stat().st_size,
-                     transfer_note='Cached bytes are not measured network traffic')
+        if temporary.stat().st_size > 64 * 1024 * 1024:
+            raise ValueError("Regional source crop exceeds 64 MiB")
+        saved = dict(
+            spec=spec,
+            sha256=digest(temporary),
+            cached_bytes=temporary.stat().st_size,
+            transfer_note="Cached bytes are not measured network traffic",
+        )
         temporary.replace(target)
         write_json(receipt, saved)
         return target, saved

@@ -33,16 +33,18 @@ class MapRendererLauncher:
         self._process: subprocess.Popen[str] | None = None
         self._collector: threading.Thread | None = None
         self._exit_code = None
-        self._diagnostics = {'linker_failure': False}
+        self._diagnostics = {"linker_failure": False}
 
     @property
     def state(self) -> MapRuntimeState:
         running = self.is_running()
-        error = ''
+        error = ""
         if not running and self._exit_code is not None:
-            error = ('A required map library is incompatible. Rebuild the map renderer after updating system packages.'
-                     if self._diagnostics['linker_failure'] else
-                     f'The map renderer stopped unexpectedly (exit code {self._exit_code}).')
+            error = (
+                "A required map library is incompatible. Rebuild the map renderer after updating system packages."
+                if self._diagnostics["linker_failure"]
+                else f"The map renderer stopped unexpectedly (exit code {self._exit_code})."
+            )
         return MapRuntimeState(running, error)
 
     @staticmethod
@@ -50,12 +52,13 @@ class MapRendererLauncher:
         class CapturedStream:
             def readline(self, size):
                 line = stream.readline(size)
-                if 'CANNOT LINK EXECUTABLE' in line or 'cannot locate symbol' in line:
-                    diagnostics['linker_failure'] = True
+                if "CANNOT LINK EXECUTABLE" in line or "cannot locate symbol" in line:
+                    diagnostics["linker_failure"] = True
                 return line
 
             def close(self):
                 stream.close()
+
         collect_native_output(CapturedStream(), store, pid)
 
     def is_running(self) -> bool:
@@ -92,7 +95,7 @@ class MapRendererLauncher:
 
         command = self._command or _default_command()
         self._exit_code = None
-        self._diagnostics = {'linker_failure': False}
+        self._diagnostics = {"linker_failure": False}
         environment = os.environ.copy()
         environment.update(
             {

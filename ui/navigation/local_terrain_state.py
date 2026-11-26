@@ -57,8 +57,12 @@ class LocalTerrainMosaicState:
     maximum_zoom: int = 13
 
     def __post_init__(self):
-        if (not 1 <= len(self.tiles) <= 192 or not self.attribution.strip()
-                or type(self.maximum_zoom) is not int or not 1 <= self.maximum_zoom <= 18):
+        if (
+            not 1 <= len(self.tiles) <= 192
+            or not self.attribution.strip()
+            or type(self.maximum_zoom) is not int
+            or not 1 <= self.maximum_zoom <= 18
+        ):
             raise ValueError("Terrain mosaic requires 1–192 attributed tiles")
 
     def document(self):
@@ -94,20 +98,31 @@ class LocalTerrainTileIndexState:
     minimum_zoom: int = 0
 
     def __post_init__(self):
-        if (not self.tile_id or len(self.tile_id) > 120
-                or not 2 <= self.width <= 129 or not 2 <= self.height <= 129
-                or not math.isfinite(self.reference_height_m)
-                or not self.vertical_datum.strip()
-                or type(self.detail_level) is not int or not 0 <= self.detail_level <= 12
-                or type(self.minimum_zoom) is not int or not 0 <= self.minimum_zoom <= 18):
+        if (
+            not self.tile_id
+            or len(self.tile_id) > 120
+            or not 2 <= self.width <= 129
+            or not 2 <= self.height <= 129
+            or not math.isfinite(self.reference_height_m)
+            or not self.vertical_datum.strip()
+            or type(self.detail_level) is not int
+            or not 0 <= self.detail_level <= 12
+            or type(self.minimum_zoom) is not int
+            or not 0 <= self.minimum_zoom <= 18
+        ):
             raise ValueError("Invalid lazy terrain tile metadata")
 
     def document(self):
         document = self.coverage.document()
-        document.update(tile_id=self.tile_id, width=self.width, height=self.height,
-                        reference_height_m=self.reference_height_m,
-                        vertical_datum=self.vertical_datum,
-                        detail_level=self.detail_level, minimum_zoom=self.minimum_zoom)
+        document.update(
+            tile_id=self.tile_id,
+            width=self.width,
+            height=self.height,
+            reference_height_m=self.reference_height_m,
+            vertical_datum=self.vertical_datum,
+            detail_level=self.detail_level,
+            minimum_zoom=self.minimum_zoom,
+        )
         return document
 
 
@@ -120,31 +135,46 @@ class LocalTerrainCatalogState:
     maximum_zoom: int = 16
 
     def __post_init__(self):
-        if (not 1 <= len(self.tiles) <= 768 or len({tile.tile_id for tile in self.tiles}) != len(self.tiles)
-                or not self.attribution.strip() or type(self.maximum_zoom) is not int
-                or not 1 <= self.maximum_zoom <= 18):
+        if (
+            not 1 <= len(self.tiles) <= 768
+            or len({tile.tile_id for tile in self.tiles}) != len(self.tiles)
+            or not self.attribution.strip()
+            or type(self.maximum_zoom) is not int
+            or not 1 <= self.maximum_zoom <= 18
+        ):
             raise ValueError("Terrain catalog requires 1–768 unique attributed tiles")
 
     def document(self):
-        return {"tiles": [tile.document() for tile in self.tiles],
-                "attribution": self.attribution, "maximum_zoom": self.maximum_zoom,
-                "display_mode": "relative-relief", "lazy": True}
+        return {
+            "tiles": [tile.document() for tile in self.tiles],
+            "attribution": self.attribution,
+            "maximum_zoom": self.maximum_zoom,
+            "display_mode": "relative-relief",
+            "lazy": True,
+        }
 
 
 @dataclass(frozen=True, slots=True)
 class LocalPagedTerrainState(LocalTerrainCatalogState):
     """Existing baseline tiles plus a bounded, renderer-requested detail index."""
+
     page_minimum_zoom: int = 12
 
     def __post_init__(self):
         if type(self.page_minimum_zoom) is not int or not 0 <= self.page_minimum_zoom <= 18:
             raise ValueError("Invalid terrain page minimum zoom")
         if self.tiles:
-            super(LocalPagedTerrainState,self).__post_init__()
-        elif not self.attribution.strip() or type(self.maximum_zoom) is not int or not 1 <= self.maximum_zoom <= 18:
+            super(LocalPagedTerrainState, self).__post_init__()
+        elif (
+            not self.attribution.strip()
+            or type(self.maximum_zoom) is not int
+            or not 1 <= self.maximum_zoom <= 18
+        ):
             raise ValueError("Invalid paged terrain baseline")
 
     def document(self):
-        return {**super(LocalPagedTerrainState,self).document(),
-                "page_url":"/data/terrain-page/{z}/{x}/{y}",
-                "page_minimum_zoom":self.page_minimum_zoom}
+        return {
+            **super(LocalPagedTerrainState, self).document(),
+            "page_url": "/data/terrain-page/{z}/{x}/{y}",
+            "page_minimum_zoom": self.page_minimum_zoom,
+        }

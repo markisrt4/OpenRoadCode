@@ -8,7 +8,7 @@ from ui.navigation.poi_models import PoiActionKind, PoiAppAvailability, PoiAppSt
 def request_poi_app_status(panel, poi, label):
     """Scope a background availability observation to this exact popup."""
     panel._poi_app_status_request = None
-    handler = panel.__dict__.get('_places_handler')
+    handler = panel.__dict__.get("_places_handler")
     request_id = handler.request_app_status(poi) if handler is not None else None
     if type(request_id) is not int:
         label.set_availability(PoiAppAvailability.UNKNOWN)
@@ -18,7 +18,7 @@ def request_poi_app_status(panel, poi, label):
 
 def poll_poi_app_status(panel):
     """Apply only results for the current live card, never a retired one."""
-    pending = panel.__dict__.get('_poi_app_status_request')
+    pending = panel.__dict__.get("_poi_app_status_request")
     if pending is None:
         return
     result = panel._places_handler.poll_app_status()

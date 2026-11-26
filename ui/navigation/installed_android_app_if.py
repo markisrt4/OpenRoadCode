@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Platform-neutral request to launch an already installed Android app."""
+
 from typing import Protocol
 
 

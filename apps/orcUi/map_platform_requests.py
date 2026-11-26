@@ -19,15 +19,15 @@ class MapPlatformRequests(MapRequestHandlerIf):
 
     @property
     def zoom_level(self):
-        return getattr(self._native, 'zoom_level', 16.5)
+        return getattr(self._native, "zoom_level", 16.5)
 
     @property
     def pitch_rad(self):
-        return getattr(self._native, 'pitch_rad', 0.0)
+        return getattr(self._native, "pitch_rad", 0.0)
 
     @property
     def follow_enabled(self):
-        return getattr(self._native, 'follow_enabled', True)
+        return getattr(self._native, "follow_enabled", True)
 
     def _request(self, name, *args, **kwargs):
         getattr(self._native, name)(*args, **kwargs)
@@ -73,7 +73,7 @@ class MapPlatformRequests(MapRequestHandlerIf):
 
     def refresh_renderer_state(self):
         """Preserve native presentation replay across the platform wrapper."""
-        refresh = getattr(self._native, 'refresh_renderer_state', None)
+        refresh = getattr(self._native, "refresh_renderer_state", None)
         if refresh is not None:
             refresh()
 

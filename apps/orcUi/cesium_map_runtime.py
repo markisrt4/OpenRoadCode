@@ -81,7 +81,9 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
                 self._native.launch(parent_window_id)
             except (OSError, RuntimeError) as error:
                 with self._lock:
-                    self._state = replace(self._state, error=str(error), status=f'Map unavailable: {error}')
+                    self._state = replace(
+                        self._state, error=str(error), status=f"Map unavailable: {error}"
+                    )
         else:
             self.request_platform(platform)
 
@@ -106,8 +108,14 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
                 self._view = self._initial_view()
             self._generation += 1
             generation = self._generation
-            self._state = replace(self._state,requested=platform,busy=True,error='',status=f'Opening {platform.value}…')
-            self._worker.submit(self._select,platform,generation)
+            self._state = replace(
+                self._state,
+                requested=platform,
+                busy=True,
+                error="",
+                status=f"Opening {platform.value}…",
+            )
+            self._worker.submit(self._select, platform, generation)
 
     def request_retry(self):
         self.request_platform(self.state.requested)
@@ -253,11 +261,11 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
                     self._state = replace(self._state, status=f"3D camera unavailable: {error}")
 
     def request_layer(self, action):
-        action=MapLayerAction(action)
+        action = MapLayerAction(action)
         with self._lock:
             if self._closed or self._state.busy or self._state.active is not MapPlatform.CESIUM:
                 return
-            self._worker.submit(self._layer,action,self._generation)
+            self._worker.submit(self._layer, action, self._generation)
 
     def _layer(self, action, generation):
         if not self._current(generation):
@@ -267,7 +275,7 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
         except Exception as error:
             with self._lock:
                 if self._current(generation):
-                    self._state=replace(self._state,status=f'Map layer unavailable: {error}')
+                    self._state = replace(self._state, status=f"Map layer unavailable: {error}")
 
     def _current(self, generation):
         with self._lock:
@@ -288,7 +296,9 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
                         self._close_viewer()
                 if not resumed:
                     self._close_viewer()
-                    self._viewer.open(self._view,self._host,self._size,lambda:self._current(generation))
+                    self._viewer.open(
+                        self._view, self._host, self._size, lambda: self._current(generation)
+                    )
                 if not self._current(generation):
                     self._close_viewer()
                     return
@@ -321,8 +331,11 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
             if platform is MapPlatform.MAPLIBRE:
                 with self._lock:
                     if self._current(generation):
-                        self._state = MapPlatformState(status=f'Map unavailable: {error}',
-                            available_platforms=_PLATFORMS, error=str(error))
+                        self._state = MapPlatformState(
+                            status=f"Map unavailable: {error}",
+                            available_platforms=_PLATFORMS,
+                            error=str(error),
+                        )
                 return
             try:
                 self._close_viewer()
@@ -337,16 +350,18 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
     def _fallback(self, generation, status):
         if not self._current(generation):
             return
-        logging.getLogger(__name__).warning('3D map returned to Map: %s', status)
-        map_error = ''
+        logging.getLogger(__name__).warning("3D map returned to Map: %s", status)
+        map_error = ""
         try:
             self._native.launch(self._host)
         except (OSError, RuntimeError) as error:
-            status += f'; MapLibre failed: {error}'
+            status += f"; MapLibre failed: {error}"
             map_error = str(error)
         with self._lock:
             if self._current(generation):
-                self._state = MapPlatformState(status=status,available_platforms=_PLATFORMS,error=map_error)
+                self._state = MapPlatformState(
+                    status=status, available_platforms=_PLATFORMS, error=map_error
+                )
 
     def _tick_loop(self):
         pending = None
@@ -367,14 +382,18 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
                 with self._lock:
                     if self._current(generation):
                         if health.error:
-                            self._state = replace(self._state, error=health.error, status=f'Map unavailable: {health.error}')
+                            self._state = replace(
+                                self._state,
+                                error=health.error,
+                                status=f"Map unavailable: {health.error}",
+                            )
                         elif health.running and self._state.error:
-                            self._state = replace(self._state, error='', status='MapLibre')
+                            self._state = replace(self._state, error="", status="MapLibre")
             return
         try:
             if not self._viewer.tick(self._size):
                 self._close_viewer()
-                self._fallback(generation,'MapLibre')
+                self._fallback(generation, "MapLibre")
             else:
                 if self._viewer.consume_manual_camera() is True:
                     self.request_follow(False)
@@ -384,11 +403,11 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
                         if self._current(generation):
                             self._poi_selections.append(marker_id)
                 self._send_position(generation)
-                layers=self._viewer.layer_controls
-                if isinstance(layers,MapLayerControls):
+                layers = self._viewer.layer_controls
+                if isinstance(layers, MapLayerControls):
                     with self._lock:
                         if self._current(generation):
-                            self._state=replace(self._state,layer_controls=layers)
+                            self._state = replace(self._state, layer_controls=layers)
                 self._poll_timeouts = 0
         except Exception as error:
             if isinstance(error, TimeoutError) and self._current(generation):

@@ -22,8 +22,17 @@ class NavigationMapRuntime:
     def request_retry(self):
         self.request_platform(self.state.requested)
 
-    def __init__(self, native, native_requests, earth, *, controller=None, embedder=None,
-                 online_allowed=lambda: True, earth_enabled=True) -> None:
+    def __init__(
+        self,
+        native,
+        native_requests,
+        earth,
+        *,
+        controller=None,
+        embedder=None,
+        online_allowed=lambda: True,
+        earth_enabled=True,
+    ) -> None:
         self._native = native
         self._earth = earth
         self._controller = controller or EarthNavigationController()

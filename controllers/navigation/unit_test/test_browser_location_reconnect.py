@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Execute the permission page's async recovery and consent behavior."""
+
 import re
 import shutil
 import subprocess
@@ -10,10 +11,10 @@ import pytest
 from controllers.navigation.browser_position_source import _LOCATION_PAGE
 
 
-@pytest.mark.skipif(shutil.which('node') is None, reason='JavaScript runtime unavailable')
+@pytest.mark.skipif(shutil.which("node") is None, reason="JavaScript runtime unavailable")
 def test_relay_reconnects_after_restart_but_stop_and_denial_cancel_retries():
-    script = re.search(rb'<script>(.*?)</script>', _LOCATION_PAGE, re.S)[1].decode()
-    harness = r'''
+    script = re.search(rb"<script>(.*?)</script>", _LOCATION_PAGE, re.S)[1].decode()
+    harness = r"""
 const assert=require('node:assert/strict'), vm=require('node:vm'), fs=require('node:fs');
 const elements={status:{},start:{disabled:false},stop:{disabled:true},close:{}}, timers=new Map(), fixes=[];
 let timerId=0, online=false, posts=0, hides=0;
@@ -42,6 +43,8 @@ const fix={coords:{latitude:42,longitude:-83,accuracy:20,altitude:0}};
  elements.start.onclick(); fixes.at(-1).fail({code:1,message:'Permission denied'});
  assert.equal(elements.start.disabled,false); assert.match(elements.status.textContent,/denied/);
 })().catch(error=>{console.error(error);process.exitCode=1;});
-'''
-    result = subprocess.run(['node', '-e', harness], input=script, text=True, capture_output=True, timeout=10)
+"""
+    result = subprocess.run(
+        ["node", "-e", harness], input=script, text=True, capture_output=True, timeout=10
+    )
     assert result.returncode == 0, result.stderr

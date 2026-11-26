@@ -12,7 +12,7 @@ from ui.theme import ThemeMode
 @dataclass(frozen=True)
 class MapRuntimeState:
     running: bool = False
-    error: str = ''
+    error: str = ""
 
 
 class MapPresentationRequestHandlerIf(Protocol):

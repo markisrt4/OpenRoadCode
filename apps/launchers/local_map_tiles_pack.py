@@ -18,21 +18,26 @@ def detroit_tiles_directory():
 
 
 def preferred_tiles_directory(destination=None):
-    directory = navigation_data_root()/'maps/3d/packs'
+    directory = navigation_data_root() / "maps/3d/packs"
     from apps.launchers.local_building_regions import installed_regions
+
     regions = installed_regions()
     if regions:
         # The viewer mounts the full installed regional catalog, so selecting a
         # different starting directory by destination would only repeat hashing.
         return regions[0][1]
     # A regional pack permits streaming while panning between local cities.
-    for candidate in (openroadcode_data_dir('map-packs','metro-detroit-buildings-active'),
-                      directory/'metro-detroit'):
-        if not (candidate/'manifest.json').is_file():
+    for candidate in (
+        openroadcode_data_dir("map-packs", "metro-detroit-buildings-active"),
+        directory / "metro-detroit",
+    ):
+        if not (candidate / "manifest.json").is_file():
             continue
         state = LocalMapTilesPack.load(candidate).state.coverage
-        if destination is None or (state.west_rad <= destination.longitude_rad <= state.east_rad
-                and state.south_rad <= destination.latitude_rad <= state.north_rad):
+        if destination is None or (
+            state.west_rad <= destination.longitude_rad <= state.east_rad
+            and state.south_rad <= destination.latitude_rad <= state.north_rad
+        ):
             return candidate
     if destination is not None:
         for key in ("rochester", "southfield"):
@@ -76,10 +81,13 @@ class LocalMapTilesPack:
     @classmethod
     def load(cls, directory):
         root = Path(directory).resolve()
-        manifest = json.loads((root/'manifest.json').read_text())
-        if manifest.get('schema') not in (1,2,3) or not 1 <= len(manifest['tiles']) <= MAX_MAP_TILES:
-            raise ValueError('Unsupported or oversized tile pack')
-        state = coverage(manifest['title'],manifest['attribution'],manifest['bounds_deg'])
+        manifest = json.loads((root / "manifest.json").read_text())
+        if (
+            manifest.get("schema") not in (1, 2, 3)
+            or not 1 <= len(manifest["tiles"]) <= MAX_MAP_TILES
+        ):
+            raise ValueError("Unsupported or oversized tile pack")
+        state = coverage(manifest["title"], manifest["attribution"], manifest["bounds_deg"])
         files, tiles = {}, []
         for tile in manifest["tiles"]:
             tile_id = tile["id"]
@@ -119,6 +127,7 @@ class LocalMapTilesPack:
 def load_viewer_tiles(directory):
     """Reuse matching previously downloaded aerial tiles with builder-owned geometry."""
     from apps.launchers.local_building_regions import combined_buildings
+
     regional = combined_buildings(Path(directory))
     if regional is not None:
         return regional

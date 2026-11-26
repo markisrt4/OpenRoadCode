@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Semantic presentation request, callable from app-launch workers."""
+
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -8,8 +9,9 @@ from typing import Protocol
 @dataclass(frozen=True)
 class AndroidAppViewState:
     """Identity and presentation of the app; no Android transport details."""
-    app_name: str = 'Android app'
-    package: str = ''
+
+    app_name: str = "Android app"
+    package: str = ""
     expanded: bool = False
     can_split: bool = True
     can_navigate_saved_destinations: bool = False
@@ -17,7 +19,7 @@ class AndroidAppViewState:
 
 
 class AndroidAppViewRequestHandlerIf(Protocol):
-    def request_show_android_app(self, app_name: str = 'Android app', package: str = '') -> None:
+    def request_show_android_app(self, app_name: str = "Android app", package: str = "") -> None:
         """Present the running Android app without taking ownership of its runtime."""
         ...
 

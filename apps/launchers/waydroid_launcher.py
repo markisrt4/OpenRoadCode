@@ -45,9 +45,16 @@ class WaydroidLauncher:
 
     def list_apps(self) -> tuple[AndroidApp, ...]:
         result = self._run("app", "list")
-        if any(message in (result.stdout + result.stderr).casefold() for message in
-               ('failed to access', 'not running', 'session is stopped', 'not initialized')):
-            raise WaydroidLauncherError('Waydroid app availability could not be read')
+        if any(
+            message in (result.stdout + result.stderr).casefold()
+            for message in (
+                "failed to access",
+                "not running",
+                "session is stopped",
+                "not initialized",
+            )
+        ):
+            raise WaydroidLauncherError("Waydroid app availability could not be read")
         apps: list[AndroidApp] = []
         name: str | None = None
         package: str | None = None
@@ -74,29 +81,44 @@ class WaydroidLauncher:
 
     def launch_uri(self, uri: str) -> None:
         """Use Waydroid's session service for an Android VIEW deep link."""
-        result = self._run('app', 'intent', 'android.intent.action.VIEW', uri)
-        if 'Failed to access IPlatform service' in result.stdout + result.stderr:
-            raise WaydroidLauncherError('Waydroid could not deliver the destination intent')
+        result = self._run("app", "intent", "android.intent.action.VIEW", uri)
+        if "Failed to access IPlatform service" in result.stdout + result.stderr:
+            raise WaydroidLauncherError("Waydroid could not deliver the destination intent")
 
     def stop_app(self, package: str) -> None:
         """Explicit user close, targeted to this local Waydroid instance only."""
-        status = self._run('status').stdout
-        address = re.search(r'^\s*IP address:\s*(\d+\.\d+\.\d+\.\d+)\s*$', status, re.MULTILINE)
+        status = self._run("status").stdout
+        address = re.search(r"^\s*IP address:\s*(\d+\.\d+\.\d+\.\d+)\s*$", status, re.MULTILINE)
         if address is None:
-            raise WaydroidLauncherError('The local Waydroid session has no IP address')
-        self._run('adb', 'connect')
-        serial = address[1] + ':5555'
+            raise WaydroidLauncherError("The local Waydroid session has no IP address")
+        self._run("adb", "connect")
+        serial = address[1] + ":5555"
         try:
-            model = subprocess.run(['adb', '-s', serial, 'shell', 'getprop', 'ro.product.model'],
-                                   capture_output=True, text=True, timeout=5, check=True)
-            if 'waydroid' not in model.stdout.casefold():
-                raise WaydroidLauncherError('The selected device is not Waydroid')
-            result = subprocess.run(['adb', '-s', serial, 'shell', 'am', 'force-stop', package],
-                                   capture_output=True, text=True, timeout=5, check=True)
-            if 'Exception' in result.stdout + result.stderr or 'Error:' in result.stdout + result.stderr:
-                raise WaydroidLauncherError('Android refused to stop Waze')
+            model = subprocess.run(
+                ["adb", "-s", serial, "shell", "getprop", "ro.product.model"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=True,
+            )
+            if "waydroid" not in model.stdout.casefold():
+                raise WaydroidLauncherError("The selected device is not Waydroid")
+            result = subprocess.run(
+                ["adb", "-s", serial, "shell", "am", "force-stop", package],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=True,
+            )
+            if (
+                "Exception" in result.stdout + result.stderr
+                or "Error:" in result.stdout + result.stderr
+            ):
+                raise WaydroidLauncherError("Android refused to stop Waze")
         except (OSError, subprocess.SubprocessError) as error:
-            raise WaydroidLauncherError('Could not stop the app in the local Waydroid session') from error
+            raise WaydroidLauncherError(
+                "Could not stop the app in the local Waydroid session"
+            ) from error
 
     def _run(self, *arguments: str) -> subprocess.CompletedProcess[str]:
         if shutil.which(self._executable) is None:

@@ -5,6 +5,7 @@
 Process queries and output-settling workers belong to the application adapter
 layer, rather than frontend presentation modules.
 """
+
 from apps.orcUi.adapters.waydroid_window_embedder import WaydroidWindowEmbedder
 
-__all__ = ['WaydroidWindowEmbedder']
+__all__ = ["WaydroidWindowEmbedder"]

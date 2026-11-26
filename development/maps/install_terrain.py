@@ -36,12 +36,16 @@ from tools.map_builder.builder.terrain import download
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--coverage')
-    parser.add_argument('--output', type=Path, help='Override the device-owned pack directory')
-    parser.add_argument('--yes', action='store_true', help='Skip confirmation; requires --coverage')
-    parser.add_argument('--pack-manifest', help='HTTPS descriptor for a published terrain archive')
-    parser.add_argument('--pack-file', type=Path, help='Local terrain archive with adjacent .json descriptor')
-    parser.add_argument('--build-only', type=Path, help='Build a terrain pack without activating it')
+    parser.add_argument("--coverage")
+    parser.add_argument("--output", type=Path, help="Override the device-owned pack directory")
+    parser.add_argument("--yes", action="store_true", help="Skip confirmation; requires --coverage")
+    parser.add_argument("--pack-manifest", help="HTTPS descriptor for a published terrain archive")
+    parser.add_argument(
+        "--pack-file", type=Path, help="Local terrain archive with adjacent .json descriptor"
+    )
+    parser.add_argument(
+        "--build-only", type=Path, help="Build a terrain pack without activating it"
+    )
     args = parser.parse_args()
     if args.yes and not args.coverage:
         parser.error("--yes requires --coverage")
@@ -52,22 +56,41 @@ def main():
         if coverage is None:
             print("Cancelled")
             return 0
-        title,bounds = (TERRAIN_DETAILS[coverage] if coverage in TERRAIN_DETAILS else
-                        MICHIGAN_COVERAGES[coverage] if coverage in MICHIGAN_COVERAGES else
-                        COVERAGES[coverage] if coverage == 'metro-detroit' else
-                        PRESETS[coverage] if coverage in PRESETS else coverage_definition(coverage))
-        regional = coverage in MICHIGAN_COVERAGES or coverage in TERRAIN_DETAILS or coverage not in PRESETS
-        directories = {'detroit-downtown': detroit_terrain_directory,
-                       'detroit-midtown': midtown_terrain_directory,
-                       'pine-knob': pine_knob_terrain_directory}
-        destination = args.output or (metro_detroit_terrain_directory() if coverage == 'metro-detroit'
-            else regional_terrain_directory(coverage) if regional
-            else directories[coverage]() if coverage in directories else openroadcode_data_dir('map-packs',coverage+'-terrain-v1'))
-        print(f'Coverage: {title} · {bounds}')
-        if coverage == 'metro-detroit':
-            print('USGS 3DEP: streamed overview, 200 m-class regional, and focus-area LOD grids.')
+        title, bounds = (
+            TERRAIN_DETAILS[coverage]
+            if coverage in TERRAIN_DETAILS
+            else MICHIGAN_COVERAGES[coverage]
+            if coverage in MICHIGAN_COVERAGES
+            else COVERAGES[coverage]
+            if coverage == "metro-detroit"
+            else PRESETS[coverage]
+            if coverage in PRESETS
+            else coverage_definition(coverage)
+        )
+        regional = (
+            coverage in MICHIGAN_COVERAGES or coverage in TERRAIN_DETAILS or coverage not in PRESETS
+        )
+        directories = {
+            "detroit-downtown": detroit_terrain_directory,
+            "detroit-midtown": midtown_terrain_directory,
+            "pine-knob": pine_knob_terrain_directory,
+        }
+        destination = args.output or (
+            metro_detroit_terrain_directory()
+            if coverage == "metro-detroit"
+            else regional_terrain_directory(coverage)
+            if regional
+            else directories[coverage]()
+            if coverage in directories
+            else openroadcode_data_dir("map-packs", coverage + "-terrain-v1")
+        )
+        print(f"Coverage: {title} · {bounds}")
+        if coverage == "metro-detroit":
+            print("USGS 3DEP: streamed overview, 200 m-class regional, and focus-area LOD grids.")
         elif regional:
-            print('USGS 3DEP: 64 resumable 129×129 grids; rectangular coverage includes water and neighboring areas.')
+            print(
+                "USGS 3DEP: 64 resumable 129×129 grids; rectangular coverage includes water and neighboring areas."
+            )
         else:
             print("USGS 3DEP: one grid for the selected local coverage.")
         print("Internet needed for downloading; viewing works offline.")
@@ -99,11 +122,13 @@ def main():
                 )
             )
             verify_archive(archive, descriptor)
-            _install_archive(archive, destination,expected_bounds=bounds)
+            _install_archive(archive, destination, expected_bounds=bounds)
             installed = destination
         elif coverage in TERRAIN_DETAILS:
-            raise ValueError('Detail terrain requires a finished --pack-file artifact from GitHub Actions')
-        elif coverage == 'metro-detroit' or regional:
+            raise ValueError(
+                "Detail terrain requires a finished --pack-file artifact from GitHub Actions"
+            )
+        elif coverage == "metro-detroit" or regional:
             target = args.build_only or destination
             build_regional_terrain(target, coverage=coverage)
         else:
@@ -159,9 +184,12 @@ def _install_archive(archive: Path, active: Path, *, expected_bounds=None) -> No
         load_terrain(root)
         if expected_bounds is not None:
             import json
-            actual=json.loads((root/'manifest.json').read_text())['bounds_deg']
-            if len(actual)!=4 or any(abs(a-b)>1e-9 for a,b in zip(actual,expected_bounds, strict=True)):
-                raise ValueError('Terrain archive bounds differ from requested coverage')
+
+            actual = json.loads((root / "manifest.json").read_text())["bounds_deg"]
+            if len(actual) != 4 or any(
+                abs(a - b) > 1e-9 for a, b in zip(actual, expected_bounds, strict=True)
+            ):
+                raise ValueError("Terrain archive bounds differ from requested coverage")
         root.rename(revision)
     pending = active.parent / (".active-terrain-" + uuid.uuid4().hex)
     pending.symlink_to(revision.name, target_is_directory=True)
@@ -169,8 +197,8 @@ def _install_archive(archive: Path, active: Path, *, expected_bounds=None) -> No
     if active.exists() and not active.is_symlink():
         if not active.is_dir():
             pending.unlink()
-            raise ValueError('Existing terrain path is not a pack directory')
-        previous = active.parent / ('.previous-terrain-' + uuid.uuid4().hex)
+            raise ValueError("Existing terrain path is not a pack directory")
+        previous = active.parent / (".previous-terrain-" + uuid.uuid4().hex)
         active.rename(previous)
     try:
         pending.replace(active)

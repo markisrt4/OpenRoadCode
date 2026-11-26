@@ -21,10 +21,15 @@ def test_right_side_controls_have_action_descriptions():
         build_navigation_panel(panel)
     descriptions = [call.args[1] for call in panel._add_tooltip.call_args_list]
     assert len(descriptions) >= 13
-    for text in ("Toggle following the vehicle", "Zoom in", "Zoom out",
-                 "Current map zoom level", "Switch between overhead 2D and tilted 3D view",
-                 "Rotate north to the top (turns follow off)",
-                 "Center on the vehicle and enable following"):
+    for text in (
+        "Toggle following the vehicle",
+        "Zoom in",
+        "Zoom out",
+        "Current map zoom level",
+        "Switch between overhead 2D and tilted 3D view",
+        "Rotate north to the top (turns follow off)",
+        "Center on the vehicle and enable following",
+    ):
         assert text in descriptions
     for direction in ("up", "down", "left", "right"):
         assert f"Pan the map {direction} on screen (turns follow off)" in descriptions
@@ -86,9 +91,18 @@ def test_camera_controls_start_as_compact_collapsible_drawer():
 
     label = Mock()
     label.return_value.winfo_reqheight.return_value = 18
-    with patch.multiple("apps.orcUi.frontend.tk.navigation_panel_layout.tk",
-                        Frame=frame, Button=Mock(), Label=label, Canvas=Mock(), Scrollbar=Mock(),
-                        Menubutton=Mock(), Menu=Mock(), PhotoImage=Mock(), Toplevel=Mock()):
+    with patch.multiple(
+        "apps.orcUi.frontend.tk.navigation_panel_layout.tk",
+        Frame=frame,
+        Button=Mock(),
+        Label=label,
+        Canvas=Mock(),
+        Scrollbar=Mock(),
+        Menubutton=Mock(),
+        Menu=Mock(),
+        PhotoImage=Mock(),
+        Toplevel=Mock(),
+    ):
         panel = Mock()
         panel._map_platform = None
         panel._waze_handler = None

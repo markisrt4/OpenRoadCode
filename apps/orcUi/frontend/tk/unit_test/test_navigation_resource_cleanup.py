@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Retired widgets must release Tcl resources before worker-thread collection."""
+
 import gc
 import os
 import tkinter as tk
@@ -19,9 +20,11 @@ from ui.navigation.navigation_places_request_handler_if import NavigationPlacesR
 from ui.theme import ThemeMode
 
 
-@pytest.mark.skipif(not os.environ.get('DISPLAY'), reason='Tk resources need X11')
-@pytest.mark.parametrize('root_first', [False, True])
-def test_destroy_releases_navigation_variables_and_preview_images_on_ui_thread(monkeypatch, root_first):
+@pytest.mark.skipif(not os.environ.get("DISPLAY"), reason="Tk resources need X11")
+@pytest.mark.parametrize("root_first", [False, True])
+def test_destroy_releases_navigation_variables_and_preview_images_on_ui_thread(
+    monkeypatch, root_first
+):
     gc.collect()
     ui_thread = get_ident()
     finalized = {}
@@ -35,27 +38,37 @@ def test_destroy_releases_navigation_variables_and_preview_images_on_ui_thread(m
             if get_ident() == ui_thread:
                 original(resource)
 
-        monkeypatch.setattr(resource_type, '__del__', finalize)
+        monkeypatch.setattr(resource_type, "__del__", finalize)
     root = tk.Tk()
-    root.geometry('1000x600')
+    root.geometry("1000x600")
     places = Mock(spec=NavigationPlacesRequestHandlerIf)
     places.poll_search_result.return_value = None
     places.poll_selected.return_value = None
     places.poll_camera_interaction.return_value = False
     drawer = MapControlsDrawerController()
-    panel = NavigationPanel(root, map_request_handler=MapRequestHandlerStub(), places_handler=places,
-        drawer_handler=drawer, experience_handler=Mock(state=NavigationExperienceState()),
-        theme_bundle=theme_bundle(ThemeMode.DARK), on_radar_toggle=Mock())
+    panel = NavigationPanel(
+        root,
+        map_request_handler=MapRequestHandlerStub(),
+        places_handler=places,
+        drawer_handler=drawer,
+        experience_handler=Mock(state=NavigationExperienceState()),
+        theme_bundle=theme_bundle(ThemeMode.DARK),
+        on_radar_toggle=Mock(),
+    )
     panel.pack(fill=tk.BOTH, expand=True)
     drawer.set_ui(panel)
     root.update()
-    weather = NavigationRouteWeather(Mock(), lambda: theme_bundle(ThemeMode.DARK), lambda: Mock(value='imperial'))
+    weather = NavigationRouteWeather(
+        Mock(), lambda: theme_bundle(ThemeMode.DARK), lambda: Mock(value="imperial")
+    )
     weather.attach(panel)
     weather._toggle_popup()
     root.update()
     resources = {id(value) for value in vars(panel).values() if isinstance(value, tk.Variable)}
     resources.update(id(value) for value in panel._experience_controls._previews.values())
-    resources.update(id(value) for value in vars(weather).values() if isinstance(value, tk.Variable))
+    resources.update(
+        id(value) for value in vars(weather).values() if isinstance(value, tk.Variable)
+    )
     resources.update(id(value) for value in weather._layer_vars.values())
     try:
         if root_first:

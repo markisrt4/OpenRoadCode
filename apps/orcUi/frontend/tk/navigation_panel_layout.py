@@ -96,18 +96,33 @@ def build_navigation_panel(panel) -> None:
     panel._loading_cover = tk.Label(body, text="Loading Terrain…", bg=ui.background, fg=ui.text)
     panel._loading_cover.grid(row=0, column=0, sticky="nsew")
     panel._loading_cover.grid_remove()
-    panel._map_retry_button = tk.Button(body, text='RETRY MAP',
+    panel._map_retry_button = tk.Button(
+        body,
+        text="RETRY MAP",
         command=panel._map_platform.request_retry if panel._map_platform is not None else None,
-        bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active,
-        relief=tk.FLAT, bd=0, font=('Sans', 11, 'bold'), padx=16, pady=10)
+        bg=ui.control_background,
+        fg=ui.control_text,
+        activebackground=ui.control_active,
+        relief=tk.FLAT,
+        bd=0,
+        font=("Sans", 11, "bold"),
+        padx=16,
+        pady=10,
+    )
     panel._map_host.bind("<Configure>", panel._log_map_allocation, add="+")
     if panel._experience_handler is not None:
         from frontends.tk.navigation_experience_controls import NavigationExperienceControls
+
         panel._experience_controls = NavigationExperienceControls(
-            bar, drawer_parent=body, drawer_row=0, drawer_column=1,
-            handler=panel._experience_handler, theme=panel._theme_bundle,
+            bar,
+            drawer_parent=body,
+            drawer_row=0,
+            drawer_column=1,
+            handler=panel._experience_handler,
+            theme=panel._theme_bundle,
             on_open=lambda: panel.set_navigation_drawer_visible(True),
-            on_close=lambda: panel.set_navigation_drawer_visible(False))
+            on_close=lambda: panel.set_navigation_drawer_visible(False),
+        )
         panel._experience_controls.pack(fill=tk.X, expand=True)
         panel._build_radar_controls(panel._experience_controls.overlay_frame)
     else:
@@ -127,141 +142,202 @@ def build_navigation_panel(panel) -> None:
         font=("Sans", 9, "bold"),
         cursor="hand2",
     )
-    controls = tk.Frame(body, bg=ui.surface_alt, width=224,
-                        highlightbackground=ui.control_background, highlightthickness=1)
+    controls = tk.Frame(
+        body,
+        bg=ui.surface_alt,
+        width=224,
+        highlightbackground=ui.control_background,
+        highlightthickness=1,
+    )
     controls.pack_propagate(False)
     controls.grid_propagate(False)
     panel._map_controls = controls
     panel._native_camera_controls = controls
     panel._map_controls_toggle = panel._control(
-        controls, 'Map controls   ⌃', panel._toggle_map_controls_drawer, ui.text)
-    panel._map_controls_toggle.configure(anchor='w',font=('Sans',10,'bold'),pady=7)
-    panel._map_controls_toggle.pack(fill=tk.X,padx=4,pady=4)
-    rail = tk.Frame(controls,bg=ui.surface_alt)
+        controls, "Map controls   ⌃", panel._toggle_map_controls_drawer, ui.text
+    )
+    panel._map_controls_toggle.configure(anchor="w", font=("Sans", 10, "bold"), pady=7)
+    panel._map_controls_toggle.pack(fill=tk.X, padx=4, pady=4)
+    rail = tk.Frame(controls, bg=ui.surface_alt)
     panel._map_controls_rail = rail
-    rail.grid_rowconfigure(0,weight=1)
-    rail.grid_columnconfigure(0,weight=1)
-    pages={name:tk.Frame(rail,bg=ui.surface_alt) for name in ('camera','layers','terrain')}
-    panel._map_control_pages=pages
-    panel._map_controls_page='camera'
-    content=pages['camera']
-    content.grid_columnconfigure(0,weight=1)
-    for row,weight in ((0,2),(1,3),(2,1),(3,1),(4,1)):
-        content.grid_rowconfigure(row,weight=weight)
-    drawer_buttons=[]
-    drawer_groups=[]
+    rail.grid_rowconfigure(0, weight=1)
+    rail.grid_columnconfigure(0, weight=1)
+    pages = {name: tk.Frame(rail, bg=ui.surface_alt) for name in ("camera", "layers", "terrain")}
+    panel._map_control_pages = pages
+    panel._map_controls_page = "camera"
+    content = pages["camera"]
+    content.grid_columnconfigure(0, weight=1)
+    for row, weight in ((0, 2), (1, 3), (2, 1), (3, 1), (4, 1)):
+        content.grid_rowconfigure(row, weight=weight)
+    drawer_buttons = []
+    drawer_groups = []
 
-    def button(parent,text,command,row,column,accent=ui.control_text):
-        widget=panel._control(parent,text,command,accent)
-        widget.configure(font=('Sans',9,'bold'),pady=6,highlightthickness=1,
-                         highlightbackground=ui.control_background)
-        widget.grid(row=row,column=column,sticky='nsew',padx=2,pady=2)
+    def button(parent, text, command, row, column, accent=ui.control_text):
+        widget = panel._control(parent, text, command, accent)
+        widget.configure(
+            font=("Sans", 9, "bold"),
+            pady=6,
+            highlightthickness=1,
+            highlightbackground=ui.control_background,
+        )
+        widget.grid(row=row, column=column, sticky="nsew", padx=2, pady=2)
         drawer_buttons.append(widget)
         return widget
 
-    orientation=tk.Frame(content,bg=ui.surface_alt)
-    orientation.grid(row=0,column=0,sticky='nsew')
+    orientation = tk.Frame(content, bg=ui.surface_alt)
+    orientation.grid(row=0, column=0, sticky="nsew")
     drawer_groups.append(orientation)
-    for row in range(2):orientation.grid_rowconfigure(row,weight=1)
-    for column in range(2):orientation.grid_columnconfigure(column,weight=1,uniform='orientation')
-    panel._follow_button=button(orientation,'◉ Follow',panel._toggle_follow,0,0,ui.accent_success)
-    panel._add_tooltip(panel._follow_button,'Toggle following the vehicle')
-    recenter=button(orientation,'⌖ Recenter',panel._recenter,0,1)
-    panel._add_tooltip(recenter,'Center on the vehicle and enable following')
-    north=button(orientation,'↑ North up',panel._north_up,1,0)
-    panel._add_tooltip(north,'Rotate north to the top (turns follow off)')
-    dimension=button(orientation,'2D / 3D',panel._toggle_map_dimension,1,1)
-    panel._add_tooltip(dimension,'Switch between overhead 2D and tilted 3D view')
+    for row in range(2):
+        orientation.grid_rowconfigure(row, weight=1)
+    for column in range(2):
+        orientation.grid_columnconfigure(column, weight=1, uniform="orientation")
+    panel._follow_button = button(
+        orientation, "◉ Follow", panel._toggle_follow, 0, 0, ui.accent_success
+    )
+    panel._add_tooltip(panel._follow_button, "Toggle following the vehicle")
+    recenter = button(orientation, "⌖ Recenter", panel._recenter, 0, 1)
+    panel._add_tooltip(recenter, "Center on the vehicle and enable following")
+    north = button(orientation, "↑ North up", panel._north_up, 1, 0)
+    panel._add_tooltip(north, "Rotate north to the top (turns follow off)")
+    dimension = button(orientation, "2D / 3D", panel._toggle_map_dimension, 1, 1)
+    panel._add_tooltip(dimension, "Switch between overhead 2D and tilted 3D view")
     panel.set_follow_enabled(panel._follow_enabled)
 
-    movement=tk.Frame(content,bg=ui.surface_alt)
-    movement.grid(row=1,column=0,sticky='nsew')
+    movement = tk.Frame(content, bg=ui.surface_alt)
+    movement.grid(row=1, column=0, sticky="nsew")
     drawer_groups.append(movement)
-    movement.grid_rowconfigure(0,weight=1)
-    movement.grid_columnconfigure(0,weight=3)
-    movement.grid_columnconfigure(1,weight=1)
-    pan=tk.Frame(movement,bg=ui.surface_alt)
-    pan.grid(row=0,column=0,sticky='nsew')
+    movement.grid_rowconfigure(0, weight=1)
+    movement.grid_columnconfigure(0, weight=3)
+    movement.grid_columnconfigure(1, weight=1)
+    pan = tk.Frame(movement, bg=ui.surface_alt)
+    pan.grid(row=0, column=0, sticky="nsew")
     for column in range(3):
-        pan.grid_columnconfigure(column,weight=1,uniform='pan')
-        pan.grid_rowconfigure(column,weight=1,uniform='pan')
-    for row,column,label,up,right in ((0,1,'↑',1,0),(1,0,'←',0,-1),(1,2,'→',0,1),(2,1,'↓',-1,0)):
-        widget=button(pan,label,lambda u=up,r=right:panel._pan(u,r),row,column)
-        direction={(1,0):'up',(-1,0):'down',(0,-1):'left',(0,1):'right'}[(up,right)]
-        panel._add_tooltip(widget,f'Pan the map {direction} on screen (turns follow off)')
-    center=button(pan,'⌖',panel._recenter,1,1,ui.accent_primary)
-    panel._add_tooltip(center,'Recenter on the vehicle')
-    zoom=tk.Frame(movement,bg=ui.surface_alt)
-    zoom.grid(row=0,column=1,sticky='nsew',padx=(6,0))
-    zoom.grid_columnconfigure(0,weight=1)
-    zoom.grid_rowconfigure(0,weight=1)
-    zoom.grid_rowconfigure(1,weight=1)
-    for row,text,delta in ((0,'＋',1),(1,'−',-1)):
-        widget=button(zoom,text,lambda d=delta:panel._change_zoom(d),row,0,ui.accent_primary)
-        widget.configure(font=('Sans',15,'bold'))
-        panel._add_tooltip(widget,'Zoom in' if delta>0 else 'Zoom out')
-    readout=tk.Label(zoom,textvariable=panel._zoom_text,bg=ui.surface_alt,fg=ui.text_muted,font=('Sans',8))
-    readout.grid(row=2,column=0)
-    panel._add_tooltip(readout,'Current map zoom level')
-    tilt=tk.Frame(content,bg=ui.surface_alt)
-    tilt.grid(row=2,column=0,sticky='nsew')
+        pan.grid_columnconfigure(column, weight=1, uniform="pan")
+        pan.grid_rowconfigure(column, weight=1, uniform="pan")
+    for row, column, label, up, right in (
+        (0, 1, "↑", 1, 0),
+        (1, 0, "←", 0, -1),
+        (1, 2, "→", 0, 1),
+        (2, 1, "↓", -1, 0),
+    ):
+        widget = button(pan, label, lambda u=up, r=right: panel._pan(u, r), row, column)
+        direction = {(1, 0): "up", (-1, 0): "down", (0, -1): "left", (0, 1): "right"}[(up, right)]
+        panel._add_tooltip(widget, f"Pan the map {direction} on screen (turns follow off)")
+    center = button(pan, "⌖", panel._recenter, 1, 1, ui.accent_primary)
+    panel._add_tooltip(center, "Recenter on the vehicle")
+    zoom = tk.Frame(movement, bg=ui.surface_alt)
+    zoom.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
+    zoom.grid_columnconfigure(0, weight=1)
+    zoom.grid_rowconfigure(0, weight=1)
+    zoom.grid_rowconfigure(1, weight=1)
+    for row, text, delta in ((0, "＋", 1), (1, "−", -1)):
+        widget = button(
+            zoom, text, lambda d=delta: panel._change_zoom(d), row, 0, ui.accent_primary
+        )
+        widget.configure(font=("Sans", 15, "bold"))
+        panel._add_tooltip(widget, "Zoom in" if delta > 0 else "Zoom out")
+    readout = tk.Label(
+        zoom, textvariable=panel._zoom_text, bg=ui.surface_alt, fg=ui.text_muted, font=("Sans", 8)
+    )
+    readout.grid(row=2, column=0)
+    panel._add_tooltip(readout, "Current map zoom level")
+    tilt = tk.Frame(content, bg=ui.surface_alt)
+    tilt.grid(row=2, column=0, sticky="nsew")
     drawer_groups.append(tilt)
-    tilt.grid_rowconfigure(0,weight=1)
-    for column in range(2):tilt.grid_columnconfigure(column,weight=1,uniform='tilt')
-    for column,text,delta in ((0,'↘ Less tilt',-5),(1,'↗ More tilt',5)):
-        widget=button(tilt,text,lambda d=delta:panel._change_pitch(d),0,column)
-        panel._add_tooltip(widget,('Increase' if delta>0 else 'Decrease')+' map tilt (turns follow off)')
+    tilt.grid_rowconfigure(0, weight=1)
+    for column in range(2):
+        tilt.grid_columnconfigure(column, weight=1, uniform="tilt")
+    for column, text, delta in ((0, "↘ Less tilt", -5), (1, "↗ More tilt", 5)):
+        widget = button(tilt, text, lambda d=delta: panel._change_pitch(d), 0, column)
+        panel._add_tooltip(
+            widget, ("Increase" if delta > 0 else "Decrease") + " map tilt (turns follow off)"
+        )
 
-    panel._layer_buttons={}
-    navigation=tk.Frame(content,bg=ui.surface_alt)
-    navigation.grid(row=3,column=0,sticky='nsew')
-    navigation.grid_rowconfigure(0,weight=1)
+    panel._layer_buttons = {}
+    navigation = tk.Frame(content, bg=ui.surface_alt)
+    navigation.grid(row=3, column=0, sticky="nsew")
+    navigation.grid_rowconfigure(0, weight=1)
     drawer_groups.append(navigation)
-    for column in range(2):navigation.grid_columnconfigure(column,weight=1,uniform='pages')
-    button(navigation,'Layers ›',lambda:panel._show_map_controls_page('layers'),0,0)
-    button(navigation,'Terrain ›',lambda:panel._show_map_controls_page('terrain'),0,1)
+    for column in range(2):
+        navigation.grid_columnconfigure(column, weight=1, uniform="pages")
+    button(navigation, "Layers ›", lambda: panel._show_map_controls_page("layers"), 0, 0)
+    button(navigation, "Terrain ›", lambda: panel._show_map_controls_page("terrain"), 0, 1)
 
-    def section(name,title,actions):
-        page=pages[name]
-        page.grid_columnconfigure(0,weight=1)
-        page.grid_rowconfigure(2,weight=1)
-        button(page,'‹ Back to controls',lambda:panel._show_map_controls_page('camera'),0,0)
-        tk.Label(page,text=title,bg=ui.surface_alt,fg=ui.text,font=('Sans',10,'bold')).grid(row=1,column=0,pady=2)
-        items=tk.Frame(page,bg=ui.surface_alt)
-        items.grid(row=2,column=0,sticky='nsew')
+    def section(name, title, actions):
+        page = pages[name]
+        page.grid_columnconfigure(0, weight=1)
+        page.grid_rowconfigure(2, weight=1)
+        button(page, "‹ Back to controls", lambda: panel._show_map_controls_page("camera"), 0, 0)
+        tk.Label(page, text=title, bg=ui.surface_alt, fg=ui.text, font=("Sans", 10, "bold")).grid(
+            row=1, column=0, pady=2
+        )
+        items = tk.Frame(page, bg=ui.surface_alt)
+        items.grid(row=2, column=0, sticky="nsew")
         drawer_groups.append(items)
-        for row in range(2):items.grid_rowconfigure(row,weight=1)
-        for column in range(2):items.grid_columnconfigure(column,weight=1,uniform='layers')
-        for index,(action,label) in enumerate(actions):
-            widget=button(items,label,lambda selected=action:panel._request_layer(selected),index//2,index%2)
+        for row in range(2):
+            items.grid_rowconfigure(row, weight=1)
+        for column in range(2):
+            items.grid_columnconfigure(column, weight=1, uniform="layers")
+        for index, (action, label) in enumerate(actions):
+            widget = button(
+                items,
+                label,
+                lambda selected=action: panel._request_layer(selected),
+                index // 2,
+                index % 2,
+            )
             widget.configure(state=tk.DISABLED)
-            panel._add_tooltip(widget,'Requires an installed layer in Terrain mode')
-            panel._layer_buttons[action]=widget
-    section('layers','Layers',((MapLayerAction.IMAGERY,'Imagery'),(MapLayerAction.BUILDINGS,'Buildings'),
-                              (MapLayerAction.ROADS,'Roads'),(MapLayerAction.PLACES,'Places')))
-    section('terrain','Terrain options',((MapLayerAction.RELIEF,'Relief'),(MapLayerAction.HEIGHT,'Height 1×'),
-                                       (MapLayerAction.CUES,'Terrain cues'),(MapLayerAction.GRID,'Grid')))
-    reset=button(content,'⟳ Reset view',panel._reset_map_view,4,0)
-    panel._add_tooltip(reset,'Reset Terrain view; in Map mode recenter on the vehicle')
+            panel._add_tooltip(widget, "Requires an installed layer in Terrain mode")
+            panel._layer_buttons[action] = widget
 
-    last_compact=None
+    section(
+        "layers",
+        "Layers",
+        (
+            (MapLayerAction.IMAGERY, "Imagery"),
+            (MapLayerAction.BUILDINGS, "Buildings"),
+            (MapLayerAction.ROADS, "Roads"),
+            (MapLayerAction.PLACES, "Places"),
+        ),
+    )
+    section(
+        "terrain",
+        "Terrain options",
+        (
+            (MapLayerAction.RELIEF, "Relief"),
+            (MapLayerAction.HEIGHT, "Height 1×"),
+            (MapLayerAction.CUES, "Terrain cues"),
+            (MapLayerAction.GRID, "Grid"),
+        ),
+    )
+    reset = button(content, "⟳ Reset view", panel._reset_map_view, 4, 0)
+    panel._add_tooltip(reset, "Reset Terrain view; in Map mode recenter on the vehicle")
+
+    last_compact = None
+
     def fit_controls(_event):
         nonlocal last_compact
         # Base this on the fixed outer drawer, not the body whose height changes
         # when the header shrinks, to avoid a compact/regular geometry loop.
-        compact=controls.winfo_height()<320
-        if compact==last_compact:return
-        last_compact=compact
+        compact = controls.winfo_height() < 320
+        if compact == last_compact:
+            return
+        last_compact = compact
         for widget in drawer_buttons:
-            widget.configure(font=('Sans',8 if compact else 9,'bold'),pady=0 if compact else 6)
-            widget.grid_configure(pady=0 if compact else 2,padx=1 if compact else 2)
-        panel._map_controls_toggle.configure(font=('Sans',8 if compact else 10,'bold'),pady=0 if compact else 7)
+            widget.configure(font=("Sans", 8 if compact else 9, "bold"), pady=0 if compact else 6)
+            widget.grid_configure(pady=0 if compact else 2, padx=1 if compact else 2)
+        panel._map_controls_toggle.configure(
+            font=("Sans", 8 if compact else 10, "bold"), pady=0 if compact else 7
+        )
         # Prevent hidden pages' requested sizes from setting the viewport size.
-        for page in pages.values():page.grid_propagate(False)
-        for group in drawer_groups:group.grid_propagate(False)
-    rail.bind('<Configure>',fit_controls)
-    panel._show_map_controls_page('camera')
-    panel._apply_layer_controls(MapLayerControls(),False)
+        for page in pages.values():
+            page.grid_propagate(False)
+        for group in drawer_groups:
+            group.grid_propagate(False)
+
+    rail.bind("<Configure>", fit_controls)
+    panel._show_map_controls_page("camera")
+    panel._apply_layer_controls(MapLayerControls(), False)
 
     panel.set_map_controls_drawer_state(panel._drawer_state)
 
@@ -282,11 +358,15 @@ def show_poi_card(panel, poi) -> None:
     panel._poi_card = popup
 
     width = min(480, panel.winfo_screenwidth() - 16)
-    other_actions = tuple(action for action in poi.actions
-                          if action.kind in {PoiActionKind.ORDER, PoiActionKind.OPEN_WEBSITE, PoiActionKind.OPEN_ANDROID_APP}
-                          and action.provider_id != "google-earth-explore")
+    other_actions = tuple(
+        action
+        for action in poi.actions
+        if action.kind
+        in {PoiActionKind.ORDER, PoiActionKind.OPEN_WEBSITE, PoiActionKind.OPEN_ANDROID_APP}
+        and action.provider_id != "google-earth-explore"
+    )
     height = 330 if other_actions else 280
-    has_waze = panel.__dict__.get('_waze_handler') is not None
+    has_waze = panel.__dict__.get("_waze_handler") is not None
     panel.update_idletasks()
     x = panel.winfo_rootx() + max(0, (panel.winfo_width() - width) // 2)
     y = panel.winfo_rooty() + max(0, (panel.winfo_height() - height) // 2)
@@ -297,7 +377,8 @@ def show_poi_card(panel, poi) -> None:
     shell = tk.Frame(
         popup,
         bg=ui.surface_alt,
-        highlightthickness=2, highlightbackground=ui.accent_primary,
+        highlightthickness=2,
+        highlightbackground=ui.accent_primary,
     )
     shell.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
 
@@ -316,46 +397,78 @@ def show_poi_card(panel, poi) -> None:
     else:
         details.append(poi.category.name.replace("_", " ").title())
 
-    header = PoiCardHeader(shell, title=poi.name, details='  •  '.join(details), icon=poi.icon,
-                           theme=ui, title_style=poi.title_style)
+    header = PoiCardHeader(
+        shell,
+        title=poi.name,
+        details="  •  ".join(details),
+        icon=poi.icon,
+        theme=ui,
+        title_style=poi.title_style,
+    )
     header.pack(fill=tk.X)
     tk.Frame(shell, height=1, bg=ui.border).pack(fill=tk.X)
     frame = tk.Frame(shell, bg=ui.surface_alt, padx=12, pady=8)
     frame.pack(fill=tk.BOTH, expand=True)
 
-    close_icon = load_poi_action_icon(frame, 'close.png', tk).subsample(2, 2)
-    close = tk.Button(frame, text='CLOSE', image=close_icon, compound=tk.LEFT, command=popup.destroy,
-        bg=ui.control_background, fg=ui.text_muted, activebackground=ui.control_active,
-        activeforeground=ui.text, relief=tk.FLAT, borderwidth=0,
-        highlightthickness=1, highlightbackground=ui.border, highlightcolor=ui.accent_primary,
-        font=('Sans', 10, 'bold'), pady=6)
+    close_icon = load_poi_action_icon(frame, "close.png", tk).subsample(2, 2)
+    close = tk.Button(
+        frame,
+        text="CLOSE",
+        image=close_icon,
+        compound=tk.LEFT,
+        command=popup.destroy,
+        bg=ui.control_background,
+        fg=ui.text_muted,
+        activebackground=ui.control_active,
+        activeforeground=ui.text,
+        relief=tk.FLAT,
+        borderwidth=0,
+        highlightthickness=1,
+        highlightbackground=ui.border,
+        highlightcolor=ui.accent_primary,
+        font=("Sans", 10, "bold"),
+        pady=6,
+    )
     close._action_icon = close_icon
-    close.bind('<Destroy>', lambda _event: setattr(close, '_action_icon', None))
+    close.bind("<Destroy>", lambda _event: setattr(close, "_action_icon", None))
     close.pack(side=tk.BOTTOM, fill=tk.X, pady=(10, 0))
-    popup.bind('<Escape>', lambda _event: popup.destroy())
+    popup.bind("<Escape>", lambda _event: popup.destroy())
 
     buttons = tk.Frame(frame, bg=ui.surface_alt)
     buttons.pack()
 
     navigate = tk.Frame(buttons, bg=ui.surface_alt)
     navigate.pack(side=tk.LEFT, padx=(0, 8))
-    tk.Label(navigate, text='NAVIGATE WITH', bg=ui.surface_alt, fg=ui.text_muted,
-             font=('Sans', 8, 'bold')).pack()
+    tk.Label(
+        navigate,
+        text="NAVIGATE WITH",
+        bg=ui.surface_alt,
+        fg=ui.text_muted,
+        font=("Sans", 8, "bold"),
+    ).pack()
     nav_buttons = tk.Frame(navigate, bg=ui.surface_alt)
     nav_buttons.pack()
-    build_poi_icon_button(panel, nav_buttons, "navigate.png", "ORC Map",
-                          lambda: panel._navigate_to_poi(poi), tk)
+    build_poi_icon_button(
+        panel, nav_buttons, "navigate.png", "ORC Map", lambda: panel._navigate_to_poi(poi), tk
+    )
     panel._poi_action_buttons = []
     if has_waze:
-        waze_button = build_poi_icon_button(panel, nav_buttons, 'waze.png', 'Waze',
-                                           lambda: panel._navigate_to_poi_with_waze(poi), tk)
+        waze_button = build_poi_icon_button(
+            panel,
+            nav_buttons,
+            "waze.png",
+            "Waze",
+            lambda: panel._navigate_to_poi_with_waze(poi),
+            tk,
+        )
         panel._poi_action_buttons.append(waze_button)
     explore = tk.Frame(buttons, bg=ui.surface_alt)
     explore.pack(side=tk.LEFT)
     local_action = next((a for a in poi.actions if a.kind is PoiActionKind.EXPLORE_3D), None)
     if earth_action is not None or local_action is not None:
-        tk.Label(explore, text='EXPLORE', bg=ui.surface_alt, fg=ui.text_muted,
-                 font=('Sans', 8, 'bold')).pack()
+        tk.Label(
+            explore, text="EXPLORE", bg=ui.surface_alt, fg=ui.text_muted, font=("Sans", 8, "bold")
+        ).pack()
     explore_buttons = tk.Frame(explore, bg=ui.surface_alt)
     explore_buttons.pack()
     if earth_action is not None:
@@ -364,29 +477,44 @@ def show_poi_card(panel, poi) -> None:
     panel._local_3d_button = None
     if local_action is not None:
         panel._local_3d_button = build_poi_icon_button(
-            panel, explore_buttons, "map_3d.png", "3D Map",
-            lambda: panel._execute_poi_action(poi, local_action), tk)
-        panel._add_tooltip(panel._local_3d_button, "Offline 3D exploration; coverage depends on installed map packs")
+            panel,
+            explore_buttons,
+            "map_3d.png",
+            "3D Map",
+            lambda: panel._execute_poi_action(poi, local_action),
+            tk,
+        )
+        panel._add_tooltip(
+            panel._local_3d_button,
+            "Offline 3D exploration; coverage depends on installed map packs",
+        )
 
     extra_buttons = tk.Frame(frame, bg=ui.surface_alt)
     if other_actions:
         extra_buttons.pack(pady=(6, 0))
     for action in other_actions:
-        if (action.kind in {PoiActionKind.ORDER, PoiActionKind.OPEN_WEBSITE, PoiActionKind.OPEN_ANDROID_APP}
-                and action.provider_id != "google-earth-explore"):
+        if (
+            action.kind
+            in {PoiActionKind.ORDER, PoiActionKind.OPEN_WEBSITE, PoiActionKind.OPEN_ANDROID_APP}
+            and action.provider_id != "google-earth-explore"
+        ):
             ordering = action.kind is PoiActionKind.ORDER
-            icon = load_poi_action_icon(extra_buttons, 'order.png', tk) if ordering else None
-            size = {'width': 180, 'height': 42, 'padx': 12} if ordering else {
-                'width': max(12, min(28, len(action.label) + 2)), 'height': 2}
+            icon = load_poi_action_icon(extra_buttons, "order.png", tk) if ordering else None
+            size = (
+                {"width": 180, "height": 42, "padx": 12}
+                if ordering
+                else {"width": max(12, min(28, len(action.label) + 2)), "height": 2}
+            )
             button = tk.Button(
                 extra_buttons,
                 text=action.label,
-                image=icon if icon is not None else '', compound=tk.LEFT,
+                image=icon if icon is not None else "",
+                compound=tk.LEFT,
                 state=tk.NORMAL if panel.online_actions_allowed else tk.DISABLED,
                 disabledforeground=ui.text_muted,
                 command=lambda selected=action: panel._execute_poi_action(poi, selected),
                 bg=ui.control_active if ordering else ui.control_background,
-                fg='#ffffff' if ordering else ui.accent_primary,
+                fg="#ffffff" if ordering else ui.accent_primary,
                 activebackground=ui.control_active,
                 activeforeground="#ffffff",
                 relief=tk.FLAT,
@@ -397,7 +525,9 @@ def show_poi_card(panel, poi) -> None:
                 **size,
             )
             button._action_icon = icon
-            button.bind('<Destroy>', lambda _event, widget=button: setattr(widget, '_action_icon', None))
+            button.bind(
+                "<Destroy>", lambda _event, widget=button: setattr(widget, "_action_icon", None)
+            )
             button.pack(side=tk.LEFT, padx=4)
             panel._poi_action_buttons.append(button)
 
@@ -405,22 +535,38 @@ def show_poi_card(panel, poi) -> None:
     panel._poi_app_indicator = None
     order = next((action for action in other_actions if action.kind is PoiActionKind.ORDER), None)
     if order is not None:
-        store_action = PoiAction(PoiActionKind.OPEN_ANDROID_APP, 'Google Play', provider_id=order.provider_id)
-        indicator = PoiAppIndicator(frame, icon=poi.icon, theme=ui,
-            open_store=lambda: panel._execute_poi_action(poi, store_action))
+        store_action = PoiAction(
+            PoiActionKind.OPEN_ANDROID_APP, "Google Play", provider_id=order.provider_id
+        )
+        indicator = PoiAppIndicator(
+            frame,
+            icon=poi.icon,
+            theme=ui,
+            open_store=lambda: panel._execute_poi_action(poi, store_action),
+        )
         indicator.pack(pady=(6, 0))
         panel._poi_app_indicator = indicator
-        panel._add_tooltip(indicator, 'Ordering app: green check = installed; Play/download = not installed; Play/? = check unavailable. Click Play to open the app or its store listing. Globe = website only.')
+        panel._add_tooltip(
+            indicator,
+            "Ordering app: green check = installed; Play/download = not installed; Play/? = check unavailable. Click Play to open the app or its store listing. Globe = website only.",
+        )
         request_poi_app_status(panel, poi, indicator)
-        popup.bind('<FocusIn>', lambda event: request_poi_app_status(panel, poi, indicator)
-                   if event.widget is popup and indicator.winfo_exists() else None, add='+')
+        popup.bind(
+            "<FocusIn>",
+            lambda event: (
+                request_poi_app_status(panel, poi, indicator)
+                if event.widget is popup and indicator.winfo_exists()
+                else None
+            ),
+            add="+",
+        )
 
     panel._refresh_poi_action_buttons()
     popup.update_idletasks()
     # Keep the footer visible with larger text or a wrapped business name.
     height = min(panel.winfo_screenheight() - 16, max(height, shell.winfo_reqheight() + 4))
     y = max(8, min(y, panel.winfo_screenheight() - height - 8))
-    popup.geometry(f'{width}x{height}+{x}+{y}')
+    popup.geometry(f"{width}x{height}+{x}+{y}")
     popup.lift()
     popup.focus_force()
 
@@ -442,4 +588,3 @@ def log_map_allocation(panel, _event=None) -> None:
         f"host_id={host.winfo_id()} "
         f"controls_manager={panel._map_controls.winfo_manager() or 'hidden'}",
     )
-

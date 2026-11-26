@@ -34,7 +34,12 @@ def _require_musicforge() -> None:
     """Check the required analysis API before application composition imports."""
     try:
         analysis = import_module("musicforge.analysis")
-        for name in ("MusicAnalyzer", "MusicAnalyzerIf", "MusicAnalysisState", "PercussionActivity"):
+        for name in (
+            "MusicAnalyzer",
+            "MusicAnalyzerIf",
+            "MusicAnalysisState",
+            "PercussionActivity",
+        ):
             getattr(analysis, name)
     except (ImportError, AttributeError, OSError) as error:
         interpreter = shlex.quote(sys.executable)

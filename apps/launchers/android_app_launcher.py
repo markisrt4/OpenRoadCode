@@ -49,12 +49,12 @@ class AndroidAppLauncher:
             name = self._installed_apps.launch_installed_app(package)
             if name is not None:
                 self._app_view.request_show_android_app(name, package)
-                return 'embedded Android app'
+                return "embedded Android app"
         return None
 
     def package_installed(self, package: str) -> bool | None:
         """Read availability without opening an app; None means unverifiable."""
-        if not re.fullmatch(r'[a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z][a-zA-Z0-9_]*)+', package):
+        if not re.fullmatch(r"[a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z][a-zA-Z0-9_]*)+", package):
             return None
         if not self._is_native_android():
             try:
@@ -65,18 +65,32 @@ class AndroidAppLauncher:
         # Android may filter results for the Termux UID: a local negative is
         # inconclusive, so only the existing shell/ADB query can prove absence.
         try:
-            local = subprocess.run(['/system/bin/pm', 'path', package],
-                capture_output=True, text=True, timeout=2, check=False)
-            if local.returncode == 0 and any(line.startswith('package:') for line in local.stdout.splitlines()):
+            local = subprocess.run(
+                ["/system/bin/pm", "path", package],
+                capture_output=True,
+                text=True,
+                timeout=2,
+                check=False,
+            )
+            if local.returncode == 0 and any(
+                line.startswith("package:") for line in local.stdout.splitlines()
+            ):
                 return True
         except (OSError, subprocess.SubprocessError):
             pass
         try:
-            result = subprocess.run(['adb', 'shell', 'pm', 'path', package],
-                capture_output=True, text=True, timeout=5, check=False)
+            result = subprocess.run(
+                ["adb", "shell", "pm", "path", package],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
         except (OSError, subprocess.SubprocessError):
             return None
-        if result.returncode == 0 and any(line.startswith('package:') for line in result.stdout.splitlines()):
+        if result.returncode == 0 and any(
+            line.startswith("package:") for line in result.stdout.splitlines()
+        ):
             return True
         if result.returncode in (0, 1) and not result.stdout.strip() and not result.stderr.strip():
             return False
@@ -113,7 +127,9 @@ class AndroidAppLauncher:
 
         if package:
             try:
-                app = next((app for app in self._waydroid.list_apps() if app.package == package), None)
+                app = next(
+                    (app for app in self._waydroid.list_apps() if app.package == package), None
+                )
                 if app is not None:
                     self._waydroid.launch_app(package)
                     if self._app_view is not None:
@@ -127,9 +143,9 @@ class AndroidAppLauncher:
 
     def open_android_app(self, package: str) -> str:
         """Open an installed app or its listing in Android; never install silently."""
-        if not re.fullmatch(r'[a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z][a-zA-Z0-9_]*)+', package):
-            raise ValueError('Invalid Android package')
-        listing = 'https://play.google.com/store/apps/details?id=' + package
+        if not re.fullmatch(r"[a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z][a-zA-Z0-9_]*)+", package):
+            raise ValueError("Invalid Android package")
+        listing = "https://play.google.com/store/apps/details?id=" + package
         if self._is_native_android():
             embedded = self._open_embedded_native_app(package)
             if embedded:
@@ -138,7 +154,7 @@ class AndroidAppLauncher:
                 (self._native or AndroidBridgeLauncher()).open_package_or_uri(package, listing)
             except AndroidBridgeLauncherError as error:
                 raise AndroidAppLauncherError(str(error)) from error
-            return 'Android app or Google Play listing'
+            return "Android app or Google Play listing"
         try:
             apps = self._waydroid.list_apps()
             installed = next((app for app in apps if app.package == package), None)
@@ -147,12 +163,14 @@ class AndroidAppLauncher:
                 if self._app_view is not None:
                     self._app_view.request_show_android_app(installed.name, package)
                 return installed.name
-            store = next((app for app in apps if app.package == 'com.android.vending'), None)
+            store = next((app for app in apps if app.package == "com.android.vending"), None)
             if store is None:
-                raise AndroidAppLauncherError('This app is not installed. Enable Google Play in Waydroid, install it, then retry.')
-            self._waydroid.launch_uri('market://details?id=' + package)
+                raise AndroidAppLauncherError(
+                    "This app is not installed. Enable Google Play in Waydroid, install it, then retry."
+                )
+            self._waydroid.launch_uri("market://details?id=" + package)
             if self._app_view is not None:
-                self._app_view.request_show_android_app('Google Play — install app', store.package)
-            return 'Google Play — review and install the app, then return to this POI'
+                self._app_view.request_show_android_app("Google Play — install app", store.package)
+            return "Google Play — review and install the app, then return to this POI"
         except WaydroidLauncherError as error:
             raise AndroidAppLauncherError(str(error)) from error

@@ -28,9 +28,14 @@ def enrich_poi(poi: PointOfInterest) -> PointOfInterest:
     ordering = False
 
     website = valid_website(poi.website)
-    business = resolve_business(brand=poi.brand, name=poi.name,
-                                brand_wikidata=poi.brand_wikidata, operator=poi.operator,
-                                website=website, category=None if poi.category is PoiCategory.OTHER else poi.category.name.casefold())
+    business = resolve_business(
+        brand=poi.brand,
+        name=poi.name,
+        brand_wikidata=poi.brand_wikidata,
+        operator=poi.operator,
+        website=website,
+        category=None if poi.category is PoiCategory.OTHER else poi.category.name.casefold(),
+    )
     if business is not None:
         brand = business.brand
         provider = get_business_provider(business.provider_id)
@@ -44,14 +49,26 @@ def enrich_poi(poi: PointOfInterest) -> PointOfInterest:
                 )
             )
         if not ordering and provider is not None and provider.android_package:
-            actions.append(PoiAction(PoiActionKind.OPEN_ANDROID_APP, 'OPEN / INSTALL APP', provider_id=business.provider_id))
+            actions.append(
+                PoiAction(
+                    PoiActionKind.OPEN_ANDROID_APP,
+                    "OPEN / INSTALL APP",
+                    provider_id=business.provider_id,
+                )
+            )
 
     if website and not ordering:
         actions.append(PoiAction(PoiActionKind.OPEN_WEBSITE, "WEBSITE", uri=website))
     image = icon_bytes(business.icon_id) if business else None
-    return replace(poi, brand=brand, website=website, actions=tuple(actions),
-                   business_id=business.provider_id if business else None,
-                   icon_id=business.icon_id if business else None,
-                   icon=PoiIcon(image) if image else None,
-                   title_style=PoiTitleStyle(business.title_color, business.title_fonts)
-                   if business is not None and business.title_color else None)
+    return replace(
+        poi,
+        brand=brand,
+        website=website,
+        actions=tuple(actions),
+        business_id=business.provider_id if business else None,
+        icon_id=business.icon_id if business else None,
+        icon=PoiIcon(image) if image else None,
+        title_style=PoiTitleStyle(business.title_color, business.title_fonts)
+        if business is not None and business.title_color
+        else None,
+    )

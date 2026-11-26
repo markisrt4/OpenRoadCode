@@ -114,10 +114,28 @@ class OrcUiComposition:
         self._closed = True
         close_resources(
             self.app.shutdown,
-            *(resource.close for resource in (
-                self.appointment_monitor, self.waze_gestures, self.android_app_view, self.waze_app_view, self.waze, self.host_location, self.host_location_permission, self.location_sharing, self.host_location_session, self.performance_status, self.performance, self.vision, self.navigation,
-                self.navigation_places, self.radar_replay, self.weather_overlays,
-            ) if resource is not None),
+            *(
+                resource.close
+                for resource in (
+                    self.appointment_monitor,
+                    self.waze_gestures,
+                    self.android_app_view,
+                    self.waze_app_view,
+                    self.waze,
+                    self.host_location,
+                    self.host_location_permission,
+                    self.location_sharing,
+                    self.host_location_session,
+                    self.performance_status,
+                    self.performance,
+                    self.vision,
+                    self.navigation,
+                    self.navigation_places,
+                    self.radar_replay,
+                    self.weather_overlays,
+                )
+                if resource is not None
+            ),
             self.radio.close,
             self.games.shutdown,
             self.media.close,
@@ -134,4 +152,3 @@ def _report(
 ) -> None:
     if progress is not None:
         progress(stage, message)
-

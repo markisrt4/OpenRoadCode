@@ -41,8 +41,9 @@ def package(root, output, coverage):
             "bounds_deg": manifest["bounds_deg"],
             "terrain_schema": manifest["schema"],
             "tile_count": len(manifest.get("tiles", ())),
-            "lod_levels": sorted({tile.get("detail_level", 0)
-                                  for tile in manifest.get("tiles", ())}),
+            "lod_levels": sorted(
+                {tile.get("detail_level", 0) for tile in manifest.get("tiles", ())}
+            ),
             "build_profile": build_profile("terrain", coverage),
             "build_revision": build_revision("terrain"),
             "build_fingerprint": build_fingerprint("terrain", coverage),

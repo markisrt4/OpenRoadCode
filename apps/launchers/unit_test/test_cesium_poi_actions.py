@@ -16,13 +16,17 @@ def native(monkeypatch, tmp_path):
     browser.is_running.return_value = True
     server.url = "http://127.0.0.1:1234/"
     server_factory, browser_factory = Mock(return_value=server), Mock(return_value=browser)
-    monkeypatch.setattr(module,'CesiumViewerServer',server_factory)
-    monkeypatch.setattr(module,'BrowserKioskLauncher',browser_factory)
-    for name in ('detroit_pack_directory','preferred_imagery_directory','detroit_building_directory'):
-        monkeypatch.setattr(module,name,lambda *args: tmp_path/'absent')
-    monkeypatch.setattr(module,'load_installed_terrain_catalog',lambda *args:None)
-    monkeypatch.setattr(module,'installed_imagery_pyramids',lambda:())
-    monkeypatch.setattr(module,'logging_file_path',lambda *args: tmp_path/'viewer.log')
+    monkeypatch.setattr(module, "CesiumViewerServer", server_factory)
+    monkeypatch.setattr(module, "BrowserKioskLauncher", browser_factory)
+    for name in (
+        "detroit_pack_directory",
+        "preferred_imagery_directory",
+        "detroit_building_directory",
+    ):
+        monkeypatch.setattr(module, name, lambda *args: tmp_path / "absent")
+    monkeypatch.setattr(module, "load_installed_terrain_catalog", lambda *args: None)
+    monkeypatch.setattr(module, "installed_imagery_pyramids", lambda: ())
+    monkeypatch.setattr(module, "logging_file_path", lambda *args: tmp_path / "viewer.log")
     adapter = module.CesiumPoiActions(Mock())
     yield adapter, server, browser, server_factory, browser_factory
     adapter.close()

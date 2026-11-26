@@ -39,19 +39,19 @@ def _load_integrations(directory: Path = _INTEGRATION_DIR) -> dict[str, Business
                     )
                 target[key] = str(value)
 
-    apps = directory.parent / 'android_apps.json'
+    apps = directory.parent / "android_apps.json"
     if apps.exists():
         document = json.loads(apps.read_text())
-        if document.get('schema_version') != 1:
-            raise ValueError('Unsupported Android app registry schema')
-        for provider_id, raw in document['apps'].items():
-            package = raw['package']
-            if not re.fullmatch(r'[a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z][a-zA-Z0-9_]*)+', package):
-                raise ValueError('Invalid Android package in business registry')
+        if document.get("schema_version") != 1:
+            raise ValueError("Unsupported Android app registry schema")
+        for provider_id, raw in document["apps"].items():
+            package = raw["package"]
+            if not re.fullmatch(r"[a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z][a-zA-Z0-9_]*)+", package):
+                raise ValueError("Invalid Android package in business registry")
             target = merged.setdefault(provider_id, {})
-            if target.get('package', package) != package:
-                raise ValueError('Conflicting Android app mapping')
-            target['package'] = package
+            if target.get("package", package) != package:
+                raise ValueError("Conflicting Android app mapping")
+            target["package"] = package
 
     return {
         provider_id: BusinessProvider(

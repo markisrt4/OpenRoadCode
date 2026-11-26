@@ -226,10 +226,18 @@ class NationalFreewayBuildTests(unittest.TestCase):
             source.write_bytes(b"census archive fixture")
             result = _build_national_freeways(source)
             shapefile = Path(tmpdir) / "us-primary-roads/tl_2026_us_primaryroads.shp"
-            self.assertEqual(run.call_args_list[0].args[0], [
-                "ogr2ogr", "-f", "ESRI Shapefile", "-t_srs", "EPSG:4326",
-                str(shapefile), f"/vsizip/{source}/tl_2026_us_primaryroads.shp",
-            ])
+            self.assertEqual(
+                run.call_args_list[0].args[0],
+                [
+                    "ogr2ogr",
+                    "-f",
+                    "ESRI Shapefile",
+                    "-t_srs",
+                    "EPSG:4326",
+                    str(shapefile),
+                    f"/vsizip/{source}/tl_2026_us_primaryroads.shp",
+                ],
+            )
             tilemaker = run.call_args_list[1].args[0]
             self.assertEqual(tilemaker[0], "tilemaker")
             self.assertIn("us-freeways.mbtiles", " ".join(tilemaker))
@@ -244,11 +252,15 @@ class NationalFreewayBuildTests(unittest.TestCase):
         source = Path("/cache/census/tl_2026_us_primaryroads.zip")
         events = []
         with (
-            patch("tools.map_builder.builder.build._national_freeway_archive",
-                  side_effect=lambda: events.append(("download", "census")) or source),
+            patch(
+                "tools.map_builder.builder.build._national_freeway_archive",
+                side_effect=lambda: events.append(("download", "census")) or source,
+            ),
             patch("tools.map_builder.builder.build._download_and_verify", return_value=source),
-            patch("tools.map_builder.builder.build._prepare_output_dirs",
-                  side_effect=lambda **_kwargs: events.append(("prepare", None))),
+            patch(
+                "tools.map_builder.builder.build._prepare_output_dirs",
+                side_effect=lambda **_kwargs: events.append(("prepare", None)),
+            ),
             patch("tools.map_builder.builder.build._install_sources", return_value=[source]),
             patch("tools.map_builder.builder.build._merge_for_build", return_value=(source, None)),
             patch("tools.map_builder.builder.build.build_search_index", return_value={}),

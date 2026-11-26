@@ -192,23 +192,32 @@ def test_dateline_refresh_preserves_distant_locations(tmp_path):
         assert c.execute("SELECT id FROM poi").fetchall() == [("osm:node:2",)]
 
 
-@pytest.mark.parametrize('tags,expected', [
-    ({'website': 'https://local.example/menu', 'contact:website': 'https://other.example'}, 'https://local.example/menu'),
-    ({'contact:website': 'https://local.example'}, 'https://local.example'),
-    ({'website': 'javascript:alert(1)', 'contact:website': 'https://local.example'}, 'https://local.example'),
-    ({'website': 'file:///etc/passwd'}, None),
-    ({'website': 'https://user:password@example.com'}, None),
-    ({'website': 'https://example.com:bad'}, None),
-])
-@pytest.mark.parametrize('ordering_brand', [False, True])
+@pytest.mark.parametrize(
+    "tags,expected",
+    [
+        (
+            {"website": "https://local.example/menu", "contact:website": "https://other.example"},
+            "https://local.example/menu",
+        ),
+        ({"contact:website": "https://local.example"}, "https://local.example"),
+        (
+            {"website": "javascript:alert(1)", "contact:website": "https://local.example"},
+            "https://local.example",
+        ),
+        ({"website": "file:///etc/passwd"}, None),
+        ({"website": "https://user:password@example.com"}, None),
+        ({"website": "https://example.com:bad"}, None),
+    ],
+)
+@pytest.mark.parametrize("ordering_brand", [False, True])
 def test_website_tags_become_actions_after_import(tmp_path, tags, expected, ordering_brand):
-    db = tmp_path / 'search.sqlite'
+    db = tmp_path / "search.sqlite"
     item = node()
     if not ordering_brand:
-        item['tags']['name'] = 'Independent Cafe'
-        item['tags'].pop('brand')
-    item['tags'].update(tags)
-    install({'elements': [item]}, db)
+        item["tags"]["name"] = "Independent Cafe"
+        item["tags"].pop("brand")
+    item["tags"].update(tags)
+    install({"elements": [item]}, db)
     source = SqlitePoiSearchSource(db)
     try:
         poi = enrich_poi(

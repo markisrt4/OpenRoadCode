@@ -12,26 +12,31 @@ from ui.navigation.cesium_viewer_state import CesiumViewerState
 
 
 @pytest.fixture
-def native(tmp_path,monkeypatch):
-    events=[]
-    absent=tmp_path/'absent'
-    for name in ('preferred_imagery_directory','detroit_building_directory','preferred_tiles_directory'):
-        monkeypatch.setattr(module,name,lambda *args:absent)
-    monkeypatch.setattr(module,'load_installed_terrain_catalog',lambda *args:None)
-    monkeypatch.setattr(module,'installed_imagery_pyramids',lambda:())
-    monkeypatch.setattr(module,'load_imagery_stack',lambda:())
-    roads = Mock(name='roads')
-    monkeypatch.setattr(module.LocalRoadOverlay, 'installed', lambda: roads)
-    monkeypatch.setattr(module,'sdk_directory',lambda:tmp_path/'sdk')
-    monkeypatch.setattr(module,'logging_file_path',lambda app,name:tmp_path/name)
-    browser=Mock()
-    browser.is_running.return_value=True
-    server=Mock(url='http://127.0.0.1:12345/')
-    server.close_requested.is_set.return_value=False
-    server.close.side_effect=lambda:events.append('server.close')
-    browser.stop.side_effect=lambda *args,**kwargs:events.append('browser.stop')
-    servers=Mock(return_value=server)
-    monkeypatch.setattr(module,'CesiumViewerServer',servers)
+def native(tmp_path, monkeypatch):
+    events = []
+    absent = tmp_path / "absent"
+    for name in (
+        "preferred_imagery_directory",
+        "detroit_building_directory",
+        "preferred_tiles_directory",
+    ):
+        monkeypatch.setattr(module, name, lambda *args: absent)
+    monkeypatch.setattr(module, "load_installed_terrain_catalog", lambda *args: None)
+    monkeypatch.setattr(module, "installed_imagery_pyramids", lambda: ())
+    monkeypatch.setattr(module, "load_imagery_stack", lambda: ())
+    roads = Mock(name="roads")
+    monkeypatch.setattr(module.LocalRoadOverlay, "installed", lambda: roads)
+    monkeypatch.setattr(module, "sdk_directory", lambda: tmp_path / "sdk")
+    monkeypatch.setattr(module, "logging_file_path", lambda app, name: tmp_path / name)
+    browser = Mock()
+    browser.is_running.return_value = True
+    server = Mock(url="http://127.0.0.1:12345/")
+    server.close_requested.is_set.return_value = False
+    server.close.side_effect = lambda: events.append("server.close")
+    browser.stop.side_effect = lambda *args, **kwargs: events.append("browser.stop")
+    servers = Mock(return_value=server)
+    monkeypatch.setattr(module, "CesiumViewerServer", servers)
+
     def make_browser(**kwargs):
         assert kwargs["url"] == server.url + "embedded-start.html"
         assert "--no-first-run" in kwargs["extra_arguments"]
@@ -293,50 +298,73 @@ def test_unavailable_graphics_diagnostics_do_not_block_viewer(native):
 
 def test_system_info_uses_browser_target_not_page_target():
     from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
-    client=ChromiumDevToolsClient()
-    client.version=Mock(return_value={'webSocketDebuggerUrl':'ws://127.0.0.1:9223/browser/id'})
-    client._command=Mock(return_value={'gpu':{}})
-    assert client.system_info()=={'gpu':{}}
-    client._command.assert_called_once_with('ws://127.0.0.1:9223/browser/id','SystemInfo.getInfo',{})
+
+    client = ChromiumDevToolsClient()
+    client.version = Mock(return_value={"webSocketDebuggerUrl": "ws://127.0.0.1:9223/browser/id"})
+    client._command = Mock(return_value={"gpu": {}})
+    assert client.system_info() == {"gpu": {}}
+    client._command.assert_called_once_with(
+        "ws://127.0.0.1:9223/browser/id", "SystemInfo.getInfo", {}
+    )
 
 
 def test_layer_snapshot_and_semantic_requests_use_owned_browser(native):
     from ui.navigation.map_layer_controls import MapLayerAction
-    native.viewer.open(state(),100,(640,320))
-    native.devtools.command.side_effect=None
-    native.devtools.command.return_value={'result':{'value':{'revision':0,'poi':None,'controls':[
-        {'action':'buildings','label':'Buildings','available':True,'enabled':False}]}}}
-    native.viewer.tick((640,320))
-    control=native.viewer.layer_controls.controls[0]
+
+    native.viewer.open(state(), 100, (640, 320))
+    native.devtools.command.side_effect = None
+    native.devtools.command.return_value = {
+        "result": {
+            "value": {
+                "revision": 0,
+                "poi": None,
+                "controls": [
+                    {
+                        "action": "buildings",
+                        "label": "Buildings",
+                        "available": True,
+                        "enabled": False,
+                    }
+                ],
+            }
+        }
+    }
+    native.viewer.tick((640, 320))
+    control = native.viewer.layer_controls.controls[0]
     assert control.action is MapLayerAction.BUILDINGS
     assert control.available and not control.enabled
-    native.devtools.command.return_value={'result':{'value':True}}
+    native.devtools.command.return_value = {"result": {"value": True}}
     native.viewer.request_layer(MapLayerAction.BUILDINGS)
-    assert native.devtools.command.call_args.args[2]['expression']=='window.ORCMapLayerAction("buildings")'
+    assert (
+        native.devtools.command.call_args.args[2]["expression"]
+        == 'window.ORCMapLayerAction("buildings")'
+    )
     native.viewer.close()
     assert not native.viewer.layer_controls.controls
-    with pytest.raises(RuntimeError,match='not ready'):
+    with pytest.raises(RuntimeError, match="not ready"):
         native.viewer.request_layer(MapLayerAction.BUILDINGS)
 
 
 def test_suspend_and_resume_only_unmap_and_map_owned_window(native, monkeypatch):
     run = Mock()
-    monkeypatch.setattr(module.subprocess, 'run', run)
-    native.viewer.open(state(),100,(640,320))
+    monkeypatch.setattr(module.subprocess, "run", run)
+    native.viewer.open(state(), 100, (640, 320))
     native.embedder.window_id = 1234
     native.embedder.embed.reset_mock()
     native.viewer.suspend()
-    native.viewer.resume((800,400))
+    native.viewer.resume((800, 400))
     assert [call.args[0] for call in run.call_args_list] == [
-        ['xdotool','windowunmap','1234'], ['xdotool','windowmap','1234']]
-    native.embedder.resize.assert_called_with(800,400)
+        ["xdotool", "windowunmap", "1234"],
+        ["xdotool", "windowmap", "1234"],
+    ]
+    native.embedder.resize.assert_called_with(800, 400)
     native.embedder.embed.assert_not_called()
     assert native.browsers.call_count == 1
     native.browser.stop.assert_not_called()
 
 
 def test_resume_rejects_dead_browser_before_mapping(native):
-    native.viewer.open(state(),100,(640,320))
+    native.viewer.open(state(), 100, (640, 320))
     native.browser.is_running.return_value = False
-    with pytest.raises(RuntimeError, match='Retained Chromium exited'):
-        native.viewer.resume((640,320))
+    with pytest.raises(RuntimeError, match="Retained Chromium exited"):
+        native.viewer.resume((640, 320))

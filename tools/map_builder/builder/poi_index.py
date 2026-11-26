@@ -128,9 +128,9 @@ def _insert_point_feature(connection: sqlite3.Connection, feature: dict) -> None
                 source_class,
                 source_subclass,
                 transit_mode,
-                valid_website(tags.get('website')) or valid_website(tags.get('contact:website')),
-                tags.get('brand:wikidata'),
-                tags.get('operator'),
+                valid_website(tags.get("website")) or valid_website(tags.get("contact:website")),
+                tags.get("brand:wikidata"),
+                tags.get("operator"),
             ),
         )
 

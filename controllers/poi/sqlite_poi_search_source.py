@@ -43,9 +43,10 @@ class SqlitePoiSearchSource(PoiSearchSourceIf):
         self._connection.row_factory = sqlite3.Row
         columns = {row[1] for row in self._connection.execute("PRAGMA table_info(poi)")}
         self._website_column = "website" if "website" in columns else "NULL AS website"
-        self._identity_columns = ', '.join(
-            column if column in columns else f'NULL AS {column}'
-            for column in ('brand_wikidata', 'operator'))
+        self._identity_columns = ", ".join(
+            column if column in columns else f"NULL AS {column}"
+            for column in ("brand_wikidata", "operator")
+        )
 
     def search(self, query: PoiSearchQuery) -> tuple[PointOfInterest, ...]:
         category = _CATEGORY_NAME.get(query.category)

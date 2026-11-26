@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Launch a Waydroid package without starting a desktop-browser fallback."""
+
 from apps.launchers.waydroid_launcher import WaydroidLauncher, WaydroidLauncherError
 from ui.navigation.installed_android_app_if import InstalledAndroidAppLauncherIf
 

@@ -22,24 +22,51 @@ from ui.navigation.navigation_places_request_handler_if import NavigationPlacesF
 class NavigationPlacesFactory(NavigationPlacesFactoryIf):
     """Share durable dependencies and track transient sessions for shutdown."""
 
-    def __init__(self, *, favorites: MapFavorites | None = None,
-                 actions: PoiActionExecutorIf | None = None,
-                 search_factory: Callable[[], PoiSearchControllerIf] | None = None,
-                 online_allowed: Callable[[], bool] = lambda: True, camera_observer=None, embedded_explore=None,
-                 android_app_view=None, installed_apps=None,
-                 viewport_search_enabled=lambda: True, marker_selection_source=None):
+    def __init__(
+        self,
+        *,
+        favorites: MapFavorites | None = None,
+        actions: PoiActionExecutorIf | None = None,
+        search_factory: Callable[[], PoiSearchControllerIf] | None = None,
+        online_allowed: Callable[[], bool] = lambda: True,
+        camera_observer=None,
+        embedded_explore=None,
+        android_app_view=None,
+        installed_apps=None,
+        viewport_search_enabled=lambda: True,
+        marker_selection_source=None,
+    ):
         self._favorites = favorites if favorites is not None else MapFavorites()
-        platform_actions = AndroidPoiActionExecutor(AndroidAppLauncher(app_view=android_app_view,
-                                                                       installed_apps=installed_apps)) if actions is None else None
-        self._app_availability = platform_actions.app_availability if platform_actions is not None else None
-        self._owned_3d = None if actions is not None else CesiumPoiActions(
-            EarthExplorationActions(platform_actions),
-            embedded_explore=embedded_explore)
+        platform_actions = (
+            AndroidPoiActionExecutor(
+                AndroidAppLauncher(app_view=android_app_view, installed_apps=installed_apps)
+            )
+            if actions is None
+            else None
+        )
+        self._app_availability = (
+            platform_actions.app_availability if platform_actions is not None else None
+        )
+        self._owned_3d = (
+            None
+            if actions is not None
+            else CesiumPoiActions(
+                EarthExplorationActions(platform_actions), embedded_explore=embedded_explore
+            )
+        )
         self._actions = actions if actions is not None else self._owned_3d
         self._selection_cache = PoiSelectionCache()
-        self._search_factory = search_factory if search_factory is not None else (
-            lambda: PoiSearchController(selection_cache=self._selection_cache,
-                viewport_search_enabled=viewport_search_enabled, marker_selection_source=marker_selection_source))
+        self._search_factory = (
+            search_factory
+            if search_factory is not None
+            else (
+                lambda: PoiSearchController(
+                    selection_cache=self._selection_cache,
+                    viewport_search_enabled=viewport_search_enabled,
+                    marker_selection_source=marker_selection_source,
+                )
+            )
+        )
         self._sessions = WeakSet()
         self._closed = False
         self._online_allowed = online_allowed
@@ -50,10 +77,15 @@ class NavigationPlacesFactory(NavigationPlacesFactoryIf):
             raise RuntimeError("Navigation places factory is closed")
         # Match the previous per-mount store construction: pick up saved-place edits.
         self._favorites.load()
-        session = NavigationPlacesController(self._search_factory(), self._favorites, self._actions,
-                                             online_allowed=self._online_allowed, camera_observer=self._camera_observer,
-                                             app_availability=self._app_availability,
-                                             local_3d_action=self._owned_3d.action_for if self._owned_3d is not None else None)
+        session = NavigationPlacesController(
+            self._search_factory(),
+            self._favorites,
+            self._actions,
+            online_allowed=self._online_allowed,
+            camera_observer=self._camera_observer,
+            app_availability=self._app_availability,
+            local_3d_action=self._owned_3d.action_for if self._owned_3d is not None else None,
+        )
         self._sessions.add(session)
         return session
 

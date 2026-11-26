@@ -35,22 +35,25 @@ class X11WindowEmbedder(WindowEmbedderIf):
     def root_window_id() -> int:
         """Resolve the X11 root without relying on a nonexistent Tk winfo API."""
         try:
-            result = subprocess.run(['xwininfo', '-root'], capture_output=True,
-                                    text=True, check=True, timeout=3)
+            result = subprocess.run(
+                ["xwininfo", "-root"], capture_output=True, text=True, check=True, timeout=3
+            )
         except FileNotFoundError:
             return X11WindowEmbedder._root_from_xlib()
         except (OSError, subprocess.SubprocessError) as error:
-            raise RuntimeError('Could not read the X11 root window; check DISPLAY and X11 access') from error
-        match = re.search(r'Window id:\s*(0x[0-9a-fA-F]+)', result.stdout)
+            raise RuntimeError(
+                "Could not read the X11 root window; check DISPLAY and X11 access"
+            ) from error
+        match = re.search(r"Window id:\s*(0x[0-9a-fA-F]+)", result.stdout)
         if match is None:
-            raise RuntimeError('Could not identify the X11 root window')
+            raise RuntimeError("Could not identify the X11 root window")
         return int(match.group(1), 16)
 
     @staticmethod
     def _root_from_xlib() -> int:
         """Termux may lack xwininfo; reuse Tk's existing system X11 library."""
         try:
-            library = ctypes.CDLL(find_library('X11') or 'libX11.so')
+            library = ctypes.CDLL(find_library("X11") or "libX11.so")
             library.XOpenDisplay.argtypes = [ctypes.c_char_p]
             library.XOpenDisplay.restype = ctypes.c_void_p
             library.XDefaultRootWindow.argtypes = [ctypes.c_void_p]
@@ -59,16 +62,18 @@ class X11WindowEmbedder(WindowEmbedderIf):
             library.XCloseDisplay.restype = ctypes.c_int
             display = library.XOpenDisplay(None)
             if not display:
-                raise RuntimeError('Could not open the X11 display; check DISPLAY and X11 access')
+                raise RuntimeError("Could not open the X11 display; check DISPLAY and X11 access")
             try:
                 root = int(library.XDefaultRootWindow(display))
                 if root == 0:
-                    raise RuntimeError('Could not identify the X11 root window')
+                    raise RuntimeError("Could not identify the X11 root window")
                 return root
             finally:
                 library.XCloseDisplay(display)
         except (OSError, AttributeError) as error:
-            raise RuntimeError('Could not load the X11 library needed to preserve the viewer window') from error
+            raise RuntimeError(
+                "Could not load the X11 library needed to preserve the viewer window"
+            ) from error
 
     def embed(
         self,
@@ -121,7 +126,7 @@ class X11WindowEmbedder(WindowEmbedderIf):
                 self.set_vertical_crop(*vertical_crop)
                 self.resize(width, height)
                 if self._window_id is None:
-                    raise subprocess.SubprocessError('X11 client disappeared during embedding')
+                    raise subprocess.SubprocessError("X11 client disappeared during embedding")
                 subprocess.run(
                     ["xdotool", "windowmap", str(window_id)],
                     check=True,
@@ -136,7 +141,7 @@ class X11WindowEmbedder(WindowEmbedderIf):
                 time.sleep(0.05)
                 self.resize(width, height)
                 if self._window_id is None:
-                    raise subprocess.SubprocessError('X11 client disappeared during embedding')
+                    raise subprocess.SubprocessError("X11 client disappeared during embedding")
                 return window_id
             except subprocess.SubprocessError as error:
                 last_error = error
@@ -144,8 +149,16 @@ class X11WindowEmbedder(WindowEmbedderIf):
                     # Preserve a borrowed compositor even after a late resize
                     # failure: it must not remain under a soon-destroyed host.
                     subprocess.run(
-                        ['xdotool', 'windowreparent', str(window_id), str(failure_parent_window_id)],
-                        check=False, capture_output=True, text=True)
+                        [
+                            "xdotool",
+                            "windowreparent",
+                            str(window_id),
+                            str(failure_parent_window_id),
+                        ],
+                        check=False,
+                        capture_output=True,
+                        text=True,
+                    )
                 self._window_id = None
                 self._host_window_id = None
                 self._relax_size_hints = False
@@ -208,26 +221,36 @@ class X11WindowEmbedder(WindowEmbedderIf):
         if window_id is None:
             return
         exists = subprocess.run(
-            ['xdotool', 'getwindowgeometry', '--shell', str(window_id)],
-            check=False, capture_output=True, text=True,
+            ["xdotool", "getwindowgeometry", "--shell", str(window_id)],
+            check=False,
+            capture_output=True,
+            text=True,
         )
         if exists.returncode != 0:
             return
         # Reparenting a *mapped* client to the desktop requests that the window
         # manager manage/map it. Unmap first so a late WM map cannot undo hide.
         hidden = subprocess.run(
-            ['xdotool', 'windowunmap', str(window_id)],
-            check=False, capture_output=True, text=True,
+            ["xdotool", "windowunmap", str(window_id)],
+            check=False,
+            capture_output=True,
+            text=True,
         )
         if hidden.returncode != 0:
             return
         reparent = subprocess.run(
-            ['xdotool', 'windowreparent', str(window_id), str(parent_window_id)],
-            check=False, capture_output=True, text=True,
+            ["xdotool", "windowreparent", str(window_id), str(parent_window_id)],
+            check=False,
+            capture_output=True,
+            text=True,
         )
         if reparent.returncode == 0:
-            subprocess.run(['xdotool', 'windowunmap', str(window_id)],
-                           check=False, capture_output=True, text=True)
+            subprocess.run(
+                ["xdotool", "windowunmap", str(window_id)],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
 
     @staticmethod
     def _find_by_process(process_id: int) -> int | None:
@@ -355,16 +378,23 @@ class X11WindowEmbedder(WindowEmbedderIf):
         self._relax_current_size_hints()
         result = subprocess.run(
             ["xdotool", "windowsize", str(self._window_id), str(width), str(height + top + bottom)],
-            check=False, capture_output=True, text=True,
+            check=False,
+            capture_output=True,
+            text=True,
         )
         if result.returncode != 0:
             self.clear()
             return
         if self._host_window_id is not None:
             result = subprocess.run(
-                (["xdotool", "windowmove", "--", str(self._window_id), "0", str(-top)]
-                 if top else ["xdotool", "windowmove", str(self._window_id), "0", "0"]),
-                check=False, capture_output=True, text=True,
+                (
+                    ["xdotool", "windowmove", "--", str(self._window_id), "0", str(-top)]
+                    if top
+                    else ["xdotool", "windowmove", str(self._window_id), "0", "0"]
+                ),
+                check=False,
+                capture_output=True,
+                text=True,
             )
             if result.returncode != 0:
                 self.clear()
@@ -378,5 +408,5 @@ class X11WindowEmbedder(WindowEmbedderIf):
     def set_vertical_crop(self, top: int, bottom: int) -> None:
         """Reserve off-viewport chrome without scaling the application's pixels."""
         if not (0 <= top <= 256 and 0 <= bottom <= 256):
-            raise ValueError('Vertical crop must be between 0 and 256 pixels')
+            raise ValueError("Vertical crop must be between 0 and 256 pixels")
         self._vertical_crop = (int(top), int(bottom))

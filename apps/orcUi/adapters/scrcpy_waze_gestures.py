@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Deliver gestures to the owned scrcpy X11 window, never a default display."""
+
 import json
 import os
 import subprocess
@@ -25,25 +26,38 @@ class ScrcpyWazeGestures:
         if surface is None or window is None or cancelled():
             return
         session, title, frame_size, display = surface
-        payload = json.dumps(dict(window=window, title=title, frame_size=frame_size, gesture=gesture.value))
-        process = subprocess.Popen([sys.executable, '-m', 'frontends.x11.scrcpy_gesture_sender'],
-            cwd=Path(__file__).resolve().parents[3], env=dict(os.environ, DISPLAY=display),
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        payload = json.dumps(
+            dict(window=window, title=title, frame_size=frame_size, gesture=gesture.value)
+        )
+        process = subprocess.Popen(
+            [sys.executable, "-m", "frontends.x11.scrcpy_gesture_sender"],
+            cwd=Path(__file__).resolve().parents[3],
+            env=dict(os.environ, DISPLAY=display),
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
         try:
             deadline, pending = time.monotonic() + 5, payload
             while True:
                 current = self._player.gesture_surface()
-                if cancelled() or current is None or current[0] is not session or self._embedder.window_id != window:
+                if (
+                    cancelled()
+                    or current is None
+                    or current[0] is not session
+                    or self._embedder.window_id != window
+                ):
                     return
                 if time.monotonic() >= deadline:
-                    raise RuntimeError('The Waze gesture sender did not respond')
+                    raise RuntimeError("The Waze gesture sender did not respond")
                 try:
-                    _, error = process.communicate(input=pending, timeout=.05)
+                    _, error = process.communicate(input=pending, timeout=0.05)
                     break
                 except subprocess.TimeoutExpired:
                     pending = None
             if process.returncode:
-                raise RuntimeError('Waze gesture failed: ' + error[-500:])
+                raise RuntimeError("Waze gesture failed: " + error[-500:])
         finally:
             if process.poll() is None:
                 process.terminate()  # Sender releases mouse/Ctrl in its finally block.

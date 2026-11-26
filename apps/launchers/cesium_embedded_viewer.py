@@ -93,28 +93,52 @@ class CesiumEmbeddedViewer:
             raise RuntimeError("xdotool is required for the embedded 3D map")
         if not current():
             return
-        _diagnostic('imagery-catalog-start')
+        _diagnostic("imagery-catalog-start")
         imagery_layers = load_imagery_stack()
-        imagery_dir = detroit_pack_directory() if imagery_layers else preferred_imagery_directory(state.destination)
+        imagery_dir = (
+            detroit_pack_directory()
+            if imagery_layers
+            else preferred_imagery_directory(state.destination)
+        )
         building_dir = detroit_building_directory()
         tile_dir = preferred_tiles_directory(state.destination)
         tiles = load_viewer_tiles(tile_dir) if tile_dir.exists() else None
-        imagery = LocalImageryPack.load(imagery_dir) if not imagery_layers and imagery_dir.exists() and (tiles is None or not any(t.imagery_available for t in tiles.state.tiles)) else None
-        _diagnostic('terrain-catalog-start')
+        imagery = (
+            LocalImageryPack.load(imagery_dir)
+            if not imagery_layers
+            and imagery_dir.exists()
+            and (tiles is None or not any(t.imagery_available for t in tiles.state.tiles))
+            else None
+        )
+        _diagnostic("terrain-catalog-start")
         terrain = load_installed_terrain_catalog()
-        _diagnostic('terrain-catalog-ready')
-        buildings = load_buildings(building_dir) if tiles is None and building_dir.exists() else None
-        _diagnostic('buildings-ready')
+        _diagnostic("terrain-catalog-ready")
+        buildings = (
+            load_buildings(building_dir) if tiles is None and building_dir.exists() else None
+        )
+        _diagnostic("buildings-ready")
         roads = LocalRoadOverlay.installed()
-        _diagnostic('datasets-ready', latitude=state.destination.latitude_rad,
-                    longitude=state.destination.longitude_rad, distance_m=state.distance_m)
-        display = os.environ.get('DISPLAY', ':1')
+        _diagnostic(
+            "datasets-ready",
+            latitude=state.destination.latitude_rad,
+            longitude=state.destination.longitude_rad,
+            distance_m=state.distance_m,
+        )
+        display = os.environ.get("DISPLAY", ":1")
         resources = ExitStack()
         try:
-            server = CesiumViewerServer(sdk_directory(), replace(state, embedded=True),
-                                       imagery=imagery, imagery_layers=imagery_layers, imagery_pyramids=installed_imagery_pyramids(), terrain=terrain,
-                                       buildings=buildings, tiles=tiles, roads=roads,
-                                       boundaries=load_state_boundary_overlay())
+            server = CesiumViewerServer(
+                sdk_directory(),
+                replace(state, embedded=True),
+                imagery=imagery,
+                imagery_layers=imagery_layers,
+                imagery_pyramids=installed_imagery_pyramids(),
+                terrain=terrain,
+                buildings=buildings,
+                tiles=tiles,
+                roads=roads,
+                boundaries=load_state_boundary_overlay(),
+            )
             resources.callback(server.close)
             profile = resources.enter_context(TemporaryDirectory(prefix="orc-cesium-embedded-"))
             window_class = "orc-cesium-" + uuid.uuid4().hex
@@ -228,7 +252,9 @@ class CesiumEmbeddedViewer:
                 time.sleep(0.1)
             else:
                 if current():
-                    raise RuntimeError(f'Timed out waiting for the first 3D map frame (stage: {last_stage or "unknown"})')
+                    raise RuntimeError(
+                        f"Timed out waiting for the first 3D map frame (stage: {last_stage or 'unknown'})"
+                    )
             if not current():
                 resources.close()
                 self._embedder.clear()
@@ -247,30 +273,34 @@ class CesiumEmbeddedViewer:
     def suspend(self):
         """Keep the owned browser and host association while Road map is visible."""
         self._set_visible(False)
-        _diagnostic('viewer-retained')
+        _diagnostic("viewer-retained")
 
     def resume(self, size):
         """Map the existing X11 child without reparenting its live WebGL surface."""
         if self._browser is None or not self._browser.is_running():
-            raise RuntimeError('Retained Chromium exited')
+            raise RuntimeError("Retained Chromium exited")
         if self._server.close_requested.is_set():
-            raise RuntimeError('Retained 3D viewer was closed')
+            raise RuntimeError("Retained 3D viewer was closed")
         self._embedder.resize(*size)
         self._set_visible(True)
         self._size = size
         if not self.tick(size):
-            raise RuntimeError('Retained 3D viewer requested close')
-        _diagnostic('viewer-resumed')
+            raise RuntimeError("Retained 3D viewer requested close")
+        _diagnostic("viewer-resumed")
 
     def _set_visible(self, visible):
         window_id = self._embedder.window_id
         if type(window_id) is not int or window_id <= 0:
-            raise RuntimeError('Retained 3D window is unavailable')
+            raise RuntimeError("Retained 3D window is unavailable")
         try:
-            subprocess.run(['xdotool', 'windowmap' if visible else 'windowunmap', str(window_id)],
-                           check=True, capture_output=True, timeout=3)
+            subprocess.run(
+                ["xdotool", "windowmap" if visible else "windowunmap", str(window_id)],
+                check=True,
+                capture_output=True,
+                timeout=3,
+            )
         except (OSError, subprocess.SubprocessError) as error:
-            raise RuntimeError('Could not change retained 3D window visibility') from error
+            raise RuntimeError("Could not change retained 3D window visibility") from error
 
     def request_camera(self, action):
         action = ExplorationCameraAction(action)
@@ -290,11 +320,17 @@ class CesiumEmbeddedViewer:
     def request_layer(self, action):
         action = MapLayerAction(action)
         if self._devtools is None:
-            raise RuntimeError('3D layers are not ready')
-        result = self._devtools.command(self._target,'Runtime.evaluate',{
-            'expression':f'window.ORCMapLayerAction({json.dumps(action.value)})','returnByValue':True})
-        if result.get('exceptionDetails') or result.get('result',{}).get('value') is not True:
-            raise RuntimeError('Map layer unavailable')
+            raise RuntimeError("3D layers are not ready")
+        result = self._devtools.command(
+            self._target,
+            "Runtime.evaluate",
+            {
+                "expression": f"window.ORCMapLayerAction({json.dumps(action.value)})",
+                "returnByValue": True,
+            },
+        )
+        if result.get("exceptionDetails") or result.get("result", {}).get("value") is not True:
+            raise RuntimeError("Map layer unavailable")
 
     def tick(self, size):
         if self._server is None or self._browser is None:
@@ -306,14 +342,27 @@ class CesiumEmbeddedViewer:
         if size != self._size:
             self._embedder.resize(*size)
             self._size = size
-        result = self._devtools.command(self._target, 'Runtime.evaluate', {
-            'expression':'({revision:window.ORCManualCameraRevision||0,poi:window.ORCConsumePoiSelection?window.ORCConsumePoiSelection():null,controls:window.ORCMapLayerState?window.ORCMapLayerState():[]})',
-            'returnByValue':True})
-        value = result.get('result', {}).get('value', {})
-        self.layer_controls = MapLayerControls(tuple(MapLayerControl(
-            MapLayerAction(item['action']),str(item['label'])[:40],
-            item['available'] is True,item['enabled'] is True) for item in value.get('controls',[])))
-        revision = value.get('revision', 0)
+        result = self._devtools.command(
+            self._target,
+            "Runtime.evaluate",
+            {
+                "expression": "({revision:window.ORCManualCameraRevision||0,poi:window.ORCConsumePoiSelection?window.ORCConsumePoiSelection():null,controls:window.ORCMapLayerState?window.ORCMapLayerState():[]})",
+                "returnByValue": True,
+            },
+        )
+        value = result.get("result", {}).get("value", {})
+        self.layer_controls = MapLayerControls(
+            tuple(
+                MapLayerControl(
+                    MapLayerAction(item["action"]),
+                    str(item["label"])[:40],
+                    item["available"] is True,
+                    item["enabled"] is True,
+                )
+                for item in value.get("controls", [])
+            )
+        )
+        revision = value.get("revision", 0)
         if type(revision) is int and revision != self._manual_revision:
             self._manual_pending = True
             self._manual_revision = revision

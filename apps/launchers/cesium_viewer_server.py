@@ -27,7 +27,20 @@ _WORLD_LAKES = Path(__file__).resolve().parents[2] / "resources/maps/world_lakes
 class CesiumViewerServer:
     """Own the local origin, immutable view state, and bounded serving lifecycle."""
 
-    def __init__(self, sdk: Path, state: CesiumViewerState, *, imagery=None, imagery_layers=(), terrain=None, buildings=None, tiles=None, roads=None, boundaries=None, imagery_pyramids=()):
+    def __init__(
+        self,
+        sdk: Path,
+        state: CesiumViewerState,
+        *,
+        imagery=None,
+        imagery_layers=(),
+        terrain=None,
+        buildings=None,
+        tiles=None,
+        roads=None,
+        boundaries=None,
+        imagery_pyramids=(),
+    ):
         self._sdk = require_sdk(sdk)
         self._state = state
         self._imagery_pyramids = tuple(imagery_pyramids)
@@ -39,13 +52,13 @@ class CesiumViewerServer:
             tuple(pack.state for pack in self._imagery_layers)
         )
         self._terrain = terrain
-        self._mesh_lock=threading.RLock()
-        self._mesh_owner=self._mesh_sampler=None
+        self._mesh_lock = threading.RLock()
+        self._mesh_owner = self._mesh_sampler = None
         self._buildings = buildings
         self._tiles = tiles
         self._roads = roads
         if boundaries is not None and not isinstance(boundaries, BoundaryOverlayState):
-            raise TypeError('Viewer boundaries must use the presentation contract')
+            raise TypeError("Viewer boundaries must use the presentation contract")
         self._boundaries = boundaries
         self._token = secrets.token_urlsafe(32)
         self.close_requested = threading.Event()
@@ -93,31 +106,40 @@ class _Handler(BaseHTTPRequestHandler):
             self.send_error(403)
             return
         path = unquote(urlsplit(self.path).path)
-        if path.startswith('/data/terrain-mesh/') and isinstance(self.owner._terrain, LocalTerrainCatalog):
+        if path.startswith("/data/terrain-mesh/") and isinstance(
+            self.owner._terrain, LocalTerrainCatalog
+        ):
             try:
-                parts=path.removeprefix('/data/terrain-mesh/').split('/')
-                if len(parts)!=3 or any(not value.isascii() or not value.isdigit() or len(value)>6 for value in parts):
-                    raise ValueError('Invalid terrain mesh address')
+                parts = path.removeprefix("/data/terrain-mesh/").split("/")
+                if len(parts) != 3 or any(
+                    not value.isascii() or not value.isdigit() or len(value) > 6 for value in parts
+                ):
+                    raise ValueError("Invalid terrain mesh address")
                 from apps.launchers.terrain_mesh_sampler import TerrainMeshSampler
+
                 with self.owner._mesh_lock:
                     if self.owner._mesh_owner is not self.owner._terrain:
-                        self.owner._mesh_sampler=TerrainMeshSampler(self.owner._terrain)
-                        self.owner._mesh_owner=self.owner._terrain
-                    sampler=self.owner._mesh_sampler
-                self._send(json.dumps(sampler.mesh(*map(int,parts))).encode(),'application/json')
-            except (ValueError,OSError,KeyError):
-                self.send_error(404,'Offline terrain mesh unavailable')
+                        self.owner._mesh_sampler = TerrainMeshSampler(self.owner._terrain)
+                        self.owner._mesh_owner = self.owner._terrain
+                    sampler = self.owner._mesh_sampler
+                self._send(json.dumps(sampler.mesh(*map(int, parts))).encode(), "application/json")
+            except (ValueError, OSError, KeyError):
+                self.send_error(404, "Offline terrain mesh unavailable")
             return
         if path == "/config.json":
             document = self.owner._state.document()
             document["close_token"] = self.owner._token
-            document['roads_available'] = self.owner._roads is not None
-            document['roads_max_zoom'] = self.owner._roads.max_zoom if self.owner._roads is not None else 14
+            document["roads_available"] = self.owner._roads is not None
+            document["roads_max_zoom"] = (
+                self.owner._roads.max_zoom if self.owner._roads is not None else 14
+            )
             if self.owner._boundaries is not None:
-                document['boundary_overlay'] = self.owner._boundaries.document()
-            document['imagery_pyramids'] = [pack.state.document() for pack in self.owner._imagery_pyramids]
-            for index, layer in enumerate(document['imagery_pyramids']):
-                layer['url'] = f'/data/imagery-detail/{index}/{{z}}/{{x}}/{{y}}'
+                document["boundary_overlay"] = self.owner._boundaries.document()
+            document["imagery_pyramids"] = [
+                pack.state.document() for pack in self.owner._imagery_pyramids
+            ]
+            for index, layer in enumerate(document["imagery_pyramids"]):
+                layer["url"] = f"/data/imagery-detail/{index}/{{z}}/{{x}}/{{y}}"
             if self.owner._imagery_layers:
                 document["imagery_layers"] = self.owner._imagery_stack.document()
                 for index, layer in enumerate(document["imagery_layers"]):
@@ -148,28 +170,46 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/data/world-lakes.geojson":
             self._send(_WORLD_LAKES.read_bytes(), "application/geo+json")
             return
-        if path.startswith('/data/terrain-page/') and isinstance(self.owner._terrain,PagedTerrainCatalog):
+        if path.startswith("/data/terrain-page/") and isinstance(
+            self.owner._terrain, PagedTerrainCatalog
+        ):
             try:
-                parts=path.removeprefix('/data/terrain-page/').split('/')
-                if len(parts)!=3 or any(not p.isascii() or not p.isdigit() or len(p)>6 for p in parts):
-                    raise ValueError('Invalid terrain page address')
-                document=self.owner._terrain.page(*(int(p) for p in parts))
-                self._send(json.dumps(document).encode(),'application/json')
-            except (ValueError,OSError,KeyError):self.send_error(404)
+                parts = path.removeprefix("/data/terrain-page/").split("/")
+                if len(parts) != 3 or any(
+                    not p.isascii() or not p.isdigit() or len(p) > 6 for p in parts
+                ):
+                    raise ValueError("Invalid terrain page address")
+                document = self.owner._terrain.page(*(int(p) for p in parts))
+                self._send(json.dumps(document).encode(), "application/json")
+            except (ValueError, OSError, KeyError):
+                self.send_error(404)
             return
-        if path.startswith('/data/terrain-chunk/') and isinstance(self.owner._terrain,PagedTerrainCatalog):
-            try:self._send(self.owner._terrain.chunk(path.removeprefix('/data/terrain-chunk/')),'application/json')
-            except (ValueError,OSError,KeyError):self.send_error(404)
+        if path.startswith("/data/terrain-chunk/") and isinstance(
+            self.owner._terrain, PagedTerrainCatalog
+        ):
+            try:
+                self._send(
+                    self.owner._terrain.chunk(path.removeprefix("/data/terrain-chunk/")),
+                    "application/json",
+                )
+            except (ValueError, OSError, KeyError):
+                self.send_error(404)
             return
-        if path.startswith('/data/terrain/') and isinstance(self.owner._terrain, LocalTerrainCatalog):
-            index = path.removeprefix('/data/terrain/')
-            if (not index.isascii() or not index.isdigit() or len(index) > 4
-                    or int(index) >= len(self.owner._terrain.payloads)):
+        if path.startswith("/data/terrain/") and isinstance(
+            self.owner._terrain, LocalTerrainCatalog
+        ):
+            index = path.removeprefix("/data/terrain/")
+            if (
+                not index.isascii()
+                or not index.isdigit()
+                or len(index) > 4
+                or int(index) >= len(self.owner._terrain.payloads)
+            ):
                 self.send_error(404)
                 return
-            self._send(self.owner._terrain.payloads[int(index)].read_bytes(), 'application/json')
+            self._send(self.owner._terrain.payloads[int(index)].read_bytes(), "application/json")
             return
-        if path.startswith('/data/roads/') and self.owner._roads is not None:
+        if path.startswith("/data/roads/") and self.owner._roads is not None:
             try:
                 parts = path.removeprefix("/data/roads/").split("/")
                 if len(parts) != 3 or any(
@@ -181,29 +221,43 @@ class _Handler(BaseHTTPRequestHandler):
             except (ValueError, sqlite3.Error, OSError):
                 self.send_error(404, "Offline road tile unavailable")
             return
-        if path.startswith('/data/imagery-detail/'):
+        if path.startswith("/data/imagery-detail/"):
             try:
-                parts = path.removeprefix('/data/imagery-detail/').split('/')
-                if len(parts) != 4 or any(not p.isascii() or not p.isdigit() or len(p)>6 for p in parts):
-                    raise ValueError('Invalid imagery tile URL')
+                parts = path.removeprefix("/data/imagery-detail/").split("/")
+                if len(parts) != 4 or any(
+                    not p.isascii() or not p.isdigit() or len(p) > 6 for p in parts
+                ):
+                    raise ValueError("Invalid imagery tile URL")
                 index, zoom, x, y = map(int, parts)
                 if index >= len(self.owner._imagery_pyramids):
-                    raise ValueError('Unknown imagery pyramid')
+                    raise ValueError("Unknown imagery pyramid")
                 pack = self.owner._imagery_pyramids[index]
-                content = pack.tile(zoom,x,y)
+                content = pack.tile(zoom, x, y)
                 if content is None:
                     # Valid address with no source coverage: show the underlying
                     # overview instead of repeated tile errors or fabricated data.
-                    content = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=')
-                    self._send(content,'image/png')
+                    content = base64.b64decode(
+                        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNgYAAAAAMAASsJTYQAAAAASUVORK5CYII="
+                    )
+                    self._send(content, "image/png")
                 else:
-                    self._send(content,'image/jpeg' if pack.state.image_format in ('jpg','jpeg') else 'image/'+pack.state.image_format)
-            except (ValueError,OSError,sqlite3.Error):
-                self.send_error(404,'Offline imagery tile unavailable')
+                    self._send(
+                        content,
+                        "image/jpeg"
+                        if pack.state.image_format in ("jpg", "jpeg")
+                        else "image/" + pack.state.image_format,
+                    )
+            except (ValueError, OSError, sqlite3.Error):
+                self.send_error(404, "Offline imagery tile unavailable")
             return
-        if path.startswith('/data/imagery/'):
-            index = path.removeprefix('/data/imagery/')
-            if not index.isascii() or not index.isdigit() or len(index) > 2 or int(index) >= len(self.owner._imagery_layers):
+        if path.startswith("/data/imagery/"):
+            index = path.removeprefix("/data/imagery/")
+            if (
+                not index.isascii()
+                or not index.isdigit()
+                or len(index) > 2
+                or int(index) >= len(self.owner._imagery_layers)
+            ):
                 self.send_error(404)
                 return
             image = self.owner._imagery_layers[int(index)].image

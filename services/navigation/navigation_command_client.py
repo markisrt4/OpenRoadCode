@@ -63,7 +63,7 @@ class NavigationCommandClient:
 
     def prepare_host_location(self) -> str:
         response = self._request(PREPARE_HOST_LOCATION_COMMAND, {})
-        return str(response.get('data', {}).get('url', ''))
+        return str(response.get("data", {}).get("url", ""))
 
     def calculate_route_to(
         self,

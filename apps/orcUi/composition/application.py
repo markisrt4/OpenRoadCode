@@ -73,11 +73,18 @@ from ui.navigation.waze_request_handler_if import WazeSessionState
 
 def _android_panel_backends():
     """Prefer installed native tools; retain explicit integration opt-outs."""
-    android_host = os.path.exists('/system/bin/am')
-    waydroid = (not android_host and os.environ.get('ORC_WAYDROID_PANEL', '1') == '1'
-                and shutil.which('waydroid') is not None)
-    scrcpy = (android_host and os.environ.get('ORC_SCRCPY_WAZE', '1') == '1'
-              and shutil.which('adb') is not None and shutil.which('scrcpy') is not None)
+    android_host = os.path.exists("/system/bin/am")
+    waydroid = (
+        not android_host
+        and os.environ.get("ORC_WAYDROID_PANEL", "1") == "1"
+        and shutil.which("waydroid") is not None
+    )
+    scrcpy = (
+        android_host
+        and os.environ.get("ORC_SCRCPY_WAZE", "1") == "1"
+        and shutil.which("adb") is not None
+        and shutil.which("scrcpy") is not None
+    )
     return waydroid, scrcpy
 
 
@@ -228,8 +235,10 @@ def create_orc_ui_composition(
 
         location_sharing = LocationSharingController(
             WaydroidLocationProvider.from_config() if waydroid_enabled else None,
-            status=location_status, android_requested=waydroid_enabled,
-            sharing_changed=host_sharing_changed)
+            status=location_status,
+            android_requested=waydroid_enabled,
+            sharing_changed=host_sharing_changed,
+        )
         cleanup.callback(location_sharing.close)
         core.map_camera.observe_location(location_sharing.update_snapshot)
         android_app_view = None
@@ -240,66 +249,120 @@ def create_orc_ui_composition(
         if scrcpy_enabled and not waydroid_enabled:
             scrcpy_player = ScrcpyWazePlayer(retain_session=True)
             scrcpy_embedder = X11WindowEmbedder()
-            waze_gestures = WazeGestureController(ScrcpyWazeGestures(scrcpy_player, scrcpy_embedder))
+            waze_gestures = WazeGestureController(
+                ScrcpyWazeGestures(scrcpy_player, scrcpy_embedder)
+            )
             cleanup.callback(waze_gestures.close)
         waze = None
-        navigation_view = NavigationViewController(open_map=lambda: app.navigate_to('NAVIGATION'),
-            open_waze=lambda: waze.request_open_waze() if waze is not None else app.navigate_to('NAVIGATION'))
-        app.register_navigation_action('NAVIGATION', navigation_view.request_resume_navigation)
+        navigation_view = NavigationViewController(
+            open_map=lambda: app.navigate_to("NAVIGATION"),
+            open_waze=lambda: (
+                waze.request_open_waze() if waze is not None else app.navigate_to("NAVIGATION")
+            ),
+        )
+        app.register_navigation_action("NAVIGATION", navigation_view.request_resume_navigation)
         close_waze = lambda: waze.request_close_waze() if waze is not None else None
-        saved_waze_destination = lambda key: waze.request_navigate_saved_destination(key) if waze is not None else None
+        saved_waze_destination = lambda key: (
+            waze.request_navigate_saved_destination(key) if waze is not None else None
+        )
         # Late-bound view callbacks keep platform/app logic outside Tk widgets.
-        experiences = NavigationExperienceController(platform=navigation_maps,
+        experiences = NavigationExperienceController(
+            platform=navigation_maps,
             navigation_state=lambda: navigation_view.state,
-            open_map=lambda: app.navigate_to('NAVIGATION'),
+            open_map=lambda: app.navigate_to("NAVIGATION"),
             open_waze=lambda: waze.request_open_waze() if waze is not None else None,
-            waze_state=lambda: waze.native.state if waze is not None and waze.native is not None else WazeSessionState(),
+            waze_state=lambda: (
+                waze.native.state
+                if waze is not None and waze.native is not None
+                else WazeSessionState()
+            ),
             waze_available=lambda: waze is not None and waze.native is not None,
             saved_map=lambda key: navigation.request_saved_destination(key),
             saved_waze=saved_waze_destination,
             show_places=lambda: navigation.request_places_drawer(),
-            search_places=lambda category, transit: navigation.request_search_places(category, transit),
+            search_places=lambda category, transit: navigation.request_search_places(
+                category, transit
+            ),
             select_place=lambda place: navigation.request_select_place(place),
-            clear_places=lambda: navigation.request_clear_places(), close_waze=close_waze,
-            select_platform=lambda platform: navigation.request_map_platform(platform), gestures=waze_gestures)
+            clear_places=lambda: navigation.request_clear_places(),
+            close_waze=close_waze,
+            select_platform=lambda platform: navigation.request_map_platform(platform),
+            gestures=waze_gestures,
+        )
         if waydroid_enabled:
-            android_app_view = AndroidAppView(app, map_runtime=navigation_maps, map_platform=navigation_maps,
-                                              map_presentation=core.map_camera,
-                                              visibility_changed=location_sharing.set_active)
+            android_app_view = AndroidAppView(
+                app,
+                map_runtime=navigation_maps,
+                map_platform=navigation_maps,
+                map_presentation=core.map_camera,
+                visibility_changed=location_sharing.set_active,
+            )
             cleanup.callback(android_app_view.close)
-            waze_app_view = AndroidAppView(app, map_runtime=navigation_maps, map_platform=navigation_maps,
-                map_presentation=core.map_camera, screen_label='WAZE_NATIVE', navigation_label='NAVIGATION',
-                persistent_session=True, close_action=close_waze, saved_destination_action=saved_waze_destination,
-                on_present=navigation_view.remember_waze, experience_handler=experiences)
+            waze_app_view = AndroidAppView(
+                app,
+                map_runtime=navigation_maps,
+                map_platform=navigation_maps,
+                map_presentation=core.map_camera,
+                screen_label="WAZE_NATIVE",
+                navigation_label="NAVIGATION",
+                persistent_session=True,
+                close_action=close_waze,
+                saved_destination_action=saved_waze_destination,
+                on_present=navigation_view.remember_waze,
+                experience_handler=experiences,
+            )
             cleanup.callback(waze_app_view.close)
         elif scrcpy_enabled:
-            android_app_view, installed_business_apps = configure_termux_business_apps(app,
-                map_runtime=navigation_maps, map_platform=navigation_maps, map_presentation=core.map_camera)
+            android_app_view, installed_business_apps = configure_termux_business_apps(
+                app,
+                map_runtime=navigation_maps,
+                map_platform=navigation_maps,
+                map_presentation=core.map_camera,
+            )
             if android_app_view is not None:
                 cleanup.callback(android_app_view.close)
-            waze_app_view = AndroidAppView(app, map_runtime=navigation_maps, map_platform=navigation_maps,
-                map_presentation=core.map_camera, player=scrcpy_player,
-                window_embedder=scrcpy_embedder, preserve_external_window=False,
-                screen_label='WAZE_NATIVE', navigation_label='NAVIGATION',
-                persistent_session=True, close_action=close_waze, saved_destination_action=saved_waze_destination,
-                on_present=navigation_view.remember_waze, experience_handler=experiences,
-                visibility_changed=waze_gestures.set_visible)
+            waze_app_view = AndroidAppView(
+                app,
+                map_runtime=navigation_maps,
+                map_platform=navigation_maps,
+                map_presentation=core.map_camera,
+                player=scrcpy_player,
+                window_embedder=scrcpy_embedder,
+                preserve_external_window=False,
+                screen_label="WAZE_NATIVE",
+                navigation_label="NAVIGATION",
+                persistent_session=True,
+                close_action=close_waze,
+                saved_destination_action=saved_waze_destination,
+                on_present=navigation_view.remember_waze,
+                experience_handler=experiences,
+                visibility_changed=waze_gestures.set_visible,
+            )
             cleanup.callback(waze_app_view.close)
-            waze_native_launcher = ScrcpyWazeLauncher(prepare_destination=scrcpy_player.prepare_destination,
-                                                     stop_viewer=scrcpy_player.stop)
+            waze_native_launcher = ScrcpyWazeLauncher(
+                prepare_destination=scrcpy_player.prepare_destination,
+                stop_viewer=scrcpy_player.stop,
+            )
         saved_destinations = MapFavorites()
-        navigation_places = NavigationPlacesFactory(favorites=saved_destinations,
+        navigation_places = NavigationPlacesFactory(
+            favorites=saved_destinations,
             online_allowed=lambda: app.online_mode.online,
             camera_observer=core.map_camera.request_handler.observe_camera,
             embedded_explore=navigation_maps.request_explore,
-            android_app_view=android_app_view, installed_apps=installed_business_apps,
+            android_app_view=android_app_view,
+            installed_apps=installed_business_apps,
             viewport_search_enabled=lambda: navigation_maps.state.active is MapPlatform.MAPLIBRE,
-            marker_selection_source=navigation_maps)
+            marker_selection_source=navigation_maps,
+        )
         cleanup.callback(navigation_places.close)
-        waze = configure_waze(app, runtime, android_app_view=waze_app_view,
-                              native_launcher=waze_native_launcher,
-                              session_changed=lambda state: location_sharing.set_navigation_active(state.active),
-                              saved_destination=saved_destinations.shortcut_position)
+        waze = configure_waze(
+            app,
+            runtime,
+            android_app_view=waze_app_view,
+            native_launcher=waze_native_launcher,
+            session_changed=lambda state: location_sharing.set_navigation_active(state.active),
+            saved_destination=saved_destinations.shortcut_position,
+        )
         if waze is not None:
             cleanup.callback(waze.close)
         navigation = NavigationScreen(
@@ -368,7 +431,9 @@ def create_orc_ui_composition(
         cleanup.callback(host_location_session.close)
         permission = HostLocationPermission(recover=host_location_session.start)
         cleanup.callback(permission.close)
-        host_location = HostLocationSettingsController(app, settings, permission, available=permission.available)
+        host_location = HostLocationSettingsController(
+            app, settings, permission, available=permission.available
+        )
         cleanup.callback(host_location.close)
         settings.set_host_location_request_handler(host_location)
         host_location.restore_if_running()

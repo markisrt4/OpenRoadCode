@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Real local HTTP handoff, navigation encoding and Android sharing policy."""
+
 import json
 import math
 from unittest.mock import Mock, patch
@@ -19,26 +20,30 @@ from services.navigation.navigation_runtime import NavigationRuntime
 
 
 def test_browser_fix_reaches_navigation_and_only_then_android_sharing():
-    controller = NavigationController(SimulatedNavigationSensor('stationary'))
+    controller = NavigationController(SimulatedNavigationSensor("stationary"))
     controller.start()
     source = BrowserPositionSource(port=0)
-    service = NavigationRuntime(controller, Mock(), source='test', host_location_source=source)
+    service = NavigationRuntime(controller, Mock(), source="test", host_location_source=source)
     provider = Mock()
     sharing = LocationSharingController(provider, status=Mock())
-    with patch('controllers.map_renderer.map_camera_runtime.MapRendererClient'), \
-            patch('controllers.map_renderer.map_camera_runtime.ZeroMqSubscriber'), \
-            patch.object(MapCameraRuntime, '_load_cached_center', return_value=None):
+    with (
+        patch("controllers.map_renderer.map_camera_runtime.MapRendererClient"),
+        patch("controllers.map_renderer.map_camera_runtime.ZeroMqSubscriber"),
+        patch.object(MapCameraRuntime, "_load_cached_center", return_value=None),
+    ):
         camera = MapCameraRuntime()
     camera.observe_location(sharing.update_snapshot)
     try:
         url = service._prepare_host_location()
-        request = Request(url + 'position', data=json.dumps({
-            'latitude': 42.5, 'longitude': -83.0, 'accuracy': 30}).encode(),
-            headers={'Content-Type': 'application/json', 'Origin': url.rstrip('/')})
+        request = Request(
+            url + "position",
+            data=json.dumps({"latitude": 42.5, "longitude": -83.0, "accuracy": 30}).encode(),
+            headers={"Content-Type": "application/json", "Origin": url.rstrip("/")},
+        )
         with build_opener(ProxyHandler({})).open(request, timeout=3) as response:
             assert response.status == 204
         state = controller.read_state().position
-        assert state.source == 'browser'
+        assert state.source == "browser"
         message = decode_position_state(encode_position_state(state))
         camera._on_position_message(message)
         sharing._tick()

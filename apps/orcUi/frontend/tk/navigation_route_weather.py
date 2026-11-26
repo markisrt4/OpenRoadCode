@@ -417,8 +417,8 @@ class NavigationRouteWeather(WeatherOverlayControlsIf, UiWidget):
             self._popup = None
         # The presentation object can outlive this popup in controller callbacks.
         # Drop Tcl variables on the UI thread instead of deferring them to GC.
-        for name in ('_radar_var', '_map_var', '_enabled_var', '_city_controls'):
+        for name in ("_radar_var", "_map_var", "_enabled_var", "_city_controls"):
             if name in self.__dict__:
                 setattr(self, name, None)
-        if '_layer_vars' in self.__dict__:
+        if "_layer_vars" in self.__dict__:
             self._layer_vars.clear()

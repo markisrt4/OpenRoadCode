@@ -1,4 +1,5 @@
 """Real geometry and lifecycle checks for drawers beside native viewer hosts."""
+
 import os
 import tkinter as tk
 from dataclasses import replace
@@ -20,18 +21,24 @@ from ui.theme import ThemeMode
 
 @pytest.fixture
 def layout():
-    if not os.environ.get('DISPLAY'):
-        pytest.skip('real X11 display required')
+    if not os.environ.get("DISPLAY"):
+        pytest.skip("real X11 display required")
     root = tk.Tk()
-    root.geometry('1000x600')
+    root.geometry("1000x600")
     root.columnconfigure(0, weight=1)
     root.rowconfigure(1, weight=1)
     viewer = tk.Frame(root)
-    viewer.grid(row=1, column=0, sticky='nsew')
+    viewer.grid(row=1, column=0, sticky="nsew")
     handler = Mock(state=NavigationExperienceState(terrain_available=True, waze_available=True))
-    bar = NavigationExperienceControls(root, drawer_parent=root, drawer_row=1, drawer_column=1,
-        handler=handler, theme=theme_bundle(ThemeMode.DARK))
-    bar.grid(row=0, column=0, columnspan=2, sticky='ew')
+    bar = NavigationExperienceControls(
+        root,
+        drawer_parent=root,
+        drawer_row=1,
+        drawer_column=1,
+        handler=handler,
+        theme=theme_bundle(ThemeMode.DARK),
+    )
+    bar.grid(row=0, column=0, columnspan=2, sticky="ew")
     root.update()
     yield root, viewer, bar, handler
     root.destroy()
@@ -40,12 +47,12 @@ def layout():
 def test_drawer_reduces_viewport_and_restores_it_without_overlap(layout):
     root, viewer, bar, _ = layout
     full_width = viewer.winfo_width()
-    bar.show_drawer('views')
+    bar.show_drawer("views")
     root.update()
     assert viewer.winfo_width() < full_width
     assert viewer.winfo_rootx() + viewer.winfo_width() <= bar._drawer.winfo_rootx()
     assert bar._cards[NavigationExperience.WAZE].winfo_ismapped()
-    bar.show_drawer('places')
+    bar.show_drawer("places")
     root.update()
     assert not bar._views.winfo_ismapped()
     assert bar._places.winfo_ismapped()
@@ -56,13 +63,13 @@ def test_drawer_reduces_viewport_and_restores_it_without_overlap(layout):
 
 def test_selection_closes_drawer_and_results_emit_semantic_requests(layout):
     root, _, bar, handler = layout
-    bar.show_drawer('views')
+    bar.show_drawer("views")
     bar._cards[NavigationExperience.WAZE].invoke()
     handler.request_experience.assert_called_once_with(NavigationExperience.WAZE)
     assert bar._drawer_kind is None
-    place = PointOfInterest('1', 'Panera Bread', PoiCategory.FOOD, GeoPoint(.7, -1.4))
-    bar.set_places_state(NavigationPlacesDrawerState((place,), '1 result'))
-    bar.show_drawer('places')
+    place = PointOfInterest("1", "Panera Bread", PoiCategory.FOOD, GeoPoint(0.7, -1.4))
+    bar.set_places_state(NavigationPlacesDrawerState((place,), "1 result"))
+    bar.show_drawer("places")
     root.update()
     bar._results.winfo_children()[0].invoke()
     handler.request_select_place.assert_called_once_with(place)
@@ -70,13 +77,13 @@ def test_selection_closes_drawer_and_results_emit_semantic_requests(layout):
 
 def test_destroy_cancels_poll_and_releases_sibling_drawer(layout):
     root, _, bar, _ = layout
-    bar.show_drawer('views')
+    bar.show_drawer("views")
     drawer = str(bar._drawer)
     job = bar._poll_job
     bar.destroy()
     root.update()
-    assert not root.tk.call('winfo', 'exists', drawer)
-    assert job not in root.tk.call('after', 'info')
+    assert not root.tk.call("winfo", "exists", drawer)
+    assert job not in root.tk.call("after", "info")
 
 
 def test_unavailable_and_busy_states_disable_cards_and_show_running_session(layout):
@@ -84,34 +91,40 @@ def test_unavailable_and_busy_states_disable_cards_and_show_running_session(layo
     handler.state = replace(handler.state, waze_running=True, terrain_available=False)
     bar.after_cancel(bar._poll_job)
     bar._poll()
-    assert 'Resume' in bar._cards[NavigationExperience.WAZE].cget('text')
-    assert bar._cards[NavigationExperience.TERRAIN].cget('state') == 'disabled'
+    assert "Resume" in bar._cards[NavigationExperience.WAZE].cget("text")
+    assert bar._cards[NavigationExperience.TERRAIN].cget("state") == "disabled"
     handler.state = replace(handler.state, busy=True)
     bar.after_cancel(bar._poll_job)
     bar._poll()
-    assert all(button.cget('state') == 'disabled' for button in bar._cards.values())
+    assert all(button.cget("state") == "disabled" for button in bar._cards.values())
 
 
 def test_compact_layout_keeps_toolbar_and_drawer_close_reachable(layout):
     root, viewer, bar, _ = layout
-    root.geometry('522x240')
+    root.geometry("522x240")
     root.update()
-    bar.show_drawer('views')
+    bar.show_drawer("views")
     root.update()
     assert viewer.winfo_width() >= 200
     assert bar.views_button.winfo_ismapped()
-    assert bar.places_button.winfo_rootx() + bar.places_button.winfo_width() <= bar.views_button.winfo_rootx()
-    assert bar._drawer.winfo_rootx() + bar._drawer.winfo_width() <= root.winfo_rootx() + root.winfo_width()
-    assert bar._canvas.bbox('all')[3] > bar._canvas.winfo_height()
+    assert (
+        bar.places_button.winfo_rootx() + bar.places_button.winfo_width()
+        <= bar.views_button.winfo_rootx()
+    )
+    assert (
+        bar._drawer.winfo_rootx() + bar._drawer.winfo_width()
+        <= root.winfo_rootx() + root.winfo_width()
+    )
+    assert bar._canvas.bbox("all")[3] > bar._canvas.winfo_height()
 
 
 def test_theme_change_keeps_drawer_and_selection_without_relaunch_requests(layout):
     root, _, bar, handler = layout
-    bar.show_drawer('views')
+    bar.show_drawer("views")
     bar.set_theme(theme_bundle(ThemeMode.LIGHT))
     root.update()
-    assert bar._drawer_kind == 'views'
-    assert bar.views_button.cget('bg') == theme_bundle(ThemeMode.LIGHT).ui.control_background
+    assert bar._drawer_kind == "views"
+    assert bar.views_button.cget("bg") == theme_bundle(ThemeMode.LIGHT).ui.control_background
     handler.request_experience.assert_not_called()
 
 
@@ -122,7 +135,7 @@ def test_loading_label_covers_launch_and_native_attachment_then_disappears(layou
     bar._poll()
     root.update()
     assert bar._loading_label.winfo_ismapped()
-    assert bar._loading_label.cget('text') == 'Loading Waze…'
+    assert bar._loading_label.cget("text") == "Loading Waze…"
     bar.set_surface_loading(True)
     handler.state = replace(handler.state, waze_loading=False, busy=False)
     bar.after_cancel(bar._poll_job)
@@ -137,14 +150,22 @@ def test_loading_label_covers_launch_and_native_attachment_then_disappears(layou
 
 def test_waze_controls_emit_gestures_disable_while_busy_and_share_the_drawer(layout):
     from ui.navigation.waze_gesture_if import WazeGesture
+
     root, _, bar, handler = layout
-    handler.state = replace(handler.state, selected=NavigationExperience.WAZE,
-        waze_gestures_supported=True, waze_gestures_available=True)
+    handler.state = replace(
+        handler.state,
+        selected=NavigationExperience.WAZE,
+        waze_gestures_supported=True,
+        waze_gestures_available=True,
+    )
     bar.after_cancel(bar._poll_job)
     bar._poll()
     root.update()
     assert bar.gestures_button.winfo_ismapped()
-    assert bar.gestures_button.winfo_rooty() >= bar.views_button.winfo_rooty() + bar.views_button.winfo_height()
+    assert (
+        bar.gestures_button.winfo_rooty()
+        >= bar.views_button.winfo_rooty() + bar.views_button.winfo_height()
+    )
     bar.gestures_button.invoke()
     root.update()
     assert bar._gestures.winfo_ismapped() and not bar._views.winfo_ismapped()
@@ -162,23 +183,24 @@ def test_waze_controls_emit_gestures_disable_while_busy_and_share_the_drawer(lay
 
 def test_weather_controls_stay_in_toolbar_and_drawer_uses_swipe(layout):
     from types import SimpleNamespace
+
     root, _, bar, handler = layout
     assert bar.overlay_frame.master is bar.views_button.master.master
-    root.geometry('522x240')
-    bar.show_drawer('views')
+    root.geometry("522x240")
+    bar.show_drawer("views")
     root.update()
     assert not any(isinstance(child, tk.Scrollbar) for child in bar._drawer.winfo_children())
     card = bar._cards[NavigationExperience.ROAD]
     bar._scroll_press(SimpleNamespace(y_root=200))
-    assert bar._scroll_drag(SimpleNamespace(y_root=100)) == 'break'
+    assert bar._scroll_drag(SimpleNamespace(y_root=100)) == "break"
     assert bar._canvas.yview()[0] > 0
-    assert bar._scroll_release(SimpleNamespace(widget=card)) == 'break'
+    assert bar._scroll_release(SimpleNamespace(widget=card)) == "break"
     handler.request_experience.assert_not_called()
 
 
 def test_close_waze_only_appears_for_retained_session(layout):
     root, _, bar, handler = layout
-    bar.show_drawer('views')
+    bar.show_drawer("views")
     root.update()
     assert not bar._close_waze_button.winfo_ismapped()
     handler.state = replace(handler.state, waze_running=True)

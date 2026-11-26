@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Semantic requests for native Android Waze navigation and session lifetime."""
+
 from dataclasses import dataclass
 from typing import Protocol
 

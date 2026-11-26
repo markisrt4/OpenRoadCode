@@ -15,7 +15,7 @@ from .navigation_panel_layout import show_poi_card
 from .navigation_poi_actions import execute_poi_action, poll_poi_app_status, poll_poi_launch_results
 
 _POI_SEARCH_SETTLE_MS = 750
-_LOG = logging.getLogger('navigation.poi.ui')
+_LOG = logging.getLogger("navigation.poi.ui")
 
 
 class NavigationPlacesControls:
@@ -34,10 +34,12 @@ class NavigationPlacesControls:
         favorite = self._places_handler.favorite(shortcut)
         if favorite is None:
             self._shortcut_status.set(f"{shortcut.title()} location not configured")
-            controls = self.__dict__.get('_experience_controls')
+            controls = self.__dict__.get("_experience_controls")
             if controls is not None:
-                controls.show_drawer('places')
-                controls.set_places_state(NavigationPlacesDrawerState(status=self._shortcut_status.get()))
+                controls.show_drawer("places")
+                controls.set_places_state(
+                    NavigationPlacesDrawerState(status=self._shortcut_status.get())
+                )
             self.after(2500, lambda: self._shortcut_status.set(""))
             return
         self._show_poi_card(
@@ -66,7 +68,7 @@ class NavigationPlacesControls:
         self._active_poi_search = None
         self._request_handler.request_poi_results((), "")
         self._shortcut_status.set("")
-        controls = self.__dict__.get('_experience_controls')
+        controls = self.__dict__.get("_experience_controls")
         if controls is not None:
             controls.set_places_state(NavigationPlacesDrawerState())
 
@@ -79,9 +81,11 @@ class NavigationPlacesControls:
     ) -> None:
         if not bool(getattr(self._request_handler, "camera_initialized", False)):
             self._shortcut_status.set("Position unavailable — nearby search needs a GPS fix")
-            controls = self.__dict__.get('_experience_controls')
+            controls = self.__dict__.get("_experience_controls")
             if controls is not None:
-                controls.set_places_state(NavigationPlacesDrawerState(status=self._shortcut_status.get()))
+                controls.set_places_state(
+                    NavigationPlacesDrawerState(status=self._shortcut_status.get())
+                )
             return
         if self._poi_search_after_id is not None:
             try:
@@ -101,9 +105,11 @@ class NavigationPlacesControls:
             else category_name
         )
         self._shortcut_status.set(f"Loading nearby {detail}…")
-        controls = self.__dict__.get('_experience_controls')
+        controls = self.__dict__.get("_experience_controls")
         if controls is not None:
-            controls.set_places_state(NavigationPlacesDrawerState(status=self._shortcut_status.get()))
+            controls.set_places_state(
+                NavigationPlacesDrawerState(status=self._shortcut_status.get())
+            )
         self._poi_search_after_id = self.after(
             _POI_SEARCH_SETTLE_MS, lambda: self._issue_poi_search(category, transit_mode)
         )
@@ -145,10 +151,10 @@ class NavigationPlacesControls:
             self._poi_poll_error = None
         except (RuntimeError, ValueError, tk.TclError) as error:
             key = (type(error).__name__, str(error))
-            if getattr(self, '_poi_poll_error', None) != key:
-                _LOG.exception('POI event polling failed; retrying on the next tick')
+            if getattr(self, "_poi_poll_error", None) != key:
+                _LOG.exception("POI event polling failed; retrying on the next tick")
             self._poi_poll_error = key
-            self._shortcut_status.set('Could not open place details. Tap the place again.')
+            self._shortcut_status.set("Could not open place details. Tap the place again.")
         finally:
             if not self._closed and not self._places_closed and self.winfo_exists():
                 self._poi_poll_after_id = self.after(100, self._poll_poi_events)
@@ -186,12 +192,14 @@ class NavigationPlacesControls:
                 self._shortcut_status.set(f"{result.count} {noun} result{suffix}")
             else:
                 self._shortcut_status.set(f"No {result.category.name.casefold()} results nearby")
-            controls = self.__dict__.get('_experience_controls')
+            controls = self.__dict__.get("_experience_controls")
             if controls is not None:
-                controls.set_places_state(NavigationPlacesDrawerState(result.pois, self._shortcut_status.get()))
+                controls.set_places_state(
+                    NavigationPlacesDrawerState(result.pois, self._shortcut_status.get())
+                )
         poi = self._places_handler.poll_selected()
         if poi is not None:
-            _LOG.debug('POI selection reached popup presentation: %s', poi.name)
+            _LOG.debug("POI selection reached popup presentation: %s", poi.name)
             print(f"[orcUi] showing POI business popup for {poi.name!r}")
             self._show_poi_card(poi)
 
@@ -225,13 +233,13 @@ class NavigationPlacesControls:
         self._waze_handler.request_navigate_waze(poi.position)
 
     def _refresh_poi_action_buttons(self) -> None:
-        indicator = self.__dict__.get('_poi_app_indicator')
+        indicator = self.__dict__.get("_poi_app_indicator")
         if indicator is not None and indicator.winfo_exists():
             indicator.set_enabled(self.online_actions_allowed and not self._poi_launching)
-        waze = self.__dict__.get('_waze_button')
+        waze = self.__dict__.get("_waze_button")
         if waze is not None and waze.winfo_exists():
             waze.configure(state=tk.NORMAL if self.online_actions_allowed else tk.DISABLED)
-        local_button = self.__dict__.get('_local_3d_button')
+        local_button = self.__dict__.get("_local_3d_button")
         if local_button is not None and local_button.winfo_exists():
             local_button.configure(state=tk.DISABLED if self._poi_launching else tk.NORMAL)
         if self._earth_button is not None and self._earth_button.winfo_exists():

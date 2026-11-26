@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Own scrcpy virtual-display viewers for native apps on Termux X11."""
+
 import logging
 import os
 import re
@@ -17,11 +18,11 @@ from common.logging.structured import event
 class ScrcpyAppPlayer:
     window_class = None
 
-    def __init__(self, *, package, app_name='Business app', retain_session=False):
-        if not re.fullmatch(r'[a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z][a-zA-Z0-9_]*)+', package):
-            raise ValueError('Invalid Android package')
+    def __init__(self, *, package, app_name="Business app", retain_session=False):
+        if not re.fullmatch(r"[a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z][a-zA-Z0-9_]*)+", package):
+            raise ValueError("Invalid Android package")
         self._package = package
-        self._window_prefix = f'OpenRoadCode {app_name} Android'
+        self._window_prefix = f"OpenRoadCode {app_name} Android"
         self._process = None
         self._process_lock = Lock()
         self._pending_destination = None
@@ -30,15 +31,15 @@ class ScrcpyAppPlayer:
         self._log_path = None
         self._log_offset = 0
         self._gesture_frame = self._gesture_display = None
-        self.window_name = f'{self._window_prefix} {uuid4().hex}'
+        self.window_name = f"{self._window_prefix} {uuid4().hex}"
 
     def prepare_package(self, package):
         """Bind the next viewer on the UI thread before its screen is shown."""
-        if not re.fullmatch(r'[a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z][a-zA-Z0-9_]*)+', package):
-            raise ValueError('Invalid Android package')
+        if not re.fullmatch(r"[a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z][a-zA-Z0-9_]*)+", package):
+            raise ValueError("Invalid Android package")
         with self._process_lock:
             if self._retain_session and package != self._package:
-                raise ValueError('A retained navigation display cannot change apps')
+                raise ValueError("A retained navigation display cannot change apps")
             self._package = package
 
     def vertical_crop(self):
@@ -50,13 +51,17 @@ class ScrcpyAppPlayer:
     def prepare_destination(self, uri):
         """Queue a deep link for the next owned virtual display, never the phone display."""
         with self._process_lock:
-            if uri is not None and self._package != 'com.waze':
-                raise ValueError('Business app destination links are not configured')
+            if uri is not None and self._package != "com.waze":
+                raise ValueError("Business app destination links are not configured")
             self._pending_destination = uri
 
     def gesture_surface(self):
         with self._process_lock:
-            if self._process is None or self._process.poll() is not None or self._gesture_frame is None:
+            if (
+                self._process is None
+                or self._process.poll() is not None
+                or self._gesture_frame is None
+            ):
                 return None
             return self._process, self.window_name, self._gesture_frame, self._gesture_display
 
@@ -69,13 +74,16 @@ class ScrcpyAppPlayer:
                 if uri is not None:
                     self._destination_cancel.set()
                     cancelled = self._destination_cancel = Event()
-                    Thread(target=self._deliver_destination,
-                           args=(process, cancelled, uri, self._log_path, self._log_offset), daemon=True).start()
+                    Thread(
+                        target=self._deliver_destination,
+                        args=(process, cancelled, uri, self._log_path, self._log_offset),
+                        daemon=True,
+                    ).start()
                 return True
         self.stop()
         # An old viewer may still be tearing down while a new one starts.
         # Never let X11 discovery select that retired process's window.
-        self.window_name = f'{self._window_prefix} {uuid4().hex}'
+        self.window_name = f"{self._window_prefix} {uuid4().hex}"
         width, height = window_size or (1280, 720)
         # Match the host aspect ratio instead of letterboxing a fixed 16:9
         # display. Keep enough Android pixels for legible app layouts and use
@@ -84,22 +92,34 @@ class ScrcpyAppPlayer:
         scale = max(1280 / width, 720 / height)
         display_width = max(2, round(width * scale / 2) * 2)
         display_height = max(2, round(height * scale / 2) * 2)
-        renderer = os.environ.get('ORC_SCRCPY_RENDERER', 'opengl')
-        if renderer not in ('opengl', 'opengles2', 'software'):
-            raise ValueError('ORC_SCRCPY_RENDERER must be opengl, opengles2 or software')
-        command = ['scrcpy', f'--new-display={display_width}x{display_height}/240', f'--start-app={self._package}',
-                   '--no-audio', '--window-borderless', f'--window-title={self.window_name}',
-                   f'--render-driver={renderer}', f'--window-width={width}', f'--window-height={height}']
+        renderer = os.environ.get("ORC_SCRCPY_RENDERER", "opengl")
+        if renderer not in ("opengl", "opengles2", "software"):
+            raise ValueError("ORC_SCRCPY_RENDERER must be opengl, opengles2 or software")
+        command = [
+            "scrcpy",
+            f"--new-display={display_width}x{display_height}/240",
+            f"--start-app={self._package}",
+            "--no-audio",
+            "--window-borderless",
+            f"--window-title={self.window_name}",
+            f"--render-driver={renderer}",
+            f"--window-width={width}",
+            f"--window-height={height}",
+        ]
         # SDL may reapply its startup position after X11 reparenting. Desktop
         # coordinates would then become an offset inside ORC and clip the view.
         # The embedder owns placement; the viewer starts at the same local origin.
-        command.extend(('--window-x=0', '--window-y=0'))
-        environment = dict(os.environ, DISPLAY=display, SDL_VIDEODRIVER='x11', SDL_MOUSE_AUTO_CAPTURE='0')
-        log_name = 'orc-scrcpy-waze.log' if self._package == 'com.waze' else 'orc-scrcpy-app.log'
-        log_path = Path(os.environ.get('TMPDIR') or tempfile.gettempdir()) / log_name
-        with log_path.open('ab') as log:
+        command.extend(("--window-x=0", "--window-y=0"))
+        environment = dict(
+            os.environ, DISPLAY=display, SDL_VIDEODRIVER="x11", SDL_MOUSE_AUTO_CAPTURE="0"
+        )
+        log_name = "orc-scrcpy-waze.log" if self._package == "com.waze" else "orc-scrcpy-app.log"
+        log_path = Path(os.environ.get("TMPDIR") or tempfile.gettempdir()) / log_name
+        with log_path.open("ab") as log:
             log_offset = log.tell()
-            process = subprocess.Popen(command, env=environment, stdout=log, stderr=subprocess.STDOUT)
+            process = subprocess.Popen(
+                command, env=environment, stdout=log, stderr=subprocess.STDOUT
+            )
         with self._process_lock:
             self._process = process
             self._gesture_frame = (display_width, display_height)
@@ -108,8 +128,11 @@ class ScrcpyAppPlayer:
             uri, self._pending_destination = self._pending_destination, None
             cancelled = self._destination_cancel = Event()
         if uri is not None:
-            Thread(target=self._deliver_destination,
-                   args=(process, cancelled, uri, log_path, log_offset), daemon=True).start()
+            Thread(
+                target=self._deliver_destination,
+                args=(process, cancelled, uri, log_path, log_offset),
+                daemon=True,
+            ).start()
         return True
 
     def stop(self):
@@ -128,16 +151,16 @@ class ScrcpyAppPlayer:
 
     @staticmethod
     def _deliver_destination(process, cancelled, uri, log_path, log_offset):
-        logger = logging.getLogger('navigation.waze')
+        logger = logging.getLogger("navigation.waze")
         try:
             for _ in range(200):
-                if cancelled.wait(.1):
+                if cancelled.wait(0.1):
                     return
                 if process.poll() is not None:
                     break
-                with log_path.open('rb') as stream:
+                with log_path.open("rb") as stream:
                     stream.seek(log_offset)
-                    match = re.search(rb'New display:[^\r\n]*\(id=(\d+)\)', stream.read(262144))
+                    match = re.search(rb"New display:[^\r\n]*\(id=(\d+)\)", stream.read(262144))
                 if match is None:
                     continue
                 display_id = int(match[1])
@@ -145,19 +168,47 @@ class ScrcpyAppPlayer:
                     return
                 # adb shell joins arguments again; quote the URI's ampersand for
                 # the remote shell as well as avoiding a host shell entirely.
-                command = shlex.join(['am', 'start', '--display', str(display_id),
-                    '-a', 'android.intent.action.VIEW', '-d', uri, '-p', 'com.waze'])
-                result = subprocess.run(['adb', 'shell', command], capture_output=True,
-                                        text=True, timeout=5, check=False)
-                if result.returncode or any(word in result.stdout + result.stderr
-                        for word in ('Error:', 'Exception', 'unable to resolve')):
+                command = shlex.join(
+                    [
+                        "am",
+                        "start",
+                        "--display",
+                        str(display_id),
+                        "-a",
+                        "android.intent.action.VIEW",
+                        "-d",
+                        uri,
+                        "-p",
+                        "com.waze",
+                    ]
+                )
+                result = subprocess.run(
+                    ["adb", "shell", command],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                    check=False,
+                )
+                if result.returncode or any(
+                    word in result.stdout + result.stderr
+                    for word in ("Error:", "Exception", "unable to resolve")
+                ):
                     break
-                event(logger, logging.INFO, 'destination.sent', 'Waze destination sent to the virtual display')
+                event(
+                    logger,
+                    logging.INFO,
+                    "destination.sent",
+                    "Waze destination sent to the virtual display",
+                )
                 return
         except (OSError, subprocess.SubprocessError):
             pass
-        event(logger, logging.WARNING, 'destination.failed',
-              'Could not deliver the Waze destination to the virtual display; retry from ORC')
+        event(
+            logger,
+            logging.WARNING,
+            "destination.failed",
+            "Could not deliver the Waze destination to the virtual display; retry from ORC",
+        )
 
     @staticmethod
     def _stop_process(process):
@@ -172,4 +223,4 @@ class ScrcpyWazePlayer(ScrcpyAppPlayer):
     """Keep Waze's retained route viewer separate from temporary business apps."""
 
     def __init__(self, *, retain_session=False):
-        super().__init__(package='com.waze', app_name='Waze', retain_session=retain_session)
+        super().__init__(package="com.waze", app_name="Waze", retain_session=retain_session)

@@ -1,4 +1,5 @@
 """Shared navigation experience and places presentation contracts."""
+
 from dataclasses import dataclass
 from enum import Enum
 from typing import Protocol
@@ -8,9 +9,9 @@ from ui.navigation.waze_gesture_if import WazeGesture
 
 
 class NavigationExperience(str, Enum):
-    ROAD = 'road'
-    WAZE = 'waze'
-    TERRAIN = 'terrain'
+    ROAD = "road"
+    WAZE = "waze"
+    TERRAIN = "terrain"
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,13 +25,13 @@ class NavigationExperienceState:
     waze_gestures_available: bool = False
     waze_gestures_supported: bool = False
     waze_gesture_busy: bool = False
-    waze_gesture_status: str = ''
+    waze_gesture_status: str = ""
 
 
 @dataclass(frozen=True, slots=True)
 class NavigationPlacesDrawerState:
     places: tuple[PointOfInterest, ...] = ()
-    status: str = 'Find places near the current map view.'
+    status: str = "Find places near the current map view."
 
 
 class NavigationExperienceRequestHandlerIf(Protocol):
@@ -45,7 +46,9 @@ class NavigationExperienceRequestHandlerIf(Protocol):
         """Show the ORC places drawer, preserving any running Waze route."""
         ...
 
-    def request_search_places(self, category: PoiCategory, transit: TransitMode = TransitMode.ALL) -> None: ...
+    def request_search_places(
+        self, category: PoiCategory, transit: TransitMode = TransitMode.ALL
+    ) -> None: ...
 
     def request_select_place(self, place: PointOfInterest) -> None: ...
 

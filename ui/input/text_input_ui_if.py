@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Immutable text-input presentation state; typed contents stay in the target."""
+
 from dataclasses import dataclass
 from typing import Protocol
 

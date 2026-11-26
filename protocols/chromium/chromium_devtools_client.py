@@ -38,9 +38,16 @@ class ChromiumDevToolsSession:
     def command(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
         command_id = self._next_id
         self._next_id += 1
-        self._client._send_text(self._connection, json.dumps({
-            "id": command_id, "method": method, "params": params,
-        }))
+        self._client._send_text(
+            self._connection,
+            json.dumps(
+                {
+                    "id": command_id,
+                    "method": method,
+                    "params": params,
+                }
+            ),
+        )
         while True:
             reply = json.loads(self._client._receive_text(self._connection))
             if reply.get("id") != command_id:

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Text sessions keep field ownership, focus and keyboard cleanup explicit."""
+
 from dataclasses import FrozenInstanceError
 from unittest.mock import Mock, call
 
@@ -17,7 +18,7 @@ def make_controller():
 def test_begin_show_hide_and_submit_preserve_the_active_target():
     controller, keyboard = make_controller()
     events = Mock()
-    events.attach_mock(keyboard, 'keyboard')
+    events.attach_mock(keyboard, "keyboard")
     target = events.target
     view = Mock()
     controller.set_ui(view)
@@ -35,7 +36,7 @@ def test_begin_show_hide_and_submit_preserve_the_active_target():
     assert controller.state.session_id is None
     assert view.set_text_input_state.call_args.args[0] == controller.state
     with pytest.raises(FrozenInstanceError):
-        controller.state.error = 'mutated'
+        controller.state.error = "mutated"
 
 
 def test_rebinding_does_not_submit_cancel_or_accept_old_requests():
@@ -49,8 +50,12 @@ def test_rebinding_does_not_submit_cancel_or_accept_old_requests():
     first.submit.assert_not_called()
     first.cancel.assert_not_called()
     keyboard.reset_mock()
-    for method in (controller.request_show_keyboard, controller.request_hide_keyboard,
-                   controller.request_submit, controller.request_cancel):
+    for method in (
+        controller.request_show_keyboard,
+        controller.request_hide_keyboard,
+        controller.request_submit,
+        controller.request_cancel,
+    ):
         method(old)
     assert keyboard.mock_calls == []
     second.submit.assert_not_called()
@@ -75,7 +80,7 @@ def test_show_focus_failure_hides_the_keyboard_and_can_retry():
     controller, keyboard = make_controller()
     target = Mock()
     session = controller.request_begin(target)
-    target.focus.side_effect = RuntimeError('gone')
+    target.focus.side_effect = RuntimeError("gone")
     controller.request_show_keyboard(session)
     keyboard.hide.assert_called_once()
     assert not controller.state.keyboard_requested
@@ -90,7 +95,7 @@ def test_replacement_hide_failure_preserves_previous_session():
     controller, keyboard = make_controller()
     old = controller.request_begin(Mock())
     controller.request_show_keyboard(old)
-    keyboard.hide.side_effect = RuntimeError('busy')
+    keyboard.hide.side_effect = RuntimeError("busy")
     replacement = Mock()
     assert controller.request_begin(replacement) is None
     replacement.focus.assert_not_called()
@@ -98,26 +103,32 @@ def test_replacement_hide_failure_preserves_previous_session():
     assert controller.state.keyboard_requested
 
 
-@pytest.mark.parametrize('action', ['request_submit', 'request_cancel'])
+@pytest.mark.parametrize("action", ["request_submit", "request_cancel"])
 def test_completion_callback_can_open_another_field_without_old_cleanup(action):
     controller, keyboard = make_controller()
     target, replacement = Mock(), Mock()
     old = controller.request_begin(target)
+
     def replace_target():
         session = controller.request_begin(replacement)
         controller.request_show_keyboard(session)
-    getattr(target, 'submit' if action == 'request_submit' else 'cancel').side_effect = replace_target
+
+    getattr(
+        target, "submit" if action == "request_submit" else "cancel"
+    ).side_effect = replace_target
     getattr(controller, action)(old)
     assert controller.state.session_id != old
     assert controller.state.keyboard_requested
     keyboard.hide.assert_not_called()
 
 
-@pytest.mark.parametrize('action', ['request_submit', 'request_cancel'])
+@pytest.mark.parametrize("action", ["request_submit", "request_cancel"])
 def test_failed_completion_keeps_session_for_retry(action):
     controller, keyboard = make_controller()
     target = Mock()
-    getattr(target, 'submit' if action == 'request_submit' else 'cancel').side_effect = RuntimeError('failed')
+    getattr(
+        target, "submit" if action == "request_submit" else "cancel"
+    ).side_effect = RuntimeError("failed")
     session = controller.request_begin(target)
     getattr(controller, action)(session)
     assert controller.state.session_id == session
@@ -142,14 +153,14 @@ def test_begin_focus_failure_retires_old_token():
     controller, keyboard = make_controller()
     old = controller.request_begin(Mock())
     bad = Mock()
-    bad.focus.side_effect = RuntimeError('widget destroyed')
+    bad.focus.side_effect = RuntimeError("widget destroyed")
     assert controller.request_begin(bad) is None
     controller.request_submit(old)
     assert controller.state.session_id is None
     assert controller.state.error
 
 
-@pytest.mark.parametrize('failure', [False, True])
+@pytest.mark.parametrize("failure", [False, True])
 def test_close_releases_resources_once_without_calling_destroyed_fields(failure):
     controller, keyboard = make_controller()
     target, view = Mock(), Mock()
@@ -157,15 +168,19 @@ def test_close_releases_resources_once_without_calling_destroyed_fields(failure)
     session = controller.request_begin(target)
     controller.request_show_keyboard(session)
     if failure:
-        keyboard.close.side_effect = RuntimeError('failed')
-        with pytest.raises(RuntimeError, match='failed'):
+        keyboard.close.side_effect = RuntimeError("failed")
+        with pytest.raises(RuntimeError, match="failed"):
             controller.close()
     else:
         controller.close()
     view.reset_mock()
     controller.close()
-    for method in (controller.request_show_keyboard, controller.request_hide_keyboard,
-                   controller.request_submit, controller.request_cancel):
+    for method in (
+        controller.request_show_keyboard,
+        controller.request_hide_keyboard,
+        controller.request_submit,
+        controller.request_cancel,
+    ):
         method(session)
     assert controller.request_begin(Mock()) is None
     keyboard.close.assert_called_once()
@@ -193,7 +208,7 @@ def test_failed_hide_after_submit_does_not_allow_duplicate_submit():
     target = Mock()
     session = controller.request_begin(target)
     controller.request_show_keyboard(session)
-    keyboard.hide.side_effect = RuntimeError('busy')
+    keyboard.hide.side_effect = RuntimeError("busy")
     controller.request_submit(session)
     controller.request_submit(session)
     target.submit.assert_called_once()

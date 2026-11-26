@@ -23,15 +23,16 @@ class StyleTests(unittest.TestCase):
         document = json.loads(TEMPLATE.read_text(encoding="utf-8"))
         layers = {layer["id"]: layer for layer in document["layers"]}
         self.assertEqual(document["sources"]["state-boundaries"]["type"], "geojson")
-        self.assertIn("us_state_boundaries.geojson",
-                      document["sources"]["state-boundaries"]["data"])
+        self.assertIn(
+            "us_state_boundaries.geojson", document["sources"]["state-boundaries"]["data"]
+        )
         self.assertEqual(document["sources"]["country-boundaries"]["type"], "geojson")
         self.assertEqual(layers["state-boundaries"]["paint"]["line-dasharray"], [1, 2])
         self.assertEqual(layers["michigan-boundary"]["filter"][-1], "26")
         self.assertEqual(layers["state-boundaries"]["minzoom"], 0)
         self.assertEqual(layers["michigan-boundary"]["minzoom"], 0)
-        asset = TEMPLATE.parents[3]/'resources/maps/us_state_boundaries.geojson'
-        self.assertEqual(len(json.loads(asset.read_text())['features']), 50)
+        asset = TEMPLATE.parents[3] / "resources/maps/us_state_boundaries.geojson"
+        self.assertEqual(len(json.loads(asset.read_text())["features"]), 50)
 
     def test_national_reference_land_and_freeways_are_layered_below_boundaries(self):
         document = json.loads(TEMPLATE.read_text(encoding="utf-8"))

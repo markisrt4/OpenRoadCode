@@ -26,7 +26,7 @@ START_ROUTE_COMMAND = "navigation.route.start"
 CANCEL_ROUTE_COMMAND = "navigation.route.cancel"
 SIMULATE_ROUTE_COMMAND = "navigation.route.simulate"
 STOP_ROUTE_SIMULATION_COMMAND = "navigation.route.simulation.stop"
-PREPARE_HOST_LOCATION_COMMAND = 'navigation.location.host.prepare'
+PREPARE_HOST_LOCATION_COMMAND = "navigation.location.host.prepare"
 
 RouteStartedCallback = Callable[[RouteRequest, RouteResult], None]
 RouteCancelledCallback = Callable[[], None]
@@ -73,8 +73,12 @@ class NavigationCommandService:
         args = dict(arguments or {})
         if command == PREPARE_HOST_LOCATION_COMMAND:
             if self._prepare_host_location is None:
-                return NavigationCommandResult(False, 'Host location sharing is unavailable on this device')
-            return NavigationCommandResult(True, 'Location sharing ready', {'url': self._prepare_host_location()})
+                return NavigationCommandResult(
+                    False, "Host location sharing is unavailable on this device"
+                )
+            return NavigationCommandResult(
+                True, "Location sharing ready", {"url": self._prepare_host_location()}
+            )
 
         if command == CALIBRATE_STATIONARY_COMMAND:
             self._controller.calibrate_stationary(

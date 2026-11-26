@@ -21,9 +21,9 @@ def test_split_renderer_replay_keeps_the_last_observed_zoom_and_camera():
     runtime._renderer_client.reset_mock()
     runtime.request_replay_map_presentation()
     values = runtime._renderer_client.set_camera.call_args.kwargs
-    assert values['zoom'] == 17.75
-    assert values['latitude'] == pytest.approx(42.51)
-    assert values['longitude'] == pytest.approx(-83.04)
+    assert values["zoom"] == 17.75
+    assert values["latitude"] == pytest.approx(42.51)
+    assert values["longitude"] == pytest.approx(-83.04)
     assert runtime._handler.zoom_level == 17.75
 
 
@@ -46,7 +46,7 @@ def _camera_runtime():
 
 def test_failed_optional_observer_does_not_block_vehicle_or_recenter(caplog):
     runtime = _camera_runtime()
-    failed = Mock(side_effect=RuntimeError('optional view unavailable'))
+    failed = Mock(side_effect=RuntimeError("optional view unavailable"))
     healthy = Mock()
     runtime._position_observers = [failed, healthy]
     point = _position(math.radians(42.5), math.radians(-83.1))
@@ -55,16 +55,20 @@ def test_failed_optional_observer_does_not_block_vehicle_or_recenter(caplog):
     runtime._renderer_client.set_position.assert_called_once_with(latitude=42.5, longitude=-83.1)
     runtime._handler.request_recenter()
     camera = runtime._renderer_client.set_camera.call_args.kwargs
-    assert camera['latitude'] == pytest.approx(42.5)
-    assert camera['longitude'] == pytest.approx(-83.1)
-    assert 'Map position dispatch failed' in caplog.text
+    assert camera["latitude"] == pytest.approx(42.5)
+    assert camera["longitude"] == pytest.approx(-83.1)
+    assert "Map position dispatch failed" in caplog.text
 
 
 def test_repeated_dispatch_errors_are_logged_once(caplog):
     runtime = _camera_runtime()
-    runtime._on_dispatch_error('openroad.navigation.position', ValueError('position data has missing or unknown fields'))
-    runtime._on_dispatch_error('openroad.navigation.position', ValueError('position data has missing or unknown fields'))
-    assert caplog.text.count('Map position dispatch failed') == 1
+    runtime._on_dispatch_error(
+        "openroad.navigation.position", ValueError("position data has missing or unknown fields")
+    )
+    runtime._on_dispatch_error(
+        "openroad.navigation.position", ValueError("position data has missing or unknown fields")
+    )
+    assert caplog.text.count("Map position dispatch failed") == 1
 
 
 def _motion(speed, course=None, *, cached=False):

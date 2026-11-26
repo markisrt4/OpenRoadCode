@@ -373,11 +373,17 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
 
     def set_host_location_state(self, state: HostLocationState) -> None:
         self._host_location_state = state
-        self._location_status.set('\n'.join(filter(None, (state.location_status, state.android_status, state.status))))
+        self._location_status.set(
+            "\n".join(filter(None, (state.location_status, state.android_status, state.status)))
+        )
         self._location_button.configure(
             text="RESTART LOCATION SERVICE" if state.can_restart else "SHARE HOST LOCATION",
-            state=tk.DISABLED if state.busy or (not state.can_share and not state.can_restart)
-            or self._location_handler is None else tk.NORMAL)
+            state=tk.DISABLED
+            if state.busy
+            or (not state.can_share and not state.can_restart)
+            or self._location_handler is None
+            else tk.NORMAL,
+        )
         if state.sharing and not state.can_restart:
             self._location_button.grid_remove()
         else:

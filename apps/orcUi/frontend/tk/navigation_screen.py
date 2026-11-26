@@ -101,11 +101,11 @@ class NavigationScreen(TkScreen, RadarControlsIf):
 
     def request_places_drawer(self) -> None:
         if self._panel is not None and self._panel._experience_controls is not None:
-            self._panel._experience_controls.toggle_drawer('places')
+            self._panel._experience_controls.toggle_drawer("places")
 
     def request_search_places(self, category, transit) -> None:
         if self._panel is not None:
-            self._panel._experience_controls.show_drawer('places')
+            self._panel._experience_controls.show_drawer("places")
             self._panel._start_poi_search(category, transit)
 
     def request_select_place(self, place) -> None:

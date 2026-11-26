@@ -19,6 +19,7 @@ def _coverage(coverage):
     if coverage in MICHIGAN_COVERAGES:
         return MICHIGAN_COVERAGES[coverage]
     from development.maps.state_map_catalog import coverage_definition
+
     return coverage_definition(coverage)
 
 
@@ -109,19 +110,16 @@ def build_michigan_row(cache: Path, *, coverage: str, row: int) -> None:
         )
 
 
-def assemble(destination: Path, *, coverage: str, cache: Path,
-             size: int | None = None) -> None:
+def assemble(destination: Path, *, coverage: str, cache: Path, size: int | None = None) -> None:
     """Assemble a terrain pack from a complete cache without downloading tiles."""
-    title, bounds = (COVERAGES[coverage] if coverage == "metro-detroit"
-                     else _coverage(coverage))
+    title, bounds = COVERAGES[coverage] if coverage == "metro-detroit" else _coverage(coverage)
     destination = Path(destination)
     if destination.exists():
         load_terrain(destination)
         return
     cache = Path(cache)
     definitions = _definitions(coverage, bounds, size)
-    missing = [definition[0] for definition in definitions
-               if not (cache / definition[0]).is_dir()]
+    missing = [definition[0] for definition in definitions if not (cache / definition[0]).is_dir()]
     if missing:
         raise ValueError(f"Terrain cache is missing {len(missing)} tile(s): {', '.join(missing)}")
     records = [_tile_record(cache, definition) for definition in definitions]
@@ -152,8 +150,7 @@ def assemble(destination: Path, *, coverage: str, cache: Path,
 
 
 def build(destination: Path, *, coverage: str = "metro-detroit", size: int | None = None) -> None:
-    title, bounds = (COVERAGES[coverage] if coverage == "metro-detroit"
-                     else _coverage(coverage))
+    title, bounds = COVERAGES[coverage] if coverage == "metro-detroit" else _coverage(coverage)
     destination = Path(destination)
     if destination.exists():
         load_terrain(destination)
@@ -161,8 +158,10 @@ def build(destination: Path, *, coverage: str = "metro-detroit", size: int | Non
     cache = destination.with_name(destination.name + ".download")
     cache.mkdir(parents=True, exist_ok=True)
     definitions = _definitions(coverage, bounds, size)
+
     def build_tile(item):
         return _build_tile(cache, title, item[0], len(definitions), item[1])
+
     indexed = list(enumerate(definitions, 1))
     if coverage != "metro-detroit":
         # Statewide grids generate many USGS sampling calls. Two concurrent

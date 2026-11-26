@@ -15,12 +15,13 @@ def choose_coverage(layer="buildings"):
             "Terrain: run 3d --layer terrain for a separate USGS 3DEP offline pack. Imagery build is not available here yet."
         )
     keys = list(PRESETS)
-    for index,key in enumerate(keys,1):
-        title,bounds = PRESETS[key]
-        if layer == 'terrain':
+    for index, key in enumerate(keys, 1):
+        title, bounds = PRESETS[key]
+        if layer == "terrain":
             from development.maps.terrain_regions import MICHIGAN_COVERAGES
-            title,bounds = MICHIGAN_COVERAGES.get(key,(title,bounds))
-        print(f'  {index}. {title} · bounds {bounds}')
+
+            title, bounds = MICHIGAN_COVERAGES.get(key, (title, bounds))
+        print(f"  {index}. {title} · bounds {bounds}")
     while True:
         choice = input(
             f"Choose coverage [{'/'.join(str(i) for i in range(1, len(keys) + 1))}, Enter cancels]: "

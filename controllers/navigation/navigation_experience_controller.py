@@ -1,4 +1,5 @@
 """Route shared navigation actions without coupling the views to runtimes."""
+
 from ui.navigation.map_platform_if import MapPlatform
 from ui.navigation.navigation_experience_if import NavigationExperience, NavigationExperienceState
 from ui.navigation.poi_models import TransitMode
@@ -6,9 +7,25 @@ from ui.navigation.waze_gesture_if import WazeGestureState
 
 
 class NavigationExperienceController:
-    def __init__(self, *, platform, navigation_state, open_map, open_waze,
-                 waze_state, waze_available, saved_map, saved_waze,
-                 show_places, search_places, select_place, clear_places, close_waze, select_platform=None, gestures=None):
+    def __init__(
+        self,
+        *,
+        platform,
+        navigation_state,
+        open_map,
+        open_waze,
+        waze_state,
+        waze_available,
+        saved_map,
+        saved_waze,
+        show_places,
+        search_places,
+        select_place,
+        clear_places,
+        close_waze,
+        select_platform=None,
+        gestures=None,
+    ):
         self._platform = platform
         self._navigation_state = navigation_state
         self._open_map, self._open_waze = open_map, open_waze
@@ -25,17 +42,27 @@ class NavigationExperienceController:
         platform = self._platform.state
         waze = self._waze_state()
         gestures = self._gestures.state if self._gestures is not None else WazeGestureState()
-        selected = (NavigationExperience.WAZE if self._navigation_state().selected == 'waze'
-                    else NavigationExperience.TERRAIN if platform.requested is MapPlatform.CESIUM
-                    else NavigationExperience.ROAD)
-        return NavigationExperienceState(selected=selected,
+        selected = (
+            NavigationExperience.WAZE
+            if self._navigation_state().selected == "waze"
+            else NavigationExperience.TERRAIN
+            if platform.requested is MapPlatform.CESIUM
+            else NavigationExperience.ROAD
+        )
+        return NavigationExperienceState(
+            selected=selected,
             terrain_available=MapPlatform.CESIUM in platform.available_platforms,
-            waze_available=self._waze_available(), waze_running=waze.active,
+            waze_available=self._waze_available(),
+            waze_running=waze.active,
             busy=platform.busy or waze.launching or waze.closing,
             waze_loading=waze.launching,
-            waze_gestures_available=gestures.available and selected is NavigationExperience.WAZE and waze.active,
+            waze_gestures_available=gestures.available
+            and selected is NavigationExperience.WAZE
+            and waze.active,
             waze_gestures_supported=self._gestures is not None,
-            waze_gesture_busy=gestures.busy, waze_gesture_status=gestures.status)
+            waze_gesture_busy=gestures.busy,
+            waze_gesture_status=gestures.status,
+        )
 
     def request_experience(self, experience):
         if self.state.busy:
@@ -46,24 +73,30 @@ class NavigationExperienceController:
             return
         if experience is NavigationExperience.TERRAIN and not self.state.terrain_available:
             return
-        if self._navigation_state().selected == 'waze':
+        if self._navigation_state().selected == "waze":
             self._open_map()
-        target = MapPlatform.CESIUM if experience is NavigationExperience.TERRAIN else MapPlatform.MAPLIBRE
+        target = (
+            MapPlatform.CESIUM
+            if experience is NavigationExperience.TERRAIN
+            else MapPlatform.MAPLIBRE
+        )
         if self._platform.state.requested is not target:
             self._select_platform(target)
 
     def request_saved_destination(self, key):
-        if key not in ('home', 'work'):
+        if key not in ("home", "work"):
             return
-        (self._saved_waze if self.state.selected is NavigationExperience.WAZE else self._saved_map)(key)
+        (self._saved_waze if self.state.selected is NavigationExperience.WAZE else self._saved_map)(
+            key
+        )
 
     def request_places(self):
-        if self._navigation_state().selected == 'waze':
+        if self._navigation_state().selected == "waze":
             self._open_map()
         self._show_places()
 
     def request_search_places(self, category, transit=TransitMode.ALL):
-        if self._navigation_state().selected == 'waze':
+        if self._navigation_state().selected == "waze":
             self._open_map()
         self._search_places(category, transit)
 

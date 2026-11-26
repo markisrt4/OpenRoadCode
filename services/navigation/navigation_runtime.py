@@ -71,7 +71,9 @@ class NavigationRuntime:
                 controller,
                 route_planning_controller=route_planning_controller,
                 geocoder=geocoder,
-                prepare_host_location=self._prepare_host_location if host_location_source is not None else None,
+                prepare_host_location=self._prepare_host_location
+                if host_location_source is not None
+                else None,
                 on_route_started=(
                     self._activate_route if route_planning_controller is not None else None
                 ),

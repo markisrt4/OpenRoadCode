@@ -62,7 +62,7 @@ def test_closed_session_does_not_emit_late_results_or_requests():
 
 def test_close_releases_source_without_clearing_retained_markers():
     controller, search, _, _ = session()
-    search.clear.side_effect = RuntimeError('failed to clear')
+    search.clear.side_effect = RuntimeError("failed to clear")
     controller.close()
     search.clear.assert_not_called()
     search.close.assert_called_once_with()
@@ -193,28 +193,40 @@ def test_local_3d_action_is_selected_and_allowed_offline():
         search, Mock(), executor, online_allowed=lambda: False, local_3d_action=lambda poi: action
     )
     assert action in controller.poll_selected().actions
-    assert controller.execute(selected,action) is executor.execute.return_value
-    with pytest.raises(ValueError,match='Offline mode'):
-        controller.execute(selected,PoiAction(PoiActionKind.OPEN_WEBSITE,'Website'))
+    assert controller.execute(selected, action) is executor.execute.return_value
+    with pytest.raises(ValueError, match="Offline mode"):
+        controller.execute(selected, PoiAction(PoiActionKind.OPEN_WEBSITE, "Website"))
 
 
-@pytest.mark.parametrize('name,business_action', [
-    ("McDonald's", PoiAction(PoiActionKind.ORDER, 'ORDER', provider_id='mcdonalds')),
-    ('Independent Cafe', PoiAction(PoiActionKind.OPEN_WEBSITE, 'WEBSITE', uri='https://example.com')),
-])
-def test_places_list_and_map_marker_preserve_same_exploration_and_business_actions(name, business_action):
-    poi = PointOfInterest('store', name, PoiCategory.FOOD, GeoPoint(.7, -1.4), actions=(business_action,))
+@pytest.mark.parametrize(
+    "name,business_action",
+    [
+        ("McDonald's", PoiAction(PoiActionKind.ORDER, "ORDER", provider_id="mcdonalds")),
+        (
+            "Independent Cafe",
+            PoiAction(PoiActionKind.OPEN_WEBSITE, "WEBSITE", uri="https://example.com"),
+        ),
+    ],
+)
+def test_places_list_and_map_marker_preserve_same_exploration_and_business_actions(
+    name, business_action
+):
+    poi = PointOfInterest(
+        "store", name, PoiCategory.FOOD, GeoPoint(0.7, -1.4), actions=(business_action,)
+    )
     original = PoiSearchResult(PoiCategory.FOOD, 1, 40, -81, 41, -80, pois=(poi,))
     search, executor = Mock(), Mock()
     search.poll_search_result.return_value = original
     search.poll_selected.return_value = poi
-    local = PoiAction(PoiActionKind.EXPLORE_3D, '3D Map', provider_id='local-3d')
-    controller = NavigationPlacesController(search, Mock(), executor, local_3d_action=lambda value: local)
+    local = PoiAction(PoiActionKind.EXPLORE_3D, "3D Map", provider_id="local-3d")
+    controller = NavigationPlacesController(
+        search, Mock(), executor, local_3d_action=lambda value: local
+    )
     listed = controller.poll_search_result().pois[0]
     selected = controller.poll_selected()
     assert listed == selected
     assert listed.actions[0] is business_action
-    assert sum(action.provider_id == 'google-earth-explore' for action in listed.actions) == 1
+    assert sum(action.provider_id == "google-earth-explore" for action in listed.actions) == 1
     assert sum(action.kind is PoiActionKind.EXPLORE_3D for action in listed.actions) == 1
     assert original.pois[0].actions == (business_action,)
     search.poll_search_result.return_value = controller.poll_search_result()
@@ -227,12 +239,13 @@ def test_app_status_coalesces_requests_and_rejects_stale_completion():
     from threading import Event
 
     from ui.navigation.poi_models import PoiAppAvailability
+
     started, release, finished = Event(), Event(), Event()
     seen = []
 
     def availability(poi):
         seen.append(poi.poi_id)
-        if poi.poi_id == 'first':
+        if poi.poi_id == "first":
             started.set()
             assert release.wait(2)
         else:
@@ -240,24 +253,27 @@ def test_app_status_coalesces_requests_and_rejects_stale_completion():
         return PoiAppAvailability.INSTALLED
 
     controller = NavigationPlacesController(Mock(), Mock(), Mock(), app_availability=availability)
+
     def place(key):
         return PointOfInterest(key, key, PoiCategory.FOOD, GeoPoint(0, 0))
+
     try:
-        controller.request_app_status(place('first'))
+        controller.request_app_status(place("first"))
         assert started.wait(2)
-        controller.request_app_status(place('skipped'))
-        latest = controller.request_app_status(place('latest'))
+        controller.request_app_status(place("skipped"))
+        latest = controller.request_app_status(place("latest"))
         release.set()
         assert finished.wait(2)
         # Synchronize with the worker publishing after the callback returns.
         import time
+
         deadline = time.monotonic() + 2
         result = None
         while result is None and time.monotonic() < deadline:
             result = controller.poll_app_status()
         assert result.request_id == latest
-        assert result.poi_id == 'latest'
-        assert seen == ['first', 'latest']
+        assert result.poi_id == "latest"
+        assert seen == ["first", "latest"]
         assert controller.poll_app_status() is None
     finally:
         release.set()
@@ -268,9 +284,13 @@ def test_app_status_failure_is_unknown_and_closed_session_drops_completion():
     from unittest.mock import patch
 
     from ui.navigation.poi_models import PoiAppAvailability
+
     controller = NavigationPlacesController(Mock(), Mock(), Mock(), app_availability=Mock())
-    poi = PointOfInterest('store', 'Store', PoiCategory.FOOD, GeoPoint(0, 0))
-    with patch('controllers.poi.navigation_places_controller.threading.Thread.start', side_effect=RuntimeError):
+    poi = PointOfInterest("store", "Store", PoiCategory.FOOD, GeoPoint(0, 0))
+    with patch(
+        "controllers.poi.navigation_places_controller.threading.Thread.start",
+        side_effect=RuntimeError,
+    ):
         request = controller.request_app_status(poi)
     assert controller.poll_app_status().availability is PoiAppAvailability.UNKNOWN
     controller.close()
@@ -283,14 +303,17 @@ def test_close_discards_an_inflight_app_status_without_touching_the_view():
     from threading import Event
 
     from ui.navigation.poi_models import PoiAppAvailability
+
     started, release, done = Event(), Event(), Event()
+
     def availability(poi):
         started.set()
         assert release.wait(2)
         done.set()
         return PoiAppAvailability.INSTALLED
+
     controller = NavigationPlacesController(Mock(), Mock(), Mock(), app_availability=availability)
-    poi = PointOfInterest('store', 'Store', PoiCategory.FOOD, GeoPoint(0, 0))
+    poi = PointOfInterest("store", "Store", PoiCategory.FOOD, GeoPoint(0, 0))
     try:
         controller.request_app_status(poi)
         assert started.wait(2)

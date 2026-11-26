@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Open and retain native Waze, reporting failure without switching providers."""
+
 import logging
 import math
 from collections.abc import Callable
@@ -14,12 +15,19 @@ from ui.navigation.waze_request_handler_if import WazeRequestHandlerIf, WazeSess
 
 
 class WazeAppController(WazeRequestHandlerIf):
-    def __init__(self, launcher: InstalledAndroidAppLauncherIf,
-                 view: AndroidAppViewRequestHandlerIf, *,
-                 dispatch_ui: Callable[[Callable[[], None]], None],
-                 online: Callable[[], bool], fallback: Callable[[], None],
-                 status: Callable[[str], None], session_changed=lambda _state: None,
-                 session_closed=lambda: None, saved_destination=lambda _key: None):
+    def __init__(
+        self,
+        launcher: InstalledAndroidAppLauncherIf,
+        view: AndroidAppViewRequestHandlerIf,
+        *,
+        dispatch_ui: Callable[[Callable[[], None]], None],
+        online: Callable[[], bool],
+        fallback: Callable[[], None],
+        status: Callable[[str], None],
+        session_changed=lambda _state: None,
+        session_closed=lambda: None,
+        saved_destination=lambda _key: None,
+    ):
         self._launcher, self._view = launcher, view
         self._dispatch_ui, self._online = dispatch_ui, online
         self._fallback, self._status = fallback, status
@@ -38,15 +46,15 @@ class WazeAppController(WazeRequestHandlerIf):
         with self._lock:
             if self._closed:
                 return
-        if key not in ('home', 'work'):
+        if key not in ("home", "work"):
             return
         try:
             position = self._saved_destination(key)
         except (OSError, RuntimeError, ValueError):
-            self._status('Saved destinations are unavailable. Check your Home and Work settings.')
+            self._status("Saved destinations are unavailable. Check your Home and Work settings.")
             return
         if position is None:
-            self._status(f'{key.title()} location is not configured. Set it in Navigation first.')
+            self._status(f"{key.title()} location is not configured. Set it in Navigation first.")
             return
         self.request_navigate_waze(position)
 
@@ -60,18 +68,24 @@ class WazeAppController(WazeRequestHandlerIf):
 
     def request_navigate_waze(self, destination: GeoPoint):
         lat, lon = destination.latitude_rad, destination.longitude_rad
-        if (not math.isfinite(lat) or not math.isfinite(lon)
-                or abs(lat) > math.pi / 2 or abs(lon) > math.pi):
-            self._status('Waze destination is invalid')
+        if (
+            not math.isfinite(lat)
+            or not math.isfinite(lon)
+            or abs(lat) > math.pi / 2
+            or abs(lon) > math.pi
+        ):
+            self._status("Waze destination is invalid")
             return
-        self._request_launch(f'waze://?ll={math.degrees(lat):.7f},{math.degrees(lon):.7f}&navigate=yes')
+        self._request_launch(
+            f"waze://?ll={math.degrees(lat):.7f},{math.degrees(lon):.7f}&navigate=yes"
+        )
 
     def _request_launch(self, uri=None):
         with self._lock:
             if self._closed:
                 return
         if not self._online() and not (self.state.active and uri is None):
-            self._status('Waze requires online mode')
+            self._status("Waze requires online mode")
             return
         with self._lock:
             if self._closed or self._pending:
@@ -79,7 +93,7 @@ class WazeAppController(WazeRequestHandlerIf):
             self._pending = True
             self._state = WazeSessionState(self._state.active, launching=True)
             generation = self._generation
-        self._status('Opening Waze…')
+        self._status("Opening Waze…")
         Thread(target=self._launch, args=(generation, uri), daemon=True).start()
 
     def _launch(self, generation, uri=None):
@@ -91,11 +105,14 @@ class WazeAppController(WazeRequestHandlerIf):
                 resume = self._state.active and uri is None
             try:
                 if resume:
-                    self._launcher.resume_installed_app('com.waze')
+                    self._launcher.resume_installed_app("com.waze")
                     name = self._session_name
                 else:
-                    name = (self._launcher.launch_installed_app('com.waze') if uri is None else
-                            self._launcher.launch_installed_app('com.waze', uri=uri))
+                    name = (
+                        self._launcher.launch_installed_app("com.waze")
+                        if uri is None
+                        else self._launcher.launch_installed_app("com.waze", uri=uri)
+                    )
             except (OSError, RuntimeError) as error:
                 name = None
                 failure = str(error)
@@ -117,15 +134,25 @@ class WazeAppController(WazeRequestHandlerIf):
                 self._session_name = name
                 self._state = WazeSessionState(active=True)
             self._session_changed(self.state)
-            event(logging.getLogger('navigation.waze'), logging.INFO,
-                  'app.open.requested', 'Opening Waze', backend='native', destination_requested=navigating)
-            self._view.request_show_android_app(name, 'com.waze')
+            event(
+                logging.getLogger("navigation.waze"),
+                logging.INFO,
+                "app.open.requested",
+                "Opening Waze",
+                backend="native",
+                destination_requested=navigating,
+            )
+            self._view.request_show_android_app(name, "com.waze")
         elif failure:
             self._status(failure)
         elif self.state.active:
-            self._status('Could not restore Waze. Its session is still retained; check the Android connection.')
+            self._status(
+                "Could not restore Waze. Its session is still retained; check the Android connection."
+            )
         elif navigating:
-            self._status('Could not send destination to native Waze. Check that Waze is installed and running.')
+            self._status(
+                "Could not send destination to native Waze. Check that Waze is installed and running."
+            )
         else:
             self._fallback()
 
@@ -137,14 +164,14 @@ class WazeAppController(WazeRequestHandlerIf):
             generation = self._generation
             self._pending = True
             self._state = WazeSessionState(self._state.active, closing=True)
-        self._status('Closing Waze…')
+        self._status("Closing Waze…")
         Thread(target=self._stop_session, args=(generation,), daemon=True).start()
 
     def _stop_session(self, generation):
         error = None
         with self._operation_lock:
             try:
-                self._launcher.stop_installed_app('com.waze')
+                self._launcher.stop_installed_app("com.waze")
             except (OSError, RuntimeError) as caught:
                 error = caught
         self._dispatch_ui(lambda: self._finish_close(generation, error))
@@ -158,7 +185,9 @@ class WazeAppController(WazeRequestHandlerIf):
             if error is None:
                 self._session_name = None
         if error is not None:
-            self._status('Could not close Waze. Its session is still retained; check the Android connection and retry.')
+            self._status(
+                "Could not close Waze. Its session is still retained; check the Android connection and retry."
+            )
             return
         self._view.request_close_android_app()
         self._session_changed(self.state)

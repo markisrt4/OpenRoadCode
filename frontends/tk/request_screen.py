@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """A shell destination which emits an injected semantic presentation request."""
+
 from collections.abc import Callable
 
 from frontends.tk.tk_screen import TkScreen

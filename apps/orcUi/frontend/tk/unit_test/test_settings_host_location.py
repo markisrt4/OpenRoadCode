@@ -60,6 +60,7 @@ def test_share_control_hides_during_live_sharing_and_returns_when_it_expires():
     panel.set_host_location_state(HostLocationState(sharing=False))
     panel._location_button.grid.assert_called_once_with()
 
+
 def test_restart_button_emits_only_the_semantic_request():
     panel = object.__new__(SettingsPanel)
     panel._location_handler = Mock()

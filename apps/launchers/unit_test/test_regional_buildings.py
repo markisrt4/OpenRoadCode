@@ -17,94 +17,124 @@ from ui.navigation import GeoPoint
 
 @pytest.fixture
 def artifact(tmp_path):
-    if not shutil.which('osmium'):
-        pytest.skip('osmium is required only on map build host')
-    root=tmp_path/'dataset'
-    source=root/'maps/source/michigan.osm.pbf'
+    if not shutil.which("osmium"):
+        pytest.skip("osmium is required only on map build host")
+    root = tmp_path / "dataset"
+    source = root / "maps/source/michigan.osm.pbf"
     source.parent.mkdir(parents=True)
-    osm=tmp_path/'fixture.osm'
-    osm.write_text('''<osm version="0.6" generator="ORC test">
+    osm = tmp_path / "fixture.osm"
+    osm.write_text("""<osm version="0.6" generator="ORC test">
 <node id="1" version="1" lat="42.33" lon="-83.05"/>
 <node id="2" version="1" lat="42.33" lon="-83.049"/>
 <node id="3" version="1" lat="42.331" lon="-83.049"/>
 <node id="4" version="1" lat="42.331" lon="-83.05"/>
 <way id="10" version="1"><nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="1"/>
-<tag k="building" v="yes"/><tag k="building:levels" v="5"/></way></osm>''')
-    subprocess.run(['osmium','cat',str(osm),'-o',str(source)],check=True)
-    pack=build_pack(root,'metro-detroit')
-    archive=tmp_path/'metro-detroit-buildings.zip'
-    descriptor=package(pack,archive,'metro-detroit')
-    return pack,archive,descriptor
+<tag k="building" v="yes"/><tag k="building:levels" v="5"/></way></osm>""")
+    subprocess.run(["osmium", "cat", str(osm), "-o", str(source)], check=True)
+    pack = build_pack(root, "metro-detroit")
+    archive = tmp_path / "metro-detroit-buildings.zip"
+    descriptor = package(pack, archive, "metro-detroit")
+    return pack, archive, descriptor
 
 
-def test_osm_pbf_becomes_bounded_installable_regional_buildings(artifact,tmp_path,monkeypatch):
-    pack,archive,descriptor=artifact
-    assert descriptor['buildings']==1 and descriptor['height_counts']['levels-estimate']==1
-    assert descriptor['tiles']==256
-    assert validate_pack(pack)['buildings']==1
-    active=tmp_path/'device/metro-detroit-buildings-active'
-    install(archive,destination=active)
+def test_osm_pbf_becomes_bounded_installable_regional_buildings(artifact, tmp_path, monkeypatch):
+    pack, archive, descriptor = artifact
+    assert descriptor["buildings"] == 1 and descriptor["height_counts"]["levels-estimate"] == 1
+    assert descriptor["tiles"] == 256
+    assert validate_pack(pack)["buildings"] == 1
+    active = tmp_path / "device/metro-detroit-buildings-active"
+    install(archive, destination=active)
     assert active.is_symlink()
-    loaded=runtime.LocalMapTilesPack.load(active)
-    assert len(loaded.state.tiles)==256
+    loaded = runtime.LocalMapTilesPack.load(active)
+    assert len(loaded.state.tiles) == 256
     assert all(not tile.imagery_available for tile in loaded.state.tiles)
-    assert sum(tile.buildings_count for tile in loaded.state.tiles)==1
-    monkeypatch.setattr(runtime,'openroadcode_data_dir',lambda *args:active)
-    monkeypatch.setattr(runtime,'navigation_data_root',lambda:tmp_path/'nav')
-    assert runtime.preferred_tiles_directory(GeoPoint(math.radians(42.33),math.radians(-83.05)))==active
-    previous=active.resolve()
+    assert sum(tile.buildings_count for tile in loaded.state.tiles) == 1
+    monkeypatch.setattr(runtime, "openroadcode_data_dir", lambda *args: active)
+    monkeypatch.setattr(runtime, "navigation_data_root", lambda: tmp_path / "nav")
+    assert (
+        runtime.preferred_tiles_directory(GeoPoint(math.radians(42.33), math.radians(-83.05)))
+        == active
+    )
+    previous = active.resolve()
     # A changed archive cannot replace a working revision.
-    with archive.open('ab') as stream:stream.write(b'changed')
-    with pytest.raises(ValueError,match='size'):
-        install(archive,destination=active)
-    assert active.resolve()==previous
+    with archive.open("ab") as stream:
+        stream.write(b"changed")
+    with pytest.raises(ValueError, match="size"):
+        install(archive, destination=active)
+    assert active.resolve() == previous
 
 
 def test_building_archive_rejects_path_traversal_before_activation(tmp_path):
     from development.maps.prebuilt_imagery import unpack
-    archive=tmp_path/'bad.zip'
-    with zipfile.ZipFile(archive,'w') as zipped:zipped.writestr('../outside','bad')
-    with pytest.raises(ValueError,match='Unsafe'):
-        unpack(archive,tmp_path/'revision',PRESETS['metro-detroit'][1],loader=validate_pack,
-               max_unpacked_bytes=512*1024*1024)
-    assert not (tmp_path/'outside').exists()
+
+    archive = tmp_path / "bad.zip"
+    with zipfile.ZipFile(archive, "w") as zipped:
+        zipped.writestr("../outside", "bad")
+    with pytest.raises(ValueError, match="Unsafe"):
+        unpack(
+            archive,
+            tmp_path / "revision",
+            PRESETS["metro-detroit"][1],
+            loader=validate_pack,
+            max_unpacked_bytes=512 * 1024 * 1024,
+        )
+    assert not (tmp_path / "outside").exists()
 
 
-def test_wrong_kind_cannot_activate_buildings(tmp_path,monkeypatch):
+def test_wrong_kind_cannot_activate_buildings(tmp_path, monkeypatch):
     from development.maps import install_buildings as installer
-    monkeypatch.setattr(installer,'read_local_archive',lambda *args,**kwargs:({'kind':'terrain'},Path('fake.zip')))
-    with pytest.raises(ValueError,match='not a buildings'):
-        installer.install(Path('fake.zip'),destination=tmp_path/'active')
-    assert not (tmp_path/'active').exists()
+
+    monkeypatch.setattr(
+        installer,
+        "read_local_archive",
+        lambda *args, **kwargs: ({"kind": "terrain"}, Path("fake.zip")),
+    )
+    with pytest.raises(ValueError, match="not a buildings"):
+        installer.install(Path("fake.zip"), destination=tmp_path / "active")
+    assert not (tmp_path / "active").exists()
 
 
-@pytest.mark.parametrize('region_id',['michigan','north-america/us/michigan'])
+@pytest.mark.parametrize("region_id", ["michigan", "north-america/us/michigan"])
 def test_source_selection_uses_official_url_instead_of_catalog_id_shape(region_id):
     from development.maps.build_regional_buildings import michigan_region
     from tools.map_builder.builder.geofabrik import Region
-    region=Region(region_id,'Michigan',None,
-        'https://download.geofabrik.de/north-america/us/michigan-latest.osm.pbf')
+
+    region = Region(
+        region_id,
+        "Michigan",
+        None,
+        "https://download.geofabrik.de/north-america/us/michigan-latest.osm.pbf",
+    )
     assert michigan_region([region]) is region
-    with pytest.raises(ValueError,match='official Michigan'):
+    with pytest.raises(ValueError, match="official Michigan"):
         michigan_region([])
 
 
 def test_dense_cells_subdivide_without_losing_geometry():
     from tools.map_builder.builder.map_3d import partition_buildings
-    def building(lon,lat):
-        return dict(height_m=9,height_source='placeholder',ring_rad=[
-            [math.radians(lon),math.radians(lat)],
-            [math.radians(lon+.001),math.radians(lat)],
-            [math.radians(lon),math.radians(lat+.001)],
-            [math.radians(lon),math.radians(lat)]])
-    features={str(index):building(.1 if index%2 else .7,.1 if index%3 else .7)
-              for index in range(12000)}
-    cells=list(partition_buildings({(0,0):features},(0,0,1,1),1,1,adaptive=True))
-    assert len(cells)==4
-    assert sum(len(cell[2]) for cell in cells)==12000
-    assert all(len(cell[2])<=10000 for cell in cells)
-    with pytest.raises(ValueError,match='runtime limits'):
-        list(partition_buildings({(0,0):features},(0,0,1,1),1,1))
+
+    def building(lon, lat):
+        return dict(
+            height_m=9,
+            height_source="placeholder",
+            ring_rad=[
+                [math.radians(lon), math.radians(lat)],
+                [math.radians(lon + 0.001), math.radians(lat)],
+                [math.radians(lon), math.radians(lat + 0.001)],
+                [math.radians(lon), math.radians(lat)],
+            ],
+        )
+
+    features = {
+        str(index): building(0.1 if index % 2 else 0.7, 0.1 if index % 3 else 0.7)
+        for index in range(12000)
+    }
+    cells = list(partition_buildings({(0, 0): features}, (0, 0, 1, 1), 1, 1, adaptive=True))
+    assert len(cells) == 4
+    assert sum(len(cell[2]) for cell in cells) == 12000
+    assert all(len(cell[2]) <= 10000 for cell in cells)
+    with pytest.raises(ValueError, match="runtime limits"):
+        list(partition_buildings({(0, 0): features}, (0, 0, 1, 1), 1, 1))
 
 
 def test_building_download_budget_does_not_raise_imagery_budget():
@@ -112,8 +142,19 @@ def test_building_download_budget_does_not_raise_imagery_budget():
 
     from development.maps.prebuilt_imagery import validate_descriptor
     from tools.map_builder.builder.building_artifact import MAX_ARCHIVE_BYTES
-    raw=json.dumps(dict(schema=1,coverage='metro-detroit',archive='metro-detroit-buildings.zip',
-                        bytes=65*1024*1024,sha256='a'*64))
-    with pytest.raises(ValueError,match='descriptor'):
-        validate_descriptor(raw,'metro-detroit')
-    assert validate_descriptor(raw,'metro-detroit',max_archive_bytes=MAX_ARCHIVE_BYTES)['bytes']==65*1024*1024
+
+    raw = json.dumps(
+        dict(
+            schema=1,
+            coverage="metro-detroit",
+            archive="metro-detroit-buildings.zip",
+            bytes=65 * 1024 * 1024,
+            sha256="a" * 64,
+        )
+    )
+    with pytest.raises(ValueError, match="descriptor"):
+        validate_descriptor(raw, "metro-detroit")
+    assert (
+        validate_descriptor(raw, "metro-detroit", max_archive_bytes=MAX_ARCHIVE_BYTES)["bytes"]
+        == 65 * 1024 * 1024
+    )

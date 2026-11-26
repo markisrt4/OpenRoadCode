@@ -101,9 +101,9 @@ def test_menu_selects_packs_and_cancellation_preserves_install(monkeypatch):
 def test_failed_extraction_never_installs_pack(tmp_path, monkeypatch):
     source = tmp_path / "maps/source/michigan.osm.pbf"
     source.parent.mkdir(parents=True)
-    source.write_bytes(b'source')
-    monkeypatch.setattr(map_3d.subprocess,'run',Mock(return_value=Mock(stdout='')))
-    process = Mock(stdout=io.StringIO('\x1e'+json.dumps(feature())+'\n'))
+    source.write_bytes(b"source")
+    monkeypatch.setattr(map_3d.subprocess, "run", Mock(return_value=Mock(stdout="")))
+    process = Mock(stdout=io.StringIO("\x1e" + json.dumps(feature()) + "\n"))
     process.wait.return_value = 1
     monkeypatch.setattr(map_3d.subprocess, "Popen", Mock(return_value=process))
     with pytest.raises(RuntimeError, match="export failed"):

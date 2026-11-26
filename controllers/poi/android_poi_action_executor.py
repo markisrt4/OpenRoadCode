@@ -51,8 +51,8 @@ class AndroidPoiActionExecutor(PoiActionExecutorIf):
         if action.kind is PoiActionKind.OPEN_ANDROID_APP:
             provider = get_business_provider(action.provider_id)
             if provider is None or not provider.android_package:
-                raise ValueError('No verified Android app for this business')
+                raise ValueError("No verified Android app for this business")
             destination = self._launcher.open_android_app(provider.android_package)
-            return f'Opening {destination}'
+            return f"Opening {destination}"
 
         raise ValueError(f"Unsupported external POI action: {action.kind.name}")

@@ -27,16 +27,19 @@ def test_clearing_focus_and_results_replaces_secondary_state():
     requests.request_poi_results((), "")
     requests.request_poi_focus(None)
     state = secondary.call_args.args[0]
-    assert state.markers == () and state.category == '' and state.focused_category is None
+    assert state.markers == () and state.category == "" and state.focused_category is None
 
 
 def test_secondary_overlay_requests_preserve_native_camera_state_on_remount():
     from types import SimpleNamespace
-    native = SimpleNamespace(camera_initialized=True, zoom_level=18.0, pitch_rad=.4, follow_enabled=False)
+
+    native = SimpleNamespace(
+        camera_initialized=True, zoom_level=18.0, pitch_rad=0.4, follow_enabled=False
+    )
     requests = MapPlatformRequests(native, Mock())
     assert requests.camera_initialized
     assert requests.zoom_level == 18.0
-    assert requests.pitch_rad == .4
+    assert requests.pitch_rad == 0.4
     assert requests.follow_enabled is False
     native.zoom_level = 19.0
     assert requests.zoom_level == 19.0

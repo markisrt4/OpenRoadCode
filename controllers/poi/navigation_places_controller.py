@@ -38,7 +38,17 @@ from ui.navigation.poi_models import (
 class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
     """Own one search session while sharing durable favorites and action adapters."""
 
-    def __init__(self, search: PoiSearchControllerIf, favorites: MapFavorites, actions: PoiActionExecutorIf, *, online_allowed: Callable[[], bool] = lambda: True, camera_observer=None, local_3d_action=None, app_availability=None):
+    def __init__(
+        self,
+        search: PoiSearchControllerIf,
+        favorites: MapFavorites,
+        actions: PoiActionExecutorIf,
+        *,
+        online_allowed: Callable[[], bool] = lambda: True,
+        camera_observer=None,
+        local_3d_action=None,
+        app_availability=None,
+    ):
         self._diagnostics = ComponentLog("navigation.poi.actions", "poi")
         self._search = search
         self._favorites = favorites
@@ -68,14 +78,18 @@ class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
                 return request_id
             self._app_status_running = True
         try:
-            threading.Thread(target=self._check_app_status, name='poi-app-status', daemon=True).start()
+            threading.Thread(
+                target=self._check_app_status, name="poi-app-status", daemon=True
+            ).start()
         except RuntimeError:
             with self._action_lock:
                 self._app_status_running = False
                 pending, self._app_status_pending = self._app_status_pending, None
                 if not self._closed and pending is not None:
                     failed_id, failed_poi = pending
-                    self._app_status_results.put(PoiAppStatus(failed_id, failed_poi.poi_id, PoiAppAvailability.UNKNOWN))
+                    self._app_status_results.put(
+                        PoiAppStatus(failed_id, failed_poi.poi_id, PoiAppAvailability.UNKNOWN)
+                    )
         return request_id
 
     def _check_app_status(self):
@@ -121,7 +135,9 @@ class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
             return result
         # The Places drawer opens these values directly. Give it the same
         # capabilities as a marker selection instead of relying on map clicks.
-        return replace(result, pois=tuple(self._with_exploration_actions(poi) for poi in result.pois))
+        return replace(
+            result, pois=tuple(self._with_exploration_actions(poi) for poi in result.pois)
+        )
 
     def poll_selected(self) -> PointOfInterest | None:
         poi = None if self._closed else self._search.poll_selected()

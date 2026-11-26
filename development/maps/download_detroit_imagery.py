@@ -271,14 +271,16 @@ def download_image_bytes(href, max_bytes):
 def validate_export_image(payload, expected_size):
     """Reject malformed or empty service exports before they enter a resume cache."""
     with Image.open(BytesIO(payload)) as image:
-        if image.format != 'JPEG' or image.size != expected_size:
-            raise RuntimeError('USGS export JPEG dimensions differ from the requested image size')
-        extrema = image.convert('RGB').getextrema()
+        if image.format != "JPEG" or image.size != expected_size:
+            raise RuntimeError("USGS export JPEG dimensions differ from the requested image size")
+        extrema = image.convert("RGB").getextrema()
     if all(maximum <= 4 for _, maximum in extrema):
-        raise RuntimeError('USGS export contains only black no-data pixels')
+        raise RuntimeError("USGS export contains only black no-data pixels")
 
 
-def download(destination, *, bounds=BOUNDS, title="Detroit", image_size=(2048,1536), max_bytes=MAX_BYTES):
+def download(
+    destination, *, bounds=BOUNDS, title="Detroit", image_size=(2048, 1536), max_bytes=MAX_BYTES
+):
     if destination.exists():
         pack = LocalImageryPack.load(destination)
         print(f"Already installed: {pack.image} ({pack.image.stat().st_size:,} bytes)")
@@ -317,13 +319,25 @@ def download(destination, *, bounds=BOUNDS, title="Detroit", image_size=(2048,15
     # for provenance, but let the NAIP-only service's advertised default mosaic
     # choose the newest available image at each location. LockRaster is capped
     # at 50 source images and produces sparse statewide exports.
-    selected = sorted(candidates, key=lambda record: (
-        record["Year"], record.get("acquisition_date") or 0,
-        record.get("OBJECTID") or 0,
-    ), reverse=True)
-    export = get_json("/exportImage", bbox=",".join(map(str, bounds)), bboxSR=4326, imageSR=4326,
-                      size=','.join(map(str, image_size)), format="jpg", adjustAspectRatio="false",
-                      renderingRule=json.dumps({"rasterFunction":"NaturalColor"}))
+    selected = sorted(
+        candidates,
+        key=lambda record: (
+            record["Year"],
+            record.get("acquisition_date") or 0,
+            record.get("OBJECTID") or 0,
+        ),
+        reverse=True,
+    )
+    export = get_json(
+        "/exportImage",
+        bbox=",".join(map(str, bounds)),
+        bboxSR=4326,
+        imageSR=4326,
+        size=",".join(map(str, image_size)),
+        format="jpg",
+        adjustAspectRatio="false",
+        renderingRule=json.dumps({"rasterFunction": "NaturalColor"}),
+    )
     requested_bounds = bounds
     extent = export["extent"]
     if extent.get("spatialReference", {}).get("wkid") != 4326:

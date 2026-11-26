@@ -22,20 +22,24 @@ from development.maps.terrain_regions import MICHIGAN_COVERAGES
 from tools.map_builder.builder.map_3d import PRESETS
 
 STATE_COVERAGES = {
-    region["coverage"]: (region.get("title", state["name"] + " overview"),
-                         tuple(region["bounds_deg"]))
+    region["coverage"]: (
+        region.get("title", state["name"] + " overview"),
+        tuple(region["bounds_deg"]),
+    )
     for state in catalog_document()["states"]
     for region in (*state["overview_regions"], *state["detail_shards"])
 }
 
 # Rectangular planning envelopes, not county boundaries. No Canadian imagery promised.
 COVERAGES = {
-    'metro-detroit': ('Metro Detroit overview', (-83.75, 42.0, -82.55, 42.9)),
-    'detroit-midtown': ('Detroit Downtown–Midtown detail', (-83.085, 42.315, -83.025, 42.375)),
-    'rochester': PRESETS['rochester'],
-    'southfield': PRESETS['southfield'],
-    **{coverage: (title.replace('terrain overview', 'imagery overview'), bounds)
-       for coverage, (title, bounds) in MICHIGAN_COVERAGES.items()},
+    "metro-detroit": ("Metro Detroit overview", (-83.75, 42.0, -82.55, 42.9)),
+    "detroit-midtown": ("Detroit Downtown–Midtown detail", (-83.085, 42.315, -83.025, 42.375)),
+    "rochester": PRESETS["rochester"],
+    "southfield": PRESETS["southfield"],
+    **{
+        coverage: (title.replace("terrain overview", "imagery overview"), bounds)
+        for coverage, (title, bounds) in MICHIGAN_COVERAGES.items()
+    },
     **STATE_COVERAGES,
 }
 

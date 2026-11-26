@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Recover missed nested-Weston output resizes without blocking the UI."""
+
 import subprocess
 from threading import Event, RLock, Thread
 
@@ -30,9 +31,14 @@ class WaydroidWindowEmbedder(X11WindowEmbedder):
     def _android_size():
         try:
             dimensions = []
-            for name in ('waydroid.display_width', 'waydroid.display_height'):
-                result = subprocess.run(['waydroid', 'prop', 'get', name],
-                                        capture_output=True, text=True, timeout=2, check=True)
+            for name in ("waydroid.display_width", "waydroid.display_height"):
+                result = subprocess.run(
+                    ["waydroid", "prop", "get", name],
+                    capture_output=True,
+                    text=True,
+                    timeout=2,
+                    check=True,
+                )
                 dimensions.append(int(result.stdout.strip()))
             return tuple(dimensions)
         except (OSError, subprocess.SubprocessError, ValueError):

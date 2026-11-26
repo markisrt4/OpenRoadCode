@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Semantic requests for one active text-entry session."""
+
 from typing import Protocol
 
 from ui.input.text_input_target_if import TextInputTargetIf

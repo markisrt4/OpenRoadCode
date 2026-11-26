@@ -55,19 +55,44 @@ class CesiumPoiActions(PoiActionExecutorIf):
             if self._session is not None:
                 raise RuntimeError("Close the current 3D viewer before opening another place")
             imagery_layers = load_imagery_stack()
-            imagery_dir, building_dir = (detroit_pack_directory() if imagery_layers else preferred_imagery_directory(state.destination),
-                                         detroit_building_directory())
+            imagery_dir, building_dir = (
+                detroit_pack_directory()
+                if imagery_layers
+                else preferred_imagery_directory(state.destination),
+                detroit_building_directory(),
+            )
             tile_dir = preferred_tiles_directory(state.destination)
-            tiles = load_viewer_tiles(tile_dir) if tile_dir.exists() and imagery_dir == detroit_pack_directory() else None
-            imagery = LocalImageryPack.load(imagery_dir) if not imagery_layers and (tiles is None or not any(t.imagery_available for t in tiles.state.tiles)) and imagery_dir.exists() else None
+            tiles = (
+                load_viewer_tiles(tile_dir)
+                if tile_dir.exists() and imagery_dir == detroit_pack_directory()
+                else None
+            )
+            imagery = (
+                LocalImageryPack.load(imagery_dir)
+                if not imagery_layers
+                and (tiles is None or not any(t.imagery_available for t in tiles.state.tiles))
+                and imagery_dir.exists()
+                else None
+            )
             terrain = load_installed_terrain_catalog()
-            buildings = load_buildings(building_dir) if tiles is None and building_dir.exists() else None
-            display = os.environ.get('DISPLAY', ':1')
+            buildings = (
+                load_buildings(building_dir) if tiles is None and building_dir.exists() else None
+            )
+            display = os.environ.get("DISPLAY", ":1")
             resources = ExitStack()
             try:
-                server = CesiumViewerServer(sdk_directory(), state, imagery=imagery, imagery_layers=imagery_layers, imagery_pyramids=installed_imagery_pyramids(),
-                                             terrain=terrain, buildings=buildings, tiles=tiles, roads=LocalRoadOverlay.installed(),
-                                             boundaries=load_state_boundary_overlay())
+                server = CesiumViewerServer(
+                    sdk_directory(),
+                    state,
+                    imagery=imagery,
+                    imagery_layers=imagery_layers,
+                    imagery_pyramids=installed_imagery_pyramids(),
+                    terrain=terrain,
+                    buildings=buildings,
+                    tiles=tiles,
+                    roads=LocalRoadOverlay.installed(),
+                    boundaries=load_state_boundary_overlay(),
+                )
                 resources.callback(server.close)
                 profile = resources.enter_context(TemporaryDirectory(prefix="orc-cesium-poi-"))
                 browser = BrowserKioskLauncher(

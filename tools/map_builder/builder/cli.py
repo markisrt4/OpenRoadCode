@@ -121,7 +121,10 @@ def reusable_build_for_regions(selected, *, root: Path, service_smoke: bool) -> 
     if existing_ids != requested_ids:
         return None
     freeway = manifest.get("national_freeways") or {}
-    if freeway.get("url") != CENSUS_PRIMARY_ROADS_URL or freeway.get("vintage") != CENSUS_PRIMARY_ROADS_VINTAGE:
+    if (
+        freeway.get("url") != CENSUS_PRIMARY_ROADS_URL
+        or freeway.get("vintage") != CENSUS_PRIMARY_ROADS_VINTAGE
+    ):
         return None
 
     try:
@@ -132,9 +135,7 @@ def reusable_build_for_regions(selected, *, root: Path, service_smoke: bool) -> 
 
 def run_build(selected, *, clean: bool, service_smoke: bool) -> tuple[dict, float]:
     started = time.monotonic()
-    result = build_regions(
-        selected, clean=clean, service_smoke=service_smoke
-    )
+    result = build_regions(selected, clean=clean, service_smoke=service_smoke)
     return result, time.monotonic() - started
 
 
@@ -150,9 +151,7 @@ def build_or_reuse(
         if result is not None:
             print("Existing validated build matches requested regions; reusing it.")
             return result, 0.0, True
-    result, elapsed = run_build(
-        selected, clean=clean, service_smoke=service_smoke
-    )
+    result, elapsed = run_build(selected, clean=clean, service_smoke=service_smoke)
     return result, elapsed, False
 
 
@@ -244,10 +243,17 @@ def main() -> int:
                     "Relative relief in metres; source datum is preserved. Terrain payload capped at 2 MiB."
                 )
             else:
-                print("Layer: buildings. Uses existing OSM sources; no download. Output size is known after extraction.")
+                print(
+                    "Layer: buildings. Uses existing OSM sources; no download. Output size is known after extraction."
+                )
                 tiles = 1024 if coverage == "metro-detroit" else 8
-                print(f"Limit: {tiles} tiles, 10 MiB geometry each plus metadata; complex polygons are omitted.")
-            if not args.yes and input("Build this optional pack now? [y/N] ").strip().lower() != 'y':
+                print(
+                    f"Limit: {tiles} tiles, 10 MiB geometry each plus metadata; complex polygons are omitted."
+                )
+            if (
+                not args.yes
+                and input("Build this optional pack now? [y/N] ").strip().lower() != "y"
+            ):
                 print("Cancelled")
                 return 0
             existing = OUTPUT_ROOT / "maps/3d/packs" / pack_id
@@ -332,7 +338,9 @@ def main() -> int:
                 previous_freeways = None
                 if existing_manifest.is_file():
                     try:
-                        previous_freeways = json.loads(existing_manifest.read_text(encoding="utf-8")).get("national_freeways")
+                        previous_freeways = json.loads(
+                            existing_manifest.read_text(encoding="utf-8")
+                        ).get("national_freeways")
                     except (OSError, json.JSONDecodeError, TypeError):
                         pass
                 _write_manifest(selected, result, search_counts, previous_freeways)

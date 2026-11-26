@@ -46,9 +46,12 @@ class LocalImageryStackState:
     layers: tuple[LocalImageryState, ...] = ()
 
     def __post_init__(self):
-        if not isinstance(self.layers, tuple) or len(self.layers) > 64 or any(
-                not isinstance(layer, LocalImageryState) for layer in self.layers):
-            raise ValueError('Imagery stack must contain at most 64 immutable layers')
+        if (
+            not isinstance(self.layers, tuple)
+            or len(self.layers) > 64
+            or any(not isinstance(layer, LocalImageryState) for layer in self.layers)
+        ):
+            raise ValueError("Imagery stack must contain at most 64 immutable layers")
 
     def document(self):
         return [layer.document() for layer in self.layers]
@@ -64,12 +67,19 @@ class LocalImageryPyramidState:
     image_format: str
 
     def __post_init__(self):
-        if (not isinstance(self.coverage, LocalImageryState)
-                or type(self.minimum_zoom) is not int or type(self.maximum_zoom) is not int
-                or not 0 <= self.minimum_zoom <= self.maximum_zoom <= 18
-                or self.image_format not in ('png', 'jpg', 'jpeg', 'webp')):
-            raise ValueError('Invalid offline imagery pyramid metadata')
+        if (
+            not isinstance(self.coverage, LocalImageryState)
+            or type(self.minimum_zoom) is not int
+            or type(self.maximum_zoom) is not int
+            or not 0 <= self.minimum_zoom <= self.maximum_zoom <= 18
+            or self.image_format not in ("png", "jpg", "jpeg", "webp")
+        ):
+            raise ValueError("Invalid offline imagery pyramid metadata")
 
     def document(self):
-        return dict(self.coverage.document(), minimum_zoom=self.minimum_zoom,
-                    maximum_zoom=self.maximum_zoom, tile_size=256)
+        return dict(
+            self.coverage.document(),
+            minimum_zoom=self.minimum_zoom,
+            maximum_zoom=self.maximum_zoom,
+            tile_size=256,
+        )

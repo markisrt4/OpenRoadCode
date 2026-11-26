@@ -144,23 +144,37 @@ def test_unsupported_area_is_transparent_and_evidence_is_preserved(tmp_path, mon
 def test_sparse_black_exports_are_not_publishable_imagery(tmp_path, monkeypatch):
     def tile_download(tile, **parameters):
         tile.mkdir()
-        with Image.new('RGB', parameters['image_size'], 'black') as image:
-            image.save(tile/'imagery.jpg')
-        payload = tile/'imagery.jpg'
-        (tile/'manifest.json').write_text(json.dumps({
-            'schema':1, 'image':'imagery.jpg', 'bounds_deg':parameters['bounds'],
-            'width':parameters['image_size'][0], 'height':parameters['image_size'][1],
-            'title':'empty fixture', 'attribution':'USGS fixture',
-            'sha256':hashlib.sha256(payload.read_bytes()).hexdigest(), 'source_records':[],
-        }))
-    monkeypatch.setattr(regional_imagery, 'download_image', tile_download)
-    with pytest.raises(ValueError, match='too incomplete to publish'):
-        regional_imagery.download(tmp_path/'pack', bounds=(-84,42,-82,44), title='Sparse',
-                                  cache_directory=tmp_path/'cache')
+        with Image.new("RGB", parameters["image_size"], "black") as image:
+            image.save(tile / "imagery.jpg")
+        payload = tile / "imagery.jpg"
+        (tile / "manifest.json").write_text(
+            json.dumps(
+                {
+                    "schema": 1,
+                    "image": "imagery.jpg",
+                    "bounds_deg": parameters["bounds"],
+                    "width": parameters["image_size"][0],
+                    "height": parameters["image_size"][1],
+                    "title": "empty fixture",
+                    "attribution": "USGS fixture",
+                    "sha256": hashlib.sha256(payload.read_bytes()).hexdigest(),
+                    "source_records": [],
+                }
+            )
+        )
+
+    monkeypatch.setattr(regional_imagery, "download_image", tile_download)
+    with pytest.raises(ValueError, match="too incomplete to publish"):
+        regional_imagery.download(
+            tmp_path / "pack",
+            bounds=(-84, 42, -82, 44),
+            title="Sparse",
+            cache_directory=tmp_path / "cache",
+        )
 
 
 def test_nodata_mask_removes_neutral_jpeg_halo_but_keeps_dark_color():
-    with Image.new('RGB', (3,1)) as image:
-        image.putdata([(24,24,24), (8,8,30), (25,25,25)])
+    with Image.new("RGB", (3, 1)) as image:
+        image.putdata([(24, 24, 24), (8, 8, 30), (25, 25, 25)])
         alpha = regional_imagery._nodata_alpha(image)
-        assert [alpha.getpixel((x,0)) for x in range(3)] == [0,255,255]
+        assert [alpha.getpixel((x, 0)) for x in range(3)] == [0, 255, 255]

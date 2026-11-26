@@ -8,11 +8,11 @@ from apps.launchers.host_location_window_control import HostLocationWindowContro
 
 def test_close_control_accepts_only_the_local_permission_page_and_only_hides():
     hide = Mock(return_value=True)
-    control = HostLocationWindowControl(origins={'http://127.0.0.1:8765'}, hide=hide, port=0)
+    control = HostLocationWindowControl(origins={"http://127.0.0.1:8765"}, hide=hide, port=0)
     try:
-        for origin, expected in [('https://example.com', 403), ('http://127.0.0.1:8765', 204)]:
-            connection = http.client.HTTPConnection('127.0.0.1', control.port)
-            connection.request('POST', '/hide', headers={'Origin': origin})
+        for origin, expected in [("https://example.com", 403), ("http://127.0.0.1:8765", 204)]:
+            connection = http.client.HTTPConnection("127.0.0.1", control.port)
+            connection.request("POST", "/hide", headers={"Origin": origin})
             response = connection.getresponse()
             assert response.status == expected
             response.read()

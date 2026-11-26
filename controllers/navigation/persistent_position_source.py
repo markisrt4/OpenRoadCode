@@ -80,5 +80,7 @@ class PersistentPositionSource(PositionSourceIf):
     def _cache_write_due(self) -> bool:
         if self._last_cache_write_at is None:
             return True
-        elapsed = (self._clock().astimezone() - self._last_cache_write_at.astimezone()).total_seconds()
+        elapsed = (
+            self._clock().astimezone() - self._last_cache_write_at.astimezone()
+        ).total_seconds()
         return elapsed >= self._cache_interval_seconds

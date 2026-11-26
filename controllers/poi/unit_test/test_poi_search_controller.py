@@ -79,25 +79,35 @@ class FakeSearchSource:
 
 def test_marker_selection_survives_navigation_session_remount():
     cache = PoiSelectionCache()
-    poi = PointOfInterest(poi_id='panera', name='Panera Bread', category=PoiCategory.FOOD,
-                          position=GeoPoint(math.radians(42.8), math.radians(-83.01)))
-    first = PoiSearchController(FakeMapPoiSource(), search_source=FakeSearchSource((poi,)),
-                                position_provider=lambda: poi.position, selection_cache=cache)
+    poi = PointOfInterest(
+        poi_id="panera",
+        name="Panera Bread",
+        category=PoiCategory.FOOD,
+        position=GeoPoint(math.radians(42.8), math.radians(-83.01)),
+    )
+    first = PoiSearchController(
+        FakeMapPoiSource(),
+        search_source=FakeSearchSource((poi,)),
+        position_provider=lambda: poi.position,
+        selection_cache=cache,
+    )
     first.search(PoiCategory.FOOD)
     found = first.poll_search_result().pois
     assert len(found) == 1 and found[0].poi_id == poi.poi_id
-    assert found[0].business_id == 'panera'
+    assert found[0].business_id == "panera"
     first.close()
-    click = RawMapClick(poi.position, 50, marker_id='panera', marker_index=0)
-    second = PoiSearchController(FakeMapPoiSource(click=click),
-                                 search_source=FakeSearchSource(), selection_cache=cache)
+    click = RawMapClick(poi.position, 50, marker_id="panera", marker_index=0)
+    second = PoiSearchController(
+        FakeMapPoiSource(click=click), search_source=FakeSearchSource(), selection_cache=cache
+    )
     selected = second.poll_selected()
-    assert selected.poi_id == 'panera'
+    assert selected.poi_id == "panera"
     assert any(action.kind is PoiActionKind.ORDER for action in selected.actions)
     second.clear()
     second._source.click = click
     assert second.poll_selected() is None
     second.close()
+
 
 class FakeMarkerSelectionSource:
     def __init__(self, marker_id: str | None) -> None:

@@ -65,7 +65,7 @@ class NavigationController(NavigationControllerIf):
         self._state_lock = Lock()
         self._position_state: PositionState | None = None
         self._host_position_state: PositionState | None = None
-        self._host_position_at = float('-inf')
+        self._host_position_at = float("-inf")
         self._host_location_suspended = False
         self._ground_motion_state: GroundMotionState | None = None
         self._calibration: MotionCalibration | None = None
@@ -231,10 +231,16 @@ class NavigationController(NavigationControllerIf):
             self._ground_motion_state = ground_motion_state
 
     def update_host_position_state(self, position: PositionState) -> None:
-        if (position.is_cached or not position.has_fix or position.latitude_deg is None
-                or position.longitude_deg is None or not math.isfinite(position.latitude_deg)
-                or not math.isfinite(position.longitude_deg) or not -90 <= position.latitude_deg <= 90
-                or not -180 <= position.longitude_deg <= 180):
+        if (
+            position.is_cached
+            or not position.has_fix
+            or position.latitude_deg is None
+            or position.longitude_deg is None
+            or not math.isfinite(position.latitude_deg)
+            or not math.isfinite(position.longitude_deg)
+            or not -90 <= position.latitude_deg <= 90
+            or not -180 <= position.longitude_deg <= 180
+        ):
             return
         with self._state_lock:
             self._host_position_state = position
@@ -291,8 +297,11 @@ class NavigationController(NavigationControllerIf):
 
         with self._state_lock:
             position_state = self._position_state
-            if (self._host_position_state is not None and not self._host_location_suspended
-                    and self._monotonic_clock() - self._host_position_at <= 10.0):
+            if (
+                self._host_position_state is not None
+                and not self._host_location_suspended
+                and self._monotonic_clock() - self._host_position_at <= 10.0
+            ):
                 position_state = self._host_position_state
             ground_motion_state = self._ground_motion_state
 

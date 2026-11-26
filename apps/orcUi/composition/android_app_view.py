@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Queue worker presentation requests and host the selected Android surface."""
+
 from dataclasses import replace
 from threading import Lock
 
@@ -14,12 +15,27 @@ from ui.navigation.android_app_view_if import AndroidAppViewRequestHandlerIf, An
 class AndroidAppView(AndroidAppViewRequestHandlerIf):
     """Keep Tk calls on the UI thread and reject completions after shutdown."""
 
-    def __init__(self, app, *, map_runtime, map_platform, map_presentation=None,
-                 player=None, window_embedder=None, preserve_external_window=True,
-                 visibility_changed=None, screen_label='ANDROID_APP', navigation_label=None,
-                 persistent_session=False, close_action=None, saved_destination_action=None,
-                 on_present=lambda: None, experience_handler=None,
-                 prepare_app=None, full_width_apps=False):
+    def __init__(
+        self,
+        app,
+        *,
+        map_runtime,
+        map_platform,
+        map_presentation=None,
+        player=None,
+        window_embedder=None,
+        preserve_external_window=True,
+        visibility_changed=None,
+        screen_label="ANDROID_APP",
+        navigation_label=None,
+        persistent_session=False,
+        close_action=None,
+        saved_destination_action=None,
+        on_present=lambda: None,
+        experience_handler=None,
+        prepare_app=None,
+        full_width_apps=False,
+    ):
         self._app = app
         self._lock = Lock()
         self._closed = False
@@ -33,31 +49,46 @@ class AndroidAppView(AndroidAppViewRequestHandlerIf):
         self._state = AndroidAppViewState()
         self._player = player if player is not None else WaydroidSurfacePlayer()
         self._screen = AndroidAppScreen(
-            screen_label.lower().replace('_', '-'), app, title='Android app', player=self._player,
-            default_target='android', window_class=self._player.window_class,
-            back_action=lambda: app.navigate_to('NAVIGATION'),
+            screen_label.lower().replace("_", "-"),
+            app,
+            title="Android app",
+            player=self._player,
+            default_target="android",
+            window_class=self._player.window_class,
+            back_action=lambda: app.navigate_to("NAVIGATION"),
             theme_bundle=lambda: theme_bundle(app.theme_mode),
-            theme_request_handler=self._player, preserve_external_window=preserve_external_window,
-            keep_player_on_hide=persistent_session, close_action=close_action,
+            theme_request_handler=self._player,
+            preserve_external_window=preserve_external_window,
+            keep_player_on_hide=persistent_session,
+            close_action=close_action,
             surface_geometry=self._player,
-            window_embedder=window_embedder if window_embedder is not None else WaydroidWindowEmbedder(),
-            window_name=lambda: getattr(self._player, 'window_name', None),
-            map_runtime=map_runtime, map_platform=map_platform, requests=self,
+            window_embedder=window_embedder
+            if window_embedder is not None
+            else WaydroidWindowEmbedder(),
+            window_name=lambda: getattr(self._player, "window_name", None),
+            map_runtime=map_runtime,
+            map_platform=map_platform,
+            requests=self,
             experience_handler=experience_handler,
             map_presentation=map_presentation,
-            breadcrumb=lambda name: app.set_breadcrumb('NAV', name))
-        options = {'navigation_label': navigation_label} if navigation_label is not None else {}
+            breadcrumb=lambda name: app.set_breadcrumb("NAV", name),
+        )
+        options = {"navigation_label": navigation_label} if navigation_label is not None else {}
         app.register_screen(screen_label, self._screen, show_in_navigation=False, **options)
 
-    def request_show_android_app(self, app_name='Android app', package=''):
+    def request_show_android_app(self, app_name="Android app", package=""):
         with self._lock:
             if not self._closed:
-                navigation_app = package == 'com.waze'
-                state = AndroidAppViewState(app_name.strip() or 'Android app', package,
+                navigation_app = package == "com.waze"
+                state = AndroidAppViewState(
+                    app_name.strip() or "Android app",
+                    package,
                     expanded=navigation_app or self._full_width_apps,
                     can_split=not navigation_app and not self._full_width_apps,
-                    can_navigate_saved_destinations=navigation_app and self._saved_destination_action is not None,
-                    navigation_mode_controls=navigation_app)
+                    can_navigate_saved_destinations=navigation_app
+                    and self._saved_destination_action is not None,
+                    navigation_mode_controls=navigation_app,
+                )
                 generation = self._generation
                 self._app.dispatch_ui(lambda: self._show(state, generation))
 

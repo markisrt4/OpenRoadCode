@@ -13,10 +13,10 @@ class NavigationViewController:
         return self._state
 
     def remember_map(self):
-        self._state = NavigationViewState('map')
+        self._state = NavigationViewState("map")
 
     def remember_waze(self):
-        self._state = NavigationViewState('waze')
+        self._state = NavigationViewState("waze")
 
     def request_resume_navigation(self):
-        (self._open_waze if self._state.selected == 'waze' else self._open_map)()
+        (self._open_waze if self._state.selected == "waze" else self._open_map)()

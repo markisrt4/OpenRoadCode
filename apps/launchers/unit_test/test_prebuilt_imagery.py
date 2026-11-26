@@ -15,20 +15,22 @@ from tools.map_builder.builder.imagery_artifact import package
 
 
 def test_packaging_and_prebuilt_install_never_contact_usgs(tmp_path):
-    bounds = install_region.COVERAGES['metro-detroit'][1]
-    root = tmp_path/'built'
-    write_pack(root, title='Metro', bounds=bounds)
-    archive = tmp_path/'metro.zip'
-    descriptor = package(root, archive, 'metro-detroit')
-    assert descriptor['bytes'] == archive.stat().st_size
-    assert descriptor['sha256'] == hashlib.sha256(archive.read_bytes()).hexdigest()
-    assert descriptor['kind'] == 'imagery'
-    assert len(descriptor['build_fingerprint']) == 64
-    active = tmp_path/'active'
-    with (patch.object(install_region, 'imagery_directory', return_value=active),
-          patch.object(install_region, 'fetch_archive', return_value=archive),
-          patch.object(install_region, 'download_overview') as source):
-        install_region.install('metro-detroit', artifact=(descriptor, 'https://host/metro.zip'))
+    bounds = install_region.COVERAGES["metro-detroit"][1]
+    root = tmp_path / "built"
+    write_pack(root, title="Metro", bounds=bounds)
+    archive = tmp_path / "metro.zip"
+    descriptor = package(root, archive, "metro-detroit")
+    assert descriptor["bytes"] == archive.stat().st_size
+    assert descriptor["sha256"] == hashlib.sha256(archive.read_bytes()).hexdigest()
+    assert descriptor["kind"] == "imagery"
+    assert len(descriptor["build_fingerprint"]) == 64
+    active = tmp_path / "active"
+    with (
+        patch.object(install_region, "imagery_directory", return_value=active),
+        patch.object(install_region, "fetch_archive", return_value=archive),
+        patch.object(install_region, "download_overview") as source,
+    ):
+        install_region.install("metro-detroit", artifact=(descriptor, "https://host/metro.zip"))
         source.assert_not_called()
     assert LocalImageryPack.load(active).state.title == "Metro"
 

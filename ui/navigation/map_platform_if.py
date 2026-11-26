@@ -16,18 +16,18 @@ class MapPlatform(str, Enum):
 class ExplorationCameraAction(str, Enum):
     """Renderer-neutral, relative camera actions for destination exploration."""
 
-    PAN_UP = 'pan-up'
-    PAN_DOWN = 'pan-down'
-    PAN_LEFT = 'pan-left'
-    PAN_RIGHT = 'pan-right'
-    ZOOM_IN = 'zoom-in'
-    ZOOM_OUT = 'zoom-out'
-    PITCH_UP = 'pitch-up'
-    PITCH_DOWN = 'pitch-down'
-    NORTH = 'north'
-    RECENTER = 'recenter'
-    DIMENSION = 'dimension'
-    RESET = 'reset'
+    PAN_UP = "pan-up"
+    PAN_DOWN = "pan-down"
+    PAN_LEFT = "pan-left"
+    PAN_RIGHT = "pan-right"
+    ZOOM_IN = "zoom-in"
+    ZOOM_OUT = "zoom-out"
+    PITCH_UP = "pitch-up"
+    PITCH_DOWN = "pitch-down"
+    NORTH = "north"
+    RECENTER = "recenter"
+    DIMENSION = "dimension"
+    RESET = "reset"
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,7 +39,7 @@ class MapPlatformState:
     available_platforms: tuple[MapPlatform, ...] = (MapPlatform.MAPLIBRE, MapPlatform.EARTH)
     follow_enabled: bool = False
     position_available: bool = False
-    error: str = ''
+    error: str = ""
 
     layer_controls: MapLayerControls = MapLayerControls()
 

@@ -79,9 +79,13 @@ class MapRequestHandler(MapRequestHandlerIf):
         self._camera_initialized = True
 
     def request_recenter(self) -> None:
-        event(logging.getLogger('map_renderer.position'), logging.INFO,
-              'camera.recenter_requested', 'Map recenter requested',
-              camera_initialized=self._camera_initialized)
+        event(
+            logging.getLogger("map_renderer.position"),
+            logging.INFO,
+            "camera.recenter_requested",
+            "Map recenter requested",
+            camera_initialized=self._camera_initialized,
+        )
         self._center = self._follow_center
         self.request_follow(True)
         self._send_camera()

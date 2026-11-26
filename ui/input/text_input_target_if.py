@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Focus and completion operations supplied by a native or browser adapter."""
+
 from typing import Protocol
 
 
