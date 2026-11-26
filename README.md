@@ -287,6 +287,18 @@ cd OpenRoadCode
 
 Features can be selected explicitly. Use `--all-features` to install all compatible software capabilities, `--show-plan` to inspect the resolved plan without modifying the machine, and `--with-vnc` or `--with-gpsd-service` only when those services should be configured.
 
+On Raspberry Pi OS, `--shutdown-button-pin 11` configures an active-low
+shutdown switch on physical header pin 11 (BCM GPIO17). Connect the other
+switch contact to ground (for example, physical pin 9). The option adds or
+replaces the global `gpio-shutdown` overlay in `/boot/firmware/config.txt`.
+Reboot to activate it. Leave that pin out of Car UI's pushbutton config
+while the overlay is active.
+
+To check the wiring before enabling shutdown, run
+`python -m hardware_io.buttons.component_test.gpio_push_button_cli --pin 11`
+in the Pi runtime environment with `gpiozero` installed. The check prints
+press and release events until you press Ctrl-C.
+
 The `desktop-ui` and `navigation` features use the native Tk/X11 and MapLibre
 interfaces and do not install a web browser. Select `--feature browser`
 explicitly for browser-backed applications.
