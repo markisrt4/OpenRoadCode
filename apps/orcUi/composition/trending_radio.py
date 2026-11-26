@@ -1,25 +1,28 @@
 """Composition wiring for Trending charts and playback."""
 
-import os
 import tkinter as tk
 import webbrowser
 from collections.abc import Callable
 from dataclasses import dataclass
 from urllib.parse import quote, urlencode
 
+import httpx
+
 from apps.orcUi.adapters.managed_browser_media_player import ManagedBrowserMediaPlayer
 from apps.orcUi.adapters.musicforge_api_adapter import MusicForgeApiAdapter
 from apps.orcUi.adapters.trending_video_session import ManagedTrendingVideoSession
 from apps.orcUi.frontend.tk.trending_radio_panel import TrendingRadioPanel
+from common.musicforge_airplay import musicforge_airplay_url
 from common.xdg_paths import openroadcode_cache_dir
 from controllers.cache.persistent_cache import PersistentCache
 from controllers.media.artist_profiles import ArtistProfiles
 from ui.media.song_launch import SongDestination, SongLaunchRequest
 from ui.media.trending_video import TrendingVideoSession
 from ui.notification_if import Notification, NotificationSeverity, NotificationSinkIf
+from ui.radio.airplay_details import AirplayDetails, AirplayRequest
 from ui.theme import ThemeBundle
 
-SpotifyFactory = Callable[[tk.Misc, Callable[[], None], str, str], tk.Widget]
+SpotifyFactory = Callable[[tk.Misc, str, str], tk.Widget]
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,15 +43,15 @@ def configure_trending(
     closed: Callable[[], bool],
     notification_sink: NotificationSinkIf,
 ) -> TrendingBindings:
-    charts = MusicForgeApiAdapter(os.getenv("MUSICFORGE_AIRPLAY_URL", "http://127.0.0.1:8000"))
+    charts = MusicForgeApiAdapter(musicforge_airplay_url())
     register_cleanup(charts.close)
     profiles = ArtistProfiles(PersistentCache(openroadcode_cache_dir("artist-profiles")))
     song_launch: list[Callable[[SongLaunchRequest], None]] = []
     video_players: list[ManagedBrowserMediaPlayer] = []
-    spotify_factories: list[Callable[[tk.Misc, Callable[[], None], str, str], tk.Widget]] = []
+    spotify_factories: list[Callable[[tk.Misc, str, str], tk.Widget]] = []
 
     def bind_spotify_factory(
-        factory: Callable[[tk.Misc, Callable[[], None], str, str], tk.Widget],
+        factory: Callable[[tk.Misc, str, str], tk.Widget],
     ) -> None:
         spotify_factories[:] = [factory]
 
@@ -67,10 +70,12 @@ def configure_trending(
         parent: tk.Misc, theme: ThemeBundle, on_back: Callable[[], None]
     ) -> TrendingRadioPanel:
         generation = [0]
+        airplay_generation = [0]
         panel: TrendingRadioPanel
 
         def refresh(station: str, period: str, kind: str = "songs") -> None:
             generation[0] += 1
+            airplay_generation[0] += 1
             request = generation[0]
             if not network_allowed():
                 panel.set_error("Offline mode")
@@ -110,6 +115,29 @@ def configure_trending(
 
             run_work(work)
 
+        def load_airplay(request: AirplayRequest) -> None:
+            airplay_generation[0] += 1
+            revision = airplay_generation[0]
+
+            def current() -> bool:
+                return revision == airplay_generation[0] and network_allowed() and not closed()
+
+            def work() -> None:
+                if not current():
+                    return
+                try:
+                    details = charts.airplay_details(request, current=current)
+                except (OSError, ValueError, KeyError, RuntimeError, httpx.HTTPError):
+                    details = AirplayDetails(incomplete=True)
+
+                def deliver() -> None:
+                    if current() and panel.winfo_exists():
+                        panel.set_airplay(request, details)
+
+                dispatch_ui(deliver)
+
+            run_work(work)
+
         def play(request: SongLaunchRequest) -> None:
             if not song_launch:
                 media_error("YouTube", "YouTube search is not configured.")
@@ -117,17 +145,19 @@ def configure_trending(
             song_launch[0](request)
 
         def load_artist(artist: str) -> None:
+            airplay_generation[0] += 1
+
             def work() -> None:
-                if closed() or not network_allowed():
+                if closed():
                     return
                 try:
-                    profile = profiles.get(artist)
+                    profile = profiles.get(artist) if network_allowed() else None
                 except (OSError, ValueError, KeyError, IndexError, TypeError):
-                    return
+                    profile = None
 
                 def deliver() -> None:
-                    if not closed() and panel.winfo_exists() and network_allowed():
-                        panel.set_artist_profile(artist, profile)
+                    if not closed() and panel.winfo_exists():
+                        panel.set_artist_profile(artist, profile if network_allowed() else None)
 
                 dispatch_ui(deliver)
 
@@ -174,9 +204,10 @@ def configure_trending(
             on_media_error=media_error,
             on_artist_search=search_artist,
             on_artist_selected=load_artist,
+            on_airplay=load_airplay,
             video_session=video_session,
-            spotify_factory=lambda host, back, artist, title: (
-                spotify_factories[0](host, back, artist, title) if spotify_factories else None
+            spotify_factory=lambda host, artist, title: (
+                spotify_factories[0](host, artist, title) if spotify_factories else None
             ),
             online_allowed=network_allowed,
         )

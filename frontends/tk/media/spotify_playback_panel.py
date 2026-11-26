@@ -109,9 +109,11 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
         show_media: Callable[[], None] | None = None,
         show_visualizer: Callable[[], None] | None = None,
         show_video: bool = True,
+        compact_controls: bool = False,
     ) -> None:
         self._show_media, self._show_visualizer = show_media, show_visualizer
         self._show_video = show_video
+        self._compact_controls = compact_controls
         self._video_handler: SpotifyVideoRequests | None = None
         self._presentation = SpotifyPresentationState()
         self._artwork_payload: bytes | None = None
@@ -354,48 +356,27 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
 
         controls = tk.Frame(card, bg=self._colors["card_background"])
         self._controls = controls
-        controls.pack(
-            side="top",
-            pady=self._style["controls_pady"],
-        )
-
-        self._transport_button(controls, "−10s", lambda: self._skip(-10), width=4).pack(
-            side=tk.LEFT, padx=4
-        )
-        self._transport_button(
-            controls,
-            self._layout["previous_text"],
-            self._previous,
-            width=self._style["transport_button_width"],
-        ).pack(
-            side=self._layout["left_side"],
-            padx=self._style["transport_button_gap"],
-        )
-
-        self._play_button = self._transport_button(
-            controls,
-            self._layout["play_pause_text"],
-            self._play_pause,
-            width=self._style["transport_button_width"],
-        )
-        self._play_button.pack(
-            side=self._layout["left_side"],
-            padx=self._style["transport_button_gap"],
-        )
-
-        self._transport_button(
-            controls,
-            self._layout["next_text"],
-            self._next,
-            width=self._style["transport_button_width"],
-        ).pack(
-            side=self._layout["left_side"],
-            padx=self._style["transport_button_gap"],
-        )
-
-        self._transport_button(controls, "+10s", lambda: self._skip(10), width=4).pack(
-            side=tk.LEFT, padx=4
-        )
+        transport_width = self._style["transport_button_width"]
+        for column, (label, transport_action, width) in enumerate(
+            (
+                ("−10s", lambda: self._skip(-10), 4),
+                (self._layout["previous_text"], self._previous, transport_width),
+                (self._layout["play_pause_text"], self._play_pause, transport_width),
+                (self._layout["next_text"], self._next, transport_width),
+                ("+10s", lambda: self._skip(10), 4),
+            )
+        ):
+            button = self._transport_button(
+                controls, label, transport_action, width=0 if self._compact_controls else width
+            )
+            if column == 2:
+                self._play_button = button
+            if self._compact_controls:
+                controls.grid_columnconfigure(column, weight=1, uniform="transport")
+                button.grid(row=0, column=column, sticky="ew", padx=3)
+            else:
+                gap = 4 if column in (0, 4) else self._style["transport_button_gap"]
+                button.pack(side=tk.LEFT, padx=gap)
 
         bottom = tk.Frame(card, bg=self._colors["card_background"])
         self._bottom = bottom
@@ -461,6 +442,7 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
         )
         self._controls.pack(
             side="bottom",
+            fill=tk.X if self._compact_controls else tk.NONE,
             pady=self._style["controls_pady"],
         )
         self._progress_label.pack(

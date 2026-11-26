@@ -130,11 +130,28 @@ class _SynchronizedSpotifyController(SpotifyControllerIf):
                 raise RuntimeError("Spotify search unavailable")
             return lookup(artist, title)
 
-    def play_track(self, track_uri: str) -> None:
+    def select_playback_device(self) -> tuple[str, str]:
         with self._lock:
             if not self.network_allowed():
                 raise RuntimeError("Spotify unavailable in offline mode")
-            self._backend.play_track(track_uri)
+            select = getattr(self._backend, "select_playback_device", None)
+            if select is None:
+                raise RuntimeError("Spotify Connect device selection unavailable")
+            device = select()
+            device_id = device.get("id")
+            if not isinstance(device_id, str) or not device_id:
+                raise RuntimeError("Spotify Connect device has no playable ID")
+            return device_id, str(device.get("name") or "Spotify device")
+
+    def play_track(self, track_uri: str, *, device_id: str | None = None) -> None:
+        with self._lock:
+            if not self.network_allowed():
+                raise RuntimeError("Spotify unavailable in offline mode")
+            if device_id is None:
+                self._backend.play_track(track_uri)
+            else:
+                playback: Callable[..., None] = self._backend.play_track
+                playback(track_uri, device_id=device_id)
 
 
 class SpotifyStateService(
@@ -264,34 +281,38 @@ class SpotifyStateService(
         self._enqueue(lambda: self._controller.transfer_playback(device_id, play=play), "transfer")
 
     def request_play_song(
-        self, artist: str, title: str, report: Callable[[str], None] = lambda _message: None
+        self,
+        artist: str,
+        title: str,
+        report: Callable[[str], None] = lambda _message: None,
+        on_error: Callable[[str], None] | None = None,
     ) -> None:
         """Resolve and play on the Spotify worker; never block the Tk thread."""
+
+        fail = on_error or report
 
         def work() -> None:
             try:
                 uri = self._controller.search_track(artist, title)
                 if uri is None:
-                    report(
+                    fail(
                         f"No matching Spotify recording for {artist} - {title}; check Spotify search candidates in logs"
                     )
                     return
-                device = self._controller.select_playback_device()
-                device_id = device["id"]
-                device_name = str(device.get("name") or "Spotify device")
+                device_id, device_name = self._controller.select_playback_device()
                 report(f"Requesting {artist} - {title} on {device_name}")
                 self._controller.play_track(uri, device_id=device_id)
                 report(f"Spotify accepted playback request on {device_name}: {artist} - {title}")
                 self.request_refresh()
             except SpotifyWebApiError as exc:
                 if exc.status_code == 404 and "NO_ACTIVE_DEVICE" in exc.response_body:
-                    report(
+                    fail(
                         "No active Spotify device. Start Spotify on a phone or select ORC PLAYER, then retry."
                     )
                 else:
-                    report(f"Spotify HTTP {exc.status_code}: {exc.response_body}")
+                    fail(f"Spotify could not play this track (HTTP {exc.status_code}).")
             except Exception as exc:
-                report(f"Spotify playback unavailable: {exc}")
+                fail(f"Spotify playback unavailable: {exc}")
 
         self._enqueue(work, "play_song")
 

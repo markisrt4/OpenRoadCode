@@ -91,3 +91,57 @@ def test_uses_wikidata_image_when_article_has_no_thumbnail(tmp_path):
     assert profile is not None
     assert profile.portrait == b"portrait"
     assert fetch.call_args_list[1].args[0].endswith("/Q123.json")
+
+
+def test_failed_article_portrait_uses_credited_wikidata_photo(tmp_path):
+    page = {
+        "title": "Burl Ives",
+        "extract": "Burl Ives was an American singer.",
+        "fullurl": "https://en.wikipedia.org/wiki/Burl_Ives",
+        "pageimage": "Article.jpg",
+        "pageprops": {"wikibase_item": "Q123"},
+    }
+    claim = {"mainsnak": {"datavalue": {"value": "Backup.jpg"}}}
+    image = {
+        "descriptionurl": "https://commons.wikimedia.org/wiki/File:Backup.jpg",
+        "thumburl": "https://upload.wikimedia.org/backup.jpg",
+        "extmetadata": {
+            "Artist": {"value": "Photographer"},
+            "LicenseShortName": {"value": "Public domain"},
+        },
+    }
+    fetch = Mock(
+        side_effect=[
+            json.dumps({"query": {"pages": [page]}}).encode(),
+            OSError("metadata temporarily unavailable"),
+            json.dumps({"entities": {"Q123": {"claims": {"P18": [claim]}}}}).encode(),
+            json.dumps({"query": {"pages": [{"imageinfo": [image]}]}}).encode(),
+            b"backup",
+        ]
+    )
+
+    profile = ArtistProfiles(PersistentCache(tmp_path), fetch).get("Burl Ives")
+
+    assert profile is not None
+    assert profile.portrait == b"backup"
+    assert profile.portrait_credit == "Photographer · Public domain"
+
+
+def test_profile_without_portrait_is_retried_after_one_hour(monkeypatch, tmp_path):
+    page = {
+        "title": "Burl Ives",
+        "extract": "Burl Ives was an American singer.",
+        "fullurl": "https://en.wikipedia.org/wiki/Burl_Ives",
+    }
+    clock = Mock(return_value=0)
+    monkeypatch.setattr("controllers.media.artist_profiles.time", clock)
+    fetch = Mock(return_value=json.dumps({"query": {"pages": [page]}}).encode())
+    profiles = ArtistProfiles(PersistentCache(tmp_path), fetch)
+
+    profiles.get("Burl Ives")
+    clock.return_value = 3599
+    profiles.get("Burl Ives")
+    fetch.assert_called_once()
+    clock.return_value = 3600
+    profiles.get("Burl Ives")
+    assert fetch.call_count == 2

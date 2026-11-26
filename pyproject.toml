@@ -27,6 +27,15 @@ warn_unused_configs = true
 show_error_codes = true
 pretty = false
 files = [
+    "adapters/radio/json_radio_visualization_settings.py",
+    "adapters/radio/sdrforge_rf_hardware_config.py",
+    "apps/orcUi/frontend/tk/rf_settings_mixin.py",
+    "ui/radio/radio_visualization_config.py",
+    "ui/radio/airplay_details.py",
+    "apps/orcUi/adapters/musicforge_api_adapter.py",
+    "ui/radio/rf_hardware_config_if.py",
+    "controllers/audio/linux_audio_settings.py",
+    "ui/system/audio_settings_if.py",
     "controllers/radio/receiver_settings_controller.py",
     "ui/radio/receiver_settings_if.py",
     "ui/ui_widget.py",

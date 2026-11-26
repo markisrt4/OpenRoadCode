@@ -66,3 +66,34 @@ without a callback-port conflict.
 
 Fourteen pre-existing boundary exceptions remain across the repository. The
 historical master audit remains historical.
+
+## Local player on Raspberry Pi
+
+ORC PLAYER uses the Spotify Web Playback SDK in a separate browser profile.
+The SDK helper starts minimized. Playback controls and track information stay
+in ORC. A Spotify artist search from Trending opens the provider browser.
+It requires a Spotify Premium account and working protected audio support in
+that browser. If initialization fails, ORC checks whether the profile can
+access Widevine and reports a more specific error when it cannot. If the SDK
+itself fails to download, check internet access from the Pi's browser.
+
+To isolate a browser playback failure, open `https://open.spotify.com` in
+Chromium on the Pi desktop and try playing a track. If Chromium reports that
+protected content is unavailable, check its protected-content settings and
+Widevine support for your Raspberry Pi OS release. On Raspberry Pi OS
+Bookworm and Trixie, the Raspberry Pi APT archive provides
+`libwidevinecdm0`. Check availability with `apt-cache policy libwidevinecdm0`
+and install it with `sudo apt install libwidevinecdm0` if missing. Fully quit
+Chromium and ORC before retesting. If the web player works
+but ORC still fails, retry ORC PLAYER and record the exact ORC popup text.
+During troubleshooting, Trending can play on an available Spotify Connect
+device controlled from ORC.
+
+After connecting your Spotify account, open **Settings → Media → Spotify**
+and tap **Test local player**. ORC enables encrypted media in its dedicated
+Chromium profile and checks Widevine before loading the Spotify playback SDK.
+On Raspberry Pi OS, ORC also points that profile to the installed system CDM
+when its files are available.
+When the device registers, choose a track and check for audio. Account
+authorization is required, and registering the local player can transfer
+current playback to the Pi.

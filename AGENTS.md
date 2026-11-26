@@ -77,6 +77,11 @@ outstanding validation. A contract definition alone is not a completed migration
 - Support for other display sizes, including 800×480, is secondary unless
   the user explicitly changes the target priority.
 
+### Touch scrolling
+
+Use large, labeled or directional buttons for scrolling in the in-vehicle UI.
+Follow the left navigation rail's up and down controls. Do not show scrollbars.
+
 ## UI contracts are part of completing a feature
 
 - Before wiring new UI behavior, define or extend toolkit-independent state and

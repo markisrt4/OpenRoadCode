@@ -15,7 +15,9 @@ if ! grep -Eiq '^include-system-site-packages *= *false$' "$env_dir/pyvenv.cfg";
 fi
 constraints="$PWD/constraints-quality-linux.txt"
 dev_requirements=(-r requirements-dev.txt)
+termux=0
 if [ -n "${TERMUX_VERSION:-}" ] || [[ "${PREFIX:-}" == */com.termux/files/usr ]]; then
+    termux=1
     if [ ! -x "$PREFIX/bin/ruff" ]; then
         echo "Install native packages: pkg install python-numpy python-scipy python-pillow ruff" >&2
         exit 1
@@ -79,6 +81,10 @@ done
     "${packages[@]}" PyYAML scipy python-dateutil \
     'libmusicforge[analysis] @ git+https://github.com/markisrt4/libMusicForge.git@9edc8a51bca70bbd98fbb866272a44a212e351af' \
     'libsdrforge[zmq,audio] @ git+https://github.com/markisrt4/libSDRForge.git@7871e0d392fa8af6ca7af8f7648ad17ee0ada9b3'
-"$env_dir/bin/python" -m pip check
+if (( termux )); then
+    "$env_dir/bin/python" scripts/check_termux_quality_packages.py
+else
+    "$env_dir/bin/python" -m pip check
+fi
 "$env_dir/bin/ruff" --version
 "$env_dir/bin/python" -m mypy --version

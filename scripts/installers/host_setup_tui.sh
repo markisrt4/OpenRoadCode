@@ -187,8 +187,8 @@ verify_current_installation() {
 }
 
 while true; do
-  section=$(whiptail --title "OpenRoadCode installer" --default-item "$(if (( INSTALL_ALL_FEATURES )); then echo all; else echo install; fi)" --menu \
-    "Choose a section to configure, then select Verify or Install:" 24 76 12 \
+  section=$(whiptail --title "OpenRoadCode installer" --default-item install --menu \
+    "Choose a section to configure, then select Install:" 24 76 12 \
     "general" "General features and user interfaces" \
     "streaming" "Streaming and media" \
     "audio" "Audio output and Bluetooth speakers" \
@@ -198,11 +198,14 @@ while true; do
     "video" "Video and camera perception" \
     "automotive" "Automotive devices" \
     "bluetooth" "Bluetooth" \
-    "all" "Install every capability compatible with the target" \
+    "all" "Select every capability compatible with the target" \
     "inventory" "Show installed software and services" \
-    "verify" "Verify the selected setup" \
-    "install" "Install the selected features" \
+    "install" "Install or verify the selected features" \
     "cancel" "Exit without installing" 3>&1 1>&2 2>&3) || exit 0
+  case "$section" in
+    all|inventory|install|cancel) ;;
+    *) INSTALL_ALL_FEATURES=0 ;;
+  esac
   case "$section" in
     general) choose_features "General features" "Select general features and user interfaces:" "$SELECTED_GENERAL" \
       "base|Portable command-line runtime and ZeroMQ messaging" \
@@ -235,10 +238,22 @@ while true; do
       "automotive|Generic serial and CAN-bus support" && SELECTED_AUTOMOTIVE="$SELECTED_RESULT" ;;
     bluetooth) choose_features "Bluetooth" "Select Bluetooth features:" "$SELECTED_BLUETOOTH" \
       "bluetooth|Bluetooth device support" && SELECTED_BLUETOOTH="$SELECTED_RESULT" ;;
-    all) INSTALL_ALL_FEATURES=1; break ;;
     inventory) show_installation_inventory ;;
-    verify) verify_current_installation ;;
-    install) INSTALL_ALL_FEATURES=0; break ;;
+    all|install)
+      if [[ "$section" == all ]]; then INSTALL_ALL_FEATURES=1; fi
+      while true; do
+        action="$(whiptail --title "Installation options" --menu \
+          "Choose what to do with the selected setup:" 14 76 3 \
+          install "Install the selected features" \
+          verify "Verify the existing installation against this selection" \
+          back "Return to feature selection" 3>&1 1>&2 2>&3)" || break
+        case "$action" in
+          install) break 2 ;;
+          verify) verify_current_installation ;;
+          back) break ;;
+        esac
+      done
+      ;;
     cancel) exit 0 ;;
   esac
 done
@@ -347,6 +362,36 @@ while true; do
     exit "$status"
   fi
 done
+
+if [[ "$SELECTED_TARGET" != termux ]]; then
+  airplay_mode=""
+  if airplay_mode="$(whiptail --title "Trending music" --menu \
+    "Connect ORC to a MusicForge Airplay server now?" 13 76 3 \
+    skip "Keep current settings" direct "Connect to an API URL" \
+    tunnel "Set up a private SSH tunnel" 3>&1 1>&2 2>&3)"; then
+    case "$airplay_mode" in
+      direct)
+        if url="$(whiptail --inputbox "MusicForge Airplay base URL" 10 76 \
+          "https://airplay.example.com" 3>&1 1>&2 2>&3)"; then
+          (cd "$PROJECT_DIR" && python3 -m scripts.installers.setup_musicforge_airplay "$url") || \
+            echo "[!] Trending setup incomplete."
+        fi
+        ;;
+      tunnel)
+        if destination="$(whiptail --inputbox "VPS SSH destination (user@host)" 10 76 \
+          "" 3>&1 1>&2 2>&3)" &&
+           ssh_port="$(whiptail --inputbox "VPS SSH port" 10 76 "22" 3>&1 1>&2 2>&3)" &&
+           api_port="$(whiptail --inputbox "VPS Airplay API port" 10 76 "8003" 3>&1 1>&2 2>&3)" &&
+           login_key="$(whiptail --inputbox "One-time VPS login key path (optional)" 10 76 \
+             "" 3>&1 1>&2 2>&3)"; then
+          bash "$PROJECT_DIR/scripts/systemd/install_musicforge_airplay_tunnel.sh" \
+            "$destination" "$ssh_port" "$api_port" "$login_key" || \
+            echo "[!] Trending tunnel setup incomplete."
+        fi
+        ;;
+    esac
+  fi
+fi
 
 # Use the runtime secret parser; never source or print credential values.
 MEDIA_PYTHON="${VENV_DIR:-$PROJECT_DIR/../.venv}/bin/python"

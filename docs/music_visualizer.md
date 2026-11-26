@@ -53,6 +53,11 @@ The browser renderer remains available via
 microphone option. WebUi continues to use WebGL. Native GL failures display an
 explicit error; select the browser override if the device cannot create a GLX context.
 
+On Linux, use **Settings → Audio** to select the default playback output.
+Use **Scan** to find Bluetooth audio receivers, then connect the receiver and
+select its playback output once PipeWire exposes it. A device that requires a
+PIN may need pairing through the desktop Bluetooth settings.
+
 For PipeWire playback monitoring, set
 `OPENROAD_MUSIC_VISUALIZER_PIPEWIRE_TARGET` to the appropriate monitor node.
 Termux/Android defaults to Android Playback. Start **Android Bridge → Android

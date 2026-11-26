@@ -22,8 +22,10 @@ from ui.navigation import (
 from ui.navigation.host_location_ui_if import HostLocationRequestHandlerIf, HostLocationState
 from ui.navigation.map_platform_if import MapPlatformControlIf
 from ui.navigation.navigation_places_request_handler_if import NavigationPlacesRequestHandlerIf
+from ui.radio.radio_visualization_config import RadioVisualizationSettingsIf
 from ui.radio.receiver_settings_if import ReceiverSettingsIf
 from ui.radio.rf_hardware_config_if import RfHardwareConfigIf
+from ui.system.audio_settings_if import AudioSettingsIf
 from ui.system.online_mode_if import OnlineModeIf
 from ui.theme import ThemeBundle
 from ui.tooltip_if import TooltipFactoryIf
@@ -129,7 +131,9 @@ def build_settings_screen(
     host_location_handler: HostLocationRequestHandlerIf | None = None,
     host_location_state: HostLocationState | None = None,
     rf_hardware_config: RfHardwareConfigIf | None = None,
+    rf_visualization_settings: RadioVisualizationSettingsIf | None = None,
     receiver_settings: ReceiverSettingsIf | None = None,
+    audio_settings: AudioSettingsIf | None = None,
     performance_overlay_enabled: Callable[[], bool] | None = None,
     on_performance_overlay_changed: Callable[[bool], None] | None = None,
     configure_spotify: Callable[[], None] | None = None,
@@ -145,7 +149,9 @@ def build_settings_screen(
         host_location_handler=host_location_handler,
         host_location_state=host_location_state,
         rf_hardware_config=rf_hardware_config,
+        rf_visualization_settings=rf_visualization_settings,
         receiver_settings=receiver_settings,
+        audio_settings=audio_settings,
         performance_overlay_enabled=performance_overlay_enabled,
         on_performance_overlay_changed=on_performance_overlay_changed,
         configure_spotify=configure_spotify,

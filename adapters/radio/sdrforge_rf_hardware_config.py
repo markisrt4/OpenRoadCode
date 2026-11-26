@@ -10,12 +10,14 @@ from urllib import request
 
 from protocols.sdrforge_control import authorize_local_sdrforge_request
 from ui.radio.rf_hardware_config_if import RfHardwareConfig, RfHardwareConfigIf
+from ui.ui_dispatcher_if import UiDispatcherIf
 
 
 class SdrForgeRfHardwareConfig(RfHardwareConfigIf):
     """Perform receiver configuration I/O away from the presentation thread."""
 
-    def __init__(self, endpoint: str = "http://127.0.0.1:5570") -> None:
+    def __init__(self, dispatcher: UiDispatcherIf, endpoint: str = "http://127.0.0.1:5570") -> None:
+        self._dispatcher = dispatcher
         self._url = endpoint.rstrip("/") + "/v1/rf/config"
 
     def load(
@@ -27,9 +29,18 @@ class SdrForgeRfHardwareConfig(RfHardwareConfigIf):
                     payload = json.load(response)
                 if not isinstance(payload, dict):
                     raise ValueError("Invalid receiver configuration response")
-                on_success(payload)
-            except (OSError, ValueError, TypeError) as exc:
-                on_error(str(exc))
+                gain = payload.get("gain_db")
+                config: RfHardwareConfig = {
+                    "sample_rate_hz": int(payload.get("sample_rate_hz", 2400000)),
+                    "gain_db": float(gain) if gain is not None else None,
+                    "ppm_correction": int(payload.get("ppm_correction", 0)),
+                    "rtl_agc_enabled": bool(payload.get("rtl_agc_enabled", False)),
+                }
+            except (OSError, ValueError, TypeError, OverflowError) as exc:
+                message = str(exc)
+                self._dispatcher.dispatch_ui(lambda: on_error(message))
+            else:
+                self._dispatcher.dispatch_ui(lambda: on_success(config))
 
         threading.Thread(target=worker, name="orc-rf-config-read", daemon=True).start()
 
@@ -52,8 +63,10 @@ class SdrForgeRfHardwareConfig(RfHardwareConfigIf):
                     authorize_local_sdrforge_request(operation), timeout=5.0
                 ) as response:
                     response.read()
-                on_success()
-            except (OSError, ValueError, TypeError) as exc:
-                on_error(str(exc))
+            except (OSError, ValueError, TypeError, OverflowError) as exc:
+                message = str(exc)
+                self._dispatcher.dispatch_ui(lambda: on_error(message))
+            else:
+                self._dispatcher.dispatch_ui(on_success)
 
         threading.Thread(target=worker, name="orc-rf-config", daemon=True).start()
