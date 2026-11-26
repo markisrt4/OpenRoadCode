@@ -100,6 +100,11 @@ xrandr --current
 ./runOrcUi
 ```
 
+**Settings → RF Display** saves renderer, palette, frame rate, and waterfall
+history preferences locally. Reopen the radio view to load the new settings.
+The receiver controls on the same page read and apply tuner settings through
+the SDRForge service. Stop reception before applying tuner changes.
+
 1. In **Settings → RF Receivers**, refresh discovery, verify the USB serials and
    assign Radio / Airband, NOAA Weather Radio, and ADS-B. Reopen the page and
    confirm the settings persisted. Check for clipping at 1280×720 and 800×480.

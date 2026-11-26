@@ -3,10 +3,9 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from enum import Enum
-from pathlib import Path
+from typing import Protocol
 
 
 class RadioRenderer(str, Enum):
@@ -42,19 +41,11 @@ def select_renderer(config: RadioVisualizationConfig, *, opengl_available: bool)
     return RadioRenderer.OPENGL if opengl_available else RadioRenderer.TK
 
 
-RF_SETTINGS_PATH = Path.home() / ".config" / "openroadcode" / "rf_visualization.json"
+class RadioVisualizationSettingsIf(Protocol):
+    """Read and update persisted RF display preferences."""
 
+    def load(self, defaults: RadioVisualizationConfig | None = None) -> RadioVisualizationConfig:
+        ...
 
-def load_rf_visualization_settings() -> dict[str, object]:
-    """Load optional user overrides without preventing the radio from starting."""
-    try:
-        value = json.loads(RF_SETTINGS_PATH.read_text(encoding="utf-8"))
-        return value if isinstance(value, dict) else {}
-    except (OSError, ValueError):
-        return {}
-
-
-def save_rf_visualization_settings(values: dict[str, object]) -> None:
-    """Persist advanced RF display preferences for the next radio view."""
-    RF_SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    RF_SETTINGS_PATH.write_text(json.dumps(values, indent=2) + "\n", encoding="utf-8")
+    def save(self, config: RadioVisualizationConfig) -> None:
+        ...

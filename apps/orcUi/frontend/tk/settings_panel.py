@@ -11,6 +11,7 @@ from common.units import UnitSystem
 from ui.automotive.vehicle_configuration import EngineInductionType, VehicleConfiguration
 from ui.navigation.host_location_ui_if import HostLocationRequestHandlerIf, HostLocationState
 from ui.radio.receiver_settings_if import ReceiverSettingsIf
+from ui.radio.radio_visualization_config import RadioVisualizationSettingsIf
 from ui.radio.rf_hardware_config_if import RfHardwareConfigIf
 from ui.system.audio_settings_if import AudioSettingsIf
 from ui.theme import ThemeBundle, ThemeMode
@@ -37,6 +38,7 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
         theme_bundle: ThemeBundle | None = None,
         host_location_handler: HostLocationRequestHandlerIf | None = None,
         rf_hardware_config: RfHardwareConfigIf | None = None,
+        rf_visualization_settings: RadioVisualizationSettingsIf | None = None,
         receiver_settings: ReceiverSettingsIf | None = None,
         audio_settings: AudioSettingsIf | None = None,
         host_location_state: HostLocationState | None = None,
@@ -51,6 +53,7 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
         self._on_unit_system_changed = on_unit_system_changed
         self._on_back = on_back
         self._rf_hardware_config = rf_hardware_config
+        self._rf_visualization_settings = rf_visualization_settings
         self._receiver_settings = receiver_settings
         self._vehicle_configuration = vehicle_configuration
         self._induction_var = tk.StringVar(value=vehicle_configuration.induction.value)

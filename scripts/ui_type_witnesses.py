@@ -5,6 +5,19 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from adapters.radio.json_radio_visualization_settings import JsonRadioVisualizationSettings
+    from adapters.radio.sdrforge_rf_hardware_config import SdrForgeRfHardwareConfig
+    from ui.radio.radio_visualization_config import RadioVisualizationSettingsIf
+    from ui.radio.rf_hardware_config_if import RfHardwareConfigIf
+
+    def rf_visualization_settings(
+        store: JsonRadioVisualizationSettings,
+    ) -> RadioVisualizationSettingsIf:
+        return store
+
+    def rf_hardware_config(adapter: SdrForgeRfHardwareConfig) -> RfHardwareConfigIf:
+        return adapter
+
     from controllers.audio.linux_audio_settings import LinuxAudioSettings
     from ui.system.audio_settings_if import AudioSettingsIf
 

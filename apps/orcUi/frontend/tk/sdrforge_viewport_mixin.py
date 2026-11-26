@@ -7,11 +7,6 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import replace
 
-from ui.radio.radio_visualization_config import (
-    load_rf_visualization_settings,
-    save_rf_visualization_settings,
-)
-
 
 class SdrForgeViewportMixin:
     """Manage the visible RF window independently of listening frequency."""
@@ -37,9 +32,6 @@ class SdrForgeViewportMixin:
         if self._viewport is not None:
             self._viewport = replace(self._viewport, recenter_on_tune=False)
             self._constrain_viewport()
-        settings = load_rf_visualization_settings()
-        settings["recenter_on_tune"] = False
-        save_rf_visualization_settings(settings)
         self._update_recenter_button()
         self._schedule_render()
 

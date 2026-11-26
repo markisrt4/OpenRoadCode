@@ -44,7 +44,11 @@ from hardware_io.rf.linux_usb_receiver_adapter import LinuxUsbReceiverAdapter
 from protocols.rigctl.rigctl_client import RigctlClient
 from protocols.sdrforge_control import authorize_local_sdrforge_request
 from ui.radio import AircraftMenuRequestHandlerIf
-from ui.radio.radio_visualization_config import RadioRenderer, RadioVisualizationConfig
+from ui.radio.radio_visualization_config import (
+    RadioRenderer,
+    RadioVisualizationConfig,
+    RadioVisualizationSettingsIf,
+)
 from ui.radio.receiver_settings_if import ReceiverSettingsIf
 from ui.theme import ThemeBundle, ThemeMode
 
@@ -167,7 +171,11 @@ class RadioComposition:
         self.streaming_resources.close()
 
 
-def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioComposition:
+def configure_radio(
+    app: OrcUiApp,
+    runtime: OrcUiApplicationRuntime,
+    visualization_settings: RadioVisualizationSettingsIf | None = None,
+) -> RadioComposition:
     """Compose radio UI against runtime-owned playback and SDR services."""
 
     with ResourceCleanup() as cleanup:
@@ -289,6 +297,8 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
                 max_fps=int(os.environ.get("ORC_RADIO_MAX_FPS", "10")),
                 palette=os.environ.get("ORC_RADIO_PALETTE", "classic").lower(),
             )
+            if visualization_settings is not None:
+                visualization = visualization_settings.load(visualization)
             source = SdrForgeTelemetrySubscriber(
                 os.environ.get("SDRFORGE_ZMQ_ENDPOINT", "tcp://127.0.0.1:5571")
             )

@@ -12,6 +12,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from adapters.radio.json_radio_visualization_settings import JsonRadioVisualizationSettings
 from adapters.radio.sdrforge_rf_hardware_config import SdrForgeRfHardwareConfig
 from apps.launchers.cesium_embedded_viewer import CesiumEmbeddedViewer
 from apps.launchers.host_location_permission import HostLocationPermission
@@ -196,7 +197,8 @@ def create_orc_ui_composition(
             "LIGHTING",
         ):
             app.register_navigation_destination(destination)
-        radio = configure_radio(app, runtime)
+        rf_visualization_settings = JsonRadioVisualizationSettings()
+        radio = configure_radio(app, runtime, rf_visualization_settings)
         cleanup.callback(radio.close)
         _report(progress, "radio", "Radio subsystem loaded")
         games = configure_games(app)
@@ -352,7 +354,8 @@ def create_orc_ui_composition(
             unit_system=unit_system,
             on_unit_system_changed=set_unit_system,
             on_back=lambda: app.navigate_to("HOME"),
-            rf_hardware_config=SdrForgeRfHardwareConfig(),
+            rf_hardware_config=SdrForgeRfHardwareConfig(app),
+            rf_visualization_settings=rf_visualization_settings,
             receiver_settings=radio.receiver_settings,
             audio_settings=audio_settings,
             performance_overlay_enabled=app.performance_overlay_enabled,

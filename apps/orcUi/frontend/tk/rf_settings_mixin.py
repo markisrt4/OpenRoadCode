@@ -6,15 +6,24 @@
 import tkinter as tk
 
 from ui.radio.radio_visualization_config import (
-    load_rf_visualization_settings,
-    save_rf_visualization_settings,
+    RadioRenderer,
+    RadioVisualizationConfig,
+    RadioVisualizationSettingsIf,
 )
+from ui.radio.rf_hardware_config_if import RfHardwareConfig, RfHardwareConfigIf
+from ui.theme import ThemeBundle
 
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
 
 
 class RfSettingsMixin:
     """Build and operate the RF settings page."""
+
+    _theme_bundle: ThemeBundle
+    _rf_hardware_config: RfHardwareConfigIf | None
+    _rf_visualization_settings: RadioVisualizationSettingsIf | None
+    _rf_request = 0
+    _rf_applying = False
 
     def _build_rf_settings(self, body: tk.Frame) -> tk.Frame:
         ui = self._theme_bundle.ui
@@ -28,11 +37,12 @@ class RfSettingsMixin:
             fg=ui.accent_primary,
             font=("Sans", 11, "bold"),
         ).grid(row=0, column=0, columnspan=2, sticky="w", padx=14, pady=10)
-        saved = load_rf_visualization_settings()
-        self._rf_renderer = tk.StringVar(value=str(saved.get("renderer", "auto")))
-        self._rf_palette = tk.StringVar(value=str(saved.get("palette", "classic")))
-        self._rf_fps = tk.IntVar(value=int(saved.get("max_fps", 10)))
-        self._rf_rows = tk.IntVar(value=int(saved.get("waterfall_rows", 180)))
+        settings = self._rf_visualization_settings
+        saved = settings.load() if settings is not None else RadioVisualizationConfig()
+        self._rf_renderer = tk.StringVar(value=saved.renderer.value)
+        self._rf_palette = tk.StringVar(value=saved.palette)
+        self._rf_fps = tk.IntVar(value=saved.max_fps)
+        self._rf_rows = tk.IntVar(value=saved.waterfall_rows)
         for row, (label, variable, options) in enumerate(
             (
                 ("Renderer", self._rf_renderer, ("auto", "opengl", "tk")),
@@ -45,7 +55,7 @@ class RfSettingsMixin:
             tk.Label(rf, text=label, bg=ui.surface, fg=ui.text, font=("Sans", FONT_BODY)).grid(
                 row=row, column=0, sticky="w", padx=14, pady=6
             )
-            selector = tk.OptionMenu(rf, variable, *options)
+            selector = tk.OptionMenu(rf, variable, options[0], *options[1:])
             selector.configure(
                 bg=ui.control_background,
                 fg=ui.control_text,
@@ -146,43 +156,44 @@ class RfSettingsMixin:
         ).grid(row=6, column=0, columnspan=2, sticky="ew", padx=14, pady=12)
         return rf
 
-    def _rf_status(self, message: str) -> None:
-        """Schedule status updates on Tk's presentation thread."""
-        try:
-            self.after(0, lambda: self._rf_hardware_status.configure(text=message))
-        except RuntimeError:
-            pass
+    def _rf_request_is_current(self, request_id: int) -> bool:
+        return request_id == self._rf_request and bool(self._rf_hardware_status.winfo_exists())
 
     def _load_rf_hardware(self) -> None:
         """Request receiver settings through the injected RF configuration port."""
         if self._rf_hardware_config is None:
             self._rf_hardware_status.configure(text="Receiver configuration unavailable.")
             return
+        if self._rf_applying:
+            return
+        self._rf_request += 1
+        request_id = self._rf_request
         self._rf_hardware_status.configure(text="Loading receiver configuration...")
 
-        def loaded(config) -> None:
-            def apply() -> None:
-                self._rf_gain.set("" if config.get("gain_db") is None else str(config["gain_db"]))
-                self._rf_ppm.set(str(config.get("ppm_correction", 0)))
-                self._rf_agc.set(bool(config.get("rtl_agc_enabled", False)))
+        def loaded(config: RfHardwareConfig) -> None:
+            if self._rf_request_is_current(request_id):
+                self._rf_gain.set("" if config["gain_db"] is None else str(config["gain_db"]))
+                self._rf_ppm.set(str(config["ppm_correction"]))
+                self._rf_agc.set(config["rtl_agc_enabled"])
                 self._rf_hardware_status.configure(text="Receiver settings loaded from SDRForge.")
 
-            try:
-                self.after(0, apply)
-            except RuntimeError:
-                pass
+        def failed(message: str) -> None:
+            if self._rf_request_is_current(request_id):
+                self._rf_hardware_status.configure(
+                    text=f"Unable to read SDRForge settings: {message}"
+                )
 
-        self._rf_hardware_config.load(
-            loaded, lambda message: self._rf_status(f"Unable to read SDRForge settings: {message}")
-        )
+        self._rf_hardware_config.load(loaded, failed)
 
     def _apply_rf_hardware(self) -> None:
         if self._rf_hardware_config is None:
             self._rf_hardware_status.configure(text="Receiver configuration unavailable.")
             return
+        if self._rf_applying:
+            return
         try:
             gain = self._rf_gain.get().strip()
-            payload = {
+            payload: RfHardwareConfig = {
                 "sample_rate_hz": 2400000,
                 "gain_db": None if not gain else float(gain),
                 "ppm_correction": int(self._rf_ppm.get()),
@@ -191,20 +202,37 @@ class RfSettingsMixin:
         except ValueError:
             self._rf_hardware_status.configure(text="Invalid gain or PPM value")
             return
+        self._rf_request += 1
+        request_id = self._rf_request
+        self._rf_applying = True
         self._rf_hardware_status.configure(text="Applying receiver settings...")
+
+        def finished(message: str) -> None:
+            if self._rf_request_is_current(request_id):
+                self._rf_applying = False
+                self._rf_hardware_status.configure(text=message)
+
         self._rf_hardware_config.apply(
             payload,
-            lambda: self._rf_status("Receiver settings applied. Start SDR to use them."),
-            lambda message: self._rf_status(f"Receiver settings not applied: {message}"),
+            lambda: finished("Receiver settings applied. Start SDR to use them."),
+            lambda message: finished(f"Receiver settings not applied: {message}"),
         )
 
     def _save_rf_settings(self) -> None:
-        save_rf_visualization_settings(
-            {
-                "renderer": self._rf_renderer.get(),
-                "palette": self._rf_palette.get(),
-                "max_fps": self._rf_fps.get(),
-                "waterfall_rows": self._rf_rows.get(),
-            }
-        )
+        settings = self._rf_visualization_settings
+        if settings is None:
+            self._rf_saved_label.configure(text="RF display settings unavailable.")
+            return
+        try:
+            settings.save(
+                RadioVisualizationConfig(
+                    renderer=RadioRenderer(self._rf_renderer.get()),
+                    palette=self._rf_palette.get(),
+                    max_fps=self._rf_fps.get(),
+                    waterfall_rows=self._rf_rows.get(),
+                )
+            )
+        except (OSError, ValueError, tk.TclError) as exc:
+            self._rf_saved_label.configure(text=f"Unable to save RF settings: {exc}")
+            return
         self._rf_saved_label.configure(text="Saved. Reopen the radio view to apply.")
