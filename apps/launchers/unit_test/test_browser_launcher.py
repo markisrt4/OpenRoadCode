@@ -208,6 +208,7 @@ def test_startup_exit_three_remains_an_error_instead_of_adopting_a_window(tmp_pa
     with (
         patch.object(launcher, "is_running", return_value=False),
         patch.object(launcher, "_find_browser", return_value="/usr/bin/chromium"),
+        patch("apps.launchers.graphics_environment._getprop", return_value=""),
         patch("apps.launchers.browser_launcher.subprocess.Popen", return_value=process),
         patch("apps.launchers.browser_launcher.time.sleep"),
         patch.object(launcher, "_fit_app_window") as fit,
