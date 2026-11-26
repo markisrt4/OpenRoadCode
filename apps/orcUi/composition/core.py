@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import math
+import os
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
@@ -27,6 +28,7 @@ from controllers.navigation.navigation_route_request_handler import (
     NavigationRouteRequestHandler,
 )
 from controllers.system import SystemLifecycleController
+from hardware_io.buttons.push_button_if import PushButtonIf
 from messaging.contracts.automotive import AutomotiveTelemetryProfileRequestPublisher
 from messaging.zeromq import ZeroMqPublisher, ZeroMqSubscriber
 from messaging.zeromq.endpoints import LOCAL_PUBLISHER_ENDPOINT, LOCAL_SUBSCRIBER_ENDPOINT
@@ -34,6 +36,7 @@ from services.automotive.automotive_service_cli import DEFAULT_RUNTIME_CONFIG
 from services.navigation.navigation_command_client import NavigationCommandClient
 from services.trip import TripRuntime
 from ui.theme import ThemeMode
+from .power_button import create_power_button
 
 
 @dataclass(slots=True)
@@ -54,6 +57,7 @@ class CoreComposition:
     lifecycle: SystemLifecycleController
     volume: SystemVolumeHandler
     connectivity: ShellConnectivityController | None = None
+    power_button: PushButtonIf | None = None
 
     _closed: bool = field(default=False, init=False)
 
@@ -64,12 +68,15 @@ class CoreComposition:
         self.map_camera.start()
         self.state_ingress.start()
         self.trip_runtime.start()
+        if self.power_button is not None:
+            self.power_button.start()
 
     def close(self) -> None:
         if self._closed:
             return
         self._closed = True
         close_resources(
+            *([self.power_button.stop] if self.power_button is not None else []),
             self.app.shutdown,
             *([self.connectivity.close] if self.connectivity is not None else []),
             self.trip_runtime.close,
@@ -116,6 +123,11 @@ def create_core_composition() -> CoreComposition:
             online_mode=OnlineModeController(),
         )
         cleanup.callback(app.shutdown)
+        power_button = create_power_button(
+            os.environ.get("ORC_POWER_BUTTON_PIN"), app.dispatch_ui, app.show_power_dialog,
+        )
+        if power_button is not None:
+            cleanup.callback(power_button.stop)
         connectivity = ShellConnectivityController(app.online_mode, app, app.set_online_status, app.set_screen_status)
         cleanup.callback(connectivity.close)
         app.set_connectivity_handler(connectivity.toggle)
@@ -173,6 +185,7 @@ def create_core_composition() -> CoreComposition:
             lifecycle=lifecycle,
             volume=volume,
             connectivity=connectivity,
+            power_button=power_button,
         )
         cleanup.release()
         return composition

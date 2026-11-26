@@ -324,7 +324,7 @@ class OrcUiApp(VolumeUiIf, UiWidget):
             nav_items=self._nav_items,
             active_nav=self._active_nav,
             on_navigate=self.navigate_to,
-            on_power=self._power_dialog.show,
+            on_power=self.show_power_dialog,
             on_online_toggle=self._toggle_online_mode,
             on_theme_toggle=self._toggle_theme,
             on_settings=self._open_settings,
@@ -397,6 +397,11 @@ class OrcUiApp(VolumeUiIf, UiWidget):
     def _restart_ui(self) -> None:
         self._lifecycle_handler.request_restart_ui()
         self._shutdown()
+    def show_power_dialog(self) -> None:
+        """Open the shell's power dialog from a semantic UI request."""
+        if not self._closing and self._power_dialog is not None:
+            self._power_dialog.show()
+
     def _shutdown_system(self) -> None:
         self._lifecycle_handler.request_poweroff()
         self._shutdown()

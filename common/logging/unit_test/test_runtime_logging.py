@@ -302,12 +302,12 @@ def test_forced_child_termination_logs_numeric_context(caplog):
 @pytest.mark.parametrize("action", ["request_restart_ui", "request_poweroff"])
 def test_deferred_host_dispatch_keeps_request_id_without_real_os_action(caplog, action):
     caplog.set_level(logging.INFO)
-    execv, popen = Mock(), Mock()
+    execv, run = Mock(), Mock()
     host = SystemLifecycleController(
         executable="/private/python",
         execv=execv,
         which=lambda _name: "/private/systemctl",
-        popen=popen,
+        run=run,
     )
     getattr(host, action)()
     getattr(host, action)()

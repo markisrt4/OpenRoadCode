@@ -299,6 +299,14 @@ To check the wiring before enabling shutdown, run
 in the Pi runtime environment with `gpiozero` installed. The check prints
 press and release events until you press Ctrl-C.
 
+To open ORC's Power dialog from the same switch, remove the active
+`gpio-shutdown` line for that switch from `/boot/firmware/config.txt` and
+reboot to release the GPIO. Launch ORC with `ORC_POWER_BUTTON_PIN=11 ./runOrcUi`
+using an environment with `gpiozero` installed. The setting takes a physical
+header pin. Pressing the switch opens the dialog, where **Shut Down System**
+requests OS poweroff after ORC closes. A failed poweroff command is reported
+in the launcher output.
+
 The `desktop-ui` and `navigation` features use the native Tk/X11 and MapLibre
 interfaces and do not install a web browser. Select `--feature browser`
 explicitly for browser-backed applications.
