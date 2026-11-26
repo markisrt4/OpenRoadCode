@@ -328,7 +328,8 @@ class NavigationPanelControlTest(unittest.TestCase):
 
         panel.set_map_controls_drawer_state(MapControlsDrawerState(expanded=False))
 
-        panel._map_controls.grid_remove.assert_called_once_with()
+        panel._map_controls.place_forget.assert_called_once_with()
+        panel._map_host.master.grid_columnconfigure.assert_not_called()
         panel._map_host.grid_configure.assert_not_called()
         panel._map_controls_rail.pack_forget.assert_called_once_with()
         panel._map_controls_handle.place.assert_called_once_with(
@@ -353,8 +354,10 @@ class NavigationPanelControlTest(unittest.TestCase):
 
         panel.set_map_controls_drawer_state(MapControlsDrawerState(expanded=True))
 
-        panel._map_controls.grid.assert_called_once_with(row=0, column=1, sticky="nsew")
-        panel._map_host.master.grid_columnconfigure.assert_any_call(1, minsize=224, weight=0)
+        panel._map_controls.place.assert_called_once_with(
+            relx=1.0, anchor="ne", width=224, relheight=1.0
+        )
+        panel._map_host.master.grid_columnconfigure.assert_not_called()
         panel._map_controls.lift.assert_called_once_with()
         panel._map_host.grid_configure.assert_not_called()
         panel._map_controls_handle.place_forget.assert_not_called()
