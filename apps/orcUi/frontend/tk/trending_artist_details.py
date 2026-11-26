@@ -72,7 +72,12 @@ class TrendingArtistDetails(tk.Frame, UiWidget):
         self._scroll_controls = controls
         self._body.grid_remove()
         self._credit = tk.Label(
-            self, bg=ui.surface, fg=ui.text_muted, anchor="w", justify=tk.LEFT, font=("DejaVu Sans", 10)
+            self,
+            bg=ui.surface,
+            fg=ui.text_muted,
+            anchor="w",
+            justify=tk.LEFT,
+            font=("DejaVu Sans", 10),
         )
         self._credit.grid(row=3, column=0, sticky="ew", pady=(6, 0))
         self._credit.grid_remove()

@@ -50,7 +50,9 @@ class ArtistProfiles:
             try:
                 entry = json.loads(cached)
                 cached_profile = entry["profile"]
-                ttl = _TTL if cached_profile and cached_profile["portrait"] else _MISSING_PORTRAIT_TTL
+                ttl = (
+                    _TTL if cached_profile and cached_profile["portrait"] else _MISSING_PORTRAIT_TTL
+                )
                 if time() - entry["saved"] < ttl:
                     if cached_profile is None:
                         return None
@@ -94,8 +96,7 @@ class ArtistProfiles:
         if not bio or (
             page.get("title", "").casefold() != artist.casefold()
             and not any(
-                link["from"].casefold() == artist.casefold()
-                for link in result.get("redirects", [])
+                link["from"].casefold() == artist.casefold() for link in result.get("redirects", [])
             )
         ):
             return None

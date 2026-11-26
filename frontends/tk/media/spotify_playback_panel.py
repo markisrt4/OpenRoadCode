@@ -357,7 +357,7 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
         controls = tk.Frame(card, bg=self._colors["card_background"])
         self._controls = controls
         transport_width = self._style["transport_button_width"]
-        for column, (label, action, width) in enumerate(
+        for column, (label, transport_action, width) in enumerate(
             (
                 ("−10s", lambda: self._skip(-10), 4),
                 (self._layout["previous_text"], self._previous, transport_width),
@@ -367,7 +367,7 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
             )
         ):
             button = self._transport_button(
-                controls, label, action, width=0 if self._compact_controls else width
+                controls, label, transport_action, width=0 if self._compact_controls else width
             )
             if column == 2:
                 self._play_button = button

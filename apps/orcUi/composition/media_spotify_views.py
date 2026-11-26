@@ -110,7 +110,9 @@ def verify_spotify_local_player(
         if state.busy:
             app.schedule_ui_callback(200, report_result)
         elif state.mode is SpotifyPlaybackMode.PLAYER:
-            app.set_screen_status("Spotify local player ready. Open Radio → Trending to test a song.")
+            app.set_screen_status(
+                "Spotify local player ready. Open Radio → Trending to test a song."
+            )
         else:
             app.show_error("Spotify local player test failed", state.message)
 

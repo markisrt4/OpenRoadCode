@@ -33,9 +33,7 @@ class SpotifyStateServiceTest(unittest.TestCase):
         self.service.request_play_song("Artist", "Song", progress, failure)
         self.service._drain_commands()
 
-        self.backend.play_track.assert_called_once_with(
-            "spotify:track:123", device_id="orc-device"
-        )
+        self.backend.play_track.assert_called_once_with("spotify:track:123", device_id="orc-device")
         failure.assert_not_called()
 
     def test_song_device_failure_is_reported_as_an_error(self) -> None:

@@ -103,9 +103,9 @@ class RadioComposition:
     bind_song_launch: Callable[[Callable[[SongLaunchRequest], None]], None] = lambda _handler: None
     close_charts: Callable[[], None] = lambda: None
     bind_video_player: Callable[[ManagedBrowserMediaPlayer], None] = lambda _player: None
-    bind_spotify_factory: Callable[
-        [Callable[[tk.Misc, str, str], tk.Widget]], None
-    ] = lambda _factory: None
+    bind_spotify_factory: Callable[[Callable[[tk.Misc, str, str], tk.Widget]], None] = (
+        lambda _factory: None
+    )
     rigctl_client: RigctlClient | None = None
     receiver_settings: ReceiverSettingsIf | None = None
 

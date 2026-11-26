@@ -77,7 +77,9 @@ def render_chart_rows(
             font=("Sans", 10, "bold"),
         )
         title.grid(row=0, column=1, sticky="ew")
-        title.bind("<Configure>", lambda event, label=title: label.configure(wraplength=event.width))
+        title.bind(
+            "<Configure>", lambda event, label=title: label.configure(wraplength=event.width)
+        )
         subtitle = tk.Label(
             card,
             text=f"{item.get('songs', 0)} songs" if artists else item["artist"],

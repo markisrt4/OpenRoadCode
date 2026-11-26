@@ -38,7 +38,6 @@ def test_player_configures_a_new_profile(monkeypatch, tmp_path):
     }
 
 
-
 def test_abandoned_socket_does_not_block_profile_setup(monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
     profile = tmp_path / "openroadcode" / "spotify-player-browser"
@@ -52,7 +51,6 @@ def test_abandoned_socket_does_not_block_profile_setup(monkeypatch, tmp_path):
 
 def _refuse_singleton_connection(self, address):
     raise ConnectionRefusedError(address)
-
 
 
 def test_player_hints_to_installed_pi_widevine(monkeypatch, tmp_path):

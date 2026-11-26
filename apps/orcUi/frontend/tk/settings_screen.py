@@ -13,8 +13,8 @@ from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from ui.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
 from ui.automotive.vehicle_configuration import VehicleConfiguration
 from ui.navigation.host_location_ui_if import HostLocationRequestHandlerIf, HostLocationState
-from ui.radio.receiver_settings_if import ReceiverSettingsIf
 from ui.radio.radio_visualization_config import RadioVisualizationSettingsIf
+from ui.radio.receiver_settings_if import ReceiverSettingsIf
 from ui.radio.rf_hardware_config_if import RfHardwareConfigIf
 from ui.screen_ui_if import ScreenId
 from ui.system.audio_settings_if import AudioSettingsIf

@@ -23,7 +23,6 @@ def test_only_native_platform_notices_can_clear_pip_failure(monkeypatch, capsys)
     assert checker.check_packages() == 1
 
 
-
 def test_platform_notice_can_use_stderr_and_distribution_casing(monkeypatch, capsys):
     monkeypatch.setattr(
         checker,

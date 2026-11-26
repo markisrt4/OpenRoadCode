@@ -41,14 +41,14 @@ class RfSettingsMixin:
         saved = settings.load() if settings is not None else RadioVisualizationConfig()
         self._rf_renderer = tk.StringVar(value=saved.renderer.value)
         self._rf_palette = tk.StringVar(value=saved.palette)
-        self._rf_fps = tk.IntVar(value=saved.max_fps)
-        self._rf_rows = tk.IntVar(value=saved.waterfall_rows)
+        self._rf_fps = tk.StringVar(value=str(saved.max_fps))
+        self._rf_rows = tk.StringVar(value=str(saved.waterfall_rows))
         for row, (label, variable, options) in enumerate(
             (
                 ("Renderer", self._rf_renderer, ("auto", "opengl", "tk")),
                 ("Waterfall palette", self._rf_palette, ("classic", "grayscale")),
-                ("Maximum display FPS", self._rf_fps, (5, 10, 15, 20, 30)),
-                ("Waterfall history rows", self._rf_rows, (60, 120, 180, 256, 360)),
+                ("Maximum display FPS", self._rf_fps, ("5", "10", "15", "20", "30")),
+                ("Waterfall history rows", self._rf_rows, ("60", "120", "180", "256", "360")),
             ),
             start=1,
         ):
@@ -228,8 +228,8 @@ class RfSettingsMixin:
                 RadioVisualizationConfig(
                     renderer=RadioRenderer(self._rf_renderer.get()),
                     palette=self._rf_palette.get(),
-                    max_fps=self._rf_fps.get(),
-                    waterfall_rows=self._rf_rows.get(),
+                    max_fps=int(self._rf_fps.get()),
+                    waterfall_rows=int(self._rf_rows.get()),
                 )
             )
         except (OSError, ValueError, tk.TclError) as exc:

@@ -79,7 +79,9 @@ def test_apply_receiver_configuration(monkeypatch):
         "ppm_correction": 0,
         "rtl_agc_enabled": False,
     }
-    module.SdrForgeRfHardwareConfig(dispatcher, "http://localhost:5570/").apply(config, success, error)
+    module.SdrForgeRfHardwareConfig(dispatcher, "http://localhost:5570/").apply(
+        config, success, error
+    )
     success.assert_not_called()
     dispatcher.deliver()
     success.assert_called_once_with()

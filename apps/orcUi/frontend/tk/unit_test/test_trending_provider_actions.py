@@ -51,12 +51,8 @@ def test_spotify_song_opens_in_the_left_trending_pane():
 
     TrendingRadioPanel._open_spotify(panel)
 
-    panel._spotify_factory.assert_called_once_with(
-        panel._left, "Burl Ives", "A Song"
-    )
-    panel._spotify_factory.return_value.grid.assert_called_once_with(
-        row=0, column=0, sticky="nsew"
-    )
+    panel._spotify_factory.assert_called_once_with(panel._left, "Burl Ives", "A Song")
+    panel._spotify_factory.return_value.grid.assert_called_once_with(row=0, column=0, sticky="nsew")
     panel._on_artist_search.assert_not_called()
 
 

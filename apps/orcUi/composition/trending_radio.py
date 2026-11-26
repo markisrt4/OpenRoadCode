@@ -146,6 +146,7 @@ def configure_trending(
 
         def load_artist(artist: str) -> None:
             airplay_generation[0] += 1
+
             def work() -> None:
                 if closed():
                     return

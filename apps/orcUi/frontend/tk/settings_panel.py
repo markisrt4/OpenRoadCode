@@ -10,8 +10,8 @@ from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from common.units import UnitSystem
 from ui.automotive.vehicle_configuration import EngineInductionType, VehicleConfiguration
 from ui.navigation.host_location_ui_if import HostLocationRequestHandlerIf, HostLocationState
-from ui.radio.receiver_settings_if import ReceiverSettingsIf
 from ui.radio.radio_visualization_config import RadioVisualizationSettingsIf
+from ui.radio.receiver_settings_if import ReceiverSettingsIf
 from ui.radio.rf_hardware_config_if import RfHardwareConfigIf
 from ui.system.audio_settings_if import AudioSettingsIf
 from ui.theme import ThemeBundle, ThemeMode

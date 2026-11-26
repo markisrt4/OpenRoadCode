@@ -77,7 +77,10 @@ def _enable_protected_audio(profile: Path) -> None:
 def _configure_system_widevine(profile: Path) -> None:
     """Tell Chromium about the Raspberry Pi OS CDM in the ORC profile only."""
     library = Path("_platform_specific/linux_arm64/libwidevinecdm.so")
-    if not (SYSTEM_WIDEVINE / library).is_file() or not (SYSTEM_WIDEVINE / "manifest.json").is_file():
+    if (
+        not (SYSTEM_WIDEVINE / library).is_file()
+        or not (SYSTEM_WIDEVINE / "manifest.json").is_file()
+    ):
         return
     hint = profile / "WidevineCdm" / "latest-component-updated-widevine-cdm"
     try:
