@@ -40,6 +40,7 @@ def collect(base_url):
 def collect_bus(seconds=5):
     """Validate the same position contract as the UI, without printing fixes."""
     import zmq
+
     from messaging.contracts.navigation.position_state_codec import decode_position_state
 
     context = zmq.Context()

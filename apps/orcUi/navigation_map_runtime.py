@@ -6,6 +6,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
+
 from apps.orcUi.map_platform_requests import MapPlatformRequests
 from controllers.navigation.earth_navigation_controller import EarthNavigationController
 from frontends.x11.x11_window_embedder import X11WindowEmbedder

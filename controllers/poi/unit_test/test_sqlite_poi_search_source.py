@@ -5,9 +5,9 @@ import math
 import sqlite3
 
 from controllers.poi import PoiCategory, PoiSearchBounds, PoiSearchQuery, TransitMode
-from controllers.poi.sqlite_poi_search_source import SqlitePoiSearchSource
-from controllers.poi.poi_enricher import enrich_poi
 from controllers.poi.business_provider_catalog import get_business_provider
+from controllers.poi.poi_enricher import enrich_poi
+from controllers.poi.sqlite_poi_search_source import SqlitePoiSearchSource
 
 
 def _database(tmp_path):

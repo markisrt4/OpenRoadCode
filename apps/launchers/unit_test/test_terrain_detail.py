@@ -1,18 +1,18 @@
 """Bounded detail grids, legacy terrain routing and real GDAL archive contracts."""
 import json
-from pathlib import Path
 import shutil
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
 
+from apps.launchers import local_terrain_pack as runtime
+from development.maps import install_terrain as installer
 from development.maps.build_terrain_detail import grid_definition
 from development.maps.detail_coverages import TERRAIN_DETAILS
 from development.maps.static_region_build import terrain_pack
 from development.maps.static_tile_trial import command
-from apps.launchers import local_terrain_pack as runtime
-from development.maps import install_terrain as installer
 
 
 @pytest.mark.parametrize('bounds',[bounds for _,bounds in TERRAIN_DETAILS.values()])

@@ -9,6 +9,7 @@ import threading
 from collections.abc import Callable
 from dataclasses import replace
 from queue import Empty, SimpleQueue
+
 from common.logging.diagnostics import ComponentLog, diagnostic_action
 from common.logging.structured import current_operation, operation
 from controllers.navigation.map_favorites import MapFavorites
@@ -18,19 +19,19 @@ from protocols.map_renderer.map_poi_source import RawMapCamera
 from ui.navigation import GeoPoint
 from ui.navigation.navigation_places_request_handler_if import (
     MapFavorite,
-    NavigationPlacesRequestHandlerIf,
     NavigationCameraState,
+    NavigationPlacesRequestHandlerIf,
     PlaceActionResult,
 )
 from ui.navigation.poi_models import (
     PoiAction,
     PoiActionKind,
-    PoiCategory,
-    PoiSearchResult,
-    PointOfInterest,
-    TransitMode,
-    PoiAppStatus,
     PoiAppAvailability,
+    PoiAppStatus,
+    PoiCategory,
+    PointOfInterest,
+    PoiSearchResult,
+    TransitMode,
 )
 
 

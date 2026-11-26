@@ -4,8 +4,8 @@
 import argparse
 import hashlib
 import json
-from pathlib import Path
 import re
+from pathlib import Path
 from urllib.request import urlopen
 
 CATALOG = Path(__file__).resolve().parents[1] / 'controllers/poi/catalog'

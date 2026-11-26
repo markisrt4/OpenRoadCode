@@ -4,10 +4,12 @@
 """Build the renderer-independent OpenRoadCode offline search database from OSM."""
 
 from __future__ import annotations
+
 import json
 import sqlite3
 import subprocess
 from pathlib import Path
+
 from .web_urls import valid_website
 
 

@@ -2,12 +2,13 @@
 # SPDX-License-Identifier: MIT
 """One rail destination restores the selected map through injected requests."""
 import os
-from unittest.mock import Mock
 import tkinter as tk
+from unittest.mock import Mock
+
 import pytest
 
-from apps.orcUi.frontend.tk.side_nav import OrcUiSideNav
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
+from apps.orcUi.frontend.tk.side_nav import OrcUiSideNav
 from apps.orcUi.theme_runtime import theme_bundle
 from controllers.navigation.navigation_view_controller import NavigationViewController
 from ui.theme import ThemeMode

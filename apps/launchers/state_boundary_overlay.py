@@ -6,7 +6,6 @@ from pathlib import Path
 
 from ui.navigation.boundary_overlay_state import BoundaryOverlayState, BoundaryRegionState
 
-
 _SOURCE = Path(__file__).resolve().parents[2] / 'resources/maps/us_state_boundaries.geojson'
 _COUNTRIES = Path(__file__).resolve().parents[2] / 'resources/maps/world_country_boundaries.geojson'
 

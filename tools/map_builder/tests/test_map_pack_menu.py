@@ -56,7 +56,7 @@ def test_nationwide_state_and_region_are_additive():
 
 
 def test_metro_children_not_top_level_regions():
-    from tools.map_builder.builder.map_pack_selection import MICHIGAN_AREAS, METRO_AREAS
+    from tools.map_builder.builder.map_pack_selection import METRO_AREAS, MICHIGAN_AREAS
     assert 'metro-detroit' in MICHIGAN_AREAS
     assert set(MICHIGAN_AREAS).isdisjoint(METRO_AREAS)
     assert 'southfield' in METRO_AREAS
@@ -115,7 +115,7 @@ def test_unsupported_basket_never_requests_build(monkeypatch):
 
 
 def test_check_all_is_idempotent_and_preserves_other_areas(monkeypatch):
-    from tools.map_builder.builder.map_pack_selection import Selection, LAYERS
+    from tools.map_builder.builder.map_pack_selection import LAYERS, Selection
     answers = iter(['6', '6', ''])
     monkeypatch.setattr('builtins.input', lambda _: next(answers))
     selected = {Selection('us', 1), Selection('metro-detroit', 2)}
@@ -125,7 +125,7 @@ def test_check_all_is_idempotent_and_preserves_other_areas(monkeypatch):
 
 
 def test_clear_all_only_removes_current_area(monkeypatch):
-    from tools.map_builder.builder.map_pack_selection import Selection, LAYERS
+    from tools.map_builder.builder.map_pack_selection import LAYERS, Selection
     answers = iter(['7', ''])
     monkeypatch.setattr('builtins.input', lambda _: next(answers))
     selected = {Selection('us', 1)} | {
@@ -150,8 +150,8 @@ def test_enter_confirms_layer_checklist(monkeypatch):
 
 
 def test_national_request_includes_all_fifty_states():
-    from development.maps.state_map_catalog import catalog_document
     from development.maps.build_us_terrain import definitions
+    from development.maps.state_map_catalog import catalog_document
     from tools.map_builder.builder.map_pack_builds import plan_builds
     from tools.map_builder.builder.map_pack_selection import Selection
     requests, unavailable = plan_builds({Selection('us', 1)})
@@ -171,8 +171,9 @@ def test_national_request_includes_all_fifty_states():
 
 
 def test_national_failure_report_is_not_validated(tmp_path, monkeypatch):
-    from development.maps import build_us_terrain as builder
     import json
+
+    from development.maps import build_us_terrain as builder
     def fail(*args, **kwargs):
         raise RuntimeError('No source coverage')
     monkeypatch.setattr(builder, 'raster_region', fail)

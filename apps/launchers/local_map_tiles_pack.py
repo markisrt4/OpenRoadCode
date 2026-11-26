@@ -10,7 +10,7 @@ from pathlib import Path
 from common.navigation_data import navigation_data_root
 from common.xdg_paths import openroadcode_data_dir
 from ui.navigation.local_imagery_state import LocalImageryState
-from ui.navigation.local_map_tiles_state import LocalMapTile, LocalMapTilesState, MAX_MAP_TILES
+from ui.navigation.local_map_tiles_state import MAX_MAP_TILES, LocalMapTile, LocalMapTilesState
 
 
 def detroit_tiles_directory():

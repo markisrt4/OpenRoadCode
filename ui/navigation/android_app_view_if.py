@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Semantic presentation request, callable from app-launch workers."""
-from typing import Protocol
 from dataclasses import dataclass
+from typing import Protocol
 
 
 @dataclass(frozen=True)

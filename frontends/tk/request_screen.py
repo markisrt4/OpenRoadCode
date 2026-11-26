@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 """A shell destination which emits an injected semantic presentation request."""
 from collections.abc import Callable
+
 from frontends.tk.tk_screen import TkScreen
 from ui.screen_ui_if import ScreenId
 

@@ -10,7 +10,6 @@ from ui.navigation import GeoPoint, MapMarker, MapMarkerKind
 from ui.navigation.cesium_viewer_state import CesiumViewerState
 from ui.navigation.map_platform_if import MapPlatform
 from ui.navigation.map_runtime_if import MapRuntimeState
-
 from ui.navigation.poi_overlay_state import PoiOverlayState
 from ui.navigation.route_overlay_state import RouteOverlayState
 

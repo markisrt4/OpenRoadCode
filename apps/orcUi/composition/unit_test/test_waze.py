@@ -135,6 +135,7 @@ def test_hidden_browser_cancels_pending_launch_and_ignores_late_callback():
 @pytest.mark.parametrize('enabled', [None, False, True])
 def test_runtime_keeps_enable_setting_but_never_registers_a_waze_browser(enabled):
     from contextlib import ExitStack
+
     from apps.orcUi.application_runtime import create_orc_ui_application_runtime
 
     names = ('ApplicationsConfigParser', 'AppRuntimeManager', 'ManagedSDRPPLauncher',

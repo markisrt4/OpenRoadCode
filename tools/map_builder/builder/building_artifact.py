@@ -1,11 +1,12 @@
 """Package checked OSM building tiles for the existing offline tile reader."""
 
 import json
-from pathlib import Path
 import zipfile
+from pathlib import Path
+
+from development.maps.terrain_regions import MICHIGAN_SHARDS
 
 from .map_3d import digest, validate_pack
-from development.maps.terrain_regions import MICHIGAN_SHARDS
 
 MAX_ARCHIVE_BYTES = 128*1024*1024
 

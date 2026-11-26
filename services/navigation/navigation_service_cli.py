@@ -4,11 +4,13 @@
 """Run the OpenRoadCode navigation telemetry and command service."""
 
 from __future__ import annotations
+
 import argparse
 import logging
 import os
 import sys
 from pathlib import Path
+
 from common.logging.structured import configure_logging, event
 from config.service_runtime_config import NavigationServiceRuntimeConfig, ServiceRuntimeConfigParser
 from controllers.cache import PersistentCache
@@ -29,7 +31,9 @@ from controllers.navigation.route_simulation_if import RouteSimulationIf
 from controllers.navigation.simulated_ground_motion_source import SimulatedGroundMotionSource
 from controllers.navigation.simulated_navigation_sensor import SimulatedNavigationSensor
 from controllers.navigation.simulated_position_source import SimulatedPositionSource
-from controllers.route_planning.valhalla_route_planning_controller import ValhallaRoutePlanningController
+from controllers.route_planning.valhalla_route_planning_controller import (
+    ValhallaRoutePlanningController,
+)
 from hardware_io.android import AndroidImu, AndroidSensorBridgeClient
 from hardware_io.imu import Mpu6050Imu
 from messaging.zeromq import ZeroMqPublisher

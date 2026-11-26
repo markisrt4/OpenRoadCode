@@ -3,25 +3,26 @@
 GDAL is required on the build host only. Never installs or activates phone data.
 """
 import argparse
-from datetime import datetime, timezone
 import hashlib
 import json
 import math
 import re
-import xml.etree.ElementTree as ET
-from pathlib import Path
 import subprocess
 import time
+import xml.etree.ElementTree as ET
+from datetime import datetime, timezone
+from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode, urlsplit, urlunsplit, quote
+from urllib.parse import quote, urlencode, urlsplit, urlunsplit
 from urllib.request import urlopen
 
 from PIL import Image
+
 from apps.launchers.local_imagery_pack import LocalImageryPack
 from apps.launchers.local_terrain_pack import load_terrain
-from development.maps.download_detroit_imagery import SERVICE, CATALOG_FIELDS, retry_request
-from tools.map_builder.builder.map_3d import PRESETS
+from development.maps.download_detroit_imagery import CATALOG_FIELDS, SERVICE, retry_request
 from tools.map_builder.builder.imagery_artifact import package as package_imagery
+from tools.map_builder.builder.map_3d import PRESETS
 from tools.map_builder.builder.terrain_artifact import package as package_terrain
 
 BOUNDS = PRESETS['rochester'][1]

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 from unittest.mock import patch
+
 import pytest
 
 from apps.orcUi.composition.application import _android_panel_backends

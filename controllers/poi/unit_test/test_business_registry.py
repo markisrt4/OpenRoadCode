@@ -1,16 +1,16 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-from dataclasses import replace
 import json
+from dataclasses import replace
 
 import pytest
 
 from controllers.poi.business_catalog import BUSINESSES, resolve_business
 from controllers.poi.business_icons import icon_properties
 from controllers.poi.poi_enricher import enrich_poi
-from scripts.generate_business_registry import CATALOG, generate, serialized, refresh
+from scripts.generate_business_registry import CATALOG, generate, refresh, serialized
 from ui.navigation import GeoPoint
-from ui.navigation.poi_models import PointOfInterest, PoiActionKind, PoiCategory
+from ui.navigation.poi_models import PoiActionKind, PoiCategory, PointOfInterest
 
 
 def test_committed_registry_is_reproducible_offline_from_pinned_snapshot():
@@ -126,6 +126,7 @@ def test_burger_king_has_one_order_intent_and_keeps_its_logo(metadata):
 
 def test_panera_supplies_the_same_bundled_logo_to_map_and_card():
     import base64
+
     from controllers.poi.business_icons import icon_bytes
     poi = enrich_poi(PointOfInterest('panera', 'Panera Bread', PoiCategory.FOOD, GeoPoint(0, 0)))
     marker = icon_properties('panera')

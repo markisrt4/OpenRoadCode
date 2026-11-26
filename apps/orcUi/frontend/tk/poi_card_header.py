@@ -5,9 +5,9 @@ import base64
 import tkinter as tk
 from tkinter import font as tkfont
 
-from ui.ui_widget import UiWidget
 from ui.navigation.poi_models import PoiIcon, PoiTitleStyle
 from ui.theme.ui_theme import UiTheme
+from ui.ui_widget import UiWidget
 
 
 class PoiCardHeader(tk.Canvas, UiWidget):

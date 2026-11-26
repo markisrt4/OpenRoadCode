@@ -1,8 +1,8 @@
 """One source-height field for every Cesium mesh LOD, using existing local grids."""
-from collections import OrderedDict
-from dataclasses import dataclass
 import math
 import threading
+from collections import OrderedDict
+from dataclasses import dataclass
 from typing import Callable
 
 from apps.launchers.local_terrain_pack import _load_single_terrain

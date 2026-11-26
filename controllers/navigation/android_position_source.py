@@ -4,8 +4,10 @@
 """Position source backed by the OpenRoadCode Android sensor bridge."""
 
 from __future__ import annotations
-from threading import Event, Thread
+
 from datetime import datetime, timezone
+from threading import Event, Thread
+
 from controllers.navigation.navigation_state import PositionState
 from controllers.navigation.position_source_if import PositionSourceIf, PositionStateCallback
 from hardware_io.android.sensor_bridge_client import AndroidSensorBridgeClient

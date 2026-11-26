@@ -3,11 +3,11 @@
 """Supply fresh ORC fixes to a visible Waze browser through local CDP."""
 from __future__ import annotations
 
-from collections.abc import Callable
 import logging
 import math
-from threading import Event, Lock, Thread
 import time
+from collections.abc import Callable
+from threading import Event, Lock, Thread
 from urllib.parse import urlsplit
 
 from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient

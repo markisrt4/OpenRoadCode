@@ -9,7 +9,17 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from tools.map_builder.builder.build import REFERENCE_MAP_FILES, BuildError, _build_maplibre_data, _build_national_freeways, _download, _download_and_verify, _merge_for_build, _parse_bbox, _prepare_output_dirs
+from tools.map_builder.builder.build import (
+    REFERENCE_MAP_FILES,
+    BuildError,
+    _build_maplibre_data,
+    _build_national_freeways,
+    _download,
+    _download_and_verify,
+    _merge_for_build,
+    _parse_bbox,
+    _prepare_output_dirs,
+)
 
 
 class BoundingBoxTests(unittest.TestCase):

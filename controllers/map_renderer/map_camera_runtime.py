@@ -4,10 +4,12 @@
 """Runtime that feeds navigation position and motion into a map camera."""
 
 from __future__ import annotations
-import math
+
 import logging
+import math
 from datetime import datetime
 from pathlib import Path
+
 from common.logging.structured import event
 from controllers.cache import PersistentCache
 from controllers.map_renderer.map_request_handler import MapRequestHandler

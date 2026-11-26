@@ -1,15 +1,15 @@
 """Read-only offline MBTiles imagery, separate from its web presentation."""
 
-from contextlib import closing
-from dataclasses import dataclass
 import hashlib
 import json
 import math
-from pathlib import Path
 import sqlite3
+from contextlib import closing
+from dataclasses import dataclass
+from pathlib import Path
 
 from common.xdg_paths import openroadcode_data_dir
-from ui.navigation.local_imagery_state import LocalImageryState, LocalImageryPyramidState
+from ui.navigation.local_imagery_state import LocalImageryPyramidState, LocalImageryState
 
 MAX_TILE_BYTES = 512*1024
 MAX_DATABASE_BYTES = 2*1024*1024*1024
@@ -79,7 +79,7 @@ class LocalImageryPyramidPack:
 
 
 def installed_imagery_pyramids():
-    from apps.launchers.local_statewide_detail import installed_index,StatewideImagery
+    from apps.launchers.local_statewide_detail import StatewideImagery, installed_index
     index=installed_index()
     packs = [StatewideImagery(index)] if index is not None else []
     for coverage in PILOT_BOUNDS:

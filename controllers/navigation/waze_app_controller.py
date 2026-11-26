@@ -1,16 +1,16 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Open and retain native Waze, reporting failure without switching providers."""
-from collections.abc import Callable
-from threading import Lock, Thread
 import logging
 import math
-from common.logging.structured import event
+from collections.abc import Callable
+from threading import Lock, Thread
 
+from common.logging.structured import event
+from ui.navigation import GeoPoint
 from ui.navigation.android_app_view_if import AndroidAppViewRequestHandlerIf
 from ui.navigation.installed_android_app_if import InstalledAndroidAppLauncherIf
 from ui.navigation.waze_request_handler_if import WazeRequestHandlerIf, WazeSessionState
-from ui.navigation import GeoPoint
 
 
 class WazeAppController(WazeRequestHandlerIf):

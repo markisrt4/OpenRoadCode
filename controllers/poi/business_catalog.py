@@ -4,13 +4,14 @@
 """Canonical business metadata loaded from OpenRoadCode catalog data."""
 
 from __future__ import annotations
-import re
+
 import json
+import re
 import tomllib
 import unicodedata
-from urllib.parse import urlsplit
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlsplit
 
 _CATALOG_DIR = Path(__file__).with_name("catalog") / "businesses"
 

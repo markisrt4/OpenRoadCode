@@ -1,17 +1,17 @@
 """OSM source extraction through checked archive activation and runtime selection."""
 
 import math
-from pathlib import Path
 import shutil
 import subprocess
 import zipfile
+from pathlib import Path
 
 import pytest
 
-from tools.map_builder.builder.map_3d import PRESETS, build_pack, validate_pack
-from tools.map_builder.builder.building_artifact import package
-from development.maps.install_buildings import install
 from apps.launchers import local_map_tiles_pack as runtime
+from development.maps.install_buildings import install
+from tools.map_builder.builder.building_artifact import package
+from tools.map_builder.builder.map_3d import PRESETS, build_pack, validate_pack
 from ui.navigation import GeoPoint
 
 
@@ -80,8 +80,8 @@ def test_wrong_kind_cannot_activate_buildings(tmp_path,monkeypatch):
 
 @pytest.mark.parametrize('region_id',['michigan','north-america/us/michigan'])
 def test_source_selection_uses_official_url_instead_of_catalog_id_shape(region_id):
-    from tools.map_builder.builder.geofabrik import Region
     from development.maps.build_regional_buildings import michigan_region
+    from tools.map_builder.builder.geofabrik import Region
     region=Region(region_id,'Michigan',None,
         'https://download.geofabrik.de/north-america/us/michigan-latest.osm.pbf')
     assert michigan_region([region]) is region
@@ -109,6 +109,7 @@ def test_dense_cells_subdivide_without_losing_geometry():
 
 def test_building_download_budget_does_not_raise_imagery_budget():
     import json
+
     from development.maps.prebuilt_imagery import validate_descriptor
     from tools.map_builder.builder.building_artifact import MAX_ARCHIVE_BYTES
     raw=json.dumps(dict(schema=1,coverage='metro-detroit',archive='metro-detroit-buildings.zip',

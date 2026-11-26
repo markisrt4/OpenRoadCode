@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 import subprocess
 from unittest.mock import patch
+
 import pytest
 
 from apps.launchers.waydroid_location_provider import WaydroidLocationProvider

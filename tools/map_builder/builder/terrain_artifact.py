@@ -7,8 +7,7 @@ import zipfile
 from pathlib import Path
 
 from apps.launchers.local_terrain_pack import load_terrain
-from development.maps.artifact_identity import (build_fingerprint, build_profile,
-                                                 build_revision)
+from development.maps.artifact_identity import build_fingerprint, build_profile, build_revision
 
 MAX_ARCHIVE_BYTES = 64 * 1024 * 1024
 

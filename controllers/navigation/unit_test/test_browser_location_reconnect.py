@@ -4,6 +4,7 @@
 import re
 import shutil
 import subprocess
+
 import pytest
 
 from controllers.navigation.browser_position_source import _LOCATION_PAGE

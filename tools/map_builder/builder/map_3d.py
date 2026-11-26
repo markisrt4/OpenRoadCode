@@ -1,19 +1,25 @@
 """Optional offline building packs from existing OSM sources; no service queries."""
-from datetime import datetime, timezone
-from collections import deque
 import hashlib
 import json
 import math
 import re
 import subprocess
+from collections import deque
+from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from development.maps.terrain_regions import MICHIGAN_BOUNDS, MICHIGAN_SHARDS
-from ui.navigation.local_map_tiles_state import MAX_MAP_TILES
 from ui.navigation.local_building_state import LocalBuilding
+from ui.navigation.local_map_tiles_state import MAX_MAP_TILES
+
+from .building_geometry import (
+    normalize_components,
+    outer_members,
+    ring_identity,
+    source_identity,
+)
 from .building_parts import mark_part_outlines
-from .building_geometry import height, normalize, normalize_components, source_identity, ring_identity, outer_members
 
 # The existing terrain envelope starts at 41.7, slightly north of Michigan's
 # checked-in Census boundary (41.696089). Coastal/UP delivery edges below also

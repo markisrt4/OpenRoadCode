@@ -4,10 +4,13 @@
 """Persistent left-side navigation for the integrated orcUi shell."""
 
 from __future__ import annotations
+
 import tkinter as tk
 from collections.abc import Callable
+
 from ui.theme import ThemeBundle
 from ui.ui_widget import UiWidget
+
 from .shell_metrics import FONT_CONTROL, SIDE_NAV_WIDTH
 
 _NAV_LABELS = {"NAVIGATION": "NAV"}

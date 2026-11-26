@@ -1,8 +1,8 @@
 """Verify downloaded US terrain packs and atomically activate a paged catalog."""
 import argparse
 import json
-from pathlib import Path
 import uuid
+from pathlib import Path
 
 from apps.launchers.local_terrain_pack import load_terrain
 from common.xdg_paths import openroadcode_data_dir

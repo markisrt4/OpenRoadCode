@@ -5,6 +5,7 @@
 
 from collections.abc import Callable
 from weakref import WeakSet
+
 from apps.launchers.android_app_launcher import AndroidAppLauncher
 from apps.launchers.cesium_poi_actions import CesiumPoiActions
 from apps.launchers.earth_exploration_actions import EarthExplorationActions
@@ -13,8 +14,8 @@ from controllers.poi.android_poi_action_executor import AndroidPoiActionExecutor
 from controllers.poi.navigation_places_controller import NavigationPlacesController
 from controllers.poi.poi_action_executor_if import PoiActionExecutorIf
 from controllers.poi.poi_search_controller import PoiSearchController
-from controllers.poi.poi_selection_cache import PoiSelectionCache
 from controllers.poi.poi_search_controller_if import PoiSearchControllerIf
+from controllers.poi.poi_selection_cache import PoiSelectionCache
 from ui.navigation.navigation_places_request_handler_if import NavigationPlacesFactoryIf
 
 

@@ -1,13 +1,15 @@
 """Embed an X11 application window inside an existing X11 host window."""
 
 from __future__ import annotations
-import re
+
 import ctypes
+import re
 import shutil
 import subprocess
 import time
-from ctypes.util import find_library
 from collections.abc import Callable
+from ctypes.util import find_library
+
 from .window_embedder_if import WindowEmbedderIf
 
 

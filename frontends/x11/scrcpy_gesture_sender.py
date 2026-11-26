@@ -6,11 +6,11 @@ Run in a child process so an X11 BadWindow cannot terminate Tk. Scrcpy receives
 its normal drag / Ctrl-drag events and forwards them to its own virtual display.
 """
 import ctypes as c
-from ctypes.util import find_library
 import json
 import signal
 import sys
 import time
+from ctypes.util import find_library
 
 from ui.navigation.waze_gesture_if import WazeGesture
 

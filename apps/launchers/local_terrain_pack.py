@@ -9,8 +9,12 @@ from pathlib import Path
 from common.navigation_data import navigation_data_root
 from common.xdg_paths import openroadcode_data_dir
 from ui.navigation.local_imagery_state import LocalImageryState
-from ui.navigation.local_terrain_state import (LocalTerrainCatalogState,
-    LocalTerrainMosaicState, LocalTerrainState, LocalTerrainTileIndexState)
+from ui.navigation.local_terrain_state import (
+    LocalTerrainCatalogState,
+    LocalTerrainMosaicState,
+    LocalTerrainState,
+    LocalTerrainTileIndexState,
+)
 
 
 @dataclass(frozen=True, slots=True)

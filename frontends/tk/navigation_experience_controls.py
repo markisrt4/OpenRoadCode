@@ -3,7 +3,9 @@ import tkinter as tk
 
 from ui import UiWidget
 from ui.navigation.navigation_experience_if import (
-    NavigationExperience, NavigationExperienceRequestHandlerIf, NavigationPlacesDrawerState,
+    NavigationExperience,
+    NavigationExperienceRequestHandlerIf,
+    NavigationPlacesDrawerState,
 )
 from ui.navigation.poi_models import PoiCategory, TransitMode
 from ui.navigation.waze_gesture_if import WazeGesture

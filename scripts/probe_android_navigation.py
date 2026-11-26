@@ -10,11 +10,11 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 import platform
 import re
 import shutil
 import subprocess
+from pathlib import Path
 
 
 def query(arguments: list[str]) -> tuple[int | None, str]:

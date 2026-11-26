@@ -4,22 +4,20 @@
 """Own top-level ORC runtime startup, lifecycle, and resource cleanup."""
 
 from __future__ import annotations
+
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from common.resource_cleanup import ResourceCleanup, close_resources
+
 from apps.launchers.host_location_permission import HostLocationPermission
 from apps.launchers.host_location_session import HostLocationSession
-from controllers.navigation.host_location_settings_controller import HostLocationSettingsController
-from controllers.navigation.location_sharing_controller import LocationSharingController
-from controllers.navigation.waze_gesture_controller import WazeGestureController
 from apps.orcUi.application_runtime import OrcUiApplicationRuntime
-from apps.orcUi.composition.core import CoreComposition
-from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
-from apps.orcUi.composition.waze import WazeComposition
 from apps.orcUi.composition.android_app_view import AndroidAppView
+from apps.orcUi.composition.core import CoreComposition
 from apps.orcUi.composition.media import MediaComposition
+from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
 from apps.orcUi.composition.radio import RadioComposition
 from apps.orcUi.composition.vision import VisionComposition
+from apps.orcUi.composition.waze import WazeComposition
 from apps.orcUi.composition.weather import WeatherComposition
 from apps.orcUi.frontend.tk.home_screen import HomeScreen
 from apps.orcUi.frontend.tk.navigation_screen import NavigationScreen
@@ -28,6 +26,10 @@ from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.settings_screen import SettingsScreen
 from apps.orcUi.frontend.tk.vehicle_screen import VehicleScreen
 from apps.orcUi.performance_status import PerformanceStatusPresenter
+from common.resource_cleanup import ResourceCleanup, close_resources
+from controllers.navigation.host_location_settings_controller import HostLocationSettingsController
+from controllers.navigation.location_sharing_controller import LocationSharingController
+from controllers.navigation.waze_gesture_controller import WazeGestureController
 from controllers.weather.radar_replay_controller import RadarReplayController
 from controllers.weather.weather_overlay_controller import WeatherOverlayController
 from frontends.tk.games import GamesScreen

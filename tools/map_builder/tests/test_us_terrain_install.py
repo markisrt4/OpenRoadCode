@@ -4,7 +4,7 @@ import zipfile
 
 import pytest
 
-from apps.launchers.local_us_terrain import NationalTerrainIndex, CombinedTerrainIndex
+from apps.launchers.local_us_terrain import CombinedTerrainIndex, NationalTerrainIndex
 from development.maps.install_us_terrain import install
 from development.maps.state_map_catalog import state_plan
 

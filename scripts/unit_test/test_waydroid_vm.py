@@ -3,9 +3,9 @@
 """Exercise lifecycle decisions with command fakes; never mutate the test host."""
 import base64
 import json
-from pathlib import Path
 import socket
 import subprocess
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest

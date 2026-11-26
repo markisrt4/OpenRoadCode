@@ -1,6 +1,6 @@
 """Route shared navigation actions without coupling the views to runtimes."""
-from ui.navigation.navigation_experience_if import NavigationExperience, NavigationExperienceState
 from ui.navigation.map_platform_if import MapPlatform
+from ui.navigation.navigation_experience_if import NavigationExperience, NavigationExperienceState
 from ui.navigation.poi_models import TransitMode
 from ui.navigation.waze_gesture_if import WazeGestureState
 

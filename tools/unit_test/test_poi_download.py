@@ -1,6 +1,8 @@
 import sqlite3
-import pytest
 from unittest.mock import patch
+
+import pytest
+
 from controllers.poi.business_provider_catalog import get_business_provider
 from controllers.poi.poi_enricher import enrich_poi
 from controllers.poi.poi_models import PoiActionKind, PoiCategory

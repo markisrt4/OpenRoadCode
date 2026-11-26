@@ -4,74 +4,71 @@
 """Top-level composition for the complete ORC UI application."""
 
 from __future__ import annotations
+
 import math
 import os
 import shutil
 from collections.abc import Callable
+
 from adapters.radio.sdrforge_rf_hardware_config import SdrForgeRfHardwareConfig
-from common.resource_cleanup import ResourceCleanup
-from common.app_settings import AppSettings, AppSettingsStore
+from apps.launchers.cesium_embedded_viewer import CesiumEmbeddedViewer
 from apps.launchers.host_location_permission import HostLocationPermission
 from apps.launchers.host_location_session import HostLocationSession
-from controllers.navigation.host_location_settings_controller import HostLocationSettingsController
-from controllers.navigation.location_sharing_controller import LocationSharingController
-from controllers.navigation.map_favorites import MapFavorites
-from controllers.navigation.navigation_view_controller import NavigationViewController
-from controllers.navigation.navigation_experience_controller import NavigationExperienceController
-from controllers.navigation.waze_gesture_controller import WazeGestureController
-from apps.orcUi.adapters.scrcpy_waze_gestures import ScrcpyWazeGestures
-from ui.navigation.waze_request_handler_if import WazeSessionState
+from apps.launchers.scrcpy_waze_launcher import ScrcpyWazeLauncher
 from apps.launchers.waydroid_location_provider import WaydroidLocationProvider
-from controllers.navigation.route_overlay_controller import RouteOverlayController
-from controllers.weather.radar_palette import RadarPalette
-from apps.orcUi.application_runtime import OrcUiApplicationRuntime, create_orc_ui_application_runtime
-from apps.orcUi.composition.core import CoreComposition, create_core_composition
+from apps.orcUi.adapters.scrcpy_waze_gestures import ScrcpyWazeGestures
+from apps.orcUi.adapters.scrcpy_waze_player import ScrcpyWazePlayer
+from apps.orcUi.application_runtime import (
+    create_orc_ui_application_runtime,
+)
 from apps.orcUi.cesium_map_runtime import CesiumMapRuntime
-from apps.orcUi.map_platform_requests import MapPlatformRequests
-from apps.launchers.cesium_embedded_viewer import CesiumEmbeddedViewer
+from apps.orcUi.composition.android_app_view import AndroidAppView
+from apps.orcUi.composition.application_resources import OrcUiComposition, _report
+from apps.orcUi.composition.business_apps import configure_termux_business_apps
 from apps.orcUi.composition.calendar import (
     CalendarConfiguration,
     configure_calendar,
     create_home_calendar_factory,
 )
+from apps.orcUi.composition.core import create_core_composition
 from apps.orcUi.composition.games import configure_games
+from apps.orcUi.composition.media import configure_media
 from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
+from apps.orcUi.composition.radio import configure_radio
 from apps.orcUi.composition.tooltips import TooltipFactory
-from apps.orcUi.composition.waze import WazeComposition, configure_waze
-from apps.orcUi.composition.android_app_view import AndroidAppView
-from apps.orcUi.composition.business_apps import configure_termux_business_apps
-from apps.orcUi.adapters.scrcpy_waze_player import ScrcpyWazePlayer
-from apps.launchers.scrcpy_waze_launcher import ScrcpyWazeLauncher
-from frontends.x11.x11_window_embedder import X11WindowEmbedder
-from apps.orcUi.composition.media import MediaComposition, configure_media
-from apps.orcUi.composition.radio import RadioComposition, configure_radio
-from apps.orcUi.composition.vision import VisionComposition, configure_vision
-from apps.orcUi.composition.weather import WeatherComposition, configure_weather
+from apps.orcUi.composition.vision import configure_vision
+from apps.orcUi.composition.waze import configure_waze
+from apps.orcUi.composition.weather import configure_weather
 from apps.orcUi.composition.weather_overlays import configure_weather_overlays
 from apps.orcUi.frontend.tk.home_screen import HomeScreen
 from apps.orcUi.frontend.tk.navigation_route_weather import NavigationRouteWeather
 from apps.orcUi.frontend.tk.navigation_screen import NavigationScreen
 from apps.orcUi.frontend.tk.offroad_screen import OffRoadScreen
-from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.settings_screen import SettingsScreen
 from apps.orcUi.frontend.tk.vehicle_screen import VehicleScreen
+from apps.orcUi.map_platform_requests import MapPlatformRequests
 from apps.orcUi.performance_status import PerformanceStatusPresenter
 from apps.orcUi.theme_runtime import theme_bundle
+from common.app_settings import AppSettingsStore
+from common.resource_cleanup import ResourceCleanup
 from controllers.navigation.current_position import get_current_position
+from controllers.navigation.host_location_settings_controller import HostLocationSettingsController
+from controllers.navigation.location_sharing_controller import LocationSharingController
 from controllers.navigation.map_controls_drawer_controller import MapControlsDrawerController
-from controllers.poi.poi_search_controller import PoiSearchController
+from controllers.navigation.map_favorites import MapFavorites
+from controllers.navigation.navigation_experience_controller import NavigationExperienceController
+from controllers.navigation.navigation_view_controller import NavigationViewController
+from controllers.navigation.route_overlay_controller import RouteOverlayController
+from controllers.navigation.waze_gesture_controller import WazeGestureController
+from controllers.weather.radar_palette import RadarPalette
 from controllers.weather.radar_replay_controller import RadarReplayController
-from controllers.weather.weather_overlay_controller import WeatherOverlayController
-from frontends.tk.games import GamesScreen
 from frontends.tk.system.diagnostics_screen import DiagnosticsScreen
+from frontends.x11.x11_window_embedder import X11WindowEmbedder
 from services.common.system_performance_monitor import SystemPerformanceMonitor
-from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
 from ui.navigation import GeoPoint
 from ui.navigation.cesium_viewer_state import CesiumViewerState
 from ui.navigation.map_platform_if import MapPlatform
-
-
-from apps.orcUi.composition.application_resources import OrcUiComposition, _report
+from ui.navigation.waze_request_handler_if import WazeSessionState
 
 
 def _android_panel_backends():

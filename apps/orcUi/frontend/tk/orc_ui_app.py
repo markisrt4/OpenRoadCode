@@ -3,10 +3,12 @@
 """Integrated OpenRoadCode automotive application shell."""
 
 from __future__ import annotations
+
 import os
 import signal
 import tkinter as tk
 from collections.abc import Callable
+
 from apps.orcUi.navigation_presenter import PositionPresentationState
 from apps.orcUi.notification_dispatcher import NotificationDispatcher
 from apps.orcUi.orc_theme import toggle
@@ -24,6 +26,7 @@ from ui.system_diagnostics import SystemDiagnosticsSnapshot
 from ui.theme import ThemeMode
 from ui.ui_widget import UiWidget
 from ui.weather import WeatherAlertUiEvent
+
 from .error_dialog import ErrorDialog
 from .performance_overlay import PerformanceOverlay
 from .power_dialog import PowerDialog

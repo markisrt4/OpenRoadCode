@@ -1,13 +1,13 @@
 """Resolve a delivery's artifact references without downloading duplicate batches."""
 import argparse
 import json
-from pathlib import Path
 import shutil
 import subprocess
+from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from development.maps.static_tile_trial import digest
 from development.maps.statewide_detail_plan import PROFILE, parse_cell
+from development.maps.static_tile_trial import digest
 
 
 def download(delivery, output):

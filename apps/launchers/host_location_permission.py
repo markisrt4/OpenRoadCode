@@ -4,16 +4,17 @@
 """Open compact host geolocation consent, preserving a default-browser fallback."""
 
 import os
-import webbrowser
-import time
 import shutil
 import subprocess
-from threading import Lock
+import time
+import webbrowser
 from collections.abc import Callable
+from threading import Lock
 from urllib.error import HTTPError, URLError
 from urllib.request import ProxyHandler, Request, build_opener
-from apps.launchers.host_location_session import HostLocationSessionError
+
 from apps.launchers.browser_launcher import BrowserKioskLauncher
+from apps.launchers.host_location_session import HostLocationSessionError
 from apps.launchers.host_location_window_control import HostLocationWindowControl
 from common.xdg_paths import openroadcode_data_dir
 from controllers.navigation.host_location_permission_if import HostLocationServiceUnavailable

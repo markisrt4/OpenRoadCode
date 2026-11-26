@@ -3,6 +3,7 @@
 import tkinter as tk
 import unittest
 from unittest.mock import Mock
+
 from apps.orcUi.frontend.tk.navigation_panel import NavigationPanel
 from apps.orcUi.frontend.tk.navigation_poi_actions import poll_poi_launch_results
 from controllers.navigation.map_controls_drawer_controller import MapControlsDrawerController

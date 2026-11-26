@@ -1,11 +1,11 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Fresh GPS, Waze-only targets and browser-session cancellation."""
-from contextlib import contextmanager
 import math
+from contextlib import contextmanager
 from threading import Event, Thread
 from types import SimpleNamespace
-from unittest.mock import Mock, MagicMock
+from unittest.mock import MagicMock, Mock
 
 import pytest
 

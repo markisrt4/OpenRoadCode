@@ -13,8 +13,8 @@ import socket
 import struct
 import urllib.parse
 import urllib.request
-from contextlib import contextmanager
 from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 

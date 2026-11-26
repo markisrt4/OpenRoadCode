@@ -1,17 +1,17 @@
 """Explain how existing OSM extraction/height rules affect the Chrysler campus."""
 
 import argparse
-from collections import Counter
 import json
-from pathlib import Path
 import subprocess
+from collections import Counter
+from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from development.maps.build_regional_buildings import michigan_region
 from development.maps.state_map_catalog import _coordinates
 from tools.map_builder.builder.build import _download_and_verify
 from tools.map_builder.builder.geofabrik import fetch_index
-from tools.map_builder.builder.map_3d import normalize_components, PRESETS, height, digest
+from tools.map_builder.builder.map_3d import PRESETS, digest, height, normalize_components
 
 SITE_BOUNDS = (-83.26,42.635,-83.21,42.67)
 

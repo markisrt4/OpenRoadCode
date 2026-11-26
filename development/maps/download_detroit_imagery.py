@@ -2,8 +2,6 @@
 
 import argparse
 import hashlib
-from http.client import IncompleteRead
-from io import BytesIO
 import json
 import re
 import time
@@ -11,13 +9,19 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+from http.client import IncompleteRead
+from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from urllib.error import HTTPError, URLError
 
 from PIL import Image
 
-from apps.launchers.local_imagery_pack import detroit_pack_directory, pine_knob_imagery_directory, LocalImageryPack
+from apps.launchers.local_imagery_pack import (
+    LocalImageryPack,
+    detroit_pack_directory,
+    pine_knob_imagery_directory,
+)
 from tools.map_builder.builder.map_3d import PRESETS
 
 SERVICE = "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer"

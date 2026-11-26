@@ -3,9 +3,10 @@
 
 from unittest.mock import Mock, patch
 from urllib.error import URLError
+
 import pytest
+
 from apps.launchers.host_location_permission import HostLocationPermission
-from controllers.navigation.host_location_permission_if import HostLocationServiceUnavailable
 
 
 @pytest.fixture(autouse=True)

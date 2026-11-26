@@ -1,10 +1,10 @@
 """Host-side entry to existing offline installers and explicit Actions requests."""
 from __future__ import annotations
 
-from pathlib import Path
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 REPOSITORY = 'markisrt4/OpenRoadCode'
 WORKFLOW = 'build-metro-detroit-imagery.yml'
@@ -88,7 +88,7 @@ def edit_layers(selected, area, title):
 
 
 def edit_michigan(selected):
-    from .map_pack_selection import AREAS, MICHIGAN_AREAS, METRO_AREAS
+    from .map_pack_selection import AREAS, METRO_AREAS, MICHIGAN_AREAS
     while True:
         answer = choose('Michigan — add any combination of areas',
                         [AREAS[key] for key in MICHIGAN_AREAS])

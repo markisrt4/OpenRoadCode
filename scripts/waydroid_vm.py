@@ -7,18 +7,17 @@ import fcntl
 import ipaddress
 import json
 import os
-from pathlib import Path
 import re
 import shutil
 import signal
 import socket
 import stat
 import subprocess
-import sys
 import time
+from pathlib import Path
 
-from scripts.setup_waydroid_location import setup as setup_location
 from apps.launchers.waydroid_location_provider import configuration_path
+from scripts.setup_waydroid_location import setup as setup_location
 
 ROOT = Path(__file__).resolve().parents[1]
 RULE_COMMENT = 'openroadcode-waydroid'

@@ -1,15 +1,16 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Own scrcpy virtual-display viewers for native apps on Termux X11."""
-import os
 import logging
+import os
 import re
 import shlex
-from pathlib import Path
 import subprocess
 import tempfile
+from pathlib import Path
 from threading import Event, Lock, Thread
 from uuid import uuid4
+
 from common.logging.structured import event
 
 

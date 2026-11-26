@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Confirm a curated app exists before presenting its own scrcpy display."""
-import subprocess
 import re
+import subprocess
 
 from ui.navigation.installed_android_app_if import InstalledAndroidAppLauncherIf
 

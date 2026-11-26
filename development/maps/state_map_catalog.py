@@ -5,7 +5,7 @@ import json
 import math
 from pathlib import Path
 
-from development.maps.terrain_regions import (MICHIGAN_BOUNDS, MICHIGAN_SHARDS)
+from development.maps.terrain_regions import MICHIGAN_BOUNDS, MICHIGAN_SHARDS
 
 _BOUNDARIES = Path(__file__).resolve().parents[2] / "resources/maps/us_state_boundaries.geojson"
 _TARGET_SHARD_SPAN_M = 260_000

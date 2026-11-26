@@ -1,11 +1,11 @@
 """Bounded national terrain pages; no national sample arrays at startup."""
-from collections import OrderedDict
 import hashlib
 import json
 import math
-from pathlib import Path
 import re
 import threading
+from collections import OrderedDict
+from pathlib import Path
 
 from apps.launchers.local_terrain_pack import _load_single_terrain
 from common.xdg_paths import openroadcode_data_dir

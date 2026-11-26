@@ -4,15 +4,23 @@
 """Unit tests for ORC navigation panel camera and POI controls."""
 
 import math
-import unittest
 import os
 import tkinter as tk
-import pytest
+import unittest
 from unittest.mock import Mock, patch
+
+import pytest
+
 from apps.orcUi.frontend.tk.navigation_panel import NavigationPanel
 from controllers.navigation.map_favorites import MapFavorite
 from ui.navigation import GeoPoint, MapControlsDrawerState
-from ui.navigation.poi_models import PoiAction, PoiActionKind, PoiCategory, PointOfInterest, TransitMode
+from ui.navigation.poi_models import (
+    PoiAction,
+    PoiActionKind,
+    PoiCategory,
+    PointOfInterest,
+    TransitMode,
+)
 from ui.navigation.route_types import TravelMode
 
 
@@ -21,8 +29,8 @@ def test_first_views_click_allocates_drawer_and_controls_return_below_views():
     from apps.orcUi.theme_runtime import theme_bundle
     from controllers.navigation.map_controls_drawer_controller import MapControlsDrawerController
     from ui.navigation import MapRequestHandlerStub
-    from ui.navigation.navigation_places_request_handler_if import NavigationPlacesRequestHandlerIf
     from ui.navigation.navigation_experience_if import NavigationExperienceState
+    from ui.navigation.navigation_places_request_handler_if import NavigationPlacesRequestHandlerIf
     from ui.theme import ThemeMode
 
     root = tk.Tk()

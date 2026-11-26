@@ -14,13 +14,13 @@ from controllers.poi import (
     PoiSearchController,
     PoiSearchQuery,
 )
+from controllers.poi.poi_selection_cache import PoiSelectionCache
 from protocols.map_renderer.map_poi_source import (
     RawMapClick,
     RawMapPoi,
     RawPoiSearchResult,
 )
 from ui.navigation import GeoPoint
-from controllers.poi.poi_selection_cache import PoiSelectionCache
 
 
 class FakeMapPoiSource:

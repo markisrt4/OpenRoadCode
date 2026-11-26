@@ -5,12 +5,12 @@ stays transparent; incomplete terrain tiles are omitted and explicitly reported.
 """
 
 import argparse
-from concurrent.futures import ThreadPoolExecutor
-import json
 import hashlib
+import json
 import math
-from pathlib import Path
 import time
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 from PIL import Image
 
@@ -18,7 +18,12 @@ from apps.launchers.local_imagery_pack import LocalImageryPack
 from apps.launchers.local_terrain_pack import load_terrain
 from development.maps.regional_imagery import _save_overview
 from development.maps.regional_terrain import terrain_tiles
-from development.maps.static_region_sources import crop_source, discover_imagery, discover_terrain, intersect
+from development.maps.static_region_sources import (
+    crop_source,
+    discover_imagery,
+    discover_terrain,
+    intersect,
+)
 from development.maps.static_tile_trial import RIGHTS, command, digest, write_json
 from development.maps.terrain_regions import MICHIGAN_SHARDS
 from tools.map_builder.builder.imagery_artifact import package as package_imagery

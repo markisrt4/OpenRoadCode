@@ -4,21 +4,14 @@
 """Full navigation panel for the integrated ORC cockpit UI."""
 
 from __future__ import annotations
-from ui.navigation.navigation_experience_if import NavigationExperienceRequestHandlerIf
-from ui.navigation.waze_request_handler_if import WazeRequestHandlerIf
-from ui.system.online_mode_if import OnlineModeIf
-from ui.tooltip_if import TooltipFactoryIf
-from frontends.tk.tooltip import TkTooltip
+
 import logging
 import math
 import tkinter as tk
 from collections.abc import Callable
+
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
-from common.logging.structured import event
-from ui.weather.radar_ui_if import RadarPalette
-from ui.navigation.map_layer_controls import MapLayerAction, MapLayerControls
-from ui.navigation.map_platform_if import MapPlatform, MapPlatformState, MapPlatformControlIf
-from ui.navigation.poi_models import PoiCategory, TransitMode
+from frontends.tk.tooltip import TkTooltip
 from ui.navigation import (
     MapControlsDrawerRequestHandlerIf,
     MapControlsDrawerState,
@@ -28,11 +21,20 @@ from ui.navigation import (
     RouteRequestHandlerStub,
     RouteSimulationRequestHandlerIf,
 )
+from ui.navigation.map_layer_controls import MapLayerAction, MapLayerControls
+from ui.navigation.map_platform_if import MapPlatform, MapPlatformControlIf, MapPlatformState
+from ui.navigation.navigation_experience_if import NavigationExperienceRequestHandlerIf
 from ui.navigation.navigation_places_request_handler_if import NavigationPlacesRequestHandlerIf
+from ui.navigation.poi_models import PoiCategory, TransitMode
+from ui.navigation.waze_request_handler_if import WazeRequestHandlerIf
+from ui.system.online_mode_if import OnlineModeIf
 from ui.theme import ThemeBundle, ThemeMode
+from ui.tooltip_if import TooltipFactoryIf
 from ui.ui_widget import UiWidget
+from ui.weather.radar_ui_if import RadarPalette
+
 from .navigation_panel_camera import NavigationCameraControls
-from .navigation_panel_layout import log_map_allocation, build_navigation_panel
+from .navigation_panel_layout import build_navigation_panel, log_map_allocation
 from .navigation_places_controls import NavigationPlacesControls
 from .navigation_radar_controls import NavigationRadarControls
 

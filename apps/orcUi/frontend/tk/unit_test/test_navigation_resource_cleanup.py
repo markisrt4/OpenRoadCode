@@ -3,8 +3,8 @@
 """Retired widgets must release Tcl resources before worker-thread collection."""
 import gc
 import os
-from threading import Thread, get_ident
 import tkinter as tk
+from threading import Thread, get_ident
 from unittest.mock import Mock
 
 import pytest

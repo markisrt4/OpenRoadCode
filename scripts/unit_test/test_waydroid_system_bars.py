@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: MIT
 """Exercise the admin helper against a fake Android settings store, never sudo."""
 import os
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 import pytest
 

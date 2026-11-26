@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: MIT
 """Resolve approved bundled PNGs; no runtime network or arbitrary file access."""
 import base64
-from functools import lru_cache
 import hashlib
 import json
-from pathlib import Path
 import re
 import struct
+from functools import lru_cache
+from pathlib import Path
 
 DIRECTORY = Path(__file__).with_name('catalog') / 'icons'
 

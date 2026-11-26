@@ -3,14 +3,23 @@
 
 """Build OpenRoadCode offline map and routing data."""
 from __future__ import annotations
+
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+import time
 from dataclasses import asdict
-import hashlib, json, os, re, shutil, subprocess, time
 from pathlib import Path
 from urllib.request import Request, urlopen
+
 from .geofabrik import Region
 from .poi_index import build_search_index
 from .style import install_style
 from .validate import validate_output
+
 OUTPUT_ROOT=Path(os.environ.get("OPENROAD_OUTPUT_ROOT","/srv/openroadcode")); CACHE_ROOT=Path(os.environ.get("OPENROAD_CACHE_ROOT","/cache")); SCRATCH_ROOT=Path(os.environ.get("OPENROAD_SCRATCH_ROOT","/scratch")); STYLE_TEMPLATE=Path(os.environ.get("OPENROAD_STYLE_TEMPLATE","/opt/openroadcode-map-builder/templates/openroadcode-style.json")); TILEMAKER_CONFIG=Path("/opt/tilemaker/resources/config-openmaptiles.json"); TILEMAKER_PROCESS=Path("/opt/tilemaker/resources/process-openmaptiles.lua"); GLYPH_SOURCE=Path("/opt/klokantech-gl-fonts/KlokanTech Noto Sans CJK Regular")
 REFERENCE_MAP_SOURCE=Path(os.environ.get("OPENROAD_REFERENCE_MAP_SOURCE","/opt/openroadcode-source/resources/maps"))
 REFERENCE_MAP_FILES=("us_state_boundaries.geojson","us_state_internal_boundaries.geojson","world_country_boundaries.geojson","world_land.geojson","world_lakes.geojson")

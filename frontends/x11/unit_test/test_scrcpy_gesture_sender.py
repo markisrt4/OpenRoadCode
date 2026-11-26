@@ -2,13 +2,13 @@
 # SPDX-License-Identifier: MIT
 """Verify the SDL events scrcpy consumes, plus unchanged real pointer/focus."""
 import ctypes as c
-from ctypes.util import find_library
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
 import time
+from ctypes.util import find_library
+from pathlib import Path
 
 import pytest
 

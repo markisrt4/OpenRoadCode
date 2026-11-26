@@ -1,8 +1,8 @@
 """Dependency failures must be diagnosed before importing application composition."""
 
+import builtins
 from types import SimpleNamespace
 from unittest.mock import Mock
-import builtins
 
 import pytest
 
@@ -61,9 +61,9 @@ def test_help_remains_available_without_musicforge(monkeypatch,capsys):
 
 
 def test_musicforge_installer_uses_explicit_python_without_running_real_pip(tmp_path):
-    from pathlib import Path
     import os
     import subprocess
+    from pathlib import Path
     interpreter=tmp_path/'selected python'
     calls=tmp_path/'calls.txt'
     interpreter.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$ORC_PYTHON_CALLS"\n')

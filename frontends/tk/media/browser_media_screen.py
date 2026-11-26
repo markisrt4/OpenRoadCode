@@ -4,18 +4,20 @@
 """Screen adapter for browser-backed media destinations."""
 
 from __future__ import annotations
+
 import os
 import tkinter as tk
 from collections.abc import Callable
+
+from frontends.tk.tk_screen import TkScreen
+from frontends.tk.tk_screen_host_if import TkScreenHostIf
+from frontends.x11 import X11WindowEmbedder
+from frontends.x11.window_embedder_if import WindowEmbedderIf
 from ui.media.browser_player_if import (
     BrowserMediaPlayerIf,
     BrowserThemeRequestHandlerIf,
     HostedSurfaceGeometryIf,
 )
-from frontends.tk.tk_screen import TkScreen
-from frontends.tk.tk_screen_host_if import TkScreenHostIf
-from frontends.x11 import X11WindowEmbedder
-from frontends.x11.window_embedder_if import WindowEmbedderIf
 from ui.screen_ui_if import ScreenId
 from ui.theme import ThemeBundle
 

@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Own only an explicitly configured system keyboard process."""
-from unittest.mock import Mock, patch
 import subprocess
+from unittest.mock import Mock, patch
 
 import pytest
 

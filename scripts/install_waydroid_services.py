@@ -3,12 +3,12 @@
 """Install Ubuntu/X11 user services; never launch the dashboard implicitly."""
 import argparse
 import os
-from pathlib import Path
 import pwd
 import re
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 HELPER = '/usr/local/libexec/openroadcode-waydroid-prepare'

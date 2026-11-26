@@ -3,6 +3,7 @@
 """Immutable SI location and an optional Android location-provider contract."""
 from dataclasses import dataclass
 from typing import Protocol
+
 from ui.navigation import GeoPoint
 
 

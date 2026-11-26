@@ -6,33 +6,34 @@ import re
 import subprocess
 import time
 import uuid
-from tempfile import TemporaryDirectory
 from contextlib import ExitStack
 from dataclasses import replace
 from pathlib import Path
+from tempfile import TemporaryDirectory
+
 from apps.launchers.browser_launcher import BrowserKioskLauncher
 from apps.launchers.cesium_sdk import sdk_directory
 from apps.launchers.cesium_viewer_server import CesiumViewerServer
-from apps.launchers.local_imagery_pyramid import installed_imagery_pyramids
+from apps.launchers.local_building_pack import detroit_building_directory, load_buildings
 from apps.launchers.local_imagery_pack import (
     LocalImageryPack,
     detroit_pack_directory,
-    preferred_imagery_directory,
     load_imagery_stack,
+    preferred_imagery_directory,
 )
-from apps.launchers.state_boundary_overlay import load_state_boundary_overlay
-from apps.launchers.local_terrain_pack import load_installed_terrain_catalog
-from apps.launchers.local_building_pack import load_buildings, detroit_building_directory
+from apps.launchers.local_imagery_pyramid import installed_imagery_pyramids
 from apps.launchers.local_map_tiles_pack import load_viewer_tiles, preferred_tiles_directory
 from apps.launchers.local_road_overlay import LocalRoadOverlay
+from apps.launchers.local_terrain_pack import load_installed_terrain_catalog
+from apps.launchers.state_boundary_overlay import load_state_boundary_overlay
 from common.logging.logging_paths import logging_file_path
 from frontends.x11.x11_window_embedder import X11WindowEmbedder
 from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
 from ui.navigation import GeoPoint
+from ui.navigation.map_layer_controls import MapLayerAction, MapLayerControl, MapLayerControls
 from ui.navigation.map_platform_if import ExplorationCameraAction
 from ui.navigation.poi_overlay_state import PoiOverlayState
 from ui.navigation.route_overlay_state import RouteOverlayState
-from ui.navigation.map_layer_controls import MapLayerAction, MapLayerControl, MapLayerControls
 
 
 def _diagnostic(stage, **details):

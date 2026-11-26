@@ -4,11 +4,11 @@
 import fcntl
 import json
 import os
-from pathlib import Path
 import re
 import signal
 import socket
 import subprocess
+from pathlib import Path
 from threading import Event
 
 from apps.launchers.waydroid_location_provider import configuration_path

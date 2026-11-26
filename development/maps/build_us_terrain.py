@@ -1,13 +1,13 @@
 """Build coarse baselines with the existing staged-raster discovery/crop pipeline."""
 import argparse
 import json
-from pathlib import Path
 import time
+from pathlib import Path
 
 from apps.launchers.local_terrain_pack import load_terrain
 from development.maps.state_map_catalog import state_plan
-from development.maps.static_region_sources import discover_terrain
 from development.maps.static_region_build import source_crops, terrain_pack
+from development.maps.static_region_sources import discover_terrain
 from development.maps.static_tile_trial import write_json
 from tools.map_builder.builder.terrain_artifact import package
 

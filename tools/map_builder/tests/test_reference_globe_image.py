@@ -1,7 +1,7 @@
 """Actual raster pixels, not only mocked browser path calls."""
 from PIL import Image, ImageColor
 
-from development.maps.build_reference_globe import build, paint, LAND, WATER
+from development.maps.build_reference_globe import LAND, WATER, build, paint
 
 
 def test_reference_has_us_land_and_real_lakes(tmp_path):

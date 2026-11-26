@@ -1,15 +1,15 @@
 """Build native offline zoom tiles for two bounded NAIP detail pilots."""
 
 import argparse
-from contextlib import closing
 import json
 import math
-from pathlib import Path
 import sqlite3
 import time
 import zipfile
+from contextlib import closing
+from pathlib import Path
 
-from apps.launchers.local_imagery_pyramid import LocalImageryPyramidPack, PILOT_BOUNDS
+from apps.launchers.local_imagery_pyramid import PILOT_BOUNDS, LocalImageryPyramidPack
 from development.maps.static_region_build import source_crops
 from development.maps.static_region_sources import discover_imagery
 from development.maps.static_tile_trial import RIGHTS, command, digest, write_json

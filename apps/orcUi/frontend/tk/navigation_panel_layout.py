@@ -5,13 +5,19 @@
 
 import logging
 import tkinter as tk
+
 from common.logging.structured import event
-from .navigation_earth_control import build_earth_control, build_poi_icon_button, load_poi_action_icon
-from .poi_card_header import PoiCardHeader
-from .poi_app_indicator import PoiAppIndicator
-from .navigation_poi_actions import request_poi_app_status
-from ui.navigation.poi_models import PoiAction, PoiActionKind
 from ui.navigation.map_layer_controls import MapLayerAction, MapLayerControls
+from ui.navigation.poi_models import PoiAction, PoiActionKind
+
+from .navigation_earth_control import (
+    build_earth_control,
+    build_poi_icon_button,
+    load_poi_action_icon,
+)
+from .navigation_poi_actions import request_poi_app_status
+from .poi_app_indicator import PoiAppIndicator
+from .poi_card_header import PoiCardHeader
 
 
 def build_navigation_panel(panel) -> None:

@@ -7,8 +7,6 @@ from __future__ import annotations
 import os
 import re
 import subprocess
-from ui.navigation.android_app_view_if import AndroidAppViewRequestHandlerIf
-from ui.navigation.installed_android_app_if import InstalledAndroidAppLauncherIf
 
 from apps.launchers.android_bridge_launcher import (
     AndroidBridgeLauncher,
@@ -20,6 +18,8 @@ from apps.launchers.desktop_browser_launcher import (
 )
 from apps.launchers.waydroid_launcher import WaydroidLauncher, WaydroidLauncherError
 from tools.map_builder.builder.web_urls import valid_website
+from ui.navigation.android_app_view_if import AndroidAppViewRequestHandlerIf
+from ui.navigation.installed_android_app_if import InstalledAndroidAppLauncherIf
 
 
 class AndroidAppLauncherError(RuntimeError):

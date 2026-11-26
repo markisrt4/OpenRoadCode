@@ -3,8 +3,8 @@
 import gzip
 import hashlib
 import json
-from pathlib import Path
 import math
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
@@ -200,6 +200,7 @@ def test_streaming_catalog_includes_installer_owned_local_terrain(tmp_path,monke
 @pytest.mark.parametrize('activation_fails',[False,True])
 def test_archive_update_retains_legacy_directory_and_restores_it_on_failure(tmp_path,monkeypatch,activation_fails):
     import zipfile
+
     from development.maps.install_terrain import _install_archive
     active=tmp_path/'rochester-terrain-v1'
     _terrain_tile(active,[-83.175,42.65,-83.11,42.705],[210,220,270,280],220)

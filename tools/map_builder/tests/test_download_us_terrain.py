@@ -1,7 +1,7 @@
 import hashlib
 import json
-from pathlib import Path
 import subprocess
+from pathlib import Path
 from unittest.mock import Mock
 
 from development.maps import download_us_terrain as downloader

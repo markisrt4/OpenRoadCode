@@ -5,6 +5,7 @@
 
 import threading
 from dataclasses import replace
+
 from controllers.navigation.host_location_permission_if import (
     HostLocationPermissionIf,
     HostLocationServiceUnavailable,

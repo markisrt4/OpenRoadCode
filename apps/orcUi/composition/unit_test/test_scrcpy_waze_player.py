@@ -1,12 +1,12 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-import subprocess
 import shlex
+import subprocess
 from unittest.mock import Mock, patch
 
 import pytest
 
-from apps.orcUi.adapters.scrcpy_waze_player import ScrcpyWazePlayer, ScrcpyAppPlayer
+from apps.orcUi.adapters.scrcpy_waze_player import ScrcpyAppPlayer, ScrcpyWazePlayer
 
 
 def test_business_viewer_uses_selected_package_and_does_not_stop_retained_waze(tmp_path, monkeypatch):

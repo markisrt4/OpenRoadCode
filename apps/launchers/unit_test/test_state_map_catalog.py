@@ -2,9 +2,7 @@
 
 import pytest
 
-from development.maps.state_map_catalog import (catalog_document,
-                                                 coverage_definition,
-                                                 state_plan)
+from development.maps.state_map_catalog import catalog_document, coverage_definition, state_plan
 
 
 def test_catalog_contains_exactly_50_unique_state_identities():

@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: MIT
 """Explicit, reversible mock-location setup for the local Waydroid instance."""
 import argparse
-import json
 import ipaddress
+import json
 import os
 import re
 import subprocess

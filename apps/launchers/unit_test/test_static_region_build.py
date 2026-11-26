@@ -1,17 +1,17 @@
 """Regional catalog completeness, source cache isolation and existing pack formats."""
 
 import json
-from pathlib import Path
 import shutil
+from pathlib import Path
 
 import pytest
 
-from development.maps import static_region_sources as sources
+from apps.launchers.local_imagery_pack import LocalImageryPack
+from apps.launchers.local_terrain_pack import load_terrain
 from development.maps import static_region_build as builder
+from development.maps import static_region_sources as sources
 from development.maps.static_tile_trial import command
 from development.maps.terrain_regions import MICHIGAN_SHARDS
-from apps.launchers.local_terrain_pack import load_terrain
-from apps.launchers.local_imagery_pack import LocalImageryPack
 
 
 def item(date, tile='m_4208324_sw_17', box=(-84,42,-83,43)):

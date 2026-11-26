@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: MIT
 import json
 import subprocess
+
 import pytest
+
 from scripts import setup_waydroid_location as setup
 
 

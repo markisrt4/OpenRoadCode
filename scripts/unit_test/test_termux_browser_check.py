@@ -1,7 +1,8 @@
 """The environment check accepts the same browser executables as the launcher."""
 import os
-from pathlib import Path
 import subprocess
+from pathlib import Path
+
 import pytest
 
 

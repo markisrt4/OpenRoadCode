@@ -65,6 +65,7 @@ def test_native_child_output_is_collected_and_drained(tmp_path, monkeypatch):
 
 def test_linker_failure_is_exposed_as_persistent_health_state(tmp_path, monkeypatch):
     import sys
+
     from apps.launchers.map_renderer_launcher import MapRendererLauncher
 
     launcher = MapRendererLauncher(command=[sys.executable, '-c',

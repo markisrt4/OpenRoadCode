@@ -1,10 +1,10 @@
 """Source selection must reject old 0.1.0 trees without executing real pip."""
 
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 

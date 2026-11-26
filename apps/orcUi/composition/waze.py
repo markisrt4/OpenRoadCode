@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Compose native Waze navigation without silently opening a website."""
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
-import logging
 
 from apps.launchers.installed_waydroid_app import InstalledWaydroidAppLauncher
 from apps.orcUi.application_runtime import OrcUiApplicationRuntime

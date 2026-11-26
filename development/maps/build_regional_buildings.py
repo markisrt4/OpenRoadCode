@@ -2,14 +2,14 @@
 
 import argparse
 import json
+import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import time
 
 from tools.map_builder.builder.build import _download_and_verify
-from tools.map_builder.builder.geofabrik import fetch_index
-from tools.map_builder.builder.map_3d import build_pack, digest, PRESETS
 from tools.map_builder.builder.building_artifact import package
+from tools.map_builder.builder.geofabrik import fetch_index
+from tools.map_builder.builder.map_3d import PRESETS, build_pack, digest
 
 
 def michigan_region(regions):

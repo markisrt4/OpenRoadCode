@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: MIT
 
 from unittest.mock import Mock
+
 import pytest
+
 from controllers.navigation.host_location_permission_if import HostLocationServiceUnavailable
 from controllers.navigation.host_location_settings_controller import HostLocationSettingsController
 

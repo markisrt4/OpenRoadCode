@@ -1,19 +1,27 @@
 """Verified statewide detail index with bounded on-demand imagery/terrain reads."""
-from collections import OrderedDict
-from dataclasses import dataclass
 import hashlib
 import json
 import math
-from pathlib import Path
 import re
 import threading
+from collections import OrderedDict
+from dataclasses import dataclass
+from pathlib import Path
 
 from apps.launchers.local_imagery_pyramid import LocalImageryPyramidPack
 from apps.launchers.local_terrain_pack import LocalTerrainCatalog, _load_single_terrain
 from common.xdg_paths import openroadcode_data_dir
-from development.maps.statewide_detail_plan import PROFILE,ROOT_ZOOM,IMAGE_ZOOM,xy,cell_id,parse_cell,bounds
-from ui.navigation.local_imagery_state import LocalImageryState,LocalImageryPyramidState
-from ui.navigation.local_terrain_state import LocalPagedTerrainState,LocalTerrainTileIndexState
+from development.maps.statewide_detail_plan import (
+    IMAGE_ZOOM,
+    PROFILE,
+    ROOT_ZOOM,
+    bounds,
+    cell_id,
+    parse_cell,
+    xy,
+)
+from ui.navigation.local_imagery_state import LocalImageryPyramidState, LocalImageryState
+from ui.navigation.local_terrain_state import LocalPagedTerrainState, LocalTerrainTileIndexState
 
 
 class StatewideDetailIndex:
@@ -177,7 +185,7 @@ def installed_index():
 
 def paged_terrain(baseline):
     index=installed_index()
-    from apps.launchers.local_us_terrain import installed_national_index, CombinedTerrainIndex
+    from apps.launchers.local_us_terrain import CombinedTerrainIndex, installed_national_index
     national=installed_national_index()
     if index is None and national is None:return baseline
     maximum_zoom=16 if index is not None else baseline.state.maximum_zoom if baseline else 10

@@ -4,19 +4,21 @@
 """Enrich raw map places with OpenRoadCode semantic actions."""
 
 from __future__ import annotations
+
 from dataclasses import replace
+
+from controllers.poi.business_catalog import resolve_business
+from controllers.poi.business_icons import icon_bytes
+from controllers.poi.business_provider_catalog import get_business_provider
 from tools.map_builder.builder.web_urls import valid_website
 from ui.navigation.poi_models import (
     PoiAction,
     PoiActionKind,
-    PointOfInterest,
-    PoiIcon,
-    PoiTitleStyle,
     PoiCategory,
+    PoiIcon,
+    PointOfInterest,
+    PoiTitleStyle,
 )
-from controllers.poi.business_catalog import resolve_business
-from controllers.poi.business_provider_catalog import get_business_provider
-from controllers.poi.business_icons import icon_bytes
 
 
 def enrich_poi(poi: PointOfInterest) -> PointOfInterest:

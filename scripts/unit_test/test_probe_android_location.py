@@ -1,11 +1,10 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-from unittest.mock import patch
 import json
+from unittest.mock import patch
 
 from controllers.navigation.navigation_state import PositionState
 from messaging.contracts.navigation.position_state_codec import encode_position_state
-
 from scripts.probe_android_location import collect, collect_bus
 
 

@@ -1,22 +1,21 @@
 """Offline zoom addressing, archive activation, request isolation and source audit."""
 
-from io import BytesIO
 import json
-from pathlib import Path
 import shutil
 import sqlite3
 import subprocess
 import urllib.error
 import urllib.request
+from io import BytesIO
+from pathlib import Path
 
-from PIL import Image
 import pytest
+from PIL import Image
 
-from apps.launchers.local_imagery_pyramid import LocalImageryPyramidPack, PILOT_BOUNDS
-from apps.launchers.unit_test.test_cesium_viewer import server, state
+from apps.launchers.local_imagery_pyramid import PILOT_BOUNDS, LocalImageryPyramidPack
 from development.maps.build_imagery_detail import package, raster_to_pyramid
 from development.maps.install_imagery_detail import install
-from development.maps.static_tile_trial import digest, write_json, command
+from development.maps.static_tile_trial import command, digest, write_json
 
 
 @pytest.fixture

@@ -1,20 +1,19 @@
 """Build three bounded Michigan detail delivery cells per Actions worker."""
 import argparse
 import json
-from pathlib import Path
 import shutil
 import time
 import zipfile
+from pathlib import Path
 
 from apps.launchers.local_imagery_pyramid import LocalImageryPyramidPack
 from apps.launchers.local_terrain_pack import load_terrain
 from development.maps.build_imagery_detail import raster_to_pyramid
 from development.maps.build_terrain_detail import grid_definition
-from development.maps.statewide_detail_plan import PROFILE,IMAGE_ZOOM,MAX_CELL_ARCHIVE
-from development.maps.static_region_build import source_crops,terrain_pack
-from development.maps.static_region_sources import discover_imagery,discover_terrain
-from development.maps.static_tile_trial import digest,write_json
-
+from development.maps.statewide_detail_plan import IMAGE_ZOOM, MAX_CELL_ARCHIVE, PROFILE
+from development.maps.static_region_build import source_crops, terrain_pack
+from development.maps.static_region_sources import discover_imagery, discover_terrain
+from development.maps.static_tile_trial import digest, write_json
 
 
 def optional_sources(discover,bounds,empty_message):

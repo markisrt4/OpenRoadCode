@@ -5,7 +5,6 @@ import hashlib
 import json
 from pathlib import Path
 
-
 _REVISIONS = {
     "imagery": "usgs-naip-default-mosaic-nodata24-v1",
     "terrain": "usgs-3dep-tiled-grid-v1",

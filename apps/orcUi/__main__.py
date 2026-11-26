@@ -5,11 +5,11 @@
 
 from __future__ import annotations
 
-from importlib import import_module
 import os
 import shlex
 import sys
 import time
+from importlib import import_module
 
 
 def _require_display() -> None:

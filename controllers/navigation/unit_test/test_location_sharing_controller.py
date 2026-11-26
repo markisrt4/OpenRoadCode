@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 from unittest.mock import Mock
+
 import pytest
 
 from controllers.navigation.location_sharing_controller import LocationSharingController

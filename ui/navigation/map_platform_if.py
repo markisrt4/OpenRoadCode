@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from enum import Enum
 from typing import Protocol
+
 from ui.navigation.map_layer_controls import MapLayerAction, MapLayerControls
 
 

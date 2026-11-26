@@ -4,18 +4,23 @@
 """Places sessions obey semantic requests and reject late results after close."""
 
 from unittest.mock import Mock
+
 import pytest
+
 from controllers.poi.navigation_places_controller import NavigationPlacesController
-from ui.navigation.navigation_places_request_handler_if import MapFavorite, NavigationPlacesRequestHandlerIf
+from ui.navigation import GeoPoint
+from ui.navigation.navigation_places_request_handler_if import (
+    MapFavorite,
+    NavigationPlacesRequestHandlerIf,
+)
 from ui.navigation.poi_models import (
     PoiAction,
     PoiActionKind,
     PoiCategory,
-    TransitMode,
     PointOfInterest,
     PoiSearchResult,
+    TransitMode,
 )
-from ui.navigation import GeoPoint
 
 
 def session():
@@ -220,6 +225,7 @@ def test_places_list_and_map_marker_preserve_same_exploration_and_business_actio
 
 def test_app_status_coalesces_requests_and_rejects_stale_completion():
     from threading import Event
+
     from ui.navigation.poi_models import PoiAppAvailability
     started, release, finished = Event(), Event(), Event()
     seen = []
@@ -259,8 +265,9 @@ def test_app_status_coalesces_requests_and_rejects_stale_completion():
 
 
 def test_app_status_failure_is_unknown_and_closed_session_drops_completion():
-    from ui.navigation.poi_models import PoiAppAvailability
     from unittest.mock import patch
+
+    from ui.navigation.poi_models import PoiAppAvailability
     controller = NavigationPlacesController(Mock(), Mock(), Mock(), app_availability=Mock())
     poi = PointOfInterest('store', 'Store', PoiCategory.FOOD, GeoPoint(0, 0))
     with patch('controllers.poi.navigation_places_controller.threading.Thread.start', side_effect=RuntimeError):
@@ -274,6 +281,7 @@ def test_app_status_failure_is_unknown_and_closed_session_drops_completion():
 
 def test_close_discards_an_inflight_app_status_without_touching_the_view():
     from threading import Event
+
     from ui.navigation.poi_models import PoiAppAvailability
     started, release, done = Event(), Event(), Event()
     def availability(poi):

@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Queue worker presentation requests and host the selected Android surface."""
-from threading import Lock
 from dataclasses import replace
+from threading import Lock
 
 from apps.orcUi.adapters.waydroid_surface_player import WaydroidSurfacePlayer
 from apps.orcUi.theme_runtime import theme_bundle

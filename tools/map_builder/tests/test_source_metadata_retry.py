@@ -1,13 +1,13 @@
 """Transient source failures retry in the same worker; invalid data stays fatal."""
 from http.client import IncompleteRead
 from io import BytesIO
-from urllib.error import HTTPError
 from unittest.mock import Mock
+from urllib.error import HTTPError
 
 import pytest
 
-from development.maps import static_tile_trial as source
 from development.maps import download_detroit_imagery as policy
+from development.maps import static_tile_trial as source
 
 
 @pytest.fixture(autouse=True)

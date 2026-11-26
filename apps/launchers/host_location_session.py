@@ -2,15 +2,17 @@
 # SPDX-License-Identifier: MIT
 """Reuse navigation or own a user-session producer; never require sudo at runtime."""
 import os
-from pathlib import Path
 import socket
 import subprocess
 import sys
 import time
+from pathlib import Path
 from threading import Event, Lock, Thread
 
 from services.navigation.navigation_command_client import (
-    NavigationCommandClient, NavigationCommandError, NavigationCommandUnavailableError,
+    NavigationCommandClient,
+    NavigationCommandError,
+    NavigationCommandUnavailableError,
 )
 
 

@@ -1,15 +1,15 @@
 """Install a finished OSM building pack; no PBF processing on the viewer device."""
 
 import argparse
-from pathlib import Path
 import uuid
+from pathlib import Path
 
 from apps.launchers.local_map_tiles_pack import LocalMapTilesPack
 from common.xdg_paths import openroadcode_data_dir
 from development.maps.prebuilt_imagery import read_local_archive, unpack
-from tools.map_builder.builder.map_3d import PRESETS, validate_pack
-from tools.map_builder.builder.building_artifact import limits
 from development.maps.terrain_regions import MICHIGAN_SHARDS
+from tools.map_builder.builder.building_artifact import limits
+from tools.map_builder.builder.map_3d import PRESETS, validate_pack
 
 
 def install(archive, *, destination=None, coverage='metro-detroit'):

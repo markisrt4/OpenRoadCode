@@ -1,16 +1,17 @@
 """Compile the lake-aware material in real headless Chromium, not a GL mock."""
+import json
+import math
+import re
+import shutil
+import subprocess
+import threading
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-import shutil
-import json
-import math
 from types import SimpleNamespace
-import re
-import subprocess
-import threading
 
 import pytest
+
 from apps.launchers.cesium_sdk import sdk_directory
 
 ROOT = Path(__file__).resolve().parents[3]

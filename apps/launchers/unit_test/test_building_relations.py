@@ -7,9 +7,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from ui.navigation.local_building_state import LocalBuilding
-from tools.map_builder.builder.building_geometry import normalize_components, outer_members
 from tools.map_builder.builder import map_3d
+from tools.map_builder.builder.building_geometry import normalize_components, outer_members
+from ui.navigation.local_building_state import LocalBuilding
 
 BOUNDS = (-84,42,-83,43)
 OUTER = [[-83.8,42.2],[-83.6,42.2],[-83.6,42.4],[-83.8,42.4],[-83.8,42.2]]
@@ -70,8 +70,8 @@ def test_only_accepted_relations_suppress_matching_member_way(tmp_path,monkeypat
 
 def test_actual_osmium_relation_assembly_packaging_and_activation(tmp_path,monkeypatch):
     if not shutil.which('osmium'):pytest.skip('OSM build-host dependency')
-    from tools.map_builder.builder.building_artifact import package
     from development.maps.install_buildings import install
+    from tools.map_builder.builder.building_artifact import package
     root=tmp_path/'dataset';source=root/'maps/source/test.osm.pbf'
     source.parent.mkdir(parents=True)
     # Outer way is tagged too; relation must retain its courtyard without a

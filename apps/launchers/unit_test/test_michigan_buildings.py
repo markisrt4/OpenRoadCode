@@ -7,12 +7,12 @@ from unittest.mock import Mock
 
 import pytest
 
+from apps.launchers import local_building_regions as regions
+from apps.launchers import local_map_tiles_pack as runtime
+from development.maps import install_buildings as installer
 from development.maps.terrain_regions import MICHIGAN_SHARDS
 from tools.map_builder.builder import map_3d
-from tools.map_builder.builder.building_artifact import package, limits
-from apps.launchers import local_map_tiles_pack as runtime
-from apps.launchers import local_building_regions as regions
-from development.maps import install_buildings as installer
+from tools.map_builder.builder.building_artifact import limits, package
 
 
 def fixture_pack(root,key):

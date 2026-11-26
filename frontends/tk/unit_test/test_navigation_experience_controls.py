@@ -8,9 +8,13 @@ import pytest
 
 from apps.orcUi.theme_runtime import theme_bundle
 from frontends.tk.navigation_experience_controls import NavigationExperienceControls
-from ui.navigation.navigation_experience_if import NavigationExperience, NavigationExperienceState, NavigationPlacesDrawerState
-from ui.navigation.poi_models import PoiCategory, PointOfInterest
 from ui.navigation import GeoPoint
+from ui.navigation.navigation_experience_if import (
+    NavigationExperience,
+    NavigationExperienceState,
+    NavigationPlacesDrawerState,
+)
+from ui.navigation.poi_models import PoiCategory, PointOfInterest
 from ui.theme import ThemeMode
 
 

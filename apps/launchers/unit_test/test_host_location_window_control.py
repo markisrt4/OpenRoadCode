@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 import http.client
 from unittest.mock import Mock
+
 from apps.launchers.host_location_window_control import HostLocationWindowControl
 
 

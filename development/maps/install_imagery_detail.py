@@ -1,11 +1,15 @@
 """Activate a finished offline imagery pyramid without build tools on the device."""
 
 import argparse
-from pathlib import Path
 import sqlite3
 import uuid
+from pathlib import Path
 
-from apps.launchers.local_imagery_pyramid import LocalImageryPyramidPack, PILOT_BOUNDS, MAX_DATABASE_BYTES
+from apps.launchers.local_imagery_pyramid import (
+    MAX_DATABASE_BYTES,
+    PILOT_BOUNDS,
+    LocalImageryPyramidPack,
+)
 from common.xdg_paths import openroadcode_data_dir
 from development.maps.prebuilt_imagery import read_local_archive, unpack
 

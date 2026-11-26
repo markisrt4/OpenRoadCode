@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: MIT
 """Freshness and visibility policy for optional host-to-Android location sharing."""
 import math
-from threading import Event, Lock, Thread
 import time
+from threading import Event, Lock, Thread
 
 from ui.navigation.location_sharing_if import AndroidLocationProviderIf, LocationSnapshot
 

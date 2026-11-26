@@ -4,8 +4,8 @@
 import json
 import math
 import os
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 from ui.navigation.location_sharing_if import AndroidLocationProviderIf
 

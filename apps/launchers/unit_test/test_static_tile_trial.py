@@ -1,14 +1,20 @@
 """Fail closed on unreviewed sources and exercise the existing pack contract."""
 import json
-from pathlib import Path
 import shutil
 import subprocess
 
 import pytest
-from development.maps.static_tile_trial import (BOUNDS, approved_url, select_imagery,
-                                                select_dem, download_source, process)
+
 from apps.launchers.local_imagery_pack import LocalImageryPack
 from apps.launchers.local_terrain_pack import load_terrain
+from development.maps.static_tile_trial import (
+    BOUNDS,
+    approved_url,
+    download_source,
+    process,
+    select_dem,
+    select_imagery,
+)
 
 
 def feature(year,url,name='NAIP Michigan'):
@@ -39,6 +45,7 @@ def test_terrain_source_must_contain_whole_trial_coverage():
 def test_checked_source_cache_avoids_network_and_detects_tampering(tmp_path,monkeypatch):
     import hashlib
     from io import BytesIO
+
     from development.maps import static_tile_trial as module
     class Response(BytesIO):
         headers={'Content-Length':'4','ETag':'fixture'}
@@ -84,6 +91,7 @@ def test_staged_rasters_produce_existing_installable_pack_format(tmp_path, cover
 
 def test_landing_page_resolves_only_names_verified_in_staged_directory(monkeypatch):
     from io import BytesIO
+
     from development.maps import static_tile_trial as module
     name='m_4208310_se_17_060_20220715'
     key=f'StagedProducts/NAIP/mi_2022/42083/{name}_20230101.jp2'
@@ -113,6 +121,7 @@ def test_public_mirror_selects_dated_naip_and_keeps_unsigned_source_identity(mon
 
 def test_gdal_failures_and_timeouts_do_not_expose_temporary_access_urls(monkeypatch):
     from types import SimpleNamespace
+
     from development.maps import static_tile_trial as module
     url='https://naipeuwest.blob.core.windows.net/naip/tile.tif?sig=fixture-secret'
     monkeypatch.setattr(module.subprocess,'run',lambda *args,**kwargs:SimpleNamespace(returncode=1,stderr='failed '+url))
@@ -125,6 +134,7 @@ def test_alpha_padded_cog_crops_mosaic_without_hiding_adjacent_tile(tmp_path):
     if not shutil.which('gdal_create') or not shutil.which('gdalwarp'):
         pytest.skip('GDAL build-host tools unavailable')
     from PIL import Image
+
     from development.maps.static_tile_trial import command
     west,south,east,north=BOUNDS
     split=(west+east)/2

@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Resolve the development checkout label once, outside frontend widgets."""
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 
 def application_name(repository: Path | None = None) -> str:

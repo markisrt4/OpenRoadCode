@@ -4,27 +4,34 @@
 """Navigation-screen lifecycle for the integrated orcUi Tk frontend."""
 
 from __future__ import annotations
-from ui.navigation.navigation_experience_if import NavigationExperienceRequestHandlerIf
-from ui.navigation.waze_request_handler_if import WazeRequestHandlerIf
-from ui.system.online_mode_if import OnlineModeIf
-from ui.tooltip_if import TooltipFactoryIf
+
 from collections.abc import Callable
-from ui.navigation.map_runtime_if import MapRuntimeIf
-from ui.navigation.map_platform_if import MapPlatform, MapPlatformControlIf
-from ui.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
-from ui.weather.radar_ui_if import RadarPalette, RadarUiState
-from ui.weather.radar_controls_if import RadarControlsIf
-from ui.weather.radar_request_handler_if import RadarRequestHandlerIf
+
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
-from ui.navigation import MapRequestHandlerIf, RouteRequestHandlerIf, RouteSimulationRequestHandlerIf
+from ui.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
+from ui.navigation import (
+    MapRequestHandlerIf,
+    RouteRequestHandlerIf,
+    RouteSimulationRequestHandlerIf,
+)
 from ui.navigation.map_controls_drawer_ui import MapControlsDrawerRequestHandlerIf
+from ui.navigation.map_platform_if import MapPlatform, MapPlatformControlIf
+from ui.navigation.map_runtime_if import MapRuntimeIf
+from ui.navigation.navigation_experience_if import NavigationExperienceRequestHandlerIf
 from ui.navigation.navigation_places_request_handler_if import (
     NavigationPlacesFactoryIf,
     NavigationPlacesRequestHandlerIf,
 )
+from ui.navigation.waze_request_handler_if import WazeRequestHandlerIf
 from ui.screen_ui_if import ScreenId
+from ui.system.online_mode_if import OnlineModeIf
 from ui.theme import ThemeBundle
+from ui.tooltip_if import TooltipFactoryIf
+from ui.weather.radar_controls_if import RadarControlsIf
+from ui.weather.radar_request_handler_if import RadarRequestHandlerIf
+from ui.weather.radar_ui_if import RadarUiState
+
 from .navigation_panel import NavigationPanel
 from .screen_builders import build_navigation_screen
 

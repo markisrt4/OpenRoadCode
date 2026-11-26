@@ -3,14 +3,16 @@
 
 """Widget behavior for contract-bound POI and saved destination controls."""
 
-import tkinter as tk
 import logging
+import tkinter as tk
+
 from ui.navigation import MapMarker, MapMarkerKind
+from ui.navigation.navigation_experience_if import NavigationPlacesDrawerState
 from ui.navigation.poi_models import PoiAction, PoiCategory, PointOfInterest, TransitMode
 from ui.navigation.route_types import TravelMode
+
 from .navigation_panel_layout import show_poi_card
-from .navigation_poi_actions import execute_poi_action, poll_poi_launch_results, poll_poi_app_status
-from ui.navigation.navigation_experience_if import NavigationPlacesDrawerState
+from .navigation_poi_actions import execute_poi_action, poll_poi_app_status, poll_poi_launch_results
 
 _POI_SEARCH_SETTLE_MS = 750
 _LOG = logging.getLogger('navigation.poi.ui')

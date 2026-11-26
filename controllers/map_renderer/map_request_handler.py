@@ -5,12 +5,12 @@
 
 from __future__ import annotations
 
-import math
 import logging
+import math
 from collections.abc import Callable
+
 from common.logging.structured import event
 from controllers.poi.business_icons import icon_properties
-
 from ui.navigation import GeoPoint, MapMarker, MapRequestHandlerIf
 
 

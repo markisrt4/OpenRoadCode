@@ -2,8 +2,8 @@
 import argparse
 import json
 import math
-from pathlib import Path
 import time
+from pathlib import Path
 
 from apps.launchers.local_terrain_pack import load_terrain
 from development.maps.detail_coverages import TERRAIN_DETAILS

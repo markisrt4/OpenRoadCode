@@ -4,9 +4,10 @@
 """Android implementation of semantic business POI actions."""
 
 from __future__ import annotations
+
 from controllers.poi.business_provider_catalog import get_business_provider
 from controllers.poi.poi_action_executor_if import PoiActionExecutorIf
-from ui.navigation.poi_models import PoiAction, PoiActionKind, PointOfInterest, PoiAppAvailability
+from ui.navigation.poi_models import PoiAction, PoiActionKind, PoiAppAvailability, PointOfInterest
 
 
 class AndroidPoiActionExecutor(PoiActionExecutorIf):

@@ -2,8 +2,12 @@
 
 import pytest
 
-from development.maps.artifact_identity import (build_fingerprint, build_profile,
-                                                 build_revision, validate_descriptor)
+from development.maps.artifact_identity import (
+    build_fingerprint,
+    build_profile,
+    build_revision,
+    validate_descriptor,
+)
 
 
 def test_artifact_fingerprints_are_kind_and_coverage_specific():

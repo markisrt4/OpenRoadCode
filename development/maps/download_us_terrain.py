@@ -1,12 +1,12 @@
 """Download successful US terrain states independently, retaining verified progress."""
 import argparse
 import json
-from pathlib import Path
 import re
 import shutil
 import subprocess
-from tempfile import TemporaryDirectory
 import time
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from development.maps.prebuilt_imagery import read_local_archive
 from development.maps.state_map_catalog import state_plan

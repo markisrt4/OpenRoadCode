@@ -4,8 +4,8 @@
 import base64
 import tkinter as tk
 
-from ui.ui_widget import UiWidget
 from ui.navigation.poi_models import PoiAppAvailability
+from ui.ui_widget import UiWidget
 
 
 class PoiAppIndicator(tk.Canvas, UiWidget):

@@ -5,11 +5,11 @@ import tkinter as tk
 from collections.abc import Callable
 
 from frontends.tk.media.browser_media_screen import BrowserMediaScreen
-from ui.navigation.android_app_view_if import AndroidAppViewState, AndroidAppViewRequestHandlerIf
-from ui.navigation.map_runtime_if import MapRuntimeIf, MapPresentationRequestHandlerIf
-from ui.navigation.map_platform_if import MapPlatformControlIf
-from ui.navigation.navigation_experience_if import NavigationExperienceRequestHandlerIf
 from frontends.tk.navigation_experience_controls import NavigationExperienceControls
+from ui.navigation.android_app_view_if import AndroidAppViewRequestHandlerIf, AndroidAppViewState
+from ui.navigation.map_platform_if import MapPlatformControlIf
+from ui.navigation.map_runtime_if import MapPresentationRequestHandlerIf, MapRuntimeIf
+from ui.navigation.navigation_experience_if import NavigationExperienceRequestHandlerIf
 
 
 class AndroidAppScreen(BrowserMediaScreen):

@@ -58,6 +58,7 @@ def test_android_app_action_uses_only_the_verified_mapping():
 
 def test_app_status_uses_curated_ordering_package_without_launching():
     from dataclasses import replace
+
     from ui.navigation.poi_models import PoiAppAvailability
     launcher = Mock()
     executor = AndroidPoiActionExecutor(launcher)

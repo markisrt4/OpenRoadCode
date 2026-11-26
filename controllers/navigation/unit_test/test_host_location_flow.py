@@ -3,16 +3,19 @@
 """Real local HTTP handoff, navigation encoding and Android sharing policy."""
 import json
 import math
-from urllib.request import ProxyHandler, Request, build_opener
 from unittest.mock import Mock, patch
+from urllib.request import ProxyHandler, Request, build_opener
 
+from controllers.map_renderer.map_camera_runtime import MapCameraRuntime
 from controllers.navigation.browser_position_source import BrowserPositionSource
 from controllers.navigation.location_sharing_controller import LocationSharingController
 from controllers.navigation.navigation_controller import NavigationController
 from controllers.navigation.simulated_navigation_sensor import SimulatedNavigationSensor
-from controllers.map_renderer.map_camera_runtime import MapCameraRuntime
+from messaging.contracts.navigation.position_state_codec import (
+    decode_position_state,
+    encode_position_state,
+)
 from services.navigation.navigation_runtime import NavigationRuntime
-from messaging.contracts.navigation.position_state_codec import encode_position_state, decode_position_state
 
 
 def test_browser_fix_reaches_navigation_and_only_then_android_sharing():

@@ -1,20 +1,25 @@
 """Bounded catalog discovery and resumable raster crops for regional builds."""
 
 import hashlib
-from datetime import datetime, timezone
-import threading
-import time
 import json
 import math
 import re
+import threading
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import urlsplit
 
 from development.maps.static_tile_trial import (
-    PC, TNM, approved_url, command, digest, get_json, write_json,
+    PC,
+    TNM,
+    approved_url,
+    command,
+    digest,
+    get_json,
+    write_json,
 )
-
 
 _TOKEN_LOCK = threading.Lock()
 _CONTAINER_TOKEN = None

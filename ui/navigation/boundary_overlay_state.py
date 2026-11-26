@@ -1,7 +1,7 @@
 """Toolkit-independent geographic boundary presentation state."""
 
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True, slots=True)

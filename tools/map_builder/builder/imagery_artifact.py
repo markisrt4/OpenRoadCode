@@ -7,9 +7,7 @@ import zipfile
 from pathlib import Path
 
 from apps.launchers.local_imagery_pack import LocalImageryPack
-from development.maps.artifact_identity import (build_fingerprint, build_profile,
-                                                 build_revision)
-from development.maps.terrain_regions import MICHIGAN_COVERAGES
+from development.maps.artifact_identity import build_fingerprint, build_profile, build_revision
 
 MAX_ARCHIVE_BYTES = 64 * 1024 * 1024
 

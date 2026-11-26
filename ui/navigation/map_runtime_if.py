@@ -3,8 +3,9 @@
 
 """Native map host lifecycle contract independent of process implementation."""
 
-from typing import Protocol
 from dataclasses import dataclass
+from typing import Protocol
+
 from ui.theme import ThemeMode
 
 

@@ -7,10 +7,11 @@ import time
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
+
 from ui.navigation import GeoPoint, MapMarkerSelectionSourceIf
-from ui.navigation.map_layer_controls import MapLayerAction, MapLayerControls
 from ui.navigation.cesium_viewer_state import CesiumViewerState
-from ui.navigation.map_platform_if import MapPlatform, MapPlatformState, ExplorationCameraAction
+from ui.navigation.map_layer_controls import MapLayerAction, MapLayerControls
+from ui.navigation.map_platform_if import ExplorationCameraAction, MapPlatform, MapPlatformState
 from ui.navigation.map_runtime_if import MapRuntimeState
 from ui.navigation.poi_overlay_state import PoiOverlayState
 from ui.navigation.route_overlay_state import RouteOverlayState

@@ -18,6 +18,7 @@ from apps.launchers.local_terrain_pack import (
     regional_terrain_directory,
 )
 from common.xdg_paths import openroadcode_data_dir
+from development.maps.detail_coverages import TERRAIN_DETAILS
 from development.maps.install_region import COVERAGES
 from development.maps.prebuilt_imagery import (
     fetch_archive,
@@ -26,12 +27,11 @@ from development.maps.prebuilt_imagery import (
     verify_archive,
 )
 from development.maps.regional_terrain import build as build_regional_terrain
+from development.maps.state_map_catalog import coverage_definition
 from development.maps.terrain_regions import MICHIGAN_COVERAGES
 from tools.map_builder.builder.map_3d import PRESETS
 from tools.map_builder.builder.map_3d_menu import choose_coverage
 from tools.map_builder.builder.terrain import download
-from development.maps.detail_coverages import TERRAIN_DETAILS
-from development.maps.state_map_catalog import coverage_definition
 
 
 def main():

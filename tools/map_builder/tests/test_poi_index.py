@@ -3,7 +3,12 @@
 
 import sqlite3
 
-from tools.map_builder.builder.poi_index import _classification, _transit_mode, _create_schema, _insert_point_feature
+from tools.map_builder.builder.poi_index import (
+    _classification,
+    _create_schema,
+    _insert_point_feature,
+    _transit_mode,
+)
 
 
 def test_bus_stop_normalizes_to_bus() -> None:

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 from unittest.mock import Mock, patch
+
 import pytest
 
 from apps.launchers.host_location_session import HostLocationSession, HostLocationSessionError

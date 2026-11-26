@@ -1,6 +1,11 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-from scripts.probe_waydroid_embedding import parse_geometry, android_window_frames, activity_orientation, compatibility_overrides
+from scripts.probe_waydroid_embedding import (
+    activity_orientation,
+    android_window_frames,
+    compatibility_overrides,
+    parse_geometry,
+)
 
 
 def test_geometry_retains_parent_relative_offsets_and_sizes():

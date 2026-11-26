@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Present asynchronous place handoffs through navigation request contracts."""
 
-from ui.navigation.poi_models import PoiActionKind, PoiAppStatus, PoiAppAvailability
+from ui.navigation.poi_models import PoiActionKind, PoiAppAvailability, PoiAppStatus
 
 
 def request_poi_app_status(panel, poi, label):

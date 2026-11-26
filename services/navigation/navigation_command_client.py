@@ -19,10 +19,10 @@ from controllers.route_planning.route_planning_types import (
 from services.navigation.navigation_command_service import (
     CALCULATE_ROUTE_COMMAND,
     CANCEL_ROUTE_COMMAND,
+    PREPARE_HOST_LOCATION_COMMAND,
     SIMULATE_ROUTE_COMMAND,
     START_ROUTE_COMMAND,
     STOP_ROUTE_SIMULATION_COMMAND,
-    PREPARE_HOST_LOCATION_COMMAND,
 )
 from services.navigation.zeromq_navigation_command_server import (
     DEFAULT_NAVIGATION_COMMAND_ENDPOINT,

@@ -8,13 +8,13 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+from tools.map_builder.builder.build import CENSUS_PRIMARY_ROADS_URL, CENSUS_PRIMARY_ROADS_VINTAGE
 from tools.map_builder.builder.cli import (
     directory_size,
     format_duration,
     format_size,
     reusable_build_for_regions,
 )
-from tools.map_builder.builder.build import CENSUS_PRIMARY_ROADS_URL, CENSUS_PRIMARY_ROADS_VINTAGE
 
 
 class BuildSummaryFormattingTests(unittest.TestCase):

@@ -1,14 +1,14 @@
 """Verify downloaded statewide cells and atomically activate their small catalog."""
 import argparse
 import json
-from pathlib import Path
 import uuid
+from pathlib import Path
 
 from apps.launchers.local_imagery_pyramid import LocalImageryPyramidPack
 from apps.launchers.local_terrain_pack import load_terrain
 from common.xdg_paths import openroadcode_data_dir
-from development.maps.prebuilt_imagery import read_local_archive,unpack
-from development.maps.statewide_detail_plan import PROFILE,MAX_CELL_ARCHIVE,parse_cell,bounds
+from development.maps.prebuilt_imagery import read_local_archive, unpack
+from development.maps.statewide_detail_plan import MAX_CELL_ARCHIVE, PROFILE, bounds, parse_cell
 
 
 def validate_cell(root,expected_key=None):

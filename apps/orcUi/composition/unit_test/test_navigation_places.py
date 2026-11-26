@@ -3,7 +3,9 @@
 
 """Composition owns shared stores and fresh, independently closed search sessions."""
 from unittest.mock import Mock, patch
+
 import pytest
+
 from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
 
 
@@ -12,7 +14,7 @@ def test_panera_marker_reopens_after_real_session_close_and_factory_remount(terr
     from controllers.poi.poi_search_controller import PoiSearchController
     from protocols.map_renderer.map_poi_source import RawMapClick
     from ui.navigation import GeoPoint
-    from ui.navigation.poi_models import PointOfInterest, PoiActionKind, PoiCategory
+    from ui.navigation.poi_models import PoiActionKind, PoiCategory, PointOfInterest
 
     position = GeoPoint(0.74, -1.45)
     pois = tuple(PointOfInterest(str(index), 'Other', PoiCategory.FOOD, position)

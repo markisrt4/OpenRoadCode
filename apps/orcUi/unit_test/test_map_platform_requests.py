@@ -1,6 +1,7 @@
 """Renderer-neutral POI requests update native and optional secondary maps."""
 
 from unittest.mock import Mock
+
 from apps.orcUi.map_platform_requests import MapPlatformRequests
 from ui.navigation import GeoPoint, MapMarker, MapMarkerKind, MapRequestHandlerIf
 

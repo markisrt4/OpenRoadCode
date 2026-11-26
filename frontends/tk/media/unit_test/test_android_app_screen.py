@@ -2,18 +2,18 @@
 # SPDX-License-Identifier: MIT
 """Real Tk geometry/lifecycle checks; run with DISPLAY set to an X11 test server."""
 import os
+import tkinter as tk
 from dataclasses import replace
 from unittest.mock import Mock
-import tkinter as tk
 
 import pytest
 
+from apps.orcUi.theme_runtime import theme_bundle
 from frontends.tk.media.android_app_screen import AndroidAppScreen
 from frontends.tk.media.browser_media_screen import BrowserMediaScreen
 from ui.navigation.android_app_view_if import AndroidAppViewState
-from apps.orcUi.theme_runtime import theme_bundle
+from ui.navigation.navigation_experience_if import NavigationExperience, NavigationExperienceState
 from ui.theme import ThemeMode
-from ui.navigation.navigation_experience_if import NavigationExperienceState, NavigationExperience
 
 
 @pytest.mark.skipif(not os.environ.get('DISPLAY'), reason='real Tk geometry needs X11')

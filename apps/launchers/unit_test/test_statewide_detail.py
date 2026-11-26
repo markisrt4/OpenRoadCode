@@ -1,21 +1,33 @@
 """Statewide cell ownership, atomic install, lazy adapters and loopback paging."""
-from io import BytesIO
 import json
 import math
-from pathlib import Path
 import sqlite3
 import urllib.request
 import zipfile
+from io import BytesIO
+from pathlib import Path
 
 import pytest
 from PIL import Image
 
-from development.maps.statewide_detail_plan import plan,xy,bounds,cell_id,PROFILE,intersects,parse_cell
+from apps.launchers.local_statewide_detail import (
+    PagedTerrainCatalog,
+    StatewideDetailIndex,
+    StatewideImagery,
+)
+from apps.launchers.unit_test.test_cesium_viewer import server, state  # noqa: F401
 from development.maps.install_statewide_detail import install
-from development.maps.static_tile_trial import digest,write_json
-from apps.launchers.local_statewide_detail import StatewideDetailIndex,StatewideImagery,PagedTerrainCatalog
+from development.maps.statewide_detail_plan import (
+    PROFILE,
+    bounds,
+    cell_id,
+    intersects,
+    parse_cell,
+    plan,
+    xy,
+)
+from development.maps.static_tile_trial import digest, write_json
 from ui.navigation.local_terrain_state import LocalPagedTerrainState
-from apps.launchers.unit_test.test_cesium_viewer import server,state  # noqa: F401
 
 
 def test_statewide_plan_covers_reviewed_cities_and_stays_within_batch_limits():
@@ -136,8 +148,11 @@ def test_summary_does_not_call_a_partial_state_complete(cell_archive,tmp_path):
 
 
 def test_terrain_baseline_budget_fits_statewide_overview_regions_and_city_pilots():
-    from ui.navigation.local_terrain_state import LocalTerrainCatalogState,LocalTerrainTileIndexState
     from ui.navigation.local_imagery_state import LocalImageryState
+    from ui.navigation.local_terrain_state import (
+        LocalTerrainCatalogState,
+        LocalTerrainTileIndexState,
+    )
     coverage=LocalImageryState('Test','USGS',0,0,.1,.1)
     tiles=tuple(LocalTerrainTileIndexState(str(i),coverage,129,129,0,'relative') for i in range(709))
     assert len(LocalTerrainCatalogState(tiles).tiles)==709

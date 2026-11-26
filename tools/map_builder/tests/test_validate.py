@@ -6,11 +6,17 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
-from tools.map_builder.builder.validate import REFERENCE_MAP_FILES, ValidationError, _decode_vector_tile, _validate_geometry, validate_reference_maps
+from tools.map_builder.builder.validate import (
+    REFERENCE_MAP_FILES,
+    ValidationError,
+    _decode_vector_tile,
+    _validate_geometry,
+    validate_reference_maps,
+)
 
 
 def _varint(value: int) -> bytes:

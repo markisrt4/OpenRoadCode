@@ -1,18 +1,25 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-from unittest.mock import Mock
-from types import SimpleNamespace
 import tkinter as tk
+from types import SimpleNamespace
+from unittest.mock import Mock
+
 import pytest
 
-from apps.orcUi.frontend.tk.navigation_places_controls import NavigationPlacesControls
 from apps.orcUi.frontend.tk.navigation_panel_layout import show_poi_card
+from apps.orcUi.frontend.tk.navigation_places_controls import NavigationPlacesControls
+from apps.orcUi.theme_runtime import theme_bundle
+from controllers.poi.navigation_places_controller import NavigationPlacesController
 from controllers.poi.poi_enricher import enrich_poi
 from ui.navigation import GeoPoint
-from ui.navigation.poi_models import PoiAction, PoiActionKind, PoiCategory, PointOfInterest, PoiSearchResult
-from controllers.poi.navigation_places_controller import NavigationPlacesController
+from ui.navigation.poi_models import (
+    PoiAction,
+    PoiActionKind,
+    PoiCategory,
+    PointOfInterest,
+    PoiSearchResult,
+)
 from ui.theme import ThemeMode
-from apps.orcUi.theme_runtime import theme_bundle
 
 
 def test_ordering_popup_has_one_business_action_through_existing_request_contract():
@@ -159,8 +166,8 @@ def test_leaving_navigation_during_poll_does_not_rearm_old_view():
 
 @pytest.mark.parametrize('availability', ['INSTALLED', 'NOT_INSTALLED', 'UNKNOWN', 'WEB_ONLY'])
 def test_app_status_updates_only_the_current_live_card(availability):
-    from ui.navigation.poi_models import PoiAppAvailability, PoiAppStatus
     from apps.orcUi.frontend.tk.navigation_poi_actions import poll_poi_app_status
+    from ui.navigation.poi_models import PoiAppAvailability, PoiAppStatus
     card, label, handler = Mock(), Mock(), Mock()
     panel = SimpleNamespace(_poi_card=card, _places_handler=handler,
         _theme_bundle=theme_bundle(ThemeMode.DARK),

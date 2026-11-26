@@ -5,7 +5,7 @@ from common.navigation_data import navigation_data_root
 from common.xdg_paths import openroadcode_data_dir
 from development.maps.terrain_regions import MICHIGAN_SHARDS
 from ui.navigation.local_imagery_state import LocalImageryState
-from ui.navigation.local_map_tiles_state import LocalMapTilesState, MAX_MAP_TILES
+from ui.navigation.local_map_tiles_state import MAX_MAP_TILES, LocalMapTilesState
 
 
 def installed_regions():

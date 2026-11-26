@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-from unittest.mock import Mock, patch
 import math
+from unittest.mock import Mock, patch
 
 import pytest
 

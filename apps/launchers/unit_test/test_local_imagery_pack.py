@@ -140,8 +140,10 @@ def test_server_exposes_bundled_world_land_without_a_remote_service(server):
 def test_server_exposes_lazy_terrain_metadata_and_bounded_payload_urls(server, tmp_path):
     from apps.launchers.local_terrain_pack import LocalTerrainCatalog
     from ui.navigation.local_imagery_state import LocalImageryState
-    from ui.navigation.local_terrain_state import (LocalTerrainCatalogState,
-                                                    LocalTerrainTileIndexState)
+    from ui.navigation.local_terrain_state import (
+        LocalTerrainCatalogState,
+        LocalTerrainTileIndexState,
+    )
     payload = tmp_path / 'terrain.json'
     payload.write_text('{"width":2,"height":2,"heights_m":[1,2,3,4]}')
     coverage = LocalImageryState('tile', 'USGS', -.1, .1, .1, .2)

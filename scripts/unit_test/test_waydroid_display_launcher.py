@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: MIT
 import json
 import os
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 import pytest
 

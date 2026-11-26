@@ -6,13 +6,13 @@ import base64
 import ipaddress
 import json
 import os
-from pathlib import Path
 import pwd
 import re
 import shutil
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 
 def run(*arguments, check=True, input=None):

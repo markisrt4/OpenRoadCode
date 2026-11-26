@@ -1,10 +1,10 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Own an explicitly configured foreground system keyboard process."""
-from collections.abc import Sequence
 import os
 import shutil
 import subprocess
+from collections.abc import Sequence
 
 from hardware_io.keyboard.soft_keyboard_if import SoftKeyboardIf
 

@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import re
+from pathlib import Path
 
 from apps.launchers.browser_launcher import BrowserKioskLauncher
 from apps.launchers.external_window_manager import ExternalWindowManager

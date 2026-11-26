@@ -5,14 +5,15 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+
 from ui.navigation.map_ui_if import GeoPoint
 from ui.navigation.poi_models import (
     PoiAction,
-    PoiCategory,
-    PoiSearchResult,
-    PointOfInterest,
-    TransitMode,
     PoiAppStatus,
+    PoiCategory,
+    PointOfInterest,
+    PoiSearchResult,
+    TransitMode,
 )
 
 

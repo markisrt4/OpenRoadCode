@@ -2,11 +2,11 @@ from dataclasses import replace
 from unittest.mock import Mock
 
 from controllers.navigation.navigation_experience_controller import NavigationExperienceController
+from ui.navigation.map_platform_if import MapPlatform, MapPlatformState
 from ui.navigation.navigation_experience_if import NavigationExperience
 from ui.navigation.navigation_view_if import NavigationViewState
-from ui.navigation.map_platform_if import MapPlatform, MapPlatformState
-from ui.navigation.waze_request_handler_if import WazeSessionState
 from ui.navigation.poi_models import PoiCategory, TransitMode
+from ui.navigation.waze_request_handler_if import WazeSessionState
 
 
 def controller(selected='map', *, terrain=True, session=None, gestures=None):
