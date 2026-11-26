@@ -59,7 +59,7 @@ def test_first_views_click_allocates_drawer_and_controls_return_below_views():
         assert controls._drawer.winfo_ismapped()
         assert controls._drawer.winfo_width() >= 230
         assert controls._drawer.winfo_height() > 100
-        assert panel._map_host.winfo_width() < full_width
+        assert panel._map_host.winfo_width() == full_width
         assert not panel._map_controls_handle.winfo_ismapped()
         controls.views_button.invoke()
         root.update()
@@ -78,12 +78,12 @@ def test_first_views_click_allocates_drawer_and_controls_return_below_views():
         )
         handle.invoke()
         root.update()
-        assert panel._map_controls.winfo_manager() == "grid"
+        assert panel._map_controls.winfo_manager() == "place"
         assert handle.winfo_ismapped()
         assert panel._map_controls.winfo_height() > 100
         assert (
-            panel._map_host.winfo_rootx() + panel._map_host.winfo_width()
-            <= panel._map_controls.winfo_rootx()
+            panel._map_controls.winfo_rootx() + panel._map_controls.winfo_width()
+            == panel._map_host.winfo_rootx() + panel._map_host.winfo_width()
         )
         panel._map_controls_toggle.invoke()
         root.update()
