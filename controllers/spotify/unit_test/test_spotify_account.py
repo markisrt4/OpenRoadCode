@@ -16,7 +16,6 @@ from controllers.spotify.spotify_account import (
 from protocols.spotify.spotify_auth import SpotifyAuthError
 from ui.media.spotify_account_if import SpotifyAccountState
 
-
 AccountFixture = tuple[
     SpotifyAccountController,
     SpotifyAccountBinding,
@@ -75,7 +74,7 @@ def state(view: Mock) -> SpotifyAccountState:
 
 def test_state_is_immutable() -> None:
     with pytest.raises(FrozenInstanceError):
-        setattr(SpotifyAccountState(), "connected", True)
+        SpotifyAccountState().connected = True  # type: ignore[misc]
 
 
 def test_configuration_runs_off_frontend_and_normalizes_input(account: AccountFixture) -> None:
@@ -93,7 +92,9 @@ def test_configuration_runs_off_frontend_and_normalizes_input(account: AccountFi
 
 
 @pytest.mark.parametrize("retire", ["deactivate", "close"])
-def test_retired_view_drops_queued_work_and_old_handler(account: AccountFixture, retire: str) -> None:
+def test_retired_view_drops_queued_work_and_old_handler(
+    account: AccountFixture, retire: str
+) -> None:
     _, session, view, handler, work, ui, _, save, connect, _, _ = account
     handler.request_configure("changed")
     getattr(session, retire)()

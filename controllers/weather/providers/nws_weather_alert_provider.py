@@ -17,7 +17,6 @@ from controllers.weather.weather_alert import (
 )
 from controllers.weather.weather_state import WeatherLocation
 
-
 _AlertEnum = TypeVar("_AlertEnum", WeatherAlertSeverity, WeatherAlertUrgency, WeatherAlertCertainty)
 
 
