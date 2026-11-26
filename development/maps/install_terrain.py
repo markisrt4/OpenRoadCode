@@ -36,7 +36,6 @@ from tools.map_builder.builder.terrain import download
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    regional_coverages = ('metro-detroit',) + tuple(MICHIGAN_COVERAGES)
     parser.add_argument('--coverage')
     parser.add_argument('--output', type=Path, help='Override the device-owned pack directory')
     parser.add_argument('--yes', action='store_true', help='Skip confirmation; requires --coverage')
@@ -161,7 +160,7 @@ def _install_archive(archive: Path, active: Path, *, expected_bounds=None) -> No
         if expected_bounds is not None:
             import json
             actual=json.loads((root/'manifest.json').read_text())['bounds_deg']
-            if len(actual)!=4 or any(abs(a-b)>1e-9 for a,b in zip(actual,expected_bounds)):
+            if len(actual)!=4 or any(abs(a-b)>1e-9 for a,b in zip(actual,expected_bounds, strict=True)):
                 raise ValueError('Terrain archive bounds differ from requested coverage')
         root.rename(revision)
     pending = active.parent / (".active-terrain-" + uuid.uuid4().hex)
