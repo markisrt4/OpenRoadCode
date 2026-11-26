@@ -178,7 +178,7 @@ class _Handler(BaseHTTPRequestHandler):
                     raise ValueError("Invalid road tile URL")
                 state = self.owner._roads.tile(*(int(part) for part in parts))
                 self._send(json.dumps(state.document()).encode(), "application/json")
-            except (ValueError, ValidationError, sqlite3.Error, OSError):
+            except (ValueError, sqlite3.Error, OSError):
                 self.send_error(404, "Offline road tile unavailable")
             return
         if path.startswith('/data/imagery-detail/'):
