@@ -92,6 +92,8 @@ device controlled from ORC.
 After connecting your Spotify account, open **Settings → Media → Spotify**
 and tap **Test local player**. ORC enables encrypted media in its dedicated
 Chromium profile and checks Widevine before loading the Spotify playback SDK.
+On Raspberry Pi OS, ORC also points that profile to the installed system CDM
+when its files are available.
 When the device registers, choose a track and check for audio. Account
 authorization is required, and registering the local player can transfer
 current playback to the Pi.

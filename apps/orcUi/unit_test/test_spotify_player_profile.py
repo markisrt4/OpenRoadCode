@@ -43,6 +43,7 @@ def test_abandoned_socket_does_not_block_profile_setup(monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
     profile = tmp_path / "openroadcode" / "spotify-player-browser"
     profile.mkdir(parents=True)
+    (profile / "SingletonSocket").touch()
     monkeypatch.setattr(socket.socket, "connect", _refuse_singleton_connection)
     assert not spotify_local_player_factory._profile_browser_running(profile)
     assert _make_browser("http://127.0.0.1:8771/").profile_path == profile
@@ -51,3 +52,20 @@ def test_abandoned_socket_does_not_block_profile_setup(monkeypatch, tmp_path):
 
 def _refuse_singleton_connection(self, address):
     raise ConnectionRefusedError(address)
+
+
+
+def test_player_hints_to_installed_pi_widevine(monkeypatch, tmp_path):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    cdm = tmp_path / "system" / "WidevineCdm"
+    library = cdm / "_platform_specific" / "linux_arm64" / "libwidevinecdm.so"
+    library.parent.mkdir(parents=True)
+    library.touch()
+    (cdm / "manifest.json").touch()
+    monkeypatch.setattr(spotify_local_player_factory, "SYSTEM_WIDEVINE", cdm)
+
+    browser = _make_browser("http://127.0.0.1:8771/")
+
+    assert browser.profile_path is not None
+    hint = browser.profile_path / "WidevineCdm" / "latest-component-updated-widevine-cdm"
+    assert json.loads(hint.read_text(encoding="utf-8")) == {"Path": str(cdm)}
