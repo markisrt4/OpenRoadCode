@@ -47,7 +47,7 @@ def install(directory, *, destination=None, allow_partial=False):
         manifest = json.loads((revision/'manifest.json').read_text())
         if not hasattr(state, 'tiles'):
             raise ValueError('National baseline requires a validated terrain mosaic')
-        for index, (tile, record) in enumerate(zip(state.tiles, manifest['tiles'])):
+        for index, (tile, record) in enumerate(zip(state.tiles, manifest['tiles'], strict=True)):
             rows.append(dict(id=key+'--'+str(index), path=str((revision/record['path']).relative_to(root)),
                              sha256=record['sha256'], bounds_deg=record['bounds_deg'],
                              width=tile.width, height=tile.height, datum=tile.vertical_datum))
