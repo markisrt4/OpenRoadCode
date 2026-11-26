@@ -15,50 +15,93 @@ class TrendingArtistDetails(tk.Frame, UiWidget):
 
     def __init__(self, parent: tk.Misc, theme: ThemeBundle) -> None:
         ui = theme.ui
-        super().__init__(parent, bg=ui.surface)
-        self._title = tk.Label(self, bg=ui.surface, fg=ui.text, font=("Sans", 20, "bold"))
-        self._subtitle = tk.Label(self, bg=ui.surface, fg=ui.text_muted, font=("Sans", 13))
-        self._title.pack(fill=tk.X, pady=(18, 4))
-        self._subtitle.pack(fill=tk.X, pady=(0, 6))
-        self._portrait = tk.Label(self, bg=ui.surface)
-        self._bio = tk.Label(self, bg=ui.surface, fg=ui.text, justify=tk.LEFT, font=("Sans", 11))
-        self._credit = tk.Label(
-            self, bg=ui.surface, fg=ui.text_muted, justify=tk.LEFT, font=("Sans", 9)
+        super().__init__(parent, bg=ui.surface, padx=16, pady=14)
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(2, weight=1)
+        self._title = tk.Label(
+            self, bg=ui.surface, fg=ui.text, anchor="w", justify=tk.LEFT, font=("Sans", 24, "bold")
         )
-        self._bio.pack(fill=tk.X, pady=(8, 4))
-        self._credit.pack(fill=tk.X)
+        self._subtitle = tk.Label(
+            self, bg=ui.surface, fg=ui.text, anchor="w", justify=tk.LEFT, font=("Sans", 16)
+        )
+        self._title.grid(row=0, column=0, sticky="ew")
+        self._subtitle.grid(row=1, column=0, sticky="ew", pady=(0, 10))
+
+        self._body = tk.Frame(self, bg=ui.surface)
+        self._body.grid(row=2, column=0, sticky="nsew")
+        self._body.columnconfigure(1, weight=1)
+        self._body.rowconfigure(0, weight=1)
+        self._portrait = tk.Label(self._body, bg=ui.surface, bd=0)
+        self._portrait.grid(row=0, column=0, sticky="n", padx=(0, 14))
+        self._portrait.grid_remove()
+        self._bio = tk.Text(
+            self._body,
+            width=1,
+            height=1,
+            bg=ui.surface,
+            fg=ui.text,
+            font=("Sans", 16),
+            spacing3=6,
+            wrap=tk.WORD,
+            relief=tk.FLAT,
+            highlightthickness=0,
+            state=tk.DISABLED,
+        )
+        self._bio.grid(row=0, column=1, sticky="nsew")
+        self._scrollbar = tk.Scrollbar(
+            self._body, orient=tk.VERTICAL, width=22, command=self._bio.yview
+        )
+        self._scrollbar.grid(row=0, column=2, sticky="ns")
+        self._bio.configure(yscrollcommand=self._scrollbar.set)
+        self._body.grid_remove()
+        self._credit = tk.Label(
+            self, bg=ui.surface, fg=ui.text_muted, anchor="w", justify=tk.LEFT, font=("Sans", 10)
+        )
+        self._credit.grid(row=3, column=0, sticky="ew", pady=(6, 0))
+        self._credit.grid_remove()
         self._photo: ImageTk.PhotoImage | None = None
+        self._artist: str | None = None
         self.bind("<Configure>", self._resize)
 
     def _resize(self, event: tk.Event) -> None:
-        for label in (self._title, self._subtitle, self._bio, self._credit):
-            label.configure(wraplength=max(1, event.width - 8))
+        for label in (self._title, self._subtitle, self._credit):
+            label.configure(wraplength=max(1, event.width - 32))
 
-    def set_selection(self, title: str, subtitle: str) -> None:
-        if self._title.cget("text") != title:
+    def set_selection(self, title: str, subtitle: str, *, artist: str | None = None) -> None:
+        if self._artist != artist:
+            self._artist = artist
             self.set_profile(None)
         self._title.configure(text=title)
         self._subtitle.configure(text=subtitle)
 
     def set_profile(self, profile: ArtistProfile | None) -> None:
         """Clear previous content and render a new artist snapshot."""
-        self._portrait.pack_forget()
+        self._portrait.grid_remove()
         self._portrait.configure(image="")
         self._photo = None
-        self._bio.configure(text=profile.biography if profile else "")
-        self._credit.configure(
-            text=f"About {profile.name} · Wikipedia (CC BY-SA)" if profile else ""
-        )
-        if profile is None or not profile.portrait:
+        self._bio.configure(state=tk.NORMAL)
+        self._bio.delete("1.0", tk.END)
+        if profile is not None:
+            self._bio.insert("1.0", profile.biography, ())
+        self._bio.configure(state=tk.DISABLED)
+        self._bio.yview_moveto(0)
+        if profile is None:
+            self._body.grid_remove()
+            self._credit.grid_remove()
+            return
+        self._body.grid()
+        self._credit.configure(text=f"About {profile.name} · Wikipedia (CC BY-SA)")
+        self._credit.grid()
+        if not profile.portrait:
             return
         try:
             with Image.open(BytesIO(profile.portrait)) as image:
-                image.thumbnail((280, 152))
+                image.thumbnail((160, 188))
                 self._photo = ImageTk.PhotoImage(image, master=self)
         except (OSError, ValueError):
             return
         self._portrait.configure(image=self._photo)
-        self._portrait.pack(before=self._bio)
+        self._portrait.grid()
         self._credit.configure(
             text=f"About {profile.name} · Wikipedia (CC BY-SA)\nPhoto: {profile.portrait_credit}"
         )

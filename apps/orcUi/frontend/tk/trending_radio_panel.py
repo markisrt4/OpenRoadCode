@@ -408,6 +408,7 @@ class TrendingRadioPanel(tk.Frame, UiWidget):
                 else selected["title"]
             ),
             self._selection_detail(selected),
+            artist=selected["artist"] if selected is not None else None,
         )
 
     def _selection_detail(self, selected: dict | None) -> str:
