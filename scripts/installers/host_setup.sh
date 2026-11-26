@@ -434,6 +434,10 @@ if (( RUN_SYSTEM_PACKAGES )) && (( ! SKIP_INSTALLS )); then bash "$PROJECT_DIR/s
 if (( RUN_PYTHON_ENV )) && (( ! SKIP_INSTALLS )); then bash "$PROJECT_DIR/scripts/installers/install_python_env.sh" "${FEATURES[@]}"; fi
 if (( ! SKIP_INSTALLS )); then bash "$PROJECT_DIR/scripts/installers/configure_user_permissions.sh" "${FEATURES[@]}"; fi
 
+if (( ! SKIP_INSTALLS )) && [[ " ${FEATURES[*]} " == *" waydroid "* ]]; then
+  PROJECT_DIR="$PROJECT_DIR" VENV_DIR="$VENV_DIR" bash "$SCRIPT_DIR/install_waydroid.sh"
+fi
+
 if (( ! SKIP_INSTALLS )) && [[ "$TARGET" == "rpi4" || "$TARGET" == "rpi5" ]]; then
   if [[ " ${FEATURES[*]} " == *" raspberry-pi "* || " ${FEATURES[*]} " == *" imu "* || " ${FEATURES[*]} " == *" environmental "* ]]; then
     if command -v raspi-config >/dev/null 2>&1; then
