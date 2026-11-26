@@ -281,20 +281,13 @@ class NavigationPanel(
         self._drawer_state = state
         if not hasattr(self, "_map_controls"):
             return
-        body = self._map_host.master
         if state.expanded:
-            body.grid_columnconfigure(1, minsize=224, weight=0)
-            self._map_controls.configure(width=224)
-            self._map_controls.grid(row=0, column=1, sticky="nsew")
+            self._map_controls.place(relx=1.0, anchor="ne", width=224, relheight=1.0)
             self._map_controls_rail.pack(fill=tk.BOTH, expand=True, padx=5, pady=(2, 5))
-            body.update_idletasks()
-            body.grid_rowconfigure(0, weight=1)
-            body.grid_columnconfigure(0, weight=1)
             self._map_controls.lift()
         else:
             self._map_controls_rail.pack_forget()
-            self._map_controls.grid_remove()
-            body.grid_columnconfigure(1, minsize=0, weight=0)
+            self._map_controls.place_forget()
         self._map_controls_handle.configure(
             text="HIDE CONTROLS ‹" if state.expanded else "CONTROLS ›"
         )
