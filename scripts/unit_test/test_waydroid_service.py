@@ -288,7 +288,9 @@ def test_network_helper_keeps_existing_nat_and_scopes_forwarding_to_bridge(monke
 @pytest.mark.parametrize("display,expected", [(":7", ":7"), ("", ":0")])
 def test_linux_launcher_preserves_the_services_actual_desktop_display(tmp_path, display, expected):
     interpreter = tmp_path / "fake-python"
-    interpreter.write_text('#!/bin/sh\nprintf "%s" "$DISPLAY"\n')
+    interpreter.write_text(
+        '#!/bin/sh\nif [ "$1" = "-c" ]; then exit 0; fi\nprintf "%s" "$DISPLAY"\n'
+    )
     interpreter.chmod(0o755)
     environment = dict(os.environ, PYTHON=str(interpreter), DISPLAY=display)
     environment.pop("TERMUX_VERSION", None)
