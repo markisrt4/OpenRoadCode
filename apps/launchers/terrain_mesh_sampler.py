@@ -53,7 +53,7 @@ class TerrainMeshSampler:
         self.reference = catalog.state.tiles[0].reference_height_m if catalog.state.tiles else 0
         self.index = getattr(catalog, 'index', None)
         baseline = []
-        for metadata, path in zip(catalog.state.tiles, catalog.payloads):
+        for metadata, path in zip(catalog.state.tiles, catalog.payloads, strict=True):
             coverage = metadata.coverage
             baseline.append(TerrainSource(metadata.tile_id,
                 (coverage.west_rad,coverage.south_rad,coverage.east_rad,coverage.north_rad),
