@@ -147,7 +147,7 @@ When providing instructions to launch ORC UI, use `./runOrcUi` rather than
 ## Termux device commands
 
 - Begin user-facing command blocks with `git switch <branch_name>`, using the actual intended branch.
-- Use Termux's `$TMPDIR` for temporary files; do not assume `/tmp` exists.
+- Use Termux's `$TMPDIR` for temporary files and diagnostic logs; never use `$HOME` or hardcoded `/tmp` for temporary output.
 - When asking the user to paste diagnostic output, provide a command that copies
   the relevant output with `termux-clipboard-set`. Keep clipboard output focused
   on the requested evidence. Use `termux-clipboard-get` when reading clipboard
@@ -217,14 +217,15 @@ session working on this repository.
 ## Termux diagnostic output and clipboard
 
 - For Termux diagnostics intended for chat, display the **actual stdout and stderr** and copy the output, not the command text, using `termux-clipboard-set`.
-- **Use temporary diagnostic files in Termux's `$TMPDIR`**, falling back to `$PREFIX/tmp`. Create unique paths with `mktemp`; never hardcode `/tmp` or routinely place logs in `$HOME`.
+- **Use temporary diagnostic files in Termux's `$TMPDIR` exclusively.** Create unique paths with `mktemp`; never use `$HOME`, `$PREFIX/tmp`, or hardcoded `/tmp` for temporary diagnostic output. If `$TMPDIR` is unset, report the problem rather than silently choosing another directory.
 - Remove temporary diagnostic files after display and clipboard copying. Use persistent paths in `$HOME` only when the user explicitly requests saved captures, recordings, or logs.
+- For SSH/VPS diagnostics initiated from Termux, capture stdout and stderr on the local Termux device in `$TMPDIR`, display the output, and copy it with the local `termux-clipboard-set`. Account for interactive sudo authentication and preserve the remote command status. Do not assume Termux commands or its temporary directory exist on the remote host.
 - Ordinary non-hardware diagnostics may use `2>&1 | tee >(termux-clipboard-set)`, but pipelines can obscure exit codes. Prefer sequential temporary-file logging when command status matters.
 - **Never attach live clipboard pipelines to USB-sensitive commands** such as `termux-usb` handoff or RTL-SDR capture. They have caused USB handoff to hang.
 - For USB-sensitive commands, wait for the hardware command to finish before displaying the log and calling `timeout 5 termux-clipboard-set`. Preserve the hardware command's original exit status.
 - Generic USB-safe example:
   ```bash
-  LOG="$(mktemp "${TMPDIR:-$PREFIX/tmp}/diagnostic.XXXXXX")"
+  LOG="$(mktemp "${TMPDIR:?TMPDIR must be set}/diagnostic.XXXXXX")" || exit 1
   trap 'rm -f "$LOG"' EXIT
   hardware_command > "$LOG" 2>&1
   STATUS=$?
