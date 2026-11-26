@@ -19,6 +19,12 @@ def test_runtime_commands_prepare_waydroid_without_launching_orc(tmp_path, monke
     runtime = Mock(runtime=tmp_path)
     monkeypatch.setattr(module, "WaydroidVM", lambda: runtime)
     monkeypatch.setattr(module.os, "geteuid", lambda: 1001)
+    original_exists = Path.exists
+    monkeypatch.setattr(
+        Path,
+        "exists",
+        lambda path: False if path == Path("/system/bin/am") else original_exists(path),
+    )
     monkeypatch.setattr("sys.argv", ["waydroid_vm", action])
     run = Mock()
     launch = Mock(side_effect=AssertionError("Runtime setup must not launch ORC"))
