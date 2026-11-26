@@ -9,6 +9,7 @@ import signal
 import tkinter as tk
 from collections.abc import Callable
 
+from apps.orcUi.navigation_presenter import PositionPresentationState
 from apps.orcUi.notification_dispatcher import NotificationDispatcher
 from apps.orcUi.orc_theme import toggle
 from apps.orcUi.performance_status import PerformanceStatus
@@ -21,7 +22,6 @@ from ui.radio import AircraftMenuRequestHandlerIf, AircraftMenuUiState
 from ui.screen_ui_if import ScreenUiIf
 from ui.system import SystemLifecycleRequestHandlerIf, VolumeRequestHandlerIf, VolumeUiIf
 from ui.system.online_mode_if import OnlineModeIf
-from apps.orcUi.navigation_presenter import PositionPresentationState
 from ui.system_diagnostics import SystemDiagnosticsSnapshot
 from ui.theme import ThemeMode
 from ui.ui_widget import UiWidget
