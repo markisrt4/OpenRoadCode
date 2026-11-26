@@ -12,11 +12,13 @@ from frontends.tk.media.provider_brand import SPOTIFY_GREEN, YOUTUBE_RED, draw_p
 from ui.media.artist_profile import ArtistProfile
 from ui.media.song_launch import SongDestination, SongLaunchRequest
 from ui.media.trending_video import TrendingVideoSession
+from ui.radio.airplay_details import AirplayDetails, AirplayRequest
 from ui.radio.station_identity import station_label
 from ui.theme import ThemeBundle
 from ui.ui_widget import UiWidget
 
 from .trending_artist_details import TrendingArtistDetails
+from .trending_chart_rows import render_chart_rows
 
 PAGE_SIZE = 4
 
@@ -38,6 +40,7 @@ class TrendingRadioPanel(tk.Frame, UiWidget):
         video_session: Callable[[str], TrendingVideoSession | None] = lambda _query: None,
         spotify_factory: Callable[[tk.Misc, str, str], tk.Widget | None] | None = None,
         online_allowed: Callable[[], bool] = lambda: True,
+        on_airplay: Callable[[AirplayRequest], None] = lambda _request: None,
     ) -> None:
         ui = theme.ui
         super().__init__(parent, bg=ui.background)
@@ -50,6 +53,8 @@ class TrendingRadioPanel(tk.Frame, UiWidget):
         self._video_session = video_session
         self._spotify_factory = spotify_factory
         self._online_allowed = online_allowed
+        self._on_airplay = on_airplay
+        self._airplay_request: AirplayRequest | None = None
         self._spotify_pane = None
         self._video_pane: TrendingVideoPane | None = None
         self._songs: list[dict] = []
@@ -320,6 +325,7 @@ class TrendingRadioPanel(tk.Frame, UiWidget):
         self._render()
 
     def _select(self, song: dict) -> None:
+        self._airplay_request = None
         if self._spotify_pane is not None:
             self._restore_track_details()
         self._selected = song
@@ -328,61 +334,47 @@ class TrendingRadioPanel(tk.Frame, UiWidget):
         self._on_artist_selected(song["artist"])
 
     def set_artist_profile(self, artist: str, profile: ArtistProfile | None) -> None:
-        if self._selected and self._selected["artist"] == artist:
+        if self._airplay_request is None and self._selected and self._selected["artist"] == artist:
             self._track_details.set_profile(profile)
+
+    def _show_airplay(self, item: dict, *, trend: bool) -> None:
+        if not self._online_allowed():
+            return
+        self._restore_track_details()
+        self._selected = item
+        station = self._station.get()
+        request = AirplayRequest(
+            artist=item["artist"],
+            title=item["title"] if self._kind == "songs" else None,
+            period=self._period.get(),
+            station=None if station == "All stations" else station,
+            view="trend" if trend else "stations",
+        )
+        self._airplay_request = request
+        self._render()
+        self._track_details.show_airplay("Loading airplay details…", scroll=False)
+        self._on_airplay(request)
+
+    def set_airplay(self, request: AirplayRequest, details: AirplayDetails) -> None:
+        if self._airplay_request is request:
+            self._track_details.set_airplay(request, details)
 
     def _render(self) -> None:
         ui = self._theme.ui
-        for child in self._cards.winfo_children():
-            child.destroy()
-        visible = self._songs[self._page * PAGE_SIZE : (self._page + 1) * PAGE_SIZE]
-        for index, song in enumerate(visible):
-            active = song is self._selected
-            bg = ui.control_active if active else ui.surface_alt
-            card = tk.Frame(
-                self._cards,
-                bg=bg,
-                padx=8,
-                pady=2,
-                highlightthickness=1,
-                highlightbackground=ui.accent_primary if active else ui.border,
-            )
-            card.grid(row=index, column=0, sticky="nsew", pady=2)
-            card.grid_columnconfigure(1, weight=1)
-            rank = tk.Label(
-                card,
-                text=f"{song.get('rank', self._page * PAGE_SIZE + index + 1):02}",
-                bg=bg,
-                fg=ui.accent_primary,
-                font=("Sans", 15, "bold"),
-            )
-            rank.grid(row=0, column=0, rowspan=2, sticky="w", padx=(0, 12))
-            title = tk.Label(
-                card,
-                text=song["artist"] if self._kind == "artists" else song["title"],
-                bg=bg,
-                fg=ui.text,
-                anchor="w",
-                font=("Sans", 10, "bold"),
-            )
-            title.grid(row=0, column=1, sticky="ew")
-            title.configure(wraplength=200, justify=tk.LEFT)
-            detail = (
-                (str(song.get("plays", 0)) + " airplays · " + str(song.get("songs", 0)) + " songs")
-                if self._kind == "artists"
-                else song["artist"]
-            )
-            artist = tk.Label(
-                card, text=detail, bg=bg, fg=ui.text_muted, anchor="w", font=("Sans", 10)
-            )
-            artist.grid(row=1, column=1, sticky="ew")
-            card.bind(
-                "<Configure>",
-                lambda event, label=title: label.configure(wraplength=max(80, event.width - 68)),
-            )
-            for widget in (card, rank, title, artist):
-                widget.bind("<Button-1>", lambda _event, item=song: self._select(item))
-                widget.configure(cursor="hand2")
+        if self._selected is None:
+            self._airplay_request = None
+        offset = self._page * PAGE_SIZE
+        render_chart_rows(
+            self._cards,
+            self._theme,
+            self._songs[offset : offset + PAGE_SIZE],
+            offset=offset,
+            selected=self._selected,
+            artists=self._kind == "artists",
+            on_select=self._select,
+            on_trend=lambda item: self._show_airplay(item, trend=True),
+            on_stations=lambda item: self._show_airplay(item, trend=False),
+        )
         total = max(1, (len(self._songs) + PAGE_SIZE - 1) // PAGE_SIZE)
         self._page_label.configure(text=f"{self._page + 1} / {total}")
         self._previous.configure(state=tk.NORMAL if self._page > 0 else tk.DISABLED)

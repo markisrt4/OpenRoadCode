@@ -6,6 +6,8 @@ from io import BytesIO
 from PIL import Image, ImageOps, ImageTk
 
 from ui.media.artist_profile import ArtistProfile
+from ui.radio.airplay_details import AirplayDetails, AirplayRequest
+from ui.radio.station_identity import station_label
 from ui.theme import ThemeBundle
 from ui.ui_widget import UiWidget
 
@@ -122,6 +124,35 @@ class TrendingArtistDetails(tk.Frame, UiWidget):
     def show_loading(self) -> None:
         self.set_profile(None)
         self._set_biography("Loading artist information…")
+
+    def show_airplay(self, text: str, *, scroll: bool = True) -> None:
+        self.set_profile(None)
+        self._set_biography(text)
+        if scroll:
+            self._scroll_controls.grid()
+
+    def set_airplay(self, request: AirplayRequest, details: AirplayDetails) -> None:
+        periods = {"today": "Today", "7d": "Last 7 days", "30d": "Last 30 days"}
+        is_trend = request.view == "trend"
+        if is_trend:
+            scope = station_label(request.station) if request.station else "All stations"
+            lines = [f"Airplay by period · {scope}"]
+        else:
+            lines = [f"Airplay by station · {periods[request.period]}"]
+        lines.append("")
+        for label, count in details.counts:
+            if count is None and not is_trend:
+                continue
+            name = periods[label] if is_trend else station_label(label)
+            value = f"{count:,} plays" if count is not None else "Outside chart"
+            lines.append(f"{name}   {value}")
+        if len(lines) == 2:
+            lines.append("No matching chart entries.")
+        if details.incomplete:
+            lines.extend(("", "Some chart data could not be loaded."))
+        if not is_trend:
+            lines.extend(("", "Showing stations with a matching chart entry."))
+        self.show_airplay("\n".join(lines))
 
     def _set_biography(self, text: str) -> None:
         self._bio.configure(state=tk.NORMAL)

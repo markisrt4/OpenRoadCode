@@ -36,6 +36,12 @@ If Spotify's local browser player cannot start, Trending tries an available
 Spotify Connect device. If playback still fails, ORC displays the failure in
 its error popup.
 
+Each chart row shows the reported play count. Tap **↗** to compare today's,
+seven-day, and thirty-day counts for the selected station filter. Tap **ⓘ**
+for station-by-station counts in the selected period. Both views use the
+existing ranked charts API, so an entry outside a chart has an unknown
+count. Selecting the row itself returns to the song or artist biography.
+
 ## Overview
 
 Streaming Radio adds internet station discovery and audio playback to the ORC Radio screen alongside RF Radio and Trending. The streaming browser provides Local, Regional, and Favorites views plus filtering, station artwork, selection, playback controls, and shared Home now-playing state.
