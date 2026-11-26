@@ -18,7 +18,7 @@ from ui.theme import ThemeMode
 
 
 @pytest.mark.skipif(not os.environ.get("DISPLAY"), reason="real Tk geometry needs X11")
-def test_shared_waze_navigation_drawer_shrinks_host_and_hide_cancels_poll_without_stopping_player():
+def test_shared_waze_drawer_overlays_host_and_hide_cancels_poll_without_stopping_player():
     root = tk.Tk()
     root.geometry("1000x600")
     host = Mock(screen_parent=root)
@@ -64,7 +64,7 @@ def test_shared_waze_navigation_drawer_shrinks_host_and_hide_cancels_poll_withou
         assert not controls._loading_label.winfo_ismapped()
         controls.show_drawer("views")
         root.update()
-        assert screen._browser_host.winfo_width() < full_width
+        assert screen._browser_host.winfo_width() == full_width
         assert not screen._back_button.winfo_ismapped()
         controls.close_drawer()
         root.update()
