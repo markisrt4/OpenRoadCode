@@ -9,8 +9,14 @@ from datetime import datetime, timezone
 from time import monotonic
 
 from common.logging.structured import operation
-from controllers.weather.hrrr_map_layers import TEMPERATURE_COLORS, WIND_COLORS
+from controllers.weather.hrrr_map_layers import (
+    TEMPERATURE_COLORS,
+    WIND_COLORS,
+    HrrrMapLayerProvider,
+)
 from controllers.weather.radar_palette import RadarPalette
+from controllers.weather.radar_provider_if import RadarFrame
+from controllers.weather.radar_tile_service import RadarTileService
 from controllers.weather.weather_logging import WeatherLog
 from ui.ui_dispatcher_if import UiDispatcherIf
 from ui.weather.weather_overlay_state import (
@@ -24,19 +30,25 @@ from ui.weather.weather_overlay_ui_if import WeatherOverlayUiIf
 class ModelWeatherOverlayController:
     """Load one selected model heatmap and expose its legend and readiness."""
 
-    def __init__(self, dispatcher: UiDispatcherIf, tiles, provider, ui: WeatherOverlayUiIf):
+    def __init__(
+        self,
+        dispatcher: UiDispatcherIf,
+        tiles: RadarTileService,
+        provider: HrrrMapLayerProvider,
+        ui: WeatherOverlayUiIf,
+    ) -> None:
         self._host, self._tiles, self._provider, self._ui = dispatcher, tiles, provider, ui
         self._loading = False
         self.kind = "off"
         self.status = "Select a weather overlay"
-        self._frame = None
+        self._frame: RadarFrame | None = None
         self._generation = 0
         self._revision = 0
         self._busy = False
         self._closed = False
         self._log = WeatherLog("weather.model")
 
-    def select(self, kind):
+    def select(self, kind: str) -> None:
         """Select one heatmap; radar and route forecasts keep their own state."""
         if kind not in {"off", "temperature", "wind"}:
             raise ValueError("Unknown weather overlay")
@@ -59,7 +71,7 @@ class ModelWeatherOverlayController:
         if kind != "off":
             self.refresh()
 
-    def refresh(self):
+    def refresh(self) -> None:
         """Discover a recent forecast without blocking the UI or duplicating work."""
         if self._closed or self._busy or self.kind == "off":
             return
@@ -67,7 +79,9 @@ class ModelWeatherOverlayController:
         generation, kind = self._generation, self.kind
         operation_id = self._log.requested()
 
-        def load():
+        def load() -> None:
+            frame: RadarFrame | None
+            error: str | None
             with operation(operation_id):
                 try:
                     frame, error = self._provider.get_frame(kind), None
@@ -86,7 +100,13 @@ class ModelWeatherOverlayController:
             threading.Thread(target=load, name="weather-model-overlay", daemon=True), operation_id
         )
 
-    def _complete(self, generation, frame, error, operation_id=None):
+    def _complete(
+        self,
+        generation: int,
+        frame: RadarFrame | None,
+        error: str | None,
+        operation_id: str | None = None,
+    ) -> None:
         self._busy = False
         if self._closed:
             self._log.stale(operation_id)
@@ -95,8 +115,8 @@ class ModelWeatherOverlayController:
             self._log.stale(operation_id)
             self.refresh()
             return
-        if error:
-            self._failed(error)
+        if error is not None or frame is None:
+            self._failed(error or "No forecast frame returned")
             return
         if (
             self._frame is None
@@ -112,7 +132,7 @@ class ModelWeatherOverlayController:
         self.publish()
         self._wait(generation, monotonic(), operation_id)
 
-    def publish(self):
+    def publish(self) -> None:
         """Present the selected raster and SI palette through the UI contract."""
         if self._closed:
             return
@@ -145,7 +165,7 @@ class ModelWeatherOverlayController:
             )
         )
 
-    def _wait(self, generation, started, operation_id=None):
+    def _wait(self, generation: int, started: float, operation_id: str | None = None) -> None:
         if self._closed or generation != self._generation or self._frame is None:
             return
         error = self._tiles.frame_error(self._frame)
@@ -168,14 +188,14 @@ class ModelWeatherOverlayController:
                 300, lambda: self._wait(generation, started, operation_id)
             )
 
-    def _failed(self, error):
+    def _failed(self, error: str) -> None:
         self._loading = False
         self._frame = None
         self.publish()
         self.status = f"Model overlay unavailable: {error}"
         self.publish()
 
-    def close(self):
+    def close(self) -> None:
         """Invalidate pending workers and release model discovery connections."""
         if self._closed:
             return

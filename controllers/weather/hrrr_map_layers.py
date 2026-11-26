@@ -66,11 +66,11 @@ class HrrrMapLayerProvider:
         self._session = session or requests.Session()
         self._clock = clock
 
-    def close(self):
+    def close(self) -> None:
         """Release connections after pending work completes."""
         self._session.close()
 
-    def get_frame(self, kind):
+    def get_frame(self, kind: str) -> RadarFrame:
         if kind not in {"temperature", "wind"}:
             raise ValueError("Unsupported HRRR map layer")
         check_gdal_tools()
