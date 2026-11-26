@@ -142,7 +142,7 @@ def send(window, title, gesture, frame_size):
         button_down = True
         event(4, 1, modifier)
         for step in range(1, 13):
-            point = tuple(round(a + (b - a) * step / 12) for a, b in zip(start, end))
+            point = tuple(round(a + (b - a) * step / 12) for a, b in zip(start, end, strict=True))
             event(6, state=modifier | 256)
             time.sleep(.016)
     finally:
