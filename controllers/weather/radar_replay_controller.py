@@ -7,11 +7,17 @@ import logging
 import math
 import threading
 from collections.abc import Callable
+from functools import partial
 from time import monotonic, time
 
 from common.logging.structured import operation
+from controllers.weather.environmental_radar_injection_controller import (
+    EnvironmentalRadarInjectionController,
+)
+from controllers.weather.radar_provider_if import RadarFrame
 from controllers.weather.radar_replay_health import radar_imagery_status
 from controllers.weather.weather_logging import WeatherLog
+from controllers.weather.weather_radar_controller import WeatherRadarController
 from ui.ui_dispatcher_if import UiDispatcherIf
 from ui.weather.radar_request_handler_if import RadarRequestHandlerIf
 from ui.weather.radar_ui_if import RadarPalette, RadarUiIf, RadarUiState
@@ -24,14 +30,14 @@ class RadarReplayController(RadarRequestHandlerIf):
         self,
         dispatcher: UiDispatcherIf,
         ui: RadarUiIf,
-        controller,
+        controller: WeatherRadarController,
         *,
-        injection=None,
+        injection: EnvironmentalRadarInjectionController | None = None,
         on_palette: Callable[[RadarPalette], None] | None = None,
         on_source: Callable[[bool], None] | None = None,
         on_visibility: Callable[[], None] | None = None,
         refresh_renderer: Callable[[], None] | None = None,
-    ):
+    ) -> None:
         self._host, self._ui, self._radar_controller = dispatcher, ui, controller
         self._radar_injection_controller = injection
         self._on_radar_palette_changed, self._on_radar_source_changed = on_palette, on_source
@@ -197,9 +203,7 @@ class RadarReplayController(RadarRequestHandlerIf):
             except Exception as error:
                 detail = str(error)
                 self._host.dispatch_ui(
-                    lambda failure=error: self._radar_load_failed(
-                        detail, generation, operation_id, error=failure
-                    )
+                    partial(self._radar_load_failed, detail, generation, operation_id, error=error)
                 )
 
         self._log.start(
@@ -207,7 +211,11 @@ class RadarReplayController(RadarRequestHandlerIf):
         )
 
     def _complete_radar_selection(
-        self, selector, frames, generation=None, operation_id=None
+        self,
+        selector: Callable[[], object],
+        frames: tuple[RadarFrame, ...] | None,
+        generation: int | None = None,
+        operation_id: str | None = None,
     ) -> None:
         if (
             self._closed
@@ -279,6 +287,8 @@ class RadarReplayController(RadarRequestHandlerIf):
     def _radar_seek(self, index: int) -> None:
         self._pause_radar()
         if not self._closed and self._radar_enabled and self._radar_controller is not None:
+            self._radar_load_generation += 1
+            self._refreshing = False
             try:
                 self._radar_controller.select_frame(index)
                 self._sync_radar_timeline()
@@ -417,9 +427,7 @@ class RadarReplayController(RadarRequestHandlerIf):
             except Exception as error:
                 detail = str(error)
                 self._host.dispatch_ui(
-                    lambda failure=error: self._radar_load_failed(
-                        detail, generation, operation_id, error=failure
-                    )
+                    partial(self._radar_load_failed, detail, generation, operation_id, error=error)
                 )
 
         self._log.start(
@@ -427,7 +435,12 @@ class RadarReplayController(RadarRequestHandlerIf):
             operation_id,
         )
 
-    def _show_radar_frames(self, frames, generation=None, operation_id=None) -> None:
+    def _show_radar_frames(
+        self,
+        frames: tuple[RadarFrame, ...],
+        generation: int | None = None,
+        operation_id: str | None = None,
+    ) -> None:
         # A completed download must not re-enable radar after the user turned it off.
         if (
             self._closed
