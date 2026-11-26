@@ -88,3 +88,10 @@ Chromium and ORC before retesting. If the web player works
 but ORC still fails, retry ORC PLAYER and record the exact ORC popup text.
 During troubleshooting, Trending can play on an available Spotify Connect
 device controlled from ORC.
+
+After connecting your Spotify account, open **Settings → Media → Spotify**
+and tap **Test local player**. ORC enables encrypted media in its dedicated
+Chromium profile and checks Widevine before loading the Spotify playback SDK.
+When the device registers, choose a track and check for audio. Account
+authorization is required, and registering the local player can transfer
+current playback to the Pi.

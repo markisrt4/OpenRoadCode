@@ -40,18 +40,6 @@ let startupErrorReported=false;
 async function reportFailure(name,message){
   if(startupErrorReported)return;
   startupErrorReported=true;
-  if(name==='initialization_error'){
-    try{
-      await navigator.requestMediaKeySystemAccess('com.widevine.alpha',[
-        {initDataTypes:['cenc'],audioCapabilities:[{contentType:'audio/mp4; codecs="mp4a.40.2"'}]},
-        {initDataTypes:['webm'],audioCapabilities:[{contentType:'audio/webm; codecs="opus"'}]}
-      ]);
-    }catch(error){
-      if(!navigator.requestMediaKeySystemAccess || error.name==='NotSupportedError'){
-        message='Chromium cannot use Widevine protected audio.';
-      }
-    }
-  }
   status.textContent=name.replaceAll('_',' ');
   detail.textContent=message;
   await fetch('/error',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,message})});
@@ -72,10 +60,26 @@ window.onSpotifyWebPlaybackSDKReady=async()=>{
     await reportFailure('initialization_error',error.message);
   }
 };
-const sdk=document.createElement('script');
-sdk.src='https://sdk.scdn.co/spotify-player.js';
-sdk.onerror=()=>void reportFailure('sdk_load_error','Could not load the Spotify Web Playback SDK. Check internet access from Chromium.');
-document.head.appendChild(sdk);
+async function startPlayer(){
+  detail.textContent='Checking Widevine protected audio';
+  try{
+    await navigator.requestMediaKeySystemAccess('com.widevine.alpha',[
+      {initDataTypes:['cenc'],audioCapabilities:[{contentType:'audio/mp4; codecs="mp4a.40.2"'}]},
+      {initDataTypes:['webm'],audioCapabilities:[{contentType:'audio/webm; codecs="opus"'}]}
+    ]);
+  }catch(error){
+    if(!navigator.requestMediaKeySystemAccess || error.name==='NotSupportedError'){
+      await reportFailure('initialization_error','Chromium cannot use Widevine protected audio.');
+      return;
+    }
+  }
+  detail.textContent='Waiting for Spotify Web Playback SDK';
+  const sdk=document.createElement('script');
+  sdk.src='https://sdk.scdn.co/spotify-player.js';
+  sdk.onerror=()=>void reportFailure('sdk_load_error','Could not load the Spotify Web Playback SDK. Check internet access from Chromium.');
+  document.head.appendChild(sdk);
+}
+void startPlayer();
 </script></body></html>"""
 
 
