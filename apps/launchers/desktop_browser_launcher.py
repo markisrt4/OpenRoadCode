@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Hand POI web destinations to the Linux desktop's configured browser."""
+
 from __future__ import annotations
 
 import shutil
@@ -21,11 +22,12 @@ class DesktopBrowserLauncher:
         gio = shutil.which("gio")
         opener = gio or shutil.which("xdg-open")
         if opener is None:
-            raise DesktopBrowserLauncherError("Install gio or xdg-utils and configure a default browser")
+            raise DesktopBrowserLauncherError(
+                "Install gio or xdg-utils and configure a default browser"
+            )
         command = [opener, "open", uri] if gio else [opener, uri]
         try:
-            result = subprocess.run(command, capture_output=True, text=True,
-                                    check=False, timeout=5)
+            result = subprocess.run(command, capture_output=True, text=True, check=False, timeout=5)
         except subprocess.TimeoutExpired as exc:
             raise DesktopBrowserLauncherError(
                 "Browser handoff timed out; check whether the browser opened"

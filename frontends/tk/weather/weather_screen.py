@@ -13,7 +13,7 @@ from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from ui.screen_ui_if import ScreenId
 from ui.theme import ThemeBundle, ThemeMode
 from ui.weather import WeatherRequestHandlerIf, WeatherUiState
-from ui.weather.weather_screen_ui_if import WeatherScreenUiIf, WeatherScreenRequestHandlerIf
+from ui.weather.weather_screen_ui_if import WeatherScreenRequestHandlerIf, WeatherScreenUiIf
 
 from .orc_weather_panel import OrcWeatherPanel
 

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 """Unit tests for the WebUI music-reactive lighting control surface."""
+
 from __future__ import annotations
 
 import pytest

@@ -1,20 +1,26 @@
 """Offline regression tests for read-only runtime hardware inventory."""
+
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from services.common.network_usb_inventory import collect_inventory
 
 
 class NetworkUsbInventoryTests(unittest.TestCase):
     def test_termux_uses_android_companion_inventory(self):
         import json
-        payload = json.dumps({
-            "networks": [{"interface": "wlan0", "transports": ["wifi"],
-                          "addresses": ["192.168.1.2/24"]}],
-            "usb_devices": [{"vendor_id": 3034, "product_id": 10296}],
-            "usb_sysfs": {"status": "no_readable_device_metadata", "devices": []},
-        }).encode()
+
+        payload = json.dumps(
+            {
+                "networks": [
+                    {"interface": "wlan0", "transports": ["wifi"], "addresses": ["192.168.1.2/24"]}
+                ],
+                "usb_devices": [{"vendor_id": 3034, "product_id": 10296}],
+                "usb_sysfs": {"status": "no_readable_device_metadata", "devices": []},
+            }
+        ).encode()
         response = MagicMock()
         response.status = 200
         response.read.return_value = payload

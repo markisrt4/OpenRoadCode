@@ -28,9 +28,7 @@ class PipewireAudioController(AudioControllerIf):
             raise ValueError("steps must be greater than zero")
 
         if not 1 <= step_percent <= 100:
-            raise ValueError(
-                "step_percent must be in range 1..100"
-            )
+            raise ValueError("step_percent must be in range 1..100")
 
         self._steps = steps
         self._step_percent = step_percent
@@ -81,9 +79,7 @@ class PipewireAudioController(AudioControllerIf):
 
         if self._current_level is None:
             return self.get_volume_level()
-        self._current_level = self._clamp_level(
-            self._current_level + steps
-        )
+        self._current_level = self._clamp_level(self._current_level + steps)
         return self._current_level
 
     def get_volume_level(self) -> int:
@@ -101,20 +97,14 @@ class PipewireAudioController(AudioControllerIf):
         parts = output.strip().split()
 
         if len(parts) < 2:
-            raise RuntimeError(
-                f"Unexpected wpctl response: {output!r}"
-            )
+            raise RuntimeError(f"Unexpected wpctl response: {output!r}")
 
         try:
             volume = float(parts[1])
         except ValueError as exc:
-            raise RuntimeError(
-                f"Invalid wpctl volume response: {output!r}"
-            ) from exc
+            raise RuntimeError(f"Invalid wpctl volume response: {output!r}") from exc
 
-        self._current_level = self._clamp_level(
-            round(volume * self._steps)
-        )
+        self._current_level = self._clamp_level(round(volume * self._steps))
         return self._current_level
 
     def set_volume_level(self, level: int) -> int:
@@ -176,15 +166,9 @@ class PipewireAudioController(AudioControllerIf):
             )
 
         except subprocess.CalledProcessError as exc:
-            message = (
-                exc.stderr.strip()
-                or exc.stdout.strip()
-                or "unknown wpctl error"
-            )
+            message = exc.stderr.strip() or exc.stdout.strip() or "unknown wpctl error"
 
-            raise RuntimeError(
-                f"wpctl failed: {message}"
-            ) from exc
+            raise RuntimeError(f"wpctl failed: {message}") from exc
 
         return result.stdout if capture else ""
 
@@ -206,9 +190,7 @@ class PipewireAudioController(AudioControllerIf):
             )
             match = re.search(r"/\s*(\d+)%", volume_output)
             if match is None:
-                raise RuntimeError(
-                    f"Unexpected pactl volume response: {volume_output!r}"
-                )
+                raise RuntimeError(f"Unexpected pactl volume response: {volume_output!r}")
             mute_output = PipewireAudioController._run_pactl(
                 ["get-sink-mute", sink],
                 capture=True,
@@ -252,15 +234,9 @@ class PipewireAudioController(AudioControllerIf):
                 text=True,
                 check=True,
             )
-        except FileNotFoundError as exc:
-            raise RuntimeError(
-                "Neither wpctl nor pactl was found"
-            ) from wpctl_error
+        except FileNotFoundError:
+            raise RuntimeError("Neither wpctl nor pactl was found") from wpctl_error
         except subprocess.CalledProcessError as exc:
-            message = (
-                exc.stderr.strip()
-                or exc.stdout.strip()
-                or "unknown pactl error"
-            )
+            message = exc.stderr.strip() or exc.stdout.strip() or "unknown pactl error"
             raise RuntimeError(f"pactl failed: {message}") from exc
         return result.stdout if capture else ""

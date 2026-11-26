@@ -5,7 +5,9 @@ from ui.navigation.poi_overlay_state import PoiOverlayState
 
 
 class MapPlatformRequests(MapRequestHandlerIf):
-    def __init__(self, native: MapRequestHandlerIf, send_earth, send_pois=lambda _state: None) -> None:
+    def __init__(
+        self, native: MapRequestHandlerIf, send_earth, send_pois=lambda _state: None
+    ) -> None:
         self._native = native
         self._send_earth = send_earth
         self._send_pois = send_pois
@@ -58,13 +60,15 @@ class MapPlatformRequests(MapRequestHandlerIf):
     def request_poi_focus(self, category):
         self._native.request_poi_focus(category)
         self._poi_state = PoiOverlayState(
-            self._poi_state.markers, self._poi_state.category, category)
+            self._poi_state.markers, self._poi_state.category, category
+        )
         self._send_pois(self._poi_state)
 
     def request_poi_results(self, markers, category):
         self._native.request_poi_results(markers, category)
-        self._poi_state = PoiOverlayState(tuple(markers), category,
-                                          self._poi_state.focused_category)
+        self._poi_state = PoiOverlayState(
+            tuple(markers), category, self._poi_state.focused_category
+        )
         self._send_pois(self._poi_state)
 
     def refresh_renderer_state(self):

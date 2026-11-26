@@ -4,7 +4,6 @@
 """Canonical business metadata loaded from OpenRoadCode catalog data."""
 
 from __future__ import annotations
-
 import re
 import json
 import tomllib

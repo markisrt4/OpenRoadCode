@@ -4,12 +4,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass(frozen=True)
 class RadioPanelTileConfig:
     """Define the text displayed on a radio-panel action tile."""
+
     label: str
     subtitle: str
     detail: str
@@ -18,6 +18,7 @@ class RadioPanelTileConfig:
 @dataclass(frozen=True)
 class RadioPanelConfig:
     """Configure labels, tuning defaults, and layout for a radio panel."""
+
     key: str
     title: str
     launch_tile: RadioPanelTileConfig

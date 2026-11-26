@@ -18,13 +18,6 @@ display = ":0"
 type = "x11"
 display = ":2"
 
-[apps.sdrpp]
-type = "native"
-enabled = true
-startup = "lazy"
-target = "primary"
-fullscreen = false
-
 [apps.weather]
 type = "browser"
 enabled = true

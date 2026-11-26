@@ -11,7 +11,12 @@ from threading import RLock
 from apps.common.spotify_controller_factory import create_spotify_controller
 from controllers.lyrics import LrclibLyricsClient
 from controllers.spotify import SpotifyMediaPresenter
-from protocols.spotify import SpotifyAuth, SpotifyAuthorizationRequest, SpotifyTokenStore, load_spotify_config_from_secrets
+from protocols.spotify import (
+    SpotifyAuth,
+    SpotifyAuthorizationRequest,
+    SpotifyTokenStore,
+    load_spotify_config_from_secrets,
+)
 from security.environment_variable_secret_manager import EnvironmentVariableSecretManager
 from ui.media import MediaState, MediaUiStub
 
@@ -31,22 +36,40 @@ class WebSpotifySession:
 
     def auth_config(self) -> dict[str, object]:
         config = load_spotify_config_from_secrets(EnvironmentVariableSecretManager())
-        return {"configured": config is not None, "redirect_uri": config.redirect_uri if config else None}
+        return {
+            "configured": config is not None,
+            "redirect_uri": config.redirect_uri if config else None,
+        }
 
     def begin_authorization(self) -> str:
         with self._lock:
             config = load_spotify_config_from_secrets(EnvironmentVariableSecretManager())
             if config is None:
                 raise RuntimeError("Spotify is not configured. Expected SPOTIFY_CLIENT_ID.")
-            self._auth = SpotifyAuth(config=config, token_store=SpotifyTokenStore(), open_browser=False)
+            self._auth = SpotifyAuth(
+                config=config, token_store=SpotifyTokenStore(), open_browser=False
+            )
             self._authorization = self._auth.begin_authorization()
             return self._authorization.authorization_url
 
-    def complete_authorization(self, *, code: str | None, state: str | None, error: str | None = None, error_description: str | None = None) -> None:
+    def complete_authorization(
+        self,
+        *,
+        code: str | None,
+        state: str | None,
+        error: str | None = None,
+        error_description: str | None = None,
+    ) -> None:
         with self._lock:
             if self._auth is None or self._authorization is None:
                 raise RuntimeError("No Spotify authorization is pending.")
-            self._auth.complete_authorization(self._authorization, code=code, state=state, error=error, error_description=error_description)
+            self._auth.complete_authorization(
+                self._authorization,
+                code=code,
+                state=state,
+                error=error,
+                error_description=error_description,
+            )
             self._authorization = None
             self._auth = None
             self._configure_backend()
@@ -88,7 +111,10 @@ class WebSpotifySession:
             )
             if result is None:
                 return {"synced_lines": [], "plain_lines": []}
-            return {"synced_lines": [asdict(line) for line in result.synced_lines], "plain_lines": list(result.plain_lines)}
+            return {
+                "synced_lines": [asdict(line) for line in result.synced_lines],
+                "plain_lines": list(result.plain_lines),
+            }
 
     @staticmethod
     def _serialize_state(state: MediaState) -> dict[str, object]:

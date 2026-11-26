@@ -8,7 +8,6 @@ from __future__ import annotations
 import tkinter as tk
 from collections.abc import Callable
 
-from ui.navigation.map_runtime_if import MapRuntimeIf
 from apps.orcUi.frontend.tk.presentation_state import OrcUiPresentationState
 from apps.orcUi.navigation_presenter import (
     AttitudePresentationState,
@@ -16,10 +15,12 @@ from apps.orcUi.navigation_presenter import (
 )
 from apps.orcUi.trip_presenter import TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
-from ui.automotive.automotive_telemetry_profile import (AutomotiveTelemetryProfile)
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
+from ui.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
+from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
 from ui.navigation import MapRequestHandlerIf
+from ui.navigation.map_runtime_if import MapRuntimeIf
 from ui.screen_ui_if import ScreenId
 from ui.theme import ThemeBundle
 
@@ -113,9 +114,7 @@ class HomeScreen(TkScreen):
         map_request_handler: MapRequestHandlerIf,
         theme_bundle: Callable[[], ThemeBundle],
         presentation: OrcUiPresentationState,
-        telemetry_profile_request: (
-            Callable[[AutomotiveTelemetryProfile], None] | None
-        ),
+        telemetry_profile_request: (Callable[[AutomotiveTelemetryProfile], None] | None),
         on_expand_context: Callable[[str], None],
         radar_enabled: Callable[[], bool] = lambda: False,
         on_radar_toggle: Callable[[bool], None] | None = None,
@@ -133,16 +132,25 @@ class HomeScreen(TkScreen):
         self._on_radar_toggle = on_radar_toggle
         self._refresh_radar = refresh_radar
 
+        self._appointment_monitor: AppointmentMonitorIf | None = None
+        self._calendar_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._radio_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._media_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._visualizer_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._map_panel: HomeMapPanel | None = None
         self._context_rail: ContextRail | None = None
+        self._context_selection: tuple[str, dict[str, int]] | None = None
 
     @property
     def context_rail(self) -> ContextRail | None:
         """Return the active HOME context rail, when HOME is displayed."""
         return self._context_rail
+
+    def set_calendar_factory(
+        self, factory: Callable[[tk.Misc], tk.Widget], monitor: AppointmentMonitorIf
+    ) -> None:
+        self._appointment_monitor = monitor
+        self._calendar_factory = factory
 
     def set_radio_factory(
         self,
@@ -159,7 +167,8 @@ class HomeScreen(TkScreen):
         self._media_factory = factory
 
     def set_visualizer_factory(
-        self, factory: Callable[[tk.Misc], tk.Widget] | None,
+        self,
+        factory: Callable[[tk.Misc], tk.Widget] | None,
     ) -> None:
         self._visualizer_factory = factory
 
@@ -189,6 +198,7 @@ class HomeScreen(TkScreen):
 
     def show(self) -> None:
         """Build HOME content and start its embedded map renderer."""
+        self._remember_context()
         self._host.activate_screen(self)
         self._host.clear_screen_content()
         self._host.set_screen_title("")
@@ -209,6 +219,13 @@ class HomeScreen(TkScreen):
             on_radar_toggle=self._on_radar_toggle,
         )
 
+        if self._calendar_factory is not None and self._appointment_monitor is not None:
+            self._context_rail.set_calendar_factory(
+                self._calendar_factory, self._appointment_monitor
+            )
+        if self._context_selection is not None:
+            self._context_rail.restore_selection(self._context_selection)
+
         if self._telemetry_profile_request is not None:
             self._telemetry_profile_request(AutomotiveTelemetryProfile.HOME)
 
@@ -220,9 +237,15 @@ class HomeScreen(TkScreen):
 
     def hide(self) -> None:
         """Stop transient HOME resources when navigating away."""
+        self._remember_context()
         self._map_runtime.stop()
         self._map_panel = None
         self._context_rail = None
+
+    def _remember_context(self) -> None:
+        context = self._context_rail
+        if context is not None and context.winfo_exists():
+            self._context_selection = context.selection()
 
     def refresh_radar_state(self) -> None:
         """Refresh the mounted Home toggle after shared radar-state changes."""
@@ -244,7 +267,4 @@ class HomeScreen(TkScreen):
         try:
             self._map_runtime.launch(panel.map_host_window_id)
         except (OSError, RuntimeError) as error:
-            print(
-                "WARNING: map renderer: "
-                f"{type(error).__name__}: {error}"
-            )
+            print(f"WARNING: map renderer: {type(error).__name__}: {error}")

@@ -35,7 +35,9 @@ class TermuxLocationClient:
 
     def read(self, *, provider: str = "gps", request: str = "once") -> TermuxLocationData:
         if not self.is_available:
-            raise RuntimeError("termux-location is not available; install Termux:API and the termux-api package")
+            raise RuntimeError(
+                "termux-location is not available; install Termux:API and the termux-api package"
+            )
 
         result = subprocess.run(
             ["termux-location", "-p", provider, "-r", request],

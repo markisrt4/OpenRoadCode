@@ -65,9 +65,7 @@ class X11WindowEmbedderTest(unittest.TestCase):
                 and "--pid" in command
                 and "1234" in command
             ):
-                return subprocess.CompletedProcess(
-                    command, 0, stdout="111\n222\n", stderr=""
-                )
+                return subprocess.CompletedProcess(command, 0, stdout="111\n222\n", stderr="")
 
             if command == ["xdotool", "getwindowgeometry", "--shell", "111"]:
                 return subprocess.CompletedProcess(
@@ -99,9 +97,7 @@ class X11WindowEmbedderTest(unittest.TestCase):
 
     @patch("frontends.x11.x11_window_embedder.subprocess.run")
     @patch("frontends.x11.x11_window_embedder.shutil.which", return_value="/usr/bin/xdotool")
-    def test_hide_unmaps_matching_window_without_claiming_it(
-        self, _which: Mock, run: Mock
-    ) -> None:
+    def test_hide_unmaps_matching_window_without_claiming_it(self, _which: Mock, run: Mock) -> None:
         def fake_run(command, **_kwargs):
             if command[:3] == ["xdotool", "search", "--pid"]:
                 return subprocess.CompletedProcess(command, 0, stdout="222\n", stderr="")
@@ -221,13 +217,19 @@ if __name__ == "__main__":
 
 def test_cancelled_host_stops_native_discovery_without_reparenting():
     from threading import Event
+
     cancelled = Event()
     embedder = X11WindowEmbedder(timeout_seconds=8)
-    with patch.object(embedder, "supported", return_value=True), \
-         patch.object(embedder, "_find_by_process", return_value=None) as find, \
-         patch("frontends.x11.x11_window_embedder.time.sleep", side_effect=lambda _: cancelled.set()), \
-         patch("frontends.x11.x11_window_embedder.subprocess.run") as run:
+    with (
+        patch.object(embedder, "supported", return_value=True),
+        patch.object(embedder, "_find_by_process", return_value=None) as find,
+        patch(
+            "frontends.x11.x11_window_embedder.time.sleep", side_effect=lambda _: cancelled.set()
+        ),
+        patch("frontends.x11.x11_window_embedder.subprocess.run") as run,
+    ):
         import pytest
+
         with pytest.raises(RuntimeError, match="cancelled"):
             embedder.embed(123, 456, 800, 400, cancelled=cancelled.is_set)
     find.assert_called_once()

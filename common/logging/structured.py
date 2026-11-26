@@ -4,17 +4,17 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
-from contextvars import ContextVar
-from datetime import datetime, timezone
 import fcntl
 import json
 import logging
 import os
-from pathlib import Path
 import sys
 import threading
 import time
+from contextlib import contextmanager
+from contextvars import ContextVar
+from datetime import datetime, timezone
+from pathlib import Path
 from uuid import uuid4
 
 _OPERATION = ContextVar("orc_log_operation", default=None)

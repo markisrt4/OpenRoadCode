@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 """Inspect features and MapLibre coordinate overflows in MBTiles vector tiles."""
+
 from __future__ import annotations
 
 import argparse
@@ -286,10 +287,7 @@ def main() -> int:
     for feature in inspect_tile(row[0]):
         if args.layer is not None and feature["layer"] != args.layer:
             continue
-        if (
-            args.feature_index is not None
-            and feature["feature_index"] != args.feature_index
-        ):
+        if args.feature_index is not None and feature["feature_index"] != args.feature_index:
             continue
         found += 1
         print(

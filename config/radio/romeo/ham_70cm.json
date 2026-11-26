@@ -3,9 +3,9 @@
   "label": "HAM 70cm",
   "description": "Romeo / Macomb County 70-centimeter amateur radio monitoring presets.",
   "launch": {
-    "label": "Launch SDR++",
+    "label": "SDRForge Status",
     "subtitle": "70cm amateur",
-    "detail": "Starts / toggles SDR++"
+    "detail": "Check shared SDRForge service"
   },
   "radio": {
     "label": "Radio ON/OFF",

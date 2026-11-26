@@ -1,19 +1,17 @@
 """Serialize optional embedded Cesium exploration and native-map fallback."""
 
-from concurrent.futures import ThreadPoolExecutor
-from dataclasses import replace
-import math
 import logging
+import math
 import threading
 import time
 from collections import deque
-
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from ui.navigation import GeoPoint, MapMarkerSelectionSourceIf
 from ui.navigation.map_layer_controls import MapLayerAction, MapLayerControls
 from ui.navigation.cesium_viewer_state import CesiumViewerState
 from ui.navigation.map_platform_if import MapPlatform, MapPlatformState, ExplorationCameraAction
 from ui.navigation.map_runtime_if import MapRuntimeState
-
 from ui.navigation.poi_overlay_state import PoiOverlayState
 from ui.navigation.route_overlay_state import RouteOverlayState
 
@@ -25,7 +23,13 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
 
     def __init__(self, native, viewer, *, initial_view=None):
         self._native, self._viewer = native, viewer
-        self._initial_view = initial_view or (lambda: CesiumViewerState(GeoPoint(math.radians(42.3314),math.radians(-83.0458)), label="3D map", destination_marker_visible=False))
+        self._initial_view = initial_view or (
+            lambda: CesiumViewerState(
+                GeoPoint(math.radians(42.3314), math.radians(-83.0458)),
+                label="3D map",
+                destination_marker_visible=False,
+            )
+        )
         self._view = None
         self._retained_view = None
         self._retained_host = None
@@ -43,12 +47,14 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
         self._lock = threading.RLock()
         self._state = MapPlatformState(available_platforms=_PLATFORMS)
         self._host = None
-        self._size = (800,600)
+        self._size = (800, 600)
         self._generation = 0
         self._closed = False
-        self._worker = ThreadPoolExecutor(max_workers=1,thread_name_prefix='cesium-map')
+        self._worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix="cesium-map")
         self._stop_tick = threading.Event()
-        self._ticker = threading.Thread(target=self._tick_loop,name='cesium-map-watch',daemon=True)
+        self._ticker = threading.Thread(
+            target=self._tick_loop, name="cesium-map-watch", daemon=True
+        )
         self._ticker.start()
 
     @property
@@ -61,7 +67,7 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
 
     def resize(self, width, height, owner_window_id):
         with self._lock:
-            self._size = (max(1,width),max(1,height))
+            self._size = (max(1, width), max(1, height))
 
     def launch(self, parent_window_id):
         with self._lock:
@@ -79,11 +85,11 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
             self.request_platform(platform)
 
     def request_explore(self, state):
-        if not isinstance(state,CesiumViewerState):
-            raise TypeError('3D exploration requires CesiumViewerState')
+        if not isinstance(state, CesiumViewerState):
+            raise TypeError("3D exploration requires CesiumViewerState")
         with self._lock:
             if self._closed or self._host is None:
-                raise RuntimeError('Open Navigation before exploring the 3D map')
+                raise RuntimeError("Open Navigation before exploring the 3D map")
             self._view = state
             self._follow_enabled = False
             self.request_platform(MapPlatform.CESIUM)
@@ -91,7 +97,7 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
     def request_platform(self, platform):
         platform = MapPlatform(platform)
         if platform not in _PLATFORMS:
-            raise ValueError('This prototype supports MapLibre and the local 3D map')
+            raise ValueError("This prototype supports MapLibre and the local 3D map")
         with self._lock:
             if self._closed or self._host is None:
                 return
@@ -122,10 +128,14 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
 
     def update_position(self, position):
         """Receive a live SI fix from composition without transport or GUI access."""
-        if position is not None and (not isinstance(position, GeoPoint)
-                or not math.isfinite(position.latitude_rad) or not math.isfinite(position.longitude_rad)
-                or abs(position.latitude_rad) > math.pi/2 or abs(position.longitude_rad) > math.pi):
-            raise ValueError('Invalid vehicle position')
+        if position is not None and (
+            not isinstance(position, GeoPoint)
+            or not math.isfinite(position.latitude_rad)
+            or not math.isfinite(position.longitude_rad)
+            or abs(position.latitude_rad) > math.pi / 2
+            or abs(position.longitude_rad) > math.pi
+        ):
+            raise ValueError("Invalid vehicle position")
         with self._lock:
             if self._closed:
                 return
@@ -136,7 +146,7 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
     def update_poi_overlay(self, state):
         """Cache one semantic marker snapshot and update the active 3D renderer."""
         if not isinstance(state, PoiOverlayState):
-            raise TypeError('3D POI overlay requires PoiOverlayState')
+            raise TypeError("3D POI overlay requires PoiOverlayState")
         with self._lock:
             if self._closed:
                 return
@@ -154,7 +164,7 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
     def update_route_overlay(self, state):
         """Cache one semantic route snapshot and update the active 3D renderer."""
         if not isinstance(state, RouteOverlayState):
-            raise TypeError('3D route overlay requires RouteOverlayState')
+            raise TypeError("3D route overlay requires RouteOverlayState")
         with self._lock:
             if self._closed:
                 return
@@ -176,7 +186,7 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
             except (OSError, RuntimeError, ValueError, TypeError) as error:
                 with self._lock:
                     if self._current(generation):
-                        self._state = replace(self._state, status=f'3D route unavailable: {error}')
+                        self._state = replace(self._state, status=f"3D route unavailable: {error}")
 
     def _send_poi_overlay(self, generation):
         with self._lock:
@@ -190,11 +200,11 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
             except (OSError, RuntimeError, ValueError, TypeError) as error:
                 with self._lock:
                     if self._current(generation):
-                        self._state = replace(self._state, status=f'3D POIs unavailable: {error}')
+                        self._state = replace(self._state, status=f"3D POIs unavailable: {error}")
 
     def request_follow(self, enabled):
         if type(enabled) is not bool:
-            raise TypeError('Follow enabled must be a boolean')
+            raise TypeError("Follow enabled must be a boolean")
         with self._lock:
             if self._closed:
                 return
@@ -205,7 +215,7 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
         with self._lock:
             if not self._current(generation):
                 return
-            point = self._position if time.monotonic()-self._position_received <= 10 else None
+            point = self._position if time.monotonic() - self._position_received <= 10 else None
             follow = self._follow_enabled
             key = (self._position_revision if point is not None else None, follow)
         if key != self._sent_position:
@@ -214,9 +224,16 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
         with self._lock:
             if not self._current(generation) or self._follow_enabled != follow:
                 return
-            self._state = replace(self._state, follow_enabled=follow, position_available=point is not None,
-                status='Waiting for live vehicle position' if follow and point is None else
-                    '3D map · vehicle follow' if follow else '3D map · exploration')
+            self._state = replace(
+                self._state,
+                follow_enabled=follow,
+                position_available=point is not None,
+                status="Waiting for live vehicle position"
+                if follow and point is None
+                else "3D map · vehicle follow"
+                if follow
+                else "3D map · exploration",
+            )
 
     def _camera(self, action, generation):
         if not self._current(generation):
@@ -232,7 +249,7 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
         except Exception as error:
             with self._lock:
                 if self._current(generation):
-                    self._state = replace(self._state, status=f'3D camera unavailable: {error}')
+                    self._state = replace(self._state, status=f"3D camera unavailable: {error}")
 
     def request_layer(self, action):
         action=MapLayerAction(action)
@@ -291,9 +308,14 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
                 self._native.launch(self._host)
             with self._lock:
                 if self._current(generation):
-                    self._state = MapPlatformState(platform,platform,False,
-                        '3D map · vehicle follow' if platform is MapPlatform.CESIUM else 'MapLibre',
-                        available_platforms=_PLATFORMS, follow_enabled=self._follow_enabled)
+                    self._state = MapPlatformState(
+                        platform,
+                        platform,
+                        False,
+                        "3D map · vehicle follow" if platform is MapPlatform.CESIUM else "MapLibre",
+                        available_platforms=_PLATFORMS,
+                        follow_enabled=self._follow_enabled,
+                    )
         except Exception as error:
             if platform is MapPlatform.MAPLIBRE:
                 with self._lock:
@@ -305,7 +327,7 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
                 self._close_viewer()
             finally:
                 if self._current(generation):
-                    self._fallback(generation,f'3D map unavailable: {error}')
+                    self._fallback(generation, f"3D map unavailable: {error}")
 
     def _close_viewer(self):
         self._retained_view = self._retained_host = None
@@ -327,13 +349,13 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
 
     def _tick_loop(self):
         pending = None
-        while not self._stop_tick.wait(.5):
+        while not self._stop_tick.wait(0.5):
             with self._lock:
                 if self._closed:
                     return
                 if self._host is not None and not self._state.busy:
                     if pending is None or pending.done():
-                        pending = self._worker.submit(self._tick,self._generation)
+                        pending = self._worker.submit(self._tick, self._generation)
 
     def _tick(self, generation):
         if not self._current(generation):
@@ -373,12 +395,14 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
                 if self._poll_timeouts < 3:
                     with self._lock:
                         if self._current(generation):
-                            self._state = replace(self._state, status='3D map busy · retrying browser connection…')
+                            self._state = replace(
+                                self._state, status="3D map busy · retrying browser connection…"
+                            )
                     return
             try:
                 self._close_viewer()
             finally:
-                self._fallback(generation,f'3D map unavailable: {error}')
+                self._fallback(generation, f"3D map unavailable: {error}")
 
     def stop(self):
         with self._lock:
@@ -404,4 +428,4 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
                 self._closed = True
             self._stop_tick.set()
             self._ticker.join(timeout=2)
-            self._worker.shutdown(wait=True,cancel_futures=True)
+            self._worker.shutdown(wait=True, cancel_futures=True)

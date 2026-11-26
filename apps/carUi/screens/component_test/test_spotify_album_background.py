@@ -54,10 +54,7 @@ class SpotifyAlbumBackgroundTest(unittest.TestCase):
             source.close()
 
         self.assertRegex(accent, r"^#[0-9A-F]{6}$")
-        red, green, blue = (
-            int(accent[index:index + 2], 16)
-            for index in (1, 3, 5)
-        )
+        red, green, blue = (int(accent[index : index + 2], 16) for index in (1, 3, 5))
         self.assertGreater(blue, red)
         self.assertGreater(blue, green)
         self.assertGreater(max(red, green, blue), 190)

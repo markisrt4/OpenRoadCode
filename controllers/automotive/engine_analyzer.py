@@ -3,9 +3,17 @@
 
 from __future__ import annotations
 
-from ui.automotive.engine_analysis import (EngineAnalysis, EngineLoadLevel, EngineOperatingMode, FuelControlMode, FuelCorrectionStatus, MixtureMode, TrackingQuality)
-from ui.automotive.vehicle_configuration import (VehicleConfiguration)
 from controllers.automotive.vehicle_state import VehicleState
+from ui.automotive.engine_analysis import (
+    EngineAnalysis,
+    EngineLoadLevel,
+    EngineOperatingMode,
+    FuelControlMode,
+    FuelCorrectionStatus,
+    MixtureMode,
+    TrackingQuality,
+)
+from ui.automotive.vehicle_configuration import VehicleConfiguration
 
 
 class EngineAnalyzer:
@@ -80,9 +88,9 @@ class EngineAnalyzer:
         ratio, reference = state.actual_engine_torque_ratio, state.reference_engine_torque_nm
         if ratio is None or reference is None or reference <= 0:
             return None, None
-        torque = ratio*reference
+        torque = ratio * reference
         rpm = state.engine_speed_rad_s
-        return torque, None if rpm is None else torque*rpm
+        return torque, None if rpm is None else torque * rpm
 
     @classmethod
     def _engine_running(cls, state: VehicleState) -> bool | None:
@@ -144,9 +152,8 @@ class EngineAnalyzer:
         ):
             return EngineOperatingMode.IDLE
 
-        if (
-            (pedal is not None and pedal >= cls._ACCELERATOR_THRESHOLD)
-            or (throttle is not None and throttle >= cls._THROTTLE_THRESHOLD)
+        if (pedal is not None and pedal >= cls._ACCELERATOR_THRESHOLD) or (
+            throttle is not None and throttle >= cls._THROTTLE_THRESHOLD
         ):
             return EngineOperatingMode.ACCELERATION
 

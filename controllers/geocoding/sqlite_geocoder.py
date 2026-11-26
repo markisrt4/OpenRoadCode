@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 """Offline geocoder backed by the OpenRoadCode search database."""
+
 from __future__ import annotations
 
 import re
@@ -9,7 +10,6 @@ import sqlite3
 from pathlib import Path
 
 from controllers.navigation.geocoding import GeocodedLocation
-
 
 _ADDRESS_RE = re.compile(
     r"^\s*(?P<number>\S+)\s+(?P<street>[^,]+?)"

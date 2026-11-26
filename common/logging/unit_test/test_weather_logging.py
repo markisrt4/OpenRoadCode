@@ -2,15 +2,15 @@
 # SPDX-License-Identifier: MIT
 """Weather correlation, quiet refreshes, invalidation, and privacy without sockets."""
 
-from datetime import datetime, timezone
-from io import BytesIO
 import json
 import logging
+from datetime import datetime, timezone
+from io import BytesIO
 from time import monotonic
 from unittest.mock import Mock, patch
 
-from PIL import Image
 import pytest
+from PIL import Image
 
 from common.logging.structured import JsonFormatter, validate_event
 from controllers.route_planning.route_planning_types import GeoPoint, RouteResult
@@ -26,7 +26,12 @@ from controllers.weather.route_weather_overlay_controller import RouteWeatherOve
 from controllers.weather.weather_controller import WeatherController
 from controllers.weather.weather_radar_controller import WeatherRadarController
 from controllers.weather.weather_screen_controller import WeatherScreenController
-from controllers.weather.weather_state import CurrentWeather, WeatherLocation, WeatherSource, WeatherState
+from controllers.weather.weather_state import (
+    CurrentWeather,
+    WeatherLocation,
+    WeatherSource,
+    WeatherState,
+)
 from ui.weather.radar_ui_stub import RadarUiStub
 from ui.weather.weather_overlay_ui_stub import WeatherOverlayUiStub
 
@@ -34,32 +39,73 @@ PRIVATE = "private-location https://private.test/?token=private /private/cache 4
 
 
 def records(caplog, component=None):
-    result = [json.loads(JsonFormatter().format(r)) for r in caplog.records
-              if r.name.startswith("weather.") and (component is None or r.name == component)]
-    allowed = {"timestamp", "level", "component", "event", "message", "pid", "operation_id",
-               "stage", "reason", "exception_type", "item_count", "frame_count", "byte_count",
-               "frame_index", "enabled", "visible", "playing", "kind", "palette", "forecast"}
+    result = [
+        json.loads(JsonFormatter().format(r))
+        for r in caplog.records
+        if r.name.startswith("weather.") and (component is None or r.name == component)
+    ]
+    allowed = {
+        "timestamp",
+        "level",
+        "component",
+        "event",
+        "message",
+        "pid",
+        "operation_id",
+        "stage",
+        "reason",
+        "exception_type",
+        "item_count",
+        "frame_count",
+        "byte_count",
+        "frame_index",
+        "enabled",
+        "visible",
+        "playing",
+        "kind",
+        "palette",
+        "forecast",
+    }
     for record in result:
         validate_event(record)
         assert set(record) <= allowed
     text = json.dumps(result)
-    for private in ("private", "42.8028", "-83.0127", "latitude", "longitude", "tile_url",
-                    "temperature_k", "error_message", "stack_trace"):
+    for private in (
+        "private",
+        "42.8028",
+        "-83.0127",
+        "latitude",
+        "longitude",
+        "tile_url",
+        "temperature_k",
+        "error_message",
+        "stack_trace",
+    ):
         assert private not in text
     return result
 
 
 def state():
-    return WeatherState(42.8028, -83.0127, "private-location", "private-location",
-                        WeatherSource("private-provider", "private-provider"), 100, CurrentWeather())
+    return WeatherState(
+        42.8028,
+        -83.0127,
+        "private-location",
+        "private-location",
+        WeatherSource("private-provider", "private-provider"),
+        100,
+        CurrentWeather(),
+    )
 
 
 def forecast_controller():
     provider = Mock()
     provider.provider_id = "private-provider"
     provider.refresh.return_value = state()
-    controller = WeatherController(provider, fallback_location=WeatherLocation(42.8028, -83.0127, PRIVATE, PRIVATE),
-                                   clock=lambda: 1000)
+    controller = WeatherController(
+        provider,
+        fallback_location=WeatherLocation(42.8028, -83.0127, PRIVATE, PRIVATE),
+        clock=lambda: 1000,
+    )
     return controller, provider
 
 
@@ -99,7 +145,11 @@ def test_location_failure_and_recovery_do_not_record_gps_details(caplog):
     caplog.set_level(logging.INFO)
     controller, _ = forecast_controller()
     location = Mock()
-    location.get_location.side_effect = [OSError(PRIVATE), OSError(PRIVATE), WeatherLocation(42.8028, -83.0127, PRIVATE, PRIVATE)]
+    location.get_location.side_effect = [
+        OSError(PRIVATE),
+        OSError(PRIVATE),
+        WeatherLocation(42.8028, -83.0127, PRIVATE, PRIVATE),
+    ]
     controller._location_provider = location
     for _ in range(3):
         controller.refresh()
@@ -144,7 +194,11 @@ def overlay(kind):
     else:
         route = RouteResult(1000, 300, (GeoPoint(42.8028, -83.0127), GeoPoint(43, -83)), ())
         handler = Mock(active_route=route)
-        provider.forecast.return_value = (RouteWeather(RouteCheckpoint(route.shape[0], datetime.now(timezone.utc), 0), 1, 2, 3, PRIVATE),)
+        provider.forecast.return_value = (
+            RouteWeather(
+                RouteCheckpoint(route.shape[0], datetime.now(timezone.utc), 0), 1, 2, 3, PRIVATE
+            ),
+        )
         controller = RouteWeatherOverlayController(host, handler, Mock(), provider, ui)
         controller._enabled = True
         call = provider.forecast
@@ -163,7 +217,10 @@ def test_radar_provider_discovery_failure_and_recovery_exclude_urls(caplog):
             backend.load_frames()
     assert backend.load_frames() == frames
     emitted = records(caplog)
-    assert [r["event"] for r in emitted if r["level"] != "DEBUG"] == ["weather.failed", "weather.recovered"]
+    assert [r["event"] for r in emitted if r["level"] != "DEBUG"] == [
+        "weather.failed",
+        "weather.recovered",
+    ]
     assert emitted[-1]["frame_count"] == 2
     assert emitted[-1]["operation_id"] == emitted[-2]["operation_id"]
 
@@ -336,7 +393,10 @@ def test_tile_download_cache_corruption_failure_and_recovery_are_private(caplog,
     data = png()
     response = Mock(content=data)
     session.get.side_effect = [OSError(PRIVATE), OSError(PRIVATE), response, response]
-    with patch("controllers.weather.radar_tile_service.ThreadingHTTPServer"), patch("controllers.weather.radar_tile_service.Thread"):
+    with (
+        patch("controllers.weather.radar_tile_service.ThreadingHTTPServer"),
+        patch("controllers.weather.radar_tile_service.Thread"),
+    ):
         service = RadarTileService(cache_root=tmp_path / "private", session=session)
     path = tmp_path / "private" / "42.8028" / "-83.0127.png"
     for _ in range(2):
@@ -351,12 +411,17 @@ def test_tile_download_cache_corruption_failure_and_recovery_are_private(caplog,
     transitions = [r for r in emitted if r["event"] in {"weather.failed", "weather.recovered"}]
     assert [r["event"] for r in transitions] == ["weather.failed", "weather.recovered"]
     assert session.get.call_count == 4
-    assert {"tiles.cache_hit", "tiles.cache_invalid", "tiles.cache_miss"} <= {r["event"] for r in emitted}
+    assert {"tiles.cache_hit", "tiles.cache_invalid", "tiles.cache_miss"} <= {
+        r["event"] for r in emitted
+    }
 
 
 def test_http_tile_handler_correlates_processing_failure_and_recovery(caplog, tmp_path):
     caplog.set_level(logging.DEBUG)
-    with patch("controllers.weather.radar_tile_service.ThreadingHTTPServer") as server, patch("controllers.weather.radar_tile_service.Thread"):
+    with (
+        patch("controllers.weather.radar_tile_service.ThreadingHTTPServer") as server,
+        patch("controllers.weather.radar_tile_service.Thread"),
+    ):
         service = RadarTileService(cache_root=tmp_path, session=Mock())
     handler = object.__new__(server.call_args.args[1])
     handler.path = "/radar/private-location/universal/7/34/47.png?token=private"

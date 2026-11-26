@@ -6,7 +6,6 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Protocol, TypeAlias, runtime_checkable
 
-
 StatusCallback: TypeAlias = Callable[[str], None] | None
 
 

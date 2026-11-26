@@ -4,17 +4,15 @@
 """Launch and own the native MapLibre renderer for an embedded UI host."""
 
 from __future__ import annotations
-
+import logging
 import os
 import shlex
 import subprocess
-import logging
 import threading
-from common.logging.structured import JsonStore, collect_native_output, event
 from pathlib import Path
-
 from apps.launchers.process_manager import find_matching_processes, terminate_process
 from ui.navigation.map_runtime_if import MapRuntimeState
+from common.logging.structured import JsonStore, collect_native_output, event
 
 _MAP_RENDERER_PROCESS_PATTERN = r"(^|/)openroadcode-map-renderer([[:space:]]|$)"
 

@@ -3,6 +3,7 @@
 """Backend capabilities consumed by streaming-browser orchestration."""
 
 from typing import Protocol
+
 from ui.radio.streaming_radio_state_source_if import StreamingRadioStateSourceIf
 from ui.radio.streaming_radio_types import StreamingRadioStation
 

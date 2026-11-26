@@ -10,7 +10,6 @@ from dataclasses import dataclass
 
 from messaging.contracts.automotive import VehicleStateData
 
-
 RPM_PER_RAD_S = 60.0 / (2.0 * math.pi)
 MPH_PER_MPS = 2.2369362920544
 PSI_PER_PA = 0.00014503773773020923
@@ -58,9 +57,7 @@ class VehiclePresenter:
 
         return VehiclePresentationState(
             speed_mph=(
-                None
-                if state.vehicle_speed_m_s is None
-                else state.vehicle_speed_m_s * MPH_PER_MPS
+                None if state.vehicle_speed_m_s is None else state.vehicle_speed_m_s * MPH_PER_MPS
             ),
             engine_speed_rpm=(
                 None
@@ -68,9 +65,7 @@ class VehiclePresenter:
                 else state.engine_speed_rad_s * RPM_PER_RAD_S
             ),
             boost_psi=(
-                None
-                if state.boost_pressure_pa is None
-                else state.boost_pressure_pa * PSI_PER_PA
+                None if state.boost_pressure_pa is None else state.boost_pressure_pa * PSI_PER_PA
             ),
             coolant_temperature_f=(
                 None
@@ -95,22 +90,16 @@ class VehiclePresenter:
             commanded_equivalence_ratio=state.commanded_equivalence_ratio,
             measured_equivalence_ratio=state.measured_equivalence_ratio,
             throttle_percent=(
-                None
-                if state.throttle_position is None
-                else state.throttle_position * 100.0
+                None if state.throttle_position is None else state.throttle_position * 100.0
             ),
             commanded_throttle_percent=(
                 None
                 if state.commanded_throttle_position is None
                 else state.commanded_throttle_position * 100.0
             ),
-            engine_load_percent=(
-                None if state.engine_load is None else state.engine_load * 100.0
-            ),
+            engine_load_percent=(None if state.engine_load is None else state.engine_load * 100.0),
             absolute_engine_load_percent=(
-                None
-                if state.absolute_engine_load is None
-                else state.absolute_engine_load * 100.0
+                None if state.absolute_engine_load is None else state.absolute_engine_load * 100.0
             ),
             short_term_fuel_trim_percent=(
                 None
@@ -129,9 +118,7 @@ class VehiclePresenter:
                 else state.fuel_rail_pressure_pa / 1000.0
             ),
             fuel_system_status_1=state.fuel_system_status_1,
-            fuel_percent=(
-                None if state.fuel_level is None else state.fuel_level * 100.0
-            ),
+            fuel_percent=(None if state.fuel_level is None else state.fuel_level * 100.0),
             control_voltage_v=state.control_voltage_v,
             gear=gear,
         )

@@ -100,9 +100,7 @@ class WaydroidLauncher:
 
     def _run(self, *arguments: str) -> subprocess.CompletedProcess[str]:
         if shutil.which(self._executable) is None:
-            raise WaydroidLauncherError(
-                f"Waydroid executable not found: {self._executable}"
-            )
+            raise WaydroidLauncherError(f"Waydroid executable not found: {self._executable}")
 
         try:
             result = subprocess.run(
@@ -116,7 +114,5 @@ class WaydroidLauncher:
             raise WaydroidLauncherError(f"Waydroid request failed: {exc}") from exc
         if result.returncode != 0:
             detail = result.stderr.strip() or result.stdout.strip() or "unknown error"
-            raise WaydroidLauncherError(
-                f"Waydroid command failed ({result.returncode}): {detail}"
-            )
+            raise WaydroidLauncherError(f"Waydroid command failed ({result.returncode}): {detail}")
         return result

@@ -8,10 +8,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from pathlib import Path
-import sys
 import subprocess
+import sys
 import time
+from pathlib import Path
 
 from .map_3d import PRESETS
 from .build import CENSUS_PRIMARY_ROADS_URL, CENSUS_PRIMARY_ROADS_VINTAGE, OUTPUT_ROOT, _write_manifest, build_regions
@@ -20,7 +20,9 @@ from .selection import load_region_ids, save_region_ids
 from .tui import select_regions
 from .validate import ValidationError, validate_output
 
-INDEX_PATH = Path(os.environ.get("OPENROAD_GEOFABRIK_INDEX", "/cache/geofabrik-index-v1-nogeom.json"))
+INDEX_PATH = Path(
+    os.environ.get("OPENROAD_GEOFABRIK_INDEX", "/cache/geofabrik-index-v1-nogeom.json")
+)
 SELECTION_PATH = Path(os.environ.get("OPENROAD_SELECTION_PATH", "/cache/selected-regions.json"))
 
 
@@ -130,7 +132,9 @@ def run_build(selected, *, clean: bool, service_smoke: bool) -> tuple[dict, floa
     return result, time.monotonic() - started
 
 
-def build_or_reuse(selected, *, clean: bool, service_smoke: bool, force: bool) -> tuple[dict, float, bool]:
+def build_or_reuse(
+    selected, *, clean: bool, service_smoke: bool, force: bool
+) -> tuple[dict, float, bool]:
     if not force:
         result = reusable_build_for_regions(
             selected,
@@ -148,15 +152,25 @@ def build_or_reuse(selected, *, clean: bool, service_smoke: bool, force: bool) -
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build offline OpenRoadCode map and Valhalla data")
-    parser.add_argument("--refresh-index", action="store_true", help="refresh Geofabrik's region catalog")
+    parser.add_argument(
+        "--refresh-index", action="store_true", help="refresh Geofabrik's region catalog"
+    )
     sub = parser.add_subparsers(dest="command")
     tui = sub.add_parser("tui", help="interactive multi-region selector")
-    tui.add_argument("--force", action="store_true", help="rebuild even when matching validated output exists")
+    tui.add_argument(
+        "--force", action="store_true", help="rebuild even when matching validated output exists"
+    )
     build = sub.add_parser("build", help="build one or more region IDs")
     build.add_argument("--regions", required=True, help="comma-separated Geofabrik IDs")
-    build.add_argument("--no-clean", action="store_true", help="do not clean prior generated output")
-    build.add_argument("--no-service-smoke", action="store_true", help="skip Valhalla /status smoke test")
-    build.add_argument("--force", action="store_true", help="rebuild even when matching validated output exists")
+    build.add_argument(
+        "--no-clean", action="store_true", help="do not clean prior generated output"
+    )
+    build.add_argument(
+        "--no-service-smoke", action="store_true", help="skip Valhalla /status smoke test"
+    )
+    build.add_argument(
+        "--force", action="store_true", help="rebuild even when matching validated output exists"
+    )
     validate = sub.add_parser("validate", help="validate existing generated output")
     validate.add_argument("--service-smoke", action="store_true")
     validate.add_argument("--json", action="store_true", help="also print raw validation JSON")
@@ -164,17 +178,29 @@ def parse_args() -> argparse.Namespace:
         "--regions",
         help="comma-separated Geofabrik IDs describing the validated output",
     )
-    validate.add_argument("--installed-regions", action="store_true",
-                          help="recover region IDs from installed source PBF filenames")
+    validate.add_argument(
+        "--installed-regions",
+        action="store_true",
+        help="recover region IDs from installed source PBF filenames",
+    )
     validate.add_argument(
         "--write-manifest",
         action="store_true",
         help="write a fresh manifest after successful validation; requires --regions or --installed-regions",
     )
-    map3d = sub.add_parser("3d", help="build optional 3D buildings from installed navigation sources")
+    map3d = sub.add_parser(
+        "3d", help="build optional 3D buildings from installed navigation sources"
+    )
     map3d.add_argument("--coverage", choices=tuple(PRESETS))
-    map3d.add_argument("--layer", choices=("buildings","terrain"), default="buildings", help="optional offline layer to build")
-    map3d.add_argument("--yes", action="store_true", help="confirm non-interactive 3D build; requires --coverage")
+    map3d.add_argument(
+        "--layer",
+        choices=("buildings", "terrain"),
+        default="buildings",
+        help="optional offline layer to build",
+    )
+    map3d.add_argument(
+        "--yes", action="store_true", help="confirm non-interactive 3D build; requires --coverage"
+    )
     sub.add_parser("list", help="list selectable Geofabrik region IDs")
     return parser.parse_args()
 
@@ -186,9 +212,10 @@ def main() -> int:
         if command == "3d":
             from .map_3d import PRESETS, build_pack
             from .map_3d_menu import choose_coverage
+
             if args.yes and not args.coverage:
                 raise ValueError("--yes requires --coverage")
-            coverage = args.coverage or choose_coverage(layer=getattr(args, 'layer', 'buildings'))
+            coverage = args.coverage or choose_coverage(layer=getattr(args, "layer", "buildings"))
             if coverage is None:
                 print("Cancelled")
                 return 0
@@ -196,14 +223,20 @@ def main() -> int:
             previous_bytes = previous_path.read_bytes()
             previous = json.loads(previous_bytes)
             if previous.get("schema") != 2:
-                raise ValueError("Build a validated schema-2 navigation dataset before adding 3D packs")
+                raise ValueError(
+                    "Build a validated schema-2 navigation dataset before adding 3D packs"
+                )
             baseline = validate_output(OUTPUT_ROOT, service_smoke=False)
-            layer = getattr(args, 'layer', 'buildings')
-            pack_id = coverage if layer == 'buildings' else coverage+'-terrain'
+            layer = getattr(args, "layer", "buildings")
+            pack_id = coverage if layer == "buildings" else coverage + "-terrain"
             print(f"Coverage: {PRESETS[coverage][0]} · {PRESETS[coverage][1]}")
-            if layer == 'terrain':
-                print("Layer: terrain. Downloads 65×65 USGS 3DEP samples; Internet required on the build host.")
-                print("Relative relief in metres; source datum is preserved. Terrain payload capped at 2 MiB.")
+            if layer == "terrain":
+                print(
+                    "Layer: terrain. Downloads 65×65 USGS 3DEP samples; Internet required on the build host."
+                )
+                print(
+                    "Relative relief in metres; source datum is preserved. Terrain payload capped at 2 MiB."
+                )
             else:
                 print("Layer: buildings. Uses existing OSM sources; no download. Output size is known after extraction.")
                 tiles = 1024 if coverage == "metro-detroit" else 8
@@ -211,19 +244,23 @@ def main() -> int:
             if not args.yes and input("Build this optional pack now? [y/N] ").strip().lower() != 'y':
                 print("Cancelled")
                 return 0
-            existing = OUTPUT_ROOT/'maps/3d/packs'/pack_id
+            existing = OUTPUT_ROOT / "maps/3d/packs" / pack_id
             if existing.exists():
                 from .map_3d import validate_pack
+
                 record = validate_pack(existing)
-                if (previous.get('map_3d') or {}).get(pack_id) != record:
-                    raise ValueError('Existing 3D pack is not certified by the dataset manifest; validate it before publishing')
+                if (previous.get("map_3d") or {}).get(pack_id) != record:
+                    raise ValueError(
+                        "Existing 3D pack is not certified by the dataset manifest; validate it before publishing"
+                    )
                 print(f"Reusing certified {layer} pack: {format_size(record['bytes'])}")
                 return 0
             # A complete dataset must not retain a valid old certificate while being changed.
             previous_path.unlink()
             try:
-                if layer == 'terrain':
+                if layer == "terrain":
                     from .terrain import download
+
                     download(existing, coverage)
                     destination = existing
                 else:
@@ -232,18 +269,27 @@ def main() -> int:
             except BaseException:
                 # Extraction only touches temporary files. Restore the certificate
                 # only after proving that the original dataset is unchanged.
-                if not existing.exists() and validate_output(OUTPUT_ROOT, service_smoke=False) == baseline:
+                if (
+                    not existing.exists()
+                    and validate_output(OUTPUT_ROOT, service_smoke=False) == baseline
+                ):
                     previous_path.write_bytes(previous_bytes)
                 raise
             # Preserve region/search metadata while certifying all new artifacts.
-            previous['validation'] = result
-            previous['map_3d'] = result['map_3d']
-            previous['deployable_bytes'] = sum(p.stat().st_size for p in OUTPUT_ROOT.rglob('*') if p.is_file() and p.name != 'build-manifest.json')
-            previous['generated_unix'] = max(int(time.time()),previous.get('generated_unix',0)+1)
-            temporary = previous_path.with_suffix('.tmp')
-            temporary.write_text(json.dumps(previous,indent=2))
+            previous["validation"] = result
+            previous["map_3d"] = result["map_3d"]
+            previous["deployable_bytes"] = sum(
+                p.stat().st_size
+                for p in OUTPUT_ROOT.rglob("*")
+                if p.is_file() and p.name != "build-manifest.json"
+            )
+            previous["generated_unix"] = max(
+                int(time.time()), previous.get("generated_unix", 0) + 1
+            )
+            temporary = previous_path.with_suffix(".tmp")
+            temporary.write_text(json.dumps(previous, indent=2))
             temporary.replace(previous_path)
-            record = result['map_3d'][pack_id]
+            record = result["map_3d"][pack_id]
             print(f"3D {layer} pack built: {format_size(record['bytes'])} at {destination}")
             print("Publish and pull using the existing navigation deployment tools.")
             return 0
@@ -251,8 +297,10 @@ def main() -> int:
             if args.installed_regions:
                 if args.regions:
                     raise ValueError("Choose --regions or --installed-regions, not both")
-                args.regions = ','.join(p.name.removesuffix('.osm.pbf').replace('__','/')
-                    for p in sorted((OUTPUT_ROOT/'maps/source').glob('*.osm.pbf')))
+                args.regions = ",".join(
+                    p.name.removesuffix(".osm.pbf").replace("__", "/")
+                    for p in sorted((OUTPUT_ROOT / "maps/source").glob("*.osm.pbf"))
+                )
             if args.write_manifest and not args.regions:
                 raise ValueError("--write-manifest requires --regions")
             result = validate_output(OUTPUT_ROOT, service_smoke=args.service_smoke)
@@ -293,7 +341,9 @@ def main() -> int:
                 print(f"{region.id}\t{region.name}")
             return 0
         if command == "build":
-            selected = resolve_region_ids(regions, [x.strip() for x in args.regions.split(",") if x.strip()])
+            selected = resolve_region_ids(
+                regions, [x.strip() for x in args.regions.split(",") if x.strip()]
+            )
             result, elapsed, reused = build_or_reuse(
                 selected,
                 clean=not args.no_clean,

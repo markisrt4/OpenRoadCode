@@ -1,9 +1,7 @@
 name: ORC branch lifecycle audit
 on:
-  push:
-    branches: ['**']
   pull_request:
-    types: [opened, reopened, synchronize, closed]
+    types: [closed]
   schedule:
     - cron: '17 13 * * 1'
   workflow_dispatch:
@@ -13,7 +11,6 @@ permissions:
   pull-requests: read
 jobs:
   audit:
-    if: github.event_name != 'push' || github.event.created == true
     runs-on: ubuntu-latest
     steps:
       - name: Audit branch lifecycle

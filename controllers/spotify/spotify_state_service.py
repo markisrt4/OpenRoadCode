@@ -5,16 +5,14 @@
 
 from __future__ import annotations
 
-import queue
 import logging
+import queue
 import threading
 import time
 from collections.abc import Callable
 
 from common.logging.structured import current_operation, event, operation
-
 from controllers.spotify.spotify_controller_if import SpotifyControllerIf
-from ui.media.spotify_library import (SpotifyLibraryTrack, SpotifyPlaylist)
 from controllers.spotify.spotify_media_presenter import SpotifyMediaPresenter
 from controllers.spotify.spotify_state import SpotifyState
 from protocols.spotify.spotify_web_api_client import SpotifyWebApiError
@@ -26,6 +24,7 @@ from ui.media import (
     TrackRequestHandlerIf,
     VolumeRequestHandlerIf,
 )
+from ui.media.spotify_library import SpotifyLibraryTrack, SpotifyPlaylist
 
 LOGGER = logging.getLogger("media.spotify")
 LIBRARY_LOGGER = logging.getLogger("media.library")
@@ -122,6 +121,15 @@ class _SynchronizedSpotifyController(SpotifyControllerIf):
                 raise RuntimeError("Spotify unavailable in offline mode")
             return self._backend.playlist_tracks(playlist_id, limit=limit)
 
+    def search_track(self, artist: str, title: str) -> str | None:
+        with self._lock:
+            if not self.network_allowed():
+                raise RuntimeError("Spotify unavailable in offline mode")
+            lookup = getattr(self._backend, "search_track", None)
+            if lookup is None:
+                raise RuntimeError("Spotify search unavailable")
+            return lookup(artist, title)
+
     def play_track(self, track_uri: str) -> None:
         with self._lock:
             if not self.network_allowed():
@@ -149,12 +157,12 @@ class SpotifyStateService(
         fallback_volume_handler: VolumeRequestHandlerIf | None = None,
     ) -> None:
         if refresh_seconds < self.MIN_REFRESH_SECONDS:
-            raise ValueError(
-                f"refresh_seconds must be at least {self.MIN_REFRESH_SECONDS} seconds"
-            )
+            raise ValueError(f"refresh_seconds must be at least {self.MIN_REFRESH_SECONDS} seconds")
         self._network_allowed: Callable[[], bool] = lambda: True
         self._controller = _SynchronizedSpotifyController(controller)
-        self._presenter = SpotifyMediaPresenter(self._controller, MediaUiStub(), fallback_volume_handler)
+        self._presenter = SpotifyMediaPresenter(
+            self._controller, MediaUiStub(), fallback_volume_handler
+        )
         self._refresh_seconds = refresh_seconds
         self._state = MediaState()
         self._state_lock = threading.Lock()
@@ -254,6 +262,38 @@ class SpotifyStateService(
 
     def request_transfer_playback(self, device_id: str, *, play: bool = True) -> None:
         self._enqueue(lambda: self._controller.transfer_playback(device_id, play=play), "transfer")
+
+    def request_play_song(
+        self, artist: str, title: str, report: Callable[[str], None] = lambda _message: None
+    ) -> None:
+        """Resolve and play on the Spotify worker; never block the Tk thread."""
+
+        def work() -> None:
+            try:
+                uri = self._controller.search_track(artist, title)
+                if uri is None:
+                    report(
+                        f"No matching Spotify recording for {artist} - {title}; check Spotify search candidates in logs"
+                    )
+                    return
+                device = self._controller.select_playback_device()
+                device_id = device["id"]
+                device_name = str(device.get("name") or "Spotify device")
+                report(f"Requesting {artist} - {title} on {device_name}")
+                self._controller.play_track(uri, device_id=device_id)
+                report(f"Spotify accepted playback request on {device_name}: {artist} - {title}")
+                self.request_refresh()
+            except SpotifyWebApiError as exc:
+                if exc.status_code == 404 and "NO_ACTIVE_DEVICE" in exc.response_body:
+                    report(
+                        "No active Spotify device. Start Spotify on a phone or select ORC PLAYER, then retry."
+                    )
+                else:
+                    report(f"Spotify HTTP {exc.status_code}: {exc.response_body}")
+            except Exception as exc:
+                report(f"Spotify playback unavailable: {exc}")
+
+        self._enqueue(work, "play_song")
 
     def request_play_track(self, track_uri: str) -> None:
         self._enqueue(lambda: self._controller.play_track(track_uri), "play_track")

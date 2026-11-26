@@ -17,9 +17,7 @@ from services.termux.service_manager import RunitServiceManager
 class ServiceManagerRuntimeTest(unittest.TestCase):
     def test_termux_version_selects_termux(self) -> None:
         self.assertEqual(
-            detect_service_manager_runtime(
-                {"TERMUX_VERSION": "0.118"}, platform="linux"
-            ),
+            detect_service_manager_runtime({"TERMUX_VERSION": "0.118"}, platform="linux"),
             "termux",
         )
 
@@ -44,9 +42,7 @@ class ServiceManagerRuntimeTest(unittest.TestCase):
 
     @patch("services.termux.service_manager.RunitServiceManager")
     def test_factory_constructs_runit_manager_on_termux(self, manager) -> None:
-        created = create_service_manager(
-            {"TERMUX_VERSION": "0.118"}, platform="linux"
-        )
+        created = create_service_manager({"TERMUX_VERSION": "0.118"}, platform="linux")
         self.assertIs(created, manager.return_value)
 
     @patch("services.linux.systemd_service_manager.SystemdServiceManager")

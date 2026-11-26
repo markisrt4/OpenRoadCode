@@ -23,8 +23,10 @@ class HostLocationPermission:
     @property
     def available(self) -> bool:
         """Termux obtains location through its Android bridge, not this page."""
-        return not (os.environ.get("TERMUX_VERSION")
-                    or os.environ.get("PREFIX", "").startswith("/data/data/com.termux/"))
+        return not (
+            os.environ.get("TERMUX_VERSION")
+            or os.environ.get("PREFIX", "").startswith("/data/data/com.termux/")
+        )
 
     def __init__(self, port: int | None = None, *, recover: Callable[[], None] | None = None) -> None:
         port = port if port is not None else int(os.environ.get("OPENROADCODE_BROWSER_POSITION_PORT", "8765"))

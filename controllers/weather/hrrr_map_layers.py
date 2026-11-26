@@ -3,25 +3,37 @@
 
 """Discover and color full-area HRRR temperature and wind-speed fields."""
 
+import math
 from datetime import datetime, timezone
 from io import BytesIO
-import math
+from itertools import pairwise
 from time import time
 from urllib.parse import quote
 
-from PIL import Image
 import requests
+from PIL import Image
 
 from controllers.weather.hrrr_tiles import check_gdal_tools
 from controllers.weather.providers.hrrr_radar_provider import HrrrRadarProvider
 from controllers.weather.radar_provider_if import RadarFrame
 
-
-TEMPERATURE_COLORS = ((-30, (98, 61, 166)), (-10, (47, 102, 190)), (0, (71, 187, 226)),
-                      (10, (87, 194, 128)), (20, (242, 219, 82)), (30, (243, 140, 53)),
-                      (40, (205, 58, 67)))
-WIND_COLORS = ((0, (62, 151, 187)), (5, (94, 194, 146)), (10, (241, 221, 89)),
-               (15, (244, 145, 64)), (25, (209, 62, 98)), (40, (146, 76, 192)))
+TEMPERATURE_COLORS = (
+    (-30, (98, 61, 166)),
+    (-10, (47, 102, 190)),
+    (0, (71, 187, 226)),
+    (10, (87, 194, 128)),
+    (20, (242, 219, 82)),
+    (30, (243, 140, 53)),
+    (40, (205, 58, 67)),
+)
+WIND_COLORS = (
+    (0, (62, 151, 187)),
+    (5, (94, 194, 146)),
+    (10, (241, 221, 89)),
+    (15, (244, 145, 64)),
+    (25, (209, 62, 98)),
+    (40, (146, 76, 192)),
+)
 
 
 def field_range(index, run, element, level):
@@ -34,10 +46,13 @@ def field_range(index, run, element, level):
                 records.append((int(parts[1]), parts))
             except ValueError:
                 continue
-    if any(offset < 0 for offset, _ in records) or any(a[0] >= b[0] for a, b in zip(records, records[1:])):
+    if any(offset < 0 for offset, _ in records) or any(a[0] >= b[0] for a, b in pairwise(records)):
         raise ValueError("HRRR index contains invalid byte offsets")
-    matches = [i for i, (_, parts) in enumerate(records)
-               if parts[2] == f"d={run}" and parts[3] == element and parts[4] == level]
+    matches = [
+        i
+        for i, (_, parts) in enumerate(records)
+        if parts[2] == f"d={run}" and parts[3] == element and parts[4] == level
+    ]
     if len(matches) != 1:
         raise ValueError(f"HRRR index does not identify one {element} {level} field")
     i = matches[0]
@@ -76,10 +91,12 @@ class HrrrMapLayerProvider:
             finally:
                 response.close()
 
-            def template(element, level):
+            def template(element, level, index=index, run=run, lead=lead, url=url):
                 start, end = field_range(index, run, element, level)
-                return (f"orc-hrrr-layer://{run}/f{lead:02d}/{{z}}/{{x}}/{{y}}.tiff"
-                        f"?url={quote(url, safe='')}&start={start}&end={'' if end is None else end}&element={element}")
+                return (
+                    f"orc-hrrr-layer://{run}/f{lead:02d}/{{z}}/{{x}}/{{y}}.tiff"
+                    f"?url={quote(url, safe='')}&start={start}&end={'' if end is None else end}&element={element}"
+                )
 
             if kind == "temperature":
                 field = template("TMP", "2 m above ground")
@@ -107,22 +124,29 @@ def color_model_layer(data, kind, secondary=None):
         if secondary is None:
             raise ValueError("Wind speed needs both vector components")
         north = pixels(secondary)
-        values = [math.hypot(u, v) if math.isfinite(u) and math.isfinite(v) and abs(u) <= 200 and abs(v) <= 200
-                  else float("nan") for u, v in zip(values, north)]
+        values = [
+            math.hypot(u, v)
+            if math.isfinite(u) and math.isfinite(v) and abs(u) <= 200 and abs(v) <= 200
+            else float("nan")
+            for u, v in zip(values, north, strict=True)
+        ]
     table = TEMPERATURE_COLORS if kind == "temperature" else WIND_COLORS
     colors = []
     for value in values:
-        valid = math.isfinite(value) and (-100 <= value <= 70 if kind == "temperature" else 0 <= value <= 200)
+        valid = math.isfinite(value) and (
+            -100 <= value <= 70 if kind == "temperature" else 0 <= value <= 200
+        )
         if not valid:
             colors.append((0, 0, 0, 0))
             continue
         lower, upper = table[0], table[-1]
-        for a, b in zip(table, table[1:]):
+        for a, b in pairwise(table):
             if value <= b[0]:
                 lower, upper = a, b
                 break
         fraction = max(0, min(1, (value - lower[0]) / (upper[0] - lower[0])))
-        colors.append((*[round(a + fraction * (b - a)) for a, b in zip(lower[1], upper[1])], 255))
+        rgb = [round(a + fraction * (b - a)) for a, b in zip(lower[1], upper[1], strict=True)]
+        colors.append((*rgb, 255))
     image = Image.new("RGBA", (256, 256))
     image.putdata(colors)
     output = BytesIO()

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 """ACRCloud implementation of SongRecognitionIf."""
+
 from __future__ import annotations
 
 import base64
@@ -38,13 +39,17 @@ class AcrCloudSongRecognizer(SongRecognitionIf):
     def provider_name(self) -> str | None:
         return "ACRCloud" if self.is_configured else None
 
-    def recognize(self, audio: bytes, *, sample_bytes: int | None = None) -> SongRecognitionResult | None:
+    def recognize(
+        self, audio: bytes, *, sample_bytes: int | None = None
+    ) -> SongRecognitionResult | None:
         if not audio:
             return None
         timestamp = str(int(time.time()))
         uri = "/v1/identify"
         string_to_sign = "\n".join(("POST", uri, self._config.access_key, "audio", "1", timestamp))
-        digest = hmac.new(self._config.access_secret.encode(), string_to_sign.encode(), hashlib.sha1).digest()
+        digest = hmac.new(
+            self._config.access_secret.encode(), string_to_sign.encode(), hashlib.sha1
+        ).digest()
         signature = base64.b64encode(digest).decode("ascii")
         boundary = f"----OpenRoadCode{int(time.time() * 1000)}"
         fields = {
@@ -73,15 +78,21 @@ class AcrCloudSongRecognizer(SongRecognitionIf):
         if status.get("code") == 1001:
             return None
         if status.get("code") != 0:
-            raise RuntimeError(f"ACRCloud error {status.get('code')}: {status.get('msg', 'unknown error')}")
+            raise RuntimeError(
+                f"ACRCloud error {status.get('code')}: {status.get('msg', 'unknown error')}"
+            )
         matches = payload.get("metadata", {}).get("music", [])
         if not matches:
             return None
         match = matches[0]
-        artists = tuple(item.get("name", "") for item in match.get("artists", []) if item.get("name"))
+        artists = tuple(
+            item.get("name", "") for item in match.get("artists", []) if item.get("name")
+        )
         album = match.get("album") or {}
         external_ids = match.get("external_ids") or {}
-        spotify_track = (((match.get("external_metadata") or {}).get("spotify") or {}).get("track") or {})
+        spotify_track = ((match.get("external_metadata") or {}).get("spotify") or {}).get(
+            "track"
+        ) or {}
         spotify_track_id = spotify_track.get("id")
         return SongRecognitionResult(
             title=match.get("title", "Unknown title"),
@@ -102,18 +113,22 @@ class AcrCloudSongRecognizer(SongRecognitionIf):
     def _multipart(boundary: str, fields: dict[str, str], audio: bytes) -> bytes:
         chunks: list[bytes] = []
         for name, value in fields.items():
-            chunks.extend((
+            chunks.extend(
+                (
+                    f"--{boundary}\r\n".encode(),
+                    f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode(),
+                    value.encode(),
+                    b"\r\n",
+                )
+            )
+        chunks.extend(
+            (
                 f"--{boundary}\r\n".encode(),
-                f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode(),
-                value.encode(),
+                b'Content-Disposition: form-data; name="sample"; filename="sample.wav"\r\n',
+                b"Content-Type: audio/wav\r\n\r\n",
+                audio,
                 b"\r\n",
-            ))
-        chunks.extend((
-            f"--{boundary}\r\n".encode(),
-            b'Content-Disposition: form-data; name="sample"; filename="sample.wav"\r\n',
-            b"Content-Type: audio/wav\r\n\r\n",
-            audio,
-            b"\r\n",
-            f"--{boundary}--\r\n".encode(),
-        ))
+                f"--{boundary}--\r\n".encode(),
+            )
+        )
         return b"".join(chunks)

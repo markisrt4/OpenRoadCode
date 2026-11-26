@@ -14,10 +14,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-
-_TIMESTAMP = re.compile(
-    r"\[(?P<minutes>\d+):(?P<seconds>\d+(?:\.\d+)?)\]"
-)
+_TIMESTAMP = re.compile(r"\[(?P<minutes>\d+):(?P<seconds>\d+(?:\.\d+)?)\]")
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,18 +78,12 @@ class LrclibLyricsClient:
             "album_name": key[2],
             "duration": str(key[3]),
         }
-        payload = self._fetch_json(
-            f"{self.API_URL}?{urllib.parse.urlencode(parameters)}"
-        )
+        payload = self._fetch_json(f"{self.API_URL}?{urllib.parse.urlencode(parameters)}")
         result = LyricsResult(
-            synced_lines=self.parse_synced(
-                str(payload.get("syncedLyrics") or "")
-            ),
+            synced_lines=self.parse_synced(str(payload.get("syncedLyrics") or "")),
             plain_lines=tuple(
                 line.strip()
-                for line in str(
-                    payload.get("plainLyrics") or ""
-                ).splitlines()
+                for line in str(payload.get("plainLyrics") or "").splitlines()
                 if line.strip()
             ),
         )
@@ -116,13 +107,11 @@ class LrclibLyricsClient:
                 continue
             minutes = int(match.group("minutes"))
             seconds = float(match.group("seconds"))
-            text = raw_line[match.end():].strip()
+            text = raw_line[match.end() :].strip()
             if text:
                 lines.append(
                     LyricLine(
-                        time_ms=int(
-                            (minutes * 60 + seconds) * 1000
-                        ),
+                        time_ms=int((minutes * 60 + seconds) * 1000),
                         text=text,
                     )
                 )
@@ -139,15 +128,11 @@ class LrclibLyricsClient:
         )
         try:
             with urllib.request.urlopen(request, timeout=8) as response:
-                payload = json.loads(
-                    response.read().decode("utf-8")
-                )
+                payload = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as error:
             if error.code == 404:
                 return {}
-            raise RuntimeError(
-                f"LRCLIB request failed with HTTP {error.code}"
-            ) from error
+            raise RuntimeError(f"LRCLIB request failed with HTTP {error.code}") from error
         except (urllib.error.URLError, json.JSONDecodeError) as error:
             raise RuntimeError(f"Unable to retrieve lyrics: {error}") from error
         if not isinstance(payload, dict):

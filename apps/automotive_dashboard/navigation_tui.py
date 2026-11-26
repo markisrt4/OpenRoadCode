@@ -27,7 +27,6 @@ from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
 from services.navigation.endpoints import DEFAULT_NAVIGATION_COMMAND_ENDPOINT
 from ui.navigation.navigation_request_handler_if import NavigationRequestHandlerIf
 
-
 _fields = navigation_fields
 
 
@@ -65,10 +64,7 @@ def _run(
         snapshot = state_cache.snapshot()
         connected = snapshot.connected
         status = command_status or snapshot.status
-        controls = (
-            "q: quit   h: reset heading   c: calibrate   "
-            f"a: acceleration ({current_mode})"
-        )
+        controls = f"q: quit   h: reset heading   c: calibrate   a: acceleration ({current_mode})"
         view.render(
             screen,
             snapshot,

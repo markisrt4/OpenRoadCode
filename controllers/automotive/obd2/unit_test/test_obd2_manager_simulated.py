@@ -53,7 +53,6 @@ def test_scheduler_updates_cached_values_over_multiple_reads():
     assert all(state.vehicle_speed_m_s is None for state in states)
 
 
-
 def test_transient_missing_response_preserves_cached_value():
     adapter = SimulatedObd2Adapter()
     manager = Obd2Manager(adapter)
@@ -79,6 +78,7 @@ def test_transient_missing_response_preserves_cached_value():
             assert state.short_term_fuel_trim_bank1 == cached
     finally:
         adapter._responses[0x06] = original
+
 
 def test_dynamic_simulator_stays_inside_vehicle_ranges():
     adapter = SimulatedObd2Adapter()

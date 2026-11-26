@@ -1,4 +1,5 @@
 """Tests for launching host Android intents from Termux."""
+
 from __future__ import annotations
 
 import subprocess

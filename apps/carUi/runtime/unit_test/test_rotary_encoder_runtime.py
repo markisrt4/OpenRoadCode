@@ -6,13 +6,13 @@ from __future__ import annotations
 import unittest
 from unittest.mock import MagicMock, patch
 
+from apps.carUi.runtime.rotary_encoder_runtime import (
+    create_rotary_encoder_runtime,
+)
 from config.runtime_config import (
     GpioEncoderConfig,
     RotaryEncoderConfig,
     SeesawEncoderConfig,
-)
-from apps.carUi.runtime.rotary_encoder_runtime import (
-    create_rotary_encoder_runtime,
 )
 
 

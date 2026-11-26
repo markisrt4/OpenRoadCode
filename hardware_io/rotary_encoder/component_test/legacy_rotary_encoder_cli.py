@@ -3,8 +3,8 @@
 
 from time import sleep
 
-from modules.hardware.gpio.rpi_gpio import RpiGpio
 from modules.hardware.drivers.rotary_encoder import RotaryEncoder, RotaryEncoderPins
+from modules.hardware.gpio.rpi_gpio import RpiGpio
 
 
 def on_rotate(delta: int) -> None:
@@ -16,8 +16,8 @@ def on_button() -> None:
 
 
 pins = RotaryEncoderPins(
-    pin_a=RpiGpio.bcm_from_pin(36),   # GPIO16
-    pin_b=RpiGpio.bcm_from_pin(38),   # GPIO20
+    pin_a=RpiGpio.bcm_from_pin(36),  # GPIO16
+    pin_b=RpiGpio.bcm_from_pin(38),  # GPIO20
     button=RpiGpio.bcm_from_pin(32),  # GPIO12
 )
 

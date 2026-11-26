@@ -11,9 +11,7 @@ from controllers.video.youtube_music_video import YouTubeMusicVideo
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Search for and play a YouTube music video."
-    )
+    parser = argparse.ArgumentParser(description="Search for and play a YouTube music video.")
     parser.add_argument("--artist", help="Track artist.")
     parser.add_argument("--title", help="Track title.")
     parser.add_argument("--album", help="Optional album title.")

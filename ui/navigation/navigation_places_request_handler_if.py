@@ -2,11 +2,18 @@
 # SPDX-License-Identifier: MIT
 
 """Navigation places operations without storage, renderer, or platform coupling."""
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-
 from ui.navigation.map_ui_if import GeoPoint
-from ui.navigation.poi_models import PoiAction, PoiCategory, PoiSearchResult, PointOfInterest, TransitMode, PoiAppStatus
+from ui.navigation.poi_models import (
+    PoiAction,
+    PoiCategory,
+    PoiSearchResult,
+    PointOfInterest,
+    TransitMode,
+    PoiAppStatus,
+)
 
 
 @dataclass(frozen=True, slots=True)

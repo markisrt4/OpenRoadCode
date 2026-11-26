@@ -6,6 +6,7 @@
 #include "map_event_publisher.hpp"
 #include "navigation_config.hpp"
 #include "route_weather_style.hpp"
+#include "aircraft_style.hpp"
 #include "city_weather_style.hpp"
 #include "poi_hover_style.hpp"
 #include "poi_brand_style.hpp"
@@ -66,7 +67,7 @@ std::string loadStyleJson(const NavigationConfig& config) {
     std::string style{std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
     replaceAll(style, kDataRootToken, config.dataRoot);
     if (config.dataRoot != kLegacyDataRoot) replaceAll(style, kLegacyDataRoot, config.dataRoot);
-    return withPoiBrandStyle(withCityWeatherStyle(withPoiHoverStyle(withRouteWeatherStyle(style))));
+    return withAircraftStyle(withPoiBrandStyle(withCityWeatherStyle(withPoiHoverStyle(withRouteWeatherStyle(style)))));
 }
 void setWeatherRaster(
     mbgl::style::Style& style,
@@ -432,9 +433,10 @@ int runRenderer() {
                 }
                 continue;
             }
-            if (command->command == "set_route_weather" || command->command == "set_city_weather") {
+            if (command->command == "set_route_weather" || command->command == "set_city_weather" || command->command == "set_aircraft") {
                 auto* source = map.getStyle().getSource(
-                    command->command == "set_city_weather" ? "city-weather" : "route-weather");
+                    command->command == "set_city_weather" ? "city-weather" :
+                    command->command == "set_aircraft" ? "aircraft" : "route-weather");
                 if (!source) continue;
                 try {
                     static_cast<mbgl::style::GeoJSONSource*>(source)->setGeoJSON(

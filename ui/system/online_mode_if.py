@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
 # SPDX-License-Identifier: MIT
 """Connectivity preference contract shared by frontend presentation."""
+
 from collections.abc import Callable
 from typing import Protocol
 

@@ -1,8 +1,15 @@
 # SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
 # SPDX-License-Identifier: MIT
 """Frontend-neutral audio lifecycle and presentation boundary."""
+
 from abc import ABC, abstractmethod
-from .music_visualizer_types import MusicCaptureState, MusicVisualizerOptions, MusicVisualizerSource, VisualizerFrame
+
+from .music_visualizer_types import (
+    MusicCaptureState,
+    MusicVisualizerOptions,
+    MusicVisualizerSource,
+    VisualizerFrame,
+)
 
 
 class MusicVisualizerControlIf(ABC):
@@ -36,7 +43,6 @@ class MusicVisualizerControlIf(ABC):
         @return Latest available frame and status, or None for unchanged fields.
         """
         ...
-
 
     @abstractmethod
     def latest_frame(self) -> VisualizerFrame | None:

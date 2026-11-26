@@ -7,13 +7,16 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
-from pathlib import Path
+import re
 import socket
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 try:
     import tomllib
@@ -28,7 +31,14 @@ TELEMETRY_SERVICES = (
 )
 
 
+FAILURE_DETAILS: list[tuple[str, str]] = []
+
+
 def report(level: str, label: str, detail: str = "") -> None:
+    if level == "FAIL":
+        FAILURE_DETAILS.append((label, detail))
+        print(f"[FAIL] {label} (see failure summary)")
+        return
     suffix = f" ({detail})" if detail else ""
     print(f"[{level}] {label}{suffix}")
 
@@ -47,16 +57,157 @@ def nested(mapping: dict[str, object], *keys: str) -> object | None:
     return value
 
 
-def systemd_active(service: str) -> tuple[bool, str]:
-    result = subprocess.run(
-        ["systemctl", "is-active", service],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        check=False,
-    )
-    state = result.stdout.strip() or result.stderr.strip() or f"exit {result.returncode}"
-    return result.returncode == 0 and state == "active", state
+def command_output(*command: str) -> str:
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, check=False, timeout=5)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return str(exc)
+    return result.stdout.strip() or result.stderr.strip() or f"exit {result.returncode}"
+
+
+def systemd_state(query: str, service: str, *, user: bool = False) -> str:
+    scope = ("--user",) if user else ()
+    return command_output("systemctl", *scope, query, service)
+
+
+def verify_boot_services(args: argparse.Namespace, features: set[str]) -> int:
+    """Verify persistent enablement for selected units and managed RF policy."""
+    units = []
+    if args.telemetry_services:
+        units.extend(TELEMETRY_SERVICES)
+    elif args.navigation_service:
+        units.extend(TELEMETRY_SERVICES[:2])
+    elif args.radio_service:
+        units.append(TELEMETRY_SERVICES[0])
+    if args.valhalla_service or args.navigation_data_root is not None:
+        units.append("valhalla.service")
+    if args.gpsd_service:
+        units.extend(("gpsd.socket", "gpsd.service"))
+    if "adsb" in features:
+        units.append("lighttpd.service")
+
+    user_units = []
+    if args.radio_service:
+        user_units.append("libsdrforge.service")
+    if args.vnc_service:
+        user_units.append("carui-vnc.service")
+
+    failures = 0
+    for user, services in ((False, units), (True, user_units)):
+        for unit in services:
+            enabled = systemd_state("is-enabled", unit, user=user)
+            active = systemd_state("is-active", unit, user=user)
+            ok = enabled == "enabled" and active == "active"
+            scope = "user" if user else "system"
+            report(
+                "PASS" if ok else "FAIL",
+                f"{unit} boot persistence",
+                f"{scope}: {enabled}, {active}",
+            )
+            failures += not ok
+
+    if user_units:
+        linger = command_output(
+            "loginctl", "show-user", str(os.getuid()), "-p", "Linger", "--value"
+        )
+        report(
+            "PASS" if linger == "yes" else "FAIL",
+            "User services start before login",
+            f"Linger={linger}",
+        )
+        failures += linger != "yes"
+
+    if args.managed_rf:
+        for unit in ("libsdrforge-weather.service", "openroadcode-readsb@.service"):
+            state = systemd_state("is-enabled", unit, user=True)
+            ok = state in {"static", "disabled"}
+            report("PASS" if ok else "FAIL", f"{unit} on-demand unit", state)
+            failures += not ok
+        state = systemd_state("is-enabled", "readsb.service")
+        ok = state == "masked"
+        report("PASS" if ok else "FAIL", "Stock readsb boot protection", state)
+        failures += not ok
+    return failures
+
+
+def http_error_detail(error: urllib.error.HTTPError) -> str:
+    """Preserve the server's diagnostic response, with bounded output."""
+    with error:
+        body = error.read(8192).decode("utf-8", errors="replace")
+    return f"{error}; response: {body or '(empty response body)'}"
+
+
+def routing_ready(root: Path, region: str) -> tuple[bool, str]:
+    """Probe the local routing engine with a catalogued regional route."""
+    context = f"region={region}; config={root / 'valhalla/valhalla.json'}"
+    try:
+        catalog_path = Path(__file__).resolve().parents[1] / "runtime/navigation-data-catalog.json"
+        catalog = json.loads(catalog_path.read_text())
+        route = catalog["regions"][region]["smoke_route"]
+        config = json.loads((root / "valhalla/valhalla.json").read_text())
+        listen = config["httpd"]["service"]["listen"]
+        port = int(listen.rsplit(":", 1)[1])
+        base = f"http://127.0.0.1:{port}"
+        deadline = time.monotonic() + 30
+        while True:
+            ok, detail = http_endpoint(f"{base}/status", timeout_s=1)
+            if ok:
+                break
+            if time.monotonic() >= deadline:
+                return False, f"{context}; GET {base}/status; {detail}"
+            time.sleep(0.5)
+        payload = json.dumps(route, separators=(",", ":"))
+        context += f"; POST {base}/route; request={payload}"
+        request = urllib.request.Request(
+            f"{base}/route",
+            data=payload.encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=15) as response:
+            trip = json.load(response)["trip"]
+        summary = trip["summary"]
+        if summary["length"] <= 0 or summary["time"] <= 0:
+            return False, f"{context}; empty route summary: {summary!r}"
+        if not trip["legs"] or not all(leg.get("shape") for leg in trip["legs"]):
+            return False, f"{context}; missing route geometry"
+        return True, f"{summary['length']} {trip.get('units', 'km')}, {summary['time']} s"
+    except urllib.error.HTTPError as exc:
+        return False, f"{context}; {http_error_detail(exc)}"
+    except (OSError, ValueError, KeyError, TypeError, IndexError) as exc:
+        return False, f"{context}; {type(exc).__name__}: {exc}"
+
+
+def radio_service_ready() -> tuple[bool, str]:
+    """Check the user service, its listeners, and its REST health."""
+    try:
+        state = subprocess.check_output(
+            ["systemctl", "--user", "is-active", "libsdrforge.service"],
+            text=True,
+            timeout=5,
+        ).strip()
+        if state != "active":
+            return False, f"service state: {state}"
+        pid = subprocess.check_output(
+            ["systemctl", "--user", "show", "libsdrforge.service", "-p", "MainPID", "--value"],
+            text=True,
+            timeout=5,
+        ).strip()
+        if not pid.isdigit() or int(pid) == 0:
+            return False, "no systemd MainPID"
+        for port in (5570, 5571, 4532):
+            listeners = subprocess.check_output(
+                ["ss", "-H", "-lntp", f"sport = :{port}"], text=True, timeout=5
+            )
+            if set(re.findall(r"pid=(\d+)", listeners)) != {pid}:
+                return False, f"port {port} is not owned by PID {pid}"
+        with urllib.request.urlopen("http://127.0.0.1:5570/v1/health", timeout=2) as response:
+            health = json.load(response)
+            if not isinstance(health, dict) or health.get("status") != "ok":
+                return False, "REST health is not ok"
+        return True, f"systemd PID {pid} owns REST, ZMQ and rigctl"
+    except (OSError, ValueError, subprocess.SubprocessError) as exc:
+        return False, str(exc)
 
 
 def tcp_endpoint(endpoint: str, timeout_s: float = 0.5) -> tuple[bool, str]:
@@ -77,7 +228,9 @@ def http_endpoint(url: str, timeout_s: float = 1.0) -> tuple[bool, str]:
     try:
         with urllib.request.urlopen(url, timeout=timeout_s) as response:
             return 200 <= response.status < 400, f"HTTP {response.status}"
-    except (OSError, urllib.error.URLError, ValueError) as exc:
+    except urllib.error.HTTPError as exc:
+        return False, http_error_detail(exc)
+    except (OSError, ValueError) as exc:
         return False, str(exc)
 
 
@@ -105,6 +258,7 @@ def hardware_result(
 
 
 def main() -> int:
+    FAILURE_DETAILS.clear()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "features",
@@ -122,16 +276,29 @@ def main() -> int:
         help="Require the OpenRoadCode telemetry systemd services to be active",
     )
     parser.add_argument(
+        "--radio-service",
+        action="store_true",
+        help="Require the native radio user service and message broker",
+    )
+    parser.add_argument(
         "--gpsd-service",
         action="store_true",
-        help="Require gpsd.service or gpsd.socket to be active",
+        help="Require gpsd.service and gpsd.socket to be enabled and active",
     )
     parser.add_argument(
         "--strict-hardware",
         action="store_true",
         help="Treat missing configured hardware/resources as failures instead of warnings",
     )
+    parser.add_argument("--navigation-service", action="store_true")
+    parser.add_argument("--valhalla-service", action="store_true")
+    parser.add_argument("--vnc-service", action="store_true")
+    parser.add_argument("--managed-rf", action="store_true")
+    parser.add_argument("--navigation-data-root", type=Path)
+    parser.add_argument("--navigation-region")
     args = parser.parse_args()
+    if args.navigation_region and args.navigation_data_root is None:
+        parser.error("--navigation-region requires --navigation-data-root")
 
     config_path = Path(args.config).expanduser().resolve()
     print("OpenRoadCode runtime verification")
@@ -152,29 +319,39 @@ def main() -> int:
     feature_set = set(args.features)
 
     print("\nServices:")
-    if args.telemetry_services:
-        for service in TELEMETRY_SERVICES:
-            ok, detail = systemd_active(service)
-            report("PASS" if ok else "FAIL", service, detail)
+    if args.navigation_data_root is not None:
+        for relative in (
+            "build-manifest.json",
+            "maps/vector/openroadcode.mbtiles",
+            "maps/search/openroadcode-search.sqlite",
+            "valhalla/valhalla.json",
+        ):
+            path = args.navigation_data_root / relative
+            ok = path.is_file() and path.stat().st_size > 0
+            report("PASS" if ok else "FAIL", str(path))
             failures += not ok
-    else:
-        report("SKIP", "OpenRoadCode telemetry services", "not requested")
 
-    if args.gpsd_service:
-        service_ok, service_detail = systemd_active("gpsd.service")
-        socket_ok, socket_detail = systemd_active("gpsd.socket")
-        ok = service_ok or socket_ok
-        detail = f"service={service_detail}, socket={socket_detail}"
-        report("PASS" if ok else "FAIL", "gpsd", detail)
+    if args.navigation_region:
+        ok, detail = routing_ready(args.navigation_data_root, args.navigation_region)
+        report("PASS" if ok else "FAIL", "Offline routing", detail)
+        failures += not ok
+
+    failures += verify_boot_services(args, feature_set)
+
+    if args.radio_service:
+        ok, detail = radio_service_ready()
+        report("PASS" if ok else "FAIL", "libsdrforge.service radio transport", detail)
         failures += not ok
 
     print("\nMessaging endpoints:")
-    if args.telemetry_services:
+    if args.telemetry_services or args.radio_service or args.navigation_service:
         endpoint_paths = (
             ("publisher ingress", nested(config, "messaging", "publisher_endpoint")),
             ("subscriber egress", nested(config, "messaging", "subscriber_endpoint")),
             ("navigation commands", nested(config, "services", "navigation", "command_endpoint")),
         )
+        if not (args.telemetry_services or args.navigation_service):
+            endpoint_paths = endpoint_paths[:2]
         for label, value in endpoint_paths:
             if not isinstance(value, str) or not value:
                 report("FAIL", label, "missing endpoint in runtime config")
@@ -257,6 +434,12 @@ def main() -> int:
 
     print()
     if failures:
+        print("Failure summary:")
+        for label, detail in FAILURE_DETAILS:
+            print(f"[FAIL] {label}")
+            if detail:
+                print(f"    {detail}")
+        print()
         print(f"Runtime verification FAILED: {failures} required check(s) failed.")
         return 1
 

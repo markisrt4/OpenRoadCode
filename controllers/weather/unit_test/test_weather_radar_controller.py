@@ -10,7 +10,9 @@ class _Provider:
     def get_frames(self):
         return (
             RadarFrame(timestamp=100, tile_url="https://example.test/100/{z}/{x}/{y}.png"),
-            RadarFrame(timestamp=200, tile_url="https://example.test/200/{z}/{x}/{y}.png", max_zoom=7),
+            RadarFrame(
+                timestamp=200, tile_url="https://example.test/200/{z}/{x}/{y}.png", max_zoom=7
+            ),
         )
 
 
@@ -18,7 +20,9 @@ class _Renderer:
     def __init__(self):
         self.commands = []
 
-    def set_weather_radar(self, tile_url, *, enabled=True, frame_time=None, opacity=0.65, max_zoom=22):
+    def set_weather_radar(
+        self, tile_url, *, enabled=True, frame_time=None, opacity=0.65, max_zoom=22
+    ):
         self.commands.append((tile_url, enabled, frame_time, opacity, max_zoom))
 
 
@@ -59,9 +63,7 @@ def test_refresh_renderer_state_replays_visible_frame() -> None:
 
     controller.refresh_renderer_state()
 
-    assert renderer.commands == [
-        ("https://example.test/200/{z}/{x}/{y}.png", True, 200, 0.65, 7)
-    ]
+    assert renderer.commands == [("https://example.test/200/{z}/{x}/{y}.png", True, 200, 0.65, 7)]
 
 
 def test_opacity_update_does_not_refetch_frame() -> None:

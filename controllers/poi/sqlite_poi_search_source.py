@@ -9,10 +9,9 @@ import math
 import sqlite3
 from pathlib import Path
 
-from ui.navigation.poi_models import (PoiCategory, PointOfInterest, TransitMode)
 from controllers.poi.poi_search_source_if import PoiSearchQuery, PoiSearchSourceIf
 from ui.navigation import GeoPoint
-
+from ui.navigation.poi_models import PoiCategory, PointOfInterest, TransitMode
 
 _CATEGORY_NAME: dict[PoiCategory, str] = {
     PoiCategory.FOOD: "food",
@@ -151,8 +150,6 @@ def _distance_m(first: GeoPoint, second: GeoPoint) -> float:
     dlon = second.longitude_rad - first.longitude_rad
     haversine = (
         math.sin(dlat / 2.0) ** 2
-        + math.cos(first.latitude_rad)
-        * math.cos(second.latitude_rad)
-        * math.sin(dlon / 2.0) ** 2
+        + math.cos(first.latitude_rad) * math.cos(second.latitude_rad) * math.sin(dlon / 2.0) ** 2
     )
     return 2.0 * 6_378_137.0 * math.asin(min(1.0, math.sqrt(haversine)))

@@ -7,13 +7,13 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 
+from controllers.input.input_mapper_if import InputMapperIf
 from input_events import (
     InputDeviceId,
     InputDeviceType,
     InputEvent,
     InputEventType,
 )
-from controllers.input.input_mapper_if import InputMapperIf
 from ui.ui_action import UiAction
 
 

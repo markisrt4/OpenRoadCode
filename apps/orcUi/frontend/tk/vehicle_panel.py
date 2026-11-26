@@ -9,20 +9,29 @@ import tkinter as tk
 from collections.abc import Callable
 
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
-from .ecu_panel import EcuPanel
-from .trip_panel import TripPanel
-from .performance_panel import PerformancePanel
-from .engine_panel import EnginePanel
-from .offroad_dashboard_presenter import apply_offroad_dashboard_state
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from apps.orcUi.trip_presenter import TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
-from ui.automotive.automotive_telemetry_profile import (AutomotiveTelemetryProfile)
-from ui.automotive.engine_analysis import (EngineAnalysis, EngineLoadLevel, EngineOperatingMode, FuelControlMode, FuelCorrectionStatus, MixtureMode, TrackingQuality)
-from ui.automotive.vehicle_configuration import (VehicleConfiguration)
 from frontends.tk.automotive import OffroadDashboardPanel
+from ui.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
+from ui.automotive.engine_analysis import (
+    EngineAnalysis,
+    EngineLoadLevel,
+    EngineOperatingMode,
+    FuelControlMode,
+    FuelCorrectionStatus,
+    MixtureMode,
+    TrackingQuality,
+)
+from ui.automotive.vehicle_configuration import VehicleConfiguration
 from ui.theme import ThemeBundle, ThemeMode
 from ui.ui_widget import UiWidget
+
+from .ecu_panel import EcuPanel
+from .engine_panel import EnginePanel
+from .offroad_dashboard_presenter import apply_offroad_dashboard_state
+from .performance_panel import PerformancePanel
+from .trip_panel import TripPanel
 
 
 class VehiclePanel(tk.Frame, UiWidget):
@@ -42,11 +51,13 @@ class VehiclePanel(tk.Frame, UiWidget):
         position: PositionPresentationState | None = None,
         attitude: AttitudePresentationState | None = None,
         theme_bundle: ThemeBundle | None = None,
-        vehicle_configuration: VehicleConfiguration = VehicleConfiguration(),
+        vehicle_configuration: VehicleConfiguration | None = None,
         engine_analysis: EngineAnalysis | None = None,
     ) -> None:
         self._theme_bundle = theme_bundle or packaged_theme_bundle(ThemeMode.DARK)
-        self._vehicle_configuration = vehicle_configuration
+        self._vehicle_configuration = (
+            vehicle_configuration if vehicle_configuration is not None else VehicleConfiguration()
+        )
         self._engine_analysis = engine_analysis or EngineAnalysis(
             operating_mode=EngineOperatingMode.UNKNOWN,
             fuel_control_mode=FuelControlMode.UNKNOWN,

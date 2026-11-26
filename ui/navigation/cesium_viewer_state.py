@@ -1,7 +1,7 @@
 """Immutable SI state for the standalone 3D map rendering experiment."""
 
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
 
 from ui.navigation import GeoPoint
 
@@ -29,20 +29,27 @@ class CesiumViewerState:
                (self.buildings_visible, self.terrain_visible,
                 self.terrain_shading_visible, self.embedded, self.destination_marker_visible)):
             raise ValueError("Layer visibility must be boolean")
-        if not (math.isfinite(self.pitch_step_rad) and math.isfinite(self.maximum_tilt_rad)
-                and 0 < self.pitch_step_rad <= self.maximum_tilt_rad < math.pi/2):
+        if not (
+            math.isfinite(self.pitch_step_rad)
+            and math.isfinite(self.maximum_tilt_rad)
+            and 0 < self.pitch_step_rad <= self.maximum_tilt_rad < math.pi / 2
+        ):
             raise ValueError("Camera pitch step and maximum tilt must be finite and above ground")
         if type(self.terrain_scale) is not int or self.terrain_scale not in (1, 2, 3, 4):
             raise ValueError("Terrain scale must be 1, 2, 3 or 4")
         if not math.isfinite(self.pan_step_fraction) or not 0 < self.pan_step_fraction <= 1:
             raise ValueError("Pan step fraction must be finite and between zero and one")
         lat, lon = self.destination.latitude_rad, self.destination.longitude_rad
-        if not (math.isfinite(lat) and math.isfinite(lon)
-                and -math.pi/2 <= lat <= math.pi/2 and -math.pi <= lon <= math.pi):
+        if not (
+            math.isfinite(lat)
+            and math.isfinite(lon)
+            and -math.pi / 2 <= lat <= math.pi / 2
+            and -math.pi <= lon <= math.pi
+        ):
             raise ValueError("Destination must be finite and within geographic bounds")
         if not math.isfinite(self.distance_m) or not 100 <= self.distance_m <= 10000000:
             raise ValueError("Viewing distance must be between 100 and 10000000 metres")
-        if not math.isfinite(self.tilt_rad) or not 0 <= self.tilt_rad <= math.pi/2:
+        if not math.isfinite(self.tilt_rad) or not 0 <= self.tilt_rad <= math.pi / 2:
             raise ValueError("Tilt must be between zero and pi/2 radians")
         if not self.label.strip() or len(self.label) > 120:
             raise ValueError("Destination label must contain 1–120 characters")

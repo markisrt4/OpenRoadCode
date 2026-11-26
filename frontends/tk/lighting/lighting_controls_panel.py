@@ -38,9 +38,7 @@ class LightingControlsPanel(tk.Frame, UiWidget):
 
         initial_brightness = self._layout["initial_brightness"]
         self._brightness = tk.IntVar(value=initial_brightness)
-        self._brightness_text = tk.StringVar(
-            value=f"{initial_brightness}%"
-        )
+        self._brightness_text = tk.StringVar(value=f"{initial_brightness}%")
         self._status = tk.StringVar(value=self._layout["connecting_text"])
         self._pattern_name = tk.StringVar(value=self._patterns[0][0])
         self._music_name = tk.StringVar(value=self._music_modes[0][0])
@@ -386,9 +384,7 @@ class LightingControlsPanel(tk.Frame, UiWidget):
         self._button(
             quick,
             self._layout["rainbow_text"],
-            lambda: self._set_pattern_by_name(
-                self._layout["rainbow_pattern"]
-            ),
+            lambda: self._set_pattern_by_name(self._layout["rainbow_pattern"]),
         ).grid(
             row=self._layout["row_zero"],
             column=self._layout["left_column"],
@@ -400,9 +396,7 @@ class LightingControlsPanel(tk.Frame, UiWidget):
         self._button(
             quick,
             self._layout["strobe_text"],
-            lambda: self._set_pattern_by_name(
-                self._layout["strobe_pattern"]
-            ),
+            lambda: self._set_pattern_by_name(self._layout["strobe_pattern"]),
         ).grid(
             row=self._layout["row_zero"],
             column=self._layout["right_column"],

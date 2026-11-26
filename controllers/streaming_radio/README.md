@@ -46,6 +46,6 @@ for regional discovery. Provider-specific HTTP and JSON belong under `protocols/
 not in this controller package.
 
 The first orcUi radio screen presents two launch choices: RF Radio and Streaming
-Radio. RF owns SDR++/Rigctl/telemetry. Streaming Radio owns internet discovery,
+Radio. RF owns SDRForge control/telemetry. Streaming Radio owns internet discovery,
 station artwork, and stream playback. Shared station/favorite concepts can be
 introduced above these two transports later without coupling them now.

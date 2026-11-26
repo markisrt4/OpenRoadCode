@@ -61,8 +61,9 @@ def test_panera_marker_reopens_after_real_session_close_and_factory_remount(terr
 
 def test_factory_creates_fresh_sessions_and_closes_all_remaining_sources():
     searches = [Mock(), Mock()]
-    factory = NavigationPlacesFactory(favorites=Mock(), actions=Mock(),
-                                      search_factory=Mock(side_effect=searches))
+    factory = NavigationPlacesFactory(
+        favorites=Mock(), actions=Mock(), search_factory=Mock(side_effect=searches)
+    )
     first, second = factory.create(), factory.create()
     assert first is not second
     first.close()
@@ -71,17 +72,18 @@ def test_factory_creates_fresh_sessions_and_closes_all_remaining_sources():
     factory.close()
     for search in searches:
         search.close.assert_called_once_with()
-    with pytest.raises(RuntimeError, match='closed'):
+    with pytest.raises(RuntimeError, match="closed"):
         factory.create()
 
 
 def test_factory_continues_cleanup_if_one_source_fails():
     searches = [Mock(), Mock()]
-    searches[0].close.side_effect = RuntimeError('source failed')
-    factory = NavigationPlacesFactory(favorites=Mock(), actions=Mock(),
-                                      search_factory=Mock(side_effect=searches))
+    searches[0].close.side_effect = RuntimeError("source failed")
+    factory = NavigationPlacesFactory(
+        favorites=Mock(), actions=Mock(), search_factory=Mock(side_effect=searches)
+    )
     sessions = [factory.create(), factory.create()]
-    with pytest.raises(RuntimeError, match='source failed'):
+    with pytest.raises(RuntimeError, match="source failed"):
         factory.close()
     for search in searches:
         search.close.assert_called_once_with()
@@ -92,32 +94,38 @@ def test_remount_reloads_saved_places_updated_by_another_store(tmp_path):
     from controllers.cache import PersistentCache
     from controllers.navigation.map_favorites import MapFavorites
     from ui.navigation import GeoPoint
-    storage = PersistentCache(tmp_path, suffix='.json')
-    factory = NavigationPlacesFactory(favorites=MapFavorites(storage), actions=Mock(), search_factory=Mock)
+
+    storage = PersistentCache(tmp_path, suffix=".json")
+    factory = NavigationPlacesFactory(
+        favorites=MapFavorites(storage), actions=Mock(), search_factory=Mock
+    )
     first = factory.create()
-    assert first.favorite('home') is None
+    assert first.favorite("home") is None
     edited = MapFavorites(storage)
-    edited.set_home(GeoPoint(0.7, -1.4), 'Updated home')
+    edited.set_home(GeoPoint(0.7, -1.4), "Updated home")
     first.close()
     second = factory.create()
-    assert second.favorite('home').name == 'Updated home'
-    assert second.favorite('home').position == GeoPoint(0.7, -1.4)
+    assert second.favorite("home").name == "Updated home"
+    assert second.favorite("home").position == GeoPoint(0.7, -1.4)
     factory.close()
 
 
 def test_default_local_3d_action_uses_composition_injected_embedding():
-    from ui.navigation import GeoPoint
-    from ui.navigation.poi_models import PoiAction, PoiActionKind
     from types import SimpleNamespace
+
+    from ui.navigation import GeoPoint
+    from ui.navigation.poi_models import PoiActionKind
+
     embedded = Mock()
-    factory = NavigationPlacesFactory(favorites=Mock(),search_factory=Mock,
-                                      embedded_explore=embedded)
+    factory = NavigationPlacesFactory(
+        favorites=Mock(), search_factory=Mock, embedded_explore=embedded
+    )
     try:
-        session = factory.create()
-        poi = SimpleNamespace(position=GeoPoint(.7,-1.4),name='Place')
+        factory.create()
+        poi = SimpleNamespace(position=GeoPoint(0.7, -1.4), name="Place")
         action = factory._owned_3d.action_for(poi)
         assert action.kind is PoiActionKind.EXPLORE_3D
-        assert 'embedded' in factory._owned_3d.execute(poi,action)
-        assert embedded.call_args.args[0].label == 'Place'
+        assert "embedded" in factory._owned_3d.execute(poi, action)
+        assert embedded.call_args.args[0].label == "Place"
     finally:
         factory.close()

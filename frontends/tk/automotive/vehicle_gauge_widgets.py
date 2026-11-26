@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import math
 import tkinter as tk
+
 from ui.theme.vehicle_gauges import (
     VEHICLE_GAUGE_REDLINE_THEME,
     VEHICLE_GAUGE_THEME,
@@ -181,9 +182,7 @@ class RoundGauge(_ValueGauge):
                 and self._danger_start is not None
                 and start_value >= self._danger_start
             ):
-                self._draw_intense_redline(
-                    cx, cy, radius, start_angle, end_angle
-                )
+                self._draw_intense_redline(cx, cy, radius, start_angle, end_angle)
 
     def _draw_intense_redline(
         self,
@@ -334,7 +333,11 @@ class RoundGauge(_ValueGauge):
         value = self._minimum if self._value is None else self._value
         value = max(self._minimum, min(self._maximum, value))
         angle = math.radians(self._value_to_angle(value))
-        color = self._style.accent_color if self._connected and self._value is not None else self._style.muted_color
+        color = (
+            self._style.accent_color
+            if self._connected and self._value is not None
+            else self._style.muted_color
+        )
         tip = radius * 0.65
         tail = radius * 0.12
         perp = angle + math.pi / 2
@@ -499,7 +502,9 @@ class LinearGauge(_ValueGauge):
             }[segment_color]
             color = segment_color if is_active else inactive_color
             if self._normal_segment_color is not None and segment_color == self._style.normal_value:
-                color = self._normal_segment_color if is_active else self._style.disabled_normal_value
+                color = (
+                    self._normal_segment_color if is_active else self._style.disabled_normal_value
+                )
             self.create_rectangle(
                 sx1,
                 y - bar_h / 2,
@@ -511,19 +516,43 @@ class LinearGauge(_ValueGauge):
         if self._value is not None and self._connected:
             marker_x = self._value_x(self._value, x1, x2)
             self.create_polygon(
-                marker_x, y - bar_h,
-                marker_x - bar_h * 0.45, y - bar_h * 1.65,
-                marker_x + bar_h * 0.45, y - bar_h * 1.65,
+                marker_x,
+                y - bar_h,
+                marker_x - bar_h * 0.45,
+                y - bar_h * 1.65,
+                marker_x + bar_h * 0.45,
+                y - bar_h * 1.65,
                 fill=self._style.accent_color,
                 outline=self._style.marker_border,
             )
-            self.create_line(marker_x, y - bar_h / 2, marker_x, y + bar_h / 2, fill=self._style.normal_value, width=2)
+            self.create_line(
+                marker_x,
+                y - bar_h / 2,
+                marker_x,
+                y + bar_h / 2,
+                fill=self._style.normal_value,
+                width=2,
+            )
         for index in range(6):
             x = x1 + (x2 - x1) * index / 5
             self.create_line(x, y + bar_h / 2, x, y + bar_h, fill=self._style.threshold_marker)
         endpoint_font = (self._style.font_family, max(7, int(h * 0.08)))
-        self.create_text(x1, h * 0.84, anchor="w", text=self._format_end(self._minimum), fill=self._style.linear_card_muted, font=endpoint_font)
-        self.create_text(x2, h * 0.84, anchor="e", text=self._format_end(self._maximum), fill=self._style.linear_card_muted, font=endpoint_font)
+        self.create_text(
+            x1,
+            h * 0.84,
+            anchor="w",
+            text=self._format_end(self._minimum),
+            fill=self._style.linear_card_muted,
+            font=endpoint_font,
+        )
+        self.create_text(
+            x2,
+            h * 0.84,
+            anchor="e",
+            text=self._format_end(self._maximum),
+            fill=self._style.linear_card_muted,
+            font=endpoint_font,
+        )
 
     def _value_x(self, value: float, x1: float, x2: float) -> float:
         clamped = max(self._minimum, min(self._maximum, value))
@@ -533,14 +562,12 @@ class LinearGauge(_ValueGauge):
         """Return a readable card-text color for the numeric readout."""
         if not self._connected or self._value is None:
             return self._style.linear_card_muted
-        if (
-            (self._danger_low is not None and self._value <= self._danger_low)
-            or (self._danger_high is not None and self._value >= self._danger_high)
+        if (self._danger_low is not None and self._value <= self._danger_low) or (
+            self._danger_high is not None and self._value >= self._danger_high
         ):
             return self._style.danger_value
-        if (
-            (self._caution_low is not None and self._value <= self._caution_low)
-            or (self._caution_high is not None and self._value >= self._caution_high)
+        if (self._caution_low is not None and self._value <= self._caution_low) or (
+            self._caution_high is not None and self._value >= self._caution_high
         ):
             return self._style.caution_value
         return self._style.linear_card_text
@@ -551,14 +578,12 @@ class LinearGauge(_ValueGauge):
         return self._range_color(self._value)
 
     def _range_color(self, value: float) -> str:
-        if (
-            (self._danger_low is not None and value <= self._danger_low)
-            or (self._danger_high is not None and value >= self._danger_high)
+        if (self._danger_low is not None and value <= self._danger_low) or (
+            self._danger_high is not None and value >= self._danger_high
         ):
             return self._style.danger_value
-        if (
-            (self._caution_low is not None and value <= self._caution_low)
-            or (self._caution_high is not None and value >= self._caution_high)
+        if (self._caution_low is not None and value <= self._caution_low) or (
+            self._caution_high is not None and value >= self._caution_high
         ):
             return self._style.caution_value
         return self._style.normal_value
@@ -605,8 +630,22 @@ class LinearGauge(_ValueGauge):
                 outline=color,
                 width=width,
             )
-            self.create_line(x - size * 0.30, y - half_h, x - size * 0.30, y - size * 0.52, fill=color, width=width)
-            self.create_line(x + size * 0.30, y - half_h, x + size * 0.30, y - size * 0.52, fill=color, width=width)
+            self.create_line(
+                x - size * 0.30,
+                y - half_h,
+                x - size * 0.30,
+                y - size * 0.52,
+                fill=color,
+                width=width,
+            )
+            self.create_line(
+                x + size * 0.30,
+                y - half_h,
+                x + size * 0.30,
+                y - size * 0.52,
+                fill=color,
+                width=width,
+            )
             icon_font = (self._style.font_family, max(7, int(size * 0.45)), "bold")
             self.create_text(x - size * 0.28, y, text="+", fill=color, font=icon_font)
             self.create_text(x + size * 0.28, y, text="−", fill=color, font=icon_font)
@@ -738,12 +777,10 @@ class TirePressurePanel(_ValueGauge):
     def set_value(self, value: object) -> None:
         if isinstance(value, dict):
             self._pressures = {
-                str(key): float(pressure)
-                for key, pressure in value.items()
-                if pressure is not None
+                str(key): float(pressure) for key, pressure in value.items() if pressure is not None
             }
         elif isinstance(value, (tuple, list)) and len(value) == 4:
-            self._pressures = dict(zip(self.TIRE_KEYS, map(float, value)))
+            self._pressures = dict(zip(self.TIRE_KEYS, map(float, value), strict=True))
         else:
             self._pressures = {}
         self._draw()
@@ -753,20 +790,31 @@ class TirePressurePanel(_ValueGauge):
         w, h = max(1, self.winfo_width()), max(1, self.winfo_height())
         pad = max(8, min(w, h) * 0.06)
         self.create_rectangle(
-            pad, pad, w - pad, h - pad,
+            pad,
+            pad,
+            w - pad,
+            h - pad,
             fill=self._style.tire_background,
             outline=self._style.panel_border,
             width=2,
         )
         self.create_text(
-            w / 2, h * 0.16, text="TIRE PRESSURE  •  PSI",
+            w / 2,
+            h * 0.16,
+            text="TIRE PRESSURE  •  PSI",
             fill=self._style.tire_title,
             font=(self._style.condensed_font_family, max(8, int(h * 0.075)), "bold"),
         )
         # Simplified top view of the car locates each pressure spatially.
         self.create_polygon(
-            w * 0.43, h * 0.28, w * 0.57, h * 0.28,
-            w * 0.61, h * 0.78, w * 0.39, h * 0.78,
+            w * 0.43,
+            h * 0.28,
+            w * 0.57,
+            h * 0.28,
+            w * 0.61,
+            h * 0.78,
+            w * 0.39,
+            h * 0.78,
             fill=self._style.vehicle_silhouette,
             outline=self._style.vehicle_silhouette_outline,
             width=2,
@@ -782,7 +830,10 @@ class TirePressurePanel(_ValueGauge):
             text = "--" if pressure is None else f"{pressure:.0f}"
             color = self._pressure_color(pressure)
             self.create_text(
-                x, y, text=f"{label}  {text}", fill=color,
+                x,
+                y,
+                text=f"{label}  {text}",
+                fill=color,
                 font=(self._style.mono_font_family, max(9, int(h * 0.105)), "bold"),
             )
 
@@ -794,6 +845,7 @@ class TirePressurePanel(_ValueGauge):
         if pressure <= self._caution_low or pressure >= self._caution_high:
             return self._style.caution_value
         return self._style.normal_value
+
 
 class GearIndicator(_ValueGauge):
     """Large, glanceable manual-transmission gear indicator."""
@@ -963,13 +1015,33 @@ class DiagnosticsPanel(_ValueGauge):
         )
         width = max(2, int(size * 0.10))
         points = (
-            x - size * 0.65, y - size * 0.35,
-            x + size * 0.35, y - size * 0.35,
-            x + size * 0.55, y - size * 0.12,
-            x + size * 0.55, y + size * 0.35,
-            x - size * 0.55, y + size * 0.35,
-            x - size * 0.72, y + size * 0.10,
+            x - size * 0.65,
+            y - size * 0.35,
+            x + size * 0.35,
+            y - size * 0.35,
+            x + size * 0.55,
+            y - size * 0.12,
+            x + size * 0.55,
+            y + size * 0.35,
+            x - size * 0.55,
+            y + size * 0.35,
+            x - size * 0.72,
+            y + size * 0.10,
         )
         self.create_polygon(*points, fill="", outline=color, width=width)
-        self.create_line(x - size * 0.28, y - size * 0.36, x - size * 0.28, y - size * 0.62, fill=color, width=width)
-        self.create_line(x + size * 0.18, y - size * 0.36, x + size * 0.18, y - size * 0.58, fill=color, width=width)
+        self.create_line(
+            x - size * 0.28,
+            y - size * 0.36,
+            x - size * 0.28,
+            y - size * 0.62,
+            fill=color,
+            width=width,
+        )
+        self.create_line(
+            x + size * 0.18,
+            y - size * 0.36,
+            x + size * 0.18,
+            y - size * 0.58,
+            fill=color,
+            width=width,
+        )

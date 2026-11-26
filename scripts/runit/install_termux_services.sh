@@ -14,6 +14,7 @@ SERVICES=(
     openroadcode-navigation
     openroadcode-automotive
     openroadcode-adsb
+    openroadcode-sdrforge
 )
 LEGACY_SERVICES=(openroadcode-broker)
 
@@ -59,6 +60,12 @@ for service in "${SERVICES[@]}"; do
         echo "Service target exists and is not a directory: $target" >&2
         exit 1
     fi
+    # Preserve the existing SDRForge runtime state during migration from an
+    # older ORC-managed service that did not ship with this installer.
+    existing_sdrforge=0
+    if [[ "$service" == "openroadcode-sdrforge" && -d "$target" ]]; then
+        existing_sdrforge=1
+    fi
     mkdir -p "$target"
 
     # Install the source definition and provide the checkout location through
@@ -67,7 +74,11 @@ for service in "${SERVICES[@]}"; do
         -e "s|^PROJECT_ROOT=.*$|PROJECT_ROOT=\"$PROJECT_ROOT\"|" \
         "$source_dir/run" > "$target/run"
     chmod +x "$target/run"
-    if [[ -f "$source_dir/down" ]]; then
+    if [[ "$service" == "openroadcode-sdrforge" && "$existing_sdrforge" == 1 ]]; then
+        # A running existing service must not be stopped by adding a new
+        # default-down marker; retain the installed enabled/disabled state.
+        :
+    elif [[ -f "$source_dir/down" ]]; then
         cp "$source_dir/down" "$target/down"
     else
         rm -f "$target/down"
@@ -117,6 +128,8 @@ echo "OpenRoadCode Termux services installed."
 echo "The service manager stays available as the lightweight local control plane."
 echo "Start the core stack with:"
 echo "  $SCRIPT_DIR/manage_core.sh start"
+echo "Optional SDRForge (simulated source; USB hardware uses Android handoff):"
+echo "  sv up openroadcode-sdrforge"
 echo "Optional ADS-B:"
 echo "  sv up openroadcode-adsb"
 echo

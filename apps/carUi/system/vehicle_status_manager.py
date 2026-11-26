@@ -36,6 +36,4 @@ class VehicleStatusManager:
             self._top_bar_ui.set_location_text("🌎 lat.--, lon.--")
             return
 
-        self._top_bar_ui.set_location_text(
-            f"🌎 lat.{latitude:.2f}, lon.{longitude:.2f}"
-        )
+        self._top_bar_ui.set_location_text(f"🌎 lat.{latitude:.2f}, lon.{longitude:.2f}")

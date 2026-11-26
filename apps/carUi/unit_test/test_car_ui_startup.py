@@ -43,11 +43,15 @@ class CarUiStartupTest(unittest.TestCase):
 
     def test_default_config_paths_use_standard_profiles(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
-            self.assertEqual((RUNTIME_CONFIG_PATH, APPLICATIONS_CONFIG_PATH), resolve_config_paths())
+            self.assertEqual(
+                (RUNTIME_CONFIG_PATH, APPLICATIONS_CONFIG_PATH), resolve_config_paths()
+            )
 
     def test_termux_uses_shared_runtime_and_termux_applications(self) -> None:
         with patch.dict(os.environ, {"TERMUX_VERSION": "0.118"}, clear=True):
-            self.assertEqual((RUNTIME_CONFIG_PATH, TERMUX_APPLICATIONS_CONFIG_PATH), resolve_config_paths())
+            self.assertEqual(
+                (RUNTIME_CONFIG_PATH, TERMUX_APPLICATIONS_CONFIG_PATH), resolve_config_paths()
+            )
 
     def test_config_path_overrides_take_precedence(self) -> None:
         with patch.dict(
@@ -90,7 +94,10 @@ class CarUiStartupTest(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True):
             self.assertFalse(_env_bool("MISSING_STARTUP_BOOL", False))
 
-    @patch("apps.carUi.car_ui_startup.create_spotify_controller", side_effect=RuntimeError("spotify failed"))
+    @patch(
+        "apps.carUi.car_ui_startup.create_spotify_controller",
+        side_effect=RuntimeError("spotify failed"),
+    )
     @patch("apps.carUi.car_ui_startup.create_audio_controller")
     @patch("apps.carUi.car_ui_startup.create_input_device_runtime")
     @patch("apps.carUi.car_ui_startup.create_rotary_encoder_runtime")
@@ -115,7 +122,9 @@ class CarUiStartupTest(unittest.TestCase):
         encoder = SimpleNamespace(stop=lambda: events.append("encoder"))
         create_runtime.return_value = runtime
         create_encoders.return_value = SimpleNamespace(encoders=(encoder,), volume_index=0)
-        create_input_devices.return_value = SimpleNamespace(keyboards=(), push_buttons=(), push_button_actions=())
+        create_input_devices.return_value = SimpleNamespace(
+            keyboards=(), push_buttons=(), push_button_actions=()
+        )
 
         with self.assertRaisesRegex(RuntimeError, "spotify failed"):
             build_car_ui_dependencies(lambda *_args: None)

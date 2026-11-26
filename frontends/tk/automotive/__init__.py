@@ -9,8 +9,8 @@ from frontends.tk.automotive.shifter_gauge import ShifterGauge, ShifterTheme
 from frontends.tk.automotive.vehicle_gauge_panel import (
     DEFAULT_GAUGES,
     GaugeDefinition,
-    VehicleGaugeSnapshot,
     VehicleGaugePanel,
+    VehicleGaugeSnapshot,
 )
 
 __all__ = [

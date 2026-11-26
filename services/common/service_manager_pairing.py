@@ -5,13 +5,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import hmac
 import secrets
 import time
 import uuid
-
+from dataclasses import dataclass
 from typing import Protocol
 
 

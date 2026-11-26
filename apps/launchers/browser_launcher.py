@@ -4,16 +4,11 @@
 from __future__ import annotations
 
 import logging
-
-from common.logging.lifecycle import logged_action
-from common.logging.structured import current_operation, event
-
 import shutil
 import subprocess
 import time
 from pathlib import Path
 
-from ui.system.app_launcher_if import (AppLauncherIf, StatusCallback)
 from apps.launchers.external_window_manager import ExternalWindowManager, x11_environment
 from apps.launchers.graphics_environment import graphics_environment
 from apps.launchers.process_manager import (
@@ -21,8 +16,10 @@ from apps.launchers.process_manager import (
     is_process_running,
     terminate_process,
 )
+from common.logging.lifecycle import logged_action
 from common.logging.logging_paths import logging_file_path
-
+from common.logging.structured import current_operation, event
+from ui.system.app_launcher_if import AppLauncherIf, StatusCallback
 
 LOGGER = logging.getLogger("runtime.browser")
 
@@ -85,6 +82,7 @@ class BrowserKioskLauncher(AppLauncherIf):
         if value not in (None, "light", "dark"):
             raise ValueError("color scheme must be 'light', 'dark', or None")
         self._color_scheme = value
+
     def set_preferred_color_scheme(self, scheme: str) -> None:
         """Tell Chromium which CSS/browser color scheme ORC currently uses."""
         normalized = scheme.strip().lower()
@@ -198,6 +196,10 @@ class BrowserKioskLauncher(AppLauncherIf):
         if self.kiosk:
             command.append("--kiosk")
         if self.app_mode:
+            if self.window_position is not None and self.window_size is not None:
+                command.extend(
+                    ("--ozone-platform=x11", "--no-first-run", "--no-default-browser-check")
+                )
             command.append(f"--app={self.url}")
         if self.profile_path is not None:
             self.profile_path.mkdir(parents=True, exist_ok=True)
@@ -276,7 +278,13 @@ class BrowserKioskLauncher(AppLauncherIf):
         return hidden
 
     @logged_action("runtime.browser", "browser.action", "stop")
-    def stop(self, remote_display: str, set_status: StatusCallback = None, *, owned_process_only: bool = False) -> None:
+    def stop(
+        self,
+        remote_display: str,
+        set_status: StatusCallback = None,
+        *,
+        owned_process_only: bool = False,
+    ) -> None:
         """! @brief Stop the browser process or only processes owned by this launcher.
 
         @param remote_display Target display for browser cleanup.
@@ -291,11 +299,13 @@ class BrowserKioskLauncher(AppLauncherIf):
                     terminate_process(self._process, timeout_seconds=1.0)
                 else:
                     # A wrapper may have exited while its browser survives.
-                    close_matching_display_apps(display=remote_display, patterns=(self.process_pattern,))
+                    close_matching_display_apps(
+                        display=remote_display, patterns=(self.process_pattern,)
+                    )
             self._process = None
             self._window_id = None
             self._hidden = False
-            _status(set_status, 'Browser stopped')
+            _status(set_status, "Browser stopped")
             return
         process = self._process
         closed_normally = False

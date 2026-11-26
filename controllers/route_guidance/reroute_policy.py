@@ -50,10 +50,7 @@ class ReroutePolicy:
         if now - self._off_route_since < self._off_route_delay_s:
             return False
 
-        if (
-            self._last_reroute_at is not None
-            and now - self._last_reroute_at < self._cooldown_s
-        ):
+        if self._last_reroute_at is not None and now - self._last_reroute_at < self._cooldown_s:
             return False
 
         self._reroute_pending = True

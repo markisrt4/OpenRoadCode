@@ -16,14 +16,11 @@ from apps.carUi.car_ui_startup import (
 from frontends.tk.runtime import configure_display
 from ui.screen_ui_if import ScreenId
 
-
 ROUTE_ALIASES = {"scanner": "scanner_radio"}
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Launch one Car UI screen for visual testing."
-    )
+    parser = argparse.ArgumentParser(description="Launch one Car UI screen for visual testing.")
     parser.add_argument(
         "screen",
         choices=(

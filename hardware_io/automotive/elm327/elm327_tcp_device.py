@@ -46,14 +46,12 @@ class Elm327TcpDevice:
         except (Elm327CommandError, Elm327ConnectionError) as exc:
             self.disconnect()
             raise Elm327ConnectionError(
-                f"Connected to {self._host}:{self._port}, but ELM327 "
-                f"initialization failed: {exc}"
+                f"Connected to {self._host}:{self._port}, but ELM327 initialization failed: {exc}"
             ) from exc
         except OSError as exc:
             self.disconnect()
             raise Elm327ConnectionError(
-                f"Unable to connect to ELM327 TCP bridge at "
-                f"{self._host}:{self._port}"
+                f"Unable to connect to ELM327 TCP bridge at {self._host}:{self._port}"
             ) from exc
 
     def disconnect(self) -> None:
@@ -88,9 +86,7 @@ class Elm327TcpDevice:
                 lines=self._parse_lines(raw),
             )
         except OSError as exc:
-            raise Elm327CommandError(
-                f"ELM327 command failed: {normalized_command}: {exc}"
-            ) from exc
+            raise Elm327CommandError(f"ELM327 command failed: {normalized_command}: {exc}") from exc
 
     def _initialize(self) -> None:
         for command in self.INITIALIZATION_COMMANDS:

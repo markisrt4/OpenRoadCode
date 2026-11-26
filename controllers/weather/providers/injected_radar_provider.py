@@ -29,10 +29,7 @@ class InjectedRadarProvider(RadarProviderIf):
         return tuple(
             RadarFrame(
                 timestamp=first + index * 300,
-                tile_url=(
-                    f"orc-injected://{self._scenario}/{index}"
-                    "/{z}/{x}/{y}.png"
-                ),
+                tile_url=(f"orc-injected://{self._scenario}/{index}/{{z}}/{{x}}/{{y}}.png"),
                 max_zoom=7,
             )
             for index in range(self._frame_count)

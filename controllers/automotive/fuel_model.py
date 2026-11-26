@@ -96,10 +96,5 @@ class FuelModel:
             * displacement
             * self.volumetric_efficiency
             * omega_rad_s
-            / (
-                4.0
-                * math.pi
-                * SPECIFIC_GAS_CONSTANT_AIR_J_KG_K
-                * temperature_k
-            )
+            / (4.0 * math.pi * SPECIFIC_GAS_CONSTANT_AIR_J_KG_K * temperature_k)
         )

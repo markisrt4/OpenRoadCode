@@ -31,9 +31,7 @@ class WeatherDashLauncherTest(unittest.TestCase):
                 str(root / "weather-cache"),
                 launcher.environment["OPENROAD_WEATHER_CACHE_DIRECTORY"],
             )
-            self.assertEqual(
-                "45", launcher.environment["OPENROAD_WEATHER_REFRESH_SECONDS"]
-            )
+            self.assertEqual("45", launcher.environment["OPENROAD_WEATHER_REFRESH_SECONDS"])
 
     @patch("apps.launchers.weather_dash_launcher.StreamlitLauncher.launch")
     def test_launch_reports_status_and_delegates(self, launch: Mock) -> None:

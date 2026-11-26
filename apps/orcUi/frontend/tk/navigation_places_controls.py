@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 """Widget behavior for contract-bound POI and saved destination controls."""
+
 import tkinter as tk
 import logging
 from ui.navigation import MapMarker, MapMarkerKind
@@ -37,10 +38,16 @@ class NavigationPlacesControls:
                 controls.set_places_state(NavigationPlacesDrawerState(status=self._shortcut_status.get()))
             self.after(2500, lambda: self._shortcut_status.set(""))
             return
-        self._show_poi_card(PointOfInterest(
-            favorite.favorite_id, favorite.name, PoiCategory.OTHER,
-            favorite.position, source_class="saved-destination", address=favorite.address,
-        ))
+        self._show_poi_card(
+            PointOfInterest(
+                favorite.favorite_id,
+                favorite.name,
+                PoiCategory.OTHER,
+                favorite.position,
+                source_class="saved-destination",
+                address=favorite.address,
+            )
+        )
 
     def _clear_poi_search(self) -> None:
         """Clear the active POI search and remove its rendered markers."""
@@ -233,7 +240,11 @@ class NavigationPlacesControls:
                 self._earth_button.configure(image=icon if enabled else self._earth_offline_icon)
         for button in self._poi_action_buttons:
             if button.winfo_exists():
-                button.configure(state=tk.NORMAL if self.online_actions_allowed and not self._poi_launching else tk.DISABLED)
+                button.configure(
+                    state=tk.NORMAL
+                    if self.online_actions_allowed and not self._poi_launching
+                    else tk.DISABLED
+                )
 
     def _execute_poi_action(self, poi: PointOfInterest, action: PoiAction) -> None:
         execute_poi_action(self, poi, action)

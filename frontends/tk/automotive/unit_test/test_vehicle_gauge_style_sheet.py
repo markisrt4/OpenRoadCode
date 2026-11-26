@@ -11,7 +11,6 @@ from frontends.tk.automotive.vehicle_gauge_theme import vehicle_gauge_theme_from
 from frontends.tk.automotive.vehicle_gauge_widgets import LinearGauge
 from ui.theme import load_theme_bundle
 
-
 _THEME_ROOT = Path(__file__).resolve().parents[4] / "resources" / "themes"
 
 

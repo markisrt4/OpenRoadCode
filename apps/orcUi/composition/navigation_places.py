@@ -2,19 +2,19 @@
 # SPDX-License-Identifier: MIT
 
 """Construct backend resources for contract-bound navigation places views."""
+
 from collections.abc import Callable
 from weakref import WeakSet
-
 from apps.launchers.android_app_launcher import AndroidAppLauncher
 from apps.launchers.cesium_poi_actions import CesiumPoiActions
 from apps.launchers.earth_exploration_actions import EarthExplorationActions
 from controllers.navigation.map_favorites import MapFavorites
 from controllers.poi.android_poi_action_executor import AndroidPoiActionExecutor
 from controllers.poi.navigation_places_controller import NavigationPlacesController
+from controllers.poi.poi_action_executor_if import PoiActionExecutorIf
 from controllers.poi.poi_search_controller import PoiSearchController
 from controllers.poi.poi_selection_cache import PoiSelectionCache
 from controllers.poi.poi_search_controller_if import PoiSearchControllerIf
-from controllers.poi.poi_action_executor_if import PoiActionExecutorIf
 from ui.navigation.navigation_places_request_handler_if import NavigationPlacesFactoryIf
 
 
@@ -46,7 +46,7 @@ class NavigationPlacesFactory(NavigationPlacesFactoryIf):
 
     def create(self) -> NavigationPlacesController:
         if self._closed:
-            raise RuntimeError('Navigation places factory is closed')
+            raise RuntimeError("Navigation places factory is closed")
         # Match the previous per-mount store construction: pick up saved-place edits.
         self._favorites.load()
         session = NavigationPlacesController(self._search_factory(), self._favorites, self._actions,

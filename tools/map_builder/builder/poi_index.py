@@ -2,13 +2,12 @@
 # SPDX-License-Identifier: MIT
 
 """Build the renderer-independent OpenRoadCode offline search database from OSM."""
-from __future__ import annotations
 
+from __future__ import annotations
 import json
 import sqlite3
 import subprocess
 from pathlib import Path
-
 from .web_urls import valid_website
 
 
@@ -153,7 +152,15 @@ def _insert_point_feature(connection: sqlite3.Connection, feature: dict) -> None
         )
 
     place_kind = tags.get("place", "").casefold()
-    if name and place_kind in {"city", "town", "village", "hamlet", "suburb", "neighbourhood", "quarter"}:
+    if name and place_kind in {
+        "city",
+        "town",
+        "village",
+        "hamlet",
+        "suburb",
+        "neighbourhood",
+        "quarter",
+    }:
         connection.execute(
             "INSERT OR REPLACE INTO place (id,name,kind,state,country,latitude,longitude) VALUES (?,?,?,?,?,?,?)",
             (

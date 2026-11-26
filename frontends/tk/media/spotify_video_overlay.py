@@ -8,7 +8,11 @@ from __future__ import annotations
 import tkinter as tk
 from collections.abc import Callable
 
-from ui.media.spotify_presentation_if import SpotifyNativeSurface, SpotifyPresentationState, SpotifyVideoRequests
+from ui.media.spotify_presentation_if import (
+    SpotifyNativeSurface,
+    SpotifyPresentationState,
+    SpotifyVideoRequests,
+)
 from ui.ui_widget import UiWidget
 
 SPOTIFY_GREEN = "#1DB954"

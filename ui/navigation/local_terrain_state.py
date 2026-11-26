@@ -1,7 +1,7 @@
 """Immutable sampled ground relief in SI units, independent of its renderer."""
 
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
 
 from ui.navigation.local_imagery_state import LocalImageryState
 
@@ -22,7 +22,7 @@ class LocalTerrainState:
     def __post_init__(self):
         if not (2 <= self.width <= 129 and 2 <= self.height <= 129):
             raise ValueError("Terrain dimensions must be between 2 and 129")
-        if len(self.heights_m) != self.width*self.height:
+        if len(self.heights_m) != self.width * self.height:
             raise ValueError("Terrain sample count does not match dimensions")
         if not all(math.isfinite(v) and -500 <= v <= 9000 for v in self.heights_m):
             raise ValueError("Terrain contains invalid or missing elevations")
@@ -35,10 +35,16 @@ class LocalTerrainState:
 
     def document(self):
         document = self.coverage.document()
-        document.update(width=self.width, height=self.height, heights_m=self.heights_m,
-                        reference_height_m=self.reference_height_m, vertical_datum=self.vertical_datum,
-                        detail_level=self.detail_level, minimum_zoom=self.minimum_zoom,
-                        display_mode="relative-relief")
+        document.update(
+            width=self.width,
+            height=self.height,
+            heights_m=self.heights_m,
+            reference_height_m=self.reference_height_m,
+            vertical_datum=self.vertical_datum,
+            detail_level=self.detail_level,
+            minimum_zoom=self.minimum_zoom,
+            display_mode="relative-relief",
+        )
         return document
 
 
@@ -57,8 +63,9 @@ class LocalTerrainMosaicState:
 
     def document(self):
         lowest_detail = min(tile.detail_level for tile in self.tiles)
-        baseline = [tile.reference_height_m for tile in self.tiles
-                    if tile.detail_level == lowest_detail]
+        baseline = [
+            tile.reference_height_m for tile in self.tiles if tile.detail_level == lowest_detail
+        ]
         reference = sum(baseline) / len(baseline)
         tiles = []
         for tile in self.tiles:

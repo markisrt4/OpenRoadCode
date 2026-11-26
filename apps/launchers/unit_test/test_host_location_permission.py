@@ -3,9 +3,7 @@
 
 from unittest.mock import Mock, patch
 from urllib.error import URLError
-
 import pytest
-
 from apps.launchers.host_location_permission import HostLocationPermission
 from controllers.navigation.host_location_permission_if import HostLocationServiceUnavailable
 
@@ -61,7 +59,9 @@ def test_compact_permission_window_uses_app_mode_own_profile_and_reuses_window(m
 
 def response():
     opener = Mock()
-    opener.open.return_value.__enter__ = Mock(return_value=Mock(read=Mock(return_value=b'OpenRoadCode Host Location')))
+    opener.open.return_value.__enter__ = Mock(
+        return_value=Mock(read=Mock(return_value=b"OpenRoadCode Host Location"))
+    )
     opener.open.return_value.__exit__ = Mock(return_value=False)
     return opener
 
@@ -151,10 +151,13 @@ def test_ready_service_does_not_start_or_restart_navigation():
 def test_restart_uses_restricted_manager_endpoint_and_waits_for_location():
     manager = response()
     location = response()
-    with patch(
-        'apps.launchers.host_location_permission.build_opener',
-        side_effect=[manager, location],
-    ), patch('apps.launchers.host_location_permission.time.sleep'):
+    with (
+        patch(
+            "apps.launchers.host_location_permission.build_opener",
+            side_effect=[manager, location],
+        ),
+        patch("apps.launchers.host_location_permission.time.sleep"),
+    ):
         HostLocationPermission().restart_location_service(lambda: False)
 
     request = manager.open.call_args.args[0]

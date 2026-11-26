@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+
 @dataclass(frozen=True, slots=True)
 class PositionFix:
     """
@@ -15,6 +16,7 @@ class PositionFix:
     @param altitude_m    Altitude measured in metres (m) above sea level.
     @param pfom_m        Position figure of merit (PFOM) measured in metres (m).
     """
+
     latitude_rad: float
     longitude_rad: float
     altitude_m: float | None

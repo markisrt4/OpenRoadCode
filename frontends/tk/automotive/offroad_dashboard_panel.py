@@ -5,11 +5,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from dataclasses import dataclass, field
 import math
 import tkinter as tk
+from collections.abc import Sequence
+from dataclasses import dataclass, field
 
+from frontends.tk.automotive.offroad_theme import OffroadTheme
 from ui.navigation import (
     GroundTrackUiIf,
     HeadingReference,
@@ -20,11 +21,9 @@ from ui.navigation import (
     SatelliteInfo,
     TranslationUiIf,
 )
-from frontends.tk.automotive.offroad_theme import OffroadTheme
 from ui.system import StatusMessage, StatusSeverity, StatusUiIf, StatusValue
 from ui.theme import StyleSheet
 from ui.ui_widget import UiWidget
-
 
 # ORC automotive palette.
 BACKGROUND = "#05090d"
@@ -168,12 +167,12 @@ class OffroadDashboardPanel(
         controls = tk.Frame(self, bg=self._theme.panel)
         self._controls = controls
         controls.pack(fill=tk.X)
-        self._button(
-            controls, "CALIBRATE", self._request_calibration
-        ).pack(side=tk.LEFT, padx=(10, 4), pady=7)
-        self._button(
-            controls, "ZERO HEADING", self._request_heading_reset
-        ).pack(side=tk.LEFT, padx=4, pady=7)
+        self._button(controls, "CALIBRATE", self._request_calibration).pack(
+            side=tk.LEFT, padx=(10, 4), pady=7
+        )
+        self._button(controls, "ZERO HEADING", self._request_heading_reset).pack(
+            side=tk.LEFT, padx=4, pady=7
+        )
 
         self._status = tk.StringVar(value="STARTING")
         self._status_label = tk.Label(
@@ -230,9 +229,7 @@ class OffroadDashboardPanel(
         """
         self._has_orientation = heading_rad is not None
         self._state.heading_reference = reference
-        self._state.heading_deg = (
-            math.degrees(heading_rad) if heading_rad is not None else 0.0
-        )
+        self._state.heading_deg = math.degrees(heading_rad) if heading_rad is not None else 0.0
         self._request_draw()
 
     def set_pitch(self, pitch_rad: float | None) -> None:
@@ -240,9 +237,7 @@ class OffroadDashboardPanel(
 
         @param pitch_rad Pitch in radians, or None.
         """
-        self._state.pitch_deg = (
-            math.degrees(pitch_rad) if pitch_rad is not None else 0.0
-        )
+        self._state.pitch_deg = math.degrees(pitch_rad) if pitch_rad is not None else 0.0
         self._request_draw()
 
     def set_roll(self, roll_rad: float | None) -> None:
@@ -250,9 +245,7 @@ class OffroadDashboardPanel(
 
         @param roll_rad Roll in radians, or None.
         """
-        self._state.roll_deg = (
-            math.degrees(roll_rad) if roll_rad is not None else 0.0
-        )
+        self._state.roll_deg = math.degrees(roll_rad) if roll_rad is not None else 0.0
         self._request_draw()
 
     def set_rate_of_climb(self, rate_mps: float | None) -> None:
@@ -298,9 +291,7 @@ class OffroadDashboardPanel(
         @param position_fix Position fix, or None when unavailable.
         """
         self._position = position_fix
-        self._state.gps.altitude_m = (
-            position_fix.altitude_m if position_fix is not None else None
-        )
+        self._state.gps.altitude_m = position_fix.altitude_m if position_fix is not None else None
         self._request_draw()
 
     def set_satellites(self, satellites: Sequence[SatelliteInfo]) -> None:
@@ -308,9 +299,7 @@ class OffroadDashboardPanel(
 
         @param satellites Complete satellite snapshot.
         """
-        self._state.gps.satellites_used = sum(
-            satellite.is_used_in_fix for satellite in satellites
-        )
+        self._state.gps.satellites_used = sum(satellite.is_used_in_fix for satellite in satellites)
         self._request_draw()
 
     def set_ground_speed(self, speed_mps: float | None) -> None:
@@ -326,9 +315,7 @@ class OffroadDashboardPanel(
 
         @param course_rad Clockwise radians from true north, or None.
         """
-        self._state.gps.course_deg = (
-            math.degrees(course_rad) if course_rad is not None else None
-        )
+        self._state.gps.course_deg = math.degrees(course_rad) if course_rad is not None else None
         self._request_draw()
 
     def set_status(self, status: StatusValue) -> None:
@@ -367,7 +354,8 @@ class OffroadDashboardPanel(
             relief=tk.FLAT,
             padx=14,
             font=("TkDefaultFont", 9, "bold"),
-            highlightthickness=0, bd=0,
+            highlightthickness=0,
+            bd=0,
         )
 
     def _draw(self) -> None:
@@ -395,9 +383,7 @@ class OffroadDashboardPanel(
             roll,
             state is not None,
         )
-        if state is not None and _is_capsized(
-            state.pitch_deg, state.roll_deg
-        ):
+        if state is not None and _is_capsized(state.pitch_deg, state.roll_deg):
             self._draw_capsized_banner(
                 center_x,
                 center_y,
@@ -468,20 +454,7 @@ class OffroadDashboardPanel(
     ) -> None:
         self._canvas.create_rectangle(0, 0, width, 82, fill=self._theme.panel, outline="")
         heading = state.heading_deg if state is not None else 0.0
-        reference_text = (
-            {
-                HeadingReference.TRUE_NORTH: "TRUE",
-                HeadingReference.MAGNETIC_NORTH: "MAG",
-                HeadingReference.RELATIVE: "REL",
-            }[state.heading_reference]
-            if state is not None
-            else "REL"
-        )
-        heading_text = (
-            f"{heading:03.0f}°"
-            if state is not None
-            else "---°"
-        )
+        heading_text = f"{heading:03.0f}°" if state is not None else "---°"
         self._canvas.create_text(
             width / 2,
             22,
@@ -587,18 +560,21 @@ class OffroadDashboardPanel(
                 x + width - 10,
                 y + 16,
                 anchor=tk.NE,
-                text=(
-                    f"GPS {gps.course_deg:.0f}° "
-                    f"{_cardinal_direction(gps.course_deg)}"
-                ),
+                text=(f"GPS {gps.course_deg:.0f}° {_cardinal_direction(gps.course_deg)}"),
                 fill=self._theme.warning,
                 font=("TkDefaultFont", 8, "bold"),
             )
 
         # A compact top-view Jeep points along relative heading.
         local_body = (
-            (-13, 25), (-17, 9), (-15, -21), (-8, -31),
-            (8, -31), (15, -21), (17, 9), (13, 25),
+            (-13, 25),
+            (-17, 9),
+            (-15, -21),
+            (-8, -31),
+            (8, -31),
+            (15, -21),
+            (17, 9),
+            (13, 25),
         )
         local_cabin = ((-10, 8), (-10, -13), (10, -13), (10, 8))
 
@@ -654,11 +630,7 @@ class OffroadDashboardPanel(
             if state is not None
             else "REL"
         )
-        relative_text = (
-            f"{reference_text} {heading:03.0f}°"
-            if state is not None
-            else "REL ---°"
-        )
+        relative_text = f"{reference_text} {heading:03.0f}°" if state is not None else "REL ---°"
         self._canvas.create_text(
             center_x,
             y + height - 10,
@@ -705,34 +677,59 @@ class OffroadDashboardPanel(
 
         height = 225
         self._canvas.create_rectangle(
-            x, y, x + width, y + height,
-            fill=self._theme.panel, outline=self._theme.border, width=2,
+            x,
+            y,
+            x + width,
+            y + height,
+            fill=self._theme.panel,
+            outline=self._theme.border,
+            width=2,
         )
         pitch = value or 0.0
         ratio = abs(pitch) / warning_deg if value is not None else 0.0
         color = (
-            self._theme.danger if ratio >= 1.0 else
-            self._theme.warning if ratio >= 0.75 else
-            self._theme.success
-        ) if value is not None else self._theme.muted
+            (
+                self._theme.danger
+                if ratio >= 1.0
+                else self._theme.warning
+                if ratio >= 0.75
+                else self._theme.success
+            )
+            if value is not None
+            else self._theme.muted
+        )
         direction = "--" if value is None else ("NOSE UP" if pitch >= 0 else "NOSE DOWN")
         display = "--.-°" if value is None else f"{abs(pitch):.1f}°"
 
         self._canvas.create_text(
-            x + 14, y + 14, anchor=tk.NW, text="PITCH",
-            fill=self._theme.muted, font=("TkDefaultFont", 10, "bold"),
+            x + 14,
+            y + 14,
+            anchor=tk.NW,
+            text="PITCH",
+            fill=self._theme.muted,
+            font=("TkDefaultFont", 10, "bold"),
         )
         self._canvas.create_text(
-            x + width - 12, y + 14, anchor=tk.NE, text=direction,
-            fill=color, font=("TkDefaultFont", 8, "bold"),
+            x + width - 12,
+            y + 14,
+            anchor=tk.NE,
+            text=direction,
+            fill=color,
+            font=("TkDefaultFont", 8, "bold"),
         )
 
         cx, cy = x + width / 2, y + 126
         radius = min(width * 0.38, 72.0)
         self._canvas.create_arc(
-            cx - radius, cy - radius, cx + radius, cy + radius,
-            start=20, extent=140, style=tk.ARC,
-            outline=self._theme.border, width=2,
+            cx - radius,
+            cy - radius,
+            cx + radius,
+            cy + radius,
+            start=20,
+            extent=140,
+            style=tk.ARC,
+            outline=self._theme.border,
+            width=2,
         )
         for degrees in (-30, -20, -10, 0, 10, 20, 30):
             angle = math.radians(90 - degrees)
@@ -744,14 +741,20 @@ class OffroadDashboardPanel(
                 self._canvas.create_text(
                     cx - (radius + 13) * math.cos(angle),
                     cy - (radius + 13) * math.sin(angle),
-                    text=str(degrees), fill=self._theme.muted,
+                    text=str(degrees),
+                    fill=self._theme.muted,
                     font=("TkFixedFont", 7),
                 )
 
         # Fixed terrain line and a vehicle silhouette that follows pitch.
         self._canvas.create_line(
-            cx - radius * 0.9, cy + 23, cx + radius * 0.9, cy + 23,
-            fill=self._theme.warning, width=2, dash=(5, 4),
+            cx - radius * 0.9,
+            cy + 23,
+            cx + radius * 0.9,
+            cy + 23,
+            fill=self._theme.warning,
+            width=2,
+            dash=(5, 4),
         )
         half = radius * 0.58
         angle = math.radians(-pitch)
@@ -760,20 +763,28 @@ class OffroadDashboardPanel(
         # Wheels and roof turn the indicator into an unmistakable side-view vehicle.
         for local_x in (-half * 0.55, half * 0.55):
             wx, wy = _rotate_screen_point((local_x, 8), cx, cy, -pitch)
-            self._canvas.create_oval(wx - 6, wy - 6, wx + 6, wy + 6, fill="#111613", outline=color, width=2)
-        roof = ((-half * .35, -4), (-half * .18, -19), (half * .25, -19), (half * .42, -4))
+            self._canvas.create_oval(
+                wx - 6, wy - 6, wx + 6, wy + 6, fill="#111613", outline=color, width=2
+            )
+        roof = ((-half * 0.35, -4), (-half * 0.18, -19), (half * 0.25, -19), (half * 0.42, -4))
         points: list[float] = []
         for point in roof:
             points.extend(_rotate_screen_point(point, cx, cy, -pitch))
         self._canvas.create_line(*points, fill=color, width=3)
 
         self._canvas.create_text(
-            cx, y + height - 29, text=display, fill=color,
+            cx,
+            y + height - 29,
+            text=display,
+            fill=color,
             font=("TkFixedFont", 24, "bold"),
         )
         self._canvas.create_text(
-            cx, y + height - 8, text=f"LIMIT {warning_deg:.0f}°",
-            fill=self._theme.muted, font=("TkDefaultFont", 7, "bold"),
+            cx,
+            y + height - 8,
+            text=f"LIMIT {warning_deg:.0f}°",
+            fill=self._theme.muted,
+            font=("TkDefaultFont", 7, "bold"),
         )
 
     def _draw_tilt_meter(
@@ -803,9 +814,7 @@ class OffroadDashboardPanel(
             (24, "#27483a", 1),
             (48, "#193027", 1),
         ):
-            half_width = math.sqrt(
-                max(0.0, (radius - 10) ** 2 - offset**2)
-            )
+            half_width = math.sqrt(max(0.0, (radius - 10) ** 2 - offset**2))
             line_options: dict[str, object] = {
                 "fill": color,
                 "width": line_width,
@@ -894,8 +903,14 @@ class OffroadDashboardPanel(
             return tuple(transformed)
 
         body = (
-            (-65, -5), (-55, -42), (-38, -54), (38, -54),
-            (55, -42), (65, -5), (61, 40), (-61, 40),
+            (-65, -5),
+            (-55, -42),
+            (-38, -54),
+            (38, -54),
+            (55, -42),
+            (65, -5),
+            (61, 40),
+            (-61, 40),
         )
         windshield = ((-34, -47), (34, -47), (43, -14), (-43, -14))
         left_tire = ((-73, 8), (-57, 8), (-55, 48), (-72, 48))
@@ -1064,8 +1079,7 @@ class OffroadDashboardPanel(
                         "SATELLITES",
                         (
                             str(gps.satellites_used)
-                            if gps is not None
-                            and gps.satellites_used is not None
+                            if gps is not None and gps.satellites_used is not None
                             else "--"
                         ),
                     ),

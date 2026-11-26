@@ -8,7 +8,6 @@ from collections.abc import Callable
 
 from controllers.navigation.navigation_state import PositionState
 
-
 PositionStateCallback = Callable[[PositionState], None]
 
 

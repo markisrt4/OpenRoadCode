@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
 import threading
+from collections.abc import Callable, Sequence
 
 from common.resource_cleanup import close_resources
 from ui.games import GamesUiIf
 from ui.games.game_window_embedder_if import GameWindowEmbedderIf
 from ui.games.games_session_if import GamesRuntimeUiIf
 
-from .game_controller import GameController, WorkScheduler, UiScheduler
+from .game_controller import GameController, UiScheduler, WorkScheduler
 from .game_installer_if import GameInstallerIf
 from .game_launcher_if import GameLauncherIf
 from .game_types import GameDefinition
@@ -20,9 +20,14 @@ class GamesSession:
     """Bind inventory and native runtime through toolkit-neutral contracts."""
 
     def __init__(
-        self, games: Sequence[GameDefinition], installers: Sequence[GameInstallerIf],
-        launcher: GameLauncherIf, embedder: GameWindowEmbedderIf, *,
-        run_work: WorkScheduler, run_ui: UiScheduler,
+        self,
+        games: Sequence[GameDefinition],
+        installers: Sequence[GameInstallerIf],
+        launcher: GameLauncherIf,
+        embedder: GameWindowEmbedderIf,
+        *,
+        run_work: WorkScheduler,
+        run_ui: UiScheduler,
     ) -> None:
         self._games = tuple(games)
         self._installers = tuple(installers)
@@ -50,8 +55,12 @@ class GamesSession:
         binding = self._binding
         self._view = runtime_ui
         controller = GameController(
-            self._games, self._installers, run_work=self._run_work, run_ui=self._run_ui,
-            launch_game=self._launch, stop_game=lambda: self._stop_for_binding(binding),
+            self._games,
+            self._installers,
+            run_work=self._run_work,
+            run_ui=self._run_ui,
+            launch_game=self._launch,
+            stop_game=lambda: self._stop_for_binding(binding),
         )
         self._controller = controller
         controller.set_games_ui(games_ui)
@@ -71,9 +80,12 @@ class GamesSession:
             if self._runtime_active and not self._stopping:
                 self._stopping = True
                 native_generation = self._native_generation
-                self._run_work(lambda: self._stop(
-                    restore_view=False, native_generation=native_generation,
-                ))
+                self._run_work(
+                    lambda: self._stop(
+                        restore_view=False,
+                        native_generation=native_generation,
+                    )
+                )
 
     def close(self) -> None:
         """Retire callbacks, then release both native resources even on failure."""
@@ -85,9 +97,11 @@ class GamesSession:
         controller = self._controller
         self._controller = None
         self._view = None
+
         def detach() -> None:
             if controller is not None:
                 controller.set_games_ui(None)
+
         with self._native_lock:
             close_resources(detach, self._launcher.stop, self._embedder.clear)
         self._runtime_active = False
@@ -111,26 +125,40 @@ class GamesSession:
             with self._native_lock:
                 self._native_generation += 1
                 self._launcher.launch(
-                    game, command, on_exit=lambda: self._dispatch(
-                        generation, self._process_exited,
+                    game,
+                    command,
+                    on_exit=lambda: self._dispatch(
+                        generation,
+                        self._process_exited,
                     ),
                 )
                 process_id = self._launcher.process_id
                 if process_id is None:
                     raise RuntimeError(f"{game.name} exited immediately")
             self._runtime_active = True
-            self._run_work(lambda: self._embed(
-                generation, process_id, host_id, width, height,
-                window_name, window_class, relax_size_hints,
-            ))
+            self._run_work(
+                lambda: self._embed(
+                    generation,
+                    process_id,
+                    host_id,
+                    width,
+                    height,
+                    window_name,
+                    window_class,
+                    relax_size_hints,
+                )
+            )
         except Exception:
             self._generation += 1
             self._runtime_active = True
             self._stopping = True
             native_generation = self._native_generation
-            self._run_work(lambda: self._stop(
-                restore_view=False, native_generation=native_generation,
-            ))
+            self._run_work(
+                lambda: self._stop(
+                    restore_view=False,
+                    native_generation=native_generation,
+                )
+            )
             view.set_runtime_loading(False)
             view.hide_runtime_host()
             raise
@@ -139,19 +167,32 @@ class GamesSession:
         def deliver() -> None:
             if not self._closed and generation == self._generation and self._view is not None:
                 callback()
+
         self._run_ui(deliver)
 
     def _embed(
-        self, generation: int, process_id: int, host_id: int, width: int, height: int,
-        window_name: str | None, window_class: str | None, relax_size_hints: bool,
+        self,
+        generation: int,
+        process_id: int,
+        host_id: int,
+        width: int,
+        height: int,
+        window_name: str | None,
+        window_class: str | None,
+        relax_size_hints: bool,
     ) -> None:
         try:
             with self._native_lock:
                 if self._closed or generation != self._generation:
                     return
                 self._embedder.embed(
-                    process_id, host_id, width, height, window_name=window_name,
-                    window_class=window_class, relax_size_hints=relax_size_hints,
+                    process_id,
+                    host_id,
+                    width,
+                    height,
+                    window_name=window_name,
+                    window_class=window_class,
+                    relax_size_hints=relax_size_hints,
                 )
         except Exception:
             self._dispatch(generation, self._embed_failed)
@@ -179,11 +220,15 @@ class GamesSession:
             self._stop()
 
     def _stop(
-        self, *, restore_view: bool = True, native_generation: int | None = None,
+        self,
+        *,
+        restore_view: bool = True,
+        native_generation: int | None = None,
     ) -> None:
         generation = self._generation
-        native_generation = (self._native_generation if native_generation is None
-                             else native_generation)
+        native_generation = (
+            self._native_generation if native_generation is None else native_generation
+        )
         try:
             with self._native_lock:
                 if native_generation != self._native_generation:
@@ -210,9 +255,11 @@ class GamesSession:
     def resize(self, width: int, height: int) -> None:
         """Serialize resize with embedding and cleanup; drop stale requests."""
         generation = self._generation
+
         def resize_worker() -> None:
             with self._native_lock:
                 if not self._closed and generation == self._generation and self._runtime_active:
                     self._embedder.resize(width, height)
+
         if self._view is not None and not self._closed:
             self._run_work(resize_worker)

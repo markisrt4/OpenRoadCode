@@ -1,6 +1,7 @@
 """Immutable building geometry in radians and heights in metres."""
-from dataclasses import dataclass
+
 import math
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,5 +94,7 @@ class LocalBuildingState:
             raise ValueError("Building pack must contain 1–10000 attributed outlines")
 
     def document(self):
-        return {"attribution": self.attribution,
-                "buildings": [building.document() for building in self.buildings]}
+        return {
+            "attribution": self.attribution,
+            "buildings": [building.document() for building in self.buildings],
+        }

@@ -5,12 +5,13 @@ import math
 import tkinter as tk
 
 from apps.common.instruments.gauge_config import GaugeConfig
-from apps.common.instruments.gauge_style  import GaugeStyle
+from apps.common.instruments.gauge_style import GaugeStyle
 from ui.ui_widget import UiWidget
 
 
 class GaugeWidget(tk.Canvas, UiWidget):
     """Render a single analog-style telemetry gauge on a Tk canvas."""
+
     def __init__(
         self,
         parent,
@@ -78,9 +79,8 @@ class GaugeWidget(tk.Canvas, UiWidget):
                 self._config.min_value,
                 min(self._config.max_value, self._value),
             )
-            normalized = (
-                (clamped - self._config.min_value)
-                / (self._config.max_value - self._config.min_value)
+            normalized = (clamped - self._config.min_value) / (
+                self._config.max_value - self._config.min_value
             )
             display = f"{self._value:.{self._config.precision}f}"
 

@@ -5,10 +5,9 @@
 
 from __future__ import annotations
 
-from common.logging.diagnostics import ComponentLog, diagnostic_action
-
 from typing import Any
 
+from common.logging.diagnostics import ComponentLog, diagnostic_action
 from hardware_io.imu.imu_if import ImuIf
 from hardware_io.imu.imu_types import Vector3
 
@@ -51,9 +50,7 @@ class Mpu6050Imu(ImuIf):
             import adafruit_mpu6050
         except ImportError as exc:
             raise RuntimeError(
-                "MPU-6050 support requires the "
-                "'adafruit-circuitpython-mpu6050' package "
-                f"({exc})."
+                f"MPU-6050 support requires the 'adafruit-circuitpython-mpu6050' package ({exc})."
             ) from exc
 
         if self._i2c_bus is None:
@@ -61,8 +58,7 @@ class Mpu6050Imu(ImuIf):
                 import board
             except ImportError as exc:
                 raise RuntimeError(
-                    "Unable to load the Adafruit Blinka board support "
-                    f"for this system ({exc})."
+                    f"Unable to load the Adafruit Blinka board support for this system ({exc})."
                 ) from exc
 
         try:
@@ -80,8 +76,7 @@ class Mpu6050Imu(ImuIf):
                 self._release_i2c_bus()
 
             raise RuntimeError(
-                f"Unable to initialize MPU-6050 at address "
-                f"0x{self._address:02X}: {exc}"
+                f"Unable to initialize MPU-6050 at address 0x{self._address:02X}: {exc}"
             ) from exc
 
         self._diagnostics.changed("lifecycle", "started")

@@ -4,14 +4,14 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
 import math
+from collections.abc import Callable
 from typing import Any
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from controllers.radio.streaming_radio_directory_if import StreamingRadioDirectoryIf
-from ui.radio.streaming_radio_types import (StreamingRadioStation)
+from ui.radio.streaming_radio_types import StreamingRadioStation
 
 
 class RadioBrowserDirectory(StreamingRadioDirectoryIf):
@@ -20,8 +20,13 @@ class RadioBrowserDirectory(StreamingRadioDirectoryIf):
     DEFAULT_API_BASE = "https://de1.api.radio-browser.info/json"
     USER_AGENT = "OpenRoadCode/streaming-radio"
 
-    def __init__(self, *, api_base: str = DEFAULT_API_BASE, timeout_s: float = 5.0,
-                 network_allowed: Callable[[], bool] = lambda: True) -> None:
+    def __init__(
+        self,
+        *,
+        api_base: str = DEFAULT_API_BASE,
+        timeout_s: float = 5.0,
+        network_allowed: Callable[[], bool] = lambda: True,
+    ) -> None:
         self._network_allowed = network_allowed
         self._api_base = api_base.rstrip("/")
         self._timeout_s = timeout_s
@@ -31,14 +36,18 @@ class RadioBrowserDirectory(StreamingRadioDirectoryIf):
         if not query:
             return ()
         return self._request_stations(
-            f"{self._api_base}/stations/search?{urlencode({
-                'name': query,
-                'nameExact': 'false',
-                'hidebroken': 'true',
-                'order': 'votes',
-                'reverse': 'true',
-                'limit': str(_validate_limit(limit)),
-            })}"
+            f"{self._api_base}/stations/search?{
+                urlencode(
+                    {
+                        'name': query,
+                        'nameExact': 'false',
+                        'hidebroken': 'true',
+                        'order': 'votes',
+                        'reverse': 'true',
+                        'limit': str(_validate_limit(limit)),
+                    }
+                )
+            }"
         )
 
     def stations_by_ids(
@@ -75,14 +84,18 @@ class RadioBrowserDirectory(StreamingRadioDirectoryIf):
             raise ValueError("country_code must be a two-letter code")
 
         return self._request_stations(
-            f"{self._api_base}/stations/search?{urlencode({
-                'state': state,
-                'countrycode': country_code,
-                'hidebroken': 'true',
-                'order': 'votes',
-                'reverse': 'true',
-                'limit': str(_validate_limit(limit)),
-            })}"
+            f"{self._api_base}/stations/search?{
+                urlencode(
+                    {
+                        'state': state,
+                        'countrycode': country_code,
+                        'hidebroken': 'true',
+                        'order': 'votes',
+                        'reverse': 'true',
+                        'limit': str(_validate_limit(limit)),
+                    }
+                )
+            }"
         )
 
     def stations_near(
@@ -138,11 +151,7 @@ class RadioBrowserDirectory(StreamingRadioDirectoryIf):
             payload = json.load(response)
         if not isinstance(payload, list):
             raise ValueError("Radio Browser returned an unexpected response")
-        return tuple(
-            station
-            for item in payload
-            if (station := _parse_station(item)) is not None
-        )
+        return tuple(station for item in payload if (station := _parse_station(item)) is not None)
 
 
 def _parse_station(item: Any) -> StreamingRadioStation | None:

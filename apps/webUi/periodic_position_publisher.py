@@ -11,7 +11,6 @@ from threading import Event, Lock, Thread
 
 from controllers.navigation.navigation_state import PositionState
 
-
 PositionStateSink = Callable[[PositionState], None]
 
 

@@ -37,7 +37,9 @@ class TermuxGameInstaller(GameInstallerIf):
             text=True,
             check=False,
         )
-        self._available_packages = set(result.stdout.splitlines()) if result.returncode == 0 else set()
+        self._available_packages = (
+            set(result.stdout.splitlines()) if result.returncode == 0 else set()
+        )
         return self._available_packages
 
     def _package_available(self, package: str) -> bool:
@@ -62,7 +64,9 @@ class TermuxGameInstaller(GameInstallerIf):
         if not self.supported():
             raise RuntimeError("Termux package manager is not available")
         if not self.is_available(game):
-            raise RuntimeError(f"{package} or one of its dependencies is not available from the configured Termux repositories")
+            raise RuntimeError(
+                f"{package} or one of its dependencies is not available from the configured Termux repositories"
+            )
         packages = [package, *game.termux_dependencies]
         subprocess.run(["pkg", "install", "-y", *packages], check=True)
         self._available_packages = None

@@ -24,7 +24,6 @@ from messaging.message_dispatcher import MessageDispatcher
 from messaging.zeromq import ZeroMqSubscriber
 from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
 
-
 _fields = vehicle_fields
 
 
@@ -59,8 +58,7 @@ class _VehicleBusCache:
     def set_message(self, message: VehicleStateMessage) -> None:
         data = message.data
         timestamp = datetime.fromtimestamp(
-            message.timestamp.seconds
-            + message.timestamp.nanoseconds / 1_000_000_000.0,
+            message.timestamp.seconds + message.timestamp.nanoseconds / 1_000_000_000.0,
             tz=timezone.utc,
         )
         state = _VehicleDisplayState(

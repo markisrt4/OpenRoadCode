@@ -3,13 +3,13 @@
 
 """Tk widget construction helpers for the ORC navigation panel."""
 
+import logging
 import tkinter as tk
-
+from common.logging.structured import event
 from .navigation_earth_control import build_earth_control, build_poi_icon_button, load_poi_action_icon
 from .poi_card_header import PoiCardHeader
 from .poi_app_indicator import PoiAppIndicator
 from .navigation_poi_actions import request_poi_app_status
-
 from ui.navigation.poi_models import PoiAction, PoiActionKind
 from ui.navigation.map_layer_controls import MapLayerAction, MapLayerControls
 
@@ -27,12 +27,11 @@ def build_navigation_panel(panel) -> None:
     # grid column, never covering an X11 child window.
     panel._navigation_toolbar = bar
 
-    guidance = tk.Frame(
-        panel, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border
-    )
+    guidance = tk.Frame(panel, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
     guidance.grid(row=2, column=0, sticky="ew", pady=(4, 0))
-    tk.Label(guidance, text="ROUTE", bg=ui.surface, fg=ui.text_muted,
-             font=("Sans", 8, "bold")).pack(side=tk.LEFT, padx=6)
+    tk.Label(
+        guidance, text="ROUTE", bg=ui.surface, fg=ui.text_muted, font=("Sans", 8, "bold")
+    ).pack(side=tk.LEFT, padx=6)
     tk.Label(
         guidance,
         textvariable=panel._guidance_instruction,
@@ -88,9 +87,8 @@ def build_navigation_panel(panel) -> None:
         body, bg=ui.background, highlightthickness=1, highlightbackground=ui.border
     )
     panel._map_host.grid(row=0, column=0, sticky="nsew")
-    panel._loading_cover = tk.Label(body, text='Loading Terrain…',
-                                    bg=ui.background, fg=ui.text)
-    panel._loading_cover.grid(row=0, column=0, sticky='nsew')
+    panel._loading_cover = tk.Label(body, text="Loading Terrain…", bg=ui.background, fg=ui.text)
+    panel._loading_cover.grid(row=0, column=0, sticky="nsew")
     panel._loading_cover.grid_remove()
     panel._map_retry_button = tk.Button(body, text='RETRY MAP',
         command=panel._map_platform.request_retry if panel._map_platform is not None else None,
@@ -298,8 +296,9 @@ def show_poi_card(panel, poi) -> None:
     shell.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
 
     panel._earth_button = None
-    earth_action = next((action for action in poi.actions
-                         if action.provider_id == "google-earth-explore"), None)
+    earth_action = next(
+        (action for action in poi.actions if action.provider_id == "google-earth-explore"), None
+    )
 
     details: list[str] = []
     if poi.brand and poi.brand.casefold() != poi.name.casefold():
@@ -418,3 +417,23 @@ def show_poi_card(panel, poi) -> None:
     popup.geometry(f'{width}x{height}+{x}+{y}')
     popup.lift()
     popup.focus_force()
+
+
+def log_map_allocation(panel, _event=None) -> None:
+    """Trace settled Tk geometry separately from the native viewport."""
+    logger = logging.getLogger("navigation.map.layout")
+    if not logger.isEnabledFor(logging.DEBUG):
+        return
+    host = panel._map_host
+    body = host.master
+    event(
+        logger,
+        logging.DEBUG,
+        "map.host_allocation",
+        f"expanded={panel._drawer_state.expanded} "
+        f"body={body.winfo_width()}x{body.winfo_height()} "
+        f"host={host.winfo_width()}x{host.winfo_height()} "
+        f"host_id={host.winfo_id()} "
+        f"controls_manager={panel._map_controls.winfo_manager() or 'hidden'}",
+    )
+

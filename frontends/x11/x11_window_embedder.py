@@ -1,15 +1,13 @@
 """Embed an X11 application window inside an existing X11 host window."""
 
 from __future__ import annotations
-
 import re
 import ctypes
-from ctypes.util import find_library
-from collections.abc import Callable
 import shutil
 import subprocess
 import time
-
+from ctypes.util import find_library
+from collections.abc import Callable
 from .window_embedder_if import WindowEmbedderIf
 
 
@@ -168,7 +166,6 @@ class X11WindowEmbedder(WindowEmbedderIf):
         detail = f"; last X11 error: {last_error}" if last_error else ""
         raise RuntimeError(f"no usable X11 window found for {target}{detail}")
 
-
     def hide(
         self,
         process_id: int,
@@ -245,21 +242,35 @@ class X11WindowEmbedder(WindowEmbedderIf):
     @staticmethod
     def _find_by_class(window_class: str) -> int | None:
         escaped = re.escape(window_class)
-        visible = subprocess.run(["xdotool", "search", "--onlyvisible", "--class", escaped], capture_output=True, text=True, check=False)
+        visible = subprocess.run(
+            ["xdotool", "search", "--onlyvisible", "--class", escaped],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
         window_id = X11WindowEmbedder._best_window_id(visible)
         if window_id is not None:
             return window_id
-        result = subprocess.run(["xdotool", "search", "--class", escaped], capture_output=True, text=True, check=False)
+        result = subprocess.run(
+            ["xdotool", "search", "--class", escaped], capture_output=True, text=True, check=False
+        )
         return X11WindowEmbedder._best_window_id(result)
 
     @staticmethod
     def _find_by_name(window_name: str) -> int | None:
         escaped = re.escape(window_name)
-        visible = subprocess.run(["xdotool", "search", "--onlyvisible", "--name", escaped], capture_output=True, text=True, check=False)
+        visible = subprocess.run(
+            ["xdotool", "search", "--onlyvisible", "--name", escaped],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
         window_id = X11WindowEmbedder._best_window_id(visible)
         if window_id is not None:
             return window_id
-        result = subprocess.run(["xdotool", "search", "--name", escaped], capture_output=True, text=True, check=False)
+        result = subprocess.run(
+            ["xdotool", "search", "--name", escaped], capture_output=True, text=True, check=False
+        )
         return X11WindowEmbedder._best_window_id(result)
 
     @staticmethod
@@ -289,7 +300,12 @@ class X11WindowEmbedder(WindowEmbedderIf):
         best_id = candidates[-1]
         best_area = -1
         for window_id in candidates:
-            geometry = subprocess.run(["xdotool", "getwindowgeometry", "--shell", str(window_id)], capture_output=True, text=True, check=False)
+            geometry = subprocess.run(
+                ["xdotool", "getwindowgeometry", "--shell", str(window_id)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
             if geometry.returncode != 0:
                 continue
             width = height = 0

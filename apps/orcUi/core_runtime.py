@@ -12,7 +12,6 @@ from __future__ import annotations
 import os
 from collections.abc import Callable
 from queue import Empty, SimpleQueue
-from typing import Protocol
 
 from apps.launchers.map_renderer_launcher import MapRendererLauncher
 from apps.orcUi.map_theme_runtime import install_map_style
@@ -21,8 +20,8 @@ from apps.orcUi.navigation_presenter import (
     NavigationPresenter,
     PositionPresentationState,
 )
-from apps.orcUi.trip_presenter import TripPresenter, TripPresentationState
-from apps.orcUi.vehicle_presenter import VehiclePresenter, VehiclePresentationState
+from apps.orcUi.trip_presenter import TripPresentationState, TripPresenter
+from apps.orcUi.vehicle_presenter import VehiclePresentationState, VehiclePresenter
 from apps.orcUi.weather_alert_presenter import WeatherAlertPresentationState, WeatherAlertPresenter
 from controllers.automotive import EngineAnalysis, EngineAnalyzer, VehicleConfiguration
 from messaging.contracts.automotive import (
@@ -47,7 +46,6 @@ from messaging.message_dispatcher import MessageDispatcher
 from messaging.zeromq import ZeroMqSubscriber
 from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
 from ui.theme import ThemeMode
-from ui.navigation.map_runtime_if import MapRuntimeIf
 
 
 class MapRuntime:
@@ -77,8 +75,11 @@ class MapRuntime:
             )
 
     def launch(self, parent_window_id: int) -> None:
-        if (self._parent_window_id is not None and self._parent_window_id != parent_window_id
-                and self._renderer.is_running()):
+        if (
+            self._parent_window_id is not None
+            and self._parent_window_id != parent_window_id
+            and self._renderer.is_running()
+        ):
             self._renderer.stop()
         self._display = os.environ.get("DISPLAY", ":1")
         self._parent_window_id = parent_window_id
@@ -104,7 +105,7 @@ class StateIngressRuntime:
         apply_vehicle_state: Callable[[VehiclePresentationState], None],
         apply_engine_analysis: Callable[[EngineAnalysis], None],
         apply_trip_state: Callable[[TripPresentationState], None],
-        vehicle_configuration: VehicleConfiguration = VehicleConfiguration(),
+        vehicle_configuration: VehicleConfiguration | None = None,
         apply_position_state: Callable[[PositionPresentationState], None],
         apply_attitude_state: Callable[[AttitudePresentationState], None],
         apply_route_guidance_state: Callable[[RouteGuidanceStateMessage], None],
@@ -114,6 +115,8 @@ class StateIngressRuntime:
         self._schedule_ui = schedule_ui
         self._apply_vehicle_state = apply_vehicle_state
         self._apply_engine_analysis = apply_engine_analysis
+        if vehicle_configuration is None:
+            vehicle_configuration = VehicleConfiguration()
         self._engine_analyzer = EngineAnalyzer(vehicle_configuration)
         self._apply_trip_state = apply_trip_state
         self._apply_position_state = apply_position_state

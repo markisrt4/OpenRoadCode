@@ -10,4 +10,3 @@ __all__ = [
     "logging_tmp_dir",
     "logging_file_path",
 ]
-

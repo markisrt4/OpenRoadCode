@@ -4,10 +4,10 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import stat
 import tempfile
 import unittest
+from pathlib import Path
 
 from protocols.oauth import OAuthTokens
 from protocols.spotify.spotify_token_store import SpotifyTokenStore
@@ -16,11 +16,7 @@ from protocols.spotify.spotify_token_store import SpotifyTokenStore
 class SpotifyTokenStoreTest(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary_directory = tempfile.TemporaryDirectory()
-        self.token_path = (
-            Path(self.temporary_directory.name)
-            / "spotify"
-            / "tokens.json"
-        )
+        self.token_path = Path(self.temporary_directory.name) / "spotify" / "tokens.json"
         self.store = SpotifyTokenStore(self.token_path)
         self.tokens = OAuthTokens(
             access_token="access-token",
@@ -45,9 +41,7 @@ class SpotifyTokenStoreTest(unittest.TestCase):
         finally:
             os.umask(previous_umask)
 
-        directory_mode = stat.S_IMODE(
-            self.token_path.parent.stat().st_mode
-        )
+        directory_mode = stat.S_IMODE(self.token_path.parent.stat().st_mode)
         file_mode = stat.S_IMODE(self.token_path.stat().st_mode)
 
         self.assertEqual(directory_mode, 0o700)

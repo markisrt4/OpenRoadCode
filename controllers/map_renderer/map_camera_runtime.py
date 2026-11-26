@@ -4,14 +4,11 @@
 """Runtime that feeds navigation position and motion into a map camera."""
 
 from __future__ import annotations
-
 import math
 import logging
-
 from datetime import datetime
 from pathlib import Path
 from common.logging.structured import event
-
 from controllers.cache import PersistentCache
 from controllers.map_renderer.map_request_handler import MapRequestHandler
 from controllers.navigation.current_position import set_current_position
@@ -165,8 +162,13 @@ class MapCameraRuntime:
     def _on_position_message(self, message: PositionStateMessage) -> None:
         data = message.data
         live_point = None
-        if (not data.is_cached and data.fix_mode is not None and data.fix_mode >= 2
-                and data.latitude_rad is not None and data.longitude_rad is not None):
+        if (
+            not data.is_cached
+            and data.fix_mode is not None
+            and data.fix_mode >= 2
+            and data.latitude_rad is not None
+            and data.longitude_rad is not None
+        ):
             live_point = GeoPoint(data.latitude_rad, data.longitude_rad, data.altitude_m)
         if getattr(self, '_location_observers', ()):
             snapshot = LocationSnapshot(
@@ -311,10 +313,7 @@ class MapCameraRuntime:
         sin_lon = math.sin(d_lon / 2.0)
         a = (
             sin_lat * sin_lat
-            + math.cos(start.latitude_rad)
-            * math.cos(end.latitude_rad)
-            * sin_lon
-            * sin_lon
+            + math.cos(start.latitude_rad) * math.cos(end.latitude_rad) * sin_lon * sin_lon
         )
         return 2.0 * _EARTH_RADIUS_M * math.asin(min(1.0, math.sqrt(a)))
 
@@ -322,10 +321,7 @@ class MapCameraRuntime:
     def _bearing_rad(start: GeoPoint, end: GeoPoint) -> float:
         d_lon = end.longitude_rad - start.longitude_rad
         y = math.sin(d_lon) * math.cos(end.latitude_rad)
-        x = (
-            math.cos(start.latitude_rad) * math.sin(end.latitude_rad)
-            - math.sin(start.latitude_rad)
-            * math.cos(end.latitude_rad)
-            * math.cos(d_lon)
-        )
+        x = math.cos(start.latitude_rad) * math.sin(end.latitude_rad) - math.sin(
+            start.latitude_rad
+        ) * math.cos(end.latitude_rad) * math.cos(d_lon)
         return math.atan2(y, x)

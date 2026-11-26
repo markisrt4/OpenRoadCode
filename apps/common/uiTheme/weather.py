@@ -3,7 +3,6 @@
 
 from apps.common.uiTheme.uiTheme import COLORS
 
-
 WEATHER_PANEL_THEME = {
     "colors": {
         "background": COLORS["app_bg"],
@@ -25,7 +24,7 @@ WEATHER_PANEL_THEME = {
         "noaa_key": "noaa_weather_radio",
         "noaa_title": "NOAA WEATHER RADIO",
         "noaa_subtitle": "Weather band SDR",
-        "noaa_detail": "Toggle SDR++ at NOAA preset",
+        "noaa_detail": "Tune NOAA preset",
     },
     "profiles": {
         "default": {

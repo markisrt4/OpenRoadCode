@@ -8,4 +8,4 @@ from ui.automotive.vehicle_configuration import (
     VehicleConfiguration,
 )
 
-__all__ = ['EngineInductionType', 'VehicleConfiguration']
+__all__ = ["EngineInductionType", "VehicleConfiguration"]

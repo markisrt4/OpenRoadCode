@@ -153,9 +153,7 @@ class NavigationCommandClient:
         if not isinstance(response, dict):
             raise NavigationCommandError("Navigation service returned an invalid response")
         if not response.get("ok", False):
-            raise NavigationCommandError(
-                str(response.get("message", "Navigation command failed"))
-            )
+            raise NavigationCommandError(str(response.get("message", "Navigation command failed")))
         return response
 
     @staticmethod

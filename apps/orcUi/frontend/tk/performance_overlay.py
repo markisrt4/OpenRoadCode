@@ -17,9 +17,16 @@ class PerformanceOverlay:
     def __init__(self, root: tk.Misc):
         self._root = root
         self._label = tk.Label(
-            root, text="", bg="#18202b", fg="#f5f7fb",
-            font=("Sans", 11, "bold"), justify=tk.LEFT,
-            padx=10, pady=6, relief=tk.SOLID, bd=1,
+            root,
+            text="",
+            bg="#18202b",
+            fg="#f5f7fb",
+            font=("Sans", 11, "bold"),
+            justify=tk.LEFT,
+            padx=10,
+            pady=6,
+            relief=tk.SOLID,
+            bd=1,
         )
         self._visible = False
 
@@ -38,8 +45,8 @@ class PerformanceOverlay:
     def update(self, sample: SystemDiagnosticsSnapshot):
         self._label.configure(
             text=f"CPU  {_pct(sample.cpu_percent)}\n"
-                 f"GPU  {_pct(sample.gpu_percent)}\n"
-                 f"RAM  {_pct(sample.memory_used_percent)}"
+            f"GPU  {_pct(sample.gpu_percent)}\n"
+            f"RAM  {_pct(sample.memory_used_percent)}"
         )
 
     def close(self):

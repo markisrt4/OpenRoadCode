@@ -93,13 +93,25 @@ def _apply_map_palette(document: dict[str, Any], colors: dict[str, str]) -> None
     _paint(layers, "buildings-flat", "fill-outline-color", colors["building_outline"])
     # Map-anchored light keeps building faces consistently shaded when rotating.
     document["light"] = {
-        "anchor": "map", "position": [1.15, 210, 35], "intensity": 0.4,
+        "anchor": "map",
+        "position": [1.15, 210, 35],
+        "intensity": 0.4,
         "color": "#dce8ff" if colors is _MAP_DARK else "#fff4e5",
     }
-    _paint(layers, "buildings", "fill-extrusion-color", [
-        "interpolate", ["linear"], ["coalesce", ["get", "render_height"], 3.66],
-        0, colors["building"], 80, colors["building_tall"],
-    ])
+    _paint(
+        layers,
+        "buildings",
+        "fill-extrusion-color",
+        [
+            "interpolate",
+            ["linear"],
+            ["coalesce", ["get", "render_height"], 3.66],
+            0,
+            colors["building"],
+            80,
+            colors["building_tall"],
+        ],
+    )
     _paint(layers, "primary-roads-casing", "line-width", 5.5)
     _paint(layers, "primary-roads", "line-width", 4.5)
     _paint(layers, "waterways", "line-width", 1.35)
@@ -125,7 +137,9 @@ def _paint_label(layers: dict[str, dict[str, Any]], layer_id: str, text_color: s
     _paint(layers, layer_id, "text-halo-color", halo_color)
 
 
-def _paint(layers: dict[str, dict[str, Any]], layer_id: str, property_name: str, value: Any) -> None:
+def _paint(
+    layers: dict[str, dict[str, Any]], layer_id: str, property_name: str, value: Any
+) -> None:
     layer = layers.get(layer_id)
     if layer is not None:
         layer.setdefault("paint", {})[property_name] = value

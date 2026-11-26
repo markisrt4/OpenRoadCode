@@ -19,9 +19,7 @@ class RadioRuntimeRegistry:
             return self._runtimes[key]
         except KeyError as exc:
             available = ", ".join(sorted(self._runtimes)) or "<none>"
-            raise KeyError(
-                f"Unknown radio runtime '{key}'. Available: {available}"
-            ) from exc
+            raise KeyError(f"Unknown radio runtime '{key}'. Available: {available}") from exc
 
     def keys(self) -> tuple[str, ...]:
         return tuple(self._runtimes.keys())

@@ -69,20 +69,14 @@ def test_presenter_converts_boost_metrics() -> None:
 
     assert state.boost_time_s == pytest.approx(120.0)
     assert state.boost_distance_miles == pytest.approx(1.0)
-    assert state.boost_fuel_gallons == pytest.approx(
-        0.00025 * 264.1720523581484
-    )
+    assert state.boost_fuel_gallons == pytest.approx(0.00025 * 264.1720523581484)
     assert state.boost_fuel_percent == pytest.approx(25.0)
     assert state.peak_boost_psi == pytest.approx(10.0)
 
 
 def test_presenter_converts_instantaneous_fuel_economy_to_mpg() -> None:
     gallons_per_mile = 1.0 / 30.0
-    consumption_m3_per_m = (
-        gallons_per_mile
-        * 0.000621371192237334
-        / 264.1720523581484
-    )
+    consumption_m3_per_m = gallons_per_mile * 0.000621371192237334 / 264.1720523581484
     state = TripPresenter.present(
         _data(instantaneous_fuel_consumption_m3_per_m=consumption_m3_per_m)
     )

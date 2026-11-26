@@ -4,34 +4,29 @@
 """Navigation-screen lifecycle for the integrated orcUi Tk frontend."""
 
 from __future__ import annotations
-
 from ui.navigation.navigation_experience_if import NavigationExperienceRequestHandlerIf
 from ui.navigation.waze_request_handler_if import WazeRequestHandlerIf
 from ui.system.online_mode_if import OnlineModeIf
 from ui.tooltip_if import TooltipFactoryIf
-
 from collections.abc import Callable
-
 from ui.navigation.map_runtime_if import MapRuntimeIf
 from ui.navigation.map_platform_if import MapPlatform, MapPlatformControlIf
-from ui.automotive.automotive_telemetry_profile import (AutomotiveTelemetryProfile)
+from ui.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
 from ui.weather.radar_ui_if import RadarPalette, RadarUiState
 from ui.weather.radar_controls_if import RadarControlsIf
 from ui.weather.radar_request_handler_if import RadarRequestHandlerIf
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
-from ui.navigation import (
-    MapRequestHandlerIf,
-    RouteRequestHandlerIf,
-    RouteSimulationRequestHandlerIf,
+from ui.navigation import MapRequestHandlerIf, RouteRequestHandlerIf, RouteSimulationRequestHandlerIf
+from ui.navigation.map_controls_drawer_ui import MapControlsDrawerRequestHandlerIf
+from ui.navigation.navigation_places_request_handler_if import (
+    NavigationPlacesFactoryIf,
+    NavigationPlacesRequestHandlerIf,
 )
 from ui.screen_ui_if import ScreenId
-from ui.navigation.navigation_places_request_handler_if import NavigationPlacesFactoryIf, NavigationPlacesRequestHandlerIf
 from ui.theme import ThemeBundle
-
 from .navigation_panel import NavigationPanel
 from .screen_builders import build_navigation_screen
-from ui.navigation.map_controls_drawer_ui import MapControlsDrawerRequestHandlerIf
 
 
 class NavigationScreen(TkScreen, RadarControlsIf):
@@ -49,9 +44,7 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         route_request_handler: RouteRequestHandlerIf,
         route_simulation_handler: RouteSimulationRequestHandlerIf,
         theme_bundle: Callable[[], ThemeBundle],
-        telemetry_profile_request: (
-            Callable[[AutomotiveTelemetryProfile], None] | None
-        ),
+        telemetry_profile_request: (Callable[[AutomotiveTelemetryProfile], None] | None),
         on_back: Callable[[], None],
         route_weather=None,
         drawer_handler: MapControlsDrawerRequestHandlerIf | None = None,
@@ -179,7 +172,9 @@ class NavigationScreen(TkScreen, RadarControlsIf):
                 radar_enabled=self._radar_state.enabled,
                 radar_frame_time=self._radar_state.frame_time,
                 radar_palette=self._radar_state.palette,
-                on_radar_palette_changed=(self._change_radar_palette if self._radar_handler is not None else None),
+                on_radar_palette_changed=(
+                    self._change_radar_palette if self._radar_handler is not None else None
+                ),
                 on_radar_toggle=self._toggle_radar if self._radar_handler is not None else None,
                 on_radar_previous=self._radar_previous if self._radar_handler is not None else None,
                 on_radar_next=self._radar_next if self._radar_handler is not None else None,
@@ -275,10 +270,7 @@ class NavigationScreen(TkScreen, RadarControlsIf):
             if self._map_platform is not None and target is not self._map_platform.state.requested:
                 self._map_platform.request_platform(target)
         except (OSError, RuntimeError) as error:
-            print(
-                "WARNING: map renderer: "
-                f"{type(error).__name__}: {error}"
-            )
+            print(f"WARNING: map renderer: {type(error).__name__}: {error}")
 
     def _poll_platform(self, generation: int) -> None:
         if generation != self._platform_generation or self._panel is None:
@@ -287,7 +279,7 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         self._map_platform.resize(width, height, self._panel.winfo_toplevel().winfo_id())
         state = self._map_platform.state
         self._panel.apply_map_platform_state(state)
-        status = state.status.replace('MapLibre','Map')
+        status = state.status.replace("MapLibre", "Map")
         if status != self._platform_status:
             self._platform_status = status
             self._host.set_screen_status(status)

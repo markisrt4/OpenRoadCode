@@ -5,12 +5,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 import logging
-
-from common.logging.structured import current_operation, event, operation
+from collections.abc import Callable
 
 from apps.launchers.browser_launcher import BrowserKioskLauncher
+from common.logging.structured import current_operation, event, operation
 from controllers.application_runtime import AppRuntimeManager
 
 LOGGER = logging.getLogger("media.browser")

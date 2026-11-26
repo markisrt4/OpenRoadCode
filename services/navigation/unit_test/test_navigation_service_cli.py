@@ -11,12 +11,12 @@ from config.service_runtime_config import (
     SimulationProfileConfig,
 )
 from controllers.navigation import NavigationController
+from controllers.navigation.browser_position_source import BrowserPositionSource
+from controllers.navigation.fallback_position_source import FallbackPositionSource
+from controllers.navigation.route_playback_position_source import RoutePlaybackPositionSource
+from controllers.navigation.route_simulation_if import RouteSimulationIf
 from controllers.navigation.simulated_navigation_sensor import SimulatedNavigationSensor
 from controllers.navigation.simulated_position_source import SimulatedPositionSource
-from controllers.navigation.route_playback_position_source import RoutePlaybackPositionSource
-from controllers.navigation.fallback_position_source import FallbackPositionSource
-from controllers.navigation.browser_position_source import BrowserPositionSource
-from controllers.navigation.route_simulation_if import RouteSimulationIf
 from services.navigation import navigation_service_cli
 from services.navigation.navigation_service_cli import build_controller
 
@@ -81,11 +81,12 @@ def test_desktop_android_source_offers_loopback_browser_fallback(monkeypatch) ->
         NavigationServiceRuntimeConfig(gps=GpsInputConfig(device="android"))
     )
     assert isinstance(source._live_source, FallbackPositionSource)
-    assert source._live_source._fallback.url == 'http://localhost:9876/'
+    assert source._live_source._fallback.url == "http://localhost:9876/"
 
 
 def test_termux_keeps_bridge_source_without_browser_listener(monkeypatch) -> None:
     from controllers.navigation.android_position_source import AndroidPositionSource
+
     monkeypatch.setattr(navigation_service_cli, "_host_location_fallback_available", lambda: False)
     source = navigation_service_cli._build_position_source(
         NavigationServiceRuntimeConfig(gps=GpsInputConfig(device="android"))
@@ -98,21 +99,22 @@ def test_desktop_fallback_ignores_saved_rpi_build_target(monkeypatch) -> None:
     monkeypatch.delenv("TERMUX_VERSION", raising=False)
     monkeypatch.delenv("PREFIX", raising=False)
     monkeypatch.setenv("OPENROAD_INSTALL_TARGET", "rpi5")
-    monkeypatch.setattr(navigation_service_cli.Path, "read_text", lambda *args, **kwargs: "")
     source = navigation_service_cli._build_position_source(
         NavigationServiceRuntimeConfig(gps=GpsInputConfig(device="android"))
     )
     assert isinstance(source._live_source, FallbackPositionSource)
 
 
-def test_actual_pi_hardware_does_not_offer_desktop_listener(monkeypatch) -> None:
+def test_pi_target_offers_browser_fallback_for_gpsd(monkeypatch) -> None:
     monkeypatch.setattr(navigation_service_cli.sys, "platform", "linux")
     monkeypatch.delenv("TERMUX_VERSION", raising=False)
     monkeypatch.delenv("PREFIX", raising=False)
-    monkeypatch.setenv("OPENROAD_INSTALL_TARGET", "linux-dev")
-    monkeypatch.setattr(navigation_service_cli.Path, "read_text",
-                        lambda *args, **kwargs: "Raspberry Pi 5 Model B Rev 1.0\0")
-    assert not navigation_service_cli._host_location_fallback_available()
+    monkeypatch.setenv("OPENROAD_INSTALL_TARGET", "rpi5")
+    monkeypatch.setattr(navigation_service_cli, "_create_gps_reader", lambda *_args: object())
+    source = navigation_service_cli._build_position_source(
+        NavigationServiceRuntimeConfig(gps=GpsInputConfig(device="gpsd"))
+    )
+    assert isinstance(source._live_source, FallbackPositionSource)
 
 
 def test_actual_termux_runtime_does_not_offer_desktop_listener(monkeypatch) -> None:
@@ -124,10 +126,11 @@ def test_actual_termux_runtime_does_not_offer_desktop_listener(monkeypatch) -> N
 
 def test_browser_only_source_is_accepted_by_configuration_and_composition(tmp_path) -> None:
     from config.service_runtime_config import ServiceRuntimeConfigParser
-    configuration = tmp_path / 'runtime.toml'
+
+    configuration = tmp_path / "runtime.toml"
     configuration.write_text('[services.navigation.inputs.gps]\nsource = "browser"\n')
     config = ServiceRuntimeConfigParser(configuration).load().navigation
-    assert config.gps.source == 'browser'
+    assert config.gps.source == "browser"
     assert isinstance(navigation_service_cli._build_position_source(config), BrowserPositionSource)
     shared = BrowserPositionSource(port=0)
     assert navigation_service_cli._build_position_source(config, host_location_source=shared) is shared
@@ -150,7 +153,6 @@ def test_build_controller_supports_device_imu_with_simulated_gps(monkeypatch) ->
     assert isinstance(controller._gps_source, SimulatedPositionSource)
 
 
-
 def test_android_bridge_url_defaults_to_profile_configuration(monkeypatch) -> None:
     monkeypatch.delenv("OPENROADCODE_ANDROID_BRIDGE_URL", raising=False)
 
@@ -161,9 +163,7 @@ def test_android_bridge_url_defaults_to_profile_configuration(monkeypatch) -> No
 
 
 def test_android_bridge_url_uses_service_manager_override(monkeypatch) -> None:
-    monkeypatch.setenv(
-        "OPENROADCODE_ANDROID_BRIDGE_URL", "http://192.168.1.50:8766"
-    )
+    monkeypatch.setenv("OPENROADCODE_ANDROID_BRIDGE_URL", "http://192.168.1.50:8766")
 
     assert (
         navigation_service_cli._android_bridge_url("http://127.0.0.1:8766")
@@ -200,10 +200,14 @@ def test_navigation_profiles_parse_against_base_runtime() -> None:
 
     for profile, values in expected.items():
         _, overlay = navigation_service_cli.resolve_runtime_profile(profile)
-        config = ServiceRuntimeConfigParser(
-            navigation_service_cli.DEFAULT_RUNTIME_CONFIG,
-            overlays=(overlay,),
-        ).load().navigation
+        config = (
+            ServiceRuntimeConfigParser(
+                navigation_service_cli.DEFAULT_RUNTIME_CONFIG,
+                overlays=(overlay,),
+            )
+            .load()
+            .navigation
+        )
 
         assert (
             config.imu.source,

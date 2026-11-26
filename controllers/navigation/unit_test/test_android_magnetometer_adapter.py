@@ -1,10 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
+from controllers.navigation.android_magnetometer_adapter import AndroidMagnetometerAdapter
 from hardware_io.android.magnetometer import MagnetometerSample as AndroidMagnetometerSample
 from hardware_io.imu import Vector3
-
-from controllers.navigation.android_magnetometer_adapter import AndroidMagnetometerAdapter
 
 
 class _MagnetometerStub:

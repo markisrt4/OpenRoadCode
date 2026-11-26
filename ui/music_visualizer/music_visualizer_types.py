@@ -6,8 +6,8 @@
 
 from __future__ import annotations
 
-from enum import Enum
 from dataclasses import dataclass
+from enum import Enum
 
 
 class KickMode(Enum):
@@ -35,9 +35,9 @@ class MusicVisualizationMode(Enum):
 class MusicCaptureState(Enum):
     """Current capture lifecycle, including pending asynchronous connection."""
 
-    IDLE = 'idle'
-    STARTING = 'starting'
-    RUNNING = 'running'
+    IDLE = "idle"
+    STARTING = "starting"
+    RUNNING = "running"
 
 
 class MusicVisualizerSource(str, Enum):
@@ -80,11 +80,11 @@ class MusicVisualizerView(Enum):
 class AnalyzerPalette(str, Enum):
     """Analyzer color presets; custom colors are normalized RGB triples."""
 
-    ORC = 'ORC blue'
-    RETRO = 'Retro'
-    MONO = 'Monochrome'
-    FIRE = 'Fire'
-    CUSTOM = 'Custom'
+    ORC = "ORC blue"
+    RETRO = "Retro"
+    MONO = "Monochrome"
+    FIRE = "Fire"
+    CUSTOM = "Custom"
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,13 +93,13 @@ class AnalyzerAppearance:
 
     palette: AnalyzerPalette = AnalyzerPalette.ORC
     segmented: bool = False
-    spacing: float = .2
-    response_s: float = .05
-    decay_s: float = .3
+    spacing: float = 0.2
+    response_s: float = 0.05
+    decay_s: float = 0.3
     peak_markers: bool = True
     band_count: int = 64
-    low_color: tuple[float, float, float] = (.02, .35, .65)
-    high_color: tuple[float, float, float] = (.15, .85, 1.0)
+    low_color: tuple[float, float, float] = (0.02, 0.35, 0.65)
+    high_color: tuple[float, float, float] = (0.15, 0.85, 1.0)
 
 
 @dataclass(frozen=True, slots=True)

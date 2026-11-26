@@ -46,8 +46,13 @@ class SavedDestinationFavoritesTest(unittest.TestCase):
         self.assertEqual(self.config.path.read_text(), "version = 2")
 
     def test_default_favorites_use_user_config(self):
-        with patch.dict("os.environ", {"XDG_CONFIG_HOME": str(self.directory / "config"),
-                                        "XDG_DATA_HOME": str(self.directory / "data")}):
+        with patch.dict(
+            "os.environ",
+            {
+                "XDG_CONFIG_HOME": str(self.directory / "config"),
+                "XDG_DATA_HOME": str(self.directory / "data"),
+            },
+        ):
             config = SavedDestinationsConfig()
             config.save(SavedDestination("work", "Work", "456 Main St", GeoPoint(0.6, -1.1)))
             favorites = MapFavorites()

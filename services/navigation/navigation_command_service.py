@@ -12,7 +12,12 @@ from typing import Any, Mapping
 from controllers.navigation.geocoding import GeocoderIf
 from controllers.navigation.navigation_controller_if import NavigationControllerIf
 from controllers.route_planning.route_planning_controller_if import RoutePlanningControllerIf
-from controllers.route_planning.route_planning_types import GeoPoint, RouteRequest, RouteResult, TravelMode
+from controllers.route_planning.route_planning_types import (
+    GeoPoint,
+    RouteRequest,
+    RouteResult,
+    TravelMode,
+)
 
 CALIBRATE_STATIONARY_COMMAND = "navigation.calibrate_stationary"
 RESET_HEADING_COMMAND = "navigation.reset_heading"
@@ -62,7 +67,9 @@ class NavigationCommandService:
         self._on_route_simulation_stopped = on_route_simulation_stopped
         self._prepare_host_location = prepare_host_location
 
-    def execute(self, command: str, arguments: Mapping[str, Any] | None = None) -> NavigationCommandResult:
+    def execute(
+        self, command: str, arguments: Mapping[str, Any] | None = None
+    ) -> NavigationCommandResult:
         args = dict(arguments or {})
         if command == PREPARE_HOST_LOCATION_COMMAND:
             if self._prepare_host_location is None:
@@ -147,8 +154,12 @@ class NavigationCommandService:
             raise ValueError(f"Unsupported travel mode: {travel_mode_name}") from error
 
         return RouteRequest(
-            origin=GeoPoint(latitude=float(origin["latitude"]), longitude=float(origin["longitude"])),
-            destination=GeoPoint(latitude=float(destination["latitude"]), longitude=float(destination["longitude"])),
+            origin=GeoPoint(
+                latitude=float(origin["latitude"]), longitude=float(origin["longitude"])
+            ),
+            destination=GeoPoint(
+                latitude=float(destination["latitude"]), longitude=float(destination["longitude"])
+            ),
             travel_mode=travel_mode,
         )
 
@@ -185,7 +196,9 @@ class NavigationCommandService:
             "operation_id": route.operation_id,
             "distance_miles": route.distance_miles,
             "duration_seconds": route.duration_seconds,
-            "shape": [{"latitude": point.latitude, "longitude": point.longitude} for point in route.shape],
+            "shape": [
+                {"latitude": point.latitude, "longitude": point.longitude} for point in route.shape
+            ],
             "maneuvers": [
                 {
                     "instruction": maneuver.instruction,

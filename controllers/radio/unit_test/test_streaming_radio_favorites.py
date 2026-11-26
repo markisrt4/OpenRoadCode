@@ -100,9 +100,7 @@ stream_url = \"https://old.example/two\"
             ("legacy-one", "legacy-two"),
         )
         self.assertTrue(self.legacy_path.exists())
-        self.assertIsNotNone(
-            self.storage.get(StreamingRadioFavorites.CACHE_KEY)
-        )
+        self.assertIsNotNone(self.storage.get(StreamingRadioFavorites.CACHE_KEY))
 
 
 if __name__ == "__main__":

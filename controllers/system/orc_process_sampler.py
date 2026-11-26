@@ -31,9 +31,12 @@ class OrcProcessSampler:
     """Measure each PID independently; never include cumulative child CPU twice."""
 
     def __init__(
-        self, proc_root: Path | str = "/proc", *,
+        self,
+        proc_root: Path | str = "/proc",
+        *,
         monotonic: Callable[[], float] = time.monotonic,
-        clock_ticks: int | None = None, page_size: int | None = None,
+        clock_ticks: int | None = None,
+        page_size: int | None = None,
     ) -> None:
         self._root = Path(proc_root)
         self._monotonic = monotonic
@@ -50,7 +53,9 @@ class OrcProcessSampler:
         try:
             directories = tuple(self._root.iterdir())
         except OSError:
-            return OrcWorkloadSnapshot(visibility="unavailable", detail="Process directory inaccessible")
+            return OrcWorkloadSnapshot(
+                visibility="unavailable", detail="Process directory inaccessible"
+            )
         for directory in directories:
             if not directory.name.isdigit():
                 continue
@@ -59,11 +64,21 @@ class OrcProcessSampler:
                 head, _, tail = raw.rpartition(")")
                 fields = tail.split()
                 pid = int(directory.name)
-                args = tuple(arg.decode(errors="replace") for arg in (directory / "cmdline").read_bytes().split(b"\0") if arg)
+                args = tuple(
+                    arg.decode(errors="replace")
+                    for arg in (directory / "cmdline").read_bytes().split(b"\0")
+                    if arg
+                )
                 processes[pid] = _Process(
-                    pid, int(fields[1]), int(fields[19]), int(fields[11]) + int(fields[12]),
-                    max(0, int(fields[21])) * self._page_size, int(fields[17]), fields[0],
-                    head.partition("(")[2], args,
+                    pid,
+                    int(fields[1]),
+                    int(fields[19]),
+                    int(fields[11]) + int(fields[12]),
+                    max(0, int(fields[21])) * self._page_size,
+                    int(fields[17]),
+                    fields[0],
+                    head.partition("(")[2],
+                    args,
                 )
             except PermissionError:
                 blocked += 1
@@ -85,7 +100,10 @@ class OrcProcessSampler:
             for pid, process in processes.items():
                 if pid not in selected and process.parent in selected:
                     parent_name, category = selected[process.parent]
-                    selected[pid] = (f"{parent_name} / {Path(process.args[0]).name if process.args else process.comm}", category)
+                    selected[pid] = (
+                        f"{parent_name} / {Path(process.args[0]).name if process.args else process.comm}",
+                        category,
+                    )
                     added = True
             if not added:
                 break
@@ -109,21 +127,33 @@ class OrcProcessSampler:
                 read = _rate(io, before[2], "read_bytes", elapsed)
                 write = _rate(io, before[2], "write_bytes", elapsed)
             self._previous[identity] = (now, process.ticks, io)
-            rows.append(OrcProcessSnapshot(
-                pid=pid, name=name[:96], category=category, state=process.state,
-                cpu_percent=cpu, rss_bytes=process.rss, pss_bytes=memory.get("Pss"),
-                thread_count=process.threads, read_bytes_per_second=read,
-                write_bytes_per_second=write,
-            ))
+            rows.append(
+                OrcProcessSnapshot(
+                    pid=pid,
+                    name=name[:96],
+                    category=category,
+                    state=process.state,
+                    cpu_percent=cpu,
+                    rss_bytes=process.rss,
+                    pss_bytes=memory.get("Pss"),
+                    thread_count=process.threads,
+                    read_bytes_per_second=read,
+                    write_bytes_per_second=write,
+                )
+            )
         rows.sort(key=lambda row: (row.cpu_percent is None, -(row.cpu_percent or 0), row.pid))
         workload = [row for row in rows if row.category != "diagnostics"]
         cpu = _sum_complete(workload, "cpu_percent")
         count = os.cpu_count()
         return OrcWorkloadSnapshot(
-            processes=tuple(rows), process_count=len(workload),
+            processes=tuple(rows),
+            process_count=len(workload),
             visibility="partial" if blocked else "visible",
-            detail=(f"Access denied for {blocked} process entries; totals cover visible ORC workload only"
-                    if blocked else "Recognized ORC roots and their descendants; diagnostics excluded from totals"),
+            detail=(
+                f"Access denied for {blocked} process entries; totals cover visible ORC workload only"
+                if blocked
+                else "Recognized ORC roots and their descendants; diagnostics excluded from totals"
+            ),
             cpu_percent=cpu,
             cpu_capacity_percent=None if cpu is None or not count else cpu / count,
             rss_bytes=_sum_complete(workload, "rss_bytes"),
@@ -143,7 +173,9 @@ class OrcProcessSampler:
             key, _, raw = line.partition(":")
             fields = raw.split()
             try:
-                values[key] = int(fields[0]) * (1024 if len(fields) > 1 and fields[1] == "kB" else 1)
+                values[key] = int(fields[0]) * (
+                    1024 if len(fields) > 1 and fields[1] == "kB" else 1
+                )
             except (ValueError, IndexError):
                 continue
         return values
@@ -153,7 +185,12 @@ def _classify(args: tuple[str, ...]) -> tuple[str, str] | None:
     if not args:
         return None
     executable = Path(args[0]).name
-    native = {"openroadcode-map-renderer": "Map renderer", "sdrpp": "SDR++ integration", "readsb": "ADS-B integration", "gpsd": "GPSD integration"}
+    native = {
+        "openroadcode-map-renderer": "Map renderer",
+        "readsb": "ADS-B integration",
+        "gpsd": "GPSD integration",
+        "carbonate": "Carbonate bridge",
+    }
     if executable in native:
         return native[executable], "workload"
     if executable.startswith("python") and "-m" in args:
@@ -161,15 +198,28 @@ def _classify(args: tuple[str, ...]) -> tuple[str, str] | None:
         module = args[position] if position < len(args) else ""
         diagnostics = {
             "frontends.tk.system.component_test.performance_preview",
-            "services.common.service_manager_http", "services.linux.systemd_service_manager_http",
+            "services.common.service_manager_http",
+            "services.linux.systemd_service_manager_http",
             "services.termux.service_manager_http",
         }
         if module in diagnostics:
             return module, "diagnostics"
-        roots = ("apps.orcUi", "apps.carUi", "apps.carTui", "apps.automotive_dashboard",
-                 "apps.map_renderer", "apps.weatherDash", "apps.webUi", "services.android",
-                 "services.automotive", "services.navigation", "services.trip", "services.weather",
-                 "messaging.zeromq.broker_cli")
+        roots = (
+            "apps.orcUi",
+            "apps.carUi",
+            "apps.carTui",
+            "apps.automotive_dashboard",
+            "apps.map_renderer",
+            "apps.weatherDash",
+            "apps.webUi",
+            "services.android",
+            "services.automotive",
+            "services.navigation",
+            "services.trip",
+            "services.weather",
+            "messaging.zeromq.broker_cli",
+            "controllers.calendar.calendar_sync_daemon",
+        )
         if any(module == root or module.startswith(root + ".") for root in roots):
             return module, "workload"
     # Support repo scripts without matching command arguments, logs, or arbitrary grep results.
@@ -177,11 +227,16 @@ def _classify(args: tuple[str, ...]) -> tuple[str, str] | None:
         script = Path(args[1])
         lowered = [part.lower() for part in script.parts]
         if "openroadcode" in lowered:
-            return script.name, "diagnostics" if script.name == "performance_preview.py" else "workload"
+            return (
+                script.name,
+                "diagnostics" if script.name == "performance_preview.py" else "workload",
+            )
     return None
 
 
-def _rate(current: dict[str, int], previous: dict[str, int], key: str, elapsed: float) -> float | None:
+def _rate(
+    current: dict[str, int], previous: dict[str, int], key: str, elapsed: float
+) -> float | None:
     if key not in current or key not in previous or current[key] < previous[key]:
         return None
     return (current[key] - previous[key]) / elapsed

@@ -6,10 +6,8 @@
 from __future__ import annotations
 
 import tkinter as tk
-
 from collections.abc import Callable
-from ui.radio.streaming_radio_session_if import StreamingRadioSessionIf
-from ui.radio.streaming_radio_types import StreamingRadioStation
+
 from frontends.tk.radio.streaming_radio_panel import (
     BG,
     BLUE,
@@ -23,6 +21,8 @@ from frontends.tk.radio.streaming_radio_panel import (
     TEXT,
     StreamingRadioPanel,
 )
+from ui.radio.streaming_radio_session_if import StreamingRadioSessionIf
+from ui.radio.streaming_radio_types import StreamingRadioStation
 from ui.theme import ThemeBundle
 
 
@@ -30,13 +30,18 @@ class PersistentStreamingRadioPanel(StreamingRadioPanel):
     """Apply the ORC theme to contract-driven streaming presentation."""
 
     def __init__(
-        self, parent: tk.Misc, *, session: StreamingRadioSessionIf, theme: ThemeBundle,
+        self,
+        parent: tk.Misc,
+        *,
+        session: StreamingRadioSessionIf,
+        theme: ThemeBundle,
         on_back: Callable[[], None],
         on_station_selected: Callable[[StreamingRadioStation], None] | None = None,
     ) -> None:
         self._theme_bundle = theme
-        super().__init__(parent, session=session, on_back=on_back,
-                         on_station_selected=on_station_selected)
+        super().__init__(
+            parent, session=session, on_back=on_back, on_station_selected=on_station_selected
+        )
         self._apply_theme()
 
     def set_theme_bundle(self, theme: ThemeBundle) -> None:

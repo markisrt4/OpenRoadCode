@@ -19,7 +19,9 @@ class GameLauncherIf(ABC):
 
     @abstractmethod
     def launch(
-        self, game: GameDefinition, command: Sequence[str] | None = None,
+        self,
+        game: GameDefinition,
+        command: Sequence[str] | None = None,
         on_exit: Callable[[], None] | None = None,
     ) -> None:
         """! @brief Launch a game or raise if another game is already running.

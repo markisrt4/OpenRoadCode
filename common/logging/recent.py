@@ -4,13 +4,13 @@
 
 from __future__ import annotations
 
-from collections import deque
-from contextlib import ExitStack
 import fcntl
 import json
 import os
-from pathlib import Path
 import re
+from collections import deque
+from contextlib import ExitStack
+from pathlib import Path
 
 from .structured import MAX_EVENT_BYTES, level_number, log_path, validate_event
 

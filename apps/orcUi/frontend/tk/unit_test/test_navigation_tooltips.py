@@ -3,7 +3,8 @@
 
 """Verify camera help coverage and lifecycle at the frontend boundary."""
 
-from unittest.mock import Mock, patch, call
+from unittest.mock import Mock, call, patch
+
 import pytest
 
 from apps.orcUi.frontend.tk.navigation_panel import NavigationPanel
@@ -52,7 +53,8 @@ def test_theme_rebuild_closes_tooltips_before_destroying_controls():
     panel._build = Mock()
     panel.set_theme_bundle(Mock())
     assert lifecycle.mock_calls == [
-        call.tooltip.close(), call.control.destroy(),
+        call.tooltip.close(),
+        call.control.destroy(),
     ]
 
 

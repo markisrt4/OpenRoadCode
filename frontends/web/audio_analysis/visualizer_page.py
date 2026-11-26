@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Compact WebGL visualizer surface for embedded application hosts."""
 
-VISUALIZER_HTML = '''<!doctype html>
+VISUALIZER_HTML = """<!doctype html>
 <html data-color-scheme="dark"><head><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Music Visualizer</title>
 <link rel="stylesheet" href="/web-assets/audio-analysis/music_visualizer.css">
@@ -39,4 +39,4 @@ html[data-color-scheme="light"] p{color:#435365}
 <script src="/web-assets/audio-analysis/webgl_music_visualizer.js"></script>
 <script src="/web-assets/audio-analysis/music_visualizer.js"></script>
 <script src="/web-assets/audio-analysis/visualizer_views.js"></script>
-</body></html>'''
+</body></html>"""

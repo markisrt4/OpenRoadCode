@@ -27,15 +27,15 @@ def _db(tmp_path):
     """)
     con.execute(
         "INSERT INTO address VALUES (?,?,?,?,?,?,?,?,?,?)",
-        ("a1","123","Main Street",None,"Romeo","MI","48065","US",42.8028,-83.0127),
+        ("a1", "123", "Main Street", None, "Romeo", "MI", "48065", "US", 42.8028, -83.0127),
     )
     con.execute(
         "INSERT INTO street VALUES (?,?,?,?,?,?,?)",
-        ("s1","Main Street","Romeo","MI","48065",42.8030,-83.0130),
+        ("s1", "Main Street", "Romeo", "MI", "48065", 42.8030, -83.0130),
     )
     con.execute(
         "INSERT INTO place VALUES (?,?,?,?,?,?,?)",
-        ("p1","Romeo","village","MI","US",42.8028,-83.0127),
+        ("p1", "Romeo", "village", "MI", "US", 42.8028, -83.0127),
     )
     con.commit()
     con.close()
@@ -79,7 +79,18 @@ def test_street_suffix_abbreviation_matches_full_suffix(tmp_path):
     con = sqlite3.connect(path)
     con.execute(
         "INSERT INTO address VALUES (?,?,?,?,?,?,?,?,?,?)",
-        ("a2","11711","Cascade Circle",None,"Bruce Township","MI","48065","US",42.85,-83.02),
+        (
+            "a2",
+            "11711",
+            "Cascade Circle",
+            None,
+            "Bruce Township",
+            "MI",
+            "48065",
+            "US",
+            42.85,
+            -83.02,
+        ),
     )
     con.commit()
     con.close()
@@ -100,7 +111,18 @@ def test_comma_less_numbered_address_can_match_street_prefix(tmp_path):
     con = sqlite3.connect(path)
     con.execute(
         "INSERT INTO address VALUES (?,?,?,?,?,?,?,?,?,?)",
-        ("a3","11711","Cascade Circle",None,"Bruce Township","MI","48065","US",42.85,-83.02),
+        (
+            "a3",
+            "11711",
+            "Cascade Circle",
+            None,
+            "Bruce Township",
+            "MI",
+            "48065",
+            "US",
+            42.85,
+            -83.02,
+        ),
     )
     con.commit()
     con.close()
@@ -120,7 +142,7 @@ def test_numbered_address_falls_back_to_normalized_street(tmp_path):
     con = sqlite3.connect(path)
     con.execute(
         "INSERT INTO street VALUES (?,?,?,?,?,?,?)",
-        ("s2","Cascade Circle",None,None,None,42.817744,-83.017602),
+        ("s2", "Cascade Circle", None, None, None, 42.817744, -83.017602),
     )
     con.commit()
     con.close()
@@ -142,15 +164,15 @@ def test_postcode_only_context_ranks_nearest_street_candidate(tmp_path):
     con = sqlite3.connect(path)
     con.execute(
         "INSERT INTO address VALUES (?,?,?,?,?,?,?,?,?,?)",
-        ("zip-anchor","1","Some Road",None,None,"MI","48065","US",42.82,-83.01),
+        ("zip-anchor", "1", "Some Road", None, None, "MI", "48065", "US", 42.82, -83.01),
     )
     con.execute(
         "INSERT INTO street VALUES (?,?,?,?,?,?,?)",
-        ("near","Cascade Circle",None,None,None,42.817744,-83.017602),
+        ("near", "Cascade Circle", None, None, None, 42.817744, -83.017602),
     )
     con.execute(
         "INSERT INTO street VALUES (?,?,?,?,?,?,?)",
-        ("far","Cascade Circle",None,None,None,42.6292172,-83.1442853),
+        ("far", "Cascade Circle", None, None, None, 42.6292172, -83.1442853),
     )
     con.commit()
     con.close()
@@ -171,15 +193,15 @@ def test_directional_street_with_postcode_falls_back_to_nearest_segment(tmp_path
     con = sqlite3.connect(path)
     con.execute(
         "INSERT INTO address VALUES (?,?,?,?,?,?,?,?,?,?)",
-        ("zip48397","1","Some Arsenal Road",None,None,"MI","48397","US",42.49,-83.04),
+        ("zip48397", "1", "Some Arsenal Road", None, None, "MI", "48397", "US", 42.49, -83.04),
     )
     con.execute(
         "INSERT INTO street VALUES (?,?,?,?,?,?,?)",
-        ("east11-near","East 11 Mile Road",None,None,None,42.4916,-83.0443),
+        ("east11-near", "East 11 Mile Road", None, None, None, 42.4916, -83.0443),
     )
     con.execute(
         "INSERT INTO street VALUES (?,?,?,?,?,?,?)",
-        ("east11-far","East 11 Mile Road",None,None,None,42.4957,-82.9026),
+        ("east11-far", "East 11 Mile Road", None, None, None, 42.4957, -82.9026),
     )
     con.commit()
     con.close()
@@ -201,11 +223,11 @@ def test_directional_abbreviation_and_missing_suffix_are_normalized(tmp_path):
     con = sqlite3.connect(path)
     con.execute(
         "INSERT INTO address VALUES (?,?,?,?,?,?,?,?,?,?)",
-        ("zip48397b","1","Some Arsenal Road",None,None,"MI","48397","US",42.49,-83.04),
+        ("zip48397b", "1", "Some Arsenal Road", None, None, "MI", "48397", "US", 42.49, -83.04),
     )
     con.execute(
         "INSERT INTO street VALUES (?,?,?,?,?,?,?)",
-        ("east11","East 11 Mile Road",None,None,None,42.4916,-83.0443),
+        ("east11", "East 11 Mile Road", None, None, None, 42.4916, -83.0443),
     )
     con.commit()
     con.close()
@@ -225,15 +247,15 @@ def test_postcode_distance_affects_street_confidence(tmp_path):
     con = sqlite3.connect(path)
     con.execute(
         "INSERT INTO address VALUES (?,?,?,?,?,?,?,?,?,?)",
-        ("zip48397c","1","Some Arsenal Road",None,None,"MI","48397","US",42.49,-83.04),
+        ("zip48397c", "1", "Some Arsenal Road", None, None, "MI", "48397", "US", 42.49, -83.04),
     )
     con.execute(
         "INSERT INTO street VALUES (?,?,?,?,?,?,?)",
-        ("near-score","East 11 Mile Road",None,None,None,42.491,-83.041),
+        ("near-score", "East 11 Mile Road", None, None, None, 42.491, -83.041),
     )
     con.execute(
         "INSERT INTO street VALUES (?,?,?,?,?,?,?)",
-        ("far-score","East 11 Mile Road",None,None,None,42.495,-82.92),
+        ("far-score", "East 11 Mile Road", None, None, None, 42.495, -82.92),
     )
     con.commit()
     con.close()

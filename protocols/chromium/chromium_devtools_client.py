@@ -55,7 +55,9 @@ class ChromiumDevToolsClient:
 
     _WEBSOCKET_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 
-    def __init__(self, *, host: str = "127.0.0.1", port: int = 9223, timeout_seconds: float = 1.0) -> None:
+    def __init__(
+        self, *, host: str = "127.0.0.1", port: int = 9223, timeout_seconds: float = 1.0
+    ) -> None:
         self._base_url = f"http://{host}:{port}"
         self._timeout_seconds = timeout_seconds
         self._next_command_id = 1
@@ -95,10 +97,10 @@ class ChromiumDevToolsClient:
 
     def system_info(self) -> dict[str, Any]:
         """Read graphics diagnostics from the browser target, without a WebGL probe."""
-        url = self.version().get('webSocketDebuggerUrl')
+        url = self.version().get("webSocketDebuggerUrl")
         if not isinstance(url, str) or not url:
-            raise RuntimeError('Chromium browser diagnostic target is unavailable')
-        return self._command(url, 'SystemInfo.getInfo', {})
+            raise RuntimeError("Chromium browser diagnostic target is unavailable")
+        return self._command(url, "SystemInfo.getInfo", {})
 
     def command(
         self,
@@ -189,7 +191,9 @@ class ChromiumDevToolsClient:
         )
         return value if isinstance(value, dict) else {}
 
-    def evaluate(self, target: DevToolsTarget, expression: str, *, return_by_value: bool = True) -> Any:
+    def evaluate(
+        self, target: DevToolsTarget, expression: str, *, return_by_value: bool = True
+    ) -> Any:
         """Evaluate JavaScript in a page target through the CDP WebSocket."""
         result = self.command(
             target,
@@ -219,7 +223,9 @@ class ChromiumDevToolsClient:
     def _command(self, web_socket_url: str, method: str, params: dict[str, Any]) -> dict[str, Any]:
         command_id = self._next_command_id
         self._next_command_id += 1
-        payload = json.dumps({"id": command_id, "method": method, "params": params}, separators=(",", ":"))
+        payload = json.dumps(
+            {"id": command_id, "method": method, "params": params}, separators=(",", ":")
+        )
         with self._connect_websocket(web_socket_url) as connection:
             self._send_text(connection, payload)
             while True:
@@ -347,6 +353,8 @@ class ChromiumDevToolsClient:
         return bytes(data)
 
     def _json_get(self, path: str) -> Any:
-        request = urllib.request.Request(self._base_url + path, headers={"Accept": "application/json"})
+        request = urllib.request.Request(
+            self._base_url + path, headers={"Accept": "application/json"}
+        )
         with urllib.request.urlopen(request, timeout=self._timeout_seconds) as response:
             return json.load(response)

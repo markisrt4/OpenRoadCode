@@ -93,16 +93,25 @@ class MultiRegionMergeTests(unittest.TestCase):
         self.assertEqual(
             run.call_args_list[0].args[0],
             [
-                "osmium", "merge", "--with-history", "--overwrite",
-                "-f", "pbf,history=true", "-o", str(history),
-                str(pbfs[0]), str(pbfs[1]),
+                "osmium",
+                "merge",
+                "--with-history",
+                "--overwrite",
+                "-f",
+                "pbf,history=true",
+                "-o",
+                str(history),
+                str(pbfs[0]),
+                str(pbfs[1]),
             ],
         )
         self.assertEqual(
             run.call_args_list[1].args[0],
             ["osmium", "time-filter", "--overwrite", "-o", str(expected_merged), str(history)],
         )
-        self.assertEqual(run.call_args_list[2].args[0], ["osmium", "fileinfo", "-e", str(expected_merged)])
+        self.assertEqual(
+            run.call_args_list[2].args[0], ["osmium", "fileinfo", "-e", str(expected_merged)]
+        )
 
 
 class GeofabrikCacheTests(unittest.TestCase):
@@ -151,7 +160,9 @@ class GeofabrikCacheTests(unittest.TestCase):
             with (
                 patch("tools.map_builder.builder.build.CACHE_ROOT", cache_root),
                 patch("tools.map_builder.builder.build.urlopen", return_value=checksum_response),
-                patch("tools.map_builder.builder.build._download", side_effect=fake_download) as download,
+                patch(
+                    "tools.map_builder.builder.build._download", side_effect=fake_download
+                ) as download,
                 patch("tools.map_builder.builder.build.run"),
             ):
                 result = _download_and_verify(region)

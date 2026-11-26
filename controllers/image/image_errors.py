@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
+
 class ImageError(RuntimeError):
     """
     Base exception for image loading failures.

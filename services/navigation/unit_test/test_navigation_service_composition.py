@@ -12,9 +12,9 @@ from config.service_runtime_config import (
 )
 from controllers.navigation.fallback_position_source import FallbackPositionSource
 from controllers.navigation.navigation_controller import NavigationController
+from controllers.navigation.route_playback_position_source import RoutePlaybackPositionSource
 from controllers.navigation.simulated_navigation_sensor import SimulatedNavigationSensor
 from controllers.navigation.simulated_position_source import SimulatedPositionSource
-from controllers.navigation.route_playback_position_source import RoutePlaybackPositionSource
 from services.navigation import navigation_service_cli
 
 
@@ -72,9 +72,7 @@ def _patch_devices(monkeypatch) -> None:
 
 
 def test_simulated_imu_and_simulated_gps_build_real_solution_controller():
-    controller = navigation_service_cli.build_controller(
-        _config("simulation", "simulation")
-    )
+    controller = navigation_service_cli.build_controller(_config("simulation", "simulation"))
 
     assert isinstance(controller, NavigationController)
     assert isinstance(controller._sensor, SimulatedNavigationSensor)
@@ -82,10 +80,9 @@ def test_simulated_imu_and_simulated_gps_build_real_solution_controller():
 
 
 def test_simulated_imu_and_device_gps_can_be_composed(monkeypatch):
+    monkeypatch.setattr(navigation_service_cli, "_host_location_fallback_available", lambda: True)
     _patch_devices(monkeypatch)
-    controller = navigation_service_cli.build_controller(
-        _config("simulation", "device")
-    )
+    controller = navigation_service_cli.build_controller(_config("simulation", "device"))
 
     assert isinstance(controller._sensor, SimulatedNavigationSensor)
     assert isinstance(controller._gps_source, RoutePlaybackPositionSource)
@@ -94,21 +91,21 @@ def test_simulated_imu_and_device_gps_can_be_composed(monkeypatch):
 
 def test_device_imu_and_simulated_gps_can_be_composed(monkeypatch):
     _patch_devices(monkeypatch)
-    controller = navigation_service_cli.build_controller(
-        _config("device", "simulation")
-    )
+    controller = navigation_service_cli.build_controller(_config("device", "simulation"))
 
     assert isinstance(controller._sensor, _FakeMotionAdapter)
     assert isinstance(controller._gps_source, SimulatedPositionSource)
 
 
 def test_device_imu_and_device_gps_can_be_composed(monkeypatch):
+    monkeypatch.setattr(navigation_service_cli, "_host_location_fallback_available", lambda: True)
     _patch_devices(monkeypatch)
     controller = navigation_service_cli.build_controller(_config("device", "device"))
 
     assert isinstance(controller._sensor, _FakeMotionAdapter)
     assert isinstance(controller._gps_source, RoutePlaybackPositionSource)
     assert isinstance(controller._gps_source._live_source, _FakeGpsAdapter)
+
 
 def test_simulated_gps_uses_configured_speed_and_course():
     config = _config("simulation", "simulation")

@@ -5,7 +5,6 @@
 
 from ui.icon import IconId
 
-
 _ICON_TEXT: dict[IconId, str] = {
     IconId.POWER: "⏻",
     IconId.MICROPHONE: "🎙",

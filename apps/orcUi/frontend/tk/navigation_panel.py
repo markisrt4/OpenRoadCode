@@ -4,21 +4,17 @@
 """Full navigation panel for the integrated ORC cockpit UI."""
 
 from __future__ import annotations
-
 from ui.navigation.navigation_experience_if import NavigationExperienceRequestHandlerIf
 from ui.navigation.waze_request_handler_if import WazeRequestHandlerIf
 from ui.system.online_mode_if import OnlineModeIf
 from ui.tooltip_if import TooltipFactoryIf
 from frontends.tk.tooltip import TkTooltip
-
 import logging
-
-from common.logging.structured import event
 import math
 import tkinter as tk
 from collections.abc import Callable
-
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
+from common.logging.structured import event
 from ui.weather.radar_ui_if import RadarPalette
 from ui.navigation.map_layer_controls import MapLayerAction, MapLayerControls
 from ui.navigation.map_platform_if import MapPlatform, MapPlatformState, MapPlatformControlIf
@@ -32,20 +28,25 @@ from ui.navigation import (
     RouteRequestHandlerStub,
     RouteSimulationRequestHandlerIf,
 )
-from ui.theme import ThemeBundle, ThemeMode
 from ui.navigation.navigation_places_request_handler_if import NavigationPlacesRequestHandlerIf
-from .navigation_radar_controls import NavigationRadarControls
-from .navigation_panel_layout import build_navigation_panel
-from .navigation_places_controls import NavigationPlacesControls
-from .navigation_panel_camera import NavigationCameraControls
+from ui.theme import ThemeBundle, ThemeMode
 from ui.ui_widget import UiWidget
-
+from .navigation_panel_camera import NavigationCameraControls
+from .navigation_panel_layout import log_map_allocation, build_navigation_panel
+from .navigation_places_controls import NavigationPlacesControls
+from .navigation_radar_controls import NavigationRadarControls
 
 _LOG = logging.getLogger("navigation.poi.ui")
 
 
-class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, NavigationCameraControls,
-                      MapControlsDrawerUiIf, tk.Frame, UiWidget):
+class NavigationPanel(
+    NavigationPlacesControls,
+    NavigationRadarControls,
+    NavigationCameraControls,
+    MapControlsDrawerUiIf,
+    tk.Frame,
+    UiWidget,
+):
     """Map host, navigation controls, and nearby POI discovery."""
 
     def __init__(
@@ -123,7 +124,9 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         self._poi_action_request = None
         self._unsubscribe_online_mode = (
             online_mode.subscribe(lambda _online: self._refresh_poi_action_buttons())
-            if online_mode is not None else lambda: None)
+            if online_mode is not None
+            else lambda: None
+        )
         self._closed = False
         self._places_closed = False
         self._poi_poll_after_id: str | None = None
@@ -184,11 +187,11 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
             self._loading_cover.grid_remove()
         if terrain:
             self.set_follow_enabled(state.follow_enabled)
-            self._zoom_text.set('—')
-            self._dimension_text.set('2D/3D')
+            self._zoom_text.set("—")
+            self._dimension_text.set("2D/3D")
         else:
-            self._zoom_text.set(f'{self._zoom_level:.1f}')
-            self._dimension_text.set('2D' if self._pitch_rad > 0 else '3D')
+            self._zoom_text.set(f"{self._zoom_level:.1f}")
+            self._dimension_text.set("2D" if self._pitch_rad > 0 else "3D")
 
     def _show_map_controls_page(self, name: str) -> None:
         """Replace drawer contents without changing the native viewport."""
@@ -285,21 +288,8 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         self.after_idle(self._refresh_renderer_state)
         self.after_idle(self._log_map_allocation)
 
-    def _log_map_allocation(self, _event=None) -> None:
-        """Trace settled Tk geometry separately from the native viewport."""
-        logger = logging.getLogger("navigation.map.layout")
-        if not logger.isEnabledFor(logging.DEBUG):
-            return
-        host = self._map_host
-        body = host.master
-        event(
-            logger, logging.DEBUG, "map.host_allocation",
-            f"expanded={self._drawer_state.expanded} "
-            f"body={body.winfo_width()}x{body.winfo_height()} "
-            f"host={host.winfo_width()}x{host.winfo_height()} "
-            f"host_id={host.winfo_id()} "
-            f"controls_manager={self._map_controls.winfo_manager() or 'hidden'}",
-        )
+    def _log_map_allocation(self, event=None) -> None:
+        log_map_allocation(self, event)
 
     def _toggle_map_controls_drawer(self) -> None:
         controls = self.__dict__.get('_experience_controls')
@@ -368,10 +358,15 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
     def _add_tooltip(self, widget: tk.Misc, text: str) -> None:
         if self._tooltip_factory is not None:
             ui = self._theme_bundle.ui
-            self._tooltips.append(TkTooltip(
-                widget, text, self._tooltip_factory,
-                background=ui.surface_alt, foreground=ui.text,
-            ))
+            self._tooltips.append(
+                TkTooltip(
+                    widget,
+                    text,
+                    self._tooltip_factory,
+                    background=ui.surface_alt,
+                    foreground=ui.text,
+                )
+            )
 
     def close_tooltips(self) -> None:
         """Close mounted tooltip sessions before hiding or rebuilding widgets."""
@@ -485,7 +480,6 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         if off_route:
             details.append("OFF ROUTE")
         self._guidance_detail.set("  •  ".join(details))
-
 
 
 def _format_distance(distance_m: float) -> str:

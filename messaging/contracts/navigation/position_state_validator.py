@@ -13,8 +13,14 @@ from messaging.contracts.common.timestamp import validate_timestamp
 
 SCHEMA_VERSION = 1
 DATA_FIELDS = {
-    "latitude_rad", "longitude_rad", "altitude_m", "fix_mode",
-    "satellites_visible", "satellites_used", "accuracy_m", "is_cached",
+    "latitude_rad",
+    "longitude_rad",
+    "altitude_m",
+    "fix_mode",
+    "satellites_visible",
+    "satellites_used",
+    "accuracy_m",
+    "is_cached",
 }
 
 

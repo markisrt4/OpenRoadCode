@@ -1305,3 +1305,13 @@ is retained. Optional imagery initializes asynchronously after camera controls
 are wired, allowing the reference globe to become usable while imagery loads.
 First launch still pays Chromium and dataset initialization costs; timings are
 recorded in `cesium-stages.log` as `viewer-retained` / `viewer-resumed` for switches.
+
+
+### Master integration after the November navigation merge
+
+The Waze branch now incorporates master, reusing the shared map-tooling resolutions
+from `navigation-cesium`'s master merge. The retained Terrain browser, progressive
+imagery startup, shared Views/Places controls, branded POI ordering and Android
+embedding remain enabled. Master calendar appointments, aircraft overlays, active
+media targets, and native structured renderer diagnostics are retained alongside
+those features. Device verification and the full quality gate remain required.

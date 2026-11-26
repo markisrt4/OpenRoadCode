@@ -6,13 +6,14 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import shutil
 import subprocess
 import threading
-import logging
-from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
+from collections.abc import Callable
 from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from apps.launchers.adsb_launcher import ADSBLauncher
 from config.application_config import ApplicationsConfigParser
@@ -39,7 +40,15 @@ class OrcUiAdsbControl:
 
     WINDOW_CLASS = "OpenRoadCodeADSB"
 
-    def __init__(self, launcher: ADSBLauncher | None = None) -> None:
+    def __init__(
+        self,
+        launcher: ADSBLauncher | None = None,
+        *,
+        set_managed_tracking: Callable[[bool], bool] | None = None,
+        managed_tracking: Callable[[], bool] | None = None,
+    ) -> None:
+        self._set_managed_tracking = set_managed_tracking
+        self._managed_tracking = managed_tracking
         self._simulation_tracking = False
         self._stop_thread = None
         if launcher is not None:
@@ -56,13 +65,17 @@ class OrcUiAdsbControl:
             query.setdefault("nowebgl", "1")
         self._launcher = ADSBLauncher(
             url=urlunsplit(parts._replace(query=urlencode(query))),
-            data_source=config.adsb_data_source.value if config.adsb_data_source is not None else "rtlsdr",
+            data_source=config.adsb_data_source.value
+            if config.adsb_data_source is not None
+            else "rtlsdr",
         )
         if _is_termux():
             # Reparented GPU surfaces have rendered corrupt blocks on Termux:X11.
             self._launcher.browser.extra_arguments += (
-                "--use-gl=angle", "--use-angle=swiftshader",
-                "--enable-unsafe-swiftshader", "--disable-gpu-compositing",
+                "--use-gl=angle",
+                "--use-angle=swiftshader",
+                "--enable-unsafe-swiftshader",
+                "--disable-gpu-compositing",
                 "--ozone-platform=x11",
             )
 
@@ -79,6 +92,8 @@ class OrcUiAdsbControl:
         """Return whether the ADS-B receiver service is actively tracking."""
         if self._launcher.data_source != "rtlsdr":
             return self._simulation_tracking
+        if self._managed_tracking is not None:
+            return self._managed_tracking()
         systemctl = shutil.which("systemctl")
         if systemctl is None:
             return False
@@ -104,6 +119,8 @@ class OrcUiAdsbControl:
         if self._launcher.data_source != "rtlsdr":
             self._simulation_tracking = bool(enabled)
             return self._simulation_tracking
+        if self._set_managed_tracking is not None:
+            return self._set_managed_tracking(enabled)
         if enabled:
             self._launcher.assert_available()
             if self._launcher.resource_manager is not None:
@@ -114,6 +131,7 @@ class OrcUiAdsbControl:
                 if not acquired:
                     return False
             from apps.launchers.adsb_launcher import _set_systemd_service_state
+
             if not _set_systemd_service_state(self._launcher.readsb_service, "start"):
                 if self._launcher.resource_manager is not None:
                     self._launcher.resource_manager.release(self._launcher.owner_name)
@@ -123,6 +141,7 @@ class OrcUiAdsbControl:
                 )
             return self.tracking
         from apps.launchers.adsb_launcher import _set_systemd_service_state
+
         _set_systemd_service_state(self._launcher.readsb_service, "stop")
         if self._launcher.resource_manager is not None:
             self._launcher.resource_manager.release(self._launcher.owner_name)
@@ -147,7 +166,10 @@ class OrcUiAdsbControl:
     def launch(self, display: str) -> None:
         if self._stop_thread is not None and self._stop_thread.is_alive():
             raise RuntimeError("ADS-B dashboard is still closing; try again shortly")
-        self._launcher.launch(display)
+        if self._set_managed_tracking is not None and not self.simulation:
+            self._launcher.launch(display, manage_receiver=False)
+        else:
+            self._launcher.launch(display)
         if self._launcher.data_source != "rtlsdr":
             self._simulation_tracking = True
 
@@ -156,11 +178,16 @@ class OrcUiAdsbControl:
         if self._stop_thread is not None and self._stop_thread.is_alive():
             return
         self._simulation_tracking = False
+
         def close():
             try:
-                self._launcher.stop(display)
+                if self._set_managed_tracking is not None and not self.simulation:
+                    self._launcher.stop(display, manage_receiver=False)
+                else:
+                    self._launcher.stop(display)
             except (OSError, RuntimeError, ValueError):
                 logging.getLogger(__name__).exception("ADS-B cleanup failed")
+
         # A non-daemon worker finishes cleanup even if ORC exits immediately.
         self._stop_thread = threading.Thread(target=close, name="adsb-close", daemon=False)
         self._stop_thread.start()

@@ -3,8 +3,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 from apps.launchers.browser_app_factory import BrowserApplicationFactory
 from apps.launchers.external_window_manager import ExternalWindowManager

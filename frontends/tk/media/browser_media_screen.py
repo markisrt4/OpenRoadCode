@@ -4,12 +4,14 @@
 """Screen adapter for browser-backed media destinations."""
 
 from __future__ import annotations
-
 import os
 import tkinter as tk
 from collections.abc import Callable
-
-from ui.media.browser_player_if import BrowserMediaPlayerIf, BrowserThemeRequestHandlerIf, HostedSurfaceGeometryIf
+from ui.media.browser_player_if import (
+    BrowserMediaPlayerIf,
+    BrowserThemeRequestHandlerIf,
+    HostedSurfaceGeometryIf,
+)
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from frontends.x11 import X11WindowEmbedder
@@ -61,13 +63,26 @@ class BrowserMediaScreen(TkScreen):
         self._root: tk.Frame | None = None
         self._navigation: tk.Widget | None = None
         self._visible = False
+        self._pending_target: str | None = None
 
     def _background(self) -> str:
-        return self._theme_provider().ui.background if self._theme_provider is not None else "#000000"
+        return (
+            self._theme_provider().ui.background if self._theme_provider is not None else "#000000"
+        )
+
+    def show_target(self, target: str) -> None:
+        """Open a one-shot provider target, then return to the default on next show."""
+        if not target.strip():
+            raise ValueError("Media target must not be empty")
+        self._pending_target = target
+        self.show()
 
     def show(self) -> None:
         """Show media navigation and launch the provider directly below it."""
+        target = self._pending_target or self._default_target
+        self._pending_target = None
         self.hide()
+        self._active_target = target
         self._host.activate_screen(self)
         self._host.clear_screen_content()
         self._host.set_screen_title(self._title)
@@ -191,7 +206,7 @@ class BrowserMediaScreen(TkScreen):
             height = max(1, host.winfo_height())
             position = (host.winfo_rootx(), host.winfo_rooty())
             display = os.environ.get("DISPLAY", ":1")
-            if not self._player.play(self._default_target, display=display, window_position=position, window_size=(width, height)):
+            if not self._player.play(self._active_target, display=display, window_position=position, window_size=(width, height)):
                 self._host.set_screen_status(f"{self._title} unavailable")
                 return
             options = {}

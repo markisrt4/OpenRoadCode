@@ -33,15 +33,11 @@ class BrowserApplicationFactory:
     def create_from_config(self, app: ApplicationConfig) -> BrowserKioskLauncher:
         """Create one browser launcher from an already resolved app config."""
         if app.type is not ApplicationType.BROWSER:
-            raise ValueError(
-                f"Application {app.key!r} is {app.type.value}, not browser"
-            )
+            raise ValueError(f"Application {app.key!r} is {app.type.value}, not browser")
         if not app.enabled:
             raise ValueError(f"Application {app.key!r} is disabled")
         if app.url is None or app.profile is None:
-            raise ValueError(
-                f"Browser application {app.key!r} requires url and profile"
-            )
+            raise ValueError(f"Browser application {app.key!r} requires url and profile")
 
         profile_path = self._profile_path(app.profile)
         return BrowserKioskLauncher(
@@ -60,8 +56,7 @@ class BrowserApplicationFactory:
 
     @staticmethod
     def _window_class(key: str) -> str:
-        normalized = "".join(
-            character if character.isalnum() else "-"
-            for character in key
-        ).strip("-")
+        normalized = "".join(character if character.isalnum() else "-" for character in key).strip(
+            "-"
+        )
         return f"openroadcode-{normalized or 'browser'}"

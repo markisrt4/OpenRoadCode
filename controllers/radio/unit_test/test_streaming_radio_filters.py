@@ -6,22 +6,32 @@ from __future__ import annotations
 import unittest
 
 from controllers.radio.streaming_radio_filters import (
-    StationFilters, is_explicit_internet_only, station_band,
-    station_genre_matches, station_quality,
+    StationFilters,
+    is_explicit_internet_only,
+    station_band,
+    station_genre_matches,
+    station_quality,
 )
-from ui.radio.streaming_radio_types import (StreamingRadioStation)
+from ui.radio.streaming_radio_types import StreamingRadioStation
 
 
 def station(name: str, *, tags=(), bitrate=None) -> StreamingRadioStation:
     return StreamingRadioStation(
-        station_id=name, name=name, stream_url="https://example.org/stream",
-        tags=tags, bitrate_kbps=bitrate,
+        station_id=name,
+        name=name,
+        stream_url="https://example.org/stream",
+        tags=tags,
+        bitrate_kbps=bitrate,
     )
 
 
 class StationFiltersTest(unittest.TestCase):
     def test_all_includes_explicit_internet_and_unknown(self):
-        stations = (station("FM", tags=("fm",)), station("Web", tags=("internet",)), station("Mystery"))
+        stations = (
+            station("FM", tags=("fm",)),
+            station("Web", tags=("internet",)),
+            station("Mystery"),
+        )
         self.assertEqual(StationFilters().apply(stations), stations)
         self.assertEqual(StationFilters(band="Internet-only").apply(stations), stations[1:2])
         self.assertEqual(StationFilters(band="Unknown").apply(stations), stations[2:])
@@ -39,7 +49,10 @@ class StationFiltersTest(unittest.TestCase):
         self.assertEqual(StationFilters(band="Internet-only").apply(stations), stations[2:3])
 
     def test_quality_boundaries_and_unknown(self):
-        self.assertEqual([station_quality(station(str(n), bitrate=n)) for n in (0, 95, 96, 191, 192)], ["Unknown", "Low", "Mid", "Mid", "High"])
+        self.assertEqual(
+            [station_quality(station(str(n), bitrate=n)) for n in (0, 95, 96, 191, 192)],
+            ["Unknown", "Low", "Mid", "Mid", "High"],
+        )
         self.assertEqual(station_quality(station("missing")), "Unknown")
 
     def test_band_metadata_and_frequency_fallback(self):
