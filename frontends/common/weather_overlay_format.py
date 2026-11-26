@@ -5,8 +5,10 @@
 
 from datetime import datetime, timedelta
 
+from ui.weather.weather_overlay_state import ModelWeatherOverlayState
 
-def weather_value(value, kind, imperial):
+
+def weather_value(value: float | None, kind: str, imperial: bool) -> str:
     if value is None:
         return "—"
     if kind == "temperature":
@@ -45,7 +47,9 @@ def route_weather_label(point, layers, imperial):
     return " · ".join(values)
 
 
-def model_legend(state, imperial):
+def model_legend(
+    state: ModelWeatherOverlayState, imperial: bool
+) -> tuple[tuple[str, tuple[int, int, int]], ...]:
     return tuple(
         (weather_value(stop.value_si, state.kind, imperial), stop.rgb) for stop in state.legend
     )

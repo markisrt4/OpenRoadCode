@@ -4,16 +4,37 @@
 """Native map adapter for toolkit-independent weather overlay snapshots."""
 
 import math
+from collections.abc import Callable
+from typing import Protocol
 
+from common.units.unit_system import UnitSystem
 from ui.weather.weather_overlay_ui_if import WeatherOverlayUiIf
 
 from .weather_overlay_format import route_weather_label, weather_value
 
 
+class WeatherMapRenderer(Protocol):
+    """Renderer operations used by the weather presentation adapter."""
+
+    def set_city_weather(self, geojson: dict[str, object]) -> None: ...
+
+    def set_route_weather(self, geojson: dict[str, object]) -> None: ...
+
+    def set_weather_field(
+        self,
+        tile_url: str | None,
+        *,
+        enabled: bool = True,
+        frame_time: int | None = None,
+        opacity: float = 0.45,
+        max_zoom: int = 22,
+    ) -> None: ...
+
+
 class MapWeatherOverlayUi(WeatherOverlayUiIf):
     """Translate SI weather state into renderer-specific GeoJSON and raster commands."""
 
-    def __init__(self, renderer, unit_system):
+    def __init__(self, renderer: WeatherMapRenderer, unit_system: Callable[[], UnitSystem]) -> None:
         self._renderer, self._unit_system = renderer, unit_system
 
     def set_city_weather_state(self, state):

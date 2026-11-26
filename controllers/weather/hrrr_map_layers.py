@@ -4,6 +4,7 @@
 """Discover and color full-area HRRR temperature and wind-speed fields."""
 
 import math
+from collections.abc import Callable
 from datetime import datetime, timezone
 from io import BytesIO
 from itertools import pairwise
@@ -36,7 +37,7 @@ WIND_COLORS = (
 )
 
 
-def field_range(index, run, element, level):
+def field_range(index: str, run: str, element: str, level: str) -> tuple[int, int | None]:
     """Find exactly one selected HRRR field and its bounded GRIB message range."""
     records = []
     for line in index.splitlines():
@@ -62,7 +63,9 @@ def field_range(index, run, element, level):
 class HrrrMapLayerProvider:
     """Select the nearest future hour from a recent CONUS HRRR run."""
 
-    def __init__(self, session=None, clock=time):
+    def __init__(
+        self, session: requests.Session | None = None, clock: Callable[[], float] = time
+    ) -> None:
         self._session = session or requests.Session()
         self._clock = clock
 
@@ -91,7 +94,14 @@ class HrrrMapLayerProvider:
             finally:
                 response.close()
 
-            def template(element, level, index=index, run=run, lead=lead, url=url):
+            def template(
+                element: str,
+                level: str,
+                index: str = index,
+                run: str = run,
+                lead: int = lead,
+                url: str = url,
+            ) -> str:
                 start, end = field_range(index, run, element, level)
                 return (
                     f"orc-hrrr-layer://{run}/f{lead:02d}/{{z}}/{{x}}/{{y}}.tiff"
@@ -108,16 +118,21 @@ class HrrrMapLayerProvider:
         raise RuntimeError("NOAA HRRR has no recent forecast for this map layer")
 
 
-def color_model_layer(data, kind, secondary=None):
+def color_model_layer(data: bytes, kind: str, secondary: bytes | None = None) -> bytes:
     """Render a numeric field as a continuous temperature or wind-speed heatmap."""
     if kind not in {"temperature", "wind"}:
         raise ValueError("Unsupported model layer")
 
-    def pixels(raw):
+    def pixels(raw: bytes) -> list[float]:
         with Image.open(BytesIO(raw)) as image:
             if image.mode not in ("F", "I", "I;16", "I;16B", "I;16L") or image.size != (256, 256):
                 raise ValueError("HRRR layer did not produce a raw 256x256 numeric tile")
-            return list(image.get_flattened_data())
+            values: list[float] = []
+            for value in image.get_flattened_data():
+                if not isinstance(value, (int, float)):
+                    raise ValueError("HRRR layer did not produce numeric pixels")
+                values.append(value)
+            return values
 
     values = pixels(data)
     if kind == "wind":
@@ -145,8 +160,10 @@ def color_model_layer(data, kind, secondary=None):
                 lower, upper = a, b
                 break
         fraction = max(0, min(1, (value - lower[0]) / (upper[0] - lower[0])))
-        rgb = [round(a + fraction * (b - a)) for a, b in zip(lower[1], upper[1], strict=True)]
-        colors.append((*rgb, 255))
+        red, green, blue = (
+            round(a + fraction * (b - a)) for a, b in zip(lower[1], upper[1], strict=True)
+        )
+        colors.append((red, green, blue, 255))
     image = Image.new("RGBA", (256, 256))
     image.putdata(colors)
     output = BytesIO()

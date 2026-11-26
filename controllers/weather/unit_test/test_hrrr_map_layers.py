@@ -31,7 +31,7 @@ INDEX = "\n".join(
 )
 
 
-def tiff(value):
+def tiff(value: float) -> bytes:
     image = Image.new("F", (256, 256), value)
     output = BytesIO()
     image.save(output, format="TIFF")
@@ -39,7 +39,9 @@ def tiff(value):
 
 
 @pytest.mark.parametrize("kind,element", [("temperature", "TMP"), ("wind", "UGRD")])
-def test_provider_picks_exact_surface_height_and_matching_run(kind, element, monkeypatch):
+def test_provider_picks_exact_surface_height_and_matching_run(
+    kind: str, element: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr("controllers.weather.hrrr_map_layers.check_gdal_tools", lambda: None)
     session = Mock()
     session.get.return_value.status_code = 200
@@ -56,7 +58,7 @@ def test_provider_picks_exact_surface_height_and_matching_run(kind, element, mon
         assert second["end"] == ["299"]
 
 
-def test_field_range_rejects_wrong_height_and_duplicate_matches():
+def test_field_range_rejects_wrong_height_and_duplicate_matches() -> None:
     with pytest.raises(ValueError):
         field_range(INDEX, RUN, "TMP", "10 m above ground")
     with pytest.raises(ValueError):
@@ -68,7 +70,7 @@ def test_field_range_rejects_wrong_height_and_duplicate_matches():
         )
 
 
-def test_temperature_palette_uses_celsius_and_wind_uses_both_components():
+def test_temperature_palette_uses_celsius_and_wind_uses_both_components() -> None:
     with Image.open(BytesIO(color_model_layer(tiff(20), "temperature"))) as image:
         assert image.getpixel((0, 0)) == (*TEMPERATURE_COLORS[4][1], 255)
     with Image.open(BytesIO(color_model_layer(tiff(3), "wind", tiff(4)))) as image:
@@ -84,18 +86,22 @@ def test_temperature_palette_uses_celsius_and_wind_uses_both_components():
         ("wind", float("inf"), 4),
     ],
 )
-def test_missing_or_invalid_data_stays_transparent(kind, raw, second):
+def test_missing_or_invalid_data_stays_transparent(
+    kind: str, raw: float, second: float | None
+) -> None:
     data = color_model_layer(tiff(raw), kind, tiff(second) if second is not None else None)
     with Image.open(BytesIO(data)) as image:
         assert image.getchannel("A").getextrema() == (0, 0)
 
 
-def test_wind_without_both_components_is_rejected():
+def test_wind_without_both_components_is_rejected() -> None:
     with pytest.raises(ValueError):
         color_model_layer(tiff(3), "wind")
 
 
-def test_missing_current_run_falls_back_without_changing_forecast_time(monkeypatch):
+def test_missing_current_run_falls_back_without_changing_forecast_time(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr("controllers.weather.hrrr_map_layers.check_gdal_tools", lambda: None)
     session = Mock()
     missing = Mock(status_code=404)
