@@ -264,7 +264,7 @@ class AndroidAppScreen(BrowserMediaScreen):
             for button in (self._back_button, self._expand_button, self._close_button):
                 if button is not None:
                     button.configure(**self._button_style())
-            for key, button in zip(('home', 'work'), self._destination_buttons):
+            for key, button in zip(('home', 'work'), self._destination_buttons, strict=True):
                 button.configure(**self._destination_button_style(key))
             if self._waze_mode_button is not None:
                 style = self._button_style()
