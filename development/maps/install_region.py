@@ -19,6 +19,7 @@ from development.maps.prebuilt_imagery import (
 from development.maps.regional_imagery import download as download_overview
 from development.maps.state_map_catalog import catalog_document
 from development.maps.terrain_regions import MICHIGAN_COVERAGES
+from tools.map_builder.builder.map_3d import PRESETS
 
 STATE_COVERAGES = {
     region["coverage"]: (region.get("title", state["name"] + " overview"),
