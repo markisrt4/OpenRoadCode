@@ -6,6 +6,7 @@ import pytest
 
 from apps.launchers.local_map_tiles_pack import LocalMapTilesPack
 from tools.map_builder.builder import map_3d
+from tools.map_builder.builder.building_geometry import normalize
 from tools.map_builder.builder.install_3d import validate_selection
 from tools.map_builder.builder.map_3d_menu import choose_coverage, select_install_packs
 
@@ -58,10 +59,10 @@ def test_existing_osm_source_builds_runtime_compatible_pack(built):
 def test_height_estimates_and_holes_are_explicit():
     f = feature()
     f["properties"] = {"building": "yes", "building:levels": "5"}
-    b = map_3d.normalize(f, map_3d.PRESETS["detroit-midtown"][1])
+    b = normalize(f, map_3d.PRESETS["detroit-midtown"][1])
     assert (b["height_m"], b["height_source"]) == (15, "levels-estimate")
     f["geometry"]["coordinates"].append(f["geometry"]["coordinates"][0])
-    assert map_3d.normalize(f, map_3d.PRESETS["detroit-midtown"][1]) is None
+    assert normalize(f, map_3d.PRESETS["detroit-midtown"][1]) is None
 
 
 def test_invalid_pack_cannot_be_installed(built):
@@ -237,9 +238,9 @@ def test_builder_geometry_reuses_matching_cached_imagery(built, tmp_path, monkey
 
 def test_osmium_single_part_multipolygon_matches_polygon():
     polygon = feature()
-    expected = map_3d.normalize(polygon, map_3d.PRESETS["detroit-midtown"][1])
+    expected = normalize(polygon, map_3d.PRESETS["detroit-midtown"][1])
     multi = feature()
     multi["geometry"] = {"type": "MultiPolygon", "coordinates": [multi["geometry"]["coordinates"]]}
-    assert map_3d.normalize(multi, map_3d.PRESETS["detroit-midtown"][1]) == expected
+    assert normalize(multi, map_3d.PRESETS["detroit-midtown"][1]) == expected
     multi["geometry"]["coordinates"].append(multi["geometry"]["coordinates"][0])
-    assert map_3d.normalize(multi, map_3d.PRESETS["detroit-midtown"][1]) is None
+    assert normalize(multi, map_3d.PRESETS["detroit-midtown"][1]) is None
