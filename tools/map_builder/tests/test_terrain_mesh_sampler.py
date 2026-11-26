@@ -59,7 +59,7 @@ def test_adjacent_disagreeing_grids_share_a_smooth_border_without_flattening_int
     assert engine.value(0,0)==pytest.approx(300)
     assert engine.value(-1e-9,0)==pytest.approx(engine.value(1e-9,0),abs=.001)
     samples=[engine.value(offset/100000,0) for offset in range(-160,161)]
-    assert max(abs(b-a) for a,b in zip(samples,samples[1:]))<2
+    assert max(abs(b-a) for a,b in zip(samples,samples[1:], strict=False))<2
 
 
 def test_variable_source_relief_survives_resampling_and_shared_lods():
