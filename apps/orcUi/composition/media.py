@@ -60,7 +60,6 @@ from protocols.spotify import (
     load_spotify_config_from_secrets,
 )
 from security.environment_variable_secret_manager import EnvironmentVariableSecretManager
-from ui.media.spotify_browse_if import SpotifyPlaybackMode
 from ui.music_visualizer import MusicVisualizerSource
 from ui.notification_if import Notification, NotificationSeverity
 from ui.theme import ThemeMode
@@ -68,7 +67,7 @@ from ui.theme import ThemeMode
 from .media_resources import MediaComposition
 from .media_spotify_theme import SPOTIFY_GREEN as SPOTIFY_GREEN
 from .media_spotify_theme import spotify_theme as spotify_theme
-from .media_spotify_views import bind_spotify_views
+from .media_spotify_views import bind_spotify_views, verify_spotify_local_player
 
 MUSIC_VIDEO_PORT = 8770
 MUSIC_VIDEO_WINDOW_CLASS = "OpenRoadCodeMusicVideo"
@@ -263,28 +262,13 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
     media_account = SpotifyAccountBinding(account_controller)
     playback_account = SpotifyAccountBinding(account_controller)
     dialog_account = SpotifyAccountBinding(account_controller)
-    def test_spotify_local_player() -> None:
-        player = media.spotify_local_player
-        show_spotify_local()
-
-        def report_result() -> None:
-            if not network_allowed():
-                return
-            state = player.state()
-            if state.busy:
-                app.schedule_ui_callback(200, report_result)
-            elif state.mode is SpotifyPlaybackMode.PLAYER:
-                app.set_screen_status("Spotify local player ready. Choose a track to test audio.")
-            else:
-                app.show_error("Spotify local player test failed", state.message)
-
-        report_result()
-
     account_dialog = SpotifyAccountDialog(
         app.screen_parent,
         session=dialog_account,
         theme_bundle=lambda: theme_bundle(app.theme_mode),
-        test_local_player=test_spotify_local_player,
+        test_local_player=lambda: verify_spotify_local_player(
+            app, media.spotify_local_player.state, show_spotify_local, network_allowed
+        ),
     )
 
     def close_accounts() -> None:

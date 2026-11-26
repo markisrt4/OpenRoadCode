@@ -4,11 +4,12 @@ import os
 import tkinter as tk
 from collections.abc import Callable
 
+from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.trending_spotify_pane import build_trending_spotify_pane
 from controllers.spotify.spotify_presentation import SpotifyPresentation
 from frontends.tk.media import SpotifyNowPlaying
 from frontends.tk.media.spotify_playback_panel import SpotifyPlaybackPanel
-from ui.media.spotify_browse_if import SpotifyLocalPlayerState
+from ui.media.spotify_browse_if import SpotifyLocalPlayerState, SpotifyPlaybackMode
 from ui.theme import ThemeBundle
 
 SpotifyFactory = Callable[[tk.Misc, Callable[[], None], str, str], tk.Widget]
@@ -93,3 +94,27 @@ def bind_spotify_views(
         )
 
     return home_now_playing_factory, trending_spotify_factory
+
+
+
+def verify_spotify_local_player(
+    app: OrcUiApp,
+    player_state: Callable[[], SpotifyLocalPlayerState],
+    show_player: Callable[[], None],
+    network_allowed: Callable[[], bool],
+) -> None:
+    """Start the local player and show the result of device registration."""
+    show_player()
+
+    def report_result() -> None:
+        if not network_allowed():
+            return
+        state = player_state()
+        if state.busy:
+            app.schedule_ui_callback(200, report_result)
+        elif state.mode is SpotifyPlaybackMode.PLAYER:
+            app.set_screen_status("Spotify local player ready. Choose a track to test audio.")
+        else:
+            app.show_error("Spotify local player test failed", state.message)
+
+    report_result()

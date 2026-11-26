@@ -6,10 +6,14 @@
 from __future__ import annotations
 
 import json
+import os
+import re
+import socket
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from apps.launchers import BrowserKioskLauncher
+from apps.launchers.process_manager import close_matching_display_apps
 from apps.orcUi.adapters.spotify_web_player_host import SpotifyWebPlayerHost
 from common.xdg_paths import openroadcode_data_dir
 from controllers.spotify.spotify_local_player import SpotifyLocalPlayer
@@ -63,8 +67,14 @@ def _enable_protected_audio(profile: Path) -> None:
     webprefs = values.setdefault("webkit", {}).setdefault("webprefs", {})
     if webprefs.get("encrypted_media_enabled") is True:
         return
-    if (profile / "SingletonSocket").exists():
-        raise RuntimeError("Close the ORC Spotify browser before updating protected audio.")
+    if _profile_browser_running(profile):
+        close_matching_display_apps(
+            display=os.environ.get("DISPLAY", ":1"),
+            patterns=(re.escape(f"--user-data-dir={profile}") + r"( |$)",),
+            delay_seconds=1.0,
+        )
+        if _profile_browser_running(profile):
+            raise RuntimeError("Close the minimized ORC Spotify browser, then retry.")
     webprefs["encrypted_media_enabled"] = True
     preferences.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     with NamedTemporaryFile(
@@ -77,3 +87,18 @@ def _enable_protected_audio(profile: Path) -> None:
             temporary.replace(preferences)
         finally:
             temporary.unlink(missing_ok=True)
+
+
+
+def _profile_browser_running(profile: Path) -> bool:
+    """Tell a listening Chromium singleton from an abandoned socket file."""
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+        client.settimeout(0.25)
+        try:
+            client.connect(str(profile / "SingletonSocket"))
+        except (FileNotFoundError, ConnectionRefusedError):
+            return False
+        except OSError:
+            # An inaccessible or busy socket is not safe to write through.
+            return True
+    return True
