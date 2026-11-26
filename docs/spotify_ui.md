@@ -66,3 +66,19 @@ without a callback-port conflict.
 
 Fourteen pre-existing boundary exceptions remain across the repository. The
 historical master audit remains historical.
+
+## Local player on Raspberry Pi
+
+ORC PLAYER uses the Spotify Web Playback SDK in a separate browser profile.
+It requires a Spotify Premium account and working protected audio support in
+that browser. If initialization fails, ORC checks whether the profile can
+access Widevine and reports a more specific error when it cannot. If the SDK
+itself fails to download, check internet access from the Pi's browser.
+
+To isolate a browser playback failure, open `https://open.spotify.com` in
+Chromium on the Pi desktop and try playing a track. If Chromium reports that
+protected content is unavailable, check its protected-content settings and
+Widevine support for your Raspberry Pi OS release. If the web player works
+but ORC still fails, retry ORC PLAYER and record the exact ORC popup text.
+During troubleshooting, Trending can play on an available Spotify Connect
+device controlled from ORC.

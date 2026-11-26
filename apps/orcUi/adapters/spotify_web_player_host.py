@@ -24,6 +24,7 @@ SDK_ERROR_CATEGORIES = {
     "account_error",
     "playback_error",
     "token_error",
+    "sdk_load_error",
 }
 
 _PLAYER_HTML = """<!doctype html>
@@ -33,16 +34,48 @@ html,body{height:100%;margin:0;background:#05090d;color:#edf2f5;font-family:sans
 body{display:grid;place-items:center}.card{text-align:center;padding:32px}.dot{width:18px;height:18px;border-radius:50%;background:#84ce1f;margin:0 auto 18px}
 #status{font-size:22px;font-weight:700}.detail{color:#89959e;margin-top:8px}
 </style></head><body><div class="card"><div class="dot"></div><div id="status">Starting Spotify player...</div><div id="detail" class="detail">Waiting for Spotify Web Playback SDK</div></div>
-<script src="https://sdk.scdn.co/spotify-player.js"></script><script>
+<script>
 const status=document.getElementById('status'), detail=document.getElementById('detail');
+let startupErrorReported=false;
+async function reportFailure(name,message){
+  if(startupErrorReported)return;
+  startupErrorReported=true;
+  if(name==='initialization_error'){
+    try{
+      await navigator.requestMediaKeySystemAccess('com.widevine.alpha',[
+        {initDataTypes:['cenc'],audioCapabilities:[{contentType:'audio/mp4; codecs="mp4a.40.2"'}]},
+        {initDataTypes:['webm'],audioCapabilities:[{contentType:'audio/webm; codecs="opus"'}]}
+      ]);
+    }catch(error){
+      if(!navigator.requestMediaKeySystemAccess || error.name==='NotSupportedError'){
+        message='This browser profile cannot use Widevine protected audio. Check protected content in Chromium, or use Spotify Connect.';
+      }
+    }
+  }
+  status.textContent=name.replaceAll('_',' ');
+  detail.textContent=message;
+  await fetch('/error',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,message})});
+}
 async function token(){const r=await fetch('/token',{cache:'no-store'});if(!r.ok)throw new Error(await r.text());return (await r.json()).access_token;}
 window.onSpotifyWebPlaybackSDKReady=async()=>{
-  const player=new Spotify.Player({name:'OpenRoadCode',getOAuthToken:async cb=>{try{cb(await token())}catch(e){status.textContent='Spotify authentication failed';detail.textContent=e.message}},volume:0.5,enableMediaSession:true});
-  player.addListener('ready',({device_id})=>{status.textContent='OpenRoadCode is ready';detail.textContent='Spotify Connect device: '+device_id;fetch('/ready',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({device_id})});});
-  player.addListener('not_ready',({device_id})=>{status.textContent='Spotify player offline';detail.textContent=device_id||'';});
-  for(const name of ['initialization_error','authentication_error','account_error','playback_error']) player.addListener(name,({message})=>{status.textContent=name.replaceAll('_',' ');detail.textContent=message;fetch('/error',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,message})});});
-  const connected=await player.connect();if(!connected){status.textContent='Spotify player did not connect';detail.textContent='Web Playback SDK connect() returned false';}
+  try{
+    const player=new Spotify.Player({name:'OpenRoadCode',getOAuthToken:async cb=>{try{cb(await token())}catch(e){status.textContent='Spotify authentication failed';detail.textContent=e.message}},volume:0.5,enableMediaSession:true});
+    player.addListener('ready',({device_id})=>{status.textContent='OpenRoadCode is ready';detail.textContent='Spotify Connect device: '+device_id;fetch('/ready',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({device_id})});});
+    player.addListener('not_ready',({device_id})=>{status.textContent='Spotify player offline';detail.textContent=device_id||'';});
+    for(const name of ['initialization_error','authentication_error','account_error','playback_error']){
+      player.addListener(name,({message})=>void reportFailure(name,message));
+    }
+    if(!await player.connect()){
+      await reportFailure('initialization_error','Spotify Web Playback SDK could not connect.');
+    }
+  }catch(error){
+    await reportFailure('initialization_error',error.message);
+  }
 };
+const sdk=document.createElement('script');
+sdk.src='https://sdk.scdn.co/spotify-player.js';
+sdk.onerror=()=>void reportFailure('sdk_load_error','Could not load the Spotify Web Playback SDK. Check internet access from Chromium.');
+document.head.appendChild(sdk);
 </script></body></html>"""
 
 
