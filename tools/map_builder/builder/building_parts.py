@@ -23,7 +23,7 @@ def inside_or_boundary(point, ring):
     if _inside_ring(point,ring):
         return True
     x,y = point
-    for (ax,ay),(bx,by) in zip(ring,ring[1:]):
+    for (ax,ay),(bx,by) in zip(ring,ring[1:], strict=False):
         cross = (x-ax)*(by-ay)-(y-ay)*(bx-ax)
         if abs(cross)<1e-16 and min(ax,bx)-1e-12 <= x <= max(ax,bx)+1e-12 and min(ay,by)-1e-12 <= y <= max(ay,by)+1e-12:
             return True
