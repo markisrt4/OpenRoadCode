@@ -1,31 +1,118 @@
-"""Exercise launcher interpreter selection without provisioning Python."""
+"""Exercise installer-managed launcher interpreter selection."""
 
 import os
 import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
 
-def test_launcher_creates_missing_venv_and_reuses_it(tmp_path):
-    launcher = tmp_path / "runOrcUi"
-    shutil.copyfile(Path(__file__).resolve().parents[2] / "runOrcUi", launcher)
-    tools = tmp_path / "tools"
-    tools.mkdir()
-    python = tools / "python3"
-    python.write_text(
-        "#!/bin/bash\n"
-        "set -eu\n"
-        '[[ "$1 $2 $3" == "-m venv --system-site-packages" ]]\n'
-        'mkdir -p "$4/bin"\n'
-        "printf '#!/bin/bash\\nexit 0\\n' > \"$4/bin/python\"\n"
-        'chmod +x "$4/bin/python"\n'
+
+@pytest.fixture
+def launcher_environment(tmp_path):
+    project = tmp_path / "OpenRoadCode"
+    project.mkdir()
+    launcher = project / "runOrcUi"
+    shutil.copyfile(
+        Path(__file__).resolve().parents[2] / "runOrcUi",
+        launcher,
     )
-    python.chmod(0o755)
-    env = {"PATH": f"{tools}{os.pathsep}{os.defpath}"}
 
-    first = subprocess.run(["bash", str(launcher)], env=env, capture_output=True, check=True)
-    assert b"Creating OpenRoadCode virtual environment" in first.stderr
-    assert (tmp_path / ".venv/bin/python").is_file()
+    home = tmp_path / "home"
+    home.mkdir()
 
-    second = subprocess.run(["bash", str(launcher)], env=env, capture_output=True, check=True)
-    assert b"Creating OpenRoadCode virtual environment" not in second.stderr
+    env = {
+        "PATH": os.environ["PATH"],
+        "HOME": str(home),
+        "XDG_CONFIG_HOME": str(home / ".config"),
+    }
+    return launcher, env
+
+
+def fake_python(path, *, is_venv=True, dependencies=True):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        f"#!{shutil.which('bash')}\n"
+        'if [[ "$1" == "-c" ]]; then\n'
+        '    case "$2" in\n'
+        f"        *sys.base_prefix*) exit {int(not is_venv)} ;;\n"
+        f"        *tinycss2*) exit {int(not dependencies)} ;;\n"
+        "    esac\n"
+        "fi\n"
+        'printf "%s\\n" "$@"\n'
+    )
+    path.chmod(0o755)
+    return path
+
+
+def test_launcher_requires_installer_managed_venv(launcher_environment):
+    launcher, env = launcher_environment
+
+    result = subprocess.run(
+        ["bash", str(launcher)],
+        env=env,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert b"No Python virtual environment found" in result.stderr
+    assert b"repository installer" in result.stderr
+    assert not (launcher.parent / ".venv").exists()
+    assert not (launcher.parent.parent / ".venv").exists()
+
+
+def test_launcher_reuses_installer_managed_venv(launcher_environment):
+    launcher, env = launcher_environment
+    interpreter = launcher.parent.parent / ".venv/bin/python"
+    fake_python(interpreter)
+
+    for _ in range(2):
+        result = subprocess.run(
+            ["bash", str(launcher)],
+            env=env,
+            capture_output=True,
+            check=True,
+        )
+
+        assert result.stdout.splitlines() == [b"-m", b"apps.orcUi"]
+        assert interpreter.is_file()
+
+
+def test_launcher_rejects_non_venv_python(launcher_environment):
+    launcher, env = launcher_environment
+    interpreter = fake_python(
+        launcher.parent / "python",
+        is_venv=False,
+    )
+    env["PYTHON"] = str(interpreter)
+
+    result = subprocess.run(
+        ["bash", str(launcher)],
+        env=env,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert b"not running in a virtual environment" in result.stderr
+
+
+def test_launcher_reports_missing_dependencies(launcher_environment):
+    launcher, env = launcher_environment
+    interpreter = fake_python(
+        launcher.parent.parent / ".venv/bin/python",
+        dependencies=False,
+    )
+    env["PYTHON"] = str(interpreter)
+
+    result = subprocess.run(
+        ["bash", str(launcher)],
+        env=env,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert b"Missing required ORC UI dependencies" in result.stderr
+    assert b"requests/tinycss2" in result.stderr
