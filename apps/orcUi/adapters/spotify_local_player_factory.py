@@ -35,9 +35,13 @@ def _make_browser(url: str) -> BrowserKioskLauncher:
         kiosk=False,
         app_mode=True,
         profile_path=openroadcode_data_dir("spotify-player-browser"),
-        window_position=(8, 8),
-        window_size=(420, 220),
         startup_grace_seconds=0.5,
-        extra_arguments=("--autoplay-policy=no-user-gesture-required",),
+        extra_arguments=(
+            "--ozone-platform=x11",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "--start-minimized",
+            "--autoplay-policy=no-user-gesture-required",
+        ),
         window_class=WINDOW_CLASS,
     )

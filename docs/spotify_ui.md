@@ -70,6 +70,8 @@ historical master audit remains historical.
 ## Local player on Raspberry Pi
 
 ORC PLAYER uses the Spotify Web Playback SDK in a separate browser profile.
+The SDK helper starts minimized. Playback controls and track information stay
+in ORC. A Spotify artist search from Trending opens the provider browser.
 It requires a Spotify Premium account and working protected audio support in
 that browser. If initialization fails, ORC checks whether the profile can
 access Widevine and reports a more specific error when it cannot. If the SDK
