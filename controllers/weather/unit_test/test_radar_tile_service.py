@@ -4,15 +4,18 @@
 """Tests for local radar tile caching and presentation."""
 
 from io import BytesIO
+from pathlib import Path
+from unittest.mock import Mock
 from urllib.parse import urlparse
 
+import requests
 from PIL import Image
 
 from controllers.weather import RadarFrame, RadarPalette, RadarTileService
 from controllers.weather.radar_tile_service import recolor_classic
 
 
-def _png(pixel=(0, 163, 224, 255)) -> bytes:
+def _png(pixel: tuple[int, int, int, int] = (0, 163, 224, 255)) -> bytes:
     image = Image.new("RGBA", (1, 1), pixel)
     output = BytesIO()
     image.save(output, format="PNG")
@@ -30,30 +33,33 @@ class _Response:
 class _Session:
     def __init__(self, content: bytes) -> None:
         self.content = content
-        self.calls = []
+        self.calls: list[tuple[str, float]] = []
         self.closed = False
+        self.adapter = Mock(spec=requests.Session, get=self.get, close=self.close)
 
-    def get(self, url, *, timeout):
+    def get(self, url: str, *, timeout: float) -> _Response:
         self.calls.append((url, timeout))
         return _Response(self.content)
 
-    def close(self):
+    def close(self) -> None:
         self.closed = True
 
 
 def test_classic_recolor_maps_moderate_blue_to_green() -> None:
     result = recolor_classic(_png())
     with Image.open(BytesIO(result)) as image:
-        red, green, blue, alpha = image.convert("RGBA").getpixel((0, 0))
+        pixel = image.convert("RGBA").getpixel((0, 0))
+        assert isinstance(pixel, tuple) and len(pixel) == 4
+        red, green, blue, alpha = pixel
 
     assert green > red
     assert green > blue
     assert alpha == 255
 
 
-def test_service_caches_source_across_palettes(tmp_path) -> None:
+def test_service_caches_source_across_palettes(tmp_path: Path) -> None:
     session = _Session(_png())
-    service = RadarTileService(cache_root=tmp_path, session=session)
+    service = RadarTileService(cache_root=tmp_path, session=session.adapter)
     frame = RadarFrame(
         timestamp=200,
         tile_url="https://example.test/200/{z}/{x}/{y}.png",
@@ -73,8 +79,8 @@ def test_service_caches_source_across_palettes(tmp_path) -> None:
     assert session.calls == [("https://example.test/200/7/34/47.png", 10.0)]
 
 
-def test_readiness_waits_for_all_outstanding_tiles(tmp_path):
-    service = RadarTileService(cache_root=tmp_path, session=_Session(_png()))
+def test_readiness_waits_for_all_outstanding_tiles(tmp_path: Path) -> None:
+    service = RadarTileService(cache_root=tmp_path, session=_Session(_png()).adapter)
     frame = RadarFrame(200, "https://example.test/{z}/{x}/{y}.png")
     try:
         service.tile_url(frame, RadarPalette.UNIVERSAL)
@@ -93,8 +99,8 @@ def test_readiness_waits_for_all_outstanding_tiles(tmp_path):
         service.close()
 
 
-def test_explicit_retry_clears_failed_frame_state(tmp_path):
-    service = RadarTileService(cache_root=tmp_path, session=_Session(_png()))
+def test_explicit_retry_clears_failed_frame_state(tmp_path: Path) -> None:
+    service = RadarTileService(cache_root=tmp_path, session=_Session(_png()).adapter)
     frame = RadarFrame(200, "https://example.test/{z}/{x}/{y}.png")
     try:
         service.tile_url(frame, RadarPalette.UNIVERSAL)
@@ -111,8 +117,8 @@ def test_explicit_retry_clears_failed_frame_state(tmp_path):
         service.close()
 
 
-def test_success_of_other_tile_does_not_hide_failed_request(tmp_path):
-    service = RadarTileService(cache_root=tmp_path, session=_Session(_png()))
+def test_success_of_other_tile_does_not_hide_failed_request(tmp_path: Path) -> None:
+    service = RadarTileService(cache_root=tmp_path, session=_Session(_png()).adapter)
     frame = RadarFrame(200, "https://example.test/{z}/{x}/{y}.png")
     try:
         service.tile_url(frame, RadarPalette.UNIVERSAL)
@@ -134,10 +140,9 @@ def test_success_of_other_tile_does_not_hide_failed_request(tmp_path):
         service.close()
 
 
-def test_blank_png_is_loaded_but_failed_download_is_unavailable(tmp_path):
-    import requests
-
-    service = RadarTileService(cache_root=tmp_path, session=_Session(_png((0, 0, 0, 0))))
+def test_blank_png_is_loaded_but_failed_download_is_unavailable(tmp_path: Path) -> None:
+    session = _Session(_png((0, 0, 0, 0)))
+    service = RadarTileService(cache_root=tmp_path, session=session.adapter)
     frame = RadarFrame(200, "https://example.test/{z}/{x}/{y}.png")
     try:
         url = service.tile_url(frame, RadarPalette.UNIVERSAL).format(z=1, x=0, y=0)
@@ -146,34 +151,41 @@ def test_blank_png_is_loaded_but_failed_download_is_unavailable(tmp_path):
         status = service.frame_status(frame)
         assert status.loaded == 1 and status.failed == 0
         assert status.has_echoes is False and service.frame_ready(frame)
-        service._session.content = b"not a PNG"
-        response = requests.get(url.replace("/0/0.png", "/1/0.png"), timeout=2)
+        session.content = b"not a PNG"
+        failed_url = url.replace("/0/0.png", "/1/0.png")
+        response = requests.get(failed_url, timeout=2)
         assert response.status_code == 502
         assert service.frame_status(frame).failed == 1
         assert not service.frame_ready(frame)
+        session.content = _png()
+        assert requests.get(f"{failed_url}?retry=1", timeout=2).status_code == 200
+        status = service.frame_status(frame)
+        assert (status.pending, status.loaded, status.failed) == (0, 2, 0)
+        assert service.frame_ready(frame)
     finally:
         service.close()
 
 
-def test_invalid_response_is_not_cached_and_corrupt_cache_recovers(tmp_path):
+def test_invalid_response_is_not_cached_and_corrupt_cache_recovers(tmp_path: Path) -> None:
     import pytest
 
-    service = RadarTileService(cache_root=tmp_path, session=_Session(b"<html>bad upstream</html>"))
+    session = _Session(b"<html>bad upstream</html>")
+    service = RadarTileService(cache_root=tmp_path, session=session.adapter)
     path = tmp_path / "tile.png"
     try:
         with pytest.raises(OSError):
             service._read_or_fetch(path, "https://example.test/tile.png")
         assert not path.exists()
         path.write_bytes(b"broken cache")
-        service._session.content = _png()
+        session.content = _png()
         assert service._read_or_fetch(path, "https://example.test/tile.png") == _png()
         assert path.read_bytes() == _png()
     finally:
         service.close()
 
 
-def test_retry_changes_tile_url_and_clears_failed_state(tmp_path):
-    service = RadarTileService(cache_root=tmp_path, session=_Session(_png()))
+def test_retry_changes_tile_url_and_clears_failed_state(tmp_path: Path) -> None:
+    service = RadarTileService(cache_root=tmp_path, session=_Session(_png()).adapter)
     frame = RadarFrame(200, "https://example.test/{z}/{x}/{y}.png")
     try:
         original = service.tile_url(frame, RadarPalette.UNIVERSAL)

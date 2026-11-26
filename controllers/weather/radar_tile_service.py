@@ -85,7 +85,10 @@ def recolor_classic(source: bytes) -> bytes:
     with Image.open(BytesIO(source)) as image:
         rgba = image.convert("RGBA")
         pixels = []
-        for red, green, blue, alpha in rgba.get_flattened_data():
+        for pixel in rgba.get_flattened_data():
+            if not isinstance(pixel, tuple) or len(pixel) != 4:
+                raise ValueError("Radar palette conversion requires RGBA pixels")
+            red, green, blue, alpha = pixel
             if alpha == 0:
                 pixels.append((red, green, blue, alpha))
             else:
@@ -126,9 +129,9 @@ class RadarTileService:
 
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:
-                key = urlparse(self.path).path.strip("/").split("/")[1:2]
-                key = key[0] if key else ""
                 tile_id = urlparse(self.path).path
+                parts = tile_id.strip("/").split("/")
+                key = parts[1] if len(parts) > 1 else ""
                 service._begin_tile(key)
                 operation_id = service._log.requested()
                 try:
@@ -156,7 +159,7 @@ class RadarTileService:
                     # MapLibre can cancel in-flight tiles after pan/zoom/style changes.
                     return
 
-            def log_message(self, format: str, *args) -> None:
+            def log_message(self, format: str, *args: object) -> None:
                 del format, args
 
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
@@ -349,6 +352,7 @@ class RadarTileService:
                     (136, 221, 238, 230),
                 )
             )
+            cells: tuple[tuple[int, int, tuple[tuple[int, tuple[int, int, int, int]], ...]], ...]
             if scenario == "storm":
                 cells = ((center_x, center_y, ((82, colors[0]), (58, colors[1]), (36, colors[2]))),)
             else:
