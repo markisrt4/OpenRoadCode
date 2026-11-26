@@ -8,6 +8,7 @@ import importlib.util
 import os
 import subprocess
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -29,14 +30,14 @@ def mypy_platform_args() -> list[str]:
     return []
 
 
-def main() -> int:
+def main(argv: Sequence[str] = ()) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--controllers",
         action="store_true",
         help="Check the entire controller layer using the existing strict configuration.",
     )
-    options = parser.parse_args()
+    options = parser.parse_args(argv)
     if importlib.util.find_spec("mypy") is None:
         if is_termux() and not is_quality_environment() and not options.controllers:
             print("[SKIP] Strict UI types: mypy unavailable on Termux; Linux/CI still requires it")
@@ -61,4 +62,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(sys.argv[1:]))
