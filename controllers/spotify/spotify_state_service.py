@@ -130,11 +130,28 @@ class _SynchronizedSpotifyController(SpotifyControllerIf):
                 raise RuntimeError("Spotify search unavailable")
             return lookup(artist, title)
 
-    def play_track(self, track_uri: str) -> None:
+    def select_playback_device(self) -> tuple[str, str]:
         with self._lock:
             if not self.network_allowed():
                 raise RuntimeError("Spotify unavailable in offline mode")
-            self._backend.play_track(track_uri)
+            select = getattr(self._backend, "select_playback_device", None)
+            if select is None:
+                raise RuntimeError("Spotify Connect device selection unavailable")
+            device = select()
+            device_id = device.get("id")
+            if not isinstance(device_id, str) or not device_id:
+                raise RuntimeError("Spotify Connect device has no playable ID")
+            return device_id, str(device.get("name") or "Spotify device")
+
+    def play_track(self, track_uri: str, *, device_id: str | None = None) -> None:
+        with self._lock:
+            if not self.network_allowed():
+                raise RuntimeError("Spotify unavailable in offline mode")
+            if device_id is None:
+                self._backend.play_track(track_uri)
+            else:
+                playback: Callable[..., None] = self._backend.play_track
+                playback(track_uri, device_id=device_id)
 
 
 class SpotifyStateService(
@@ -282,9 +299,7 @@ class SpotifyStateService(
                         f"No matching Spotify recording for {artist} - {title}; check Spotify search candidates in logs"
                     )
                     return
-                device = self._controller.select_playback_device()
-                device_id = device["id"]
-                device_name = str(device.get("name") or "Spotify device")
+                device_id, device_name = self._controller.select_playback_device()
                 report(f"Requesting {artist} - {title} on {device_name}")
                 self._controller.play_track(uri, device_id=device_id)
                 report(f"Spotify accepted playback request on {device_name}: {artist} - {title}")

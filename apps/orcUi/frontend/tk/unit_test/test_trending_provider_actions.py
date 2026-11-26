@@ -31,6 +31,25 @@ def test_late_artist_profile_is_ignored_after_selection_changes():
     panel._track_details.set_profile.assert_not_called()
 
 
+def test_spotify_song_opens_in_the_left_trending_pane():
+    panel = Mock(
+        _kind="songs",
+        _selected={"artist": "Burl Ives", "title": "A Song"},
+        _video_pane=None,
+        _spotify_pane=None,
+    )
+
+    TrendingRadioPanel._open_spotify(panel)
+
+    panel._spotify_factory.assert_called_once_with(
+        panel._left, panel._restore_track_details, "Burl Ives", "A Song"
+    )
+    panel._spotify_factory.return_value.grid.assert_called_once_with(
+        row=0, column=0, sticky="nsew"
+    )
+    panel._on_artist_search.assert_not_called()
+
+
 @pytest.mark.parametrize(
     ("action", "destination"),
     [

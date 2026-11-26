@@ -267,7 +267,10 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         session=dialog_account,
         theme_bundle=lambda: theme_bundle(app.theme_mode),
         test_local_player=lambda: verify_spotify_local_player(
-            app, media.spotify_local_player.state, show_spotify_local, network_allowed
+            app,
+            media.spotify_local_player.state,
+            media.spotify_local_player.request_player,
+            network_allowed,
         ),
     )
 

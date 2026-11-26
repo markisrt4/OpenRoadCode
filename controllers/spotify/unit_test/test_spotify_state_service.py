@@ -21,6 +21,23 @@ class SpotifyStateServiceTest(unittest.TestCase):
         self.assertTrue(self.service._drain_commands())
         self.backend.play.assert_called_once_with()
 
+    def test_song_is_sent_to_selected_device(self) -> None:
+        progress = Mock()
+        failure = Mock()
+        self.backend.search_track.return_value = "spotify:track:123"
+        self.backend.select_playback_device.return_value = {
+            "id": "orc-device",
+            "name": "OpenRoadCode",
+        }
+
+        self.service.request_play_song("Artist", "Song", progress, failure)
+        self.service._drain_commands()
+
+        self.backend.play_track.assert_called_once_with(
+            "spotify:track:123", device_id="orc-device"
+        )
+        failure.assert_not_called()
+
     def test_song_device_failure_is_reported_as_an_error(self) -> None:
         progress = Mock()
         failure = Mock()

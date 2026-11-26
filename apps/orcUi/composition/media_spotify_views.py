@@ -96,15 +96,14 @@ def bind_spotify_views(
     return home_now_playing_factory, trending_spotify_factory
 
 
-
 def verify_spotify_local_player(
     app: OrcUiApp,
     player_state: Callable[[], SpotifyLocalPlayerState],
-    show_player: Callable[[], None],
+    request_player: Callable[[], None],
     network_allowed: Callable[[], bool],
 ) -> None:
     """Start the local player and show the result of device registration."""
-    show_player()
+    request_player()
 
     def report_result() -> None:
         if not network_allowed():
@@ -113,7 +112,7 @@ def verify_spotify_local_player(
         if state.busy:
             app.schedule_ui_callback(200, report_result)
         elif state.mode is SpotifyPlaybackMode.PLAYER:
-            app.set_screen_status("Spotify local player ready. Choose a track to test audio.")
+            app.set_screen_status("Spotify local player ready. Open Radio → Trending to test a song.")
         else:
             app.show_error("Spotify local player test failed", state.message)
 
