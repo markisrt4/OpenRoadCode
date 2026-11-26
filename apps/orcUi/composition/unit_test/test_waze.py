@@ -160,7 +160,7 @@ def test_runtime_keeps_enable_setting_but_never_registers_a_waze_browser(enabled
     names = (
         "ApplicationsConfigParser",
         "AppRuntimeManager",
-        "ManagedSDRPPLauncher",
+        "NativeRadioApplicationService",
         "BrowserApplicationFactory",
         "GoogleEarthLauncher",
         "StreamingRadioController",
