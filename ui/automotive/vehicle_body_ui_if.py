@@ -6,6 +6,7 @@
 from abc import ABC, abstractmethod
 from enum import Enum, auto
 
+
 class VehicleOpening(Enum):
     """! @brief Door or panel that may be open or closed."""
 

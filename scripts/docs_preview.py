@@ -14,7 +14,6 @@ from urllib.parse import quote
 
 from docs_inventory import discover
 
-
 LINK_PATTERN = re.compile(r"(?<!!)\[([^\]]+)\]\(([^)]+)\)")
 
 
@@ -239,10 +238,7 @@ def build_site(source_root: Path, site_root: Path) -> int:
 
     write_layout(site_root)
     (site_root / "_config.yml").write_text(
-        'title: "OpenRoadCode Documentation"\n'
-        'markdown: kramdown\n'
-        'permalink: pretty\n'
-        'exclude: []\n',
+        'title: "OpenRoadCode Documentation"\nmarkdown: kramdown\npermalink: pretty\nexclude: []\n',
         encoding="utf-8",
     )
 
@@ -260,9 +256,7 @@ def build_site(source_root: Path, site_root: Path) -> int:
             "layout: default\n"
             f"title: {json.dumps(title)}\n"
             f"permalink: {url!r}\n"
-            "---\n\n"
-            + markdown
-            + "\n",
+            "---\n\n" + markdown + "\n",
             encoding="utf-8",
         )
 

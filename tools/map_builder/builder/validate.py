@@ -11,7 +11,6 @@ import json
 import os
 import sqlite3
 import subprocess
-from pathlib import Path
 
 
 class ValidationError(RuntimeError):
@@ -433,6 +432,7 @@ def validate_output(root, *, service_smoke=False):
     }
     validate_style(style, result["mbtiles"]["layers"], result["national_freeways"]["layers"])
     from .map_3d import validate_packs
+
     result["map_3d"] = validate_packs(root)
     result["checksums"] = {
         "mbtiles": sha256(mbtiles),

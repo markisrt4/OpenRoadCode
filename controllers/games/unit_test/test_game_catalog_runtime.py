@@ -9,9 +9,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from controllers.games.game_catalog import load_game_catalog
 from controllers.games.debian_command_runner import DebianCommandRunner
 from controllers.games.debian_game_installer import DebianGameInstaller
+from controllers.games.game_catalog import load_game_catalog
 
 
 class GameCatalogRuntimeTest(unittest.TestCase):
@@ -21,7 +21,9 @@ class GameCatalogRuntimeTest(unittest.TestCase):
             games = {game.name: game for game in load_game_catalog(catalog_path)}
         runner = DebianCommandRunner.__new__(DebianCommandRunner)
         runner._mode = "proot"
-        with patch("controllers.games.debian_game_installer.DebianCommandRunner", return_value=runner):
+        with patch(
+            "controllers.games.debian_game_installer.DebianCommandRunner", return_value=runner
+        ):
             installer = DebianGameInstaller()
         for name in ("GNOME 2048", "GNOME Nibbles", "GNOME Sudoku"):
             with self.subTest(game=name):

@@ -6,8 +6,6 @@
 import logging
 
 from common.logging.structured import current_operation, event, operation
-
-from controllers.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
 from messaging.contracts.automotive.telemetry_profile_request import (
     AutomotiveTelemetryProfileRequest,
     decode_automotive_telemetry_profile_request,

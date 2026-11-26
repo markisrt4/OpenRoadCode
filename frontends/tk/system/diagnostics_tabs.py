@@ -4,6 +4,7 @@
 """Semantic ORC tab controls without platform-native notebook styling."""
 
 import tkinter as tk
+
 from ui.theme import ThemeBundle
 from ui.ui_widget import UiWidget
 
@@ -19,22 +20,44 @@ class DiagnosticsTabs(tk.Frame, UiWidget):
         self._controls.pack(fill=tk.X, pady=(0, 6))
         self._on_back = on_back
         if on_back is not None:
-            tk.Button(self._controls, text="‹ BACK", command=on_back,
-                      bg=self._ui.control_background, fg=self._ui.control_text,
-                      activebackground=self._ui.control_active,
-                      activeforeground=self._ui.control_text,
-                      relief=tk.FLAT, bd=0, highlightthickness=1,
-                      highlightbackground=self._ui.border, font=("Sans", 9, "bold"),
-                      padx=3, pady=6).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 3))
+            tk.Button(
+                self._controls,
+                text="‹ BACK",
+                command=on_back,
+                bg=self._ui.control_background,
+                fg=self._ui.control_text,
+                activebackground=self._ui.control_active,
+                activeforeground=self._ui.control_text,
+                relief=tk.FLAT,
+                bd=0,
+                highlightthickness=1,
+                highlightbackground=self._ui.border,
+                font=("Sans", 9, "bold"),
+                padx=3,
+                pady=6,
+            ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 3))
 
     def add(self, page, *, text: str) -> None:
         """Add a keyboard-focusable, theme-colored page selector."""
         index = len(self._pages)
-        button = tk.Button(self._controls, text=text.upper(), command=lambda: self._select(index),
-                           bg=self._ui.control_background, fg=self._ui.control_text,
-                           activebackground=self._ui.control_active, activeforeground=self._ui.control_text,
-                           relief=tk.FLAT, bd=0, highlightthickness=1, highlightbackground=self._ui.border,
-                           font=("Sans", 9, "bold"), padx=3, pady=6, cursor="hand2", takefocus=True)
+        button = tk.Button(
+            self._controls,
+            text=text.upper(),
+            command=lambda: self._select(index),
+            bg=self._ui.control_background,
+            fg=self._ui.control_text,
+            activebackground=self._ui.control_active,
+            activeforeground=self._ui.control_text,
+            relief=tk.FLAT,
+            bd=0,
+            highlightthickness=1,
+            highlightbackground=self._ui.border,
+            font=("Sans", 9, "bold"),
+            padx=3,
+            pady=6,
+            cursor="hand2",
+            takefocus=True,
+        )
         button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 3))
         self._pages.append((page, button))
         if index == 0:
@@ -43,7 +66,11 @@ class DiagnosticsTabs(tk.Frame, UiWidget):
     def _select(self, index: int) -> None:
         for position, (page, button) in enumerate(self._pages):
             page.pack_forget()
-            button.configure(bg=self._ui.control_active if position == index else self._ui.control_background,
-                             fg="#ffffff" if position == index else self._ui.control_text,
-                             highlightbackground=self._ui.accent_primary if position == index else self._ui.border)
+            button.configure(
+                bg=self._ui.control_active if position == index else self._ui.control_background,
+                fg="#ffffff" if position == index else self._ui.control_text,
+                highlightbackground=self._ui.accent_primary
+                if position == index
+                else self._ui.border,
+            )
         self._pages[index][0].pack(fill=tk.BOTH, expand=True)

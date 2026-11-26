@@ -1,0 +1,105 @@
+name: Build Regional Navigation Data
+on:
+  push:
+    branches:
+      - feature/rpi5-integration
+    paths:
+      - '.github/workflows/build-regional-navigation-data.yml'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish validated dataset as a versioned prerelease
+        type: boolean
+        default: true
+      regions:
+        description: Comma-separated Geofabrik region IDs
+        default: us/michigan
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    env:
+      REGIONS: ${{ inputs.regions || 'us/michigan' }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Validate request and inspect runner resources
+        run: |
+          set -euo pipefail
+          [[ "$REGIONS" =~ ^[a-z0-9-]+(/[a-z0-9-]+)*(,[a-z0-9-]+(/[a-z0-9-]+)*)*$ ]]
+          df -h
+          free -h
+          nproc
+      - name: Check Geofabrik connectivity before compiling
+        run: |
+          set -euo pipefail
+          curl -4 --fail --location --retry 5 --retry-all-errors --connect-timeout 15 --max-time 120 https://download.geofabrik.de/index-v1-nogeom.json -o "$RUNNER_TEMP/geofabrik-index.json"
+          python3 - <<'PY'
+          import os
+          import sys
+          from pathlib import Path
+
+          sys.path.insert(0, "tools/map_builder")
+          from builder.geofabrik import load_index, resolve_region_ids
+
+          regions = load_index(Path(os.environ["RUNNER_TEMP"]) / "geofabrik-index.json")
+          requested = os.environ["REGIONS"].split(",")
+          selected = resolve_region_ids(regions, requested)
+          for region in selected:
+              print(f"{region.id}: {region.pbf_url}")
+          PY
+      - name: Build existing map builder image
+        working-directory: tools/map_builder
+        run: bash scripts/build-image.sh
+      - name: Generate regional navigation data
+        working-directory: tools/map_builder
+        run: bash scripts/run-builder.sh build --regions "$REGIONS"
+      - name: Validate dataset and routing service
+        working-directory: tools/map_builder
+        run: bash scripts/validate-host.sh
+      - name: Package validated dataset
+        run: |
+          set -euo pipefail
+          root=tools/map_builder/build-output
+          test -s "$root/build-manifest.json"
+          test -s "$root/maps/vector/openroadcode.mbtiles"
+          test -s "$root/maps/search/openroadcode-search.sqlite"
+          test -s "$root/valhalla/valhalla.json"
+          mkdir -p regional-artifacts
+          sudo tar -C "$root" --exclude=maps/routes -czf - . | split -b 1900M -d -a 4 - regional-artifacts/navigation-data.tar.gz.part-
+          cp "$root/build-manifest.json" regional-artifacts/
+          (cd regional-artifacts && sha256sum navigation-data.tar.gz.part-* build-manifest.json > SHA256SUMS)
+          du -sh "$root" regional-artifacts
+          df -h
+      - uses: actions/upload-artifact@v4
+        with:
+          name: regional-navigation-data
+          path: regional-artifacts/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+  publish:
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.publish
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: regional-navigation-data
+          path: regional-artifacts
+      - name: Verify and publish dataset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          REGIONS: ${{ inputs.regions }}
+        run: |
+          set -euo pipefail
+          cd regional-artifacts
+          sha256sum -c SHA256SUMS
+          tag="navigation-data-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          gh release create "$tag" --target "$GITHUB_SHA" --prerelease --latest=false --title "Navigation data: $REGIONS" --notes "Validated regional dataset for $REGIONS. Verify SHA256SUMS before extraction." navigation-data.tar.gz.part-* build-manifest.json SHA256SUMS

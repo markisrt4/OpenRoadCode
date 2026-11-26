@@ -24,18 +24,14 @@ def parse_args() -> argparse.Namespace:
 
     parser = argparse.ArgumentParser(
         description=(
-            "Monitor orientation and motion using an MPU-6050-backed "
-            "navigation controller."
+            "Monitor orientation and motion using an MPU-6050-backed navigation controller."
         )
     )
     parser.add_argument(
         "--address",
         type=lambda value: int(value, 0),
         default=Mpu6050Imu.DEFAULT_ADDRESS,
-        help=(
-            "MPU-6050 I2C address. Accepts decimal or hexadecimal values. "
-            "Default: 0x68"
-        ),
+        help=("MPU-6050 I2C address. Accepts decimal or hexadecimal values. Default: 0x68"),
     )
     parser.add_argument(
         "--interval",
@@ -47,9 +43,7 @@ def parse_args() -> argparse.Namespace:
         "--filter-time-constant",
         type=float,
         default=0.5,
-        help=(
-            "Complementary-filter time constant in seconds. Default: 0.5"
-        ),
+        help=("Complementary-filter time constant in seconds. Default: 0.5"),
     )
     parser.add_argument(
         "--once",
@@ -110,9 +104,7 @@ def format_state(state: NavigationState) -> str:
 
     if state.gps is not None:
         gps = state.gps
-        fix = (
-            f"{gps.fix_mode}D" if gps.has_fix else "no fix"
-        )
+        fix = f"{gps.fix_mode}D" if gps.has_fix else "no fix"
         lines.append(
             "GPS:              "
             f"fix={fix}  "
@@ -164,14 +156,10 @@ def main() -> int:
     if args.gps:
         from hardware_io.gps import GpsReader
 
-        gps_source = GpsdNavigationAdapter(
-            GpsReader(host=args.gps_host, port=args.gps_port)
-        )
+        gps_source = GpsdNavigationAdapter(GpsReader(host=args.gps_host, port=args.gps_port))
 
     controller = NavigationController(
-        sensor=Mpu6050NavigationAdapter(
-            Mpu6050Imu(address=args.address)
-        ),
+        sensor=Mpu6050NavigationAdapter(Mpu6050Imu(address=args.address)),
         filter_time_constant_s=args.filter_time_constant,
         gps_source=gps_source,
     )

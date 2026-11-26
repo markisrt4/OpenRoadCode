@@ -15,7 +15,9 @@ from .android_sensor_service import AndroidSensorService
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Publish Android sensors onto the OpenRoadCode bus")
+    parser = argparse.ArgumentParser(
+        description="Publish Android sensors onto the OpenRoadCode bus"
+    )
     parser.add_argument(
         "--publisher-endpoint",
         default=LOCAL_PUBLISHER_ENDPOINT,

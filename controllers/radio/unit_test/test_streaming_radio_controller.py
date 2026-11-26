@@ -6,11 +6,10 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from controllers.radio.adapters.radio_browser_directory import RadioBrowserDirectory
-
 from controllers.audio.streaming_audio_player_if import StreamingAudioPlayerIf
+from controllers.radio.adapters.radio_browser_directory import RadioBrowserDirectory
 from controllers.radio.streaming_radio_controller import StreamingRadioController
-from ui.radio.streaming_radio_types import (StreamingRadioStation)
+from ui.radio.streaming_radio_types import StreamingRadioStation
 
 
 class _FakeStreamingAudioPlayer(StreamingAudioPlayerIf):
@@ -64,9 +63,11 @@ class StreamingRadioControllerTest(unittest.TestCase):
     def test_offline_directory_does_not_issue_http_requests(self) -> None:
         directory = RadioBrowserDirectory(network_allowed=lambda: False)
         with patch("controllers.radio.adapters.radio_browser_directory.urlopen") as request:
-            for action in (lambda: directory.search("Detroit"),
-                           lambda: directory.stations_by_ids(("station-1",)),
-                           lambda: directory.stations_by_region(state="Michigan")):
+            for action in (
+                lambda: directory.search("Detroit"),
+                lambda: directory.stations_by_ids(("station-1",)),
+                lambda: directory.stations_by_region(state="Michigan"),
+            ):
                 with self.assertRaisesRegex(RuntimeError, "offline"):
                     action()
             request.assert_not_called()

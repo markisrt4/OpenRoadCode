@@ -114,7 +114,7 @@ forecasts. Global Imperial/Metric preference is supplied by application
 composition from `common.app_settings`; the Weather domain remains SI.
 
 The semantic NOAA Weather Radio action is composed by orcUi through the existing
-radio profile/controller path. Weather presentation does not own SDR++ process
+radio profile/controller path. Weather presentation does not own SDRForge service
 lifecycle or RF tuning infrastructure.
 
 ## Weather alerts

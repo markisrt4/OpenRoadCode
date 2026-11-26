@@ -4,6 +4,7 @@
 """Presentation operations used by the installer destination flow."""
 
 from abc import ABC, abstractmethod
+
 from ui.navigation.destination_setup_request_handler_if import SavedDestination
 
 

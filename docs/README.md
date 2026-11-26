@@ -85,11 +85,9 @@ Generated from the canonical documentation files. Every component README and sta
 
 ### Development
 
+- [Calendar (`development/calendar`)](../development/calendar/README.md)
 - [Maplibre (`development/containers/maplibre`)](../development/containers/maplibre/README.md)
 - [Scripts (`development/containers/maplibre/scripts`)](../development/containers/maplibre/scripts/README.md)
-- [Sdrpp (`development/sdrpp`)](../development/sdrpp/README.md)
-- [Remote Control (`development/sdrpp/remote_control`)](../development/sdrpp/remote_control/README.md)
-- [Telemetry (`development/sdrpp/telemetry`)](../development/sdrpp/telemetry/README.md)
 - [Termux (`development/termux`)](../development/termux/README.md)
 
 ### Docs
@@ -97,6 +95,7 @@ Generated from the canonical documentation files. Every component README and sta
 - [Android Sensor Pipeline](android_sensor_pipeline.md)
 - [Apps Architecture Audit](apps_architecture_audit.md)
 - [Architecture](architecture.md)
+- [Libsdrforge Extraction Plan (`docs/architecture`)](architecture/libsdrforge-extraction-plan.md)
 - [Automotive Architecture](automotive_architecture.md)
 - [Cesium Map Experiment](cesium_map_experiment.md)
 - [Detroit Map Data Review](detroit_map_data_review.md)
@@ -122,6 +121,7 @@ Generated from the canonical documentation files. Every component README and sta
 - [Rf Radio](rf_radio.md)
 - [Roadmap](roadmap.md)
 - [Saved Destinations](saved_destinations.md)
+- [Sdrforge Termux Service](sdrforge_termux_service.md)
 - [Spotify Ui](spotify_ui.md)
 - [Streaming Radio](streaming_radio.md)
 - [System Performance](system_performance.md)
@@ -171,7 +171,6 @@ Generated from the canonical documentation files. Every component README and sta
 - [Oauth (`protocols/oauth`)](../protocols/oauth/README.md)
 - [Obd2 (`protocols/obd2`)](../protocols/obd2/README.md)
 - [Rigctl (`protocols/rigctl`)](../protocols/rigctl/README.md)
-- [Sdrpp Telemetry (`protocols/sdrpp_telemetry`)](../protocols/sdrpp_telemetry/README.md)
 - [Spotify (`protocols/spotify`)](../protocols/spotify/README.md)
 
 ### Scripts

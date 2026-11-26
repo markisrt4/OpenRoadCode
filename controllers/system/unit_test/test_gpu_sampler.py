@@ -1,7 +1,9 @@
 """Offline tests for Qualcomm KGSL busy counters."""
+
 import tempfile
 import unittest
 from pathlib import Path
+
 from controllers.system.gpu_sampler import GpuSampler
 
 

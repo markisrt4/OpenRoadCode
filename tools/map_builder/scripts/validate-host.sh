@@ -13,7 +13,9 @@ if ! command -v "$CONTAINER_ENGINE" >/dev/null 2>&1; then
 fi
 
 mkdir -p "$ROOT/build-output" "$ROOT/.cache" "$ROOT/.scratch"
-exec "$CONTAINER_ENGINE" run --rm -it \
+tty_args=()
+if [[ -t 0 && -t 1 ]]; then tty_args=(-it); fi
+exec "$CONTAINER_ENGINE" run --rm "${tty_args[@]}" \
   --network host \
   --env PYTHONDONTWRITEBYTECODE=1 \
   --env PYTHONPATH=/opt/openroadcode-source:/opt/openroadcode-map-builder \

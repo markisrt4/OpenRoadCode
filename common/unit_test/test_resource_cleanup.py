@@ -43,7 +43,6 @@ def test_shutdown_reports_multiple_failures_after_all_attempts():
         raise RuntimeError(name)
 
     with pytest.raises(ExceptionGroup) as caught:
-        close_resources(lambda: fail("one"), lambda: fail("two"),
-                        lambda: events.append("three"))
+        close_resources(lambda: fail("one"), lambda: fail("two"), lambda: events.append("three"))
     assert events == ["one", "two", "three"]
     assert [str(error) for error in caught.value.exceptions] == ["one", "two"]

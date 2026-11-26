@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 
-from ui.games import GameStatus, GameUiState, GamesRequestHandlerIf, GamesUiIf
+from ui.games import GamesRequestHandlerIf, GameStatus, GamesUiIf, GameUiState
 
 from .game_installer_if import GameInstallerIf
 from .game_inventory_cache import GameInventoryCache
@@ -133,7 +133,11 @@ class GameController(GamesRequestHandlerIf):
         active_game_id = self._active_game_id
         if active_game_id is None:
             active_game_id = next(
-                (game_id for game_id, status in self._status.items() if status == GameStatus.RUNNING),
+                (
+                    game_id
+                    for game_id, status in self._status.items()
+                    if status == GameStatus.RUNNING
+                ),
                 None,
             )
         if self._stop_game is None:
@@ -168,7 +172,8 @@ class GameController(GamesRequestHandlerIf):
             return
         self._inventory_loading = True
         unresolved = tuple(
-            game for game in self._games
+            game
+            for game in self._games
             if game.enabled and (verify_cached or game.name not in self._installed)
         )
         if not unresolved:

@@ -53,7 +53,9 @@ class TripRuntime:
         self._lock = Lock()
         self._dispatcher = MessageDispatcher(subscriber, max_workers=1)
         self._dispatcher.register(VEHICLE_STATE_TOPIC, decode_vehicle_state, self._handle_vehicle)
-        self._dispatcher.register(POSITION_STATE_TOPIC, decode_position_state, self._handle_position)
+        self._dispatcher.register(
+            POSITION_STATE_TOPIC, decode_position_state, self._handle_position
+        )
         self._dispatcher.register(MOTION_STATE_TOPIC, decode_motion_state, self._handle_motion)
 
     def start(self) -> None:

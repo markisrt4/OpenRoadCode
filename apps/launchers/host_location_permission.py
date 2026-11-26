@@ -20,11 +20,17 @@ class HostLocationPermission:
     @property
     def available(self) -> bool:
         """Termux obtains location through its Android bridge, not this page."""
-        return not (os.environ.get("TERMUX_VERSION")
-                    or os.environ.get("PREFIX", "").startswith("/data/data/com.termux/"))
+        return not (
+            os.environ.get("TERMUX_VERSION")
+            or os.environ.get("PREFIX", "").startswith("/data/data/com.termux/")
+        )
 
     def __init__(self, port: int | None = None) -> None:
-        port = port if port is not None else int(os.environ.get("OPENROADCODE_BROWSER_POSITION_PORT", "8765"))
+        port = (
+            port
+            if port is not None
+            else int(os.environ.get("OPENROADCODE_BROWSER_POSITION_PORT", "8765"))
+        )
         if not 1 <= port <= 65535:
             raise ValueError("Host location port must be between 1 and 65535")
         self.url = f"http://127.0.0.1:{port}/"
@@ -37,7 +43,9 @@ class HostLocationPermission:
             with build_opener(ProxyHandler({})).open(self.url, timeout=3) as response:
                 page = response.read(32768)
             if b"OpenRoadCode Host Location" not in page:
-                raise RuntimeError("Host location service is unavailable. Check the navigation service.")
+                raise RuntimeError(
+                    "Host location service is unavailable. Check the navigation service."
+                )
         except (URLError, OSError) as error:
             raise HostLocationServiceUnavailable from error
         if cancelled():

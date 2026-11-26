@@ -5,9 +5,9 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
-import re
 
 import tinycss2
 
@@ -65,8 +65,7 @@ def load_style_sheet(path: str | Path) -> StyleSheet:
     variables = rules.get(":root", {})
     resolved = {
         selector: {
-            name: _resolve_variables(value, variables)
-            for name, value in declarations.items()
+            name: _resolve_variables(value, variables) for name, value in declarations.items()
         }
         for selector, declarations in rules.items()
     }
@@ -99,9 +98,7 @@ def _ui_theme_from_sheet(sheet: StyleSheet, path: str | Path) -> UiTheme:
         try:
             return root[name]
         except KeyError as exc:
-            raise ValueError(
-                f"Theme {path} is missing required property {name}"
-            ) from exc
+            raise ValueError(f"Theme {path} is missing required property {name}") from exc
 
     return UiTheme(
         background=required("--background"),
@@ -129,16 +126,12 @@ def _resolve_variables(value: str, variables: dict[str, str]) -> str:
 
             if variable in stack:
                 chain = " -> ".join((*stack, variable))
-                raise ValueError(
-                    f"Cyclic CSS custom property reference: {chain}"
-                )
+                raise ValueError(f"Cyclic CSS custom property reference: {chain}")
 
             try:
                 replacement = variables[variable]
             except KeyError as exc:
-                raise ValueError(
-                    f"Undefined CSS custom property: {variable}"
-                ) from exc
+                raise ValueError(f"Undefined CSS custom property: {variable}") from exc
 
             return resolve(replacement, (*stack, variable))
 

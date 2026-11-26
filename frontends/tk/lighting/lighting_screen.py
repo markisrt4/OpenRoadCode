@@ -8,8 +8,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from frontends.tk.lighting.lighting_controls_panel import LightingControlsPanel
 from frontends.tk import TkScreen, TkScreenHostIf
+from frontends.tk.lighting.lighting_controls_panel import LightingControlsPanel
 from ui.lighting import LightingRequestHandlerIf, LightingState, LightingUiIf
 from ui.screen_ui_if import ScreenId
 

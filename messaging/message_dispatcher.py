@@ -148,9 +148,7 @@ class MessageDispatcher:
                     self._report_error(topic, exc)
                 return
             future.add_done_callback(
-                lambda completed, message_topic=topic: self._handler_done(
-                    message_topic, completed
-                )
+                lambda completed, message_topic=topic: self._handler_done(message_topic, completed)
             )
 
     def _handler_done(self, topic: str, future) -> None:

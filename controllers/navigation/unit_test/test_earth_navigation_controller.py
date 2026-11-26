@@ -12,16 +12,28 @@ class EarthNavigationControllerTest(unittest.TestCase):
     def setUp(self):
         self.bridge, self.camera = Mock(), Mock()
         self.bridge.registration_count.return_value = 0
-        self.controller = EarthNavigationController(bridge=self.bridge, camera=self.camera, dispatcher=Mock())
-        self.controller._on_position(SimpleNamespace(data=SimpleNamespace(
-            latitude_rad=math.radians(42), longitude_rad=math.radians(-83), altitude_m=200, accuracy_m=6)))
-        self.controller._on_motion(SimpleNamespace(data=SimpleNamespace(
-            course_rad=math.pi / 2, ground_speed_m_s=12)))
+        self.controller = EarthNavigationController(
+            bridge=self.bridge, camera=self.camera, dispatcher=Mock()
+        )
+        self.controller._on_position(
+            SimpleNamespace(
+                data=SimpleNamespace(
+                    latitude_rad=math.radians(42),
+                    longitude_rad=math.radians(-83),
+                    altitude_m=200,
+                    accuracy_m=6,
+                )
+            )
+        )
+        self.controller._on_motion(
+            SimpleNamespace(data=SimpleNamespace(course_rad=math.pi / 2, ground_speed_m_s=12))
+        )
 
     def test_position_and_motion_are_converted_only_at_browser_boundary(self):
         self.controller.tick()
-        self.bridge.push_position.assert_called_once_with(42.0, -83.0,
-            altitude_m=200, accuracy_m=6, heading_deg=90.0, speed_m_s=12)
+        self.bridge.push_position.assert_called_once_with(
+            42.0, -83.0, altitude_m=200, accuracy_m=6, heading_deg=90.0, speed_m_s=12
+        )
         self.camera.activate_location_tracking.assert_called_once()
 
     def test_manual_pan_suspends_follow_until_recenter(self):
@@ -33,7 +45,9 @@ class EarthNavigationControllerTest(unittest.TestCase):
         self.bridge.push_position.assert_called_once()
 
     def test_invalid_position_does_not_replay_stale_fix(self):
-        self.controller._on_position(SimpleNamespace(data=SimpleNamespace(latitude_rad=None, longitude_rad=None)))
+        self.controller._on_position(
+            SimpleNamespace(data=SimpleNamespace(latitude_rad=None, longitude_rad=None))
+        )
         self.controller.tick()
         self.bridge.push_position.assert_not_called()
 
@@ -53,13 +67,18 @@ class EarthNavigationControllerTest(unittest.TestCase):
 
     def test_location_control_is_retried_after_page_load(self):
         from unittest.mock import patch
-        with patch("controllers.navigation.earth_navigation_controller.time.monotonic", side_effect=[0, 6]):
+
+        with patch(
+            "controllers.navigation.earth_navigation_controller.time.monotonic", side_effect=[0, 6]
+        ):
             self.controller.tick()
             self.controller.tick()
         self.assertEqual(self.camera.activate_location_tracking.call_count, 2)
 
     def test_no_coordinates_reports_gps_problem(self):
-        self.controller._on_position(SimpleNamespace(data=SimpleNamespace(latitude_rad=None, longitude_rad=None)))
+        self.controller._on_position(
+            SimpleNamespace(data=SimpleNamespace(latitude_rad=None, longitude_rad=None))
+        )
         self.assertFalse(self.controller.tick())
         self.assertIn("ORC GPS coordinates", self.controller.status)
 

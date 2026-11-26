@@ -12,7 +12,16 @@ from .barometric_state_message import BarometricStateData, BarometricStateMessag
 from .barometric_state_validator import SCHEMA_VERSION, validate_barometric_state
 
 
-def encode_barometric_state(*, timestamp: Mapping[str, int], source: str, pressure_pa: float, temperature_c: float | None, altitude_m: float, relative_altitude_m: float, vertical_speed_m_s: float) -> dict[str, Any]:
+def encode_barometric_state(
+    *,
+    timestamp: Mapping[str, int],
+    source: str,
+    pressure_pa: float,
+    temperature_c: float | None,
+    altitude_m: float,
+    relative_altitude_m: float,
+    vertical_speed_m_s: float,
+) -> dict[str, Any]:
     validate_timestamp(timestamp)
     payload = {
         "version": SCHEMA_VERSION,

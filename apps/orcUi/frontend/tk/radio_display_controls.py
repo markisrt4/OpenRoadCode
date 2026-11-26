@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""SDR++ display-control drawer behavior for the ORC radio panel."""
+"""Native display-control drawer behavior for the ORC radio panel."""
 
 import tkinter as tk
 from functools import partial
@@ -13,7 +13,7 @@ from .shell_metrics import FONT_CONTROL
 
 
 class RadioDisplayControlsMixin(RadioPresentationFrame):
-    """Own the optional SDR++ display-controls drawer."""
+    """Own the optional Native display-controls drawer."""
 
     def _toggle_drawer(self) -> None:
         ui = self._theme.ui
@@ -133,7 +133,10 @@ class RadioDisplayControlsMixin(RadioPresentationFrame):
             relief=tk.FLAT,
         )
         for theme in themes:
-            menu.add_command(label=theme, command=partial(self._session.request, RadioRequest(RadioAction.THEME, key=theme)))
+            menu.add_command(
+                label=theme,
+                command=partial(self._session.request, RadioRequest(RadioAction.THEME, key=theme)),
+            )
         try:
             menu.tk_popup(self.winfo_pointerx(), self.winfo_pointery())
         finally:
@@ -157,7 +160,10 @@ class RadioDisplayControlsMixin(RadioPresentationFrame):
         self._session.request(RadioRequest(RadioAction.FFT_HOLD))
 
     def _auto_range(self) -> None:
-        self._session.request(RadioRequest(RadioAction.AUTO_RANGE))
+        if getattr(self, "_sdrforge_view", None) is not None:
+            self.auto_range_spectrum()
+        else:
+            self._session.request(RadioRequest(RadioAction.AUTO_RANGE))
 
     def _refresh_display_controls(self) -> None:
         for key, label, enabled in (

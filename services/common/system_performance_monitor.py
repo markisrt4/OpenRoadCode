@@ -12,14 +12,14 @@ from collections import deque
 from dataclasses import asdict, replace
 
 from common.logging.structured import event, operation
-
-from controllers.system.system_diagnostics_controller import SystemDiagnosticsController
+from controllers.system.calendar_health_sampler import sample_calendar_health
 from controllers.system.orc_process_sampler import OrcProcessSampler
 from controllers.system.service_socket_sampler import ServiceSocketSampler
+from controllers.system.system_diagnostics_controller import SystemDiagnosticsController
+from services.common.network_usb_inventory import collect_inventory
 from services.common.sensor_health_monitor import SensorHealthMonitor
 from services.common.termux_battery_monitor import TermuxBatteryMonitor
-from services.common.network_usb_inventory import collect_inventory
-from ui.system_diagnostics import SystemDiagnosticsSnapshot, OrcWorkloadSnapshot
+from ui.system_diagnostics import OrcWorkloadSnapshot, SystemDiagnosticsSnapshot
 
 LOGGER = logging.getLogger("runtime.performance")
 
@@ -28,8 +28,11 @@ class SystemPerformanceMonitor:
     """Own one sampler, a bounded history, and a read-only snapshot cache."""
 
     def __init__(
-        self, controller: SystemDiagnosticsController | None = None, *,
-        interval_seconds: float = 1.0, history_samples: int = 120,
+        self,
+        controller: SystemDiagnosticsController | None = None,
+        *,
+        interval_seconds: float = 1.0,
+        history_samples: int = 120,
         process_sampler: OrcProcessSampler | None = None,
         sensor_monitor: SensorHealthMonitor | None = None,
         service_sampler: ServiceSocketSampler | None = None,
@@ -73,8 +76,13 @@ class SystemPerformanceMonitor:
             self._sensor_monitor.close()
             self._battery_monitor.close()
             raise
-        event(LOGGER, logging.INFO, "sampler.started", "Performance sampler started",
-              operation_id=self._operation_id)
+        event(
+            LOGGER,
+            logging.INFO,
+            "sampler.started",
+            "Performance sampler started",
+            operation_id=self._operation_id,
+        )
 
     def close(self) -> None:
         """Stop the owned worker before releasing its sampler."""
@@ -86,8 +94,13 @@ class SystemPerformanceMonitor:
         self._sensor_monitor.close()
         self._battery_monitor.close()
         if running:
-            event(LOGGER, logging.INFO, "sampler.stopped", "Performance sampler stopped",
-                  operation_id=self._operation_id)
+            event(
+                LOGGER,
+                logging.INFO,
+                "sampler.stopped",
+                "Performance sampler stopped",
+                operation_id=self._operation_id,
+            )
 
     def snapshot(self) -> SystemDiagnosticsSnapshot:
         """Return the cached sample immediately, or an empty sample during warmup."""
@@ -103,7 +116,11 @@ class SystemPerformanceMonitor:
         """Return versioned SI telemetry and two minutes of bounded history."""
         with self._lock:
             history = tuple(self._history)
-            age = None if self._sample_monotonic is None else time.monotonic() - self._sample_monotonic
+            age = (
+                None
+                if self._sample_monotonic is None
+                else time.monotonic() - self._sample_monotonic
+            )
             error = self._error
         return {
             "version": 1,
@@ -111,15 +128,18 @@ class SystemPerformanceMonitor:
             "sample_age_seconds": age,
             "error": error,
             "snapshot": _wire_snapshot(history[-1]) if history else None,
-            "history": [{
-                "sampled_at_unix_s": sample.sampled_at_unix_s,
-                "cpu_percent": sample.cpu_percent,
-                "process_cpu_percent": sample.process_cpu_percent,
-                "orc_cpu_percent": sample.workload.cpu_percent,
-                "orc_rss_bytes": sample.workload.rss_bytes,
-                "memory_used_percent": sample.memory_used_percent,
-                "temperature_c": sample.temperature_c,
-            } for sample in history],
+            "history": [
+                {
+                    "sampled_at_unix_s": sample.sampled_at_unix_s,
+                    "cpu_percent": sample.cpu_percent,
+                    "process_cpu_percent": sample.process_cpu_percent,
+                    "orc_cpu_percent": sample.workload.cpu_percent,
+                    "orc_rss_bytes": sample.workload.rss_bytes,
+                    "memory_used_percent": sample.memory_used_percent,
+                    "temperature_c": sample.temperature_c,
+                }
+                for sample in history
+            ],
         }
 
     def _run(self) -> None:
@@ -131,7 +151,9 @@ class SystemPerformanceMonitor:
                     workload = self._process_sampler.sample()
                 except Exception as error:
                     self._observe_failure("process", error)
-                    workload = OrcWorkloadSnapshot(visibility="unavailable", detail=type(error).__name__)
+                    workload = OrcWorkloadSnapshot(
+                        visibility="unavailable", detail=type(error).__name__
+                    )
                 else:
                     self._observe_failure("process")
                 try:
@@ -148,13 +170,21 @@ class SystemPerformanceMonitor:
                         self._inventory = collect_inventory()
                     except Exception as error:
                         self._observe_failure("inventory", error)
-                        self._inventory = {"networks_status": "unavailable", "networks": [],
-                                           "usb_sysfs": {"status": "unavailable", "devices": []}}
+                        self._inventory = {
+                            "networks_status": "unavailable",
+                            "networks": [],
+                            "usb_sysfs": {"status": "unavailable", "devices": []},
+                        }
                     self._inventory_last = started
                 sample = replace(
-                    sample, network_usb=self._inventory, workload=workload, sensors=self._sensor_monitor.snapshots(),
+                    sample,
+                    network_usb=self._inventory,
+                    calendar_health=sample_calendar_health(),
+                    workload=workload,
+                    sensors=self._sensor_monitor.snapshots(),
                     sensor_monitor_status=self._sensor_monitor.status,
-                    services=services, service_monitor_status=service_status,
+                    services=services,
+                    service_monitor_status=service_status,
                     battery=self._battery_monitor.snapshot(),
                 )
             except Exception as error:
@@ -176,25 +206,48 @@ class SystemPerformanceMonitor:
         if error is None:
             if previous is not None:
                 del self._failures[sampler]
-                event(LOGGER, logging.INFO, "sampler.recovered", "Performance sampling recovered",
-                      sampler=sampler, **fields)
+                event(
+                    LOGGER,
+                    logging.INFO,
+                    "sampler.recovered",
+                    "Performance sampling recovered",
+                    sampler=sampler,
+                    **fields,
+                )
             return
         exception_type = type(error).__name__
         self._failures[sampler] = exception_type
         if previous != exception_type:
-            event(LOGGER, logging.WARNING, "sampler.failed", "Performance sampling failed",
-                  sampler=sampler, exception_type=exception_type, **fields)
+            event(
+                LOGGER,
+                logging.WARNING,
+                "sampler.failed",
+                "Performance sampling failed",
+                sampler=sampler,
+                exception_type=exception_type,
+                **fields,
+            )
 
 
 def _wire_snapshot(snapshot: SystemDiagnosticsSnapshot) -> dict[str, object]:
     """Convert the recovered presentation contract's MiB/GiB/MHz to SI units."""
     values = asdict(snapshot)
-    for name in ("memory_available_mb", "memory_used_mb", "memory_total_mb", "swap_used_mb", "swap_total_mb"):
+    for name in (
+        "memory_available_mb",
+        "memory_used_mb",
+        "memory_total_mb",
+        "swap_used_mb",
+        "swap_total_mb",
+    ):
         value = values.pop(name)
-        values[name.removesuffix("_mb") + "_bytes"] = None if value is None else round(value * 1024**2)
+        values[name.removesuffix("_mb") + "_bytes"] = (
+            None if value is None else round(value * 1024**2)
+        )
     for name in ("disk_free_gb", "disk_total_gb"):
         value = values.pop(name)
-        values[name.removesuffix("_gb") + "_bytes"] = None if value is None else round(value * 1024**3)
+        values[name.removesuffix("_gb") + "_bytes"] = (
+            None if value is None else round(value * 1024**3)
+        )
     frequency = values.pop("cpu_frequency_mhz")
     values["cpu_frequency_hz"] = None if frequency is None else frequency * 1_000_000
     return values

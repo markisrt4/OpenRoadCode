@@ -5,12 +5,11 @@
 
 from __future__ import annotations
 
-from common.logging.diagnostics import ComponentLog, diagnostic_action
-
 import subprocess
 from dataclasses import dataclass
 from enum import Enum
 
+from common.logging.diagnostics import ComponentLog, diagnostic_action
 from hardware_io.camera.camera_controls_if import CameraControlsIf, CameraProfile
 
 

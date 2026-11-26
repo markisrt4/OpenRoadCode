@@ -111,6 +111,7 @@ class VisionUiState:
     status_message: str = ""
     image: VisionImage | None = None
     objects: tuple[VisionObject, ...] = ()
+    ai_available: bool = True
 
     def __post_init__(self) -> None:
         for name, value in (

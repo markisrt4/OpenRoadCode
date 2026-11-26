@@ -5,13 +5,13 @@
 
 from __future__ import annotations
 
-from common.logging.diagnostics import ComponentLog, diagnostic_action
-
 import math
 import time
 from collections import deque
 from threading import Lock
 from typing import Callable
+
+from common.logging.diagnostics import ComponentLog, diagnostic_action
 
 from .barometric_controller_if import BarometricControllerIf
 from .barometric_source_if import BarometricSourceIf
@@ -52,9 +52,7 @@ class BarometricController(BarometricControllerIf):
             raise ValueError("sea_level_pressure_pa must be greater than zero")
 
         if vertical_speed_window_size < 2:
-            raise ValueError(
-                "vertical_speed_window_size must be at least two"
-            )
+            raise ValueError("vertical_speed_window_size must be at least two")
 
         self._diagnostics = ComponentLog("environmental.barometric", "sensor")
         self._sensor = sensor
@@ -160,9 +158,7 @@ class BarometricController(BarometricControllerIf):
             if self._relative_altitude_reference_m is None:
                 self._relative_altitude_reference_m = altitude_m
 
-            relative_altitude_m = (
-                altitude_m - self._relative_altitude_reference_m
-            )
+            relative_altitude_m = altitude_m - self._relative_altitude_reference_m
 
             sample_time = self._clock()
             self._altitude_history.append((sample_time, altitude_m))
@@ -217,20 +213,15 @@ class BarometricController(BarometricControllerIf):
             self._require_started()
 
             current_pressure_pa = (
-                self._sensor.read_barometric().pressure_pa
-                if pressure_pa is None
-                else pressure_pa
+                self._sensor.read_barometric().pressure_pa if pressure_pa is None else pressure_pa
             )
 
             if current_pressure_pa <= 0.0:
                 raise ValueError("pressure_pa must be greater than zero")
 
-            sea_level_pressure_pa = (
-                current_pressure_pa
-                / math.pow(
-                    1.0 - (known_altitude_m / 44_330.0),
-                    5.255,
-                )
+            sea_level_pressure_pa = current_pressure_pa / math.pow(
+                1.0 - (known_altitude_m / 44_330.0),
+                5.255,
             )
 
             self._sea_level_pressure_pa = sea_level_pressure_pa
@@ -276,15 +267,11 @@ class BarometricController(BarometricControllerIf):
             raise ValueError("pressure_pa must be greater than zero")
 
         if sea_level_pressure_pa <= 0.0:
-            raise ValueError(
-                "sea_level_pressure_pa must be greater than zero"
-            )
+            raise ValueError("sea_level_pressure_pa must be greater than zero")
 
         pressure_ratio = pressure_pa / sea_level_pressure_pa
 
-        return 44_330.0 * (
-            1.0 - math.pow(pressure_ratio, 1.0 / 5.255)
-        )
+        return 44_330.0 * (1.0 - math.pow(pressure_ratio, 1.0 / 5.255))
 
     def _calculate_vertical_speed_mps(self) -> float:
         if len(self._altitude_history) < 2:
@@ -301,9 +288,7 @@ class BarometricController(BarometricControllerIf):
 
     def _require_started(self) -> None:
         if not self._started:
-            raise RuntimeError(
-                "Barometric controller has not been started"
-            )
+            raise RuntimeError("Barometric controller has not been started")
 
     def __enter__(self) -> BarometricController:
         self.start()

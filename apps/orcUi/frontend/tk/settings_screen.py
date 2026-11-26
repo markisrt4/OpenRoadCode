@@ -8,13 +8,15 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from common.units import UnitSystem
-from ui.automotive.automotive_telemetry_profile import (AutomotiveTelemetryProfile)
-from ui.automotive.vehicle_configuration import (VehicleConfiguration)
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
+from ui.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
+from ui.automotive.vehicle_configuration import VehicleConfiguration
+from ui.navigation.host_location_ui_if import HostLocationRequestHandlerIf, HostLocationState
+from ui.radio.receiver_settings_if import ReceiverSettingsIf
+from ui.radio.rf_hardware_config_if import RfHardwareConfigIf
 from ui.screen_ui_if import ScreenId
 from ui.theme import ThemeBundle
-from ui.navigation.host_location_ui_if import HostLocationRequestHandlerIf, HostLocationState
 
 from .screen_builders import build_settings_screen
 
@@ -29,16 +31,18 @@ class SettingsScreen(TkScreen):
         host: TkScreenHostIf,
         *,
         theme_bundle: Callable[[], ThemeBundle],
-        telemetry_profile_request: (
-            Callable[[AutomotiveTelemetryProfile], None] | None
-        ),
+        telemetry_profile_request: (Callable[[AutomotiveTelemetryProfile], None] | None),
         vehicle_configuration: Callable[[], VehicleConfiguration],
         on_vehicle_configuration_changed: Callable[[VehicleConfiguration], None],
         unit_system: Callable[[], UnitSystem],
         on_unit_system_changed: Callable[[UnitSystem], None],
         on_back: Callable[[], None],
+        rf_hardware_config: RfHardwareConfigIf | None = None,
+        receiver_settings: ReceiverSettingsIf | None = None,
         performance_overlay_enabled: Callable[[], bool] | None = None,
         on_performance_overlay_changed: Callable[[bool], None] | None = None,
+        configure_spotify: Callable[[], None] | None = None,
+        close_spotify_configuration: Callable[[], None] = lambda: None,
     ) -> None:
         super().__init__(self.SCREEN_ID)
         self._host = host
@@ -49,11 +53,15 @@ class SettingsScreen(TkScreen):
         self._unit_system = unit_system
         self._on_unit_system_changed = on_unit_system_changed
         self._on_back = on_back
+        self._rf_hardware_config = rf_hardware_config
+        self._receiver_settings = receiver_settings
         self._performance_overlay_enabled = performance_overlay_enabled
         self._on_performance_overlay_changed = on_performance_overlay_changed
         self._host_location_handler: HostLocationRequestHandlerIf | None = None
         self._host_location_state = HostLocationState()
         self._panel = None
+        self._configure_spotify = configure_spotify
+        self._close_spotify_configuration = close_spotify_configuration
 
     def set_host_location_request_handler(self, handler: HostLocationRequestHandlerIf) -> None:
         self._host_location_handler = handler
@@ -64,6 +72,7 @@ class SettingsScreen(TkScreen):
             self._panel.set_host_location_state(state)
 
     def hide(self) -> None:
+        self._close_spotify_configuration()
         self._panel = None
         if self._host_location_handler is not None:
             self._host_location_handler.hide()
@@ -93,6 +102,9 @@ class SettingsScreen(TkScreen):
             theme=self._theme_bundle(),
             host_location_handler=self._host_location_handler,
             host_location_state=self._host_location_state,
+            rf_hardware_config=self._rf_hardware_config,
+            receiver_settings=self._receiver_settings,
             performance_overlay_enabled=self._performance_overlay_enabled,
             on_performance_overlay_changed=self._on_performance_overlay_changed,
+            configure_spotify=self._configure_spotify,
         )

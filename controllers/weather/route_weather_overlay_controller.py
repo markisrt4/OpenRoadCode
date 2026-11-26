@@ -4,24 +4,30 @@
 """Asynchronous route forecasts presented through immutable UI state."""
 
 import logging
-
-from datetime import datetime, timezone
 import math
 import threading
-from common.logging.structured import operation
-from controllers.weather.weather_logging import WeatherLog
+from datetime import datetime, timezone
 
+from common.logging.structured import operation
 from controllers.weather.route_weather import sample_route
+from controllers.weather.weather_logging import WeatherLog
 from ui.navigation import GeoPoint
 from ui.ui_dispatcher_if import UiDispatcherIf
-from ui.weather.weather_overlay_ui_if import WeatherOverlayUiIf
 from ui.weather.weather_overlay_state import RouteWeatherOverlayState, RouteWeatherPoint
+from ui.weather.weather_overlay_ui_if import WeatherOverlayUiIf
 
 
 class RouteWeatherOverlayController:
     """Own route sampling, request invalidation and provider work outside all frontends."""
 
-    def __init__(self, dispatcher: UiDispatcherIf, route_handler, presentation, provider, ui: WeatherOverlayUiIf):
+    def __init__(
+        self,
+        dispatcher: UiDispatcherIf,
+        route_handler,
+        presentation,
+        provider,
+        ui: WeatherOverlayUiIf,
+    ):
         self._host, self._provider, self._ui = dispatcher, provider, ui
         self._route = route_handler.active_route
         self._progress = 0
@@ -41,7 +47,9 @@ class RouteWeatherOverlayController:
         self._progress = 0
         self._forecasts = ()
         self.publish()
-        self._status = "Start a route to see weather along the way" if route is None else "Route ready"
+        self._status = (
+            "Start a route to see weather along the way" if route is None else "Route ready"
+        )
         self.publish()
         if self._enabled and route is not None:
             self.refresh()
@@ -78,11 +86,15 @@ class RouteWeatherOverlayController:
                     self._log.failed(failure)
                     forecasts, error = (), str(failure)
             if not self._closed:
-                self._host.dispatch_ui(lambda: self._complete(generation, forecasts, error, operation_id))
+                self._host.dispatch_ui(
+                    lambda: self._complete(generation, forecasts, error, operation_id)
+                )
             else:
                 self._log.stale(operation_id)
 
-        self._log.start(threading.Thread(target=load, name="route-weather", daemon=True), operation_id)
+        self._log.start(
+            threading.Thread(target=load, name="route-weather", daemon=True), operation_id
+        )
 
     def _complete(self, generation, forecasts, error, operation_id=None):
         self._busy = False
@@ -98,7 +110,13 @@ class RouteWeatherOverlayController:
             self._forecasts = ()
             self._status = f"Forecast unavailable: {error}"
         else:
-            self._log.emit(logging.DEBUG, "overlay.applied", "Route weather result applied", operation_id, item_count=len(forecasts))
+            self._log.emit(
+                logging.DEBUG,
+                "overlay.applied",
+                "Route weather result applied",
+                operation_id,
+                item_count=len(forecasts),
+            )
             self._forecasts = forecasts
             self._status = f"Updated {datetime.now().strftime('%I:%M %p').lstrip('0')} · Open-Meteo"
         self.publish()
@@ -108,10 +126,18 @@ class RouteWeatherOverlayController:
         previous = self._enabled
         self._enabled = bool(enabled)
         if previous != self._enabled:
-            self._log.changed("enabled", self._enabled, "overlay.visibility_changed", "Route weather visibility changed", enabled=self._enabled)
+            self._log.changed(
+                "enabled",
+                self._enabled,
+                "overlay.visibility_changed",
+                "Route weather visibility changed",
+                enabled=self._enabled,
+            )
         self._generation += 1
         self._forecasts = ()
-        self._status = "Route weather off" if not self._enabled else "Start a route to load forecasts"
+        self._status = (
+            "Route weather off" if not self._enabled else "Start a route to load forecasts"
+        )
         self.publish()
         if self._enabled:
             self.refresh()
@@ -127,12 +153,23 @@ class RouteWeatherOverlayController:
         """Emit a renderer-neutral checkpoint snapshot using normalized SI values."""
         if self._closed:
             return
-        points = tuple(RouteWeatherPoint(
-            GeoPoint(math.radians(f.checkpoint.point.latitude), math.radians(f.checkpoint.point.longitude)),
-            f.checkpoint.arrival, f.temperature_c + 273.15 if f.temperature_c is not None else None,
-            f.rain_probability / 100 if f.rain_probability is not None else None,
-            f.wind_kmh / 3.6 if f.wind_kmh is not None else None, f.condition) for f in self._forecasts)
-        self._ui.set_route_weather_state(RouteWeatherOverlayState(self._enabled, self._layers, self._status, points))
+        points = tuple(
+            RouteWeatherPoint(
+                GeoPoint(
+                    math.radians(f.checkpoint.point.latitude),
+                    math.radians(f.checkpoint.point.longitude),
+                ),
+                f.checkpoint.arrival,
+                f.temperature_c + 273.15 if f.temperature_c is not None else None,
+                f.rain_probability / 100 if f.rain_probability is not None else None,
+                f.wind_kmh / 3.6 if f.wind_kmh is not None else None,
+                f.condition,
+            )
+            for f in self._forecasts
+        )
+        self._ui.set_route_weather_state(
+            RouteWeatherOverlayState(self._enabled, self._layers, self._status, points)
+        )
 
     def close(self):
         """Invalidate pending forecasts and close the provider connection pool."""

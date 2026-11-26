@@ -2,30 +2,29 @@
 # SPDX-License-Identifier: MIT
 
 """Physical component test for Valhalla route planning."""
+
 from __future__ import annotations
+
+import argparse
+import json
 from pathlib import Path
 
 from controllers.route_planning.route_geojson_mapper import (
     route_to_geojson,
 )
-
 from controllers.route_planning.route_map_presenter import (
     present_route,
 )
-from protocols.map_renderer.map_renderer_client import (
-    MapRendererClient,
-    MapRendererUnavailableError,
-)
-
-import json
-import argparse
-
 from controllers.route_planning.route_planning_types import (
     GeoPoint,
     RouteRequest,
 )
 from controllers.route_planning.valhalla_route_planning_controller import (
     ValhallaRoutePlanningController,
+)
+from protocols.map_renderer.map_renderer_client import (
+    MapRendererClient,
+    MapRendererUnavailableError,
 )
 from protocols.valhalla.valhalla_http_client import (
     ValhallaHttpClient,
@@ -34,10 +33,7 @@ from protocols.valhalla.valhalla_http_client import (
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description=(
-            "Calculate a route using a running "
-            "Valhalla service"
-        )
+        description=("Calculate a route using a running Valhalla service")
     )
 
     parser.add_argument(
@@ -113,10 +109,7 @@ def main() -> int:
     )
 
     if not controller.is_available:
-        print(
-            controller.status_message
-            or "Valhalla is unavailable"
-        )
+        print(controller.status_message or "Valhalla is unavailable")
 
         return 1
 
@@ -139,7 +132,7 @@ def main() -> int:
         try:
             present_route(
                 route=route,
-                map_renderer=MapRendererClient(),
+                map_renderer=map_renderer,
             )
 
             print()
@@ -147,18 +140,14 @@ def main() -> int:
 
         except MapRendererUnavailableError as exc:
             print()
-            print(
-                f"Map renderer unavailable: {exc}"
-            )
+            print(f"Map renderer unavailable: {exc}")
 
         print()
         print("Route sent to map renderer.")
 
     except MapRendererUnavailableError as exc:
         print()
-        print(
-            f"Map renderer unavailable: {exc}"
-        )
+        print(f"Map renderer unavailable: {exc}")
 
     if args.geojson_output is not None:
         write_route_geojson(
@@ -167,25 +156,14 @@ def main() -> int:
         )
 
         print()
-        print(
-            f"GeoJSON written to: "
-            f"{args.geojson_output}"
-        )
+        print(f"GeoJSON written to: {args.geojson_output}")
 
     print()
     print("Route")
     print("-----")
-    print(
-        f"Distance: "
-        f"{route.distance_miles:.1f} miles"
-    )
-    print(
-        f"Duration: "
-        f"{route.duration_seconds / 60.0:.0f} minutes"
-    )
-    print(
-        f"Shape points: {len(route.shape)}"
-    )
+    print(f"Distance: {route.distance_miles:.1f} miles")
+    print(f"Duration: {route.duration_seconds / 60.0:.0f} minutes")
+    print(f"Shape points: {len(route.shape)}")
 
     print()
     print("Maneuvers")
@@ -195,16 +173,10 @@ def main() -> int:
         route.maneuvers,
         start=1,
     ):
-        print(
-            f"{number:2}. "
-            f"{maneuver.instruction}"
-        )
+        print(f"{number:2}. {maneuver.instruction}")
 
         if maneuver.verbal_instruction:
-            print(
-                "    Voice: "
-                f"{maneuver.verbal_instruction}"
-            )
+            print(f"    Voice: {maneuver.verbal_instruction}")
 
     return 0
 

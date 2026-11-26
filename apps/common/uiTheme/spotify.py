@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-from . import COLORS, FONTS, FONT_FAMILY
+from .uiTheme import COLORS, FONT_FAMILY, FONTS
 
 SPOTIFY_PANEL_THEME = {
     "colors": {
@@ -27,9 +27,7 @@ SPOTIFY_PANEL_THEME = {
         "loading_value": "…",
         "configuration_required_status": "Spotify setup required",
         "configuration_required_title": "Spotify is not configured",
-        "configuration_required_detail": (
-            "Run scripts/installers/install_spotify.sh"
-        ),
+        "configuration_required_detail": ("Run scripts/installers/install_spotify.sh"),
         "empty_value": "--",
         "empty_device_text": "Device: --",
         "empty_progress_text": "--:-- / --:--",

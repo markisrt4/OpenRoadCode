@@ -399,8 +399,8 @@ instead of rendering synchronously inside the button callback.
 
 Optional VISION model preparation failures do not prevent ORC or its automotive
 screens from starting. When inference dependencies or model assets are missing,
-the VISION destination displays an unavailable state and its cause; camera and
-perception resources are not started. Installing VISION dependencies is separate
+the VISION destination continues to show camera preview with AI unavailable.
+A camera that lacks the optional V4L2 profile controls can still provide video. Installing VISION dependencies is separate
 from testing the ECU OpenGL renderer.
 
 The engine card shows a compact **FPS** label in its upper-right corner. It counts

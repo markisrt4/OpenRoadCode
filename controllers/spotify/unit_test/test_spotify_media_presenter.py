@@ -60,9 +60,7 @@ class SpotifyMediaPresenterTest(unittest.TestCase):
             fallback_volume_handler=fallback,
         )
         self.backend.set_volume_percent = Mock(
-            side_effect=RuntimeError(
-                "Spotify HTTP 403: VOLUME_CONTROL_DISALLOW"
-            )
+            side_effect=RuntimeError("Spotify HTTP 403: VOLUME_CONTROL_DISALLOW")
         )
 
         presenter.request_volume(65)

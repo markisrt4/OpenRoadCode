@@ -5,13 +5,13 @@
 
 from ui.radio.playback_request_handler_if import PlaybackRequestHandlerIf
 from ui.radio.preset_request_handler_if import PresetRequestHandlerIf
-from ui.radio.radio_ui_if import RadioPreset, RadioUiIf, TunedSignal
 from ui.radio.radio_application_request_handler_if import (
     RadioApplicationRequestHandlerIf,
 )
 from ui.radio.radio_refresh_request_handler_if import (
     RadioRefreshRequestHandlerIf,
 )
+from ui.radio.radio_ui_if import RadioPreset, RadioUiIf, TunedSignal
 from ui.radio.station_request_handler_if import StationRequestHandlerIf
 from ui.radio.tuning_request_handler_if import TuningRequestHandlerIf
 

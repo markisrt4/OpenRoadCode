@@ -3,8 +3,8 @@
 import argparse
 import hashlib
 import json
-from pathlib import Path
 import zipfile
+from pathlib import Path
 
 from apps.launchers.local_terrain_pack import load_terrain
 from development.maps.artifact_identity import (build_fingerprint, build_profile,
@@ -62,8 +62,10 @@ def main():
     parser.add_argument("--coverage", default="metro-detroit")
     args = parser.parse_args()
     descriptor = package(args.pack, args.output, args.coverage)
-    print(f"Packaged {descriptor['tile_count']} terrain tiles across "
-          f"{len(descriptor['lod_levels'])} LODs: {descriptor['bytes']:,} bytes")
+    print(
+        f"Packaged {descriptor['tile_count']} terrain tiles across "
+        f"{len(descriptor['lod_levels'])} LODs: {descriptor['bytes']:,} bytes"
+    )
 
 
 if __name__ == "__main__":

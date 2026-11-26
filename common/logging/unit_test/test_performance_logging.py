@@ -23,15 +23,21 @@ def monitor():
     sensors.status = "listening"
     battery.snapshot.return_value = None
     result = SystemPerformanceMonitor(
-        controller, process_sampler=process, service_sampler=services,
-        sensor_monitor=sensors, battery_monitor=battery,
+        controller,
+        process_sampler=process,
+        service_sampler=services,
+        sensor_monitor=sensors,
+        battery_monitor=battery,
     )
     return result, controller, process, services
 
 
 def records(caplog):
-    result = [json.loads(JsonFormatter().format(r)) for r in caplog.records
-              if r.name == "runtime.performance"]
+    result = [
+        json.loads(JsonFormatter().format(r))
+        for r in caplog.records
+        if r.name == "runtime.performance"
+    ]
     for record in result:
         validate_event(record)
     serialized = json.dumps(result)
@@ -47,8 +53,12 @@ def test_worker_reports_failure_and_recovery_once_without_telemetry(caplog, stag
     runtime._operation_id = "sampling-operation"
     sampler = {"host": host.snapshot, "process": process.sample, "services": services.sample}[stage]
     success = sampler.return_value
-    sampler.side_effect = [OSError("private /path and command"), OSError("private details"),
-                           success, success]
+    sampler.side_effect = [
+        OSError("private /path and command"),
+        OSError("private details"),
+        success,
+        success,
+    ]
     runtime._stop = Mock()
     runtime._stop.is_set.side_effect = [False] * 4 + [True]
     runtime._run()

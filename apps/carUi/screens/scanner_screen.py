@@ -3,30 +3,33 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Optional
 
+from apps.carUi.radio.radio_session_controller import RadioSessionController
 from apps.carUi.runtime.radio_runtime_registry import RadioRuntimeRegistry
 from apps.carUi.screens.car_ui_screen import CarUiScreen
 from apps.carUi.screens.car_ui_screen_services import (
     MenuTileFactory,
     RadioScreenBindingFactoryIf,
 )
+from apps.common.uiTheme import COLORS, MENU_TILE_STYLE
 from frontends.tk.radio import (
+    RadioPanel,
+    RadioPanelConfig,
+    RadioPanelTileConfig,
     ScannerBandSelectionPanel,
     ScannerBandTileSpec,
 )
-from frontends.tk.radio import RadioPanel, RadioPanelConfig, RadioPanelTileConfig
-from apps.carUi.radio.radio_session_controller import RadioSessionController
-from apps.common.uiTheme import COLORS, MENU_TILE_STYLE
-from ui.screen_ui_if import ScreenId
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
+from ui.screen_ui_if import ScreenId
 
 
 @dataclass(frozen=True)
 class ScannerBandSpec:
     """Describe one scanner band shown in the scanner menu."""
+
     key: str
     icon: str
     title: str
@@ -36,6 +39,7 @@ class ScannerBandSpec:
 
 class ScannerScreen(CarUiScreen):
     """Build scanner-band menus and manage the selected radio session."""
+
     def __init__(
         self,
         host: TkScreenHostIf,
@@ -58,7 +62,9 @@ class ScannerScreen(CarUiScreen):
         self.active_radio_panel: Optional[RadioPanel] = None
         self.active_radio_session: Optional[RadioSessionController] = None
         self.bands = (
-            ScannerBandSpec("police_fire", "PF", "POLICE / FIRE", "Public safety", "Local / regional monitoring"),
+            ScannerBandSpec(
+                "police_fire", "PF", "POLICE / FIRE", "Public safety", "Local / regional monitoring"
+            ),
             ScannerBandSpec("railroad", "RR", "RAILROAD", "Rail channels", "AAR road / dispatch"),
             ScannerBandSpec("ham_2m", "2M", "HAM 2m", "144–148 MHz", "Amateur VHF"),
             ScannerBandSpec("ham_70cm", "70", "HAM 70cm", "420–450 MHz", "Amateur UHF"),
@@ -71,11 +77,16 @@ class ScannerScreen(CarUiScreen):
     def hide(self) -> None:
         if self.active_radio_panel is not None:
             self.active_radio_panel.stop_radio_status_polling()
+        if self.active_radio_session is not None:
+            self.active_radio_session.close()
+            self.active_radio_session = None
 
     def show(self) -> None:
         """Display the configured scanner-band menu."""
         if not self.prepare_screen("Scanner", self._radio_menu_action):
             return
+        if self.active_radio_session is not None:
+            self.active_radio_session.close()
         self.active_radio_panel = None
         self.active_radio_session = None
 
@@ -114,6 +125,8 @@ class ScannerScreen(CarUiScreen):
 
     def show_band(self, band: ScannerBandSpec) -> None:
         """Open and start the radio panel for ``band``."""
+        if self.active_radio_session is not None:
+            self.active_radio_session.close()
         runtime = self._radio_runtimes.get(band.key)
 
         self.host.clear_screen_content()
@@ -123,9 +136,9 @@ class ScannerScreen(CarUiScreen):
             key=runtime.key,
             title=band.title,
             launch_tile=RadioPanelTileConfig(
-                label="Launch SDR++",
-                subtitle=f"{band.title} receiver",
-                detail="Starts / toggles SDR++",
+                label="SDRForge Status",
+                subtitle="Shared radio service",
+                detail="Check shared SDRForge service",
             ),
             radio_toggle_tile=RadioPanelTileConfig(
                 label="Radio ON/OFF",

@@ -2,10 +2,13 @@
 # SPDX-License-Identifier: MIT
 
 """Widget behavior for contract-bound POI and saved destination controls."""
+
 import tkinter as tk
+
 from ui.navigation import MapMarker, MapMarkerKind
 from ui.navigation.poi_models import PoiAction, PoiCategory, PointOfInterest, TransitMode
 from ui.navigation.route_types import TravelMode
+
 from .navigation_panel_layout import show_poi_card
 from .navigation_poi_actions import execute_poi_action, poll_poi_launch_results
 
@@ -30,10 +33,16 @@ class NavigationPlacesControls:
             self._shortcut_status.set(f"{shortcut.title()} location not configured")
             self.after(2500, lambda: self._shortcut_status.set(""))
             return
-        self._show_poi_card(PointOfInterest(
-            favorite.favorite_id, favorite.name, PoiCategory.OTHER,
-            favorite.position, source_class="saved-destination", address=favorite.address,
-        ))
+        self._show_poi_card(
+            PointOfInterest(
+                favorite.favorite_id,
+                favorite.name,
+                PoiCategory.OTHER,
+                favorite.position,
+                source_class="saved-destination",
+                address=favorite.address,
+            )
+        )
 
     def _clear_poi_search(self) -> None:
         """Clear the active POI search and remove its rendered markers."""
@@ -175,7 +184,7 @@ class NavigationPlacesControls:
         return self._online_mode is None or self._online_mode.online
 
     def _refresh_poi_action_buttons(self) -> None:
-        local_button = self.__dict__.get('_local_3d_button')
+        local_button = self.__dict__.get("_local_3d_button")
         if local_button is not None and local_button.winfo_exists():
             local_button.configure(state=tk.DISABLED if self._poi_launching else tk.NORMAL)
         if self._earth_button is not None and self._earth_button.winfo_exists():
@@ -186,7 +195,11 @@ class NavigationPlacesControls:
                 self._earth_button.configure(image=icon if enabled else self._earth_offline_icon)
         for button in self._poi_action_buttons:
             if button.winfo_exists():
-                button.configure(state=tk.NORMAL if self.online_actions_allowed and not self._poi_launching else tk.DISABLED)
+                button.configure(
+                    state=tk.NORMAL
+                    if self.online_actions_allowed and not self._poi_launching
+                    else tk.DISABLED
+                )
 
     def _execute_poi_action(self, poi: PointOfInterest, action: PoiAction) -> None:
         execute_poi_action(self, poi, action)

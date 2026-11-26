@@ -6,8 +6,9 @@
 import tkinter as tk
 
 from ui.weather.radar_ui_if import RadarPalette
-from .shell_metrics import FONT_CONTROL
+
 from .radar_replay_panel import RadarReplayPanel
+from .shell_metrics import FONT_CONTROL
 
 
 class NavigationRadarControls:
@@ -65,19 +66,34 @@ class NavigationRadarControls:
         self._radar_replay_panel = None
         self._radar_loading = False
         self._radar_button = tk.Button(
-            bar, text="☰ RADAR", bg=ui.control_background, fg=ui.text,
-            activebackground=ui.control_active, activeforeground=ui.control_text,
-            relief=tk.FLAT, bd=0, highlightthickness=0,
-            font=("Sans", FONT_CONTROL, "bold"), padx=8, pady=4,
+            bar,
+            text="☰ RADAR",
+            bg=ui.control_background,
+            fg=ui.text,
+            activebackground=ui.control_active,
+            activeforeground=ui.control_text,
+            relief=tk.FLAT,
+            bd=0,
+            highlightthickness=0,
+            font=("Sans", FONT_CONTROL, "bold"),
+            padx=8,
+            pady=4,
             command=self._toggle_radar_menu,
         )
         self._classic_radar_var = tk.BooleanVar(value=self._radar_palette is RadarPalette.CLASSIC)
         self._radar_quick_toggle = tk.Button(
-            bar, text="☁", command=self._toggle_radar,
-            bg=ui.control_background, activebackground=ui.control_active,
-            activeforeground=ui.control_text, relief=tk.FLAT,
-            bd=0, highlightthickness=0,
-            font=("Sans", FONT_CONTROL + 5, "bold"), padx=6, pady=0,
+            bar,
+            text="☁",
+            command=self._toggle_radar,
+            bg=ui.control_background,
+            activebackground=ui.control_active,
+            activeforeground=ui.control_text,
+            relief=tk.FLAT,
+            bd=0,
+            highlightthickness=0,
+            font=("Sans", FONT_CONTROL + 5, "bold"),
+            padx=6,
+            pady=0,
         )
         # RIGHT packs the first widget at the outer edge: cloud, then menu.
         self._radar_quick_toggle.pack(side=tk.RIGHT, padx=(4, 0), pady=3)
@@ -92,12 +108,16 @@ class NavigationRadarControls:
         if close_weather is not None:
             close_weather()
         self._radar_replay_panel = RadarReplayPanel(
-            self, self._radar_button,
-            on_play=self._on_radar_play, on_seek=self._on_radar_seek,
-            on_live=self._on_radar_live, on_close=self.close_radar_menu,
+            self,
+            self._radar_button,
+            on_play=self._on_radar_play,
+            on_seek=self._on_radar_seek,
+            on_live=self._on_radar_live,
+            on_close=self.close_radar_menu,
             on_palette=self._set_classic_palette,
             classic=self._radar_palette is RadarPalette.CLASSIC,
-            on_speed=self._set_radar_speed, speed_value=self._radar_speed,
+            on_speed=self._set_radar_speed,
+            speed_value=self._radar_speed,
             ui=self._theme_bundle.ui,
             on_source=self._on_radar_source,
         )
@@ -119,7 +139,9 @@ class NavigationRadarControls:
         if self._on_radar_speed is not None:
             self._on_radar_speed(speed)
 
-    def set_radar_timeline(self, times, index, playing: bool = False, forecast: bool = False) -> None:
+    def set_radar_timeline(
+        self, times, index, playing: bool = False, forecast: bool = False
+    ) -> None:
         """Update the timeline and its playback state from the radar controller."""
         self._radar_times = times
         self._radar_index = index
@@ -140,8 +162,7 @@ class NavigationRadarControls:
 
     def _toggle_radar_palette(self) -> None:
         self._radar_palette = (
-            RadarPalette.CLASSIC if self._classic_radar_var.get()
-            else RadarPalette.UNIVERSAL
+            RadarPalette.CLASSIC if self._classic_radar_var.get() else RadarPalette.UNIVERSAL
         )
         if self._on_radar_palette_changed is not None:
             self._on_radar_palette_changed(self._radar_palette)
@@ -169,11 +190,16 @@ class NavigationRadarControls:
             )
         popup = getattr(self, "_radar_replay_panel", None)
         if popup is not None:
-            popup.render(self._radar_times, self._radar_index,
-                         enabled=self._radar_enabled, playing=self._radar_playing,
-                         forecast=self._radar_forecast, loading=self._radar_loading,
-                         data_status=getattr(self, "_radar_data_status", ""),
-                         refreshed_at=getattr(self, "_radar_refreshed_at", None))
+            popup.render(
+                self._radar_times,
+                self._radar_index,
+                enabled=self._radar_enabled,
+                playing=self._radar_playing,
+                forecast=self._radar_forecast,
+                loading=self._radar_loading,
+                data_status=getattr(self, "_radar_data_status", ""),
+                refreshed_at=getattr(self, "_radar_refreshed_at", None),
+            )
 
         callback = self.__dict__.get("_on_weather_visibility_changed")
         if callback is not None:

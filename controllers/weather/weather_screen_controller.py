@@ -2,28 +2,33 @@
 # SPDX-License-Identifier: MIT
 
 """Own forecast refresh workers independently of frontend widgets."""
-import logging
-from common.resource_cleanup import close_resources
 
-from collections.abc import Callable
+import logging
 import threading
 import time
+from collections.abc import Callable
+
 from common.logging.structured import operation
-from controllers.weather.weather_logging import WeatherLog
+from common.resource_cleanup import close_resources
 from controllers.weather.weather_controller import WeatherController
-from ui.ui_dispatcher_if import UiDispatcherIf
-from ui.weather.weather_ui_if import WeatherUiState
+from controllers.weather.weather_logging import WeatherLog
 from controllers.weather.weather_presenter import WeatherPresenter
+from ui.ui_dispatcher_if import UiDispatcherIf
 from ui.weather.weather_screen_ui_if import WeatherScreenRequestHandlerIf, WeatherScreenUiIf
+from ui.weather.weather_ui_if import WeatherUiState
 
 
 class WeatherScreenController(WeatherScreenRequestHandlerIf):
     """Publish normalized forecasts and discard callbacks from hidden screens."""
 
     def __init__(
-        self, dispatcher: UiDispatcherIf, controller: WeatherController,
-        ui: WeatherScreenUiIf, on_weather_state: Callable[[WeatherUiState], None] | None = None,
-        *, online_allowed: Callable[[], bool] = lambda: True,
+        self,
+        dispatcher: UiDispatcherIf,
+        controller: WeatherController,
+        ui: WeatherScreenUiIf,
+        on_weather_state: Callable[[WeatherUiState], None] | None = None,
+        *,
+        online_allowed: Callable[[], bool] = lambda: True,
     ):
         self._dispatcher = dispatcher
         self._controller = controller
@@ -47,7 +52,13 @@ class WeatherScreenController(WeatherScreenRequestHandlerIf):
         previous = self._visible
         self._visible = visible and not self._closed
         if previous != self._visible:
-            self._log.changed("visible", self._visible, "weather.screen_visibility_changed", "Weather screen visibility changed", visible=self._visible)
+            self._log.changed(
+                "visible",
+                self._visible,
+                "weather.screen_visibility_changed",
+                "Weather screen visibility changed",
+                visible=self._visible,
+            )
         if self._visible:
             latest = self._controller.latest()
             if latest is not None:
@@ -73,7 +84,7 @@ class WeatherScreenController(WeatherScreenRequestHandlerIf):
             if online:
                 self.request_refresh(force=True)
             else:
-                self._ui.set_weather_status('Offline mode: cached weather; alerts may be outdated')
+                self._ui.set_weather_status("Offline mode: cached weather; alerts may be outdated")
 
     def request_refresh(self, *, force: bool = True) -> None:
         """Refresh the visible screen asynchronously."""
@@ -81,25 +92,36 @@ class WeatherScreenController(WeatherScreenRequestHandlerIf):
             return
         if not self._online_allowed():
             self._ui.set_loading(False)
-            self._ui.set_weather_status('Offline mode: cached weather; alerts may be outdated')
+            self._ui.set_weather_status("Offline mode: cached weather; alerts may be outdated")
             return
         self._generation += 1
         generation = self._generation
         self._ui.set_loading(True)
         self._ui.set_weather_status("Weather: refreshing")
         operation_id = self._log.requested()
-        self._log.start(threading.Thread(target=self._refresh, args=(generation, force, operation_id), daemon=True), operation_id)
+        self._log.start(
+            threading.Thread(
+                target=self._refresh, args=(generation, force, operation_id), daemon=True
+            ),
+            operation_id,
+        )
 
     def _refresh(self, generation, force=False, operation_id=None):
         with operation(operation_id) as operation_id:
             try:
-                state = (self._controller.refresh() if force else self._controller.refresh_if_stale(300.0))
+                state = (
+                    self._controller.refresh()
+                    if force
+                    else self._controller.refresh_if_stale(300.0)
+                )
                 detail = ""
                 self._log.succeeded()
             except Exception as error:
                 self._log.failed(error)
                 state, detail = None, str(error)
-        self._dispatcher.dispatch_ui(lambda: self._complete(generation, state, detail, operation_id))
+        self._dispatcher.dispatch_ui(
+            lambda: self._complete(generation, state, detail, operation_id)
+        )
 
     def _complete(self, generation, state, detail, operation_id=None):
         if self._closed or not self._visible or generation != self._generation:
@@ -107,7 +129,9 @@ class WeatherScreenController(WeatherScreenRequestHandlerIf):
             return
         self._ui.set_loading(False)
         if state is not None:
-            self._log.emit(logging.DEBUG, "weather.forecast_applied", "Weather forecast applied", operation_id)
+            self._log.emit(
+                logging.DEBUG, "weather.forecast_applied", "Weather forecast applied", operation_id
+            )
             self._last_state = state
             ui_state = self._presenter.present(state)
             if self._on_weather_state is not None:
@@ -138,5 +162,8 @@ class WeatherScreenController(WeatherScreenRequestHandlerIf):
         if self._closed:
             return
         self._closed = True
-        close_resources(self._unsubscribe_mode, lambda: self.set_visible(False),
-                        lambda: self._ui.set_weather_request_handler(None))
+        close_resources(
+            self._unsubscribe_mode,
+            lambda: self.set_visible(False),
+            lambda: self._ui.set_weather_request_handler(None),
+        )

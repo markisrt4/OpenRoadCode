@@ -12,6 +12,7 @@ import threading
 import time
 from collections.abc import Callable
 from typing import TextIO
+
 from common.logging.structured import configure_logging, event
 from common.logging.viewer import follow
 
@@ -62,8 +63,9 @@ def main(*, startup_started_at: float | None = None) -> None:
     parser.add_argument("--follow-logs", action="store_true")
     parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])
     parser.add_argument("--log-component", help="Live viewer component prefix")
-    parser.add_argument("--check-ecu-gl", action="store_true",
-                        help="Check the ECU OpenGL renderer and exit")
+    parser.add_argument(
+        "--check-ecu-gl", action="store_true", help="Check the ECU OpenGL renderer and exit"
+    )
     args = parser.parse_args()
     if args.check_ecu_gl:
         from apps.orcUi.frontend.tk.ecu_gl_diagnostics import main as check_ecu_gl

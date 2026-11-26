@@ -100,36 +100,35 @@ def validate_vehicle_state(payload: Mapping[str, Any]) -> None:
     if not isinstance(data, Mapping):
         raise ValueError("vehicle state data must be an object")
     expected_fields = (
-        V1_DATA_FIELDS if version == 1 else
-        V2_DATA_FIELDS if version == 2 else
-        V3_DATA_FIELDS if version == 3 else
-        V4_DATA_FIELDS if version == 4 else
-        DATA_FIELDS
+        V1_DATA_FIELDS
+        if version == 1
+        else V2_DATA_FIELDS
+        if version == 2
+        else V3_DATA_FIELDS
+        if version == 3
+        else V4_DATA_FIELDS
+        if version == 4
+        else DATA_FIELDS
     )
     actual_fields = set(data)
     if actual_fields != expected_fields:
         missing = sorted(expected_fields - actual_fields)
         unknown = sorted(actual_fields - expected_fields)
         raise ValueError(
-            "vehicle state data schema mismatch: "
-            f"missing={missing}, unknown={unknown}"
+            f"vehicle state data schema mismatch: missing={missing}, unknown={unknown}"
         )
 
     for name in ("fuel_system_status_1", "fuel_system_status_2"):
         if name in expected_fields:
             value = data[name]
             if value is not None and (
-                isinstance(value, bool)
-                or not isinstance(value, int)
-                or not 0 <= value <= 0xFF
+                isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 0xFF
             ):
                 raise ValueError(f"{name} must be null or an 8-bit integer")
 
     gear = data["transmission_gear"]
     if gear is not None and (
-        isinstance(gear, bool)
-        or not isinstance(gear, int)
-        or gear not in VALID_GEARS
+        isinstance(gear, bool) or not isinstance(gear, int) or gear not in VALID_GEARS
     ):
         raise ValueError("transmission_gear must be null, -1, 0, or 1..6")
 
@@ -146,10 +145,11 @@ def validate_vehicle_state(payload: Mapping[str, Any]) -> None:
             raise ValueError("actual_engine_torque_ratio must be in range -1.25..1.30")
         if name in RATIO_FIELDS and not 0.0 <= value <= 1.0:
             raise ValueError(f"{name} must be in range 0.0..1.0")
-        if name in {"commanded_equivalence_ratio", "measured_equivalence_ratio"} and not 0.0 <= value <= 2.0:
-            raise ValueError(
-                "commanded_equivalence_ratio must be in range 0.0..2.0"
-            )
+        if (
+            name in {"commanded_equivalence_ratio", "measured_equivalence_ratio"}
+            and not 0.0 <= value <= 2.0
+        ):
+            raise ValueError("commanded_equivalence_ratio must be in range 0.0..2.0")
         if name in NONNEGATIVE_FIELDS and value < 0.0:
             raise ValueError(f"{name} cannot be negative")
         if name in TEMPERATURE_FIELDS and value < 0.0:

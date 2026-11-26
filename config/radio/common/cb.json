@@ -3,9 +3,9 @@
   "label": "CB",
   "description": "Citizen Band radio channels 1-40. Receive-only AM monitoring.",
   "launch": {
-    "label": "Launch SDR++",
+    "label": "SDRForge Status",
     "subtitle": "CB scanner",
-    "detail": "Starts / toggles SDR++"
+    "detail": "Check shared SDRForge service"
   },
   "radio": {
     "label": "Radio ON/OFF",

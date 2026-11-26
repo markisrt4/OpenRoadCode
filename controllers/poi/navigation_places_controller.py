@@ -3,29 +3,49 @@
 
 """Adapt POI discovery, saved places, and platform actions to UI contracts."""
 
-from common.logging.diagnostics import ComponentLog, diagnostic_action
 import logging
 import math
-
-from common.logging.structured import current_operation, operation
-from dataclasses import replace
 import threading
-from queue import SimpleQueue, Empty
 from collections.abc import Callable
+from dataclasses import replace
+from queue import Empty, SimpleQueue
+
+from common.logging.diagnostics import ComponentLog, diagnostic_action
+from common.logging.structured import current_operation, operation
+from controllers.navigation.map_favorites import MapFavorites
+from controllers.poi.poi_action_executor_if import PoiActionExecutorIf
+from controllers.poi.poi_search_controller_if import PoiSearchControllerIf
 from protocols.map_renderer.map_poi_source import RawMapCamera
 from ui.navigation import GeoPoint
-
-from controllers.navigation.map_favorites import MapFavorites
-from controllers.poi.poi_search_controller_if import PoiSearchControllerIf
-from controllers.poi.poi_action_executor_if import PoiActionExecutorIf
-from ui.navigation.navigation_places_request_handler_if import MapFavorite, NavigationPlacesRequestHandlerIf, NavigationCameraState, PlaceActionResult
-from ui.navigation.poi_models import PoiAction, PoiActionKind, PoiCategory, PoiSearchResult, PointOfInterest, TransitMode
+from ui.navigation.navigation_places_request_handler_if import (
+    MapFavorite,
+    NavigationCameraState,
+    NavigationPlacesRequestHandlerIf,
+    PlaceActionResult,
+)
+from ui.navigation.poi_models import (
+    PoiAction,
+    PoiActionKind,
+    PoiCategory,
+    PointOfInterest,
+    PoiSearchResult,
+    TransitMode,
+)
 
 
 class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
     """Own one search session while sharing durable favorites and action adapters."""
 
-    def __init__(self, search: PoiSearchControllerIf, favorites: MapFavorites, actions: PoiActionExecutorIf, *, online_allowed: Callable[[], bool] = lambda: True, camera_observer=None, local_3d_action=None):
+    def __init__(
+        self,
+        search: PoiSearchControllerIf,
+        favorites: MapFavorites,
+        actions: PoiActionExecutorIf,
+        *,
+        online_allowed: Callable[[], bool] = lambda: True,
+        camera_observer=None,
+        local_3d_action=None,
+    ):
         self._diagnostics = ComponentLog("navigation.poi.actions", "poi")
         self._search = search
         self._favorites = favorites
@@ -42,9 +62,9 @@ class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
     def favorite(self, key: str) -> MapFavorite | None:
         if self._closed:
             return None
-        if key not in {'home', 'work'}:
-            raise ValueError(f'Unknown destination shortcut: {key}')
-        return self._favorites.home if key == 'home' else self._favorites.work
+        if key not in {"home", "work"}:
+            raise ValueError(f"Unknown destination shortcut: {key}")
+        return self._favorites.home if key == "home" else self._favorites.work
 
     def search(self, category: PoiCategory, transit_mode: TransitMode = TransitMode.ALL) -> None:
         if not self._closed:
@@ -59,19 +79,30 @@ class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
             return poi
         latitude = math.degrees(poi.position.latitude_rad)
         longitude = math.degrees(poi.position.longitude_rad)
-        if not (math.isfinite(latitude) and math.isfinite(longitude)
-                and -90 <= latitude <= 90 and -180 <= longitude <= 180):
+        if not (
+            math.isfinite(latitude)
+            and math.isfinite(longitude)
+            and -90 <= latitude <= 90
+            and -180 <= longitude <= 180
+        ):
             return poi
-        action = PoiAction(PoiActionKind.OPEN_WEBSITE, "Explore in Google Earth",
-                           provider_id="google-earth-explore",
-                           uri=(f"https://earth.google.com/web/@{latitude:.7f},{longitude:.7f},"
-                                "0a,1000d,35y,0h,45t,0r"))
+        action = PoiAction(
+            PoiActionKind.OPEN_WEBSITE,
+            "Explore in Google Earth",
+            provider_id="google-earth-explore",
+            uri=(
+                f"https://earth.google.com/web/@{latitude:.7f},{longitude:.7f},"
+                "0a,1000d,35y,0h,45t,0r"
+            ),
+        )
         actions = tuple(a for a in poi.actions if a.provider_id != "google-earth-explore")
         actions = actions + (action,)
         if self._local_3d_action is not None:
             local_action = self._local_3d_action(poi)
             if local_action is not None:
-                actions = tuple(a for a in actions if a.kind is not PoiActionKind.EXPLORE_3D) + (local_action,)
+                actions = tuple(a for a in actions if a.kind is not PoiActionKind.EXPLORE_3D) + (
+                    local_action,
+                )
         return replace(poi, actions=actions)
 
     def poll_camera_interaction(self) -> bool:
@@ -80,9 +111,9 @@ class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
     @diagnostic_action("launch")
     def execute(self, poi: PointOfInterest, action: PoiAction) -> str:
         if self._closed:
-            raise RuntimeError('Navigation places session is closed')
+            raise RuntimeError("Navigation places session is closed")
         if action.kind is not PoiActionKind.EXPLORE_3D and not self._online_allowed():
-            raise ValueError('Offline mode: go online to order or open websites')
+            raise ValueError("Offline mode: go online to order or open websites")
         try:
             return self._actions.execute(poi, action)
         except ValueError:
@@ -94,13 +125,16 @@ class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
     def poll_camera_state(self) -> NavigationCameraState | None:
         if self._closed:
             return None
-        poll = getattr(self._search, 'poll_camera_state', None)
+        poll = getattr(self._search, "poll_camera_state", None)
         raw = poll() if poll else None
         if not isinstance(raw, RawMapCamera):
             return None
         camera = NavigationCameraState(
             GeoPoint(math.radians(raw.latitude), math.radians(raw.longitude)),
-            raw.zoom, math.radians(raw.bearing), math.radians(raw.pitch))
+            raw.zoom,
+            math.radians(raw.bearing),
+            math.radians(raw.pitch),
+        )
         if self._camera_observer is not None:
             self._camera_observer(camera.center, camera.zoom, camera.bearing_rad, camera.pitch_rad)
         return camera
@@ -114,6 +148,7 @@ class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
             request_id = self._action_id
         with operation(current_operation()) as operation_id:
             self._diagnostics.emit(logging.DEBUG, "action_requested")
+
         def launch():
             with operation(operation_id):
                 complete()
@@ -122,19 +157,20 @@ class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
             try:
                 result = PlaceActionResult(request_id, self.execute(poi, action), True)
             except (RuntimeError, ValueError) as error:
-                result = PlaceActionResult(request_id, f'Launch failed: {error}', False)
+                result = PlaceActionResult(request_id, f"Launch failed: {error}", False)
             with self._action_lock:
                 self._action_pending = False
                 if not self._closed:
                     self._action_results.put(result)
                 else:
                     self._diagnostics.emit(logging.DEBUG, "result_discarded")
+
         try:
-            threading.Thread(target=launch, name='orc-poi-launch', daemon=True).start()
+            threading.Thread(target=launch, name="orc-poi-launch", daemon=True).start()
         except Exception as error:
             with self._action_lock:
                 self._action_pending = False
-            self._diagnostics.failed('worker_start', error, operation_id)
+            self._diagnostics.failed("worker_start", error, operation_id)
             raise
         return request_id
 

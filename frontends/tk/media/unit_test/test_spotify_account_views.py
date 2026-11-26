@@ -10,9 +10,16 @@ from ui.media.spotify_account_if import SpotifyAccountAction, SpotifyAccountStat
 
 def test_media_hiding_retires_accounts_and_dialog():
     host, session, close_dialog = Mock(), Mock(), Mock()
-    screen = MediaScreen(host, theme_bundle=Mock(), show_spotify=Mock(), show_youtube=Mock(),
-        show_youtube_music=Mock(), show_netflix=Mock(), account_session=session,
-        close_account_configuration=close_dialog)
+    screen = MediaScreen(
+        host,
+        theme_bundle=Mock(),
+        show_spotify=Mock(),
+        show_youtube=Mock(),
+        show_youtube_music=Mock(),
+        show_netflix=Mock(),
+        account_session=session,
+        close_account_configuration=close_dialog,
+    )
     handler = Mock()
     screen.set_spotify_account_handler(handler)
     screen.set_spotify_account_state(SpotifyAccountState(connected=False))
@@ -29,9 +36,15 @@ def test_media_hiding_retires_accounts_and_dialog():
 
 def test_spotify_hiding_retires_accounts_and_dialog():
     session, close_dialog = Mock(), Mock()
-    screen = SpotifyScreen(Mock(), theme={"colors": {}}, back_action=Mock(),
-        playback_session=Mock(), native_surface=Mock(), account_session=session,
-        close_account_configuration=close_dialog)
+    screen = SpotifyScreen(
+        Mock(),
+        theme={"colors": {}},
+        back_action=Mock(),
+        playback_session=Mock(),
+        native_surface=Mock(),
+        account_session=session,
+        close_account_configuration=close_dialog,
+    )
     screen.hide()
     session.deactivate.assert_called_once()
     close_dialog.assert_called_once()
@@ -59,7 +72,9 @@ def test_configuration_emits_request_and_closes_after_success():
     view._client_id.get.return_value = "public-client"
     view._request_save()
     handler.request_configure.assert_called_once_with("public-client")
-    view.set_spotify_account_state(SpotifyAccountState(loading=False, action=SpotifyAccountAction.CONFIGURE))
+    view.set_spotify_account_state(
+        SpotifyAccountState(loading=False, action=SpotifyAccountAction.CONFIGURE)
+    )
     window.destroy.assert_called_once()
     view._session.deactivate.assert_called_once()
 

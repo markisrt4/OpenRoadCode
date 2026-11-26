@@ -3,8 +3,8 @@
 
 """Receive and decode public vehicle-state messages over ZeroMQ."""
 
-from dataclasses import asdict
 import json
+from dataclasses import asdict
 
 from messaging.contracts.automotive import VEHICLE_STATE_TOPIC, decode_vehicle_state
 from messaging.zeromq import ZeroMqSubscriber

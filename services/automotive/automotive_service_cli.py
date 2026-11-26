@@ -12,7 +12,6 @@ from dataclasses import replace
 from pathlib import Path
 
 from common.logging.structured import configure_logging, event
-
 from config.service_runtime_config import AutomotiveServiceRuntimeConfig, ServiceRuntimeConfigParser
 from controllers.automotive.composite_vehicle_state_source import CompositeVehicleStateSource
 from controllers.automotive.gear_estimator import GearEstimator

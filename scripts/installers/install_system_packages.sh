@@ -124,7 +124,3 @@ if [[ " ${FEATURES[*]} " == *" adsb "* ]]; then
   bash "$SCRIPT_DIR/setup_adsb_web.sh"
 fi
 
-if [[ " ${FEATURES[*]} " == *" sdrpp "* ]]; then
-  echo "[*] Installing OpenRoadCode SDR++ build..."
-  bash "$SCRIPT_DIR/install_sdrpp_nightly.sh"
-fi

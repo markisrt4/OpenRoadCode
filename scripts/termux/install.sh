@@ -30,7 +30,11 @@ source "$FEATURES_FILE"
 if (( $# > 0 )); then
   FEATURES=("$@")
 else
-  FEATURES=(base desktop-ui web-ui browser streamlit spotify navigation)
+  FEATURES=(base desktop-ui web-ui browser streamlit spotify sdrforge navigation)
+fi
+
+if [[ " ${FEATURES[*]} " == *" desktop-ui "* && " ${FEATURES[*]} " != *" sdrforge "* ]]; then
+  FEATURES+=(sdrforge)
 fi
 
 echo "[*] Termux features: ${FEATURES[*]}"
@@ -73,9 +77,15 @@ for feature in "${FEATURES[@]}"; do
   fi
   while read -r package; do
     [[ -z "$package" ]] && continue
-    # PyPI Ruff requires a Rust source build on Android. Keep typing mandatory.
-    if [[ "$package" == ruff ]]; then
-      echo "[*] Skipping Ruff installation on Termux (requires a Rust build)."
+    # Use the native package to avoid building Ruff from source through pip.
+    if [[ "$package" == ruff==* ]]; then
+      if [[ $("$PREFIX/bin/ruff" --version 2>/dev/null || true) != "ruff ${package#ruff==}" ]]; then
+        pkg install -y ruff
+      fi
+      if [[ $("$PREFIX/bin/ruff" --version) != "ruff ${package#ruff==}" ]]; then
+        echo "[!] Install the native Termux Ruff version ${package#ruff==}." >&2
+        exit 1
+      fi
       continue
     fi
     if [[ " ${python_packages[*]} " != *" $package "* ]]; then
@@ -91,6 +101,12 @@ fi
 
 echo "[*] Installing shared music-analysis engine..."
 bash "$PROJECT_ROOT/scripts/installers/install_libmusicforge.sh"
+
+if [[ " ${FEATURES[*]} " == *" sdrforge "* ]]; then
+  pkg install -y python-scipy libusb
+  python -m pip install pyzmq
+  bash "$PROJECT_ROOT/scripts/installers/install_libsdrforge.sh"
+fi
 
 deactivate
 

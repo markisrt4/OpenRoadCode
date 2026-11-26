@@ -7,6 +7,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 
+RUN_RADIO=0
+MANAGED_RF=0
+RUN_NAVIGATION=0
 RUN_VNC=0
 RUN_GPSD_SERVICE=0
 RUN_TELEMETRY_SERVICES=0
@@ -17,6 +20,9 @@ usage() {
 Usage: $0 [options]
 
 Options:
+  --navigation         Configure broker and navigation services
+  --radio              Configure broker and SDRForge user service
+  --managed-rf         Provision coordinated SDRForge and readsb user units
   --vnc                Configure the VNC user service
   --gpsd               Configure the GPSD system service
   --telemetry          Configure OpenRoadCode broker/navigation/automotive services
@@ -27,6 +33,9 @@ EOF
 
 while (( $# > 0 )); do
   case "$1" in
+    --navigation) RUN_NAVIGATION=1 ;;
+    --radio) RUN_RADIO=1 ;;
+    --managed-rf) MANAGED_RF=1 ;;
     --vnc) RUN_VNC=1 ;;
     --gpsd) RUN_GPSD_SERVICE=1 ;;
     --telemetry) RUN_TELEMETRY_SERVICES=1 ;;
@@ -51,7 +60,7 @@ while (( $# > 0 )); do
   shift
 done
 
-if (( ! RUN_VNC && ! RUN_GPSD_SERVICE && ! RUN_TELEMETRY_SERVICES )); then
+if (( ! RUN_VNC && ! RUN_GPSD_SERVICE && ! RUN_TELEMETRY_SERVICES && ! RUN_RADIO && ! RUN_NAVIGATION )); then
   echo "[*] No services selected."
   exit 0
 fi
@@ -66,8 +75,12 @@ if (( RUN_GPSD_SERVICE )); then
   sudo bash "$PROJECT_ROOT/scripts/systemd/install_gpsd_systemd.sh" "$GPS_DEVICE"
 fi
 
-if (( RUN_TELEMETRY_SERVICES )); then
-  echo "[*] Installing OpenRoadCode telemetry services..."
+if (( RUN_TELEMETRY_SERVICES || RUN_RADIO || RUN_NAVIGATION )); then
+  if (( RUN_TELEMETRY_SERVICES )); then
+    echo "[*] Installing OpenRoadCode telemetry services..."
+  else
+    echo "[*] Installing OpenRoadCode message broker and native radio service..."
+  fi
   runtime_config="$PROJECT_ROOT/config/runtime.toml"
   python_bin="${OPENROADCODE_PYTHON:-${VENV_DIR:-$PROJECT_ROOT/venv}/bin/python}"
   if [[ ! -x "$python_bin" ]]; then
@@ -79,8 +92,17 @@ if (( RUN_TELEMETRY_SERVICES )); then
     runtime_config="$PROJECT_ROOT/config/runtime.simulated.toml"
     echo "[*] linux-dev target: using simulated telemetry runtime: $runtime_config"
   fi
+  installer=install_message_broker_systemd.sh
+  if (( RUN_TELEMETRY_SERVICES )); then installer=install_telemetry_services_systemd.sh; fi
   sudo env \
     OPENROADCODE_RUNTIME_CONFIG="$runtime_config" \
     OPENROADCODE_PYTHON="$python_bin" \
-    bash "$PROJECT_ROOT/scripts/systemd/install_telemetry_services_systemd.sh"
+    bash "$PROJECT_ROOT/scripts/systemd/$installer"
+  if (( RUN_NAVIGATION && ! RUN_TELEMETRY_SERVICES )); then
+    sudo env OPENROADCODE_RUNTIME_CONFIG="$runtime_config" OPENROADCODE_PYTHON="$python_bin" bash "$PROJECT_ROOT/scripts/systemd/install_navigation_service_systemd.sh"
+  fi
+  if (( RUN_RADIO )); then
+    OPENROADCODE_PYTHON="$python_bin" OPENROADCODE_MANAGED_RF="$MANAGED_RF" \
+      bash "$PROJECT_ROOT/scripts/systemd/install_sdrforge_user_systemd.sh"
+  fi
 fi

@@ -19,26 +19,50 @@ from controllers.computer_vision.perception_worker import PerceptionWorker
 from controllers.environmental.ambient_light_controller import AmbientLightController
 from controllers.environmental.barometric_controller import BarometricController
 from controllers.environmental.barometric_source_if import BarometricSample
+from hardware_io.camera.camera_controls_if import CameraProfile
 from hardware_io.camera.camera_if import CameraFrame
 from hardware_io.camera.v4l2_camera import V4L2Camera
 from hardware_io.camera.v4l2_camera_controls import V4L2CameraProfileController
-from hardware_io.camera.camera_controls_if import CameraProfile
 
 PRIVATE = "private-image /private/device https://private.test/?token=private 42.8028 -83.0127"
 
 
 def records(caplog, prefix):
-    result = [json.loads(JsonFormatter().format(r)) for r in caplog.records
-              if r.name.startswith(prefix)]
-    allowed = {"timestamp", "level", "component", "event", "message", "pid",
-               "operation_id", "stage", "state", "reason", "exception_type",
-               "result_count", "category", "delivered", "watcher_count"}
+    result = [
+        json.loads(JsonFormatter().format(r)) for r in caplog.records if r.name.startswith(prefix)
+    ]
+    allowed = {
+        "timestamp",
+        "level",
+        "component",
+        "event",
+        "message",
+        "pid",
+        "operation_id",
+        "stage",
+        "state",
+        "reason",
+        "exception_type",
+        "result_count",
+        "category",
+        "delivered",
+        "watcher_count",
+    }
     for record in result:
         validate_event(record)
         assert set(record) <= allowed
     text = json.dumps(result)
-    for private in ("private", "42.8028", "-83.0127", "latitude", "longitude",
-                    "image", "model_name", "database_path", "device_address"):
+    for private in (
+        "private",
+        "42.8028",
+        "-83.0127",
+        "latitude",
+        "longitude",
+        "image",
+        "model_name",
+        "database_path",
+        "device_address",
+    ):
         assert private not in text
     return result
 
@@ -74,7 +98,10 @@ def test_camera_open_capture_recovery_and_close_are_private(caplog):
     assert [r["stage"] for r in failures] == ["open", "capture"]
     assert [r["stage"] for r in recoveries] == ["open", "capture"]
     assert all(r["operation_id"] == "camera-session" for r in emitted)
-    assert [r["state"] for r in emitted if r["event"] == "camera.state_changed"] == ["open", "closed"]
+    assert [r["state"] for r in emitted if r["event"] == "camera.state_changed"] == [
+        "open",
+        "closed",
+    ]
 
 
 def test_camera_profile_failure_and_recovery_do_not_log_control_output(caplog):
@@ -94,10 +121,12 @@ def test_camera_profile_failure_and_recovery_do_not_log_control_output(caplog):
     assert len([r for r in emitted if r["event"] == "camera.state_changed"]) == 1
 
 
-def test_model_loading_is_correlated_and_cached_without_logging_paths(caplog):
+def test_model_loading_is_correlated_and_cached_without_logging_paths(caplog, tmp_path):
     caplog.set_level(logging.DEBUG)
     yolo = Mock(side_effect=[OSError(PRIVATE), OSError(PRIVATE), object()])
-    readiness = YoloModelReadiness(PRIVATE)
+    weights = tmp_path / "model.pt"
+    weights.touch()
+    readiness = YoloModelReadiness(str(weights))
     with patch.dict(sys.modules, ultralytics=SimpleNamespace(YOLO=yolo)):
         for _ in range(2):
             with pytest.raises(OSError):
@@ -120,15 +149,18 @@ def test_perception_survives_failure_and_recovers_on_next_frame(caplog, stage):
     detector.detect.return_value = result
     tracker.update.return_value = None
     failing = detector.detect if stage == "inference" else tracker.update
-    failing.side_effect = [RuntimeError(PRIVATE), RuntimeError(PRIVATE),
-                           result if stage == "inference" else None]
+    failing.side_effect = [
+        RuntimeError(PRIVATE),
+        RuntimeError(PRIVATE),
+        result if stage == "inference" else None,
+    ]
     worker = PerceptionWorker(detector, tracker)
     with operation("vision-session"):
         worker.start()
     try:
         for index in range(3):
             worker.submit(CameraFrame(PRIVATE, 1, index))
-            wait_until(lambda: failing.call_count >= index + 1)
+            wait_until(lambda index=index: failing.call_count >= index + 1)
             # Wait until the failed frame is consumed before submitting another.
             if index < 2:
                 wait_until(lambda: any(r.event == "vision.failed" for r in caplog.records))
@@ -146,10 +178,12 @@ def test_perception_survives_failure_and_recovers_on_next_frame(caplog, stage):
 def test_stopping_worker_discards_inflight_result(caplog):
     caplog.set_level(logging.DEBUG)
     entered, release = threading.Event(), threading.Event()
+
     def detect(frame):
         entered.set()
         assert release.wait(2)
         return DetectionFrame(1, 1, 1, ())
+
     worker = PerceptionWorker(Mock(detect=detect))
     worker.start()
     worker.submit(CameraFrame(PRIVATE, 1, 1))
@@ -167,8 +201,10 @@ def test_stopping_worker_discards_inflight_result(caplog):
 def test_worker_start_failure_does_not_claim_running(caplog):
     caplog.set_level(logging.DEBUG)
     worker = PerceptionWorker(Mock())
-    with patch("controllers.computer_vision.perception_worker.threading.Thread.start",
-               side_effect=OSError(PRIVATE)):
+    with patch(
+        "controllers.computer_vision.perception_worker.threading.Thread.start",
+        side_effect=OSError(PRIVATE),
+    ):
         with pytest.raises(OSError):
             worker.start()
     assert not worker.is_running
@@ -184,8 +220,12 @@ def test_sensor_failures_recover_and_successful_polling_stays_debug(caplog, kind
         source.get_illuminance_lux.side_effect = [OSError(PRIVATE), OSError(PRIVATE), 123.0, 123.0]
     else:
         controller = BarometricController(source)
-        source.read_barometric.side_effect = [OSError(PRIVATE), OSError(PRIVATE),
-                                             BarometricSample(101325), BarometricSample(101325)]
+        source.read_barometric.side_effect = [
+            OSError(PRIVATE),
+            OSError(PRIVATE),
+            BarometricSample(101325),
+            BarometricSample(101325),
+        ]
     controller.start()
     for _ in range(2):
         with pytest.raises(OSError):
@@ -198,7 +238,10 @@ def test_sensor_failures_recover_and_successful_polling_stays_debug(caplog, kind
     assert len([r for r in emitted if r["event"] == "sensor.failed"]) == 1
     recovery = next(r for r in emitted if r["event"] == "sensor.recovered")
     assert recovery["operation_id"] == "sensor-read"
-    assert [r["state"] for r in emitted if r["event"] == "sensor.state_changed"] == ["started", "stopped"]
+    assert [r["state"] for r in emitted if r["event"] == "sensor.state_changed"] == [
+        "started",
+        "stopped",
+    ]
     assert not any("illuminance_lux" in r or "pressure_pa" in r for r in emitted)
 
 

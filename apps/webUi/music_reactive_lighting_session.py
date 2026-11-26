@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 """Web-facing control surface for music-reactive lighting."""
+
 from __future__ import annotations
 
 from controllers.lighting import MusicReactiveLighting

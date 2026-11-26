@@ -14,8 +14,14 @@ class GameWindowEmbedderIf(Protocol):
         ...
 
     def embed(
-        self, process_id: int, host_window_id: int, width: int, height: int, *,
-        window_name: str | None = None, window_class: str | None = None,
+        self,
+        process_id: int,
+        host_window_id: int,
+        width: int,
+        height: int,
+        *,
+        window_name: str | None = None,
+        window_class: str | None = None,
         relax_size_hints: bool = False,
     ) -> int:
         """! @brief Embed a process window in the supplied native host.

@@ -6,21 +6,15 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import subprocess
-from tempfile import TemporaryDirectory
 import unittest
-
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 INSTALLER = PROJECT_ROOT / "scripts" / "installers" / "host_setup.sh"
 FEATURES = PROJECT_ROOT / "scripts" / "installers" / "installer_features.sh"
-PERMISSIONS = (
-    PROJECT_ROOT
-    / "scripts"
-    / "installers"
-    / "configure_user_permissions.sh"
-)
+PERMISSIONS = PROJECT_ROOT / "scripts" / "installers" / "configure_user_permissions.sh"
 TUI_INSTALLER = PROJECT_ROOT / "scripts" / "installers" / "host_setup_tui.sh"
 VNC_SETUP = PROJECT_ROOT / "scripts" / "installers" / "setup_vnc.sh"
 
@@ -63,6 +57,61 @@ class HostSetupPlanTests(unittest.TestCase):
                 check=False,
             )
 
+    def test_desktop_plan_leaves_native_radio_optional(self) -> None:
+        result = self.run_installer(
+            "--target", "linux-dev", "--feature", "desktop-ui", "--show-plan"
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertNotIn("sdrforge", result.stdout)
+        self.assertNotIn("sdrpp", result.stdout)
+
+    def test_managed_rf_plan_includes_radio_adsb_and_browser(self) -> None:
+        result = self.run_installer(
+            "--target",
+            "rpi5",
+            "--feature",
+            "sdrforge",
+            "--feature",
+            "adsb",
+            "--managed-rf",
+            "--show-plan",
+            architecture="arm64",
+            model="Raspberry Pi 5 Model B Rev 1.0",
+            distribution="debian",
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn("Managed RF:            1", result.stdout)
+        self.assertIn("Radio service setup:   1", result.stdout)
+        self.assertIn("browser", result.stdout)
+        self.assertIn("Plan only; no system changes were made.", result.stdout)
+
+    def test_managed_rf_requires_pi_5_and_both_rf_features(self) -> None:
+        result = self.run_installer("--target", "linux-dev", "--managed-rf", "--show-plan")
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("--managed-rf requires target rpi5", result.stderr)
+
+    def test_verify_only_runs_both_checks_without_persisting_install_target(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            python_bin = root / "venv/bin/python"
+            python_bin.parent.mkdir(parents=True)
+            python_bin.write_text('#!/bin/sh\nprintf "%s\\n" "$@"\nexit 7\n')
+            python_bin.chmod(0o755)
+            environment = os.environ.copy()
+            try:
+                os.environ.update(
+                    VENV_DIR=str(root / "venv"),
+                    XDG_CONFIG_HOME=str(root / "config"),
+                )
+                result = self.run_installer("--target", "linux-dev", "--verify-only")
+            finally:
+                os.environ.clear()
+                os.environ.update(environment)
+            self.assertEqual(result.returncode, 7, result.stderr)
+            self.assertIn("verify_installation.py", result.stdout)
+            self.assertIn("verify_runtime.py", result.stdout)
+            self.assertFalse((root / "config").exists())
+
     def test_target_is_required(self) -> None:
         result = self.run_installer("--show-plan")
 
@@ -100,6 +149,7 @@ class HostSetupPlanTests(unittest.TestCase):
         self.assertIn("browser", result.stdout)
         self.assertNotIn("raspberry-pi", result.stdout)
         self.assertNotIn("adsb", result.stdout)
+        self.assertIn("sdrforge", result.stdout)
         self.assertNotIn("sdrpp", result.stdout)
 
     def test_linux_development_plan_excludes_raspberry_pi_support(self) -> None:
@@ -244,7 +294,7 @@ class HostSetupPlanTests(unittest.TestCase):
 
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertIn("desktop-ui", result.stdout)
-        self.assertIn("sdrpp", result.stdout)
+        self.assertIn("sdrforge", result.stdout)
         self.assertIn("imu", result.stdout)
         self.assertIn("environmental", result.stdout)
         self.assertNotIn("raspberry-pi", result.stdout)
@@ -301,12 +351,12 @@ class HostSetupPlanTests(unittest.TestCase):
         self.assertIn("Features:              navigation desktop-ui gps", result.stdout)
         self.assertNotIn("browser", result.stdout)
 
-    def test_sdrpp_feature_does_not_request_distro_package(self) -> None:
+    def test_sdrforge_feature_does_not_request_distro_package(self) -> None:
         result = subprocess.run(
             [
                 "bash",
                 "-c",
-                'source "$1"; get_feature_packages sdrpp',
+                'source "$1"; get_feature_packages sdrforge',
                 "feature-test",
                 str(FEATURES),
             ],
@@ -316,7 +366,7 @@ class HostSetupPlanTests(unittest.TestCase):
         )
 
         self.assertEqual(0, result.returncode, result.stderr)
-        self.assertEqual("", result.stdout.strip())
+        self.assertEqual("libportaudio2", result.stdout.strip())
 
     def test_all_features_on_raspberry_pi_includes_sensor_support(self) -> None:
         result = self.run_installer(
@@ -370,10 +420,11 @@ class HostSetupPlanTests(unittest.TestCase):
     def test_audio_packages_follow_install_target(self) -> None:
         linux = subprocess.run(
             [
-                "bash", "-c",
-                'source "$1"; OPENROAD_INSTALL_TARGET=linux-dev '
-                'get_feature_packages audio',
-                "feature-test", str(FEATURES),
+                "bash",
+                "-c",
+                'source "$1"; OPENROAD_INSTALL_TARGET=linux-dev get_feature_packages audio',
+                "feature-test",
+                str(FEATURES),
             ],
             capture_output=True,
             text=True,
@@ -381,10 +432,11 @@ class HostSetupPlanTests(unittest.TestCase):
         )
         raspberry_pi = subprocess.run(
             [
-                "bash", "-c",
-                'source "$1"; OPENROAD_INSTALL_TARGET=rpi5 '
-                'get_feature_packages audio',
-                "feature-test", str(FEATURES),
+                "bash",
+                "-c",
+                'source "$1"; OPENROAD_INSTALL_TARGET=rpi5 get_feature_packages audio',
+                "feature-test",
+                str(FEATURES),
             ],
             capture_output=True,
             text=True,
@@ -399,9 +451,11 @@ class HostSetupPlanTests(unittest.TestCase):
     def test_spotify_depends_on_audio(self) -> None:
         result = subprocess.run(
             [
-                "bash", "-c",
+                "bash",
+                "-c",
                 'source "$1"; get_feature_dependencies spotify',
-                "feature-test", str(FEATURES),
+                "feature-test",
+                str(FEATURES),
             ],
             capture_output=True,
             text=True,

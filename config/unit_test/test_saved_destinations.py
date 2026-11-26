@@ -13,8 +13,9 @@ from ui.navigation.map_ui_if import GeoPoint
 
 
 def destination(key="home", *, latitude=0.7, longitude=-1.4):
-    return SavedDestination(key, key.title(), '  123 "Main" St\n Testville  ',
-                            GeoPoint(latitude, longitude))
+    return SavedDestination(
+        key, key.title(), '  123 "Main" St\n Testville  ', GeoPoint(latitude, longitude)
+    )
 
 
 class SavedDestinationsTest(unittest.TestCase):
@@ -27,20 +28,29 @@ class SavedDestinationsTest(unittest.TestCase):
     def test_toml_roundtrip_normalizes_and_preserves_other_destination(self):
         self.config.save(destination())
         self.config.save(destination("work"))
-        self.config.save(SavedDestination("home", "  New Home  ", "Another address", GeoPoint(0.8, -1.2)))
+        self.config.save(
+            SavedDestination("home", "  New Home  ", "Another address", GeoPoint(0.8, -1.2))
+        )
         home, work = self.config.load()
         self.assertEqual(home.label, "New Home")
         self.assertEqual(home.position, GeoPoint(0.8, -1.2))
         self.assertEqual(work.address, '123 "Main" St Testville')
         self.assertEqual(work.position, GeoPoint(0.7, -1.4))
         self.assertEqual(self.config.path.stat().st_mode & 0o777, 0o600)
-        self.assertIn('latitude_rad = 0.8', self.config.path.read_text())
+        self.assertIn("latitude_rad = 0.8", self.config.path.read_text())
 
     def test_invalid_coordinates_preserve_existing_bytes(self):
         self.config.save(destination())
         before = self.config.path.read_bytes()
-        for latitude, longitude in [(math.nan, 0), (0, math.inf), (math.pi, 0),
-                                    (0, 4), (True, 0), (10**1000, 0), ("0.7", 0)]:
+        for latitude, longitude in [
+            (math.nan, 0),
+            (0, math.inf),
+            (math.pi, 0),
+            (0, 4),
+            (True, 0),
+            (10**1000, 0),
+            ("0.7", 0),
+        ]:
             with self.subTest(latitude=latitude, longitude=longitude):
                 with self.assertRaises(ValueError):
                     self.config.save(destination(latitude=latitude, longitude=longitude))
@@ -52,8 +62,12 @@ class SavedDestinationsTest(unittest.TestCase):
         self.assertEqual(self.config.load(), (item,))
 
     def test_malformed_config_is_never_overwritten(self):
-        for invalid in ['version = 2', 'version = true', 'broken = [',
-                'version = 1\n[home]\nlabel = "Home"\naddress = "A"\nlatitude_rad = "0.5"\nlongitude_rad = 0.5']:
+        for invalid in [
+            "version = 2",
+            "version = true",
+            "broken = [",
+            'version = 1\n[home]\nlabel = "Home"\naddress = "A"\nlatitude_rad = "0.5"\nlongitude_rad = 0.5',
+        ]:
             with self.subTest(invalid=invalid):
                 self.config.path.write_text(invalid)
                 with self.assertRaises(ValueError):

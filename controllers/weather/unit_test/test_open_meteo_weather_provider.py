@@ -93,9 +93,7 @@ class _Session:
 def test_refresh_returns_typed_forecasts():
     session = _Session()
     provider = OpenMeteoWeatherProvider(session=session, clock=lambda: 123.0)
-    state = provider.refresh(
-        WeatherLocation(42.8028, -83.0127, "Romeo", "test")
-    )
+    state = provider.refresh(WeatherLocation(42.8028, -83.0127, "Romeo", "test"))
 
     assert state.fetched_at == 123.0
     assert state.current.condition is WeatherCondition.CLEAR

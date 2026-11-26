@@ -15,7 +15,6 @@ from development.maps.install_statewide_detail import install
 from development.maps.static_tile_trial import digest,write_json
 from apps.launchers.local_statewide_detail import StatewideDetailIndex,StatewideImagery,PagedTerrainCatalog
 from ui.navigation.local_terrain_state import LocalPagedTerrainState
-from apps.launchers.unit_test.test_cesium_viewer import server,state  # noqa: F401
 
 
 def test_statewide_plan_covers_reviewed_cities_and_stays_within_batch_limits():

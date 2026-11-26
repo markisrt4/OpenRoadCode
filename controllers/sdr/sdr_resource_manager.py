@@ -2,8 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 from dataclasses import dataclass
-from typing import Optional, Callable
-
+from typing import Callable, Optional
 
 StatusCallback = Optional[Callable[[str], None]]
 
@@ -11,6 +10,7 @@ StatusCallback = Optional[Callable[[str], None]]
 @dataclass
 class SDRResourceManager:
     """Coordinate advisory ownership of a shared SDR device."""
+
     current_owner: Optional[str] = None
 
     def acquire(

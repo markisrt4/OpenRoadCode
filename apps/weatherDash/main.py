@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-import math
 import os
 from datetime import datetime
 from pathlib import Path
@@ -17,7 +16,6 @@ from controllers.weather import (
     WeatherSnapshotCache,
 )
 
-
 REFRESH_SECONDS = 60
 CACHE_DIRECTORY = Path(
     os.getenv(
@@ -25,9 +23,7 @@ CACHE_DIRECTORY = Path(
         str(DEFAULT_WEATHER_CACHE_DIRECTORY),
     )
 ).expanduser()
-REFRESH_MAX_AGE_SECONDS = int(
-    os.getenv("OPENROAD_WEATHER_REFRESH_SECONDS", "120")
-)
+REFRESH_MAX_AGE_SECONDS = int(os.getenv("OPENROAD_WEATHER_REFRESH_SECONDS", "120"))
 
 st.set_page_config(
     page_title="OpenRoadCode Weather",
@@ -36,7 +32,8 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-st.markdown("""
+st.markdown(
+    """
 <style>
     header[data-testid="stHeader"] { display: none; }
     footer { display: none; }
@@ -125,22 +122,42 @@ st.markdown("""
         margin-top: 10px;
     }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 st_autorefresh(interval=REFRESH_SECONDS * 1000, key="weather_refresh")
 
 
 WMO_CODES = {
-    0: "☀️ Clear sky", 1: "🌤️ Mainly clear", 2: "⛅ Partly cloudy", 3: "☁️ Overcast",
-    45: "🌫️ Fog", 48: "🌫️ Rime fog", 51: "🌦️ Light drizzle", 53: "🌦️ Moderate drizzle",
-    55: "🌦️ Dense drizzle", 56: "🌧️ Freezing drizzle", 57: "🌧️ Dense freezing drizzle",
-    61: "🌧️ Slight rain", 63: "🌧️ Moderate rain", 65: "🌧️ Heavy rain",
-    66: "🌧️ Freezing rain", 67: "🌧️ Heavy freezing rain", 71: "🌨️ Slight snow",
-    73: "🌨️ Moderate snow", 75: "❄️ Heavy snow", 77: "🌨️ Snow grains",
-    80: "🌦️ Slight rain showers", 81: "🌦️ Moderate rain showers",
-    82: "⛈️ Violent rain showers", 85: "🌨️ Slight snow showers",
-    86: "🌨️ Heavy snow showers", 95: "⛈️ Thunderstorm",
-    96: "⛈️ Thunderstorm w/ hail", 99: "⛈️ Severe thunderstorm w/ hail",
+    0: "☀️ Clear sky",
+    1: "🌤️ Mainly clear",
+    2: "⛅ Partly cloudy",
+    3: "☁️ Overcast",
+    45: "🌫️ Fog",
+    48: "🌫️ Rime fog",
+    51: "🌦️ Light drizzle",
+    53: "🌦️ Moderate drizzle",
+    55: "🌦️ Dense drizzle",
+    56: "🌧️ Freezing drizzle",
+    57: "🌧️ Dense freezing drizzle",
+    61: "🌧️ Slight rain",
+    63: "🌧️ Moderate rain",
+    65: "🌧️ Heavy rain",
+    66: "🌧️ Freezing rain",
+    67: "🌧️ Heavy freezing rain",
+    71: "🌨️ Slight snow",
+    73: "🌨️ Moderate snow",
+    75: "❄️ Heavy snow",
+    77: "🌨️ Snow grains",
+    80: "🌦️ Slight rain showers",
+    81: "🌦️ Moderate rain showers",
+    82: "⛈️ Violent rain showers",
+    85: "🌨️ Slight snow showers",
+    86: "🌨️ Heavy snow showers",
+    95: "⛈️ Thunderstorm",
+    96: "⛈️ Thunderstorm w/ hail",
+    99: "⛈️ Severe thunderstorm w/ hail",
 }
 
 
@@ -167,9 +184,7 @@ try:
     weather_controller = OpenMeteoWeatherController(
         WeatherSnapshotCache(PersistentCache(CACHE_DIRECTORY))
     )
-    snapshot = weather_controller.refresh_if_stale(
-        REFRESH_MAX_AGE_SECONDS
-    )
+    snapshot = weather_controller.refresh_if_stale(REFRESH_MAX_AGE_SECONDS)
     lat = snapshot.latitude
     lon = snapshot.longitude
     pretty_location = snapshot.location_name
@@ -181,9 +196,7 @@ try:
 
     condition = WMO_CODES.get(current.get("weather_code"), f"Code {current.get('weather_code')}")
     wind_dir = wind_dir_from_degrees(current.get("wind_direction_10m"))
-    now_str = datetime.fromtimestamp(snapshot.fetched_at).strftime(
-        "%Y-%m-%d %H:%M:%S"
-    )
+    now_str = datetime.fromtimestamp(snapshot.fetched_at).strftime("%Y-%m-%d %H:%M:%S")
 
     st.markdown(
         f"""
@@ -233,7 +246,9 @@ try:
         chart_data = {
             "Time": hour_labels,
             "Temp °F": [round((c * 9 / 5) + 32, 1) for c in hourly["temperature_2m"][:24]],
-            "Feels Like °F": [round((c * 9 / 5) + 32, 1) for c in hourly["apparent_temperature"][:24]],
+            "Feels Like °F": [
+                round((c * 9 / 5) + 32, 1) for c in hourly["apparent_temperature"][:24]
+            ],
             "Rain %": hourly["precipitation_probability"][:24],
             "Cloud %": hourly["cloud_cover"][:24],
             "Wind mph": [round(v * 0.621371, 1) for v in hourly["wind_speed_10m"][:24]],
@@ -246,23 +261,29 @@ try:
     with tab_extended:
         rows = []
         for i in range(len(daily["time"])):
-            rows.append({
-                "Date": daily["time"][i],
-                "Condition": WMO_CODES.get(daily["weather_code"][i], f"Code {daily['weather_code'][i]}"),
-                "High": f"{(daily['temperature_2m_max'][i] * 9 / 5) + 32:.1f}°F",
-                "Low": f"{(daily['temperature_2m_min'][i] * 9 / 5) + 32:.1f}°F",
-                "Rain Chance": f"{daily['precipitation_probability_max'][i]}%",
-                "Max Wind": kmh_to_mph(daily["wind_speed_10m_max"][i]),
-                "Sunrise": daily["sunrise"][i].split("T")[1],
-                "Sunset": daily["sunset"][i].split("T")[1],
-            })
+            rows.append(
+                {
+                    "Date": daily["time"][i],
+                    "Condition": WMO_CODES.get(
+                        daily["weather_code"][i], f"Code {daily['weather_code'][i]}"
+                    ),
+                    "High": f"{(daily['temperature_2m_max'][i] * 9 / 5) + 32:.1f}°F",
+                    "Low": f"{(daily['temperature_2m_min'][i] * 9 / 5) + 32:.1f}°F",
+                    "Rain Chance": f"{daily['precipitation_probability_max'][i]}%",
+                    "Max Wind": kmh_to_mph(daily["wind_speed_10m_max"][i]),
+                    "Sunrise": daily["sunrise"][i].split("T")[1],
+                    "Sunset": daily["sunset"][i].split("T")[1],
+                }
+            )
 
         st.dataframe(rows, use_container_width=True, hide_index=True)
 
     with tab_radar:
-        radar_url = f"https://radar.weather.gov/?settings=v1_eyJhZ2VuZGEiOiJsb2NhbCJ9#/@{lat},{lon},9z"
+        radar_url = (
+            f"https://radar.weather.gov/?settings=v1_eyJhZ2VuZGEiOiJsb2NhbCJ9#/@{lat},{lon},9z"
+        )
         st.markdown(
-            f"""
+            """
             <div class="radar-card">
                 <h3>Local Weather Radar</h3>
                 <p>Open NOAA radar centered near your current position.</p>

@@ -57,10 +57,7 @@ def _distance_m(a: tuple[float, float], b: tuple[float, float]) -> float:
     lat2, lon2 = map(math.radians, b)
     dlat = lat2 - lat1
     dlon = lon2 - lon1
-    h = (
-        math.sin(dlat / 2.0) ** 2
-        + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2.0) ** 2
-    )
+    h = math.sin(dlat / 2.0) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2.0) ** 2
     return 2.0 * _EARTH_RADIUS_M * math.asin(min(1.0, math.sqrt(h)))
 
 
@@ -69,10 +66,7 @@ def _bearing_deg(a: tuple[float, float], b: tuple[float, float]) -> float:
     lat2, lon2 = map(math.radians, b)
     dlon = lon2 - lon1
     y = math.sin(dlon) * math.cos(lat2)
-    x = (
-        math.cos(lat1) * math.sin(lat2)
-        - math.sin(lat1) * math.cos(lat2) * math.cos(dlon)
-    )
+    x = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(dlon)
     return math.degrees(math.atan2(y, x)) % 360.0
 
 

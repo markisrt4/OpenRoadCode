@@ -4,8 +4,8 @@
 from __future__ import annotations
 
 import unittest
-from unittest.mock import Mock
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 from apps.launchers.google_earth_launcher import GoogleEarthLauncher
 
@@ -19,8 +19,12 @@ class GoogleEarthPreloadTests(unittest.TestCase):
         self.launcher = GoogleEarthLauncher(browser=self.browser)
 
     def test_earth_keeps_chromium_default_gpu_backend(self) -> None:
-        self.assertFalse(any(argument.startswith(("--use-gl=", "--use-angle="))
-                             for argument in self.browser.extra_arguments))
+        self.assertFalse(
+            any(
+                argument.startswith(("--use-gl=", "--use-angle="))
+                for argument in self.browser.extra_arguments
+            )
+        )
 
     def test_explicit_gpu_choice_is_preserved(self) -> None:
         self.browser.extra_arguments = ("--use-angle=vulkan",)
@@ -59,9 +63,7 @@ class GoogleEarthPreloadTests(unittest.TestCase):
 
     def test_location_is_delegated_to_browser(self) -> None:
         self.launcher.set_location(42.0, -83.0)
-        self.browser.set_url.assert_called_once_with(
-            GoogleEarthLauncher._location_url(42.0, -83.0)
-        )
+        self.browser.set_url.assert_called_once_with(GoogleEarthLauncher._location_url(42.0, -83.0))
 
     def test_show_of_prepared_shell_loads_earth_for_nonembedded_clients(self):
         self.launcher.prepare(":1")
@@ -71,7 +73,8 @@ class GoogleEarthPreloadTests(unittest.TestCase):
         self.launcher._devtools.command.return_value = {}
         self.launcher.show(":1")
         self.launcher._devtools.command.assert_called_once_with(
-            target, "Page.navigate", {"url": self.browser.url})
+            target, "Page.navigate", {"url": self.browser.url}
+        )
 
 
 if __name__ == "__main__":

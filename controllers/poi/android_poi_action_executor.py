@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from controllers.poi.business_provider_catalog import get_business_provider
 from controllers.poi.poi_action_executor_if import PoiActionExecutorIf
-from ui.navigation.poi_models import (PoiAction, PoiActionKind, PointOfInterest)
+from ui.navigation.poi_models import PoiAction, PoiActionKind, PointOfInterest
 
 
 class AndroidPoiActionExecutor(PoiActionExecutorIf):
@@ -15,7 +15,7 @@ class AndroidPoiActionExecutor(PoiActionExecutorIf):
 
     def __init__(self, launcher=None) -> None:
         if launcher is None:
-            raise ValueError('A platform launcher must be injected')
+            raise ValueError("A platform launcher must be injected")
         self._launcher = launcher
 
     def execute(self, poi: PointOfInterest, action: PoiAction) -> str:

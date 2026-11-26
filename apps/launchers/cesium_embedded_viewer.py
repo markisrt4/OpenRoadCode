@@ -1,14 +1,14 @@
 """Own a local Cesium browser surface hosted in an ORC X11 map window."""
 
-from contextlib import ExitStack
-from dataclasses import replace
-import os
 import json
-from pathlib import Path
+import os
 import re
-from tempfile import TemporaryDirectory
 import time
 import uuid
+from contextlib import ExitStack
+from dataclasses import replace
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from apps.launchers.browser_launcher import BrowserKioskLauncher
 from apps.launchers.cesium_sdk import sdk_directory
@@ -23,42 +23,48 @@ from apps.launchers.local_road_overlay import LocalRoadOverlay
 from common.logging.logging_paths import logging_file_path
 from frontends.x11.x11_window_embedder import X11WindowEmbedder
 from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
+from ui.navigation import GeoPoint
 from ui.navigation.map_platform_if import ExplorationCameraAction
 from ui.navigation.poi_overlay_state import PoiOverlayState
 from ui.navigation.route_overlay_state import RouteOverlayState
-from ui.navigation import GeoPoint
 from ui.navigation.map_layer_controls import MapLayerAction, MapLayerControl, MapLayerControls
 
 
 def _diagnostic(stage, **details):
     """Append and flush launch evidence before advancing a potentially fatal stage."""
     try:
-        with logging_file_path('openroadcode','cesium-stages.log').open('a',encoding='utf-8') as log:
-            log.write(json.dumps({'time':time.time(),'stage':stage,**details})+'\n')
+        with logging_file_path("openroadcode", "cesium-stages.log").open(
+            "a", encoding="utf-8"
+        ) as log:
+            log.write(json.dumps({"time": time.time(), "stage": stage, **details}) + "\n")
             log.flush()
-    except (OSError,TypeError,ValueError):
+    except (OSError, TypeError, ValueError):
         pass  # Diagnostic storage must not prevent rendering or cleanup.
 
 
 def _rendering_arguments():
     """Opt-in diagnostic path; retain the default graphics backend otherwise."""
-    mode = os.environ.get('OPENROAD_CESIUM_RENDERER', 'default')
-    if mode == 'default':
+    mode = os.environ.get("OPENROAD_CESIUM_RENDERER", "default")
+    if mode == "default":
         return ()
-    if mode == 'hardware-override':
-        return ('--ignore-gpu-blocklist',)
-    if mode == 'software':
-        return ('--use-gl=angle', '--use-angle=swiftshader',
-                '--enable-unsafe-swiftshader', '--disable-gpu-compositing',
-                '--disable-features=Vulkan')
-    raise ValueError('OPENROAD_CESIUM_RENDERER must be default, hardware-override or software')
+    if mode == "hardware-override":
+        return ("--ignore-gpu-blocklist",)
+    if mode == "software":
+        return (
+            "--use-gl=angle",
+            "--use-angle=swiftshader",
+            "--enable-unsafe-swiftshader",
+            "--disable-gpu-compositing",
+            "--disable-features=Vulkan",
+        )
+    raise ValueError("OPENROAD_CESIUM_RENDERER must be default, hardware-override or software")
 
 
 class CesiumEmbeddedViewer:
     """Worker-owned browser, local HTTP origin, profile and native surface."""
 
     def __init__(self, *, embedder=None):
-        self._embedder = embedder or X11WindowEmbedder(timeout_seconds=.5)
+        self._embedder = embedder or X11WindowEmbedder(timeout_seconds=0.5)
         self._resources = None
         self._browser = None
         self._server = None
@@ -71,10 +77,14 @@ class CesiumEmbeddedViewer:
 
     def open(self, state, parent_window_id, size, current=lambda: True):
         self.close()
-        _diagnostic('launch-request',renderer=os.environ.get('OPENROAD_CESIUM_RENDERER','default'),
-                    flags=_rendering_arguments(),size=size)
+        _diagnostic(
+            "launch-request",
+            renderer=os.environ.get("OPENROAD_CESIUM_RENDERER", "default"),
+            flags=_rendering_arguments(),
+            size=size,
+        )
         if not self._embedder.supported():
-            raise RuntimeError('xdotool is required for the embedded 3D map')
+            raise RuntimeError("xdotool is required for the embedded 3D map")
         if not current():
             return
         imagery_layers = load_imagery_stack()
@@ -85,107 +95,127 @@ class CesiumEmbeddedViewer:
         imagery = LocalImageryPack.load(imagery_dir) if not imagery_layers and imagery_dir.exists() and (tiles is None or not any(t.imagery_available for t in tiles.state.tiles)) else None
         terrain = load_installed_terrain_catalog()
         buildings = load_buildings(building_dir) if tiles is None and building_dir.exists() else None
-        roads = LocalRoadOverlay.installed()
         display = os.environ.get('DISPLAY', ':1')
         resources = ExitStack()
         try:
             server = CesiumViewerServer(sdk_directory(), replace(state, embedded=True),
                                        imagery=imagery, imagery_layers=imagery_layers, imagery_pyramids=installed_imagery_pyramids(), terrain=terrain,
-                                       buildings=buildings, tiles=tiles, roads=roads,
+                                       buildings=buildings, tiles=tiles, roads=LocalRoadOverlay.installed(),
                                        boundaries=load_state_boundary_overlay())
             resources.callback(server.close)
-            profile = resources.enter_context(TemporaryDirectory(prefix='orc-cesium-embedded-'))
-            window_class = 'orc-cesium-'+uuid.uuid4().hex
-            startup_url = server.url+'embedded-start.html'
-            browser = BrowserKioskLauncher(url=startup_url, profile_path=profile,
-                process_pattern=re.escape(profile), kiosk=False, app_mode=True,
-                window_position=(-20000,-20000), window_size=size,
-                window_class=window_class, startup_grace_seconds=.2,
-                extra_arguments=('--no-first-run','--no-default-browser-check',
-                    '--remote-debugging-port=0','--remote-debugging-address=127.0.0.1')+_rendering_arguments(),
-                log_file=logging_file_path('openroadcode','cesium-embedded.log'))
+            profile = resources.enter_context(TemporaryDirectory(prefix="orc-cesium-embedded-"))
+            window_class = "orc-cesium-" + uuid.uuid4().hex
+            startup_url = server.url + "embedded-start.html"
+            browser = BrowserKioskLauncher(
+                url=startup_url,
+                profile_path=profile,
+                process_pattern=re.escape(profile),
+                kiosk=False,
+                app_mode=True,
+                window_position=(-20000, -20000),
+                window_size=size,
+                window_class=window_class,
+                startup_grace_seconds=0.2,
+                extra_arguments=(
+                    "--no-first-run",
+                    "--no-default-browser-check",
+                    "--remote-debugging-port=0",
+                    "--remote-debugging-address=127.0.0.1",
+                )
+                + _rendering_arguments(),
+                log_file=logging_file_path("openroadcode", "cesium-embedded.log"),
+            )
             resources.callback(browser.stop, display, None, owned_process_only=True)
             server.start()
             if not current():
                 resources.close()
                 return
-            _diagnostic('browser-launch')
+            _diagnostic("browser-launch")
             browser.launch(display, None)
-            deadline = time.monotonic()+10
-            while current() and time.monotonic()<deadline:
+            deadline = time.monotonic() + 10
+            while current() and time.monotonic() < deadline:
                 if not browser.is_running():
-                    raise RuntimeError('Embedded Chromium exited during startup')
+                    raise RuntimeError("Embedded Chromium exited during startup")
                 try:
-                    self._embedder.embed(0,parent_window_id,*size,window_class=window_class,relax_size_hints=True)
+                    self._embedder.embed(
+                        0, parent_window_id, *size, window_class=window_class, relax_size_hints=True
+                    )
                     break
                 except RuntimeError:
-                    time.sleep(.05)
+                    time.sleep(0.05)
             else:
                 if current():
-                    raise RuntimeError('Timed out attaching Chromium to the map area')
+                    raise RuntimeError("Timed out attaching Chromium to the map area")
                 resources.close()
                 self._embedder.clear()
                 return
-            _diagnostic('window-attached')
+            _diagnostic("window-attached")
             # Navigate only after attachment: no live WebGL surface is reparented.
-            deadline = time.monotonic()+10
-            last_status = 'waiting for Chromium DevToolsActivePort'
-            port_file = Path(profile)/'DevToolsActivePort'
-            while current() and time.monotonic()<deadline:
+            deadline = time.monotonic() + 10
+            last_status = "waiting for Chromium DevToolsActivePort"
+            port_file = Path(profile) / "DevToolsActivePort"
+            while current() and time.monotonic() < deadline:
                 try:
                     port = int(port_file.read_text().splitlines()[0])
-                    last_status = 'waiting for the local Chromium startup page'
+                    last_status = "waiting for the local Chromium startup page"
                     devtools = ChromiumDevToolsClient(port=port)
-                    target = next((item for item in devtools.targets() if item.url == startup_url), None)
+                    target = next(
+                        (item for item in devtools.targets() if item.url == startup_url), None
+                    )
                     if target is not None:
-                        _diagnostic('graphics-info-request')
+                        _diagnostic("graphics-info-request")
                         try:
                             info = devtools.system_info()
-                            gpu = info.get('gpu',{})
-                            _diagnostic('graphics-info',gpu=gpu)
-                        except (OSError,RuntimeError,ValueError) as error:
-                            _diagnostic('graphics-info-unavailable',error=str(error))
-                        _diagnostic('terrain-navigation')
-                        result = devtools.command(target,'Page.navigate',{'url':server.url})
-                        if result.get('errorText'):
-                            raise RuntimeError(result['errorText'])
+                            gpu = info.get("gpu", {})
+                            _diagnostic("graphics-info", gpu=gpu)
+                        except (OSError, RuntimeError, ValueError) as error:
+                            _diagnostic("graphics-info-unavailable", error=str(error))
+                        _diagnostic("terrain-navigation")
+                        result = devtools.command(target, "Page.navigate", {"url": server.url})
+                        if result.get("errorText"):
+                            raise RuntimeError(result["errorText"])
                         break
                 except (OSError, ValueError, IndexError) as error:
                     last_status = str(error)
-                time.sleep(.05)
+                time.sleep(0.05)
             else:
                 if current():
-                    raise RuntimeError(f'Timed out loading the embedded 3D map: {last_status}')
+                    raise RuntimeError(f"Timed out loading the embedded 3D map: {last_status}")
                 resources.close()
                 self._embedder.clear()
                 return
             last_stage = None
-            _diagnostic('waiting-first-frame')
-            deadline = time.monotonic()+45
-            while current() and time.monotonic()<deadline:
+            _diagnostic("waiting-first-frame")
+            deadline = time.monotonic() + 45
+            while current() and time.monotonic() < deadline:
                 if not browser.is_running():
-                    raise RuntimeError('Embedded Chromium exited while rendering the map')
+                    raise RuntimeError("Embedded Chromium exited while rendering the map")
                 try:
-                    result = devtools.command(target, 'Runtime.evaluate', {
-                        'expression':'({ready: window.ORCViewerReady === true, error: window.ORCViewerError || null, stage: window.ORCViewerStage || null})',
-                        'returnByValue':True})
+                    result = devtools.command(
+                        target,
+                        "Runtime.evaluate",
+                        {
+                            "expression": "({ready: window.ORCViewerReady === true, error: window.ORCViewerError || null, stage: window.ORCViewerStage || null})",
+                            "returnByValue": True,
+                        },
+                    )
                 except (OSError, RuntimeError):
                     # Navigation can briefly destroy the execution context.
-                    time.sleep(.1)
+                    time.sleep(0.1)
                     continue
-                observed = result.get('result', {}).get('value', {})
-                if observed.get('stage') != last_stage:
-                    last_stage = observed.get('stage')
-                    _diagnostic('page-stage',value=last_stage)
-                if observed.get('error'):
+                observed = result.get("result", {}).get("value", {})
+                if observed.get("stage") != last_stage:
+                    last_stage = observed.get("stage")
+                    _diagnostic("page-stage", value=last_stage)
+                if observed.get("error"):
                     raise RuntimeError(f"3D rendering failed: {observed['error']}")
-                if observed.get('ready'):
-                    _diagnostic('first-frame-ready')
+                if observed.get("ready"):
+                    _diagnostic("first-frame-ready")
                     break
-                time.sleep(.1)
+                time.sleep(0.1)
             else:
                 if current():
-                    raise RuntimeError('Timed out waiting for the first 3D map frame')
+                    raise RuntimeError("Timed out waiting for the first 3D map frame")
             if not current():
                 resources.close()
                 self._embedder.clear()
@@ -194,7 +224,7 @@ class CesiumEmbeddedViewer:
             self._size = size
             self._devtools, self._target = devtools, target
         except Exception as error:
-            _diagnostic('startup-failed',error=str(error))
+            _diagnostic("startup-failed", error=str(error))
             try:
                 resources.close()
             finally:
@@ -204,11 +234,17 @@ class CesiumEmbeddedViewer:
     def request_camera(self, action):
         action = ExplorationCameraAction(action)
         if self._devtools is None:
-            raise RuntimeError('3D camera is not ready')
-        result = self._devtools.command(self._target, 'Runtime.evaluate', {
-            'expression':f'window.ORCExplorationCamera({json.dumps(action.value)})', 'returnByValue':True})
-        if result.get('exceptionDetails') or result.get('result', {}).get('value') is not True:
-            raise RuntimeError('3D camera rejected the requested action')
+            raise RuntimeError("3D camera is not ready")
+        result = self._devtools.command(
+            self._target,
+            "Runtime.evaluate",
+            {
+                "expression": f"window.ORCExplorationCamera({json.dumps(action.value)})",
+                "returnByValue": True,
+            },
+        )
+        if result.get("exceptionDetails") or result.get("result", {}).get("value") is not True:
+            raise RuntimeError("3D camera rejected the requested action")
 
     def request_layer(self, action):
         action = MapLayerAction(action)
@@ -221,11 +257,11 @@ class CesiumEmbeddedViewer:
 
     def tick(self, size):
         if self._server is None or self._browser is None:
-            raise RuntimeError('Embedded 3D map is not running')
+            raise RuntimeError("Embedded 3D map is not running")
         if self._server.close_requested.is_set():
             return False
         if not self._browser.is_running():
-            raise RuntimeError('Embedded Chromium exited')
+            raise RuntimeError("Embedded Chromium exited")
         if size != self._size:
             self._embedder.resize(*size)
             self._size = size
@@ -240,7 +276,7 @@ class CesiumEmbeddedViewer:
         if type(revision) is int and revision != self._manual_revision:
             self._manual_pending = True
             self._manual_revision = revision
-        marker_id = value.get('poi')
+        marker_id = value.get("poi")
         if isinstance(marker_id, str) and marker_id:
             self._poi_selection = marker_id
         return True
@@ -255,38 +291,56 @@ class CesiumEmbeddedViewer:
 
     def update_position(self, position, follow_enabled):
         if self._devtools is None:
-            raise RuntimeError('3D vehicle tracking is not ready')
+            raise RuntimeError("3D vehicle tracking is not ready")
         if position is not None and not isinstance(position, GeoPoint):
-            raise TypeError('Vehicle tracking requires an SI GeoPoint')
-        document = None if position is None else {
-            'latitude_rad':position.latitude_rad, 'longitude_rad':position.longitude_rad}
-        result = self._devtools.command(self._target, 'Runtime.evaluate', {
-            'expression':f'window.ORCUpdateVehicle({json.dumps(document)}, {json.dumps(follow_enabled)})',
-            'returnByValue':True})
-        if result.get('exceptionDetails') or result.get('result', {}).get('value') is not True:
-            raise RuntimeError('3D vehicle tracking rejected the update')
+            raise TypeError("Vehicle tracking requires an SI GeoPoint")
+        document = (
+            None
+            if position is None
+            else {"latitude_rad": position.latitude_rad, "longitude_rad": position.longitude_rad}
+        )
+        result = self._devtools.command(
+            self._target,
+            "Runtime.evaluate",
+            {
+                "expression": f"window.ORCUpdateVehicle({json.dumps(document)}, {json.dumps(follow_enabled)})",
+                "returnByValue": True,
+            },
+        )
+        if result.get("exceptionDetails") or result.get("result", {}).get("value") is not True:
+            raise RuntimeError("3D vehicle tracking rejected the update")
 
     def update_poi_overlay(self, state):
         if self._devtools is None:
-            raise RuntimeError('3D POI overlay is not ready')
+            raise RuntimeError("3D POI overlay is not ready")
         if not isinstance(state, PoiOverlayState):
-            raise TypeError('3D POI overlay requires PoiOverlayState')
-        result = self._devtools.command(self._target, 'Runtime.evaluate', {
-            'expression':f'window.ORCUpdatePois({json.dumps(state.document())})',
-            'returnByValue':True})
-        if result.get('exceptionDetails') or result.get('result', {}).get('value') is not True:
-            raise RuntimeError('3D POI overlay rejected the update')
+            raise TypeError("3D POI overlay requires PoiOverlayState")
+        result = self._devtools.command(
+            self._target,
+            "Runtime.evaluate",
+            {
+                "expression": f"window.ORCUpdatePois({json.dumps(state.document())})",
+                "returnByValue": True,
+            },
+        )
+        if result.get("exceptionDetails") or result.get("result", {}).get("value") is not True:
+            raise RuntimeError("3D POI overlay rejected the update")
 
     def update_route_overlay(self, state):
         if self._devtools is None:
-            raise RuntimeError('3D route overlay is not ready')
+            raise RuntimeError("3D route overlay is not ready")
         if not isinstance(state, RouteOverlayState):
-            raise TypeError('3D route overlay requires RouteOverlayState')
-        result = self._devtools.command(self._target, 'Runtime.evaluate', {
-            'expression':f'window.ORCUpdateRoute({json.dumps(state.document())})',
-            'returnByValue':True})
-        if result.get('exceptionDetails') or result.get('result', {}).get('value') is not True:
-            raise RuntimeError('3D route overlay rejected the update')
+            raise TypeError("3D route overlay requires RouteOverlayState")
+        result = self._devtools.command(
+            self._target,
+            "Runtime.evaluate",
+            {
+                "expression": f"window.ORCUpdateRoute({json.dumps(state.document())})",
+                "returnByValue": True,
+            },
+        )
+        if result.get("exceptionDetails") or result.get("result", {}).get("value") is not True:
+            raise RuntimeError("3D route overlay rejected the update")
 
     def close(self):
         resources, self._resources = self._resources, None

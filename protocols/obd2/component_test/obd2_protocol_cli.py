@@ -50,11 +50,18 @@ def main() -> None:
     _close(ControlModuleVoltagePid().decode(bytes.fromhex("3039")), 12.345)
 
     decoders = (
-        EngineLoadPid(), EngineRpmPid(), VehicleSpeedPid(),
-        IntakeManifoldPressurePid(), BarometricPressurePid(),
-        ThrottlePositionPid(), AcceleratorPedalPositionPid(),
-        CoolantTempPid(), IntakeAirTempPid(), MassAirFlowPid(),
-        FuelLevelPid(), ControlModuleVoltagePid(),
+        EngineLoadPid(),
+        EngineRpmPid(),
+        VehicleSpeedPid(),
+        IntakeManifoldPressurePid(),
+        BarometricPressurePid(),
+        ThrottlePositionPid(),
+        AcceleratorPedalPositionPid(),
+        CoolantTempPid(),
+        IntakeAirTempPid(),
+        MassAirFlowPid(),
+        FuelLevelPid(),
+        ControlModuleVoltagePid(),
     )
     for decoder in decoders:
         assert decoder.mode == 0x01

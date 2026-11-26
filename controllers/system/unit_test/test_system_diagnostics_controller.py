@@ -6,8 +6,8 @@
 from __future__ import annotations
 
 import tempfile
-from collections import namedtuple
 import unittest
+from collections import namedtuple
 from pathlib import Path
 from unittest.mock import patch
 
@@ -26,19 +26,12 @@ class SystemDiagnosticsControllerTest(unittest.TestCase):
             thermal.mkdir(parents=True)
             (thermal / "type").write_text("cpu-thermal")
             frequency = (
-                sys_root
-                / "devices"
-                / "system"
-                / "cpu"
-                / "cpu0"
-                / "cpufreq"
-                / "scaling_cur_freq"
+                sys_root / "devices" / "system" / "cpu" / "cpu0" / "cpufreq" / "scaling_cur_freq"
             )
             frequency.parent.mkdir(parents=True)
 
             (proc / "stat").write_text(
-                "cpu 100 0 100 800 0 0 0 0 0 0\n"
-                "cpu0 25 0 25 200 0 0 0 0 0 0\n",
+                "cpu 100 0 100 800 0 0 0 0 0 0\ncpu0 25 0 25 200 0 0 0 0 0 0\n",
                 encoding="utf-8",
             )
             (proc / "meminfo").write_text(
@@ -80,8 +73,7 @@ class SystemDiagnosticsControllerTest(unittest.TestCase):
                 self.assertIsNone(first.cpu_percent)
 
                 (proc / "stat").write_text(
-                    "cpu 200 0 200 900 0 0 0 0 0 0\n"
-                    "cpu0 50 0 50 225 0 0 0 0 0 0\n",
+                    "cpu 200 0 200 900 0 0 0 0 0 0\ncpu0 50 0 50 225 0 0 0 0 0 0\n",
                     encoding="utf-8",
                 )
                 second = controller.snapshot()
@@ -110,13 +102,11 @@ class SystemDiagnosticsControllerTest(unittest.TestCase):
             root = Path(directory)
             controller = SystemDiagnosticsController(proc_root=root)
             (root / "stat").write_text(
-                "cpu 100 0 0 100 0 0 0 0 50 0\n"
-                "cpu10 100 0 0 100\ncpu2 100 0 0 100\n"
+                "cpu 100 0 0 100 0 0 0 0 50 0\ncpu10 100 0 0 100\ncpu2 100 0 0 100\n"
             )
             controller._read_cpu_percentages()
             (root / "stat").write_text(
-                "cpu 200 0 0 200 0 0 0 0 100 0\n"
-                "cpu10 150 0 0 150\ncpu2 200 0 0 100\n"
+                "cpu 200 0 0 200 0 0 0 0 100 0\ncpu10 150 0 0 150\ncpu2 200 0 0 100\n"
             )
             total, cores = controller._read_cpu_percentages()
             self.assertEqual(total, 50)
@@ -125,7 +115,10 @@ class SystemDiagnosticsControllerTest(unittest.TestCase):
     def test_io_rates_ignore_counter_resets_and_new_interfaces(self):
         controller = SystemDiagnosticsController()
         self.assertEqual(controller._rates("network", {"eth0": (100, 200)}, 10), (None, None))
-        self.assertEqual(controller._rates("network", {"eth0": (300, 600), "wlan0": (9999, 9999)}, 12), (100, 200))
+        self.assertEqual(
+            controller._rates("network", {"eth0": (300, 600), "wlan0": (9999, 9999)}, 12),
+            (100, 200),
+        )
         self.assertEqual(controller._rates("network", {"eth0": (0, 0)}, 13), (None, None))
         self.assertEqual(controller._rates("network", None, 14), (None, None))
         self.assertEqual(controller._rates("network", {"eth0": (100, 100)}, 15), (None, None))
@@ -169,7 +162,10 @@ class SystemDiagnosticsControllerTest(unittest.TestCase):
             model.write_text("Raspberry Pi 5 Model B")
             controller = SystemDiagnosticsController(sys_root=root)
             self.assertEqual(controller._read_thermal_limit_c(), 85)
-            with patch("controllers.system.system_diagnostics_controller.subprocess.run", side_effect=FileNotFoundError):
+            with patch(
+                "controllers.system.system_diagnostics_controller.subprocess.run",
+                side_effect=FileNotFoundError,
+            ):
                 self.assertIsNone(controller._read_throttled_flags())
 
     def test_blocked_host_cpu_is_explained_and_does_not_replace_process_cpu(self):
@@ -188,17 +184,23 @@ class SystemDiagnosticsControllerTest(unittest.TestCase):
         self.assertIsNone(controller._read_process_cpu_percent(12))
 
     def test_termux_storage_defaults_to_data_filesystem_and_explicit_override_wins(self):
-        with patch.dict("os.environ", {"TERMUX_VERSION": "0.118", "PREFIX": "/data/data/com.termux/files/usr"}):
+        with patch.dict(
+            "os.environ", {"TERMUX_VERSION": "0.118", "PREFIX": "/data/data/com.termux/files/usr"}
+        ):
             controller = SystemDiagnosticsController()
             self.assertEqual(controller._disk_path, Path.home())
-            self.assertEqual(SystemDiagnosticsController(disk_path="/mnt/data")._disk_path, Path("/mnt/data"))
+            self.assertEqual(
+                SystemDiagnosticsController(disk_path="/mnt/data")._disk_path, Path("/mnt/data")
+            )
         with patch.dict("os.environ", {"TERMUX_VERSION": "", "PREFIX": "/usr"}):
             self.assertEqual(SystemDiagnosticsController()._disk_path, Path("/"))
 
     def test_storage_usage_excludes_reserved_free_blocks(self):
         usage = namedtuple("Usage", "total used free")(1000, 700, 250)
         controller = SystemDiagnosticsController()
-        with patch("controllers.system.system_diagnostics_controller.shutil.disk_usage", return_value=usage):
+        with patch(
+            "controllers.system.system_diagnostics_controller.shutil.disk_usage", return_value=usage
+        ):
             self.assertEqual(controller._read_disk(), (1000, 700, 250))
             sample = controller.snapshot()
         self.assertEqual(sample.disk_used_percent, 70)
@@ -206,7 +208,10 @@ class SystemDiagnosticsControllerTest(unittest.TestCase):
     def test_thermal_headroom_uses_hottest_sensors_own_trip_points(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for name, temperature, limit in (("thermal_zone0", 90000, 110000), ("thermal_zone1", 40000, 50000)):
+            for name, temperature, limit in (
+                ("thermal_zone0", 90000, 110000),
+                ("thermal_zone1", 40000, 50000),
+            ):
                 zone = root / "class/thermal" / name
                 zone.mkdir(parents=True)
                 (zone / "type").write_text("cpu-thermal")
@@ -231,8 +236,10 @@ class SystemDiagnosticsControllerTest(unittest.TestCase):
     def test_android_ignores_anonymous_and_virtual_hot_zones(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for name, kind, temperature in (("thermal_zone0", "cpu-thermal", 45000),
-                                            ("thermal_zone57", "virtual-policy", 105000)):
+            for name, kind, temperature in (
+                ("thermal_zone0", "cpu-thermal", 45000),
+                ("thermal_zone57", "virtual-policy", 105000),
+            ):
                 zone = root / "class/thermal" / name
                 zone.mkdir(parents=True)
                 (zone / "type").write_text(kind)

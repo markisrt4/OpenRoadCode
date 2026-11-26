@@ -377,7 +377,11 @@ structured logging, before compiling. It requires the existing
 `build_navigation_stack.sh`. Compilation must succeed before the installed
 executable is replaced. No map-data download is needed.
 
-### Existing SDR++ build compatibility
+### Native SDRForge radio
+
+Install with the `sdrforge` feature. Android grants USB permission and hands off the device to the native Termux RF service. ORC consumes REST on port 5570, ZeroMQ on 5571 and Rigctl on 4532. No Debian proot RF build is required.
+
+### Legacy SDR++ build compatibility
 
 The launcher forwards `PULSE_SERVER` into Debian, defaulting to
 `tcp:127.0.0.1:4713`. The Termux PulseAudio bridge must be running and listening

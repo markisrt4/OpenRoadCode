@@ -22,8 +22,12 @@ class MapFavorites:
 
     CACHE_KEY = "map-favorites-v1"
 
-    def __init__(self, storage: PersistentCacheIf | None = None, *,
-                 destinations: SavedDestinationsConfig | None = None) -> None:
+    def __init__(
+        self,
+        storage: PersistentCacheIf | None = None,
+        *,
+        destinations: SavedDestinationsConfig | None = None,
+    ) -> None:
         self._destinations = destinations
         if storage is None and destinations is None:
             self._destinations = SavedDestinationsConfig()
@@ -61,7 +65,8 @@ class MapFavorites:
             if not isinstance(raw_favorites, list):
                 raise ValueError("favorites must be a list")
             self._favorites = tuple(
-                favorite for record in raw_favorites
+                favorite
+                for record in raw_favorites
                 if (favorite := _favorite_from_record(record)) is not None
             )
         if self._destinations is not None:
@@ -130,6 +135,7 @@ def _record(favorite: MapFavorite | None) -> dict[str, object] | None:
     if favorite is None:
         return None
     import math
+
     return {
         "id": favorite.favorite_id,
         "name": favorite.name,
@@ -151,9 +157,15 @@ def _favorite_from_record(record: object) -> MapFavorite | None:
         longitude = float(record["longitude"])
     except (KeyError, TypeError, ValueError) as error:
         raise ValueError("invalid map favorite") from error
-    if not favorite_id or not name or not -90.0 <= latitude <= 90.0 or not -180.0 <= longitude <= 180.0:
+    if (
+        not favorite_id
+        or not name
+        or not -90.0 <= latitude <= 90.0
+        or not -180.0 <= longitude <= 180.0
+    ):
         raise ValueError("invalid map favorite")
     import math
+
     return MapFavorite(
         favorite_id,
         name,

@@ -14,8 +14,9 @@ from .magnetic_field_state_message import MagneticFieldStateMessage, MagneticFie
 from .magnetic_field_state_validator import SCHEMA_VERSION, validate_magnetic_field_state
 
 
-def encode_magnetic_field_state(*, timestamp: Mapping[str, int], source: str,
-                                magnetic_field_ut: Mapping[str, float]) -> dict[str, Any]:
+def encode_magnetic_field_state(
+    *, timestamp: Mapping[str, int], source: str, magnetic_field_ut: Mapping[str, float]
+) -> dict[str, Any]:
     validate_timestamp(timestamp)
     payload = {
         "version": SCHEMA_VERSION,

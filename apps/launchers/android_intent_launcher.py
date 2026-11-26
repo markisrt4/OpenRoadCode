@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Launch native Android packages and URIs from a Termux-hosted ORC process."""
+
 from __future__ import annotations
 
 import shutil

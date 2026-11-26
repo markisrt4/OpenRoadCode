@@ -21,11 +21,17 @@ class SpotifyScreenTest(unittest.TestCase):
     @patch("frontends.tk.media.spotify_screen.SpotifyVideoOverlay")
     @patch("frontends.tk.media.spotify_screen.tk.Frame")
     @patch("frontends.tk.media.spotify_screen.SpotifyPlaybackPanel")
-    def test_show_binds_painted_view_and_hide_retires_session(self, panel_type, frame_type, overlay_type):
+    def test_show_binds_painted_view_and_hide_retires_session(
+        self, panel_type, frame_type, overlay_type
+    ):
         host, session, visualizer = Mock(), Mock(), Mock()
         screen = SpotifyScreen(
-            host, theme=_theme(), back_action=Mock(),
-            playback_session=session, native_surface=Mock(), show_visualizer=visualizer,
+            host,
+            theme=_theme(),
+            back_action=Mock(),
+            playback_session=session,
+            native_surface=Mock(),
+            show_visualizer=visualizer,
         )
         screen.show()
         self.assertIs(panel_type.call_args.kwargs["show_visualizer"], visualizer)
@@ -39,8 +45,11 @@ class SpotifyScreenTest(unittest.TestCase):
 
     def test_theme_change_rebuilds_visible_now_playing_view(self) -> None:
         screen = SpotifyScreen(
-            Mock(), theme=_theme(), back_action=Mock(),
-            playback_session=Mock(), native_surface=Mock(),
+            Mock(),
+            theme=_theme(),
+            back_action=Mock(),
+            playback_session=Mock(),
+            native_surface=Mock(),
         )
         screen._visible = True
         screen._view = "now"
@@ -52,8 +61,11 @@ class SpotifyScreenTest(unittest.TestCase):
 
     def test_theme_change_does_not_rebuild_hidden_screen(self) -> None:
         screen = SpotifyScreen(
-            Mock(), theme=_theme(), back_action=Mock(),
-            playback_session=Mock(), native_surface=Mock(),
+            Mock(),
+            theme=_theme(),
+            back_action=Mock(),
+            playback_session=Mock(),
+            native_surface=Mock(),
         )
 
         with patch.object(screen, "_show_now_playing") as show_now_playing:

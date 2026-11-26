@@ -6,6 +6,7 @@ import math
 import unittest
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
+
 from frontends.common.destination_map_confirmation import validate_position
 from scripts.installers.destination_map_runtime import confirm_on_map
 from ui.navigation.destination_setup_request_handler_if import SavedDestination
@@ -27,22 +28,30 @@ class DestinationMapTest(unittest.TestCase):
             with urlopen(url) as response:
                 self.assertIn(b"OpenStreetMap", response.read())
             parts = urlsplit(url)
-            request = Request(f"http://{parts.netloc}/confirm?{parts.query}",
+            request = Request(
+                f"http://{parts.netloc}/confirm?{parts.query}",
                 data=json.dumps({"lat": 42.5, "lon": -83}).encode(),
-                headers={"Content-Type": "application/json"}, method="POST")
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
             with urlopen(request) as response:
                 self.assertEqual(response.status, 200)
                 self.assertEqual(json.loads(response.read()), {"confirmed": True})
+
         result = self.confirm(self.destination(), open_url=browser, timeout=1)
         self.assertAlmostEqual(result.position.latitude_rad, math.radians(42.5))
 
     def test_cancel_returns_none(self):
         def browser(url):
             parts = urlsplit(url)
-            request = Request(f"http://{parts.netloc}/confirm?{parts.query}",
-                              data=b'{"cancel":true}', method="POST")
+            request = Request(
+                f"http://{parts.netloc}/confirm?{parts.query}",
+                data=b'{"cancel":true}',
+                method="POST",
+            )
             with urlopen(request):
                 pass
+
         self.assertIsNone(self.confirm(self.destination(), open_url=browser, timeout=1))
 
     def test_invalid_coordinates_are_rejected(self):

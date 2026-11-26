@@ -7,12 +7,16 @@ import threading
 import unittest
 from unittest.mock import Mock
 
-from services.common.system_performance_monitor import SystemPerformanceMonitor
 from services.common.service_manager_pairing import ServiceManagerPairing
+from services.common.system_performance_monitor import SystemPerformanceMonitor
 from services.linux.systemd_service_manager_http import SystemdServiceManagerHandler
 from services.termux.service_manager_http import ServiceManagerHandler
-from ui.system_diagnostics import SystemDiagnosticsSnapshot
-from ui.system_diagnostics import OrcWorkloadSnapshot, ServiceSocketSnapshot, BatterySnapshot
+from ui.system_diagnostics import (
+    BatterySnapshot,
+    OrcWorkloadSnapshot,
+    ServiceSocketSnapshot,
+    SystemDiagnosticsSnapshot,
+)
 
 
 class SystemPerformanceMonitorTest(unittest.TestCase):
@@ -23,9 +27,15 @@ class SystemPerformanceMonitorTest(unittest.TestCase):
         self.assertIsNone(monitor.snapshot().cpu_percent)
         controller.snapshot.assert_not_called()
         sample = SystemDiagnosticsSnapshot(
-            cpu_percent=42, cpu_frequency_mhz=2400, memory_total_mb=512,
-            disk_free_gb=2, sampled_at_unix_s=123, temperature_c=55,
-            battery=BatterySnapshot(state="available", temperature_c=30.1, charge_percent=77, health="GOOD"),
+            cpu_percent=42,
+            cpu_frequency_mhz=2400,
+            memory_total_mb=512,
+            disk_free_gb=2,
+            sampled_at_unix_s=123,
+            temperature_c=55,
+            battery=BatterySnapshot(
+                state="available", temperature_c=30.1, charge_percent=77, health="GOOD"
+            ),
         )
         monitor._history.append(sample)
         payload = monitor.payload()
@@ -37,10 +47,18 @@ class SystemPerformanceMonitorTest(unittest.TestCase):
         self.assertEqual(payload["snapshot"]["battery"]["temperature_c"], 30.1)
         self.assertEqual(payload["snapshot"]["battery"]["charge_percent"], 77)
         self.assertNotIn("memory_total_mb", payload["snapshot"])
-        self.assertEqual(set(payload["history"][0]), {
-            "sampled_at_unix_s", "cpu_percent", "process_cpu_percent", "orc_cpu_percent",
-            "orc_rss_bytes", "memory_used_percent", "temperature_c",
-        })
+        self.assertEqual(
+            set(payload["history"][0]),
+            {
+                "sampled_at_unix_s",
+                "cpu_percent",
+                "process_cpu_percent",
+                "orc_cpu_percent",
+                "orc_rss_bytes",
+                "memory_used_percent",
+                "temperature_c",
+            },
+        )
 
     def test_worker_recovers_from_error_and_stops_without_leaking(self):
         recovered = threading.Event()
@@ -48,13 +66,21 @@ class SystemPerformanceMonitorTest(unittest.TestCase):
         process_sampler = Mock()
         process_sampler.sample.return_value = OrcWorkloadSnapshot()
         services = Mock()
-        services.sample.return_value = (ServiceSocketSnapshot("Broker", state="listening", protocol="TCP"),)
+        services.sample.return_value = (
+            ServiceSocketSnapshot("Broker", state="listening", protocol="TCP"),
+        )
         services.status = "observed"
         sensors = Mock()
         sensors.status = "listening"
         sensors.snapshots.return_value = ()
-        monitor = SystemPerformanceMonitor(controller, interval_seconds=0.01, history_samples=2,
-                                           process_sampler=process_sampler, sensor_monitor=sensors, service_sampler=services)
+        monitor = SystemPerformanceMonitor(
+            controller,
+            interval_seconds=0.01,
+            history_samples=2,
+            process_sampler=process_sampler,
+            sensor_monitor=sensors,
+            service_sampler=services,
+        )
         calls = 0
 
         def sample():
@@ -98,7 +124,11 @@ class PerformanceHttpContractTest(unittest.TestCase):
         handler.auth_token = "admin"
         handler.pairing = ServiceManagerPairing()
         handler.performance_monitor = Mock()
-        handler.performance_monitor.payload.return_value = {"version": 1, "snapshot": None, "history": []}
+        handler.performance_monitor.payload.return_value = {
+            "version": 1,
+            "snapshot": None,
+            "history": [],
+        }
         handler._json = Mock()
         return handler
 

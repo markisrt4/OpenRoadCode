@@ -3,6 +3,8 @@
 
 """Tests for camera VISION fallback presentation."""
 
+from unittest.mock import Mock
+
 from apps.orcUi.frontend.tk.camera_vision_screen import CameraVisionScreen
 from ui.vision.vision_ui_state import VisionLifecycle, VisionUiState
 
@@ -22,3 +24,19 @@ def test_running_without_a_frame_reports_that_capture_is_pending() -> None:
     state = VisionUiState(lifecycle=VisionLifecycle.RUNNING)
 
     assert CameraVisionScreen._empty_image_message(state) == "Waiting for camera frames…"
+
+
+def test_camera_updates_coalesce_and_hide_cancels_render() -> None:
+    host = Mock()
+    screen = CameraVisionScreen(host, theme_bundle=Mock())
+    screen._panel = Mock()
+    first = VisionUiState(status_message="First update")
+    second = VisionUiState(status_message="Latest update")
+
+    screen.set_vision_state(first)
+    screen.set_vision_state(second)
+
+    host.schedule_ui_callback.assert_called_once()
+    assert screen._state is second
+    screen.hide()
+    host.cancel_ui_callback.assert_called_once_with(host.schedule_ui_callback.return_value)

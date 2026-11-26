@@ -1,13 +1,15 @@
 # SPDX-License-Identifier: MIT
 """Immutable receiver values and semantic presentation contracts."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from typing import Protocol
-from ui.radio.radio_profiles import RadioProfilePreset
+
 from ui.radio.radio_profile_state import RadioProfileState
+from ui.radio.radio_profiles import RadioProfilePreset
 
 
 @dataclass(frozen=True)
@@ -26,6 +28,25 @@ class RadioTelemetry:
     signal_db: float | None = None
     snr_db: float | None = None
     rds: str = ""
+    station_name: str = ""
+    radio_text: str = ""
+    stereo_locked: bool | None = None
+    mode: str | None = None
+    bandwidth_hz: int | None = None
+    receiver_running: bool | None = None
+
+
+def receiver_mode_mismatch(state: "RfRadioState") -> bool:
+    """True only for a running, same-frequency, contradictory receiver mode."""
+    observed = state.telemetry
+    expected = state.station.mode_name.upper()
+    canonical = "WFM" if expected == "FM" else expected
+    return (
+        observed.receiver_running is True
+        and observed.frequency_hz == state.station.frequency_hz
+        and observed.mode is not None
+        and canonical != observed.mode
+    )
 
 
 @dataclass(frozen=True)
@@ -48,6 +69,14 @@ class RfRadioState:
     bandplan: bool = False
     fft_hold: bool = False
     themes: tuple[str, ...] = ()
+    playing: bool = True
+    receiver_running: bool = False
+    receiver_starting: bool = False
+    scanning: bool = False
+    scan_progress: str = ""
+    scan_hits: tuple[int, ...] = ()
+    tuning_range: tuple[int, int, int] | None = None
+    presets_writable: bool = True
 
 
 class RadioAction(Enum):
@@ -59,11 +88,20 @@ class RadioAction(Enum):
     NEXT = "next"
     TUNE_DOWN = "tune_down"
     TUNE_UP = "tune_up"
+    TUNE_FREQUENCY = "tune_frequency"
+    RECENTER = "recenter"
+    PAN_ACQUISITION = "pan_acquisition"
     ADD_PRESET = "add_preset"
     WATERFALL = "waterfall"
     BANDPLAN = "bandplan"
     FFT_HOLD = "fft_hold"
     AUTO_RANGE = "auto_range"
+    SCAN = "scan"
+    STOP_SCAN = "stop_scan"
+    PLAY = "play"
+    PAUSE = "pause"
+    START_RECEIVER = "start_receiver"
+    STOP_RECEIVER = "stop_receiver"
     THEME = "theme"
     REFRESH = "refresh"
     RESIZE = "resize"
@@ -77,6 +115,7 @@ class RadioRequest:
     preset: RadioProfilePreset | None = None
     host: RadioHost | None = None
     color_scheme: str = "dark"
+    frequency_hz: int | None = None
 
 
 class RfRadioUi(Protocol):
@@ -93,55 +132,70 @@ class RfRadioSession(Protocol):
         @param view Frontend presentation receiving snapshots.
         """
         ...
+
     def request(self, request: RadioRequest) -> None:
         """Submit a semantic request; backend work never accesses the widget.
         @param request Semantic receiver action and immutable arguments.
         """
         ...
-    def deactivate(self) -> None:
-        """Retire requests/results and detach native clients before host destruction.
-        """
+
+    def refresh_spectrum(self) -> None:
+        """Refresh the receiver spectrum presentation on the frontend thread."""
         ...
+
+    def deactivate(self) -> None:
+        """Retire requests/results and detach native clients before host destruction."""
+        ...
+
     def close(self) -> None:
-        """Release ownership once; close is terminal and idempotent.
-        """
+        """Release ownership once; close is terminal and idempotent."""
         ...
 
 
 class RadioApplication(Protocol):
     def present(self) -> None:
-        """Ensure application-owned receiver playback is running.
-        """
+        """Ensure application-owned receiver playback is running."""
         ...
+
     def window_process_id(self, *, timeout_seconds: float) -> int:
         """Find the receiver process for native window discovery.
         @param timeout_seconds Maximum process discovery wait in seconds.
         @return Native window/process identifier.
         """
         ...
+
     @property
     def fullscreen(self) -> bool:
         """Report whether the receiver uses a standalone fullscreen window.
         @return Current application presentation policy.
         """
         ...
+
     @property
     def presented(self) -> bool:
         """Report whether the application considers RF presented.
         @return Current application presentation policy.
         """
         ...
+
     def relinquish_for_adsb(self) -> None:
-        """Stop RF ownership so ADS-B can acquire the shared SDR.
-        """
+        """Stop RF ownership so ADS-B can acquire the shared SDR."""
         ...
 
 
 class RadioNativeSurface(Protocol):
-    def embed(self, process_id: int, host_window_id: int, width: int, height: int,
-              *, window_name: str | None = None, window_class: str | None = None,
-              relax_size_hints: bool = False,
-              cancelled: Callable[[], bool] | None = None) -> int:
+    def embed(
+        self,
+        process_id: int,
+        host_window_id: int,
+        width: int,
+        height: int,
+        *,
+        window_name: str | None = None,
+        window_class: str | None = None,
+        relax_size_hints: bool = False,
+        cancelled: Callable[[], bool] | None = None,
+    ) -> int:
         """Discover and reparent a native client; honor cancellation during discovery.
         @param process_id Native client process identifier.
         @param host_window_id Native host window identifier.
@@ -154,44 +208,49 @@ class RadioNativeSurface(Protocol):
         @return Native window/process identifier.
         """
         ...
+
     def detach(self, parent_window_id: int) -> None:
         """Reparent a client away from its host before that host is destroyed.
         @param parent_window_id Surviving native parent window identifier.
         """
         ...
+
     def resize(self, width: int, height: int) -> None:
         """Resize the embedded native client.
         @param width Host width in native pixels.
         @param height Host height in native pixels.
         """
         ...
+
     def clear(self) -> None:
-        """Forget native attachment bookkeeping without constructing resources.
-        """
+        """Forget native attachment bookkeeping without constructing resources."""
         ...
 
 
 class AircraftPresentation(Protocol):
     def assert_available(self) -> None:
-        """Validate the installed aircraft presentation dependencies.
-        """
+        """Validate the installed aircraft presentation dependencies."""
         ...
+
     def set_preferred_color_scheme(self, scheme: str) -> None:
         """Configure the preferred aircraft presentation color scheme.
         @param scheme Preferred light or dark color scheme.
         """
         ...
+
     def configure_browser_window(self, *, position: tuple[int, int], size: tuple[int, int]) -> None:
         """Supply desktop geometry before aircraft browser launch.
         @param position Desktop x/y position in native pixels.
         @param size Width/height in native pixels.
         """
         ...
+
     def launch(self, display: str) -> None:
         """Launch the aircraft browser on the supplied display.
         @param display Native display address.
         """
         ...
+
     def stop(self, display: str) -> None:
         """Stop the aircraft browser on the supplied display.
         @param display Native display address.

@@ -46,4 +46,3 @@ class RoutePlanningControllerIf(ABC):
         @return Calculated route.
         """
         ...
-

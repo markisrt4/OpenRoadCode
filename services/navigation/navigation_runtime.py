@@ -214,10 +214,7 @@ class NavigationRuntime:
             or getattr(position_state, "is_cached", False)
         ):
             return
-        if (
-            position_state.latitude_deg is None
-            or position_state.longitude_deg is None
-        ):
+        if position_state.latitude_deg is None or position_state.longitude_deg is None:
             return
 
         position = GeoPoint(

@@ -8,8 +8,8 @@ class MapMarkerSelectionSourceIf(ABC):
 
     @abstractmethod
     def poll_selected_marker_id(self) -> str | None:
-        """Consume the next selected marker identifier, if available.
+        """Consume the next marker selection.
 
-        @return Selected marker identifier, or None if no selection is pending.
+        @return The selected marker identifier, or None if no selection is pending.
         """
         ...

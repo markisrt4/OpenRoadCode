@@ -4,9 +4,9 @@
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable
 from dataclasses import replace
-import threading
 
 from ui.radio.streaming_radio_session_if import StreamingRadioRequestHandlerIf, StreamingRadioUiIf
 from ui.radio.streaming_radio_state import StreamingRadioBrowseMode, StreamingRadioBrowserState
@@ -23,9 +23,14 @@ class StreamingRadioBrowser(StreamingRadioRequestHandlerIf):
     """Own one presentation session while playback remains application-owned."""
 
     def __init__(
-        self, directory: StreamingRadioDirectoryIf, playback: StreamingRadioBackendIf,
-        favorites: StreamingRadioFavoritesIf, *, run_work: WorkScheduler,
-        run_ui: WorkScheduler, load_artwork: ArtworkLoader,
+        self,
+        directory: StreamingRadioDirectoryIf,
+        playback: StreamingRadioBackendIf,
+        favorites: StreamingRadioFavoritesIf,
+        *,
+        run_work: WorkScheduler,
+        run_ui: WorkScheduler,
+        load_artwork: ArtworkLoader,
         on_close: Callable[[], None] = lambda: None,
         run_artwork: WorkScheduler | None = None,
     ) -> None:
@@ -57,7 +62,8 @@ class StreamingRadioBrowser(StreamingRadioRequestHandlerIf):
         self._view = view
         view.set_streaming_request_handler(self)
         self._state = replace(
-            self._state, playback_busy=self._playback_busy,
+            self._state,
+            playback_busy=self._playback_busy,
             favorite_station_ids=self._favorites.station_ids,
             playback=self._playback.snapshot(),
         )
@@ -91,13 +97,15 @@ class StreamingRadioBrowser(StreamingRadioRequestHandlerIf):
         def deliver() -> None:
             if not self._closed and generation == self._generation and self._view is not None:
                 callback()
+
         self._run_ui(deliver)
 
     def _publish(self) -> None:
         view = self._view
         if view is not None and not self._closed:
             self._state = replace(
-                self._state, playback=self._playback.snapshot(),
+                self._state,
+                playback=self._playback.snapshot(),
                 favorite_station_ids=self._favorites.station_ids,
                 playback_busy=self._playback_busy,
             )
@@ -113,6 +121,7 @@ class StreamingRadioBrowser(StreamingRadioRequestHandlerIf):
         station_ids = self._favorites.ordered_station_ids
         self._state = replace(self._state, mode=mode, loading=True, error=False, message="")
         self._publish()
+
         def load() -> None:
             if self._closed or generation != self._generation:
                 return
@@ -123,24 +132,38 @@ class StreamingRadioBrowser(StreamingRadioRequestHandlerIf):
                     stations = self._directory.stations_by_ids(station_ids) if station_ids else ()
                 elif mode is StreamingRadioBrowseMode.LOCAL:
                     stations = self._directory.stations_near(
-                        latitude=42.3314, longitude=-83.0458, radius_km=80.0,
-                        state="Michigan", country_code="US", limit=50,
+                        latitude=42.3314,
+                        longitude=-83.0458,
+                        radius_km=80.0,
+                        state="Michigan",
+                        country_code="US",
+                        limit=50,
                     )
                 else:
                     stations = self._directory.stations_by_region(
-                        state="Michigan", country_code="US", limit=100,
+                        state="Michigan",
+                        country_code="US",
+                        limit=100,
                     )
             except Exception as error:
                 message = f"Unable to load stations: {type(error).__name__}: {error}"
-            self._dispatch(generation, lambda: self._finish_load(load_generation, stations, message))
+            self._dispatch(
+                generation, lambda: self._finish_load(load_generation, stations, message)
+            )
+
         self._run_work(load)
 
     def _finish_load(
-        self, generation: int, stations: tuple[StreamingRadioStation, ...], message: str,
+        self,
+        generation: int,
+        stations: tuple[StreamingRadioStation, ...],
+        message: str,
     ) -> None:
         if generation != self._load_generation:
             return
-        self._state = replace(self._state, stations=stations, loading=False, message=message, error=bool(message))
+        self._state = replace(
+            self._state, stations=stations, loading=False, message=message, error=bool(message)
+        )
         self._publish()
 
     def _station(self, station_id: str) -> StreamingRadioStation | None:
@@ -164,6 +187,7 @@ class StreamingRadioBrowser(StreamingRadioRequestHandlerIf):
         message = f"Connecting to {station.name}…" if station is not None else "Stopping stream…"
         self._state = replace(self._state, message=message, error=False)
         self._publish()
+
         def playback() -> None:
             message = ""
             try:
@@ -174,7 +198,10 @@ class StreamingRadioBrowser(StreamingRadioRequestHandlerIf):
             except Exception as error:
                 message = f"Playback failed: {type(error).__name__}: {error}"
             finally:
-                self._run_ui(lambda: self._finish_playback(generation, playback_generation, message))
+                self._run_ui(
+                    lambda: self._finish_playback(generation, playback_generation, message)
+                )
+
         self._run_work(playback)
 
     def _finish_playback(self, generation: int, playback_generation: int, message: str) -> None:
@@ -187,10 +214,16 @@ class StreamingRadioBrowser(StreamingRadioRequestHandlerIf):
         self._publish()
 
     def request_toggle_favorite(self, station_id: str) -> None:
-        if self._closed or self._view is None or station_id in self._favorite_busy or self._station(station_id) is None:
+        if (
+            self._closed
+            or self._view is None
+            or station_id in self._favorite_busy
+            or self._station(station_id) is None
+        ):
             return
         self._favorite_busy.add(station_id)
         generation = self._generation
+
         def toggle() -> None:
             message = ""
             try:
@@ -200,6 +233,7 @@ class StreamingRadioBrowser(StreamingRadioRequestHandlerIf):
             except (OSError, ValueError) as error:
                 message = f"Unable to save favorite: {error}"
             self._run_ui(lambda: self._finish_favorite(generation, station_id, message))
+
         self._run_work(toggle)
 
     def _finish_favorite(self, generation: int, station_id: str, message: str) -> None:
@@ -226,6 +260,7 @@ class StreamingRadioBrowser(StreamingRadioRequestHandlerIf):
             return
         self._artwork_requested.add(key)
         generation = self._generation
+
         def artwork() -> None:
             if self._closed or generation != self._generation:
                 return
@@ -235,6 +270,7 @@ class StreamingRadioBrowser(StreamingRadioRequestHandlerIf):
             except Exception:
                 pass  # Missing/broken artwork retains the frontend placeholder.
             self._dispatch(generation, lambda: self._finish_artwork(station_id, url, payload))
+
         self._run_artwork(artwork)
 
     def _finish_artwork(self, station_id: str, url: str, payload: bytes | None) -> None:

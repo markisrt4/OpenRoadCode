@@ -4,12 +4,12 @@
 
 from __future__ import annotations
 
-import socket
-import os
 import json
-from urllib.request import urlopen
+import os
+import socket
 import time
 from pathlib import Path
+from urllib.request import urlopen
 
 
 def _read(path: Path) -> str | None:
@@ -55,24 +55,29 @@ def collect_inventory(*, sys_root: Path = Path("/sys")) -> dict:
         if not names:
             raw = _read(Path("/proc/net/dev"))
             if raw:
-                names = [line.split(":", 1)[0].strip() for line in raw.splitlines()
-                         if ":" in line and line.split(":", 1)[0].strip() != "lo"][:128]
+                names = [
+                    line.split(":", 1)[0].strip()
+                    for line in raw.splitlines()
+                    if ":" in line and line.split(":", 1)[0].strip() != "lo"
+                ][:128]
         if names:
             interfaces = [net_root / name for name in names]
             net_status = "partial_android_restricted"
     for interface in interfaces:
         if interface.name == "lo":
             continue
-        networks.append({
-            "interface": interface.name,
-            "state": _read(interface / "operstate"),
-            "mac": _read(interface / "address"),
-            "speed_mbps": _read(interface / "speed"),
-            "mtu": _read(interface / "mtu"),
-            "rx_bytes": _read(interface / "statistics/rx_bytes"),
-            "tx_bytes": _read(interface / "statistics/tx_bytes"),
-            "usb_backing": "unconfirmed",
-        })
+        networks.append(
+            {
+                "interface": interface.name,
+                "state": _read(interface / "operstate"),
+                "mac": _read(interface / "address"),
+                "speed_mbps": _read(interface / "speed"),
+                "mtu": _read(interface / "mtu"),
+                "rx_bytes": _read(interface / "statistics/rx_bytes"),
+                "tx_bytes": _read(interface / "statistics/tx_bytes"),
+                "usb_backing": "unconfirmed",
+            }
+        )
     devices = []
     usb_root = sys_root / "bus/usb/devices"
     try:
@@ -88,20 +93,24 @@ def collect_inventory(*, sys_root: Path = Path("/sys")) -> dict:
         if not vid or not pid:
             continue
         readable += 1
-        devices.append({
-            "sysfs_name": entry.name,
-            "vendor_id_hex": vid,
-            "product_id_hex": pid,
-            "manufacturer": _read(entry / "manufacturer"),
-            "product": _read(entry / "product"),
-            "speed": _read(entry / "speed"),
-            "bMaxPower": _read(entry / "bMaxPower"),
-            "detection": "confirmed_usb_sysfs",
-        })
+        devices.append(
+            {
+                "sysfs_name": entry.name,
+                "vendor_id_hex": vid,
+                "product_id_hex": pid,
+                "manufacturer": _read(entry / "manufacturer"),
+                "product": _read(entry / "product"),
+                "speed": _read(entry / "speed"),
+                "bMaxPower": _read(entry / "bMaxPower"),
+                "detection": "confirmed_usb_sysfs",
+            }
+        )
     if usb_entries and not readable:
         usb_status = "empty_or_restricted"
     android = None
-    if sys_root == Path("/sys") and os.environ.get("PREFIX", "").startswith("/data/data/com.termux/"):
+    if sys_root == Path("/sys") and os.environ.get("PREFIX", "").startswith(
+        "/data/data/com.termux/"
+    ):
         android = _android_bridge_inventory()
     if android is not None:
         # Android ConnectivityManager and UsbManager can see devices hidden from Termux.
@@ -116,7 +125,9 @@ def collect_inventory(*, sys_root: Path = Path("/sys")) -> dict:
         }
     return {
         "timestamp_ms": int(time.time() * 1000),
-        "source": "termux_restricted" if os.environ.get("PREFIX", "").startswith("/data/data/com.termux/") else "orc_runtime",
+        "source": "termux_restricted"
+        if os.environ.get("PREFIX", "").startswith("/data/data/com.termux/")
+        else "orc_runtime",
         "networks_status": net_status,
         "networks": networks,
         "usb_sysfs": {"status": usb_status, "devices": devices},

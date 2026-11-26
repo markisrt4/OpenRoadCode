@@ -33,7 +33,9 @@ def test_failed_registration_rolls_back_workers_and_listener(monkeypatch):
     executor, artwork_executor = Mock(spec=ThreadPoolExecutor), Mock(spec=ThreadPoolExecutor)
     rf_executor = Mock(spec=ThreadPoolExecutor)
     pools = iter((executor, artwork_executor, rf_executor))
-    monkeypatch.setattr("apps.orcUi.composition.radio.ThreadPoolExecutor", lambda **k: next(pools))
+    monkeypatch.setattr(
+        "apps.orcUi.composition.radio_resources.ThreadPoolExecutor", lambda **k: next(pools)
+    )
     monkeypatch.setattr("apps.orcUi.composition.radio.RadioBrowserDirectory", Mock())
     monkeypatch.setattr("apps.orcUi.composition.radio.StreamingRadioFavorites", Mock())
     monkeypatch.setattr("apps.orcUi.composition.radio.OrcUiAdsbControl", Mock())
@@ -51,7 +53,9 @@ def test_failed_registration_rolls_back_workers_and_listener(monkeypatch):
 
 def test_panel_factory_owns_session_and_rolls_it_back_on_widget_failure(monkeypatch):
     executor = Mock(spec=ThreadPoolExecutor)
-    monkeypatch.setattr("apps.orcUi.composition.radio.ThreadPoolExecutor", lambda **k: executor)
+    monkeypatch.setattr(
+        "apps.orcUi.composition.radio_resources.ThreadPoolExecutor", lambda **k: executor
+    )
     for name in ("RadioBrowserDirectory", "StreamingRadioFavorites", "OrcUiAdsbControl"):
         monkeypatch.setattr(f"apps.orcUi.composition.radio.{name}", Mock())
     screen_type = Mock()
@@ -59,8 +63,13 @@ def test_panel_factory_owns_session_and_rolls_it_back_on_widget_failure(monkeypa
     entry_type = Mock()
     monkeypatch.setattr("apps.orcUi.composition.radio.RadioEntryPanel", entry_type)
     session = Mock()
-    monkeypatch.setattr("apps.orcUi.composition.radio.StreamingRadioBrowser", Mock(return_value=session))
-    monkeypatch.setattr("apps.orcUi.composition.radio.PersistentStreamingRadioPanel", Mock(side_effect=ValueError("widget failed")))
+    monkeypatch.setattr(
+        "apps.orcUi.composition.radio.StreamingRadioBrowser", Mock(return_value=session)
+    )
+    monkeypatch.setattr(
+        "apps.orcUi.composition.radio.PersistentStreamingRadioPanel",
+        Mock(side_effect=ValueError("widget failed")),
+    )
     app = Mock()
     app.theme_mode = ThemeMode.DARK
     composition = configure_radio(app, Mock())
@@ -87,7 +96,9 @@ def test_artwork_scheduler_is_separate_from_playback_workers():
 
 def test_aircraft_requests_and_polling_retire_with_composition(monkeypatch):
     executor = Mock(spec=ThreadPoolExecutor)
-    monkeypatch.setattr("apps.orcUi.composition.radio.ThreadPoolExecutor", lambda **k: executor)
+    monkeypatch.setattr(
+        "apps.orcUi.composition.radio_resources.ThreadPoolExecutor", lambda **k: executor
+    )
     for name in ("RadioBrowserDirectory", "StreamingRadioFavorites", "RadioScreen"):
         monkeypatch.setattr(f"apps.orcUi.composition.radio.{name}", Mock())
     adsb = Mock()

@@ -7,33 +7,32 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
+import logging
+import os
+import subprocess
 from dataclasses import asdict
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-import json
-import os
-import subprocess
-import logging
 
 from common.logging.lifecycle import failure_fields
 from common.logging.structured import configure_logging, event
-
 from common.xdg_paths import xdg_config_home
+from services.common.network_usb_inventory import collect_inventory
 from services.common.service_manager_auth import (
     TOKEN_ENV,
     authorized,
     binding_allowed,
     same_device_request,
 )
-from services.common.service_manager_client_store import ServiceManagerClientStore
 from services.common.service_manager_browser_pairing import (
     BrowserPairingConsumedError,
     ServiceManagerBrowserPairing,
 )
-from services.common.service_manager_pairing import ServiceManagerPairing
+from services.common.service_manager_client_store import ServiceManagerClientStore
 from services.common.service_manager_logs import serve_logs
+from services.common.service_manager_pairing import ServiceManagerPairing
 from services.common.system_performance_monitor import SystemPerformanceMonitor
-from services.common.network_usb_inventory import collect_inventory
 from services.termux.service_manager import RunitServiceManager, ServiceStatus
 
 DEFAULT_HOST = "127.0.0.1"
@@ -76,7 +75,9 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
         if parts == ["performance"]:
             monitor = self.performance_monitor
             if monitor is None:
-                self._json(HTTPStatus.SERVICE_UNAVAILABLE, {"error": "performance sampler unavailable"})
+                self._json(
+                    HTTPStatus.SERVICE_UNAVAILABLE, {"error": "performance sampler unavailable"}
+                )
             else:
                 self._json(HTTPStatus.OK, monitor.payload())
             return
@@ -107,6 +108,9 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
         if not self._authenticate():
             return
         try:
+            if len(parts) == 3 and parts[:2] == ["sdrforge", "source"]:
+                self._json(HTTPStatus.OK, self.manager.switch_sdrforge_source(parts[2]))
+                return
             if parts == ["stack", "core", "start"]:
                 statuses = self.manager.start_core()
             elif parts == ["stack", "core", "stop"]:
@@ -123,7 +127,7 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
             else:
                 self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})
                 return
-        except (ValueError, subprocess.SubprocessError) as exc:
+        except (ValueError, RuntimeError, OSError, subprocess.SubprocessError) as exc:
             self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
             return
         self._json(HTTPStatus.OK, _payload(statuses))

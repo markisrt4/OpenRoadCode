@@ -129,7 +129,9 @@ def test_cached_position_does_not_advance_guidance():
     route = _route()
     publisher = Mock()
     runtime = NavigationRuntime(
-        Mock(), publisher, source="test-navigation",
+        Mock(),
+        publisher,
+        source="test-navigation",
         command_endpoint="inproc://navigation-runtime-cached-guidance-test",
         route_planning_controller=Mock(),
     )
@@ -141,12 +143,16 @@ def test_cached_position_does_not_advance_guidance():
         assert session is not None
         session.update = Mock(wraps=session.update)
 
-        runtime._update_guidance(SimpleNamespace(position=SimpleNamespace(
-            has_fix=True,
-            is_cached=True,
-            latitude_deg=42.0,
-            longitude_deg=-82.995,
-        )))
+        runtime._update_guidance(
+            SimpleNamespace(
+                position=SimpleNamespace(
+                    has_fix=True,
+                    is_cached=True,
+                    latitude_deg=42.0,
+                    longitude_deg=-82.995,
+                )
+            )
+        )
 
         session.update.assert_not_called()
         publisher.publish.assert_not_called()
@@ -181,9 +187,12 @@ def test_route_lifecycle_stops_playback(transition):
     route = _route()
     simulator = Mock()
     runtime = NavigationRuntime(
-        Mock(), Mock(), source="test-navigation",
+        Mock(),
+        Mock(),
+        source="test-navigation",
         command_endpoint="inproc://navigation-runtime-playback-lifecycle",
-        route_planning_controller=Mock(), route_simulator=simulator,
+        route_planning_controller=Mock(),
+        route_simulator=simulator,
     )
     request = RouteRequest(route.shape[0], route.shape[-1])
     try:
@@ -194,9 +203,15 @@ def test_route_lifecycle_stops_playback(transition):
         if transition == "cancel":
             runtime._cancel_route()
         elif transition == "arrival":
-            runtime._update_guidance(SimpleNamespace(position=SimpleNamespace(
-                has_fix=True, latitude_deg=42.0, longitude_deg=-82.99,
-            )))
+            runtime._update_guidance(
+                SimpleNamespace(
+                    position=SimpleNamespace(
+                        has_fix=True,
+                        latitude_deg=42.0,
+                        longitude_deg=-82.99,
+                    )
+                )
+            )
         elif transition == "replacement":
             runtime._activate_route(request, route)
         else:

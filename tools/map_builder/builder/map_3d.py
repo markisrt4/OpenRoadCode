@@ -4,9 +4,9 @@ from collections import deque
 import hashlib
 import json
 import math
-from pathlib import Path
 import re
 import subprocess
+from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from development.maps.terrain_regions import MICHIGAN_BOUNDS, MICHIGAN_SHARDS
@@ -32,12 +32,12 @@ PRESETS = {
         BUILDING_BOUNDS[1] if s==MICHIGAN_BOUNDS[1] else 45.0 if key.startswith('mi-upper-') else s,
         e,n)) for key,(title,(w,s,e,n)) in MICHIGAN_SHARDS.items()},
 }
-CREDIT = '© OpenStreetMap contributors · ODbL 1.0'
+CREDIT = "© OpenStreetMap contributors · ODbL 1.0"
 
 
 def digest(path):
-    with path.open('rb') as stream:
-        return hashlib.file_digest(stream,'sha256').hexdigest()
+    with path.open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
 def partition_buildings(buckets, bounds, rows, columns, *, adaptive=False):
@@ -83,11 +83,11 @@ def regional_owner(building):
 
 def build_pack(root, preset):
     root = Path(root)
-    title,bounds = PRESETS[preset]
-    sources = sorted((root/'maps/source').glob('*.osm.pbf'))
+    title, bounds = PRESETS[preset]
+    sources = sorted((root / "maps/source").glob("*.osm.pbf"))
     if not sources:
-        raise ValueError('Build navigation data first: no source PBFs installed')
-    destination = root/'maps/3d/packs'/preset
+        raise ValueError("Build navigation data first: no source PBFs installed")
+    destination = root / "maps/3d/packs" / preset
     if destination.exists():
         raise ValueError(f'Pack already exists: {destination}; validate or explicitly remove it before rebuilding')
     destination.parent.mkdir(parents=True,exist_ok=True)
@@ -202,37 +202,38 @@ def build_pack(root, preset):
 
 def validate_pack(directory):
     root = Path(directory).resolve()
-    manifest_path = root/'manifest.json'
+    manifest_path = root / "manifest.json"
     manifest = json.loads(manifest_path.read_text())
     terrain_only = manifest.get('layers') == ['terrain']
     if manifest.get('schema') not in (1,2,3) or not 0 <= len(manifest['tiles']) <= MAX_MAP_TILES or (not manifest['tiles'] and not terrain_only):
         raise ValueError('Unsupported 3D pack schema')
     west,south,east,north = manifest['bounds_deg']
     if not (-180 <= west < east <= 180 and -90 <= south < north <= 90):
-        raise ValueError('Invalid 3D coverage')
-    seen,checksums,total = set(),{'manifest.json':digest(manifest_path)},0
-    layers = set() if terrain_only else {'buildings'}
+        raise ValueError("Invalid 3D coverage")
+    seen, checksums, total = set(), {"manifest.json": digest(manifest_path)}, 0
+    layers = set() if terrain_only else {"buildings"}
     if terrain_only:
-        if manifest['tiles']:
-            raise ValueError('Terrain-only pack cannot contain building tiles')
+        if manifest["tiles"]:
+            raise ValueError("Terrain-only pack cannot contain building tiles")
         from .terrain import validate_terrain
+
         validate_terrain(root)
-        layers.add('terrain')
-    for tile in manifest['tiles']:
-        key = tile['id']
-        if not re.fullmatch(r'[a-z0-9-]{1,32}',key) or key in seen:
-            raise ValueError('Invalid/duplicate 3D tile identifier')
+        layers.add("terrain")
+    for tile in manifest["tiles"]:
+        key = tile["id"]
+        if not re.fullmatch(r"[a-z0-9-]{1,32}", key) or key in seen:
+            raise ValueError("Invalid/duplicate 3D tile identifier")
         seen.add(key)
-        w,s,e,n = tile['bounds_deg']
+        w, s, e, n = tile["bounds_deg"]
         if not (west <= w < e <= east and south <= s < n <= north):
-            raise ValueError('3D tile outside pack coverage')
-        if set(tile['sha256']) not in ({'buildings.json'},{'buildings.json','imagery.jpg'}):
-            raise ValueError('Unsupported 3D assets')
-        for name,expected in tile['sha256'].items():
-            file = (root/key/name).resolve()
-            limit = (20 if name=='imagery.jpg' else 10)*1024*1024
+            raise ValueError("3D tile outside pack coverage")
+        if set(tile["sha256"]) not in ({"buildings.json"}, {"buildings.json", "imagery.jpg"}):
+            raise ValueError("Unsupported 3D assets")
+        for name, expected in tile["sha256"].items():
+            file = (root / key / name).resolve()
+            limit = (20 if name == "imagery.jpg" else 10) * 1024 * 1024
             if not file.is_relative_to(root) or not file.is_file() or file.stat().st_size > limit:
-                raise ValueError('3D asset outside pack, missing or oversized')
+                raise ValueError("3D asset outside pack, missing or oversized")
             actual = digest(file)
             if actual != expected:
                 raise ValueError('3D asset checksum mismatch')
@@ -248,21 +249,27 @@ def validate_pack(directory):
     for file in root.rglob('*'):
         if file.is_file():
             if not file.resolve().is_relative_to(root):
-                raise ValueError('3D provenance asset outside pack')
+                raise ValueError("3D provenance asset outside pack")
             checksums[str(file.relative_to(root))] = digest(file)
-    return {'title':manifest['title'],'bounds_deg':manifest['bounds_deg'],'layers':sorted(layers),
-            'tiles':len(seen),'buildings':total,'bytes':sum(p.stat().st_size for p in root.rglob('*') if p.is_file()),
-            'checksums':checksums}
+    return {
+        "title": manifest["title"],
+        "bounds_deg": manifest["bounds_deg"],
+        "layers": sorted(layers),
+        "tiles": len(seen),
+        "buildings": total,
+        "bytes": sum(p.stat().st_size for p in root.rglob("*") if p.is_file()),
+        "checksums": checksums,
+    }
 
 
 def validate_packs(root):
-    directory = Path(root)/'maps/3d/packs'
+    directory = Path(root) / "maps/3d/packs"
     result = {}
     if directory.exists():
         for pack in sorted(directory.iterdir()):
-            if pack.name.startswith('.'):
+            if pack.name.startswith("."):
                 continue
-            if not pack.is_dir() or not re.fullmatch(r'[a-z0-9-]{1,64}',pack.name):
-                raise ValueError('Invalid 3D pack directory')
+            if not pack.is_dir() or not re.fullmatch(r"[a-z0-9-]{1,64}", pack.name):
+                raise ValueError("Invalid 3D pack directory")
             result[pack.name] = validate_pack(pack)
     return result

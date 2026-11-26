@@ -1,8 +1,36 @@
 # Streaming Radio
 
+The Radio chooser can also expose Trending when MusicForge is configured. Its
+initial pane shows track details, and the provider player replaces those details
+when requested. Live FM tuning is available in RF Radio. FM opens with its
+spectrum and waterfall visible, and Hide Spectrum switches to compact controls
+while keeping the same receiver session.
+Compact FM puts tuning controls around the frequency display and groups presets,
+scan, and mute below station information and the FM band dial. The receiver
+power control has its own row beneath the signal meter.
+Trending artist selections show airplay counts and, when a matching article is
+available, a Wikipedia biography and credited Wikimedia portrait. ORC uses its
+persistent cache for seven days so repeat selections can reuse profile data.
+Song selections show their observed play count and the same sourced artist
+context when available.
+
+Trending's embedded video pane requests playback through a per-pane session. Radio
+composition creates the session, which owns search work and browser cleanup.
+The pane retires the session when it closes. Set `MUSICFORGE_AIRPLAY_URL` if the
+charts service runs somewhere other than `http://127.0.0.1:8000`.
+
+For the Raspberry Pi 5 deployment that forwards local port 8003 to the private
+VPS API on port 8003, run `scripts/systemd/install_musicforge_airplay_tunnel.sh`
+with Bash as the ORC user. It uses your interactive VPS login once to register a
+dedicated tunnel key. The systemd user service starts at login and reconnects
+automatically. Set `MUSICFORGE_AIRPLAY_URL=http://127.0.0.1:8003` when launching
+ORC. To start the service before login, enable systemd lingering for the ORC user.
+See the [Ethernet IDD](ethernet_idd.md#musicforge-airplay) for port ownership and
+the HTTP interface.
+
 ## Overview
 
-Streaming Radio adds internet station discovery and audio playback to the ORC Radio screen without replacing the SDR++ RF path. The Radio chooser offers RF Radio and Streaming Radio. The streaming browser provides Local, Regional, and Favorites views plus filtering, station artwork, selection, playback controls, and shared Home now-playing state.
+Streaming Radio adds internet station discovery and audio playback to the ORC Radio screen alongside RF Radio and Trending. The streaming browser provides Local, Regional, and Favorites views plus filtering, station artwork, selection, playback controls, and shared Home now-playing state.
 
 Radio Browser supplies station discovery and current metadata. mpv supplies audio playback. Internet access is required for directory requests and remote streams; the streaming path itself does not require an SDR receiver.
 
@@ -42,7 +70,7 @@ flowchart TD
     class player orcAdapter;
 ```
 
-`OrcUiApplicationRuntime` owns playback lifetime and stops streaming playback during application cleanup. `RadioComposition` owns feature-scoped presentation dependencies such as the directory, favorites store, and screen. The shell exposes neutral Home and screen-host contracts; it does not construct Radio Browser, mpv, favorites, or SDR++ services itself.
+`OrcUiApplicationRuntime` owns playback lifetime and stops streaming playback during application cleanup. `RadioComposition` owns feature-scoped presentation dependencies such as the directory, favorites store, and screen. The shell exposes neutral Home and screen-host contracts; it does not construct Radio Browser, mpv, favorites, or SDRForge services itself.
 
 Favorites are intentionally separate from station metadata. `StreamingRadioFavorites` stores only stable Radio Browser station UUIDs. When Favorites is opened, `RadioBrowserDirectory.stations_by_ids()` resolves those UUIDs to current names, stream URLs, artwork, and other metadata. This avoids persisting stale stream URLs or duplicating directory records locally.
 

@@ -3,10 +3,10 @@
 
 """Tests for track-specific music-video availability."""
 
-import unittest
 import threading
-from unittest.mock import Mock
+import unittest
 from dataclasses import replace
+from unittest.mock import Mock
 
 from controllers.spotify.spotify_state import SpotifyState
 from controllers.video.music_video_controller import MusicVideoController
@@ -61,9 +61,11 @@ class MusicVideoControllerTest(unittest.TestCase):
 
     def test_cancelled_video_lookup_does_not_pause_or_launch(self) -> None:
         current = [True]
+
         def find(_query):
             current[0] = False
             return MusicVideo("id", "Road Song", "Open Band")
+
         self.video.find_video.side_effect = find
         self.assertFalse(self.controller.watch_current_track(is_current=lambda: current[0]))
         self.spotify.pause.assert_not_called()
@@ -71,11 +73,15 @@ class MusicVideoControllerTest(unittest.TestCase):
 
     def test_cancelled_launch_stops_video_and_restores_spotify(self) -> None:
         current = [True]
-        self.spotify.current_state.return_value = replace(self.spotify.current_state.return_value, is_playing=True)
+        self.spotify.current_state.return_value = replace(
+            self.spotify.current_state.return_value, is_playing=True
+        )
         self.video.find_video.return_value = MusicVideo("id", "Road Song", "Open Band")
+
         def launch(*_args, **_kwargs):
             current[0] = False
             return True
+
         self.video.play_video.side_effect = launch
         self.assertFalse(self.controller.watch_current_track(is_current=lambda: current[0]))
         self.video.stop_video.assert_called_once_with()
@@ -83,14 +89,21 @@ class MusicVideoControllerTest(unittest.TestCase):
 
     def test_terminal_cancellation_stops_video_without_restarting_audio(self) -> None:
         current = [True]
-        self.spotify.current_state.return_value = replace(self.spotify.current_state.return_value, is_playing=True)
+        self.spotify.current_state.return_value = replace(
+            self.spotify.current_state.return_value, is_playing=True
+        )
         self.video.find_video.return_value = MusicVideo("id", "Road Song", "Open Band")
+
         def launch(*_args, **_kwargs):
             current[0] = False
             return True
+
         self.video.play_video.side_effect = launch
-        self.assertFalse(self.controller.watch_current_track(
-            is_current=lambda: current[0], restore_allowed=lambda: False))
+        self.assertFalse(
+            self.controller.watch_current_track(
+                is_current=lambda: current[0], restore_allowed=lambda: False
+            )
+        )
         self.video.stop_video.assert_called_once_with()
         self.spotify.play.assert_not_called()
 
@@ -106,8 +119,11 @@ class MusicVideoControllerTest(unittest.TestCase):
         current = [True]
         events = []
         results = []
-        self.spotify.current_state.return_value = replace(self.spotify.current_state.return_value, is_playing=True)
+        self.spotify.current_state.return_value = replace(
+            self.spotify.current_state.return_value, is_playing=True
+        )
         self.video.find_video.return_value = MusicVideo("id", "Road Song", "Open Band")
+
         def launch(*_args, **_kwargs):
             if not entered.is_set():
                 events.append("start-old")
@@ -116,13 +132,20 @@ class MusicVideoControllerTest(unittest.TestCase):
             else:
                 events.append("start-new")
             return True
+
         self.video.play_video.side_effect = launch
         self.video.stop_video.side_effect = lambda: events.append("stop-old")
         self.spotify.play.side_effect = lambda: events.append("restore")
-        first = threading.Thread(target=lambda: results.append(self.controller.watch_current_track(is_current=lambda: current[0])))
+        first = threading.Thread(
+            target=lambda: results.append(
+                self.controller.watch_current_track(is_current=lambda: current[0])
+            )
+        )
+
         def start_second():
             second_entered.set()
             results.append(self.controller.watch_current_track())
+
         second = threading.Thread(target=start_second)
         try:
             first.start()

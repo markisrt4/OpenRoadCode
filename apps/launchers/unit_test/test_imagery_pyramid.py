@@ -13,7 +13,6 @@ from PIL import Image
 import pytest
 
 from apps.launchers.local_imagery_pyramid import LocalImageryPyramidPack, PILOT_BOUNDS
-from apps.launchers.unit_test.test_cesium_viewer import server, state
 from development.maps.build_imagery_detail import package, raster_to_pyramid
 from development.maps.install_imagery_detail import install
 from development.maps.static_tile_trial import digest, write_json, command

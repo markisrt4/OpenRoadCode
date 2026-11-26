@@ -82,9 +82,7 @@ from pathlib import Path
 
 from apps.carUi.runtime.car_ui_runtime_factory import create_car_ui_runtime
 
-runtime = create_car_ui_runtime(
-    Path("config/runtime.toml")
-)
+runtime = create_car_ui_runtime(Path("config/runtime.toml"))
 
 fm_runtime = runtime.radios.get("fm_radio")
 
@@ -101,7 +99,7 @@ TOML uses stable symbolic names:
 
 ```toml
 backend = "rigctl"
-launcher = "sdrpp"
+launcher = "sdrforge"
 ```
 
 The factory maps those names to known constructors. The TOML file does not

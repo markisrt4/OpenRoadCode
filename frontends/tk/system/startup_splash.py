@@ -15,7 +15,6 @@ from typing import Generic, TypeVar
 from frontends.tk.runtime import apply_fullscreen
 from ui.ui_widget import UiWidget
 
-
 T = TypeVar("T")
 
 

@@ -12,15 +12,27 @@ from controllers.navigation.host_location_permission_if import (
 from ui.navigation.host_location_ui_if import HostLocationState, HostLocationUiIf
 from ui.ui_dispatcher_if import UiDispatcherIf
 
+
 class HostLocationSettingsController:
-    def __init__(self, dispatcher: UiDispatcherIf, ui: HostLocationUiIf,
-                 permission: HostLocationPermissionIf, *, available: bool = True) -> None:
+    def __init__(
+        self,
+        dispatcher: UiDispatcherIf,
+        ui: HostLocationUiIf,
+        permission: HostLocationPermissionIf,
+        *,
+        available: bool = True,
+    ) -> None:
         self._dispatcher, self._ui, self._permission = dispatcher, ui, permission
         self._generation = 0
         self._visible = False
         self._closed = False
-        self._state = (HostLocationState() if available else HostLocationState(
-            "Termux location uses the Android sensor bridge.", can_share=False))
+        self._state = (
+            HostLocationState()
+            if available
+            else HostLocationState(
+                "Termux location uses the Android sensor bridge.", can_share=False
+            )
+        )
 
     def show(self) -> None:
         if not self._closed:
@@ -54,21 +66,22 @@ class HostLocationSettingsController:
                 message = "Permission page opened. Click Share host location and allow access."
                 can_restart = False
             except HostLocationServiceUnavailable:
-                message = "Location service is not running. Restart it to share this computer's location."
+                message = (
+                    "Location service is not running. Restart it to share this computer's location."
+                )
                 can_restart = True
             except Exception as error:
                 message = str(error)
                 can_restart = False
             if not cancelled():
-                self._dispatcher.schedule_ui_callback(
-                    0, lambda: self._complete(generation, message, can_restart)
+                self._dispatcher.dispatch_ui(
+                    lambda: self._complete(generation, message, can_restart)
                 )
 
         threading.Thread(target=work, name="host-location-permission", daemon=True).start()
 
     def restart_location_service(self) -> None:
-        if (not self._visible or self._closed or self._state.busy
-                or not self._state.can_restart):
+        if not self._visible or self._closed or self._state.busy or not self._state.can_restart:
             return
         self._generation += 1
         generation = self._generation
@@ -88,9 +101,7 @@ class HostLocationSettingsController:
             except Exception as error:
                 message = str(error)
             if not cancelled():
-                self._dispatcher.schedule_ui_callback(
-                    0, lambda: self._complete(generation, message, False)
-                )
+                self._dispatcher.dispatch_ui(lambda: self._complete(generation, message, False))
 
         threading.Thread(target=work, name="host-location-restart", daemon=True).start()
 

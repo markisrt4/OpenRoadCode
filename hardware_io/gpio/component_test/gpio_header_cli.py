@@ -12,12 +12,7 @@ def main() -> None:
     for pin in RpiGpioHeader.all_pins():
         bcm = "-" if pin.bcm is None else str(pin.bcm)
 
-        print(
-            f"{pin.physical_pin:>4} "
-            f"{bcm:>4} "
-            f"{pin.name:<8} "
-            f"{pin.function}"
-        )
+        print(f"{pin.physical_pin:>4} {bcm:>4} {pin.name:<8} {pin.function}")
 
 
 if __name__ == "__main__":

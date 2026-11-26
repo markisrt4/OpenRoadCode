@@ -9,8 +9,9 @@ import math
 import tkinter as tk
 
 from ui.theme import ThemeBundle
-from .shell_metrics import FONT_SMALL
 from ui.ui_widget import UiWidget
+
+from .shell_metrics import FONT_SMALL
 
 
 class RollIndicator(tk.Canvas, UiWidget):
@@ -69,7 +70,9 @@ class RollIndicator(tk.Canvas, UiWidget):
         color = (
             ui.text_muted
             if self._value is None
-            else ui.accent_danger if abs(value) >= 20.0 else ui.accent_primary
+            else ui.accent_danger
+            if abs(value) >= 20.0
+            else ui.accent_primary
         )
         self.create_line(
             cx - dx,
@@ -129,7 +132,9 @@ class PitchIndicator(tk.Canvas, UiWidget):
         color = (
             ui.text_muted
             if self._value is None
-            else ui.accent_danger if abs(value) >= 20.0 else ui.accent_success
+            else ui.accent_danger
+            if abs(value) >= 20.0
+            else ui.accent_success
         )
         self.create_polygon(
             cx - 16,

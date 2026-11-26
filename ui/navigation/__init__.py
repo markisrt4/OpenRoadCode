@@ -4,6 +4,7 @@
 """Explicit UI contracts for navigation displays."""
 
 from ui.navigation.angular_velocity_ui_if import AngularVelocityUiIf
+from ui.navigation.angular_velocity_ui_stub import AngularVelocityUiStub
 from ui.navigation.ground_track_ui_if import GroundTrackUiIf
 from ui.navigation.ground_track_ui_stub import GroundTrackUiStub
 from ui.navigation.lane_guidance_ui_if import (
@@ -13,8 +14,15 @@ from ui.navigation.lane_guidance_ui_if import (
     TravelLane,
 )
 from ui.navigation.lane_guidance_ui_stub import LaneGuidanceUiStub
+from ui.navigation.map_controls_drawer_ui import (
+    MapControlsDrawerRequestHandlerIf,
+    MapControlsDrawerState,
+    MapControlsDrawerUiIf,
+)
+from ui.navigation.map_marker_selection_source_if import MapMarkerSelectionSourceIf
 from ui.navigation.map_request_handler_if import MapRequestHandlerIf
 from ui.navigation.map_request_handler_stub import MapRequestHandlerStub
+from ui.navigation.map_runtime_if import MapRuntimeIf
 from ui.navigation.map_ui_if import (
     GeoPoint,
     MapMarker,
@@ -25,43 +33,31 @@ from ui.navigation.map_ui_if import (
     RouteGeometry,
 )
 from ui.navigation.map_ui_stub import MapUiStub
-from ui.navigation.map_marker_selection_source_if import MapMarkerSelectionSourceIf
+from ui.navigation.navigation_places_request_handler_if import (
+    MapFavorite,
+    NavigationPlacesFactoryIf,
+    NavigationPlacesRequestHandlerIf,
+)
 from ui.navigation.navigation_request_handler_if import NavigationRequestHandlerIf
 from ui.navigation.navigation_request_handler_stub import NavigationRequestHandlerStub
 from ui.navigation.orientation_ui_if import HeadingReference, OrientationUiIf
-from ui.navigation.position_ui_if import PositionFix, PositionUiIf, SatelliteInfo
-from ui.navigation.poi_overlay_state import PoiOverlayState
-from ui.navigation.route_overlay_state import RouteOverlayState
-from ui.navigation.translation_ui_if import TranslationUiIf
-from ui.navigation.angular_velocity_ui_stub import AngularVelocityUiStub
 from ui.navigation.orientation_ui_stub import OrientationUiStub
+from ui.navigation.poi_overlay_state import PoiOverlayState
+from ui.navigation.position_ui_if import PositionFix, PositionUiIf, SatelliteInfo
 from ui.navigation.position_ui_stub import PositionUiStub
-from ui.navigation.translation_ui_stub import TranslationUiStub
+from ui.navigation.route_alternative_request_handler_if import RouteAlternativeRequestHandlerIf
 from ui.navigation.route_guidance_ui_if import RouteGuidanceUiIf
 from ui.navigation.route_guidance_ui_stub import RouteGuidanceUiStub
+from ui.navigation.route_overlay_state import RouteOverlayState
+from ui.navigation.route_recalculation_request_handler_if import RouteRecalculationRequestHandlerIf
 from ui.navigation.route_request_handler_if import RouteRequestHandlerIf
 from ui.navigation.route_request_handler_stub import RouteRequestHandlerStub
 from ui.navigation.route_simulation_request_handler_if import RouteSimulationRequestHandlerIf
-
-from ui.navigation.map_runtime_if import MapRuntimeIf
-from ui.navigation.map_controls_drawer_ui import (
-    MapControlsDrawerRequestHandlerIf,
-    MapControlsDrawerState,
-    MapControlsDrawerUiIf,
-)
-from ui.navigation.navigation_places_request_handler_if import (
-    MapFavorite, NavigationPlacesFactoryIf, NavigationPlacesRequestHandlerIf,
-)
-
-from ui.navigation.route_waypoint_request_handler_if import RouteWaypointRequestHandlerIf
-
-from ui.navigation.route_alternative_request_handler_if import RouteAlternativeRequestHandlerIf
-
-from ui.navigation.route_recalculation_request_handler_if import RouteRecalculationRequestHandlerIf
-
 from ui.navigation.route_travel_mode_request_handler_if import RouteTravelModeRequestHandlerIf
-
 from ui.navigation.route_voice_guidance_request_handler_if import RouteVoiceGuidanceRequestHandlerIf
+from ui.navigation.route_waypoint_request_handler_if import RouteWaypointRequestHandlerIf
+from ui.navigation.translation_ui_if import TranslationUiIf
+from ui.navigation.translation_ui_stub import TranslationUiStub
 
 __all__ = [
     "RouteVoiceGuidanceRequestHandlerIf",

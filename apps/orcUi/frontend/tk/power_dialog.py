@@ -9,11 +9,11 @@ import tkinter as tk
 from collections.abc import Callable
 
 from ui.theme import ThemeBundle
-from .shell_metrics import FONT_BODY, FONT_CONTROL
-from ui.ui_widget import UiWidget
+
+from .error_dialog import ShellPopup
 
 
-class PowerDialog(UiWidget):
+class PowerDialog(ShellPopup):
     """Own the modal power controls without owning system power behavior."""
 
     def __init__(
@@ -25,35 +25,22 @@ class PowerDialog(UiWidget):
         on_restart: Callable[[], None],
         on_shutdown: Callable[[], None],
     ) -> None:
-        self._root = root
-        self._theme = theme
+        super().__init__(root, theme)
         self._on_exit = on_exit
         self._on_restart = on_restart
         self._on_shutdown = on_shutdown
-        self._dialog: tk.Toplevel | None = None
 
     def show(self) -> None:
-        if self._dialog is not None and self._dialog.winfo_exists():
-            self._dialog.lift()
+        if self._window is not None and self._window.winfo_exists():
+            self._window.lift()
             return
         ui = self._theme().ui
-        dialog = tk.Toplevel(self._root)
-        self._dialog = dialog
-        dialog.title("OpenRoadCode Power")
-        dialog.transient(self._root)
-        dialog.resizable(False, False)
-        dialog.configure(bg=ui.surface)
-        dialog.protocol("WM_DELETE_WINDOW", self.close)
+        dialog = self._open("OpenRoadCode Power")
         frame = tk.Frame(dialog, bg=ui.surface, padx=18, pady=16)
         frame.pack(fill=tk.BOTH, expand=True)
-        tk.Label(frame, text="POWER", fg=ui.text, bg=ui.surface, font=("Sans", 16, "bold")).pack(pady=(0, 4))
-        tk.Label(
-            frame,
-            text="System actions are intentionally two taps away.",
-            fg=ui.text_muted,
-            bg=ui.surface,
-            font=("Sans", FONT_BODY),
-        ).pack(pady=(0, 14))
+        tk.Label(frame, text="POWER", fg=ui.text, bg=ui.surface, font=("Sans", 16, "bold")).pack(
+            pady=(0, 4)
+        )
         for text, command in (
             ("EXIT UI", self._on_exit),
             ("RESTART UI", self._on_restart),
@@ -72,15 +59,15 @@ class PowerDialog(UiWidget):
                 width=24,
                 pady=8,
                 font=("Sans", 10, "bold"),
-                highlightthickness=0, bd=0,
+                highlightthickness=0,
+                bd=0,
             ).pack(fill=tk.X, pady=3)
         self._center(dialog)
+        dialog.lift()
+        dialog.focus_set()
 
     def close(self) -> None:
-        dialog = self._dialog
-        self._dialog = None
-        if dialog is not None and dialog.winfo_exists():
-            dialog.destroy()
+        self.dismiss()
 
     def _center(self, dialog: tk.Toplevel) -> None:
         dialog.update_idletasks()

@@ -3,17 +3,17 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 import secrets
 import webbrowser
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from protocols.oauth import (
     OAuthClient,
     OAuthError,
     OAuthRedirectServer,
-    OAuthTokenStoreIf,
     OAuthTokens,
+    OAuthTokenStoreIf,
     create_pkce_pair,
 )
 from protocols.spotify.spotify_config import SpotifyConfig

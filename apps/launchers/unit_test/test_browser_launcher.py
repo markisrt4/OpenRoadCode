@@ -3,9 +3,9 @@
 
 """Tests for browser process lifecycle behavior."""
 
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import unittest
 from unittest.mock import Mock, patch
 
 from apps.launchers.browser_launcher import BrowserKioskLauncher
@@ -25,7 +25,7 @@ class BrowserKioskLauncherTest(unittest.TestCase):
         activate.assert_called_once_with(":0")
         self.assertFalse(launcher._hidden)
 
-    def test_launch_uses_basic_password_store(self) -> None:
+    def test_embedded_app_launch_uses_x11_and_skips_first_run(self) -> None:
         with TemporaryDirectory() as temporary:
             launcher = BrowserKioskLauncher(
                 url="https://example.com",
@@ -33,17 +33,27 @@ class BrowserKioskLauncherTest(unittest.TestCase):
             )
             process = Mock()
             process.poll.return_value = None
+            launcher.configure_app_window(position=(10, 20), size=(800, 450))
 
             with (
                 patch.object(launcher, "is_running", return_value=False),
                 patch.object(launcher, "_find_browser", return_value="/usr/bin/chromium"),
-                patch("apps.launchers.browser_launcher.x11_environment", return_value={"DISPLAY": ":1"}),
-                patch("apps.launchers.browser_launcher.subprocess.Popen", return_value=process) as popen,
+                patch(
+                    "apps.launchers.browser_launcher.x11_environment",
+                    return_value={"DISPLAY": ":1"},
+                ),
+                patch(
+                    "apps.launchers.browser_launcher.subprocess.Popen", return_value=process
+                ) as popen,
             ):
                 launcher.launch(":1")
 
             command = popen.call_args.args[0]
             self.assertIn("--password-store=basic", command)
+            self.assertIn("--ozone-platform=x11", command)
+            self.assertIn("--no-first-run", command)
+            self.assertIn("--no-default-browser-check", command)
+            self.assertIn("--app=https://example.com", command)
 
     def test_launch_does_not_inherit_opencv_qt_resources(self) -> None:
         with TemporaryDirectory() as temporary:
@@ -64,7 +74,9 @@ class BrowserKioskLauncherTest(unittest.TestCase):
                 patch.object(launcher, "is_running", return_value=False),
                 patch.object(launcher, "_find_browser", return_value="/usr/bin/google-chrome"),
                 patch("apps.launchers.browser_launcher.x11_environment", return_value=contaminated),
-                patch("apps.launchers.browser_launcher.subprocess.Popen", return_value=process) as popen,
+                patch(
+                    "apps.launchers.browser_launcher.subprocess.Popen", return_value=process
+                ) as popen,
             ):
                 launcher.launch(":1")
 
@@ -124,15 +136,21 @@ if __name__ == "__main__":
 
 
 def test_owned_embedded_stop_uses_short_process_grace_without_window_or_proc_scan(tmp_path):
-    launcher=BrowserKioskLauncher(url='http://127.0.0.1:1234',profile_path=tmp_path/'profile',log_file=tmp_path/'browser.log')
-    process=Mock()
-    process.poll.return_value=None
-    launcher._process=process
-    with (patch('apps.launchers.browser_launcher.terminate_process') as terminate,
-          patch('apps.launchers.browser_launcher.close_matching_display_apps') as scan,
-          patch.object(launcher,'_close_app_window') as window):
-        launcher.stop(':1',owned_process_only=True)
-    terminate.assert_called_once_with(process,timeout_seconds=1.0)
+    launcher = BrowserKioskLauncher(
+        url="http://127.0.0.1:1234",
+        profile_path=tmp_path / "profile",
+        log_file=tmp_path / "browser.log",
+    )
+    process = Mock()
+    process.poll.return_value = None
+    launcher._process = process
+    with (
+        patch("apps.launchers.browser_launcher.terminate_process") as terminate,
+        patch("apps.launchers.browser_launcher.close_matching_display_apps") as scan,
+        patch.object(launcher, "_close_app_window") as window,
+    ):
+        launcher.stop(":1", owned_process_only=True)
+    terminate.assert_called_once_with(process, timeout_seconds=1.0)
     scan.assert_not_called()
     window.assert_not_called()
     assert launcher._process is None

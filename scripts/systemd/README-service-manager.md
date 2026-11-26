@@ -69,3 +69,31 @@ Check the journal after failures. A successful HTTP response proves the request 
 ## Current limitations
 
 The installer does not yet preflight checkout traversal, and the HTTP endpoint has no TLS. The service manager's sudo policy is deliberately limited to the approved units, but those units may themselves run privileged code. Review their unit files and dependencies before deployment. Keep the Linux branch separate until VM and Pi validation is complete.
+
+## SDRForge user service (opt-in)
+
+SDRForge runs under the interactive Linux account's systemd **user** manager,
+not the ORC system service manager's account. Install and enable SDRForge's
+user unit using its own Linux installer first.
+
+Configure the owner explicitly when installing the ORC service manager:
+
+```bash
+sudo env OPENROADCODE_SDRFORGE_USER="$(id -un)" bash scripts/systemd/install_service_manager_systemd.sh
+```
+
+The ORC installer installs a root-owned, fixed-command helper at
+`/usr/local/sbin/orc-sdrforge-user-service` and a root-owned account
+mapping at `/etc/openroadcode/sdrforge-user`. Sudoers permits the dedicated
+ORC manager account to invoke only the helper's five supported operations.
+The helper only targets `libsdrforge.service`, refuses system accounts, and
+requires the target user's existing systemd session bus. It does not enable
+lingering or start a new user manager.
+
+The existing authenticated `/services` API exposes
+`openroadcode-sdrforge` with start, stop, restart and status operations.
+Do not add SDRForge to the core stack: its lifecycle is independent.
+
+If the account is not configured, the SDRForge status will be unknown and
+actions will fail. A noninteractive user manager must already be available;
+on a headless host, configure lingering deliberately as an administrator.

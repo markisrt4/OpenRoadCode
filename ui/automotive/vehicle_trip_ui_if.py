@@ -5,6 +5,7 @@
 
 from abc import ABC, abstractmethod
 
+
 class VehicleTripUiIf(ABC):
     """! @brief Display independently updated trip measurements in SI units."""
 
