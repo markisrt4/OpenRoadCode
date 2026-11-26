@@ -48,9 +48,9 @@ class HostLocationSession:
             return
         except NavigationCommandError as error:
             raise HostLocationSessionError('Navigation needs an update before location sharing can start. Restart navigation, then retry.') from error
-        except NavigationCommandUnavailableError:
+        except NavigationCommandUnavailableError as error:
             if self._listening(5560):
-                raise HostLocationSessionError('Navigation is busy. Please try location sharing again in a moment.')
+                raise HostLocationSessionError('Navigation is busy. Please try location sharing again in a moment.') from error
         with self._lock:
             owned_running = any(module == 'services.navigation.navigation_service_cli'
                                 and process.poll() is None for module, process in self._owned)
