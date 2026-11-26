@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import threading
 import time
+from collections.abc import Callable
 
 import numpy as np
 
@@ -16,14 +17,17 @@ from controllers.computer_vision.object_tracker_if import ObjectTrack, TrackFram
 from controllers.computer_vision.vision_controller import VisionController
 from hardware_io.camera.camera_controls_if import CameraProfile
 from hardware_io.camera.camera_if import CameraFrame
-from ui.vision.vision_ui_state import VisionCameraMode, VisionLifecycle
+from ui.vision.vision_request_handler_if import VisionRequestHandlerIf
+from ui.vision.vision_ui_state import VisionCameraMode, VisionLifecycle, VisionUiState
 
 
 class _Dispatcher:
     def __init__(self) -> None:
-        self.callbacks = []
+        self.callbacks: list[Callable[[], None]] = []
 
-    def schedule_ui_callback(self, delay_ms, callback):
+    def schedule_ui_callback(
+        self, delay_ms: int, callback: Callable[[], None]
+    ) -> Callable[[], None]:
         assert delay_ms == 0
         self.callbacks.append(callback)
         return callback
@@ -35,24 +39,24 @@ class _Dispatcher:
 
 class _Ui:
     def __init__(self) -> None:
-        self.handler = None
-        self.states = []
+        self.handler: VisionRequestHandlerIf | None = None
+        self.states: list[VisionUiState] = []
 
-    def set_vision_request_handler(self, handler) -> None:
+    def set_vision_request_handler(self, handler: VisionRequestHandlerIf | None) -> None:
         self.handler = handler
 
-    def set_vision_state(self, state) -> None:
+    def set_vision_state(self, state: VisionUiState) -> None:
         self.states.append(state)
 
 
 class _Controls:
     def __init__(self) -> None:
-        self.current_profile = None
-        self.applied = []
+        self.current_profile: CameraProfile | None = None
+        self.applied: list[CameraProfile] = []
         self.invalidations = 0
         self.restores = 0
 
-    def apply(self, profile) -> None:
+    def apply(self, profile: CameraProfile) -> None:
         self.current_profile = CameraProfile(profile)
         self.applied.append(self.current_profile)
 
@@ -66,7 +70,7 @@ class _Controls:
 
 
 class _Camera:
-    def __init__(self, frame=None, *, open_error=None) -> None:
+    def __init__(self, frame: CameraFrame | None = None, *, open_error: Exception | None = None) -> None:
         self.is_open = False
         self.frame = frame
         self.open_error = open_error
@@ -82,7 +86,7 @@ class _Camera:
         self.is_open = True
         self.opened.set()
 
-    def read(self):
+    def read(self) -> CameraFrame:
         if self.frame is not None and not self.read_once.is_set():
             self.read_once.set()
             return self.frame
@@ -99,15 +103,15 @@ class _Camera:
 class _Worker:
     def __init__(self) -> None:
         self.processed_frames = 0
-        self.latest_result = None
-        self.latest_tracks = None
+        self.latest_result: DetectionFrame | None = None
+        self.latest_tracks: TrackFrame | None = None
         self.starts = 0
         self.stops = 0
 
     def start(self) -> None:
         self.starts += 1
 
-    def submit(self, frame) -> None:
+    def submit(self, frame: CameraFrame) -> None:
         self.processed_frames += 1
         self.latest_result = DetectionFrame(
             frame.timestamp_s,
@@ -125,7 +129,10 @@ class _Worker:
         self.stops += 1
 
 
-def _controller(camera, worker=None, *, prepare_model=None):
+def _controller(
+    camera: _Camera, worker: _Worker | None = None,
+    *, prepare_model: Callable[[], object] | None = None,
+) -> tuple[VisionController, _Dispatcher, _Ui, _Controls]:
     dispatcher, ui, controls = _Dispatcher(), _Ui(), _Controls()
     controller = VisionController(
         dispatcher,
