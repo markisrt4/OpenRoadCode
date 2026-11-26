@@ -428,7 +428,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         open_spotify=show_spotify,
         home_playback_changed=home_playback_changed,
         spotify_colors=lambda: spotify_theme(app),
-        report_status=app.set_screen_status,
+        show_error=app.show_error,
         dispatch_ui=app.dispatch_ui,
         request_song=media.spotify.request_play_song,
         player_state=media.spotify_local_player.state,

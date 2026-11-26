@@ -24,6 +24,18 @@ The pane retires the session when it closes. The Linux installer's optional
 See [MusicForge Airplay self-hosting](musicforge_airplay.md) for server
 requirements and Raspberry Pi setup.
 
+The Trending details pane displays a loading message while artist information
+is fetched. Use the up and down buttons to page through the biography. The
+YouTube action on a song opens the first video and requests autoplay when the
+configured YouTube Data API key or optional `yt-dlp` can resolve a result.
+Otherwise it opens the search results. You can sign in from the YouTube
+browser window while parked. ORC uses the same persistent YouTube browser
+profile for subsequent sessions, while the API key handles search separately.
+
+If Spotify's local browser player cannot start, Trending tries an available
+Spotify Connect device. If playback still fails, ORC displays the failure in
+its error popup.
+
 ## Overview
 
 Streaming Radio adds internet station discovery and audio playback to the ORC Radio screen alongside RF Radio and Trending. The streaming browser provides Local, Regional, and Favorites views plus filtering, station artwork, selection, playback controls, and shared Home now-playing state.

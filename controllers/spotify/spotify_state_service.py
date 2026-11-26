@@ -264,15 +264,21 @@ class SpotifyStateService(
         self._enqueue(lambda: self._controller.transfer_playback(device_id, play=play), "transfer")
 
     def request_play_song(
-        self, artist: str, title: str, report: Callable[[str], None] = lambda _message: None
+        self,
+        artist: str,
+        title: str,
+        report: Callable[[str], None] = lambda _message: None,
+        on_error: Callable[[str], None] | None = None,
     ) -> None:
         """Resolve and play on the Spotify worker; never block the Tk thread."""
+
+        fail = on_error or report
 
         def work() -> None:
             try:
                 uri = self._controller.search_track(artist, title)
                 if uri is None:
-                    report(
+                    fail(
                         f"No matching Spotify recording for {artist} - {title}; check Spotify search candidates in logs"
                     )
                     return
@@ -285,13 +291,13 @@ class SpotifyStateService(
                 self.request_refresh()
             except SpotifyWebApiError as exc:
                 if exc.status_code == 404 and "NO_ACTIVE_DEVICE" in exc.response_body:
-                    report(
+                    fail(
                         "No active Spotify device. Start Spotify on a phone or select ORC PLAYER, then retry."
                     )
                 else:
-                    report(f"Spotify HTTP {exc.status_code}: {exc.response_body}")
+                    fail(f"Spotify could not play this track (HTTP {exc.status_code}).")
             except Exception as exc:
-                report(f"Spotify playback unavailable: {exc}")
+                fail(f"Spotify playback unavailable: {exc}")
 
         self._enqueue(work, "play_song")
 

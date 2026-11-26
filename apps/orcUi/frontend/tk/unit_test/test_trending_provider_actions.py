@@ -9,6 +9,19 @@ from ui.media.artist_profile import ArtistProfile
 from ui.media.song_launch import SongDestination
 
 
+def test_artist_selection_displays_loading_before_request():
+    panel = Mock()
+    song = {"artist": "Burl Ives"}
+
+    TrendingRadioPanel._select(panel, song)
+
+    assert [call[0] for call in panel.mock_calls] == [
+        "_render",
+        "_track_details.show_loading",
+        "_on_artist_selected",
+    ]
+
+
 def test_late_artist_profile_is_ignored_after_selection_changes():
     panel = Mock(_kind="artists", _selected={"artist": "Elton John"})
     profile = ArtistProfile("Burl Ives", "American singer", "https://example.test")

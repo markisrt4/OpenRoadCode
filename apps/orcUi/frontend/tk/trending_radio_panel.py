@@ -59,8 +59,8 @@ class TrendingRadioPanel(tk.Frame, UiWidget):
         self._station = tk.StringVar(value="All stations")
         self._period = tk.StringVar(value="7d")
         # Keep track details and embedded players within the same pane.
-        self.grid_columnconfigure(0, weight=3, uniform="trending_split")
-        self.grid_columnconfigure(1, weight=2, uniform="trending_split")
+        self.grid_columnconfigure(0, weight=1, uniform="trending_split")
+        self.grid_columnconfigure(1, weight=1, uniform="trending_split")
         self.grid_rowconfigure(1, weight=1)
 
         header = tk.Frame(self, bg=ui.background)
@@ -322,6 +322,7 @@ class TrendingRadioPanel(tk.Frame, UiWidget):
     def _select(self, song: dict) -> None:
         self._selected = song
         self._render()
+        self._track_details.show_loading()
         self._on_artist_selected(song["artist"])
 
     def set_artist_profile(self, artist: str, profile: ArtistProfile | None) -> None:

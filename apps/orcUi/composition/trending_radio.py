@@ -118,16 +118,16 @@ def configure_trending(
 
         def load_artist(artist: str) -> None:
             def work() -> None:
-                if closed() or not network_allowed():
+                if closed():
                     return
                 try:
-                    profile = profiles.get(artist)
+                    profile = profiles.get(artist) if network_allowed() else None
                 except (OSError, ValueError, KeyError, IndexError, TypeError):
-                    return
+                    profile = None
 
                 def deliver() -> None:
-                    if not closed() and panel.winfo_exists() and network_allowed():
-                        panel.set_artist_profile(artist, profile)
+                    if not closed() and panel.winfo_exists():
+                        panel.set_artist_profile(artist, profile if network_allowed() else None)
 
                 dispatch_ui(deliver)
 

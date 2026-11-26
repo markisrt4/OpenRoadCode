@@ -16,11 +16,11 @@ def build_trending_spotify_pane(
     *,
     theme: dict,
     activate: Callable[[SpotifyPlaybackPanel], Callable[[], None]],
-    report_status: Callable[[str], None],
+    show_error: Callable[[str, str], None],
     dispatch_ui: Callable[[Callable[[], None]], None],
     android: bool,
     network_allowed: Callable[[], bool],
-    request_song: Callable[[str, str, Callable[[str], None]], None],
+    request_song: Callable[[str, str, Callable[[str], None], Callable[[str], None]], None],
     player_state: Callable[[], SpotifyLocalPlayerState],
     request_player: Callable[[], None],
     configured: bool,
@@ -84,28 +84,31 @@ def build_trending_spotify_pane(
         def update() -> None:
             if host.winfo_exists():
                 status.configure(text=message)
-                report_status(message)
 
         dispatch_ui(update)
 
-    # On Termux, Spotify plays in the Android app. Never launch the SDK browser.
+    def request_playback(local_error: str = "") -> None:
+        def failed(message: str) -> None:
+            def present() -> None:
+                if host.winfo_exists():
+                    status.configure(text="Spotify playback unavailable.")
+                    details = f"{local_error}\n\n{message}" if local_error else message
+                    show_error("Spotify playback failed", details)
+
+            dispatch_ui(present)
+
+        if local_error:
+            report("Trying an available Spotify Connect device…")
+        request_song(artist, title, report, failed)
+
     if android:
-        # The existing Spotify presentation already supplies metadata,
-        # artwork, progress, and controls from Spotify Web API. Do not
-        # duplicate or overwrite its status with MediaSession polling.
-        # Android Bridge remains available as a separate transport adapter.
-        # Resolve the selected MusicForge song and request it on the active
-        # Spotify Connect device (normally the Android Spotify app).
-        # Keep Web API calls on its existing worker, never on Tk's thread.
         if network_allowed():
-            request_song(artist, title, report)
             report(f"Requesting {artist} - {title} on active Spotify device")
+            request_playback()
     else:
-        # Register the SDK playback device before queuing a track. The local
-        # player queues its transfer first, so subsequent play uses that device.
         state = player_state()
         if not state.available:
-            report("Local Spotify player unavailable: " + state.message)
+            request_playback("Local Spotify player unavailable: " + state.message)
         else:
             deadline = monotonic() + 25.0
             request_player()
@@ -116,11 +119,11 @@ def build_trending_spotify_pane(
                 current = player_state()
                 if current.mode is SpotifyPlaybackMode.PLAYER and not current.busy:
                     report("ORC Spotify device ready. Loading selected track…")
-                    request_song(artist, title, report)
+                    request_playback()
                 elif current.mode is SpotifyPlaybackMode.REMOTE and not current.busy:
-                    report(current.message)
+                    request_playback(current.message)
                 elif monotonic() >= deadline:
-                    report("Timed out waiting for ORC Spotify player registration")
+                    request_playback("Timed out waiting for the ORC Spotify player.")
                 else:
                     host.after(200, await_device)
 
