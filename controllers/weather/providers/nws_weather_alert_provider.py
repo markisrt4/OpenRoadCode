@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import TypeVar
 
 import requests
 
@@ -15,6 +16,9 @@ from controllers.weather.weather_alert import (
     WeatherAlertUrgency,
 )
 from controllers.weather.weather_state import WeatherLocation
+
+
+_AlertEnum = TypeVar("_AlertEnum", WeatherAlertSeverity, WeatherAlertUrgency, WeatherAlertCertainty)
 
 
 class NwsWeatherAlertProvider:
@@ -51,7 +55,9 @@ class NwsWeatherAlertProvider:
         return tuple(self._alert(feature) for feature in features)
 
     @classmethod
-    def _alert(cls, feature: dict) -> WeatherAlert:
+    def _alert(cls, feature: object) -> WeatherAlert:
+        if not isinstance(feature, dict):
+            raise ValueError("NWS alert must be an object")
         p = feature.get("properties")
         if not isinstance(p, dict):
             raise ValueError("NWS alert is missing properties")
@@ -75,23 +81,23 @@ class NwsWeatherAlertProvider:
         )
 
     @staticmethod
-    def _enum(t, v):
+    def _enum(t: type[_AlertEnum], v: object) -> _AlertEnum:
         try:
             return t(str(v).lower())
         except ValueError:
             return t.UNKNOWN
 
     @staticmethod
-    def _text(v, f):
+    def _text(v: object, f: str) -> str:
         return v.strip() if isinstance(v, str) and v.strip() else f
 
     @classmethod
-    def _optional_text(cls, v):
+    def _optional_text(cls, v: object) -> str | None:
         x = cls._text(v, "")
         return x or None
 
     @staticmethod
-    def _datetime(v, field):
+    def _datetime(v: object, field: str) -> datetime:
         if not isinstance(v, str) or not v:
             raise ValueError(f"NWS alert is missing {field}")
         x = datetime.fromisoformat(v.replace("Z", "+00:00"))
@@ -100,5 +106,5 @@ class NwsWeatherAlertProvider:
         return x
 
     @classmethod
-    def _optional_datetime(cls, v):
+    def _optional_datetime(cls, v: object) -> datetime | None:
         return None if v is None else cls._datetime(v, "timestamp")
