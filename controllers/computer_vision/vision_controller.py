@@ -47,7 +47,7 @@ class VisionController(VisionRequestHandlerIf):
         prepare_model: Callable[[], object] | None = None,
     ) -> None:
         self._diagnostics = ComponentLog("vision.session", "vision")
-        self._operation_id = None
+        self._operation_id: str | None = None
         self._dispatcher = dispatcher
         self._ui = ui
         self._camera = camera
@@ -165,7 +165,7 @@ class VisionController(VisionRequestHandlerIf):
         self._diagnostics.changed("lifecycle", "closed", self._operation_id)
         self._ui.set_vision_request_handler(None)
 
-    def _run(self, generation: int, operation_id: str) -> None:
+    def _run(self, generation: int, operation_id: str | None) -> None:
         with operation(operation_id):
             self._capture_session(generation)
 
