@@ -75,7 +75,7 @@ def _inside_ring(point, ring):
     """Basic courtyard containment; source area assembly remains Osmium-owned."""
     x,y = point
     inside = False
-    for first,second in zip(ring,ring[1:]):
+    for first,second in zip(ring,ring[1:], strict=False):
         if (first[1]>y) != (second[1]>y):
             crossing = first[0]+(second[0]-first[0])*(y-first[1])/(second[1]-first[1])
             if x < crossing:
