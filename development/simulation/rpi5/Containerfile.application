@@ -1,0 +1,6 @@
+FROM localhost/orc-rpi5-sim
+RUN apt-get update && apt-get install -y --no-install-recommends git python3-venv python3-pip python3-numpy libgl1 libgl1-mesa-dri libglu1-mesa libportaudio2 xdotool x11-utils procps dbus-x11 && rm -rf /var/lib/apt/lists/*
+COPY installers /opt/orc/scripts/installers
+ENV VENV_DIR=/opt/orc-venv PIP_NO_CACHE_DIR=1
+RUN OPENROAD_INSTALL_TARGET=linux-dev bash /opt/orc/scripts/installers/install_python_env.sh base desktop-ui automotive calendar gps
+WORKDIR /workspace
