@@ -9,8 +9,11 @@ Compact FM puts tuning controls around the frequency display and groups presets,
 scan, and mute below station information and the FM band dial. The receiver
 power control has its own row beneath the signal meter.
 Trending artist selections show airplay counts and, when a matching article is
-available, a Wikipedia biography and credited Wikimedia portrait. ORC uses its
-persistent cache for seven days so repeat selections can reuse profile data.
+available, a Wikipedia biography and credited Wikimedia portrait. The shared
+`PersistentCache` stores biographies, portrait bytes, and attribution under the
+OpenRoadCode user cache directory (`artist-profiles`). Profiles with a portrait
+are reused for seven days. Missing profiles or portraits are retried after an
+hour on the next selection. Airplay counts come from the charts API.
 Song selections show their observed play count and the same sourced artist
 context when available.
 

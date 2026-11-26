@@ -17,6 +17,7 @@ from ui.media.artist_profile import ArtistProfile
 _API = "https://en.wikipedia.org/w/api.php"
 _COMMONS_API = "https://commons.wikimedia.org/w/api.php"
 _TTL = 7 * 86400
+_MISSING_PORTRAIT_TTL = 3600
 
 
 def _download(url: str, limit: int) -> bytes:
@@ -43,13 +44,14 @@ class ArtistProfiles:
 
     def get(self, artist: str) -> ArtistProfile | None:
         """Return an exact article match, using a cached profile when available."""
-        key = "wikimedia-artist-v3:" + artist.strip().casefold()
+        key = "wikimedia-artist-v4:" + artist.strip().casefold()
         cached = self._cache.get(key)
         if cached:
             try:
                 entry = json.loads(cached)
-                if time() - entry["saved"] < _TTL:
-                    cached_profile = entry["profile"]
+                cached_profile = entry["profile"]
+                ttl = _TTL if cached_profile and cached_profile["portrait"] else _MISSING_PORTRAIT_TTL
+                if time() - entry["saved"] < ttl:
                     if cached_profile is None:
                         return None
                     if cached_profile["portrait"]:
@@ -75,8 +77,9 @@ class ArtistProfiles:
         return cast(dict[str, Any], json.loads(self._fetch(url, 256_000)))
 
     def _lookup(self, artist: str) -> ArtistProfile | None:
-        page = self._query(
+        result = self._query(
             titles=artist,
+            redirects="1",
             prop="extracts|pageimages|pageprops|info",
             exintro="1",
             explaintext="1",
@@ -84,10 +87,17 @@ class ArtistProfiles:
             inprop="url",
             piprop="thumbnail|name",
             pilicense="free",
-            pithumbsize="320",
-        )["query"]["pages"][0]
+            pithumbsize="330",
+        )["query"]
+        page = result["pages"][0]
         bio = page.get("extract", "").strip()
-        if page.get("title", "").casefold() != artist.casefold() or not bio:
+        if not bio or (
+            page.get("title", "").casefold() != artist.casefold()
+            and not any(
+                link["from"].casefold() == artist.casefold()
+                for link in result.get("redirects", [])
+            )
+        ):
             return None
         if "disambiguation" in page.get("pageprops", {}):
             return None
@@ -101,22 +111,33 @@ class ArtistProfiles:
         return ArtistProfile(artist, bio, page["fullurl"], image, credit, source)
 
     def _portrait(self, page: dict[str, Any]) -> tuple[bytes | None, str, str]:
-        thumbnail = page.get("thumbnail", {}).get("source", "")
         filename = page.get("pageimage")
+        thumbnail = page.get("thumbnail", {}).get("source", "")
+        if filename:
+            portrait = self._file_portrait(filename, thumbnail)
+            if portrait[0]:
+                return portrait
+
+        entity = page.get("pageprops", {}).get("wikibase_item", "")
+        if not re.fullmatch(r"Q[0-9]+", entity):
+            return None, "", ""
         try:
-            if not filename:
-                entity = page.get("pageprops", {}).get("wikibase_item", "")
-                if not re.fullmatch(r"Q[0-9]+", entity):
-                    return None, "", ""
-                url = f"https://www.wikidata.org/wiki/Special:EntityData/{entity}.json"
-                data = json.loads(self._fetch(url, 768_000))
-                claim = data["entities"][entity]["claims"]["P18"][0]
-                filename = claim["mainsnak"]["datavalue"]["value"]
+            url = f"https://www.wikidata.org/wiki/Special:EntityData/{entity}.json"
+            data = json.loads(self._fetch(url, 768_000))
+            claim = data["entities"][entity]["claims"]["P18"][0]
+            fallback = claim["mainsnak"]["datavalue"]["value"]
+        except (OSError, ValueError, KeyError, IndexError, TypeError):
+            return None, "", ""
+        return self._file_portrait(fallback)
+
+    def _file_portrait(self, filename: str, thumbnail: str = "") -> tuple[bytes | None, str, str]:
+        try:
             parameters = {
                 "titles": f"File:{filename}",
                 "prop": "imageinfo",
                 "iiprop": "url|extmetadata",
-                "iiurlwidth": "320",
+                "iiextmetadatafilter": "Artist|LicenseShortName",
+                "iiurlwidth": "330",
             }
             info = self._query(_COMMONS_API, redirects="1", **parameters)
             if not info["query"]["pages"][0].get("imageinfo"):
@@ -128,10 +149,18 @@ class ArtistProfiles:
             source = file["descriptionurl"]
             if not credit or not license_name:
                 return None, "", ""
-            thumbnail = file.get("thumburl") or thumbnail
-            url = urlsplit(thumbnail)
-            if url.scheme != "https" or url.hostname != "upload.wikimedia.org":
-                return None, "", ""
-            return self._fetch(thumbnail, 512_000), f"{credit} · {license_name}", str(source)
+            for candidate in dict.fromkeys((file.get("thumburl"), thumbnail, file.get("url"))):
+                if not candidate:
+                    continue
+                url = urlsplit(candidate)
+                if url.scheme != "https" or url.hostname != "upload.wikimedia.org":
+                    continue
+                try:
+                    image = self._fetch(candidate, 512_000)
+                except (OSError, ValueError):
+                    continue
+                if image:
+                    return image, f"{credit} · {license_name}", str(source)
         except (OSError, ValueError, KeyError, IndexError, TypeError):
-            return None, "", ""
+            pass
+        return None, "", ""
