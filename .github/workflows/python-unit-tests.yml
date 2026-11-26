@@ -10,6 +10,10 @@ on:
         description: Run the full portable quality gate
         type: boolean
         default: false
+      controller_types:
+        description: Run strict mypy across the controller layer
+        type: boolean
+        default: false
 concurrency:
   group: orc-fast-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -55,7 +59,7 @@ jobs:
           path: unit-test-results.xml
           if-no-files-found: ignore
   full:
-    if: github.event_name == 'workflow_dispatch' && inputs.full_gate
+    if: github.event_name == 'workflow_dispatch' && (inputs.full_gate || inputs.controller_types)
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -68,4 +72,8 @@ jobs:
           bash scripts/setup_quality_env.sh
           echo "$PWD/.venv-quality/bin" >> "$GITHUB_PATH"
       - name: Run portable full quality gate
+        if: inputs.full_gate
         run: python scripts/quality_gate.py
+      - name: Run strict controller type checks
+        if: ${{ !cancelled() && inputs.controller_types }}
+        run: python scripts/check_ui_types.py --controllers
