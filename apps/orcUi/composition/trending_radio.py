@@ -19,7 +19,7 @@ from ui.media.trending_video import TrendingVideoSession
 from ui.notification_if import Notification, NotificationSeverity, NotificationSinkIf
 from ui.theme import ThemeBundle
 
-SpotifyFactory = Callable[[tk.Misc, Callable[[], None], str, str], tk.Widget]
+SpotifyFactory = Callable[[tk.Misc, str, str], tk.Widget]
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,10 +45,10 @@ def configure_trending(
     profiles = ArtistProfiles(PersistentCache(openroadcode_cache_dir("artist-profiles")))
     song_launch: list[Callable[[SongLaunchRequest], None]] = []
     video_players: list[ManagedBrowserMediaPlayer] = []
-    spotify_factories: list[Callable[[tk.Misc, Callable[[], None], str, str], tk.Widget]] = []
+    spotify_factories: list[Callable[[tk.Misc, str, str], tk.Widget]] = []
 
     def bind_spotify_factory(
-        factory: Callable[[tk.Misc, Callable[[], None], str, str], tk.Widget],
+        factory: Callable[[tk.Misc, str, str], tk.Widget],
     ) -> None:
         spotify_factories[:] = [factory]
 
@@ -175,8 +175,8 @@ def configure_trending(
             on_artist_search=search_artist,
             on_artist_selected=load_artist,
             video_session=video_session,
-            spotify_factory=lambda host, back, artist, title: (
-                spotify_factories[0](host, back, artist, title) if spotify_factories else None
+            spotify_factory=lambda host, artist, title: (
+                spotify_factories[0](host, artist, title) if spotify_factories else None
             ),
             online_allowed=network_allowed,
         )

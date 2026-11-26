@@ -10,7 +10,7 @@ from ui.media.song_launch import SongDestination
 
 
 def test_artist_selection_displays_loading_before_request():
-    panel = Mock()
+    panel = Mock(_spotify_pane=None)
     song = {"artist": "Burl Ives"}
 
     TrendingRadioPanel._select(panel, song)
@@ -20,6 +20,16 @@ def test_artist_selection_displays_loading_before_request():
         "_track_details.show_loading",
         "_on_artist_selected",
     ]
+
+
+def test_selecting_song_while_spotify_is_open_restores_track_details():
+    panel = Mock(_spotify_pane=Mock())
+    song = {"artist": "Burl Ives"}
+
+    TrendingRadioPanel._select(panel, song)
+
+    panel._restore_track_details.assert_called_once_with()
+    assert panel._selected == song
 
 
 def test_late_artist_profile_is_ignored_after_selection_changes():
@@ -42,7 +52,7 @@ def test_spotify_song_opens_in_the_left_trending_pane():
     TrendingRadioPanel._open_spotify(panel)
 
     panel._spotify_factory.assert_called_once_with(
-        panel._left, panel._restore_track_details, "Burl Ives", "A Song"
+        panel._left, "Burl Ives", "A Song"
     )
     panel._spotify_factory.return_value.grid.assert_called_once_with(
         row=0, column=0, sticky="nsew"

@@ -12,7 +12,7 @@ from frontends.tk.media.spotify_playback_panel import SpotifyPlaybackPanel
 from ui.media.spotify_browse_if import SpotifyLocalPlayerState, SpotifyPlaybackMode
 from ui.theme import ThemeBundle
 
-SpotifyFactory = Callable[[tk.Misc, Callable[[], None], str, str], tk.Widget]
+SpotifyFactory = Callable[[tk.Misc, str, str], tk.Widget]
 
 
 def bind_spotify_views(
@@ -71,13 +71,11 @@ def bind_spotify_views(
 
     def trending_spotify_factory(
         parent: tk.Misc,
-        on_back: Callable[[], None],
         artist: str,
         title: str,
     ) -> tk.Widget:
         return build_trending_spotify_pane(
             parent,
-            on_back,
             artist,
             title,
             theme=spotify_colors(),

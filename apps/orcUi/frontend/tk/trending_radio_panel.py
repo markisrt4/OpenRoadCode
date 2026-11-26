@@ -36,7 +36,7 @@ class TrendingRadioPanel(tk.Frame, UiWidget):
         on_artist_selected: Callable[[str], None],
         on_media_error: Callable[[str, str], None] = lambda _provider, _message: None,
         video_session: Callable[[str], TrendingVideoSession | None] = lambda _query: None,
-        spotify_factory: Callable | None = None,
+        spotify_factory: Callable[[tk.Misc, str, str], tk.Widget | None] | None = None,
         online_allowed: Callable[[], bool] = lambda: True,
     ) -> None:
         ui = theme.ui
@@ -320,6 +320,8 @@ class TrendingRadioPanel(tk.Frame, UiWidget):
         self._render()
 
     def _select(self, song: dict) -> None:
+        if self._spotify_pane is not None:
+            self._restore_track_details()
         self._selected = song
         self._render()
         self._track_details.show_loading()
@@ -447,7 +449,6 @@ class TrendingRadioPanel(tk.Frame, UiWidget):
             self._spotify_pane.destroy()
         self._spotify_pane = self._spotify_factory(
             self._left,
-            self._restore_track_details,
             self._selected["artist"],
             self._selected["title"],
         )
