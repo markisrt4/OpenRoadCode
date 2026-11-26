@@ -173,10 +173,7 @@ class RadarReplayController(RadarRequestHandlerIf):
         self._host.schedule_ui_callback(1000, lambda: self._poll_radar_health(generation))
 
     def _change_radar_palette(self, palette: RadarPalette) -> None:
-        controller = self._radar_controller
-        if controller is None:
-            return
-        controller.set_palette(palette)
+        self._radar_controller.set_palette(palette)
         if self._on_radar_palette_changed is not None:
             self._on_radar_palette_changed(palette)
 
