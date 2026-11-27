@@ -66,7 +66,12 @@ def main(*, startup_started_at: float | None = None) -> None:
     parser.add_argument(
         "--check-ecu-gl", action="store_true", help="Check the ECU OpenGL renderer and exit"
     )
+    parser.add_argument("--no-camera", action="store_true", help="Disable camera and perception")
     args = parser.parse_args()
+    if args.no_camera:
+        import os
+
+        os.environ["ORC_NO_CAMERA"] = "1"
     if args.check_ecu_gl:
         from apps.orcUi.frontend.tk.ecu_gl_diagnostics import main as check_ecu_gl
 
