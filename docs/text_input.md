@@ -67,7 +67,7 @@ From the repository checkout with its Python environment active:
 ```bash
 git switch feature/waze-live-map
 python -m pytest controllers/input/unit_test/test_text_input_controller.py hardware_io/keyboard/unit_test/test_process_soft_keyboard.py -q
-python scripts/check_ui_boundaries.py
+python ci/check_ui_boundaries.py
 ```
 
 The tests exercise ownership, stale requests, reentrant completion, failure

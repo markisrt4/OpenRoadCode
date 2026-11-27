@@ -32,18 +32,18 @@ jobs:
           python-version: '3.12'
       - name: Install verification dependencies
         run: |
-          bash scripts/setup_quality_env.sh
+          bash ci/setup_quality_env.sh
           echo "$PWD/.venv-quality/bin" >> "$GITHUB_PATH"
       - name: Focused architecture checks
         run: |
-          python scripts/check_python_module_size.py
-          python scripts/check_ui_boundaries.py
+          python ci/check_python_module_size.py
+          python ci/check_ui_boundaries.py
       - name: Games panel layout with X11
         run: xvfb-run -a python -m pytest -q -rs frontends/tk/games/unit_test/test_games_panel_layout.py
       - name: Unit tests
         run: |
           python - <<'PY'
-          from scripts.run_tests import find_suites
+          from ci.run_tests import find_suites
           import subprocess
           import sys
           dirs = [str(p) for p in find_suites('unit')]
@@ -69,7 +69,7 @@ jobs:
           python-version: '3.12'
       - name: Install quality gate dependencies
         run: |
-          bash scripts/setup_quality_env.sh
+          bash ci/setup_quality_env.sh
           echo "$PWD/.venv-quality/bin" >> "$GITHUB_PATH"
       - name: Run portable full quality gate
-        run: python scripts/quality_gate.py
+        run: python ci/quality_gate.py

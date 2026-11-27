@@ -94,7 +94,7 @@ requires Ruff lint and formatting checks. Linux installs Ruff through pip.
 
 ```bash
 bash scripts/termux/install.sh development
-venv-termux/bin/python scripts/quality_gate.py
+venv-termux/bin/python ci/quality_gate.py
 ```
 
 Run validation with the installer-managed interpreter; native `python` may not

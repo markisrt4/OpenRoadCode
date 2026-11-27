@@ -5,7 +5,7 @@ import subprocess
 
 import pytest
 
-from scripts import dev_check_changes as changes
+from ci import dev_check_changes as changes
 
 
 def git(root, *arguments):
@@ -41,7 +41,7 @@ def fake_tools(monkeypatch, *, edit=True, lint=0, gate=0, push=0, during_gate=No
                 (root / "a file.py").write_text("value = 1\n")
             code = lint if command[1] == "check" else 0
             return subprocess.CompletedProcess(command, code, b"", b"")
-        if "scripts/quality_gate.py" in command:
+        if "ci/quality_gate.py" in command:
             if during_gate is not None:
                 during_gate(root)
             return subprocess.CompletedProcess(command, gate, b"", b"")
@@ -121,7 +121,7 @@ def test_format_only_records_changes_without_running_gate(repo, monkeypatch):
     calls = fake_tools(monkeypatch)
     assert changes.main(["--format-only"], root=repo) == 0
     assert report(repo)["files"] == ["a file.py"]
-    assert not any("scripts/quality_gate.py" in command for command in calls)
+    assert not any("ci/quality_gate.py" in command for command in calls)
     assert report(repo)["commit"] is None
 
 

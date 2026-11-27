@@ -134,7 +134,7 @@ uses a virtual environment with system packages visible.
 Run the automated unit and integration suites from the repository root:
 
 ```bash
-python scripts/run_tests.py all
+python ci/run_tests.py all
 ```
 
 A native GL component check creates an X11 context and the actual themed

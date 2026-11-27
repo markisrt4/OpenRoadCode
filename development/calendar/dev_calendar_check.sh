@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 set -uo pipefail
-cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
+cd "$(dirname "${BASH_SOURCE[0]}")/../.." || exit 1
 mode="${1:---all}"
 case "$mode" in
     --all|--lint|--format|--test) ;;
-    *) echo "Usage: bash scripts/dev_check.sh [--all|--lint|--format|--test] [paths...]" >&2; exit 2 ;;
+    *) echo "Usage: bash development/calendar/dev_calendar_check.sh [--all|--lint|--format|--test] [paths...]" >&2; exit 2 ;;
 esac
 if [ "$#" -gt 0 ]; then shift; fi
 if [ -f .venv/bin/activate ]; then

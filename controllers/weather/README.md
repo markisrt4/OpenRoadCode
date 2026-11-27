@@ -381,7 +381,7 @@ state to native GeoJSON/raster commands. The same controller snapshots can feed
 a non-Tk frontend without changing weather orchestration. Radar color choices
 are defined in `ui/weather` rather than imported from a weather backend.
 
-`python scripts/check_weather_ui_contracts.py` checks weather frontend imports,
+`python ci/check_weather_ui_contracts.py` checks weather frontend imports,
 backend-object access and controller independence from GUI frameworks. The local
 quality gate and GitHub quality workflow both run it. ABC request/view contracts
 reject incomplete implementations, binding checks reject unrelated backend

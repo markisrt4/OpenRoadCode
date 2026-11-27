@@ -3,7 +3,7 @@
 import subprocess
 from unittest.mock import Mock
 
-from scripts import run_tests
+from ci import run_tests
 
 
 def test_selected_targets_do_not_expand_to_all_suites(monkeypatch):

@@ -54,7 +54,7 @@ From the repository root:
 ```bash
 venv/bin/python -m unittest discover \
   -s input_events/unit_test -p 'test_*.py'
-venv/bin/python scripts/check_doxygen_contracts.py
+venv/bin/python ci/check_doxygen_contracts.py
 doxygen Doxyfile
 ```
 

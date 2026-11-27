@@ -24,7 +24,7 @@ if [ ! -f "$REPO_DIR/controllers/calendar/calendar_sync_daemon.py" ]; then
 fi
 PYTHON_BIN="$PREFIX/bin/python"
 "$PYTHON_BIN" -c 'import dateutil' || {
-    echo "Install calendar dependencies with bash scripts/dev_setup.sh" >&2
+    echo "Install calendar dependencies with bash development/calendar/dev_setup.sh" >&2
     exit 1
 }
 SERVICE_DIR="$PREFIX/var/service/openroadcode-calendar-sync"

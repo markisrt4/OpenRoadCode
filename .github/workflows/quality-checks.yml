@@ -32,30 +32,30 @@ jobs:
           python-version: "3.12"
 
       - name: Test documentation inventory
-        run: python -m unittest discover -s scripts/unit_test -p 'test_docs_inventory.py'
+        run: python -m unittest discover -s ci/unit_test -p 'test_docs_inventory.py'
 
       - name: Validate generated documentation index
-        run: python scripts/docs_inventory.py --check
+        run: python ci/docs_inventory.py --check
 
       - name: Validate Markdown links
-        run: python scripts/check_markdown_links.py
+        run: python ci/check_markdown_links.py
 
       - name: Validate Mermaid legends
-        run: python scripts/check_mermaid_legends.py
+        run: python ci/check_mermaid_legends.py
 
       - name: Validate Doxygen contracts
-        run: python scripts/check_doxygen_contracts.py
+        run: python ci/check_doxygen_contracts.py
 
       - name: Cache pinned Doxygen
         uses: actions/cache@v4
         with:
           path: .venv-quality/tools
-          key: doxygen-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/install_quality_doxygen.sh') }}
+          key: doxygen-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('ci/install_quality_doxygen.sh') }}
 
       - name: Install Doxygen
         run: |
           python -m venv .venv-quality
-          bash scripts/install_quality_doxygen.sh
+          bash ci/install_quality_doxygen.sh
 
       - name: Generate Doxygen documentation
         shell: bash
@@ -129,13 +129,13 @@ jobs:
           python-version: "3.12"
 
       - name: Install isolated quality environment
-        run: bash scripts/setup_quality_env.sh
+        run: bash ci/setup_quality_env.sh
 
       - name: Run static quality gates
-        run: bash scripts/dev_check.sh --all
+        run: bash ci/dev_check.sh --all
 
       - name: Run integration tests
-        run: .venv-quality/bin/python scripts/run_tests.py integration
+        run: .venv-quality/bin/python ci/run_tests.py integration
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -154,7 +154,7 @@ jobs:
           bash -n scripts/systemd/install_service_manager_systemd.sh
           bash -n development/debian/install_streaming_radio.sh
           bash -n development/termux/install_streaming_radio.sh
-          bash -n scripts/docs-preview.sh
+          bash -n development/docs/docs-preview.sh
 
       - name: Check source-tree runtime state
         shell: bash

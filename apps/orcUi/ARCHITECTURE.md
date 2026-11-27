@@ -453,7 +453,7 @@ Before merging a substantial architecture change, review the complete branch dif
 
 ### Strict contract type checking
 
-`scripts/check_ui_types.py` runs pinned mypy in strict mode using the scope in
+`ci/check_ui_types.py` runs pinned mypy in strict mode using the scope in
 `pyproject.toml`. The scope covers the widget marker, dispatcher and
 routing contracts, the route stub and service adapter, the callback queue,
 the ORC shell, and Games contracts, controller, launcher, session, Tk presentation,
@@ -461,7 +461,7 @@ and composition, plus the migrated streaming-radio contracts, orchestration,
 Tk presentation, and composition. Route request interface files are selected by a
 glob so additional route capabilities enter the check automatically.
 
-`scripts/ui_type_witnesses.py` statically checks the shell against `UiDispatcherIf`
+`ci/ui_type_witnesses.py` statically checks the shell against `UiDispatcherIf`
 and `TkScreenHostIf`, and Games session, runtime surface, and X11 adapter against
 their narrow contracts, as well as radio browser, playback source, and storage
 bindings, without constructing frontend or backend resources. Tests

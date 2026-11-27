@@ -13,7 +13,7 @@ From your OpenRoadCode checkout, switch branches before updating or installing:
 git switch feature/bridge-live-logs
 git pull --ff-only
 source venv/bin/activate
-python scripts/quality_gate.py
+python ci/quality_gate.py
 ```
 
 Use your existing installation scripts to update/restart deployed ORC services.
