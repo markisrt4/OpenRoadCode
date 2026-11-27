@@ -4,6 +4,7 @@
 
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$ROOT/../.." && pwd)"
 CONTAINER_ENGINE="${CONTAINER_ENGINE:-docker}"
 
 if ! command -v "$CONTAINER_ENGINE" >/dev/null 2>&1; then
@@ -17,6 +18,8 @@ if [[ -t 0 && -t 1 ]]; then tty_args=(-it); fi
 exec "$CONTAINER_ENGINE" run --rm "${tty_args[@]}" \
   --network host \
   --env PYTHONDONTWRITEBYTECODE=1 \
+  --env PYTHONPATH=/opt/openroadcode-source:/opt/openroadcode-map-builder \
+  --mount "type=bind,src=$REPO_ROOT,dst=/opt/openroadcode-source,readonly" \
   --mount "type=bind,src=$ROOT/build-output,dst=/srv/openroadcode" \
   --mount "type=bind,src=$ROOT/.cache,dst=/cache" \
   --mount "type=bind,src=$ROOT/.scratch,dst=/scratch" \

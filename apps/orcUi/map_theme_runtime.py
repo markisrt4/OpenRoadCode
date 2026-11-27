@@ -14,12 +14,13 @@ from typing import Any
 from ui.theme import ThemeMode
 
 _MAP_DARK = {
-    "background": "#0b151b",
+    "background": "#103f56",
     "wood": "#164a35",
     "grass": "#28523a",
     "scrub": "#314b3b",
     "farmland": "#2d3f35",
     "land_default": "#17262d",
+    "reference_land": "#18372b",
     "residential": "#22343d",
     "commercial": "#493044",
     "industrial": "#33444a",
@@ -30,8 +31,10 @@ _MAP_DARK = {
     "park": "#17613b",
     "water": "#103f56",
     "waterway": "#4c8297",
-    "boundary": "#73858e",
+    "country_boundary": "#dce8ef",
+    "disputed_boundary": "#d5a84f",
     "state_boundary": "#54c96b",
+    "michigan_boundary": "#59d8ff",
     "rail": "#718087",
     "path": "#7b898f",
     "service_casing": "#39484f",
@@ -61,12 +64,13 @@ _MAP_DARK = {
     "building_tall": "#86969e",
 }
 _MAP_LIGHT = {
-    "background": "#e7eef2",
+    "background": "#75bee3",
     "wood": "#a9d4b8",
     "grass": "#c8e3b2",
     "scrub": "#d1e1c3",
     "farmland": "#dce6b4",
     "land_default": "#e1e8e8",
+    "reference_land": "#d7e4d5",
     "residential": "#e1e7eb",
     "commercial": "#eddbe7",
     "industrial": "#d9e2e5",
@@ -77,8 +81,10 @@ _MAP_LIGHT = {
     "park": "#a9dcb7",
     "water": "#75bee3",
     "waterway": "#2da6df",
-    "boundary": "#82949e",
+    "country_boundary": "#536872",
+    "disputed_boundary": "#a16d19",
     "state_boundary": "#348a46",
+    "michigan_boundary": "#087ba0",
     "rail": "#8b989e",
     "path": "#a1acae",
     "service_casing": "#b9c3c7",
@@ -111,15 +117,23 @@ _MAP_LIGHT = {
 
 def install_map_style(mode: ThemeMode, data_root: str | Path | None = None) -> Path | None:
     """Install the generated MapLibre style for the requested presentation mode."""
-    repo_root = Path(__file__).resolve().parents[2]
-    template = repo_root / "tools" / "map_builder" / "templates" / "openroadcode-style.json"
+    template = (
+        Path(__file__).resolve().parents[2]
+        / "tools"
+        / "map_builder"
+        / "templates"
+        / "openroadcode-style.json"
+    )
     root = Path(data_root) if data_root is not None else _default_data_root()
     destination = root / "maps" / "styles" / "openroadcode.json"
     if not template.is_file() or not destination.parent.is_dir():
         return None
     document = json.loads(template.read_text(encoding="utf-8"))
+    if not (root / "maps" / "vector" / "us-freeways.mbtiles").is_file():
+        _use_regional_freeway_fallback(document)
     _apply_map_palette(document, _MAP_DARK if mode is ThemeMode.DARK else _MAP_LIGHT)
     try:
+        _install_reference_maps(root)
         destination.write_text(json.dumps(document, separators=(",", ":")), encoding="utf-8")
     except PermissionError:
         logging.getLogger(__name__).warning(
@@ -129,6 +143,28 @@ def install_map_style(mode: ThemeMode, data_root: str | Path | None = None) -> P
         )
         return destination if destination.is_file() else None
     return destination
+
+
+def _install_reference_maps(root: Path) -> None:
+    """Deploy bundled global land and boundaries alongside the generated style.
+
+    Older regional packs predate these assets. Updating only their style leaves
+    file sources missing, so an upgrade must install the reference files too.
+    """
+    source = Path(__file__).resolve().parents[2] / "resources" / "maps"
+    destination = root / "maps" / "boundaries"
+    destination.mkdir(parents=True, exist_ok=True)
+    for name in (
+        "world_land.geojson",
+        "world_lakes.geojson",
+        "world_country_boundaries.geojson",
+        "us_state_boundaries.geojson",
+        "us_state_internal_boundaries.geojson",
+    ):
+        payload = (source / name).read_bytes()
+        target = destination / name
+        if not target.is_file() or target.read_bytes() != payload:
+            target.write_bytes(payload)
 
 
 def _default_data_root() -> Path:
@@ -146,6 +182,9 @@ def _default_data_root() -> Path:
 def _apply_map_palette(document: dict[str, Any], colors: dict[str, str]) -> None:
     layers = {layer.get("id"): layer for layer in document.get("layers", [])}
     _paint(layers, "background", "background-color", colors["background"])
+    _paint(layers, "reference-land", "fill-color", colors["reference_land"])
+    _paint(layers, "reference-coastlines", "line-color", colors["country_boundary"])
+    _paint(layers, "reference-lakes", "fill-color", colors["water"])
     _paint(
         layers,
         "landcover",
@@ -190,8 +229,10 @@ def _apply_map_palette(document: dict[str, Any], colors: dict[str, str]) -> None
         ("parks", "fill-color", "park"),
         ("water", "fill-color", "water"),
         ("waterways", "line-color", "waterway"),
-        ("boundaries", "line-color", "boundary"),
+        ("country-boundaries", "line-color", "country_boundary"),
+        ("disputed-boundaries", "line-color", "disputed_boundary"),
         ("state-boundaries", "line-color", "state_boundary"),
+        ("michigan-boundary", "line-color", "michigan_boundary"),
         ("railways", "line-color", "rail"),
         ("paths", "line-color", "path"),
         ("service-roads-casing", "line-color", "service_casing"),
@@ -202,6 +243,8 @@ def _apply_map_palette(document: dict[str, Any], colors: dict[str, str]) -> None
         ("secondary-roads", "line-color", "secondary_road"),
         ("primary-roads-casing", "line-color", "primary_casing"),
         ("primary-roads", "line-color", "primary_road"),
+        ("national-motorways-casing", "line-color", "motorway_casing"),
+        ("national-motorways", "line-color", "motorway"),
         ("motorways-casing", "line-color", "motorway_casing"),
         ("motorways", "line-color", "motorway"),
         ("aeroways", "line-color", "aeroway"),
@@ -235,13 +278,14 @@ def _apply_map_palette(document: dict[str, Any], colors: dict[str, str]) -> None
     )
     _paint(layers, "primary-roads-casing", "line-width", 5.5)
     _paint(layers, "primary-roads", "line-width", 4.5)
-    _paint(layers, "motorways-casing", "line-width", 6.5)
-    _paint(layers, "motorways", "line-width", 5)
     _paint(layers, "waterways", "line-width", 1.35)
     _paint(layers, "waterways", "line-opacity", 0.58)
     for layer_id, key in (
         ("water-labels", "water_label"),
+        ("road-refs-national", "road_ref"),
         ("road-refs-major", "road_ref"),
+        ("freeway-labels-national", "label"),
+        ("freeway-labels-regional", "label"),
         ("road-labels", "label"),
         ("place-labels", "label_major"),
         ("aerodrome-labels", "label_minor"),
@@ -251,6 +295,18 @@ def _apply_map_palette(document: dict[str, Any], colors: dict[str, str]) -> None
         ("house-numbers", "house"),
     ):
         _paint_label(layers, layer_id, colors[key], colors["label_halo"])
+
+
+def _use_regional_freeway_fallback(document: dict[str, Any]) -> None:
+    """Keep an older regional dataset usable until national freeway tiles exist."""
+    (document.get("sources") or {}).pop("national-freeways", None)
+    layers = document.get("layers") or []
+    document["layers"] = [layer for layer in layers if layer.get("source") != "national-freeways"]
+    for layer in document["layers"]:
+        if layer.get("id") == "road-refs-major":
+            layer["filter"] = ["has", "ref"]
+        elif layer.get("id") == "road-labels":
+            layer.pop("filter", None)
 
 
 def _paint_label(

@@ -5,9 +5,14 @@ from pathlib import Path
 _ASSETS = Path(__file__).with_name("assets")
 
 
+def load_poi_action_icon(parent, filename, toolkit):
+    """Load one bundled presentation asset; business icons arrive via contracts."""
+    return toolkit.PhotoImage(master=parent, file=str(_ASSETS / filename))
+
+
 def build_poi_icon_button(panel, parent, filename, label, command, toolkit):
     ui = panel._theme_bundle.ui
-    icon = toolkit.PhotoImage(master=parent, file=str(_ASSETS / filename))
+    icon = load_poi_action_icon(parent, filename, toolkit)
     button = toolkit.Button(
         parent,
         image=icon,

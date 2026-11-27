@@ -75,7 +75,7 @@ class StreamingRadioNowPlaying(tk.Frame, UiWidget):
                 padx=(0, 3) if column == 0 else ((3, 0) if column == 2 else 3),
             )
 
-            def paint(_event: tk.Event | None = None) -> None:
+            def paint(_event: tk.Event[tk.Misc] | None = None) -> None:
                 tile.delete("all")
                 width = max(1, tile.winfo_width())
                 tile.create_text(width / 2, 24, text=icon, fill=color, font=("Sans", 22, "bold"))

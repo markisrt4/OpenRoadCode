@@ -9,6 +9,8 @@
 #include "aircraft_style.hpp"
 #include "city_weather_style.hpp"
 #include "poi_hover_style.hpp"
+#include "poi_brand_style.hpp"
+#include "poi_brand_images.hpp"
 #include "orc_logging.hpp"
 #include <mbgl/map/map.hpp>
 #include <mbgl/renderer/renderer.hpp>
@@ -65,7 +67,7 @@ std::string loadStyleJson(const NavigationConfig& config) {
     std::string style{std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
     replaceAll(style, kDataRootToken, config.dataRoot);
     if (config.dataRoot != kLegacyDataRoot) replaceAll(style, kLegacyDataRoot, config.dataRoot);
-    return withAircraftStyle(withCityWeatherStyle(withPoiHoverStyle(withRouteWeatherStyle(style))));
+    return withAircraftStyle(withPoiBrandStyle(withCityWeatherStyle(withPoiHoverStyle(withRouteWeatherStyle(style)))));
 }
 void setWeatherRaster(
     mbgl::style::Style& style,
@@ -220,6 +222,8 @@ int runRenderer() {
     std::string styleJson;
     try {
         styleJson = loadStyleJson(config);
+        orc::log("INFO", "map_renderer.pois", "pois.brand_icons.enabled",
+                 "Business POI logo replacement enabled");
     } catch (const std::exception& error) {
         orc::log("CRITICAL", "map_renderer.lifecycle", "style.failed", "Failed to load navigation style");
         return 1;
@@ -383,8 +387,9 @@ int runRenderer() {
                 if (!source) continue;
                 auto* poiSource = static_cast<mbgl::style::GeoJSONSource*>(source);
                 try {
-                    poiSource->setGeoJSON(mapbox::geojson::parse(command->geojson));
-                    view.setPoiResultsJson(command->geojson);
+                    const auto results = preparePoiBrandResults(map.getStyle(), command->geojson);
+                    poiSource->setGeoJSON(mapbox::geojson::parse(results));
+                    view.setPoiResultsJson(results);
                     view.invalidate();
                 } catch (const std::exception& error) {
                     orc::log("ERROR", "map_renderer.pois", "pois.failed", "Failed to apply POI GeoJSON");

@@ -418,6 +418,34 @@ def test_michigan_row_builder_selects_one_globally_numbered_row(tmp_path, monkey
         regional_terrain.build_michigan_row(cache, coverage="michigan-overview", row=8)
 
 
+def test_metro_tile_builder_selects_one_globally_numbered_tile(tmp_path, monkeypatch):
+    from development.maps import regional_terrain
+
+    selected = []
+
+    def download_tile(destination, title, bounds, size=65):
+        del title
+        selected.append((destination.name, bounds, size))
+        destination.mkdir()
+        (destination / "terrain.json").write_text("{}")
+
+    monkeypatch.setattr(regional_terrain, "download_bounds", download_tile)
+    cache = tmp_path / "terrain.download"
+    regional_terrain.build_metro_tile(cache, tile=17)
+    assert [(item[0], item[2]) for item in selected] == [("focus-detroit-midtown", 129)]
+    with pytest.raises(ValueError, match="0-20"):
+        regional_terrain.build_metro_tile(cache, tile=21)
+
+
+def test_regional_assembly_requires_every_cached_tile(tmp_path):
+    from development.maps import regional_terrain
+
+    with pytest.raises(ValueError, match="missing 21 tile"):
+        regional_terrain.assemble(
+            tmp_path / "terrain", coverage="metro-detroit", cache=tmp_path / "empty"
+        )
+
+
 def test_metro_build_only_validates_the_requested_output(tmp_path, monkeypatch):
     from development.maps import install_terrain
 
@@ -456,21 +484,34 @@ def test_metro_build_only_validates_the_requested_output(tmp_path, monkeypatch):
     assert install_terrain.main() == 0
 
 
-def test_map_data_workflow_builds_split_release_assets_without_actions_storage():
+def test_map_data_workflow_builds_resumable_split_release_assets():
     workflow = Path(".github/workflows/build-metro-detroit-imagery.yml").read_text()
     assert "--detail" in workflow
     assert "terrain_artifact" in workflow
     assert "metro-detroit-terrain.zip.json" in workflow
-    assert "actions/upload-artifact" not in workflow
-    assert "RELEASE_TAG: ${{ steps.release.outputs.tag }}" in workflow
+    assert (
+        "tile: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]"
+        in workflow
+    )
+    assert "max-parallel: 2" in workflow
+    assert "development.maps.build_metro_terrain_tile" in workflow
+    assert "development.maps.assemble_regional_terrain" in workflow
+    assert "actions/upload-artifact@v4" in workflow
+    assert "actions/download-artifact@v4" in workflow
+    assert "terrain-tile-metro-detroit-${{ needs.prepare-metro.outputs.terrain }}-" in workflow
+    assert "RELEASE_TAG: ${{ needs.prepare-metro.outputs.tag }}" in workflow
     assert "build_target:" in workflow
     assert "uses: ./.github/workflows/build-michigan-terrain.yml" in workflow
+    assert "force_rebuild:" in workflow
+    assert "map-artifact-imagery-metro-detroit-" in workflow
+    assert "development.maps.artifact_identity" in workflow
     michigan = Path(".github/workflows/build-michigan-terrain.yml").read_text()
     assert "michigan-terrain-index.json" in michigan
     assert "max-parallel: 2" in michigan
     assert "row: [0, 1, 2, 3, 4, 5, 6, 7]" in michigan
     assert "development.maps.build_terrain_row" in michigan
     assert "actions/cache/restore@v4" in michigan
+    assert "map-artifact-imagery-${{ inputs.coverage }}-" in michigan
     assert "actions/cache/save@v4" in michigan
     assert "actions/upload-artifact@v4" in michigan
     assert "actions/download-artifact@v4" in michigan
@@ -478,3 +519,20 @@ def test_map_data_workflow_builds_split_release_assets_without_actions_storage()
     assert "merge-multiple: true" in michigan
     assert "development.maps.install_region" in michigan
     assert "michigan-imagery-index.json" in michigan
+    assert "publish_release:" in michigan
+    assert "map-data-${{ inputs.coverage }}" in michigan
+    assert "michigan-all" in workflow
+    assert "assemble-michigan-all" in workflow
+    assert "generic-state" in workflow
+    assert "prepare-generic-state" in workflow
+    assert "assemble-generic-state" in workflow
+    assert "The state input is required for generic-state" in workflow
+    assert "pattern: map-data-us-${{ needs.prepare-generic-state.outputs.state }}-*" in workflow
+    assert "validation-states" in workflow
+    assert "state: [OH, HI, CA, AK]" in workflow
+    assert "uses: ./.github/workflows/build-state-map-data.yml" in workflow
+    state_workflow = Path(".github/workflows/build-state-map-data.yml").read_text()
+    assert "workflow_call:" in state_workflow
+    assert "development.maps.state_map_catalog" in state_workflow
+    assert "uses: ./.github/workflows/build-michigan-terrain.yml" in state_workflow
+    assert "max-parallel: 1" in state_workflow

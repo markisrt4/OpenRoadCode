@@ -4,6 +4,7 @@
 """Own asynchronous permission-page launch and obsolete completion handling."""
 
 import threading
+from dataclasses import replace
 
 from controllers.navigation.host_location_permission_if import (
     HostLocationPermissionIf,
@@ -39,22 +40,38 @@ class HostLocationSettingsController:
             self._visible = True
             self._ui.set_host_location_state(self._state)
 
+    def restore_if_running(self):
+        def work():
+            try:
+                self._permission.restore_if_running(lambda: self._closed)
+            except (OSError, RuntimeError):
+                pass  # The normal Share action remains available for recovery.
+
+        if self._state.can_share:
+            threading.Thread(target=work, name="host-location-restore", daemon=True).start()
+
     def hide(self) -> None:
         self._visible = False
         self._generation += 1
         if self._state.busy:
-            self._state = HostLocationState()
+            self._state = replace(self._state, status=HostLocationState().status, busy=False)
 
     def close(self) -> None:
         self.hide()
         self._closed = True
 
     def share_host_location(self) -> None:
-        if not self._visible or self._closed or self._state.busy or not self._state.can_share:
+        if (
+            not self._visible
+            or self._closed
+            or self._state.busy
+            or self._state.sharing
+            or not self._state.can_share
+        ):
             return
         self._generation += 1
         generation = self._generation
-        self._state = HostLocationState("Checking location service…", busy=True)
+        self._state = replace(self._state, status="Preparing location sharing…", busy=True)
         self._ui.set_host_location_state(self._state)
 
         def cancelled() -> bool:
@@ -85,7 +102,7 @@ class HostLocationSettingsController:
             return
         self._generation += 1
         generation = self._generation
-        self._state = HostLocationState("Restarting location service…", busy=True)
+        self._state = replace(self._state, status="Restarting location service…", busy=True)
         self._ui.set_host_location_state(self._state)
 
         def cancelled() -> bool:
@@ -105,8 +122,42 @@ class HostLocationSettingsController:
 
         threading.Thread(target=work, name="host-location-restart", daemon=True).start()
 
-    def _complete(self, generation: int, message: str, can_restart: bool) -> None:
+    def _complete(self, generation: int, message: str, can_restart: bool = False) -> None:
         if self._closed or not self._visible or generation != self._generation:
             return
-        self._state = HostLocationState(message, can_restart=can_restart)
+        self._state = replace(
+            self._state,
+            status="Host location sharing is active." if self._state.sharing else message,
+            busy=False,
+            can_restart=can_restart and not self._state.sharing,
+        )
         self._ui.set_host_location_state(self._state)
+
+    def update_location_status(self, location_status, android_status):
+        def apply():
+            if self._closed:
+                return
+            self._state = replace(
+                self._state, location_status=location_status, android_status=android_status
+            )
+            if self._visible:
+                self._ui.set_host_location_state(self._state)
+
+        self._dispatcher.dispatch_ui(apply)
+
+    def update_host_sharing(self, sharing: bool):
+        def apply():
+            if self._closed:
+                return
+            self._state = replace(
+                self._state,
+                sharing=sharing,
+                can_restart=False if sharing else self._state.can_restart,
+                status="Host location sharing is active."
+                if sharing
+                else HostLocationState().status,
+            )
+            if self._visible:
+                self._ui.set_host_location_state(self._state)
+
+        self._dispatcher.dispatch_ui(apply)

@@ -273,6 +273,10 @@ esac
 
 for feature in "${REQUESTED_FEATURES[@]}"; do
   is_known_feature "$feature" || { echo "[!] Unknown feature: $feature" >&2; get_feature_help >&2; exit 1; }
+  if [[ "$feature" == waydroid && "$TARGET" != rpi5 && "$TARGET" != linux-dev ]]; then
+    echo "[!] Waydroid requires a Pi 5 or Linux desktop target." >&2
+    exit 2
+  fi
   append_feature "$feature"
 done
 if [[ -n "$ORC_AUTOSTART" && "$TARGET" == termux ]]; then
@@ -429,6 +433,10 @@ if (( SKIP_INSTALLS )); then echo "[*] Skipping package, Python, and user-group 
 if (( RUN_SYSTEM_PACKAGES )) && (( ! SKIP_INSTALLS )); then bash "$PROJECT_DIR/scripts/installers/install_system_packages.sh" "${FEATURES[@]}"; fi
 if (( RUN_PYTHON_ENV )) && (( ! SKIP_INSTALLS )); then bash "$PROJECT_DIR/scripts/installers/install_python_env.sh" "${FEATURES[@]}"; fi
 if (( ! SKIP_INSTALLS )); then bash "$PROJECT_DIR/scripts/installers/configure_user_permissions.sh" "${FEATURES[@]}"; fi
+
+if (( ! SKIP_INSTALLS )) && [[ " ${FEATURES[*]} " == *" waydroid "* ]]; then
+  PROJECT_DIR="$PROJECT_DIR" VENV_DIR="$VENV_DIR" bash "$SCRIPT_DIR/install_waydroid.sh"
+fi
 
 if (( ! SKIP_INSTALLS )) && [[ "$TARGET" == "rpi4" || "$TARGET" == "rpi5" ]]; then
   if [[ " ${FEATURES[*]} " == *" raspberry-pi "* || " ${FEATURES[*]} " == *" imu "* || " ${FEATURES[*]} " == *" environmental "* ]]; then

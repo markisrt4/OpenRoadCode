@@ -9,6 +9,7 @@ import math
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from apps.orcUi.composition.window_title import application_name
 from apps.orcUi.core_runtime import MapRuntime, StateIngressRuntime
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.presentation_state import OrcUiPresentationState
@@ -113,6 +114,7 @@ def create_core_composition() -> CoreComposition:
         app = OrcUiApp(
             lifecycle_handler=lifecycle,
             online_mode=OnlineModeController(),
+            application_name=application_name(),
         )
         cleanup.callback(app.shutdown)
         connectivity = ShellConnectivityController(

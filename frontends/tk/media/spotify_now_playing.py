@@ -246,7 +246,7 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
                 )
             canvas.create_line(points, fill="#10271b", width=1.4, smooth=True, capstyle=tk.ROUND)
 
-    def _resize_text_wrap(self, event: tk.Event) -> None:
+    def _resize_text_wrap(self, event: tk.Event[tk.Misc]) -> None:
         available = max(64, event.width - 4)
         self._title_label.configure(wraplength=available)
         self._artist_label.configure(wraplength=available)

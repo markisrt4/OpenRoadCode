@@ -1,0 +1,325 @@
+"""Regional catalog completeness, source cache isolation and existing pack formats."""
+
+import json
+import shutil
+from pathlib import Path
+
+import pytest
+
+from apps.launchers.local_imagery_pack import LocalImageryPack
+from apps.launchers.local_terrain_pack import load_terrain
+from development.maps import static_region_build as builder
+from development.maps import static_region_sources as sources
+from development.maps.static_tile_trial import command
+from development.maps.terrain_regions import MICHIGAN_SHARDS
+
+
+def item(date, tile="m_4208324_sw_17", box=(-84, 42, -83, 43)):
+    return dict(
+        collection="naip",
+        properties={"datetime": date + "T00:00:00Z"},
+        bbox=box,
+        assets={
+            "image": {
+                "href": f"https://naipeuwest.blob.core.windows.net/naip/{tile}_060_{date.replace('-', '')}.tif"
+            }
+        },
+    )
+
+
+def test_paginated_naip_selects_newest_tile_across_slight_footprint_changes():
+    calls = []
+
+    def fetch(url, **kwargs):
+        calls.append((url, kwargs))
+        if url.endswith("/collections/naip"):
+            return {"providers": [{"name": "USDA", "roles": ["licensor"]}]}
+        if len(calls) == 2:
+            return dict(
+                features=[item("2020-07-01")],
+                links=[dict(rel="next", href=sources.PC + "/stac/v1/search?token=page2")],
+            )
+        return dict(features=[item("2022-07-30", box=(-84.00001, 42, -83, 43))])
+
+    records = sources.discover_imagery((-84, 42, -83, 43), fetch)
+    assert len(records) == 1 and records[0]["date"].startswith("2022")
+    assert len(calls) == 3
+
+
+def test_unapproved_and_looping_catalog_pagination_fail_closed():
+    def fetch(url, **kwargs):
+        if url.endswith("/collections/naip"):
+            return {"providers": [{"name": "USDA", "roles": ["licensor"]}]}
+        return dict(
+            features=[item("2022-07-30")],
+            links=[dict(rel="next", href="https://other.example/search")],
+        )
+
+    with pytest.raises(ValueError, match="pagination"):
+        sources.discover_imagery((-84, 42, -83, 43), fetch)
+
+    def repeated(url, **kwargs):
+        if url.endswith("/collections/naip"):
+            return fetch(url)
+        return dict(features=[], links=[dict(rel="next", href=sources.PC + "/stac/v1/search")])
+
+    with pytest.raises(ValueError, match="Repeated"):
+        sources.discover_imagery((-84, 42, -83, 43), repeated)
+
+
+def test_terrain_catalog_selects_multiple_files_and_follows_offsets():
+    calls = []
+
+    def fetch(url, **parameters):
+        calls.append(parameters["offset"])
+        return dict(
+            total=101,
+            items=[
+                dict(
+                    boundingBox=dict(minX=-84, minY=42, maxX=-83, maxY=43),
+                    downloadURL="https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/a.tif",
+                    lastUpdated=str(parameters["offset"]),
+                )
+            ]
+            * (100 if parameters["offset"] == 0 else 1),
+        )
+
+    records = sources.discover_terrain((-84, 42, -83, 43), fetch)
+    assert calls == [0, 100] and len(records) == 1
+    assert records[0]["date"] == "100"
+
+
+def test_crops_align_to_output_grid_and_reject_disjoint_sources():
+    extent, size = sources.crop_spec((0.25, 0.25, 0.5, 0.5), (0, 0, 1, 1), 100)
+    assert extent == pytest.approx((0.25, 0.25, 0.5, 0.5))
+    assert size == (25, 25)
+    with pytest.raises(ValueError, match="intersect"):
+        sources.crop_spec((2, 2, 3, 3), (0, 0, 1, 1), 100)
+
+
+def test_source_crop_cache_is_checked_and_scoped_to_bounds(tmp_path, monkeypatch):
+    calls = []
+
+    def fake_command(*args):
+        calls.append(args)
+        Path(args[-1]).write_bytes(b"crop")
+
+    monkeypatch.setattr(sources, "command", fake_command)
+    monkeypatch.setattr(sources, "source_request_url", lambda url: url)
+    source = dict(
+        url="https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/a.tif",
+        bounds_deg=(0, 0, 2, 2),
+    )
+    first, _ = sources.crop_source(source, tmp_path, (0, 0, 1, 1), 100, "terrain")
+    assert sources.crop_source(source, tmp_path, (0, 0, 1, 1), 100, "terrain")[0] == first
+    assert len(calls) == 1
+    second, _ = sources.crop_source(source, tmp_path, (1, 1, 2, 2), 100, "terrain")
+    assert second != first and len(calls) == 2
+    first.write_bytes(b"bad")
+    sources.crop_source(source, tmp_path, (0, 0, 1, 1), 100, "terrain")
+    assert len(calls) == 3
+
+
+def test_shared_tile_edges_and_missing_samples_are_not_fabricated(tmp_path):
+    size = 1025
+    heights = [200.0] * (size * size)
+    heights[0] = -9999
+    records, gaps = builder.split_terrain(heights, size, tmp_path, "mi-lower-southeast")
+    assert len(records) == 63 and [gap["id"] for gap in gaps] == ["r0-c0"]
+    first = json.loads((tmp_path / "r1-c0/terrain.json").read_text())
+    adjacent = json.loads((tmp_path / "r1-c1/terrain.json").read_text())
+    assert first["heights_m"][128::129] == adjacent["heights_m"][::129]
+    assert not (tmp_path / "r0-c0").exists()
+
+
+def test_staged_region_packs_load_in_existing_readers(tmp_path):
+    if not shutil.which("gdal_create"):
+        pytest.skip("GDAL is only required on build host")
+    from PIL import Image
+
+    coverage = "mi-lower-southeast"
+    west, south, east, north = MICHIGAN_SHARDS[coverage][1]
+    rgb = tmp_path / "rgb.tif"
+    dem = tmp_path / "dem.tif"
+    command(
+        "gdal_create",
+        "-of",
+        "GTiff",
+        "-outsize",
+        16,
+        16,
+        "-bands",
+        4,
+        "-burn",
+        80,
+        "-burn",
+        120,
+        "-burn",
+        160,
+        "-burn",
+        255,
+        "-a_srs",
+        "EPSG:4326",
+        "-a_ullr",
+        west,
+        north,
+        east,
+        south,
+        rgb,
+    )
+    image, info = builder.imagery_pack(tmp_path, coverage, [], [rgb], pixels=64)
+    assert info["usable_pixel_fraction"] == 1
+    assert LocalImageryPack.load(image).image.is_file()
+    with Image.open(image / "imagery.webp") as picture:
+        assert picture.size == (64, 64)
+    # Cover a margin around region endpoints, as cropped DEM sources do.
+    command(
+        "gdal_create",
+        "-of",
+        "GTiff",
+        "-outsize",
+        32,
+        32,
+        "-bands",
+        1,
+        "-ot",
+        "Float32",
+        "-burn",
+        200,
+        "-a_srs",
+        "EPSG:4326",
+        "-a_ullr",
+        west - 0.1,
+        north + 0.1,
+        east + 0.1,
+        south - 0.1,
+        dem,
+    )
+    terrain, info = builder.terrain_pack(tmp_path, coverage, [], [dem])
+    assert info["terrain_tiles"] == 64 and not info["missing_terrain_tiles"]
+    assert len(load_terrain(terrain).tiles) == 64
+
+
+def test_container_access_is_shared_and_never_written_to_crop_receipts(tmp_path, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+
+    calls = []
+
+    def fetch(url, **kwargs):
+        calls.append(url)
+        return {
+            "msft:expiry": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
+            "token": "sig=fixture-secret",
+        }
+
+    monkeypatch.setattr(sources, "_CONTAINER_TOKEN", None)
+    monkeypatch.setattr(sources, "get_json", fetch)
+
+    def command(*args):
+        Path(args[-1]).write_bytes(b"crop")
+
+    monkeypatch.setattr(sources, "command", command)
+    for number in range(2):
+        source = dict(
+            url=f"https://naipeuwest.blob.core.windows.net/naip/tile{number}.tif",
+            bounds_deg=(0, 0, 2, 2),
+        )
+        sources.crop_source(source, tmp_path, (0, 0, 1, 1), 100, "imagery")
+    assert calls == [sources.PC + "/sas/v1/token/naipeuwest/naip"]
+    assert all("fixture-secret" not in path.read_text() for path in tmp_path.glob("*.json"))
+
+
+def test_large_region_catalog_is_not_truncated_at_the_old_city_scale_limit():
+    pages = []
+
+    def fetch(url, **kwargs):
+        if url.endswith("/collections/naip"):
+            return {"providers": [{"name": "USDA", "roles": ["licensor"]}]}
+        pages.append(url)
+        if len(pages) <= 100:
+            return dict(
+                features=[],
+                links=[dict(rel="next", href=sources.PC + f"/stac/v1/search?page={len(pages)}")],
+            )
+        return dict(features=[item("2022-07-30")])
+
+    assert len(sources.discover_imagery((-84, 42, -83, 43), fetch)) == 1
+    assert len(pages) == 101
+
+
+def test_z17_acquisition_splits_into_aligned_cells_without_raising_crop_budget(
+    tmp_path, monkeypatch
+):
+    calls = []
+
+    def crop(item, cache, bounds, size, kind):
+        calls.append((bounds, size, kind))
+        return tmp_path / str(len(calls)), {"cell": bounds}
+
+    monkeypatch.setattr(builder, "crop_source", crop)
+    source = {"bounds_deg": (0, 0, 2, 2), "url": "source"}
+    paths, receipts = builder.source_crops([source], tmp_path, (0, 0, 2, 2), 8192, "imagery")
+    assert len(paths) == len(receipts) == 4
+    assert {entry[0] for entry in calls} == {(0, 0, 1, 1), (1, 0, 2, 1), (0, 1, 1, 2), (1, 1, 2, 2)}
+    assert all(
+        size == 4096 and (bounds[2] - bounds[0]) / size == 2 / 8192 for bounds, size, _ in calls
+    )
+    with pytest.raises(ValueError, match="Unreviewed"):
+        builder.source_crops([source], tmp_path, (0, 0, 2, 2), 32768, "imagery")
+
+
+def test_current_dem_wins_over_recent_metadata_edit_on_historical_dem():
+    base = "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/"
+
+    def fetch(url, **kwargs):
+        return dict(
+            total=2,
+            items=[
+                dict(
+                    boundingBox=dict(minX=-84, minY=42, maxX=-83, maxY=43),
+                    downloadURL=base + "current/n43w084/USGS_13_n43w084.tif",
+                    publicationDate="2024-01-01",
+                    lastUpdated="2024-01-01",
+                ),
+                dict(
+                    boundingBox=dict(minX=-84, minY=42, maxX=-83, maxY=43),
+                    downloadURL=base + "historical/n43w084/USGS_13_n43w084_20190412.tif",
+                    publicationDate="2019-04-12",
+                    lastUpdated="2026-09-24",
+                ),
+            ],
+        )
+
+    records = sources.discover_terrain((-83.9, 42.1, -83.1, 42.9), fetch)
+    assert len(records) == 1 and "/current/" in records[0]["url"]
+
+
+def test_persistent_catalog_timeout_subdivides_without_losing_sources():
+    from urllib.error import HTTPError
+
+    searches = []
+
+    def fetch(url, **kwargs):
+        if url.endswith("/collections/naip"):
+            return {"providers": [{"name": "USDA", "roles": ["licensor"]}]}
+        box = tuple(map(float, kwargs["bbox"].split(",")))
+        searches.append(box)
+        if box == (-84, 42, -83, 43):
+            raise HTTPError(url, 504, "slow catalog", {}, None)
+        return {"features": [item("2022-07-30")]}
+
+    records = sources.discover_imagery((-84, 42, -83, 43), fetch)
+    assert len(searches) == 5
+    assert len(records) == 1
+
+
+def test_subdivided_catalog_failure_is_not_partial_success():
+    from urllib.error import HTTPError
+
+    def fetch(url, **kwargs):
+        if url.endswith("/collections/naip"):
+            return {"providers": [{"name": "USDA", "roles": ["licensor"]}]}
+        raise HTTPError(url, 504, "unavailable", {}, None)
+
+    with pytest.raises(HTTPError):
+        sources.discover_imagery((-84, 42, -83, 43), fetch)

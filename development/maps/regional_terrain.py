@@ -15,6 +15,14 @@ from tools.map_builder.builder.map_3d import PRESETS
 from tools.map_builder.builder.terrain import download_bounds
 
 
+def _coverage(coverage):
+    if coverage in MICHIGAN_COVERAGES:
+        return MICHIGAN_COVERAGES[coverage]
+    from development.maps.state_map_catalog import coverage_definition
+
+    return coverage_definition(coverage)
+
+
 def terrain_tiles(bounds, divisions=4):
     west, south, east, north = bounds
     for row in range(divisions):
@@ -53,6 +61,12 @@ def _build_tile(cache, title, index, total, definition):
     tile = cache / tile_id
     print(f"Terrain tile {index}/{total}: {tile_id} (LOD {detail_level})", flush=True)
     download_bounds(tile, f"{title} {tile_id}", tile_bounds, size=grid_size)
+    return _tile_record(cache, definition)
+
+
+def _tile_record(cache, definition):
+    tile_id, tile_bounds, _grid_size, detail_level, minimum_zoom = definition
+    tile = cache / tile_id
     return {
         "id": tile_id,
         "path": tile_id,
@@ -63,13 +77,22 @@ def _build_tile(cache, title, index, total, definition):
     }
 
 
+def build_metro_tile(cache: Path, *, tile: int) -> None:
+    """Build and validate one globally numbered Metro Detroit terrain tile."""
+    title, bounds = COVERAGES["metro-detroit"]
+    definitions = _definitions("metro-detroit", bounds)
+    if tile not in range(len(definitions)):
+        raise ValueError(f"Metro Detroit terrain tile must be 0-{len(definitions) - 1}, got {tile}")
+    cache = Path(cache)
+    cache.mkdir(parents=True, exist_ok=True)
+    _build_tile(cache, title, tile + 1, len(definitions), definitions[tile])
+
+
 def build_michigan_row(cache: Path, *, coverage: str, row: int) -> None:
     """Build and validate one row of a Michigan pack's shared tile cache."""
-    if coverage not in MICHIGAN_COVERAGES:
-        raise ValueError(f"Not a Michigan terrain coverage: {coverage}")
+    title, bounds = _coverage(coverage)
     if row not in range(8):
         raise ValueError(f"Michigan terrain row must be 0-7, got {row}")
-    title, bounds = MICHIGAN_COVERAGES[coverage]
     cache = Path(cache)
     cache.mkdir(parents=True, exist_ok=True)
     definitions = _definitions(coverage, bounds)
@@ -87,30 +110,19 @@ def build_michigan_row(cache: Path, *, coverage: str, row: int) -> None:
         )
 
 
-def build(destination: Path, *, coverage: str = "metro-detroit", size: int | None = None) -> None:
-    title, bounds = (
-        COVERAGES[coverage] if coverage == "metro-detroit" else MICHIGAN_COVERAGES[coverage]
-    )
+def assemble(destination: Path, *, coverage: str, cache: Path, size: int | None = None) -> None:
+    """Assemble a terrain pack from a complete cache without downloading tiles."""
+    title, bounds = COVERAGES[coverage] if coverage == "metro-detroit" else _coverage(coverage)
     destination = Path(destination)
     if destination.exists():
         load_terrain(destination)
         return
-    cache = destination.with_name(destination.name + ".download")
-    cache.mkdir(parents=True, exist_ok=True)
+    cache = Path(cache)
     definitions = _definitions(coverage, bounds, size)
-
-    def build_tile(item):
-        return _build_tile(cache, title, item[0], len(definitions), item[1])
-
-    indexed = list(enumerate(definitions, 1))
-    if coverage in MICHIGAN_COVERAGES:
-        # Statewide grids generate many USGS sampling calls. Two concurrent
-        # tiles are intentionally gentler on the public service and more stable
-        # than the four-way prototype used for local builds.
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            records = list(executor.map(build_tile, indexed))
-    else:
-        records = [build_tile(item) for item in indexed]
+    missing = [definition[0] for definition in definitions if not (cache / definition[0]).is_dir()]
+    if missing:
+        raise ValueError(f"Terrain cache is missing {len(missing)} tile(s): {', '.join(missing)}")
+    records = [_tile_record(cache, definition) for definition in definitions]
     destination.parent.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory(dir=destination.parent, prefix=".terrain-mosaic-") as temporary:
         prepared = Path(temporary) / "pack"
@@ -135,4 +147,30 @@ def build(destination: Path, *, coverage: str = "metro-detroit", size: int | Non
         (prepared / "manifest.json").write_text(json.dumps(manifest, indent=2))
         load_terrain(prepared)
         prepared.rename(destination)
+
+
+def build(destination: Path, *, coverage: str = "metro-detroit", size: int | None = None) -> None:
+    title, bounds = COVERAGES[coverage] if coverage == "metro-detroit" else _coverage(coverage)
+    destination = Path(destination)
+    if destination.exists():
+        load_terrain(destination)
+        return
+    cache = destination.with_name(destination.name + ".download")
+    cache.mkdir(parents=True, exist_ok=True)
+    definitions = _definitions(coverage, bounds, size)
+
+    def build_tile(item):
+        return _build_tile(cache, title, item[0], len(definitions), item[1])
+
+    indexed = list(enumerate(definitions, 1))
+    if coverage != "metro-detroit":
+        # Statewide grids generate many USGS sampling calls. Two concurrent
+        # tiles are intentionally gentler on the public service and more stable
+        # than the four-way prototype used for local builds.
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            list(executor.map(build_tile, indexed))
+    else:
+        for item in indexed:
+            build_tile(item)
+    assemble(destination, coverage=coverage, cache=cache, size=size)
     shutil.rmtree(cache)

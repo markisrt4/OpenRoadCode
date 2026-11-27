@@ -1,6 +1,6 @@
 /* Bounded, offline hillshade imagery derived from installed terrain samples. */
 'use strict';
-window.ORCTerrainHillshade = function(viewer,data,C,onError=()=>{}) {
+window.ORCTerrainHillshade = function(viewer,data,C,onError=()=>{},loadTile=async tile=>tile) {
   const radius=6371000;
   let enabled=false,disposed=false,lastCheck=0,lastLayerCount=-1;
   const tiles=(data.tiles||[data]).slice();
@@ -41,10 +41,12 @@ window.ORCTerrainHillshade = function(viewer,data,C,onError=()=>{}) {
     entry.pending=true;
     try {
       const tile=entry.tile;
+      await loadTile(tile);
       const provider=await C.SingleTileImageryProvider.fromUrl(imageUrl(entry),{
         rectangle:C.Rectangle.fromRadians(tile.west_rad,tile.south_rad,tile.east_rad,tile.north_rad),
         credit:data.attribution||tile.attribution});
       if(disposed||viewer.isDestroyed()||!entry.wanted)return;
+      provider.orcLayerRole='terrain-cues';
       entry.layer=viewer.imageryLayers.addImageryProvider(provider);
       viewer.scene.requestRender();
     } catch(error) {if(!disposed)onError(error);} finally {entry.pending=false;}

@@ -16,7 +16,7 @@ def setup_controller(monkeypatch):
         lambda **kwargs: Mock(start=lambda: jobs.append(kwargs["target"])),
     )
     dispatcher, ui, permission = Mock(), Mock(), Mock()
-    dispatcher.dispatch_ui.side_effect = callbacks.append
+    dispatcher.dispatch_ui.side_effect = lambda callback: callbacks.append(callback)
     controller = HostLocationSettingsController(dispatcher, ui, permission)
     controller.show()
     return controller, ui, permission, jobs, callbacks
@@ -33,7 +33,7 @@ def test_share_request_opens_permission_page_once_and_never_claims_consent(monke
     callbacks.pop()()
     state = ui.set_host_location_state.call_args.args[0]
     assert not state.busy
-    assert "Click Share host location" in state.status
+    assert "Share host location" in state.status
 
 
 def test_service_failure_is_visible_and_allows_retry(monkeypatch):
@@ -105,3 +105,34 @@ def test_unavailable_platform_never_starts_permission_work():
     assert "Android sensor bridge" in ui.set_host_location_state.call_args.args[0].status
     controller.share_host_location()
     permission.open_permission_page.assert_not_called()
+
+
+def test_source_status_keeps_permission_message_and_is_safe_after_close(monkeypatch):
+    controller, ui, _, _, callbacks = setup_controller(monkeypatch)
+    controller.update_location_status("Live location · Browser", "Android sharing paused.")
+    callbacks.pop()()
+    state = ui.set_host_location_state.call_args.args[0]
+    assert state.location_status == "Live location · Browser"
+    assert "Share this computer" in state.status
+    controller.update_location_status("Location expired", "Android waiting")
+    controller.close()
+    ui.reset_mock()
+    callbacks.pop()()
+    ui.set_host_location_state.assert_not_called()
+
+
+def test_restart_preserves_live_and_android_delivery_status(monkeypatch):
+    controller, ui, permission, jobs, callbacks = setup_controller(monkeypatch)
+    controller.update_location_status("Live GPS fix", "Android delivery ready")
+    callbacks.pop()()
+    permission.open_permission_page.side_effect = [HostLocationServiceUnavailable(), None]
+    controller.share_host_location()
+    jobs.pop()()
+    callbacks.pop()()
+    controller.restart_location_service()
+    jobs.pop()()
+    callbacks.pop()()
+    state = ui.set_host_location_state.call_args.args[0]
+    assert state.location_status == "Live GPS fix"
+    assert state.android_status == "Android delivery ready"
+    assert not state.busy and not state.can_restart

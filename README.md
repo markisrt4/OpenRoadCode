@@ -48,6 +48,7 @@ Current and partially integrated capabilities include:
 * Touchscreen automotive user interface, including the evolving `orcUi` shell
 * Native Weather dashboard with current conditions, hourly and daily forecasts, GPS-backed location, persistent Imperial/Metric display units, NOAA Weather Radio access, and NWS alert presentation
 * Native Linux games browser with category filters, package discovery/installation, launch/stop lifecycle, and X11 kiosk embedding
+* Experimental standalone [Waze Live Map browser panel](docs/waze_live_map.md) for online traffic viewing
 * Offline Valhalla route planning and native MapLibre map presentation
 * Route overlays, camera follow/recenter, manual map panning, and live vehicle position
 * Observed radar replay, experimental CONUS HRRR forecast radar, and independent temperature/wind overlays
@@ -359,6 +360,49 @@ Component-test CLIs provide direct subsystem verification for navigation inputs,
 ---
 
 ## Automated Checks and Doxygen
+
+Use the dedicated quality environment and a single developer-check entry point:
+
+```bash
+git switch feature/waze-live-map
+bash scripts/setup_quality_env.sh
+bash scripts/dev_check.sh --all
+```
+
+`--all` runs static checks; `--full` adds unit and integration tests. Both use the
+same check list in `scripts/quality_gate.py`, and the launcher prints the revision
+and interpreter being checked. Focused `--lint`, `--format`, `--types`, `--test`,
+and `--docs` modes remain available. The project-wide UI boundary task includes
+Weather's additional provider/renderer access rules; it is not a separate task.
+
+For routine edits, run `--all` for static checks and `--test` with the affected
+test directory, file, or pytest node ID. Pytest flags such as `-k` are forwarded.
+Calling `--test` without a target retains the complete unit-suite behavior;
+`--full` is intended for merge readiness and includes unit and integration suites.
+Focused runs fail when their selection matches no tests.
+
+```bash
+git switch feature/waze-live-map
+bash scripts/dev_check.sh --test frontends/tk/media/unit_test/test_media_screen.py
+```
+
+To apply safe Ruff fixes and formatting before the full checks, add `--fix`. Add
+`--publish` to stage only those fixes, commit them, and push the configured
+upstream after checks pass:
+
+```bash
+git switch feature/waze-live-map
+bash scripts/dev_check.sh --full --fix --publish --message "Apply Ruff cleanup"
+```
+
+Publishing requires a clean checkout and a named branch with a remote upstream.
+Without `--publish`, fixes remain available for manual review. `--format` also
+records its changed files without publishing. The last run's file list and
+validation/commit/push status are stored at the Git metadata path
+`dev-check-last-run.json` (normally `.git/dev-check-last-run.json`). Failed checks
+never trigger a commit; rejected pushes retain the new commit and the failure
+record. With no Ruff changes, no commit or push is performed.
+
 
 Public methods declared in `*_if.py` modules must document every argument with `@param` and every non-`None` return value with `@return` or `@retval`.
 

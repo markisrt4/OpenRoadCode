@@ -3,7 +3,12 @@ on:
   pull_request:
     types: [opened, reopened, ready_for_review, synchronize]
   push:
-    branches: [master]
+    branches: [master, feature/waze-live-map]
+  workflow_call:
+    inputs:
+      full_gate:
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       full_gate:
@@ -33,7 +38,6 @@ jobs:
         run: |
           python scripts/check_python_module_size.py
           python scripts/check_ui_boundaries.py
-          python scripts/check_weather_ui_contracts.py
       - name: Games panel layout with X11
         run: xvfb-run -a python -m pytest -q -rs frontends/tk/games/unit_test/test_games_panel_layout.py
       - name: Unit tests
@@ -55,7 +59,7 @@ jobs:
           path: unit-test-results.xml
           if-no-files-found: ignore
   full:
-    if: github.event_name == 'workflow_dispatch' && inputs.full_gate
+    if: inputs.full_gate
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:

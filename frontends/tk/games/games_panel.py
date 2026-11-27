@@ -194,7 +194,7 @@ class GamesPanel(tk.Frame, GamesUiIf, UiWidget):
         self._paint_status()
         self._refresh_cards()
 
-    def _resize_toolbar(self, event: tk.Event) -> None:
+    def _resize_toolbar(self, event: tk.Event[tk.Misc]) -> None:
         if self._runtime_host is not None:
             return
         column = row = used = 0
@@ -208,7 +208,7 @@ class GamesPanel(tk.Frame, GamesUiIf, UiWidget):
             column += 1
         self._status.configure(wraplength=max(1, event.width - 4))
 
-    def _resize_catalog(self, event: tk.Event) -> None:
+    def _resize_catalog(self, event: tk.Event[tk.Misc]) -> None:
         if self._runtime_host is not None:
             return
         # The 1280x720 vehicle surface is intentionally a two-card grid. Only

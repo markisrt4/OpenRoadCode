@@ -74,13 +74,26 @@ window.ORCLocalMapTiles = function(viewer, data, C, heightAt, buildingsVisible) 
   function update() {
     if (disposed) return;
     const view = viewer.camera.computeViewRectangle();
-    const center = view ? C.Rectangle.center(view) : viewer.camera.positionCartographic;
+    // At high tilt, the view rectangle extends toward the horizon. Its midpoint
+    // can be far from the buildings actually being inspected. Use visible ground,
+    // falling back below the screen center when the center ray points at sky.
+    const anchor=window.ORCCameraGroundAnchor?.(viewer,C)
+      || window.ORCCameraGroundAnchor?.(viewer,C,.75)
+      || window.ORCCameraGroundAnchor?.(viewer,C,.9);
+    const center=anchor ? C.Cartographic.fromCartesian(anchor)
+      : viewer.camera.positionCartographic || (view ? C.Rectangle.center(view) : null);
+    if(!center)return;
     const candidates = data.tiles.filter(tile => !view || (
       tile.west_rad <= view.east && tile.east_rad >= view.west &&
       tile.south_rad <= view.north && tile.north_rad >= view.south));
     const score = tile => Math.hypot(((tile.west_rad+tile.east_rad)/2-center.longitude)*Math.cos(center.latitude),
                                      (tile.south_rad+tile.north_rad)/2-center.latitude);
-    candidates.sort((a,b)=>score(a)-score(b));
+    const distance = tile => Math.hypot(
+      Math.max(tile.west_rad-center.longitude,0,center.longitude-tile.east_rad)*Math.cos(center.latitude),
+      Math.max(tile.south_rad-center.latitude,0,center.latitude-tile.north_rad));
+    // Prefer the tile containing the ground focus even when adaptive tile sizes
+    // differ; a large tile's centroid must not lose to nearby smaller cells.
+    candidates.sort((a,b)=>distance(a)-distance(b) || score(a)-score(b));
     wanted = new Set(candidates.slice(0,4).map(tile=>tile.id));
     for (const [id,entry] of entries) if (!wanted.has(id)) {remove(entry);entries.delete(id);}
     report(candidates.length>4 ? 'Detail limited to 4 nearby tiles · zoom in for complete local detail' : undefined);

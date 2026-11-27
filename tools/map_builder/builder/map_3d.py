@@ -5,9 +5,27 @@ import json
 import math
 import re
 import subprocess
+from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
+
+from development.maps.terrain_regions import MICHIGAN_BOUNDS, MICHIGAN_SHARDS
+from ui.navigation.local_building_state import LocalBuilding
+from ui.navigation.local_map_tiles_state import MAX_MAP_TILES
+
+from .building_geometry import (
+    normalize_components,
+    outer_members,
+    ring_identity,
+    source_identity,
+)
+from .building_parts import mark_part_outlines
+
+# The existing terrain envelope starts at 41.7, slightly north of Michigan's
+# checked-in Census boundary (41.696089). Coastal/UP delivery edges below also
+# include New Buffalo and Menominee. Existing terrain/imagery bounds stay intact.
+BUILDING_BOUNDS = (MICHIGAN_BOUNDS[0], MICHIGAN_BOUNDS[1] - 0.01, *MICHIGAN_BOUNDS[2:])
 
 PRESETS = {
     "detroit-downtown": ("Detroit Downtown", (-83.065, 42.315, -83.025, 42.345)),
@@ -15,6 +33,23 @@ PRESETS = {
     "pine-knob": ("Pine Knob · Clarkston", (-83.39, 42.74, -83.365, 42.765)),
     "rochester": ("Rochester test area", (-83.175, 42.650, -83.110, 42.705)),
     "southfield": ("Central Southfield test area", (-83.290, 42.440, -83.220, 42.505)),
+    "metro-detroit": ("Metro Detroit", (-83.75, 42.0, -82.55, 42.9)),
+    **{
+        key: (
+            title,
+            (
+                -87.0 if w == -86.5 else w,  # Lake Michigan coast, including New Buffalo.
+                BUILDING_BOUNDS[1]
+                if s == MICHIGAN_BOUNDS[1]
+                else 45.0
+                if key.startswith("mi-upper-")
+                else s,
+                e,
+                n,
+            ),
+        )
+        for key, (title, (w, s, e, n)) in MICHIGAN_SHARDS.items()
+    },
 }
 CREDIT = "© OpenStreetMap contributors · ODbL 1.0"
 
@@ -24,46 +59,69 @@ def digest(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def height(tags):
-    for key, source, scale in (
-        ("height", "osm-height", 1),
-        ("building:levels", "levels-estimate", 3),
-    ):
-        try:
-            value = float(str(tags.get(key, "")).strip().removesuffix(" m")) * scale
-            if math.isfinite(value) and 1 <= value <= 1000:
-                return value, source
-        except ValueError:
-            pass
-    return 9.0, "placeholder"
-
-
-def normalize(feature, bounds):
-    tags = feature.get("properties") or {}
-    if tags.get("building") in (None, "no"):
-        return None
-    geometry = feature.get("geometry") or {}
-    rings = geometry.get("coordinates") or []
-    # Osmium exports simple way areas as single-part MultiPolygons too.
-    kind = geometry.get("type")
-    if kind == "MultiPolygon" and len(rings) == 1:
-        rings = rings[0]
-        kind = "Polygon"
-    # Courtyards and multiple separate parts still require a richer contract.
-    if kind != "Polygon" or len(rings) != 1:
-        return None
-    ring = rings[0]
-    if not 4 <= len(ring) <= 2000 or ring[0] != ring[-1]:
-        return None
+def partition_buildings(buckets, bounds, rows, columns, *, adaptive=False):
+    """Split dense Metro cells without truncating outlines or raising GPU limits."""
     west, south, east, north = bounds
-    if any(len(p) < 2 or not (west <= p[0] <= east and south <= p[1] <= north) for p in ring):
-        return None
-    h, source = height(tags)
-    return {
-        "ring_rad": [[math.radians(p[0]), math.radians(p[1])] for p in ring],
-        "height_m": h,
-        "height_source": source,
-    }
+    pending = deque(
+        (
+            f"r{row}-c{col}",
+            (
+                west + (east - west) * col / columns,
+                south + (north - south) * row / rows,
+                west + (east - west) * (col + 1) / columns,
+                south + (north - south) * (row + 1) / rows,
+            ),
+            list(features.values()),
+            0,
+        )
+        for (row, col), features in buckets.items()
+    )
+    emitted = 0
+    while pending:
+        tile_id, extent, features, depth = pending.popleft()
+        content = json.dumps(
+            {"attribution": CREDIT, "buildings": features}, separators=(",", ":")
+        ).encode()
+        if len(content) <= 10 * 1024 * 1024 and len(features) <= 10000:
+            emitted += 1
+            yield tile_id, extent, features, content
+            continue
+        if not adaptive or depth >= 6 or emitted + len(pending) + 4 > MAX_MAP_TILES:
+            raise ValueError(
+                "Building tile exceeds runtime limits and bounded subdivision capacity"
+            )
+        w, s, e, n = extent
+        mid_x, mid_y = (w + e) / 2, (s + n) / 2
+        groups = [[] for _ in range(4)]
+        for building in features:
+            ring = building["ring_rad"][:-1]
+            lon = math.degrees(sum(point[0] for point in ring) / len(ring))
+            lat = math.degrees(sum(point[1] for point in ring) / len(ring))
+            groups[int(lat >= mid_y) * 2 + int(lon >= mid_x)].append(building)
+        for index, group in enumerate(groups):
+            row, col = divmod(index, 2)
+            child = (
+                mid_x if col else w,
+                mid_y if row else s,
+                e if col else mid_x,
+                n if row else mid_y,
+            )
+            pending.append((tile_id + "-" + str(index), child, group, depth + 1))
+
+
+def regional_owner(building):
+    ring = building["ring_rad"][:-1]
+    lon = math.degrees(sum(p[0] for p in ring) / len(ring))
+    lat = math.degrees(sum(p[1] for p in ring) / len(ring))
+    return next(
+        (
+            key
+            for key in MICHIGAN_SHARDS
+            for _, (w, s, e, n) in (PRESETS[key],)
+            if w <= lon <= e and s <= lat <= n
+        ),
+        None,
+    )
 
 
 def build_pack(root, preset):
@@ -79,8 +137,13 @@ def build_pack(root, preset):
         )
     destination.parent.mkdir(parents=True, exist_ok=True)
     west, south, east, north = bounds
-    buckets = {(row, col): {} for row in range(4) for col in range(2)}
+    regional = preset in MICHIGAN_SHARDS
+    rows, columns = (16, 16) if preset == "metro-detroit" or regional else (4, 2)
+    buckets = {(row, col): {} for row in range(rows) for col in range(columns)}
+    height_counts = {key: 0 for key in ("osm-height", "levels-estimate", "placeholder")}
     skipped = 0
+    members, accepted_relations = {}, {}
+    duplicates = 0
     with TemporaryDirectory(dir=destination.parent, prefix=".build-3d-") as temporary:
         scratch = Path(temporary)
         for index, source in enumerate(sources):
@@ -92,7 +155,9 @@ def build_pack(root, preset):
                     "-b",
                     ",".join(map(str, bounds)),
                     "-s",
-                    "complete_ways",
+                    "smart",
+                    "-S",
+                    "types=multipolygon",
                     str(source),
                     "-o",
                     str(extract),
@@ -100,9 +165,24 @@ def build_pack(root, preset):
                 check=True,
             )
             subprocess.run(
-                ["osmium", "tags-filter", str(extract), "w/building", "-o", str(filtered)],
+                [
+                    "osmium",
+                    "tags-filter",
+                    str(extract),
+                    "wr/building",
+                    "wr/building:part",
+                    "-o",
+                    str(filtered),
+                ],
                 check=True,
             )
+            membership = subprocess.run(
+                ["osmium", "cat", "--object-type=relation", "-f", "opl", str(filtered)],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            members.update(outer_members(membership.stdout))
             command = [
                 "osmium",
                 "export",
@@ -121,20 +201,24 @@ def build_pack(root, preset):
                     if not line.strip():
                         continue
                     feature = json.loads(line.lstrip("\x1e"))
-                    building = normalize(feature, bounds)
-                    if building is None:
+                    buildings = normalize_components(
+                        feature, BUILDING_BOUNDS if regional else bounds
+                    )
+                    if not buildings:
                         skipped += 1
                         continue
-                    ring = building["ring_rad"][:-1]
-                    lon = math.degrees(sum(p[0] for p in ring) / len(ring))
-                    lat = math.degrees(sum(p[1] for p in ring) / len(ring))
-                    col = min(1, int((lon - west) / (east - west) * 2))
-                    row = min(3, int((lat - south) / (north - south) * 4))
-                    props = feature.get("properties") or {}
-                    identity = feature.get("id") or f"{props.get('@type')}:{props.get('@id')}"
-                    if identity == "None:None":
+                    identity = source_identity(feature)
+                    if not identity:
                         raise ValueError("OSM export lacks stable feature identity")
-                    buckets[row, col][str(identity)] = building
+                    if identity.startswith("relation/"):
+                        accepted_relations[identity] = buildings
+                    for component, building in enumerate(buildings):
+                        ring = building["ring_rad"][:-1]
+                        lon = math.degrees(sum(p[0] for p in ring) / len(ring))
+                        lat = math.degrees(sum(p[1] for p in ring) / len(ring))
+                        col = max(0, min(columns - 1, int((lon - west) / (east - west) * columns)))
+                        row = max(0, min(rows - 1, int((lat - south) / (north - south) * rows)))
+                        buckets[row, col][f"{identity}#{component}"] = building
             except BaseException:
                 process.terminate()
                 raise
@@ -143,40 +227,66 @@ def build_pack(root, preset):
                 code = process.wait()
             if code:
                 raise RuntimeError(f"osmium export failed ({code})")
+        # Remove only identical outer-member ways of accepted relations. Keep a
+        # height-informed way if its parent has no usable height metadata.
+        candidates = {}
+        for identity, components in accepted_relations.items():
+            for way in members.get(identity, ()):
+                candidates.setdefault(way, []).extend(components)
+        for bucket in buckets.values():
+            for identity, building in list(bucket.items()):
+                parents = candidates.get(identity.rsplit("#", 1)[0], ())
+                if any(
+                    ring_identity(parent["ring_rad"]) == ring_identity(building["ring_rad"])
+                    and parent.get("is_part", False) == building.get("is_part", False)
+                    and (
+                        parent["height_source"] != "placeholder"
+                        or building["height_source"] == "placeholder"
+                    )
+                    for parent in parents
+                ):
+                    del bucket[identity]
+                    duplicates += 1
+        mark_part_outlines(buckets)
+        # Complete footprints may cross a regional edge. Assign each component
+        # once by centroid, using a stable order for overlapping UP/LP envelopes.
+        # Associate parts before filtering so a neighbor-owned part still prevents
+        # a parent extrusion from occluding it across the pack boundary.
+        if regional:
+            for bucket in buckets.values():
+                for identity, building in list(bucket.items()):
+                    if regional_owner(building) != preset:
+                        del bucket[identity]
+        part_outlines = sum(
+            bool(b.get("outline_only")) for cell in buckets.values() for b in cell.values()
+        )
         if not any(buckets.values()):
             raise ValueError(
-                "No simple building outlines in selected coverage; verify your source region"
+                "No supported building outlines in selected coverage; verify your source region"
             )
         pack = scratch / "pack"
         pack.mkdir()
         records = []
-        for (row, col), features in buckets.items():
-            tile_id = f"r{row}-c{col}"
+        for tile_id, tile_bounds, features, content in partition_buildings(
+            buckets, bounds, rows, columns, adaptive=preset == "metro-detroit" or regional
+        ):
             local = pack / tile_id
             local.mkdir()
-            content = json.dumps(
-                {"attribution": CREDIT, "buildings": list(features.values())}
-            ).encode()
-            if len(content) > 10 * 1024 * 1024 or len(features) > 10000:
-                raise ValueError("Building tile exceeds runtime limits")
+            for building in features:
+                height_counts[building["height_source"]] += 1
             (local / "buildings.json").write_bytes(content)
             records.append(
                 {
                     "id": tile_id,
                     "title": title,
                     "attribution": CREDIT,
-                    "bounds_deg": [
-                        west + (east - west) * col / 2,
-                        south + (north - south) * row / 4,
-                        west + (east - west) * (col + 1) / 2,
-                        south + (north - south) * (row + 1) / 4,
-                    ],
+                    "bounds_deg": tile_bounds,
                     "buildings_count": len(features),
                     "sha256": {"buildings.json": digest(local / "buildings.json")},
                 }
             )
         manifest = {
-            "schema": 1,
+            "schema": 3,
             "title": title + " buildings",
             "attribution": CREDIT,
             "bounds_deg": bounds,
@@ -185,6 +295,25 @@ def build_pack(root, preset):
             "generated_utc": datetime.now(timezone.utc).isoformat(),
             "license": "https://opendatacommons.org/licenses/odbl/1-0/",
             "skipped_features": skipped,
+            "height_counts": height_counts,
+            "grid": [rows, columns],
+            "part_components": sum(
+                bool(b.get("is_part")) for cell in buckets.values() for b in cell.values()
+            ),
+            "outlines_with_parts": part_outlines,
+            "relation_components": sum(
+                b.get("source_id", "").startswith("relation/")
+                for cell in buckets.values()
+                for b in cell.values()
+            ),
+            "coverage": preset,
+            "ownership": "first matching Michigan region by component centroid"
+            if regional
+            else "selected coverage",
+            "courtyard_components": sum(
+                bool(b.get("holes_rad")) for cell in buckets.values() for b in cell.values()
+            ),
+            "duplicate_member_ways_removed": duplicates,
             "sources": [{"file": source.name, "sha256": digest(source)} for source in sources],
         }
         (pack / "manifest.json").write_text(json.dumps(manifest, indent=2))
@@ -199,8 +328,8 @@ def validate_pack(directory):
     manifest = json.loads(manifest_path.read_text())
     terrain_only = manifest.get("layers") == ["terrain"]
     if (
-        manifest.get("schema") != 1
-        or not 0 <= len(manifest["tiles"]) <= 32
+        manifest.get("schema") not in (1, 2, 3)
+        or not 0 <= len(manifest["tiles"]) <= MAX_MAP_TILES
         or (not manifest["tiles"] and not terrain_only)
     ):
         raise ValueError("Unsupported 3D pack schema")
@@ -245,21 +374,7 @@ def validate_pack(directory):
         ):
             raise ValueError("Building attribution/count mismatch")
         for building in data["buildings"]:
-            ring = building["ring_rad"]
-            if not 4 <= len(ring) <= 2000 or ring[0] != ring[-1]:
-                raise ValueError("Invalid building ring")
-            if any(
-                len(p) != 2
-                or not (-math.pi <= p[0] <= math.pi and -math.pi / 2 <= p[1] <= math.pi / 2)
-                for p in ring
-            ):
-                raise ValueError("Invalid building coordinates")
-            if not 1 <= building["height_m"] <= 1000 or building["height_source"] not in (
-                "osm-height",
-                "levels-estimate",
-                "placeholder",
-            ):
-                raise ValueError("Invalid building height")
+            LocalBuilding.from_document(building)
         total += len(data["buildings"])
     for file in root.rglob("*"):
         if file.is_file():

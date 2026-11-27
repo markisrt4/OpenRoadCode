@@ -1,0 +1,42 @@
+name: Business registry
+
+on:
+  pull_request:
+    paths:
+      - 'controllers/poi/catalog/**'
+      - 'scripts/generate_business_registry.py'
+      - '.github/workflows/business-registry.yml'
+  workflow_dispatch:
+    inputs:
+      nsi_revision:
+        description: 'Optional full NSI commit SHA to generate a reviewed update artifact'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Verify committed offline registry and approved assets
+        run: python -m scripts.generate_business_registry --check
+      - name: Generate a candidate from an explicitly selected upstream revision
+        if: github.event_name == 'workflow_dispatch' && inputs.nsi_revision != ''
+        env:
+          NSI_REVISION: ${{ inputs.nsi_revision }}
+        run: python -m scripts.generate_business_registry --refresh "$NSI_REVISION"
+      - name: Upload candidate for review
+        if: github.event_name == 'workflow_dispatch' && inputs.nsi_revision != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: business-registry-candidate
+          path: |
+            controllers/poi/catalog/brands.json
+            controllers/poi/catalog/nsi_snapshot.json

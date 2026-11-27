@@ -10,6 +10,40 @@ from apps.orcUi.composition.application import OrcUiComposition, create_orc_ui_c
 
 
 class OrcUiCompositionTest(unittest.TestCase):
+    def test_shutdown_combines_updater_audio_and_android_resources_once(self) -> None:
+        resources = {
+            name: Mock()
+            for name in (
+                "core",
+                "runtime",
+                "radio",
+                "media",
+                "games",
+                "weather",
+                "software_update",
+                "audio_settings",
+                "waze",
+                "android_app_view",
+                "waze_app_view",
+                "waze_gestures",
+                "location_sharing",
+            )
+        }
+        events = Mock()
+        events.attach_mock(resources["software_update"].close, "stop_updates")
+        events.attach_mock(resources["core"].app.shutdown, "shutdown_ui")
+        composition = OrcUiComposition(**resources)
+
+        composition.close()
+        composition.close()
+
+        self.assertEqual(events.mock_calls, [call.stop_updates(), call.shutdown_ui()])
+        for name, resource in resources.items():
+            if name == "games":
+                resource.shutdown.assert_called_once_with()
+            else:
+                resource.close.assert_called_once_with()
+
     def test_shutdown_preserves_weather_and_performance_cleanup_after_failure(self) -> None:
         for failed in ("performance_status", "radar_replay"):
             with self.subTest(failed=failed):
@@ -236,6 +270,9 @@ class OrcUiCompositionTest(unittest.TestCase):
     ) -> None:
         runtime = create_runtime.return_value
         core = create_core.return_value
+        # Match the real startup state before the navigation service has a route.
+        core.route_request_handler.active_route = None
+        core.presentation.route_guidance = None
         app = core.app
         radio = configure_radio.return_value
         games = configure_games.return_value

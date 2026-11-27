@@ -22,24 +22,18 @@ if [ -n "${TERMUX_VERSION:-}" ] || [[ "${PREFIX:-}" == */com.termux/files/usr ]]
     fi
 fi
 source .venv-quality/bin/activate
+revision="$(git rev-parse --short HEAD 2>/dev/null || printf unknown)"
+printf '[*] Revision: %s\n[*] Python: %s\n' "$revision" "$PWD/.venv-quality/bin/python"
 mode="${1:---all}"
 if [ "$#" -gt 0 ]; then shift; fi
 case "$mode" in
     --lint) ruff check "${@:-.}"; ruff format --check "${@:-.}" ;;
-    --format) ruff check --fix "${@:-.}"; ruff format "${@:-.}" ;;
+    --format) python scripts/dev_check_changes.py --format-only "$@" ;;
     --types) python scripts/check_ui_types.py ;;
     --docstrings) python scripts/check_doxygen_contracts.py ;;
-    --test) python scripts/run_tests.py unit ;;
-    --all)
-        ruff check .
-        ruff format --check .
-        python scripts/check_ui_types.py
-        python scripts/check_python_module_size.py
-        python scripts/check_ui_boundaries.py
-        python scripts/check_weather_ui_contracts.py
-        python scripts/check_doxygen_contracts.py
-        python scripts/check_mermaid_legends.py
-        ;;
+    --test) python scripts/run_tests.py unit "$@" ;;
+    --all) python scripts/dev_check_changes.py --checks-only "$@" ;;
+    --fix|--publish) python scripts/dev_check_changes.py --checks-only "$mode" "$@" ;;
     --docs)
         python scripts/docs_inventory.py --check
         python scripts/check_markdown_links.py
@@ -60,6 +54,6 @@ case "$mode" in
         fi
         exit "$status"
         ;;
-    --full) python scripts/quality_gate.py ;;
-    *) echo "Usage: $0 [--all|--lint|--format|--types|--docstrings|--docs|--test|--full]" >&2; exit 2 ;;
+    --full) python scripts/dev_check_changes.py "$@" ;;
+    *) echo "Usage: $0 [--all|--lint|--format|--types|--docstrings|--docs|--test|--full] [--fix] [--publish] [--message TEXT]" >&2; exit 2 ;;
 esac

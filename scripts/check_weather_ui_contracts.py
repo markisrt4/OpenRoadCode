@@ -9,7 +9,6 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-FRONTEND = ROOT / "apps/orcUi/frontend/tk"
 FORBIDDEN_IMPORTS = (
     "controllers.weather",
     "protocols",
@@ -52,21 +51,26 @@ def check_frontend(path, source):
     return errors
 
 
-def main():
+def check(root=ROOT):
+    """Return the weather-specific rules used by the project-wide UI gate."""
+    frontend = root / "apps/orcUi/frontend/tk"
     paths = (
-        set(FRONTEND.glob("*weather*.py"))
-        | set(FRONTEND.glob("*radar*.py"))
-        | {FRONTEND / "navigation_screen.py"}
+        set(frontend.glob("*weather*.py"))
+        | set(frontend.glob("*radar*.py"))
+        | {frontend / "navigation_screen.py"}
     )
-    paths |= set((ROOT / "frontends/tk/weather").glob("*.py"))
+    paths |= set((root / "frontends/tk/weather").glob("*.py"))
+    paths = {path for path in paths if path.is_file()}
     errors = []
     for path in sorted(paths):
-        errors.extend(check_frontend(path.relative_to(ROOT), path.read_text()))
+        errors.extend(check_frontend(path.relative_to(root), path.read_text()))
     # Domain orchestration must remain independent of all GUI frameworks.
-    for path in sorted((ROOT / "controllers/weather").glob("*overlay_controller.py")) + [
-        ROOT / "controllers/weather/radar_replay_controller.py",
-        ROOT / "controllers/weather/weather_screen_controller.py",
+    for path in sorted((root / "controllers/weather").glob("*overlay_controller.py")) + [
+        root / "controllers/weather/radar_replay_controller.py",
+        root / "controllers/weather/weather_screen_controller.py",
     ]:
+        if not path.is_file():
+            continue
         for node in ast.walk(ast.parse(path.read_text())):
             modules = (
                 [alias.name for alias in node.names]
@@ -78,8 +82,13 @@ def main():
             for module in modules:
                 if module.split(".")[0] in {"tkinter", "PySide6", "PyQt6", "frontends", "apps"}:
                     errors.append(
-                        f"{path.relative_to(ROOT)}:{node.lineno}: weather controller imports frontend {module}"
+                        f"{path.relative_to(root)}:{node.lineno}: weather controller imports frontend {module}"
                     )
+    return paths, errors
+
+
+def main():
+    paths, errors = check()
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1

@@ -14,17 +14,36 @@ test('terrain cues restore the prior globe presentation when disabled',()=>{
   const globe={enableLighting:false,material:original};
   const viewer={scene:{globe,requestRender(){renders++;}}};
   const spacings=[];
-  const C={Material:{fromType(type,options){assert.equal(type,'ElevationContour');spacings.push(options.spacing);return {...contour,spacing:options.spacing};}},
-    Color:{fromCssColorString(value){assert.equal(value,'#69a7bd');return {withAlpha(value){assert.equal(value,.46);return 'color';}}}}};
+  const C={Material:class {
+    constructor(options){
+      const fabric=options.fabric;
+      assert.equal(fabric.materials.contours.type,'ElevationContour');
+      assert.equal(fabric.uniforms.waterReference,'/data/world-reference.png');
+      assert.match(fabric.components.alpha,/providerWaterMask\*materialInput.waterMask/);
+      assert.equal(fabric.uniforms.providerWaterMask,0);
+      assert.match(fabric.components.alpha,/czm_ellipsoidTextureCoordinates/);
+      assert.match(fabric.components.alpha,/czm_inverseView/);
+      spacings.push(fabric.materials.contours.uniforms.spacing);
+      Object.assign(this,contour);
+      let spacing=fabric.materials.contours.uniforms.spacing;
+      const uniforms={};
+      Object.defineProperty(uniforms,'spacing',{get:()=>spacing,set:value=>{spacing=value;spacings.push(value);}});
+      this.materials={contours:{uniforms}};
+      Object.defineProperty(this,'spacing',{get:()=>spacing});
+    }
+  },Color:{fromCssColorString(value){assert.equal(value,'#69a7bd');return {withAlpha(value){assert.equal(value,.46);return 'color';}}}}};
   const cues=context.window.ORCTerrainCues(viewer,C);
   cues.setEnabled(true);
   assert.equal(globe.enableLighting,true);
   assert.equal(globe.material.spacing,10);
   cues.setScale(3);
   assert.equal(globe.material.spacing,30);
+  cues.setScale(4);
+  assert.equal(globe.material.spacing,40);
+  assert.throws(()=>cues.setScale(5),/scale/);
   cues.setEnabled(false);
   assert.equal(globe.enableLighting,false);
   assert.equal(globe.material,original);
-  assert.deepEqual(spacings,[10,30]);
-  assert.equal(renders,3);
+  assert.deepEqual(spacings,[10,30,40]);
+  assert.equal(renders,4);
 });

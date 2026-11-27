@@ -7,7 +7,60 @@ from urllib.error import URLError
 import pytest
 
 from apps.launchers.host_location_permission import HostLocationPermission
-from controllers.navigation.host_location_permission_if import HostLocationServiceUnavailable
+
+
+@pytest.fixture(autouse=True)
+def no_system_chromium_during_default_browser_checks(monkeypatch):
+    monkeypatch.setattr("apps.launchers.host_location_permission.shutil.which", lambda _name: None)
+    monkeypatch.setattr("apps.launchers.host_location_permission.HostLocationWindowControl", Mock())
+
+
+def test_restart_reconnects_existing_helper_without_opening_or_reauthorizing_it(monkeypatch):
+    monkeypatch.setenv("DISPLAY", ":0")
+    recover = Mock()
+    with patch("apps.launchers.host_location_permission.BrowserKioskLauncher") as browser:
+        browser.return_value.is_running.return_value = True
+        permission = HostLocationPermission(recover=recover)
+        permission.restore_if_running(lambda: False)
+    recover.assert_called_once_with()
+    browser.return_value.launch.assert_not_called()
+    browser.return_value.stop.assert_not_called()
+
+
+def test_restore_does_not_start_location_when_no_helper_is_running(monkeypatch):
+    monkeypatch.setenv("DISPLAY", ":0")
+    recover = Mock()
+    with patch("apps.launchers.host_location_permission.BrowserKioskLauncher") as browser:
+        browser.return_value.is_running.return_value = False
+        HostLocationPermission(recover=recover).restore_if_running(lambda: False)
+    recover.assert_not_called()
+
+
+def test_compact_permission_window_uses_app_mode_own_profile_and_reuses_window(monkeypatch):
+    monkeypatch.setenv("DISPLAY", ":0")
+    with (
+        patch("apps.launchers.host_location_permission.build_opener", return_value=response()),
+        patch(
+            "apps.launchers.host_location_permission.shutil.which",
+            return_value="/usr/bin/google-chrome",
+        ),
+        patch("apps.launchers.host_location_permission.BrowserKioskLauncher") as browser,
+        patch("apps.launchers.host_location_permission.webbrowser.open") as default,
+    ):
+        permission = HostLocationPermission()
+        permission.open_permission_page(lambda: False)
+        permission.open_permission_page(lambda: False)
+    browser.assert_called_once()
+    options = browser.call_args.kwargs
+    assert options["app_mode"] is True and options["kiosk"] is False
+    assert options["window_size"] == (480, 330)
+    assert options["profile_path"].name == "host-location"
+    assert "openroadcode-host-location" in options["process_pattern"]
+    assert options.get("window_position") is None  # Keep normal move/close window decorations.
+    assert "--disable-background-timer-throttling" in options["extra_arguments"]
+    assert browser.return_value.launch.call_count == 2
+    browser.return_value.launch.assert_called_with(":0")
+    default.assert_not_called()
 
 
 def response():
@@ -19,23 +72,16 @@ def response():
     return opener
 
 
-def test_uses_the_default_browser_without_chromium_specific_flags():
+def test_without_supported_compact_browser_falls_back_to_the_default_browser():
     opener = response()
     with (
         patch("apps.launchers.host_location_permission.build_opener", return_value=opener),
         patch(
-            "apps.launchers.host_location_permission.shutil.which",
-            return_value="/usr/bin/google-chrome",
-        ),
-        patch("apps.launchers.host_location_permission.subprocess.Popen") as launch,
+            "apps.launchers.host_location_permission.webbrowser.open", return_value=True
+        ) as launch,
     ):
         HostLocationPermission().open_permission_page(lambda: False)
-    assert launch.call_args.args[0] == [
-        "/usr/bin/google-chrome",
-        "--new-window",
-        "http://127.0.0.1:8765/",
-    ]
-    assert "QT_QPA_PLATFORM_PLUGIN_PATH" not in launch.call_args.kwargs["env"]
+    launch.assert_called_once_with("http://127.0.0.1:8765/", new=2)
     opener.open.assert_called_once_with("http://127.0.0.1:8765/", timeout=3)
 
 
@@ -44,9 +90,9 @@ def test_unavailable_service_does_not_launch_browser():
     opener.open.side_effect = URLError("connection refused")
     with (
         patch("apps.launchers.host_location_permission.build_opener", return_value=opener),
-        patch("apps.launchers.host_location_permission.subprocess.Popen") as launch,
+        patch("apps.launchers.host_location_permission.webbrowser.open") as launch,
     ):
-        with pytest.raises(HostLocationServiceUnavailable):
+        with pytest.raises(RuntimeError, match="Location sharing couldn't connect"):
             HostLocationPermission().open_permission_page(lambda: False)
     launch.assert_not_called()
 
@@ -54,19 +100,80 @@ def test_unavailable_service_does_not_launch_browser():
 def test_cancelled_service_check_does_not_open_browser():
     with (
         patch("apps.launchers.host_location_permission.build_opener", return_value=response()),
-        patch("apps.launchers.host_location_permission.subprocess.Popen") as launch,
+        patch("apps.launchers.host_location_permission.webbrowser.open") as launch,
     ):
         HostLocationPermission().open_permission_page(Mock(side_effect=[False, True]))
     launch.assert_not_called()
 
 
-def test_missing_default_browser_shows_the_manual_url():
+def test_obsolete_request_waiting_for_browser_lock_does_not_open_a_late_window():
     with (
         patch("apps.launchers.host_location_permission.build_opener", return_value=response()),
-        patch("apps.launchers.host_location_permission.shutil.which", return_value=None),
+        patch("apps.launchers.host_location_permission.webbrowser.open") as launch,
     ):
-        with pytest.raises(RuntimeError, match="http://127.0.0.1:8765/"):
+        HostLocationPermission().open_permission_page(Mock(side_effect=[False, False, True]))
+    launch.assert_not_called()
+
+
+def test_missing_default_browser_has_a_user_action():
+    with (
+        patch("apps.launchers.host_location_permission.build_opener", return_value=response()),
+        patch("apps.launchers.host_location_permission.webbrowser.open", return_value=False),
+    ):
+        with pytest.raises(RuntimeError, match="Set a default browser"):
             HostLocationPermission().open_permission_page(lambda: False)
+
+
+def test_unavailable_service_recovers_before_opening_browser():
+    opener = response()
+    available = opener.open.return_value
+    opener.open.side_effect = [URLError("refused"), available]
+    recover = Mock()
+    with (
+        patch("apps.launchers.host_location_permission.build_opener", return_value=opener),
+        patch(
+            "apps.launchers.host_location_permission.webbrowser.open", return_value=True
+        ) as launch,
+    ):
+        HostLocationPermission(recover=recover).open_permission_page(lambda: False)
+    recover.assert_called_once()
+    launch.assert_called_once()
+
+
+def test_recovery_failure_does_not_expose_supervisor_errors():
+    opener = Mock()
+    opener.open.side_effect = URLError("refused")
+    recover = Mock(side_effect=RuntimeError("sudo: password required"))
+    with (
+        patch("apps.launchers.host_location_permission.build_opener", return_value=opener),
+        patch("apps.launchers.host_location_permission.webbrowser.open") as launch,
+    ):
+        with pytest.raises(RuntimeError, match="could not start") as error:
+            HostLocationPermission(recover=recover).open_permission_page(lambda: False)
+    assert "sudo" not in str(error.value)
+    launch.assert_not_called()
+
+
+def test_cancel_during_recovery_does_not_open_permission_browser():
+    opener = Mock()
+    opener.open.side_effect = URLError("refused")
+    cancelled = Mock(side_effect=[False, False, True, True])
+    with (
+        patch("apps.launchers.host_location_permission.build_opener", return_value=opener),
+        patch("apps.launchers.host_location_permission.webbrowser.open") as launch,
+    ):
+        HostLocationPermission(recover=Mock()).open_permission_page(cancelled)
+    launch.assert_not_called()
+
+
+def test_ready_service_does_not_start_or_restart_navigation():
+    recover = Mock()
+    with (
+        patch("apps.launchers.host_location_permission.build_opener", return_value=response()),
+        patch("apps.launchers.host_location_permission.webbrowser.open", return_value=True),
+    ):
+        HostLocationPermission(recover=recover).open_permission_page(lambda: False)
+    recover.assert_not_called()
 
 
 def test_restart_uses_restricted_manager_endpoint_and_waits_for_location():
@@ -85,3 +192,24 @@ def test_restart_uses_restricted_manager_endpoint_and_waits_for_location():
     assert request.full_url.endswith("/services/openroadcode-navigation/restart")
     assert request.method == "POST"
     location.open.assert_called_once_with("http://127.0.0.1:8765/", timeout=1)
+
+
+def test_firefox_fallback_removes_private_qt_plugin_paths(monkeypatch):
+    monkeypatch.setenv("QT_QPA_PLATFORM_PLUGIN_PATH", "/private/opencv/plugins")
+    monkeypatch.setenv("QT_QPA_FONTDIR", "/private/opencv/fonts")
+    with (
+        patch("apps.launchers.host_location_permission.build_opener", return_value=response()),
+        patch(
+            "apps.launchers.host_location_permission.shutil.which",
+            side_effect=lambda name: "/usr/bin/firefox" if name == "firefox" else None,
+        ),
+        patch("apps.launchers.host_location_permission.subprocess.Popen") as launch,
+    ):
+        HostLocationPermission().open_permission_page(lambda: False)
+    assert launch.call_args.args[0] == [
+        "/usr/bin/firefox",
+        "--new-window",
+        "http://127.0.0.1:8765/",
+    ]
+    assert "QT_QPA_PLATFORM_PLUGIN_PATH" not in launch.call_args.kwargs["env"]
+    assert "QT_QPA_FONTDIR" not in launch.call_args.kwargs["env"]

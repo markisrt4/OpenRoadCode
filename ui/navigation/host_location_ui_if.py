@@ -9,9 +9,13 @@ from typing import Protocol
 
 @dataclass(frozen=True, slots=True)
 class HostLocationState:
-    status: str = "Browser permission is required. Bridge/GPS takes priority."
+    status: str = "Share this computer's location with ORC using your browser."
     busy: bool = False
     can_share: bool = True
+    location_status: str = "Waiting for a live location."
+    android_status: str = ""
+    sharing: bool = False
+
     can_restart: bool = False
 
 

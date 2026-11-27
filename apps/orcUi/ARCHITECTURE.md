@@ -1,5 +1,11 @@
 # orcUi Architecture
 
+The composition resolves the checkout branch once at startup and injects the
+application name into the shell. Non-`master` branches appear as
+`OpenRoadCode [branch] | SCREEN`; master, detached HEAD and installed builds
+outside a checkout retain the normal name. Git is not queried by widgets or
+on screen changes. Restart ORC after switching branches to refresh the label.
+
 ## Saved destinations
 
 Home and Work use the existing places request contract and POI popup. A shortcut
@@ -693,3 +699,18 @@ Tk owns encoded artwork decoding and native host rendering. See
 The media hub retains its compact account row through `SpotifyAccountSession`,
 and its shared now-playing preview is closed alongside the presentation sessions.
 Preview cleanup errors do not prevent other owned resources from closing.
+
+
+The top-level composition resource owner is implemented in
+`composition/application_resources.py` and re-exported from
+`composition/application.py`. It owns startup, appointment polling, and shutdown
+for both the current master features and retained Waze/Waydroid/location resources.
+`application.py` continues to construct and inject those dependencies.
+
+
+Quality-gate module boundaries keep Android platform discovery with
+`composition/business_apps.py`, initial Terrain state with the existing
+application resource helpers, POI card construction in
+`frontend/tk/navigation_poi_card_layout.py`, and shell widget construction in
+`frontend/tk/shell_construction.py`. The original frontend entry points delegate
+to these helpers, retaining their lifecycle and request contracts.

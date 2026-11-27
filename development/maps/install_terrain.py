@@ -18,6 +18,7 @@ from apps.launchers.local_terrain_pack import (
     regional_terrain_directory,
 )
 from common.xdg_paths import openroadcode_data_dir
+from development.maps.detail_coverages import TERRAIN_DETAILS
 from development.maps.install_region import COVERAGES
 from development.maps.prebuilt_imagery import (
     fetch_archive,
@@ -26,6 +27,7 @@ from development.maps.prebuilt_imagery import (
     verify_archive,
 )
 from development.maps.regional_terrain import build as build_regional_terrain
+from development.maps.state_map_catalog import coverage_definition
 from development.maps.terrain_regions import MICHIGAN_COVERAGES
 from tools.map_builder.builder.map_3d import PRESETS
 from tools.map_builder.builder.map_3d_menu import choose_coverage
@@ -34,8 +36,7 @@ from tools.map_builder.builder.terrain import download
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    regional_coverages = ("metro-detroit",) + tuple(MICHIGAN_COVERAGES)
-    parser.add_argument("--coverage", choices=tuple(PRESETS) + regional_coverages)
+    parser.add_argument("--coverage")
     parser.add_argument("--output", type=Path, help="Override the device-owned pack directory")
     parser.add_argument("--yes", action="store_true", help="Skip confirmation; requires --coverage")
     parser.add_argument("--pack-manifest", help="HTTPS descriptor for a published terrain archive")
@@ -56,11 +57,18 @@ def main():
             print("Cancelled")
             return 0
         title, bounds = (
-            COVERAGES[coverage]
-            if coverage == "metro-detroit"
+            TERRAIN_DETAILS[coverage]
+            if coverage in TERRAIN_DETAILS
             else MICHIGAN_COVERAGES[coverage]
             if coverage in MICHIGAN_COVERAGES
+            else COVERAGES[coverage]
+            if coverage == "metro-detroit"
             else PRESETS[coverage]
+            if coverage in PRESETS
+            else coverage_definition(coverage)
+        )
+        regional = (
+            coverage in MICHIGAN_COVERAGES or coverage in TERRAIN_DETAILS or coverage not in PRESETS
         )
         directories = {
             "detroit-downtown": detroit_terrain_directory,
@@ -71,7 +79,7 @@ def main():
             metro_detroit_terrain_directory()
             if coverage == "metro-detroit"
             else regional_terrain_directory(coverage)
-            if coverage in MICHIGAN_COVERAGES
+            if regional
             else directories[coverage]()
             if coverage in directories
             else openroadcode_data_dir("map-packs", coverage + "-terrain-v1")
@@ -79,7 +87,7 @@ def main():
         print(f"Coverage: {title} · {bounds}")
         if coverage == "metro-detroit":
             print("USGS 3DEP: streamed overview, 200 m-class regional, and focus-area LOD grids.")
-        elif coverage in MICHIGAN_COVERAGES:
+        elif regional:
             print(
                 "USGS 3DEP: 64 resumable 129×129 grids; rectangular coverage includes water and neighboring areas."
             )
@@ -114,9 +122,13 @@ def main():
                 )
             )
             verify_archive(archive, descriptor)
-            _install_archive(archive, destination)
+            _install_archive(archive, destination, expected_bounds=bounds)
             installed = destination
-        elif coverage in regional_coverages:
+        elif coverage in TERRAIN_DETAILS:
+            raise ValueError(
+                "Detail terrain requires a finished --pack-file artifact from GitHub Actions"
+            )
+        elif coverage == "metro-detroit" or regional:
             target = args.build_only or destination
             build_regional_terrain(target, coverage=coverage)
         else:
@@ -138,7 +150,7 @@ def main():
         return 1
 
 
-def _install_archive(archive: Path, active: Path) -> None:
+def _install_archive(archive: Path, active: Path, *, expected_bounds=None) -> None:
     active.parent.mkdir(parents=True, exist_ok=True)
     revision = active.parent / (".terrain-" + uuid.uuid4().hex)
     with TemporaryDirectory(dir=active.parent, prefix=".terrain-unpack-") as temporary:
@@ -170,10 +182,31 @@ def _install_archive(archive: Path, active: Path) -> None:
                         while chunk := incoming.read(65536):
                             outgoing.write(chunk)
         load_terrain(root)
+        if expected_bounds is not None:
+            import json
+
+            actual = json.loads((root / "manifest.json").read_text())["bounds_deg"]
+            if len(actual) != 4 or any(
+                abs(a - b) > 1e-9 for a, b in zip(actual, expected_bounds, strict=True)
+            ):
+                raise ValueError("Terrain archive bounds differ from requested coverage")
         root.rename(revision)
     pending = active.parent / (".active-terrain-" + uuid.uuid4().hex)
     pending.symlink_to(revision.name, target_is_directory=True)
-    pending.replace(active)
+    previous = None
+    if active.exists() and not active.is_symlink():
+        if not active.is_dir():
+            pending.unlink()
+            raise ValueError("Existing terrain path is not a pack directory")
+        previous = active.parent / (".previous-terrain-" + uuid.uuid4().hex)
+        active.rename(previous)
+    try:
+        pending.replace(active)
+    except OSError:
+        if previous is not None:
+            previous.rename(active)
+        pending.unlink(missing_ok=True)
+        raise
 
 
 if __name__ == "__main__":

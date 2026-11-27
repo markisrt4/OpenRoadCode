@@ -400,7 +400,7 @@ class SpotifyBrowsePanel(tk.Frame, UiWidget):
     def _bind_hover(self, card: tk.Frame, children: tuple[tk.Widget, ...]) -> None:
         c = self._color
 
-        def enter(_event: tk.Event | None = None) -> None:
+        def enter(_event: tk.Event[tk.Misc] | None = None) -> None:
             try:
                 card.configure(bg=c("button_background"), highlightbackground=c("status"))
                 for widget in children:
@@ -409,7 +409,7 @@ class SpotifyBrowsePanel(tk.Frame, UiWidget):
             except tk.TclError:
                 pass
 
-        def leave(_event: tk.Event | None = None) -> None:
+        def leave(_event: tk.Event[tk.Misc] | None = None) -> None:
             try:
                 card.configure(bg=c("card_background"), highlightbackground=c("card_border"))
                 for widget in children:

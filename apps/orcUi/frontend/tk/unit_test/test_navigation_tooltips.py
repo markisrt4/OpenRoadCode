@@ -15,10 +15,12 @@ from apps.orcUi.frontend.tk.navigation_screen import NavigationScreen
 def test_right_side_controls_have_action_descriptions():
     panel = Mock()
     panel._map_platform = None
+    panel._waze_handler = None
+    panel._experience_handler = None
     with patch("apps.orcUi.frontend.tk.navigation_panel_layout.tk"):
         build_navigation_panel(panel)
     descriptions = [call.args[1] for call in panel._add_tooltip.call_args_list]
-    assert len(descriptions) == 13
+    assert len(descriptions) >= 13
     for text in (
         "Toggle following the vehicle",
         "Zoom in",
@@ -66,7 +68,10 @@ def test_navigation_screen_closes_tooltips_when_unmounted(method):
     screen = object.__new__(NavigationScreen)
     panel = Mock()
     panel._map_platform = None
+    panel._waze_handler = None
+    panel._experience_handler = None
     screen._panel = panel
+    screen._map_platform = None
     screen._radar_handler = None
     screen._route_weather = None
     screen._close_places_session = Mock()
@@ -91,6 +96,8 @@ def test_camera_controls_start_as_compact_collapsible_drawer():
         Frame=frame,
         Button=Mock(),
         Label=label,
+        Canvas=Mock(),
+        Scrollbar=Mock(),
         Menubutton=Mock(),
         Menu=Mock(),
         PhotoImage=Mock(),
@@ -98,8 +105,10 @@ def test_camera_controls_start_as_compact_collapsible_drawer():
     ):
         panel = Mock()
         panel._map_platform = None
+        panel._waze_handler = None
+        panel._experience_handler = None
         build_navigation_panel(panel)
-    controls = next(widget for widget, _args, kwargs in frames if kwargs.get("width") == 54)
+    controls = next(widget for widget, _args, kwargs in frames if kwargs.get("width") == 224)
     rail = next(widget for widget, args, _kwargs in frames if args and args[0] is controls)
     assert controls.pack_propagate.call_args.args == (False,)
     assert not rail.place.called

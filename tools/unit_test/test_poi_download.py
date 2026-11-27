@@ -209,9 +209,13 @@ def test_dateline_refresh_preserves_distant_locations(tmp_path):
         ({"website": "https://example.com:bad"}, None),
     ],
 )
-def test_website_tags_become_actions_after_import(tmp_path, tags, expected):
+@pytest.mark.parametrize("ordering_brand", [False, True])
+def test_website_tags_become_actions_after_import(tmp_path, tags, expected, ordering_brand):
     db = tmp_path / "search.sqlite"
     item = node()
+    if not ordering_brand:
+        item["tags"]["name"] = "Independent Cafe"
+        item["tags"].pop("brand")
     item["tags"].update(tags)
     install({"elements": [item]}, db)
     source = SqlitePoiSearchSource(db)
@@ -222,10 +226,13 @@ def test_website_tags_become_actions_after_import(tmp_path, tags, expected):
     finally:
         source.close()
     assert poi.website == expected
-    assert [a.uri for a in poi.actions if a.kind is PoiActionKind.OPEN_WEBSITE] == (
-        [expected] if expected else []
-    )
-    assert any(a.kind is PoiActionKind.ORDER for a in poi.actions)
+    website_actions = [a.uri for a in poi.actions if a.kind is PoiActionKind.OPEN_WEBSITE]
+    if ordering_brand:
+        assert website_actions == []
+        assert [a.kind for a in poi.actions] == [PoiActionKind.ORDER]
+    else:
+        assert website_actions == ([expected] if expected else [])
+        assert not any(a.kind is PoiActionKind.ORDER for a in poi.actions)
 
 
 def test_existing_index_migrates_without_losing_old_pois(tmp_path):
