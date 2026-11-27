@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 import threading
 import time
@@ -66,19 +67,22 @@ def main(*, startup_started_at: float | None = None) -> None:
     parser.add_argument(
         "--check-ecu-gl", action="store_true", help="Check the ECU OpenGL renderer and exit"
     )
-    parser.add_argument("--no-camera", action="store_true", help="Disable camera and perception")
+    parser.add_argument("--simulation", action="store_true", help="Use lightweight runtime defaults")
+    for feature in ("camera", "audio", "native-map", "spotify"):
+        parser.add_argument(
+            f"--{feature}", action=argparse.BooleanOptionalAction, default=None
+        )
     args = parser.parse_args()
-    if args.no_camera:
-        import os
-
-        os.environ["ORC_NO_CAMERA"] = "1"
+    simulation = args.simulation or os.environ.get("ORC_SIMULATION") == "1"
+    for feature in ("camera", "audio", "native_map", "spotify"):
+        enabled = getattr(args, feature)
+        if enabled is not None or simulation:
+            os.environ[f"ORC_NO_{feature.upper()}"] = "0" if enabled else "1"
     if args.check_ecu_gl:
         from apps.orcUi.frontend.tk.ecu_gl_diagnostics import main as check_ecu_gl
 
         raise SystemExit(check_ecu_gl())
     if args.log_level:
-        import os
-
         os.environ["ORC_LOG_LEVEL"] = args.log_level
     store = configure_logging(level=args.log_level, stderr=False)
     logger = logging.getLogger("orc.lifecycle")
