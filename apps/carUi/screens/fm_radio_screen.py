@@ -6,6 +6,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Optional
 
+from apps.carUi.radio.radio_session_controller import RadioSessionController
 from apps.carUi.runtime.car_ui_runtime import RadioRuntime
 from apps.carUi.screens.car_ui_screen import CarUiScreen
 from apps.carUi.screens.car_ui_screen_services import (
@@ -13,13 +14,13 @@ from apps.carUi.screens.car_ui_screen_services import (
     RadioScreenBindingFactoryIf,
 )
 from frontends.tk.radio import RadioPanel, RadioPanelConfig, RadioPanelTileConfig
-from apps.carUi.radio.radio_session_controller import RadioSessionController
-from ui.screen_ui_if import ScreenId
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
+from ui.screen_ui_if import ScreenId
 
 
 class FMRadioScreen(CarUiScreen):
     """Manage the FM radio panel and its radio session."""
+
     def __init__(
         self,
         host: TkScreenHostIf,
@@ -43,6 +44,9 @@ class FMRadioScreen(CarUiScreen):
     def hide(self) -> None:
         if self.fm_panel is not None:
             self.fm_panel.stop_radio_status_polling()
+        if self.fm_session is not None:
+            self.fm_session.close()
+            self.fm_session = None
 
     def show(self) -> None:
         if not self.prepare_screen("FM Radio", self._back_action):
@@ -53,9 +57,9 @@ class FMRadioScreen(CarUiScreen):
             key=runtime.key,
             title="FM Radio",
             launch_tile=RadioPanelTileConfig(
-                label="Launch SDR++",
-                subtitle="FM receiver app",
-                detail="Starts / toggles SDR++",
+                label="SDRForge Status",
+                subtitle="Shared radio service",
+                detail="Check shared SDRForge service",
             ),
             radio_toggle_tile=RadioPanelTileConfig(
                 label="Radio ON/OFF",

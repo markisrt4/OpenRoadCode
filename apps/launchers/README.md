@@ -42,7 +42,7 @@ and `False` when it has been stopped.
 - `StreamlitLauncher`: Streamlit server plus kiosk browser.
 - `WeatherDashLauncher`: configured Streamlit launcher for
   `apps/weatherDash/main.py`.
-- `SDRPPLauncher`: SDR++ plus RigCTL readiness checking.
+- `SdrForgeServiceLauncher`: shared RF service readiness without subprocess ownership.
 - `ADSBLauncher`: readsb service plus tar1090 kiosk browser.
 - `AppLauncherStub`: deterministic test implementation.
 
@@ -87,12 +87,6 @@ Browser kiosk support requires one of:
 chromium-browser
 chromium
 google-chrome
-```
-
-SDR++ fullscreen requests require:
-
-```text
-wmctrl
 ```
 
 Streamlit launchers require the Python package:

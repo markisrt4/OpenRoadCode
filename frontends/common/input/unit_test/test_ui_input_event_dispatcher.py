@@ -3,6 +3,7 @@
 
 import unittest
 
+from frontends.common.input import UiInputEventDispatcher
 from input_events import (
     InputDeviceId,
     InputDeviceType,
@@ -10,7 +11,6 @@ from input_events import (
     InputEventType,
     InputHandlerIf,
 )
-from frontends.common.input import UiInputEventDispatcher
 
 
 class RecordingHandler(InputHandlerIf):

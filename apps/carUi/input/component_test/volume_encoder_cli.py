@@ -10,23 +10,22 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from config.runtime_config import (
-    RuntimeConfigParser,
-    RotaryEncoderConfig,
-)
 from apps.carUi.runtime.car_ui_input_runtime import CarUiInputRuntime
 from apps.carUi.runtime.rotary_encoder_runtime import (
     create_rotary_encoder_runtime,
 )
-from input_events import InputDeviceId, InputDeviceType
+from config.runtime_config import (
+    RotaryEncoderConfig,
+    RuntimeConfigParser,
+)
 from controllers.audio import PipewireAudioController
 from controllers.input import (
     InputManager,
     InputMapper,
 )
+from input_events import InputDeviceId, InputDeviceType
 from ui.ui_action import UiAction
 from ui.ui_event_handler_if import UiEventHandlerIf
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "config" / "runtime.toml"
@@ -78,10 +77,7 @@ class CliScheduler:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description=(
-            "Test the configured Car UI volume encoder against the "
-            "system PipeWire volume"
-        )
+        description=("Test the configured Car UI volume encoder against the system PipeWire volume")
     )
     parser.add_argument(
         "--config",
@@ -99,10 +95,7 @@ def parse_args() -> argparse.Namespace:
         "--volume-steps",
         type=int,
         default=DEFAULT_VOLUME_STEPS,
-        help=(
-            "Number of discrete reported volume levels "
-            f"(default: {DEFAULT_VOLUME_STEPS})"
-        ),
+        help=(f"Number of discrete reported volume levels (default: {DEFAULT_VOLUME_STEPS})"),
     )
     parser.add_argument(
         "--step-percent",
@@ -131,9 +124,7 @@ def main() -> None:
     ).load()
     configured_encoders = config.input.rotary_encoders
     configured_volume_index = configured_encoders.volume_index
-    encoder_runtime = create_rotary_encoder_runtime(
-        select_volume_encoder(configured_encoders)
-    )
+    encoder_runtime = create_rotary_encoder_runtime(select_volume_encoder(configured_encoders))
     audio_controller = PipewireAudioController(
         steps=args.volume_steps,
         step_percent=args.step_percent,
@@ -185,18 +176,9 @@ def main() -> None:
     initial_level = audio_controller.get_volume_level()
     print("Car UI volume encoder component test")
     print(f"Config: {args.config.resolve()}")
-    print(
-        "Volume encoder device index: "
-        f"{configured_volume_index}"
-    )
-    print(
-        f"Initial system volume: "
-        f"{initial_level}/{audio_controller.steps}"
-    )
-    print(
-        "Initial mute state: "
-        f"{'muted' if audio_controller.is_muted() else 'unmuted'}"
-    )
+    print(f"Volume encoder device index: {configured_volume_index}")
+    print(f"Initial system volume: {initial_level}/{audio_controller.steps}")
+    print(f"Initial mute state: {'muted' if audio_controller.is_muted() else 'unmuted'}")
     print("Rotate the configured volume encoder or press it to toggle mute.")
     print("Press Ctrl+C to stop.\n")
 

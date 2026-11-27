@@ -59,11 +59,7 @@ class PositionStatusPresenter:
             return
         if self._on_position_state is not None:
             self._on_position_state(state)
-        if (
-            state.has_fix
-            and state.latitude_deg is not None
-            and state.longitude_deg is not None
-        ):
+        if state.has_fix and state.latitude_deg is not None and state.longitude_deg is not None:
             self._set_position(state.latitude_deg, state.longitude_deg)
             self._publish_status(self._format_fix_status(state))
             return
@@ -79,15 +75,8 @@ class PositionStatusPresenter:
             if state.accuracy_m is not None:
                 return f"{provider} acquired: ±{state.accuracy_m:.0f} m"
             return f"{provider} acquired"
-        visible = (
-            state.satellites_visible
-            if state.satellites_visible is not None
-            else "?"
-        )
-        return (
-            f"{provider} acquired: "
-            f"{state.satellites_used}/{visible} satellites"
-        )
+        visible = state.satellites_visible if state.satellites_visible is not None else "?"
+        return f"{provider} acquired: {state.satellites_used}/{visible} satellites"
 
     def _publish_status(self, message: str) -> None:
         if self._set_status is not None:

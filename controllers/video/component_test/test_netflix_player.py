@@ -13,9 +13,7 @@ class NetflixPlayerComponentTest(unittest.TestCase):
     def test_accepts_netflix_https_urls(self) -> None:
         self.assertEqual(
             "https://www.netflix.com/watch/12345",
-            NetflixPlayer.validate_url(
-                " https://www.netflix.com/watch/12345 "
-            ),
+            NetflixPlayer.validate_url(" https://www.netflix.com/watch/12345 "),
         )
 
     def test_rejects_non_netflix_and_non_https_urls(self) -> None:
@@ -56,9 +54,7 @@ class NetflixPlayerComponentTest(unittest.TestCase):
         launcher.stop.assert_called_once_with(":2")
 
     @patch("controllers.video.netflix_player.BrowserKioskLauncher")
-    def test_linux_dev_disables_gpu_acceleration(
-        self, launcher_type: MagicMock
-    ) -> None:
+    def test_linux_dev_disables_gpu_acceleration(self, launcher_type: MagicMock) -> None:
         player = NetflixPlayer(software_rendering=True)
         player.play("https://www.netflix.com/browse", display=":0")
 

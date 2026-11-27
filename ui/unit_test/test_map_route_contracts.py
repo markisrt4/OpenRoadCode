@@ -3,8 +3,8 @@
 
 """Tests for provider-neutral map and route-guidance contracts."""
 
-from dataclasses import FrozenInstanceError
 import unittest
+from dataclasses import FrozenInstanceError
 
 from ui.navigation import (
     GeoPoint,
@@ -45,10 +45,12 @@ class MapRouteContractTest(unittest.TestCase):
             state.loading = True  # type: ignore[misc]
 
     def test_lane_values_cover_turn_by_turn_presentation(self) -> None:
-        lanes = LaneGuidance((
-            TravelLane((LaneDirection.STRAIGHT,)),
-            TravelLane((LaneDirection.RIGHT,), True, LaneDirection.RIGHT),
-        ))
+        lanes = LaneGuidance(
+            (
+                TravelLane((LaneDirection.STRAIGHT,)),
+                TravelLane((LaneDirection.RIGHT,), True, LaneDirection.RIGHT),
+            )
+        )
 
         self.assertTrue(lanes.lanes[1].recommended)
 

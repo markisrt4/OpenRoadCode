@@ -15,7 +15,6 @@ from controllers.audio import (
     PipewireAudioController,
 )
 
-
 LOGGER = logging.getLogger(__name__)
 
 
@@ -23,7 +22,7 @@ def create_audio_controller(
     *,
     target: RuntimeTarget | None = None,
     steps: int = 20,
-    config: AudioConfig = AudioConfig(),
+    config: AudioConfig | None = None,
 ) -> AudioControllerIf:
     """Create the audio controller appropriate for a runtime target.
 
@@ -32,6 +31,8 @@ def create_audio_controller(
     @param config Preferred output and optional stable device-name match.
     @return Platform-appropriate system audio controller.
     """
+    if config is None:
+        config = AudioConfig()
     resolved_target = target or detect_runtime_target()
     output = _resolve_output(config.output, resolved_target)
     if resolved_target is RuntimeTarget.LINUX_DEV:
@@ -70,9 +71,7 @@ def _resolve_wpctl_sink(output: str, device_match: str | None) -> str:
         return PipewireAudioController.DEFAULT_SINK
     sink = _match_wpctl_sink(result.stdout, output, device_match)
     if sink is None:
-        LOGGER.warning(
-            "Preferred %s PipeWire sink was not found; using default", output
-        )
+        LOGGER.warning("Preferred %s PipeWire sink was not found; using default", output)
         return PipewireAudioController.DEFAULT_SINK
     return sink
 
@@ -85,17 +84,12 @@ def _match_wpctl_sink(
     patterns = (
         (device_match,)
         if device_match
-        else (
-            ("usb", "USB Audio")
-            if output == "usb"
-            else ("bcm2835", "headphones")
-        )
+        else (("usb", "USB Audio") if output == "usb" else ("bcm2835", "headphones"))
     )
     for line in status.splitlines():
         match = re.search(r"(?:\*\s*)?(\d+)\.\s+(.+)", line)
         if match and any(
-            pattern and pattern.casefold() in match.group(2).casefold()
-            for pattern in patterns
+            pattern and pattern.casefold() in match.group(2).casefold() for pattern in patterns
         ):
             return match.group(1)
     return None
@@ -112,16 +106,11 @@ def _resolve_pactl_sink(output: str, device_match: str | None) -> str:
     except (FileNotFoundError, subprocess.CalledProcessError) as exc:
         LOGGER.warning("Unable to enumerate pactl sinks: %s", exc)
         return PactlAudioController.DEFAULT_SINK
-    patterns = (
-        (device_match,)
-        if device_match
-        else (("usb",) if output == "usb" else ("analog",))
-    )
+    patterns = (device_match,) if device_match else (("usb",) if output == "usb" else ("analog",))
     for line in result.stdout.splitlines():
         fields = line.split("\t")
         if len(fields) >= 2 and any(
-            pattern and pattern.casefold() in line.casefold()
-            for pattern in patterns
+            pattern and pattern.casefold() in line.casefold() for pattern in patterns
         ):
             return fields[1]
     LOGGER.warning("Preferred %s pactl sink was not found; using default", output)

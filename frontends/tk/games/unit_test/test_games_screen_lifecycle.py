@@ -17,7 +17,10 @@ def screen(monkeypatch):
     panel.show_runtime_host.return_value = (1, 800, 480)
     monkeypatch.setattr("frontends.tk.games.games_screen.GamesPanel", lambda *a, **k: panel)
     result = GamesScreen(
-        host, session=session, theme_bundle=lambda: Mock(), theme_mode=lambda: Mock(),
+        host,
+        session=session,
+        theme_bundle=lambda: Mock(),
+        theme_mode=lambda: Mock(),
     )
     return result, host, session, panel
 

@@ -5,6 +5,7 @@
 
 All signal-processing logic now lives in the reusable musicforge package.
 """
+
 from musicforge.analysis import MusicAnalyzer
 
 __all__ = ["MusicAnalyzer"]

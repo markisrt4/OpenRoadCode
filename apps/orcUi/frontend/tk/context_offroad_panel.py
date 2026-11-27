@@ -11,9 +11,10 @@ import tkinter as tk
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from ui.theme import ThemeBundle
+from ui.ui_widget import UiWidget
+
 from .offroad_widgets import PitchIndicator, RollIndicator
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
-from ui.ui_widget import UiWidget
 
 
 class ContextOffroadPanel(tk.Frame, UiWidget):
@@ -62,23 +63,35 @@ class ContextOffroadPanel(tk.Frame, UiWidget):
         status = self._card()
         status.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(2, 6))
         status.grid_columnconfigure(1, weight=1)
-        tk.Label(status, text="GPS", fg=ui.text_muted, bg=ui.surface, font=("Sans", FONT_CONTROL, "bold")).grid(
-            row=0, column=0, padx=(8, 4), pady=5
-        )
+        tk.Label(
+            status, text="GPS", fg=ui.text_muted, bg=ui.surface, font=("Sans", FONT_CONTROL, "bold")
+        ).grid(row=0, column=0, padx=(8, 4), pady=5)
         self._value_labels["fix"] = tk.Label(
-            status, text="NO FIX", fg=ui.accent_danger, bg=ui.surface, font=("Sans", FONT_BODY, "bold")
+            status,
+            text="NO FIX",
+            fg=ui.accent_danger,
+            bg=ui.surface,
+            font=("Sans", FONT_BODY, "bold"),
         )
         self._value_labels["fix"].grid(row=0, column=1, sticky="w", pady=5)
         self._value_labels["accuracy"] = tk.Label(
-            status, text="± -- m", fg=ui.text_muted, bg=ui.surface, font=("Sans", FONT_SMALL, "bold")
+            status,
+            text="± -- m",
+            fg=ui.text_muted,
+            bg=ui.surface,
+            font=("Sans", FONT_SMALL, "bold"),
         )
         self._value_labels["accuracy"].grid(row=0, column=2, padx=(4, 8), pady=5)
 
         heading_card = self._card()
         heading_card.grid(row=1, column=0, sticky="nsew", padx=(0, 3), pady=(0, 6))
-        tk.Label(heading_card, text="HEADING", fg=ui.accent_warning, bg=ui.surface, font=("Sans", FONT_SMALL, "bold")).pack(
-            pady=(5, 0)
-        )
+        tk.Label(
+            heading_card,
+            text="HEADING",
+            fg=ui.accent_warning,
+            bg=ui.surface,
+            font=("Sans", FONT_SMALL, "bold"),
+        ).pack(pady=(5, 0))
         self._heading_canvas = tk.Canvas(
             heading_card, width=118, height=86, bg=ui.surface, highlightthickness=0
         )
@@ -133,11 +146,20 @@ class ContextOffroadPanel(tk.Frame, UiWidget):
         footer.grid(row=3, column=0, columnspan=2, sticky="ew")
         footer.grid_columnconfigure(0, weight=1)
         self._value_labels["coordinates"] = tk.Label(
-            footer, text="--", fg=ui.text, bg=ui.surface, font=("Monospace", FONT_SMALL, "bold"), anchor="w"
+            footer,
+            text="--",
+            fg=ui.text,
+            bg=ui.surface,
+            font=("Monospace", FONT_SMALL, "bold"),
+            anchor="w",
         )
         self._value_labels["coordinates"].grid(row=0, column=0, sticky="ew", padx=(8, 4), pady=6)
         self._value_labels["satellites"] = tk.Label(
-            footer, text="-- sat", fg=ui.text_muted, bg=ui.surface, font=("Sans", FONT_CONTROL, "bold")
+            footer,
+            text="-- sat",
+            fg=ui.text_muted,
+            bg=ui.surface,
+            font=("Sans", FONT_CONTROL, "bold"),
         )
         self._value_labels["satellites"].grid(row=0, column=1, sticky="e", padx=(4, 8), pady=6)
 
@@ -148,10 +170,14 @@ class ContextOffroadPanel(tk.Frame, UiWidget):
     def _metric_card(self, title: str, key: str, unit: str) -> tk.Frame:
         ui = self._theme.ui
         card = self._card()
-        tk.Label(card, text=title, fg=ui.text_muted, bg=ui.surface, font=("Sans", FONT_SMALL, "bold")).pack(pady=(5, 0))
+        tk.Label(
+            card, text=title, fg=ui.text_muted, bg=ui.surface, font=("Sans", FONT_SMALL, "bold")
+        ).pack(pady=(5, 0))
         row = tk.Frame(card, bg=ui.surface)
         row.pack(pady=(0, 5))
-        value = tk.Label(row, text="--", fg=ui.text, bg=ui.surface, font=("Sans", FONT_BODY + 4, "bold"))
+        value = tk.Label(
+            row, text="--", fg=ui.text, bg=ui.surface, font=("Sans", FONT_BODY + 4, "bold")
+        )
         value.pack(side=tk.LEFT)
         tk.Label(row, text=unit, fg=ui.text_muted, bg=ui.surface, font=("Sans", FONT_SMALL)).pack(
             side=tk.LEFT, padx=(3, 0), pady=(6, 0)
@@ -160,9 +186,10 @@ class ContextOffroadPanel(tk.Frame, UiWidget):
         return card
 
     def _paint(self) -> None:
-        ui = self._theme.ui
         heading = self._attitude.heading_deg
-        heading_text = "--" if heading is None else f"{_cardinal_direction(heading)} {heading:03.0f}°"
+        heading_text = (
+            "--" if heading is None else f"{_cardinal_direction(heading)} {heading:03.0f}°"
+        )
         coordinates = (
             "--"
             if self._position.latitude_deg is None or self._position.longitude_deg is None
@@ -176,9 +203,13 @@ class ContextOffroadPanel(tk.Frame, UiWidget):
             "altitude": _format(self._position.altitude_ft, ".0f"),
             "speed": _format(self._vehicle.speed_mph, ".0f"),
             "fix": _fix_text(self._position.fix_mode),
-            "accuracy": "± -- m" if self._position.accuracy_m is None else f"± {self._position.accuracy_m:.1f} m",
+            "accuracy": "± -- m"
+            if self._position.accuracy_m is None
+            else f"± {self._position.accuracy_m:.1f} m",
             "coordinates": coordinates,
-            "satellites": "-- sat" if self._position.satellites_used is None else f"{self._position.satellites_used} sat",
+            "satellites": "-- sat"
+            if self._position.satellites_used is None
+            else f"{self._position.satellites_used} sat",
         }
         for key, value in values.items():
             self._value_labels[key].configure(text=value)
@@ -197,22 +228,32 @@ class ContextOffroadPanel(tk.Frame, UiWidget):
         canvas.delete("all")
         width, height = max(90, canvas.winfo_width()), max(70, canvas.winfo_height())
         cx, cy, radius = width / 2, height / 2, min(width, height) * 0.36
-        canvas.create_oval(cx - radius, cy - radius, cx + radius, cy + radius, outline=ui.border, width=2)
+        canvas.create_oval(
+            cx - radius, cy - radius, cx + radius, cy + radius, outline=ui.border, width=2
+        )
         for label, degrees in (("N", 0), ("E", 90), ("S", 180), ("W", 270)):
             angle = math.radians(degrees - 90)
             canvas.create_text(
-                cx + radius * 0.72 * math.cos(angle), cy + radius * 0.72 * math.sin(angle),
-                text=label, fill=ui.accent_warning if label == "N" else ui.text_muted,
+                cx + radius * 0.72 * math.cos(angle),
+                cy + radius * 0.72 * math.sin(angle),
+                text=label,
+                fill=ui.accent_warning if label == "N" else ui.text_muted,
                 font=("Sans", FONT_SMALL, "bold"),
             )
         if heading is None:
             return
         angle = math.radians(heading - 90)
         canvas.create_line(
-            cx, cy, cx + radius * 0.62 * math.cos(angle), cy + radius * 0.62 * math.sin(angle),
-            fill=ui.accent_warning, width=3, arrow=tk.LAST,
+            cx,
+            cy,
+            cx + radius * 0.62 * math.cos(angle),
+            cy + radius * 0.62 * math.sin(angle),
+            fill=ui.accent_warning,
+            width=3,
+            arrow=tk.LAST,
         )
         canvas.create_oval(cx - 3, cy - 3, cx + 3, cy + 3, fill=ui.accent_warning, outline="")
+
 
 def _fix_text(fix_mode: int | None) -> str:
     return {1: "NO FIX", 2: "2D FIX", 3: "3D FIX"}.get(fix_mode, "NO FIX")

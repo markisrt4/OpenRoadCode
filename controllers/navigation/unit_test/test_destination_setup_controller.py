@@ -1,13 +1,13 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
+import math
 import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import Mock
 from types import SimpleNamespace
-import math
+from unittest.mock import Mock
 
 from config.saved_destinations import SavedDestinationsConfig
 from controllers.navigation.destination_setup_controller import DestinationSetupController
@@ -18,9 +18,13 @@ from ui.navigation.map_ui_if import GeoPoint
 class DestinationSetupControllerTest(unittest.TestCase):
     def test_online_results_are_normalized_without_saving(self):
         provider = Mock()
-        provider.geocode.return_value = (SimpleNamespace(
-            address=" 123 Main Street ", latitude_deg=42.5, longitude_deg=-83,
-        ),)
+        provider.geocode.return_value = (
+            SimpleNamespace(
+                address=" 123 Main Street ",
+                latitude_deg=42.5,
+                longitude_deg=-83,
+            ),
+        )
         controller = DestinationSetupController(self.config, online_geocoder=provider)
         results = controller.search_online("work", " 123 Main St ")
         self.assertEqual(results[0].address, "123 Main Street")

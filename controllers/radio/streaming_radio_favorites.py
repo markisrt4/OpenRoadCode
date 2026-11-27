@@ -6,12 +6,13 @@
 from __future__ import annotations
 
 import json
+import sys
 import threading
 from pathlib import Path
 
-try:
+if sys.version_info >= (3, 11):
     import tomllib
-except ModuleNotFoundError:  # Python 3.10
+else:
     import tomli as tomllib
 
 from common.xdg_paths import openroadcode_data_dir, xdg_config_home
@@ -29,9 +30,7 @@ class StreamingRadioFavorites:
         *,
         legacy_path: Path | None = None,
     ) -> None:
-        self._storage = storage or PersistentCache(
-            openroadcode_data_dir("radio"), suffix=".json"
-        )
+        self._storage = storage or PersistentCache(openroadcode_data_dir("radio"), suffix=".json")
         self._legacy_path = legacy_path or (
             xdg_config_home() / "openroadcode" / "streaming_radio.toml"
         )

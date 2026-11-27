@@ -1,4 +1,5 @@
 [tool.ruff]
+required-version = "==0.17.6"
 target-version = "py312"
 line-length = 100
 extend-exclude = [
@@ -9,14 +10,12 @@ extend-exclude = [
 ]
 
 [tool.ruff.lint]
-# Begin with high-confidence correctness failures so CI can be enabled without
-# demanding a repository-wide style cleanup in the same change. Expand this
-# ruleset as existing code is brought under lint discipline.
+# Enforce syntax, Pyflakes correctness, Bugbear and import ordering.
 select = [
     "E9",
-    "F63",
-    "F7",
-    "F82",
+    "F",
+    "B",
+    "I",
 ]
 
 [tool.mypy]
@@ -28,7 +27,28 @@ warn_unused_configs = true
 show_error_codes = true
 pretty = false
 files = [
+    "adapters/radio/json_radio_visualization_settings.py",
+    "adapters/radio/sdrforge_rf_hardware_config.py",
+    "apps/orcUi/frontend/tk/rf_settings_mixin.py",
+    "ui/radio/radio_visualization_config.py",
+    "ui/radio/airplay_details.py",
+    "apps/orcUi/adapters/musicforge_api_adapter.py",
+    "ui/radio/rf_hardware_config_if.py",
+    "controllers/audio/linux_audio_settings.py",
+    "ui/system/audio_settings_if.py",
+    "controllers/radio/receiver_settings_controller.py",
+    "ui/radio/receiver_settings_if.py",
     "ui/ui_widget.py",
+    "ui/calendar/calendar_models.py",
+    "ui/calendar/calendar_presentation_if.py",
+    "controllers/calendar/appointment_monitor.py",
+    "controllers/calendar/calendar_presentation.py",
+    "controllers/calendar/calendar_query_if.py",
+    "controllers/calendar/calendar_agenda.py",
+    "controllers/navigation/appointment_journey.py",
+    "controllers/navigation/appointment_estimate_cache.py",
+    "ui/navigation/async_route_request_if.py",
+    "controllers/navigation/appointment_route_estimator.py",
     "ui/media/spotify_presentation_if.py",
     "ui/media/spotify_browse_if.py",
     "ui/media/spotify_account_if.py",
@@ -78,10 +98,15 @@ files = [
     "controllers/radio/streaming_radio_backend_if.py",
     "controllers/radio/streaming_radio_artwork.py",
     "frontends/tk/radio/streaming_radio_panel.py",
+    "frontends/tk/radio/streaming_radio_layout.py",
     "frontends/tk/radio/persistent_streaming_radio_panel.py",
     "frontends/tk/radio/streaming_radio_now_playing.py",
     "frontends/tk/radio/radio_screen.py",
     "apps/orcUi/composition/radio.py",
+    "ui/media/trending_video.py",
+    "ui/media/artist_profile.py",
+    "controllers/media/artist_profiles.py",
+    "apps/orcUi/adapters/trending_video_session.py",
 ]
 
 # Imported legacy modules keep their type information but are outside the strict

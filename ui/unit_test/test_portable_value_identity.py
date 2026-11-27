@@ -2,8 +2,11 @@
 # SPDX-License-Identifier: MIT
 
 """Moved values must retain identity for backend and new UI callers."""
+
 from controllers.automotive.engine_analysis import EngineAnalysis as BackendAnalysis
-from controllers.automotive.vehicle_configuration import VehicleConfiguration as BackendConfiguration
+from controllers.automotive.vehicle_configuration import (
+    VehicleConfiguration as BackendConfiguration,
+)
 from controllers.poi.poi_models import PoiCategory as BackendCategory
 from controllers.radio.radio_types import RadioPreset as BackendPreset
 from ui.automotive.engine_analysis import EngineAnalysis
@@ -22,6 +25,7 @@ def test_compatibility_exports_preserve_value_identity():
 def test_headless_navigation_contracts_do_not_import_css_parser():
     import subprocess
     import sys
+
     code = """
 import importlib.abc
 import sys
@@ -35,4 +39,4 @@ from services.navigation.navigation_command_client import NavigationCommandClien
 from ui.theme import ThemeMode, ThemeBundle
 assert 'tinycss2' not in sys.modules
 """
-    subprocess.run([sys.executable, '-c', code], check=True, timeout=10)
+    subprocess.run([sys.executable, "-c", code], check=True, timeout=10)

@@ -6,7 +6,6 @@
 import logging
 
 from common.logging.structured import current_operation, event, operation
-
 from controllers.audio.audio_controller_if import AudioControllerIf
 from ui.media import VolumeRequestHandlerIf
 

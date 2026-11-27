@@ -1,19 +1,18 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-import math
 import json
 import logging
+import math
 
 from common.logging.structured import JsonFormatter, validate_event
-
 from controllers.poi import (
     PoiActionKind,
     PoiCategory,
+    PointOfInterest,
     PoiSearchBounds,
     PoiSearchController,
     PoiSearchQuery,
-    PointOfInterest,
 )
 from protocols.map_renderer.map_poi_source import (
     RawMapClick,
@@ -77,6 +76,15 @@ class FakeSearchSource:
         self.closed = True
 
 
+class FakeMarkerSelectionSource:
+    def __init__(self, marker_id: str | None) -> None:
+        self.marker_id = marker_id
+
+    def poll_selected_marker_id(self) -> str | None:
+        marker_id, self.marker_id = self.marker_id, None
+        return marker_id
+
+
 def _position() -> GeoPoint:
     return GeoPoint(math.radians(42.80), math.radians(-83.01))
 
@@ -110,6 +118,23 @@ def test_search_uses_offline_source_near_current_position() -> None:
     assert result.count == 1
     assert math.isclose(result.south, 42.81)
     assert math.isclose(result.west, -83.02)
+
+
+def test_disabled_renderer_viewport_uses_nearby_offline_search() -> None:
+    map_source = FakeViewportMapPoiSource()
+    search_source = FakeSearchSource()
+    controller = PoiSearchController(
+        map_source,  # type: ignore[arg-type]
+        search_source=search_source,
+        position_provider=_position,
+        viewport_search_enabled=lambda: False,
+    )
+
+    controller.search(PoiCategory.FUEL)
+
+    assert map_source.requested_categories == []
+    assert len(search_source.queries) == 1
+    assert search_source.queries[0].category is PoiCategory.FUEL
 
 
 def test_search_without_position_returns_empty_result() -> None:
@@ -203,6 +228,28 @@ def test_map_click_marker_index_selects_exact_visible_poi() -> None:
 
     assert selected is not None
     assert selected.poi_id == "panera"
+
+
+def test_semantic_marker_selection_selects_visible_cesium_poi_once() -> None:
+    panera = PointOfInterest(
+        poi_id="panera",
+        name="Panera Bread",
+        category=PoiCategory.FOOD,
+        position=GeoPoint(math.radians(42.8000), math.radians(-83.0000)),
+    )
+    controller = PoiSearchController(
+        FakeMapPoiSource(),  # type: ignore[arg-type]
+        search_source=FakeSearchSource((panera,)),
+        position_provider=_position,
+        marker_selection_source=FakeMarkerSelectionSource("panera"),
+    )
+    controller.search(PoiCategory.FOOD)
+    controller.poll_search_result()
+
+    selected = controller.poll_selected()
+
+    assert selected is not None and selected.poi_id == "panera"
+    assert controller.poll_selected() is None
 
 
 def test_map_click_selects_nearest_visible_poi_and_enriches_business() -> None:
@@ -354,43 +401,59 @@ def test_clear_discards_late_renderer_viewport_reply() -> None:
 
 def test_default_database_uses_termux_data_and_explicit_override(monkeypatch, tmp_path):
     from controllers.poi.poi_search_controller import _default_search_database
-    monkeypatch.delenv('OPENROADCODE_DATA_ROOT', raising=False)
-    monkeypatch.setenv('TERMUX_VERSION', '0.118')
-    monkeypatch.setenv('XDG_DATA_HOME', str(tmp_path))
-    assert _default_search_database() == tmp_path / 'openroadcode/maps/search/openroadcode-search.sqlite'
-    monkeypatch.setenv('OPENROADCODE_DATA_ROOT', str(tmp_path / 'custom'))
-    assert _default_search_database() == tmp_path / 'custom/maps/search/openroadcode-search.sqlite'
+
+    monkeypatch.delenv("OPENROADCODE_DATA_ROOT", raising=False)
+    monkeypatch.setenv("TERMUX_VERSION", "0.118")
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    assert (
+        _default_search_database()
+        == tmp_path / "openroadcode/maps/search/openroadcode-search.sqlite"
+    )
+    monkeypatch.setenv("OPENROADCODE_DATA_ROOT", str(tmp_path / "custom"))
+    assert _default_search_database() == tmp_path / "custom/maps/search/openroadcode-search.sqlite"
 
 
 def test_missing_database_reports_unavailable_and_search_recovers(monkeypatch, tmp_path):
     import sqlite3
-    monkeypatch.setenv('OPENROADCODE_DATA_ROOT', str(tmp_path))
+
+    monkeypatch.setenv("OPENROADCODE_DATA_ROOT", str(tmp_path))
     source = FakeViewportMapPoiSource()
     controller = PoiSearchController(source, position_provider=lambda: None)
+
     def reply():
         controller.search(PoiCategory.FOOD)
-        source.search_result = RawPoiSearchResult('food', 0, 42.79, -83.03, 42.82, -82.99)
+        source.search_result = RawPoiSearchResult("food", 0, 42.79, -83.03, 42.82, -82.99)
         return controller.poll_search_result()
+
     result = reply()
-    assert result is not None and 'unavailable' in result.error
+    assert result is not None and "unavailable" in result.error
     assert controller.poll_search_result() is None
-    path = tmp_path / 'maps/search/openroadcode-search.sqlite'
+    path = tmp_path / "maps/search/openroadcode-search.sqlite"
     path.parent.mkdir(parents=True)
     with sqlite3.connect(path) as connection:
-        connection.execute('CREATE TABLE poi (id TEXT, name TEXT, brand TEXT, latitude REAL, longitude REAL, class TEXT, subclass TEXT, category TEXT)')
-        connection.execute("INSERT INTO poi VALUES ('1', 'Cafe', NULL, 42.8, -83.02, 'cafe', NULL, 'food')")
+        connection.execute(
+            "CREATE TABLE poi (id TEXT, name TEXT, brand TEXT, latitude REAL, longitude REAL, class TEXT, subclass TEXT, category TEXT)"
+        )
+        connection.execute(
+            "INSERT INTO poi VALUES ('1', 'Cafe', NULL, 42.8, -83.02, 'cafe', NULL, 'food')"
+        )
     result = reply()
-    assert result is not None and result.error == ''
-    assert result.count == 1 and result.pois[0].name == 'Cafe'
+    assert result is not None and result.error == ""
+    assert result.count == 1 and result.pois[0].name == "Cafe"
     controller.close()
 
 
 def test_renderer_selection_keeps_website_from_search_index():
-    poi = PointOfInterest('osm:node:1', 'Independent Cafe', PoiCategory.FOOD,
-                          GeoPoint(0, 0), website='https://cafe.example')
+    poi = PointOfInterest(
+        "osm:node:1",
+        "Independent Cafe",
+        PoiCategory.FOOD,
+        GeoPoint(0, 0),
+        website="https://cafe.example",
+    )
     source = FakeMapPoiSource(selected=RawMapPoi(poi.poi_id, poi.name, poi.position))
     controller = PoiSearchController(source=source, search_source=FakeSearchSource())
     controller._visible_pois = (poi,)
     selected = controller.poll_selected()
-    assert selected.website == 'https://cafe.example'
+    assert selected.website == "https://cafe.example"
     assert selected.actions[0].kind is PoiActionKind.OPEN_WEBSITE

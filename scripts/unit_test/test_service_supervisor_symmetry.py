@@ -8,7 +8,6 @@ from pathlib import Path
 from services.linux.systemd_service_manager import SystemdServiceManager
 from services.termux.service_manager import RunitServiceManager
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RUNIT_ROOT = PROJECT_ROOT / "scripts" / "runit"
 
@@ -32,12 +31,8 @@ def test_termux_services_are_down_by_default_except_control_plane() -> None:
 
 
 def test_termux_direct_starts_request_required_supervisors() -> None:
-    navigation = (RUNIT_ROOT / "openroadcode-navigation" / "run").read_text(
-        encoding="utf-8"
-    )
-    automotive = (RUNIT_ROOT / "openroadcode-automotive" / "run").read_text(
-        encoding="utf-8"
-    )
+    navigation = (RUNIT_ROOT / "openroadcode-navigation" / "run").read_text(encoding="utf-8")
+    automotive = (RUNIT_ROOT / "openroadcode-automotive" / "run").read_text(encoding="utf-8")
     assert "sv up openroadcode-message-broker" in navigation
     assert "sv up openroadcode-valhalla" in navigation
     assert "sv up openroadcode-message-broker" in automotive

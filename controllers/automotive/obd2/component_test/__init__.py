@@ -2,4 +2,3 @@
 # SPDX-License-Identifier: MIT
 
 """Live OBD-II controller component tests."""
-

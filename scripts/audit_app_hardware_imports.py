@@ -9,7 +9,6 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 APPS = ROOT / "apps"
 
@@ -43,14 +42,18 @@ def main() -> int:
             print(f"{relative}:{line}: {statement}")
 
     print(f"\n{count} direct hardware_io import(s) under apps/")
-    print("Review each result: composition/diagnostics may be valid; telemetry consumers are suspect.")
+    print(
+        "Review each result: composition/diagnostics may be valid; telemetry consumers are suspect."
+    )
 
     if skipped:
         print(f"\nSkipped {len(skipped)} source file(s) that could not be parsed:")
         for path, error in skipped:
             location = f":{error.lineno}" if error.lineno is not None else ""
             print(f"  {path}{location}: {error.msg}")
-        print("These files are reported separately so legacy/deprecated syntax cannot hide other findings.")
+        print(
+            "These files are reported separately so legacy/deprecated syntax cannot hide other findings."
+        )
 
     return 0
 

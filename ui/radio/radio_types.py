@@ -12,6 +12,7 @@ class RadioRange:
 
     All frequency values are expressed in hertz.
     """
+
     min_frequency_hz: int
     max_frequency_hz: int
     start_frequency_hz: int
@@ -20,9 +21,7 @@ class RadioRange:
         if self.min_frequency_hz <= 0:
             raise ValueError("min_frequency_hz must be greater than zero")
         if self.max_frequency_hz < self.min_frequency_hz:
-            raise ValueError(
-                "max_frequency_hz must be greater than or equal to min_frequency_hz"
-            )
+            raise ValueError("max_frequency_hz must be greater than or equal to min_frequency_hz")
         if not self.min_frequency_hz <= self.start_frequency_hz <= self.max_frequency_hz:
             raise ValueError("start_frequency_hz must be within the radio range")
 
@@ -30,6 +29,7 @@ class RadioRange:
 @dataclass(frozen=True, slots=True)
 class RadioMode:
     """Define a normalized demodulation mode and tuning step."""
+
     name: str
     bandwidth: int
     step_hz: int
@@ -48,6 +48,7 @@ class RadioMode:
 @dataclass(frozen=True, slots=True)
 class RadioPreset:
     """Associate a user-visible label with a frequency and mode."""
+
     label: str
     frequency_hz: int
     mode: RadioMode

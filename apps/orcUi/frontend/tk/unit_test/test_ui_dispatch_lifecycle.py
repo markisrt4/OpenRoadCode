@@ -19,6 +19,7 @@ def shell():
     app._root.after.return_value = "timer"
     app._active_screen = Mock()
     app._power_dialog = Mock()
+    app._performance_overlay = Mock()
     app._shell = Mock()
     return app
 
@@ -68,8 +69,37 @@ def test_callback_failure_keeps_frontend_pump_scheduled():
     assert app._root.after.call_args.args[0] == 16
 
 
+def test_immediate_timer_delivery_does_not_access_an_unassigned_token():
+    app = shell()
+    callback = Mock()
+
+    def invoke_immediately(_delay_ms, scheduled):
+        scheduled()
+        return "already-fired"
+
+    app._root.after.side_effect = invoke_immediately
+
+    assert app.schedule_ui_callback(0, callback) == "already-fired"
+    callback.assert_called_once_with()
+    assert app._ui_callbacks == set()
+
+
 def test_inert_or_foreign_timer_tokens_never_reach_tk():
     app = shell()
     for token in (None, object(), 42, []):
         app.cancel_ui_callback(token)
     app._root.after_cancel.assert_not_called()
+
+
+def test_callback_running_before_after_returns_leaves_no_pending_token():
+    app = shell()
+    callback = Mock()
+
+    def after(_delay, invoke):
+        invoke()
+        return "timer"
+
+    app._root.after.side_effect = after
+    app.schedule_ui_callback(0, callback)
+    callback.assert_called_once_with()
+    assert app._ui_callbacks == set()

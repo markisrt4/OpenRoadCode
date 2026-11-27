@@ -5,6 +5,7 @@
 
 import tkinter as tk
 from tkinter import font
+
 from ui.ui_widget import UiWidget
 
 
@@ -30,8 +31,15 @@ class DiagnosticsTable(tk.Frame, UiWidget):
         body = tk.Frame(self, bg=ui.surface)
         body.pack(fill=tk.BOTH, expand=True)
         self._canvas = tk.Canvas(body, bg=ui.surface, highlightthickness=0, takefocus=True)
-        scroll = tk.Scrollbar(body, command=self._canvas.yview, bg=ui.control_background,
-                              activebackground=ui.control_active, troughcolor=ui.surface, relief=tk.FLAT, bd=0)
+        scroll = tk.Scrollbar(
+            body,
+            command=self._canvas.yview,
+            bg=ui.control_background,
+            activebackground=ui.control_active,
+            troughcolor=ui.surface,
+            relief=tk.FLAT,
+            bd=0,
+        )
         scroll.pack(side=tk.RIGHT, fill=tk.Y)
         self._canvas.pack(fill=tk.BOTH, expand=True)
         self._canvas.configure(yscrollcommand=scroll.set)
@@ -39,7 +47,10 @@ class DiagnosticsTable(tk.Frame, UiWidget):
         self._canvas.bind("<Button-1>", self._click)
         self._canvas.bind("<Up>", lambda event: self._step(-1))
         self._canvas.bind("<Down>", lambda event: self._step(1))
-        self._canvas.bind("<MouseWheel>", lambda event: self._canvas.yview_scroll(-1 if event.delta > 0 else 1, "units"))
+        self._canvas.bind(
+            "<MouseWheel>",
+            lambda event: self._canvas.yview_scroll(-1 if event.delta > 0 else 1, "units"),
+        )
         self._canvas.bind("<Button-4>", lambda event: self._canvas.yview_scroll(-1, "units"))
         self._canvas.bind("<Button-5>", lambda event: self._canvas.yview_scroll(1, "units"))
         self.bind("<Destroy>", self._destroyed, add="+")
@@ -133,23 +144,46 @@ class DiagnosticsTable(tk.Frame, UiWidget):
         for key, heading, preferred in self._visible:
             size = width * preferred / total
             positions.append((key, x, size))
-            self._header.create_text(x + 10, 16, text=self._fit(heading, size - 20, self._heading_font),
-                                     font=self._heading_font, fill=self._ui.text_muted, anchor="w")
+            self._header.create_text(
+                x + 10,
+                16,
+                text=self._fit(heading, size - 20, self._heading_font),
+                font=self._heading_font,
+                fill=self._ui.text_muted,
+                anchor="w",
+            )
             x += size
         indices = {column[0]: index for index, column in enumerate(self._columns)}
         for index, key in enumerate(self._order):
             row = self._rows[key]
             selected = key in self._selection
             top = index * self._row_height
-            self._canvas.create_rectangle(0, top, width, top + self._row_height,
-                fill=self._ui.surface_alt if selected or index % 2 else self._ui.surface, outline="")
+            self._canvas.create_rectangle(
+                0,
+                top,
+                width,
+                top + self._row_height,
+                fill=self._ui.surface_alt if selected or index % 2 else self._ui.surface,
+                outline="",
+            )
             if selected:
-                self._canvas.create_rectangle(0, top, 3, top + self._row_height, fill=self._ui.accent_primary, outline="")
-            color = next((self._tags[tag] for tag in row["tags"] if tag in self._tags), self._ui.text)
+                self._canvas.create_rectangle(
+                    0, top, 3, top + self._row_height, fill=self._ui.accent_primary, outline=""
+                )
+            color = next(
+                (self._tags[tag] for tag in row["tags"] if tag in self._tags), self._ui.text
+            )
             for column, left, size in positions:
                 value = row["values"][indices[column]]
-                self._canvas.create_text(left + 10, top + self._row_height / 2,
-                    text=self._fit(value, size - 20, self._font), font=self._font,
-                    fill=color if column in {"state", "name", "cpu"} else self._ui.text, anchor="w")
-            self._canvas.create_line(0, top + self._row_height, width, top + self._row_height, fill=self._ui.border)
+                self._canvas.create_text(
+                    left + 10,
+                    top + self._row_height / 2,
+                    text=self._fit(value, size - 20, self._font),
+                    font=self._font,
+                    fill=color if column in {"state", "name", "cpu"} else self._ui.text,
+                    anchor="w",
+                )
+            self._canvas.create_line(
+                0, top + self._row_height, width, top + self._row_height, fill=self._ui.border
+            )
         self._canvas.configure(scrollregion=(0, 0, width, len(self._order) * self._row_height))

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import math
 import threading
+from itertools import pairwise
 
 from controllers.navigation.navigation_state import PositionState
 from controllers.navigation.position_source_if import PositionSourceIf, PositionStateCallback
@@ -74,8 +75,7 @@ class SimulatedPositionSource(PositionSourceIf, RouteSimulationIf):
             raise ValueError("route shape must contain at least two points")
 
         segment_lengths = tuple(
-            self._distance_m(start, end)
-            for start, end in zip(route.shape, route.shape[1:])
+            self._distance_m(start, end) for start, end in pairwise(route.shape)
         )
         total_m = sum(segment_lengths)
         if total_m <= 0.0:
@@ -119,18 +119,20 @@ class SimulatedPositionSource(PositionSourceIf, RouteSimulationIf):
                 course_deg = self._course_deg
                 source = "simulation"
 
-            callback(PositionState(
-                latitude_deg=latitude,
-                longitude_deg=longitude,
-                altitude_m=180.0 + 8.0 * math.sin(phase * 0.5),
-                speed_mps=speed_mps,
-                course_deg=course_deg,
-                fix_mode=3,
-                satellites_visible=12,
-                satellites_used=9,
-                accuracy_m=3.0,
-                source=source,
-            ))
+            callback(
+                PositionState(
+                    latitude_deg=latitude,
+                    longitude_deg=longitude,
+                    altitude_m=180.0 + 8.0 * math.sin(phase * 0.5),
+                    speed_mps=speed_mps,
+                    course_deg=course_deg,
+                    fix_mode=3,
+                    satellites_visible=12,
+                    satellites_used=9,
+                    accuracy_m=3.0,
+                    source=source,
+                )
+            )
             self._stop_event.wait(self._period_s)
 
     def _route_state(self) -> tuple[float, float, float, float] | None:
@@ -181,8 +183,5 @@ class SimulatedPositionSource(PositionSourceIf, RouteSimulationIf):
         lat2 = math.radians(second.latitude)
         delta_lon = math.radians(second.longitude - first.longitude)
         y = math.sin(delta_lon) * math.cos(lat2)
-        x = (
-            math.cos(lat1) * math.sin(lat2)
-            - math.sin(lat1) * math.cos(lat2) * math.cos(delta_lon)
-        )
+        x = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(delta_lon)
         return (math.degrees(math.atan2(y, x)) + 360.0) % 360.0

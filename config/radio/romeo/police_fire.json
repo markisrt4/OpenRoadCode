@@ -1,11 +1,11 @@
 {
   "key": "police_fire",
   "label": "Police / Fire",
-  "description": "Romeo / Macomb County public safety monitoring starter presets. Macomb County primary public safety uses MPSCS P25 Phase II trunking; SDR++ analog NFM can tune/control channels but will not decode trunked voice by itself.",
+  "description": "Romeo / Macomb County public safety monitoring starter presets. Macomb County primary public safety uses MPSCS P25 Phase II trunking; SDRForge analog NFM can tune/control channels but will not decode trunked voice by itself.",
   "launch": {
-    "label": "Launch SDR++",
+    "label": "SDRForge Status",
     "subtitle": "Public safety",
-    "detail": "Starts / toggles SDR++"
+    "detail": "Check shared SDRForge service"
   },
   "radio": {
     "label": "Radio ON/OFF",

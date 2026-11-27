@@ -7,11 +7,9 @@
 from __future__ import annotations
 
 import argparse
-import socket
 import sys
 
 from protocols.rigctl import RigctlClient
-from protocols.rigctl.emulator.example_rigctl_server import ExampleRigctlServer
 
 
 def build_argument_parser() -> argparse.ArgumentParser:

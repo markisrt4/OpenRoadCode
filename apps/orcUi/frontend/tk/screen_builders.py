@@ -5,28 +5,31 @@
 
 from __future__ import annotations
 
-from ui.system.online_mode_if import OnlineModeIf
-from ui.tooltip_if import TooltipFactoryIf
-
 import tkinter as tk
-from ui.navigation.map_platform_if import MapPlatformControlIf
 from collections.abc import Callable
 
 from apps.orcUi.trip_presenter import TripPresentationState
-from common.units import UnitSystem
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
-from ui.weather.radar_ui_if import RadarPalette
-from ui.automotive.automotive_telemetry_profile import (AutomotiveTelemetryProfile)
-from ui.automotive.engine_analysis import (EngineAnalysis)
-from ui.automotive.vehicle_configuration import (VehicleConfiguration)
+from common.units import UnitSystem
+from ui.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
+from ui.automotive.engine_analysis import EngineAnalysis
+from ui.automotive.vehicle_configuration import VehicleConfiguration
 from ui.navigation import (
     MapRequestHandlerIf,
     RouteRequestHandlerIf,
     RouteSimulationRequestHandlerIf,
 )
-from ui.theme import ThemeBundle
 from ui.navigation.host_location_ui_if import HostLocationRequestHandlerIf, HostLocationState
+from ui.navigation.map_platform_if import MapPlatformControlIf
 from ui.navigation.navigation_places_request_handler_if import NavigationPlacesRequestHandlerIf
+from ui.radio.radio_visualization_config import RadioVisualizationSettingsIf
+from ui.radio.receiver_settings_if import ReceiverSettingsIf
+from ui.radio.rf_hardware_config_if import RfHardwareConfigIf
+from ui.system.audio_settings_if import AudioSettingsIf
+from ui.system.online_mode_if import OnlineModeIf
+from ui.theme import ThemeBundle
+from ui.tooltip_if import TooltipFactoryIf
+from ui.weather.radar_ui_if import RadarPalette
 
 from .navigation_panel import NavigationPanel
 from .settings_panel import SettingsPanel
@@ -126,7 +129,14 @@ def build_settings_screen(
     on_back: Callable[[], None],
     theme: ThemeBundle,
     host_location_handler: HostLocationRequestHandlerIf | None = None,
-    host_location_state: HostLocationState = HostLocationState(),
+    host_location_state: HostLocationState | None = None,
+    rf_hardware_config: RfHardwareConfigIf | None = None,
+    rf_visualization_settings: RadioVisualizationSettingsIf | None = None,
+    receiver_settings: ReceiverSettingsIf | None = None,
+    audio_settings: AudioSettingsIf | None = None,
+    performance_overlay_enabled: Callable[[], bool] | None = None,
+    on_performance_overlay_changed: Callable[[bool], None] | None = None,
+    configure_spotify: Callable[[], None] | None = None,
 ) -> SettingsPanel:
     screen = SettingsPanel(
         parent,
@@ -138,6 +148,13 @@ def build_settings_screen(
         theme_bundle=theme,
         host_location_handler=host_location_handler,
         host_location_state=host_location_state,
+        rf_hardware_config=rf_hardware_config,
+        rf_visualization_settings=rf_visualization_settings,
+        receiver_settings=receiver_settings,
+        audio_settings=audio_settings,
+        performance_overlay_enabled=performance_overlay_enabled,
+        on_performance_overlay_changed=on_performance_overlay_changed,
+        configure_spotify=configure_spotify,
     )
     screen.pack(fill=tk.BOTH, expand=True)
     return screen

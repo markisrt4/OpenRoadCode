@@ -3,6 +3,9 @@
 
 """Application-agnostic lighting controller interfaces and models."""
 
+from controllers.lighting.adapters.leddmx_bluetooth_controller import (
+    LedDmxBluetoothController,
+)
 from controllers.lighting.dummy_lighting_controller import (
     DummyLightingController,
 )
@@ -25,10 +28,6 @@ from controllers.lighting.music_reactive_lighting import (
 )
 from controllers.lighting.unconfigured_controller_stub import (
     UnconfiguredControllerStub,
-)
-
-from controllers.lighting.adapters.leddmx_bluetooth_controller import (
-    LedDmxBluetoothController,
 )
 
 __all__ = [

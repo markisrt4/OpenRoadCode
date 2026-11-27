@@ -30,7 +30,6 @@ class GradientControlTest(unittest.TestCase):
         control._release(Mock(x=50, y=20))
         control._command.assert_called_once_with()
 
-
     def test_redraw_during_tcl_owned_dialog_focus_and_restore(self):
         try:
             root = tk.Tk()
@@ -39,9 +38,16 @@ class GradientControlTest(unittest.TestCase):
         try:
             errors = []
             root.report_callback_exception = lambda *args: errors.append(args)
-            control = GradientControl(root, command=Mock(), bg="#102030", fg="white",
-                                      activebackground="#2080b0", activeforeground="white",
-                                      font=("Sans", 9), text="Performance")
+            control = GradientControl(
+                root,
+                command=Mock(),
+                bg="#102030",
+                fg="white",
+                activebackground="#2080b0",
+                activeforeground="white",
+                font=("Sans", 9),
+                text="Performance",
+            )
             control.pack()
             root.update()
             # Reproduce the color picker's Tcl-owned focus without opening a
@@ -54,19 +60,26 @@ class GradientControlTest(unittest.TestCase):
             root.update()
             # Tk versions differ in whether focus_get() resolves Tcl-only widgets.
             # Verify actual focus ownership rather than requiring a KeyError.
-            self.assertEqual(str(root.tk.call("focus", "-displayof", control._w)),
-                             ".__tk__color.entry")
+            self.assertEqual(
+                str(root.tk.call("focus", "-displayof", control._w)), ".__tk__color.entry"
+            )
             control.configure(text="CPU 10%", fg="#80d080")
             root.update()
-            outlines = [item for item in control.find_all()
-                        if control.type(item) == "rectangle" and control.itemcget(item, "outline")]
+            outlines = [
+                item
+                for item in control.find_all()
+                if control.type(item) == "rectangle" and control.itemcget(item, "outline")
+            ]
             self.assertEqual(outlines, [])
             root.tk.call("destroy", ".__tk__color")
             control.focus_force()
             root.update()
             control.configure(text="CPU 12%")
-            outlines = [item for item in control.find_all()
-                        if control.type(item) == "rectangle" and control.itemcget(item, "outline")]
+            outlines = [
+                item
+                for item in control.find_all()
+                if control.type(item) == "rectangle" and control.itemcget(item, "outline")
+            ]
             self.assertEqual(len(outlines), 1)
             self.assertEqual(errors, [])
         finally:

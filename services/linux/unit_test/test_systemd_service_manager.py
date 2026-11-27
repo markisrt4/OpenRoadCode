@@ -68,7 +68,9 @@ class SystemdServiceManagerTest(unittest.TestCase):
             if action == "is-active":
                 return subprocess.CompletedProcess(command, 0, stdout="active\n", stderr="")
             if action == "show":
-                return subprocess.CompletedProcess(command, 0, stdout="active\nrunning\nenabled\n", stderr="")
+                return subprocess.CompletedProcess(
+                    command, 0, stdout="active\nrunning\nenabled\n", stderr=""
+                )
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
 
         run.side_effect = result
@@ -94,16 +96,20 @@ class SystemdServiceManagerTest(unittest.TestCase):
     def test_android_bridge_endpoint_is_shared_runtime_state(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             runtime_file = Path(temporary) / "openroadcode-runtime.env"
-            with patch(
-                "services.linux.systemd_service_manager.PROFILE_DIR",
-                Path(temporary),
-            ), patch(
-                "services.linux.systemd_service_manager.RUNTIME_ENV_FILE",
-                runtime_file,
-            ), patch.object(
-                self.manager,
-                "profile",
-                return_value="simulated",
+            with (
+                patch(
+                    "services.linux.systemd_service_manager.PROFILE_DIR",
+                    Path(temporary),
+                ),
+                patch(
+                    "services.linux.systemd_service_manager.RUNTIME_ENV_FILE",
+                    runtime_file,
+                ),
+                patch.object(
+                    self.manager,
+                    "profile",
+                    return_value="simulated",
+                ),
             ):
                 self.manager.set_android_bridge_url("http://192.168.1.50:8766")
                 content = runtime_file.read_text(encoding="utf-8")
@@ -120,21 +126,27 @@ class SystemdServiceManagerTest(unittest.TestCase):
                 'OPENROADCODE_ANDROID_BRIDGE_URL="http://192.168.1.20:8766"\n',
                 encoding="utf-8",
             )
-            with patch(
-                "services.linux.systemd_service_manager.PROFILE_DIR",
-                Path(temporary),
-            ), patch(
-                "services.linux.systemd_service_manager.RUNTIME_ENV_FILE",
-                runtime_file,
-            ), patch.object(
-                self.manager,
-                "profile",
-                return_value="local",
-            ), patch.object(
-                self.manager,
-                "status",
-                return_value=Mock(state="running"),
-            ), patch.object(self.manager, "_systemctl") as systemctl:
+            with (
+                patch(
+                    "services.linux.systemd_service_manager.PROFILE_DIR",
+                    Path(temporary),
+                ),
+                patch(
+                    "services.linux.systemd_service_manager.RUNTIME_ENV_FILE",
+                    runtime_file,
+                ),
+                patch.object(
+                    self.manager,
+                    "profile",
+                    return_value="local",
+                ),
+                patch.object(
+                    self.manager,
+                    "status",
+                    return_value=Mock(state="running"),
+                ),
+                patch.object(self.manager, "_systemctl") as systemctl,
+            ):
                 self.manager.set_android_bridge_url("http://192.168.1.50:8766")
 
         systemctl.assert_called_once_with(
@@ -149,19 +161,23 @@ class SystemdServiceManagerTest(unittest.TestCase):
                 'OPENROADCODE_ANDROID_BRIDGE_URL="http://192.168.1.50:8766"\n',
                 encoding="utf-8",
             )
-            with patch(
-                "services.linux.systemd_service_manager.RUNTIME_ENV_FILE",
-                runtime_file,
-            ), patch.object(self.manager, "profile") as profile, patch.object(
-                self.manager,
-                "status",
-            ) as status, patch.object(self.manager, "_systemctl") as systemctl:
+            with (
+                patch(
+                    "services.linux.systemd_service_manager.RUNTIME_ENV_FILE",
+                    runtime_file,
+                ),
+                patch.object(self.manager, "profile") as profile,
+                patch.object(
+                    self.manager,
+                    "status",
+                ) as status,
+                patch.object(self.manager, "_systemctl") as systemctl,
+            ):
                 self.manager.set_android_bridge_url("http://192.168.1.50:8766")
 
         profile.assert_not_called()
         status.assert_not_called()
         systemctl.assert_not_called()
-
 
     def test_rejects_service_outside_whitelist(self) -> None:
         with self.assertRaisesRegex(ValueError, "Unsupported OpenRoadCode service"):

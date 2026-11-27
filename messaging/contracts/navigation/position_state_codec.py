@@ -49,5 +49,7 @@ def decode_position_state(payload: Mapping[str, Any]) -> PositionStateMessage:
         version=payload["version"],
         timestamp=decode_timestamp(payload["timestamp"]),
         source=payload["source"],
-        data=PositionStateData(**{name: data[name] for name in PositionStateData.__dataclass_fields__}),
+        data=PositionStateData(
+            **{name: data[name] for name in PositionStateData.__dataclass_fields__}
+        ),
     )

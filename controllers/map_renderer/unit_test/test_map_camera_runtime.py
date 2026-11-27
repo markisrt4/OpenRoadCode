@@ -23,21 +23,34 @@ def _camera_runtime():
     runtime._motion_course_available = False
     runtime._moving = False
     runtime._handler = MapRequestHandler(
-        runtime._renderer_client, center=runtime._current_position, bearing_rad=math.pi / 2,
+        runtime._renderer_client,
+        center=runtime._current_position,
+        bearing_rad=math.pi / 2,
     )
     return runtime
 
 
 def _motion(speed, course=None, *, cached=False):
-    return SimpleNamespace(data=SimpleNamespace(
-        ground_speed_m_s=speed, course_rad=course, heading_rad=None, is_cached=cached,
-    ))
+    return SimpleNamespace(
+        data=SimpleNamespace(
+            ground_speed_m_s=speed,
+            course_rad=course,
+            heading_rad=None,
+            is_cached=cached,
+        )
+    )
 
 
 def _position(latitude, longitude):
-    return SimpleNamespace(data=SimpleNamespace(
-        latitude_rad=latitude, longitude_rad=longitude, altitude_m=None, fix_mode=3, is_cached=False,
-    ))
+    return SimpleNamespace(
+        data=SimpleNamespace(
+            latitude_rad=latitude,
+            longitude_rad=longitude,
+            altitude_m=None,
+            fix_mode=3,
+            is_cached=False,
+        )
+    )
 
 
 @pytest.mark.parametrize("speed", [None, 0.0, 0.5, 1.49, float("nan")])
@@ -125,6 +138,7 @@ def test_angular_delta_uses_shortest_direction() -> None:
 
 def test_renderer_restart_replays_true_vehicle_position():
     from unittest.mock import Mock
+
     from ui.navigation import GeoPoint
 
     runtime = object.__new__(MapCameraRuntime)
@@ -144,14 +158,18 @@ def test_renderer_restart_does_not_invent_missing_vehicle_position():
     runtime._renderer_client.set_position.assert_not_called()
 
 
-@pytest.mark.parametrize('cached,fix_mode,latitude', [(False,3,.7),(True,3,.7),(False,1,.7),(False,3,None)])
-def test_live_position_observer_excludes_cached_or_missing_fixes(cached,fix_mode,latitude):
+@pytest.mark.parametrize(
+    "cached,fix_mode,latitude", [(False, 3, 0.7), (True, 3, 0.7), (False, 1, 0.7), (False, 3, None)]
+)
+def test_live_position_observer_excludes_cached_or_missing_fixes(cached, fix_mode, latitude):
     runtime = _camera_runtime()
     observer = Mock()
     runtime.observe_position(observer)
-    message = _position(latitude,-1.4)
+    message = _position(latitude, -1.4)
     message.data.is_cached = cached
     message.data.fix_mode = fix_mode
     runtime._on_position_message(message)
-    expected = GeoPoint(.7,-1.4) if not cached and fix_mode == 3 and latitude is not None else None
+    expected = (
+        GeoPoint(0.7, -1.4) if not cached and fix_mode == 3 and latitude is not None else None
+    )
     observer.assert_called_once_with(expected)

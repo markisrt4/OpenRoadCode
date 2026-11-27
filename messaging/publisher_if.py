@@ -22,3 +22,4 @@ class PublisherIf(ABC):
 
     def close(self) -> None:
         """Release publisher resources when the implementation owns any."""
+        return None

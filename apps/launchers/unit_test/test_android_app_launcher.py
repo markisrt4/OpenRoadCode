@@ -10,8 +10,8 @@ from apps.launchers.android_app_launcher import (
     AndroidAppLauncherError,
 )
 from apps.launchers.android_bridge_launcher import AndroidBridgeLauncherError
-from apps.launchers.waydroid_launcher import AndroidApp, WaydroidLauncherError
 from apps.launchers.desktop_browser_launcher import DesktopBrowserLauncherError
+from apps.launchers.waydroid_launcher import AndroidApp, WaydroidLauncherError
 
 
 @patch("apps.launchers.android_app_launcher.os.path.exists", return_value=False)
@@ -98,8 +98,10 @@ def test_android_bridge_errors_are_reported_as_launcher_errors(_exists, operatio
     error = AndroidBridgeLauncherError("bridge unavailable")
     getattr(native, operation).side_effect = error
     launcher = AndroidAppLauncher(native=native)
-    args = ("https://example.com",) if operation == "open_uri" else (
-        "com.panera.bread", "https://example.com"
+    args = (
+        ("https://example.com",)
+        if operation == "open_uri"
+        else ("com.panera.bread", "https://example.com")
     )
 
     with pytest.raises(AndroidAppLauncherError, match="bridge unavailable") as raised:

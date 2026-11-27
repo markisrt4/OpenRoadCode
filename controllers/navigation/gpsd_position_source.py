@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from controllers.navigation.position_source_if import PositionSourceIf, PositionStateCallback
 from controllers.navigation.navigation_state import PositionState
+from controllers.navigation.position_source_if import PositionSourceIf, PositionStateCallback
 
 if TYPE_CHECKING:
     from hardware_io.gps import GpsData, GpsReader
@@ -20,6 +20,7 @@ class GpsdPositionSource(PositionSourceIf):
     def __init__(self, reader: GpsReader | None = None) -> None:
         if reader is None:
             from hardware_io.gps import GpsReader
+
             reader = GpsReader()
         self._reader = reader
         self._callback: PositionStateCallback | None = None
@@ -36,14 +37,16 @@ class GpsdPositionSource(PositionSourceIf):
         callback = self._callback
         if callback is None:
             return
-        callback(PositionState(
-            latitude_deg=data.latitude,
-            longitude_deg=data.longitude,
-            altitude_m=data.altitude,
-            speed_mps=data.speed,
-            course_deg=data.track,
-            fix_mode=data.mode,
-            satellites_visible=data.satellites_visible,
-            satellites_used=data.satellites_used,
-            source="gpsd",
-        ))
+        callback(
+            PositionState(
+                latitude_deg=data.latitude,
+                longitude_deg=data.longitude,
+                altitude_m=data.altitude,
+                speed_mps=data.speed,
+                course_deg=data.track,
+                fix_mode=data.mode,
+                satellites_visible=data.satellites_visible,
+                satellites_used=data.satellites_used,
+                source="gpsd",
+            )
+        )

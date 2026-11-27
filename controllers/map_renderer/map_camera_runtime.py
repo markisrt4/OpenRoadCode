@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import math
+from datetime import datetime
 from pathlib import Path
 
 from controllers.cache import PersistentCache
@@ -35,6 +36,7 @@ _COURSE_DEADBAND_RAD = math.radians(3.0)
 _COURSE_SMOOTHING_FACTOR = 0.35
 _EARTH_RADIUS_M = 6_378_137.0
 _MAP_CAMERA_MANUAL_TOPIC = "map.camera.manual"
+_MAX_CACHED_POSITION_AGE_SECONDS = 86400.0
 
 
 class MapCameraRuntime:
@@ -60,9 +62,7 @@ class MapCameraRuntime:
             follow_enabled=follow_enabled,
             camera_initialized=initial_position is not None,
         )
-        self._dispatcher = MessageDispatcher(
-            ZeroMqSubscriber(LOCAL_SUBSCRIBER_ENDPOINT)
-        )
+        self._dispatcher = MessageDispatcher(ZeroMqSubscriber(LOCAL_SUBSCRIBER_ENDPOINT))
         self._dispatcher.register(
             POSITION_STATE_TOPIC,
             decode_position_state,
@@ -123,13 +123,19 @@ class MapCameraRuntime:
         self._renderer_client.close()
 
     @staticmethod
-    def _load_cached_center(cache_directory: Path) -> GeoPoint | None:
+    def _load_cached_center(
+        cache_directory: Path,
+        *,
+        clock=datetime.now,
+        max_age_seconds: float = _MAX_CACHED_POSITION_AGE_SECONDS,
+    ) -> GeoPoint | None:
         """Load the last valid position from the persistent position cache."""
 
         state = PositionSnapshotCache(PersistentCache(cache_directory)).load()
         if (
             state is None
             or not state.has_fix
+            or not 0 <= (clock() - state.received_at).total_seconds() <= max_age_seconds
             or state.latitude_deg is None
             or state.longitude_deg is None
         ):
@@ -143,8 +149,13 @@ class MapCameraRuntime:
     def _on_position_message(self, message: PositionStateMessage) -> None:
         data = message.data
         live_point = None
-        if (not data.is_cached and data.fix_mode is not None and data.fix_mode >= 2
-                and data.latitude_rad is not None and data.longitude_rad is not None):
+        if (
+            not data.is_cached
+            and data.fix_mode is not None
+            and data.fix_mode >= 2
+            and data.latitude_rad is not None
+            and data.longitude_rad is not None
+        ):
             live_point = GeoPoint(data.latitude_rad, data.longitude_rad, data.altitude_m)
         for observer in tuple(self._position_observers):
             observer(live_point)
@@ -256,10 +267,7 @@ class MapCameraRuntime:
         sin_lon = math.sin(d_lon / 2.0)
         a = (
             sin_lat * sin_lat
-            + math.cos(start.latitude_rad)
-            * math.cos(end.latitude_rad)
-            * sin_lon
-            * sin_lon
+            + math.cos(start.latitude_rad) * math.cos(end.latitude_rad) * sin_lon * sin_lon
         )
         return 2.0 * _EARTH_RADIUS_M * math.asin(min(1.0, math.sqrt(a)))
 
@@ -267,10 +275,7 @@ class MapCameraRuntime:
     def _bearing_rad(start: GeoPoint, end: GeoPoint) -> float:
         d_lon = end.longitude_rad - start.longitude_rad
         y = math.sin(d_lon) * math.cos(end.latitude_rad)
-        x = (
-            math.cos(start.latitude_rad) * math.sin(end.latitude_rad)
-            - math.sin(start.latitude_rad)
-            * math.cos(end.latitude_rad)
-            * math.cos(d_lon)
-        )
+        x = math.cos(start.latitude_rad) * math.sin(end.latitude_rad) - math.sin(
+            start.latitude_rad
+        ) * math.cos(end.latitude_rad) * math.cos(d_lon)
         return math.atan2(y, x)

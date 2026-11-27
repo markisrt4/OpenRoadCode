@@ -7,11 +7,10 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 from typing import Sequence
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SUITE_DIRECTORIES = {
@@ -26,21 +25,18 @@ def find_suites(kind: str) -> tuple[Path, ...]:
     directory_name = SUITE_DIRECTORIES[kind]
     suites = {
         test_file.parent
-        for test_file in PROJECT_ROOT.rglob(
-            f"{directory_name}/test_*.py"
+        for test_file in PROJECT_ROOT.rglob(f"{directory_name}/test_*.py")
+        if not any(
+            part in {".git", ".venv", "venv", "build"} or part.startswith(".venv-")
+            for part in test_file.relative_to(PROJECT_ROOT).parts
         )
-        if ".git" not in test_file.parts
     }
     return tuple(sorted(suites))
 
 
 def find_requested_suites(kinds: Sequence[str]) -> tuple[Path, ...]:
     """Return the unique test directories for all requested categories."""
-    suites = {
-        suite
-        for kind in kinds
-        for suite in find_suites(kind)
-    }
+    suites = {suite for kind in kinds for suite in find_suites(kind)}
     return tuple(sorted(suites))
 
 
@@ -84,11 +80,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
-    kinds = (
-        tuple(SUITE_DIRECTORIES)
-        if args.suite == "all"
-        else (args.suite,)
-    )
+    kinds = tuple(SUITE_DIRECTORIES) if args.suite == "all" else (args.suite,)
     return 0 if run_kinds(kinds) else 1
 
 

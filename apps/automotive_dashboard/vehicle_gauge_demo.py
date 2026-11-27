@@ -97,12 +97,8 @@ def main() -> None:
                 "rear_left": 33 + math.sin(elapsed * 0.09),
                 "rear_right": 34 + math.sin(elapsed * 0.12),
             },
-            gear=("R", "1", "2", "3", "4", "5", "6")[
-                int(elapsed / 3) % 7
-            ],
-            diagnostic_trouble_codes=(
-                ("P0302",) if int(elapsed / 12) % 2 else ()
-            ),
+            gear=("R", "1", "2", "3", "4", "5", "6")[int(elapsed / 3) % 7],
+            diagnostic_trouble_codes=(("P0302",) if int(elapsed / 12) % 2 else ()),
             mil_on=bool(int(elapsed / 12) % 2),
         )
         panel.update_state(state, connected=True)

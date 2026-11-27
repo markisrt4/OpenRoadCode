@@ -5,7 +5,6 @@
 
 from dataclasses import FrozenInstanceError
 from datetime import datetime, timezone
-from ui.navigation.navigation_places_request_handler_if import NavigationPlacesFactoryIf
 from unittest.mock import Mock
 
 import pytest
@@ -13,14 +12,15 @@ import pytest
 from apps.orcUi.frontend.tk.navigation_route_weather import NavigationRouteWeather
 from apps.orcUi.frontend.tk.navigation_screen import NavigationScreen
 from controllers.weather.weather_overlay_controller import WeatherOverlayController
-from ui.weather.weather_overlay_request_handler_if import WeatherOverlayRequestHandlerIf
+from ui.navigation.navigation_places_request_handler_if import NavigationPlacesFactoryIf
+from ui.weather.radar_controls_if import RadarControlsIf
+from ui.weather.radar_request_handler_if import RadarRequestHandlerIf
+from ui.weather.radar_ui_if import RadarUiState
 from ui.weather.weather_overlay_controls_if import WeatherOverlayControlsIf
+from ui.weather.weather_overlay_request_handler_if import WeatherOverlayRequestHandlerIf
 from ui.weather.weather_overlay_state import CityWeatherOverlayState
 from ui.weather.weather_overlay_ui_if import WeatherOverlayUiIf
 from ui.weather.weather_overlay_ui_stub import WeatherOverlayUiStub
-from ui.weather.radar_request_handler_if import RadarRequestHandlerIf
-from ui.weather.radar_controls_if import RadarControlsIf
-from ui.weather.radar_ui_if import RadarUiState
 
 
 def test_overlay_state_is_immutable_and_naive_mutation_cannot_change_controls():
@@ -61,17 +61,25 @@ def test_weather_controls_emit_semantic_requests_and_only_store_snapshots():
     view._enabled_var.get.return_value = True
     view._set_enabled()
     handler.request_route_enabled.assert_called_once_with(True)
-    view._layer_vars = {'temperature': Mock(), 'wind': Mock()}
-    view._layer_vars['temperature'].get.return_value = True
-    view._layer_vars['wind'].get.return_value = False
+    view._layer_vars = {"temperature": Mock(), "wind": Mock()}
+    view._layer_vars["temperature"].get.return_value = True
+    view._layer_vars["wind"].get.return_value = False
     view._set_layers()
-    handler.request_route_layers.assert_called_once_with(frozenset({'temperature'}))
+    handler.request_route_layers.assert_called_once_with(frozenset({"temperature"}))
 
 
 def test_radar_view_uses_requests_and_presentation_without_a_controller():
-    view = NavigationScreen(Mock(), places_factory=Mock(spec=NavigationPlacesFactoryIf), map_runtime=Mock(), map_request_handler=Mock(),
-                            route_request_handler=Mock(), route_simulation_handler=Mock(),
-                            theme_bundle=Mock(), telemetry_profile_request=None, on_back=Mock())
+    view = NavigationScreen(
+        Mock(),
+        places_factory=Mock(spec=NavigationPlacesFactoryIf),
+        map_runtime=Mock(),
+        map_request_handler=Mock(),
+        route_request_handler=Mock(),
+        route_simulation_handler=Mock(),
+        theme_bundle=Mock(),
+        telemetry_profile_request=None,
+        on_back=Mock(),
+    )
     with pytest.raises(TypeError):
         view.set_radar_request_handler(object())
     handler = Mock(spec=RadarRequestHandlerIf)
@@ -82,7 +90,7 @@ def test_radar_view_uses_requests_and_presentation_without_a_controller():
     assert view.radar_enabled
     view._radar_seek(1)
     handler.request_seek.assert_called_once_with(1)
-    assert '_radar_controller' not in view.__dict__
+    assert "_radar_controller" not in view.__dict__
 
 
 def test_hidden_navigation_cancels_periodic_forecasts_and_replay_requests():
@@ -111,9 +119,9 @@ def test_closed_overlay_composition_releases_each_owned_backend_once():
 
 def test_one_failing_backend_close_cannot_skip_other_owned_resources():
     city, model, route = Mock(), Mock(), Mock()
-    city.close.side_effect = RuntimeError('failed close')
+    city.close.side_effect = RuntimeError("failed close")
     controller = WeatherOverlayController(Mock(), city, model, route)
-    with pytest.raises(RuntimeError, match='failed close'):
+    with pytest.raises(RuntimeError, match="failed close"):
         controller.close()
     model.close.assert_called_once()
     route.close.assert_called_once()

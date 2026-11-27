@@ -17,8 +17,6 @@ class CarTuiUnitPreferences:
     def toggle(self) -> UnitSystem:
         """Switch between imperial and metric presentation units."""
         self.unit_system = (
-            UnitSystem.METRIC
-            if self.unit_system == UnitSystem.IMPERIAL
-            else UnitSystem.IMPERIAL
+            UnitSystem.METRIC if self.unit_system == UnitSystem.IMPERIAL else UnitSystem.IMPERIAL
         )
         return self.unit_system

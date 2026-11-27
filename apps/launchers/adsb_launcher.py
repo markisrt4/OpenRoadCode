@@ -19,10 +19,10 @@ from pathlib import Path
 from urllib.error import URLError
 from urllib.request import urlopen
 
-from ui.system.app_launcher_if import (AppLauncherIf, StatusCallback)
 from apps.launchers.browser_launcher import BrowserKioskLauncher
 from apps.launchers.process_manager import is_process_running
 from common.logging.logging_paths import logging_file_path
+from ui.system.app_launcher_if import AppLauncherIf, StatusCallback
 
 RTLSDR_DATA_SOURCE = "rtlsdr"
 SIMULATION_DATA_SOURCE = "simulation"
@@ -32,12 +32,23 @@ class ADSBLauncher(AppLauncherIf):
     """Launch a configured ADS-B data source and tar1090 dashboard.
 
     ``rtlsdr`` is the Raspberry Pi/Linux hardware path. It acquires the shared
-    SDR resource, closes competing SDR++ windows, and starts ``readsb`` only
+    SDR resource, coordinates access to shared RF hardware, and starts ``readsb`` only
     while the ADS-B application owns the receiver. ``simulation`` is the
     hardware-independent path used by Termux presentation testing.
     """
 
-    def __init__(self, *, url: str = "http://127.0.0.1/tar1090", data_source: str = RTLSDR_DATA_SOURCE, browser_log_file: str | Path | None = None, resource_manager=None, owner_name: str = "adsb", readsb_service: str = "readsb", startup_timeout_seconds: float = 5.0, tar1090_config_path: str | Path = "/usr/local/share/tar1090/html/config.js") -> None:
+    def __init__(
+        self,
+        *,
+        url: str = "http://127.0.0.1/tar1090",
+        data_source: str = RTLSDR_DATA_SOURCE,
+        browser_log_file: str | Path | None = None,
+        resource_manager=None,
+        owner_name: str = "adsb",
+        readsb_service: str = "readsb",
+        startup_timeout_seconds: float = 5.0,
+        tar1090_config_path: str | Path = "/usr/local/share/tar1090/html/config.js",
+    ) -> None:
         if data_source not in (RTLSDR_DATA_SOURCE, SIMULATION_DATA_SOURCE):
             raise ValueError(f"Unsupported ADS-B data source: {data_source}")
         self.url = url
@@ -47,7 +58,14 @@ class ADSBLauncher(AppLauncherIf):
         self.readsb_service = readsb_service
         self.startup_timeout_seconds = startup_timeout_seconds
         self.tar1090_config_path = Path(tar1090_config_path)
-        self.browser = BrowserKioskLauncher(url=url, process_pattern=url, profile_path=Path.home() / ".local" / "share" / "openroadcode" / "browser" / "adsb", window_class="OpenRoadCodeADSB", exclusive_group="openroadcode-auxiliary-dashboard", log_file=browser_log_file or logging_file_path("openroadcode", "adsb-browser.log"))
+        self.browser = BrowserKioskLauncher(
+            url=url,
+            process_pattern=url,
+            profile_path=Path.home() / ".local" / "share" / "openroadcode" / "browser" / "adsb",
+            window_class="OpenRoadCodeADSB",
+            exclusive_group="openroadcode-auxiliary-dashboard",
+            log_file=browser_log_file or logging_file_path("openroadcode", "adsb-browser.log"),
+        )
 
     def is_running(self) -> bool:
         return self.browser.is_running()
@@ -59,9 +77,7 @@ class ADSBLauncher(AppLauncherIf):
         if self.resource_manager is not None:
             owner = self.resource_manager.get_owner()
             if owner not in (None, self.owner_name):
-                raise RuntimeError(
-                    f"SDR is in use by {owner}; RF radio has priority"
-                )
+                raise RuntimeError(f"SDR is in use by {owner}; RF radio has priority")
 
     def set_preferred_color_scheme(self, scheme: str) -> None:
         """Apply ORC's preferred light/dark scheme to Chromium and tar1090."""
@@ -97,11 +113,24 @@ class ADSBLauncher(AppLauncherIf):
     def configure_browser_window(self, *, position: tuple[int, int], size: tuple[int, int]) -> None:
         self.browser.configure_app_window(position=position, size=size)
 
-    def launch(self, remote_display: str, set_status: StatusCallback = None) -> None:
-        _status(set_status, "Launching ADS-B dashboard...")
-        receiver_ready = False
+    def launch(
+        self,
+        remote_display: str,
+        set_status: StatusCallback = None,
+        *,
+        manage_receiver: bool = True,
+    ) -> None:
+        """Open the ADS-B dashboard.
 
-        if self.data_source == RTLSDR_DATA_SOURCE:
+        @param remote_display Display used for the dashboard.
+        @param set_status Optional status callback.
+        @param manage_receiver Whether this launcher also starts the receiver.
+        """
+        _status(set_status, "Launching ADS-B dashboard...")
+        receiver_ready = not manage_receiver
+        direct = manage_receiver and self.data_source == RTLSDR_DATA_SOURCE
+
+        if direct:
             self.assert_available()
             if self.resource_manager is not None:
                 acquired = self.resource_manager.acquire(
@@ -124,22 +153,34 @@ class ADSBLauncher(AppLauncherIf):
             receiver_ready = self._readsb_is_running()
 
         dashboard_ready = self._dashboard_is_reachable()
-        if not dashboard_ready and self.data_source == RTLSDR_DATA_SOURCE:
+        if not dashboard_ready and direct:
             receiver_ready = self._wait_for_readsb()
             dashboard_ready = self._dashboard_is_reachable()
         if not dashboard_ready:
-            if self.data_source == RTLSDR_DATA_SOURCE and self.resource_manager is not None:
+            if direct and self.resource_manager is not None:
                 self.resource_manager.release(self.owner_name, set_status=set_status)
             raise RuntimeError(f"tar1090 dashboard is unavailable at {self.url}")
-        if self.data_source == RTLSDR_DATA_SOURCE and not receiver_ready:
+        if direct and not receiver_ready:
             _status(set_status, "ADS-B receiver unavailable; opening dashboard without live data")
 
         self.browser.launch(remote_display, set_status)
         _status(set_status, "ADS-B dashboard launched")
 
-    def stop(self, remote_display: str, set_status: StatusCallback = None) -> None:
+    def stop(
+        self,
+        remote_display: str,
+        set_status: StatusCallback = None,
+        *,
+        manage_receiver: bool = True,
+    ) -> None:
+        """Close the ADS-B dashboard.
+
+        @param remote_display Display used for the dashboard.
+        @param set_status Optional status callback.
+        @param manage_receiver Whether this launcher also stops the receiver.
+        """
         self.browser.stop(remote_display, None)
-        if self.data_source == RTLSDR_DATA_SOURCE:
+        if manage_receiver and self.data_source == RTLSDR_DATA_SOURCE:
             _set_systemd_service_state(self.readsb_service, "stop")
             if self.resource_manager is not None:
                 self.resource_manager.release(self.owner_name, set_status=set_status)

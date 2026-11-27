@@ -10,6 +10,7 @@ from enum import Enum
 @dataclass(frozen=True, slots=True)
 class RgbColor:
     """Represent an RGB color using channels in the range 0 through 255."""
+
     red: int
     green: int
     blue: int
@@ -28,6 +29,7 @@ class RgbColor:
 
 class CustomPatternMode(Enum):
     """Animation modes supported by LED-DMX custom patterns."""
+
     GRADUAL = 0
     FADE = 1
     FORWARD = 2
@@ -41,6 +43,7 @@ class CustomPatternMode(Enum):
 @dataclass(frozen=True, slots=True)
 class LightingState:
     """Immutable snapshot of lighting connection and output settings."""
+
     connected: bool = False
     power_enabled: bool = False
     color: RgbColor = RgbColor(255, 255, 255)
@@ -85,6 +88,4 @@ def _validate_range(
     if not isinstance(value, int) or isinstance(value, bool):
         raise TypeError(f"{name} must be an integer")
     if not minimum <= value <= maximum:
-        raise ValueError(
-            f"{name} must be in range {minimum}..{maximum}"
-        )
+        raise ValueError(f"{name} must be in range {minimum}..{maximum}")

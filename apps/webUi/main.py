@@ -8,20 +8,22 @@ import atexit
 import os
 import shutil
 
+from apps.webUi.menu_catalog import create_web_ui_menu_pages
 from apps.webUi.music_analysis_source_session import WebMusicAnalysisSourceSession
 from apps.webUi.music_reactive_lighting_session import WebMusicReactiveLightingSession
-from apps.webUi.song_recognition_session import WebSongRecognitionSession
-from controllers.audio.capture import AndroidPlaybackAudioCapture, PipewireAudioCapture
-from controllers.audio.music_analysis import MusicAnalysisFanout
-from controllers.audio.music_analysis.music_analysis_session import MusicAnalysisSession, PushAudioCapture
-from controllers.lighting import DummyLightingController, MusicReactiveLighting
-
-from apps.webUi.menu_catalog import create_web_ui_menu_pages
 from apps.webUi.navigation_session import WebNavigationSession
 from apps.webUi.periodic_position_publisher import PeriodicPositionPublisher
+from apps.webUi.song_recognition_session import WebSongRecognitionSession
 from apps.webUi.spotify_session import WebSpotifySession
 from apps.webUi.web_navigation_ui_state import WebNavigationUiState
 from apps.webUi.web_vehicle_ui_state import WebVehicleUiState
+from controllers.audio.capture import AndroidPlaybackAudioCapture, PipewireAudioCapture
+from controllers.audio.music_analysis import MusicAnalysisFanout
+from controllers.audio.music_analysis.music_analysis_session import (
+    MusicAnalysisSession,
+    PushAudioCapture,
+)
+from controllers.lighting import DummyLightingController, MusicReactiveLighting
 from frontends.web import create_web_frontend
 from messaging.contracts.automotive import VEHICLE_STATE_TOPIC, decode_vehicle_state
 from messaging.contracts.navigation import (
@@ -123,7 +125,10 @@ def _create_music_analysis() -> tuple[MusicAnalysisSession, WebMusicReactiveLigh
     sources = {"browser": PushAudioCapture}
     if shutil.which("pw-record") is not None:
         sources["linux-pipewire"] = PipewireAudioCapture
-    if os.environ.get("ANDROID_ROOT") or os.environ.get("OPENROADCODE_ANDROID_PLAYBACK", "0") == "1":
+    if (
+        os.environ.get("ANDROID_ROOT")
+        or os.environ.get("OPENROADCODE_ANDROID_PLAYBACK", "0") == "1"
+    ):
         sources["android-playback"] = AndroidPlaybackAudioCapture
 
     if os.environ.get("OPENROADCODE_WEB_DUMMY_LIGHTING", "0") != "1":
@@ -139,7 +144,9 @@ def _create_music_analysis() -> tuple[MusicAnalysisSession, WebMusicReactiveLigh
     )
 
 
-navigation_session, position_zmq_publisher, periodic_position_publisher = _create_navigation_session()
+navigation_session, position_zmq_publisher, periodic_position_publisher = (
+    _create_navigation_session()
+)
 navigation_ui_state, vehicle_ui_state, bus_dispatcher = _create_bus_consumer()
 spotify_session = WebSpotifySession()
 song_recognition_session = WebSongRecognitionSession()

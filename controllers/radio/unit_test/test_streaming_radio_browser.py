@@ -8,18 +8,27 @@ from unittest.mock import Mock
 
 import pytest
 
+from controllers.radio.streaming_radio_backend_if import (
+    StreamingRadioBackendIf,
+    StreamingRadioFavoritesIf,
+)
 from controllers.radio.streaming_radio_browser import StreamingRadioBrowser
-from controllers.radio.streaming_radio_backend_if import StreamingRadioBackendIf, StreamingRadioFavoritesIf
 from controllers.radio.streaming_radio_directory_if import StreamingRadioDirectoryIf
 from ui.radio.streaming_radio_session_if import StreamingRadioUiIf
-from ui.radio.streaming_radio_state import StreamingRadioBrowseMode as Mode, StreamingRadioPlaybackState
+from ui.radio.streaming_radio_state import (
+    StreamingRadioBrowseMode as Mode,
+)
+from ui.radio.streaming_radio_state import (
+    StreamingRadioPlaybackState,
+)
 from ui.radio.streaming_radio_types import StreamingRadioStation
 
 
 @pytest.fixture
 def browser():
-    station = StreamingRadioStation("one", "Station One", "https://radio.test/one",
-                                    artwork_url="https://radio.test/art.png")
+    station = StreamingRadioStation(
+        "one", "Station One", "https://radio.test/one", artwork_url="https://radio.test/art.png"
+    )
     directory = Mock(spec=StreamingRadioDirectoryIf)
     directory.stations_near.return_value = (station,)
     directory.stations_by_region.return_value = ()
@@ -29,18 +38,24 @@ def browser():
     favorites = Mock(spec=StreamingRadioFavoritesIf)
     favorites.station_ids = frozenset()
     favorites.ordered_station_ids = ()
+
     def toggle(station_id):
         ids = set(favorites.station_ids)
         ids.symmetric_difference_update((station_id,))
         favorites.station_ids = frozenset(ids)
         favorites.ordered_station_ids = tuple(sorted(ids))
         return station_id in ids
+
     favorites.toggle.side_effect = toggle
     work, ui = deque(), deque()
     artwork = Mock(return_value=b"image bytes")
     view = Mock(spec=StreamingRadioUiIf)
     session = StreamingRadioBrowser(
-        directory, playback, favorites, run_work=work.append, run_ui=ui.append,
+        directory,
+        playback,
+        favorites,
+        run_work=work.append,
+        run_ui=ui.append,
         load_artwork=artwork,
     )
     session.activate(view)
@@ -72,8 +87,12 @@ def test_directory_worker_delivers_immutable_state_only_through_dispatch(browser
     with pytest.raises(AttributeError):
         state.loading = True
     directory.stations_near.assert_called_once_with(
-        latitude=42.3314, longitude=-83.0458, radius_km=80.0,
-        state="Michigan", country_code="US", limit=50,
+        latitude=42.3314,
+        longitude=-83.0458,
+        radius_km=80.0,
+        state="Michigan",
+        country_code="US",
+        limit=50,
     )
 
 
@@ -120,7 +139,9 @@ def test_favorites_resolve_persisted_identifiers_in_user_order(browser):
     session.request_mode(Mode.FAVORITES)
     loaded(browser)
     directory.stations_by_ids.assert_called_once_with(("two", "one"))
-    assert view.set_streaming_state.call_args.args[0].favorite_station_ids == frozenset(("two", "one"))
+    assert view.set_streaming_state.call_args.args[0].favorite_station_ids == frozenset(
+        ("two", "one")
+    )
 
 
 def test_empty_favorites_do_not_issue_directory_request(browser):
@@ -145,7 +166,9 @@ def test_playback_requests_are_serialized_and_duplicate_requests_are_ignored(bro
     session.request_stop()
     assert len(work) == 1
     assert view.set_streaming_state.call_args.args[0].playback_busy
-    playback.play.side_effect = lambda item: setattr(playback.snapshot, "return_value", StreamingRadioPlaybackState(item, True))
+    playback.play.side_effect = lambda item: setattr(
+        playback.snapshot, "return_value", StreamingRadioPlaybackState(item, True)
+    )
     loaded(browser)
     playback.play.assert_called_once_with(station)
     assert view.set_streaming_state.call_args.args[0].playback.is_playing
@@ -193,9 +216,11 @@ def test_playback_failure_does_not_leave_browser_busy(browser):
 def test_in_flight_playback_can_finish_after_hide_without_touching_view(browser):
     session, directory, playback, favorites, artwork, view, work, ui, station = browser
     loaded(browser)
+
     def play(item):
         session.deactivate()
         playback.snapshot.return_value = StreamingRadioPlaybackState(item, True)
+
     playback.play.side_effect = play
     session.request_play("one")
     drain(work)
@@ -255,7 +280,9 @@ def test_cached_artwork_is_reused_but_old_url_result_is_rejected(browser):
     artwork.assert_called_once()
     assert view.set_station_artwork.call_count == 2
     session.request_mode(Mode.REGIONAL)
-    directory.stations_by_region.return_value = (replace(station, artwork_url="https://radio.test/new.png"),)
+    directory.stations_by_region.return_value = (
+        replace(station, artwork_url="https://radio.test/new.png"),
+    )
     loaded(browser)
     session.request_artwork("one")
     loaded(browser)

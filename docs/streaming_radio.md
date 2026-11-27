@@ -1,8 +1,50 @@
 # Streaming Radio
 
+The Radio chooser can also expose Trending when MusicForge is configured. Its
+initial pane shows track details, and the provider player replaces those details
+when requested. Live FM tuning is available in RF Radio. FM opens with its
+spectrum and waterfall visible, and Hide Spectrum switches to compact controls
+while keeping the same receiver session.
+Compact FM puts tuning controls around the frequency display and groups presets,
+scan, and mute below station information and the FM band dial. The receiver
+power control has its own row beneath the signal meter.
+Trending artist selections show airplay counts and, when a matching article is
+available, a Wikipedia biography and credited Wikimedia portrait. The shared
+`PersistentCache` stores biographies, portrait bytes, and attribution under the
+OpenRoadCode user cache directory (`artist-profiles`). Profiles with a portrait
+are reused for seven days. Missing profiles or portraits are retried after an
+hour on the next selection. Airplay counts come from the charts API.
+Song selections show their observed play count and the same sourced artist
+context when available.
+
+Trending's embedded video pane requests playback through a per-pane session. Radio
+composition creates the session, which owns search work and browser cleanup.
+The pane retires the session when it closes. The Linux installer's optional
+**Trending music** step can save a direct API URL or set up a private SSH tunnel.
+See [MusicForge Airplay self-hosting](musicforge_airplay.md) for server
+requirements and Raspberry Pi setup.
+
+The Trending details pane displays a loading message while artist information
+is fetched. Use the up and down buttons to page through the biography. The
+YouTube action on a song opens the first video and requests autoplay when the
+configured YouTube Data API key or optional `yt-dlp` can resolve a result.
+Otherwise it opens the search results. You can sign in from the YouTube
+browser window while parked. ORC uses the same persistent YouTube browser
+profile for subsequent sessions, while the API key handles search separately.
+
+If Spotify's local browser player cannot start, Trending tries an available
+Spotify Connect device. If playback still fails, ORC displays the failure in
+its error popup.
+
+Each chart row shows the reported play count. Tap the green and red trend arrows to compare today's,
+seven-day, and thirty-day counts for the selected station filter. Tap **ⓘ**
+for station-by-station counts in the selected period. Both views use the
+existing ranked charts API, so an entry outside a chart has an unknown
+count. Selecting the row itself returns to the song or artist biography.
+
 ## Overview
 
-Streaming Radio adds internet station discovery and audio playback to the ORC Radio screen without replacing the SDR++ RF path. The Radio chooser offers RF Radio and Streaming Radio. The streaming browser provides Local, Regional, and Favorites views plus filtering, station artwork, selection, playback controls, and shared Home now-playing state.
+Streaming Radio adds internet station discovery and audio playback to the ORC Radio screen alongside RF Radio and Trending. The streaming browser provides Local, Regional, and Favorites views plus filtering, station artwork, selection, playback controls, and shared Home now-playing state.
 
 Radio Browser supplies station discovery and current metadata. mpv supplies audio playback. Internet access is required for directory requests and remote streams; the streaming path itself does not require an SDR receiver.
 
@@ -42,7 +84,7 @@ flowchart TD
     class player orcAdapter;
 ```
 
-`OrcUiApplicationRuntime` owns playback lifetime and stops streaming playback during application cleanup. `RadioComposition` owns feature-scoped presentation dependencies such as the directory, favorites store, and screen. The shell exposes neutral Home and screen-host contracts; it does not construct Radio Browser, mpv, favorites, or SDR++ services itself.
+`OrcUiApplicationRuntime` owns playback lifetime and stops streaming playback during application cleanup. `RadioComposition` owns feature-scoped presentation dependencies such as the directory, favorites store, and screen. The shell exposes neutral Home and screen-host contracts; it does not construct Radio Browser, mpv, favorites, or SDRForge services itself.
 
 Favorites are intentionally separate from station metadata. `StreamingRadioFavorites` stores only stable Radio Browser station UUIDs. When Favorites is opened, `RadioBrowserDirectory.stations_by_ids()` resolves those UUIDs to current names, stream URLs, artwork, and other metadata. This avoids persisting stale stream URLs or duplicating directory records locally.
 

@@ -8,21 +8,20 @@ from __future__ import annotations
 import os
 from contextlib import ExitStack
 from pathlib import Path
-from config.runtime_target import RuntimeTarget, detect_runtime_target
 
 from apps.carUi.car_ui_dependencies import CarUiDependencies
+from apps.carUi.runtime.audio_runtime_factory import create_audio_controller
 from apps.carUi.runtime.car_ui_runtime_factory import create_car_ui_runtime
-from apps.carUi.runtime.lighting_runtime_factory import create_lighting_controller
 from apps.carUi.runtime.input_device_runtime import InputDeviceRuntime, create_input_device_runtime
+from apps.carUi.runtime.lighting_runtime_factory import create_lighting_controller
 from apps.carUi.runtime.rotary_encoder_runtime import create_rotary_encoder_runtime
 from apps.carUi.runtime.spotify_runtime_factory import create_spotify_controller
 from apps.common.uiTheme.uiTheme import CAR_UI_THEME
-from apps.carUi.runtime.audio_runtime_factory import create_audio_controller
+from config.runtime_target import RuntimeTarget, detect_runtime_target
 from controllers.image import ImageCache
 from controllers.lyrics import LrclibLyricsClient
 from controllers.video import MusicVideoController, NetflixPlayer, YouTubeMusicVideo, YouTubePlayer
 from frontends.tk.system import StartupItem, StartupSplash, StartupState, StartupStatusCallback
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RUNTIME_CONFIG_PATH = PROJECT_ROOT / "config" / "runtime.toml"
@@ -80,8 +79,10 @@ def resolve_config_paths() -> tuple[Path, Path]:
     runtime_override = os.getenv("OPENROAD_RUNTIME_CONFIG")
     applications_override = os.getenv("OPENROAD_APPLICATIONS_CONFIG")
     runtime_path = Path(runtime_override).expanduser() if runtime_override else RUNTIME_CONFIG_PATH
-    applications_path = Path(applications_override).expanduser() if applications_override else (
-        TERMUX_APPLICATIONS_CONFIG_PATH if _is_termux() else APPLICATIONS_CONFIG_PATH
+    applications_path = (
+        Path(applications_override).expanduser()
+        if applications_override
+        else (TERMUX_APPLICATIONS_CONFIG_PATH if _is_termux() else APPLICATIONS_CONFIG_PATH)
     )
     return runtime_path, applications_path
 
@@ -116,29 +117,48 @@ def build_car_ui_dependencies(report: StartupStatusCallback) -> CarUiDependencie
             report("runtime", StartupState.DEGRADED, detail)
 
         runtime.start_background_apps(report_preload_status)
-        report("runtime", StartupState.READY, "Configuration loaded; background applications starting")
-        report("telemetry", StartupState.READY, "Vehicle and navigation state provided by message bus")
+        report(
+            "runtime", StartupState.READY, "Configuration loaded; background applications starting"
+        )
+        report(
+            "telemetry", StartupState.READY, "Vehicle and navigation state provided by message bus"
+        )
 
         report("input", StartupState.STARTING, "Loading input devices")
         encoder_runtime = create_rotary_encoder_runtime(runtime.rotary_encoders)
         input_config = getattr(runtime, "input_config", None)
-        input_devices = create_input_device_runtime(input_config) if input_config is not None else InputDeviceRuntime()
+        input_devices = (
+            create_input_device_runtime(input_config)
+            if input_config is not None
+            else InputDeviceRuntime()
+        )
         for encoder in encoder_runtime.encoders:
             cleanup.callback(encoder.stop)
-        report("input", StartupState.READY, f"{len(encoder_runtime.encoders)} rotary controls ready")
+        report(
+            "input", StartupState.READY, f"{len(encoder_runtime.encoders)} rotary controls ready"
+        )
 
         report("audio", StartupState.STARTING, "Connecting to PipeWire")
         runtime_target = detect_runtime_target()
-        audio_controller = create_audio_controller(steps=CAR_UI_THEME["layout"]["volume_steps"], config=runtime.audio, target=runtime_target)
+        audio_controller = create_audio_controller(
+            steps=CAR_UI_THEME["layout"]["volume_steps"],
+            config=runtime.audio,
+            target=runtime_target,
+        )
         report("audio", StartupState.READY, "Audio controller ready")
 
         report("media", StartupState.STARTING, "Loading media controllers")
         spotify_controller = create_spotify_controller()
-        spotify_image_cache = ImageCache(max_entries=runtime.image_cache.max_entries, cache_directory=runtime.image_cache.directory)
+        spotify_image_cache = ImageCache(
+            max_entries=runtime.image_cache.max_entries,
+            cache_directory=runtime.image_cache.directory,
+        )
         spotify_lyrics_client = LrclibLyricsClient()
         spotify_music_video_controller = MusicVideoController(
             spotify_controller=spotify_controller,
-            music_video=YouTubeMusicVideo(fullscreen=True, software_rendering=runtime_target is RuntimeTarget.LINUX_DEV),
+            music_video=YouTubeMusicVideo(
+                fullscreen=True, software_rendering=runtime_target is RuntimeTarget.LINUX_DEV
+            ),
         )
         cleanup.callback(spotify_music_video_controller.stop_video)
         software_rendering = runtime_target is RuntimeTarget.LINUX_DEV
@@ -149,7 +169,9 @@ def build_car_ui_dependencies(report: StartupStatusCallback) -> CarUiDependencie
         report("media", StartupState.READY, "Spotify and media controllers ready")
 
         report("lighting", StartupState.STARTING, "Loading controller")
-        lighting_controller = create_lighting_controller(project_root=PROJECT_ROOT, address=os.getenv("CARUI_LIGHTING_ADDRESS"))
+        lighting_controller = create_lighting_controller(
+            project_root=PROJECT_ROOT, address=os.getenv("CARUI_LIGHTING_ADDRESS")
+        )
         cleanup.callback(lighting_controller.close)
         report("lighting", StartupState.READY, "Controller ready")
 
@@ -165,7 +187,9 @@ def build_car_ui_dependencies(report: StartupStatusCallback) -> CarUiDependencie
             lighting_controller=lighting_controller,
             rotary_encoders=encoder_runtime.encoders,
             volume_encoder_index=encoder_runtime.volume_index,
-            media_display=resolve_media_display(runtime_target, runtime.remote_display, runtime.media_display),
+            media_display=resolve_media_display(
+                runtime_target, runtime.remote_display, runtime.media_display
+            ),
             keyboards=input_devices.keyboards,
             push_buttons=input_devices.push_buttons,
             push_button_actions=input_devices.push_button_actions,
@@ -174,7 +198,9 @@ def build_car_ui_dependencies(report: StartupStatusCallback) -> CarUiDependencie
         return dependencies
 
 
-def resolve_media_display(target: RuntimeTarget, configured_display: str, media_display: str | None = None) -> str:
+def resolve_media_display(
+    target: RuntimeTarget, configured_display: str, media_display: str | None = None
+) -> str:
     explicit_display = os.getenv("CARUI_MEDIA_DISPLAY") or media_display
     if explicit_display:
         return explicit_display

@@ -3,9 +3,9 @@
 
 """Deterministic navigation simulation for development without hardware."""
 
+import math
 from dataclasses import replace
 from datetime import datetime
-import math
 
 from controllers.navigation.navigation_controller_stub import NavigationControllerStub
 from controllers.navigation.navigation_state import (

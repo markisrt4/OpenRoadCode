@@ -60,9 +60,6 @@ def decode_route_guidance_state(
         version=payload["version"],
         source=payload["source"],
         data=RouteGuidanceStateData(
-            **{
-                name: data[name]
-                for name in RouteGuidanceStateData.__dataclass_fields__
-            }
+            **{name: data[name] for name in RouteGuidanceStateData.__dataclass_fields__}
         ),
     )

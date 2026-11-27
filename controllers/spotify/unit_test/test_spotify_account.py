@@ -5,8 +5,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from controllers.spotify.spotify_account import SpotifyAccountBinding, SpotifyAccountController
 from controllers.spotify.guarded_token_store import GuardedTokenStore
+from controllers.spotify.spotify_account import SpotifyAccountBinding, SpotifyAccountController
 from protocols.spotify.spotify_auth import SpotifyAuthError
 from ui.media.spotify_account_if import SpotifyAccountState
 
@@ -18,9 +18,16 @@ def account():
     dispatcher.dispatch_ui.side_effect = ui.append
     read = Mock(return_value=("public-client", False))
     save, connect, disconnect, refresh = Mock(), Mock(), Mock(), Mock()
-    controller = SpotifyAccountController(read_account=read, save_client_id=save,
-        connect=connect, disconnect=disconnect, online=lambda: online[0],
-        run_work=work.append, dispatcher=dispatcher, refresh_playback=refresh)
+    controller = SpotifyAccountController(
+        read_account=read,
+        save_client_id=save,
+        connect=connect,
+        disconnect=disconnect,
+        online=lambda: online[0],
+        run_work=work.append,
+        dispatcher=dispatcher,
+        refresh_playback=refresh,
+    )
     session = SpotifyAccountBinding(controller)
     view = Mock()
     session.activate(view)
@@ -76,10 +83,12 @@ def test_retired_view_drops_queued_work_and_old_handler(account, retire):
 def test_close_during_token_exchange_rejects_persistence_and_completion(account):
     controller, _, view, handler, work, ui, _, _, connect, _, refresh = account
     store = Mock()
+
     def exchange(current, commit):
         assert current()
         controller.close()
         GuardedTokenStore(store, commit).save(Mock())
+
     connect.side_effect = exchange
     handler.request_connect()
     work.pop(0)()

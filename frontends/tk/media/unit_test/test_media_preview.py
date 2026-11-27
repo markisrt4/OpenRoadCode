@@ -4,6 +4,7 @@
 import queue
 import unittest
 from unittest.mock import Mock, patch
+
 from frontends.tk.media.media_preview import MediaPreview
 from ui.media import MediaState
 

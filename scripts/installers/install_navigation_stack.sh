@@ -24,7 +24,7 @@ if [[ -f "$TOOLCHAIN_LOCK" ]]; then
   source "$TOOLCHAIN_LOCK"
 fi
 VALHALLA_REF="${VALHALLA_REF:-${VALHALLA_COMMIT:-}}"
-PRIME_SERVER_REF="${PRIME_SERVER_REF:-}"
+PRIME_SERVER_REF="${PRIME_SERVER_REF:-${PRIME_SERVER_COMMIT:-}}"
 
 SHOW_PLAN=0
 SKIP_HOST_PACKAGES=0
@@ -32,6 +32,8 @@ SKIP_MAPLIBRE=0
 SKIP_VALHALLA=0
 SKIP_SERVICES=0
 SKIP_SMOKE=0
+PACKAGE_ONLY=0
+NAVIGATION_MODE="${NAVIGATION_MODE:-auto}"
 TARGET="rpi5"
 HOST_PLATFORM="linux"
 
@@ -49,6 +51,8 @@ Options:
   --skip-valhalla         skip Valhalla build/install
   --skip-services         skip systemd service installation
   --skip-smoke            skip final software smoke checks
+  --mode MODE             auto, binary, or source
+  --package-only          stage binaries for target-container validation; no host runtime configuration
   -h, --help              show this help
 
 Environment:
@@ -68,12 +72,17 @@ while (( $# > 0 )); do
     --skip-valhalla) SKIP_VALHALLA=1 ;;
     --skip-services) SKIP_SERVICES=1 ;;
     --skip-smoke) SKIP_SMOKE=1 ;;
+    --mode) shift; NAVIGATION_MODE="${1:?--mode requires a value}" ;;
+    --package-only) PACKAGE_ONLY=1; SKIP_HOST_PACKAGES=1; SKIP_SERVICES=1; SKIP_SMOKE=1 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
   shift
 done
 
+NAVIGATION_MODE="${NAVIGATION_MODE,,}"
+case "$NAVIGATION_MODE" in auto|binary|source) ;; *) echo "Invalid navigation mode: $NAVIGATION_MODE" >&2; exit 2 ;; esac
+if (( PACKAGE_ONLY )); then NAVIGATION_MODE=source; fi
 case "$TARGET" in
   rpi4|rpi5|linux-dev|termux) ;;
   *) echo "Unsupported target: $TARGET" >&2; exit 2 ;;
@@ -109,7 +118,7 @@ else
     version_id="$(. /etc/os-release; printf '%s' "$VERSION_ID")"
     case "$id:$version_id" in
       ubuntu:24.04) printf '%s\n' 'ubuntu:24.04' ;;
-      debian:13) printf '%s\n' 'debian:trixie' ;;
+      debian:13|raspbian:13) printf '%s\n' 'debian:trixie' ;;
       *)
         echo "Unsupported navigation build host: $id $version_id" >&2
         echo "Supported hosts: Ubuntu 24.04 and Debian 13/Trixie." >&2
@@ -123,6 +132,7 @@ fi
 cat <<EOF
 OpenRoadCode navigation software plan
   target:             $TARGET
+  installation mode:  $NAVIGATION_MODE
   host platform:      $HOST_PLATFORM
   build environment:  $BUILD_BASE_IMAGE
   host source root:   $HOST_SRC
@@ -146,6 +156,8 @@ if (( SHOW_PLAN )); then
 fi
 
 if [[ "$TARGET" == "termux" ]]; then
+  [[ "$NAVIGATION_MODE" != binary ]] || { echo "No Termux binary packages available" >&2; exit 2; }
+  (( ! PACKAGE_ONLY )) || { echo "--package-only requires Linux" >&2; exit 2; }
   exec env \
     HOST_SRC="$HOST_SRC" \
     INSTALL_ROOT="$INSTALL_ROOT" \
@@ -170,14 +182,8 @@ hash_inputs() {
     printf 'target=%s\n' "$TARGET"
     printf 'arch=%s\n' "$(uname -m)"
     printf 'build_image=%s\n' "$BUILD_BASE_IMAGE"
-    for path in "$@"; do
-      if [[ -f "$path" ]]; then
-        printf 'file=%s\n' "$path"
-        sha256sum "$path"
-      elif [[ -d "$path" ]]; then
-        find "$path" -type f -print0 | sort -z | xargs -0 -r sha256sum
-      fi
-    done
+    printf 'fingerprint-schema=2\n'
+    (cd "$PROJECT_ROOT" && git ls-files -z -- "$@" | LC_ALL=C sort -z | xargs -0 -r sha256sum)
   } | sha256sum | awk '{print $1}'
 }
 
@@ -198,29 +204,27 @@ write_state_hash() {
 MAPLIBRE_FINGERPRINT="$( {
   printf 'maplibre_ref=%s\n' "$MAPLIBRE_REF"
   hash_inputs \
-    "$PROJECT_ROOT/apps/map_renderer" \
-    "$PROJECT_ROOT/development/containers/maplibre" \
-    "$PROJECT_ROOT/scripts/runtime/install_navigation_style.sh"
+    apps/map_renderer \
+    development/containers/maplibre
 } | sha256sum | awk '{print $1}' )"
 
 VALHALLA_FINGERPRINT="$( {
   printf 'valhalla_ref=%s\n' "$VALHALLA_REF"
   printf 'prime_server_ref=%s\n' "$PRIME_SERVER_REF"
   hash_inputs \
-    "$PROJECT_ROOT/development/containers/valhalla" \
-    "$TOOLCHAIN_LOCK"
+    development/containers/valhalla
 } | sha256sum | awk '{print $1}' )"
 
 MAPLIBRE_BUILD_REQUIRED=1
 VALHALLA_BUILD_REQUIRED=1
 
-if [[ "${FORCE_NAVIGATION_REBUILD:-0}" != "1" && "${FORCE_MAPLIBRE_REBUILD:-0}" != "1" ]] \
+if [[ "$PACKAGE_ONLY" == "0" && "${FORCE_NAVIGATION_REBUILD:-0}" != "1" && "${FORCE_MAPLIBRE_REBUILD:-0}" != "1" ]] \
    && [[ "$(read_state_hash "$MAPLIBRE_STATE_FILE")" == "$MAPLIBRE_FINGERPRINT" ]] \
    && [[ -x "$INSTALL_ROOT/bin/openroadcode-map-renderer" ]]; then
   MAPLIBRE_BUILD_REQUIRED=0
 fi
 
-if [[ "${FORCE_NAVIGATION_REBUILD:-0}" != "1" && "${FORCE_VALHALLA_REBUILD:-0}" != "1" ]] \
+if [[ "$PACKAGE_ONLY" == "0" && "${FORCE_NAVIGATION_REBUILD:-0}" != "1" && "${FORCE_VALHALLA_REBUILD:-0}" != "1" ]] \
    && [[ "$(read_state_hash "$VALHALLA_STATE_FILE")" == "$VALHALLA_FINGERPRINT" ]] \
    && [[ -x "$INSTALL_ROOT/valhalla/bin/valhalla_service" ]]; then
   VALHALLA_BUILD_REQUIRED=0
@@ -280,9 +284,7 @@ ensure_container_engine() {
 
 trap restore_container_engine_state EXIT
 
-if (( (! SKIP_MAPLIBRE && MAPLIBRE_BUILD_REQUIRED) || (! SKIP_VALHALLA && VALHALLA_BUILD_REQUIRED) )); then
-  ensure_container_engine
-fi
+
 
 ensure_user_owned_checkout() {
   local dir="$1" label="$2"
@@ -300,13 +302,26 @@ ensure_user_owned_checkout() {
 checkout_repo() {
   local url="$1" dir="$2" ref="$3" label="$4"
   ensure_user_owned_checkout "$dir" "$label"
-  if [[ ! -d "$dir/.git" ]]; then git clone "$url" "$dir"; fi
+  if [[ ! -d "$dir/.git" ]]; then
+    if [[ -n "$ref" ]]; then
+      git init "$dir"
+      git -C "$dir" remote add origin "$url"
+    else
+      git clone --depth 1 --no-tags "$url" "$dir"
+    fi
+  fi
   if [[ -n "$ref" ]]; then
-    git -C "$dir" fetch --tags --prune origin
-    git -C "$dir" checkout --detach "$ref"
+    if ! git -C "$dir" rev-parse --verify --quiet "${ref}^{commit}" >/dev/null; then
+      echo "[*] Fetching pinned $label revision (shallow)..."
+      git -C "$dir" fetch --depth 1 --no-tags origin "$ref"
+      git -C "$dir" checkout --detach FETCH_HEAD
+    else
+      echo "[*] Reusing local $label revision $ref"
+      git -C "$dir" checkout --detach "$ref"
+    fi
   fi
   git -C "$dir" submodule sync --recursive
-  git -C "$dir" submodule update --init --recursive
+  git -C "$dir" submodule update --init --recursive --depth 1
 }
 
 check_runtime_libraries() {
@@ -325,11 +340,12 @@ if (( ! SKIP_HOST_PACKAGES )); then
   echo "[*] Installing navigation host dependencies"
   bash "$PROJECT_ROOT/scripts/installers/host_setup.sh" --target "$TARGET" --feature desktop-ui --feature gps --no-vnc --no-gpsd-service
   sudo apt-get update
-  sudo apt-get install -y rsync python3-zmq
+  sudo apt-get install -y rsync python3-zmq curl libzmq3-dev libcurl4-openssl-dev libpng-dev libwebp-dev libsqlite3-dev libprotobuf-dev libspatialite-dev libssl-dev liblz4-dev libxxhash-dev libluajit-5.1-dev
   (( SKIP_MAPLIBRE )) || bash "$PROJECT_ROOT/development/containers/maplibre/host_setup.sh"
   (( SKIP_VALHALLA )) || bash "$PROJECT_ROOT/development/containers/valhalla/host_setup.sh"
 fi
 
+if (( ! PACKAGE_ONLY )); then
 sudo install -d "$CONFIG_ROOT"
 # The native renderer runs as the invoking desktop user during development and
 # vehicle UI sessions. A root-owned 0755 cache directory lets MapLibre read but
@@ -338,6 +354,25 @@ sudo install -d "$CONFIG_ROOT"
 sudo install -d -m 0775 -o "$(id -u)" -g "$(id -g)" /var/cache/openroadcode
 if [[ ! -f "$CONFIG_ROOT/navigation.toml" ]]; then
   sudo install -m 0644 "$PROJECT_ROOT/config/navigation.toml" "$CONFIG_ROOT/navigation.toml"
+fi
+
+fi
+
+if [[ "$NAVIGATION_MODE" != source ]] && (( (! SKIP_MAPLIBRE && MAPLIBRE_BUILD_REQUIRED) || (! SKIP_VALHALLA && VALHALLA_BUILD_REQUIRED) )); then
+  component="$(bash "$SCRIPT_DIR/navigation_component_version.sh" "$MAPLIBRE_REF" "$VALHALLA_REF" "$PRIME_SERVER_REF")"
+  if bash "$SCRIPT_DIR/install_navigation_binary.sh" "$component" "$BUILD_BASE_IMAGE" "$INSTALL_ROOT" "$SKIP_MAPLIBRE" "$SKIP_VALHALLA"; then
+    (( SKIP_MAPLIBRE )) || write_state_hash "$MAPLIBRE_STATE_FILE" "$MAPLIBRE_FINGERPRINT"
+    (( SKIP_VALHALLA )) || write_state_hash "$VALHALLA_STATE_FILE" "$VALHALLA_FINGERPRINT"
+    MAPLIBRE_BUILD_REQUIRED=0
+    VALHALLA_BUILD_REQUIRED=0
+  else
+    status=$?
+    if [[ "$status" != 3 || "$NAVIGATION_MODE" == binary ]]; then exit "$status"; fi
+    echo "[!] No compatible navigation release; falling back to source build."
+  fi
+fi
+if (( (! SKIP_MAPLIBRE && MAPLIBRE_BUILD_REQUIRED) || (! SKIP_VALHALLA && VALHALLA_BUILD_REQUIRED) )); then
+  ensure_container_engine
 fi
 
 if (( ! SKIP_MAPLIBRE && MAPLIBRE_BUILD_REQUIRED )); then
@@ -357,8 +392,10 @@ if (( ! SKIP_MAPLIBRE && MAPLIBRE_BUILD_REQUIRED )); then
   [[ -x "$renderer" ]] || { echo "Renderer build missing: $renderer" >&2; exit 1; }
   sudo install -d "$INSTALL_ROOT/bin"
   sudo install -m 0755 "$renderer" "$INSTALL_ROOT/bin/openroadcode-map-renderer"
-  check_runtime_libraries "MapLibre renderer" "$INSTALL_ROOT/bin/openroadcode-map-renderer"
-  write_state_hash "$MAPLIBRE_STATE_FILE" "$MAPLIBRE_FINGERPRINT"
+  if (( ! PACKAGE_ONLY )); then
+    check_runtime_libraries "MapLibre renderer" "$INSTALL_ROOT/bin/openroadcode-map-renderer"
+    write_state_hash "$MAPLIBRE_STATE_FILE" "$MAPLIBRE_FINGERPRINT"
+  fi
 elif (( ! SKIP_MAPLIBRE )); then
   echo "[+] MapLibre renderer is current; skipping rebuild."
 fi
@@ -366,7 +403,9 @@ fi
 # Map/routing geometry is deployed independently, but the visual style belongs
 # to this software revision. Refresh it whenever the software stack is installed
 # so style-only improvements do not require rebuilding the MBTiles dataset.
-DATA_ROOT="$DATA_ROOT" bash "$PROJECT_ROOT/scripts/runtime/install_navigation_style.sh"
+if (( ! PACKAGE_ONLY )); then
+  DATA_ROOT="$DATA_ROOT" bash "$PROJECT_ROOT/scripts/runtime/install_navigation_style.sh"
+fi
 
 if (( ! SKIP_VALHALLA && VALHALLA_BUILD_REQUIRED )); then
   echo "[*] Valhalla inputs changed; rebuilding..."
@@ -381,11 +420,13 @@ if (( ! SKIP_VALHALLA && VALHALLA_BUILD_REQUIRED )); then
   [[ -x "$valhalla_stage/bin/valhalla_service" ]] || { echo "Valhalla build missing: $valhalla_stage/bin/valhalla_service" >&2; exit 1; }
   sudo install -d "$INSTALL_ROOT"
   sudo rsync -a --delete "$valhalla_stage/" "$INSTALL_ROOT/valhalla/"
-  sudo install -d /etc/ld.so.conf.d
-  printf '%s\n' "$INSTALL_ROOT/valhalla/lib" | sudo tee /etc/ld.so.conf.d/openroadcode-navigation.conf >/dev/null
-  sudo ldconfig
-  check_runtime_libraries "Valhalla" "$INSTALL_ROOT/valhalla/bin/valhalla_service"
-  write_state_hash "$VALHALLA_STATE_FILE" "$VALHALLA_FINGERPRINT"
+  if (( ! PACKAGE_ONLY )); then
+    sudo install -d /etc/ld.so.conf.d
+    printf '%s\n' "$INSTALL_ROOT/valhalla/lib" | sudo tee /etc/ld.so.conf.d/openroadcode-navigation.conf >/dev/null
+    sudo ldconfig
+    check_runtime_libraries "Valhalla" "$INSTALL_ROOT/valhalla/bin/valhalla_service"
+    write_state_hash "$VALHALLA_STATE_FILE" "$VALHALLA_FINGERPRINT"
+  fi
 elif (( ! SKIP_VALHALLA )); then
   echo "[+] Valhalla is current; skipping rebuild."
 fi

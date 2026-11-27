@@ -1,9 +1,8 @@
 name: ORC Linear branch reconciliation
 on:
-  push:
-    branches: ['**']
+  create:
   pull_request:
-    types: [opened, reopened, synchronize, closed]
+    types: [opened, reopened, closed]
   workflow_dispatch:
     inputs:
       branch:

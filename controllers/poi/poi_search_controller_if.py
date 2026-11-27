@@ -5,7 +5,7 @@
 
 from abc import ABC, abstractmethod
 
-from ui.navigation.poi_models import (PoiCategory, PoiSearchResult, PointOfInterest, TransitMode)
+from ui.navigation.poi_models import PoiCategory, PointOfInterest, PoiSearchResult, TransitMode
 
 
 class PoiSearchControllerIf(ABC):

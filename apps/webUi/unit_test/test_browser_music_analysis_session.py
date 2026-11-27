@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 """Unit tests for browser PCM music-analysis transport."""
+
 from __future__ import annotations
 
 import math

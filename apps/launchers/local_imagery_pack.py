@@ -1,13 +1,25 @@
 """Load a checked local image and immutable coverage, outside web presentation."""
 
-from dataclasses import dataclass
 import hashlib
 import json
 import math
+from dataclasses import dataclass
 from pathlib import Path
 
 from common.xdg_paths import openroadcode_data_dir
 from ui.navigation.local_imagery_state import LocalImageryState
+
+MICHIGAN_IMAGERY_COVERAGES = (
+    "michigan-overview",
+    "mi-lower-southwest",
+    "mi-lower-southeast",
+    "mi-lower-central-west",
+    "mi-lower-central-east",
+    "mi-lower-northwest",
+    "mi-lower-northeast",
+    "mi-upper-west",
+    "mi-upper-east",
+)
 
 
 def detroit_pack_directory():
@@ -19,29 +31,51 @@ def pine_knob_imagery_directory():
 
 
 def installed_imagery_directories():
-    return (pine_knob_imagery_directory(), detroit_pack_directory(),
-            openroadcode_data_dir('map-packs', 'detroit-midtown-imagery-active'),
-            openroadcode_data_dir('map-packs', 'metro-detroit-imagery-active'),
-            openroadcode_data_dir('map-packs', 'rochester-imagery-active'),
-            openroadcode_data_dir('map-packs', 'southfield-imagery-active'))
+    return (
+        pine_knob_imagery_directory(),
+        detroit_pack_directory(),
+        openroadcode_data_dir("map-packs", "detroit-midtown-imagery-active"),
+        openroadcode_data_dir("map-packs", "metro-detroit-imagery-active"),
+        openroadcode_data_dir("map-packs", "rochester-imagery-active"),
+        openroadcode_data_dir("map-packs", "southfield-imagery-active"),
+        *(
+            openroadcode_data_dir("map-packs", coverage + "-imagery-active")
+            for coverage in MICHIGAN_IMAGERY_COVERAGES
+        ),
+    )
 
 
 def load_imagery_stack():
-    packs = [LocalImageryPack.load(directory) for directory in installed_imagery_directories()
-             if (directory/'manifest.json').is_file()]
-    return tuple(sorted(packs, key=lambda pack: (pack.state.east_rad-pack.state.west_rad)*
-                        (pack.state.north_rad-pack.state.south_rad), reverse=True))
+    packs = [
+        LocalImageryPack.load(directory)
+        for directory in installed_imagery_directories()
+        if (directory / "manifest.json").is_file()
+    ]
+    return tuple(
+        sorted(
+            packs,
+            key=lambda pack: (
+                (pack.state.east_rad - pack.state.west_rad)
+                * (pack.state.north_rad - pack.state.south_rad)
+            ),
+            reverse=True,
+        )
+    )
 
 
 def preferred_imagery_directory(destination):
     candidates = []
     for directory in installed_imagery_directories():
-        if not (directory/'manifest.json').is_file():
+        if not (directory / "manifest.json").is_file():
             continue
         coverage = LocalImageryPack.load(directory).state
-        if (coverage.west_rad <= destination.longitude_rad <= coverage.east_rad
-                and coverage.south_rad <= destination.latitude_rad <= coverage.north_rad):
-            area = (coverage.east_rad-coverage.west_rad)*(coverage.north_rad-coverage.south_rad)
+        if (
+            coverage.west_rad <= destination.longitude_rad <= coverage.east_rad
+            and coverage.south_rad <= destination.latitude_rad <= coverage.north_rad
+        ):
+            area = (coverage.east_rad - coverage.west_rad) * (
+                coverage.north_rad - coverage.south_rad
+            )
             candidates.append((area, directory))
     return min(candidates, key=lambda item: item[0])[1] if candidates else detroit_pack_directory()
 
@@ -69,6 +103,9 @@ class LocalImageryPack:
         if digest != manifest["sha256"]:
             raise ValueError("Imagery checksum does not match the manifest")
         west, south, east, north = manifest["bounds_deg"]
-        state = LocalImageryState(manifest["title"], manifest["attribution"],
-                                  *(math.radians(v) for v in (west, south, east, north)))
+        state = LocalImageryState(
+            manifest["title"],
+            manifest["attribution"],
+            *(math.radians(v) for v in (west, south, east, north)),
+        )
         return cls(state, image)

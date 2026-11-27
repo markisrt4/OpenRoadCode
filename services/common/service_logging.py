@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: MIT
 """Observe restricted supervisor state without logging raw status output."""
 
-from functools import wraps
 import logging
+from functools import wraps
 from threading import Lock
 
 from common.logging.lifecycle import failure_fields, logged_action

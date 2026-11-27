@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
+from typing import Any
 
 import requests
 
@@ -96,7 +97,7 @@ class OpenMeteoWeatherProvider(WeatherProviderIf):
         return WeatherCondition.UNKNOWN
 
     @classmethod
-    def _current_weather(cls, data: dict) -> CurrentWeather:
+    def _current_weather(cls, data: dict[str, Any]) -> CurrentWeather:
         return CurrentWeather(
             temperature_k=celsius_to_kelvin(data.get("temperature_2m")),
             apparent_temperature_k=celsius_to_kelvin(data.get("apparent_temperature")),
@@ -115,43 +116,60 @@ class OpenMeteoWeatherProvider(WeatherProviderIf):
         )
 
     @classmethod
-    def _hourly_forecast(cls, data: dict) -> tuple[HourlyForecast, ...]:
+    def _hourly_forecast(cls, data: dict[str, Any]) -> tuple[HourlyForecast, ...]:
         times = data.get("time", [])
         result = []
         for index, timestamp in enumerate(times):
-            result.append(HourlyForecast(
-                timestamp=__import__("datetime").datetime.fromisoformat(timestamp),
-                temperature_k=celsius_to_kelvin(cls._at(data, "temperature_2m", index)),
-                apparent_temperature_k=celsius_to_kelvin(cls._at(data, "apparent_temperature", index)),
-                precipitation_probability=percent_to_ratio(cls._at(data, "precipitation_probability", index)),
-                precipitation_m=millimeters_to_meters(cls._at(data, "precipitation", index)),
-                condition=cls._condition(cls._at(data, "weather_code", index)),
-                cloud_cover=percent_to_ratio(cls._at(data, "cloud_cover", index)),
-                wind_speed_m_s=kilometers_per_hour_to_meters_per_second(cls._at(data, "wind_speed_10m", index)),
-            ))
+            result.append(
+                HourlyForecast(
+                    timestamp=__import__("datetime").datetime.fromisoformat(timestamp),
+                    temperature_k=celsius_to_kelvin(cls._at(data, "temperature_2m", index)),
+                    apparent_temperature_k=celsius_to_kelvin(
+                        cls._at(data, "apparent_temperature", index)
+                    ),
+                    precipitation_probability=percent_to_ratio(
+                        cls._at(data, "precipitation_probability", index)
+                    ),
+                    precipitation_m=millimeters_to_meters(cls._at(data, "precipitation", index)),
+                    condition=cls._condition(cls._at(data, "weather_code", index)),
+                    cloud_cover=percent_to_ratio(cls._at(data, "cloud_cover", index)),
+                    wind_speed_m_s=kilometers_per_hour_to_meters_per_second(
+                        cls._at(data, "wind_speed_10m", index)
+                    ),
+                )
+            )
         return tuple(result)
 
     @classmethod
-    def _daily_forecast(cls, data: dict) -> tuple[DailyForecast, ...]:
+    def _daily_forecast(cls, data: dict[str, Any]) -> tuple[DailyForecast, ...]:
         from datetime import date, datetime
+
         result = []
         for index, day in enumerate(data.get("time", [])):
             sunrise = cls._at(data, "sunrise", index)
             sunset = cls._at(data, "sunset", index)
-            result.append(DailyForecast(
-                date=date.fromisoformat(day),
-                condition=cls._condition(cls._at(data, "weather_code", index)),
-                temperature_high_k=celsius_to_kelvin(cls._at(data, "temperature_2m_max", index)),
-                temperature_low_k=celsius_to_kelvin(cls._at(data, "temperature_2m_min", index)),
-                sunrise=datetime.fromisoformat(sunrise) if sunrise else None,
-                sunset=datetime.fromisoformat(sunset) if sunset else None,
-                precipitation_probability=percent_to_ratio(cls._at(data, "precipitation_probability_max", index)),
-                wind_speed_max_m_s=kilometers_per_hour_to_meters_per_second(cls._at(data, "wind_speed_10m_max", index)),
-            ))
+            result.append(
+                DailyForecast(
+                    date=date.fromisoformat(day),
+                    condition=cls._condition(cls._at(data, "weather_code", index)),
+                    temperature_high_k=celsius_to_kelvin(
+                        cls._at(data, "temperature_2m_max", index)
+                    ),
+                    temperature_low_k=celsius_to_kelvin(cls._at(data, "temperature_2m_min", index)),
+                    sunrise=datetime.fromisoformat(sunrise) if sunrise else None,
+                    sunset=datetime.fromisoformat(sunset) if sunset else None,
+                    precipitation_probability=percent_to_ratio(
+                        cls._at(data, "precipitation_probability_max", index)
+                    ),
+                    wind_speed_max_m_s=kilometers_per_hour_to_meters_per_second(
+                        cls._at(data, "wind_speed_10m_max", index)
+                    ),
+                )
+            )
         return tuple(result)
 
     @staticmethod
-    def _at(data: dict, key: str, index: int):
+    def _at(data: dict[str, Any], key: str, index: int) -> Any:
         values = data.get(key, [])
         return values[index] if index < len(values) else None
 
@@ -161,22 +179,45 @@ class OpenMeteoWeatherProvider(WeatherProviderIf):
             "latitude": location.latitude,
             "longitude": location.longitude,
             "timezone": "auto",
-            "current": ",".join((
-                "temperature_2m", "apparent_temperature",
-                "relative_humidity_2m", "precipitation", "rain", "showers",
-                "snowfall", "weather_code", "cloud_cover", "pressure_msl",
-                "surface_pressure", "wind_speed_10m", "wind_direction_10m",
-                "wind_gusts_10m",
-            )),
-            "hourly": ",".join((
-                "temperature_2m", "apparent_temperature",
-                "precipitation_probability", "precipitation",
-                "weather_code", "cloud_cover", "wind_speed_10m",
-            )),
-            "daily": ",".join((
-                "weather_code", "temperature_2m_max", "temperature_2m_min",
-                "sunrise", "sunset", "precipitation_probability_max",
-                "wind_speed_10m_max",
-            )),
+            "current": ",".join(
+                (
+                    "temperature_2m",
+                    "apparent_temperature",
+                    "relative_humidity_2m",
+                    "precipitation",
+                    "rain",
+                    "showers",
+                    "snowfall",
+                    "weather_code",
+                    "cloud_cover",
+                    "pressure_msl",
+                    "surface_pressure",
+                    "wind_speed_10m",
+                    "wind_direction_10m",
+                    "wind_gusts_10m",
+                )
+            ),
+            "hourly": ",".join(
+                (
+                    "temperature_2m",
+                    "apparent_temperature",
+                    "precipitation_probability",
+                    "precipitation",
+                    "weather_code",
+                    "cloud_cover",
+                    "wind_speed_10m",
+                )
+            ),
+            "daily": ",".join(
+                (
+                    "weather_code",
+                    "temperature_2m_max",
+                    "temperature_2m_min",
+                    "sunrise",
+                    "sunset",
+                    "precipitation_probability_max",
+                    "wind_speed_10m_max",
+                )
+            ),
             "forecast_days": 7,
         }

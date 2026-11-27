@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-from apps.common.uiTheme.uiTheme import COLORS, FONTS, FONT_FAMILY
+from apps.common.uiTheme.uiTheme import COLORS, FONT_FAMILY, FONTS
 
 RADIO_PANEL_THEME = {
     "colors": {

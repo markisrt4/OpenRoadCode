@@ -12,9 +12,7 @@ from hardware_io.bluetooth import BleDeviceInfo, BleScanner
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Bluetooth Low Energy scanner component test"
-    )
+    parser = argparse.ArgumentParser(description="Bluetooth Low Energy scanner component test")
 
     parser.add_argument(
         "--timeout",
@@ -39,10 +37,7 @@ def print_device(device: BleDeviceInfo) -> None:
 async def run_scan(timeout_seconds: float) -> None:
     scanner = BleScanner(timeout_seconds=timeout_seconds)
 
-    print(
-        f"Scanning for Bluetooth Low Energy devices "
-        f"for {timeout_seconds:.1f} seconds...\n"
-    )
+    print(f"Scanning for Bluetooth Low Energy devices for {timeout_seconds:.1f} seconds...\n")
 
     devices = await scanner.scan()
 
@@ -76,4 +71,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

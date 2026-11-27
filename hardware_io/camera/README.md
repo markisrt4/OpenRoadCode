@@ -5,17 +5,40 @@ currently supported through `V4L2Camera`, which uses OpenCV's V4L2 backend.
 
 ## VM / Raspberry Pi setup
 
-Install the runtime dependency:
+On Pi 5, select **Linux USB cameras and V4L2 controls** in the host installer
+TUI, or use the equivalent command:
 
 ```bash
-sudo apt install python3-opencv
+git switch feature/rpi5-integration
+git fetch origin
+git pull --ff-only
+./scripts/installers/host_setup.sh --target rpi5 --feature video-v4l2
 ```
+
+Select **YOLO object detection and tracking** (`--feature video-perception`)
+to install the AI runtime and verify and download the pinned `yolo11n.pt`
+weights. The installer stores them in
+`${XDG_DATA_HOME:-$HOME/.local/share}/openroadcode/vision/models` and reuses
+verified weights on subsequent runs. Vision loads this file locally. If the
+download fails, the installer reports incomplete AI setup and you can still
+use the camera preview. Rerun with `--feature video-perception` to retry.
+If the installer adds the `video` group, log out and back in before opening
+Vision. The desktop capture backend supports USB V4L2 cameras.
 
 Confirm the camera is visible and inspect its modes:
 
 ```bash
 v4l2-ctl --list-devices
 v4l2-ctl -d /dev/video0 --list-formats-ext
+```
+
+Launch `./runOrcUi`, open **Vision**, and confirm the preview appears. Leave
+and reopen Vision to verify the camera is released and can be opened again.
+If the capture node differs from `/dev/video0`, select it at launch, preferably
+using a stable link from `/dev/v4l/by-id`:
+
+```bash
+ORC_CAMERA_DEVICE=/dev/video2 ./runOrcUi
 ```
 
 Run the live OpenRoadCode preview from the repository root:

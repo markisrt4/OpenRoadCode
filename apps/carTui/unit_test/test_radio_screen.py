@@ -47,9 +47,7 @@ class RadioScreenTest(unittest.TestCase):
     def test_power_tune_preset_and_switch_band(self, _render: Mock) -> None:
         radios = build_car_tui_radios(self._runtime_config(), simulate=True)
         screen = RadioScreen(radios)
-        window = FakeWindow(
-            [ord("p"), curses.KEY_RIGHT, ord("]"), ord("3"), ord("p"), ord("b")]
-        )
+        window = FakeWindow([ord("p"), curses.KEY_RIGHT, ord("]"), ord("3"), ord("p"), ord("b")])
 
         self.assertTrue(screen.run(window))
 

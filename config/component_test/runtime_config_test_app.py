@@ -4,8 +4,8 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import sys
+from pathlib import Path
 
 from config.runtime_config import (
     RuntimeConfig,
@@ -38,10 +38,7 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--skip-radio-file-check",
         action="store_true",
-        help=(
-            "Validate TOML structure without requiring referenced radio JSON "
-            "files to exist."
-        ),
+        help=("Validate TOML structure without requiring referenced radio JSON files to exist."),
     )
     parser.add_argument(
         "--quiet",
@@ -73,14 +70,8 @@ def format_config_summary(config: RuntimeConfig) -> str:
         f"  Volume index: {config.input.rotary_encoders.volume_index}",
         "",
         "Barometric sensor:",
-        (
-            "  Driver: "
-            f"{config.environmental.barometric_sensor.driver}"
-        ),
-        (
-            "  I2C address: "
-            f"{config.environmental.barometric_sensor.address:#04x}"
-        ),
+        (f"  Driver: {config.environmental.barometric_sensor.driver}"),
+        (f"  I2C address: {config.environmental.barometric_sensor.address:#04x}"),
         "",
         f"Radio stacks: {len(config.radios)} configured",
     ]
@@ -101,11 +92,7 @@ def format_config_summary(config: RuntimeConfig) -> str:
         [
             "",
             "Auxiliary:",
-            (
-                "  ADS-B: enabled"
-                if config.auxiliary.adsb.enabled
-                else "  ADS-B: disabled"
-            ),
+            ("  ADS-B: enabled" if config.auxiliary.adsb.enabled else "  ADS-B: disabled"),
             f"    URL: {config.auxiliary.adsb.url}",
             (
                 "  Weather dashboard: enabled"

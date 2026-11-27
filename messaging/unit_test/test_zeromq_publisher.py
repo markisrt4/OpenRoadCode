@@ -3,10 +3,10 @@
 
 """Concurrent navigation and UI publications retain complete bus framing."""
 
-from concurrent.futures import ThreadPoolExecutor
 import json
-from threading import Barrier
 import time
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 from unittest.mock import Mock, patch
 
 from messaging.zeromq.publisher import ZeroMqPublisher

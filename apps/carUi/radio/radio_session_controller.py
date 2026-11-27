@@ -7,24 +7,28 @@ from typing import Callable, Optional
 
 from apps.carUi.radio.radio_session_config import RadioSessionConfig
 from apps.carUi.radio.radio_session_state import RadioSessionState
-from ui.radio.radio_formatter import format_frequency
-from ui.system.app_launcher_if import (AppLauncherIf)
 from controllers.radio.radio_controller_if import RadioControllerIf
-from ui.radio.radio_types import (RadioPreset)
-from controllers.sdr.sdr_telemetry_monitor import SDRTelemetryMonitor
 from ui.radio import (
     ModulationType,
     PlaybackRequestHandlerIf,
     PresetRequestHandlerIf,
     RadioApplicationRequestHandlerIf,
-    RadioMode as UiRadioMode,
-    RadioPreset as UiRadioPreset,
     RadioRefreshRequestHandlerIf,
     RadioUiIf,
     StationRequestHandlerIf,
     TunedSignal,
     TuningRequestHandlerIf,
 )
+from ui.radio import (
+    RadioMode as UiRadioMode,
+)
+from ui.radio import (
+    RadioPreset as UiRadioPreset,
+)
+from ui.radio.radio_formatter import format_frequency
+from ui.radio.radio_types import RadioPreset
+from ui.radio.rf_radio_if import RadioTelemetry
+from ui.system.app_launcher_if import AppLauncherIf
 
 
 class RadioSessionController(
@@ -36,6 +40,7 @@ class RadioSessionController(
     RadioRefreshRequestHandlerIf,
 ):
     """Coordinate a radio domain controller, launcher, and panel state."""
+
     def __init__(
         self,
         radio_controller: RadioControllerIf,
@@ -44,6 +49,7 @@ class RadioSessionController(
         remote_display: str = ":2",
         set_status: Optional[Callable[[str], None]] = None,
         on_preset_pressed: Optional[Callable[[RadioPreset], None]] = None,
+        receiver_telemetry: Callable[[], RadioTelemetry | None] | None = None,
     ) -> None:
         self._radio = radio_controller
         self._launcher = radio_app_launcher
@@ -52,10 +58,23 @@ class RadioSessionController(
         self._set_status = set_status
         self._on_preset_pressed = on_preset_pressed
         self._radio_ui: RadioUiIf | None = None
-        self._telemetry_monitor = SDRTelemetryMonitor(radio_controller)
+        self._receiver_telemetry = receiver_telemetry
+        self._close_telemetry: Callable[[], None] | None = None
 
         self._receiver_started = False
         self._active_preset: RadioPreset | None = None
+
+    def own_telemetry(self, close: Callable[[], None]) -> None:
+        """Register composition-owned telemetry cleanup for this session."""
+        self._close_telemetry = close
+
+    def close(self) -> None:
+        """Release the optional telemetry source when the screen is retired."""
+        if self._close_telemetry is not None:
+            close, self._close_telemetry = self._close_telemetry, None
+            close()
+        self._receiver_telemetry = None
+        self._radio_ui = None
 
     @property
     def presets(self) -> tuple[RadioPreset, ...]:
@@ -90,7 +109,7 @@ class RadioSessionController(
             )
 
             if running:
-                self._status(f"{self._config.title} app launched")
+                self._status(f"{self._config.title} service ready")
             else:
                 self._receiver_started = False
                 self._status(f"{self._config.title} app stopped")
@@ -116,7 +135,7 @@ class RadioSessionController(
 
             wait_for_rigctl = getattr(self._launcher, "wait_for_rigctl", None)
             if callable(wait_for_rigctl):
-                self._status(f"{self._config.title} waiting for SDR++ rigctl...")
+                self._status(f"{self._config.title} waiting for radio rigctl...")
                 wait_for_rigctl(set_status=self._set_status)
 
             self._radio.start()
@@ -139,8 +158,7 @@ class RadioSessionController(
                 self._on_preset_pressed(tuned)
 
             self._status(
-                f"{self._config.title}: {tuned.label} "
-                f"({format_frequency(tuned.frequency_hz)})"
+                f"{self._config.title}: {tuned.label} ({format_frequency(tuned.frequency_hz)})"
             )
             return self.refresh_state(include_telemetry=False)
         except Exception as exc:
@@ -215,15 +233,17 @@ class RadioSessionController(
         if include_telemetry:
             try:
                 mode_name = self._current_mode_name()
-                telemetry = self._telemetry_monitor.read(
-                    include_rds=(mode_name == "WFM")
+                telemetry = (
+                    self._receiver_telemetry() if self._receiver_telemetry is not None else None
                 )
-                if telemetry.frequency_hz is not None:
-                    frequency_hz = telemetry.frequency_hz
-                    self._active_preset = self._match_preset(frequency_hz)
-                signal_strength = telemetry.signal
-                snr = telemetry.snr
-                rds = telemetry.rds
+                if telemetry is not None:
+                    if telemetry.frequency_hz is not None:
+                        frequency_hz = telemetry.frequency_hz
+                        self._active_preset = self._match_preset(frequency_hz)
+                    signal_strength = telemetry.signal_db
+                    snr = telemetry.snr_db
+                    if mode_name is not None and mode_name.upper() in ("FM", "WFM"):
+                        rds = telemetry.radio_text or telemetry.rds or None
             except (OSError, RuntimeError, ValueError):
                 pass
 
@@ -312,9 +332,7 @@ class RadioSessionController(
         try:
             frequency_hz = action()
             self._active_preset = self._match_preset(frequency_hz)
-            self._status(
-                f"{self._config.title}: {format_frequency(frequency_hz)}"
-            )
+            self._status(f"{self._config.title}: {format_frequency(frequency_hz)}")
             return self.refresh_state(include_telemetry=False)
         except Exception as exc:
             self._report_failure(operation, exc)

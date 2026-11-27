@@ -3,15 +3,16 @@
 
 """Authentication and request tests for the Linux service-manager HTTP control plane."""
 
-from http.client import HTTPConnection
 import json
 import subprocess
 import threading
 import unittest
+from http.client import HTTPConnection
 from unittest.mock import Mock
 
-from services.common.service_manager_pairing import ServiceManagerPairing
+from services.common.service_manager_auth import same_device_request
 from services.common.service_manager_browser_pairing import ServiceManagerBrowserPairing
+from services.common.service_manager_pairing import ServiceManagerPairing
 from services.linux.systemd_service_manager import ServiceStatus
 from services.linux.systemd_service_manager_http import (
     SystemdServiceManagerHandler,
@@ -19,7 +20,6 @@ from services.linux.systemd_service_manager_http import (
     _authorized,
     _binding_allowed,
 )
-from services.common.service_manager_auth import same_device_request
 
 
 class SystemdServiceManagerHttpPolicyTest(unittest.TestCase):
@@ -78,7 +78,9 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
         SystemdServiceManagerHandler.manager = self.manager
         SystemdServiceManagerHandler.auth_token = "secret"
         SystemdServiceManagerHandler.pairing = ServiceManagerPairing()
-        SystemdServiceManagerHandler.browser_pairing = ServiceManagerBrowserPairing(SystemdServiceManagerHandler.pairing)
+        SystemdServiceManagerHandler.browser_pairing = ServiceManagerBrowserPairing(
+            SystemdServiceManagerHandler.pairing
+        )
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), SystemdServiceManagerHandler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -108,6 +110,7 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
         body = None
         if form is not None:
             from urllib.parse import urlencode
+
             body = urlencode(form)
             headers["Content-Type"] = "application/x-www-form-urlencoded"
         elif payload is not None:
@@ -156,19 +159,13 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
 
         self.assertEqual(status, 200)
         self.assertEqual(payload, {"status": "configured"})
-        self.manager.set_android_bridge_url.assert_called_once_with(
-            f"http://{self.host}:8766"
-        )
+        self.manager.set_android_bridge_url.assert_called_once_with(f"http://{self.host}:8766")
 
     def test_navigation_profile_does_not_own_android_bridge_endpoint(self) -> None:
-        status, payload = self.request(
-            "POST", "/services/openroadcode-navigation/profile/local"
-        )
+        status, payload = self.request("POST", "/services/openroadcode-navigation/profile/local")
 
         self.assertEqual(status, 200)
-        self.manager.set_profile.assert_called_once_with(
-            "openroadcode-navigation", "local"
-        )
+        self.manager.set_profile.assert_called_once_with("openroadcode-navigation", "local")
 
     def test_invalid_service_name_returns_bad_request(self) -> None:
         self.manager.start.side_effect = ValueError("Unsupported OpenRoadCode service: ssh")
@@ -188,7 +185,9 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
 
     def test_browser_pairing_starts_without_admin_token(self) -> None:
         status, payload = self.request(
-            "POST", "/pairing/browser/start", token=None,
+            "POST",
+            "/pairing/browser/start",
+            token=None,
             payload={"client_name": "Test Android"},
         )
         self.assertEqual(status, 200)
@@ -199,10 +198,13 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
 
     def test_browser_pairing_approval_requires_session_capability(self) -> None:
         _, started = self.request(
-            "POST", "/pairing/browser/start", token=None,
+            "POST",
+            "/pairing/browser/start",
+            token=None,
             payload={"client_name": "Test Android"},
         )
         from urllib.parse import parse_qs, urlsplit
+
         approval_token = parse_qs(urlsplit(started["approval_url"]).query)["token"][0]
         status, approved = self.request(
             "POST",
@@ -215,19 +217,20 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
 
     def test_browser_approval_link_requires_opaque_capability(self) -> None:
         _, started = self.request(
-            "POST", "/pairing/browser/start", token=None,
+            "POST",
+            "/pairing/browser/start",
+            token=None,
             payload={"client_name": "Test Android"},
         )
         from urllib.parse import urlsplit
+
         approval_path = urlsplit(started["approval_url"]).path
         status, rejected = self.request("GET", approval_path, token=None)
         self.assertEqual(status, 401)
         self.assertIn("Invalid pairing approval link", rejected)
 
         approval_url = urlsplit(started["approval_url"])
-        status, page = self.request(
-            "GET", approval_url.path + "?" + approval_url.query, token=None
-        )
+        status, page = self.request("GET", approval_url.path + "?" + approval_url.query, token=None)
         self.assertEqual(status, 200)
         self.assertIn("Approve device", page)
         self.assertNotIn("Pairing PIN", page)
@@ -235,7 +238,9 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
 
     def test_browser_pairing_status_requires_poll_token(self) -> None:
         _, started = self.request(
-            "POST", "/pairing/browser/start", token=None,
+            "POST",
+            "/pairing/browser/start",
+            token=None,
             payload={"client_name": "Test Android"},
         )
         status, response = self.request(
@@ -246,10 +251,13 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
 
     def test_browser_pairing_issues_credentials_once_after_approval(self) -> None:
         _, started = self.request(
-            "POST", "/pairing/browser/start", token=None,
+            "POST",
+            "/pairing/browser/start",
+            token=None,
             payload={"client_name": "Test Android"},
         )
         from urllib.parse import parse_qs, urlsplit
+
         approval_token = parse_qs(urlsplit(started["approval_url"]).query)["token"][0]
         status, approved = self.request(
             "POST",
@@ -261,7 +269,9 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
         self.assertIn("Device approved", approved)
 
         status, completed = self.request(
-            "GET", f"/pairing/browser/status/{started['session_id']}", token=None,
+            "GET",
+            f"/pairing/browser/status/{started['session_id']}",
+            token=None,
             pairing_token=started["poll_token"],
         )
         self.assertEqual(status, 200)
@@ -270,7 +280,9 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
         self.assertTrue(completed["access_token"])
 
         status, consumed = self.request(
-            "GET", f"/pairing/browser/status/{started['session_id']}", token=None,
+            "GET",
+            f"/pairing/browser/status/{started['session_id']}",
+            token=None,
             pairing_token=started["poll_token"],
         )
         self.assertEqual(status, 410)
@@ -310,9 +322,7 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
             payload={"pin": started["pin"], "client_name": "Test Android"},
         )
 
-        status, payload = self.request(
-            "POST", "/pairing/start", token=paired["access_token"]
-        )
+        status, payload = self.request("POST", "/pairing/start", token=paired["access_token"])
         self.assertEqual(status, 401)
         self.assertEqual(payload, {"error": "unauthorized"})
 

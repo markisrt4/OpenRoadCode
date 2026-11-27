@@ -11,6 +11,9 @@
   let tiledMap;
   let imageryStack;
   let roadOverlay;
+  let poiOverlay;
+  let routeOverlay;
+  let terrainHillshade;
   let closing = false;
   const close = document.getElementById('close');
   document.querySelectorAll('nav button').forEach(button => { button.disabled = true; });
@@ -102,7 +105,7 @@
     if (buildings) buildings.source.show = snapshot.buildings_visible;
     tiledMap = snapshot.map_tiles ? window.ORCLocalMapTiles(viewer, snapshot.map_tiles, C,
       terrain?.heightAt, snapshot.buildings_visible) : null;
-    const buildingLabel = tiledMap ? "Tiled buildings: blue tagged, gold floor estimates, brown 9 m placeholders"
+    const buildingLabel = tiledMap ? "Tiled buildings: tagged heights; floor estimates appear close in; placeholders hidden"
       : buildings ? buildings.label : "buildings not installed";
     function bindVisibility(id, source) {
       const button = document.getElementById(id);
@@ -128,6 +131,19 @@
       viewer.scene.canvas.addEventListener(event, () => { window.ORCManualCameraRevision++; }, {passive:true});
     }
     window.ORCUpdateVehicle = window.ORCVehicleFollow(viewer, snapshot, C, terrain?.heightAt);
+    poiOverlay=window.ORCPoiOverlay(viewer,C,terrain?.heightAt);
+    window.ORCUpdatePois=state=>poiOverlay.update(state);
+    window.ORCConsumePoiSelection=()=>poiOverlay.consumeSelection();
+    viewer.screenSpaceEventHandler.setInputAction(movement=>{
+      const picked=viewer.scene.pick(movement.position);
+      poiOverlay.select(picked?.id?.id);
+    },C.ScreenSpaceEventType.LEFT_CLICK);
+    viewer.screenSpaceEventHandler.setInputAction(movement=>{
+      const picked=viewer.scene.pick(movement.endPosition);
+      poiOverlay.focus(picked?.id?.id);
+    },C.ScreenSpaceEventType.MOUSE_MOVE);
+    routeOverlay=window.ORCRouteOverlay(viewer,C,terrain?.heightAt);
+    window.ORCUpdateRoute=state=>routeOverlay.update(state);
     document.getElementById('pitch-up').onclick = () => { cameraControls.pitch(1); tilted=true; };
     document.getElementById('pitch-down').onclick = () => { cameraControls.pitch(-1); tilted=true; };
     for (const [id,right,up] of [['pan-up',0,1],['pan-down',0,-1],['pan-left',-1,0],['pan-right',1,0]]) {
@@ -181,13 +197,17 @@
     });
     document.querySelectorAll('nav button').forEach(button => { button.disabled = false; });
     const roadsButton=document.getElementById('roads');
+    const placesButton=document.getElementById('places');
     roadsButton.disabled=!snapshot.roads_available;
-    roadsButton.title=snapshot.roads_available?'Major roads, freeway references and place names':'Road overlay temporarily disabled while investigating rendering crashes';
+    placesButton.disabled=!snapshot.roads_available;
+    roadsButton.title=snapshot.roads_available?'Major roads and freeway references':'Install offline vector map data to enable roads';
+    placesButton.title=snapshot.roads_available?'Selected city and community names':'Install offline vector map data to enable place names';
     if(snapshot.roads_available) {
       roadOverlay=window.ORCRoadOverlay(viewer,C,terrain?.heightAt,error=>{
         status.hidden=false;status.textContent='Road overlay unavailable: '+error.message;
       },snapshot.roads_max_zoom);
-      roadsButton.onclick=()=>{roadOverlay.show=!roadOverlay.show;roadsButton.setAttribute('aria-pressed',String(roadOverlay.show));};
+      roadsButton.onclick=()=>{roadOverlay.roadsVisible=!roadOverlay.roadsVisible;roadsButton.setAttribute('aria-pressed',String(roadOverlay.roadsVisible));};
+      placesButton.onclick=()=>{roadOverlay.placesVisible=!roadOverlay.placesVisible;placesButton.setAttribute('aria-pressed',String(roadOverlay.placesVisible));};
     }
 
     const terrainButton = document.getElementById('terrain');
@@ -196,15 +216,19 @@
     let terrainScale = snapshot.terrain_scale;
     const scaleButton = document.getElementById('terrain-scale');
     scaleButton.disabled = !terrain || !terrainVisible;
-    const hasImagery = snapshot.imagery_layers?.length || snapshot.imagery || snapshot.map_tiles?.tiles.some(t=>t.imagery_url);
-    const contours = terrain && !hasImagery ? C.Material.fromType('ElevationContour', {
-      color:C.Color.fromCssColorString('#e6d59a'), spacing:10, width:1.5
-    }) : undefined;
+    const cuesButton = document.getElementById('terrain-cues');
+    const terrainCues = terrain ? window.ORCTerrainCues(viewer,C) : null;
+    terrainHillshade = terrain ? window.ORCTerrainHillshade(viewer,snapshot.terrain,C,error=>{
+      status.hidden=false;status.textContent='Terrain hillshade unavailable: '+error.message;
+    }) : null;
+    let cuesVisible = Boolean(snapshot.terrain_shading_visible);
+    cuesButton.disabled = !terrain || !terrainVisible;
     function updateTerrain() {
       terrain.setScale(viewer, terrainScale);
       terrain.setVisible(viewer, terrainVisible);
       scaleButton.disabled = !terrainVisible;
-      scaleButton.textContent = `Relief ${terrainScale}×`;
+      cuesButton.disabled = !terrainVisible;
+      scaleButton.textContent = `Height ${terrainScale}×`;
       scaleButton.title = terrainScale === 1 ? 'Actual elevations' : 'Exaggerated terrain; source elevations unchanged';
       target = C.Cartesian3.fromRadians(snapshot.longitude_rad, snapshot.latitude_rad,
         terrain.heightAt(snapshot.longitude_rad,snapshot.latitude_rad)+3);
@@ -213,14 +237,15 @@
       buildings?.refreshGround();
       tiledMap?.refreshGround();
       roadOverlay?.refreshGround();
-      viewer.scene.globe.material = terrainVisible ? contours : undefined;
+      terrainCues?.setScale(terrainScale);
+      terrainCues?.setEnabled(terrainVisible && cuesVisible);
+      terrainHillshade?.setEnabled(terrainVisible && cuesVisible);
+      cuesButton.setAttribute('aria-pressed', String(terrainVisible && cuesVisible));
       terrainButton.setAttribute('aria-pressed', String(terrainVisible));
-      terrainButton.textContent = terrainVisible ? 'Terrain ON' : 'Terrain OFF';
-      const heights = snapshot.terrain.heights_m;
-      const relief = Math.max(...heights)-Math.min(...heights);
+      terrainButton.textContent = terrainVisible ? 'Ground: Relief' : 'Ground: Flat';
       document.getElementById('terrain-status').textContent = terrainVisible
-        ? `Terrain ON · sampled relief ${relief.toFixed(0)} m · ${terrainScale}×${terrainScale>1 ? ' exaggerated' : ' actual'}${contours ? ' · 10 m contours' : ''}`
-        : 'Terrain OFF · flat comparison';
+        ? `Relief ground · sampled range ${terrain.sourceReliefM.toFixed(0)} m · ${terrainScale}×${terrainScale>1 ? ' exaggerated' : ' actual'}${cuesVisible ? ' · contrast hillshade · 10 m contours' : ''}`
+        : 'Flat ground comparison';
       if (snapshot.embedded) {
         const readout = document.getElementById('terrain-status');
         readout.title = readout.textContent;
@@ -231,6 +256,7 @@
     if (terrain) {
       terrainButton.onclick = () => { terrainVisible = !terrainVisible; updateTerrain(); };
       scaleButton.onclick = () => {terrainScale=terrainScale%3+1; updateTerrain();};
+      cuesButton.onclick = () => {cuesVisible=!cuesVisible;updateTerrain();};
       updateTerrain();
     }
     bindVisibility('buildings', tiledMap || buildings?.source);
@@ -246,7 +272,8 @@
       || snapshot.latitude_rad > tileCoverage.north_rad);
     const coverageLabel = outsideTiles ? 'Selected place outside installed 3D coverage · '
       : imageCoverage && !insideImagery ? 'Selected place outside installed imagery coverage · ' : '';
-    const terrainLabel = terrain ? `relative relief (${snapshot.terrain.width}×${snapshot.terrain.height} samples)` : 'terrain not installed';
+    const terrainTiles = snapshot.terrain?.tiles || (snapshot.terrain ? [snapshot.terrain] : []);
+    const terrainLabel = terrain ? `relative relief (${terrainTiles.length} grid${terrainTiles.length===1?'':'s'})` : 'terrain not installed';
     status.textContent = `Offline reference globe · imagery not installed · ${terrainLabel} · ${buildingLabel}`;
     if (tiledMap) {
       status.textContent = `Offline · ${coverageLabel}${snapshot.map_tiles.coverage.title} · ${terrainLabel} · ${buildingLabel}`;
@@ -303,5 +330,5 @@
     if (!/unavailable|Unable|stopped/i.test(statusText.textContent)) statusText.hidden = true;
     document.getElementById('tiles-status').hidden = true;
   }
-  window.addEventListener('pagehide', () => { roadOverlay?.destroy(); imageryStack?.destroy(); tiledMap?.destroy(); if (viewer && !viewer.isDestroyed()) viewer.destroy(); });
+  window.addEventListener('pagehide', () => { roadOverlay?.destroy(); terrainHillshade?.destroy(); imageryStack?.destroy(); tiledMap?.destroy(); if (viewer && !viewer.isDestroyed()) viewer.destroy(); });
 })();

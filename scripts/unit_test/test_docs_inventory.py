@@ -18,13 +18,32 @@ class DocsInventoryTests(unittest.TestCase):
     def test_discovery_and_generated_index(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for name in ("README.md", "docs/README.md", "docs/guide.md", "controllers/radio/README.md", "apps/orcUi/ARCHITECTURE.md", "build/README.md"):
+            for name in (
+                "README.md",
+                "docs/README.md",
+                "docs/guide.md",
+                "controllers/radio/README.md",
+                "apps/orcUi/ARCHITECTURE.md",
+                "build/README.md",
+                ".venv-quality/lib/python3.12/site-packages/flask/README.md",
+                ".venv-other/lib/README.md",
+                "docs/.venv-quality/guide.md",
+            ):
                 path = root / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text("# " + path.stem + "\n", encoding="utf-8")
             records = inventory.discover(root)
             paths = {record["path"] for record in records}
-            self.assertEqual(paths, {"README.md", "docs/README.md", "docs/guide.md", "controllers/radio/README.md", "apps/orcUi/ARCHITECTURE.md"})
+            self.assertEqual(
+                paths,
+                {
+                    "README.md",
+                    "docs/README.md",
+                    "docs/guide.md",
+                    "controllers/radio/README.md",
+                    "apps/orcUi/ARCHITECTURE.md",
+                },
+            )
             catalog = inventory.render_catalog(records)
             self.assertIn("../controllers/radio/README.md", catalog)
             self.assertIn("../apps/orcUi/ARCHITECTURE.md", catalog)
@@ -52,7 +71,9 @@ class DocsInventoryTests(unittest.TestCase):
             path.write_text("# New Component\n", encoding="utf-8")
             records = inventory.discover(root)
             self.assertEqual(records[0]["title"], "New Component")
-            self.assertIn("../controllers/new_component/README.md", inventory.render_catalog(records))
+            self.assertIn(
+                "../controllers/new_component/README.md", inventory.render_catalog(records)
+            )
 
 
 if __name__ == "__main__":

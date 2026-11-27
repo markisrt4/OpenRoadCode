@@ -269,9 +269,9 @@ does not update `/opt/openroadcode/navigation/bin/openroadcode-map-renderer`.
 
 ## Desktop host location fallback
 
-Linux navigation services, including those running on Raspberry Pi 5, offer
-browser geolocation alongside device GPS. The saved install/build target does
-not affect eligibility. In ORC, open **Settings → Share host location** to launch
+Linux navigation services, including Raspberry Pi, offer loopback browser
+geolocation alongside device GPS. In ORC, open **Settings → Display & Location
+→ Share host location** to launch
 the permission page using your default browser, including Firefox. Settings
 checks the local service first and reports a stopped service or browser-launch
 failure without blocking the UI. Browser permission remains a browser prompt;
@@ -312,7 +312,8 @@ bash scripts/runtime/start_navigation_service.sh --profile local
 
 The permission page prints its URL at startup. `OPENROADCODE_BROWSER_POSITION_PORT`
 can change the default port; the listener is bound to loopback. An occupied port
-logs a warning and does not disable working bridge/GPS input. On Termux, Settings disables
+logs a warning and does not disable working bridge/GPS input. Termux and vehicle
+Pi hardware keep their existing device sources. On Termux, Settings disables
 browser sharing and explains that location uses the Android sensor bridge.
 The parser also accepts explicit
 `services.navigation.inputs.gps.source = "browser"` for compositions that do not

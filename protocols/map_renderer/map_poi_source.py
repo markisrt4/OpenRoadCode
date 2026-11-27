@@ -6,14 +6,13 @@
 from __future__ import annotations
 
 import logging
-
-from common.logging.structured import event
 import math
 from dataclasses import dataclass
 from queue import Empty, SimpleQueue
 from threading import Thread
 from typing import Any
 
+from common.logging.structured import event
 from messaging.zeromq.publisher import ZeroMqPublisher
 from messaging.zeromq.subscriber import ZeroMqSubscriber
 from ui.navigation import GeoPoint
@@ -72,7 +71,12 @@ class RawMapCamera:
         if not all(type(value) in (int, float) and math.isfinite(value) for value in values):
             return None
         latitude, longitude, zoom, bearing, pitch = values
-        if not (-90 <= latitude <= 90 and -180 <= longitude <= 180 and 0 <= zoom <= 22 and 0 <= pitch <= 85):
+        if not (
+            -90 <= latitude <= 90
+            and -180 <= longitude <= 180
+            and 0 <= zoom <= 22
+            and 0 <= pitch <= 85
+        ):
             return None
         return cls(*(float(value) for value in values))
 
@@ -156,12 +160,19 @@ class MapPoiSource:
             elif topic == MAP_CLICK_TOPIC:
                 click = self._decode_click(payload)
                 if click is not None:
-                    _LOG.debug("Received map click lat=%.7f lon=%.7f radius_m=%.1f marker_id=%r marker_index=%r",
-                               math.degrees(click.position.latitude_rad), math.degrees(click.position.longitude_rad),
-                               click.selection_radius_m, click.marker_id, click.marker_index)
+                    _LOG.debug(
+                        "Received map click lat=%.7f lon=%.7f radius_m=%.1f marker_id=%r marker_index=%r",
+                        math.degrees(click.position.latitude_rad),
+                        math.degrees(click.position.longitude_rad),
+                        click.selection_radius_m,
+                        click.marker_id,
+                        click.marker_index,
+                    )
                     self._click_queue.put(click)
                 else:
-                    event(_LOG, logging.WARNING, "poi.click.rejected", "Rejected malformed map click")
+                    event(
+                        _LOG, logging.WARNING, "poi.click.rejected", "Rejected malformed map click"
+                    )
             elif topic == MAP_CAMERA_CHANGED_TOPIC:
                 camera = RawMapCamera.decode(payload)
                 if camera is not None:
@@ -225,9 +236,7 @@ class MapPoiSource:
             selection_radius_m=float(radius),
             marker_id=marker_id if isinstance(marker_id, str) and marker_id else None,
             marker_index=(
-                int(marker_index)
-                if isinstance(marker_index, int) and marker_index >= 0
-                else None
+                int(marker_index) if isinstance(marker_index, int) and marker_index >= 0 else None
             ),
         )
 

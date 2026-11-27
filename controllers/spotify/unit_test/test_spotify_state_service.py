@@ -21,6 +21,34 @@ class SpotifyStateServiceTest(unittest.TestCase):
         self.assertTrue(self.service._drain_commands())
         self.backend.play.assert_called_once_with()
 
+    def test_song_is_sent_to_selected_device(self) -> None:
+        progress = Mock()
+        failure = Mock()
+        self.backend.search_track.return_value = "spotify:track:123"
+        self.backend.select_playback_device.return_value = {
+            "id": "orc-device",
+            "name": "OpenRoadCode",
+        }
+
+        self.service.request_play_song("Artist", "Song", progress, failure)
+        self.service._drain_commands()
+
+        self.backend.play_track.assert_called_once_with("spotify:track:123", device_id="orc-device")
+        failure.assert_not_called()
+
+    def test_song_device_failure_is_reported_as_an_error(self) -> None:
+        progress = Mock()
+        failure = Mock()
+        self.backend.search_track.return_value = "spotify:track:123"
+        self.backend.select_playback_device.side_effect = RuntimeError("No Connect device")
+
+        self.service.request_play_song("Artist", "Song", progress, failure)
+        self.service._drain_commands()
+
+        failure.assert_called_once_with("Spotify playback unavailable: No Connect device")
+        progress.assert_not_called()
+        self.backend.play_track.assert_not_called()
+
     def test_volume_request_is_clamped_before_backend_call(self) -> None:
         self.service.request_volume(140)
 

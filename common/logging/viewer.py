@@ -3,10 +3,12 @@
 """Attach to ORC logs: python -m common.logging.viewer [--level DEBUG]."""
 
 from __future__ import annotations
+
 import argparse
 import json
 import os
 import threading
+
 from .structured import MAX_EVENT_BYTES, level_number, log_path, validate_event
 
 

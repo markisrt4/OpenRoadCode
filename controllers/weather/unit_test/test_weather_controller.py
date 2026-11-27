@@ -119,8 +119,9 @@ def test_offline_returns_cached_weather_without_location_or_provider_requests():
     provider = Mock()
     provider.refresh.return_value = _state(fetched_at=100.0)
     location = Mock()
-    controller = WeatherController(provider, location_provider=location,
-                                   network_allowed=lambda: online, clock=lambda: 10000.0)
+    controller = WeatherController(
+        provider, location_provider=location, network_allowed=lambda: online, clock=lambda: 10000.0
+    )
     cached = controller.refresh()
     online = False
     assert controller.refresh() is cached
@@ -145,8 +146,11 @@ def test_failed_gps_lookup_reuses_last_forecast_location():
     provider.refresh.return_value = _state(fetched_at=100.0)
     location = Mock()
     location.get_location.return_value = WeatherLocation(42.8, -83.0, "GPS", "GPSD")
-    controller = WeatherController(provider, location_provider=location,
-                                   fallback_location=WeatherLocation(0.0, 0.0, "fallback", "config"))
+    controller = WeatherController(
+        provider,
+        location_provider=location,
+        fallback_location=WeatherLocation(0.0, 0.0, "fallback", "config"),
+    )
     previous = controller.refresh()
     location.get_location.side_effect = TimeoutError("GPS timed out")
     controller.refresh()

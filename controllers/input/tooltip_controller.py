@@ -10,7 +10,9 @@ from ui.ui_dispatcher_if import UiDispatcherIf
 class TooltipController(TooltipRequestHandlerIf):
     """Own a tooltip session; all requests run on the UI dispatch thread."""
 
-    def __init__(self, view: TooltipUiIf, dispatcher: UiDispatcherIf, *, delay_ms: int = 500) -> None:
+    def __init__(
+        self, view: TooltipUiIf, dispatcher: UiDispatcherIf, *, delay_ms: int = 500
+    ) -> None:
         if not isinstance(view, TooltipUiIf):
             raise TypeError("Tooltip requires TooltipUiIf")
         if delay_ms < 0:

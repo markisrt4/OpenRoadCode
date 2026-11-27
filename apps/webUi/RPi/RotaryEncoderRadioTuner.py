@@ -3,14 +3,14 @@
 
 from time import sleep
 
-from modules.hardware.gpio.rpi_gpio import RpiGpio
-from modules.hardware.drivers.rotary_encoder import RotaryEncoderPins
-from modules.hardware.input.rotary_encoder_device import RotaryEncoderDevice
-from modules.sdr.rigctl_client import RigctlClient
 from modules.adapters.rotary_rigctl_adapter import (
     RotaryRigctlAdapter,
     RotaryRigctlAdapterConfig,
 )
+from modules.hardware.drivers.rotary_encoder import RotaryEncoderPins
+from modules.hardware.gpio.rpi_gpio import RpiGpio
+from modules.hardware.input.rotary_encoder_device import RotaryEncoderDevice
+from modules.sdr.rigctl_client import RigctlClient
 
 
 def main() -> None:
@@ -23,7 +23,7 @@ def main() -> None:
     )
 
     rigctl = RigctlClient(
-        host="192.168.1.100",  # Radio Pi running SDR++ rigctl server
+        host="192.168.1.100",  # Radio Pi running SDRForge rigctl server
         port=4532,
     )
 

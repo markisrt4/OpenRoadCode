@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: MIT
 
 from abc import ABC, abstractmethod
+
+
 class RadioBackendIf(ABC):
     """Hardware-independent contract for controlling a radio receiver."""
 

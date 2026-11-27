@@ -6,7 +6,6 @@ from controllers.route_planning.route_geojson_mapper import (
 )
 from controllers.route_planning.route_planning_types import (
     GeoPoint,
-    RouteManeuver,
     RouteResult,
 )
 

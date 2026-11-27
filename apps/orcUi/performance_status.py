@@ -21,13 +21,19 @@ class PerformanceStatus:
     tone: str = "text_muted"
 
 
-def performance_status(sample: SystemDiagnosticsSnapshot, *, stale: bool = False) -> PerformanceStatus:
+def performance_status(
+    sample: SystemDiagnosticsSnapshot, *, stale: bool = False
+) -> PerformanceStatus:
     """Prioritize current resource pressure and observed sensor problems."""
     if stale or sample.sampled_at_unix_s is None:
         return PerformanceStatus()
     conditions = []
-    for value in (sample.cpu_percent, sample.workload.cpu_capacity_percent,
-                  sample.memory_used_percent, sample.disk_used_percent):
+    for value in (
+        sample.cpu_percent,
+        sample.workload.cpu_capacity_percent,
+        sample.memory_used_percent,
+        sample.disk_used_percent,
+    ):
         if value is not None and value >= 80:
             conditions.append(2 if value >= 95 else 1)
     headroom = sample.thermal_headroom_c
@@ -39,13 +45,23 @@ def performance_status(sample: SystemDiagnosticsSnapshot, *, stale: bool = False
     if any(service.state in {"dropping", "stopped"} for service in sample.services):
         conditions.append(2)
     if sample.battery.state == "available" and sample.battery.health not in {"GOOD", "UNKNOWN"}:
-        conditions.append(2 if sample.battery.health in {"OVERHEAT", "DEAD", "OVER_VOLTAGE", "UNSPECIFIED_FAILURE"} else 1)
+        conditions.append(
+            2
+            if sample.battery.health in {"OVERHEAT", "DEAD", "OVER_VOLTAGE", "UNSPECIFIED_FAILURE"}
+            else 1
+        )
     if conditions:
         return PerformanceStatus(tone="accent_danger" if max(conditions) == 2 else "accent_warning")
     if sample.workload.visibility != "visible":
         return PerformanceStatus()
-    if any(value is None for value in (sample.workload.cpu_capacity_percent,
-                                       sample.memory_used_percent, sample.disk_used_percent)):
+    if any(
+        value is None
+        for value in (
+            sample.workload.cpu_capacity_percent,
+            sample.memory_used_percent,
+            sample.disk_used_percent,
+        )
+    ):
         return PerformanceStatus()
     return PerformanceStatus(tone="accent_success")
 
@@ -53,11 +69,19 @@ def performance_status(sample: SystemDiagnosticsSnapshot, *, stale: bool = False
 class PerformanceStatusPresenter:
     """Refresh shell status from the existing cache without another sampler."""
 
-    def __init__(self, host, provider: SystemDiagnosticsProviderIf,
-                 present: Callable[[PerformanceStatus], None], *, clock: Callable[[], float] = time.monotonic) -> None:
+    def __init__(
+        self,
+        host,
+        provider: SystemDiagnosticsProviderIf,
+        present: Callable[[PerformanceStatus], None],
+        *,
+        on_sample: Callable[[SystemDiagnosticsSnapshot], None] | None = None,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         self._host = host
         self._provider = provider
         self._present = present
+        self._on_sample = on_sample
         self._clock = clock
         self._active = False
         self._callback_id = None
@@ -94,6 +118,8 @@ class PerformanceStatusPresenter:
                 self._sample_time = sample.sampled_at_unix_s
                 self._changed_at = now
             status = performance_status(sample, stale=now - self._changed_at > 3)
+            if self._on_sample is not None:
+                self._on_sample(sample)
         except Exception:
             status = PerformanceStatus()
         self._present(status)

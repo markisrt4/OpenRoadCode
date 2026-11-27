@@ -17,9 +17,12 @@ echo "[*] Setting up VNC..."
 mkdir -p "$HOME/.vnc"
 mkdir -p "$PROJECT_DIR/scripts"
 
-if [[ ! -f "$HOME/.vnc/passwd" ]]; then
-  if ! command -v vncpasswd >/dev/null 2>&1; then
-    echo "[!] vncpasswd is required to initialize VNC securely." >&2
+TIGERVNC_PASSWORD="${XDG_CONFIG_HOME:-$HOME/.config}/tigervnc/passwd"
+if [[ -s "$TIGERVNC_PASSWORD" || -s "$HOME/.vnc/passwd" ]]; then
+  echo "[*] Existing VNC password found."
+else
+  if ! command -v tigervncpasswd >/dev/null 2>&1; then
+    echo "[!] Install tigervnc-tools to initialize the TigerVNC password." >&2
     exit 1
   fi
   if [[ ! -t 0 ]]; then
@@ -27,10 +30,9 @@ if [[ ! -f "$HOME/.vnc/passwd" ]]; then
     echo "[!] Run setup_vnc.sh interactively before enabling the service." >&2
     exit 1
   fi
-  echo "[*] Choose a VNC password. No default password will be created."
-  vncpasswd -user
-else
-  echo "[*] Existing VNC password found."
+  echo "[*] Choose a TigerVNC password. No default password will be created."
+  install -d -m 0700 "$(dirname "$TIGERVNC_PASSWORD")"
+  tigervncpasswd "$TIGERVNC_PASSWORD"
 fi
 
 if [[ ! -f "$HOME/.vnc/xstartup" ]]; then

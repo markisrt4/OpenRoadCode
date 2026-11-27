@@ -26,9 +26,7 @@ class TcpStreamTransport(StreamTransportIf):
     def connect(self) -> None:
         if self.is_connected:
             return
-        sock = socket.create_connection(
-            (self._host, self._port), timeout=self._timeout
-        )
+        sock = socket.create_connection((self._host, self._port), timeout=self._timeout)
         sock.settimeout(self._timeout)
         self._socket = sock
 

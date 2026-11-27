@@ -37,7 +37,9 @@ class MenuRenderer(UiWidget):
         columns = max(1, page.columns)
         rows = max(1, (len(page.tiles) + columns - 1) // columns)
         for column in range(columns):
-            dashboard.columnconfigure(column, weight=self._layout["fill_weight"], uniform="menu_column")
+            dashboard.columnconfigure(
+                column, weight=self._layout["fill_weight"], uniform="menu_column"
+            )
         for row in range(rows):
             dashboard.rowconfigure(row, weight=self._layout["fill_weight"], uniform="menu_row")
         for index, tile_spec in enumerate(page.tiles):
@@ -50,7 +52,9 @@ class MenuRenderer(UiWidget):
                 pady=self._style["tile_grid_pady"],
             )
 
-    def create_tile(self, *, parent: tk.Widget, tile: MenuTile, is_main_tile: bool = False) -> tk.Frame:
+    def create_tile(
+        self, *, parent: tk.Widget, tile: MenuTile, is_main_tile: bool = False
+    ) -> tk.Frame:
         is_preset = "_preset_" in tile.key and not is_main_tile
         if is_main_tile:
             title_font = self._style["main_title_font"]
@@ -69,10 +73,17 @@ class MenuRenderer(UiWidget):
             bd=self._layout["tile_border"],
             cursor=self._layout["tile_cursor"],
         )
-        accent = tk.Frame(tile_frame, bg=self._colors["tile_accent"], height=self._style["accent_height"])
+        accent = tk.Frame(
+            tile_frame, bg=self._colors["tile_accent"], height=self._style["accent_height"]
+        )
         accent.pack(fill=self._layout["fill_horizontal"], side=self._layout["side_top"])
         body = tk.Frame(tile_frame, bg=self._colors["tile_bg"])
-        body.pack(fill=self._layout["fill_both"], expand=True, padx=self._style["body_padx"], pady=self._style["body_pady"])
+        body.pack(
+            fill=self._layout["fill_both"],
+            expand=True,
+            padx=self._style["body_padx"],
+            pady=self._style["body_pady"],
+        )
         icon_id = tile.icon or menu_icon_for_key(tile.key)
         if icon_id is not None:
             icon = create_icon(
@@ -83,16 +94,69 @@ class MenuRenderer(UiWidget):
                 foreground=self._colors["tile_accent"],
             )
             icon.pack(anchor=anchor, pady=(0, self._style["subtitle_top_pad"]))
-        self._create_label(body, text=tile.title, font=title_font, foreground=self._colors["tile_title"], anchor=anchor, justify=justify, wraplength=self._style["title_wrap"]).pack(fill=self._layout["fill_horizontal"], anchor=anchor)
-        self._create_label(body, text=tile.subtitle, font=self._style["subtitle_font"], foreground=self._colors["tile_subtitle"], anchor=anchor, justify=justify, wraplength=self._style["text_wrap"]).pack(fill=self._layout["fill_horizontal"], anchor=anchor, pady=(self._style["subtitle_top_pad"], 0))
-        self._create_label(body, text=tile.detail, font=self._style["detail_font"], foreground=self._colors["tile_detail"], anchor=anchor, justify=justify, wraplength=self._style["text_wrap"]).pack(fill=self._layout["fill_horizontal"], anchor=anchor, pady=(self._style["detail_top_pad"], 0))
+        self._create_label(
+            body,
+            text=tile.title,
+            font=title_font,
+            foreground=self._colors["tile_title"],
+            anchor=anchor,
+            justify=justify,
+            wraplength=self._style["title_wrap"],
+        ).pack(fill=self._layout["fill_horizontal"], anchor=anchor)
+        self._create_label(
+            body,
+            text=tile.subtitle,
+            font=self._style["subtitle_font"],
+            foreground=self._colors["tile_subtitle"],
+            anchor=anchor,
+            justify=justify,
+            wraplength=self._style["text_wrap"],
+        ).pack(
+            fill=self._layout["fill_horizontal"],
+            anchor=anchor,
+            pady=(self._style["subtitle_top_pad"], 0),
+        )
+        self._create_label(
+            body,
+            text=tile.detail,
+            font=self._style["detail_font"],
+            foreground=self._colors["tile_detail"],
+            anchor=anchor,
+            justify=justify,
+            wraplength=self._style["text_wrap"],
+        ).pack(
+            fill=self._layout["fill_horizontal"],
+            anchor=anchor,
+            pady=(self._style["detail_top_pad"], 0),
+        )
         self._bind_click_recursive(tile_frame, tile.key)
         return tile_frame
 
-    def _create_label(self, parent: tk.Widget, *, text: str, font: Any, foreground: str, anchor: str, justify: str, wraplength: int) -> tk.Label:
-        return tk.Label(parent, text=text, font=font, bg=self._colors["tile_bg"], fg=foreground, anchor=anchor, justify=justify, wraplength=wraplength)
+    def _create_label(
+        self,
+        parent: tk.Widget,
+        *,
+        text: str,
+        font: Any,
+        foreground: str,
+        anchor: str,
+        justify: str,
+        wraplength: int,
+    ) -> tk.Label:
+        return tk.Label(
+            parent,
+            text=text,
+            font=font,
+            bg=self._colors["tile_bg"],
+            fg=foreground,
+            anchor=anchor,
+            justify=justify,
+            wraplength=wraplength,
+        )
 
     def _bind_click_recursive(self, widget: tk.Widget, key: str) -> None:
-        widget.bind("<Button-1>", lambda event, selected_key=key: self._on_tile_clicked(selected_key))
+        widget.bind(
+            "<Button-1>", lambda event, selected_key=key: self._on_tile_clicked(selected_key)
+        )
         for child in widget.winfo_children():
             self._bind_click_recursive(child, key)

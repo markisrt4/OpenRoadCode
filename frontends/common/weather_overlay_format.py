@@ -35,18 +35,24 @@ def route_weather_label(point, layers, imperial):
     if "temperature" in layers:
         values.append(weather_value(point.temperature_k, "temperature", imperial))
     if "rain" in layers:
-        values.append("Precip —" if point.rain_probability is None else f"Precip {point.rain_probability * 100:.0f}%")
+        values.append(
+            "Precip —"
+            if point.rain_probability is None
+            else f"Precip {point.rain_probability * 100:.0f}%"
+        )
     if "wind" in layers:
         values.append("Wind " + weather_value(point.wind_speed_m_s, "wind", imperial))
     return " · ".join(values)
 
 
 def model_legend(state, imperial):
-    return tuple((weather_value(stop.value_si, state.kind, imperial), stop.rgb) for stop in state.legend)
+    return tuple(
+        (weather_value(stop.value_si, state.kind, imperial), stop.rgb) for stop in state.legend
+    )
 
 
 def model_status(state):
     status = state.status
     if state.valid_at is not None and status == "Weather forecast":
-        status += " · valid " + state.valid_at.astimezone().strftime('%I:%M %p').lstrip('0')
+        status += " · valid " + state.valid_at.astimezone().strftime("%I:%M %p").lstrip("0")
     return status + (" · Loading tiles…" if state.loading else "")

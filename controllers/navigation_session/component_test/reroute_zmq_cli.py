@@ -129,9 +129,7 @@ def main() -> int:
 
         if rerouted != replacement_route:
             raise RuntimeError("Session did not install the route returned over ZeroMQ")
-        if planner.requests != [
-            RouteRequest(current_position, destination, TravelMode.AUTO)
-        ]:
+        if planner.requests != [RouteRequest(current_position, destination, TravelMode.AUTO)]:
             raise RuntimeError(f"Unexpected reroute request: {planner.requests!r}")
         if session.state is None or session.state.route != replacement_route:
             raise RuntimeError("Session state did not retain the replacement route")

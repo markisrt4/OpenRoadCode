@@ -7,14 +7,11 @@ from __future__ import annotations
 
 import json
 import logging
-
-from common.logging.diagnostics import ComponentLog
 import os
 import time
 
-from protocols.chromium.chromium_devtools_client import DevToolsTarget
-
-from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
+from common.logging.diagnostics import ComponentLog
+from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient, DevToolsTarget
 
 
 class EarthGeolocationBridge:
@@ -23,7 +20,12 @@ class EarthGeolocationBridge:
     def __init__(self, client: ChromiumDevToolsClient | None = None) -> None:
         self._diagnostics = ComponentLog("navigation.earth.bridge", "earth")
         self._client = client or ChromiumDevToolsClient(port=9223)
-        self._trace_enabled = os.environ.get("ORC_EARTH_TRACE", "").strip().casefold() in {"1", "true", "yes", "on"}
+        self._trace_enabled = os.environ.get("ORC_EARTH_TRACE", "").strip().casefold() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
         self._last_trace_at = 0.0
         self._permission_browser = ""
 
@@ -37,9 +39,14 @@ class EarthGeolocationBridge:
                 return False
             if endpoint != self._permission_browser:
                 browser = DevToolsTarget("browser", "", "", endpoint)
-                self._client.command(browser, "Browser.grantPermissions", {
-                    "origin": "https://earth.google.com", "permissions": ["geolocation"],
-                })
+                self._client.command(
+                    browser,
+                    "Browser.grantPermissions",
+                    {
+                        "origin": "https://earth.google.com",
+                        "permissions": ["geolocation"],
+                    },
+                )
                 self._permission_browser = endpoint
             value = self._client.evaluate_earth(
                 r"""(() => {
@@ -187,6 +194,7 @@ class EarthGeolocationBridge:
             if not ok or now - self._last_trace_at >= 1.0:
                 self._last_trace_at = now
                 watchers = self.registration_count()
-                self._diagnostics.emit(logging.DEBUG, "bridge_sample",
-                                       delivered=ok, watcher_count=watchers)
+                self._diagnostics.emit(
+                    logging.DEBUG, "bridge_sample", delivered=ok, watcher_count=watchers
+                )
         return ok

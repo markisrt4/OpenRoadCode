@@ -51,7 +51,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-
 def _is_termux() -> bool:
     prefix = os.environ.get("PREFIX", "")
     return "com.termux" in prefix or prefix.endswith("/com.termux/files/usr")
@@ -76,10 +75,9 @@ def _build_scan_source(config):
         ), "termux-android-bridge tcp://127.0.0.1:35000"
 
     return build_source(config), (
-        f"{input_config.transport}"
-        if input_config.source == "device"
-        else input_config.source
+        f"{input_config.transport}" if input_config.source == "device" else input_config.source
     )
+
 
 def main() -> int:
     args = parse_args()
@@ -89,7 +87,7 @@ def main() -> int:
     if not isinstance(source, Obd2Manager):
         raise RuntimeError(
             "configured automotive source is not a real OBD-II device; "
-            "set services.automotive.input.source = \"device\""
+            'set services.automotive.input.source = "device"'
         )
 
     print("OpenRoadCode OBD-II supported PID scan")
@@ -121,12 +119,10 @@ def main() -> int:
             + ("SUPPORTED" if 0x44 in supported else "NOT SUPPORTED")
         )
         print(
-            "  Mass air flow (0x10):   "
-            + ("SUPPORTED" if 0x10 in supported else "NOT SUPPORTED")
+            "  Mass air flow (0x10):   " + ("SUPPORTED" if 0x10 in supported else "NOT SUPPORTED")
         )
         print(
-            "  Fuel level (0x2F):      "
-            + ("SUPPORTED" if 0x2F in supported else "NOT SUPPORTED")
+            "  Fuel level (0x2F):      " + ("SUPPORTED" if 0x2F in supported else "NOT SUPPORTED")
         )
         return 0
     finally:

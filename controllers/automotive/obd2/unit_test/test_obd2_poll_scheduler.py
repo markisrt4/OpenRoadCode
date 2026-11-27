@@ -57,10 +57,19 @@ def test_background_profile_is_trip_biased() -> None:
     scheduler = _scheduler()
     pids = [scheduler.next_decoder().pid for _ in range(12)]
     assert pids == [
-        0x04, 0x11, 0x04, 0x0C, 0x04, 0x05,
-        0x04, 0x0B, 0x04, 0x04, 0x05, 0x04,
+        0x04,
+        0x11,
+        0x04,
+        0x0C,
+        0x04,
+        0x05,
+        0x04,
+        0x0B,
+        0x04,
+        0x04,
+        0x05,
+        0x04,
     ]
-
 
 
 def test_home_profile_keeps_glance_metrics_fresh() -> None:

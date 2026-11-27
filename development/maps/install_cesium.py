@@ -2,13 +2,13 @@
 
 import base64
 import hashlib
-from pathlib import Path
 import shutil
 import tarfile
-from tempfile import TemporaryDirectory
 import urllib.request
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
-from apps.launchers.cesium_sdk import INTEGRITY, TARBALL, VERSION, sdk_directory, require_sdk
+from apps.launchers.cesium_sdk import INTEGRITY, TARBALL, VERSION, require_sdk, sdk_directory
 
 
 def install(destination: Path) -> None:
@@ -31,7 +31,10 @@ def install(destination: Path) -> None:
                 if not (member.isfile() or member.isdir()):
                     raise RuntimeError("Unsupported Cesium archive entry")
                 if member.name.startswith("package/Build/Cesium/") or member.name in (
-                        "package/LICENSE.md", "package/ThirdParty.json", "package/package.json"):
+                    "package/LICENSE.md",
+                    "package/ThirdParty.json",
+                    "package/package.json",
+                ):
                     bundle.extract(member, staging, filter="data")
         prepared = staging / "package"
         require_sdk(prepared / "Build/Cesium")

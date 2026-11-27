@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 from urllib.request import Request, urlopen
@@ -113,4 +113,7 @@ def validate_selection(selected: Iterable[Region], mapping: dict[str, Region]) -
                 conflicts.append((ancestor, region.id))
     if conflicts:
         text = ", ".join(f"{a} + {b}" for a, b in conflicts)
-        raise ValueError("Do not select a region together with one of its descendants; that duplicates map data: " + text)
+        raise ValueError(
+            "Do not select a region together with one of its descendants; that duplicates map data: "
+            + text
+        )

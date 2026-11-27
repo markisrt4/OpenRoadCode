@@ -7,31 +7,35 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
+import logging
+import os
+import subprocess
 from dataclasses import asdict
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-import json
-import os
 from pathlib import Path
-import subprocess
-import logging
 
 from common.logging.lifecycle import failure_fields
 from common.logging.structured import configure_logging, event
-
+from services.common.network_usb_inventory import collect_inventory
 from services.common.service_manager_auth import (
     TOKEN_ENV,
-    authorized as _authorized,
-    binding_allowed as _binding_allowed,
     same_device_request,
 )
-from services.common.service_manager_client_store import ServiceManagerClientStore
+from services.common.service_manager_auth import (
+    authorized as _authorized,
+)
+from services.common.service_manager_auth import (
+    binding_allowed as _binding_allowed,
+)
 from services.common.service_manager_browser_pairing import (
     BrowserPairingConsumedError,
     ServiceManagerBrowserPairing,
 )
-from services.common.service_manager_pairing import ServiceManagerPairing
+from services.common.service_manager_client_store import ServiceManagerClientStore
 from services.common.service_manager_logs import serve_logs
+from services.common.service_manager_pairing import ServiceManagerPairing
 from services.common.system_performance_monitor import SystemPerformanceMonitor
 from services.linux.systemd_service_manager import ServiceStatus, SystemdServiceManager
 
@@ -71,10 +75,15 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
         if parts == ["logs"]:
             serve_logs(self, scope="Linux service-manager log store")
             return
+        if parts == ["network", "diagnostics"]:
+            self._json(HTTPStatus.OK, collect_inventory())
+            return
         if parts == ["performance"]:
             monitor = self.performance_monitor
             if monitor is None:
-                self._json(HTTPStatus.SERVICE_UNAVAILABLE, {"error": "performance sampler unavailable"})
+                self._json(
+                    HTTPStatus.SERVICE_UNAVAILABLE, {"error": "performance sampler unavailable"}
+                )
             else:
                 self._json(HTTPStatus.OK, monitor.payload())
             return

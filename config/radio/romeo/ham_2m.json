@@ -3,9 +3,9 @@
   "label": "HAM 2m",
   "description": "Romeo / Macomb County 2-meter amateur radio monitoring presets.",
   "launch": {
-    "label": "Launch SDR++",
+    "label": "SDRForge Status",
     "subtitle": "2m amateur",
-    "detail": "Starts / toggles SDR++"
+    "detail": "Check shared SDRForge service"
   },
   "radio": {
     "label": "Radio ON/OFF",

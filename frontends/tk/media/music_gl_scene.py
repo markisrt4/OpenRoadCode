@@ -2,36 +2,39 @@
 # SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
 # SPDX-License-Identifier: MIT
 """Native scene drawing only; receives semantic settings and analysis snapshots."""
+
 from __future__ import annotations
 
 import math
 
-from .frequency_analyzer_scene import draw_analyzer
-from .music_pattern_scenes import explosion_field, star_dance, kaleidoscope
-from .music_space_scenes import orbital_system, electric_freeway
-
 from ui.music_visualizer.music_visualizer_types import (
-    KickMode, MusicVisualizationMode, MusicVisualizerOptions, MusicVisualizerView,
+    KickMode,
+    MusicVisualizationMode,
+    MusicVisualizerOptions,
+    MusicVisualizerView,
     VisualizerFrame,
 )
 
+from .frequency_analyzer_scene import draw_analyzer
+from .music_pattern_scenes import explosion_field, kaleidoscope, star_dance
+from .music_space_scenes import electric_freeway, orbital_system
 
-SNARE_X, SNARE_RADIUS = -1.9, .5
-KICK_RADIUS = .55
-DOUBLE_KICK_X = (-.65, .65)
+SNARE_X, SNARE_RADIUS = -1.9, 0.5
+KICK_RADIUS = 0.55
+DOUBLE_KICK_X = (-0.65, 0.65)
 
 
 MODE_LABELS = {
-    MusicVisualizationMode.FREQUENCY_TUNNEL: 'Frequency Tunnel',
-    MusicVisualizationMode.SPECTRUM: 'Spectrum Field',
-    MusicVisualizationMode.BOOMBOX: 'Frequency Analyzer',
-    MusicVisualizationMode.ORBITING_PLANETS: 'Orbiting Planets',
-    MusicVisualizationMode.ELECTRIC_FREEWAY: 'Electric Freeway',
-    MusicVisualizationMode.EXPLOSION_FIELD: 'Explosion Field',
-    MusicVisualizationMode.STAR_DANCE: 'Star Dance',
-    MusicVisualizationMode.ELECTRIC_RINGS: 'Electric Rings',
-    MusicVisualizationMode.NEON_RIBBON: 'Neon Ribbon',
-    MusicVisualizationMode.KALEIDOSCOPE: 'Kaleidoscope',
+    MusicVisualizationMode.FREQUENCY_TUNNEL: "Frequency Tunnel",
+    MusicVisualizationMode.SPECTRUM: "Spectrum Field",
+    MusicVisualizationMode.BOOMBOX: "Frequency Analyzer",
+    MusicVisualizationMode.ORBITING_PLANETS: "Orbiting Planets",
+    MusicVisualizationMode.ELECTRIC_FREEWAY: "Electric Freeway",
+    MusicVisualizationMode.EXPLOSION_FIELD: "Explosion Field",
+    MusicVisualizationMode.STAR_DANCE: "Star Dance",
+    MusicVisualizationMode.ELECTRIC_RINGS: "Electric Rings",
+    MusicVisualizationMode.NEON_RIBBON: "Neon Ribbon",
+    MusicVisualizationMode.KALEIDOSCOPE: "Kaleidoscope",
 }
 
 
@@ -47,7 +50,7 @@ class NativeSceneGeometry:
         if identifier is None:
             identifier = self._gl.glGenLists(1)
             if not identifier:
-                raise RuntimeError('OpenGL geometry allocation failed')
+                raise RuntimeError("OpenGL geometry allocation failed")
             self._gl.glNewList(identifier, self._gl.GL_COMPILE)
             try:
                 build()
@@ -65,8 +68,20 @@ class NativeSceneGeometry:
         self._lists.clear()
 
 
-def draw_scene(gl, glu, quadric, options: MusicVisualizerOptions, frame: VisualizerFrame,
-               pulse: float, decay: float, elapsed: float, aspect: float, geometry=None, analyzer_display=None, palette=None) -> None:
+def draw_scene(
+    gl,
+    glu,
+    quadric,
+    options: MusicVisualizerOptions,
+    frame: VisualizerFrame,
+    pulse: float,
+    decay: float,
+    elapsed: float,
+    aspect: float,
+    geometry=None,
+    analyzer_display=None,
+    palette=None,
+) -> None:
     if options.view is MusicVisualizerView.DRUM_KIT:
         _drums(gl, glu, quadric, options, frame, pulse, decay, elapsed, aspect, geometry)
         return
@@ -98,23 +113,25 @@ def draw_scene(gl, glu, quadric, options: MusicVisualizerOptions, frame: Visuali
 
 def _tunnel(gl, spectrum, pulse, elapsed):
     gl.glTranslatef(0, 0, -1.5)
-    gl.glRotatef(8 * math.sin(elapsed * .25), 0, 0, 1)
+    gl.glRotatef(8 * math.sin(elapsed * 0.25), 0, 0, 1)
     for ring in range(28):
         z = -((ring * 1.5 - elapsed * 4) % 42)
-        brightness = (1 - abs(z) / 48) * (.55 + .45 * pulse)
-        gl.glColor3f(.12 * brightness, (.55 + .3 * math.sin(ring * .3)) * brightness, brightness)
+        brightness = (1 - abs(z) / 48) * (0.55 + 0.45 * pulse)
+        gl.glColor3f(
+            0.12 * brightness, (0.55 + 0.3 * math.sin(ring * 0.3)) * brightness, brightness
+        )
         gl.glBegin(gl.GL_LINE_LOOP)
         for i in range(72):
             angle = i * math.tau / 72
             band = spectrum[(i * len(spectrum) // 72) % len(spectrum)]
-            radius = 2.7 + pulse * .8 + band * .45
+            radius = 2.7 + pulse * 0.8 + band * 0.45
             gl.glVertex3f(radius * math.cos(angle), radius * math.sin(angle), z)
         gl.glEnd()
     gl.glBegin(gl.GL_LINES)
-    gl.glColor3f(.05, .22 + pulse * .25, .4 + pulse * .3)
+    gl.glColor3f(0.05, 0.22 + pulse * 0.25, 0.4 + pulse * 0.3)
     for i in range(16):
         angle = i * math.tau / 16
-        radius = 2.7 + pulse * .8
+        radius = 2.7 + pulse * 0.8
         gl.glVertex3f(radius * math.cos(angle), radius * math.sin(angle), 0)
         gl.glVertex3f(radius * math.cos(angle), radius * math.sin(angle), -42)
     gl.glEnd()
@@ -122,44 +139,48 @@ def _tunnel(gl, spectrum, pulse, elapsed):
 
 def _spectrum(gl, spectrum, pulse, elapsed):
     gl.glTranslatef(0, -1.4, -8)
-    gl.glRotatef(12 * math.sin(elapsed * .2), 0, 1, 0)
+    gl.glRotatef(12 * math.sin(elapsed * 0.2), 0, 1, 0)
     for i, value in enumerate(spectrum):
-        x = (i / max(1, len(spectrum) - 1) - .5) * 6
-        height = .12 + value * (2.2 + pulse)
-        gl.glColor3f(.12 + .7 * i / len(spectrum), .7 - .3 * i / len(spectrum), .95)
+        x = (i / max(1, len(spectrum) - 1) - 0.5) * 6
+        height = 0.12 + value * (2.2 + pulse)
+        gl.glColor3f(0.12 + 0.7 * i / len(spectrum), 0.7 - 0.3 * i / len(spectrum), 0.95)
         gl.glBegin(gl.GL_QUADS)
-        for z in [0, -.3]:
-            for vx, vy in [(x-.08, 0), (x+.08, 0), (x+.08, height), (x-.08, height)]:
+        for z in [0, -0.3]:
+            for vx, vy in [(x - 0.08, 0), (x + 0.08, 0), (x + 0.08, height), (x - 0.08, height)]:
                 gl.glVertex3f(vx, vy, z)
-        for vx in [x-.08, x+.08]:
-            for vy, z in [(0, 0), (0, -.3), (height, -.3), (height, 0)]:
+        for vx in [x - 0.08, x + 0.08]:
+            for vy, z in [(0, 0), (0, -0.3), (height, -0.3), (height, 0)]:
                 gl.glVertex3f(vx, vy, z)
         gl.glEnd()
 
 
 def _rings(gl, spectrum, pulse, elapsed):
     gl.glTranslatef(0, 0, -8)
-    gl.glRotatef(25 * math.sin(elapsed * .3), 0, 1, 0)
+    gl.glRotatef(25 * math.sin(elapsed * 0.3), 0, 1, 0)
     for ring in range(7):
-        gl.glColor3f(.12 + ring * .1, .8 - ring * .08, .95)
+        gl.glColor3f(0.12 + ring * 0.1, 0.8 - ring * 0.08, 0.95)
         gl.glBegin(gl.GL_LINE_LOOP)
         for i in range(96):
             angle = i * math.tau / 96
-            radius = .4 + ring * .3 + pulse * .22 + spectrum[i % len(spectrum)] * .08
-            gl.glVertex3f(radius * math.cos(angle), radius * math.sin(angle), math.sin(angle * 3 + elapsed) * .15)
+            radius = 0.4 + ring * 0.3 + pulse * 0.22 + spectrum[i % len(spectrum)] * 0.08
+            gl.glVertex3f(
+                radius * math.cos(angle),
+                radius * math.sin(angle),
+                math.sin(angle * 3 + elapsed) * 0.15,
+            )
         gl.glEnd()
 
 
 def _ribbon(gl, spectrum, pulse, elapsed):
     gl.glTranslatef(0, 0, -7)
     for strand in range(6):
-        gl.glColor3f(.15 + strand * .12, .65, .95 - strand * .08)
+        gl.glColor3f(0.15 + strand * 0.12, 0.65, 0.95 - strand * 0.08)
         gl.glBegin(gl.GL_LINE_STRIP)
         for i in range(180):
-            x = (i / 179 - .5) * 6
+            x = (i / 179 - 0.5) * 6
             band = spectrum[i * len(spectrum) // 180]
-            y = math.sin(x * 2.5 + elapsed * 2 + strand * .3) * (.25 + band + pulse * .4)
-            gl.glVertex3f(x, y + strand * .16 - .4, math.cos(x + elapsed) * .4)
+            y = math.sin(x * 2.5 + elapsed * 2 + strand * 0.3) * (0.25 + band + pulse * 0.4)
+            gl.glVertex3f(x, y + strand * 0.16 - 0.4, math.cos(x + elapsed) * 0.4)
         gl.glEnd()
 
 
@@ -168,49 +189,64 @@ def _lighting(gl):
     gl.glEnable(gl.GL_LIGHT0)
     gl.glEnable(gl.GL_COLOR_MATERIAL)
     gl.glLightfv(gl.GL_LIGHT0, gl.GL_POSITION, (2, 7, 6, 1))
-    gl.glLightfv(gl.GL_LIGHT0, gl.GL_DIFFUSE, (1, .91, .8, 1))
+    gl.glLightfv(gl.GL_LIGHT0, gl.GL_DIFFUSE, (1, 0.91, 0.8, 1))
     gl.glEnable(gl.GL_LIGHT1)
     gl.glLightfv(gl.GL_LIGHT1, gl.GL_POSITION, (-4, 3, -3, 1))
-    gl.glLightfv(gl.GL_LIGHT1, gl.GL_DIFFUSE, (.3, .42, .65, 1))
-    gl.glLightModelfv(gl.GL_LIGHT_MODEL_AMBIENT, (.15, .17, .2, 1))
-    gl.glMaterialfv(gl.GL_FRONT_AND_BACK, gl.GL_SPECULAR, (.7, .7, .7, 1))
+    gl.glLightfv(gl.GL_LIGHT1, gl.GL_DIFFUSE, (0.3, 0.42, 0.65, 1))
+    gl.glLightModelfv(gl.GL_LIGHT_MODEL_AMBIENT, (0.15, 0.17, 0.2, 1))
+    gl.glMaterialfv(gl.GL_FRONT_AND_BACK, gl.GL_SPECULAR, (0.7, 0.7, 0.7, 1))
     gl.glMaterialf(gl.GL_FRONT_AND_BACK, gl.GL_SHININESS, 48)
 
 
 def drum_camera_distance(zoom: float, aspect: float) -> float:
     """Zoom tightly without clipping the kit on narrow portrait surfaces."""
     # Horizontal half extent ~3.4, aim centered on the drums rather than the floor.
-    fit = 3.4 / (max(.25, aspect) * math.tan(math.radians(25)))
-    return max(10.5 / max(.8, zoom), fit)
+    fit = 3.4 / (max(0.25, aspect) * math.tan(math.radians(25)))
+    return max(10.5 / max(0.8, zoom), fit)
 
 
 def _drums(gl, glu, q, options, frame, pulse, decay, elapsed, aspect, geometry):
     distance = drum_camera_distance(options.drum_zoom, aspect)
-    glu.gluLookAt(0, 1.1 + distance * .4, distance * .9 - pulse * .08,
-                  0, 1.1, .1, 0, 1, 0)
+    glu.gluLookAt(0, 1.1 + distance * 0.4, distance * 0.9 - pulse * 0.08, 0, 1.1, 0.1, 0, 1, 0)
     _lighting(gl)
     gl.glDisable(gl.GL_LIGHTING)
-    gl.glColor3f(.08, .16 + pulse * .1, .23 + pulse * .15)
+    gl.glColor3f(0.08, 0.16 + pulse * 0.1, 0.23 + pulse * 0.15)
     gl.glBegin(gl.GL_LINES)
     for i in range(-4, 5):
-        gl.glVertex3f(i, -.35, -3)
-        gl.glVertex3f(i, -.35, 3)
-        gl.glVertex3f(-4, -.35, i)
-        gl.glVertex3f(4, -.35, i)
+        gl.glVertex3f(i, -0.35, -3)
+        gl.glVertex3f(i, -0.35, 3)
+        gl.glVertex3f(-4, -0.35, i)
+        gl.glVertex3f(4, -0.35, i)
     gl.glEnd()
     gl.glEnable(gl.GL_LIGHTING)
+
     def activity(value):
         return drum_activity(value, options.drum_gain) * decay
-    drums = [(-1.15, 1.35, -.6, .6, .48, (.55, .12, .72), frame.tom_high),
-             (0, 1.5, -.9, .67, .55, (.05, .65, .48), frame.tom_mid),
-             (1.4, .65, -.1, .88, .9, (.08, .4, .78), frame.tom_low),
-             (SNARE_X, .3, 1.15, SNARE_RADIUS, .32, (.75, .38, .05), frame.snare)]
+
+    drums = [
+        (-1.15, 1.35, -0.6, 0.6, 0.48, (0.55, 0.12, 0.72), frame.tom_high),
+        (0, 1.5, -0.9, 0.67, 0.55, (0.05, 0.65, 0.48), frame.tom_mid),
+        (1.4, 0.65, -0.1, 0.88, 0.9, (0.08, 0.4, 0.78), frame.tom_low),
+        (SNARE_X, 0.3, 1.15, SNARE_RADIUS, 0.32, (0.75, 0.38, 0.05), frame.snare),
+    ]
     kicks = DOUBLE_KICK_X if options.kick_mode is KickMode.DOUBLE else [0]
     for x in kicks:
-        _drum(gl, glu, q, x, .4, .6, KICK_RADIUS, .65, (.65, .08, .12), activity(frame.kick), kick=True)
+        _drum(
+            gl,
+            glu,
+            q,
+            x,
+            0.4,
+            0.6,
+            KICK_RADIUS,
+            0.65,
+            (0.65, 0.08, 0.12),
+            activity(frame.kick),
+            kick=True,
+        )
     for x, y, z, r, h, color, hit in drums:
         _drum(gl, glu, q, x, y, z, r, h, color, activity(hit))
-    cymbals = [(-2.4, 2.05, -.2, .95), (2.45, 2.5, -1, .98), (-2.2, 1.1, 1.2, .55)]
+    cymbals = [(-2.4, 2.05, -0.2, 0.95), (2.45, 2.5, -1, 0.98), (-2.2, 1.1, 1.2, 0.55)]
     for x, y, z, r in cymbals:
         hit = activity(frame.cymbal)
         _stand(gl, glu, q, x, y, z)
@@ -220,36 +256,36 @@ def _drums(gl, glu, q, options, frame, pulse, decay, elapsed, aspect, geometry):
         if geometry is None:
             _cymbal(gl, glu, q, r)
         else:
-            geometry.draw(('cymbal', r), lambda radius=r: _cymbal(gl, glu, q, radius))
+            geometry.draw(("cymbal", r), lambda radius=r: _cymbal(gl, glu, q, radius))
         gl.glPopMatrix()
     for x, y, z, _, _, _, _ in drums:
         _stand(gl, glu, q, x, y, z)
     for x in kicks:
         _chrome(gl)
-        _rod(gl, glu, q, (x - .65, -.25, 1.05), (x - .7, .35, .95), .035)
-        _rod(gl, glu, q, (x + .65, -.25, 1.05), (x + .7, .35, .95), .035)
+        _rod(gl, glu, q, (x - 0.65, -0.25, 1.05), (x - 0.7, 0.35, 0.95), 0.035)
+        _rod(gl, glu, q, (x + 0.65, -0.25, 1.05), (x + 0.7, 0.35, 0.95), 0.035)
         gl.glPushMatrix()
-        gl.glTranslatef(x, -.25, 1.9)
+        gl.glTranslatef(x, -0.25, 1.9)
         gl.glRotatef(-100, 1, 0, 0)
-        glu.gluCylinder(q, .11, .07, .42, 16, 1)
+        glu.gluCylinder(q, 0.11, 0.07, 0.42, 16, 1)
         gl.glPopMatrix()
     gl.glDisable(gl.GL_LIGHTING)
 
 
 def drum_activity(value: float, gain: float) -> float:
     """Reject steady percussion baselines; soften hits independently of visualizer gain."""
-    onset = max(0.0, min(1.0, value) - .22) / .78
-    return min(1.0, onset ** 1.6 * max(0.0, gain))
+    onset = max(0.0, min(1.0, value) - 0.22) / 0.78
+    return min(1.0, onset**1.6 * max(0.0, gain))
 
 
 def _chrome(gl):
-    gl.glColor3f(.62, .67, .72)
-    gl.glMaterialfv(gl.GL_FRONT_AND_BACK, gl.GL_SPECULAR, (.95, .95, .95, 1))
+    gl.glColor3f(0.62, 0.67, 0.72)
+    gl.glMaterialfv(gl.GL_FRONT_AND_BACK, gl.GL_SPECULAR, (0.95, 0.95, 0.95, 1))
     gl.glMaterialf(gl.GL_FRONT_AND_BACK, gl.GL_SHININESS, 96)
 
 
 def _rod(gl, glu, q, start, end, radius):
-    dx, dy, dz = (b - a for a, b in zip(start, end))
+    dx, dy, dz = (b - a for a, b in zip(start, end, strict=True))
     length = math.sqrt(dx * dx + dy * dy + dz * dz)
     if length < 1e-6:
         return
@@ -265,46 +301,54 @@ def _rod(gl, glu, q, start, end, radius):
 
 def _stand(gl, glu, q, x, height, z):
     _chrome(gl)
-    _rod(gl, glu, q, (x, -.28, z), (x, height, z), .025)
+    _rod(gl, glu, q, (x, -0.28, z), (x, height, z), 0.025)
     for i in range(3):
         angle = i * math.tau / 3
-        _rod(gl, glu, q, (x, -.1, z),
-             (x + math.cos(angle) * .38, -.32, z + math.sin(angle) * .38), .02)
+        _rod(
+            gl,
+            glu,
+            q,
+            (x, -0.1, z),
+            (x + math.cos(angle) * 0.38, -0.32, z + math.sin(angle) * 0.38),
+            0.02,
+        )
 
 
 def _cymbal(gl, glu, q, radius):
-    gl.glMaterialfv(gl.GL_FRONT_AND_BACK, gl.GL_SPECULAR, (.9, .75, .4, 1))
+    gl.glMaterialfv(gl.GL_FRONT_AND_BACK, gl.GL_SPECULAR, (0.9, 0.75, 0.4, 1))
     gl.glMaterialf(gl.GL_FRONT_AND_BACK, gl.GL_SHININESS, 72)
-    gl.glColor3f(.74, .52, .14)
+    gl.glColor3f(0.74, 0.52, 0.14)
+
     def profile(r):
-        return .16 * math.exp(-((r / radius) / .21) ** 2) + .025 * (r / radius) ** 2
+        return 0.16 * math.exp(-(((r / radius) / 0.21) ** 2)) + 0.025 * (r / radius) ** 2
+
     for ring in range(20):
         inner, outer = radius * ring / 20, radius * (ring + 1) / 20
         gl.glBegin(gl.GL_QUAD_STRIP)
         for i in range(65):
             a = i * math.tau / 64
             for r in (inner, outer):
-                slope = (profile(r + .001) - profile(max(0, r - .001))) / .002
+                slope = (profile(r + 0.001) - profile(max(0, r - 0.001))) / 0.002
                 gl.glNormal3f(-slope * math.cos(a), -slope * math.sin(a), 1)
                 gl.glVertex3f(r * math.cos(a), r * math.sin(a), profile(r))
         gl.glEnd()
     gl.glDisable(gl.GL_LIGHTING)
     gl.glLineWidth(1)
-    gl.glColor3f(.43, .32, .1)
+    gl.glColor3f(0.43, 0.32, 0.1)
     for ring in range(4, 30):
         r = radius * ring / 30
         gl.glBegin(gl.GL_LINE_LOOP)
         for i in range(64):
             a = i * math.tau / 64
-            gl.glVertex3f(r * math.cos(a), r * math.sin(a), profile(r) + .001)
+            gl.glVertex3f(r * math.cos(a), r * math.sin(a), profile(r) + 0.001)
         gl.glEnd()
     gl.glEnable(gl.GL_LIGHTING)
-    gl.glColor3f(.08, .07, .05)
-    gl.glTranslatef(0, 0, .16)
-    glu.gluCylinder(q, .055, .045, .05, 16, 1)
+    gl.glColor3f(0.08, 0.07, 0.05)
+    gl.glTranslatef(0, 0, 0.16)
+    glu.gluCylinder(q, 0.055, 0.045, 0.05, 16, 1)
     _chrome(gl)
-    gl.glTranslatef(0, 0, .05)
-    glu.gluSphere(q, .035, 16, 10)
+    gl.glTranslatef(0, 0, 0.05)
+    glu.gluSphere(q, 0.035, 16, 10)
 
 
 def _drum(gl, glu, q, x, y, z, r, h, color, hit, *, kick=False):
@@ -313,44 +357,44 @@ def _drum(gl, glu, q, x, y, z, r, h, color, hit, *, kick=False):
     if not kick:
         gl.glRotatef(-65, 1, 0, 0)
     # Subtle lacquer variation reads as grain; shell and hardware stay rigid.
-    gl.glMaterialfv(gl.GL_FRONT_AND_BACK, gl.GL_SPECULAR, (.55, .55, .55, 1))
+    gl.glMaterialfv(gl.GL_FRONT_AND_BACK, gl.GL_SPECULAR, (0.55, 0.55, 0.55, 1))
     gl.glMaterialf(gl.GL_FRONT_AND_BACK, gl.GL_SHININESS, 42)
     for band in range(12):
-        shade = .68 + .1 * math.sin(band * 1.7)
+        shade = 0.68 + 0.1 * math.sin(band * 1.7)
         gl.glColor3f(*(c * shade for c in color))
         gl.glPushMatrix()
         gl.glTranslatef(0, 0, h * band / 12)
         glu.gluCylinder(q, r, r, h / 12, 64, 1)
         gl.glPopMatrix()
     _chrome(gl)
-    for end in (0, h - .025):
+    for end in (0, h - 0.025):
         gl.glPushMatrix()
         gl.glTranslatef(0, 0, end)
-        glu.gluCylinder(q, r * 1.025, r * 1.025, .04, 64, 1)
-        glu.gluDisk(q, r * .95, r * 1.025, 64, 1)
+        glu.gluCylinder(q, r * 1.025, r * 1.025, 0.04, 64, 1)
+        glu.gluDisk(q, r * 0.95, r * 1.025, 64, 1)
         gl.glPopMatrix()
     for i in range(10):
         a = i * math.tau / 10
         lx, ly = r * 1.01 * math.cos(a), r * 1.01 * math.sin(a)
-        _rod(gl, glu, q, (lx, ly, .04), (lx, ly, h - .02), .018)
+        _rod(gl, glu, q, (lx, ly, 0.04), (lx, ly, h - 0.02), 0.018)
         gl.glPushMatrix()
-        gl.glTranslatef(lx, ly, h - .01)
-        glu.gluSphere(q, .03, 12, 8)
+        gl.glTranslatef(lx, ly, h - 0.01)
+        glu.gluSphere(q, 0.03, 12, 8)
         gl.glPopMatrix()
-    gl.glTranslatef(0, 0, h - hit * .008)
-    gl.glMaterialfv(gl.GL_FRONT_AND_BACK, gl.GL_SPECULAR, (.12, .12, .12, 1))
+    gl.glTranslatef(0, 0, h - hit * 0.008)
+    gl.glMaterialfv(gl.GL_FRONT_AND_BACK, gl.GL_SPECULAR, (0.12, 0.12, 0.12, 1))
     gl.glMaterialf(gl.GL_FRONT_AND_BACK, gl.GL_SHININESS, 10)
-    flash = max(0, (hit - .12) / .48)
-    gl.glMaterialfv(gl.GL_FRONT_AND_BACK, gl.GL_EMISSION, (flash, flash * .65, flash * .2, 1))
-    head = .23 if kick else .64
-    gl.glColor3f(head + hit * .15, head + hit * .13, head + hit * .1)
-    glu.gluDisk(q, 0, r * .965, 64, 8)
+    flash = max(0, (hit - 0.12) / 0.48)
+    gl.glMaterialfv(gl.GL_FRONT_AND_BACK, gl.GL_EMISSION, (flash, flash * 0.65, flash * 0.2, 1))
+    head = 0.23 if kick else 0.64
+    gl.glColor3f(head + hit * 0.15, head + hit * 0.13, head + hit * 0.1)
+    glu.gluDisk(q, 0, r * 0.965, 64, 8)
     gl.glMaterialfv(gl.GL_FRONT_AND_BACK, gl.GL_EMISSION, (0, 0, 0, 1))
-    gl.glTranslatef(0, 0, .003)
-    gl.glColor3f(.25, .27, .29)
-    glu.gluDisk(q, r * .87, r * .88, 64, 1)
+    gl.glTranslatef(0, 0, 0.003)
+    gl.glColor3f(0.25, 0.27, 0.29)
+    glu.gluDisk(q, r * 0.87, r * 0.88, 64, 1)
     if kick:
-        gl.glTranslatef(r * .4, -r * .35, .003)
-        gl.glColor3f(.025, .025, .025)
-        glu.gluDisk(q, 0, r * .14, 32, 1)
+        gl.glTranslatef(r * 0.4, -r * 0.35, 0.003)
+        gl.glColor3f(0.025, 0.025, 0.025)
+        glu.gluDisk(q, 0, r * 0.14, 32, 1)
     gl.glPopMatrix()

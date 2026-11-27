@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
+
 class Obd2Error(RuntimeError):
     """Base exception for OBD-II adapter and protocol failures."""
 
