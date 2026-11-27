@@ -24,20 +24,27 @@ if ! grep -qw binder /proc/filesystems && ! grep -qw binderfs /proc/filesystems 
   fail "No Binder filesystem or device detected."
 fi
 
-if ! command -v waydroid >/dev/null 2>&1; then
+missing_packages=()
+for executable in waydroid weston adb scrcpy; do
+  command -v "$executable" >/dev/null 2>&1 || missing_packages+=("$executable")
+done
+if (( ${#missing_packages[@]} )); then
   sudo apt update
-  if ! apt-cache show waydroid >/dev/null 2>&1; then
-    # Debian 13 provides Waydroid through signed Debian backports.
-    if ( . /etc/os-release; [[ "${VERSION_CODENAME:-}" == trixie && "${ID:-}" == debian ]] ); then
-      if ! sudo test -e /etc/apt/sources.list.d/openroadcode-backports.list; then
-        printf '%s\n' 'deb https://deb.debian.org/debian trixie-backports main contrib non-free non-free-firmware' |
-          sudo tee /etc/apt/sources.list.d/openroadcode-backports.list >/dev/null
-      fi
-      sudo apt update
+  needs_backports=0
+  for package in "${missing_packages[@]}"; do
+    if ! apt-cache show "$package" >/dev/null 2>&1; then needs_backports=1; fi
+  done
+  if (( needs_backports )) && ( . /etc/os-release; [[ "${VERSION_CODENAME:-}" == trixie && "${ID:-}" == debian ]] ); then
+    if ! sudo test -e /etc/apt/sources.list.d/openroadcode-backports.list; then
+      printf '%s\n' 'deb [signed-by=/usr/share/keyrings/debian-archive-keyring.gpg] https://deb.debian.org/debian trixie-backports main contrib' |
+        sudo tee /etc/apt/sources.list.d/openroadcode-backports.list >/dev/null
     fi
+    sudo apt update
   fi
-  apt-cache show waydroid >/dev/null 2>&1 || fail "Waydroid package unavailable. Configure the official repository for your distribution: https://docs.waydro.id/usage/install-on-desktops"
-  sudo apt install -y waydroid
+  for package in "${missing_packages[@]}"; do
+    apt-cache show "$package" >/dev/null 2>&1 || fail "Required package unavailable: $package. Configure a compatible signed repository before continuing."
+  done
+  sudo apt install -y --no-install-recommends "${missing_packages[@]}"
 fi
 for executable in waydroid weston adb scrcpy; do
   command -v "$executable" >/dev/null 2>&1 || fail "Missing required executable: $executable"
