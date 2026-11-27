@@ -71,7 +71,12 @@ class HostSetupPlanTests(unittest.TestCase):
         )
         self.assertEqual(0, result.returncode, result.stderr)
         for dependency in (
-            "waydroid", "android-integration", "desktop-ui", "weston", "adb", "scrcpy"
+            "waydroid",
+            "android-integration",
+            "desktop-ui",
+            "weston",
+            "adb",
+            "scrcpy",
         ):
             self.assertIn(dependency, result.stdout)
         self.assertIn("Plan only; no system changes were made.", result.stdout)

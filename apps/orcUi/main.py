@@ -67,11 +67,11 @@ def main(*, startup_started_at: float | None = None) -> None:
     parser.add_argument(
         "--check-ecu-gl", action="store_true", help="Check the ECU OpenGL renderer and exit"
     )
-    parser.add_argument("--simulation", action="store_true", help="Use lightweight runtime defaults")
+    parser.add_argument(
+        "--simulation", action="store_true", help="Use lightweight runtime defaults"
+    )
     for feature in ("camera", "audio", "native-map", "spotify"):
-        parser.add_argument(
-            f"--{feature}", action=argparse.BooleanOptionalAction, default=None
-        )
+        parser.add_argument(f"--{feature}", action=argparse.BooleanOptionalAction, default=None)
     args = parser.parse_args()
     simulation = args.simulation or os.environ.get("ORC_SIMULATION") == "1"
     for feature in ("camera", "audio", "native_map", "spotify"):

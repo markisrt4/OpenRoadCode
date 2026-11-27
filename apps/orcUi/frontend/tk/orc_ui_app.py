@@ -88,9 +88,7 @@ class OrcUiApp(UiCallbackMixin, VolumeUiIf, UiWidget):
                 self._root.geometry(geometry)
                 self._root.resizable(True, True)
                 if target != "termux":
-                    self._root.minsize(
-                        min(800, screen_width), min(480, screen_height)
-                    )
+                    self._root.minsize(min(800, screen_width), min(480, screen_height))
                 if self._borderless:
                     self._root.overrideredirect(True)
                     self._root.bind("<Escape>", self._restore_window_decorations)
