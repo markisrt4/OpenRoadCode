@@ -6,7 +6,7 @@ import argparse
 from collections.abc import Mapping, MutableMapping
 from dataclasses import dataclass
 
-FEATURES = ("camera", "audio", "native_map", "spotify", "opengl")
+FEATURES = ("camera", "audio", "native_map", "spotify", "opengl", "adsb")
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,6 +18,7 @@ class RuntimeFeatures:
     native_map: bool
     spotify: bool
     opengl: bool
+    adsb: bool
 
     @classmethod
     def resolve(cls, args: argparse.Namespace, environment: Mapping[str, str]) -> RuntimeFeatures:
