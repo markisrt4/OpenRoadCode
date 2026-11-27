@@ -10,6 +10,7 @@ import tkinter as tk
 from common.logging.structured import event
 from ui.navigation.map_layer_controls import MapLayerAction, MapLayerControls
 
+from .map_disabled_placeholder import MapDisabledPlaceholder
 from .navigation_poi_card_layout import build_poi_card
 
 
@@ -87,14 +88,7 @@ def build_navigation_panel(panel) -> None:
     )
     panel._map_host.grid(row=0, column=0, sticky="nsew")
     if os.environ.get("ORC_NO_NATIVE_MAP") == "1" or os.environ.get("ORC_NO_OPENGL") == "1":
-        tk.Label(
-            panel._map_host,
-            text="MAP DISABLED\nMap rendering disabled by runtime configuration",
-            bg=ui.background,
-            fg=ui.text_muted,
-            font=("Sans", 10, "bold"),
-            justify=tk.CENTER,
-        ).place(relx=0.5, rely=0.5, anchor="center")
+        MapDisabledPlaceholder(panel._map_host, panel._theme_bundle)
     panel._loading_cover = tk.Label(body, text="Loading Terrain…", bg=ui.background, fg=ui.text)
     panel._loading_cover.grid(row=0, column=0, sticky="nsew")
     panel._loading_cover.grid_remove()
