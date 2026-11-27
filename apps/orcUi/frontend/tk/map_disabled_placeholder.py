@@ -6,9 +6,10 @@
 import tkinter as tk
 
 from ui.theme import ThemeBundle
+from ui.ui_widget import UiWidget
 
 
-class MapDisabledPlaceholder(tk.Frame):
+class MapDisabledPlaceholder(tk.Frame, UiWidget):
     """Centered map icon and status, independent of native rendering."""
 
     def __init__(self, parent: tk.Misc, theme: ThemeBundle) -> None:
