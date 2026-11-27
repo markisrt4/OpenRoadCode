@@ -165,6 +165,7 @@ def configure_radio(
         mode_changed(network_allowed())
         directory = RadioBrowserDirectory(timeout_s=10.0, network_allowed=network_allowed)
         favorites = StreamingRadioFavorites()
+        adsb_enabled = os.environ.get("ORC_NO_ADSB") != "1"
         adsb = (
             OrcUiAdsbControl(
                 set_managed_tracking=managed.set_adsb_tracking,
@@ -292,6 +293,9 @@ def configure_radio(
 
         def show_radio_source(source: str) -> None:
             """Navigate through the shell before opening a radio source."""
+            if source == "adsb" and not adsb_enabled:
+                app.set_screen_status("ADS-B intentionally disabled")
+                return
             app.navigate_to("RADIO")
             if source == "rf":
                 screen.open_rf()
@@ -375,6 +379,9 @@ def configure_radio(
             """Serialize service transitions away from the Tk event thread."""
             if resources.closed:
                 return
+            if not adsb_enabled:
+                app.set_screen_status("ADS-B intentionally disabled")
+                return
             if not adsb_io_lock.acquire(blocking=False):
                 return
 
@@ -424,7 +431,8 @@ def configure_radio(
             observe_adsb_status()
             resources.adsb_callback = app.schedule_ui_callback(1000, refresh_adsb_status)
 
-        refresh_adsb_status()
+        if adsb_enabled:
+            refresh_adsb_status()
         composition = RadioComposition(
             screen=screen,
             directory=directory,
