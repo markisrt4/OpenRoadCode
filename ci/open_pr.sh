@@ -58,3 +58,14 @@ if command -v termux-clipboard-set >/dev/null; then
         echo "PR URL could not be copied to clipboard." >&2
     fi
 fi
+
+if command -v xdg-open >/dev/null; then
+    opener=xdg-open
+elif command -v termux-open-url >/dev/null; then
+    opener=termux-open-url
+else
+    exit 0
+fi
+if ! "$opener" "$url"; then
+    echo "PR URL could not be opened in the browser." >&2
+fi
