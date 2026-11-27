@@ -34,7 +34,7 @@ jobs:
       resume_run: ${{ steps.request.outputs.resume_run }}
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Verify the statewide catalog and paging contract before launching workers
