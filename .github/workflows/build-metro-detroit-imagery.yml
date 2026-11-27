@@ -194,7 +194,7 @@ jobs:
             build-output/artifacts/metro-detroit-imagery.zip.json
           key: map-artifact-imagery-metro-detroit-${{ needs.prepare-metro.outputs.imagery }}
       - name: Upload checked imagery package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: metro-detroit-imagery-package
           path: build-output/artifacts/metro-detroit-imagery.zip*
@@ -224,7 +224,7 @@ jobs:
         run: python -m development.maps.artifact_identity terrain metro-detroit --descriptor build-output/artifacts/metro-detroit-terrain.zip.json
       - name: Upload reusable terrain package
         if: ${{ steps.package.outputs.cache-hit == 'true' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: metro-detroit-terrain-package
           path: build-output/artifacts/metro-detroit-terrain.zip*
@@ -275,7 +275,7 @@ jobs:
           exit 1
       - name: Upload validated terrain tile
         if: ${{ steps.terrain-tile.outcome == 'success' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: metro-terrain-tile-${{ matrix.tile }}
           path: build-output/metro-detroit-terrain.download/*
@@ -535,7 +535,7 @@ jobs:
           key: rochester-static-sources-v2-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Upload trial packs and evidence
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.trial_coverage || 'rochester' }}-static-trial-${{ github.run_id }}
           retention-days: 7
@@ -594,7 +594,7 @@ jobs:
           key: michigan-staged-v1-${{ matrix.coverage }}-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Upload region packs and coverage report
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: michigan-staged-${{ matrix.coverage }}-${{ github.run_id }}
           retention-days: 14
@@ -642,7 +642,7 @@ jobs:
           key: metro-osm-buildings-v1-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Upload checked buildings and source report
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: metro-detroit-buildings-${{ github.run_id }}
           retention-days: 14
@@ -694,7 +694,7 @@ jobs:
           key: metro-osm-buildings-v1-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.coverage }}
       - name: Upload checked buildings and source report
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.coverage }}-buildings-${{ github.run_id }}
           retention-days: 14
@@ -779,7 +779,7 @@ jobs:
         with:
           path: build-output/detail-cache/${{ matrix.coverage }}
           key: naip-detail-v2-${{ matrix.coverage }}-${{ github.run_id }}-${{ github.run_attempt }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ always() }}
         with:
           name: imagery-detail-${{ matrix.coverage }}-${{ github.run_id }}
@@ -836,7 +836,7 @@ jobs:
         with:
           path: build-output/terrain-detail-cache/${{ matrix.coverage }}
           key: terrain-detail-v1-${{ matrix.coverage }}-${{ github.run_id }}-${{ github.run_attempt }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ always() }}
         with:
           name: terrain-detail-${{ matrix.coverage }}-${{ github.run_id }}
@@ -866,7 +866,7 @@ jobs:
           /usr/bin/python3 -m development.maps.audit_building_site \
             --output build-output/building-site-audit \
             --cache build-output/building-source-cache
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ always() }}
         with:
           name: building-site-audit-${{ github.run_id }}

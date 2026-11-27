@@ -87,7 +87,7 @@ jobs:
           --plan build-output/statewide-plan.json --directory build-output/resume-reports
           --run "$RESUME_RUN" --inherited build-output/resume-summary/statewide-delivery.json
           --output build-output/resume-delivery.json --github-output "$GITHUB_OUTPUT"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: mi-detail-plan-${{ github.run_id }}
           path: |
@@ -159,7 +159,7 @@ jobs:
           path: build-output/statewide
       - name: Build three independently resumable detail cells
         run: /usr/bin/python3 -m development.maps.build_statewide_detail --plan build-output/plan/statewide-plan.json --batch "$BATCH" --output build-output/statewide
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: mi-detail-batch-${{ matrix.batch }}-${{ github.run_id }}
@@ -170,7 +170,7 @@ jobs:
             build-output/statewide/*.zip
             build-output/statewide/*.zip.json
             build-output/statewide/*report.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: mi-detail-reports-${{ matrix.batch }}-${{ github.run_id }}
@@ -205,7 +205,7 @@ jobs:
           --inherited build-output/plan/resume-delivery.json --output build-output/statewide-delivery.json
       - name: Review complete cells, source gaps and download/install sizes
         run: python -m development.maps.summarize_statewide_detail --plan build-output/plan/statewide-plan.json --directory build-output/reports --output build-output/statewide-summary.json --delivery build-output/statewide-delivery.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: mi-detail-summary-${{ github.run_id }}

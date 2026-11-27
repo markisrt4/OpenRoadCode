@@ -74,7 +74,7 @@ jobs:
           (cd regional-artifacts && sha256sum navigation-data.tar.gz.part-* build-manifest.json > SHA256SUMS)
           du -sh "$root" regional-artifacts
           df -h
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: regional-navigation-data
           path: regional-artifacts/

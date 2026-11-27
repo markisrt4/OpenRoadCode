@@ -34,7 +34,7 @@ jobs:
         run: python -m scripts.generate_business_registry --refresh "$NSI_REVISION"
       - name: Upload candidate for review
         if: github.event_name == 'workflow_dispatch' && inputs.nsi_revision != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: business-registry-candidate
           path: |
