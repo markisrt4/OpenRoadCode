@@ -7,14 +7,25 @@ pid=""
 cleanup() {
     if [[ -n "$pid" ]]; then
         kill "$pid" 2>/dev/null || true
+        for ((i=0; i<5; i++)); do
+            kill -0 "$pid" 2>/dev/null || break
+            sleep 1
+        done
+        kill -KILL "$pid" 2>/dev/null || true
         wait "$pid" 2>/dev/null || true
     fi
-    cat "$log"
+    echo "Application log saved during startup (shown live above)."
     rm -f "$log"
 }
 trap cleanup EXIT
-"$VENV_DIR/bin/python" -c 'import tkinter, numpy, PIL, zmq, musicforge.analysis'
-bash runOrcUi --follow-logs >"$log" 2>&1 &
+export PYTHONUNBUFFERED=1
+for module in tkinter numpy PIL zmq musicforge.analysis; do
+    echo "Checking Python import: $module"
+    timeout -k 5s 45s "$VENV_DIR/bin/python" -c "import $module"
+    echo "Import passed: $module"
+done
+echo "Launching OpenRoadCode..."
+bash runOrcUi --follow-logs > >(tee "$log") 2>&1 &
 pid=$!
 for ((attempt=0; attempt<180; attempt++)); do
     kill -0 "$pid" 2>/dev/null || { echo "ORC exited during startup" >&2; exit 1; }
@@ -27,6 +38,9 @@ for ((attempt=0; attempt<180; attempt++)); do
         fi
         echo "ORC startup and visible window check passed"
         exit 0
+    fi
+    if (( attempt % 10 == 0 )); then
+        echo "Waiting for ORC readiness (attempt $((attempt+1))/180)"
     fi
     sleep 1
 done
