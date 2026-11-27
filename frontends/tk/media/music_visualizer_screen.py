@@ -112,7 +112,9 @@ class MusicVisualizerScreen(MusicVisualizerControlsMixin, TkScreen):
         self._create_panel()
         state = self._controller.capture_state()
         self._status.set(
-            "Audio input connected"
+            "Simulated audio (no hardware capture)"
+            if self._source is MusicVisualizerSource.SIMULATED
+            else "Audio input connected"
             if state is MusicCaptureState.RUNNING
             else "Connecting audio..."
             if state is MusicCaptureState.STARTING
