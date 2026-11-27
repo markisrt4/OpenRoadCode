@@ -75,7 +75,7 @@ class MapRuntime:
             )
 
     def launch(self, parent_window_id: int) -> None:
-        if os.environ.get("ORC_NO_NATIVE_MAP") == "1":
+        if os.environ.get("ORC_NO_NATIVE_MAP") == "1" or os.environ.get("ORC_NO_OPENGL") == "1":
             return
         if (
             self._parent_window_id is not None
