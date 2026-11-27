@@ -70,14 +70,16 @@ def main(*, startup_started_at: float | None = None) -> None:
     parser.add_argument(
         "--simulation", action="store_true", help="Use lightweight runtime defaults"
     )
-    for feature in ("camera", "audio", "native-map", "spotify"):
+    for feature in ("camera", "audio", "native-map", "spotify", "opengl"):
         parser.add_argument(f"--{feature}", action=argparse.BooleanOptionalAction, default=None)
     args = parser.parse_args()
     simulation = args.simulation or os.environ.get("ORC_SIMULATION") == "1"
-    for feature in ("camera", "audio", "native_map", "spotify"):
+    for feature in ("camera", "audio", "native_map", "spotify", "opengl"):
         enabled = getattr(args, feature)
         if enabled is not None or simulation:
             os.environ[f"ORC_NO_{feature.upper()}"] = "0" if enabled else "1"
+    if args.check_ecu_gl and os.environ.get("ORC_NO_OPENGL") == "1":
+        parser.error("--check-ecu-gl requires OpenGL")
     if args.check_ecu_gl:
         from apps.orcUi.frontend.tk.ecu_gl_diagnostics import main as check_ecu_gl
 
