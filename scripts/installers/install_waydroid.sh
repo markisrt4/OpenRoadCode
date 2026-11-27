@@ -17,7 +17,7 @@ esac
 
 systemctl --user show-environment >/dev/null || fail "A running user systemd session is required."
 sudo -v
-if ! grep -qw binder /proc/filesystems && ! grep -qw binderfs /proc/filesystems; then
+if ! grep -qw binder /proc/filesystems && ! grep -qw binderfs /proc/filesystems && [[ ! -c /dev/binder && ! -c /dev/anbox-binder ]]; then
   sudo modprobe binder_linux || fail "Binder unavailable; install a compatible kernel before continuing."
 fi
 if ! grep -qw binder /proc/filesystems && ! grep -qw binderfs /proc/filesystems && [[ ! -c /dev/binder && ! -c /dev/anbox-binder ]]; then
@@ -26,6 +26,16 @@ fi
 
 if ! command -v waydroid >/dev/null 2>&1; then
   sudo apt update
+  if ! apt-cache show waydroid >/dev/null 2>&1; then
+    # Debian 13 provides Waydroid through signed Debian backports.
+    if ( . /etc/os-release; [[ "${VERSION_CODENAME:-}" == trixie && "${ID:-}" == debian ]] ); then
+      if ! sudo test -e /etc/apt/sources.list.d/openroadcode-backports.list; then
+        printf '%s\n' 'deb https://deb.debian.org/debian trixie-backports main contrib non-free non-free-firmware' |
+          sudo tee /etc/apt/sources.list.d/openroadcode-backports.list >/dev/null
+      fi
+      sudo apt update
+    fi
+  fi
   apt-cache show waydroid >/dev/null 2>&1 || fail "Waydroid package unavailable. Configure the official repository for your distribution: https://docs.waydro.id/usage/install-on-desktops"
   sudo apt install -y waydroid
 fi
@@ -35,7 +45,7 @@ done
 
 if sudo test -s /var/lib/waydroid/waydroid.cfg; then
   echo "[*] Preserving existing Waydroid configuration and images."
-elif sudo test -e /var/lib/waydroid; then
+elif sudo test -d /var/lib/waydroid && [[ -n "$(sudo find /var/lib/waydroid -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
   fail "Existing Waydroid directory without a valid configuration; inspect it manually before initialization."
 else
   sudo waydroid init
