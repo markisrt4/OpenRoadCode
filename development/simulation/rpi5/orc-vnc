@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 host="${ORC_VNC_HOST:-vps}"
-remote_dir='~/src/OpenRoadCode/development/simulation/rpi5'
 case "${1:-}" in
     relay)
         exec ssh -T -o BatchMode=yes "$host" 'podman exec -i orc-rpi5-vnc python3 -u /workspace/development/simulation/rpi5/vnc-relay.py'
@@ -9,7 +8,29 @@ case "${1:-}" in
     start)
         geometry="${2:-1280x720}"
         case "$geometry" in 1280x720|800x480) ;; *) exit 2 ;; esac
-        ssh -T "$host" "if ! podman container exists orc-rpi5-vnc; then mkdir -p ~/.local/state/openroadcode; nohup bash $remote_dir/run-vnc.sh $geometry > ~/.local/state/openroadcode/vnc.log 2>&1 < /dev/null & fi"
+        ssh -T "$host" bash -s -- "$geometry" <<'REMOTE'
+set -euo pipefail
+geometry="$1"
+name=orc-rpi5-vnc
+if podman container exists "$name"; then
+    if [[ "$(podman inspect --format '{{.State.Running}}' "$name")" == true ]]; then
+        actual="$(podman exec "$name" xdpyinfo -display :99 2>/dev/null | awk '/dimensions:/ {print $2; exit}' || true)"
+        if [[ "$actual" == "$geometry" ]]; then
+            exit 0
+        fi
+        if [[ -z "$actual" ]]; then
+            echo "Existing simulation display not ready; retry shortly." >&2
+            exit 1
+        fi
+        podman stop --time 5 "$name"
+    fi
+    if podman container exists "$name"; then
+        podman rm "$name"
+    fi
+fi
+mkdir -p ~/.local/state/openroadcode
+nohup bash ~/src/OpenRoadCode/development/simulation/rpi5/run-vnc.sh "$geometry" > ~/.local/state/openroadcode/vnc.log 2>&1 < /dev/null &
+REMOTE
         for ((i=0; i<60; i++)); do
             if ssh -T "$host" 'podman exec orc-rpi5-vnc python3 -c "import socket; socket.create_connection((\"127.0.0.1\",5900),2).close()"' >/dev/null 2>&1; then
                 exec "$0" connect
@@ -32,7 +53,7 @@ case "${1:-}" in
         vncviewer 127.0.0.1::5900
         ;;
     stop)
-        ssh -T "$host" 'if podman container exists orc-rpi5-vnc; then podman stop --time 5 orc-rpi5-vnc; fi'
+        ssh -T "$host" 'if podman container exists orc-rpi5-vnc; then if [ "$(podman inspect --format "{{.State.Running}}" orc-rpi5-vnc)" = true ]; then podman stop --time 5 orc-rpi5-vnc; fi; if podman container exists orc-rpi5-vnc; then podman rm orc-rpi5-vnc; fi; fi'
         ;;
     status)
         ssh -T "$host" 'podman ps --filter name=orc-rpi5-vnc'
