@@ -11,7 +11,6 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
-from tools.map_builder.builder.validate import ValidationError
 from apps.launchers.cesium_sdk import require_sdk
 from apps.launchers.local_statewide_detail import PagedTerrainCatalog
 from apps.launchers.local_terrain_pack import LocalTerrainCatalog

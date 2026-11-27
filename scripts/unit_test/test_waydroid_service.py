@@ -292,7 +292,14 @@ def test_linux_launcher_preserves_the_services_actual_desktop_display(tmp_path, 
         '#!/bin/sh\nif [ "$1" = "-c" ]; then exit 0; fi\nprintf "%s" "$DISPLAY"\n'
     )
     interpreter.chmod(0o755)
-    environment = dict(os.environ, PYTHON=str(interpreter), DISPLAY=display)
+    environment = dict(
+        os.environ,
+        PYTHON=str(interpreter),
+        DISPLAY=display,
+        HOME=str(tmp_path / "home"),
+        XDG_CONFIG_HOME=str(tmp_path / "config"),
+        XDG_RUNTIME_DIR=str(tmp_path / "runtime"),
+    )
     environment.pop("TERMUX_VERSION", None)
     environment.pop("PREFIX", None)
     result = subprocess.run(

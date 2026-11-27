@@ -51,4 +51,3 @@ def _android_panel_backends():
         and shutil.which("scrcpy") is not None
     )
     return waydroid, scrcpy
-

@@ -22,6 +22,8 @@ if [ -n "${TERMUX_VERSION:-}" ] || [[ "${PREFIX:-}" == */com.termux/files/usr ]]
     fi
 fi
 source .venv-quality/bin/activate
+revision="$(git rev-parse --short HEAD 2>/dev/null || printf unknown)"
+printf '[*] Revision: %s\n[*] Python: %s\n' "$revision" "$PWD/.venv-quality/bin/python"
 mode="${1:---all}"
 if [ "$#" -gt 0 ]; then shift; fi
 case "$mode" in
@@ -30,16 +32,7 @@ case "$mode" in
     --types) python scripts/check_ui_types.py ;;
     --docstrings) python scripts/check_doxygen_contracts.py ;;
     --test) python scripts/run_tests.py unit ;;
-    --all)
-        ruff check .
-        ruff format --check .
-        python scripts/check_ui_types.py
-        python scripts/check_python_module_size.py
-        python scripts/check_ui_boundaries.py
-        python scripts/check_weather_ui_contracts.py
-        python scripts/check_doxygen_contracts.py
-        python scripts/check_mermaid_legends.py
-        ;;
+    --all) python scripts/quality_gate.py --checks-only ;;
     --docs)
         python scripts/docs_inventory.py --check
         python scripts/check_markdown_links.py

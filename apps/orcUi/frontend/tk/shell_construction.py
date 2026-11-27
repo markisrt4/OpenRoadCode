@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Construct shell widgets independently of the application's lifecycle owner."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -34,8 +35,7 @@ def build_shell(app: OrcUiApp, factory: type[OrcUiShellView]) -> None:
         app.set_online_status(app.online_mode.online, app._internet_status)
 
 
-
-def format_volume(percent: float | None, muted: bool) -> str:
+def format_volume(percent: float | None, muted: bool | None) -> str:
     """Format the shell's retained volume readout."""
     icon = "🔇" if muted else "🔊"
     return f"{icon} --" if percent is None else f"{icon} {round(percent)}%"

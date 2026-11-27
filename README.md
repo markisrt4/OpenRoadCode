@@ -355,6 +355,21 @@ Component-test CLIs provide direct subsystem verification for navigation inputs,
 
 ## Automated Checks and Doxygen
 
+Use the dedicated quality environment and a single developer-check entry point:
+
+```bash
+git switch feature/waze-live-map
+bash scripts/setup_quality_env.sh
+bash scripts/dev_check.sh --all
+```
+
+`--all` runs static checks; `--full` adds unit and integration tests. Both use the
+same check list in `scripts/quality_gate.py`, and the launcher prints the revision
+and interpreter being checked. Focused `--lint`, `--format`, `--types`, `--test`,
+and `--docs` modes remain available. The project-wide UI boundary task includes
+Weather's additional provider/renderer access rules; it is not a separate task.
+
+
 Public methods declared in `*_if.py` modules must document every argument with `@param` and every non-`None` return value with `@return` or `@retval`.
 
 Run the interface-contract checker and generate documentation with:

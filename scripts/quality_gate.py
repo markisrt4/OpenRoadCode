@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import argparse
 import importlib.util
 import os
 import shutil
@@ -52,8 +53,13 @@ def _run_ui_types() -> bool:
     return _run("Strict UI contract types", [sys.executable, "scripts/check_ui_types.py"])
 
 
-def main() -> int:
-    checks = (
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--checks-only", action="store_true", help="Run static checks without the test suites"
+    )
+    args = parser.parse_args(argv)
+    checks = [
         _run_ruff(),
         _run_ui_types(),
         _run(
@@ -62,10 +68,6 @@ def main() -> int:
         ),
         _run("Project-wide UI boundaries", [sys.executable, "scripts/check_ui_boundaries.py"]),
         _run(
-            "Weather UI contract boundaries",
-            [sys.executable, "scripts/check_weather_ui_contracts.py"],
-        ),
-        _run(
             "Doxygen interface contracts",
             [sys.executable, "scripts/check_doxygen_contracts.py"],
         ),
@@ -73,11 +75,11 @@ def main() -> int:
             "Mermaid diagram legends",
             [sys.executable, "scripts/check_mermaid_legends.py"],
         ),
-        _run(
-            "Unit + integration tests",
-            [sys.executable, "scripts/run_tests.py", "all"],
-        ),
-    )
+    ]
+    if not args.checks_only:
+        checks.append(
+            _run("Unit + integration tests", [sys.executable, "scripts/run_tests.py", "all"])
+        )
     return 0 if all(checks) else 1
 
 

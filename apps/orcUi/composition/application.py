@@ -18,7 +18,11 @@ from apps.orcUi.adapters.scrcpy_waze_player import ScrcpyWazePlayer
 from apps.orcUi.application_runtime import create_orc_ui_application_runtime
 from apps.orcUi.cesium_map_runtime import CesiumMapRuntime
 from apps.orcUi.composition.android_app_view import AndroidAppView
-from apps.orcUi.composition.application_resources import OrcUiComposition, _report, initial_terrain_view
+from apps.orcUi.composition.application_resources import (
+    OrcUiComposition,
+    _report,
+    initial_terrain_view,
+)
 from apps.orcUi.composition.business_apps import (
     _android_panel_backends,
     configure_termux_business_apps,

@@ -210,3 +210,11 @@ def test_streaming_frontends_have_no_legacy_backend_exceptions():
         "frontends/tk/radio/streaming_radio_now_playing.py|",
     )
     assert not any(key.startswith(prefixes) for key in baseline)
+
+
+def test_project_gate_includes_private_weather_backend_access(tmp_path):
+    path = tmp_path / "frontends/tk/weather/new_view.py"
+    path.parent.mkdir(parents=True)
+    path.write_text("value = controller._provider\n")
+    _, errors = check(tmp_path, {})
+    assert any("backend attribute _provider" in error for error in errors)
