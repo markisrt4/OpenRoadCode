@@ -47,7 +47,8 @@ def test_rail_has_one_full_navigation_tile_and_one_icon():
     )
     rail.pack(fill="both", expand=True)
     try:
-        root.update()
+        # Geometry only needs idle layout work. Avoid draining unrelated X11 events.
+        root.update_idletasks()
         assert "WAZE" not in rail._tiles
         nav = rail._tiles["NAVIGATION"]
         assert len(nav.find_all()) > 0
