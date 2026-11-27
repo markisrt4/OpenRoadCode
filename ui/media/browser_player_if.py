@@ -34,7 +34,10 @@ class BrowserMediaPlayerIf(Protocol):
 
 class HostedSurfaceGeometryIf(Protocol):
     def vertical_crop(self) -> tuple[int, int]:
-        """Return top/bottom host chrome insets after preparing the surface."""
+        """Return top/bottom host chrome insets after preparing the surface.
+
+        @return Current geometry or result; None when unavailable.
+        """
         ...
 
 

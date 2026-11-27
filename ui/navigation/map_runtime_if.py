@@ -26,7 +26,10 @@ class MapRuntimeIf(Protocol):
 
     @property
     def state(self) -> MapRuntimeState:
-        """Return renderer process health without waiting for startup or exit."""
+        """Return renderer process health without waiting for startup or exit.
+
+        @return Current immutable state.
+        """
         ...
 
     def set_theme(self, mode: ThemeMode) -> None:

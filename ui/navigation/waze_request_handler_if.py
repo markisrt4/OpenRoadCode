@@ -21,7 +21,10 @@ class WazeRequestHandlerIf(Protocol):
         ...
 
     def request_navigate_waze(self, destination: GeoPoint) -> None:
-        """Hand an SI destination to native Waze without changing the ORC route."""
+        """Hand an SI destination to native Waze without changing the ORC route.
+
+        @param destination Destination.
+        """
         ...
 
     def request_close_waze(self) -> None:
@@ -29,5 +32,8 @@ class WazeRequestHandlerIf(Protocol):
         ...
 
     def request_navigate_saved_destination(self, key: str) -> None:
-        """Use ORC's current saved Home/Work coordinates, without account sync."""
+        """Use ORC's current saved Home/Work coordinates, without account sync.
+
+        @param key Saved destination key, home or work.
+        """
         ...

@@ -84,7 +84,10 @@ class NavigationControllerIf(ABC):
         """
 
     def update_host_position_state(self, position: GpsState) -> None:
-        """Accept explicitly shared host location when supported."""
+        """Accept explicitly shared host location when supported.
+
+        @param position Normalized host position report.
+        """
         raise NotImplementedError("Host location is not supported")
 
     def set_host_location_suspended(self, suspended: bool) -> None:

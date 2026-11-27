@@ -23,9 +23,9 @@ def test_installed_native_backend_is_selected_without_manual_flags(
     monkeypatch.delenv("ORC_WAYDROID_PANEL", raising=False)
     monkeypatch.delenv("ORC_SCRCPY_WAZE", raising=False)
     with (
-        patch("apps.orcUi.composition.application.os.path.exists", return_value=android),
+        patch("apps.orcUi.composition.business_apps.os.path.exists", return_value=android),
         patch(
-            "apps.orcUi.composition.application.shutil.which",
+            "apps.orcUi.composition.business_apps.shutil.which",
             side_effect=lambda name: "/usr/bin/" + name if name in tools else None,
         ),
     ):
@@ -36,7 +36,7 @@ def test_installed_native_backend_is_selected_without_manual_flags(
 def test_explicit_opt_out_is_respected(android, flag, monkeypatch):
     monkeypatch.setenv(flag, "0")
     with (
-        patch("apps.orcUi.composition.application.os.path.exists", return_value=android),
-        patch("apps.orcUi.composition.application.shutil.which", return_value="/usr/bin/tool"),
+        patch("apps.orcUi.composition.business_apps.os.path.exists", return_value=android),
+        patch("apps.orcUi.composition.business_apps.shutil.which", return_value="/usr/bin/tool"),
     ):
         assert _android_panel_backends() == (False, False)

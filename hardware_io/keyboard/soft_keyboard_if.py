@@ -8,7 +8,10 @@ from typing import Protocol
 class SoftKeyboardIf(Protocol):
     @property
     def available(self) -> bool:
-        """Whether this backend is configured and available."""
+        """Whether this backend is configured and available.
+
+        @return Whether the capability is available.
+        """
         ...
 
     def show(self) -> None:

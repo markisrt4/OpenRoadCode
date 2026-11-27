@@ -17,5 +17,8 @@ class TextInputState:
 
 class TextInputUiIf(Protocol):
     def set_text_input_state(self, state: TextInputState) -> None:
-        """Replace the full input-session presentation state."""
+        """Replace the full input-session presentation state.
+
+        @param state Complete immutable presentation snapshot.
+        """
         ...

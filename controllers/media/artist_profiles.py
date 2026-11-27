@@ -129,8 +129,8 @@ class ArtistProfiles:
             if not credit or not license_name:
                 return None, "", ""
             thumbnail = file.get("thumburl") or thumbnail
-            url = urlsplit(thumbnail)
-            if url.scheme != "https" or url.hostname != "upload.wikimedia.org":
+            parsed_thumbnail = urlsplit(thumbnail)
+            if parsed_thumbnail.scheme != "https" or parsed_thumbnail.hostname != "upload.wikimedia.org":
                 return None, "", ""
             return self._fetch(thumbnail, 512_000), f"{credit} · {license_name}", str(source)
         except (OSError, ValueError, KeyError, IndexError, TypeError):

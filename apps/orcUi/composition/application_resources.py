@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
@@ -27,6 +28,7 @@ from apps.orcUi.frontend.tk.settings_screen import SettingsScreen
 from apps.orcUi.frontend.tk.vehicle_screen import VehicleScreen
 from apps.orcUi.performance_status import PerformanceStatusPresenter
 from common.resource_cleanup import ResourceCleanup, close_resources
+from controllers.navigation.current_position import get_current_position
 from controllers.navigation.host_location_settings_controller import HostLocationSettingsController
 from controllers.navigation.location_sharing_controller import LocationSharingController
 from controllers.navigation.waze_gesture_controller import WazeGestureController
@@ -36,6 +38,8 @@ from frontends.tk.games import GamesScreen
 from frontends.tk.system.diagnostics_screen import DiagnosticsScreen
 from services.common.system_performance_monitor import SystemPerformanceMonitor
 from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
+from ui.navigation import GeoPoint
+from ui.navigation.cesium_viewer_state import CesiumViewerState
 
 
 @dataclass(slots=True)
@@ -152,3 +156,12 @@ def _report(
 ) -> None:
     if progress is not None:
         progress(stage, message)
+
+
+def initial_terrain_view() -> CesiumViewerState:
+    """Use the current position, retaining the existing Detroit fallback."""
+    return CesiumViewerState(
+        get_current_position() or GeoPoint(math.radians(42.3314), math.radians(-83.0458)),
+        label="3D map",
+        destination_marker_visible=False,
+    )

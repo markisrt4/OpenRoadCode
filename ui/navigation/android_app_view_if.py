@@ -20,7 +20,11 @@ class AndroidAppViewState:
 
 class AndroidAppViewRequestHandlerIf(Protocol):
     def request_show_android_app(self, app_name: str = "Android app", package: str = "") -> None:
-        """Present the running Android app without taking ownership of its runtime."""
+        """Present the running Android app without taking ownership of its runtime.
+
+        @param app_name Display name of the Android application.
+        @param package Android package identifier.
+        """
         ...
 
     def request_toggle_android_app_expanded(self) -> None:
@@ -28,7 +32,10 @@ class AndroidAppViewRequestHandlerIf(Protocol):
         ...
 
     def request_set_android_app_visible(self, visible: bool) -> None:
-        """Scope optional location forwarding to the embedded app's visibility."""
+        """Scope optional location forwarding to the embedded app's visibility.
+
+        @param visible Whether the owned surface is visible.
+        """
         ...
 
     def request_close_android_app(self) -> None:
@@ -36,5 +43,8 @@ class AndroidAppViewRequestHandlerIf(Protocol):
         ...
 
     def request_navigate_saved_destination(self, key: str) -> None:
-        """Navigate the active Waze session to ORC's saved Home or Work."""
+        """Navigate the active Waze session to ORC's saved Home or Work.
+
+        @param key Saved destination key, home or work.
+        """
         ...

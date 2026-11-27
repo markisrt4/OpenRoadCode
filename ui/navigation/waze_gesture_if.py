@@ -25,17 +25,41 @@ class WazeGestureState:
 
 class WazeGestureAdapterIf(Protocol):
     @property
-    def available(self) -> bool: ...
+    def available(self) -> bool:
+        """Report whether this capability is available.
+
+        @return Whether the capability is available.
+        """
+        ...
 
     def perform(self, gesture: WazeGesture, cancelled: Callable[[], bool]) -> None:
-        """Apply one gesture only to the owned viewer, releasing input on cancellation."""
+        """Apply one gesture only to the owned viewer, releasing input on cancellation.
+
+        @param gesture Pan or zoom action to perform.
+        @param cancelled Callback reporting cancellation of this request.
+        """
         ...
 
 
 class WazeGestureRequestHandlerIf(Protocol):
     @property
-    def state(self) -> WazeGestureState: ...
+    def state(self) -> WazeGestureState:
+        """Read the current immutable presentation state.
 
-    def request_gesture(self, gesture: WazeGesture) -> None: ...
+        @return Current immutable state.
+        """
+        ...
 
-    def set_visible(self, visible: bool) -> None: ...
+    def request_gesture(self, gesture: WazeGesture) -> None:
+        """Request one gesture on the owned Waze surface.
+
+        @param gesture Pan or zoom action to perform.
+        """
+        ...
+
+    def set_visible(self, visible: bool) -> None:
+        """Update the visibility of the Waze gesture controls.
+
+        @param visible Whether the owned surface is visible.
+        """
+        ...

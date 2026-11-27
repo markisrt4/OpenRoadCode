@@ -365,7 +365,7 @@ class RadioEntryPanel(tk.Frame, UiWidget):
         return card, button
 
     @staticmethod
-    def _source_clicked(command: Callable[[], None], event: tk.Event) -> None:
+    def _source_clicked(command: Callable[[], None], event: tk.Event[tk.Misc]) -> None:
         command()
 
     @staticmethod

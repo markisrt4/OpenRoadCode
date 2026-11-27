@@ -36,11 +36,26 @@ class NavigationPlacesDrawerState:
 
 class NavigationExperienceRequestHandlerIf(Protocol):
     @property
-    def state(self) -> NavigationExperienceState: ...
+    def state(self) -> NavigationExperienceState:
+        """Read the current immutable presentation state.
 
-    def request_experience(self, experience: NavigationExperience) -> None: ...
+        @return Current immutable state.
+        """
+        ...
 
-    def request_saved_destination(self, key: str) -> None: ...
+    def request_experience(self, experience: NavigationExperience) -> None:
+        """Select the requested navigation experience.
+
+        @param experience Navigation experience to display.
+        """
+        ...
+
+    def request_saved_destination(self, key: str) -> None:
+        """Navigate to a saved Home or Work location.
+
+        @param key Saved destination key, home or work.
+        """
+        ...
 
     def request_places(self) -> None:
         """Show the ORC places drawer, preserving any running Waze route."""
@@ -48,12 +63,32 @@ class NavigationExperienceRequestHandlerIf(Protocol):
 
     def request_search_places(
         self, category: PoiCategory, transit: TransitMode = TransitMode.ALL
-    ) -> None: ...
+    ) -> None:
+        """Search for places in the requested category.
 
-    def request_select_place(self, place: PointOfInterest) -> None: ...
+        @param category POI category to search.
+        @param transit Transit mode filter for the search.
+        """
+        ...
 
-    def request_clear_places(self) -> None: ...
+    def request_select_place(self, place: PointOfInterest) -> None:
+        """Select a discovered place for presentation.
 
-    def request_close_waze(self) -> None: ...
+        @param place Selected point of interest.
+        """
+        ...
 
-    def request_waze_gesture(self, gesture: WazeGesture) -> None: ...
+    def request_clear_places(self) -> None:
+        """Clear the current place search results."""
+        ...
+
+    def request_close_waze(self) -> None:
+        """Close the retained Waze session."""
+        ...
+
+    def request_waze_gesture(self, gesture: WazeGesture) -> None:
+        """Apply a gesture to the embedded Waze map.
+
+        @param gesture Pan or zoom action to perform.
+        """
+        ...

@@ -536,9 +536,7 @@ class MediaScreen(TkScreen):
     @staticmethod
     def _card_body(card: tk.Frame) -> tk.Widget:
         return next(
-            cast(tk.Widget, child)
-            for child in card.winfo_children()
-            if cast(tk.Widget, child).winfo_manager() == "pack"
+            child for child in card.winfo_children() if child.winfo_manager() == "pack"
         )
 
     def _spotify_account_actions(self, card: tk.Frame) -> None:

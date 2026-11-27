@@ -2,6 +2,9 @@
 # SPDX-License-Identifier: MIT
 """Compose a separate native-phone surface for curated business applications."""
 
+import os
+import shutil
+
 from apps.launchers.scrcpy_business_app_launcher import ScrcpyBusinessAppLauncher
 from apps.orcUi.adapters.scrcpy_waze_player import ScrcpyAppPlayer
 from apps.orcUi.composition.android_app_view import AndroidAppView
@@ -31,3 +34,21 @@ def configure_termux_business_apps(app, *, map_runtime, map_platform, map_presen
         full_width_apps=True,
     )
     return view, ScrcpyBusinessAppLauncher(packages, stop_viewer=player.stop)
+
+
+def _android_panel_backends():
+    """Prefer installed native tools; retain explicit integration opt-outs."""
+    android_host = os.path.exists("/system/bin/am")
+    waydroid = (
+        not android_host
+        and os.environ.get("ORC_WAYDROID_PANEL", "1") == "1"
+        and shutil.which("waydroid") is not None
+    )
+    scrcpy = (
+        android_host
+        and os.environ.get("ORC_SCRCPY_WAZE", "1") == "1"
+        and shutil.which("adb") is not None
+        and shutil.which("scrcpy") is not None
+    )
+    return waydroid, scrcpy
+

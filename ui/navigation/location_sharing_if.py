@@ -19,7 +19,11 @@ class LocationSnapshot:
 
 class AndroidLocationProviderIf(Protocol):
     def send_location(self, point: GeoPoint, accuracy_m: float) -> None:
-        """Deliver a fresh location to the explicitly configured Android device."""
+        """Deliver a fresh location to the explicitly configured Android device.
+
+        @param point Geographic position in normalized SI coordinates.
+        @param accuracy_m Horizontal accuracy in metres.
+        """
         ...
 
     def clear_location(self) -> None:

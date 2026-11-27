@@ -5,6 +5,7 @@
 
 import math
 
+from ui.navigation.map_layer_controls import MapLayerAction, MapLayerControls
 from ui.navigation.map_platform_if import ExplorationCameraAction, MapPlatform
 from ui.navigation.navigation_places_request_handler_if import NavigationCameraState
 
@@ -116,3 +117,33 @@ class NavigationCameraControls:
         self._request_handler.request_pitch(0.0)
         self._dimension_text.set("3D")
         self._schedule_active_poi_refresh()
+
+    def _apply_layer_controls(self, state: MapLayerControls, terrain: bool) -> None:
+        ui = self._theme_bundle.ui
+        values = {control.action: control for control in state.controls}
+        for action, button in self._layer_buttons.items():
+            control = values.get(action)
+            available = terrain and control is not None and control.available
+            label = (
+                control.label
+                if control
+                else {
+                    MapLayerAction.IMAGERY: "Imagery",
+                    MapLayerAction.BUILDINGS: "Buildings",
+                    MapLayerAction.ROADS: "Roads",
+                    MapLayerAction.PLACES: "Places",
+                    MapLayerAction.RELIEF: "Relief",
+                    MapLayerAction.HEIGHT: "Height 1×",
+                    MapLayerAction.CUES: "Terrain cues",
+                    MapLayerAction.GRID: "Grid",
+                }[action]
+            )
+            enabled = available and control.enabled
+            text = (
+                label if action is MapLayerAction.HEIGHT else f"{'●' if enabled else '○'} {label}"
+            )
+            button.configure(
+                text=text,
+                state="normal" if available else "disabled",
+                fg=ui.accent_primary if enabled else ui.control_text,
+            )

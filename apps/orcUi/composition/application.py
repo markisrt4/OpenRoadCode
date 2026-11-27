@@ -5,9 +5,6 @@
 
 from __future__ import annotations
 
-import math
-import os
-import shutil
 from collections.abc import Callable
 
 from adapters.radio.sdrforge_rf_hardware_config import SdrForgeRfHardwareConfig
@@ -18,13 +15,14 @@ from apps.launchers.scrcpy_waze_launcher import ScrcpyWazeLauncher
 from apps.launchers.waydroid_location_provider import WaydroidLocationProvider
 from apps.orcUi.adapters.scrcpy_waze_gestures import ScrcpyWazeGestures
 from apps.orcUi.adapters.scrcpy_waze_player import ScrcpyWazePlayer
-from apps.orcUi.application_runtime import (
-    create_orc_ui_application_runtime,
-)
+from apps.orcUi.application_runtime import create_orc_ui_application_runtime
 from apps.orcUi.cesium_map_runtime import CesiumMapRuntime
 from apps.orcUi.composition.android_app_view import AndroidAppView
-from apps.orcUi.composition.application_resources import OrcUiComposition, _report
-from apps.orcUi.composition.business_apps import configure_termux_business_apps
+from apps.orcUi.composition.application_resources import OrcUiComposition, _report, initial_terrain_view
+from apps.orcUi.composition.business_apps import (
+    _android_panel_backends,
+    configure_termux_business_apps,
+)
 from apps.orcUi.composition.calendar import (
     CalendarConfiguration,
     configure_calendar,
@@ -51,7 +49,6 @@ from apps.orcUi.performance_status import PerformanceStatusPresenter
 from apps.orcUi.theme_runtime import theme_bundle
 from common.app_settings import AppSettingsStore
 from common.resource_cleanup import ResourceCleanup
-from controllers.navigation.current_position import get_current_position
 from controllers.navigation.host_location_settings_controller import HostLocationSettingsController
 from controllers.navigation.location_sharing_controller import LocationSharingController
 from controllers.navigation.map_controls_drawer_controller import MapControlsDrawerController
@@ -65,27 +62,8 @@ from controllers.weather.radar_replay_controller import RadarReplayController
 from frontends.tk.system.diagnostics_screen import DiagnosticsScreen
 from frontends.x11.x11_window_embedder import X11WindowEmbedder
 from services.common.system_performance_monitor import SystemPerformanceMonitor
-from ui.navigation import GeoPoint
-from ui.navigation.cesium_viewer_state import CesiumViewerState
 from ui.navigation.map_platform_if import MapPlatform
 from ui.navigation.waze_request_handler_if import WazeSessionState
-
-
-def _android_panel_backends():
-    """Prefer installed native tools; retain explicit integration opt-outs."""
-    android_host = os.path.exists("/system/bin/am")
-    waydroid = (
-        not android_host
-        and os.environ.get("ORC_WAYDROID_PANEL", "1") == "1"
-        and shutil.which("waydroid") is not None
-    )
-    scrcpy = (
-        android_host
-        and os.environ.get("ORC_SCRCPY_WAZE", "1") == "1"
-        and shutil.which("adb") is not None
-        and shutil.which("scrcpy") is not None
-    )
-    return waydroid, scrcpy
 
 
 def create_orc_ui_composition(
@@ -202,11 +180,7 @@ def create_orc_ui_composition(
         navigation_maps = CesiumMapRuntime(
             core.map_runtime,
             CesiumEmbeddedViewer(),
-            initial_view=lambda: CesiumViewerState(
-                get_current_position() or GeoPoint(math.radians(42.3314), math.radians(-83.0458)),
-                label="3D map",
-                destination_marker_visible=False,
-            ),
+            initial_view=initial_terrain_view,
         )
         cleanup.callback(navigation_maps.close)
         navigation_map_requests = MapPlatformRequests(
