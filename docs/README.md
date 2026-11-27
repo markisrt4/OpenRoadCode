@@ -28,7 +28,6 @@ The [project README](../README.md) remains the repository landing page. [Doxygen
 
 ## Features and reference
 
-- [State Map Build Pipeline](state_map_build_pipeline.md)
 - [Streaming Radio](streaming_radio.md)
 - [Roadmap](roadmap.md)
 - [Vehicle one-wire reference](vehicle-one-wire.pdf)
@@ -129,6 +128,7 @@ Generated from the canonical documentation files. Every component README and sta
 - [Saved Destinations](saved_destinations.md)
 - [Sdrforge Termux Service](sdrforge_termux_service.md)
 - [Spotify Ui](spotify_ui.md)
+- [State Map Build Pipeline](state_map_build_pipeline.md)
 - [Streaming Radio](streaming_radio.md)
 - [System Performance](system_performance.md)
 - [Termux Poi Download](termux_poi_download.md)
