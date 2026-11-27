@@ -40,32 +40,37 @@ def find_requested_suites(kinds: Sequence[str]) -> tuple[Path, ...]:
     return tuple(sorted(suites))
 
 
-def run_kinds(kinds: Sequence[str]) -> bool:
+def run_kinds(kinds: Sequence[str], pytest_args: Sequence[str] = ()) -> bool:
     """Run requested colocated suites together in one pytest process."""
-    suites = find_requested_suites(kinds)
-    if not suites:
-        requested = ", ".join(kinds)
-        print(f"ERROR: no {requested} test suites found", file=sys.stderr)
-        return False
-
-    relative_suites = tuple(suite.relative_to(PROJECT_ROOT) for suite in suites)
-    labels = " + ".join(kinds)
-    print(
-        f"Running {len(relative_suites)} {labels} test suite(s) in one pytest session",
-        flush=True,
-    )
+    if pytest_args:
+        targets = tuple(pytest_args)
+        print("Running selected pytest targets", flush=True)
+    else:
+        suites = find_requested_suites(kinds)
+        if not suites:
+            requested = ", ".join(kinds)
+            print(f"ERROR: no {requested} test suites found", file=sys.stderr)
+            return False
+        targets = tuple(str(suite.relative_to(PROJECT_ROOT)) for suite in suites)
+        labels = " + ".join(kinds)
+        print(
+            f"Running {len(targets)} {labels} test suite(s) in one pytest session",
+            flush=True,
+        )
     result = subprocess.run(
         [
             sys.executable,
             "-m",
             "pytest",
             "-q",
-            *(str(suite) for suite in relative_suites),
+            *targets,
         ],
         cwd=PROJECT_ROOT,
         check=False,
     )
-    return result.returncode in (0, PYTEST_NO_TESTS_COLLECTED)
+    return result.returncode == 0 or (
+        not pytest_args and result.returncode == PYTEST_NO_TESTS_COLLECTED
+    )
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -75,13 +80,21 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         choices=("unit", "integration", "all"),
         help="Automated test category to run",
     )
+    parser.add_argument(
+        "pytest_args",
+        nargs=argparse.REMAINDER,
+        help="Optional pytest targets and flags; omit to run every suite in the category",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     kinds = tuple(SUITE_DIRECTORIES) if args.suite == "all" else (args.suite,)
-    return 0 if run_kinds(kinds) else 1
+    selected = args.pytest_args
+    if selected[:1] == ["--"]:
+        selected = selected[1:]
+    return 0 if run_kinds(kinds, selected) else 1
 
 
 if __name__ == "__main__":

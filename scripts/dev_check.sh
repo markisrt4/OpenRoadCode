@@ -31,7 +31,7 @@ case "$mode" in
     --format) python scripts/dev_check_changes.py --format-only "$@" ;;
     --types) python scripts/check_ui_types.py ;;
     --docstrings) python scripts/check_doxygen_contracts.py ;;
-    --test) python scripts/run_tests.py unit ;;
+    --test) python scripts/run_tests.py unit "$@" ;;
     --all) python scripts/dev_check_changes.py --checks-only "$@" ;;
     --fix|--publish) python scripts/dev_check_changes.py --checks-only "$mode" "$@" ;;
     --docs)

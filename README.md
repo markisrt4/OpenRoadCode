@@ -369,6 +369,17 @@ and interpreter being checked. Focused `--lint`, `--format`, `--types`, `--test`
 and `--docs` modes remain available. The project-wide UI boundary task includes
 Weather's additional provider/renderer access rules; it is not a separate task.
 
+For routine edits, run `--all` for static checks and `--test` with the affected
+test directory, file, or pytest node ID. Pytest flags such as `-k` are forwarded.
+Calling `--test` without a target retains the complete unit-suite behavior;
+`--full` is intended for merge readiness and includes unit and integration suites.
+Focused runs fail when their selection matches no tests.
+
+```bash
+git switch feature/waze-live-map
+bash scripts/dev_check.sh --test frontends/tk/media/unit_test/test_media_screen.py
+```
+
 To apply safe Ruff fixes and formatting before the full checks, add `--fix`. Add
 `--publish` to stage only those fixes, commit them, and push the configured
 upstream after checks pass:
