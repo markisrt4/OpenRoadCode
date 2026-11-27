@@ -11,6 +11,7 @@ import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from apps.launchers.cesium_embedded_viewer import CesiumEmbeddedViewer
 from apps.launchers.host_location_permission import HostLocationPermission
@@ -22,7 +23,6 @@ from apps.orcUi.composition.core import CoreComposition
 from apps.orcUi.composition.media import MediaComposition
 from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
 from apps.orcUi.composition.radio import RadioComposition
-from apps.orcUi.composition.vision import VisionComposition
 from apps.orcUi.composition.waze import WazeComposition
 from apps.orcUi.composition.weather import WeatherComposition
 from apps.orcUi.frontend.tk.home_screen import HomeScreen
@@ -49,6 +49,10 @@ from services.common.system_performance_monitor import SystemPerformanceMonitor
 from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
 from ui.navigation import GeoPoint
 from ui.navigation.cesium_viewer_state import CesiumViewerState
+
+
+if TYPE_CHECKING:
+    from apps.orcUi.composition.vision import VisionComposition
 
 
 @dataclass(slots=True)
