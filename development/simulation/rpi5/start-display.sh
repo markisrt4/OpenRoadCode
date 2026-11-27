@@ -14,7 +14,8 @@ for ((attempt=0; attempt<30; attempt++)); do
             export VENV_DIR=/opt/orc-venv PYTHONUNBUFFERED=1
             x11vnc -display "$DISPLAY" -localhost -rfbport 5900 -forever -shared -nopw >&2 &
             echo "Interactive display ready; VNC listening inside isolated container."
-            bash runOrcUi --follow-logs
+            shift 2
+            bash runOrcUi --follow-logs "$@"
         else
             bash /workspace/development/simulation/rpi5/validate-application.sh
         fi
