@@ -12,7 +12,8 @@ for ((attempt=0; attempt<30; attempt++)); do
         if [[ "${2:-}" == "--interactive" ]]; then
             cd /workspace
             export VENV_DIR=/opt/orc-venv PYTHONUNBUFFERED=1
-            echo "Interactive display ready; attach VNC over SSH using podman exec."
+            x11vnc -display "$DISPLAY" -localhost -rfbport 5900 -forever -shared -nopw >&2 &
+            echo "Interactive display ready; VNC listening inside isolated container."
             bash runOrcUi --follow-logs
         else
             bash /workspace/development/simulation/rpi5/validate-application.sh
