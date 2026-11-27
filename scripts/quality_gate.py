@@ -32,9 +32,14 @@ def _run(label: str, command: list[str]) -> bool:
     return False
 
 
-def _run_ruff() -> bool:
+def ruff_executable() -> str | None:
+    """Use Ruff from the selected interpreter's environment, including native Termux Ruff."""
     venv_ruff = Path(sys.executable).with_name("ruff")
-    ruff = str(venv_ruff) if venv_ruff.is_file() else shutil.which("ruff")
+    return str(venv_ruff) if venv_ruff.is_file() else shutil.which("ruff")
+
+
+def _run_ruff() -> bool:
+    ruff = ruff_executable()
     if ruff is None:
         print("\n[FAIL] Ruff executable is not installed", file=sys.stderr, flush=True)
         return False

@@ -369,6 +369,23 @@ and interpreter being checked. Focused `--lint`, `--format`, `--types`, `--test`
 and `--docs` modes remain available. The project-wide UI boundary task includes
 Weather's additional provider/renderer access rules; it is not a separate task.
 
+To apply safe Ruff fixes and formatting before the full checks, add `--fix`. Add
+`--publish` to stage only those fixes, commit them, and push the configured
+upstream after checks pass:
+
+```bash
+git switch feature/waze-live-map
+bash scripts/dev_check.sh --full --fix --publish --message "Apply Ruff cleanup"
+```
+
+Publishing requires a clean checkout and a named branch with a remote upstream.
+Without `--publish`, fixes remain available for manual review. `--format` also
+records its changed files without publishing. The last run's file list and
+validation/commit/push status are stored at the Git metadata path
+`dev-check-last-run.json` (normally `.git/dev-check-last-run.json`). Failed checks
+never trigger a commit; rejected pushes retain the new commit and the failure
+record. With no Ruff changes, no commit or push is performed.
+
 
 Public methods declared in `*_if.py` modules must document every argument with `@param` and every non-`None` return value with `@return` or `@retval`.
 

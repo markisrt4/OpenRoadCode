@@ -28,11 +28,12 @@ mode="${1:---all}"
 if [ "$#" -gt 0 ]; then shift; fi
 case "$mode" in
     --lint) ruff check "${@:-.}"; ruff format --check "${@:-.}" ;;
-    --format) ruff check --fix "${@:-.}"; ruff format "${@:-.}" ;;
+    --format) python scripts/dev_check_changes.py --format-only "$@" ;;
     --types) python scripts/check_ui_types.py ;;
     --docstrings) python scripts/check_doxygen_contracts.py ;;
     --test) python scripts/run_tests.py unit ;;
-    --all) python scripts/quality_gate.py --checks-only ;;
+    --all) python scripts/dev_check_changes.py --checks-only "$@" ;;
+    --fix|--publish) python scripts/dev_check_changes.py --checks-only "$mode" "$@" ;;
     --docs)
         python scripts/docs_inventory.py --check
         python scripts/check_markdown_links.py
@@ -53,6 +54,6 @@ case "$mode" in
         fi
         exit "$status"
         ;;
-    --full) python scripts/quality_gate.py ;;
-    *) echo "Usage: $0 [--all|--lint|--format|--types|--docstrings|--docs|--test|--full]" >&2; exit 2 ;;
+    --full) python scripts/dev_check_changes.py "$@" ;;
+    *) echo "Usage: $0 [--all|--lint|--format|--types|--docstrings|--docs|--test|--full] [--fix] [--publish] [--message TEXT]" >&2; exit 2 ;;
 esac
