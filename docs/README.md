@@ -28,6 +28,7 @@ The [project README](../README.md) remains the repository landing page. [Doxygen
 
 ## Features and reference
 
+- [State Map Build Pipeline](state_map_build_pipeline.md)
 - [Streaming Radio](streaming_radio.md)
 - [Roadmap](roadmap.md)
 - [Vehicle one-wire reference](vehicle-one-wire.pdf)
@@ -88,6 +89,7 @@ Generated from the canonical documentation files. Every component README and sta
 - [Calendar (`development/calendar`)](../development/calendar/README.md)
 - [Maplibre (`development/containers/maplibre`)](../development/containers/maplibre/README.md)
 - [Scripts (`development/containers/maplibre/scripts`)](../development/containers/maplibre/scripts/README.md)
+- [Rpi5 (`development/simulation/rpi5`)](../development/simulation/rpi5/README.md)
 - [Termux (`development/termux`)](../development/termux/README.md)
 
 ### Docs
@@ -97,6 +99,7 @@ Generated from the canonical documentation files. Every component README and sta
 - [Architecture](architecture.md)
 - [Libsdrforge Extraction Plan (`docs/architecture`)](architecture/libsdrforge-extraction-plan.md)
 - [Automotive Architecture](automotive_architecture.md)
+- [Business Registry](business_registry.md)
 - [Cesium Map Experiment](cesium_map_experiment.md)
 - [Detroit Map Data Review](detroit_map_data_review.md)
 - [Branch Lifecycle (`docs/development`)](development/branch-lifecycle.md)
@@ -111,11 +114,13 @@ Generated from the canonical documentation files. Every component README and sta
 - [Navigation Position State (`docs/idd`)](idd/navigation_position_state.md)
 - [Route Guidance State (`docs/idd`)](idd/route_guidance_state.md)
 - [Libmusicforge Integration](libmusicforge-integration.md)
+- [Map Expansion Plan](map_expansion_plan.md)
 - [Message Bus Idd (`docs/messaging`)](messaging/message_bus_idd.md)
 - [Music Visualizer](music_visualizer.md)
 - [Musicforge Airplay](musicforge_airplay.md)
 - [Navigation Deployment](navigation_deployment.md)
 - [Navigation Runtime](navigation_runtime.md)
+- [Navigation Views](navigation_views.md)
 - [Online Offline Mode](online_offline_mode.md)
 - [Orc Ui Architecture Audit](orc_ui_architecture_audit.md)
 - [Poi Ordering](poi_ordering.md)
@@ -127,6 +132,12 @@ Generated from the canonical documentation files. Every component README and sta
 - [Streaming Radio](streaming_radio.md)
 - [System Performance](system_performance.md)
 - [Termux Poi Download](termux_poi_download.md)
+- [Text Input](text_input.md)
+- [Waydroid Services](waydroid_services.md)
+- [Waydroid Vm](waydroid_vm.md)
+- [Waze Android Investigation](waze_android_investigation.md)
+- [Waze Gestures](waze_gestures.md)
+- [Waze Live Map](waze_live_map.md)
 - [Xdg Paths](xdg_paths.md)
 
 ### Frontends

@@ -476,6 +476,10 @@ The Linux quality environment uses `constraints-quality-linux.txt`, captured fro
 validated Ubuntu Python 3.12 installation. Forge dependencies remain pinned to Git
 commits in `scripts/setup_quality_env.sh`. Runtime installation is independent.
 
+The default `--all` and `--full` gates include the generated documentation index,
+Markdown links, Mermaid legends, and interface docstring contracts. These checks
+are portable to Raspberry Pi and Termux. They do not generate the API reference.
+
 Run `bash scripts/dev_check.sh --docs` for documentation validation and API
 reference generation. The documentation command installs checksum-verified
 Doxygen 1.15.0 into `.venv-quality` on Linux x86-64. Other platforms can use

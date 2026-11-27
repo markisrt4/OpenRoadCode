@@ -72,6 +72,8 @@ def main(argv: list[str] | None = None) -> int:
             [sys.executable, "scripts/check_python_module_size.py"],
         ),
         _run("Project-wide UI boundaries", [sys.executable, "scripts/check_ui_boundaries.py"]),
+        _run("Documentation index", [sys.executable, "scripts/docs_inventory.py", "--check"]),
+        _run("Markdown links", [sys.executable, "scripts/check_markdown_links.py"]),
         _run(
             "Doxygen interface contracts",
             [sys.executable, "scripts/check_doxygen_contracts.py"],

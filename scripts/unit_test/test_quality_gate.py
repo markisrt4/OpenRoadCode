@@ -32,3 +32,12 @@ def test_a_failed_static_check_keeps_gate_failed(monkeypatch):
     setup_gate(monkeypatch)
     monkeypatch.setattr(quality_gate, "_run_ruff", lambda: False)
     assert quality_gate.main(["--checks-only"]) == 1
+
+
+def test_static_gate_includes_portable_documentation_checks(monkeypatch):
+    commands = setup_gate(monkeypatch)
+    assert quality_gate.main(["--checks-only"]) == 0
+    arguments = [command[1:] for command in commands]
+    assert arguments.count(["scripts/docs_inventory.py", "--check"]) == 1
+    assert arguments.count(["scripts/check_markdown_links.py"]) == 1
+    assert arguments.count(["scripts/check_doxygen_contracts.py"]) == 1
