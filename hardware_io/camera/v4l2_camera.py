@@ -5,11 +5,11 @@
 
 from __future__ import annotations
 
-from common.logging.diagnostics import ComponentLog, diagnostic_action
-
+import re
 import time
 from typing import Any
 
+from common.logging.diagnostics import ComponentLog, diagnostic_action
 from hardware_io.camera.camera_if import CameraFrame, CameraIf
 
 
@@ -68,7 +68,13 @@ class V4L2Camera(CameraIf):
             ) from exc
 
         capture = cv2.VideoCapture(self._device, cv2.CAP_V4L2)
-        if not capture.isOpened():
+        opened = capture.isOpened()
+        device_node = re.fullmatch(r"/dev/video(0|[1-9][0-9]*)", self._device)
+        if not opened and device_node is not None:
+            capture.release()
+            capture = cv2.VideoCapture(int(device_node[1]), cv2.CAP_V4L2)
+            opened = capture.isOpened()
+        if not opened:
             capture.release()
             raise RuntimeError(f"Unable to open camera device {self._device}")
 

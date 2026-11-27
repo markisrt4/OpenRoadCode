@@ -25,7 +25,9 @@ python -m hardware_io.camera.component_test.camera_preview
 ```
 
 The defaults match the first OpenRoadCode road camera tested in development:
-`/dev/video0`, MJPEG, 1920x1080, 30 fps. Override them when needed:
+`/dev/video0`, MJPEG, 1920x1080, 30 fps. If OpenCV cannot open a numbered
+`/dev/videoN` path by name, the camera source retries with V4L2 index `N`.
+Override the capture defaults when needed:
 
 ```bash
 python -m hardware_io.camera.component_test.camera_preview \

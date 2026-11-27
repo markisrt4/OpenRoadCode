@@ -154,15 +154,12 @@ def _build_position_source(config: NavigationServiceRuntimeConfig):
 
 
 def _host_location_fallback_available() -> bool:
-    """Check the running host, not the saved deployment/build target."""
-    if (sys.platform != "linux" or os.environ.get("TERMUX_VERSION")
-            or os.environ.get("PREFIX", "").startswith("/data/data/com.termux/")):
-        return False
-    try:
-        model = Path("/proc/device-tree/model").read_text(encoding="utf-8", errors="ignore")
-    except OSError:
-        model = ""
-    return "Raspberry Pi" not in model
+    """Offer consent on Linux hosts outside the Termux sensor bridge."""
+    return (
+        sys.platform == "linux"
+        and not os.environ.get("TERMUX_VERSION")
+        and not os.environ.get("PREFIX", "").startswith("/data/data/com.termux/")
+    )
 
 
 def _browser_position_source() -> BrowserPositionSource:
