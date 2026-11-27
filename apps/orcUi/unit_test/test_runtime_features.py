@@ -27,7 +27,9 @@ def test_explicit_overrides():
 
 def test_environment_defaults_and_explicit_override():
     environment = {"ORC_NO_AUDIO": "1", "ORC_NO_CAMERA": "1"}
-    assert resolve(["--camera"], environment) == RuntimeFeatures(True, False, True, True, True, True)
+    assert resolve(["--camera"], environment) == RuntimeFeatures(
+        True, False, True, True, True, True
+    )
 
 
 def test_environment_simulation():
