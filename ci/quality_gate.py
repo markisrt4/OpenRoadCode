@@ -7,19 +7,12 @@
 from __future__ import annotations
 
 import argparse
-import importlib.util
-import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-
-
-def _is_termux() -> bool:
-    prefix = os.environ.get("PREFIX", "")
-    return bool(os.environ.get("TERMUX_VERSION")) or prefix.startswith("/data/data/com.termux/")
 
 
 def _run(label: str, command: list[str]) -> bool:
@@ -49,12 +42,6 @@ def _run_ruff() -> bool:
 
 
 def _run_ui_types() -> bool:
-    if _is_termux() and importlib.util.find_spec("mypy") is None:
-        print(
-            "\n[SKIP] Strict UI contract types: mypy unavailable on Termux; required in Linux/CI",
-            flush=True,
-        )
-        return True
     return _run("Strict UI contract types", [sys.executable, "ci/check_ui_types.py"])
 
 
