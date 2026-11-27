@@ -41,7 +41,9 @@ class RuntimeFeatures:
 
 def add_runtime_arguments(parser: argparse.ArgumentParser) -> None:
     """Register positive and negative runtime feature overrides."""
-    parser.add_argument("--simulation", action="store_true", help="Use lightweight runtime defaults")
+    parser.add_argument(
+        "--simulation", action="store_true", help="Use lightweight runtime defaults"
+    )
     for feature in FEATURES:
         parser.add_argument(
             f"--{feature.replace('_', '-')}", action=argparse.BooleanOptionalAction, default=None
