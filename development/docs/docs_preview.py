@@ -12,7 +12,7 @@ import shutil
 from pathlib import Path
 from urllib.parse import quote
 
-from docs_inventory import discover
+from ci.docs_inventory import discover
 
 LINK_PATTERN = re.compile(r"(?<!!)\[([^\]]+)\]\(([^)]+)\)")
 

@@ -82,7 +82,7 @@ done
     'libmusicforge[analysis] @ git+https://github.com/markisrt4/libMusicForge.git@9edc8a51bca70bbd98fbb866272a44a212e351af' \
     'libsdrforge[zmq,audio] @ git+https://github.com/markisrt4/libSDRForge.git@7871e0d392fa8af6ca7af8f7648ad17ee0ada9b3'
 if (( termux )); then
-    "$env_dir/bin/python" scripts/check_termux_quality_packages.py
+    "$env_dir/bin/python" ci/check_termux_quality_packages.py
 else
     "$env_dir/bin/python" -m pip check
 fi

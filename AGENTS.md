@@ -106,13 +106,13 @@ Follow the left navigation rail's up and down controls. Do not show scrollbars.
   Update the affected documentation in the same change.
 - During branch development, run tests and static checks relevant to the changed
   code and affected contracts. Do not rerun the full quality gate for every fix
-  or feature batch. The user runs `python scripts/quality_gate.py` locally at the
+  or feature batch. The user runs `python ci/quality_gate.py` locally at the
   end of branch development, before the branch is declared ready to merge. Do not
   run the full gate or broad test suites unless the user explicitly asks. The
   gate includes automatic project-wide dependency checks and stricter weather
   checks; new frontend files are discovered automatically. Report focused checks
   separately and mark full validation pending until the user supplies results.
-- `scripts/ui_boundary_exceptions.json` records exact pre-existing dependencies,
+- `ci/ui_boundary_exceptions.json` records exact pre-existing dependencies,
   not permission for new ones. Do not regenerate, expand, or add exceptions merely
   to make CI pass. Fix new violations. When removing old dependencies, shrink the
   corresponding entries; the gate rejects stale entries. Any necessary adapter

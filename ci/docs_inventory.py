@@ -87,7 +87,7 @@ def render_catalog(records: list[dict[str, str]]) -> str:
         "",
         "## Complete documentation catalog",
         "",
-        "Generated from the canonical documentation files. Every component README and standalone guide is listed here. Run `python scripts/docs_inventory.py --write` after adding or moving documentation.",
+        "Generated from the canonical documentation files. Every component README and standalone guide is listed here. Run `python ci/docs_inventory.py --write` after adding or moving documentation.",
         "",
     ]
     for group in sorted(groups, key=str.lower):
@@ -147,7 +147,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
             )
             print(
-                "Documentation index is stale. Run python scripts/docs_inventory.py --write",
+                "Documentation index is stale. Run python ci/docs_inventory.py --write",
                 file=sys.stderr,
             )
             return 1

@@ -6,7 +6,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 unset PYTHONPATH PYTHONHOME
 export PYTHONNOUSERSITE=1
 if [ ! -x .venv-quality/bin/python ]; then
-    echo "Run bash scripts/setup_quality_env.sh first." >&2
+    echo "Run bash ci/setup_quality_env.sh first." >&2
     exit 1
 fi
 if [ -n "${TERMUX_VERSION:-}" ] || [[ "${PREFIX:-}" == */com.termux/files/usr ]]; then
@@ -28,22 +28,22 @@ mode="${1:---all}"
 if [ "$#" -gt 0 ]; then shift; fi
 case "$mode" in
     --lint) ruff check "${@:-.}"; ruff format --check "${@:-.}" ;;
-    --format) python scripts/dev_check_changes.py --format-only "$@" ;;
-    --types) python scripts/check_ui_types.py ;;
-    --docstrings) python scripts/check_doxygen_contracts.py ;;
-    --test) python scripts/run_tests.py unit "$@" ;;
-    --all) python scripts/dev_check_changes.py --checks-only "$@" ;;
-    --fix|--publish) python scripts/dev_check_changes.py --checks-only "$mode" "$@" ;;
+    --format) python ci/dev_check_changes.py --format-only "$@" ;;
+    --types) python ci/check_ui_types.py ;;
+    --docstrings) python ci/check_doxygen_contracts.py ;;
+    --test) python ci/run_tests.py unit "$@" ;;
+    --all) python ci/dev_check_changes.py --checks-only "$@" ;;
+    --fix|--publish) python ci/dev_check_changes.py --checks-only "$mode" "$@" ;;
     --docs)
-        python scripts/docs_inventory.py --check
-        python scripts/check_markdown_links.py
-        python scripts/check_mermaid_legends.py
-        python scripts/check_doxygen_contracts.py
+        python ci/docs_inventory.py --check
+        python ci/check_markdown_links.py
+        python ci/check_mermaid_legends.py
+        python ci/check_doxygen_contracts.py
         if [ -n "${TERMUX_VERSION:-}" ] || [[ "${PREFIX:-}" == */com.termux/files/usr ]]; then
             echo "Pinned Doxygen generation requires Linux x86-64 CI."
             exit 1
         fi
-        bash scripts/install_quality_doxygen.sh
+        bash ci/install_quality_doxygen.sh
         mkdir -p build
         rm -f build/doxygen-warnings.log
         status=0
@@ -54,6 +54,6 @@ case "$mode" in
         fi
         exit "$status"
         ;;
-    --full) python scripts/dev_check_changes.py "$@" ;;
+    --full) python ci/dev_check_changes.py "$@" ;;
     *) echo "Usage: $0 [--all|--lint|--format|--types|--docstrings|--docs|--test|--full] [--fix] [--publish] [--message TEXT]" >&2; exit 2 ;;
 esac

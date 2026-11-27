@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
+REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
 HOST="${JEKYLL_HOST:-127.0.0.1}"
 PORT="${JEKYLL_PORT:-4000}"
 PYTHON_BIN="${PYTHON:-python3}"
@@ -57,9 +57,12 @@ fi
 
 mkdir -p "${PREVIEW_ROOT}"
 
-"${PYTHON_BIN}" "${SCRIPT_DIR}/docs_preview.py" \
-    --source "${REPO_ROOT}" \
-    --output "${PREVIEW_ROOT}/site"
+(
+    cd -- "${REPO_ROOT}"
+    "${PYTHON_BIN}" -m development.docs.docs_preview \
+        --source "${REPO_ROOT}" \
+        --output "${PREVIEW_ROOT}/site"
+)
 
 export BUNDLE_GEMFILE="${GEMFILE}"
 export BUNDLE_PATH="${PREVIEW_ROOT}/bundle"
