@@ -2,6 +2,7 @@
 
 import logging
 import math
+import os
 import threading
 import time
 from collections import deque
@@ -24,6 +25,9 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
 
     def __init__(self, native, viewer, *, initial_view=None):
         self._native, self._viewer = native, viewer
+        self._platforms = (
+            (MapPlatform.MAPLIBRE,) if os.environ.get("ORC_NO_OPENGL") == "1" else _PLATFORMS
+        )
         self._initial_view = initial_view or (
             lambda: CesiumViewerState(
                 GeoPoint(math.radians(42.3314), math.radians(-83.0458)),
@@ -46,7 +50,7 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
         self._sent_route_overlay = None
         self._follow_enabled = True
         self._lock = threading.RLock()
-        self._state = MapPlatformState(available_platforms=_PLATFORMS)
+        self._state = MapPlatformState(available_platforms=self._platforms)
         self._host = None
         self._size = (800, 600)
         self._generation = 0
@@ -93,6 +97,8 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
         with self._lock:
             if self._closed or self._host is None:
                 raise RuntimeError("Open Navigation before exploring the 3D map")
+            if MapPlatform.CESIUM not in self._platforms:
+                raise RuntimeError("3D map intentionally disabled")
             self._view = state
             self._follow_enabled = False
             self.request_platform(MapPlatform.CESIUM)
@@ -103,6 +109,9 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
             raise ValueError("This prototype supports MapLibre and the local 3D map")
         with self._lock:
             if self._closed or self._host is None:
+                return
+            if platform not in self._platforms:
+                self._state = replace(self._state, status="3D map intentionally disabled")
                 return
             if platform is MapPlatform.CESIUM and self._view is None:
                 self._view = self._initial_view()
@@ -324,7 +333,7 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
                         platform,
                         False,
                         "3D map · vehicle follow" if platform is MapPlatform.CESIUM else "MapLibre",
-                        available_platforms=_PLATFORMS,
+                        available_platforms=self._platforms,
                         follow_enabled=self._follow_enabled,
                     )
         except Exception as error:
@@ -333,7 +342,7 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
                     if self._current(generation):
                         self._state = MapPlatformState(
                             status=f"Map unavailable: {error}",
-                            available_platforms=_PLATFORMS,
+                            available_platforms=self._platforms,
                             error=str(error),
                         )
                 return
@@ -360,7 +369,7 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
         with self._lock:
             if self._current(generation):
                 self._state = MapPlatformState(
-                    status=status, available_platforms=_PLATFORMS, error=map_error
+                    status=status, available_platforms=self._platforms, error=map_error
                 )
 
     def _tick_loop(self):
@@ -430,7 +439,7 @@ class CesiumMapRuntime(MapMarkerSelectionSourceIf):
                 return
             self._generation += 1
             self._host = None
-            self._state = MapPlatformState(available_platforms=_PLATFORMS)
+            self._state = MapPlatformState(available_platforms=self._platforms)
             cleanup = self._worker.submit(self._close_viewer)
         try:
             cleanup.result()

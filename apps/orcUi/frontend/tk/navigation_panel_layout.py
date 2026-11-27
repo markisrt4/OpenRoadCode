@@ -4,11 +4,13 @@
 """Tk widget construction helpers for the ORC navigation panel."""
 
 import logging
+import os
 import tkinter as tk
 
 from common.logging.structured import event
 from ui.navigation.map_layer_controls import MapLayerAction, MapLayerControls
 
+from .map_disabled_placeholder import MapDisabledPlaceholder
 from .navigation_poi_card_layout import build_poi_card
 
 
@@ -85,6 +87,8 @@ def build_navigation_panel(panel) -> None:
         body, bg=ui.background, highlightthickness=1, highlightbackground=ui.border
     )
     panel._map_host.grid(row=0, column=0, sticky="nsew")
+    if os.environ.get("ORC_NO_NATIVE_MAP") == "1" or os.environ.get("ORC_NO_OPENGL") == "1":
+        MapDisabledPlaceholder(panel._map_host, panel._theme_bundle)
     panel._loading_cover = tk.Label(body, text="Loading Terrain…", bg=ui.background, fg=ui.text)
     panel._loading_cover.grid(row=0, column=0, sticky="nsew")
     panel._loading_cover.grid_remove()

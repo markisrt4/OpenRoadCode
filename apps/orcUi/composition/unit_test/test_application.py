@@ -253,7 +253,7 @@ class OrcUiCompositionTest(unittest.TestCase):
 
     @patch("apps.orcUi.composition.application.configure_weather")
     @patch("apps.orcUi.composition.application.configure_media")
-    @patch("apps.orcUi.composition.application.configure_vision")
+    @patch("apps.orcUi.composition.vision.configure_vision")
     @patch("apps.orcUi.composition.application.configure_games")
     @patch("apps.orcUi.composition.application.configure_radio")
     @patch("apps.orcUi.composition.application.create_core_composition")

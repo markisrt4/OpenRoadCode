@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 
 from adapters.radio.json_radio_visualization_settings import JsonRadioVisualizationSettings
@@ -39,7 +40,6 @@ from apps.orcUi.composition.media import configure_media
 from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
 from apps.orcUi.composition.radio import configure_radio
 from apps.orcUi.composition.tooltips import TooltipFactory
-from apps.orcUi.composition.vision import configure_vision
 from apps.orcUi.composition.waze import configure_waze
 from apps.orcUi.composition.weather import configure_weather
 from apps.orcUi.composition.weather_overlays import configure_weather_overlays
@@ -95,7 +95,8 @@ def create_orc_ui_composition(
             "GAMES",
             "LIGHTING",
         ):
-            app.register_navigation_destination(destination)
+            if destination != "VISION" or os.environ.get("ORC_NO_CAMERA") != "1":
+                app.register_navigation_destination(destination)
         rf_visualization_settings = JsonRadioVisualizationSettings()
         radio = configure_radio(app, runtime, rf_visualization_settings)
         cleanup.callback(radio.close)
@@ -103,9 +104,15 @@ def create_orc_ui_composition(
         games = configure_games(app)
         cleanup.callback(games.shutdown)
         _report(progress, "games", "Games subsystem loaded")
-        vision = configure_vision(app)
-        cleanup.callback(vision.close)
-        _report(progress, "vision", "Vision subsystem loaded")
+        vision = None
+        if os.environ.get("ORC_NO_CAMERA") == "1":
+            _report(progress, "vision", "Vision subsystem intentionally disabled")
+        else:
+            from apps.orcUi.composition.vision import configure_vision
+
+            vision = configure_vision(app)
+            cleanup.callback(vision.close)
+            _report(progress, "vision", "Vision subsystem loaded")
         media = configure_media(app, runtime)
         cleanup.callback(media.close)
         radio.bind_song_launch(media.song_launch_controller.launch_song)
