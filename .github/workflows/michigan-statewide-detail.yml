@@ -33,7 +33,7 @@ jobs:
       has_work: ${{ steps.resume.outputs.has_work || 'true' }}
       resume_run: ${{ steps.request.outputs.resume_run }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -115,7 +115,7 @@ jobs:
       GDAL_HTTP_RETRY_DELAY: '2'
       GDAL_HTTP_TIMEOUT: '60'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/cache/restore@v4
         id: apt-cache
         with:
@@ -185,7 +185,7 @@ jobs:
     if: always() && needs.plan.result == 'success'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v4
         with:
           name: mi-detail-plan-${{ github.run_id }}

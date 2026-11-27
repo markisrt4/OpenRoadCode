@@ -106,7 +106,7 @@ jobs:
       imagery: ${{ steps.identity.outputs.imagery }}
       terrain: ${{ steps.identity.outputs.terrain }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Choose versioned release tag
         id: release
         env:
@@ -160,7 +160,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
@@ -209,7 +209,7 @@ jobs:
     outputs:
       cache-hit: ${{ steps.package.outputs.cache-hit }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Restore reusable terrain package
         if: ${{ !inputs.force_rebuild }}
         id: package
@@ -243,7 +243,7 @@ jobs:
       matrix:
         tile: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
@@ -289,7 +289,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
@@ -389,7 +389,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Download checked state packages
         uses: actions/download-artifact@v4
         with:
@@ -415,7 +415,7 @@ jobs:
       state: ${{ steps.plan.outputs.state }}
       matrix: ${{ steps.plan.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - id: plan
         name: Validate state and create coverage matrix
         env:
@@ -453,7 +453,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Download checked state packages
         uses: actions/download-artifact@v4
         with:
@@ -506,7 +506,7 @@ jobs:
       TRIAL_COVERAGE: ${{ inputs.trial_coverage || 'rochester' }}
       TRIAL_IMAGERY_SOURCE: ${{ inputs.trial_imagery_source || 'usgs' }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Install build-host raster tools
         run: |
           sudo apt-get update -qq
@@ -568,7 +568,7 @@ jobs:
       GDAL_HTTP_TIMEOUT: '60'
       COVERAGE: ${{ matrix.coverage }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Install build-host raster tools
         run: |
           sudo apt-get update -qq
@@ -614,7 +614,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Install existing OSM extraction tools
         run: |
           sudo apt-get update -qq
@@ -665,7 +665,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Install existing OSM extraction tools
         run: |
           sudo apt-get update -qq
@@ -713,7 +713,7 @@ jobs:
       layers: ${{ steps.plan.outputs.layers }}
       zoom: ${{ steps.plan.outputs.zoom }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - id: plan
         env:
           TARGET: ${{ inputs.build_target }}
@@ -752,7 +752,7 @@ jobs:
       GDAL_HTTP_TIMEOUT: '60'
       COVERAGE: ${{ matrix.coverage }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Install build-host raster tools
         run: |
           sudo apt-get update -qq
@@ -811,7 +811,7 @@ jobs:
       GDAL_HTTP_TIMEOUT: '60'
       COVERAGE: ${{ matrix.coverage }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Install build-host raster tools
         run: |
           sudo apt-get update -qq
@@ -854,7 +854,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: sudo apt-get update -qq && sudo apt-get install -y osmium-tool
       - uses: actions/cache/restore@v4
         with:
