@@ -25,11 +25,28 @@ for module in tkinter numpy PIL zmq musicforge.analysis; do
     echo "Import passed: $module"
 done
 echo "Launching OpenRoadCode..."
+# The isolated display has no window manager; Tk need not publish _NET_WM_PID.
+visible_windows() {
+    timeout 5s xdotool search --onlyvisible --name . 2>/dev/null || true
+}
+baseline="$(visible_windows)"
+new_visible_window() {
+    local window
+    while read -r window; do
+        [[ -n "$window" ]] || continue
+        if ! grep -Fxq "$window" <<< "$baseline"; then
+            echo "New visible window: $window"
+            timeout 5s xwininfo -id "$window" || return 1
+            return 0
+        fi
+    done < <(visible_windows)
+    return 1
+}
 bash runOrcUi --follow-logs > >(tee "$log") 2>&1 &
 pid=$!
 for ((attempt=0; attempt<180; attempt++)); do
     kill -0 "$pid" 2>/dev/null || { echo "ORC exited during startup" >&2; exit 1; }
-    if grep -q 'OpenRoadCode UI ready' "$log" && xdotool search --onlyvisible --pid "$pid" >/dev/null 2>&1; then
+    if grep -q 'OpenRoadCode UI ready' "$log" && new_visible_window; then
         sleep 5
         kill -0 "$pid"
         if grep -Eq 'Traceback \(most recent call last\)|Exception in Tkinter callback' "$log"; then
@@ -45,4 +62,5 @@ for ((attempt=0; attempt<180; attempt++)); do
     sleep 1
 done
 echo "Timed out waiting for ORC readiness and visible window" >&2
+timeout 5s xwininfo -root -tree || true
 exit 1
