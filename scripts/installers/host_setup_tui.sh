@@ -220,10 +220,18 @@ while true; do
     streaming) choose_features "Streaming and media" "Select media features:" "$SELECTED_STREAMING" \
       "spotify|Spotify integration" \
       "youtube|YouTube music video integration" && SELECTED_STREAMING="$SELECTED_RESULT" ;;
-    navigation) choose_features "Navigation" "Select navigation software and positioning hardware:" "$SELECTED_NAVIGATION" \
-      "navigation|Native MapLibre and Valhalla navigation stack" \
-      "gps|GPS daemon and Python support" \
-      "imu|MPU-6050 inertial sensor support" && SELECTED_NAVIGATION="$SELECTED_RESULT" ;;
+    navigation)
+      navigation_options=(
+        "navigation|Native MapLibre and Valhalla navigation stack"
+        "gps|GPS daemon and Python support"
+        "imu|MPU-6050 inertial sensor support"
+      )
+      if [[ "$SELECTED_TARGET" == rpi5 || "$SELECTED_TARGET" == linux-dev ]]; then
+        navigation_options+=("waydroid|Waydroid for native Waze/apps (kernel/repository required; app installed separately)")
+      fi
+      choose_features "Navigation" "Select navigation software and positioning hardware:" "$SELECTED_NAVIGATION" \
+        "${navigation_options[@]}" && SELECTED_NAVIGATION="$SELECTED_RESULT"
+      ;;
     environmental) choose_features "Environmental" "Select environmental capabilities:" "$SELECTED_ENVIRONMENTAL" \
       "environmental|BMP388/BMP390 pressure and temperature support" && SELECTED_ENVIRONMENTAL="$SELECTED_RESULT" ;;
     radio) choose_features "Radio" "Select radio features:" "$SELECTED_RADIO" \

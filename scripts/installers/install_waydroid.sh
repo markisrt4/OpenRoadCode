@@ -42,3 +42,10 @@ else
 fi
 sudo test -s /var/lib/waydroid/waydroid.cfg || fail "Waydroid initialization did not produce a configuration."
 "$VENV_DIR/bin/python" "$PROJECT_DIR/scripts/install_waydroid_services.py" install
+
+echo "[+] Waydroid services installed; ORC has not been launched."
+echo "[*] From your X11 desktop, start Android with:"
+echo "    bash development/debian/start_waydroid_services.sh"
+echo "[*] Install Waze inside Android and complete its first-run prompts."
+echo "[*] Enable a live GPS source in ORC; Android location sharing is prepared at service startup."
+echo "[*] Pi 5 graphics, input and GPS delivery still require hardware verification."

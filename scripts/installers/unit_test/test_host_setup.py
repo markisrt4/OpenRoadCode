@@ -57,6 +57,39 @@ class HostSetupPlanTests(unittest.TestCase):
                 check=False,
             )
 
+    def test_pi5_waydroid_plan_resolves_desktop_and_android_dependencies(self) -> None:
+        result = self.run_installer(
+            "--target",
+            "rpi5",
+            "--no-default-features",
+            "--feature",
+            "waydroid",
+            "--show-plan",
+            architecture="arm64",
+            model="Raspberry Pi 5 Model B",
+            distribution="debian",
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        for dependency in (
+            "waydroid", "android-integration", "desktop-ui", "weston", "adb", "scrcpy"
+        ):
+            self.assertIn(dependency, result.stdout)
+        self.assertIn("Plan only; no system changes were made.", result.stdout)
+
+    def test_pi4_rejects_explicit_waydroid_selection(self) -> None:
+        result = self.run_installer(
+            "--target",
+            "rpi4",
+            "--feature",
+            "waydroid",
+            "--show-plan",
+            architecture="arm64",
+            model="Raspberry Pi 4 Model B",
+            distribution="debian",
+        )
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("Waydroid requires a Pi 5 or Linux desktop target", result.stderr)
+
     def test_desktop_plan_leaves_native_radio_optional(self) -> None:
         result = self.run_installer(
             "--target", "linux-dev", "--feature", "desktop-ui", "--show-plan"
