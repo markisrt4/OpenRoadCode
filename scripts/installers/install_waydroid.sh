@@ -44,6 +44,8 @@ if (( ${#missing_packages[@]} )); then
   for package in "${missing_packages[@]}"; do
     apt-cache show "$package" >/dev/null 2>&1 || fail "Required package unavailable: $package. Configure a compatible signed repository before continuing."
   done
+  # scrcpy downloads its Android server during package configuration.
+  sudo apt install -y --no-install-recommends curl ca-certificates
   sudo apt install -y --no-install-recommends "${missing_packages[@]}"
 fi
 for executable in waydroid weston adb scrcpy; do
