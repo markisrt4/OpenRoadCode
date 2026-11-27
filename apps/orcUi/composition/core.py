@@ -53,7 +53,7 @@ class CoreComposition:
     trip_publisher: ZeroMqPublisher
     telemetry_profile_publisher: ZeroMqPublisher
     lifecycle: SystemLifecycleController
-    volume: SystemVolumeHandler
+    volume: SystemVolumeHandler | None
     connectivity: ShellConnectivityController | None = None
 
     _closed: bool = field(default=False, init=False)
@@ -61,7 +61,7 @@ class CoreComposition:
     def start(self) -> None:
         if self.connectivity is not None:
             self.connectivity.start()
-        if os.environ.get("ORC_NO_AUDIO") != "1":
+        if self.volume is not None:
             self.volume.refresh()
         self.map_camera.start()
         self.state_ingress.start()
@@ -124,12 +124,13 @@ def create_core_composition() -> CoreComposition:
         )
         cleanup.callback(connectivity.close)
         app.set_connectivity_handler(connectivity.toggle)
-        volume = SystemVolumeHandler(
-            audio_controller=PipewireAudioController(),
-            volume_ui=app,
-            set_status=app.set_screen_status,
-        )
+        volume = None
         if os.environ.get("ORC_NO_AUDIO") != "1":
+            volume = SystemVolumeHandler(
+                audio_controller=PipewireAudioController(),
+                volume_ui=app,
+                set_status=app.set_screen_status,
+            )
             app.set_volume_request_handler(volume)
         state_ingress = StateIngressRuntime(
             schedule_ui=app.schedule_ui_callback,
