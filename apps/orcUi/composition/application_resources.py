@@ -50,7 +50,6 @@ from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
 from ui.navigation import GeoPoint
 from ui.navigation.cesium_viewer_state import CesiumViewerState
 
-
 if TYPE_CHECKING:
     from apps.orcUi.composition.vision import VisionComposition
 
