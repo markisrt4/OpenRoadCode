@@ -44,16 +44,12 @@ class ImageCache:
         cache_directory: str | Path | None = None,
     ) -> None:
         if max_entries <= 0:
-            raise ValueError(
-                "max_entries must be greater than zero"
-            )
+            raise ValueError("max_entries must be greater than zero")
 
         self._downloader = downloader or ImageDownloader()
         self._max_entries = max_entries
         self._cache_directory = (
-            Path(cache_directory).expanduser()
-            if cache_directory is not None
-            else None
+            Path(cache_directory).expanduser() if cache_directory is not None else None
         )
         self._persistent_cache: PersistentCacheIf | None = (
             PersistentCache(self._cache_directory, suffix=".image")
@@ -183,11 +179,7 @@ class ImageCache:
         normalized_url = url.strip()
 
         with self._lock:
-            matching_keys = [
-                key
-                for key in self._images
-                if key.url == normalized_url
-            ]
+            matching_keys = [key for key in self._images if key.url == normalized_url]
 
             for key in matching_keys:
                 image = self._images.pop(key)
@@ -221,9 +213,7 @@ class ImageCache:
             image = self._decode(data)
         except (OSError, ValueError) as exc:
             if not from_disk:
-                raise ImageDecodeError(
-                    f"Unable to decode image from {url}"
-                ) from exc
+                raise ImageDecodeError(f"Unable to decode image from {url}") from exc
             if self._persistent_cache is not None:
                 self._persistent_cache.remove(url)
             downloaded = self._downloader.download(url)
@@ -231,17 +221,11 @@ class ImageCache:
             try:
                 image = self._decode(downloaded.data)
             except (OSError, ValueError) as retry_exc:
-                raise ImageDecodeError(
-                    f"Unable to decode image from {url}"
-                ) from retry_exc
+                raise ImageDecodeError(f"Unable to decode image from {url}") from retry_exc
 
         if width is not None or height is not None:
-            target_width = (
-                width if width is not None else image.width
-            )
-            target_height = (
-                height if height is not None else image.height
-            )
+            target_width = width if width is not None else image.width
+            target_height = height if height is not None else image.height
 
             image.thumbnail(
                 (target_width, target_height),
@@ -277,9 +261,7 @@ class ImageCache:
 
     def _evict_if_needed(self) -> None:
         while len(self._images) > self._max_entries:
-            _, image = self._images.popitem(
-                last=False
-            )
+            _, image = self._images.popitem(last=False)
             image.close()
 
     @staticmethod
@@ -288,11 +270,7 @@ class ImageCache:
         height: int | None,
     ) -> None:
         if width is not None and width <= 0:
-            raise ValueError(
-                "width must be greater than zero"
-            )
+            raise ValueError("width must be greater than zero")
 
         if height is not None and height <= 0:
-            raise ValueError(
-                "height must be greater than zero"
-            )
+            raise ValueError("height must be greater than zero")

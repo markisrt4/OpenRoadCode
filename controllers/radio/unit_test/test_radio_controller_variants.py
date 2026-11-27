@@ -25,9 +25,7 @@ class RadioControllerContractTests(unittest.TestCase):
             UnconfiguredRadioController,
         ):
             with self.subTest(controller_type=controller_type):
-                self.assertTrue(
-                    issubclass(controller_type, RadioControllerIf)
-                )
+                self.assertTrue(issubclass(controller_type, RadioControllerIf))
                 self.assertFalse(controller_type.__abstractmethods__)
 
 

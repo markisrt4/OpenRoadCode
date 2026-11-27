@@ -5,17 +5,16 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 import subprocess
 import sys
-import logging
 from collections.abc import Callable
 from enum import Enum
 
 from common.logging.lifecycle import failure_fields
 from common.logging.structured import current_operation, event, operation
-
 from ui.system.lifecycle_request_handler_if import SystemLifecycleRequestHandlerIf
 
 LOGGER = logging.getLogger("runtime.host")

@@ -17,19 +17,14 @@ def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
 
     parser = argparse.ArgumentParser(
-        description=(
-            "Read acceleration and angular velocity from an MPU-6050."
-        )
+        description=("Read acceleration and angular velocity from an MPU-6050.")
     )
 
     parser.add_argument(
         "--address",
         type=lambda value: int(value, 0),
         default=Mpu6050Imu.DEFAULT_ADDRESS,
-        help=(
-            "MPU-6050 I2C address. Accepts decimal or hexadecimal values. "
-            "Default: 0x68"
-        ),
+        help=("MPU-6050 I2C address. Accepts decimal or hexadecimal values. Default: 0x68"),
     )
 
     parser.add_argument(

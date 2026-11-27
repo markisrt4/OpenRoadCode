@@ -1,0 +1,21 @@
+[Unit]
+Description=OpenRoadCode native Waydroid runtime
+PartOf=openroadcode-session.target graphical-session.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=notify
+NotifyAccess=main
+WorkingDirectory=@PROJECT@
+ExecStart=@PYTHON@ -m scripts.waydroid_service
+Environment=ORC_WAYDROID_DISPLAY=wayland-0
+Environment=ADB_LOCAL_TRANSPORT_MAX_PORT=5555
+TimeoutStartSec=360
+TimeoutStopSec=40
+KillMode=control-group
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=openroadcode-session.target

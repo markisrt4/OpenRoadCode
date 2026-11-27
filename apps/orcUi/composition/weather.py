@@ -8,10 +8,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from common.resource_cleanup import ResourceCleanup, close_resources
-
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.theme_runtime import theme_bundle
+from common.resource_cleanup import ResourceCleanup, close_resources
 from common.units import UnitSystem, kelvin_to_celsius, kelvin_to_fahrenheit
 from config.runtime_environment import android_bridge_url
 from config.service_runtime_config import ServiceRuntimeConfigParser
@@ -25,7 +24,9 @@ from controllers.weather import (
     WeatherLocation,
     WeatherRadarController,
 )
-from controllers.weather.environmental_radar_injection_controller import EnvironmentalRadarInjectionController
+from controllers.weather.environmental_radar_injection_controller import (
+    EnvironmentalRadarInjectionController,
+)
 from controllers.weather.providers.hrrr_radar_provider import HrrrRadarProvider
 from controllers.weather.weather_screen_controller import WeatherScreenController
 from frontends.tk.weather import WeatherScreen
@@ -54,7 +55,9 @@ class WeatherComposition:
 
     def select_radar_source(self, forecast: bool) -> None:
         """Select observed radar or experimental NOAA HRRR CONUS forecasts."""
-        self.radar_injection.set_live_provider(HrrrRadarProvider() if forecast else RainViewerRadarProvider())
+        self.radar_injection.set_live_provider(
+            HrrrRadarProvider() if forecast else RainViewerRadarProvider()
+        )
 
 
 def configure_weather(
@@ -83,6 +86,7 @@ def configure_weather(
             location_provider=GpsdWeatherLocationProvider(),
             fallback_location=fallback_location,
         )
+
         def publish_weather_status(state) -> None:
             if on_weather_status is None:
                 return
@@ -94,7 +98,17 @@ def configure_weather(
             else:
                 temperature = f"{kelvin_to_celsius(value):.0f}°C"
             condition = state.current.condition_label.lower()
-            symbol = "⚡" if "thunder" in condition else "❄" if "snow" in condition else "☂" if "rain" in condition else "☀" if "clear" in condition else "☁"
+            symbol = (
+                "⚡"
+                if "thunder" in condition
+                else "❄"
+                if "snow" in condition
+                else "☂"
+                if "rain" in condition
+                else "☀"
+                if "clear" in condition
+                else "☁"
+            )
             on_weather_status(f"{symbol}  {temperature}")
 
         if map_renderer is None:
@@ -121,7 +135,12 @@ def configure_weather(
             on_radar_map=on_radar_map,
         )
         screen_controller = WeatherScreenController(
-            app, controller, screen, publish_weather_status, online_allowed=lambda: app.online_mode.online)
+            app,
+            controller,
+            screen,
+            publish_weather_status,
+            online_allowed=lambda: app.online_mode.online,
+        )
         cleanup.callback(screen_controller.close)
         screen_controller.bind_online_mode(app.online_mode)
         screen.set_weather_request_handler(screen_controller)

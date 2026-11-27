@@ -1,0 +1,50 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+"""Semantic presentation request, callable from app-launch workers."""
+
+from dataclasses import dataclass
+from typing import Protocol
+
+
+@dataclass(frozen=True)
+class AndroidAppViewState:
+    """Identity and presentation of the app; no Android transport details."""
+
+    app_name: str = "Android app"
+    package: str = ""
+    expanded: bool = False
+    can_split: bool = True
+    can_navigate_saved_destinations: bool = False
+    navigation_mode_controls: bool = False
+
+
+class AndroidAppViewRequestHandlerIf(Protocol):
+    def request_show_android_app(self, app_name: str = "Android app", package: str = "") -> None:
+        """Present the running Android app without taking ownership of its runtime.
+
+        @param app_name Display name of the Android application.
+        @param package Android package identifier.
+        """
+        ...
+
+    def request_toggle_android_app_expanded(self) -> None:
+        """Toggle between equal map/app panes and the full-width app view."""
+        ...
+
+    def request_set_android_app_visible(self, visible: bool) -> None:
+        """Scope optional location forwarding to the embedded app's visibility.
+
+        @param visible Whether the owned surface is visible.
+        """
+        ...
+
+    def request_close_android_app(self) -> None:
+        """Release this view's retained surface without shutting down the view."""
+        ...
+
+    def request_navigate_saved_destination(self, key: str) -> None:
+        """Navigate the active Waze session to ORC's saved Home or Work.
+
+        @param key Saved destination key, home or work.
+        """
+        ...

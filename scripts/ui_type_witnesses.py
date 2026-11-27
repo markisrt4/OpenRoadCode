@@ -5,6 +5,25 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from adapters.radio.json_radio_visualization_settings import JsonRadioVisualizationSettings
+    from adapters.radio.sdrforge_rf_hardware_config import SdrForgeRfHardwareConfig
+    from ui.radio.radio_visualization_config import RadioVisualizationSettingsIf
+    from ui.radio.rf_hardware_config_if import RfHardwareConfigIf
+
+    def rf_visualization_settings(
+        store: JsonRadioVisualizationSettings,
+    ) -> RadioVisualizationSettingsIf:
+        return store
+
+    def rf_hardware_config(adapter: SdrForgeRfHardwareConfig) -> RfHardwareConfigIf:
+        return adapter
+
+    from controllers.audio.linux_audio_settings import LinuxAudioSettings
+    from ui.system.audio_settings_if import AudioSettingsIf
+
+    def audio_settings(controller: LinuxAudioSettings) -> AudioSettingsIf:
+        return controller
+
     from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
     from frontends.tk.tk_screen_host_if import TkScreenHostIf
     from ui.ui_dispatcher_if import UiDispatcherIf
@@ -18,8 +37,8 @@ if TYPE_CHECKING:
     from controllers.games.games_session import GamesSession
     from frontends.tk.games.games_screen import GamesScreen
     from frontends.x11.x11_window_embedder import X11WindowEmbedder
-    from ui.games.games_session_if import GamesSessionIf, GamesRuntimeUiIf
     from ui.games.game_window_embedder_if import GameWindowEmbedderIf
+    from ui.games.games_session_if import GamesRuntimeUiIf, GamesSessionIf
 
     def games_session(session: GamesSession) -> GamesSessionIf:
         return session
@@ -30,10 +49,13 @@ if TYPE_CHECKING:
     def games_embedder(adapter: X11WindowEmbedder) -> GameWindowEmbedderIf:
         return adapter
 
+    from controllers.radio.streaming_radio_backend_if import (
+        StreamingRadioBackendIf,
+        StreamingRadioFavoritesIf,
+    )
     from controllers.radio.streaming_radio_browser import StreamingRadioBrowser
     from controllers.radio.streaming_radio_controller import StreamingRadioController
     from controllers.radio.streaming_radio_favorites import StreamingRadioFavorites
-    from controllers.radio.streaming_radio_backend_if import StreamingRadioBackendIf, StreamingRadioFavoritesIf
     from frontends.tk.radio.streaming_radio_panel import StreamingRadioPanel
     from ui.radio.streaming_radio_session_if import StreamingRadioSessionIf, StreamingRadioUiIf
     from ui.radio.streaming_radio_state_source_if import StreamingRadioStateSourceIf
@@ -53,9 +75,15 @@ if TYPE_CHECKING:
     def radio_favorites(storage: StreamingRadioFavorites) -> StreamingRadioFavoritesIf:
         return storage
 
-    from controllers.radio.rf_radio_session import ReceiverSession
+    from controllers.radio.receiver_settings_controller import ReceiverSettingsController
+    from ui.radio.receiver_settings_if import ReceiverSettingsIf
+
+    def receiver_settings(controller: ReceiverSettingsController) -> ReceiverSettingsIf:
+        return controller
+
     from apps.orcUi.frontend.tk.radio_panel import RadioPanel
-    from ui.radio.rf_radio_if import RfRadioSession, RfRadioUi, RadioNativeSurface
+    from controllers.radio.rf_radio_session import ReceiverSession
+    from ui.radio.rf_radio_if import RadioNativeSurface, RfRadioSession, RfRadioUi
 
     def rf_session(session: ReceiverSession) -> RfRadioSession:
         return session
@@ -69,8 +97,8 @@ if TYPE_CHECKING:
     from controllers.spotify.spotify_presentation import SpotifyPresentation
     from frontends.tk.media.spotify_now_playing import SpotifyNowPlaying
     from frontends.tk.media.spotify_playback_panel import SpotifyPlaybackPanel
-    from ui.media.spotify_presentation_if import SpotifyPresentationSession, SpotifyPresentationUi
     from ui.media import VolumeRequestHandlerIf
+    from ui.media.spotify_presentation_if import SpotifyPresentationSession, SpotifyPresentationUi
 
     def spotify_session(session: SpotifyPresentation) -> SpotifyPresentationSession:
         return session
@@ -101,6 +129,7 @@ if TYPE_CHECKING:
 
     def spotify_native_surface(adapter: X11WindowEmbedder) -> SpotifyNativeSurface:
         return adapter
+
 
 if TYPE_CHECKING:
     from controllers.spotify.spotify_account import SpotifyAccountBinding

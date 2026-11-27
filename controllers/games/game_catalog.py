@@ -1,8 +1,8 @@
 """Load native game definitions from TOML configuration."""
 
 import os
-from pathlib import Path
 import tomllib
+from pathlib import Path
 
 from .game_types import GameDefinition, TermuxProotRuntimeConfig
 

@@ -9,16 +9,21 @@ from typing import Protocol
 
 @dataclass(frozen=True, slots=True)
 class HostLocationState:
-    status: str = "Browser permission is required. Bridge/GPS takes priority."
+    status: str = "Share this computer's location with ORC using your browser."
     busy: bool = False
     can_share: bool = True
+    location_status: str = "Waiting for a live location."
+    android_status: str = ""
+    sharing: bool = False
+
+    can_restart: bool = False
 
 
 class HostLocationUiIf(Protocol):
     def set_host_location_state(self, state: HostLocationState) -> None:
         """Present permission-page availability, never infer browser consent.
 
-        @param state Current host-location permission presentation state.
+        @param state Immutable location permission/recovery presentation state.
         """
         ...
 
@@ -34,4 +39,8 @@ class HostLocationRequestHandlerIf(Protocol):
 
     def share_host_location(self) -> None:
         """Open the permission page after checking the local service."""
+        ...
+
+    def restart_location_service(self) -> None:
+        """Request managed location-service recovery and reopen permission."""
         ...

@@ -12,7 +12,6 @@ from collections.abc import Callable
 
 from common.logging.diagnostics import ComponentLog, diagnostic_action
 from common.logging.structured import current_operation, operation
-
 from controllers.computer_vision.camera_frame_processor import CameraFrameProcessor, CameraMode
 from controllers.computer_vision.object_detector_if import DetectionFrame
 from controllers.computer_vision.object_tracker_if import TrackFrame
@@ -42,7 +41,7 @@ class VisionController(VisionRequestHandlerIf):
         camera: CameraIf,
         controls: CameraControlsIf,
         processor: CameraFrameProcessor,
-        worker: PerceptionWorker,
+        worker: PerceptionWorker | None,
         *,
         source_label: str,
         prepare_model: Callable[[], object] | None = None,
@@ -61,7 +60,8 @@ class VisionController(VisionRequestHandlerIf):
         self._generation = 0
         self._active = False
         self._closed = False
-        self._ai_enabled = True
+        self._ai_enabled = worker is not None
+        self._hardware_profiles_available = True
         self._thread: threading.Thread | None = None
         self._pending_delivery: tuple[int, VisionUiState, str | None] | None = None
         self._delivery_scheduled = False
@@ -90,7 +90,7 @@ class VisionController(VisionRequestHandlerIf):
                 target=self._run,
                 args=(generation, self._operation_id),
                 name="VisionController",
-                daemon=True,
+                daemon=False,
             )
             self._thread = thread
             self._publish(generation, self._state(VisionLifecycle.STARTING, "Starting camera…"))
@@ -99,7 +99,9 @@ class VisionController(VisionRequestHandlerIf):
             except Exception as error:
                 self._active = False
                 self._thread = None
-                self._publish(generation, self._state(VisionLifecycle.ERROR, f"Camera unavailable: {error}"))
+                self._publish(
+                    generation, self._state(VisionLifecycle.ERROR, f"Camera unavailable: {error}")
+                )
                 self._diagnostics.changed("lifecycle", "error", self._operation_id)
                 raise
             self._diagnostics.changed("lifecycle", "starting", self._operation_id)
@@ -114,7 +116,7 @@ class VisionController(VisionRequestHandlerIf):
             self._generation += 1
             generation = self._generation
             thread = self._thread
-        self._camera.close()
+        # The capture thread owns release. Releasing OpenCV here can race read().
         if thread is not None and thread is not threading.current_thread():
             thread.join(timeout=2.0)
         with self._lock:
@@ -148,7 +150,7 @@ class VisionController(VisionRequestHandlerIf):
         with self._lock:
             if self._closed:
                 return
-            self._ai_enabled = bool(enabled)
+            self._ai_enabled = bool(enabled) and self._worker is not None
             self._diagnostics.changed("ai_enabled", self._ai_enabled, self._operation_id)
             self._publish(self._generation, self._state(self._lifecycle()))
 
@@ -175,7 +177,14 @@ class VisionController(VisionRequestHandlerIf):
                     generation,
                     self._state(VisionLifecycle.STARTING, "Preparing vision model…"),
                 )
-                self._prepare_model()
+                try:
+                    self._prepare_model()
+                except Exception as exc:
+                    self._diagnostics.failed("prepare_model", exc)
+                    with self._lock:
+                        self._worker = None
+                        self._ai_enabled = False
+                        self._prepare_model = None
                 if not self._is_current(generation):
                     return
             self._camera.open()
@@ -183,10 +192,12 @@ class VisionController(VisionRequestHandlerIf):
                 self._diagnostics.emit(logging.DEBUG, "result_discarded")
                 return
             self._controls.invalidate()
-            self._controls.restore_day_defaults()
-            self._worker.start()
+            self._hardware_profiles_available = True
+            self._apply_hardware_profile(CameraProfile.DAY)
+            if self._worker is not None:
+                self._worker.start()
             with self._lock:
-                self._last_processed_count = self._worker.processed_frames
+                self._last_processed_count = self._worker.processed_frames if self._worker else 0
             self._diagnostics.succeeded("capture_session")
             self._diagnostics.changed("lifecycle", "running")
             self._publish(generation, self._state(VisionLifecycle.RUNNING))
@@ -206,9 +217,13 @@ class VisionController(VisionRequestHandlerIf):
                     self._state(VisionLifecycle.ERROR, f"Camera unavailable: {exc}"),
                 )
         finally:
-            for stage, cleanup in (("worker_stop", self._worker.stop),
-                                   ("restore_profile", self._controls.restore_day_defaults),
-                                   ("camera_close", self._camera.close)):
+            cleanup_steps: tuple[tuple[str, Callable[[], None]], ...] = (
+                ("restore_profile", self._controls.restore_day_defaults),
+                ("camera_close", self._camera.close),
+            )
+            if self._worker is not None:
+                cleanup_steps = (("worker_stop", self._worker.stop), *cleanup_steps)
+            for stage, cleanup in cleanup_steps:
                 try:
                     with self._diagnostics.action(stage):
                         cleanup()
@@ -236,16 +251,20 @@ class VisionController(VisionRequestHandlerIf):
                 if effective_mode is CameraMode.LOW_LIGHT
                 else CameraProfile.DAY
             )
-            self._controls.apply(target_profile)
+            self._apply_hardware_profile(target_profile)
             self._diagnostics.changed("effective_profile", target_profile.value)
             ai_enabled = self._ai_enabled
 
         processed_frame = CameraFrame(processed, frame.timestamp_s, frame.sequence)
-        if ai_enabled:
-            self._worker.submit(processed_frame)
-        detection = self._worker.latest_result if ai_enabled else None
-        tracks = self._worker.latest_tracks if ai_enabled else None
-        self._update_inference_rate(now)
+        worker = self._worker
+        if ai_enabled and worker is not None:
+            worker.submit(processed_frame)
+            detection = worker.latest_result
+            tracks = worker.latest_tracks
+            self._update_inference_rate(now, worker.processed_frames)
+        else:
+            detection = None
+            tracks = None
         image = self._to_ui_image(processed_frame)
         objects = self._objects(detection, tracks)
         latency_s = 0.0 if detection is None else detection.inference_time_ms / 1000.0
@@ -259,8 +278,18 @@ class VisionController(VisionRequestHandlerIf):
             ),
         )
 
-    def _update_inference_rate(self, now: float) -> None:
-        processed_count = self._worker.processed_frames
+    def _apply_hardware_profile(self, profile: CameraProfile) -> None:
+        if self._hardware_profiles_available:
+            try:
+                if profile is CameraProfile.DAY:
+                    self._controls.restore_day_defaults()
+                else:
+                    self._controls.apply(profile)
+            except (OSError, RuntimeError) as exc:
+                self._hardware_profiles_available = False
+                self._diagnostics.failed("camera_profile", exc)
+
+    def _update_inference_rate(self, now: float, processed_count: int) -> None:
         with self._lock:
             if processed_count == self._last_processed_count:
                 return
@@ -268,9 +297,7 @@ class VisionController(VisionRequestHandlerIf):
             delta = processed_count - self._last_processed_count
             if self._last_inference_time > 0.0 and elapsed > 0.0 and delta > 0:
                 measured = delta / elapsed
-                self._inference_rate_hz = self._smooth(
-                    self._inference_rate_hz, measured, 0.2
-                )
+                self._inference_rate_hz = self._smooth(self._inference_rate_hz, measured, 0.2)
             self._last_processed_count = processed_count
             self._last_inference_time = now
 
@@ -292,6 +319,7 @@ class VisionController(VisionRequestHandlerIf):
                 requested_mode=requested,
                 effective_mode=effective,
                 ai_enabled=self._ai_enabled,
+                ai_available=self._worker is not None,
                 camera_rate_hz=self._camera_rate_hz,
                 inference_rate_hz=self._inference_rate_hz,
                 inference_latency_s=inference_latency_s,
@@ -312,7 +340,7 @@ class VisionController(VisionRequestHandlerIf):
                 return
             self._delivery_scheduled = True
         try:
-            self._dispatcher.schedule_ui_callback(0, self._deliver_pending)
+            self._dispatcher.dispatch_ui(self._deliver_pending)
             self._diagnostics.succeeded("dispatch")
         except Exception as error:
             self._diagnostics.failed("dispatch", error)
@@ -348,7 +376,7 @@ class VisionController(VisionRequestHandlerIf):
         self._inference_rate_hz = 0.0
         self._last_capture_time = 0.0
         self._last_inference_time = 0.0
-        self._last_processed_count = self._worker.processed_frames
+        self._last_processed_count = self._worker.processed_frames if self._worker else 0
 
     @staticmethod
     def _smooth(previous: float, measured: float, weight: float) -> float:

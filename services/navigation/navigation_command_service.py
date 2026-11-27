@@ -12,7 +12,12 @@ from typing import Any, Mapping
 from controllers.navigation.geocoding import GeocoderIf
 from controllers.navigation.navigation_controller_if import NavigationControllerIf
 from controllers.route_planning.route_planning_controller_if import RoutePlanningControllerIf
-from controllers.route_planning.route_planning_types import GeoPoint, RouteRequest, RouteResult, TravelMode
+from controllers.route_planning.route_planning_types import (
+    GeoPoint,
+    RouteRequest,
+    RouteResult,
+    TravelMode,
+)
 
 CALIBRATE_STATIONARY_COMMAND = "navigation.calibrate_stationary"
 RESET_HEADING_COMMAND = "navigation.reset_heading"
@@ -21,6 +26,7 @@ START_ROUTE_COMMAND = "navigation.route.start"
 CANCEL_ROUTE_COMMAND = "navigation.route.cancel"
 SIMULATE_ROUTE_COMMAND = "navigation.route.simulate"
 STOP_ROUTE_SIMULATION_COMMAND = "navigation.route.simulation.stop"
+PREPARE_HOST_LOCATION_COMMAND = "navigation.location.host.prepare"
 
 RouteStartedCallback = Callable[[RouteRequest, RouteResult], None]
 RouteCancelledCallback = Callable[[], None]
@@ -50,6 +56,7 @@ class NavigationCommandService:
         on_route_cancelled: RouteCancelledCallback | None = None,
         on_route_simulation_started: RouteSimulationStartedCallback | None = None,
         on_route_simulation_stopped: RouteSimulationStoppedCallback | None = None,
+        prepare_host_location: Callable[[], str] | None = None,
     ) -> None:
         self._controller = controller
         self._route_planning_controller = route_planning_controller
@@ -58,9 +65,20 @@ class NavigationCommandService:
         self._on_route_cancelled = on_route_cancelled
         self._on_route_simulation_started = on_route_simulation_started
         self._on_route_simulation_stopped = on_route_simulation_stopped
+        self._prepare_host_location = prepare_host_location
 
-    def execute(self, command: str, arguments: Mapping[str, Any] | None = None) -> NavigationCommandResult:
+    def execute(
+        self, command: str, arguments: Mapping[str, Any] | None = None
+    ) -> NavigationCommandResult:
         args = dict(arguments or {})
+        if command == PREPARE_HOST_LOCATION_COMMAND:
+            if self._prepare_host_location is None:
+                return NavigationCommandResult(
+                    False, "Host location sharing is unavailable on this device"
+                )
+            return NavigationCommandResult(
+                True, "Location sharing ready", {"url": self._prepare_host_location()}
+            )
 
         if command == CALIBRATE_STATIONARY_COMMAND:
             self._controller.calibrate_stationary(
@@ -140,8 +158,12 @@ class NavigationCommandService:
             raise ValueError(f"Unsupported travel mode: {travel_mode_name}") from error
 
         return RouteRequest(
-            origin=GeoPoint(latitude=float(origin["latitude"]), longitude=float(origin["longitude"])),
-            destination=GeoPoint(latitude=float(destination["latitude"]), longitude=float(destination["longitude"])),
+            origin=GeoPoint(
+                latitude=float(origin["latitude"]), longitude=float(origin["longitude"])
+            ),
+            destination=GeoPoint(
+                latitude=float(destination["latitude"]), longitude=float(destination["longitude"])
+            ),
             travel_mode=travel_mode,
         )
 
@@ -151,10 +173,11 @@ class NavigationCommandService:
         if (
             position is None
             or not position.has_fix
+            or position.is_cached
             or position.latitude_deg is None
             or position.longitude_deg is None
         ):
-            raise ValueError("current navigation position is unavailable")
+            raise ValueError("current live navigation position is unavailable")
         return {
             "latitude": position.latitude_deg,
             "longitude": position.longitude_deg,
@@ -177,7 +200,9 @@ class NavigationCommandService:
             "operation_id": route.operation_id,
             "distance_miles": route.distance_miles,
             "duration_seconds": route.duration_seconds,
-            "shape": [{"latitude": point.latitude, "longitude": point.longitude} for point in route.shape],
+            "shape": [
+                {"latitude": point.latitude, "longitude": point.longitude} for point in route.shape
+            ],
             "maneuvers": [
                 {
                     "instruction": maneuver.instruction,

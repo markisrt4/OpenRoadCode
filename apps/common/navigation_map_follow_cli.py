@@ -88,9 +88,7 @@ def main() -> int:
     signal.signal(signal.SIGTERM, stop)
 
     adapter = MapPositionAdapter(
-        MapRendererClient(
-            ZeroMqPublisher(config.messaging.publisher_endpoint)
-        ),
+        MapRendererClient(ZeroMqPublisher(config.messaging.publisher_endpoint)),
         follow=not args.no_follow,
     )
     runtime = NavigationMapFollowRuntime(

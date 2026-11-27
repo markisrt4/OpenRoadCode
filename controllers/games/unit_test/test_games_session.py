@@ -1,13 +1,13 @@
 """Exercise native runtime ownership and stale completion behavior without Tk/X11."""
 
-from collections import deque
 import threading
+from collections import deque
 from unittest.mock import Mock
 
 import pytest
 
-from controllers.games.game_inventory_cache import GameInventoryCache
 from controllers.games.game_installer_if import GameInstallerIf
+from controllers.games.game_inventory_cache import GameInventoryCache
 from controllers.games.game_launcher_if import GameLauncherIf
 from controllers.games.game_types import GameDefinition
 from controllers.games.games_session import GamesSession
@@ -36,7 +36,12 @@ def runtime(tmp_path, monkeypatch):
     embedder.supported.return_value = True
     work, ui = deque(), deque()
     session = GamesSession(
-        [game], [backend], launcher, embedder, run_work=work.append, run_ui=ui.append,
+        [game],
+        [backend],
+        launcher,
+        embedder,
+        run_work=work.append,
+        run_ui=ui.append,
     )
     view = Mock(spec=GamesRuntimeUiIf)
     view.show_runtime_host.return_value = (99, 800, 480)
@@ -65,7 +70,12 @@ def test_launch_uses_actual_launcher_contract_and_embedding_selectors(runtime):
     view.set_runtime_loading.assert_called_once_with(True)
     drain(work)
     embedder.embed.assert_called_once_with(
-        42, 99, 800, 480, window_name="Mines", window_class="mines",
+        42,
+        99,
+        800,
+        480,
+        window_name="Mines",
+        window_class="mines",
         relax_size_hints=True,
     )
     assert view.set_runtime_loading.call_count == 1  # Worker cannot call the view.
@@ -183,10 +193,12 @@ def test_stale_resize_after_hide_is_not_sent_to_native_adapter(runtime):
 def test_stop_cannot_clear_adapter_while_embedding_is_in_flight(runtime):
     session, launcher, embedder, view, inventory, handler, work, ui = runtime
     entered, release, stop_started = threading.Event(), threading.Event(), threading.Event()
+
     def embed(*args, **kwargs):
         entered.set()
         assert release.wait(3)
         return 1
+
     embedder.embed.side_effect = embed
     launch(runtime)
     embed_thread = threading.Thread(target=work.popleft())
@@ -194,9 +206,11 @@ def test_stop_cannot_clear_adapter_while_embedding_is_in_flight(runtime):
     assert entered.wait(3)
     session.deactivate()
     stop = work.popleft()
+
     def stop_work():
         stop_started.set()
         stop()
+
     stop_thread = threading.Thread(target=stop_work)
     stop_thread.start()
     assert stop_started.wait(3)
@@ -243,9 +257,11 @@ def test_delayed_duplicate_cleanup_cannot_stop_a_new_process(runtime):
     drain(work)
     drain(ui)
     entered, release = threading.Event(), threading.Event()
+
     def stop():
         entered.set()
         assert release.wait(3)
+
     launcher.stop.side_effect = stop
     handler.request_stop_game()
     stop_thread = threading.Thread(target=work.popleft())

@@ -46,7 +46,10 @@ def visible_regions(
     if normalized_query:
         included = set()
         for region in regions:
-            if normalized_query not in region.id.casefold() and normalized_query not in region.name.casefold():
+            if (
+                normalized_query not in region.id.casefold()
+                and normalized_query not in region.name.casefold()
+            ):
                 continue
             current: Region | None = region
             while current is not None and current.id not in included:
@@ -112,7 +115,7 @@ def select_regions(
             title = f"OpenRoadCode Map Builder | selected={len(selected)} | filter={state.query or '<none>'}"
             stdscr.addnstr(0, 0, title, width - 1, curses.A_BOLD)
             stdscr.addnstr(1, 0, status, width - 1)
-            for row, item in enumerate(visible[state.offset:state.offset + page], start=3):
+            for row, item in enumerate(visible[state.offset : state.offset + page], start=3):
                 absolute = state.offset + row - 3
                 region = item.region
                 marker = "[x]" if region.id in selected else "[ ]"
@@ -148,7 +151,11 @@ def select_regions(
                     state.expanded.remove(item.region.id)
                 elif item.region.parent:
                     parent_index = next(
-                        (index for index, row in enumerate(visible) if row.region.id == item.region.parent),
+                        (
+                            index
+                            for index, row in enumerate(visible)
+                            if row.region.id == item.region.parent
+                        ),
                         state.cursor,
                     )
                     state.cursor = parent_index

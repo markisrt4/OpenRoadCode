@@ -19,14 +19,11 @@ class SecretManagerStub:
 
 class SpotifyRuntimeFactoryTests(unittest.TestCase):
     def test_load_spotify_config_returns_none_when_secret_missing(self) -> None:
-        self.assertIsNone(
-            load_spotify_config_from_secrets(SecretManagerStub())
-        )
+        self.assertIsNone(load_spotify_config_from_secrets(SecretManagerStub()))
 
     def test_create_spotify_controller_returns_unconfigured_controller(self) -> None:
         with patch(
-            "apps.common.spotify_controller_factory."
-            "load_spotify_config_from_secrets",
+            "apps.common.spotify_controller_factory.load_spotify_config_from_secrets",
             return_value=None,
         ):
             controller = create_spotify_controller()

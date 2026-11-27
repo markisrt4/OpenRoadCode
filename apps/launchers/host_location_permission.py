@@ -1,40 +1,219 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Open host geolocation consent with the system's normal browser, including Firefox."""
+"""Open compact host geolocation consent, preserving a default-browser fallback."""
 
 import os
+import shutil
+import subprocess
+import time
 import webbrowser
 from collections.abc import Callable
-from urllib.error import URLError
-from urllib.request import ProxyHandler, build_opener
+from threading import Lock
+from urllib.error import HTTPError, URLError
+from urllib.request import ProxyHandler, Request, build_opener
+
+from apps.launchers.browser_launcher import BrowserKioskLauncher
+from apps.launchers.host_location_session import HostLocationSessionError
+from apps.launchers.host_location_window_control import HostLocationWindowControl
+from common.xdg_paths import openroadcode_data_dir
+from controllers.navigation.host_location_permission_if import HostLocationServiceUnavailable
 
 
 class HostLocationPermission:
     @property
     def available(self) -> bool:
         """Termux obtains location through its Android bridge, not this page."""
-        return not (os.environ.get("TERMUX_VERSION")
-                    or os.environ.get("PREFIX", "").startswith("/data/data/com.termux/"))
+        return not (
+            os.environ.get("TERMUX_VERSION")
+            or os.environ.get("PREFIX", "").startswith("/data/data/com.termux/")
+        )
 
-    def __init__(self, port: int | None = None) -> None:
-        port = port if port is not None else int(os.environ.get("OPENROADCODE_BROWSER_POSITION_PORT", "8765"))
+    def __init__(
+        self, port: int | None = None, *, recover: Callable[[], None] | None = None
+    ) -> None:
+        port = (
+            port
+            if port is not None
+            else int(os.environ.get("OPENROADCODE_BROWSER_POSITION_PORT", "8765"))
+        )
         if not 1 <= port <= 65535:
             raise ValueError("Host location port must be between 1 and 65535")
         self.url = f"http://127.0.0.1:{port}/"
+        self._recover = recover
+        self._browser = None
+        self._browser_lock = Lock()
+        self._window_control = None
+        self._closed = False
+
+    def _ensure_window_control(self):
+        if self._window_control is None:
+            origins = {self.url.rstrip("/"), self.url.replace("127.0.0.1", "localhost").rstrip("/")}
+            self._window_control = HostLocationWindowControl(
+                origins=origins,
+                hide=lambda: (
+                    self._browser.hide(os.environ["DISPLAY"])
+                    if self._browser is not None
+                    else False
+                ),
+            )
+
+    def _make_browser(self):
+        if self._browser is None:
+            self._browser = BrowserKioskLauncher(
+                url=self.url + "#window=8767",
+                browser_candidates=("google-chrome", "chromium", "chromium-browser"),
+                kiosk=False,
+                app_mode=True,
+                process_pattern=r"(^|[[:space:]])--class=openroadcode-host-location([[:space:]]|$)",
+                profile_path=openroadcode_data_dir("browser_profiles", "host-location"),
+                window_class="openroadcode-host-location",
+                window_size=(480, 330),
+                extra_arguments=(
+                    "--disable-background-timer-throttling",
+                    "--disable-renderer-backgrounding",
+                    "--disable-background-mode",
+                ),
+            )
+
+    def restore_if_running(self, cancelled):
+        """Reconnect an already-authorized, still-running page without showing it."""
+        if not os.environ.get("DISPLAY") or cancelled():
+            return
+        with self._browser_lock:
+            if self._closed or cancelled():
+                return
+            self._make_browser()
+            if not self._browser.is_running():
+                return
+            self._ensure_window_control()
+            if self._recover is not None and not cancelled():
+                self._recover()
+
+    def close(self):
+        self._closed = True
+
+        def release():
+            with self._browser_lock:
+                if self._window_control is not None:
+                    self._window_control.close()
+                    self._window_control = None
+
+        from threading import Thread
+
+        Thread(target=release, name="host-location-window-cleanup", daemon=True).start()
+
+    def _open_browser(self, cancelled):
+        with self._browser_lock:
+            if not cancelled() and not self._closed:
+                self._open_browser_once()
+
+    def _open_browser_once(self):
+        candidates = ("google-chrome", "chromium", "chromium-browser")
+        if os.environ.get("DISPLAY") and any(shutil.which(name) for name in candidates):
+            self._make_browser()
+            self._ensure_window_control()
+            self._browser.launch(os.environ["DISPLAY"])
+            return
+        firefox = shutil.which("firefox")
+        if firefox is not None:
+            environment = os.environ.copy()
+            environment.pop("QT_QPA_PLATFORM_PLUGIN_PATH", None)
+            environment.pop("QT_QPA_FONTDIR", None)
+            subprocess.Popen(
+                [firefox, "--new-window", self.url],
+                env=environment,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+            return
+        if not webbrowser.open(self.url, new=2):
+            raise RuntimeError(
+                "Could not open your browser. Set a default browser on this computer, then try again."
+            )
 
     def open_permission_page(self, cancelled: Callable[[], bool]) -> None:
         if cancelled():
             return
-        try:
+
+        def check_page():
             # Local permission pages must never be routed through an HTTP proxy.
             with build_opener(ProxyHandler({})).open(self.url, timeout=3) as response:
                 page = response.read(32768)
             if b"OpenRoadCode Host Location" not in page:
-                raise RuntimeError("Host location service is unavailable. Check the navigation service.")
+                raise RuntimeError(
+                    "Location sharing isn't available with this device's current setup."
+                )
+
+        try:
+            check_page()
         except (URLError, OSError) as error:
-            raise RuntimeError("Host location service is unavailable. Restart the navigation service.") from error
+            if self._recover is None:
+                raise HostLocationServiceUnavailable(
+                    "Location sharing couldn't connect. Try again in a moment."
+                ) from error
+            if cancelled():
+                return
+            try:
+                self._recover()
+            except Exception as recovery_error:
+                message = (
+                    str(recovery_error)
+                    if isinstance(recovery_error, HostLocationSessionError)
+                    else "Location sharing could not start. Please retry or check ORC diagnostics."
+                )
+                raise HostLocationServiceUnavailable(message) from recovery_error
+            deadline = time.monotonic() + 5
+            while not cancelled():
+                try:
+                    check_page()
+                    break
+                except (URLError, OSError) as retry_error:
+                    if time.monotonic() >= deadline:
+                        raise HostLocationServiceUnavailable(
+                            "Location sharing couldn't connect. Please try again."
+                        ) from retry_error
+                    time.sleep(0.2)
         if cancelled():
             return
-        if not webbrowser.open(self.url, new=2):
-            raise RuntimeError(f"Could not open your default browser. Open {self.url} manually.")
+        self._open_browser(cancelled)
+
+    def restart_location_service(self, cancelled: Callable[[], bool]) -> None:
+        """Restart navigation through its restricted localhost control plane."""
+        if cancelled():
+            return
+        manager_url = os.environ.get(
+            "OPENROADCODE_SERVICE_MANAGER_URL", "http://127.0.0.1:8769"
+        ).rstrip("/")
+        request = Request(
+            manager_url + "/services/openroadcode-navigation/restart",
+            data=b"",
+            method="POST",
+        )
+        try:
+            with build_opener(ProxyHandler({})).open(request, timeout=5) as response:
+                response.read(32768)
+        except HTTPError as error:
+            if error.code == 401:
+                raise RuntimeError(
+                    "Automatic restart is not authorized. Repair the OpenRoadCode service-manager installation."
+                ) from error
+            raise RuntimeError("The location service could not be restarted.") from error
+        except (URLError, OSError) as error:
+            raise RuntimeError(
+                "Automatic restart is unavailable. Start or repair the OpenRoadCode service manager."
+            ) from error
+
+        for _attempt in range(20):
+            if cancelled():
+                return
+            try:
+                with build_opener(ProxyHandler({})).open(self.url, timeout=1) as response:
+                    if b"OpenRoadCode Host Location" in response.read(32768):
+                        return
+            except (URLError, OSError):
+                pass
+            time.sleep(0.25)
+        raise RuntimeError("The location service did not become ready after restarting.")

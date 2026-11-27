@@ -13,6 +13,8 @@ from ..radio_backend_if import RadioBackendIf
 class RigctlRadioBackend(RadioBackendIf):
     """Adapt the rigctl protocol client to the radio backend contract."""
 
+    shared_receiver = True
+
     def __init__(self, client: RigctlClient) -> None:
         self._client = client
 
@@ -31,27 +33,19 @@ class RigctlRadioBackend(RadioBackendIf):
         try:
             return int(response)
         except ValueError as exc:
-            raise RuntimeError(
-                f"rigctl returned an invalid frequency: {response!r}"
-            ) from exc
+            raise RuntimeError(f"rigctl returned an invalid frequency: {response!r}") from exc
 
     def set_mode(self, mode: str, bandwidth: int) -> str:
         return self._client.set_mode(mode, bandwidth)
 
     def get_signal_strength(self) -> Optional[str]:
-        return self._normalize_optional_response(
-            self._client.get_signal_strength()
-        )
+        return self._normalize_optional_response(self._client.get_signal_strength())
 
     def get_snr(self) -> Optional[str]:
-        return self._normalize_optional_response(
-            self._client.get_snr()
-        )
+        return self._normalize_optional_response(self._client.get_snr())
 
     def get_rds(self) -> Optional[str]:
-        return self._normalize_optional_response(
-            self._client.get_rds()
-        )
+        return self._normalize_optional_response(self._client.get_rds())
 
     @staticmethod
     def _normalize_optional_response(
@@ -66,7 +60,10 @@ class RigctlRadioBackend(RadioBackendIf):
             return None
 
         value = response.strip()
-        return value or None
+        # Unsupported Hamlib levels are protocol errors, not RF measurements.
+        if not value or value.startswith("RPRT "):
+            return None
+        return value
 
 
 # Temporary compatibility alias while existing call sites migrate.

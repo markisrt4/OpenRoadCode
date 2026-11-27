@@ -20,7 +20,7 @@ OpenRoadCode is under active development and currently operates as an advanced e
 
 Current integration work includes [POI ordering](docs/poi_ordering.md),
 [automatic online/offline mode](docs/online_offline_mode.md),
-[local POI downloads in Termux](docs/termux_poi_download.md), the `orcUi` shell, native offline MapLibre presentation, Valhalla route planning, live Android-backed positioning on Termux, integrated SDR++ RF radio, and a native ORC media hub. Spotify now shares one background state/control service across Home and Media, while experimental PLAYER mode can register ORC itself as a Spotify Connect playback device on supported Linux/Chrome systems.
+[local POI downloads in Termux](docs/termux_poi_download.md), the `orcUi` shell, native offline MapLibre presentation, Valhalla route planning, live Android-backed positioning on Termux, integrated SDRForge RF radio, and a native ORC media hub. Spotify now shares one background state/control service across Home and Media, while experimental PLAYER mode can register ORC itself as a Spotify Connect playback device on supported Linux/Chrome systems.
 
 Some components are functional and actively used in the reference vehicle. Others are experimental, hardware-dependent, or still being integrated. Interfaces, configuration formats, and directory structures may continue to evolve before the first stable release.
 
@@ -48,6 +48,7 @@ Current and partially integrated capabilities include:
 * Touchscreen automotive user interface, including the evolving `orcUi` shell
 * Native Weather dashboard with current conditions, hourly and daily forecasts, GPS-backed location, persistent Imperial/Metric display units, NOAA Weather Radio access, and NWS alert presentation
 * Native Linux games browser with category filters, package discovery/installation, launch/stop lifecycle, and X11 kiosk embedding
+* Experimental standalone [Waze Live Map browser panel](docs/waze_live_map.md) for online traffic viewing
 * Offline Valhalla route planning and native MapLibre map presentation
 * Route overlays, camera follow/recenter, manual map panning, and live vehicle position
 * Observed radar replay, experimental CONUS HRRR forecast radar, and independent temperature/wind overlays
@@ -57,10 +58,10 @@ Current and partially integrated capabilities include:
 * Android bridge geographic positioning for the Termux navigation service
 * Message-bus-driven native map-renderer commands
 * Focused map POI presentation for selected categories
-* Integrated SDR++ RF radio embedded in `orcUi` on X11
+* Native SDRForge RF radio in `orcUi`
 * FM broadcast, NOAA weather, AM airband, HAM, and scanner-oriented radio profiles and presets
-* SDR++ application controls for waterfall, band plan, FFT hold, auto range, and theme synchronization
-* Read-only SDR++ signal/SNR telemetry and FM RDS presentation
+* Native radio display controls for waterfall, band plan, FFT hold, auto range, and theme synchronization
+* SDRForge signal/SNR telemetry and FM RDS presentation
 * RTL-SDR integration with shared receiver ownership
 * ADS-B aircraft tracking through readsb and tar1090
 * Bluetooth OBD-II communication and vehicle telemetry
@@ -76,7 +77,12 @@ Current and partially integrated capabilities include:
 * Configurable startup and splash-screen behavior
 * Mock, stub, and simulation implementations for development without hardware
 
-The Radio entry screen separates RF Radio from Streaming Radio. RF Radio launches the integrated SDR++ path; Streaming Radio currently presents a Coming Soon screen while its provider/controller plumbing remains under development.
+The Radio entry screen offers **RF Radio**, **Streaming Radio**, and **Trending**.
+RF Radio opens the native SDRForge receiver. Streaming Radio provides internet
+station browsing and playback. Trending shows songs and artists observed by
+MusicForge, with cached artist information and YouTube and Spotify actions.
+Trending uses the Airplay API and does not require an SDR receiver. See
+[Streaming Radio and Trending setup](docs/streaming_radio.md).
 
 Not every feature is supported on every target. In particular, Android/Termux is a development and portability target and does not provide hardware parity with the Raspberry Pi installation.
 
@@ -99,33 +105,22 @@ Spotify uses OAuth PKCE and does not require a client secret. Credentials and OA
 
 ---
 
-## SDR++ RF Radio Integration
+## SDRForge RF Radio Integration
 
-OpenRoadCode treats SDR++ as the native RF engine and spectrum/waterfall UI rather than reimplementing SDR functionality in Tkinter. On X11, `orcUi` launches SDR++, discovers its window, reparents it into the radio host, and keeps the embedded window sized to the ORC panel. The same path is exercised on native Debian/Linux and through Debian proot under Termux:X11.
-
-Three localhost interfaces deliberately separate responsibilities:
+OpenRoadCode uses libSDRForge for RF acquisition and DSP, with native ORC spectrum, waterfall and receiver controls. Android authorizes USB access and hands the device to Termux; no Debian proot radio engine is required.
 
 | Port | Interface | Responsibility |
 | --- | --- | --- |
-| 4532 | SDR++ RigCTL | RF tuning, mode/bandwidth, receiver operations, and radio-specific data such as FM RDS |
-| 4533 | ORC `remote_control` module | SDR++ UI/application controls such as waterfall, band plan, FFT hold, auto range, and theme |
-| 4534 | ORC `telemetry` module | Read-only SNR, signal/FFT metrics, VFO, frequency, bandwidth, and display ranges |
+| 4532 | Rigctl | Compatible tuning and receiver commands |
+| 5570 | REST | Receiver control, status and health |
+| 5571 | ZeroMQ | Spectrum and receiver telemetry |
 
-Application-facing SDR behavior lives under `controllers/sdr`; wire protocols remain under `protocols`; SDR++ process lifecycle remains in `apps/launchers/sdrpp_launcher.py`; X11 window ownership is handled by `frontends/x11`; and `apps/orcUi` owns presentation. Telemetry is best-effort and must not prevent normal tuning or radio operation if port 4534 is unavailable.
+Select the `sdrforge` feature to install the native SDRForge engine. SDR++ is not required. RF service lifecycle is separate from UI presentation. See [RF radio contracts](docs/rf_radio.md) for details.
 
-The Debian setup script builds the ORC SDR++ modules and installs the X11 integration tools required by the embedded UI:
-
-```bash
-./development/debian/setup_sdrpp.sh
-```
-
-Termux uses the corresponding proot build/setup path:
-
-```bash
-./development/termux/setup_sdrpp.sh
-```
-
-The detailed SDR++ integration notes live in `development/sdrpp/README.md`; application-facing SDR controller notes live in `controllers/sdr/README.md`.
+FM opens with the spectrum and waterfall visible. **Hide Spectrum** switches
+to a compact dashboard with an FM dial, large tune controls, station and RDS
+information, presets, and receiver power. **Show Spectrum** restores the plots
+within the same receiver session.
 
 ---
 ## Native Games
@@ -229,7 +224,7 @@ Commands requiring acknowledgement or error reporting use request/reply messagin
 
 `orcUi`, `carUi`, `carTui`, and `webUi` are application front ends at different stages of development. Browser-backed utilities such as Weather, ADS-B, YouTube, and Google Earth are auxiliary applications managed according to application policy.
 
-Messaging and service documentation is available under `messaging/README.md`, `docs/messaging/message_bus_idd.md`, `docs/ethernet_idd.md`, `services/navigation/README.md`, `services/automotive/README.md`, `controllers/sdr/README.md`, `development/sdrpp/README.md`, `apps/carTui/README.md`, `development/termux/README.md`, and `CONTRIBUTING.md`.
+Messaging and service documentation is available under `messaging/README.md`, `docs/messaging/message_bus_idd.md`, `docs/ethernet_idd.md`, `services/navigation/README.md`, `services/automotive/README.md`, `controllers/sdr/README.md`, `apps/carTui/README.md`, `development/termux/README.md`, and `CONTRIBUTING.md`.
 
 Weather controls, provider requirements, coverage limits, and component probes are
 documented in [Weather controllers](controllers/weather/README.md). Radar, model
@@ -285,6 +280,17 @@ cd OpenRoadCode
 ./scripts/installers/host_setup.sh --target linux-dev
 ```
 
+To launch ORC when the desktop user signs in, enable **ORC desktop
+autostart** in the installer TUI or pass `--with-orc-autostart` to host setup.
+On a Raspberry Pi configured for desktop auto-login, this launches ORC after
+boot. Use `--no-orc-autostart` to remove the launcher.
+
+While online, ORC periodically checks a clean Git checkout on `master` for
+updates from `origin/master`. Choose **Update and restart** to fast-forward
+to the offered revision and restart the UI. This updates the checkout. Use
+the host installer for any new system packages, Python dependencies, or service
+configuration required by an update.
+
 Features can be selected explicitly. Use `--all-features` to install all compatible software capabilities, `--show-plan` to inspect the resolved plan without modifying the machine, and `--with-vnc` or `--with-gpsd-service` only when those services should be configured.
 
 On Raspberry Pi OS, `--shutdown-button-pin 11` configures an active-low
@@ -311,7 +317,7 @@ The `desktop-ui` and `navigation` features use the native Tk/X11 and MapLibre
 interfaces and do not install a web browser. Select `--feature browser`
 explicitly for browser-backed applications.
 
-For the integrated SDR++ RF path on Debian/Linux, run `./development/debian/setup_sdrpp.sh`. It installs the SDR++ build dependencies, ORC's SDR++ modules, and the X11 utilities used for embedding. An X11 session is required for the current embedded-window implementation.
+On Linux and Raspberry Pi, select `--feature sdrforge` to install native radio support. The installer uses a pinned upstream revision. Developers can set `LIBSDRFORGE_SOURCE` to use a local checkout.
 
 For the integrated media path on Debian/Ubuntu, run:
 
@@ -324,15 +330,20 @@ For the integrated media path on Debian/Ubuntu, run:
 
 Concrete devices and credentials remain separate from package installation. Run `./scripts/installers/host_setup.sh --help` for current options.
 
-Third-party SDR++ and tar1090 source installs use the reviewed revisions in
+If `./runOrcUi` finds no configured or existing Python environment, it creates
+`.venv` on Linux or `venv-termux` on Termux. Dependency installation remains
+with the host installer. Set `VENV_DIR` to the created environment's absolute
+path when running the installer to populate that environment.
+
+Third-party tar1090 source installs use the reviewed revisions in
 `scripts/installers/toolchain.lock`. Their setup scripts use isolated,
 OpenRoadCode-managed checkouts and do not reset unrelated source trees.
 
 ### Android / Termux
 
-Termux is an active development target rather than a complete Raspberry Pi replacement. It is used to exercise native Python services, ZeroMQ, Valhalla, MapLibre, Chromium/Termux:X11 presentation, Android sensor integration, SDR++ integration, and simulated ADS-B presentation.
+Termux is an active development target rather than a complete Raspberry Pi replacement. It is used to exercise native Python services, ZeroMQ, Valhalla, MapLibre, Chromium/Termux:X11 presentation, Android sensor integration, SDRForge integration, and simulated ADS-B presentation.
 
-The current navigation profile consumes geographic position from the localhost Android sensor bridge while retaining simulation fallbacks for platform-dependent sensor inputs. SDR++ runs inside the Debian proot and is presented through Termux:X11. Spotify REMOTE mode is supported; PLAYER mode is currently disabled because the tested Termux Chromium environment cannot initialize the Spotify Web Playback SDK. Follow `development/termux/README.md` for the current native build, runit services, sensor bridge, navigation data, Valhalla, SDR++, and UI workflow.
+The current navigation profile consumes geographic position from the localhost Android sensor bridge while retaining simulation fallbacks for platform-dependent sensor inputs. SDRForge runs natively in Termux. Spotify REMOTE mode is supported; PLAYER mode is currently disabled because the tested Termux Chromium environment cannot initialize the Spotify Web Playback SDK. Follow `development/termux/README.md` for the current native build, runit services, sensor bridge, navigation data, Valhalla, SDRForge, and UI workflow.
 
 ---
 
@@ -350,7 +361,7 @@ feature subsystems, and application screens are being composed. The same milesto
 `app.startup.progress` events with `duration_ms` and `elapsed_ms`, so a slow
 launch remains observable both in the terminal and in ORC logs.
 
-The RADIO navigation item opens a source chooser. RF RADIO starts the SDR++ integration and embeds SDR++ into the ORC radio panel; STREAMING RADIO currently opens its Coming Soon page.
+The RADIO navigation item opens a source chooser. RF RADIO opens the native receiver panel; STREAMING RADIO currently opens its Coming Soon page.
 
 The MEDIA navigation item opens the integrated Spotify, YouTube, and Netflix hub. On supported Linux systems, Spotify's **PLAYER** control makes OpenRoadCode the Spotify Connect playback destination; **REMOTE** leaves playback on external Spotify Connect devices. The local player is application-owned, so it can continue while the user navigates away from the Media page and is stopped during ORC shutdown/restart.
 
@@ -369,6 +380,49 @@ Component-test CLIs provide direct subsystem verification for navigation inputs,
 ---
 
 ## Automated Checks and Doxygen
+
+Use the dedicated quality environment and a single developer-check entry point:
+
+```bash
+git switch feature/waze-live-map
+bash scripts/setup_quality_env.sh
+bash scripts/dev_check.sh --all
+```
+
+`--all` runs static checks; `--full` adds unit and integration tests. Both use the
+same check list in `scripts/quality_gate.py`, and the launcher prints the revision
+and interpreter being checked. Focused `--lint`, `--format`, `--types`, `--test`,
+and `--docs` modes remain available. The project-wide UI boundary task includes
+Weather's additional provider/renderer access rules; it is not a separate task.
+
+For routine edits, run `--all` for static checks and `--test` with the affected
+test directory, file, or pytest node ID. Pytest flags such as `-k` are forwarded.
+Calling `--test` without a target retains the complete unit-suite behavior;
+`--full` is intended for merge readiness and includes unit and integration suites.
+Focused runs fail when their selection matches no tests.
+
+```bash
+git switch feature/waze-live-map
+bash scripts/dev_check.sh --test frontends/tk/media/unit_test/test_media_screen.py
+```
+
+To apply safe Ruff fixes and formatting before the full checks, add `--fix`. Add
+`--publish` to stage only those fixes, commit them, and push the configured
+upstream after checks pass:
+
+```bash
+git switch feature/waze-live-map
+bash scripts/dev_check.sh --full --fix --publish --message "Apply Ruff cleanup"
+```
+
+Publishing requires a clean checkout and a named branch with a remote upstream.
+Without `--publish`, fixes remain available for manual review. `--format` also
+records its changed files without publishing. The last run's file list and
+validation/commit/push status are stored at the Git metadata path
+`dev-check-last-run.json` (normally `.git/dev-check-last-run.json`). Failed checks
+never trigger a commit; rejected pushes retain the new commit and the failure
+record. With no Ruff changes, no commit or push is performed.
+
 
 Public methods declared in `*_if.py` modules must document every argument with `@param` and every non-`None` return value with `@return` or `@retval`.
 

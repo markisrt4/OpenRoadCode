@@ -6,7 +6,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 
-
 RotationCallback = Callable[[int], None]
 ButtonCallback = Callable[[], None]
 
@@ -56,3 +55,4 @@ class RotaryEncoderIf(ABC):
         Callback-driven encoders may leave this as a no-op. Implementations
         that accumulate hardware events can dispatch them here.
         """
+        return None

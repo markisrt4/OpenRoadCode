@@ -19,6 +19,7 @@ from controllers.route_planning.route_planning_types import (
 from services.navigation.navigation_command_service import (
     CALCULATE_ROUTE_COMMAND,
     CANCEL_ROUTE_COMMAND,
+    PREPARE_HOST_LOCATION_COMMAND,
     SIMULATE_ROUTE_COMMAND,
     START_ROUTE_COMMAND,
     STOP_ROUTE_SIMULATION_COMMAND,
@@ -59,6 +60,10 @@ class NavigationCommandClient:
             },
         )
         return self._route_from_response(response)
+
+    def prepare_host_location(self) -> str:
+        response = self._request(PREPARE_HOST_LOCATION_COMMAND, {})
+        return str(response.get("data", {}).get("url", ""))
 
     def calculate_route_to(
         self,
@@ -148,9 +153,7 @@ class NavigationCommandClient:
         if not isinstance(response, dict):
             raise NavigationCommandError("Navigation service returned an invalid response")
         if not response.get("ok", False):
-            raise NavigationCommandError(
-                str(response.get("message", "Navigation command failed"))
-            )
+            raise NavigationCommandError(str(response.get("message", "Navigation command failed")))
         return response
 
     @staticmethod

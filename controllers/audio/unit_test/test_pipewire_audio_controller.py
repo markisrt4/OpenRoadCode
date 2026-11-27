@@ -3,8 +3,8 @@
 
 from __future__ import annotations
 
-import unittest
 import subprocess
+import unittest
 from unittest.mock import call, patch
 
 from controllers.audio import PipewireAudioController
@@ -13,9 +13,7 @@ from controllers.audio import PipewireAudioController
 class PipewireAudioControllerTest(unittest.TestCase):
     def test_set_volume_falls_back_to_pactl_when_wpctl_is_missing(self) -> None:
         controller = PipewireAudioController(steps=20)
-        completed = subprocess.CompletedProcess(
-            args=[], returncode=0, stdout="", stderr=""
-        )
+        completed = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
 
         with patch(
             "controllers.audio.pipewire_audio_controller.subprocess.run",
@@ -50,9 +48,7 @@ class PipewireAudioControllerTest(unittest.TestCase):
             stdout="Volume: front-left: 42598 / 65% / -11.00 dB\n",
             stderr="",
         )
-        mute = subprocess.CompletedProcess(
-            args=[], returncode=0, stdout="Mute: no\n", stderr=""
-        )
+        mute = subprocess.CompletedProcess(args=[], returncode=0, stdout="Mute: no\n", stderr="")
 
         with patch(
             "controllers.audio.pipewire_audio_controller.subprocess.run",

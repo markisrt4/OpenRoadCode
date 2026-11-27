@@ -3,6 +3,8 @@
 
 """Adapt a physical pushbutton into generic input events."""
 
+from hardware_io.buttons.push_button_callback_if import PushButtonCallbackIf
+from hardware_io.buttons.push_button_if import PushButtonIf
 from input_events import (
     InputDeviceId,
     InputDeviceType,
@@ -10,8 +12,6 @@ from input_events import (
     InputEventType,
     InputHandlerIf,
 )
-from hardware_io.buttons.push_button_callback_if import PushButtonCallbackIf
-from hardware_io.buttons.push_button_if import PushButtonIf
 
 
 class PushButtonInputAdapter(PushButtonCallbackIf):
@@ -44,6 +44,4 @@ class PushButtonInputAdapter(PushButtonCallbackIf):
         self._publish(InputEventType.BUTTON_RELEASED)
 
     def _publish(self, event_type: InputEventType) -> None:
-        self._input_handler.handle_input_event(
-            InputEvent(self._device_id, event_type)
-        )
+        self._input_handler.handle_input_event(InputEvent(self._device_id, event_type))

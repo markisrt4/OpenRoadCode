@@ -4,27 +4,35 @@
 """City weather state, asynchronous data and viewport discovery."""
 
 import logging
-from common.resource_cleanup import close_resources
-
-from datetime import datetime, timezone
 import math
 import threading
+from datetime import datetime, timezone
 from time import monotonic, time
-from common.logging.structured import operation
-from controllers.weather.weather_logging import WeatherLog
 
+from common.logging.structured import operation
+from common.resource_cleanup import close_resources
 from controllers.weather.city_weather import WeatherCity, city_value
-from controllers.weather.city_weather_details import city_identity, city_details
+from controllers.weather.city_weather_details import city_details, city_identity
+from controllers.weather.weather_logging import WeatherLog
 from ui.navigation import GeoPoint
 from ui.ui_dispatcher_if import UiDispatcherIf
-from ui.weather.weather_overlay_ui_if import WeatherOverlayUiIf
 from ui.weather.weather_overlay_state import CityWeatherOverlayState, CityWeatherPoint
+from ui.weather.weather_overlay_ui_if import WeatherOverlayUiIf
 
 
 class CityWeatherOverlayController:
     """Keep city map labels independent of radar, heatmaps and route weather."""
 
-    def __init__(self, dispatcher: UiDispatcherIf, provider, source, query, ui: WeatherOverlayUiIf, *, clock=time):
+    def __init__(
+        self,
+        dispatcher: UiDispatcherIf,
+        provider,
+        source,
+        query,
+        ui: WeatherOverlayUiIf,
+        *,
+        clock=time,
+    ):
         self._host, self._ui, self._query_cities = dispatcher, ui, query
         self._provider, self._source = provider, source
         self._clock = clock
@@ -60,7 +68,13 @@ class CityWeatherOverlayController:
         previous = self.enabled
         self.enabled = bool(enabled)
         if previous != self.enabled:
-            self._log.changed("enabled", self.enabled, "overlay.visibility_changed", "City weather visibility changed", enabled=self.enabled)
+            self._log.changed(
+                "enabled",
+                self.enabled,
+                "overlay.visibility_changed",
+                "City weather visibility changed",
+                enabled=self.enabled,
+            )
         self._generation += 1
         self._pending_id = None
         self.set_playing(False)
@@ -101,7 +115,13 @@ class CityWeatherOverlayController:
             return
         self._poll_city_clicks(select=False)
         if not self._visible:
-            self._log.changed("visible", True, "overlay.screen_visibility_changed", "City weather screen visibility changed", visible=True)
+            self._log.changed(
+                "visible",
+                True,
+                "overlay.screen_visibility_changed",
+                "City weather screen visibility changed",
+                visible=True,
+            )
         self._visible = True
         self._poll_generation += 1
         self._last_query = 0
@@ -118,7 +138,13 @@ class CityWeatherOverlayController:
         self.set_playing(False)
         self.publish()
         if previous:
-            self._log.changed("visible", False, "overlay.screen_visibility_changed", "City weather screen visibility changed", visible=False)
+            self._log.changed(
+                "visible",
+                False,
+                "overlay.screen_visibility_changed",
+                "City weather screen visibility changed",
+                visible=False,
+            )
 
     def close(self):
         """Invalidate late weather workers and release the independent map subscription."""
@@ -132,9 +158,11 @@ class CityWeatherOverlayController:
             finally:
                 self._closed = True
 
-        close_resources(hide_and_invalidate,
-                        *([self._source.close] if self._source is not None else []),
-                        self._provider.close)
+        close_resources(
+            hide_and_invalidate,
+            *([self._source.close] if self._source is not None else []),
+            self._provider.close,
+        )
 
     def refresh(self):
         """Refresh the batch while reusing current city names and coordinates."""
@@ -155,11 +183,15 @@ class CityWeatherOverlayController:
                     self._log.failed(failure)
                     weather, error = (), str(failure)
             if not self._closed:
-                self._host.dispatch_ui(lambda: self._complete(generation, weather, error, operation_id))
+                self._host.dispatch_ui(
+                    lambda: self._complete(generation, weather, error, operation_id)
+                )
             else:
                 self._log.stale(operation_id)
 
-        self._log.start(threading.Thread(target=load, name="city-weather", daemon=True), operation_id)
+        self._log.start(
+            threading.Thread(target=load, name="city-weather", daemon=True), operation_id
+        )
 
     def _complete(self, generation, weather, error, operation_id=None):
         self._busy = False
@@ -180,7 +212,13 @@ class CityWeatherOverlayController:
             self.status = f"City weather unavailable: {error}"
             self.set_playing(False)
         else:
-            self._log.emit(logging.DEBUG, "overlay.applied", "City weather result applied", operation_id, item_count=len(weather))
+            self._log.emit(
+                logging.DEBUG,
+                "overlay.applied",
+                "City weather result applied",
+                operation_id,
+                item_count=len(weather),
+            )
             for item in weather:
                 self._cache[item.city] = (self._loaded_at, item)
             if len(self._cache) > 96:
@@ -206,7 +244,9 @@ class CityWeatherOverlayController:
             if self._pending_id is not None and monotonic() - self._last_query >= 10:
                 self._pending_id = None
                 self._query_warning = True
-                self._log.failed(operation_id=self._query_operation_id, stage="viewport", reason="timeout")
+                self._log.failed(
+                    operation_id=self._query_operation_id, stage="viewport", reason="timeout"
+                )
                 self.status = "City query timed out · check the map renderer and message bus"
                 self.publish()
             if self._pending_id is None and monotonic() - self._last_query >= 4:
@@ -228,12 +268,19 @@ class CityWeatherOverlayController:
             self._query_warning = False
             self._log.succeeded(self._query_operation_id, stage="viewport")
             # Stable ordering avoids another API request when vector-tile order changes.
-            cities = tuple(sorted((WeatherCity(city.name, city.latitude, city.longitude) for city in cities),
-                                  key=lambda city: (city.name, city.latitude, city.longitude)))
+            cities = tuple(
+                sorted(
+                    (WeatherCity(city.name, city.latitude, city.longitude) for city in cities),
+                    key=lambda city: (city.name, city.latitude, city.longitude),
+                )
+            )
             if cities == self._cities:
                 if recovered or not cities:
-                    self.status = (f"{len(self._weather)} cities · Forecasts and recent weather estimates" if self._weather
-                                   else "No city names here · zoom out or pan to a town")
+                    self.status = (
+                        f"{len(self._weather)} cities · Forecasts and recent weather estimates"
+                        if self._weather
+                        else "No city names here · zoom out or pan to a town"
+                    )
                     self.publish()
                 continue
             self._selected_city = None
@@ -245,7 +292,12 @@ class CityWeatherOverlayController:
             if cities:
                 cached = [self._cache.get(city) for city in cities]
                 if all(item is not None and self._clock() - item[0] < 900 for item in cached):
-                    self._log.emit(logging.DEBUG, "weather.cache_used", "City weather viewport cache used", item_count=len(cities))
+                    self._log.emit(
+                        logging.DEBUG,
+                        "weather.cache_used",
+                        "City weather viewport cache used",
+                        item_count=len(cities),
+                    )
                     self._weather = tuple(item[1] for item in cached)
                     self._loaded_at = min(item[0] for item in cached)
                     self._retry_at = self._loaded_at + 900
@@ -265,7 +317,13 @@ class CityWeatherOverlayController:
         previous = self.playing
         self.playing = bool(playing and self.enabled and self._weather and self._visible)
         if previous != self.playing:
-            self._log.changed("playing", self.playing, "overlay.playback_changed", "City weather playback changed", playing=self.playing)
+            self._log.changed(
+                "playing",
+                self.playing,
+                "overlay.playback_changed",
+                "City weather playback changed",
+                playing=self.playing,
+            )
         self._play_generation += 1
         self.publish()
         if self.playing:
@@ -297,7 +355,9 @@ class CityWeatherOverlayController:
         """Select only a currently displayed city, or dismiss its details."""
         if self._closed or not self._visible or not self.enabled:
             return
-        if city_id is not None and not any(city_identity(item.city) == city_id for item in self._weather):
+        if city_id is not None and not any(
+            city_identity(item.city) == city_id for item in self._weather
+        ):
             return
         self._selected_city = city_id
         if city_id is not None:
@@ -311,15 +371,47 @@ class CityWeatherOverlayController:
         points = []
         details = None
         for weather in self._weather:
-            if self._selected_city == city_identity(weather.city) and self.enabled and self._visible:
-                details = city_details(weather, self.period, self.hours, self._anchor, self._loaded_at)
+            if (
+                self._selected_city == city_identity(weather.city)
+                and self.enabled
+                and self._visible
+            ):
+                details = city_details(
+                    weather, self.period, self.hours, self._anchor, self._loaded_at
+                )
             value = city_value(weather, self.kind, self.hours, self.period, self._anchor)
             if value is not None:
-                value = value + 273.15 if self.kind == "temperature" else value / 3.6 if self.kind == "wind" else value / 1000
-            points.append(CityWeatherPoint(weather.city.name,
-                                          GeoPoint(math.radians(weather.city.latitude), math.radians(weather.city.longitude)), value, city_identity(weather.city)))
+                value = (
+                    value + 273.15
+                    if self.kind == "temperature"
+                    else value / 3.6
+                    if self.kind == "wind"
+                    else value / 1000
+                )
+            points.append(
+                CityWeatherPoint(
+                    weather.city.name,
+                    GeoPoint(
+                        math.radians(weather.city.latitude), math.radians(weather.city.longitude)
+                    ),
+                    value,
+                    city_identity(weather.city),
+                )
+            )
         anchor = self._anchor or int(self._clock() // 3600) * 3600
-        self._ui.set_city_weather_state(CityWeatherOverlayState(
-            self.enabled, self._visible, self.kind, self.period, self.hours, self.playing,
-            self.status, datetime.fromtimestamp(anchor, timezone.utc), tuple(points),
-            bool(self.enabled and self._cities), bool(self.enabled and self._weather and self._visible), details))
+        self._ui.set_city_weather_state(
+            CityWeatherOverlayState(
+                self.enabled,
+                self._visible,
+                self.kind,
+                self.period,
+                self.hours,
+                self.playing,
+                self.status,
+                datetime.fromtimestamp(anchor, timezone.utc),
+                tuple(points),
+                bool(self.enabled and self._cities),
+                bool(self.enabled and self._weather and self._visible),
+                details,
+            )
+        )

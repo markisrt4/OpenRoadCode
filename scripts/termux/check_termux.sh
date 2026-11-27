@@ -36,7 +36,19 @@ check_command dbus-launch
 check_command xrandr
 
 if [[ " ${FEATURES[*]} " == *" browser "* ]]; then
-  check_command chromium
+  browser_command=''
+  for candidate in chromium-browser chromium google-chrome; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+      browser_command="$candidate"
+      break
+    fi
+  done
+  if [[ -n "$browser_command" ]]; then
+    check_command "$browser_command"
+  else
+    echo "[!] Browser missing; tried chromium-browser, chromium, google-chrome" >&2
+    fail=1
+  fi
 fi
 
 if python - <<'PY' >/dev/null 2>&1
@@ -54,8 +66,15 @@ if [[ -x "$VENV_DIR/bin/python" ]]; then
     echo "[!] libMusicForge analyzer unavailable in $VENV_DIR" >&2
     fail=1
   fi
+  if [[ " ${FEATURES[*]} " == *" sdrforge "* ]] && ! "$VENV_DIR/bin/python" -c "import sdrforge, scipy, zmq"; then
+    echo "[!] SDRForge dependencies unavailable" >&2
+    fail=1
+  fi
   if [[ " ${FEATURES[*]} " == *" development "* ]]; then
-    echo "[*] Ruff is optional on Termux; the quality gate skips it when unavailable."
+    if ! "$PREFIX/bin/ruff" check --config "$PROJECT_ROOT/pyproject.toml" --show-settings "$PROJECT_ROOT/ui/radio/rf_radio_if.py" >/dev/null; then
+      echo "[!] Native Ruff is missing or incompatible with pyproject.toml" >&2
+      fail=1
+    fi
     for quality_tool in pytest mypy; do
       if "$VENV_DIR/bin/python" -m "$quality_tool" --version; then
         echo "[+] $quality_tool available in $VENV_DIR"

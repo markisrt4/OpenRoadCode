@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Mute an unavailable card, including its canvas artwork, reversibly."""
+
 from __future__ import annotations
 
 import tkinter as tk
@@ -24,31 +25,49 @@ class OfflineCardAppearance:
 
     def _capture(self, widget: tk.Misc) -> None:
         keys = widget.keys()
-        colors = {name: widget.cget(name) for name in (
-            "background", "foreground", "activebackground", "activeforeground",
-            "highlightbackground", "highlightcolor", "disabledforeground",
-        ) if name in keys and widget.cget(name)}
+        colors = {
+            name: widget.cget(name)
+            for name in (
+                "background",
+                "foreground",
+                "activebackground",
+                "activeforeground",
+                "highlightbackground",
+                "highlightcolor",
+                "disabledforeground",
+            )
+            if name in keys and widget.cget(name)
+        }
         if "cursor" in keys:
             colors["cursor"] = widget.cget("cursor")
         self._styles.append((widget, colors))
         if isinstance(widget, tk.Canvas):
             for item in widget.find_all():
                 options = widget.itemconfigure(item)
-                colors = {name: widget.itemcget(item, name) for name in ("fill", "outline")
-                          if name in options and widget.itemcget(item, name)}
+                colors = {
+                    name: widget.itemcget(item, name)
+                    for name in ("fill", "outline")
+                    if name in options and widget.itemcget(item, name)
+                }
                 self._artwork.append((widget, item, colors))
         for child in widget.winfo_children():
             self._capture(child)
 
     def set_online(self, online: bool) -> None:
         for widget, original in self._styles:
-            values = original if online else {
-                name: "arrow" if name == "cursor" else muted_color(widget, color)
-                for name, color in original.items()
-            }
+            values = (
+                original
+                if online
+                else {
+                    name: "arrow" if name == "cursor" else muted_color(widget, color)
+                    for name, color in original.items()
+                }
+            )
             widget.configure(**values)
         for canvas, item, original in self._artwork:
-            values = original if online else {
-                name: muted_color(canvas, color) for name, color in original.items()
-            }
+            values = (
+                original
+                if online
+                else {name: muted_color(canvas, color) for name, color in original.items()}
+            )
             canvas.itemconfigure(item, **values)

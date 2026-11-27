@@ -6,11 +6,10 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from concurrent.futures import Future
 
 from common.logging.diagnostics import ComponentLog, diagnostic_action
 from common.logging.structured import current_operation
-from concurrent.futures import Future
-
 from controllers.lighting.lighting_controller_if import LightingControllerIf
 from controllers.lighting.lighting_types import RgbColor
 from ui.lighting import (

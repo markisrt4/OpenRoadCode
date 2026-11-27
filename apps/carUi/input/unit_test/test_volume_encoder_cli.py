@@ -6,15 +6,15 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from config.runtime_config import (
-    GpioEncoderConfig,
-    RotaryEncoderConfig,
-    SeesawEncoderConfig,
-)
 from apps.carUi.input.component_test.volume_encoder_cli import (
     DEFAULT_VOLUME_STEPS,
     parse_args,
     select_volume_encoder,
+)
+from config.runtime_config import (
+    GpioEncoderConfig,
+    RotaryEncoderConfig,
+    SeesawEncoderConfig,
 )
 
 

@@ -7,4 +7,4 @@ from ui.automotive.automotive_telemetry_profile import (
     AutomotiveTelemetryProfile,
 )
 
-__all__ = ['AutomotiveTelemetryProfile']
+__all__ = ["AutomotiveTelemetryProfile"]

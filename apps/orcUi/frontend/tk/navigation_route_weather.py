@@ -6,14 +6,24 @@
 import tkinter as tk
 from tkinter import ttk
 
+from frontends.common.weather_overlay_format import (
+    city_time_label,
+    model_legend,
+    model_status,
+    route_weather_label,
+)
+from ui.ui_widget import UiWidget
 from ui.weather.weather_overlay_controls_if import WeatherOverlayControlsIf
 from ui.weather.weather_overlay_request_handler_if import WeatherOverlayRequestHandlerIf
-from ui.weather.weather_overlay_state import CityWeatherOverlayState, ModelWeatherOverlayState, RouteWeatherOverlayState
-from frontends.common.weather_overlay_format import city_time_label, model_legend, model_status, route_weather_label
-from .shell_metrics import FONT_CONTROL
+from ui.weather.weather_overlay_state import (
+    CityWeatherOverlayState,
+    ModelWeatherOverlayState,
+    RouteWeatherOverlayState,
+)
+
 from .city_weather_controls import CityWeatherControls
 from .city_weather_details_popup import CityWeatherDetailsPopup
-from ui.ui_widget import UiWidget
+from .shell_metrics import FONT_CONTROL
 
 
 class NavigationRouteWeather(WeatherOverlayControlsIf, UiWidget):
@@ -52,13 +62,29 @@ class NavigationRouteWeather(WeatherOverlayControlsIf, UiWidget):
         self._panel = panel
         panel.set_weather_menu_callbacks(self._render, self._close_popup)
         ui = self._theme().ui
-        self._button = tk.Button(panel.weather_controls_parent, text="Weather ▾", command=self._toggle_popup,
-                                 bg=ui.control_background, fg=ui.text, relief=tk.FLAT,
-                                 bd=0, highlightthickness=0,
-                                 font=("Sans", FONT_CONTROL), padx=6)
+        self._button = tk.Button(
+            panel.weather_controls_parent,
+            text="Weather ▾",
+            command=self._toggle_popup,
+            bg=ui.control_background,
+            fg=ui.text,
+            relief=tk.FLAT,
+            bd=0,
+            highlightthickness=0,
+            font=("Sans", FONT_CONTROL),
+            padx=6,
+        )
         self._button.pack(side=tk.RIGHT, padx=4)
-        self._city_banner = tk.Label(panel.weather_caption_parent, bg=ui.control_background, fg=ui.text,
-                                     font=("Sans", 8), justify=tk.LEFT, anchor="w", padx=8, pady=5)
+        self._city_banner = tk.Label(
+            panel.weather_caption_parent,
+            bg=ui.control_background,
+            fg=ui.text,
+            font=("Sans", 8),
+            justify=tk.LEFT,
+            anchor="w",
+            padx=8,
+            pady=5,
+        )
         if self._handler is not None:
             self._handler.request_navigation_visible(True)
         self._render()
@@ -106,8 +132,12 @@ class NavigationRouteWeather(WeatherOverlayControlsIf, UiWidget):
             self._close_popup()
             self._panel.close_radar_menu()
             self._city_details_popup = CityWeatherDetailsPopup(
-                self._panel, state, ui=self._theme().ui,
-                imperial=lambda: self._unit_system().value == "imperial", on_close=self._close_city_details)
+                self._panel,
+                state,
+                ui=self._theme().ui,
+                imperial=lambda: self._unit_system().value == "imperial",
+                on_close=self._close_city_details,
+            )
         else:
             self._city_details_popup.render(state)
 
@@ -129,29 +159,70 @@ class NavigationRouteWeather(WeatherOverlayControlsIf, UiWidget):
         body.pack(fill=tk.BOTH, expand=True)
 
         def label(text, parent=None):
-            item = tk.Label(parent or body, text=text, bg=ui.control_background, fg=ui.text,
-                            font=("Sans", FONT_CONTROL), anchor="w", justify=tk.LEFT, wraplength=330)
+            item = tk.Label(
+                parent or body,
+                text=text,
+                bg=ui.control_background,
+                fg=ui.text,
+                font=("Sans", FONT_CONTROL),
+                anchor="w",
+                justify=tk.LEFT,
+                wraplength=330,
+            )
             item.pack(fill=tk.X, pady=2)
             return item
 
         title = tk.Frame(body, bg=ui.control_background)
         title.pack(fill=tk.X)
-        tk.Label(title, text="Weather", bg=ui.control_background,
-                 fg=ui.text, font=("Sans", FONT_CONTROL, "bold")).pack(side=tk.LEFT)
-        tk.Button(title, text="×", command=self._close_popup, relief=tk.FLAT,
-                  bg=ui.control_active, fg=ui.text, highlightthickness=0, bd=0).pack(side=tk.RIGHT)
+        tk.Label(
+            title,
+            text="Weather",
+            bg=ui.control_background,
+            fg=ui.text,
+            font=("Sans", FONT_CONTROL, "bold"),
+        ).pack(side=tk.LEFT)
+        tk.Button(
+            title,
+            text="×",
+            command=self._close_popup,
+            relief=tk.FLAT,
+            bg=ui.control_active,
+            fg=ui.text,
+            highlightthickness=0,
+            bd=0,
+        ).pack(side=tk.RIGHT)
 
         def toggle(text, var, command, parent=None, horizontal=False):
-            tk.Checkbutton(parent or body, text=text, variable=var, command=command, bg=ui.control_background,
-                           fg=ui.text, selectcolor=ui.background, activebackground=ui.control_background,
-                           activeforeground=ui.text, font=("Sans", FONT_CONTROL), highlightthickness=0, bd=0, relief=tk.FLAT).pack(side=tk.LEFT if horizontal else tk.TOP, anchor="w")
+            tk.Checkbutton(
+                parent or body,
+                text=text,
+                variable=var,
+                command=command,
+                bg=ui.control_background,
+                fg=ui.text,
+                selectcolor=ui.background,
+                activebackground=ui.control_background,
+                activeforeground=ui.text,
+                font=("Sans", FONT_CONTROL),
+                highlightthickness=0,
+                bd=0,
+                relief=tk.FLAT,
+            ).pack(side=tk.LEFT if horizontal else tk.TOP, anchor="w")
 
         style = ttk.Style(popup)
         style.configure("Weather.TNotebook", background=ui.control_background, borderwidth=0)
-        style.configure("Weather.TNotebook.Tab", background=ui.control_background,
-                        foreground=ui.text, font=("Sans", FONT_CONTROL), padding=(8, 5))
-        style.map("Weather.TNotebook.Tab", background=[("selected", ui.control_active)],
-                  foreground=[("selected", ui.control_text)])
+        style.configure(
+            "Weather.TNotebook.Tab",
+            background=ui.control_background,
+            foreground=ui.text,
+            font=("Sans", FONT_CONTROL),
+            padding=(8, 5),
+        )
+        style.map(
+            "Weather.TNotebook.Tab",
+            background=[("selected", ui.control_active)],
+            foreground=[("selected", ui.control_text)],
+        )
         tabs = ttk.Notebook(body, style="Weather.TNotebook")
         tabs.pack(fill=tk.BOTH, expand=True, pady=4)
         map_tab = tk.Frame(tabs, bg=ui.control_background)
@@ -167,17 +238,41 @@ class NavigationRouteWeather(WeatherOverlayControlsIf, UiWidget):
         toggle("Radar overlay", self._radar_var, self._toggle_radar, map_tab)
         self._map_var = tk.StringVar(popup, value=self._model_state.kind)
         label("Model heatmap · one at a time", map_tab)
-        for value, text in (("off", "No model heatmap"), ("temperature", "Temperature"),
-                            ("wind", "Wind speed")):
-            tk.Radiobutton(map_tab, text=text, variable=self._map_var, value=value,
-                           command=self._select_map_weather, bg=ui.control_background, fg=ui.text,
-                           selectcolor=ui.background, activebackground=ui.control_background,
-                           font=("Sans", FONT_CONTROL), state=tk.NORMAL if self._handler else tk.DISABLED, highlightthickness=0, bd=0, relief=tk.FLAT).pack(anchor="w")
+        for value, text in (
+            ("off", "No model heatmap"),
+            ("temperature", "Temperature"),
+            ("wind", "Wind speed"),
+        ):
+            tk.Radiobutton(
+                map_tab,
+                text=text,
+                variable=self._map_var,
+                value=value,
+                command=self._select_map_weather,
+                bg=ui.control_background,
+                fg=ui.text,
+                selectcolor=ui.background,
+                activebackground=ui.control_background,
+                font=("Sans", FONT_CONTROL),
+                state=tk.NORMAL if self._handler else tk.DISABLED,
+                highlightthickness=0,
+                bd=0,
+                relief=tk.FLAT,
+            ).pack(anchor="w")
         self._map_status = label("", map_tab)
         self._legend = tk.Frame(map_tab, bg=ui.control_background)
         self._legend.pack(fill=tk.X, pady=4)
-        tk.Button(map_tab, text="Refresh model overlay", command=self._refresh_map_weather,
-                  bg=ui.control_active, fg=ui.text, relief=tk.FLAT, pady=4, highlightthickness=0, bd=0).pack(anchor="w", pady=3)
+        tk.Button(
+            map_tab,
+            text="Refresh model overlay",
+            command=self._refresh_map_weather,
+            bg=ui.control_active,
+            fg=ui.text,
+            relief=tk.FLAT,
+            pady=4,
+            highlightthickness=0,
+            bd=0,
+        ).pack(anchor="w", pady=3)
         label("Contiguous United States only", map_tab)
         body = route_tab
         self._enabled_var = tk.BooleanVar(popup, value=self._route_state.enabled)
@@ -186,22 +281,42 @@ class NavigationRouteWeather(WeatherOverlayControlsIf, UiWidget):
         layer_row = tk.Frame(body, bg=ui.control_background)
         layer_row.pack(fill=tk.X)
         for key, text in (("temperature", "Temp"), ("rain", "Precip %"), ("wind", "Wind")):
-            var = self._layer_vars[key] = tk.BooleanVar(popup, value=key in self._route_state.layers)
+            var = self._layer_vars[key] = tk.BooleanVar(
+                popup, value=key in self._route_state.layers
+            )
             toggle(text, var, self._set_layers, layer_row, horizontal=True)
         label("Forecasts at estimated arrivals · no live traffic or stops")
         self._status_label = label(self._route_state.status)
         details = tk.Frame(body, bg=ui.control_background)
         details.pack(fill=tk.X, pady=3)
-        self._details = tk.Text(details, height=6, width=42, wrap=tk.WORD,
-                                bg=ui.control_background, fg=ui.text, relief=tk.FLAT,
-                                font=("Sans", FONT_CONTROL), state=tk.DISABLED,
-                                bd=0, highlightthickness=0)
+        self._details = tk.Text(
+            details,
+            height=6,
+            width=42,
+            wrap=tk.WORD,
+            bg=ui.control_background,
+            fg=ui.text,
+            relief=tk.FLAT,
+            font=("Sans", FONT_CONTROL),
+            state=tk.DISABLED,
+            bd=0,
+            highlightthickness=0,
+        )
         scrollbar = tk.Scrollbar(details, command=self._details.yview)
         self._details.configure(yscrollcommand=scrollbar.set)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self._details.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        tk.Button(body, text="Refresh route forecast", command=self._refresh_route_weather, relief=tk.FLAT,
-                  bg=ui.control_active, fg=ui.text, pady=5, highlightthickness=0, bd=0).pack(anchor="w", pady=4)
+        tk.Button(
+            body,
+            text="Refresh route forecast",
+            command=self._refresh_route_weather,
+            relief=tk.FLAT,
+            bg=ui.control_active,
+            fg=ui.text,
+            pady=5,
+            highlightthickness=0,
+            bd=0,
+        ).pack(anchor="w", pady=4)
         self._tabs = tabs
         popup.bind("<Escape>", lambda _event: self._close_popup())
         self._render()
@@ -230,7 +345,9 @@ class NavigationRouteWeather(WeatherOverlayControlsIf, UiWidget):
 
     def _set_layers(self):
         if self._handler is not None:
-            self._handler.request_route_layers(frozenset(key for key, var in self._layer_vars.items() if var.get()))
+            self._handler.request_route_layers(
+                frozenset(key for key, var in self._layer_vars.items() if var.get())
+            )
 
     def _toggle_radar(self):
         self._panel.set_radar_enabled(self._radar_var.get())
@@ -239,11 +356,19 @@ class NavigationRouteWeather(WeatherOverlayControlsIf, UiWidget):
         if self._city_banner is not None:
             cities = self._city_state
             if cities.enabled:
-                field = {"temperature": "TEMPERATURE", "wind": "WIND SPEED", "precipitation": "PRECIPITATION"}[cities.kind]
-                period = "RECENT HISTORY · Estimated weather" if cities.period == "past" else "FORECAST"
+                field = {
+                    "temperature": "TEMPERATURE",
+                    "wind": "WIND SPEED",
+                    "precipitation": "PRECIPITATION",
+                }[cities.kind]
+                period = (
+                    "RECENT HISTORY · Estimated weather" if cities.period == "past" else "FORECAST"
+                )
                 caption = city_time_label(cities) if cities.points else cities.status.split(":")[0]
-                self._city_banner.configure(text=f"{field} · {period}\n{caption}",
-                                            wraplength=max(140, min(380, self._panel.map_width - 32)))
+                self._city_banner.configure(
+                    text=f"{field} · {period}\n{caption}",
+                    wraplength=max(140, min(380, self._panel.map_width - 32)),
+                )
                 self._city_banner.place(x=12, y=8)
                 self._city_banner.lift()
             else:
@@ -256,16 +381,28 @@ class NavigationRouteWeather(WeatherOverlayControlsIf, UiWidget):
             self._map_status.configure(text=model_status(self._model_state))
             for child in self._legend.winfo_children():
                 child.destroy()
-            for label, rgb in model_legend(self._model_state, self._unit_system().value == "imperial"):
-                tk.Label(self._legend, text=label, bg="#" + "".join(f"{v:02x}" for v in rgb),
-                         fg="#ffffff" if sum(c * w for c, w in zip(rgb, (0.299, 0.587, 0.114))) < 140 else "#101820",
-                         font=("Sans", 8), padx=2, pady=4).pack(side=tk.LEFT)
+            for label, rgb in model_legend(
+                self._model_state, self._unit_system().value == "imperial"
+            ):
+                tk.Label(
+                    self._legend,
+                    text=label,
+                    bg="#" + "".join(f"{v:02x}" for v in rgb),
+                    fg="#ffffff"
+                    if sum(c * w for c, w in zip(rgb, (0.299, 0.587, 0.114), strict=True)) < 140
+                    else "#101820",
+                    font=("Sans", 8),
+                    padx=2,
+                    pady=4,
+                ).pack(side=tk.LEFT)
         self._status_label.configure(text=self._route_state.status)
         self._radar_var.set(self._panel.radar_enabled)
         lines = []
         for index, forecast in enumerate(self._route_state.points, 1):
             arrival = forecast.arrival.astimezone().strftime("%I:%M %p").lstrip("0")
-            lines.append(f"{index} · ~{arrival} · {forecast.condition}\n{route_weather_label(forecast, self._route_state.layers, self._unit_system().value == 'imperial')}")
+            lines.append(
+                f"{index} · ~{arrival} · {forecast.condition}\n{route_weather_label(forecast, self._route_state.layers, self._unit_system().value == 'imperial')}"
+            )
         self._details.configure(state=tk.NORMAL)
         self._details.delete("1.0", tk.END)
         self._details.insert("1.0", "\n".join(lines))
@@ -278,3 +415,10 @@ class NavigationRouteWeather(WeatherOverlayControlsIf, UiWidget):
             except tk.TclError:
                 pass
             self._popup = None
+        # The presentation object can outlive this popup in controller callbacks.
+        # Drop Tcl variables on the UI thread instead of deferring them to GC.
+        for name in ("_radar_var", "_map_var", "_enabled_var", "_city_controls"):
+            if name in self.__dict__:
+                setattr(self, name, None)
+        if "_layer_vars" in self.__dict__:
+            self._layer_vars.clear()

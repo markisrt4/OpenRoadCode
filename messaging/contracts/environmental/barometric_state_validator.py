@@ -12,7 +12,13 @@ from typing import Any
 from messaging.contracts.common.timestamp import validate_timestamp
 
 SCHEMA_VERSION = 1
-DATA_FIELDS = {"pressure_pa", "temperature_c", "altitude_m", "relative_altitude_m", "vertical_speed_m_s"}
+DATA_FIELDS = {
+    "pressure_pa",
+    "temperature_c",
+    "altitude_m",
+    "relative_altitude_m",
+    "vertical_speed_m_s",
+}
 
 
 def _finite(data: Mapping[str, Any], name: str, *, optional: bool = False) -> float | None:

@@ -36,6 +36,33 @@ class PoiActionKind(Enum):
     ORDER = auto()
     OPEN_WEBSITE = auto()
     EXPLORE_3D = auto()
+    OPEN_ANDROID_APP = auto()
+
+
+class PoiAppAvailability(Enum):
+    """Observed ordering-app availability; unknown never means not installed."""
+
+    INSTALLED = auto()
+    NOT_INSTALLED = auto()
+    UNKNOWN = auto()
+    WEB_ONLY = auto()
+
+
+@dataclass(frozen=True, slots=True)
+class PoiAppStatus:
+    """Asynchronous app query result scoped to a particular card request."""
+
+    request_id: int
+    poi_id: str
+    availability: PoiAppAvailability
+
+
+@dataclass(frozen=True, slots=True)
+class PoiTitleStyle:
+    """Business title color and preferred locally available font families."""
+
+    color: str
+    font_families: tuple[str, ...] = ("Sans",)
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +73,14 @@ class PoiAction:
     label: str
     provider_id: str | None = None
     uri: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PoiIcon:
+    """Validated business image bytes supplied to presentation without file access."""
+
+    data: bytes
+    media_type: str = "image/png"
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,6 +97,12 @@ class PointOfInterest:
     actions: tuple[PoiAction, ...] = ()
     website: str | None = None
     address: str = ""
+    brand_wikidata: str | None = None
+    operator: str | None = None
+    business_id: str | None = None
+    icon_id: str | None = None
+    icon: PoiIcon | None = None
+    title_style: PoiTitleStyle | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -74,7 +74,9 @@ def test_cached_game_is_ready_without_backend_probe(tmp_path: Path) -> None:
 def test_uncached_available_game_becomes_available(tmp_path: Path) -> None:
     installer = FakeInstaller("debian", installed=False, available=True)
     ui = StubGamesUi()
-    controller = GameController([_game()], [installer], cache=GameInventoryCache(tmp_path / "inventory.json"))
+    controller = GameController(
+        [_game()], [installer], cache=GameInventoryCache(tmp_path / "inventory.json")
+    )
     controller.set_games_ui(ui)
 
     controller.start()
@@ -125,7 +127,9 @@ def test_failed_install_is_error_and_not_cached(tmp_path: Path) -> None:
 
 def test_ui_requests_are_wired_to_controller(tmp_path: Path) -> None:
     ui = StubGamesUi()
-    controller = GameController([_game()], [], cache=GameInventoryCache(tmp_path / "inventory.json"))
+    controller = GameController(
+        [_game()], [], cache=GameInventoryCache(tmp_path / "inventory.json")
+    )
 
     controller.set_games_ui(ui)
 

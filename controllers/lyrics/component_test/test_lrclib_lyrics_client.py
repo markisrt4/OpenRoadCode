@@ -10,10 +10,7 @@ from controllers.lyrics import LrclibLyricsClient
 
 class LrclibLyricsClientTest(unittest.TestCase):
     def test_parses_synchronized_lyrics(self) -> None:
-        lines = LrclibLyricsClient.parse_synced(
-            "[00:12.50] First line\n"
-            "[00:15.125] Second line\n"
-        )
+        lines = LrclibLyricsClient.parse_synced("[00:12.50] First line\n[00:15.125] Second line\n")
 
         self.assertEqual(2, len(lines))
         self.assertEqual(12_500, lines[0].time_ms)

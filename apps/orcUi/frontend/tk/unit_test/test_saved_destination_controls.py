@@ -33,7 +33,10 @@ class SavedDestinationControlsTest(unittest.TestCase):
                 old_card = panel._poi_card
                 position = GeoPoint(0.7, -1.4)
                 panel._places_handler.favorite.return_value = MapFavorite(
-                    key, key.title(), position, "123 Main St",
+                    key,
+                    key.title(),
+                    position,
+                    "123 Main St",
                 )
                 panel._destination_shortcut(key)
                 panel.after_cancel.assert_called_once_with("pending-search")
@@ -46,7 +49,8 @@ class SavedDestinationControlsTest(unittest.TestCase):
                 self.assertEqual(poi.name, key.title())
                 panel._navigate_to_poi(poi)
                 panel._route_request_handler.request_start_route.assert_called_once_with(
-                    position, TravelMode.AUTO,
+                    position,
+                    TravelMode.AUTO,
                 )
 
     def test_unconfigured_destination_clears_old_popup_without_routing(self):

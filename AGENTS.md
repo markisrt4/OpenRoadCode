@@ -1,5 +1,87 @@
 # Repository instructions
 
+## ORC's Law: Inspect, Reuse, Extend
+
+**Before writing new code, understand what OpenRoadCode already provides.**
+
+1. **Inspect first.** Search existing modules, interfaces, controllers, adapters, schedulers, tests, and documentation before proposing new implementations.
+2. **Reuse what works.** Prefer existing abstractions and infrastructure over parallel implementations.
+3. **Extend before replacing.** When existing functionality is incomplete, extend it while preserving established contracts and behavior.
+4. **Respect architectural boundaries.** Keep hardware access, protocols, business logic, and presentation properly separated.
+5. **Avoid duplication.** Do not introduce competing schedulers, transports, parsers, managers, or services without demonstrating why the existing implementations are insufficient.
+6. **Preserve working behavior.** New capabilities must not silently disrupt existing features or performance characteristics.
+7. **Verify before declaring success.** Use appropriate tests and CI, following the repository's execution and cost policies.
+
+**Enforcement:** Before implementing a feature, identify the existing components reviewed, explain what can be reused, and justify any genuinely new abstraction.
+
+*ORC's Law: Inspect what exists. Reuse what works. Extend what's missing. Don't reinvent the wheel.*
+
+## New subsystem architecture requirements
+
+These requirements apply to every new subsystem and substantial extension of an
+existing subsystem, not just features that introduce a new screen. Architecture
+is an implementation prerequisite, not a merge-preparation cleanup task.
+
+- **Before implementation**, inspect existing contracts, composition roots,
+  adapters, presentation controllers, architecture checks, and test conventions.
+  Identify the subsystem's responsibilities, dependency direction, public
+  interfaces, lifecycle owner, and reusable components. Discuss major design
+  decisions with the user under the existing approval policy.
+- Define or extend typed, toolkit-independent contracts before implementing
+  consumers. Separate domain/provider interfaces from UI state and semantic
+  request interfaces under `ui/<subsystem>/`. Use immutable presentation models
+  and explicit interfaces rather than untyped dictionaries, concrete backend
+  objects, or duck-typed access to implementation details.
+- Keep hardware, protocols, persistence, services, domain logic, presentation
+  controllers, and rendering in their appropriate layers. Inject contracts at
+  composition roots. Composition modules must not define presentation widgets
+  or screen subclasses; keep those in the frontend. Frontends must not import
+  concrete controllers, providers, service clients, or worker primitives.
+- Define ownership of background work, cancellation, stale results, errors,
+  refresh, and shutdown before connecting asynchronous behavior. Controllers
+  own execution and state transitions; widgets render state and emit semantic
+  requests. Keep persistence and transport operations outside widgets.
+- Implement a complete vertical slice early: contracts, concrete implementation,
+  composition wiring, frontend consumer (where applicable), and meaningful tests
+  using injected fakes. Do not build an entire subsystem against concrete
+  dependencies and retrofit interfaces later.
+- In the same implementation slice, register applicable contracts and typed
+  implementations with strict mypy coverage and implementation witnesses,
+  verify automatic architecture discovery, and update dependency manifests,
+  CI setup, test discovery, and documentation inventory as needed. Do not
+  postpone these tasks until merge preparation.
+- Review the dependency direction and module-size limits before committing
+  each substantial slice. Use existing GitHub Actions checks early in branch
+  development, consistent with the asynchronous CI and Codex execution policies
+  below. Do not run checks in the Codex VM without specific authorization.
+- A new subsystem is not complete until its contracts are actually consumed,
+  its lifecycle and failure behavior are covered by tests, and applicable
+  architecture, typing, documentation, and regression checks are verified.
+  Do not add boundary exceptions, weaken gates, or bypass static discovery to
+  accommodate new code.
+
+**Required handoff:** Identify the contracts and their implementations, the
+composition wiring, lifecycle ownership, tests added, and CI evidence or
+outstanding validation. A contract definition alone is not a completed migration.
+
+## Primary UI display target
+
+- **Design and validate the ORC interface for 1280×720 first.** Treat this as
+  the primary target resolution for new screens, layout changes, controls,
+  overlays, dialogs, and visualizations.
+- Keep layouts adaptable to other resolutions, but do not compromise the
+  1280×720 experience to optimize a smaller display first.
+- Verify that primary navigation, controls, labels, and notification dialogs
+  remain readable and usable at 1280×720 without unintended clipping,
+  overlapping, or unnecessary scrolling.
+- Support for other display sizes, including 800×480, is secondary unless
+  the user explicitly changes the target priority.
+
+### Touch scrolling
+
+Use large, labeled or directional buttons for scrolling in the in-vehicle UI.
+Follow the left navigation rail's up and down controls. Do not show scrollbars.
+
 ## UI contracts are part of completing a feature
 
 - Before wiring new UI behavior, define or extend toolkit-independent state and
@@ -70,7 +152,7 @@ When providing instructions to launch ORC UI, use `./runOrcUi` rather than
 ## Termux device commands
 
 - Begin user-facing command blocks with `git switch <branch_name>`, using the actual intended branch.
-- Use Termux's `$TMPDIR` for temporary files; do not assume `/tmp` exists.
+- Use Termux's `$TMPDIR` for temporary files and diagnostic logs; never use `$HOME` or hardcoded `/tmp` for temporary output.
 - When asking the user to paste diagnostic output, provide a command that copies
   the relevant output with `termux-clipboard-set`. Keep clipboard output focused
   on the requested evidence. Use `termux-clipboard-get` when reading clipboard
@@ -116,3 +198,48 @@ session working on this repository.
   Leave final completion to explicit verification and user approval.
 - If Linear access is unavailable, report the pending update at handoff; do not
   claim the issue was updated or block code progress solely on tracking.
+
+## Codex execution and CI cost policy
+
+- Do **not** run tests, lint, type checks, builds, quality gates, benchmarks, or validation scripts in the Codex cloud VM by default. This includes indirect invocations via Make, Gradle, npm, shell scripts, pre-commit hooks, or other wrappers.
+- Write and update meaningful tests alongside code changes, but delegate their execution to GitHub Actions. For device-dependent verification, give the user exact commands for their Linux, Raspberry Pi, or Android/Termux environment.
+- Read GitHub Actions logs, statuses, and downloadable reports to diagnose failures. Make targeted fixes and push them for CI to rerun. Do not rerun tests in the agent VM simply because CI fails.
+- Do not execute tests locally even when an existing repository instruction says to run focused checks. This section overrides such instructions for Codex cloud sessions. Static review of source and diffs without running validation tools is allowed.
+- Only run a check in the Codex VM if the user **explicitly authorizes that specific execution**. General requests such as 'fix it', 'verify', or 'make sure it works' are not authorization to consume Codex cloud execution for tests.
+- Clearly report which checks CI actually ran, which checks are pending, and which require physical hardware. Never imply unexecuted tests passed.
+- Do not install dependencies in the Codex VM solely to run checks, tests, builds, or other validation. Dependency installation needed for actual implementation must be justified separately.
+- Prefer concise CI failure summaries, JUnit XML artifacts, and the failing job's relevant log excerpt over reading entire workflow logs repeatedly.
+- Request or inspect the GitHub Actions result for the exact commit before declaring verification complete. Use the workflow's manually dispatched full gate before merge where configured; do not claim the full gate ran just because fast CI passed.
+
+## Asynchronous CI and draft PR policy
+
+- Open draft PRs early for work in progress when useful, and continue committing without waiting for every CI run.
+- GitHub Actions owns automated unit tests, lint, packaging, and builds. Do not run installs, builds, or tests in Codex unless explicitly requested; hardware-dependent verification remains local.
+- Do not poll or block on CI after routine commits. Inspect results when diagnosing failures, preparing review, or requesting merge.
+- Draft PRs get fast unit tests; full quality checks run when marked ready for review and on subsequent ready-PR updates.
+- Verify required checks for the latest commit before declaring merge-ready. Never merge with failing required checks or without explicit authorization.
+
+## Termux diagnostic output and clipboard
+
+- For Termux diagnostics intended for chat, display the **actual stdout and stderr** and copy the output, not the command text, using `termux-clipboard-set`.
+- **Use temporary diagnostic files in Termux's `$TMPDIR` exclusively.** Create unique paths with `mktemp`; never use `$HOME`, `$PREFIX/tmp`, or hardcoded `/tmp` for temporary diagnostic output. If `$TMPDIR` is unset, report the problem rather than silently choosing another directory.
+- Remove temporary diagnostic files after display and clipboard copying. Use persistent paths in `$HOME` only when the user explicitly requests saved captures, recordings, or logs.
+- For SSH/VPS diagnostics initiated from Termux, capture stdout and stderr on the local Termux device in `$TMPDIR`, display the output, and copy it with the local `termux-clipboard-set`. Account for interactive sudo authentication and preserve the remote command status. Do not assume Termux commands or its temporary directory exist on the remote host.
+- Ordinary non-hardware diagnostics may use `2>&1 | tee >(termux-clipboard-set)`, but pipelines can obscure exit codes. Prefer sequential temporary-file logging when command status matters.
+- **Never attach live clipboard pipelines to USB-sensitive commands** such as `termux-usb` handoff or RTL-SDR capture. They have caused USB handoff to hang.
+- For USB-sensitive commands, wait for the hardware command to finish before displaying the log and calling `timeout 5 termux-clipboard-set`. Preserve the hardware command's original exit status.
+- Generic USB-safe example:
+  ```bash
+  LOG="$(mktemp "${TMPDIR:?TMPDIR must be set}/diagnostic.XXXXXX")" || exit 1
+  trap 'rm -f "$LOG"' EXIT
+  hardware_command > "$LOG" 2>&1
+  STATUS=$?
+  cat "$LOG"
+  echo "Hardware exit status: $STATUS"
+  timeout 5 termux-clipboard-set < "$LOG"
+  echo "Clipboard exit status: $?"
+  exit "$STATUS"
+  ```
+- For libSDRForge IQ captures, prefer `bash scripts/run_rtlsdr_termux_logged.sh examples/rds_iq_replay.py capture --frequency 94.7 --seconds 3 --acquisition-mode async --output "$HOME/probe.iq"` in the libSDRForge repository; this deliberately saved IQ capture is not a temporary log. Do not wrap the launcher in a live clipboard pipeline.
+- Finish Termux:API GPS lookup before USB-authorized capture; never expose GPS coordinates in diagnostic logs by default.
+- Termux RTL-SDR acquisition must use **async** mode, never sync.

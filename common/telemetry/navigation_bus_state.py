@@ -58,8 +58,7 @@ class NavigationBusSnapshot:
         if self.position_count or self.motion_count:
             suffix = f" · position {self.position_count} · motion {self.motion_count}"
         return (
-            f"Live navigation data · attitude {self.attitude_count} · IMU {self.imu_count}"
-            f"{suffix}"
+            f"Live navigation data · attitude {self.attitude_count} · IMU {self.imu_count}{suffix}"
         )
 
 

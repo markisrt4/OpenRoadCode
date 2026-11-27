@@ -1,14 +1,31 @@
 # Standalone Cesium map experiment
 
+## Waze branch integration
+
+`feature/waze-live-map` includes the `navigation-cesium` work. The shared Views
+selector switches between the ORC map, native Waze, and Cesium terrain; Places
+and the business ordering card stay shared. Cesium's camera drawer includes its
+Layers and Terrain pages, while Waze retains its own scoped gesture controls.
+Route and POI overlays feed Cesium through the existing map request contracts.
+A retained POI selection survives navigation remounts for both map renderers.
+
+Host-location settings retain compact consent-window reuse and Android delivery
+status, with the Cesium branch's explicit location-service restart action added.
+A map-renderer failure still shows the Map unavailable overlay and Retry action.
+
+After updating the branch, verify on the target device: switch through all three
+views, search/select an ordering POI in both map renderers, leave and return to
+Waze, and exercise terrain layers and host-location recovery. CI covers portable
+contracts; embedded Android and WebGL behavior still needs device verification.
+
+
 Branch: `navigation-cesium`. Tracking: [MAR-22](https://linear.app/mark-russell/issue/MAR-22).
 
-Stage one checks the renderer without changing ORC navigation. It renders a local
-ellipsoid globe, procedural geographic grid, and a static Detroit marker. Around
-the marker, a synthetic 250-metre checkerboard grid, 250/500/1,000-metre distance
-rings, and labelled compass directions make camera movement visible. A yellow
-ground arrow points north; the footer reports camera height, tilt, and heading.
-These reference graphics are not real streets or buildings. Without an installed imagery pack it has no aerial imagery. An optional coarse terrain pack adds relative relief. Building datasets, routing,
-and GPS follow are not implemented yet. Zoom, rotation/pan gestures, north-up, tilt, and reset are available. The
+Stage one checked the renderer without changing ORC navigation. The current
+viewer renders a local reference globe and destination marker. Early synthetic
+global and 250-metre diagnostic grids were removed once real imagery, borders,
+terrain cues, and navigation overlays supplied the necessary orientation.
+These reference graphics are not real streets or buildings. Without an installed imagery pack it has no aerial imagery. An optional terrain pack adds relative relief. Installed map packs can provide buildings, roads, and places. The embedded viewer consumes the existing navigation service's active route and guidance state to draw the route, destination, and current maneuver, and it can follow live GPS. Zoom, rotation/pan gestures, north-up, tilt, and reset are available. The
 viewer is an owned, isolated Chromium app window; Return to ORC, window close, or
 Ctrl+C stops only this experiment and its local server.
 
@@ -77,9 +94,8 @@ state/HTTP/lifecycle tests cover invalid destinations, asset isolation, authoriz
 close requests, and cleanup on browser startup failure. A cloud Chromium software-rendering probe initialized Cesium and its controls,
 exercised reset, and confirmed the Return to ORC request reached the launcher.
 The user has confirmed the baseline quality gate passes and scrolling is smooth
-on Termux/X11. Reference-grid rendering and control behavior still need device
-verification. Use zoom to change ring size and camera height, tilt to switch
-between overhead and angled squares, and reset after panning to restore Detroit.
+on Termux/X11. Use zoom to change camera height, tilt to switch between overhead
+and angled views, and reset after panning to restore Detroit.
 
 Next, qualify and prepare a bounded Detroit imagery layer, then terrain and
 buildings independently using [the dataset review](detroit_map_data_review.md).
@@ -102,12 +118,14 @@ python -m development.maps.download_detroit_imagery
 python -m apps.launchers.component_test.cesium_viewer_cli --display :1
 ```
 
-The downloader queries the USGS NAIP Plus catalog for primary Michigan records,
-selects the newest identifiable NAIP/USDA acquisition year, locks the export to
-those raster IDs, and saves a natural-colour WGS84 JPEG plus provenance. It does
-not substitute commercial imagery if no qualifying record is found. Source
-metadata is retained and the service must still describe public-domain imagery.
-USGS reference: https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer
+The downloader queries the USGS NAIP-only catalog for primary Michigan records,
+retains the newest identifiable NAIP/USDA acquisition year in provenance, and
+uses the service's advertised newest-by-year mosaic to save a natural-colour
+WGS84 JPEG. It does not substitute partner or commercial imagery if no qualifying
+record is found. Completely black no-data exports are rejected before they enter
+the resumable cache. Source metadata is retained and the service must still
+describe public-domain imagery.
+USGS reference: https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer
 
 Coverage is west/south/east/north `-83.065, 42.315, -83.025, 42.345`, approximately
 3.3 km across around downtown Detroit. The export is 2,048 × 1,536 pixels; these
@@ -193,8 +211,10 @@ service can still be unavailable; retry later if all attempts fail.
 The downloader never silently installs an incomplete server response.
 
 Coverage matches the Detroit imagery and terrain rectangle. This prototype uses
-simple closed OSM building ways wholly inside that rectangle. Multipolygon
-relations, courtyards, building parts, and boundary-crossing outlines are omitted;
+OSM building ways and assembled multipolygon relations wholly inside that
+rectangle. Courtyards and building parts are preserved by the regional building
+pipeline; parts provide separate top and base heights, while containing whole-building
+outlines are not extruded over them. Boundary-crossing outlines remain omitted;
 this is not a complete city model. Flat roofs and bases are a visual approximation.
 Bases use the coarse terrain's relative relief at each outline's centroid.
 
@@ -212,10 +232,8 @@ the imagery's public-domain rights. Packs remain outside the code repository.
 
 ### Layer comparison controls
 
-The viewer now opens 1,500 m from the destination, with buildings visible and the
-synthetic reference grid hidden. Buildings and Grid buttons independently toggle
-their layers without rebuilding geometry or downloading anything. Highlighted
-buttons indicate visible layers. Buildings is disabled when no building pack is
+The viewer now opens 1,500 m from the destination, with buildings visible.
+Highlighted buttons indicate visible layers. Buildings is disabled when no building pack is
 installed. The attribution remains visible when buildings are hidden. Reset view
 restores the camera, preserving layer choices; `--distance-m` overrides the initial
 viewing distance. The control rail scrolls on short screens.
@@ -242,7 +260,7 @@ selecting another place. This stage is destination exploration, without live
 vehicle following, route overlays, or replacement of the normal MapLibre map.
 
 Device validation: open a downtown Detroit POI in NAV, choose 3D Map, toggle
-Buildings/Grid and return. Repeat in offline mode, then select a POI outside the
+Buildings and return. Repeat in offline mode, then select a POI outside the
 Detroit pack to confirm the coverage warning. Close ORC while a viewer is open
 and confirm its window also closes.
 
@@ -344,6 +362,134 @@ ground with buildings on, toggle 2D/3D, and confirm the destination remains
 visible. Repeat offline. Detroit is fairly flat, so large mountains would
 indicate bad samples rather than successful terrain rendering.
 
+### Multi-resolution Metro Detroit terrain
+
+The regional release pipeline builds terrain schema 3 as a bounded offline LOD
+pack. It contains a 33×33 Metro Detroit overview, sixteen 129×129 regional grids
+that become eligible at Cesium level 9, and 129×129 focus grids for Downtown–Midtown,
+Rochester, Southfield, and Pine Knob that become eligible at level 12. Cesium
+selects the most detailed eligible grid for each requested heightmap and stops
+refining at level 16. Vehicle, building, and POI placement use the best installed
+sample at their coordinate.
+
+Schema-1 single grids and schema-2 mosaics remain readable. The source datum is
+still preserved as relative relief; this change does not claim ellipsoid-height
+conversion or navigation-grade altitude. All grids and original USGS response
+metadata remain offline after installation. The terrain artifact command reports
+tile count, LOD count, and compressed bytes and rejects archives above 64 MiB.
+
+The optional **Terrain cues** control adds Cesium globe lighting, restrained
+10-metre contours, and a locally generated contrast hillshade over installed imagery. It changes presentation only: source
+elevations and the selected 1×/2×/3×/4× relief scale are unchanged. Cues turn off
+while Ground is Flat and return to their prior selection when Relief is restored.
+They default off to avoid extra GPU work on constrained virtual and mobile GPUs.
+Contour presentation remains equivalent to a 10-metre source interval: Cesium
+uses 10/20/30/40-metre rendered spacing at 1×/2×/3×/4× so exaggeration does not create
+three times as many lines. Hillshade generation uses fourfold slope contrast to reveal Michigan's subtle
+relief, attaches no more than six visible tiles, and caches each generated image;
+it does not exaggerate the terrain mesh or require another data download.
+Contours use a translucent cool blue-gray rather than the road overlay's
+yellow/white hierarchy, so terrain shape and navigation geometry remain distinct.
+
+Metro Detroit's schema-3 regional tier uses sixteen 129×129 grids, approximately
+200 metres apart, while retaining its four finer focus grids. The separately
+triggered **Build Michigan terrain shard** workflow publishes a draft release for
+one bounded statewide package at a time. `michigan-overview` is an 8×8 set of
+129×129 grids (roughly 600-metre sampling). Eight selectable peninsula shards use
+the same tile layout over smaller envelopes for approximately 200–300-metre
+sampling. Each release includes `michigan-terrain-index.json`; its rectangles are
+planning envelopes and include lakes plus some neighboring territory.
+Complete USGS response records are retained as deterministic gzip JSON so large
+statewide builds preserve provenance without exceeding the device's extracted-
+pack limit; elevation payloads remain ordinary validated JSON.
+
+Install the statewide overview or the shard containing the intended destination
+with `development.maps.install_terrain --coverage COVERAGE --pack-manifest URL
+--yes`. The viewer composes installed Metro Detroit detail and the matching
+Michigan detail shard over the statewide overview. Terrain selection happens for
+each requested heightmap, so moving the camera outside Detroit falls back to
+statewide relief without reopening the viewer. Each Michigan build is
+independent. GitHub Actions builds the eight terrain rows as bounded matrix jobs,
+with no more than two rows running at once. Each row restores and saves its own
+validated `.download` tile cache, then passes successful tiles to a final assembly
+job through a seven-day workflow artifact. Rerunning a failed coverage therefore
+reuses completed rows instead of resampling them. Each row uses two concurrent
+tiles plus bounded exponential request backoff to reduce pressure on the public
+endpoint. Packaging and draft release creation still require all eight rows and
+every tile to pass validation; the temporary row artifacts are not the published
+map package. Building all nine
+packages is intentionally not one workflow job because USGS request time and
+release inspection remain explicit.
+
+Metro Detroit uses the same resumable principle at individual-tile granularity.
+Its imagery package is preserved independently, while a matrix builds the 21
+terrain grids with at most two USGS requests in flight. Each successful tile is
+cached and transferred as a seven-day workflow artifact. A final job assembles
+the unchanged schema-3 terrain layout only after every tile validates. A rerun
+therefore restores completed tiles instead of restarting a two-hour monolithic
+job, and an exact packaged-terrain cache bypasses the tile matrix entirely.
+
+Pack descriptors carry separate imagery and terrain build fingerprints derived
+from coverage plus reviewed source/algorithm revisions. Before contacting USGS,
+the workflows restore an exact matching packaged artifact when one exists in the
+GitHub Actions cache. Metro Detroit also treats an existing requested release as
+reusable only after both archive names and descriptor fingerprints validate;
+stale or partial releases fail closed. The `force_rebuild` dispatch option
+bypasses artifact caches, requires a new Metro Detroit release tag, and is meant
+for source inspection rather than silently replacing an immutable cache entry.
+Changes to imagery sourcing, masking, dimensions, terrain tiling or schemas must
+bump the corresponding revision in `development.maps.artifact_identity`.
+
+The same Michigan workflow builds a separately installable 8192×8192 USGS aerial
+image for the selected envelope. The statewide overview is intentionally broad
+background context; the eight smaller peninsula envelopes provide the useful
+regional tier, and existing Metro Detroit/focus imagery remains the most detailed
+layer. Imagery and terrain archives retain independent descriptors and checksums
+in one draft release. Runtime selection orders installed imagery broad-to-fine,
+so the smallest matching validated pack draws on top without stretching outside
+its declared rectangle. Each image remains under the runtime's 20 MiB payload
+limit; source export evidence is retained in its archive.
+
+The Cesium presentation keeps rectangular imagery envelopes for useful
+cross-border context. Natural Earth 5.1.2 supplies compact worldwide country and
+disputed-boundary lines. Bundled Census geometry supplies internal boundaries
+shared by two U.S. states, while the country layer exclusively owns the national
+perimeter; this avoids competing independently simplified outlines. Michigan
+retains a cyan dashed outline for local emphasis. D.C. and territories are
+intentionally excluded from the state layer. Coordinates
+cross the toolkit-independent UI boundary in radians and the frontend clamps the
+lines to installed terrain. These are statistical boundaries, not survey-grade
+or navigation-authoritative borders. Shared state edges are deduplicated before
+they cross the UI contract so adjacent polygons do not brighten or disrupt the
+dash pattern. A locally rendered Natural Earth land mask gives the offline
+reference globe muted green land and blue ocean without contacting a hosted map
+service. Installed aerial imagery remains above that reference layer, and
+transparent NAIP coverage gaps reveal it instead of a black imagery-layer base.
+Neutral near-black JPEG padding is masked during regional
+assembly while dark colored source pixels remain visible. Boundary source: U.S.
+Census Bureau generalized ACS 2024 `State_County` States 20M layer, retrieved
+2026-11-03:
+https://tigerweb.geo.census.gov/arcgis/rest/services/Generalized_ACS2024/State_County/MapServer/9
+Natural Earth sources are public domain 1:110m Admin-0 countries and boundary
+lines, plus physical lake polygons, version 5.1.2. The offline reference globe
+draws the lake polygons back over its green land mask so the Great Lakes and
+other major inland waters remain blue.
+
+After publishing a successful draft release, install both descriptors from the
+same tag and reopen the 3D viewer:
+
+```bash
+git switch navigation-cesium
+python -m development.maps.install_region --coverage COVERAGE --pack-manifest "https://github.com/markisrt4/OpenRoadCode/releases/download/TAG/COVERAGE-imagery.zip.json" --yes
+python -m development.maps.install_terrain --coverage COVERAGE --pack-manifest "https://github.com/markisrt4/OpenRoadCode/releases/download/TAG/COVERAGE-terrain.zip.json" --yes
+```
+
+Until the Michigan workflow file reaches the default branch, GitHub cannot
+dispatch that new filename directly. On `navigation-cesium`, use the already
+registered `build-metro-detroit-imagery.yml` dispatcher with a Michigan
+`build_target`; it calls the reusable Michigan workflow from the selected branch.
+Direct `build-michigan-terrain.yml` dispatch becomes available after merge.
+
 ### Pine Knob relief comparison (Termux)
 
 Pine Knob in Clarkston is coverage 3 in the optional terrain menu. Its separate
@@ -363,7 +509,7 @@ The test opens near the ski hill without Detroit imagery or buildings. Terrain
 ON/OFF switches between sampled ground and a flat ellipsoid without resetting the
 camera. With no imagery, 10 m contour lines help show the relief. The footer shows
 the sampled elevation range. Source sampling is coarse, so this is a terrain
-comparison rather than a detailed ski-trail map. Grid graphics, the destination marker and building bases follow the selected
+comparison rather than a detailed ski-trail map. The destination marker and building bases follow the selected
 relief scale and flatten with terrain disabled; building heights remain unchanged. Rendering and live USGS downloads require device
 validation. After downloading, this view works offline.
 
@@ -427,10 +573,10 @@ and viewing distance. Each step is 15% of the current distance to the visible
 centre, bounded to 25 m–100 km. If the centre points at sky and no ground can be
 picked, pan waits until ground is visible. Mouse pan and touch tilt still work.
 
-Relief cycles 1× / 2× / 3×; the default 1× uses actual relative elevations. The
-footer explicitly labels 2× and 3× as exaggerated. Source samples and the displayed
+Relief cycles 1× / 2× / 3× / 4×; the default 1× uses actual relative elevations. The
+footer explicitly labels 2× through 4× as exaggerated. Source samples and the displayed
 sampled elevation range remain unchanged. Imagery drapes over the new terrain;
-markers, local grid graphics and loaded building bases are refreshed, while
+markers and loaded building bases are refreshed, while
 building heights stay real. Terrain OFF disables the relief control and returns
 these overlays to flat ground. Reset view restores destination, initial tilt,
 and 1× relief. Contour spacing refers to displayed height, so exaggeration makes
@@ -477,6 +623,23 @@ git switch navigation-cesium
 git pull --ff-only
 python -m apps.orcUi
 ```
+
+Chromium normally applies its GPU safety list. On a separately qualified VMware
+SVGA3D VM where `chrome://gpu` confirms hardware WebGL after bypassing that list,
+launch the opt-in hardware path with:
+
+```bash
+git switch navigation-cesium
+OPENROAD_CESIUM_RENDERER=hardware-override ./runOrcUi
+```
+
+This passes `--ignore-gpu-blocklist`; it does not repair or certify the virtual
+GPU driver. Rendering corruption, context loss or GPU-process failure should be
+treated as a failed qualification. Use
+`OPENROAD_CESIUM_RENDERER=software ./runOrcUi` to return to the slower ANGLE
+SwiftShader fallback. With no variable, Chromium's normal safety decisions remain
+unchanged. Renderer selection, effective flags and the Chromium GPU report are
+recorded in `cesium-stages.log`.
 
 On Termux/X11, open Navigation and toggle Map to Terrain, or search for Pine Knob and use
 its 3D action. Verify it stays inside the map area; pan, pitch and relief controls
@@ -590,8 +753,8 @@ assembly removes that cache so later updates fetch fresh acquisitions.
 ### Build once, distribute a checked imagery artifact
 
 For regular device installation, prefer a prebuilt archive over on-demand USGS
-exports. This path exists now, but **no Metro Detroit artifact or public hosting
-URL is bundled**. A build machine must first finish and inspect the imagery;
+exports. GitHub Releases is the distribution channel for inspected Metro Detroit
+packs. A build machine must first finish and inspect the imagery;
 packaging does not repair USGS outages or certify that exported imagery has no
 gaps. The existing navigation dataset still uses its SSH/rsync deployment.
 
@@ -644,16 +807,18 @@ artifact retention period. Each run uses a new tag such as
 available for rollback. Do not reuse a tag or replace assets in a published
 version.
 
-After publishing the draft, copy the version-specific descriptor URL from the
-workflow summary or release page and install it on Termux:
+After publishing the draft, install the newest published pack on Termux:
 
 ```bash
 git switch navigation-cesium
-python -m development.maps.install_region --coverage metro-detroit --pack-manifest https://github.com/markisrt4/OpenRoadCode/releases/download/metro-detroit-imagery-VERSION/metro-detroit-imagery.zip.json
+bash development/termux/install_metro_detroit_imagery.sh
 ./runOrcUi
 ```
 
-Add `--update` when replacing an already installed pack. Release assets remain
+The launcher selects the newest published, non-prerelease Metro Detroit imagery
+release. Add `--update` when replacing an already installed pack, or use
+`--version metro-detroit-imagery-VERSION` to install a specific revision for
+rollback. Pass `--yes` for a non-interactive install. Release assets remain
 available until the corresponding asset, release, or repository is deleted.
 The version-specific URL intentionally remains fixed; select a newer release
 explicitly when updating a device.
@@ -670,11 +835,25 @@ Regional envelopes can include areas with no approved US NAIP sources (for
 example, across the border or over water). If a complete catalog contains no
 NAIP/USDA source for an overview piece, the builder leaves that piece transparent
 and records its bounds and source evidence in `missing_coverage`. Such overviews
-use PNG, with a coverage-gap count in the title. It does not substitute partner
+use size-bounded WebP with alpha, with a coverage-gap count in the title. This
+avoids lossless PNG exceeding the viewer's 20 MiB image limit. It does not substitute partner
 imagery or invent ground detail. Undated identifiable NAIP, invalid rights,
 incomplete catalogs and network failures are not treated as coverage gaps. A
 region with no supported imagery at all still fails. Re-running reuses completed
 pieces, including checked gap records, until the pack is successfully assembled.
+
+The optional Cesium road overlay limits detail to zoom 13 and covers the visible
+camera rectangle with at most six vector tiles, reducing zoom when necessary.
+Distance conditions progressively hide geometry by road class and hide road
+labels before statewide scale; motorway references remain visible farther out
+than primary and secondary labels.
+Roads and settlement names are separate
+controls; Places starts disabled, and its Cesium label entities are not created
+until enabled. Transportation-name placement paths supply labels but are never
+drawn as road geometry. Tile decoding admits drawable major-road geometry before
+local-road and label-placement paths so metadata cannot exhaust the bounded tile
+budget ahead of the roads themselves. This bounds entity and label work on virtual
+or embedded GPUs.
 
 ### Inspect a locally built archive without hosting
 
@@ -691,7 +870,8 @@ The installer shows size and asks for confirmation, checks the descriptor's
 region, filename, size and SHA256, then extracts and validates the imagery before
 activation. `--update` allows replacing an existing managed imagery revision;
 the previous revision remains available. Reopen Terrain if ORC is already running.
-`--pack-file`, `--pack-manifest` and `--build-only` are mutually exclusive.
+`--pack-file`, `--pack-manifest`, `--github-release` and `--build-only` are
+mutually exclusive.
 
 ### Shared ORC camera rail and detail imagery
 
@@ -914,3 +1094,224 @@ On Termux, check road/freeway lines, place labels, the Roads & places toggle,
 panning/following across tile boundaries, and closing ORC with Terrain active.
 Actual WebGL appearance, road-overlay performance and shutdown latency still need
 device validation; cloud checks use synthetic MVT/SQLite fixtures.
+
+
+## Unified ORC map controls
+
+The embedded Map and Terrain views now use one ORC-owned collapsible drawer with
+Cesium-inspired button grouping. Follow, recenter, north-up, 2D/3D, directional pan,
+zoom and tilt retain their existing semantic camera requests. Reset restores the
+initial Terrain view; in Map it uses the existing vehicle recenter behavior.
+Layers and Terrain options replace the camera page inside the same drawer.
+Each has a Back to controls button; no scrollbar or scrolling canvas is used.
+Compact windows use tighter spacing and smaller text, without changing the
+native map host's geometry or its window ID.
+
+Terrain exposes imagery, buildings, roads, places, relief, height exaggeration,
+terrain cues and grid controls through immutable `MapLayerControls` snapshots.
+Unavailable layers are disabled. Those additional layer controls are disabled in
+regular Map mode until its renderer exposes corresponding capabilities. Imagery
+visibility also applies to subsequently streamed imagery, independently of
+terrain cues. Layer requests run on the existing serialized worker and discard
+stale generations; the Tk widgets never reach into browser/process objects.
+
+Embedded Terrain no longer shows a second browser controls panel. The standalone
+viewer retains its browser panel. No extra WebGL context, render-loop work or
+source download was added. Native X11 stacking, touch, drawer sizing, page navigation and
+mode changes still require Termux device verification, as does GPU stability.
+The generated mockup was a styling reference, not a promise of new map imagery.
+
+
+Installed imagery catalogs support up to 64 immutable pack entries. The viewer
+keeps at most six imagery layers resident (plus the reference globe): the broad
+background and up to five finest visible detail packs. It unloads unneeded
+textures before attaching replacements and limits concurrent imagery loads to
+six. Installing a seventh local pack no longer blocks Terrain startup.
+
+Building streaming ranks the four nearby tiles around visible ground, using the
+same ground-anchor calculation as camera pan/tilt controls. If the center ray
+looks at sky, lower screen samples provide a visible-ground fallback. The center
+of the entire horizon-spanning rectangle is not a suitable local-detail anchor.
+Containing tiles rank ahead of neighboring tiles with closer centroids, including
+adaptive-size building cells. The four-active/two-pending limits remain unchanged.
+Distant geometry may still be excluded by this local-detail budget; this does
+not add statewide buildings or change height-tag/floor-estimate visibility rules.
+
+Regional building presentation now includes approximate 9 m blocks at close zoom
+for footprints without height tags. These are labeled estimates, with a lazy
+512-entity per-tile budget and four active tiles; see the state map build pipeline
+for zoom/distance limits. Schemas 1 and 2 remain readable alongside schema 3.
+
+The bundled world-land/world-lake reference is independent of downloaded imagery
+and terrain. Turning Imagery off hides optional image layers but retains that
+world background (including the continental US); terrain cues remain separately
+controlled. The reference provider is explicitly tagged so late layer attachment
+also preserves visibility. This fixes a layer-control defect, but does not by
+itself establish the cause of every blank-region screenshot: center the US in the
+view and compare imagery on/off when checking device rendering. A source-geometry
+regression covers US interior points, Mexico, South America and open ocean using
+the actual bundled polygons.
+
+
+The world reference is now a checked-in opaque 2048×1024 PNG (~31 KiB), generated
+from the same bundled Natural Earth land/lake polygons by
+`development.maps.build_reference_globe` in Actions. The viewer serves it locally
+at `/data/world-reference.png`; startup no longer rasterizes country paths or
+reads a canvas back through the Termux graphics stack. Polygon holes are applied
+per polygon, with independent multipolygon members. CI checks actual US interior,
+Lake Michigan and ocean pixels, and local PNG transport. Rebuild the asset in
+Actions when source polygons change. This removes the live canvas dependency;
+confirmation of the reported ocean-blue US still requires a Termux device test.
+
+### Offline overview imagery
+
+The global reference now prefers the pinned SDK's existing NaturalEarthII TMS
+assets (`Assets/Textures/NaturalEarthII`, levels0–2). These provide low-resolution
+natural-color land cover/shaded relief, not detailed satellite photographs. All
+requests stay on the local SDK origin; no ion account or online imagery provider
+is introduced. The small opaque PNG remains a setup-failure fallback. Both paths
+use the protected reference-layer role and a single bottom imagery layer, so
+regional image layers stay above the world background.
+
+The optional Terrain cues control is labelled **Contours / shade**, making its
+10-metre contour lines distinct from terrain source-grid artifacts. Its state
+and defaults are unchanged. For visual checks use Height1× and turn this overlay
+off before judging seams in flat areas. Report rectangular gaps separately:
+source gaps, coarse mesh LOD and page boundaries need their own diagnosis, and
+are not established as fixed by the reference imagery change.
+
+### Political outlines in 2D Map mode
+
+MapLibre's existing state-boundary layer now uses the bundled full 50-state
+Census polygons, including exterior coastlines and island outlines, rather than
+only shared internal edges. State outlines and Michigan emphasis are visible
+from zoom0 with a thin zoom-scaled line. The existing theme palette, local file
+sources, runtime style installer and road/route layer order remain unchanged.
+Restart ORC after updating the code to regenerate the installed style. This is a
+style-only deployment; rebuilding map tiles or downloading terrain is unnecessary.
+
+### Paged terrain seams and contour water masking
+
+Each terrain callback now retains the metadata returned for its own geographic
+page. It does not sample whichever pages remain in the shared four-page LRU after
+concurrent requests complete. A small metadata halo includes adjacent grids at
+mesh edges. Exposed detail edges blend over at most two source samples into
+available coarser coverage (or the reference plane at a genuine coverage gap);
+shared same-resolution grid edges retain source heights. This is display blending,
+not a modification of archived elevation samples or a vertical-datum conversion.
+
+Contours now compose Cesium's existing ElevationContour material with the bundled
+opaque world land/lake image and any provider water mask. Fragment positions are
+converted to geodetic-normal texture coordinates; ocean/lake pixels suppress
+contour alpha. The reference mask is coarse overview geometry, so exact shorelines
+remain approximate. This does not flatten water elevations or claim to correct
+all DEM source/datum discontinuities. VM/Termux full-tilt views remain acceptance
+checks after automated concurrency, edge-transition and material-contract tests.
+
+### Consistent height sampling across mesh levels
+
+Further Keweenaw/full-tilt artifacts exposed a separate issue: source selection
+changed at mesh-level thresholds, allowing adjacent parent/child meshes to assign
+different heights to shared coordinates. Catalog-backed terrain now uses one
+canonical local sampler through the existing viewer server's
+`/data/terrain-mesh/{z}/{x}/{y}` route. It reuses installed baseline, national and
+Michigan grids and their validators; source priority depends on location and
+resolution, not the requesting mesh's zoom. Shared dyadic sample coordinates
+resolve the same height at every LOD. All meshes use one display reference; raw
+source elevations and files remain unchanged.
+
+Spatial metadata buckets avoid scanning the full national catalog per sample.
+Parsed source grids and generated meshes are bounded to32 and8 entries; the
+browser retains8 unscaled33×33 meshes. Exaggeration is applied once on the browser
+side. Camera/marker height reads use the finest locally cached mesh, and startup
+preloads the destination mesh. The existing page/chunk path remains for legacy
+view states and auxiliary presentation, with its original budgets. This does not
+claim a resolution of source-datum differences or missing survey coverage.
+
+
+Terrain mesh border and loading regression follow-up: source lookup includes a
+halo of two source samples, including adjoining Michigan root cells. Equal
+priority/resolution grids cross-fade only in that narrow border; their interior
+relief is retained. Missing coverage blends into a lower-priority source or the
+existing reference plane, and this remains relative relief rather than a datum
+conversion. Cesium mesh callbacks defer excess work with its supported undefined
+return (four requests maximum), instead of queuing unlimited local mesh jobs.
+Geometric error scales with height exaggeration, so 4× relief also refines its
+geometry. CI now renders a synthetic UP hill through the actual Python mesh
+endpoint and browser provider, and checks rendered peak/low elevations at 4×;
+this supplements source continuity tests and the lake contour pixel test. Actual
+Keweenaw source coverage and the user's VM/device view still need verification.
+
+
+### Shared navigation toolbar and touch drawers
+
+Weather and Radar remain in the navigation toolbar beside Views, available while
+its drawer is closed. Views, Places, and Waze controls scroll by vertical drag or
+mouse wheel without a visible scrollbar. Dragging a card scrolls without selecting
+it; tapping still selects it. Termux Waze preflight errors now report the ADB
+connection failure or missing package instead of the generic Android-session hint.
+
+The Views drawer only shows Close Waze while a retained Waze session is running;
+switching back to Road map does not hide the close action for that retained session.
+
+
+### Upgrading older Termux map data after the navigation merge
+
+Map theme deployment copies the bundled global land, lakes, country and state
+reference GeoJSON into the installed data root before writing the updated style.
+An older regional pack therefore receives the new reference sources without a
+new vector-map download. Detailed regional roads still require their map packs.
+
+Camera controls occupy a separate grid column beside the native map surface,
+matching Views/Places docking; they do not overlap its X11 input area. Cesium
+startup accepts a rendered frame while tiles continue loading, rather than
+waiting for every visible globe tile. Startup timeouts include the last page
+stage, with more detail in `cesium-stages.log` under the logging temporary folder.
+
+
+### First interactive frame and outline conventions
+
+The embedded globe no longer waits for its initial nearby elevation mesh before
+wiring controls and accepting the first frame. Relief-dependent geometry refreshes
+when that mesh arrives; a detail-load error is reported while the globe remains
+usable. The default location remains Detroit only when composition has no current
+position. `cesium-stages.log` now timestamps imagery catalog, terrain catalog,
+buildings and dataset completion to distinguish disk loading from browser startup.
+
+At overview zooms, Road map uses a solid Natural Earth coastline in addition to
+its dashed international borders. The international-boundary dataset excludes
+coastlines by design. These overview coastlines stop above zoom 8, where regional
+map data supplies detail. The Controls toggle remains visible as Hide Controls
+while its panel occupies the same dock column as Views and Places.
+
+The shared map request wrapper forwards native presentation refresh requests as
+well as camera commands, retaining replay after drawer and platform changes.
+
+
+### Retained Terrain viewer during navigation
+
+Switching Terrain → Road map now unmaps the owned Chromium child while retaining
+its browser, local server, loaded scene, and camera. Returning to Terrain in the
+same Navigation host maps that existing child without reparenting live WebGL.
+The native Road renderer is stopped before the Terrain window returns. Position,
+POI, and route snapshots are replayed on resume. A dead retained viewer falls back
+to a fresh launch, and a different explicit exploration destination starts a new
+scene rather than silently restoring the wrong place.
+
+Leaving Navigation, opening an Android app through a host teardown, or closing
+ORC still closes the viewer and its server before destroying the host. This
+retention uses more memory while Road map is selected; only one Terrain viewer
+is retained. Optional imagery initializes asynchronously after camera controls
+are wired, allowing the reference globe to become usable while imagery loads.
+First launch still pays Chromium and dataset initialization costs; timings are
+recorded in `cesium-stages.log` as `viewer-retained` / `viewer-resumed` for switches.
+
+
+### Master integration after the November navigation merge
+
+The Waze branch now incorporates master, reusing the shared map-tooling resolutions
+from `navigation-cesium`'s master merge. The retained Terrain browser, progressive
+imagery startup, shared Views/Places controls, branded POI ordering and Android
+embedding remain enabled. Master calendar appointments, aircraft overlays, active
+media targets, and native structured renderer diagnostics are retained alongside
+those features. Device verification and the full quality gate remain required.

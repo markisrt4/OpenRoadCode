@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Protocol
 
+from ui.navigation.map_layer_controls import MapLayerAction, MapLayerControls
+
 
 class MapPlatform(str, Enum):
     MAPLIBRE = "MapLibre"
@@ -14,17 +16,18 @@ class MapPlatform(str, Enum):
 class ExplorationCameraAction(str, Enum):
     """Renderer-neutral, relative camera actions for destination exploration."""
 
-    PAN_UP = 'pan-up'
-    PAN_DOWN = 'pan-down'
-    PAN_LEFT = 'pan-left'
-    PAN_RIGHT = 'pan-right'
-    ZOOM_IN = 'zoom-in'
-    ZOOM_OUT = 'zoom-out'
-    PITCH_UP = 'pitch-up'
-    PITCH_DOWN = 'pitch-down'
-    NORTH = 'north'
-    RECENTER = 'recenter'
-    DIMENSION = 'dimension'
+    PAN_UP = "pan-up"
+    PAN_DOWN = "pan-down"
+    PAN_LEFT = "pan-left"
+    PAN_RIGHT = "pan-right"
+    ZOOM_IN = "zoom-in"
+    ZOOM_OUT = "zoom-out"
+    PITCH_UP = "pitch-up"
+    PITCH_DOWN = "pitch-down"
+    NORTH = "north"
+    RECENTER = "recenter"
+    DIMENSION = "dimension"
+    RESET = "reset"
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,10 +39,17 @@ class MapPlatformState:
     available_platforms: tuple[MapPlatform, ...] = (MapPlatform.MAPLIBRE, MapPlatform.EARTH)
     follow_enabled: bool = False
     position_available: bool = False
+    error: str = ""
+
+    layer_controls: MapLayerControls = MapLayerControls()
 
 
 class MapPlatformControlIf(Protocol):
     """Select a map platform without exposing browser or process access."""
+
+    def request_retry(self) -> None:
+        """Retry a failed map launch after its underlying problem is resolved."""
+        ...
 
     @property
     def state(self) -> MapPlatformState:
@@ -71,6 +81,13 @@ class MapPlatformControlIf(Protocol):
         """Enable vehicle following on the exploration surface; await a live fix if needed.
 
         @param enabled Whether vehicle-follow mode should be active.
+        """
+        ...
+
+    def request_layer(self, action: MapLayerAction) -> None:
+        """Toggle an available layer, or cycle its terrain height multiplier.
+
+        @param action Layer visibility toggle or terrain height cycle.
         """
         ...
 

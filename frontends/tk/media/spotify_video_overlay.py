@@ -8,7 +8,11 @@ from __future__ import annotations
 import tkinter as tk
 from collections.abc import Callable
 
-from ui.media.spotify_presentation_if import SpotifyNativeSurface, SpotifyPresentationState, SpotifyVideoRequests
+from ui.media.spotify_presentation_if import (
+    SpotifyNativeSurface,
+    SpotifyPresentationState,
+    SpotifyVideoRequests,
+)
 from ui.ui_widget import UiWidget
 
 SPOTIFY_GREEN = "#1DB954"
@@ -132,6 +136,6 @@ class SpotifyVideoOverlay(UiWidget):
             except tk.TclError:
                 pass
 
-    def _on_resize(self, event: tk.Event) -> None:
+    def _on_resize(self, event: tk.Event[tk.Misc]) -> None:
         if self._embedder.window_id is not None:
             self._embedder.resize(max(1, event.width), max(1, event.height))

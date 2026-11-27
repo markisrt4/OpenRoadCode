@@ -16,9 +16,7 @@ from controllers.audio import PactlAudioController, PipewireAudioController
 
 class AudioRuntimeFactoryTest(unittest.TestCase):
     def test_auto_output_follows_pi_hardware(self) -> None:
-        self.assertEqual(
-            "onboard-analog", _resolve_output("auto", RuntimeTarget.RPI4)
-        )
+        self.assertEqual("onboard-analog", _resolve_output("auto", RuntimeTarget.RPI4))
         self.assertEqual("usb", _resolve_output("auto", RuntimeTarget.RPI5))
 
     def test_wpctl_sink_is_matched_by_stable_description(self) -> None:

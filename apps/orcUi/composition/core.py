@@ -10,19 +10,19 @@ import os
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from common.resource_cleanup import ResourceCleanup, close_resources
-
+from apps.orcUi.composition.window_title import application_name
 from apps.orcUi.core_runtime import MapRuntime, StateIngressRuntime
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.presentation_state import OrcUiPresentationState
 from apps.orcUi.vehicle_configuration_state import VehicleConfigurationState
+from common.resource_cleanup import ResourceCleanup, close_resources
 from config.service_runtime_config import ServiceRuntimeConfigParser
-from controllers.connectivity.online_mode import OnlineModeController
-from controllers.connectivity.shell_connectivity_controller import ShellConnectivityController
 from controllers.audio import PipewireAudioController, SystemVolumeHandler
 from controllers.automotive import AutomotiveTelemetryProfile, TripTracker
-from controllers.automotive.vehicle_settings_store import VehicleSettingsStore
 from controllers.automotive.fuel_model import FuelModel
+from controllers.automotive.vehicle_settings_store import VehicleSettingsStore
+from controllers.connectivity.online_mode import OnlineModeController
+from controllers.connectivity.shell_connectivity_controller import ShellConnectivityController
 from controllers.map_renderer.map_camera_runtime import MapCameraRuntime
 from controllers.navigation.navigation_route_request_handler import (
     NavigationRouteRequestHandler,
@@ -121,6 +121,7 @@ def create_core_composition() -> CoreComposition:
         app = OrcUiApp(
             lifecycle_handler=lifecycle,
             online_mode=OnlineModeController(),
+            application_name=application_name(),
         )
         cleanup.callback(app.shutdown)
         power_button = create_power_button(
@@ -128,7 +129,9 @@ def create_core_composition() -> CoreComposition:
         )
         if power_button is not None:
             cleanup.callback(power_button.stop)
-        connectivity = ShellConnectivityController(app.online_mode, app, app.set_online_status, app.set_screen_status)
+        connectivity = ShellConnectivityController(
+            app.online_mode, app, app.set_online_status, app.set_screen_status
+        )
         cleanup.callback(connectivity.close)
         app.set_connectivity_handler(connectivity.toggle)
         volume = SystemVolumeHandler(

@@ -17,7 +17,9 @@ from ui.radio import AircraftMenuUiState
 
 class BottomBarAircraftTest(unittest.TestCase):
     def test_simulated_feed_is_not_presented_as_a_real_receiver(self):
-        receiver, tracker, _ = aircraft_menu_labels(enabled=False, aircraft_count=0, simulation=True)
+        receiver, tracker, _ = aircraft_menu_labels(
+            enabled=False, aircraft_count=0, simulation=True
+        )
         self.assertEqual(receiver, "Simulated data · no live receiver")
         self.assertEqual(tracker, "↗  Open simulated aircraft map")
 

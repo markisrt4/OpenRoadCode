@@ -115,7 +115,22 @@ When an installer has created the project environment, activate it with:
 source venv/bin/activate
 ```
 
-Install the separate development tools after creating the runtime environment:
+The existing runtime installer remains unchanged. For the isolated quality
+tooling baseline on Linux, run:
+
+```bash
+bash scripts/setup_quality_env.sh
+```
+
+This creates `.venv-quality` without inheriting system packages and installs
+the pinned development tools and portable application dependencies from the
+existing feature definitions. Shared libraries are installed at explicit Git
+revisions, without invoking hardware or region configuration installers.
+Hardware-only dependencies and full runtime parity remain outside this initial
+portable environment. Termux setup is deferred.
+
+For the existing runtime-based verification workflow, install development tools
+after creating the runtime environment:
 
 ```bash
 python -m pip install -r requirements-dev.txt
@@ -263,7 +278,7 @@ Run the complete repository gate before declaring a feature complete:
 python scripts/quality_gate.py
 ```
 
-It runs Ruff, module size, project-wide and weather UI boundary checks, Doxygen
+It runs Ruff lint and format checks, module size, project-wide and weather UI boundary checks, Doxygen
 contract documentation, Mermaid legends, and unit/integration tests. CI also
 checks documentation, browser audio, shell syntax, runtime state, whitespace,
 and logging. Record unavailable hardware/service validation separately from
@@ -301,7 +316,7 @@ Use snake_case filenames:
 controllers/radio/
 ├── unit_test/test_radio_controller.py
 ├── integration_test/test_rigctl_backend.py
-└── component_test/sdrpp_rigctl_cli.py
+└── component_test/rigctl_radio_cli.py
 ```
 
 Files discovered by the automated runner must start with `test_`. Manual
@@ -456,3 +471,20 @@ person who wrote it.
 OpenRoadCode is an ambitious experiment assembled from many disciplines. No
 one arrives knowing all of them. Share what you know, ask when you do not, and
 help make the next contributor's first drive a little smoother.
+
+The Linux quality environment uses `constraints-quality-linux.txt`, captured from a
+validated Ubuntu Python 3.12 installation. Forge dependencies remain pinned to Git
+commits in `scripts/setup_quality_env.sh`. Runtime installation is independent.
+
+The default `--all` and `--full` gates include the generated documentation index,
+Markdown links, Mermaid legends, and interface docstring contracts. These checks
+are portable to Raspberry Pi and Termux. They do not generate the API reference.
+
+Run `bash scripts/dev_check.sh --docs` for documentation validation and API
+reference generation. The documentation command installs checksum-verified
+Doxygen 1.15.0 into `.venv-quality` on Linux x86-64. Other platforms can use
+Ubuntu CI for this gate. No system Doxygen installation is modified.
+
+### Termux quality environment
+
+Use native Termux Python, NumPy, SciPy, Pillow, PyZMQ and Ruff. Run `bash scripts/setup_quality_env.sh` to link the native packages into the isolated quality environment after checking Python ABI compatibility. Termux uses mypy 2.4.1 with the pure Python parser; Linux pins remain unchanged. If pip reports unsupported wheel tags for ABI-verified, linked Termux packages that import successfully, setup accepts those notices and still rejects dependency errors. Run `bash scripts/dev_check.sh --all` and `bash scripts/dev_check.sh --test`. Failed checks are copied to the Termux clipboard when available. Pinned Doxygen generation remains a Linux CI check.

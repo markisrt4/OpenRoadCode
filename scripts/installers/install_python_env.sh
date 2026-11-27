@@ -7,7 +7,17 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 PROJECT_DIR="${PROJECT_DIR:-$PROJECT_ROOT}"
-VENV_DIR="${VENV_DIR:-$PROJECT_DIR/venv}"
+# Match runOrcUi: honor an active project venv, then existing .venv,
+# then the legacy venv path. Explicit VENV_DIR always takes precedence.
+if [[ -z "${VENV_DIR:-}" ]]; then
+  if [[ -n "${VIRTUAL_ENV:-}" && "$VIRTUAL_ENV" == "$PROJECT_DIR/"* ]]; then
+    VENV_DIR="$VIRTUAL_ENV"
+  elif [[ -x "$PROJECT_DIR/.venv/bin/python" ]]; then
+    VENV_DIR="$PROJECT_DIR/.venv"
+  else
+    VENV_DIR="$PROJECT_DIR/venv"
+  fi
+fi
 FEATURES_FILE="$SCRIPT_DIR/installer_features.sh"
 
 if [[ ! -f "$FEATURES_FILE" ]]; then
@@ -79,7 +89,11 @@ echo "[*] Installing Python packages..."
 # shellcheck disable=SC1091
 source "$VENV_DIR/bin/activate"
 
-python -m pip install --upgrade pip wheel setuptools
+pip_install() {
+  python -m pip install --disable-pip-version-check --retries 8 --timeout 60 "$@"
+}
+
+pip_install --upgrade pip wheel setuptools
 
 if [[ " ${FEATURES[*]} " == *" gps "* ]]; then
   gps_location=""
@@ -110,6 +124,12 @@ if [[ " ${FEATURES[*]} " == *" raspberry-pi "* ]]; then
     echo "[*] Detected Raspberry Pi model: $rpi_model"
   fi
   echo "[*] Selected GPIO backend: $rpi_gpio_backend"
+fi
+
+# Desktop UI imports core network modules during startup even when the
+# requested feature list omits base. Keep its runtime dependencies complete.
+if [[ " ${FEATURES[*]} " == *" desktop-ui "* && " ${FEATURES[*]} " != *" base "* ]]; then
+  FEATURES=(base "${FEATURES[@]}")
 fi
 
 for feature in "${FEATURES[@]}"; do
@@ -159,12 +179,42 @@ done
 
 if (( ${#missing_python_packages[@]} > 0 )); then
   echo "[*] Installing missing Python packages: ${missing_python_packages[*]}"
-  python -m pip install --disable-pip-version-check "${missing_python_packages[@]}"
+  if ! pip_install "${missing_python_packages[@]}"; then
+    echo "[!] Batch installation failed; retrying missing packages individually." >&2
+    failed_packages=()
+    for pkg in "${missing_python_packages[@]}"; do
+      package_name="${pkg%%==*}"
+      package_metadata="$(python -m pip show "$package_name" 2>/dev/null || true)"
+      installed_version="$(printf '%s\\n' "$package_metadata" | awk -F': ' '$1 == "Version" { print $2; exit }')"
+      if [[ -n "$package_metadata" ]] && { [[ "$pkg" != *==* ]] || [[ "$installed_version" == "${pkg#*==}" ]]; }; then
+        continue
+      fi
+      if ! pip_install "$pkg"; then
+        failed_packages+=("$pkg")
+      fi
+    done
+    if (( ${#failed_packages[@]} > 0 )); then
+      echo "[!] Python packages still missing: ${failed_packages[*]}" >&2
+      echo "[!] Re-run the installer to resume with the existing environment." >&2
+      exit 1
+    fi
+  fi
 else
   echo "[*] All requested Python packages are already installed in the virtual environment."
 fi
 
 echo "[*] Installing shared music-analysis engine..."
 bash "$SCRIPT_DIR/install_libmusicforge.sh"
+
+if [[ " ${FEATURES[*]} " == *" sdrforge "* ]]; then
+  bash "$SCRIPT_DIR/install_libsdrforge.sh"
+fi
+
+if [[ " ${FEATURES[*]} " == *" video-perception "* ]]; then
+  if ! (cd "$PROJECT_ROOT" && python -m scripts.installers.install_vision_model); then
+    echo "[!] Vision AI setup is incomplete. Camera preview remains available." >&2
+    echo "[!] Re-run the installer with --feature video-perception to retry." >&2
+  fi
+fi
 
 deactivate

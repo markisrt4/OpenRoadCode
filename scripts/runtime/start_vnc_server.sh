@@ -9,45 +9,53 @@ GEOMETRY="${2:-1280x720}"
 DEPTH="${3:-24}"
 VNC_PORT=$((5900 + DISPLAY_NUM))
 
-if command -v vncserver >/dev/null 2>&1; then
-  VNC_CMD="vncserver"
-elif command -v tigervncserver >/dev/null 2>&1; then
+if command -v tigervncserver >/dev/null 2>&1; then
   VNC_CMD="tigervncserver"
 elif command -v vncserver-virtual >/dev/null 2>&1; then
   VNC_CMD="vncserver-virtual"
 else
-  echo "[!] No compatible VNC server command found."
+  echo "[!] No virtual VNC server found. Install tigervnc-standalone-server." >&2
   exit 1
 fi
 
 echo "[*] Using VNC command: $VNC_CMD"
 
+auth_args=()
+if [[ "$VNC_CMD" == tigervncserver ]]; then
+  password_file="${XDG_CONFIG_HOME:-$HOME/.config}/tigervnc/passwd"
+  if [[ ! -s "$password_file" ]]; then password_file="$HOME/.vnc/passwd"; fi
+  if [[ ! -s "$password_file" ]]; then
+    echo "[!] No TigerVNC password file. Run scripts/installers/setup_vnc.sh interactively as the service user." >&2
+    exit 1
+  fi
+  auth_args=(-PasswordFile "$password_file")
+fi
+
 echo "[*] Stopping old VNC display :$DISPLAY_NUM if present..."
 "$VNC_CMD" -kill ":$DISPLAY_NUM" 2>/dev/null || true
-
-echo "[*] Cleaning stale locks..."
-rm -f "/tmp/.X${DISPLAY_NUM}-lock"
-rm -f "/tmp/.X11-unix/X${DISPLAY_NUM}"
-rm -f "$HOME/.vnc/"*.pid 2>/dev/null || true
 
 echo "[*] Starting VNC display :$DISPLAY_NUM..."
 
 "$VNC_CMD" ":$DISPLAY_NUM" \
   -geometry "$GEOMETRY" \
   -depth "$DEPTH" \
-  -localhost no
+  -localhost no "${auth_args[@]}"
 
-sleep 2
+listener=""
+for (( attempt = 0; attempt < 10; attempt++ )); do
+  listener="$(ss -Hltn "sport = :$VNC_PORT")"
+  if [[ -n "$listener" ]]; then break; fi
+  sleep 1
+done
+if [[ -z "$listener" ]]; then
+  echo "[!] $VNC_CMD did not open TCP port $VNC_PORT for display :$DISPLAY_NUM." >&2
+  exit 1
+fi
 
 HOST_IP="$(hostname -I | awk '{print $1}')"
 
 echo
-if ss -tuln | grep -q ":${VNC_PORT} "; then
-  echo "[+] VNC server started successfully."
-else
-  echo "[!] WARNING: VNC port ${VNC_PORT} not detected."
-fi
-
+echo "[+] VNC server is listening."
 echo "    Command: $VNC_CMD"
 echo "    Display: :$DISPLAY_NUM"
 echo "    Port:    $VNC_PORT"

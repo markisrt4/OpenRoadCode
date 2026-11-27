@@ -10,6 +10,18 @@ shared by applications, controllers, and concrete frontends. Code in this
 package must not import Tkinter, Qt, application composition, controllers, or
 hardware implementations.
 
+`ui.navigation.waze_request_handler_if.WazeRequestHandlerIf` supplies the semantic
+request for Navigation’s Waze toolbar action.
+
+`ui.media.browser_player_if.BrowserMediaPlayerIf` supplies toolkit-independent
+launch/stop requests for hosted browser surfaces, including the experimental
+[Waze Live Map](../docs/waze_live_map.md). Existing Tk import paths remain available.
+
+Text-entry state and requests live under `ui/input`; see the
+[text input foundation](../docs/text_input.md). Native/browser field adapters
+retain text ownership; UI requests carry session tokens rather than widget or
+process details.
+
 ## Dependency boundary
 
 <div class="orc-diagram-legend" aria-label="Architecture diagram legend">
@@ -116,6 +128,11 @@ consumer, `WeatherOverlayControlsIf` adds request binding, and
 `WeatherOverlayRequestHandlerIf` describes city/model/route intent and navigation
 visibility/replay. `RadarUiState`, `RadarControlsIf` and
 `RadarRequestHandlerIf` provide the corresponding radar replay boundary.
+
+Navigation boundary outlines use immutable `BoundaryOverlayState` and
+`BoundaryRegionState` boundary-path snapshots. Coordinates are normalized radians and semantic
+emphasis is frontend-neutral; composition loads attributed geometry while the
+Cesium adapter owns line color, width, terrain clamping and cleanup.
 
 Weather controller tests exercise asynchronous lifecycle and cache behavior
 without Tk. Frontend contract tests exercise state consumption and request

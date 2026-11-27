@@ -13,14 +13,20 @@ from apps.carUi.composition.spotify import create_spotify_screen
 @pytest.mark.parametrize("startup_fails", [False, True])
 def test_cleanup_is_owned_or_rolled_back(startup_fails):
     dependencies = SimpleNamespace(
-        spotify_controller=Mock(), audio_controller=Mock(), spotify_image_cache=Mock(),
-        spotify_lyrics_client=Mock(), spotify_music_video_controller=Mock(), presentation_cleanup=[],
+        spotify_controller=Mock(),
+        audio_controller=Mock(),
+        spotify_image_cache=Mock(),
+        spotify_lyrics_client=Mock(),
+        spotify_music_video_controller=Mock(),
+        presentation_cleanup=[],
     )
-    with patch("apps.carUi.composition.spotify.SpotifyStateService") as services, \
-         patch("apps.carUi.composition.spotify.ThreadPoolExecutor") as pools, \
-         patch("apps.carUi.composition.spotify.create_spotify_presentation") as sessions, \
-         patch("apps.carUi.composition.spotify.SpotifyScreen") as screens, \
-         patch("apps.carUi.composition.spotify.X11WindowEmbedder"):
+    with (
+        patch("apps.carUi.composition.spotify.SpotifyStateService") as services,
+        patch("apps.carUi.composition.spotify.ThreadPoolExecutor") as pools,
+        patch("apps.carUi.composition.spotify.create_spotify_presentation") as sessions,
+        patch("apps.carUi.composition.spotify.SpotifyScreen") as screens,
+        patch("apps.carUi.composition.spotify.X11WindowEmbedder"),
+    ):
         if startup_fails:
             services.return_value.start.side_effect = RuntimeError("startup")
             with pytest.raises(RuntimeError, match="startup"):

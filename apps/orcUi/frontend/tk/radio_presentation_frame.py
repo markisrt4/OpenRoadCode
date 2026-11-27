@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: MIT
 """Declared Tk presentation fields shared by the receiver menu and drawer."""
-from abc import ABC, abstractmethod
+
 import tkinter as tk
+from abc import ABC, abstractmethod
 
 from ui.radio.rf_radio_if import RfRadioSession, RfRadioState
 from ui.theme import ThemeBundle
@@ -30,3 +31,11 @@ class RadioPresentationFrame(tk.Frame, UiWidget, ABC):
     @abstractmethod
     def _show_adsb(self) -> None:
         """Emit an aircraft presentation request."""
+
+    @abstractmethod
+    def select_group(self, name: str) -> None:
+        """Select a radio category."""
+
+    @abstractmethod
+    def auto_range_spectrum(self) -> None:
+        """Reset frontend spectrum scaling."""

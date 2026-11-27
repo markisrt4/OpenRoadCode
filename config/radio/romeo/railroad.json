@@ -3,9 +3,9 @@
   "label": "Railroad",
   "description": "Starter Michigan / Detroit-area railroad monitoring presets useful near Romeo, MI. Common road channels are often analog NFM; some operations may use NXDN.",
   "launch": {
-    "label": "Launch SDR++",
+    "label": "SDRForge Status",
     "subtitle": "Railroad scanner",
-    "detail": "Starts / toggles SDR++"
+    "detail": "Check shared SDRForge service"
   },
   "radio": {
     "label": "Radio ON/OFF",
@@ -60,7 +60,7 @@
     }
   ],
   "range": {
-    "min_frequency_hz": 160215000,
+    "min_frequency_hz": 160080000,
     "max_frequency_hz": 161565000,
     "start_frequency_hz": 160230000
   }

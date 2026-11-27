@@ -1,12 +1,33 @@
 """Route semantic map requests while retaining native map camera state."""
 
 from ui.navigation import MapRequestHandlerIf
+from ui.navigation.poi_overlay_state import PoiOverlayState
 
 
 class MapPlatformRequests(MapRequestHandlerIf):
-    def __init__(self, native: MapRequestHandlerIf, send_earth) -> None:
+    def __init__(
+        self, native: MapRequestHandlerIf, send_earth, send_pois=lambda _state: None
+    ) -> None:
         self._native = native
         self._send_earth = send_earth
+        self._send_pois = send_pois
+        self._poi_state = PoiOverlayState()
+
+    @property
+    def camera_initialized(self):
+        return bool(getattr(self._native, "camera_initialized", False))
+
+    @property
+    def zoom_level(self):
+        return getattr(self._native, "zoom_level", 16.5)
+
+    @property
+    def pitch_rad(self):
+        return getattr(self._native, "pitch_rad", 0.0)
+
+    @property
+    def follow_enabled(self):
+        return getattr(self._native, "follow_enabled", True)
 
     def _request(self, name, *args, **kwargs):
         getattr(self._native, name)(*args, **kwargs)
@@ -38,9 +59,23 @@ class MapPlatformRequests(MapRequestHandlerIf):
 
     def request_poi_focus(self, category):
         self._native.request_poi_focus(category)
+        self._poi_state = PoiOverlayState(
+            self._poi_state.markers, self._poi_state.category, category
+        )
+        self._send_pois(self._poi_state)
 
     def request_poi_results(self, markers, category):
         self._native.request_poi_results(markers, category)
+        self._poi_state = PoiOverlayState(
+            tuple(markers), category, self._poi_state.focused_category
+        )
+        self._send_pois(self._poi_state)
+
+    def refresh_renderer_state(self):
+        """Preserve native presentation replay across the platform wrapper."""
+        refresh = getattr(self._native, "refresh_renderer_state", None)
+        if refresh is not None:
+            refresh()
 
     def request_style(self, style_id):
         self._native.request_style(style_id)

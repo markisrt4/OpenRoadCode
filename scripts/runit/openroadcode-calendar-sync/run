@@ -1,0 +1,14 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# SPDX-License-Identifier: MIT
+set -euo pipefail
+SCRIPT_PATH="$(readlink -f -- "${BASH_SOURCE[0]}")"
+PROJECT_ROOT="$(cd -- "$(dirname -- "$SCRIPT_PATH")/../../.." && pwd)"
+PROFILE_FILE="$HOME/.config/openroadcode/service-profiles/openroadcode-calendar-sync.env"
+if [[ -f "$PROFILE_FILE" ]]; then
+    set -a
+    source "$PROFILE_FILE"
+    set +a
+fi
+cd "$PROJECT_ROOT"
+: "${OPENROADCODE_CALENDAR_USERNAME:?Configure OPENROADCODE_CALENDAR_USERNAME in the service profile}"
+exec "${OPENROADCODE_PYTHON:-$PREFIX/bin/python}" -m controllers.calendar.calendar_sync_daemon --username "$OPENROADCODE_CALENDAR_USERNAME"

@@ -50,6 +50,29 @@ class FakeRenderer:
 
 
 class MapRequestHandlerTest(unittest.TestCase):
+    def test_business_icon_is_attached_only_to_explicit_search_results_and_replayed(self):
+        renderer = FakeRenderer()
+        handler = MapRequestHandler(renderer, center=GeoPoint(0, 0))
+        handler.request_poi_results(
+            (
+                MapMarker(
+                    "store",
+                    GeoPoint(0, 0),
+                    MapMarkerKind.SEARCH_RESULT,
+                    "McDonald's",
+                    icon_id="mcdonalds",
+                ),
+            ),
+            "food",
+        )
+        properties = renderer.poi_results[-1]["features"][0]["properties"]
+        self.assertEqual(properties["brand_icon"], "business:mcdonalds")
+        self.assertTrue(properties["brand_icon_png"])
+        handler.refresh_renderer_state()
+        self.assertEqual(renderer.poi_results[-1]["features"][0]["properties"], properties)
+        handler.request_poi_results((), "")
+        self.assertEqual(renderer.poi_results[-1]["features"], [])
+
     def setUp(self) -> None:
         self.renderer = FakeRenderer()
         self.follow_changes: list[bool] = []
@@ -61,12 +84,16 @@ class MapRequestHandlerTest(unittest.TestCase):
 
     def test_renderer_camera_is_retained_for_screen_reentry_without_feedback_commands(self) -> None:
         self.handler.request_follow(False)
-        self.handler.observe_camera(GeoPoint(math.radians(42.81), math.radians(-83.02)),
-                                    18.5, math.radians(25), math.radians(40))
+        self.handler.observe_camera(
+            GeoPoint(math.radians(42.81), math.radians(-83.02)),
+            18.5,
+            math.radians(25),
+            math.radians(40),
+        )
         self.assertEqual(self.renderer.cameras, [])
         self.handler.refresh_renderer_state()
         camera = self.renderer.cameras[-1]
-        for actual, expected in zip(camera, (42.81, -83.02, 18.5, 25, 40)):
+        for actual, expected in zip(camera, (42.81, -83.02, 18.5, 25, 40), strict=True):
             self.assertAlmostEqual(actual, expected)
         self.assertFalse(self.handler.follow_enabled)
 

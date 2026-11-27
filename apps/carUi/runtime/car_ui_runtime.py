@@ -3,16 +3,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ui.system.app_launcher_if import (AppLauncherIf, StatusCallback)
-from controllers.application_runtime import AppRuntimeManager
-from ui.navigation.map_presentation_if import (MapPresentationIf)
-from controllers.radio.radio_controller_if import RadioControllerIf
-from controllers.weather import WeatherController
 from config.runtime_config import (
     AudioConfig,
     ImageCacheConfig,
@@ -20,6 +15,11 @@ from config.runtime_config import (
     PositionCacheConfig,
     RotaryEncoderConfig,
 )
+from controllers.application_runtime import AppRuntimeManager
+from controllers.radio.radio_controller_if import RadioControllerIf
+from controllers.weather import WeatherController
+from ui.navigation.map_presentation_if import MapPresentationIf
+from ui.system.app_launcher_if import AppLauncherIf, StatusCallback
 
 if TYPE_CHECKING:
     from apps.carUi.runtime.radio_runtime_registry import RadioRuntimeRegistry

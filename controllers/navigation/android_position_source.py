@@ -5,10 +5,11 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from threading import Event, Thread
 
 from controllers.navigation.navigation_state import PositionState
-from controllers.navigation.position_source_if import PositionStateCallback, PositionSourceIf
+from controllers.navigation.position_source_if import PositionSourceIf, PositionStateCallback
 from hardware_io.android.sensor_bridge_client import AndroidSensorBridgeClient
 
 
@@ -45,16 +46,21 @@ class AndroidPositionSource(PositionSourceIf):
             try:
                 sample = self._client.read_location()
                 if sample.timestamp_ms != last_timestamp_ms:
-                    callback(PositionState(
-                        latitude_deg=sample.latitude_deg,
-                        longitude_deg=sample.longitude_deg,
-                        altitude_m=sample.altitude_m,
-                        speed_mps=sample.speed_mps,
-                        course_deg=sample.bearing_deg,
-                        fix_mode=3,
-                        accuracy_m=sample.horizontal_accuracy_m,
-                        source=f"android-{sample.provider}",
-                    ))
+                    callback(
+                        PositionState(
+                            received_at=datetime.fromtimestamp(
+                                sample.timestamp_ms / 1000, timezone.utc
+                            ),
+                            latitude_deg=sample.latitude_deg,
+                            longitude_deg=sample.longitude_deg,
+                            altitude_m=sample.altitude_m,
+                            speed_mps=sample.speed_mps,
+                            course_deg=sample.bearing_deg,
+                            fix_mode=3,
+                            accuracy_m=sample.horizontal_accuracy_m,
+                            source=f"android-{sample.provider}",
+                        )
+                    )
                     last_timestamp_ms = sample.timestamp_ms
             except RuntimeError:
                 # The bridge may legitimately be starting or waiting for its

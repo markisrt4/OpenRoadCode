@@ -29,3 +29,4 @@ class SubscriberIf(ABC):
 
     def close(self) -> None:
         """Release subscriber resources when the implementation owns any."""
+        return None

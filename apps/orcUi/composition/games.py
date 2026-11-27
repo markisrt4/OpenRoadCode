@@ -3,9 +3,9 @@
 
 """Construct and bind all Games dependencies at the application boundary."""
 
+import threading
 from collections.abc import Callable
 from pathlib import Path
-import threading
 
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.theme_runtime import theme_bundle
@@ -35,12 +35,18 @@ def configure_games(app: OrcUiApp) -> GamesScreen:
     """Create dependencies and transfer their cleanup to the registered screen."""
     with ResourceCleanup() as cleanup:
         session = GamesSession(
-            _load_games(), create_game_installers(), GameLauncher(), X11WindowEmbedder(),
-            run_work=_run_work, run_ui=app.dispatch_ui,
+            _load_games(),
+            create_game_installers(),
+            GameLauncher(),
+            X11WindowEmbedder(),
+            run_work=_run_work,
+            run_ui=app.dispatch_ui,
         )
         cleanup.callback(session.close)
         screen = GamesScreen(
-            app, session=session, theme_bundle=lambda: theme_bundle(app.theme_mode),
+            app,
+            session=session,
+            theme_bundle=lambda: theme_bundle(app.theme_mode),
             theme_mode=lambda: app.theme_mode,
         )
         app.register_screen("GAMES", screen)

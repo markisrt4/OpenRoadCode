@@ -14,7 +14,14 @@ class RecordingMapRenderer:
     def set_position(self, latitude: float, longitude: float) -> None:
         self.positions.append((latitude, longitude))
 
-    def set_camera(self, latitude: float, longitude: float, zoom: float, bearing: float = 0.0, pitch: float = 0.0) -> None:
+    def set_camera(
+        self,
+        latitude: float,
+        longitude: float,
+        zoom: float,
+        bearing: float = 0.0,
+        pitch: float = 0.0,
+    ) -> None:
         self.cameras.append((latitude, longitude, zoom, bearing, pitch))
 
 
@@ -37,8 +44,12 @@ class MapPositionAdapterTest(unittest.TestCase):
     def test_updates_marker_and_follow_camera(self) -> None:
         renderer = RecordingMapRenderer()
         adapter = MapPositionAdapter(renderer)  # type: ignore[arg-type]
-        adapter.update_ground_motion(GroundMotionState(speed_mps=12.0, course_deg=725.0, source="gpsd"))
-        adapter.update(PositionState(latitude_deg=42.1, longitude_deg=-83.2, fix_mode=3, source="gpsd"))
+        adapter.update_ground_motion(
+            GroundMotionState(speed_mps=12.0, course_deg=725.0, source="gpsd")
+        )
+        adapter.update(
+            PositionState(latitude_deg=42.1, longitude_deg=-83.2, fix_mode=3, source="gpsd")
+        )
         self.assertEqual([(42.1, -83.2)], renderer.positions)
         self.assertEqual(1, len(renderer.cameras))
         latitude, longitude, zoom, bearing, pitch = renderer.cameras[0]
@@ -51,7 +62,9 @@ class MapPositionAdapterTest(unittest.TestCase):
     def test_interpolates_marker_between_gps_fixes(self) -> None:
         renderer = RecordingMapRenderer()
         now = [0.0]
-        adapter = MapPositionAdapter(renderer, correction_time_s=0.5, snap_distance_m=1000.0, clock=lambda: now[0])  # type: ignore[arg-type]
+        adapter = MapPositionAdapter(
+            renderer, correction_time_s=0.5, snap_distance_m=1000.0, clock=lambda: now[0]
+        )  # type: ignore[arg-type]
         adapter.update(PositionState(latitude_deg=42.0, longitude_deg=-83.0, fix_mode=2))
         now[0] = 1.0
         adapter.update(PositionState(latitude_deg=42.001, longitude_deg=-83.0, fix_mode=2))
@@ -64,7 +77,9 @@ class MapPositionAdapterTest(unittest.TestCase):
     def test_predicts_using_speed_and_course_then_stops(self) -> None:
         renderer = RecordingMapRenderer()
         now = [0.0]
-        adapter = MapPositionAdapter(renderer, correction_time_s=0.01, maximum_prediction_age_s=1.5, clock=lambda: now[0])  # type: ignore[arg-type]
+        adapter = MapPositionAdapter(
+            renderer, correction_time_s=0.01, maximum_prediction_age_s=1.5, clock=lambda: now[0]
+        )  # type: ignore[arg-type]
         adapter.update_ground_motion(GroundMotionState(speed_mps=10.0, course_deg=0.0))
         adapter.update(PositionState(latitude_deg=42.0, longitude_deg=-83.0, fix_mode=3))
         now[0] = 1.0

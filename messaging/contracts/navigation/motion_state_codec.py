@@ -48,7 +48,5 @@ def decode_motion_state(payload: Mapping[str, Any]) -> MotionStateMessage:
         version=payload["version"],
         timestamp=decode_timestamp(payload["timestamp"]),
         source=payload["source"],
-        data=MotionStateData(
-            **{name: data[name] for name in MotionStateData.__dataclass_fields__}
-        ),
+        data=MotionStateData(**{name: data[name] for name in MotionStateData.__dataclass_fields__}),
     )

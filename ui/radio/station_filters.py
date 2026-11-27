@@ -12,8 +12,18 @@ from typing import Iterable
 from .streaming_radio_types import StreamingRadioStation
 
 GENRE_FILTERS = (
-    "All", "Rock", "Country", "Pop", "News/Talk", "Sports", "Jazz",
-    "Classical", "Christian", "Hip-Hop/R&B", "Electronic", "Variety",
+    "All",
+    "Rock",
+    "Country",
+    "Pop",
+    "News/Talk",
+    "Sports",
+    "Jazz",
+    "Classical",
+    "Christian",
+    "Hip-Hop/R&B",
+    "Electronic",
+    "Variety",
 )
 QUALITY_FILTERS = ("All", "Low", "Mid", "High")
 BAND_FILTERS = ("All", "FM", "AM", "DAB", "Internet-only", "Unknown")

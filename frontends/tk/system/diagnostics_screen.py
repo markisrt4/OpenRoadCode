@@ -5,9 +5,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-
 import tkinter as tk
+from collections.abc import Callable
 
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
@@ -31,6 +30,7 @@ class DiagnosticsScreen(TkScreen):
         theme_bundle: Callable[[], ThemeBundle],
         on_back: Callable[[], None] | None = None,
         history: Callable[[], tuple[SystemDiagnosticsSnapshot, ...]] | None = None,
+        sdrforge_diagnostics: Callable[[], object] | None = None,
     ) -> None:
         super().__init__(ScreenId("DIAGNOSTICS"))
         self._host = host
@@ -38,6 +38,7 @@ class DiagnosticsScreen(TkScreen):
         self._theme_bundle = theme_bundle
         self._on_back = on_back
         self._history = history
+        self._sdrforge_diagnostics = sdrforge_diagnostics
         self._panel: DiagnosticsPanel | None = None
         self._refresh_callback_id: object | None = None
 
@@ -46,17 +47,10 @@ class DiagnosticsScreen(TkScreen):
         self._host.activate_screen(self)
         self._host.clear_screen_content()
         self._host.set_screen_title("COMPUTING UNIT PERFORMANCE")
-        ui = self._theme_bundle().ui
-        if self._on_back is not None:
-            tk.Button(self._host.screen_parent, text="‹ BACK", command=self._on_back,
-                      bg=ui.control_background, fg=ui.control_text,
-                      activebackground=ui.control_active, activeforeground=ui.control_text,
-                      relief=tk.FLAT, bd=0, highlightthickness=1, highlightbackground=ui.border,
-                      font=("Sans", 10, "bold"), padx=12, pady=7, cursor="hand2").pack(anchor="w", pady=(0, 6))
-
         panel = DiagnosticsPanel(
             self._host.screen_parent,
             theme=self._theme_bundle(),
+            on_back=self._on_back,
         )
         panel.pack(fill=tk.BOTH, expand=True)
         self._panel = panel
@@ -93,6 +87,11 @@ class DiagnosticsScreen(TkScreen):
             )
         else:
             panel.apply_snapshot(snapshot)
+            if self._sdrforge_diagnostics is not None:
+                try:
+                    panel.apply_sdrforge_connection(self._sdrforge_diagnostics())
+                except (RuntimeError, OSError, ValueError):
+                    panel.apply_sdrforge_connection(None)
             self._host.set_screen_status("Live system performance")
         if self._panel is panel:
             self._refresh_callback_id = self._host.schedule_ui_callback(

@@ -5,9 +5,9 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator
 from dataclasses import dataclass
-import json
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
@@ -50,7 +50,9 @@ class AndroidLocationSample:
 class AndroidSensorBridgeClient:
     """Read Android hardware samples exposed on the local bridge HTTP API."""
 
-    def __init__(self, base_url: str = "http://127.0.0.1:8766", timeout_seconds: float = 2.0) -> None:
+    def __init__(
+        self, base_url: str = "http://127.0.0.1:8766", timeout_seconds: float = 2.0
+    ) -> None:
         self._base_url = base_url.rstrip("/")
         self._timeout_seconds = timeout_seconds
 
@@ -75,7 +77,9 @@ class AndroidSensorBridgeClient:
         payload = self._get_json("/injector/environmental")
         scenario = payload.get("radar_scenario")
         if not isinstance(scenario, str):
-            raise RuntimeError("Android sensor bridge returned invalid environmental injection state")
+            raise RuntimeError(
+                "Android sensor bridge returned invalid environmental injection state"
+            )
         return scenario.upper()
 
     def stream_imu(self) -> Iterator[AndroidImuSample]:

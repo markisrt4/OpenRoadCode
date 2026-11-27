@@ -5,20 +5,30 @@
 
 from __future__ import annotations
 
+import logging
 import math
 from collections.abc import Callable
 
+from common.logging.structured import event
+from controllers.poi.business_icons import icon_properties
 from ui.navigation import GeoPoint, MapMarker, MapRequestHandlerIf
 
 
 class MapRequestHandler(MapRequestHandlerIf):
     """Maintain user-controlled camera state and issue native map commands."""
 
-    def __init__(self, renderer, *, center: GeoPoint, zoom_level: float = 16.5,
-                 bearing_rad: float = 0.0, pitch_rad: float = 0.0,
-                 follow_enabled: bool = True,
-                 camera_initialized: bool = True,
-                 on_follow_changed: Callable[[bool], None] | None = None) -> None:
+    def __init__(
+        self,
+        renderer,
+        *,
+        center: GeoPoint,
+        zoom_level: float = 16.5,
+        bearing_rad: float = 0.0,
+        pitch_rad: float = 0.0,
+        follow_enabled: bool = True,
+        camera_initialized: bool = True,
+        on_follow_changed: Callable[[bool], None] | None = None,
+    ) -> None:
         self._renderer = renderer
         self._center = center
         self._follow_center = center
@@ -58,7 +68,9 @@ class MapRequestHandler(MapRequestHandlerIf):
     def poi_focus(self) -> frozenset[str]:
         return frozenset(self._poi_focus)
 
-    def observe_camera(self, center: GeoPoint, zoom: float, bearing_rad: float, pitch_rad: float) -> None:
+    def observe_camera(
+        self, center: GeoPoint, zoom: float, bearing_rad: float, pitch_rad: float
+    ) -> None:
         """Retain the actual rendered camera without issuing another command."""
         self._center = center
         self._zoom_level = zoom
@@ -67,6 +79,13 @@ class MapRequestHandler(MapRequestHandlerIf):
         self._camera_initialized = True
 
     def request_recenter(self) -> None:
+        event(
+            logging.getLogger("map_renderer.position"),
+            logging.INFO,
+            "camera.recenter_requested",
+            "Map recenter requested",
+            camera_initialized=self._camera_initialized,
+        )
         self._center = self._follow_center
         self.request_follow(True)
         self._send_camera()
@@ -135,6 +154,7 @@ class MapRequestHandler(MapRequestHandlerIf):
                         "id": marker.marker_id,
                         "name": marker.label or "",
                         "category": category,
+                        **icon_properties(marker.icon_id),
                     },
                 }
             )
@@ -144,8 +164,9 @@ class MapRequestHandler(MapRequestHandlerIf):
     def request_style(self, style_id: str) -> None:
         del style_id
 
-    def request_fit_bounds(self, south: float, west: float, north: float, east: float,
-                           padding: float = 60.0) -> None:
+    def request_fit_bounds(
+        self, south: float, west: float, north: float, east: float, padding: float = 60.0
+    ) -> None:
         """Frame explicit bounds and suspend follow so the result stays visible."""
         self.request_follow(False)
         self._renderer.fit_bounds(south, west, north, east, padding)
@@ -203,8 +224,11 @@ class MapRequestHandler(MapRequestHandlerIf):
         if abs(cos_latitude) < 1.0e-6:
             cos_latitude = math.copysign(1.0e-6, cos_latitude)
         longitude_rad = self._center.longitude_rad + east_m / (earth_radius_m * cos_latitude)
-        self._center = GeoPoint(latitude_rad=latitude_rad, longitude_rad=longitude_rad,
-                                altitude_m=self._center.altitude_m)
+        self._center = GeoPoint(
+            latitude_rad=latitude_rad,
+            longitude_rad=longitude_rad,
+            altitude_m=self._center.altitude_m,
+        )
         self.request_follow(False)
         self._send_camera()
 

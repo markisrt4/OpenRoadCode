@@ -6,20 +6,15 @@
 from __future__ import annotations
 
 import json
+import math
 import tkinter as tk
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
-import math
 from pathlib import Path
 from tkinter import ttk
 from types import SimpleNamespace
 from typing import Callable, Protocol
 
-from ui.theme.vehicle_gauges import (
-    VEHICLE_GAUGE_REDLINE_THEME,
-    VEHICLE_GAUGE_THEME,
-    VehicleGaugeRedlineTheme,
-)
 from frontends.tk.automotive.vehicle_gauge_theme import (
     vehicle_gauge_theme_from_style_sheet,
 )
@@ -31,10 +26,9 @@ from frontends.tk.automotive.vehicle_gauge_widgets import (
     RoundGauge,
     TirePressurePanel,
 )
-from ui.theme import StyleSheet
 from ui.automotive import (
-    DiagnosticTroubleCode,
     DiagnosticsRequestHandlerIf,
+    DiagnosticTroubleCode,
     Gear,
     TirePosition,
     VehicleConnectionState,
@@ -44,7 +38,14 @@ from ui.automotive import (
     VehicleTripUiIf,
     VehicleUiIf,
 )
+from ui.theme import StyleSheet
+from ui.theme.vehicle_gauges import (
+    VEHICLE_GAUGE_REDLINE_THEME,
+    VEHICLE_GAUGE_THEME,
+    VehicleGaugeRedlineTheme,
+)
 from ui.ui_widget import UiWidget
+
 
 class VehicleGaugeSnapshot(Protocol):
     """Minimum telemetry shape consumed directly by the gauge panel."""
@@ -104,76 +105,208 @@ class GaugeLayoutItem:
 
 DEFAULT_GAUGES: tuple[GaugeDefinition, ...] = (
     GaugeDefinition(
-        "rpm", "RPM", "x1000", "rpm", 0, 8, 1,
-        precision=1, value_scale=0.001, caution_high=6.0, danger_high=6.5,
-        start_angle=140, sweep_angle=260, intense_redline=True,
+        "rpm",
+        "RPM",
+        "x1000",
+        "rpm",
+        0,
+        8,
+        1,
+        precision=1,
+        value_scale=0.001,
+        caution_high=6.0,
+        danger_high=6.5,
+        start_angle=140,
+        sweep_angle=260,
+        intense_redline=True,
     ),
     GaugeDefinition(
-        "boost", "Boost", "psi", "boost_psi", -15, 25, 5,
-        precision=1, caution_high=15, danger_high=18,
-        start_angle=140, sweep_angle=260, intense_redline=True,
+        "boost",
+        "Boost",
+        "psi",
+        "boost_psi",
+        -15,
+        25,
+        5,
+        precision=1,
+        caution_high=15,
+        danger_high=18,
+        start_angle=140,
+        sweep_angle=260,
+        intense_redline=True,
     ),
     GaugeDefinition(
-        "speed", "mp/h", "", "speed_mph", 0, 160, 20,
-        caution_high=120, danger_high=140,
-        start_angle=140, sweep_angle=260, intense_redline=True,
+        "speed",
+        "mp/h",
+        "",
+        "speed_mph",
+        0,
+        160,
+        20,
+        caution_high=120,
+        danger_high=140,
+        start_angle=140,
+        sweep_angle=260,
+        intense_redline=True,
     ),
     GaugeDefinition(
-        "gear", "Gear", "", "gear", 0, 6, 1, shape="gear",
+        "gear",
+        "Gear",
+        "",
+        "gear",
+        0,
+        6,
+        1,
+        shape="gear",
     ),
     GaugeDefinition(
-        "throttle", "Throttle", "%", "throttle_pct", 0, 100, 20,
-        start_angle=140, sweep_angle=260,
+        "throttle",
+        "Throttle",
+        "%",
+        "throttle_pct",
+        0,
+        100,
+        20,
+        start_angle=140,
+        sweep_angle=260,
     ),
     GaugeDefinition(
-        "coolant", "Coolant", "°F", "coolant_temp_f", 100, 260, 20,
-        shape="linear", caution_high=220, danger_high=240, icon="coolant",
+        "coolant",
+        "Coolant",
+        "°F",
+        "coolant_temp_f",
+        100,
+        260,
+        20,
+        shape="linear",
+        caution_high=220,
+        danger_high=240,
+        icon="coolant",
     ),
     GaugeDefinition(
-        "intake", "Intake Air", "°F", "intake_temp_f", 0, 180, 20,
-        shape="linear", caution_high=130, danger_high=155,
+        "intake",
+        "Intake Air",
+        "°F",
+        "intake_temp_f",
+        0,
+        180,
+        20,
+        shape="linear",
+        caution_high=130,
+        danger_high=155,
     ),
     GaugeDefinition(
-        "load", "Engine Load", "%", "engine_load_pct", 0, 100, 20,
-        shape="linear", caution_high=80, danger_high=95,
+        "load",
+        "Engine Load",
+        "%",
+        "engine_load_pct",
+        0,
+        100,
+        20,
+        shape="linear",
+        caution_high=80,
+        danger_high=95,
     ),
     GaugeDefinition(
-        "voltage", "Voltage", "V", "control_voltage", 8, 16, 1,
-        precision=1, shape="linear",
-        caution_low=12.0, danger_low=10.5, caution_high=14.8, danger_high=15.5,
+        "voltage",
+        "Voltage",
+        "V",
+        "control_voltage",
+        8,
+        16,
+        1,
+        precision=1,
+        shape="linear",
+        caution_low=12.0,
+        danger_low=10.5,
+        caution_high=14.8,
+        danger_high=15.5,
         icon="voltage",
     ),
     GaugeDefinition(
-        "fuel", "Fuel Level", "%", "fuel_level_pct", 0, 100, 20,
-        shape="linear", caution_low=20, danger_low=8, icon="fuel",
+        "fuel",
+        "Fuel Level",
+        "%",
+        "fuel_level_pct",
+        0,
+        100,
+        20,
+        shape="linear",
+        caution_low=20,
+        danger_low=8,
+        icon="fuel",
     ),
     GaugeDefinition(
-        "odometer", "Odometer", "mi", "odometer_miles", 0, 1_000_000, 10_000,
+        "odometer",
+        "Odometer",
+        "mi",
+        "odometer_miles",
+        0,
+        1_000_000,
+        10_000,
         shape="metric",
     ),
     GaugeDefinition(
-        "trip", "Trip", "mi", "trip_miles", 0, 10_000, 100,
-        precision=1, shape="metric",
-    ),
-    GaugeDefinition(
-        "economy", "Fuel Economy", "mpg", "fuel_economy_mpg", 0, 100, 10,
-        precision=1, shape="metric",
-    ),
-    GaugeDefinition(
-        "range", "Estimated Range", "mi", "estimated_range_miles", 0, 1_000, 100,
+        "trip",
+        "Trip",
+        "mi",
+        "trip_miles",
+        0,
+        10_000,
+        100,
+        precision=1,
         shape="metric",
     ),
     GaugeDefinition(
-        "ambient", "Outside Air", "°F", "ambient_temp_f", -40, 140, 20,
+        "economy",
+        "Fuel Economy",
+        "mpg",
+        "fuel_economy_mpg",
+        0,
+        100,
+        10,
+        precision=1,
         shape="metric",
     ),
     GaugeDefinition(
-        "tires", "Tire Pressure", "psi", "tire_pressures_psi", 0, 60, 5,
+        "range",
+        "Estimated Range",
+        "mi",
+        "estimated_range_miles",
+        0,
+        1_000,
+        100,
+        shape="metric",
+    ),
+    GaugeDefinition(
+        "ambient",
+        "Outside Air",
+        "°F",
+        "ambient_temp_f",
+        -40,
+        140,
+        20,
+        shape="metric",
+    ),
+    GaugeDefinition(
+        "tires",
+        "Tire Pressure",
+        "psi",
+        "tire_pressures_psi",
+        0,
+        60,
+        5,
         shape="tires",
     ),
     GaugeDefinition(
-        "diagnostics", "Engine Diagnostics", "", "diagnostic_trouble_codes",
-        0, 1, 1, shape="diagnostics",
+        "diagnostics",
+        "Engine Diagnostics",
+        "",
+        "diagnostic_trouble_codes",
+        0,
+        1,
+        1,
+        shape="diagnostics",
     ),
 )
 
@@ -184,7 +317,8 @@ class VehicleGaugePanel(
     VehicleConnectionUiIf,
     VehicleTripUiIf,
     VehicleTireUiIf,
-    VehicleDiagnosticsUiIf, UiWidget,
+    VehicleDiagnosticsUiIf,
+    UiWidget,
 ):
     """Display vehicle state through explicit automotive UI contracts."""
 
@@ -222,9 +356,7 @@ class VehicleGaugePanel(
         )
         self._style = VEHICLE_GAUGE_THEME
         self._panel_background = (
-            panel_background
-            if panel_background is not None
-            else self._style.panel_background
+            panel_background if panel_background is not None else self._style.panel_background
         )
 
         self.configure(style="VehicleGauge.TFrame")
@@ -275,27 +407,19 @@ class VehicleGaugePanel(
         self._connected = connected
         self._status.configure(
             text="VEHICLE CONNECTED" if connected else "VEHICLE DISCONNECTED",
-            style=(
-                "VehicleGaugeConnected.TLabel"
-                if connected
-                else "VehicleGaugeStatus.TLabel"
-            ),
+            style=("VehicleGaugeConnected.TLabel" if connected else "VehicleGaugeStatus.TLabel"),
         )
         for gauge_id, gauge in self._gauges.items():
             definition = self._definitions[gauge_id]
             if definition.shape == "diagnostics":
-                codes = None if state is None else getattr(
-                    state, "diagnostic_trouble_codes", None
-                )
+                codes = None if state is None else getattr(state, "diagnostic_trouble_codes", None)
                 mil_on = None if state is None else getattr(state, "mil_on", None)
                 gauge.set_connected(connected)
                 if isinstance(gauge, DiagnosticsPanel):
                     gauge.set_diagnostics(codes, mil_on)
                 continue
             value = None if state is None else getattr(state, definition.state_attribute, None)
-            if value is not None and definition.shape not in {
-                "gear", "diagnostics", "tires"
-            }:
+            if value is not None and definition.shape not in {"gear", "diagnostics", "tires"}:
                 value = float(value) * definition.value_scale
             gauge.set_connected(connected)
             gauge.set_value(value)
@@ -341,9 +465,7 @@ class VehicleGaugePanel(
         """Set engine speed after converting radians per second to RPM."""
         self._set_contract_value(
             "rpm",
-            None
-            if engine_speed_rad_s is None
-            else engine_speed_rad_s * 60.0 / (2.0 * math.pi),
+            None if engine_speed_rad_s is None else engine_speed_rad_s * 60.0 / (2.0 * math.pi),
         )
 
     def set_fuel_level(self, fuel_level_ratio: float | None) -> None:
@@ -360,9 +482,7 @@ class VehicleGaugePanel(
         """Set throttle position after converting its ratio to percent."""
         self._set_contract_value(
             "throttle_pct",
-            None
-            if throttle_position_ratio is None
-            else throttle_position_ratio * 100.0,
+            None if throttle_position_ratio is None else throttle_position_ratio * 100.0,
         )
 
     def set_accelerator_position(
@@ -372,9 +492,7 @@ class VehicleGaugePanel(
         """Store accelerator position for compatible custom definitions."""
         self._set_contract_value(
             "accelerator_pedal_pct",
-            None
-            if accelerator_position_ratio is None
-            else accelerator_position_ratio * 100.0,
+            None if accelerator_position_ratio is None else accelerator_position_ratio * 100.0,
         )
 
     def set_engine_load(self, engine_load_ratio: float | None) -> None:
@@ -428,9 +546,7 @@ class VehicleGaugePanel(
         """Set boost pressure after converting pascals to PSI."""
         self._set_contract_value(
             "boost_psi",
-            None
-            if boost_pressure_pa is None
-            else boost_pressure_pa / self.PASCALS_PER_PSI,
+            None if boost_pressure_pa is None else boost_pressure_pa / self.PASCALS_PER_PSI,
         )
 
     def set_mass_air_flow(self, mass_air_flow_kg_s: float | None) -> None:
@@ -525,9 +641,7 @@ class VehicleGaugePanel(
         """Store trip fuel volume after converting cubic metres to gallons."""
         self._set_contract_value(
             "fuel_used_gallons",
-            None
-            if fuel_volume_m3 is None
-            else fuel_volume_m3 / self.CUBIC_METERS_PER_US_GALLON,
+            None if fuel_volume_m3 is None else fuel_volume_m3 / self.CUBIC_METERS_PER_US_GALLON,
         )
 
     def set_tire_pressure(
@@ -550,12 +664,8 @@ class VehicleGaugePanel(
         temperature_k: float | None,
     ) -> None:
         """Store one tire temperature for compatible custom definitions."""
-        temperatures = dict(
-            getattr(self._contract_state, "tire_temperatures_f", {})
-        )
-        temperatures[self._tire_key(position)] = self._kelvin_to_fahrenheit(
-            temperature_k
-        )
+        temperatures = dict(getattr(self._contract_state, "tire_temperatures_f", {}))
+        temperatures[self._tire_key(position)] = self._kelvin_to_fahrenheit(temperature_k)
         self._set_contract_value("tire_temperatures_f", temperatures)
 
     def set_tire_pressure_warning(
@@ -597,9 +707,7 @@ class VehicleGaugePanel(
         setattr(self._contract_state, name, value)
         self.update_state(
             self._contract_state,
-            connected=(
-                self._connection_state is VehicleConnectionState.CONNECTED
-            ),
+            connected=(self._connection_state is VehicleConnectionState.CONNECTED),
         )
 
     @staticmethod
@@ -612,11 +720,7 @@ class VehicleGaugePanel(
     def _fuel_consumption_to_mpg(self, value: float | None) -> float | None:
         if value is None or value <= 0.0:
             return None
-        return (
-            self.CUBIC_METERS_PER_US_GALLON
-            / value
-            / self.METERS_PER_MILE
-        )
+        return self.CUBIC_METERS_PER_US_GALLON / value / self.METERS_PER_MILE
 
     @staticmethod
     def _tire_key(position: TirePosition) -> str:
@@ -725,7 +829,9 @@ class VehicleGaugePanel(
         controls = ttk.Frame(editor, style="VehicleGauge.TFrame")
         controls.pack(fill="x", padx=16, pady=8)
         ttk.Button(controls, text="Move up", command=lambda: move_selected(-1)).pack(side="left")
-        ttk.Button(controls, text="Move down", command=lambda: move_selected(1)).pack(side="left", padx=8)
+        ttk.Button(controls, text="Move down", command=lambda: move_selected(1)).pack(
+            side="left", padx=8
+        )
         ttk.Button(controls, text="Cancel", command=editor.destroy).pack(side="right")
         ttk.Button(controls, text="Apply", command=apply).pack(side="right", padx=8)
 
@@ -765,10 +871,7 @@ class VehicleGaugePanel(
         self,
         definitions: tuple[GaugeDefinition, ...],
     ) -> list[GaugeLayoutItem]:
-        default = [
-            GaugeLayoutItem(item.gauge_id, item.default_visible)
-            for item in definitions
-        ]
+        default = [GaugeLayoutItem(item.gauge_id, item.default_visible) for item in definitions]
         if self._config_path is None or not self._config_path.exists():
             return default
         try:
@@ -815,10 +918,7 @@ class VehicleGaugePanel(
         for item in visible:
             definition = self._definitions[item.gauge_id]
             column_span = (
-                2
-                if definition.shape in {"linear", "diagnostics", "tires"}
-                and columns > 1
-                else 1
+                2 if definition.shape in {"linear", "diagnostics", "tires"} and columns > 1 else 1
             )
             if column + column_span > columns:
                 row += 1

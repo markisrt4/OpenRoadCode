@@ -10,22 +10,50 @@ cd "$PROJECT_ROOT"
 is_termux=false
 if [[ -n "${TERMUX_VERSION:-}" || "${PREFIX:-}" == *com.termux* ]]; then
     is_termux=true
-    export DISPLAY=:1
+    export DISPLAY="${DISPLAY:-:1}"
     default_venv="$PROJECT_ROOT/venv-termux"
 else
-    export DISPLAY=:0
-    default_venv="$PROJECT_ROOT/venv"
+    export DISPLAY="${DISPLAY:-:0}"
+    default_venv="$PROJECT_ROOT/../.venv"
 fi
 
-# Honor an explicit interpreter or activated environment before the local venv.
+# Tk OpenGL surfaces use GLX, including under Xwayland.
+export PYOPENGL_PLATFORM="${PYOPENGL_PLATFORM:-glx}"
+
+# Honor explicit interpreter, activated environment, and installer venv overrides.
 if [[ -n "${PYTHON:-}" ]]; then
     python_bin="$PYTHON"
 elif [[ -n "${VIRTUAL_ENV:-}" && -x "$VIRTUAL_ENV/bin/python" ]]; then
     python_bin="$VIRTUAL_ENV/bin/python"
+elif [[ -n "${VENV_DIR:-}" && -x "$VENV_DIR/bin/python" ]]; then
+    python_bin="$VENV_DIR/bin/python"
 elif [[ -x "$default_venv/bin/python" ]]; then
     python_bin="$default_venv/bin/python"
+elif [[ -x "$PROJECT_ROOT/.venv/bin/python" ]]; then
+    python_bin="$PROJECT_ROOT/.venv/bin/python"
+elif [[ -x "$PROJECT_ROOT/venv/bin/python" ]]; then
+    python_bin="$PROJECT_ROOT/venv/bin/python"
 else
-    python_bin=python3
+    echo "[!] No Python virtual environment found for OpenRoadCode." >&2
+    echo "    Expected installer environment: $default_venv" >&2
+    echo "    Activate a venv or set VENV_DIR to an existing environment." >&2
+    echo "    Install ORC dependencies using the repository installer." >&2
+    exit 1
+fi
+
+# Require an actual venv even when PYTHON overrides interpreter selection.
+if ! "$python_bin" -c 'import sys; raise SystemExit(0 if sys.prefix != sys.base_prefix else 1)' 2>/dev/null; then
+    echo "[!] Selected Python is not running in a virtual environment: $python_bin" >&2
+    exit 1
+fi
+
+# Fail early with a useful dependency diagnostic instead of a deep UI traceback.
+if ! "$python_bin" -c 'import requests, tinycss2' 2>/dev/null; then
+    echo "[!] Missing required ORC UI dependencies in $python_bin (requests/tinycss2)." >&2
+    echo "    Install the base and desktop-ui Python packages using the ORC installer." >&2
+    echo "    If using a repository venv, set VENV_DIR to its path when running the installer." >&2
+    echo "    Quick repair: \"$python_bin\" -m pip install requests tinycss2" >&2
+    exit 1
 fi
 
 # Diagnose with exactly the interpreter and display used by the launcher.
@@ -34,6 +62,31 @@ if [[ "${1:-}" == "--check-ecu-gl" ]]; then
 fi
 
 if ! "$is_termux"; then
+    rf_config="${XDG_CONFIG_HOME:-$HOME/.config}/openroadcode/rf-acquisition.env"
+    if [[ -f "$rf_config" ]]; then
+        if [[ -L "$rf_config" || ! -O "$rf_config" || "$(stat -c %a "$rf_config")" != 600 ]]; then
+            echo "[!] Managed RF credential file must be owned by this user with mode 0600." >&2
+            exit 1
+        fi
+        read -r rf_credential < "$rf_config"
+        if [[ ! "$rf_credential" =~ ^SDRFORGE_ACQUISITION_TOKEN=([a-f0-9]{64})$ ]]; then
+            echo "[!] Managed RF credential has an invalid format." >&2
+            exit 1
+        fi
+        export SDRFORGE_ACQUISITION_TOKEN="${BASH_REMATCH[1]}"
+        exec 9>"${rf_config}.lock"
+        if ! flock --nonblock 9; then
+            echo "[!] Another OpenRoadCode instance owns managed RF acquisition." >&2
+            exit 1
+        fi
+        rf_marker="${rf_config}.in-use"
+        if [[ -f "$rf_marker" ]]; then
+            echo "[*] Recovering supervised receivers from the previous managed session."
+            systemctl --user stop 'openroadcode-readsb@*.service' libsdrforge-weather.service
+            systemctl --user restart libsdrforge.service
+        fi
+        (umask 077; printf '%s\n' "$$" > "$rf_marker")
+    fi
     exec "$python_bin" -m apps.orcUi "$@"
 fi
 

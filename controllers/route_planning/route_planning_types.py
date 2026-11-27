@@ -27,14 +27,10 @@ class GeoPoint:
 
     def __post_init__(self) -> None:
         if not -90.0 <= self.latitude <= 90.0:
-            raise ValueError(
-                "latitude must be between -90 and 90 degrees"
-            )
+            raise ValueError("latitude must be between -90 and 90 degrees")
 
         if not -180.0 <= self.longitude <= 180.0:
-            raise ValueError(
-                "longitude must be between -180 and 180 degrees"
-            )
+            raise ValueError("longitude must be between -180 and 180 degrees")
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,4 +66,3 @@ class RouteResult:
     shape: tuple[GeoPoint, ...]
     maneuvers: tuple[RouteManeuver, ...]
     operation_id: str | None = None
-

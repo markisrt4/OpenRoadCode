@@ -1,0 +1,273 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+import subprocess
+from unittest.mock import Mock, patch
+
+import pytest
+
+from apps.orcUi.composition.android_app_view import AndroidAppView
+
+
+def test_business_package_is_prepared_on_ui_dispatch_before_full_width_presentation():
+    app, prepare = Mock(), Mock()
+    events = []
+    prepare.side_effect = lambda package: events.append(("prepare", package))
+    with patch("apps.orcUi.composition.android_app_view.AndroidAppScreen") as screen:
+        screen.return_value.present.side_effect = lambda state: events.append(
+            ("present", state.package)
+        )
+        view = AndroidAppView(
+            app, map_runtime=Mock(), map_platform=Mock(), prepare_app=prepare, full_width_apps=True
+        )
+        view.request_show_android_app("Panera", "com.panera.bread")
+        prepare.assert_not_called()
+        app.dispatch_ui.call_args.args[0]()
+        assert events == [("prepare", "com.panera.bread"), ("present", "com.panera.bread")]
+        state = screen.return_value.present.call_args.args[0]
+        assert state.expanded and not state.can_split
+        assert not state.navigation_mode_controls
+        view.close()
+        events.clear()
+        view.request_show_android_app("Panera", "com.panera.bread")
+        assert not events
+
+
+from apps.orcUi.adapters.waydroid_surface_player import WaydroidSurfacePlayer
+from frontends.tk.media.browser_media_screen import BrowserMediaScreen
+from frontends.x11.x11_window_embedder import X11WindowEmbedder
+
+
+def test_dedicated_waze_surface_is_retained_but_explicit_close_rejects_queued_present():
+    app = Mock()
+    with patch("apps.orcUi.composition.android_app_view.AndroidAppScreen") as screen:
+        view = AndroidAppView(
+            app,
+            map_runtime=Mock(),
+            map_platform=Mock(),
+            screen_label="WAZE_NATIVE",
+            navigation_label="WAZE",
+            persistent_session=True,
+        )
+        assert screen.call_args.kwargs["keep_player_on_hide"] is True
+        app.register_screen.assert_called_once_with(
+            "WAZE_NATIVE", screen.return_value, show_in_navigation=False, navigation_label="WAZE"
+        )
+        view.request_show_android_app("Waze", "com.waze")
+        late = app.dispatch_ui.call_args.args[0]
+        view.request_close_android_app()
+        late()
+        app.navigate_to.assert_not_called()
+        screen.return_value.close_session.assert_called_once_with()
+
+
+def test_android_view_visibility_controls_location_scope_and_close_revokes_it():
+    app, visibility = Mock(), Mock()
+    with patch("apps.orcUi.composition.android_app_view.AndroidAppScreen"):
+        view = AndroidAppView(
+            app, map_runtime=Mock(), map_platform=Mock(), visibility_changed=visibility
+        )
+        view.request_set_android_app_visible(True)
+        visibility.assert_called_with(True)
+        view.request_set_android_app_visible(False)
+        visibility.assert_called_with(False)
+        view.close()
+        count = visibility.call_count
+        view.request_set_android_app_visible(True)
+        assert visibility.call_count == count
+        visibility.assert_called_with(False)
+
+
+def test_waze_is_fullscreen_only_and_other_apps_still_start_split():
+    app = Mock()
+    with patch("apps.orcUi.composition.android_app_view.AndroidAppScreen") as screen:
+        view = AndroidAppView(app, map_runtime=Mock(), map_platform=Mock())
+        view.request_show_android_app("Waze", "com.waze")
+        app.dispatch_ui.call_args.args[0]()
+        state = screen.return_value.present.call_args.args[0]
+        assert state.expanded and not state.can_split
+        view.request_toggle_android_app_expanded()
+        assert screen.return_value.present.call_count == 1
+        view.request_show_android_app("Panera", "com.panera.bread")
+        app.dispatch_ui.call_args.args[0]()
+        state = screen.return_value.present.call_args.args[0]
+        assert not state.expanded and state.can_split
+
+
+def test_worker_request_dispatches_and_close_discards_queued_open():
+    app = Mock()
+    with patch("apps.orcUi.composition.android_app_view.AndroidAppScreen") as screen:
+        view = AndroidAppView(app, map_runtime=Mock(), map_platform=Mock())
+        view.request_show_android_app("Panera Bread", "com.panera.bread")
+        app.navigate_to.assert_not_called()
+        first = app.dispatch_ui.call_args.args[0]
+        first()
+        assert screen.return_value.present.call_args.args[0].app_name == "Panera Bread"
+        app.navigate_to.assert_called_once_with("ANDROID_APP")
+        view.request_show_android_app()
+        queued = app.dispatch_ui.call_args.args[0]
+        view.close()
+        view.close()
+        queued()
+        view.request_show_android_app()
+        assert app.navigate_to.call_count == 1
+        assert app.dispatch_ui.call_count == 2
+        screen.return_value.close_session.assert_called_once()
+        options = screen.call_args.kwargs
+        assert options["preserve_external_window"] is True
+        options["back_action"]()
+        app.navigate_to.assert_called_with("NAVIGATION")
+        options["breadcrumb"]("Panera Bread")
+        app.set_breadcrumb.assert_called_once_with("NAV", "Panera Bread")
+
+
+def test_expand_collapses_with_no_app_relaunch_and_next_app_starts_split():
+    app = Mock()
+    with patch("apps.orcUi.composition.android_app_view.AndroidAppScreen") as screen:
+        view = AndroidAppView(app, map_runtime=Mock(), map_platform=Mock())
+        view.request_show_android_app("Panera Bread", "com.panera.bread")
+        app.dispatch_ui.call_args.args[0]()
+        view.request_toggle_android_app_expanded()
+        assert screen.return_value.present.call_args.args[0].expanded
+        view.request_toggle_android_app_expanded()
+        assert not screen.return_value.present.call_args.args[0].expanded
+        assert app.navigate_to.call_count == 1
+        view.request_toggle_android_app_expanded()
+        view.request_show_android_app("Maps", "com.google.android.apps.maps")
+        app.dispatch_ui.call_args.args[0]()
+        state = screen.return_value.present.call_args.args[0]
+        assert state.app_name == "Maps"
+        assert not state.expanded
+        assert app.navigate_to.call_count == 2
+        view.close()
+        count = screen.return_value.present.call_count
+        view.request_toggle_android_app_expanded()
+        assert screen.return_value.present.call_count == count
+
+
+def test_frame_crop_sizes_and_offsets_the_borrowed_window_without_scaling():
+    embedder = X11WindowEmbedder()
+    embedder._window_id = 12
+    embedder._host_window_id = 99
+    with patch(
+        "frontends.x11.x11_window_embedder.subprocess.run",
+        return_value=subprocess.CompletedProcess([], 0, stdout=""),
+    ) as run:
+        embedder.set_vertical_crop(56, 48)
+        embedder.resize(600, 500)
+        commands = [call.args[0] for call in run.call_args_list]
+        assert ["xdotool", "windowsize", "12", "600", "604"] in commands
+        assert ["xdotool", "windowmove", "--", "12", "0", "-56"] in commands
+        embedder.clear()
+        assert embedder._vertical_crop == (0, 0)
+
+
+def test_kiosk_crop_does_not_cut_an_absent_desktop_panel(monkeypatch, tmp_path):
+    import os
+
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))
+    player = WaydroidSurfacePlayer()
+    assert player.vertical_crop() == (32, 48)
+    (tmp_path / "openroadcode-waydroid-kiosk").write_text(str(os.getpid()))
+    with patch(
+        "apps.orcUi.adapters.waydroid_surface_player.Path.read_bytes",
+        return_value=b"/usr/bin/weston\0--shell=kiosk-shell.so\0",
+    ):
+        assert player.vertical_crop() == (0, 48)
+
+
+@pytest.mark.parametrize("windows", ["", "12\n13\n"])
+def test_surface_rejects_missing_or_ambiguous_compositors(windows):
+    with (
+        patch(
+            "apps.orcUi.adapters.waydroid_surface_player.subprocess.run",
+            return_value=Mock(returncode=0, stdout=windows),
+        ),
+        patch("apps.orcUi.adapters.waydroid_surface_player.subprocess.Popen") as spawn,
+    ):
+        with pytest.raises(RuntimeError, match="exactly one dedicated Weston"):
+            WaydroidSurfacePlayer().play("android", display=":0")
+        spawn.assert_not_called()
+
+
+def test_surface_repeated_open_and_stop_never_rewrite_android_display_policy():
+    with (
+        patch(
+            "apps.orcUi.adapters.waydroid_surface_player.subprocess.run",
+            return_value=Mock(returncode=0, stdout="12\n"),
+        ) as run,
+        patch(
+            "apps.orcUi.adapters.waydroid_surface_player.subprocess.Popen",
+        ) as spawn,
+    ):
+        player = WaydroidSurfacePlayer()
+        assert player.play("android", display=":2")
+        player.request_theme_refresh()
+        spawn.assert_not_called()
+        assert player.play("android", display=":2")
+        player.stop()
+        player.stop()
+        spawn.assert_not_called()
+        assert run.call_args.kwargs["env"]["DISPLAY"] == ":2"
+        assert run.call_count == 2
+
+
+def test_external_surface_detaches_to_x_root_before_orc_window_destruction():
+    screen = BrowserMediaScreen(
+        "android",
+        Mock(),
+        title="Android",
+        player=Mock(),
+        default_target="android",
+        window_class="Weston Compositor",
+        back_action=Mock(),
+        preserve_external_window=True,
+    )
+    screen._embedder = Mock(window_id=12)
+    screen._embedder.root_window_id.return_value = 42
+    screen.hide()
+    screen._embedder.detach.assert_called_once_with(42)
+    screen._embedder.root_window_id.assert_called_once_with()
+    screen._host.screen_parent.winfo_toplevel.assert_not_called()
+
+
+def test_root_lookup_uses_real_x11_window_identifier():
+    with patch(
+        "frontends.x11.x11_window_embedder.subprocess.run",
+        return_value=subprocess.CompletedProcess(
+            ["xwininfo", "-root"],
+            0,
+            stdout="xwininfo: Window id: 0x50d (the root window) (has no name)",
+        ),
+    ) as run:
+        assert X11WindowEmbedder.root_window_id() == 0x50D
+        assert run.call_args.args[0] == ["xwininfo", "-root"]
+
+
+def test_root_lookup_failure_is_actionable():
+    with patch(
+        "frontends.x11.x11_window_embedder.subprocess.run",
+        side_effect=subprocess.CalledProcessError(1, "xwininfo"),
+    ):
+        with pytest.raises(RuntimeError, match="DISPLAY and X11 access"):
+            X11WindowEmbedder.root_window_id()
+
+
+def test_failed_external_embed_restores_safe_parent():
+    embedder = X11WindowEmbedder(timeout_seconds=0.01)
+
+    def fail_mapping(command, **kwargs):
+        if command == ["xdotool", "windowmap", "12"] and kwargs.get("check"):
+            raise subprocess.CalledProcessError(1, command)
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    with (
+        patch.object(embedder, "supported", return_value=True),
+        patch.object(embedder, "_find_by_process", return_value=12),
+        patch.object(embedder, "resize"),
+        patch("frontends.x11.x11_window_embedder.subprocess.run", side_effect=fail_mapping) as run,
+    ):
+        with pytest.raises(RuntimeError, match="no usable X11 window"):
+            embedder.embed(0, 99, 800, 400, failure_parent_window_id=42)
+        commands = [call.args[0] for call in run.call_args_list]
+        assert ["xdotool", "windowreparent", "12", "42"] in commands
+        assert embedder.window_id is None

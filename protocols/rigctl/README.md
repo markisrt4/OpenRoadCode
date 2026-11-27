@@ -41,20 +41,20 @@ Everything uses the Python standard library.
 | `set_frequency(hz)` | `F <hz>` | Set frequency in hertz |
 | `get_frequency()` | `f` | Read frequency |
 | `set_mode(mode, bandwidth)` | `M <mode> <bandwidth>` | Set mode and bandwidth |
-| `start()` | `\start` | Start SDR++ playback |
-| `stop()` | `\stop` | Stop SDR++ playback |
+| `start()` | `\start` | Start receiver playback |
+| `stop()` | `\stop` | Stop receiver playback |
 | `get_signal_strength()` | `l STRENGTH` | Read signal strength |
 | `get_snr()` | `l SNR` | Read SNR |
 | `get_rds()` | `l RDS` | Read RDS text |
 | `send(command)` | raw | Send any command |
 
-`NFM` is normalized to `FM` for SDR++ compatibility. Unknown mode names are
+`NFM` is preserved as `NFM` for SDRForge. Unknown mode names are
 uppercased and passed through unchanged.
 
 ## Basic Library Use
 
 ```python
-from rigctl_protocol import RigctlClient
+from protocols.rigctl import RigctlClient
 
 client = RigctlClient(host="127.0.0.1", port=4532)
 
@@ -78,7 +78,7 @@ From the package directory:
 python3 example_rigctl_server.py --verbose
 ```
 
-The default endpoint is `127.0.0.1:4532`. Use a different port when SDR++ is
+The default endpoint is `127.0.0.1:4532`. Use a different port when SDRForge is
 already using 4532:
 
 ```bash
@@ -114,7 +114,7 @@ rigctl> F 101100000
 RPRT 0
 rigctl> f
 101100000
-rigctl> M FM 12500
+rigctl> M NFM 12500
 RPRT 0
 rigctl> quit
 ```
@@ -137,9 +137,9 @@ The tests start the example server on an automatically assigned localhost port,
 exercise the real client over TCP, and shut the server down afterward. They do
 not require SDR++ and do not occupy port 4532.
 
-## Testing Against SDR++
+## Testing Against SDRForge
 
-1. Enable SDR++'s rigctl server.
+1. Start the SDRForge service with its rigctl endpoint enabled.
 2. Confirm its host and TCP port, commonly `127.0.0.1:4532`.
 3. Run CLI checks such as:
 
@@ -151,7 +151,7 @@ python3 rigctl_cli.py start
 ```
 
 Be aware that commands and returned level formats can vary between rigctl server
-implementations. The `\start`, `\stop`, and `l RDS` commands are SDR++-specific
+implementations. The `\start`, `\stop`, and `l RDS` commands are historical SDR++-originated
 extensions rather than portable Hamlib operations.
 
 ## Error Behavior

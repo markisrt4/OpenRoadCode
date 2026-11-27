@@ -57,9 +57,7 @@ class RpiGpioHeader:
     }
 
     _bcm_lookup: dict[int, GpioPin] = {
-        pin.bcm: pin
-        for pin in _pins.values()
-        if pin.bcm is not None
+        pin.bcm: pin for pin in _pins.values() if pin.bcm is not None
     }
 
     @classmethod
@@ -70,9 +68,7 @@ class RpiGpioHeader:
         try:
             return cls._pins[physical_pin]
         except KeyError as exc:
-            raise ValueError(
-                f"Invalid physical pin: {physical_pin}"
-            ) from exc
+            raise ValueError(f"Invalid physical pin: {physical_pin}") from exc
 
     @classmethod
     def by_bcm(cls, bcm: int) -> GpioPin:
@@ -82,9 +78,7 @@ class RpiGpioHeader:
         try:
             return cls._bcm_lookup[bcm]
         except KeyError as exc:
-            raise ValueError(
-                f"Invalid BCM GPIO: {bcm}"
-            ) from exc
+            raise ValueError(f"Invalid BCM GPIO: {bcm}") from exc
 
     @classmethod
     def bcm_from_physical_pin(cls, physical_pin: int) -> int:
@@ -94,10 +88,7 @@ class RpiGpioHeader:
         pin = cls.by_physical_pin(physical_pin)
 
         if pin.bcm is None:
-            raise ValueError(
-                f"Physical pin {physical_pin} "
-                f"({pin.name}) is not a GPIO pin"
-            )
+            raise ValueError(f"Physical pin {physical_pin} ({pin.name}) is not a GPIO pin")
 
         return pin.bcm
 
@@ -127,8 +118,4 @@ class RpiGpioHeader:
         """
         Return only pins with BCM GPIO numbers.
         """
-        return [
-            pin
-            for pin in cls._pins.values()
-            if pin.is_gpio
-        ]
+        return [pin for pin in cls._pins.values() if pin.is_gpio]

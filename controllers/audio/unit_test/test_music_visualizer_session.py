@@ -4,8 +4,8 @@
 
 import numpy as np
 
-from controllers.audio.music_analysis.music_visualizer_session import MusicVisualizerSession
 from controllers.audio.music_analysis.music_analysis_session import PushAudioCapture
+from controllers.audio.music_analysis.music_visualizer_session import MusicVisualizerSession
 
 
 def test_session_analyzes_pcm_calibrates_and_rejects_stale_callbacks():

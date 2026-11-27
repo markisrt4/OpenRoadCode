@@ -3,13 +3,14 @@
 # SPDX-License-Identifier: MIT
 
 """Live PipeWire music-analysis smoke test."""
+
 from __future__ import annotations
 
 import argparse
 import time
 
 from controllers.audio.capture import PipewireAudioCapture
-from controllers.audio.music_analysis import MusicAnalyzer, MusicAnalysisState
+from controllers.audio.music_analysis import MusicAnalysisState, MusicAnalyzer
 from controllers.audio.music_analysis.music_analysis_pipeline import MusicAnalysisPipeline
 
 

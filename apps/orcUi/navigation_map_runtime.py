@@ -1,8 +1,7 @@
 """Compose native-map and browser-map lifecycle outside the Tk widgets."""
 
-import os
 import logging
-import subprocess
+import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -20,8 +19,20 @@ _LOG = logging.getLogger("navigation.earth")
 class NavigationMapRuntime:
     """Serialize Earth startup, camera work, detachment, and native fallback."""
 
-    def __init__(self, native, native_requests, earth, *, controller=None, embedder=None,
-                 online_allowed=lambda: True, earth_enabled=True) -> None:
+    def request_retry(self):
+        self.request_platform(self.state.requested)
+
+    def __init__(
+        self,
+        native,
+        native_requests,
+        earth,
+        *,
+        controller=None,
+        embedder=None,
+        online_allowed=lambda: True,
+        earth_enabled=True,
+    ) -> None:
         self._native = native
         self._earth = earth
         self._controller = controller or EarthNavigationController()
@@ -74,13 +85,18 @@ class NavigationMapRuntime:
         with self._lock:
             if self._closed:
                 return
-            if platform is MapPlatform.EARTH and (not self._earth_enabled or not self._online_allowed()):
-                self._state = replace(self._state, status="Earth needs enabled application policy and internet")
+            if platform is MapPlatform.EARTH and (
+                not self._earth_enabled or not self._online_allowed()
+            ):
+                self._state = replace(
+                    self._state, status="Earth needs enabled application policy and internet"
+                )
                 return
             self._generation += 1
             generation = self._generation
-            self._state = replace(self._state, requested=platform, busy=True,
-                                  status=f"Opening {platform.value}…")
+            self._state = replace(
+                self._state, requested=platform, busy=True, status=f"Opening {platform.value}…"
+            )
             self._worker.submit(self._select, platform, generation)
 
     def _current(self, generation) -> bool:
@@ -118,9 +134,14 @@ class NavigationMapRuntime:
                 self._controller.reset()
             with self._lock:
                 if self._current(generation):
-                    self._state = MapPlatformState(platform, platform, False,
+                    self._state = MapPlatformState(
+                        platform,
+                        platform,
+                        False,
                         "Earth — loading GPS bridge; route/POI overlays remain on MapLibre"
-                        if platform is MapPlatform.EARTH else "MapLibre")
+                        if platform is MapPlatform.EARTH
+                        else "MapLibre",
+                    )
         except Exception as error:
             self._hide_earth()
             if self._current(generation):
@@ -129,18 +150,23 @@ class NavigationMapRuntime:
                 except (OSError, RuntimeError):
                     pass
                 with self._lock:
-                    self._state = MapPlatformState(status=f"Earth unavailable: {error}; returned to MapLibre")
+                    self._state = MapPlatformState(
+                        status=f"Earth unavailable: {error}; returned to MapLibre"
+                    )
 
     def _load_embedded_earth(self, generation) -> bool:
         deadline = time.monotonic() + 8.0
         last_error = None
         while self._current(generation) and time.monotonic() < deadline:
             try:
-                target = next((target for target in self._devtools.targets()
-                               if target.url == "about:blank"), None)
+                target = next(
+                    (target for target in self._devtools.targets() if target.url == "about:blank"),
+                    None,
+                )
                 if target is not None:
-                    result = self._devtools.command(target, "Page.navigate", {
-                        "url": "https://earth.google.com/web"})
+                    result = self._devtools.command(
+                        target, "Page.navigate", {"url": "https://earth.google.com/web"}
+                    )
                     if result.get("errorText"):
                         raise RuntimeError(result["errorText"])
                     return True
@@ -148,7 +174,9 @@ class NavigationMapRuntime:
                 last_error = error
             time.sleep(0.05)
         if self._current(generation):
-            raise RuntimeError(f"Earth browser shell did not become ready: {last_error or 'no blank page'}")
+            raise RuntimeError(
+                f"Earth browser shell did not become ready: {last_error or 'no blank page'}"
+            )
         return False
 
     def _hide_earth(self) -> None:
@@ -167,7 +195,11 @@ class NavigationMapRuntime:
             with self._lock:
                 if self._closed:
                     return
-                if self._host is None or self._state.busy or self._state.active is not MapPlatform.EARTH:
+                if (
+                    self._host is None
+                    or self._state.busy
+                    or self._state.active is not MapPlatform.EARTH
+                ):
                     continue
                 if pending is None or pending.done():
                     pending = self._worker.submit(self._tick, self._generation)
@@ -185,18 +217,26 @@ class NavigationMapRuntime:
             self._controller.tick()
             with self._lock:
                 if self._current(generation):
-                    self._state = replace(self._state, status=(
-                        self._controller.status + "; overlays remain on MapLibre"))
+                    self._state = replace(
+                        self._state,
+                        status=(self._controller.status + "; overlays remain on MapLibre"),
+                    )
         except (OSError, RuntimeError, ValueError) as error:
             if self._current(generation):
                 self._select(MapPlatform.MAPLIBRE, generation)
                 with self._lock:
                     if self._current(generation):
-                        self._state = replace(self._state, status=f"Earth unavailable: {error}; MapLibre")
+                        self._state = replace(
+                            self._state, status=f"Earth unavailable: {error}; MapLibre"
+                        )
 
     def _send_camera(self, name, args, kwargs) -> None:
         with self._lock:
-            if not self._closed and self._host is not None and self._state.active is MapPlatform.EARTH:
+            if (
+                not self._closed
+                and self._host is not None
+                and self._state.active is MapPlatform.EARTH
+            ):
                 self._worker.submit(self._camera_request, self._generation, name, args, kwargs)
 
     def request_chase(self) -> None:

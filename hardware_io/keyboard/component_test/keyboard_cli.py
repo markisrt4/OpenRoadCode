@@ -14,9 +14,7 @@ def key_pressed(key: str) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="KeyboardReader CLI test application"
-    )
+    parser = argparse.ArgumentParser(description="KeyboardReader CLI test application")
     parser.add_argument(
         "--device",
         help="Linux input device path, e.g. /dev/input/event3",

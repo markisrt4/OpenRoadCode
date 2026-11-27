@@ -11,10 +11,9 @@ from __future__ import annotations
 
 import logging
 
+from apps.orcUi.adapters.spotify_local_player_factory import create_spotify_local_player
 from common.logging.structured import event
 from common.resource_cleanup import ResourceCleanup
-
-from apps.orcUi.adapters.spotify_local_player_factory import create_spotify_local_player
 from controllers.spotify.spotify_controller_if import SpotifyControllerIf
 from controllers.spotify.spotify_local_player import SpotifyLocalPlayer
 from controllers.spotify.spotify_state_service import SpotifyStateService

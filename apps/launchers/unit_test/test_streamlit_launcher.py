@@ -24,9 +24,7 @@ class StreamlitLauncherTest(unittest.TestCase):
         self.assertIsNone(launcher.browser._process)
 
     @patch("apps.launchers.streamlit_launcher.Path.is_file", return_value=True)
-    def test_prepare_raises_when_server_never_becomes_reachable(
-        self, _is_file: Mock
-    ) -> None:
+    def test_prepare_raises_when_server_never_becomes_reachable(self, _is_file: Mock) -> None:
         launcher = StreamlitLauncher(app_path="dashboard.py", port=8765)
         launcher.is_running = Mock(return_value=False)
         launcher._start_server = Mock()
@@ -39,9 +37,7 @@ class StreamlitLauncherTest(unittest.TestCase):
             launcher.prepare()
 
     @patch("apps.launchers.streamlit_launcher.Path.is_file", return_value=True)
-    def test_launch_does_not_open_browser_when_server_startup_fails(
-        self, _is_file: Mock
-    ) -> None:
+    def test_launch_does_not_open_browser_when_server_startup_fails(self, _is_file: Mock) -> None:
         browser = Mock()
         launcher = StreamlitLauncher(app_path="dashboard.py", browser=browser)
         launcher.prepare = Mock(side_effect=RuntimeError("server failed"))

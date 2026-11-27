@@ -20,6 +20,20 @@ from messaging.contracts.route_guidance import ROUTE_GUIDANCE_STATE_TOPIC
 from services.navigation.navigation_runtime import NavigationRuntime
 
 
+def test_host_location_permission_is_prepared_by_the_navigation_owner():
+    source, controller = Mock(), Mock()
+    source.url = "http://localhost:8765/"
+    runtime = NavigationRuntime(controller, Mock(), source="test", host_location_source=source)
+    response = runtime._command_server._handle_request(
+        {"command": "navigation.location.host.prepare"}
+    )
+    assert response["ok"] is True
+    assert response["data"]["url"] == "http://localhost:8765/"
+    source.start.assert_called_once_with(controller.update_host_position_state)
+    runtime.close()
+    source.stop.assert_called_once_with()
+
+
 def _route() -> RouteResult:
     return RouteResult(
         1.0,
@@ -125,6 +139,41 @@ def test_valid_position_fix_advances_guidance_and_session():
         runtime.close()
 
 
+def test_cached_position_does_not_advance_guidance():
+    route = _route()
+    publisher = Mock()
+    runtime = NavigationRuntime(
+        Mock(),
+        publisher,
+        source="test-navigation",
+        command_endpoint="inproc://navigation-runtime-cached-guidance-test",
+        route_planning_controller=Mock(),
+    )
+    request = RouteRequest(GeoPoint(42.0, -83.0), GeoPoint(42.1, -82.9))
+
+    try:
+        runtime._activate_route(request, route)
+        session = runtime._session_controller
+        assert session is not None
+        session.update = Mock(wraps=session.update)
+
+        runtime._update_guidance(
+            SimpleNamespace(
+                position=SimpleNamespace(
+                    has_fix=True,
+                    is_cached=True,
+                    latitude_deg=42.0,
+                    longitude_deg=-82.995,
+                )
+            )
+        )
+
+        session.update.assert_not_called()
+        publisher.publish.assert_not_called()
+    finally:
+        runtime.close()
+
+
 def test_cancel_clears_active_session_state():
     route = _route()
     route_planner = Mock()
@@ -152,9 +201,12 @@ def test_route_lifecycle_stops_playback(transition):
     route = _route()
     simulator = Mock()
     runtime = NavigationRuntime(
-        Mock(), Mock(), source="test-navigation",
+        Mock(),
+        Mock(),
+        source="test-navigation",
         command_endpoint="inproc://navigation-runtime-playback-lifecycle",
-        route_planning_controller=Mock(), route_simulator=simulator,
+        route_planning_controller=Mock(),
+        route_simulator=simulator,
     )
     request = RouteRequest(route.shape[0], route.shape[-1])
     try:
@@ -165,9 +217,15 @@ def test_route_lifecycle_stops_playback(transition):
         if transition == "cancel":
             runtime._cancel_route()
         elif transition == "arrival":
-            runtime._update_guidance(SimpleNamespace(position=SimpleNamespace(
-                has_fix=True, latitude_deg=42.0, longitude_deg=-82.99,
-            )))
+            runtime._update_guidance(
+                SimpleNamespace(
+                    position=SimpleNamespace(
+                        has_fix=True,
+                        latitude_deg=42.0,
+                        longitude_deg=-82.99,
+                    )
+                )
+            )
         elif transition == "replacement":
             runtime._activate_route(request, route)
         else:

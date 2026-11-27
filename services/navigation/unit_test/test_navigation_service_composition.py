@@ -10,10 +10,11 @@ from config.service_runtime_config import (
     NavigationServiceRuntimeConfig,
     SimulationProfileConfig,
 )
+from controllers.navigation.fallback_position_source import FallbackPositionSource
 from controllers.navigation.navigation_controller import NavigationController
+from controllers.navigation.route_playback_position_source import RoutePlaybackPositionSource
 from controllers.navigation.simulated_navigation_sensor import SimulatedNavigationSensor
 from controllers.navigation.simulated_position_source import SimulatedPositionSource
-from controllers.navigation.route_playback_position_source import RoutePlaybackPositionSource
 from services.navigation import navigation_service_cli
 
 
@@ -57,6 +58,9 @@ def _config(imu_source: str, gps_source: str) -> NavigationServiceRuntimeConfig:
 
 
 def _patch_devices(monkeypatch) -> None:
+    # These tests exercise input composition, independently of the test host's
+    # optional desktop/browser fallback. Platform behavior is checked below.
+    monkeypatch.setattr(navigation_service_cli, "_host_location_fallback_available", lambda: False)
     monkeypatch.setattr(navigation_service_cli, "Mpu6050Imu", _FakeImuDevice)
     monkeypatch.setattr(navigation_service_cli, "Mpu6050NavigationAdapter", _FakeMotionAdapter)
     monkeypatch.setattr(navigation_service_cli, "GpsdNavigationAdapter", _FakeGpsAdapter)
@@ -68,9 +72,7 @@ def _patch_devices(monkeypatch) -> None:
 
 
 def test_simulated_imu_and_simulated_gps_build_real_solution_controller():
-    controller = navigation_service_cli.build_controller(
-        _config("simulation", "simulation")
-    )
+    controller = navigation_service_cli.build_controller(_config("simulation", "simulation"))
 
     assert isinstance(controller, NavigationController)
     assert isinstance(controller._sensor, SimulatedNavigationSensor)
@@ -78,10 +80,9 @@ def test_simulated_imu_and_simulated_gps_build_real_solution_controller():
 
 
 def test_simulated_imu_and_device_gps_can_be_composed(monkeypatch):
+    monkeypatch.setattr(navigation_service_cli, "_host_location_fallback_available", lambda: True)
     _patch_devices(monkeypatch)
-    controller = navigation_service_cli.build_controller(
-        _config("simulation", "device")
-    )
+    controller = navigation_service_cli.build_controller(_config("simulation", "device"))
 
     assert isinstance(controller._sensor, SimulatedNavigationSensor)
     assert isinstance(controller._gps_source, RoutePlaybackPositionSource)
@@ -90,21 +91,21 @@ def test_simulated_imu_and_device_gps_can_be_composed(monkeypatch):
 
 def test_device_imu_and_simulated_gps_can_be_composed(monkeypatch):
     _patch_devices(monkeypatch)
-    controller = navigation_service_cli.build_controller(
-        _config("device", "simulation")
-    )
+    controller = navigation_service_cli.build_controller(_config("device", "simulation"))
 
     assert isinstance(controller._sensor, _FakeMotionAdapter)
     assert isinstance(controller._gps_source, SimulatedPositionSource)
 
 
 def test_device_imu_and_device_gps_can_be_composed(monkeypatch):
+    monkeypatch.setattr(navigation_service_cli, "_host_location_fallback_available", lambda: True)
     _patch_devices(monkeypatch)
     controller = navigation_service_cli.build_controller(_config("device", "device"))
 
     assert isinstance(controller._sensor, _FakeMotionAdapter)
     assert isinstance(controller._gps_source, RoutePlaybackPositionSource)
     assert isinstance(controller._gps_source._live_source, _FakeGpsAdapter)
+
 
 def test_simulated_gps_uses_configured_speed_and_course():
     config = _config("simulation", "simulation")
@@ -130,3 +131,28 @@ def test_simulated_gps_uses_configured_speed_and_course():
     assert isinstance(controller._gps_source, SimulatedPositionSource)
     assert controller._gps_source._speed_mps == 0.0
     assert controller._gps_source._course_deg == 0.0
+
+
+def test_termux_keeps_android_bridge_as_live_position_source(monkeypatch):
+    from controllers.navigation.android_position_source import AndroidPositionSource
+
+    monkeypatch.setenv("TERMUX_VERSION", "test")
+    monkeypatch.delenv("OPENROADCODE_ANDROID_BRIDGE_URL", raising=False)
+    config = NavigationServiceRuntimeConfig(gps=GpsInputConfig(device="android"))
+    source = navigation_service_cli._build_position_source(config)
+    assert isinstance(source, RoutePlaybackPositionSource)
+    assert isinstance(source._live_source, AndroidPositionSource)
+    assert source._live_source._client._base_url == "http://127.0.0.1:8766"
+
+
+def test_enabled_host_fallback_wraps_device_gps(monkeypatch):
+    _patch_devices(monkeypatch)
+    monkeypatch.setattr(navigation_service_cli, "_host_location_fallback_available", lambda: True)
+    fallback = object()
+    source = navigation_service_cli._build_position_source(
+        _config("simulation", "device"), host_location_source=fallback
+    )
+    assert isinstance(source, RoutePlaybackPositionSource)
+    assert isinstance(source._live_source, FallbackPositionSource)
+    assert isinstance(source._live_source._primary, _FakeGpsAdapter)
+    assert source._live_source._fallback is fallback

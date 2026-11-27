@@ -8,7 +8,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-from ui.navigation.poi_models import (PoiCategory, PointOfInterest, TransitMode)
+from ui.navigation.poi_models import PoiCategory, PointOfInterest, TransitMode
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,3 +59,4 @@ class PoiSearchSourceIf(ABC):
 
     def close(self) -> None:
         """Release source resources, if any."""
+        return None

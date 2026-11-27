@@ -1,0 +1,75 @@
+name: OpenRoadCode CI
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+  push:
+    branches: [master, feature/waze-live-map]
+  workflow_call:
+    inputs:
+      full_gate:
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      full_gate:
+        description: Run the full portable quality gate
+        type: boolean
+        default: false
+concurrency:
+  group: orc-fast-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  fast:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false || github.event.action != 'synchronize'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install verification dependencies
+        run: |
+          bash scripts/setup_quality_env.sh
+          echo "$PWD/.venv-quality/bin" >> "$GITHUB_PATH"
+      - name: Focused architecture checks
+        run: |
+          python scripts/check_python_module_size.py
+          python scripts/check_ui_boundaries.py
+      - name: Games panel layout with X11
+        run: xvfb-run -a python -m pytest -q -rs frontends/tk/games/unit_test/test_games_panel_layout.py
+      - name: Unit tests
+        run: |
+          python - <<'PY'
+          from scripts.run_tests import find_suites
+          import subprocess
+          import sys
+          dirs = [str(p) for p in find_suites('unit')]
+          if not dirs:
+              sys.exit('No unit_test directories with test_*.py files found')
+          sys.exit(subprocess.call([sys.executable, '-m', 'pytest', '-q', '--maxfail=1', '--junitxml=unit-test-results.xml', *dirs]))
+          PY
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: orc-unit-test-results
+          path: unit-test-results.xml
+          if-no-files-found: ignore
+  full:
+    if: inputs.full_gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install quality gate dependencies
+        run: |
+          bash scripts/setup_quality_env.sh
+          echo "$PWD/.venv-quality/bin" >> "$GITHUB_PATH"
+      - name: Run portable full quality gate
+        run: python scripts/quality_gate.py

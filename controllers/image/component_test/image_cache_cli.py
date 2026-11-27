@@ -10,18 +10,15 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageEnhance, ImageOps
 
 from controllers.image import ImageCache
-from PIL import Image, ImageEnhance, ImageOps
 
 ASCII_CHARACTERS = " .,:;irsXA253hMHGS#9B&@"
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Image downloader and cache component test"
-    )
+    parser = argparse.ArgumentParser(description="Image downloader and cache component test")
 
     parser.add_argument(
         "url",
@@ -58,6 +55,7 @@ def parse_args() -> argparse.Namespace:
 
     return parser.parse_args()
 
+
 def open_image(image: Image.Image) -> None:
     """
     Save the image to a temporary file and open it using xdg-open.
@@ -77,6 +75,7 @@ def open_image(image: Image.Image) -> None:
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
+
 
 def image_to_terminal_art(
     image: Image.Image,
@@ -123,6 +122,7 @@ def image_to_terminal_art(
 
     return "\n".join(lines)
 
+
 def image_to_ascii(
     image: Image.Image,
     width: int = 80,
@@ -147,11 +147,7 @@ def image_to_ascii(
         for x in range(resized.width):
             value = resized.getpixel((x, y))
 
-            index = round(
-                value
-                * (len(ASCII_CHARACTERS) - 1)
-                / 255
-            )
+            index = round(value * (len(ASCII_CHARACTERS) - 1) / 255)
 
             line.append(ASCII_CHARACTERS[index])
 

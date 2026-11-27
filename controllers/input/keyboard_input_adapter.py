@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from hardware_io.keyboard import KeyboardReaderIf
 from input_events import (
     InputDeviceId,
     InputDeviceType,
@@ -12,7 +13,6 @@ from input_events import (
     InputEventType,
     InputHandlerIf,
 )
-from hardware_io.keyboard import KeyboardReaderIf
 
 
 class KeyboardInputAdapter:
@@ -25,9 +25,7 @@ class KeyboardInputAdapter:
         input_handler: InputHandlerIf,
     ) -> None:
         if device_id.device_type is not InputDeviceType.KEYBOARD:
-            raise ValueError(
-                "KeyboardInputAdapter requires a KEYBOARD device ID"
-            )
+            raise ValueError("KeyboardInputAdapter requires a KEYBOARD device ID")
 
         self._keyboard = keyboard
         self._device_id = device_id

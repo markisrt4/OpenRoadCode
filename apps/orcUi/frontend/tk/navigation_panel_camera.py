@@ -5,8 +5,8 @@
 
 import math
 
-from ui.navigation.map_platform_if import MapPlatform, ExplorationCameraAction
-
+from ui.navigation.map_layer_controls import MapLayerAction, MapLayerControls
+from ui.navigation.map_platform_if import ExplorationCameraAction, MapPlatform
 from ui.navigation.navigation_places_request_handler_if import NavigationCameraState
 
 
@@ -14,7 +14,10 @@ class NavigationCameraControls:
     """Map control behavior on the navigation panel's camera state."""
 
     def _terrain_camera(self, action):
-        if self._map_platform is None or self._map_platform.state.requested is not MapPlatform.CESIUM:
+        if (
+            self._map_platform is None
+            or self._map_platform.state.requested is not MapPlatform.CESIUM
+        ):
             return False
         if action is not None:
             self._map_platform.request_camera(ExplorationCameraAction(action))
@@ -40,7 +43,15 @@ class NavigationCameraControls:
         self._request_handler.request_follow(enabled)
 
     def _pan(self, up: float, right: float) -> None:
-        action = 'pan-up' if up > 0 else 'pan-down' if up < 0 else 'pan-right' if right > 0 else 'pan-left'
+        action = (
+            "pan-up"
+            if up > 0
+            else "pan-down"
+            if up < 0
+            else "pan-right"
+            if right > 0
+            else "pan-left"
+        )
         if self._terrain_camera(action):
             return
         self._map_host.update_idletasks()
@@ -52,7 +63,7 @@ class NavigationCameraControls:
         self._schedule_active_poi_refresh()
 
     def _change_zoom(self, delta: float) -> None:
-        if self._terrain_camera('zoom-in' if delta > 0 else 'zoom-out'):
+        if self._terrain_camera("zoom-in" if delta > 0 else "zoom-out"):
             return
         self._sync_renderer_camera()
         self._zoom_level = max(1, min(22, self._zoom_level + delta))
@@ -61,7 +72,7 @@ class NavigationCameraControls:
         self._schedule_active_poi_refresh()
 
     def _change_pitch(self, delta_deg: float) -> None:
-        if self._terrain_camera('pitch-up' if delta_deg > 0 else 'pitch-down'):
+        if self._terrain_camera("pitch-up" if delta_deg > 0 else "pitch-down"):
             return
         self._sync_renderer_camera()
         pitch_deg = max(0, min(60, math.degrees(self._pitch_rad) + delta_deg))
@@ -82,20 +93,20 @@ class NavigationCameraControls:
         self._schedule_active_poi_refresh()
 
     def _north_up(self) -> None:
-        if self._terrain_camera('north'):
+        if self._terrain_camera("north"):
             return
         self.set_follow_enabled(False)
         self._request_handler.request_bearing(0.0)
 
     def _recenter(self) -> None:
-        if self._terrain_camera('recenter'):
+        if self._terrain_camera("recenter"):
             return
         self.set_follow_enabled(True)
         self._request_handler.request_recenter()
 
     def _toggle_map_dimension(self) -> None:
         """Switch between an overhead view and the tilted building view."""
-        if self._terrain_camera('dimension'):
+        if self._terrain_camera("dimension"):
             return
         self._sync_renderer_camera()
         if self._pitch_rad <= 0:
@@ -106,3 +117,33 @@ class NavigationCameraControls:
         self._request_handler.request_pitch(0.0)
         self._dimension_text.set("3D")
         self._schedule_active_poi_refresh()
+
+    def _apply_layer_controls(self, state: MapLayerControls, terrain: bool) -> None:
+        ui = self._theme_bundle.ui
+        values = {control.action: control for control in state.controls}
+        for action, button in self._layer_buttons.items():
+            control = values.get(action)
+            available = terrain and control is not None and control.available
+            label = (
+                control.label
+                if control
+                else {
+                    MapLayerAction.IMAGERY: "Imagery",
+                    MapLayerAction.BUILDINGS: "Buildings",
+                    MapLayerAction.ROADS: "Roads",
+                    MapLayerAction.PLACES: "Places",
+                    MapLayerAction.RELIEF: "Relief",
+                    MapLayerAction.HEIGHT: "Height 1×",
+                    MapLayerAction.CUES: "Terrain cues",
+                    MapLayerAction.GRID: "Grid",
+                }[action]
+            )
+            enabled = available and control.enabled
+            text = (
+                label if action is MapLayerAction.HEIGHT else f"{'●' if enabled else '○'} {label}"
+            )
+            button.configure(
+                text=text,
+                state="normal" if available else "disabled",
+                fg=ui.accent_primary if enabled else ui.control_text,
+            )

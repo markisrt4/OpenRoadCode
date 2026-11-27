@@ -12,10 +12,7 @@ from security.environment_variable_secret_manager import (
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description=(
-            "Verify that a secrets.env or process-environment secret "
-            "is available."
-        )
+        description=("Verify that a secrets.env or process-environment secret is available.")
     )
     parser.add_argument(
         "name",

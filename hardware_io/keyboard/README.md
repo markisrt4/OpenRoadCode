@@ -29,6 +29,13 @@ flowchart LR
     class reader,iface,adapter orcAdapter;
 ```
 
+## System on-screen keyboards
+
+`SoftKeyboardIf` defines system-keyboard lifecycle separately from physical key
+reading. `ProcessSoftKeyboard` owns an explicitly configured foreground keyboard
+process; it does not select or install a keyboard. See the
+[text input foundation](../../docs/text_input.md) for scope and focus requirements.
+
 ## Keyboard Input
 
 The `KeyboardReader` reports Linux key names such as:

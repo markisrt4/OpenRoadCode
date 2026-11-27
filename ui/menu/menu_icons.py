@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from ui.icon import IconId
 
-
 _MENU_ICONS: dict[str, IconId] = {
     "radio": IconId.RADIO,
     "aircraft": IconId.AIRCRAFT,

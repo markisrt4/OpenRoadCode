@@ -12,7 +12,6 @@ import sys
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 EXCLUDED_PARTS = {
     ".git",
@@ -43,7 +42,7 @@ def _markdown_files() -> list[Path]:
     files: list[Path] = []
     for path in PROJECT_ROOT.rglob("*.md"):
         relative = path.relative_to(PROJECT_ROOT)
-        if EXCLUDED_PARTS.intersection(relative.parts):
+        if any(part in EXCLUDED_PARTS or part.startswith(".venv-") for part in relative.parts):
             continue
         files.append(path)
     return sorted(files)
@@ -97,9 +96,7 @@ def _local_destination(
 def _destinations(markdown: str) -> list[str]:
     """Extract inline, image, and reference-style Markdown destinations."""
     destinations = [match.group(1) for match in INLINE_LINK_PATTERN.finditer(markdown)]
-    destinations.extend(
-        match.group(1) for match in REFERENCE_LINK_PATTERN.finditer(markdown)
-    )
+    destinations.extend(match.group(1) for match in REFERENCE_LINK_PATTERN.finditer(markdown))
     return destinations
 
 
@@ -153,15 +150,13 @@ def main() -> int:
                 target.relative_to(PROJECT_ROOT)
             except ValueError:
                 failures.append(
-                    f"{path.relative_to(PROJECT_ROOT)}: link escapes repository: "
-                    f"{destination}"
+                    f"{path.relative_to(PROJECT_ROOT)}: link escapes repository: {destination}"
                 )
                 continue
 
             if not target.exists():
                 failures.append(
-                    f"{path.relative_to(PROJECT_ROOT)}: missing link target: "
-                    f"{destination}"
+                    f"{path.relative_to(PROJECT_ROOT)}: missing link target: {destination}"
                 )
                 continue
 

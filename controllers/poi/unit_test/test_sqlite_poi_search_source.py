@@ -5,6 +5,8 @@ import math
 import sqlite3
 
 from controllers.poi import PoiCategory, PoiSearchBounds, PoiSearchQuery, TransitMode
+from controllers.poi.business_provider_catalog import get_business_provider
+from controllers.poi.poi_enricher import enrich_poi
 from controllers.poi.sqlite_poi_search_source import SqlitePoiSearchSource
 
 
@@ -30,10 +32,50 @@ def _database(tmp_path):
             ("restaurant", "Lunch", None, 42.50, -83.05, "food", "restaurant", "restaurant", None),
             ("fuel", "Fuel", None, 42.51, -83.04, "fuel", "shop", "fuel", None),
             ("bus", "12 Mile / Ryan", None, 42.52, -83.03, "transit", "bus", "bus_stop", "bus"),
-            ("rail", "Central Station", None, 42.53, -83.02, "transit", "public_transport", "station", "rail"),
-            ("tram", "Streetcar Stop", None, 42.54, -83.01, "transit", "public_transport", "stop_position", "tram"),
-            ("subway", "Subway Stop", None, 42.55, -83.00, "transit", "public_transport", "station", "subway"),
-            ("unknown", "Unknown Transit", None, 42.56, -82.99, "transit", "public_transport", "platform", None),
+            (
+                "rail",
+                "Central Station",
+                None,
+                42.53,
+                -83.02,
+                "transit",
+                "public_transport",
+                "station",
+                "rail",
+            ),
+            (
+                "tram",
+                "Streetcar Stop",
+                None,
+                42.54,
+                -83.01,
+                "transit",
+                "public_transport",
+                "stop_position",
+                "tram",
+            ),
+            (
+                "subway",
+                "Subway Stop",
+                None,
+                42.55,
+                -83.00,
+                "transit",
+                "public_transport",
+                "station",
+                "subway",
+            ),
+            (
+                "unknown",
+                "Unknown Transit",
+                None,
+                42.56,
+                -82.99,
+                "transit",
+                "public_transport",
+                "platform",
+                None,
+            ),
             ("far", "Far Away", None, 44.00, -83.03, "transit", "bus", "bus_stop", "bus"),
         ],
     )
@@ -58,6 +100,25 @@ def test_search_is_bounded_and_category_specific(tmp_path) -> None:
         source.close()
     assert [poi.name for poi in results] == ["Fuel"]
     assert math.isclose(math.degrees(results[0].position.latitude_rad), 42.51)
+
+
+def test_structured_brand_survives_index_read_and_resolves_android_app(tmp_path):
+    path = _database(tmp_path)
+    with sqlite3.connect(path) as connection:
+        connection.execute("ALTER TABLE poi ADD COLUMN brand_wikidata TEXT")
+        connection.execute("ALTER TABLE poi ADD COLUMN operator TEXT")
+        connection.execute(
+            "UPDATE poi SET brand_wikidata='Q7130852', operator='Franchise LLC' WHERE id='restaurant'"
+        )
+    source = SqlitePoiSearchSource(path)
+    try:
+        poi = enrich_poi(source.search(_query(PoiCategory.FOOD))[0])
+    finally:
+        source.close()
+    assert poi.name == "Lunch"
+    assert poi.operator == "Franchise LLC"
+    assert poi.brand == "Panera Bread"
+    assert get_business_provider(poi.actions[0].provider_id).android_package == "com.panera.bread"
 
 
 def test_public_transit_matches_bus_stop_schema(tmp_path) -> None:
@@ -91,7 +152,17 @@ def test_limit_prefers_nearest_pois_instead_of_alphabetical_order(tmp_path) -> N
     connection.executemany(
         "INSERT INTO poi VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         [
-            ("near-z", "Zulu Nearby", None, 42.5005, -83.0005, "food", "restaurant", "restaurant", None),
+            (
+                "near-z",
+                "Zulu Nearby",
+                None,
+                42.5005,
+                -83.0005,
+                "food",
+                "restaurant",
+                "restaurant",
+                None,
+            ),
             ("far-a", "Alpha Far", None, 42.90, -83.80, "food", "restaurant", "restaurant", None),
         ],
     )
@@ -119,8 +190,28 @@ def test_transit_search_deduplicates_same_named_nearby_features(tmp_path) -> Non
     connection.executemany(
         "INSERT INTO poi VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         [
-            ("station-a", "Bricktown", None, 42.333455, -83.041169, "transit", "public_transport", "station", "rail"),
-            ("station-b", "Bricktown", None, 42.333291, -83.041225, "transit", "public_transport", "stop_position", "rail"),
+            (
+                "station-a",
+                "Bricktown",
+                None,
+                42.333455,
+                -83.041169,
+                "transit",
+                "public_transport",
+                "station",
+                "rail",
+            ),
+            (
+                "station-b",
+                "Bricktown",
+                None,
+                42.333291,
+                -83.041225,
+                "transit",
+                "public_transport",
+                "stop_position",
+                "rail",
+            ),
         ],
     )
     connection.commit()

@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import os
+import tempfile
 from collections.abc import Mapping
 from pathlib import Path
 
 from common.xdg_paths import openroadcode_config_dir
+
 from .secret_manager_if import SecretManagerIf
 
 DEFAULT_SECRETS_FILE = Path("/etc/openroadcode/secrets.env")
@@ -20,11 +22,7 @@ def resolve_default_secrets_file() -> Path:
     if override:
         return Path(override).expanduser()
 
-    prefix = os.environ.get("PREFIX", "")
-    if prefix.endswith("/com.termux/files/usr"):
-        return openroadcode_config_dir("secrets.env")
-
-    return DEFAULT_SECRETS_FILE
+    return openroadcode_config_dir("secrets.env")
 
 
 class EnvironmentVariableSecretManager(SecretManagerIf):
@@ -54,12 +52,13 @@ class EnvironmentVariableSecretManager(SecretManagerIf):
     ) -> None:
         if environment is None:
             resolved_secrets_file = (
-                resolve_default_secrets_file()
-                if secrets_file is None
-                else Path(secrets_file)
+                resolve_default_secrets_file() if secrets_file is None else Path(secrets_file)
             )
             self._secrets_file = resolved_secrets_file
-            loaded_environment = self._load_file(resolved_secrets_file)
+            loaded_environment = {}
+            if secrets_file is None and not os.environ.get(OPENROADCODE_SECRETS_FILE_ENV):
+                loaded_environment.update(self._load_file(DEFAULT_SECRETS_FILE))
+            loaded_environment.update(self._load_file(resolved_secrets_file))
             loaded_environment.update(os.environ)
             self._environment: Mapping[str, str] = loaded_environment
         else:
@@ -80,13 +79,13 @@ class EnvironmentVariableSecretManager(SecretManagerIf):
         if not name or not name.strip() or not name.isidentifier():
             raise ValueError("Secret name must be a valid environment variable name")
         normalized = value.strip()
-        if not normalized:
+        if not normalized or "\n" in normalized or "\r" in normalized:
             raise ValueError("Secret value cannot be empty")
         path = self.secrets_file
         if path is None:
             raise RuntimeError("Secret manager has no writable backing file")
 
-        path.parent.mkdir(parents=True, exist_ok=True)
+        path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         existing = self._load_file(path)
         existing[name] = normalized
         lines = [
@@ -94,10 +93,17 @@ class EnvironmentVariableSecretManager(SecretManagerIf):
             *[f"{key}={self._quote_value(item)}" for key, item in sorted(existing.items())],
             "",
         ]
-        temporary = path.with_suffix(path.suffix + ".tmp")
-        temporary.write_text("\n".join(lines), encoding="utf-8")
-        temporary.chmod(0o600)
-        temporary.replace(path)
+        descriptor, filename = tempfile.mkstemp(prefix=".orc-secrets-", dir=path.parent)
+        temporary = Path(filename)
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+                stream.write("\n".join(lines))
+                stream.flush()
+                os.fsync(stream.fileno())
+            temporary.replace(path)
+        finally:
+            temporary.unlink(missing_ok=True)
+        self._environment = {**self._environment, name: os.environ.get(name, normalized)}
 
     @staticmethod
     def _quote_value(value: str) -> str:
@@ -139,10 +145,7 @@ class EnvironmentVariableSecretManager(SecretManagerIf):
             name, separator, value = line.partition("=")
             name = name.strip()
             if not separator or not name.isidentifier():
-                raise ValueError(
-                    f"Invalid secret assignment in {path} "
-                    f"at line {line_number}"
-                )
+                raise ValueError(f"Invalid secret assignment in {path} at line {line_number}")
             value = value.strip()
             if len(value) >= 2 and value[0] == value[-1] == '"':
                 escaped = value[1:-1]

@@ -8,7 +8,9 @@ const context = {window:{}, Float32Array};
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../local_terrain.js'),'utf8'),context);
 const C = {
   EllipsoidTerrainProvider:class {},
-  GeographicTilingScheme:class {},
+  GeographicTilingScheme:class {
+    tileXYToRectangle() { return {west:0,south:0,east:1,north:1}; }
+  },
   CustomHeightmapTerrainProvider:class {
     constructor(options) { this.options=options; }
     getLevelMaximumGeometricError(level) { return 10000/(2**level); }
@@ -29,6 +31,8 @@ test('outside coverage and its outer edge return flat relief', () => {
   assert.equal(terrain.heightAt(0,.8),0);
 });
 test('renderer does not refine beyond the prototype terrain detail limit', () => {
+  assert.equal(terrain.provider.getLevelMaximumGeometricError(5),
+    4*10000/(2**5));
   assert.ok(terrain.provider.getLevelMaximumGeometricError(12)>0);
   assert.equal(terrain.provider.getLevelMaximumGeometricError(13),0);
 });
@@ -58,7 +62,52 @@ test('relief scale replaces cached meshes, keeps source elevations and flattens 
   terrain.setVisible(viewer,false);
   assert.equal(terrain.heightAt(.5,2/3),0);
   terrain.setVisible(viewer,true);
+  terrain.setScale(viewer,4);
+  assert.ok(Math.abs(terrain.heightAt(.5,2/3)-20)<1e-10);
   terrain.setScale(viewer,1);
   assert.ok(Math.abs(terrain.heightAt(.5,2/3)-5)<1e-10);
-  assert.throws(()=>terrain.setScale(viewer,4),/Terrain scale/);
+  assert.throws(()=>terrain.setScale(viewer,5),/Terrain scale/);
+});
+
+test('lazy terrain fetches only intersecting eligible payloads', async () => {
+  let requests=0;
+  context.fetch=async url=>{requests++;assert.equal(url,'/data/terrain/0');return {ok:true,json:async()=>({
+    width:4,height:4,heights_m:Array(16).fill(25),reference_height_m:10,vertical_datum:'NAVD88'})};};
+  const lazy=context.window.ORCLocalTerrain({tiles:[{...data,heights_m:undefined,url:'/data/terrain/0'}],attribution:'USGS'},C);
+  assert.equal(lazy.heightAt(.5,.5),0);
+  await lazy.provider.options.callback(0,0,8);
+  assert.equal(requests,1);
+  assert.equal(lazy.heightAt(.5,.5),10);
+});
+
+test('mosaic tiles retain relief at their shared edge', () => {
+  const west={...data,west_rad:0,east_rad:1,heights_m:Array(16).fill(20),reference_height_m:10};
+  const east={...data,west_rad:1,east_rad:2,heights_m:Array(16).fill(20),reference_height_m:10};
+  const mosaic=context.window.ORCLocalTerrain({tiles:[west,east],attribution:'USGS'},C);
+  assert.equal(mosaic.heightAt(1,.5),10);
+  assert.equal(mosaic.heightAt(1.5,.5),10);
+  assert.equal(mosaic.sourceReliefM,0);
+});
+
+test('source relief scans large packs without spreading samples onto the call stack', () => {
+  const heights=Array(350000).fill(200);
+  heights[1]=125;
+  heights[heights.length-1]=425;
+  const large=context.window.ORCLocalTerrain({...data,width:700,height:500,heights_m:heights},C);
+  assert.equal(large.sourceReliefM,300);
+});
+
+test('LOD terrain uses camera-appropriate samples and stops at its declared limit', async () => {
+  const overview={...data,heights_m:Array(16).fill(20),reference_height_m:10,
+    detail_level:0,minimum_zoom:0};
+  const focus={...data,west_rad:.25,east_rad:.75,south_rad:.25,north_rad:.75,
+    heights_m:Array(16).fill(40),reference_height_m:10,detail_level:2,minimum_zoom:12};
+  const lod=context.window.ORCLocalTerrain({tiles:[overview,focus],attribution:'USGS',maximum_zoom:16},C);
+  const coarse=await lod.provider.options.callback(0,0,8);
+  const detailed=await lod.provider.options.callback(0,0,12);
+  assert.equal(coarse[16*33+16],10);
+  assert.equal(detailed[16*33+16],30);
+  assert.equal(lod.heightAt(.5,.5),30);
+  assert.ok(lod.provider.getLevelMaximumGeometricError(15)>0);
+  assert.equal(lod.provider.getLevelMaximumGeometricError(16),0);
 });

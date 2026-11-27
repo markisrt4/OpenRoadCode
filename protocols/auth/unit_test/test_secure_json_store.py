@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: MIT
 
 import os
-from pathlib import Path
 import stat
 import tempfile
 import unittest
+from pathlib import Path
 
 from protocols.auth.secure_json_store import SecureJsonStore
 

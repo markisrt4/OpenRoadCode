@@ -6,9 +6,9 @@
 import json
 import math
 from dataclasses import dataclass
+from urllib.error import URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
-from urllib.error import URLError
 
 
 @dataclass(frozen=True)
@@ -26,9 +26,13 @@ class CensusGeocoder:
 
     def geocode(self, address: str) -> tuple[AddressMatch, ...]:
         query = urlencode({"address": address, "benchmark": "Public_AR_Current", "format": "json"})
-        request = Request(self.ENDPOINT + "?" + query,
-                          headers={"User-Agent": "OpenRoadCode/1.0 (+https://github.com/markisrt4/OpenRoadCode)",
-                                   "Accept": "application/json"})
+        request = Request(
+            self.ENDPOINT + "?" + query,
+            headers={
+                "User-Agent": "OpenRoadCode/1.0 (+https://github.com/markisrt4/OpenRoadCode)",
+                "Accept": "application/json",
+            },
+        )
         try:
             with self._opener(request, timeout=self._timeout) as response:
                 raw = response.read(1024 * 1024 + 1)
@@ -44,9 +48,16 @@ class CensusGeocoder:
             for item in entries[:5]:
                 coordinates = item["coordinates"]
                 lat, lon = float(coordinates["y"]), float(coordinates["x"])
-                if not (math.isfinite(lat) and math.isfinite(lon) and -90 <= lat <= 90 and -180 <= lon <= 180):
+                if not (
+                    math.isfinite(lat)
+                    and math.isfinite(lon)
+                    and -90 <= lat <= 90
+                    and -180 <= lon <= 180
+                ):
                     continue
                 matches.append(AddressMatch(str(item["matchedAddress"]), lat, lon))
             return tuple(matches)
         except (OSError, URLError, ValueError, KeyError, TypeError) as error:
-            raise RuntimeError("Online address search unavailable. Check internet access and try again.") from error
+            raise RuntimeError(
+                "Online address search unavailable. Check internet access and try again."
+            ) from error

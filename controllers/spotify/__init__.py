@@ -6,7 +6,6 @@
 from controllers.spotify.mock_spotify_controller import MockSpotifyController
 from controllers.spotify.spotify_controller_if import SpotifyControllerIf
 from controllers.spotify.spotify_controller_stub import SpotifyControllerStub
-from ui.media.spotify_library import (SpotifyLibraryTrack)
 from controllers.spotify.spotify_local_player import (
     SpotifyLocalPlayer,
     SpotifyLocalPlayerState,
@@ -17,6 +16,7 @@ from controllers.spotify.spotify_state import SpotifyState
 from controllers.spotify.spotify_state_service import SpotifyStateService
 from controllers.spotify.spotify_web_api_controller import SpotifyWebApiController
 from controllers.spotify.unconfigured_controller import UnconfiguredController
+from ui.media.spotify_library import SpotifyLibraryTrack
 
 __all__ = [
     "MockSpotifyController",

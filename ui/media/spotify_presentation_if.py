@@ -6,8 +6,13 @@ from abc import abstractmethod
 from dataclasses import dataclass
 from typing import Protocol
 
+from ui.media import (
+    PlaybackRequestHandlerIf,
+    SeekRequestHandlerIf,
+    TrackRequestHandlerIf,
+    VolumeRequestHandlerIf,
+)
 from ui.media.media_ui_if import MediaState
-from ui.media import PlaybackRequestHandlerIf, TrackRequestHandlerIf, SeekRequestHandlerIf, VolumeRequestHandlerIf
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,7 +40,9 @@ class SpotifyVideoRequests(Protocol):
         ...
 
 
-class SpotifyRequestHandler(PlaybackRequestHandlerIf, TrackRequestHandlerIf, SeekRequestHandlerIf, VolumeRequestHandlerIf):
+class SpotifyRequestHandler(
+    PlaybackRequestHandlerIf, TrackRequestHandlerIf, SeekRequestHandlerIf, VolumeRequestHandlerIf
+):
     """Semantic controls bound only for the active presentation."""
 
     @abstractmethod
@@ -105,7 +112,17 @@ class SpotifyNativeSurface(Protocol):
         """
         ...
 
-    def embed(self, process_id: int, host_window_id: int, width: int, height: int, *, window_name: str | None = None, window_class: str | None = None, relax_size_hints: bool = False) -> int:
+    def embed(
+        self,
+        process_id: int,
+        host_window_id: int,
+        width: int,
+        height: int,
+        *,
+        window_name: str | None = None,
+        window_class: str | None = None,
+        relax_size_hints: bool = False,
+    ) -> int:
         """! @brief Attach a native process window.
 
         @param process_id Browser process to attach.

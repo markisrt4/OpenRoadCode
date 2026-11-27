@@ -4,7 +4,7 @@
   "description": "Broadcast FM radio presets",
   "launch": {
     "label": "Launch",
-    "subtitle": "SDR++ FM",
+    "subtitle": "SDRForge FM",
     "detail": "Toggles FM Receiver"
   },
   "radio": {
@@ -15,7 +15,7 @@
   "default_mode": {
     "name": "WFM",
     "bandwidth": 180000,
-    "step_hz": 100000
+    "step_hz": 200000
   },
   "presets": [
     {
@@ -52,8 +52,8 @@
     }
   ],
   "range": {
-    "min_frequency_hz": 87500000,
-    "max_frequency_hz": 108000000,
+    "min_frequency_hz": 88100000,
+    "max_frequency_hz": 107900000,
     "start_frequency_hz": 88100000
   }
 }

@@ -21,9 +21,7 @@ class VisionUiIf(ABC):
         ...
 
     @abstractmethod
-    def set_vision_request_handler(
-        self, handler: VisionRequestHandlerIf | None
-    ) -> None:
+    def set_vision_request_handler(self, handler: VisionRequestHandlerIf | None) -> None:
         """Connect or disconnect semantic vision requests.
 
         @param handler Request receiver, or None to disconnect controls.

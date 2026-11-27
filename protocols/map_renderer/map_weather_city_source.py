@@ -3,8 +3,8 @@
 
 """Read viewport city names from the native map without interfering with POIs."""
 
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
 from queue import Empty, SimpleQueue
 from threading import Thread
 
@@ -33,11 +33,19 @@ def decode_city_result(payload):
         if not isinstance(item, dict):
             continue
         name, latitude, longitude = item.get("name"), item.get("latitude"), item.get("longitude")
-        if (not isinstance(name, str) or not name.strip() or len(name) > 160
-                or not isinstance(latitude, (int, float)) or isinstance(latitude, bool)
-                or not isinstance(longitude, (int, float)) or isinstance(longitude, bool)
-                or not math.isfinite(latitude) or not math.isfinite(longitude)
-                or not -90 <= latitude <= 90 or not -180 <= longitude <= 180):
+        if (
+            not isinstance(name, str)
+            or not name.strip()
+            or len(name) > 160
+            or not isinstance(latitude, (int, float))
+            or isinstance(latitude, bool)
+            or not isinstance(longitude, (int, float))
+            or isinstance(longitude, bool)
+            or not math.isfinite(latitude)
+            or not math.isfinite(longitude)
+            or not -90 <= latitude <= 90
+            or not -180 <= longitude <= 180
+        ):
             continue
         city = RawWeatherCity(name.strip(), round(latitude, 5), round(longitude, 5))
         if city not in cities:

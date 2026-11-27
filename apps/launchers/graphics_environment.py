@@ -103,7 +103,4 @@ def _freedreno_icd_present(prefix: str) -> bool:
         Path(prefix) / "share" / "vulkan" / "icd.d",
         Path(prefix) / "etc" / "vulkan" / "icd.d",
     )
-    return any(
-        any(icd_dir.glob("*freedreno*.json"))
-        for icd_dir in icd_directories
-    )
+    return any(any(icd_dir.glob("*freedreno*.json")) for icd_dir in icd_directories)

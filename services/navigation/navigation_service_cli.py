@@ -6,34 +6,30 @@
 from __future__ import annotations
 
 import argparse
-import os
 import logging
+import os
 import sys
-from common.logging.structured import configure_logging, event
 from pathlib import Path
 
+from common.logging.structured import configure_logging, event
+from config.service_runtime_config import NavigationServiceRuntimeConfig, ServiceRuntimeConfigParser
+from controllers.cache import PersistentCache
 from controllers.geocoding.sqlite_geocoder import SqliteGeocoder
-from config.service_runtime_config import (
-    NavigationServiceRuntimeConfig,
-    ServiceRuntimeConfigParser,
-)
 from controllers.navigation import (
     AndroidNavigationSensor,
     GpsdNavigationAdapter,
     Mpu6050NavigationAdapter,
     NavigationController,
+    PersistentPositionSource,
+    PositionSnapshotCache,
 )
 from controllers.navigation.android_position_source import AndroidPositionSource
 from controllers.navigation.browser_position_source import BrowserPositionSource
 from controllers.navigation.fallback_position_source import FallbackPositionSource
-from controllers.navigation.route_simulation_if import RouteSimulationIf
 from controllers.navigation.route_playback_position_source import RoutePlaybackPositionSource
-from controllers.navigation.simulated_ground_motion_source import (
-    SimulatedGroundMotionSource,
-)
-from controllers.navigation.simulated_navigation_sensor import (
-    SimulatedNavigationSensor,
-)
+from controllers.navigation.route_simulation_if import RouteSimulationIf
+from controllers.navigation.simulated_ground_motion_source import SimulatedGroundMotionSource
+from controllers.navigation.simulated_navigation_sensor import SimulatedNavigationSensor
 from controllers.navigation.simulated_position_source import SimulatedPositionSource
 from controllers.route_planning.valhalla_route_planning_controller import (
     ValhallaRoutePlanningController,
@@ -107,25 +103,19 @@ def _android_bridge_url(configured: str) -> str:
 
 def _build_motion_sensor(config: NavigationServiceRuntimeConfig):
     if config.imu.source == "simulation":
-        return SimulatedNavigationSensor(
-            profile=config.imu.simulation.profile
-        )
+        return SimulatedNavigationSensor(profile=config.imu.simulation.profile)
 
     if config.imu.device == "android":
-        client = AndroidSensorBridgeClient(
-            base_url=_android_bridge_url(config.imu.bridge_url)
-        )
+        client = AndroidSensorBridgeClient(base_url=_android_bridge_url(config.imu.bridge_url))
         return AndroidNavigationSensor(AndroidImu(client))
 
     if config.imu.device == "mpu6050":
-        return Mpu6050NavigationAdapter(
-            Mpu6050Imu(address=config.imu.address)
-        )
+        return Mpu6050NavigationAdapter(Mpu6050Imu(address=config.imu.address))
 
     raise ValueError(f"Unsupported IMU device: {config.imu.device}")
 
 
-def _build_position_source(config: NavigationServiceRuntimeConfig):
+def _build_position_source(config: NavigationServiceRuntimeConfig, *, host_location_source=None):
     if config.gps.source == "simulation":
         simulation = config.gps.simulation
         return SimulatedPositionSource(
@@ -137,7 +127,9 @@ def _build_position_source(config: NavigationServiceRuntimeConfig):
         )
 
     if config.gps.source == "browser":
-        return _browser_position_source()
+        return (
+            host_location_source if host_location_source is not None else _browser_position_source()
+        )
 
     if config.gps.device == "android":
         live_source = AndroidPositionSource(
@@ -149,20 +141,22 @@ def _build_position_source(config: NavigationServiceRuntimeConfig):
         raise ValueError(f"Unsupported GPS device: {config.gps.device}")
 
     if _host_location_fallback_available():
-        live_source = FallbackPositionSource(live_source, _browser_position_source())
+        live_source = FallbackPositionSource(
+            live_source,
+            host_location_source
+            if host_location_source is not None
+            else _browser_position_source(),
+        )
     return RoutePlaybackPositionSource(live_source)
 
 
 def _host_location_fallback_available() -> bool:
-    """Check the running host, not the saved deployment/build target."""
-    if (sys.platform != "linux" or os.environ.get("TERMUX_VERSION")
-            or os.environ.get("PREFIX", "").startswith("/data/data/com.termux/")):
-        return False
-    try:
-        model = Path("/proc/device-tree/model").read_text(encoding="utf-8", errors="ignore")
-    except OSError:
-        model = ""
-    return "Raspberry Pi" not in model
+    """Enable local browser location on Linux hosts with a desktop browser."""
+    return (
+        sys.platform == "linux"
+        and not os.environ.get("TERMUX_VERSION")
+        and not os.environ.get("PREFIX", "").startswith("/data/data/com.termux/")
+    )
 
 
 def _browser_position_source() -> BrowserPositionSource:
@@ -187,19 +181,14 @@ def _build_ground_motion_source(config: NavigationServiceRuntimeConfig):
 def build_controller(config: NavigationServiceRuntimeConfig, *, position_source=None):
     """Build the configured pre-publication navigation solution pipeline."""
     if config.solution.algorithm != "complementary_filter":
-        raise ValueError(
-            "Unsupported navigation solution algorithm: "
-            f"{config.solution.algorithm}"
-        )
+        raise ValueError(f"Unsupported navigation solution algorithm: {config.solution.algorithm}")
 
     if position_source is None:
         position_source = _build_position_source(config)
 
     return NavigationController(
         sensor=_build_motion_sensor(config),
-        filter_time_constant_s=(
-            config.solution.complementary_filter.time_constant_s
-        ),
+        filter_time_constant_s=(config.solution.complementary_filter.time_constant_s),
         gps_source=position_source,
         ground_motion_source=_build_ground_motion_source(config),
     )
@@ -215,9 +204,7 @@ def build_route_planning_controller(
         return None
 
     if route_config.backend != "valhalla":
-        raise ValueError(
-            f"Unsupported route-planning backend: {route_config.backend}"
-        )
+        raise ValueError(f"Unsupported route-planning backend: {route_config.backend}")
 
     client = ValhallaHttpClient(
         route_config.base_url,
@@ -249,13 +236,20 @@ def main() -> int:
         print("Navigation service disabled by runtime configuration")
         return 0
 
-    position_source = _build_position_source(config)
+    host_location_source = (
+        _browser_position_source() if _host_location_fallback_available() else None
+    )
+    position_source = _build_position_source(config, host_location_source=host_location_source)
+    route_simulator = position_source if isinstance(position_source, RouteSimulationIf) else None
+    if system.position_cache.enabled and config.gps.source != "simulation":
+        position_source = PersistentPositionSource(
+            position_source,
+            PositionSnapshotCache(PersistentCache(system.position_cache.directory)),
+            max_age_seconds=system.position_cache.max_age_seconds,
+        )
     controller = build_controller(config, position_source=position_source)
     route_planning_controller = build_route_planning_controller(config)
     geocoder = build_geocoder(args.search_database)
-    route_simulator = (
-        position_source if isinstance(position_source, RouteSimulationIf) else None
-    )
 
     publish_source = config.publish.source
     publisher = ZeroMqPublisher(system.messaging.publisher_endpoint)
@@ -269,6 +263,7 @@ def main() -> int:
         route_planning_controller=route_planning_controller,
         geocoder=geocoder,
         route_simulator=route_simulator,
+        host_location_source=host_location_source,
     )
 
     print("OpenRoadCode navigation service")
@@ -284,13 +279,25 @@ def main() -> int:
     if geocoder is not None:
         print(f"  search database:   {Path(args.search_database).expanduser()}")
     print(f"  route simulation:  {'available' if route_simulator is not None else 'disabled'}")
+    print(
+        "  position cache:    "
+        f"{'disabled' if not system.position_cache.enabled else f'{system.position_cache.max_age_seconds:g}s'}"
+    )
     print(f"  telemetry ingress: {system.messaging.publisher_endpoint}")
     print(f"  command endpoint:  {config.command_endpoint}")
     print(f"  publish rate:      {config.rate_hz:g} Hz")
     print(f"  publish source:    {publish_source}")
     print("Ctrl+C to stop")
 
-    event(logger, logging.INFO, "service.started", "Navigation service started", profile=profile, publisher_endpoint=system.messaging.publisher_endpoint, command_endpoint=config.command_endpoint)
+    event(
+        logger,
+        logging.INFO,
+        "service.started",
+        "Navigation service started",
+        profile=profile,
+        publisher_endpoint=system.messaging.publisher_endpoint,
+        command_endpoint=config.command_endpoint,
+    )
     try:
         runtime.run()
     except KeyboardInterrupt:

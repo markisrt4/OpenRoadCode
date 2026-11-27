@@ -11,7 +11,6 @@ import re
 import sys
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 EXCLUDED_PARTS = {".git", ".venv", "venv", "__pycache__"}
 PARAM_PATTERN = r"(?m)^\s*[@\\]param(?:\s+\[[^]]+\])?\s+{name}\b"
@@ -50,7 +49,10 @@ def main() -> int:
     checked_methods = 0
 
     for path in sorted(PROJECT_ROOT.rglob("*_if.py")):
-        if EXCLUDED_PARTS.intersection(path.parts):
+        if any(
+            part in EXCLUDED_PARTS or part.startswith(".venv-")
+            for part in path.relative_to(PROJECT_ROOT).parts
+        ):
             continue
 
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -77,18 +79,12 @@ def main() -> int:
                     continue
 
                 for parameter in _parameters(method):
-                    pattern = re.compile(
-                        PARAM_PATTERN.format(name=re.escape(parameter))
-                    )
+                    pattern = re.compile(PARAM_PATTERN.format(name=re.escape(parameter)))
                     if not pattern.search(docstring):
-                        failures.append(
-                            f"{location}: missing @param {parameter}"
-                        )
+                        failures.append(f"{location}: missing @param {parameter}")
 
                 if _returns_value(method) and not RETURN_PATTERN.search(docstring):
-                    failures.append(
-                        f"{location}: missing @return or @retval"
-                    )
+                    failures.append(f"{location}: missing @return or @retval")
 
     if failures:
         print("\n".join(failures), file=sys.stderr)
@@ -98,10 +94,7 @@ def main() -> int:
         )
         return 1
 
-    print(
-        f"Validated Doxygen contracts for {checked_methods} public "
-        "interface methods."
-    )
+    print(f"Validated Doxygen contracts for {checked_methods} public interface methods.")
     return 0
 
 

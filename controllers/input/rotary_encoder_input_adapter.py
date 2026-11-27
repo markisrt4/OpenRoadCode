@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from hardware_io.rotary_encoder.rotary_encoder_if import RotaryEncoderIf
 from input_events import (
     InputDeviceId,
     InputDeviceType,
@@ -12,7 +13,6 @@ from input_events import (
     InputEventType,
     InputHandlerIf,
 )
-from hardware_io.rotary_encoder.rotary_encoder_if import RotaryEncoderIf
 
 
 class RotaryEncoderInputAdapter:
@@ -25,10 +25,7 @@ class RotaryEncoderInputAdapter:
         input_handler: InputHandlerIf,
     ) -> None:
         if device_id.device_type is not InputDeviceType.ROTARY_ENCODER:
-            raise ValueError(
-                "RotaryEncoderInputAdapter requires a "
-                "ROTARY_ENCODER device ID"
-            )
+            raise ValueError("RotaryEncoderInputAdapter requires a ROTARY_ENCODER device ID")
 
         self._encoder = encoder
         self._device_id = device_id

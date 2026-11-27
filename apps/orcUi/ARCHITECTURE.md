@@ -1,5 +1,11 @@
 # orcUi Architecture
 
+The composition resolves the checkout branch once at startup and injects the
+application name into the shell. Non-`master` branches appear as
+`OpenRoadCode [branch] | SCREEN`; master, detached HEAD and installed builds
+outside a checkout retain the normal name. Git is not queried by widgets or
+on screen changes. Restart ORC after switching branches to refresh the label.
+
 ## Saved destinations
 
 Home and Work use the existing places request contract and POI popup. A shortcut
@@ -16,6 +22,50 @@ its composition root owns the local geocoder and whiptail adapter. See
 `apps/orcUi` is the application assembly and runtime layer for the integrated OpenRoadCode UI. It also owns presentation that is specific to the orcUi application itself.
 
 OpenRoadCode deliberately separates semantic UI contracts, reusable behavior, reusable frontend rendering, application-specific presentation, host/platform adapters, and application composition so that a feature can be presented by Tk, web, Android, or another frontend without moving its controller logic into the application shell.
+
+## Application-wide notifications
+
+Notifications are semantic events, not widget commands. The toolkit-independent
+contract lives in `ui/notification_if.py`: an immutable `Notification` carries
+`code`, `title`, `message`, `severity` (`info`, `warning`, `error`,
+`critical`), and `source`. A `NotificationSinkIf.publish(notification)`
+accepts these events. Controllers and adapters must not import Tkinter or draw
+errors into a native spectrum, waterfall, or browser surface.
+
+The application composition injects `app.notification_sink` into the radio
+receiver session. ADS-B and RF launch failures publish distinct stable codes
+(`adsb.launch_failed` and `radio.launch_failed`). The composition-owned
+`apps/orcUi/notification_dispatcher.py` logs **every** notification,
+deduplicates on-screen delivery by source and code for five seconds, and
+schedules the presenter on the UI thread using `OrcUiApp.dispatch_ui`.
+Logging and deduplication are independent: repeated errors remain in logs.
+
+The Tk application owns `apps/orcUi/frontend/tk/error_dialog.py`. It uses a
+separate themed, dismissible `tk.Toplevel`, never inline native content.
+The current presenter uses this dialog for all severities; severity-specific
+toasts, modal priority, and notification history are future enhancements.
+`OrcUiApp.show_error(title, message)` remains available for older callers,
+but new integrations should publish structured notifications.
+
+Example from a controller with an injected `notification_sink`:
+
+```python
+from ui.notification_if import Notification, NotificationSeverity
+
+notification_sink.publish(
+    Notification(
+        code="adsb.launch_failed",
+        title="ADS-B Map Unavailable",
+        message="The local ADS-B map service could not be reached.",
+        severity=NotificationSeverity.ERROR,
+        source="adsb",
+    )
+)
+```
+
+The ADS-B launcher checks dashboard reachability before embedding its browser.
+Its map service (typically port 8081) is independent of SDRForge REST (typically
+port 5570). Failure to reach the former must not be reported as an RF failure.
 
 ## Tk control chrome
 
@@ -301,7 +351,7 @@ Restart and poweroff requests flow through `SystemLifecycleRequestHandlerIf`. `S
 
 ## Feature composition
 
-`composition/radio.py` wires application-owned radio services to reusable Tk radio presentation and the ORC-specific radio shell. SDR++/ADS-B presentation details stay outside the reusable radio package. ADS-B host/config lifecycle is an ORC adapter, while managed process lifetime remains explicitly owned.
+`composition/radio.py` wires application-owned radio services to reusable Tk radio presentation and the ORC-specific radio shell. native RF/ADS-B presentation details stay outside the reusable radio package. ADS-B host/config lifecycle is an ORC adapter, while managed process lifetime remains explicitly owned.
 
 `composition/media.py` wires shared Spotify services, local-player behavior, image/lyrics/video dependencies, and reusable Tk media screens. Spotify synchronization and local-player behavior remain under `controllers/spotify`; ORC-selected browser and Web Playback hosts live under `apps/orcUi/adapters`.
 
@@ -343,6 +393,13 @@ New features should follow the same sequence: define semantic contracts, impleme
 `theme_runtime.py` resolves `ThemeBundle` values from the shared CSS-derived theme model. Concrete frontends paint those values. Runtime-specific consequences, such as installing a MapLibre style, belong to the runtime that owns that renderer rather than to the shell.
 
 Semantic theme intent may originate from the active application shell. Provider-specific brand colors are allowed where intentional, but application chrome should continue to come from the shared theme model.
+
+The local Cesium building layer uses camera-height level of detail because OSM
+height coverage is incomplete. Regional views suppress building geometry;
+city-scale views retain explicit tagged heights; close views additionally show
+floor-count estimates. Generic-height placeholders remain hidden. This is a
+presentation policy in the local Cesium adapter and does not rewrite or imply
+greater accuracy in the immutable downloaded OSM building pack.
 
 ## Lifecycle
 
@@ -548,6 +605,32 @@ so a late successful handoff cannot close a replacement popup. Closed sessions
 discard completions. Canonical POI values include the validated website as well
 as missing-index error reporting. Platform launchers are injected by composition.
 
+Dynamic search markers cross renderer boundaries as immutable `PoiOverlayState`
+snapshots. Composition wraps the native map request handler so MapLibre remains
+the authoritative request consumer while the active Cesium runtime receives the
+same complete marker replacement. Cesium updates its owned browser through the
+embedded-viewer adapter; widgets do not evaluate JavaScript or inspect renderer
+state. While MapLibre is stopped for Cesium, `PoiSearchController` uses its
+existing offline nearby-position query instead of waiting for a viewport reply
+from the stopped renderer. Stale Cesium generations reject queued overlay work.
+Offline road tiles expose roads and settlement names through separate Cesium
+data sources and controls, allowing label rendering to be disabled independently.
+Cesium POI entity clicks return only the selected semantic marker identifier
+through `MapMarkerSelectionSourceIf`; the existing places controller resolves
+that identifier against its current result set and the Tk view presents the same
+place card and Navigate request used by MapLibre.
+Cesium uses the MapLibre search-result category palette and glyph semantics but
+reveals names on hover or selection. This avoids drawing every name in a tilted
+scene, where Cesium dynamic entities have no equivalent of MapLibre symbol
+collision placement.
+
+Active routes follow the same boundary. `RouteOverlayController` merges the
+navigation service's route result and guidance messages into an immutable,
+SI-normalized `RouteOverlayState`. Composition sends complete replacements to
+the Cesium runtime, which caches them across renderer switches and rejects stale
+viewer generations. The web frontend only draws the terrain-clamped route,
+destination, and current maneuver; it owns no routing or guidance policy.
+
 Termux updates retain `--renderer-only` and the configurable renderer build
 directory. Full navigation updates always rebuild the ORC-owned renderer, while
 MapLibre retains its build-state checks.
@@ -597,7 +680,7 @@ Strict mypy includes the streaming contracts, controller, browser, transport,
 Tk browser/theme/Home widgets, radio screen, and composition. Structural witnesses
 check actual implementations against their contracts. The migrated streaming
 frontends have no backend import exceptions; thirteen prior exceptions are removed.
-`ReceiverSession` now owns RF profile/telemetry and native SDR++/ADS-B operations
+`ReceiverSession` now owns RF profile/telemetry and native RF and ADS-B operations
 on the composition-owned serial RF worker. `RadioEntryPanel` receives factories
 and `RadioPanel` emits immutable `RadioRequest` values; neither owns launch workers.
 Persistent Aircraft menu requests and receiver-status inspection use the same
@@ -616,3 +699,18 @@ Tk owns encoded artwork decoding and native host rendering. See
 The media hub retains its compact account row through `SpotifyAccountSession`,
 and its shared now-playing preview is closed alongside the presentation sessions.
 Preview cleanup errors do not prevent other owned resources from closing.
+
+
+The top-level composition resource owner is implemented in
+`composition/application_resources.py` and re-exported from
+`composition/application.py`. It owns startup, appointment polling, and shutdown
+for both the current master features and retained Waze/Waydroid/location resources.
+`application.py` continues to construct and inject those dependencies.
+
+
+Quality-gate module boundaries keep Android platform discovery with
+`composition/business_apps.py`, initial Terrain state with the existing
+application resource helpers, POI card construction in
+`frontend/tk/navigation_poi_card_layout.py`, and shell widget construction in
+`frontend/tk/shell_construction.py`. The original frontend entry points delegate
+to these helpers, retaining their lifecycle and request contracts.

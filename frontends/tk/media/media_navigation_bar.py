@@ -16,9 +16,15 @@ class MediaNavigationBar(tk.Frame, UiWidget):
     """Return to the media hub or Home without duplicating provider controls."""
 
     def __init__(
-        self, parent: tk.Misc, *, theme_bundle: Callable[[], ThemeBundle],
-        active: str, show_media: Callable[[], None], show_home: Callable[[], None],
-        show_spotify: Callable[[], None], show_youtube: Callable[[], None],
+        self,
+        parent: tk.Misc,
+        *,
+        theme_bundle: Callable[[], ThemeBundle],
+        active: str,
+        show_media: Callable[[], None],
+        show_home: Callable[[], None],
+        show_spotify: Callable[[], None],
+        show_youtube: Callable[[], None],
         show_netflix: Callable[[], None],
     ) -> None:
         ui = theme_bundle().ui
@@ -28,10 +34,18 @@ class MediaNavigationBar(tk.Frame, UiWidget):
             ("HOME", show_home, tk.RIGHT),
         ):
             tk.Button(
-                self, text=text, command=command,
-                bg=ui.control_background, fg=ui.control_text,
-                activebackground=ui.control_active, activeforeground=ui.text,
-                relief=tk.FLAT, bd=0, font=("Sans", 9, "bold"),
-                padx=12, pady=6, cursor="hand2",
-                                 highlightthickness=0,
+                self,
+                text=text,
+                command=command,
+                bg=ui.control_background,
+                fg=ui.control_text,
+                activebackground=ui.control_active,
+                activeforeground=ui.text,
+                relief=tk.FLAT,
+                bd=0,
+                font=("Sans", 9, "bold"),
+                padx=12,
+                pady=6,
+                cursor="hand2",
+                highlightthickness=0,
             ).pack(side=side)

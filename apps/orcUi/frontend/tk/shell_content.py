@@ -8,20 +8,24 @@ from __future__ import annotations
 import tkinter as tk
 
 from ui.theme import ThemeBundle
+
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
 
 
-def panel(parent: tk.Misc, title: str, accent: str, *, theme: ThemeBundle) -> tk.Frame:
+def panel(
+    parent: tk.Misc, title: str, accent: str, *, theme: ThemeBundle, icon: str = ""
+) -> tk.Frame:
     ui = theme.ui
     frame = tk.Frame(
         parent,
         bg=ui.surface,
         highlightthickness=1,
-        highlightcolor=ui.border, highlightbackground=ui.border,
+        highlightcolor=ui.border,
+        highlightbackground=ui.border,
     )
     tk.Label(
         frame,
-        text=title,
+        text=f"{icon}  {title}" if icon else title,
         fg=accent,
         bg=ui.surface,
         font=("Sans", FONT_CONTROL + 1, "bold"),

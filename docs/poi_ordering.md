@@ -1,11 +1,44 @@
 # Ordering and websites from a POI
 
+Leaving an embedded Android app for Settings or another ORC screen unmaps the
+borrowed Weston window before returning it to the desktop root. This prevents
+the window manager from displaying Waze outside ORC during the handoff. The
+Android session remains running. Optional live host-to-Waydroid GPS setup and
+its visibility lifecycle are documented in
+[the Waze investigation](waze_android_investigation.md#host-location-sharing-and-waydroid-gps).
+
 Select a food marker in Navigation, then choose ORDER or WEBSITE. ORDER appears
 for businesses with a configured ordering integration (currently Panera and
 McDonald's). WEBSITE appears whenever the POI has a valid OSM website link.
 An independent restaurant's website may offer ordering, but ORC does not assume
 that every website is an ordering service. Cached POI data remains searchable
 offline; Order and Website require ORC's online mode.
+
+## Associating brands with Android apps
+
+The registry is data-driven, rather than a list of individual store locations:
+
+| Catalog | Purpose |
+| --- | --- |
+| `controllers/poi/catalog/businesses/*.toml` | Canonical provider ID, brand name, exact aliases, optional Wikidata IDs and capabilities |
+| `controllers/poi/catalog/integrations/android.toml` | Provider ID → Android package |
+| `controllers/poi/catalog/integrations/web.toml` | Provider ID → ordering website fallback |
+
+Matching prefers OSM `brand:wikidata`, then exact normalized `brand`, `operator`,
+and finally the POI name. Punctuation and case are ignored; substring guessing is
+not used. Panera's structured identity is `Q7130852`. The app mapping remains
+`panera` → `com.panera.bread`. Existing McDonald's entries remain supported.
+
+Newly built search indexes retain `brand:wikidata` and `operator`. Older installed
+indexes still work with brand/name matching; rebuilding the index is only needed
+to gain the extra structured metadata. No runtime OSM/Wikidata lookup is needed.
+
+To add a brand, add its canonical business entry and verified platform entries
+using the same provider ID. Add regression cases for aliases and metadata
+precedence. A supported package is checked against the installed apps at launch;
+the registry does not claim that every store has an installed app. The current
+Panera integration opens the app, not a store-specific deep link. Only add such
+links when the provider's supported format and store identifier are verified.
 
 | Platform | ORDER | WEBSITE |
 | --- | --- | --- |
@@ -30,6 +63,383 @@ items, and payment in the restaurant app or site. Some providers require their
 mobile app for ordering; a fallback website cannot add ordering capabilities that
 the provider does not offer.
 
+### Experimental Linux Android panel
+
+On `feature/waze-live-map`, Linux can opt into presenting successful Waydroid
+ORDER launches inside ORC. Start exactly one **dedicated nested Weston**, using
+the standard `Weston Compositor` X11 class, and start Android there before ORC.
+Use `wayland-0`; a custom socket previously left Android's hardware compositor
+looking at the wrong display. See [VM setup](waze_android_investigation.md).
+For this dedicated nested desktop, use Weston's `--idle-time=0` startup option
+to prevent its idle lock screen from appearing inside ORC. Host desktop locking
+is unchanged.
+Do not use a Weston instance containing unrelated desktop work: the whole nested
+compositor window is borrowed and resized, including its desktop chrome.
+Use the dedicated [kiosk launcher](waze_android_investigation.md) for the resize
+experiment. Desktop-shell maximization previously left Android at 567x505 when
+ORC expanded; resizing the outer X11 frame alone did not resolve it.
+
+Launch ORC from the normal X11 desktop:
+
+```bash
+git switch feature/waze-live-map
+git pull --ff-only
+source venv/bin/activate
+ORC_WAYDROID_PANEL=1 ./runOrcUi
+```
+
+Select a Panera POI and ORDER. A successful Android launch queues presentation
+on the UI thread and opens an Android app screen with Back to Navigation.
+The breadcrumb is NAV followed by the installed app's display name. The default
+view has equal map-left/app-right panes. Full screen app fills the content area; Split
+view restores both panes without restarting Android or its current activity.
+The map uses the existing renderer lifecycle and stops when expanded or hidden.
+After each split mount, ORC replays the retained Navigation camera (including
+zoom, center, pitch and bearing), markers and vehicle position. Startup replays
+are bounded and canceled when the map is hidden; it no longer starts in the
+renderer dataset overview by omission.
+This is a map presentation, not a second copy of Navigation's POI/route controls.
+The
+external-window root lookup uses `xwininfo` from `x11-utils` (included by the
+desktop and Waydroid setup scripts).
+The screen fills the landscape content area. ORC does not stretch individual Android
+app contents or force their orientation; portrait-only app compatibility layout
+and any side margins remain Android-controlled and need device validation.
+Termux's native Bridge behavior and desktop browser fallbacks remain unchanged.
+Missing/multiple Weston windows produce a panel launch error rather than choosing
+an arbitrary compositor. Turn off the flag to return to external handoff behavior.
+
+Back hides/detaches Weston without stopping Android, its apps, or navigation.
+Reopening ORDER remaps it inside ORC. Closing ORC detaches borrowed windows to the
+X11 root before destroying its own host. A theme change repaints ORC chrome without
+restarting Android. ORC borrows the compositor, without owning the Android session.
+The POI launcher already selected the app, so the view no longer calls
+`waydroid show-full-ui`: Waydroid 1.6.2 uses that command to select the whole
+Android desktop and write `policy_control=null*`, resetting the app launch policy.
+Use Waydroid's normal controls to stop navigation or Android.
+
+VM validation: open Panera, expand, restore split, Back, reopen, resize ORC, switch theme, then close
+ORC. Confirm the app remains available using `waydroid app list` and Android can
+still be shown. Test portrait margins explicitly; the current patch does not add
+an Android orientation override. Graphical Waydroid testing is pending on the VM;
+focused automated checks cover launch/fallback, queued shutdown and borrowed-window
+cleanup. The full quality gate remains a user-run check before merge.
+
+#### Narrow portrait layouts on the VM
+
+The outer pane can grow, but a portrait-only Android activity may remain
+letterboxed. Shrinking the desktop can leave that compatibility viewport below
+the app's usable logical width. ORC does not stretch the bitmap to hide this.
+On the dedicated experimental VM, record Android's existing density, then try a
+lower density to provide more logical space within the portrait viewport:
+
+```bash
+git switch feature/waze-live-map
+sudo waydroid shell -- wm density | tee /tmp/orc-waydroid-density-before.txt
+sudo waydroid shell -- wm density 120
+```
+
+This is an optional diagnostic affecting all Android apps in this VM, not a
+per-app ORC default. Text becomes smaller. If it helps, test readability and touch
+targets; if not, revert. If the recorded output listed an Override density,
+restore that exact value using `wm density VALUE`. If it listed only Physical
+density, remove the diagnostic override:
+
+```bash
+git switch feature/waze-live-map
+sudo waydroid shell -- wm density reset
+```
+
+Expanding ORC alone does not change a portrait-only Android activity. The
+following **optional, VM-wide landscape experiment** uses commands verified in
+LineageOS 20 / Android 13's WindowManager shell source. It saves user rotation,
+fixed-to-user-rotation, ignore-orientation-request and force-resizable settings
+before changing them. It does not assume that rotation 1 always means landscape:
+the nested Waydroid display can have natural landscape at rotation 0.
+
+With Waydroid running, select Full screen app first, then run from the normal desktop:
+
+```bash
+git switch feature/waze-live-map
+python3 scripts/waydroid_landscape.py apply
+```
+
+This uses sudo for Android shell access and affects every app on Android display
+0 in this VM. It is not ORC's default or a per-app guarantee. Close Panera from
+Android Recents and reopen it via ORDER if the current activity keeps its old
+layout. Portrait-only applications may render badly even when forced resizable;
+app compatibility still requires a device test. To undo:
+
+```bash
+git switch feature/waze-live-map
+python3 scripts/waydroid_landscape.py restore
+```
+
+The backup is kept under the desktop user's state directory until restore
+succeeds. Partial failures retain it. Do not repeatedly apply without restoring.
+
+#### Hide Android status/navigation bars (optional VM setup)
+
+Frame trimming is automatic, with no trim toggle in the ordinary toolbar.
+ORC's Back/Expand controls remain outside the clipped viewport.
+This does not hide Android system bars globally or change app permissions. The
+initial desktop-shell trim is 32 pixels at the top and 48 at the bottom, sized for
+the nested Weston panel and navigation area on this VM. With the kiosk launcher,
+the live process marker selects zero top crop because there is no desktop panel.
+Waydroid's app-first launch requests
+immersive status mode; ORC does not reset it by opening full desktop mode again.
+Different density/chrome sizes can require adjustment. Full screen/Split does not
+relaunch the app. Toolbar buttons use ORC control colors in dark and light mode.
+
+The earlier helper used `policy_control`. Upstream LineageOS removed that hook,
+but Waydroid's Android 13 vendor patches reimplement it. The earlier inference
+from upstream source alone was incomplete: our own `show-full-ui` call also
+reset the setting on presentation. The helper did not reliably hide bars in the
+tested integration; do not keep reapplying it. If it was applied, restore it:
+
+```bash
+git switch feature/waze-live-map
+bash development/debian/waydroid_system_bars.sh restore
+```
+
+For older images only, the helper's one-time admin action requires sudo and a running Waydroid. It saves the
+previous setting under the desktop user's state directory, refuses to overwrite
+an existing immersive policy, and does not add privileges to the ORC UI. A literal
+`null*` placeholder is accepted and saved exactly for restoration. The
+setting persists until restored, including outside ORC. To undo:
+
+```bash
+git switch feature/waze-live-map
+bash development/debian/waydroid_system_bars.sh restore
+```
+
+If another tool changed the policy afterward, restore refuses to overwrite it.
+The helper is tested against a fake settings store; actual Android bar behavior
+remains a VM validation step.
+
+#### Diagnose a POI popup that does not reopen
+
+The VM trace showed that a click after Back to map reached ORC with Panera's
+correct marker ID/index, followed by selection mismatch/missed events. The
+session wrapper still called search.clear() during close, emptying the shared
+metadata despite the retained markers. Close now only releases transient source
+resources; explicit Clear/Search actions retain their metadata-clearing behavior.
+A regression test exercises the factory and real session wrapper across close
+and remount, reproduces the failure with the old close behavior, and passes with
+the fix. Actual popup behavior still needs a VM retry.
+
+POI polling also rearms after recoverable errors. Stream lifetime, named selection
+and popup handoff diagnostics distinguish transport/selection failures from
+presentation failures if another symptom occurs.
+
+```bash
+git switch feature/waze-live-map
+ORC_LOG_COMPONENT_LEVELS='navigation.poi=DEBUG,map_renderer=DEBUG' ORC_WAYDROID_PANEL=1 ./runOrcUi --follow-logs --log-level DEBUG 2>&1 | tee /tmp/orc-poi-reopen.log
+```
+
+`--log-level DEBUG` is necessary for the live viewer as well as collection; the
+old command enabled component debug records but left the viewer at INFO.
+Open Panera's popup, leave Navigation, press Back to map to return to full
+Navigation, and click the same marker several
+times. Close ORC and collect the focused excerpt (debug clicks can include
+coordinates; redact them if desired):
+
+```bash
+git switch feature/waze-live-map
+grep -E -A8 -B2 'navigation.poi|map.clicked|showing POI|Traceback' /tmp/orc-poi-reopen.log | tail -n 160
+```
+
+#### Expand sizing
+
+ORC now flushes Tk's pending grid geometry before resizing the borrowed window
+and reapplies the current dimensions after a short compositor settle interval.
+Obsolete callbacks are rejected on hide/reopen. This prevents the immediate resize
+from using the old split-pane allocation. The VM previously reported Android's
+physical display as 567x505 even while ORC was expanded, with no persistent size
+override. After updating, verify both the visible app width and `wm size`; the
+Tk geometry test alone does not prove Waydroid adopted the new output mode.
+
+The kiosk launcher is the next resize experiment. Its output-resize handler
+explicitly reconfigures fullscreen Wayland clients, avoiding dependence on
+whether Android's desktop-mode surface remained maximized. This has source-level
+support in Weston 13; actual Waydroid split/expand behavior needs VM validation.
+
+The subsequent VM screenshots still showed clipped split content and a narrow
+expanded activity. Do not infer success from the outer pane dimensions. Capture
+both modes without closing ORC or changing Android settings between captures:
+
+```bash
+git switch feature/waze-live-map
+sudo -v
+python3 scripts/probe_waydroid_embedding.py --mode split
+```
+
+Then click Full screen app and run:
+
+```bash
+git switch feature/waze-live-map
+python3 scripts/probe_waydroid_embedding.py --mode expanded
+```
+
+The read-only probe reports the Weston client's parent-relative offsets, its
+actual dimensions, the hosting parent's dimensions, Android physical/override
+size, rotation, density, and Panera window rectangles. It does not collect app UI
+contents, GPS or the rest of the host window inventory. Android queries use
+noninteractive sudo after the explicit credential refresh above; missing results
+are labeled instead of blocking on an unseen password prompt. Parser tests pass;
+native sizing still needs the two VM snapshots before another geometry change.
+
+The collected snapshots subsequently confirmed that the host pipeline resizes:
+split was 566x586 for both Weston and Android, and expanded was 1132x586 for
+both. Panera itself used bounds [8,0][559,586] in split and [429,0][704,586]
+when expanded: Android constrained the expanded activity to 275 pixels wide.
+Persistent Waydroid width/height overrides were empty. Further X11 scaling is
+not justified by those measurements.
+
+The next targeted Android 13 experiment is the per-app `FORCE_RESIZE_APP`
+compatibility change (174042936), whose framework documentation explicitly
+allows app resizing when the display container changes size. This is separate
+from the global developer resizable setting. It restarts Panera; test before
+entering an order, then reopen through ORDER:
+
+```bash
+git switch feature/waze-live-map
+sudo waydroid shell -- am compat enable FORCE_RESIZE_APP com.panera.bread
+```
+
+Test Split/Expand and capture the same two snapshots if it remains constrained.
+This is a source-verified command, not a verified Panera compatibility result.
+Reset only this experiment (not all application compatibility settings) with:
+
+```bash
+git switch feature/waze-live-map
+sudo waydroid shell -- am compat reset FORCE_RESIZE_APP com.panera.bread
+```
+
+The VM test of this override did not produce a usable result: split content
+remained displaced and the expanded view could become blank. Reset the override
+before further testing. `am compat enable/reset` stops the app process to apply
+the change; it does not automatically reopen Panera in the existing ORC panel.
+After resetting, explicitly launch Panera again:
+
+```bash
+git switch feature/waze-live-map
+sudo waydroid shell -- am compat reset FORCE_RESIZE_APP com.panera.bread
+waydroid app launch com.panera.bread
+```
+
+If the app briefly fills the display and then shrinks, do not infer that it
+relocked portrait solely from the transition. The expanded probe now reports
+Panera's requested orientation separately from Android's effective override,
+size-compat scale/insets, and the evaluated per-app compatibility overrides.
+Known flags, default values and explicit enabled overrides are distinct. The
+probe omits other applications' records and app UI contents. Leave the failing
+view expanded after it settles and capture it without changing flags again:
+
+The first report returned no orientation fields because the probe requested a
+summary activity dump and assumed a single space in the `Hist #` header. It now
+requests `dumpsys activity -a activities` and accepts Android's variable spacing.
+Compatibility entries also report whether Panera appears anywhere in the change
+record, so missing evaluated override data is not silently treated as disabled.
+
+```bash
+git switch feature/waze-live-map
+sudo -v
+python3 scripts/probe_waydroid_embedding.py --mode expanded
+```
+
+The user confirmed fullscreen worked after enabling the two activity-orientation
+overrides. Keep those enabled. The resize override had previously been reset
+during portrait diagnosis; the next targeted split-view test enables it alongside
+the working orientation overrides, instead of testing either treatment alone:
+
+```bash
+git switch feature/waze-live-map
+sudo waydroid shell -- am compat enable FORCE_RESIZE_APP com.panera.bread
+waydroid app launch com.panera.bread
+```
+
+Android stops Panera when applying the change; the launch command reopens it.
+The framework's `shouldCreateCompatDisplayInsets()` skips frozen launch bounds
+when `supportsSizeChanges()` reports the per-app override. Whether that resolves
+the remaining split clipping is still a VM test, not established by source alone.
+The probe now includes `supports_size_changes` to check the effective mode.
+The toolbar action is labeled **FULL SCREEN APP** when split, and **SPLIT VIEW**
+when full width.
+
+For a stable bad frame, compare Android's own framebuffer with the ORC view in
+the same mode before changing any more geometry/orientation settings:
+
+```bash
+git switch feature/waze-live-map
+sudo waydroid shell -- screencap -p > /tmp/orc-android-screen.png
+```
+
+Capture after the launch has settled, not immediately after `am compat` stopped
+the app. Compare the PNG with a simultaneous ORC screenshot: a correct Android
+frame with a displaced hosted image points to the compositor/view transform;
+a displaced Android frame points to Android/app layout. No app data is cleared
+by reset/relaunch or by this screen capture.
+
+The clean-reset Android framebuffer remained narrow, with a possible brief
+full-width frame at app startup. That confirms letterboxing inside Android,
+not just displacement in ORC. The next orientation-specific experiment replaces
+the activity's own requested orientation. In LineageOS 20's
+[LetterboxUiController](https://github.com/LineageOS/android_frameworks_base/blob/lineage-20.0/services/core/java/com/android/server/wm/LetterboxUiController.java),
+`OVERRIDE_ANY_ORIENTATION` lets the override apply even to a fixed portrait
+request, and `OVERRIDE_UNDEFINED_ORIENTATION_TO_NOSENSOR` replaces that request
+with the display's natural orientation. An app can opt out through its manifest
+compatibility property, and the installed image must recognize these change
+names; neither outcome is established until the VM test.
+
+Keep ORC expanded so the display is landscape. These commands stop Panera to
+apply the overrides; the last command reopens it:
+
+```bash
+git switch feature/waze-live-map
+sudo waydroid shell -- am compat enable OVERRIDE_ANY_ORIENTATION com.panera.bread
+sudo waydroid shell -- am compat enable OVERRIDE_UNDEFINED_ORIENTATION_TO_NOSENSOR com.panera.bread
+waydroid app launch com.panera.bread
+```
+
+If a change name is unknown, retain that error rather than substituting an
+unchecked numeric ID. Reset just these two experimental overrides with:
+
+```bash
+git switch feature/waze-live-map
+sudo waydroid shell -- am compat reset OVERRIDE_ANY_ORIENTATION com.panera.bread
+sudo waydroid shell -- am compat reset OVERRIDE_UNDEFINED_ORIENTATION_TO_NOSENSOR com.panera.bread
+waydroid app launch com.panera.bread
+```
+
+POI result metadata is now scoped to the factory alongside retained renderer
+markers. Returning to Navigation creates fresh event transports and action
+sessions but preserves the marker-to-business lookup, so an existing Panera
+marker remains selectable without running a new search. Explicitly clearing or
+replacing search results also clears or replaces this metadata.
+
+Focused validation for the remount, consent recovery and system-bar helper:
+
+```bash
+git switch feature/waze-live-map
+python -m pytest controllers/poi/unit_test/test_poi_search_controller.py apps/orcUi/composition/unit_test/test_navigation_places.py apps/launchers/unit_test/test_host_location_permission.py controllers/navigation/unit_test/test_host_location_settings_controller.py scripts/unit_test/test_waydroid_system_bars.py -q
+```
+
+Focused local validation:
+
+```bash
+git switch feature/waze-live-map
+python -m pytest apps/orcUi/composition/unit_test/test_android_app_view.py apps/launchers/unit_test/test_android_app_launcher.py apps/orcUi/composition/unit_test/test_application.py apps/orcUi/composition/unit_test/test_waze.py frontends/x11/unit_test/test_x11_window_embedder.py frontends/tk/media/unit_test/test_android_app_screen.py -q
+```
+
+If ORC has closed and the borrowed Weston window remains hidden, remap it from
+the normal X11 terminal (after confirming only the dedicated compositor exists):
+
+```bash
+git switch feature/waze-live-map
+xdotool search --class '^Weston Compositor$' windowmap
+```
+
 ## Login sessions
 
 ORC hands off to the restaurant app or the desktop's configured browser and does
@@ -42,6 +452,47 @@ browser's controls. Test retention by signing in, reopening from the same POI,
 and restarting ORC before reopening again. No purchase is needed for this test.
 
 ## Updating and testing
+
+### Confirmed split-view clipping fix (Waydroid / nested Weston)
+
+On the Ubuntu VMware test VM, Android's screenshot and app bounds were correct
+at 567×586, but the embedded split pane showed only the right half of the app.
+Disabling Waydroid's separate background subsurface fixed both split and expanded
+presentation in the device test. The setting persists; it needs to be applied
+once, followed by a Waydroid session restart. Keep the working per-app orientation
+overrides. No additional FORCE_RESIZE_APP override was needed for this result.
+
+Close ORC first. With the dedicated Weston compositor still running:
+
+```bash
+git switch feature/waze-live-map
+waydroid prop set persist.waydroid.no_background_subsurface true
+waydroid session stop
+WAYLAND_DISPLAY=wayland-0 waydroid session start
+```
+
+Leave that terminal running, then launch ORC in another terminal:
+
+```bash
+git switch feature/waze-live-map
+source venv/bin/activate
+ORC_WAYDROID_PANEL=1 ./runOrcUi
+```
+
+Verify FULL SCREEN APP → SPLIT VIEW → FULL SCREEN APP, including mouse/touch
+alignment. To undo the background setting, set the same property to `false` and
+restart the Waydroid session with ORC closed. This is a tested configuration for
+this VM, not a claim that all Waydroid devices require it.
+
+### Automatic output resize recovery
+
+The embedded Waydroid panel checks Android's reported output dimensions after
+split/fullscreen changes. If nested Weston accepts the X11 size but Android
+misses the output update, ORC retries with a brief two-pixel width nudge, then
+restores the requested size. This bounded recovery runs outside the UI thread
+and is cancelled by a newer resize or leaving the panel. It does not change
+Android compatibility settings or restart the app. On the VM, alternate FULL
+SCREEN APP and SPLIT VIEW and allow several seconds for output recovery.
 
 Update either platform:
 
@@ -59,3 +510,8 @@ should open the web destination. Select a POI with an OSM website and confirm
 WEBSITE opens on both platforms. During a slow launch the map should remain
 responsive and repeated clicks should not start additional launches. Switch
 OFFLINE and confirm neither online action can launch, while Navigate still works.
+
+## Business registry
+
+For NSI-backed business identity, approved search-result logos and the Android
+**OPEN / INSTALL APP** action, see [Business registry](business_registry.md).

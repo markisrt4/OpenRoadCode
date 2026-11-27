@@ -34,8 +34,9 @@ class EcuAnimationMixin:
             self._queue_engine_animation()
 
     def _visual_analysis(self) -> EngineAnalysis:
-        running = visual_engine_running(self._vehicle_state.engine_speed_rpm,
-                                        self._analysis.engine_running)
+        running = visual_engine_running(
+            self._vehicle_state.engine_speed_rpm, self._analysis.engine_running
+        )
         return replace(self._analysis, engine_running=running)
 
     def _paint_animation_status(self) -> None:
@@ -71,8 +72,8 @@ class EcuAnimationMixin:
             self._queue_engine_animation()
 
     def _queue_engine_animation(self) -> None:
-        if (self._animation_enabled and self.winfo_exists()
-                and self._animation_job is None):
+        if self._animation_enabled and self.winfo_exists() and self._animation_job is None:
             self._animation_job = self.after(
-                50 if self._engine_gl is not None else 83, self._schedule_engine_animation,
+                50 if self._engine_gl is not None else 83,
+                self._schedule_engine_animation,
             )

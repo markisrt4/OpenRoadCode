@@ -7,8 +7,10 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from itertools import pairwise
 
 from controllers.route_planning.route_planning_types import GeoPoint, RouteResult
+
 from .route_guidance_types import RouteGuidanceState
 
 _EARTH_RADIUS_MILES = 3958.7613
@@ -44,9 +46,7 @@ class RouteGuidanceController:
         if on_route_threshold_miles <= 0.0:
             raise ValueError("on_route_threshold_miles must be positive")
         if on_route_threshold_miles > off_route_threshold_miles:
-            raise ValueError(
-                "on_route_threshold_miles must not exceed off_route_threshold_miles"
-            )
+            raise ValueError("on_route_threshold_miles must not exceed off_route_threshold_miles")
 
         self._off_route_threshold_miles = off_route_threshold_miles
         self._on_route_threshold_miles = on_route_threshold_miles
@@ -87,11 +87,7 @@ class RouteGuidanceController:
         )
 
         maneuver_index = self._maneuver_index_for_progress(progress)
-        maneuver = (
-            None
-            if maneuver_index is None
-            else self._route.maneuvers[maneuver_index]
-        )
+        maneuver = None if maneuver_index is None else self._route.maneuvers[maneuver_index]
         distance_to_maneuver = (
             None
             if maneuver is None
@@ -155,9 +151,7 @@ class RouteGuidanceController:
                 segment_index=index,
                 segment_fraction=fraction,
                 distance_from_route_miles=distance,
-                distance_along_route_miles=(
-                    self._cumulative[index] + fraction * segment_length
-                ),
+                distance_along_route_miles=(self._cumulative[index] + fraction * segment_length),
             )
             if best is None or candidate.distance_from_route_miles < best.distance_from_route_miles:
                 best = candidate
@@ -170,9 +164,7 @@ class RouteGuidanceController:
         start: GeoPoint,
         end: GeoPoint,
     ) -> tuple[float, float]:
-        reference_lat = math.radians(
-            (point.latitude + start.latitude + end.latitude) / 3.0
-        )
+        reference_lat = math.radians((point.latitude + start.latitude + end.latitude) / 3.0)
         miles_per_lat_degree = math.pi * _EARTH_RADIUS_MILES / 180.0
         miles_per_lon_degree = miles_per_lat_degree * math.cos(reference_lat)
 
@@ -198,10 +190,8 @@ class RouteGuidanceController:
     @staticmethod
     def _build_cumulative_distances(shape: tuple[GeoPoint, ...]) -> tuple[float, ...]:
         distances = [0.0]
-        for start, end in zip(shape, shape[1:]):
-            distances.append(
-                distances[-1] + RouteGuidanceController._distance_miles(start, end)
-            )
+        for start, end in pairwise(shape):
+            distances.append(distances[-1] + RouteGuidanceController._distance_miles(start, end))
         return tuple(distances)
 
     @staticmethod

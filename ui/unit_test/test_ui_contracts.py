@@ -64,8 +64,7 @@ class UiContractTests(unittest.TestCase):
 
     def test_screen_contract_exposes_lifecycle_and_actions(self) -> None:
         self.assertTrue(
-            {"screen_id", "show", "hide", "handle_ui_action"}
-            <= ScreenUiIf.__abstractmethods__
+            {"screen_id", "show", "hide", "handle_ui_action"} <= ScreenUiIf.__abstractmethods__
         )
         self.assertIsInstance(ScreenUiStub(), ScreenUiIf)
 

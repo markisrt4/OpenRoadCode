@@ -52,15 +52,9 @@ def _distance_km(
     dlat = lat2 - lat1
     dlon = math.radians(poi_longitude - longitude)
     haversine = (
-        math.sin(dlat / 2.0) ** 2
-        + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2.0) ** 2
+        math.sin(dlat / 2.0) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2.0) ** 2
     )
-    return (
-        2.0
-        * _EARTH_RADIUS_M
-        * math.asin(min(1.0, math.sqrt(haversine)))
-        / 1000.0
-    )
+    return 2.0 * _EARTH_RADIUS_M * math.asin(min(1.0, math.sqrt(haversine))) / 1000.0
 
 
 def _parse_args() -> argparse.Namespace:
@@ -143,7 +137,7 @@ def main() -> int:
         distance_km = _distance_km(args.lat, args.lon, latitude, longitude)
         print(
             f"{distance_km:6.2f} km  {latitude:.6f},{longitude:.6f}  {poi.name}  "
-            f'class={poi.source_class or ""} subclass={poi.source_subclass or ""}'
+            f"class={poi.source_class or ''} subclass={poi.source_subclass or ''}"
         )
     return 0
 

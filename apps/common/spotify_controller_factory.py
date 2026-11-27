@@ -6,7 +6,12 @@
 from __future__ import annotations
 
 from controllers.spotify import SpotifyControllerIf, SpotifyWebApiController, UnconfiguredController
-from protocols.spotify import SpotifyAuth, SpotifyTokenStore, SpotifyWebApiClient, load_spotify_config_from_secrets
+from protocols.spotify import (
+    SpotifyAuth,
+    SpotifyTokenStore,
+    SpotifyWebApiClient,
+    load_spotify_config_from_secrets,
+)
 from security.environment_variable_secret_manager import EnvironmentVariableSecretManager
 from security.secret_manager_if import SecretManagerIf
 

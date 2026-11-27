@@ -3,9 +3,9 @@
 
 """Tests for ADS-B dashboard launch behavior."""
 
+import subprocess
 import tempfile
 import unittest
-import subprocess
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -28,9 +28,7 @@ class AdsbLauncherTest(unittest.TestCase):
             content = config_path.read_text(encoding="utf-8")
             self.assertIn("darkModeDefault = false;", content)
             self.assertIn("loStore.darkMode = false;", content)
-            launcher.browser.set_preferred_color_scheme.assert_called_once_with(
-                "light"
-            )
+            launcher.browser.set_preferred_color_scheme.assert_called_once_with("light")
 
     @patch("apps.launchers.adsb_launcher._set_systemd_service_state")
     def test_reachable_dashboard_opens_without_receiver_hardware(
@@ -49,12 +47,7 @@ class AdsbLauncherTest(unittest.TestCase):
         set_service_state.assert_called_once_with("readsb", "start")
         launcher._wait_for_readsb.assert_not_called()
         launcher.browser.launch.assert_called_once_with(":0", status)
-        self.assertTrue(
-            any(
-                "without live data" in call.args[0]
-                for call in status.call_args_list
-            )
-        )
+        self.assertTrue(any("without live data" in call.args[0] for call in status.call_args_list))
 
     @patch("apps.launchers.adsb_launcher.shutil.which", return_value=None)
     @patch("apps.launchers.adsb_launcher.subprocess.run")

@@ -3,29 +3,52 @@
 
 """Adapt POI discovery, saved places, and platform actions to UI contracts."""
 
-from common.logging.diagnostics import ComponentLog, diagnostic_action
 import logging
 import math
-
-from common.logging.structured import current_operation, operation
-from dataclasses import replace
 import threading
-from queue import SimpleQueue, Empty
 from collections.abc import Callable
+from dataclasses import replace
+from queue import Empty, SimpleQueue
+
+from common.logging.diagnostics import ComponentLog, diagnostic_action
+from common.logging.structured import current_operation, operation
+from controllers.navigation.map_favorites import MapFavorites
+from controllers.poi.poi_action_executor_if import PoiActionExecutorIf
+from controllers.poi.poi_search_controller_if import PoiSearchControllerIf
 from protocols.map_renderer.map_poi_source import RawMapCamera
 from ui.navigation import GeoPoint
-
-from controllers.navigation.map_favorites import MapFavorites
-from controllers.poi.poi_search_controller_if import PoiSearchControllerIf
-from controllers.poi.poi_action_executor_if import PoiActionExecutorIf
-from ui.navigation.navigation_places_request_handler_if import MapFavorite, NavigationPlacesRequestHandlerIf, NavigationCameraState, PlaceActionResult
-from ui.navigation.poi_models import PoiAction, PoiActionKind, PoiCategory, PoiSearchResult, PointOfInterest, TransitMode
+from ui.navigation.navigation_places_request_handler_if import (
+    MapFavorite,
+    NavigationCameraState,
+    NavigationPlacesRequestHandlerIf,
+    PlaceActionResult,
+)
+from ui.navigation.poi_models import (
+    PoiAction,
+    PoiActionKind,
+    PoiAppAvailability,
+    PoiAppStatus,
+    PoiCategory,
+    PointOfInterest,
+    PoiSearchResult,
+    TransitMode,
+)
 
 
 class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
     """Own one search session while sharing durable favorites and action adapters."""
 
-    def __init__(self, search: PoiSearchControllerIf, favorites: MapFavorites, actions: PoiActionExecutorIf, *, online_allowed: Callable[[], bool] = lambda: True, camera_observer=None, local_3d_action=None):
+    def __init__(
+        self,
+        search: PoiSearchControllerIf,
+        favorites: MapFavorites,
+        actions: PoiActionExecutorIf,
+        *,
+        online_allowed: Callable[[], bool] = lambda: True,
+        camera_observer=None,
+        local_3d_action=None,
+        app_availability=None,
+    ):
         self._diagnostics = ComponentLog("navigation.poi.actions", "poi")
         self._search = search
         self._favorites = favorites
@@ -38,40 +61,117 @@ class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
         self._action_lock = threading.Lock()
         self._action_pending = False
         self._action_id = 0
+        self._app_availability = app_availability
+        self._app_status_results = SimpleQueue()
+        self._app_status_id = 0
+        self._app_status_pending = None
+        self._app_status_running = False
+
+    def request_app_status(self, poi: PointOfInterest) -> int | None:
+        with self._action_lock:
+            if self._closed or self._app_availability is None:
+                return None
+            self._app_status_id += 1
+            request_id = self._app_status_id
+            self._app_status_pending = (request_id, poi)
+            if self._app_status_running:
+                return request_id
+            self._app_status_running = True
+        try:
+            threading.Thread(
+                target=self._check_app_status, name="poi-app-status", daemon=True
+            ).start()
+        except RuntimeError:
+            with self._action_lock:
+                self._app_status_running = False
+                pending, self._app_status_pending = self._app_status_pending, None
+                if not self._closed and pending is not None:
+                    failed_id, failed_poi = pending
+                    self._app_status_results.put(
+                        PoiAppStatus(failed_id, failed_poi.poi_id, PoiAppAvailability.UNKNOWN)
+                    )
+        return request_id
+
+    def _check_app_status(self):
+        while True:
+            with self._action_lock:
+                pending, self._app_status_pending = self._app_status_pending, None
+                if self._closed or pending is None:
+                    self._app_status_running = False
+                    return
+            request_id, poi = pending
+            try:
+                availability = self._app_availability(poi)
+            except Exception:
+                availability = PoiAppAvailability.UNKNOWN
+            if not isinstance(availability, PoiAppAvailability):
+                availability = PoiAppAvailability.UNKNOWN
+            with self._action_lock:
+                if not self._closed and request_id == self._app_status_id:
+                    self._app_status_results.put(PoiAppStatus(request_id, poi.poi_id, availability))
+
+    def poll_app_status(self) -> PoiAppStatus | None:
+        if self._closed:
+            return None
+        try:
+            return self._app_status_results.get_nowait()
+        except Empty:
+            return None
 
     def favorite(self, key: str) -> MapFavorite | None:
         if self._closed:
             return None
-        if key not in {'home', 'work'}:
-            raise ValueError(f'Unknown destination shortcut: {key}')
-        return self._favorites.home if key == 'home' else self._favorites.work
+        if key not in {"home", "work"}:
+            raise ValueError(f"Unknown destination shortcut: {key}")
+        return self._favorites.home if key == "home" else self._favorites.work
 
     def search(self, category: PoiCategory, transit_mode: TransitMode = TransitMode.ALL) -> None:
         if not self._closed:
             self._search.search(category, transit_mode)
 
     def poll_search_result(self) -> PoiSearchResult | None:
-        return None if self._closed else self._search.poll_search_result()
+        result = None if self._closed else self._search.poll_search_result()
+        if not isinstance(result, PoiSearchResult):
+            return result
+        # The Places drawer opens these values directly. Give it the same
+        # capabilities as a marker selection instead of relying on map clicks.
+        return replace(
+            result, pois=tuple(self._with_exploration_actions(poi) for poi in result.pois)
+        )
 
     def poll_selected(self) -> PointOfInterest | None:
         poi = None if self._closed else self._search.poll_selected()
+        return self._with_exploration_actions(poi)
+
+    def _with_exploration_actions(self, poi):
         if not isinstance(poi, PointOfInterest):
             return poi
         latitude = math.degrees(poi.position.latitude_rad)
         longitude = math.degrees(poi.position.longitude_rad)
-        if not (math.isfinite(latitude) and math.isfinite(longitude)
-                and -90 <= latitude <= 90 and -180 <= longitude <= 180):
+        if not (
+            math.isfinite(latitude)
+            and math.isfinite(longitude)
+            and -90 <= latitude <= 90
+            and -180 <= longitude <= 180
+        ):
             return poi
-        action = PoiAction(PoiActionKind.OPEN_WEBSITE, "Explore in Google Earth",
-                           provider_id="google-earth-explore",
-                           uri=(f"https://earth.google.com/web/@{latitude:.7f},{longitude:.7f},"
-                                "0a,1000d,35y,0h,45t,0r"))
+        action = PoiAction(
+            PoiActionKind.OPEN_WEBSITE,
+            "Explore in Google Earth",
+            provider_id="google-earth-explore",
+            uri=(
+                f"https://earth.google.com/web/@{latitude:.7f},{longitude:.7f},"
+                "0a,1000d,35y,0h,45t,0r"
+            ),
+        )
         actions = tuple(a for a in poi.actions if a.provider_id != "google-earth-explore")
         actions = actions + (action,)
         if self._local_3d_action is not None:
             local_action = self._local_3d_action(poi)
             if local_action is not None:
-                actions = tuple(a for a in actions if a.kind is not PoiActionKind.EXPLORE_3D) + (local_action,)
+                actions = tuple(a for a in actions if a.kind is not PoiActionKind.EXPLORE_3D) + (
+                    local_action,
+                )
         return replace(poi, actions=actions)
 
     def poll_camera_interaction(self) -> bool:
@@ -80,9 +180,9 @@ class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
     @diagnostic_action("launch")
     def execute(self, poi: PointOfInterest, action: PoiAction) -> str:
         if self._closed:
-            raise RuntimeError('Navigation places session is closed')
+            raise RuntimeError("Navigation places session is closed")
         if action.kind is not PoiActionKind.EXPLORE_3D and not self._online_allowed():
-            raise ValueError('Offline mode: go online to order or open websites')
+            raise ValueError("Offline mode: go online to order or open websites")
         try:
             return self._actions.execute(poi, action)
         except ValueError:
@@ -94,13 +194,16 @@ class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
     def poll_camera_state(self) -> NavigationCameraState | None:
         if self._closed:
             return None
-        poll = getattr(self._search, 'poll_camera_state', None)
+        poll = getattr(self._search, "poll_camera_state", None)
         raw = poll() if poll else None
         if not isinstance(raw, RawMapCamera):
             return None
         camera = NavigationCameraState(
             GeoPoint(math.radians(raw.latitude), math.radians(raw.longitude)),
-            raw.zoom, math.radians(raw.bearing), math.radians(raw.pitch))
+            raw.zoom,
+            math.radians(raw.bearing),
+            math.radians(raw.pitch),
+        )
         if self._camera_observer is not None:
             self._camera_observer(camera.center, camera.zoom, camera.bearing_rad, camera.pitch_rad)
         return camera
@@ -114,6 +217,7 @@ class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
             request_id = self._action_id
         with operation(current_operation()) as operation_id:
             self._diagnostics.emit(logging.DEBUG, "action_requested")
+
         def launch():
             with operation(operation_id):
                 complete()
@@ -122,19 +226,20 @@ class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
             try:
                 result = PlaceActionResult(request_id, self.execute(poi, action), True)
             except (RuntimeError, ValueError) as error:
-                result = PlaceActionResult(request_id, f'Launch failed: {error}', False)
+                result = PlaceActionResult(request_id, f"Launch failed: {error}", False)
             with self._action_lock:
                 self._action_pending = False
                 if not self._closed:
                     self._action_results.put(result)
                 else:
                     self._diagnostics.emit(logging.DEBUG, "result_discarded")
+
         try:
-            threading.Thread(target=launch, name='orc-poi-launch', daemon=True).start()
+            threading.Thread(target=launch, name="orc-poi-launch", daemon=True).start()
         except Exception as error:
             with self._action_lock:
                 self._action_pending = False
-            self._diagnostics.failed('worker_start', error, operation_id)
+            self._diagnostics.failed("worker_start", error, operation_id)
             raise
         return request_id
 
@@ -154,7 +259,7 @@ class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
         if self._closed:
             return
         self._closed = True
-        try:
-            self._search.clear()
-        finally:
-            self._search.close()
+        # Leaving Navigation closes transient queues/transports, not the search
+        # represented by retained renderer markers. Only explicit clear/search
+        # actions may invalidate their shared selection metadata.
+        self._search.close()

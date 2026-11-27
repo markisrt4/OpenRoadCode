@@ -1,0 +1,420 @@
+# Michigan detail and national map delivery plan
+
+Status: Michigan building delivery is implemented on `navigation-cesium`; the
+higher-resolution and national stages below are proposals, not completed builds.
+The existing OSM building extractor, state catalog, staged-raster discovery,
+MBTiles imagery reader, terrain mosaics, artifact checksums, and atomic installers
+remain the foundation. Navigation/search/routing remain separate products.
+
+## 1. Michigan buildings: current implementation
+
+Use the eight existing Michigan regional definitions, extending the two southern
+building envelopes from 41.7 to 41.69 to include the checked-in state boundary
+near 41.696089. Western Lower Peninsula building envelopes extend to -87.0
+(including New Buffalo), and Upper Peninsula building envelopes extend south
+to 45.0 (including Menominee). A CI test checks every vertex of the checked-in
+Michigan boundary. Existing terrain/imagery bounds remain unchanged. Each region reuses the
+Michigan Geofabrik PBF and emits a checked building ZIP, descriptor, and report.
+Relations, courtyards, parts and base offsets use the same schema-3 geometry as
+Metro Detroit. A component belongs to the first matching region by centroid;
+this assigns overlapping Upper/Lower Peninsula envelopes consistently. Complete
+footprints may extend over the owning region's edge. Parts are associated before
+ownership filtering so a neighboring region's part can suppress the parent roof.
+The source extract is Michigan, not a strict political-boundary clip; envelopes
+include neighboring areas/water and unrecorded OSM buildings cannot be invented.
+
+Each pack retains the 1,024 tile / 10,000 outlines / 10 MiB-per-tile ceilings.
+Regional delivery budgets are 256 MiB ZIP / 1 GiB extracted per region; Metro's
+128 MiB / 512 MiB limits remain unchanged. These are limits, not predicted sizes.
+The viewer mounts the installed regional catalogs together, namespaces tile IDs,
+and keeps four active tiles, two pending loads, and at most 512 building entities
+per active tile. Southeast supersedes the overlapping Metro building pack in the
+viewer; Metro's installed revision is retained. Partial regional installs work.
+
+GitHub target `michigan-buildings` builds all eight with two concurrent workers;
+`michigan-staged` includes this stage. Download finished artifacts to the device;
+no device PBF build or USGS export is needed. `--michigan-directory` preflights all
+eight archives before installation; each region activates independently and
+retains its previous revision. A later failure can leave earlier regions updated;
+rerun to finish. This is not a single atomic eight-region transaction.
+
+Acceptance: all eight reports validated; common source snapshot reviewed; cross-
+region navigation and pans; Chrysler parts; residential estimates; Grand Rapids,
+Lansing, Traverse City, Marquette, and a region-boundary view; VM and Termux memory,
+startup, shutdown and stability. Building heights remain tagged, floor-derived,
+or approximate 9 m blocks; these categories must stay visible in metadata.
+
+## 2. Higher-resolution Michigan imagery and terrain
+
+Do not enlarge an overview JPEG and call it detail. Keep statewide overviews and
+add independently downloadable detail packs with on-demand tile rendering.
+
+| Product | Proposed target | Existing component to extend |
+| --- | --- | --- |
+| State overview | Keep current small offline pack | Current regional/overview imagery and terrain |
+| Regional imagery | Roughly 2 m ground pixels | Existing NAIP MBTiles builder, z16 near Detroit |
+| City/corridor imagery | Roughly 0.9 m, z17 near Detroit | Existing 256 px Web Mercator imagery pyramid |
+| Optional close detail | Roughly 0.44 m, z18, only when source warrants it | Same pyramid; smaller geographic packs |
+| Regional terrain | 10–30 m sample spacing | Staged 3DEP rasters and existing terrain tile reader |
+| Selected terrain detail | 1–3 m where available and useful | Same source discovery; additional terrain LOD/profile |
+
+These are output sampling targets, not promises of native source resolution or
+survey accuracy. Record native resolution, acquisition date, resampling method,
+source gaps, and rights per source. A 60 cm source cannot become genuine 30 cm
+imagery by upsampling. Satellite/aerial image pixels and terrain sample spacing
+are different quantities. Buildings remain a separate geometry layer.
+
+Source order: dated public USDA NAIP GeoTIFF/COG files for imagery; downloadable
+USGS 3DEP DEMs for terrain. Reuse staged-file discovery and resumable crop caches,
+avoiding custom whole-region image-export services. The existing Downtown and
+Auburn Hills pilots are a delivery proof, not statewide high-resolution coverage.
+The Michigan MiSAIL program lists 12-inch imagery: evaluate actual downloadable
+coverage and redistribution rights before adding it as an optional source.
+Public viewing access alone does not establish bulk redistribution permission.
+
+First detail expansion: Metro Detroit at z17, then Rochester/Auburn Hills and a
+hilly comparison area with 10 m terrain. Compare source imagery, tile image,
+source DEM, sampled elevations, and rendered relief. Test z18 only where it
+adds source-supported information. Keep current device rendering budgets and
+terrain exaggeration distinct from source elevations. Resolve source vertical
+datum/geoid conversion before describing globe elevations as accurate ellipsoid
+heights; the current relative-relief convention remains explicit meanwhile.
+
+Use approximately 10–20 km imagery delivery cells, subdividing to stay under the
+existing 512 MiB detail ZIP / 2 GiB database ceilings. Check the existing 100,000
+tile limit rather than raising it blindly. Terrain retains bounded child grids
+and requires hierarchical catalog/LOD work before statewide fine grids: do not
+attach every high-resolution terrain tile to the scene or preload every sample.
+Select requested detail cells, installed-only cells, and coarse fallback through
+one catalog. Prefer the best installed compatible resolution, with an explicit
+profile/date in download UI. No automatic large network download while driving.
+
+### Storage planning, not a download quotation
+
+For a planning example of **150,000 km² of land** (not the full Michigan rectangle):
+`pixels = area_m² / spacing_m²`. Full RGB is three bytes per pixel. With a trial
+compression range of 0.15–1 byte per pixel and about 4/3 pyramid overhead:
+
+| Imagery spacing | Approximate compressed pyramid planning range |
+| --- | --- |
+| 2 m | 7.5–50 GB |
+| 1 m | 30–200 GB |
+| 0.5 m | 120–800 GB |
+
+Measure real representative urban, forest, farm and shoreline packs before a
+statewide commitment. Compression, alpha masks, source gaps, rectangular padding,
+and tiling overhead change these numbers. At 10 m, float32 elevations for this
+example are about 6 GB before compression, pyramid levels and metadata; at 1 m,
+about 600 GB. Current JSON height grids can cost more than float32. Whole-state
+native-resolution everything is not a small phone download. Offer selected
+cities/corridors and storage budgets; count old revisions and scratch space.
+
+## 3. Extend to all 50 states
+
+Reuse `state_map_catalog.py` and the checked-in 50-state boundaries, including
+existing antimeridian handling. Extend building coverage/source selection beyond
+Michigan, using Geofabrik's ISO/state metadata and the existing source catalog.
+Do not create 50 hand-maintained scripts. Generate per-state/per-cell build jobs
+from a versioned product plan and keep geographic ownership stable across state
+and cell seams. Explicitly test border-crossing footprints and parts.
+
+A product record should identify state/cell, layer, profile, source snapshot and
+acquisition dates, source rights, bounds, valid-data mask, build revision,
+checksum, compressed and installed bytes, prerequisites, superseded revision,
+and coverage gaps. Unchanged input hashes/profile reuse existing output. Publish
+immutable packs plus a small versioned catalog. Updates download changed cells,
+retain a recoverable previous revision, and never label a failed state complete.
+
+GitHub Actions remains the build coordinator; short-lived Actions artifacts are
+for testing. Existing release tooling can publish accepted packs durably, with
+reviewed release promotion instead of treating expiring artifacts or draft assets
+as the production catalog. Split larger outputs into independently resumable
+packs; verify current hosting asset limits and storage/egress costs before choosing
+GitHub Releases versus an object store. No hosting purchase or new account is
+part of this implementation. Track build minutes, transfer bytes, cache use and
+artifact retention per state, with limited worker concurrency and failure retries.
+
+Rollout gates:
+
+1. Michigan: buildings + measured city imagery/terrain profiles and device tests.
+2. Ohio and Indiana: prove neighboring-state sources, ownership seams and reuse.
+3. Colorado (terrain) and California (density/size): exercise mountains, mixed
+   source dates, large source files and adaptive delivery cells.
+4. Hawaii and Alaska: validate imagery sources/rights separately, water/nodata,
+   vertical datums, Alaska IfSAR DEMs and antimeridian cells. Do not assume the
+   CONUS NAIP source path has equivalent coverage or redistribution rights there.
+5. Remaining states: small queued batches with per-state acceptance reports,
+   explicit missing layers, and a rollback/promotion gate. Offline navigation
+   remains usable when an optional imagery/terrain/building pack is absent.
+
+Before national detail delivery, build a paged spatial catalog for all layers so startup reads
+metadata and fetches only needed geometry/height tiles and respect the current imagery stack layer limit. Profile the present full
+pack checksum scan on Termux; extend verification caching/lazy verification with
+integrity checks if measured startup cost warrants it. Do not silently remove
+verification to make it faster. Higher resolution should increase disk/network
+use, not the number of simultaneously resident GPU resources.
+
+## Source references reviewed for this plan
+
+- [USDA NAIP dataset](https://catalog.data.gov/dataset/national-agriculture-imagery-program-naip-imagery):
+  source pixel sizes vary by acquisition; standard program coverage is CONUS.
+- [USGS elevation product formats/resolutions](https://www.usgs.gov/faqs/what-types-elevation-datasets-are-available-what-formats-do-they-come-and-where-can-i-download):
+  downloadable DEM products at multiple resolutions.
+- [USGS 1 m DEM collection](https://data.usgs.gov/datacatalog/data/USGS%3A77ae0551-c61e-4979-aedd-d797abdcde0e):
+  lidar-derived bare-earth terrain; public-domain metadata.
+- [USGS Michigan lidar summary](https://www.usgs.gov/ngp-user-engagement-office/news/new-3d-elevation-program-fact-sheet-michigan):
+  statewide QL2 lidar acquisition; coverage does not imply this app has built or installed it.
+- [Michigan MiSAIL](https://www.michigan.gov/dtmb/services/maps/misail):
+  potential higher-resolution imagery source requiring product-specific review.
+- [USGS Alaska 5 m DEM collection](https://catalog.data.gov/dataset/5-meter-alaska-digital-elevation-models-dems-usgs-national-map-3dep-downloadable-data-coll):
+  distinct Alaska terrain product.
+
+## First Michigan detail build
+
+The `michigan-detail-pilot` workflow target builds Downtown–Midtown Detroit,
+Auburn Hills and Rochester. It produces imagery and terrain independently:
+
+- Imagery uses z17 Web Mercator / 256 px MBTiles, about 0.88 m per pixel near
+  Detroit. Source crops use an 8192-pixel lattice instead of the earlier 4096
+  lattice, assembled from four aligned 4096-pixel acquisition cells so the
+  existing 64 MiB source-crop limit remains in force. Source acquisition
+  dates/native GSD are reported separately; this
+  profile does not invent finer source detail or change imagery dates.
+- Terrain uses staged USGS 3DEP 1/3 arc-second data (roughly 10 m source spacing).
+  Endpoint-aligned grids are split into at most 64 existing 129×129 tiles;
+  output sampling intervals are reported per axis and are no greater than 10 m
+  for these bounded pilots. This can oversample the source and does not increase
+  its accuracy. Higher-detail catalog priority is 7 with minimum zoom 13;
+  coarser installed terrain remains available outside the pilot areas. Terrain
+  mesh refinement stays capped at level 16, independently of z17 imagery,
+  avoiding extra subdivision beyond this source spacing.
+- Existing 512 MiB imagery archive / 2 GiB database, 64 MiB terrain archive and
+  terrain child-grid limits remain. Missing source coverage is reported; it is
+  not fabricated. Terrain is still relative relief with unresolved source-to-
+  ellipsoid vertical datum conversion.
+
+Actions artifacts contain ZIPs plus adjacent checksum descriptors and reports.
+Install imagery with `development.maps.install_imagery_detail`; install terrain
+with `development.maps.install_terrain` and coverage names
+`detroit-midtown-detail-10m`, `auburn-hills-detail-10m`, `rochester-detail-10m`.
+The new imagery revisions replace the existing pilot links safely; terrain uses
+separate active links, preserving prior regional data. Reopen Terrain after
+installation. This is a city pilot, not statewide high-resolution imagery.
+
+## Statewide detail delivery implementation
+
+`build_target=michigan-statewide-detail` on the existing regional workflow calls
+`michigan-statewide-detail.yml` to prepare the **whole state**, selecting Web
+Mercator z10 delivery cells that intersect the checked-in Michigan polygons.
+Each worker builds up to three cells; at most two workers run concurrently.
+Imagery is z16 (roughly 1.6–1.8 m pixels across Michigan), while terrain is sampled
+at up to 30 m from the public ~10 m 3DEP product. The earlier z17/10 m city pilots
+remain higher-resolution overlays. This is the regional tier in the roadmap,
+not a claim of statewide sub-metre photography.
+
+A cell contains one bounded MBTiles pyramid and one existing <=64-child terrain
+mosaic. Image DB/individual grid limits remain unchanged; combined cell archives
+are capped at 600 MiB. Completed cell archives survive a failed batch; failed-job
+reruns restore them and rebuild only missing/invalid cells. Catalog records and
+reports identify source dates, omitted terrain children, empty layers, byte sizes
+and checksums. Cells crossing the political border can include neighboring areas.
+
+Download `mi-detail-plan-<run>` and `mi-detail-batch-*-<run>` artifacts. The new
+`development.maps.install_statewide_detail --directory <downloads>` verifies all
+planned archives before activating a small catalog. `--allow-partial` supports
+reviewing completed batches while the whole-state run continues. Cell revisions
+are immutable and shared between catalog revisions; old catalogs/cells are retained.
+Runtime opens and verifies only requested imagery databases (four cached). One
+statewide imagery provider replaces hundreds of separate layers. Terrain uses
+renderer-requested geographic pages (<=64 grids/page, four cached pages), with 32
+validated payloads cached on the server, and falls back to installed coarse data.
+No full-state fine elevation arrays or thousands of layers are loaded at startup.
+
+The legacy terrain metadata cap is now 768 to accommodate the existing statewide
+64-tile overview, eight 64-tile regions, Metro tier and three city pilots together;
+statewide fine grids are paged separately rather than counted against that cap.
+Terrain mesh refinement remains capped at level 16. Source rights and relative-
+relief/vertical-datum limitations are the same as the validated pilots.
+
+## Coverage-first delivery: interactive entry (November 2026)
+
+The revised strategy is nationwide coarse terrain, optional state/regional
+roads/search/routing, and independently optional regional buildings, detailed
+terrain and imagery. Nationwide terrain is **not yet built, sized or certified**.
+Do not extrapolate the dense Michigan imagery build into a required nationwide
+installation. First measure a coarse baseline including Alaska/Hawaii, record
+source coverage/datum/rights, and verify runtime budgets before publishing it.
+Cross-state offline routing remains an explicit acceptance test.
+
+Reuse the existing installer rather than creating another activation mechanism:
+
+```bash
+git switch navigation-cesium
+bash tools/map_builder/scripts/run-builder.sh packs
+```
+
+This host-side entry works without Docker, using the selected Python environment
+(`PYTHON` overrides `python3`). It currently delegates to the existing Metro
+Detroit release imagery installer, terrain descriptor installer, and Michigan
+buildings installer. Their checksum checks, confirmations and revision retention
+remain authoritative. It never silently falls back to downloading source rasters.
+It is an initial entry point, **not yet a unified release catalog**: release tags,
+coverage IDs and descriptor URLs are still supplied by the user. Sizes, installed
+status and updates remain with the individual installers until shared catalog
+metadata is implemented. No unknown size is represented as zero.
+
+The same entry can explicitly request existing regional Actions targets on the
+checked-out branch, using GitHub CLI authentication and repository permission.
+Generic state requests are restricted to overview imagery/terrain; they do not
+claim to build navigation data. A final prompt names the repository/branch and
+warns that build size is unknown and Actions resources are consumed. Dispatch is
+separate from installation: monitor Actions, download the finished artifacts or
+published release, then install. Normal installs must reuse published packs;
+they must not dispatch builds automatically. The costly Michigan statewide
+imagery experiment is deliberately not offered as a default menu target.
+
+Next slices: published pack discovery with per-layer sizes and local revision
+status; coarse nationwide terrain measurement; independent layer build targets;
+verified national/state navigation delivery and cross-boundary routing; storage
+budgets and removal controls. These remain pending, not implied by this menu.
+
+### Geographic selection redesign
+
+The `packs` entry now keeps an additive in-session basket: nationwide terrain,
+statewide navigation and multiple regional detail choices can coexist. Michigan
+shows major areas first: Metro Detroit, Ann Arbor/Southeast, Lansing/Mid-Michigan,
+Grand Rapids/West, Northern Lower and Upper Peninsula. Within Metro Detroit,
+Customize smaller areas contains Downtown–Midtown, Rochester/Auburn Hills and
+Southfield. These are presentation groups, not new artifact boundaries or claims
+of finished coverage. Another-state entry reuses the existing 50-state catalog.
+
+Toggle layers in each area; Enter returns without clearing other selections.
+Review offers published Metro Detroit imagery/terrain discovery using `latest`
+without release-tag or URL prompts. Descriptor sizes are fetched before the
+installation confirmation, and the existing verified installers own activation.
+Other choices remain pending where published-download integration is unavailable.
+Errors do not silently switch to source builds. Nationwide basic terrain remains
+explicitly planned. Cloud requests are a separate confirmed action listing the
+actual existing build bundles; selected geographic layers do not imply that
+those bundles exactly match the basket. Exact choices are deduplicated, but coarse
+or unpublished parent selections never suppress finer regional detail. Completed
+installations persist; the basket itself is not yet persisted across invocations.
+
+### Selection-driven build requests
+
+The build action now uses the current basket; the internal workflow/pilot chooser
+has been removed. Supported exact requests currently include Metro Detroit or
+statewide Michigan buildings and local detailed terrain/imagery for Downtown–
+Midtown and Rochester/Auburn Hills. The combined Rochester/Auburn Hills choice
+emits two local coverages. Selecting both layers combines them into one request
+per coverage; statewide buildings subsume the separate Metro buildings request.
+Unsupported selections are reported and left pending. A final confirmation
+summarizes the basket before any authentication or dispatch occurs.
+
+The existing regional workflow now accepts an allowlisted selected-detail area
+and imagery/terrain/both choice. Its existing raster builders, caches, checksummed
+artifacts and 14-day retention are reused. Existing pilot dispatches retain their
+previous coverage and zoom profiles. Different local requests use separate
+concurrency groups so one pending area does not replace another.
+
+This removes workflow selection; it does not yet provide a complete installed/
+published artifact catalog. Published Metro downloads remain a separate review
+action. Requesting a build remains explicit and may process data already present
+elsewhere; source caches can be reused, but automatic freshness/reuse across all
+published and installed layers is still pending. No release is overwritten or
+published by the new selected-detail action; each run retains its own temporary
+artifacts until expiration. Permanent versioned pack publication remains pending.
+
+Layer checklists offer **Check all** and **Clear all** for the current area.
+They preserve selections in other areas and do not download or dispatch builds.
+
+### National coarse-terrain build and menu confirmation
+
+Enter now confirms the current layer checklist. Navigation menus require an
+explicit number or B to go back (Q also backs out); a blank navigation response
+no longer silently exits. Checking layers still does not itself dispatch work.
+
+The US basic-terrain basket choice now dispatches a real 50-state terrain-only
+workflow, using the checked state catalog, including Hawaii and Alaska's split
+antimeridian envelopes. Each state requests a coarse 33×33 grid per envelope
+through the existing USGS 3DEP sampler, retains source responses and checksums,
+and produces terrain archives compatible with the existing installer. This is a
+very coarse baseline (spacing varies by state), not detailed terrain, imagery,
+roads or routing. Two workers run concurrently; cached validated grids resume.
+
+Every state uploads a report on success or failure. Missing USGS elevations,
+water/no-data responses, datum conflicts and network errors fail the affected
+state rather than inventing heights or claiming national coverage. A successful
+subset must not be advertised as the complete US. The first real run measures
+source feasibility as well as pack sizes; full source coverage is not yet proven.
+Artifacts expire after 14 days; versioned permanent publication remains pending.
+
+### National raster correction
+
+The national builder now reuses `discover_terrain`, `source_crops`, `terrain_pack`
+and the existing checked terrain artifact packager. Coarse discovery selects the
+USGS staged **1 arc-second** product; the existing 1/3 arc-second detail default
+and all callers retain their previous behavior. Bounded GDAL range reads create
+cached aligned crops with SHA receipts. There are no elevation point-sampling or
+ImageServer export calls in this path.
+
+Each state envelope uses an endpoint-aligned 1025×1025 grid split into at most
+64 existing 129×129 children. Output sampling varies by envelope; this does not
+claim native resolution beyond the source. Incomplete children are omitted and
+listed in `missing_terrain_tiles`; `coverage_complete` stays false if any are
+missing. Coastal water is not silently assigned invented elevations. A state with
+no complete children fails. Source dates retain publication/update semantics;
+source datum remains unresolved relative relief as in the existing terrain path.
+
+The workflow defaults to **pilot**: one-degree Colorado, Alaska and Hawaii source
+probes. Probe archives are diagnostic and are not state install packs. All-state
+mode additionally requires those three jobs to pass before state workers can
+start. The installer currently requests the pilot by default. Do not enable a
+national default until source gaps, file sizes, runtime catalog limits, regional
+installation and representative device views have been reviewed. Older sampling
+caches use a different profile and are not reused.
+
+### Initial raster probes reviewed
+
+Run 44143930025 validated all three representative probes: Colorado 64/64
+children (5,318,262 archive bytes), Alaska 64/64 (6,306,705 bytes), Hawaii 58/64
+(5,062,130 bytes). Hawaii's six missing children remain explicit source gaps;
+validation does not certify complete geographic coverage. This evidence permits
+a first 50-state build, not a claim that all 50 already work. The registered
+regional Actions entry now passes `national_scope` to the reusable workflow.
+US basket requests select all states while retaining the three-probe gate.
+
+### Transient metadata retry correction
+
+Staged source directory listings and catalog JSON reads now share the existing
+`retry_request` policy: six total attempts for 429/500/502/503/504, network timeout
+and incomplete-response failures, with logged backoff and Retry-After support.
+The retry includes opening and reading the response, closes each failed response,
+and retains existing response-size ceilings. Permanent HTTP errors such as 404,
+malformed metadata and validation errors are not retried. This happens in the
+current Actions worker; completed cell archives are untouched. Already-running
+jobs use their checked-out revision and do not acquire this fix automatically.
+
+### Efficient detail resume and slow catalog pages
+
+Resume planning reads small descriptor artifacts and checks that their referenced
+batch artifacts are live. Only batches with missing cells start raster workers;
+completed batch ZIPs are not copied into the new run. Regressions run once in
+preflight, rather than in every worker. Persistent transient imagery catalog
+failures split the footprint into smaller complete queries (bounded to two
+subdivision levels); a failed child still fails discovery, never partial success.
+
+The summary now includes `statewide-delivery.json`, mapping each cell to its
+original run/artifact and checksum. It may reference several runs. Referenced
+artifacts retain their original expiration dates; this is not permanent release
+storage. An expired or missing artifact schedules its cells for rebuilding.
+Planning trusts validated receipts; archive checksums are verified on download
+and installation. Completeness still does not certify gap-free source coverage.
+
+For reference-based deliveries, download the summary and matching plan artifacts,
+then use `development.maps.download_statewide_detail --delivery <path to
+statewide-delivery.json> --output <directory>` to fetch each required batch once,
+verify its selected cells and collect them without duplicate archive paths.
+Place the matching `statewide-plan.json` in that directory and use the existing
+`install_statewide_detail` installer. Generic `gh run download` of only the newest
+run will no longer contain all inherited raster ZIPs.

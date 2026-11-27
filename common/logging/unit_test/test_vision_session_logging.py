@@ -20,8 +20,9 @@ def session():
     processor.mode = processor.last_effective_mode = CameraMode.AUTO
     processor.last_luminance = 100
     worker.processed_frames = 0
-    controller = VisionController(dispatcher, ui, camera, controls, processor, worker,
-                                  source_label=PRIVATE)
+    controller = VisionController(
+        dispatcher, ui, camera, controls, processor, worker, source_label=PRIVATE
+    )
     return controller, dispatcher, ui, camera, controls, worker
 
 
@@ -46,8 +47,11 @@ def test_camera_session_failure_recovery_and_shutdown_share_session_id(caplog):
     assert len(failures) == 1 and failures[0]["stage"] == "capture_session"
     recovered = next(r for r in emitted if r["event"] == "vision.recovered")
     assert recovered["operation_id"] == "vision-request"
-    states = [r for r in emitted if r["event"] == "vision.state_changed"
-              and r["operation_id"] == "vision-request"]
+    states = [
+        r
+        for r in emitted
+        if r["event"] == "vision.state_changed" and r["operation_id"] == "vision-request"
+    ]
     assert {r["state"] for r in states} >= {"running", "inactive", "closed"}
 
 
@@ -56,13 +60,14 @@ def test_stale_delivery_logs_original_operation_without_updating_ui(caplog):
     controller, dispatcher, ui, _, _, _ = session()
     with operation("old-session"):
         controller._publish(0, controller._state(VisionLifecycle.RUNNING))
-    callback = dispatcher.schedule_ui_callback.call_args.args[1]
+    callback = dispatcher.dispatch_ui.call_args.args[0]
     controller._generation += 1  # A newer session supersedes the queued delivery.
     ui.set_vision_state.reset_mock()
     callback()
     ui.set_vision_state.assert_not_called()
-    discarded = next(r for r in records(caplog, "vision.session")
-                     if r["event"] == "vision.result_discarded")
+    discarded = next(
+        r for r in records(caplog, "vision.session") if r["event"] == "vision.result_discarded"
+    )
     assert discarded["operation_id"] == "old-session"
 
 
@@ -77,17 +82,24 @@ def test_cleanup_failures_are_private_and_do_not_skip_camera_release(caplog):
     camera.close.assert_called_once()
     emitted = records(caplog, "vision.session")
     assert {r["stage"] for r in emitted if r["event"] == "vision.failed"} == {
-        "capture_session", "restore_profile", "worker_stop"}
+        "capture_session",
+        "restore_profile",
+        "worker_stop",
+    }
 
 
 def test_thread_start_failure_does_not_leave_active_camera_session(caplog):
     caplog.set_level(logging.DEBUG)
     controller, _, _, camera, _, _ = session()
-    with patch("controllers.computer_vision.vision_controller.threading.Thread.start",
-               side_effect=OSError(PRIVATE)):
+    with patch(
+        "controllers.computer_vision.vision_controller.threading.Thread.start",
+        side_effect=OSError(PRIVATE),
+    ):
         with pytest.raises(OSError):
             controller.request_activate()
     assert not controller._active and controller._thread is None
     camera.open.assert_not_called()
-    assert any(r["stage"] == "activate" and r["event"] == "vision.failed"
-               for r in records(caplog, "vision.session"))
+    assert any(
+        r["stage"] == "activate" and r["event"] == "vision.failed"
+        for r in records(caplog, "vision.session")
+    )

@@ -21,9 +21,7 @@ from security.environment_variable_secret_manager import (
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Spotify OAuth component test"
-    )
+    parser = argparse.ArgumentParser(description="Spotify OAuth component test")
 
     parser.add_argument(
         "--secrets-file",
@@ -64,13 +62,9 @@ def main() -> None:
         )
     )
     if config is None:
-        raise SystemExit(
-            f"SPOTIFY_CLIENT_ID is not configured in {args.secrets_file}"
-        )
+        raise SystemExit(f"SPOTIFY_CLIENT_ID is not configured in {args.secrets_file}")
 
-    token_store = SpotifyTokenStore(
-        path=args.tokens
-    )
+    token_store = SpotifyTokenStore(path=args.tokens)
 
     if args.clear_tokens:
         token_store.clear()
@@ -79,19 +73,14 @@ def main() -> None:
     auth = SpotifyAuth(
         config=config,
         token_store=token_store,
-        callback_timeout_seconds=(
-            args.callback_timeout
-        ),
+        callback_timeout_seconds=(args.callback_timeout),
     )
 
     token = auth.get_access_token()
 
     print("Spotify authentication succeeded.")
     print(f"Token file: {token_store.path}")
-    print(
-        "Access token prefix: "
-        f"{token[:12]}..."
-    )
+    print(f"Access token prefix: {token[:12]}...")
 
 
 if __name__ == "__main__":

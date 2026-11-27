@@ -1,0 +1,19 @@
+[Unit]
+Description=OpenRoadCode dashboard
+Wants=openroadcode-waydroid.service
+After=openroadcode-waydroid.service
+PartOf=openroadcode-session.target graphical-session.target
+StartLimitIntervalSec=120
+StartLimitBurst=3
+
+[Service]
+Type=simple
+WorkingDirectory=@PROJECT@
+ExecStart=@LAUNCHER@
+Environment=WAYLAND_DISPLAY=wayland-0
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+
+[Install]
+WantedBy=openroadcode-session.target
