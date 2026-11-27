@@ -44,13 +44,17 @@ def layout():
     root.destroy()
 
 
-def test_drawer_reduces_viewport_and_restores_it_without_overlap(layout):
+def test_drawer_overlays_viewport_without_resizing(layout):
     root, viewer, bar, _ = layout
     full_width = viewer.winfo_width()
     bar.show_drawer("views")
     root.update()
-    assert viewer.winfo_width() < full_width
-    assert viewer.winfo_rootx() + viewer.winfo_width() <= bar._drawer.winfo_rootx()
+    assert viewer.winfo_width() == full_width
+    assert bar._drawer.winfo_ismapped()
+    assert viewer.winfo_rootx() <= bar._drawer.winfo_rootx()
+    assert (
+        bar._drawer.winfo_rootx() + bar._drawer.winfo_width() <= viewer.winfo_rootx() + full_width
+    )
     assert bar._cards[NavigationExperience.WAZE].winfo_ismapped()
     bar.show_drawer("places")
     root.update()

@@ -1,0 +1,7 @@
+FROM localhost/orc-rpi5-sim
+RUN printf '%s\n' 'deb [signed-by=/usr/share/keyrings/debian-archive-keyring.gpg] https://deb.debian.org/debian trixie-backports main contrib' > /etc/apt/sources.list.d/openroadcode-backports.list \
+    && apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends curl ca-certificates \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends waydroid weston adb scrcpy \
+    && waydroid --version && weston --version && adb version && scrcpy --version \
+    && rm -rf /var/lib/apt/lists/*

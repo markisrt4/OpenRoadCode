@@ -43,6 +43,10 @@ def point_on_path(points, fraction):
 
 def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None, on_frame=None):
     """Create a GL widget, or return None when the optional backend is absent."""
+    if os.environ.get("ORC_NO_OPENGL") == "1":
+        if on_unavailable is not None:
+            on_unavailable("OpenGL intentionally disabled")
+        return None
     if os.environ.get("OPENROAD_ECU_RENDERER", "auto").lower() == "canvas":
         if on_unavailable is not None:
             on_unavailable("OPENROAD_ECU_RENDERER=canvas")
