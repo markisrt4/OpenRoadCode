@@ -53,8 +53,7 @@ def test_drawer_overlays_viewport_without_resizing(layout):
     assert bar._drawer.winfo_ismapped()
     assert viewer.winfo_rootx() <= bar._drawer.winfo_rootx()
     assert (
-        bar._drawer.winfo_rootx() + bar._drawer.winfo_width()
-        <= viewer.winfo_rootx() + full_width
+        bar._drawer.winfo_rootx() + bar._drawer.winfo_width() <= viewer.winfo_rootx() + full_width
     )
     assert bar._cards[NavigationExperience.WAZE].winfo_ismapped()
     bar.show_drawer("places")
