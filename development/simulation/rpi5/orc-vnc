@@ -50,7 +50,20 @@ REMOTE
         trap 'kill "$relay_pid" 2>/dev/null || true' EXIT
         sleep 1
         kill -0 "$relay_pid"
-        vncviewer 127.0.0.1::5900
+        if [[ -n "${TERMUX_VERSION:-}" || "${PREFIX:-}" == *com.termux* ]]; then
+            vncviewer 127.0.0.1::5900 &
+            viewer_pid=$!
+            trap 'kill "$viewer_pid" "$relay_pid" 2>/dev/null || true' EXIT
+            am_bin="$(command -v am || true)"
+            am_bin="${am_bin:-/system/bin/am}"
+            if ! x11_launch_output="$("$am_bin" start --user 0 -n com.termux.x11/com.termux.x11.MainActivity 2>&1)"; then
+                printf '%s\n' "$x11_launch_output" >&2
+                echo "[!] Could not bring Termux:X11 to the foreground; open it manually." >&2
+            fi
+            wait "$viewer_pid"
+        else
+            vncviewer 127.0.0.1::5900
+        fi
         ;;
     stop)
         ssh -T "$host" 'if podman container exists orc-rpi5-vnc; then if [ "$(podman inspect --format "{{.State.Running}}" orc-rpi5-vnc)" = true ]; then podman stop --time 5 orc-rpi5-vnc; fi; if podman container exists orc-rpi5-vnc; then podman rm orc-rpi5-vnc; fi; fi'
