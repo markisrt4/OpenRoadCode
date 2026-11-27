@@ -83,10 +83,13 @@ class HomeMapPanel(tk.Frame, UiWidget):
         # neutral and let MapLibre own the actual map palette.
         self._map_host = tk.Frame(self, bg=self._theme.ui.background)
         self._map_host.grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
-        if os.environ.get("ORC_NO_NATIVE_MAP") == "1" or os.environ.get("ORC_NO_OPENGL") == "1":
+        if (
+            os.environ.get("ORC_NO_NATIVE_MAP") == "1"
+            or os.environ.get("ORC_NO_OPENGL") == "1"
+        ):
             self._map_disabled_label = tk.Label(
                 self._map_host,
-                text="MAP DISABLED\nMap rendering disabled by runtime configuration".replace("\n", "\\n"),
+                text="MAP DISABLED\nMap rendering disabled by runtime configuration",
                 bg=self._theme.ui.background,
                 fg=self._theme.ui.text_muted,
                 font=("Sans", 10, "bold"),
