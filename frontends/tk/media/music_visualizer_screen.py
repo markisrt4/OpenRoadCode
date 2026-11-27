@@ -112,7 +112,7 @@ class MusicVisualizerScreen(MusicVisualizerControlsMixin, TkScreen):
         self._create_panel()
         state = self._controller.capture_state()
         self._status.set(
-            "Simulated audio (no hardware capture)"
+            ("Simulation active" if self._simulation_active() else "Press START to simulate audio")
             if self._source is MusicVisualizerSource.SIMULATED
             else "Audio input connected"
             if state is MusicCaptureState.RUNNING
@@ -188,13 +188,19 @@ class MusicVisualizerScreen(MusicVisualizerControlsMixin, TkScreen):
         self._mode_name.set(label)
         self._set_options(mode=mode, view=MusicVisualizerView.VISUALIZER)
 
-    def _create_panel(self) -> None:
+    def _simulation_active(self) -> bool:
+        return (
+            self._source is MusicVisualizerSource.SIMULATED
+            and self._controller.capture_state() is MusicCaptureState.RUNNING
+        )
+
+    def _create_panel(self, *, simulate: bool | None = None) -> None:
         if self._panel is not None:
             self._panel.destroy()
         self._panel = self._panel_factory(
             self._render_parent,
             on_back=self._on_back,
-            simulate=self._source is MusicVisualizerSource.SIMULATED,
+            simulate=self._simulation_active() if simulate is None else simulate,
             theme_bundle=self._theme_bundle(),
             show_controls=False,
         )
@@ -209,7 +215,7 @@ class MusicVisualizerScreen(MusicVisualizerControlsMixin, TkScreen):
         self._source = MusicVisualizerSource(value)
         self._source_name.set(value)
         self._controller.stop()
-        self._create_panel()
+        self._create_panel(simulate=start and self._source is MusicVisualizerSource.SIMULATED)
         self._status.set("Connecting audio…" if start else "Source selected — press START")
         if start:
             self._controller.start(self._source)
@@ -245,7 +251,7 @@ class MusicVisualizerScreen(MusicVisualizerControlsMixin, TkScreen):
             panel_factory=self._panel_factory,
             theme_bundle=self._theme_bundle(),
             options=self._options,
-            simulate=self._source is MusicVisualizerSource.SIMULATED,
+            simulate=self._simulation_active(),
             on_close=self._fullscreen_closed,
         )
         frame = self._controller.latest_frame()
