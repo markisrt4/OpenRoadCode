@@ -184,6 +184,8 @@ def initial_terrain_view() -> CesiumViewerState:
 
 def create_audio_settings(app: OrcUiApp) -> LinuxAudioSettings | None:
     """Keep Linux audio configuration out of Android/Termux sessions."""
+    if os.environ.get("ORC_NO_AUDIO") == "1":
+        return None
     if sys.platform == "linux" and not (
         os.environ.get("TERMUX_VERSION") or "/com.termux/" in os.environ.get("PREFIX", "")
     ):
