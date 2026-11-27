@@ -54,7 +54,7 @@ new_visible_window() {
     done < <(visible_windows)
     return 1
 }
-bash runOrcUi --follow-logs > >(tee "$log") 2>&1 &
+bash runOrcUi --simulation --follow-logs > >(tee "$log") 2>&1 &
 pid=$!
 for ((attempt=0; attempt<180; attempt++)); do
     kill -0 "$pid" 2>/dev/null || { echo "ORC exited during startup" >&2; exit 1; }
@@ -65,6 +65,17 @@ for ((attempt=0; attempt<180; attempt++)); do
             echo "ORC reported a runtime exception" >&2
             exit 1
         fi
+        for message in "Vision subsystem intentionally disabled" "Spotify background services intentionally disabled"; do
+            if ! grep -Fq "$message" "$log"; then
+                echo "Missing disabled-feature confirmation: $message" >&2
+                exit 1
+            fi
+        done
+        if grep -Eq 'Vision detection unavailable|Map renderer process started|System audio availability changed|Spotify state worker started' "$log"; then
+            echo "Disabled subsystem unexpectedly initialized" >&2
+            exit 1
+        fi
+        echo "Simulation feature checks passed"
         echo "ORC startup and visible window check passed"
         exit 0
     fi
