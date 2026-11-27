@@ -341,6 +341,18 @@ Run both categories, in that order, with:
 python ci/run_tests.py all
 ```
 
+During development, pass the affected test paths to the runner. Include the
+callers or contract tests that exercise the changed behavior. Use
+`--durations=10` to identify expensive tests in that selection.
+
+```bash
+python ci/run_tests.py unit -- controllers/weather/unit_test apps/orcUi/composition/unit_test/test_weather_composition.py --durations=10
+```
+
+Keep pull requests in draft while iterating locally. GitHub runs the shared
+verification workflows when a PR is ready for review and after subsequent
+updates to a ready PR. The workflows can also be dispatched manually.
+
 Component tests are run individually because their requirements vary. In a
 pull request, document the command, connected hardware or service, expected
 behavior, and result.
@@ -472,9 +484,19 @@ OpenRoadCode is an ambitious experiment assembled from many disciplines. No
 one arrives knowing all of them. Share what you know, ask when you do not, and
 help make the next contributor's first drive a little smoother.
 
-The Linux quality environment uses `constraints-quality-linux.txt`, captured from a
-validated Ubuntu Python 3.12 installation. Forge dependencies remain pinned to Git
-commits in `ci/setup_quality_env.sh`. Runtime installation is independent.
+The shared GitHub verification workflows use Ubuntu 24.04, Python 3.12.12, and
+Node.js 20.20.2 for the browser audio tests. External Actions are pinned to
+commit SHAs. Linux Python packages use `constraints-quality-linux.txt`, and
+Forge dependencies are pinned to Git commits in `ci/setup_quality_env.sh`.
+To match GitHub locally, set `QUALITY_PYTHON` to the pinned interpreter when
+creating a fresh quality environment. GitHub can still update the runner
+image within Ubuntu 24.04. When a failure only occurs in GitHub, compare the
+runner image version in the job setup log before updating the pins.
+
+Use the [Pi 5 simulation](development/simulation/rpi5/README.md) on an ARM64
+QEMU host for installer and application smoke tests when a change affects
+Pi startup, packaging, or display geometry. Validate USB camera and SDR
+behavior on physical hardware.
 
 The default `--all` and `--full` gates include the generated documentation index,
 Markdown links, Mermaid legends, and interface docstring contracts. These checks
