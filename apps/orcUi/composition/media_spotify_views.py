@@ -4,14 +4,15 @@ import os
 import tkinter as tk
 from collections.abc import Callable
 
+from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.trending_spotify_pane import build_trending_spotify_pane
 from controllers.spotify.spotify_presentation import SpotifyPresentation
 from frontends.tk.media import SpotifyNowPlaying
 from frontends.tk.media.spotify_playback_panel import SpotifyPlaybackPanel
-from ui.media.spotify_browse_if import SpotifyLocalPlayerState
+from ui.media.spotify_browse_if import SpotifyLocalPlayerState, SpotifyPlaybackMode
 from ui.theme import ThemeBundle
 
-SpotifyFactory = Callable[[tk.Misc, Callable[[], None], str, str], tk.Widget]
+SpotifyFactory = Callable[[tk.Misc, str, str], tk.Widget]
 
 
 def bind_spotify_views(
@@ -23,9 +24,9 @@ def bind_spotify_views(
     open_spotify: Callable[[], None],
     home_playback_changed: Callable[[bool], None],
     spotify_colors: Callable[[], dict],
-    report_status: Callable[[str], None],
+    show_error: Callable[[str, str], None],
     dispatch_ui: Callable[[Callable[[], None]], None],
-    request_song: Callable[[str, str, Callable[[str], None]], None],
+    request_song: Callable[[str, str, Callable[[str], None], Callable[[str], None]], None],
     player_state: Callable[[], SpotifyLocalPlayerState],
     request_player: Callable[[], None],
     spotify_configured: Callable[[], bool],
@@ -70,18 +71,16 @@ def bind_spotify_views(
 
     def trending_spotify_factory(
         parent: tk.Misc,
-        on_back: Callable[[], None],
         artist: str,
         title: str,
     ) -> tk.Widget:
         return build_trending_spotify_pane(
             parent,
-            on_back,
             artist,
             title,
             theme=spotify_colors(),
             activate=activate_trending,
-            report_status=report_status,
+            show_error=show_error,
             dispatch_ui=dispatch_ui,
             android=android,
             network_allowed=network_allowed,
@@ -93,3 +92,28 @@ def bind_spotify_views(
         )
 
     return home_now_playing_factory, trending_spotify_factory
+
+
+def verify_spotify_local_player(
+    app: OrcUiApp,
+    player_state: Callable[[], SpotifyLocalPlayerState],
+    request_player: Callable[[], None],
+    network_allowed: Callable[[], bool],
+) -> None:
+    """Start the local player and show the result of device registration."""
+    request_player()
+
+    def report_result() -> None:
+        if not network_allowed():
+            return
+        state = player_state()
+        if state.busy:
+            app.schedule_ui_callback(200, report_result)
+        elif state.mode is SpotifyPlaybackMode.PLAYER:
+            app.set_screen_status(
+                "Spotify local player ready. Open Radio → Trending to test a song."
+            )
+        else:
+            app.show_error("Spotify local player test failed", state.message)
+
+    report_result()

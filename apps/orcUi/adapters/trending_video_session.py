@@ -7,6 +7,7 @@ from threading import Thread
 
 from apps.orcUi.adapters.managed_browser_media_player import ManagedBrowserMediaPlayer
 from controllers.media.youtube_search_resolver import first_video_url
+from security.environment_variable_secret_manager import EnvironmentVariableSecretManager
 
 
 class ManagedTrendingVideoSession:
@@ -18,7 +19,11 @@ class ManagedTrendingVideoSession:
         self._closed = False
         self._started = False
         self._worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix="trending-youtube")
-        self._result = self._worker.submit(first_video_url, query)
+        self._result = self._worker.submit(self._resolve)
+
+    def _resolve(self) -> str:
+        api_key = EnvironmentVariableSecretManager().get_secret("YOUTUBE_API_KEY")
+        return first_video_url(self._query, api_key=api_key)
 
     def poll_target(self) -> str | None:
         if self._closed or not self._result.done():

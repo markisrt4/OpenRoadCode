@@ -18,6 +18,19 @@ class _ImmediateThread:
         self._target()
 
 
+class _QueuedDispatcher:
+    def __init__(self):
+        self.pending = []
+
+    def dispatch_ui(self, callback):
+        self.pending.append(callback)
+
+    def deliver(self):
+        (callback,) = self.pending
+        self.pending.clear()
+        callback()
+
+
 class _Response(io.BytesIO):
     def __enter__(self):
         return self
@@ -37,9 +50,14 @@ def test_load_receiver_configuration(monkeypatch):
             or _Response(json.dumps({"gain_db": 29.7}).encode())
         ),
     )
+    dispatcher = _QueuedDispatcher()
     success, error = Mock(), Mock()
-    module.SdrForgeRfHardwareConfig().load(success, error)
-    success.assert_called_once_with({"gain_db": 29.7})
+    module.SdrForgeRfHardwareConfig(dispatcher).load(success, error)
+    success.assert_not_called()
+    dispatcher.deliver()
+    success.assert_called_once_with(
+        {"sample_rate_hz": 2400000, "gain_db": 29.7, "ppm_correction": 0, "rtl_agc_enabled": False}
+    )
     error.assert_not_called()
     assert seen == {"url": "http://127.0.0.1:5570/v1/rf/config", "timeout": 3.0}
 
@@ -53,6 +71,7 @@ def test_apply_receiver_configuration(monkeypatch):
         return _Response(b"{}")
 
     monkeypatch.setattr(module.request, "urlopen", respond)
+    dispatcher = _QueuedDispatcher()
     success, error = Mock(), Mock()
     config = {
         "sample_rate_hz": 2400000,
@@ -60,7 +79,11 @@ def test_apply_receiver_configuration(monkeypatch):
         "ppm_correction": 0,
         "rtl_agc_enabled": False,
     }
-    module.SdrForgeRfHardwareConfig("http://localhost:5570/").apply(config, success, error)
+    module.SdrForgeRfHardwareConfig(dispatcher, "http://localhost:5570/").apply(
+        config, success, error
+    )
+    success.assert_not_called()
+    dispatcher.deliver()
     success.assert_called_once_with()
     error.assert_not_called()
     req, timeout = requests[0]
@@ -77,7 +100,10 @@ def test_unavailable_service_reports_error(monkeypatch):
         raise OSError("connection refused")
 
     monkeypatch.setattr(module.request, "urlopen", unavailable)
+    dispatcher = _QueuedDispatcher()
     success, error = Mock(), Mock()
-    module.SdrForgeRfHardwareConfig().load(success, error)
+    module.SdrForgeRfHardwareConfig(dispatcher).load(success, error)
     success.assert_not_called()
+    error.assert_not_called()
+    dispatcher.deliver()
     error.assert_called_once_with("connection refused")

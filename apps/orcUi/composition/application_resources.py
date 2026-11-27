@@ -6,12 +6,17 @@
 from __future__ import annotations
 
 import math
+import os
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 
+from apps.launchers.cesium_embedded_viewer import CesiumEmbeddedViewer
 from apps.launchers.host_location_permission import HostLocationPermission
 from apps.launchers.host_location_session import HostLocationSession
 from apps.orcUi.application_runtime import OrcUiApplicationRuntime
+from apps.orcUi.cesium_map_runtime import CesiumMapRuntime
 from apps.orcUi.composition.android_app_view import AndroidAppView
 from apps.orcUi.composition.core import CoreComposition
 from apps.orcUi.composition.media import MediaComposition
@@ -26,12 +31,16 @@ from apps.orcUi.frontend.tk.offroad_screen import OffRoadScreen
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.settings_screen import SettingsScreen
 from apps.orcUi.frontend.tk.vehicle_screen import VehicleScreen
+from apps.orcUi.map_platform_requests import MapPlatformRequests
 from apps.orcUi.performance_status import PerformanceStatusPresenter
 from common.resource_cleanup import ResourceCleanup, close_resources
+from controllers.audio.linux_audio_settings import LinuxAudioSettings
 from controllers.navigation.current_position import get_current_position
 from controllers.navigation.host_location_settings_controller import HostLocationSettingsController
 from controllers.navigation.location_sharing_controller import LocationSharingController
+from controllers.navigation.route_overlay_controller import RouteOverlayController
 from controllers.navigation.waze_gesture_controller import WazeGestureController
+from controllers.system.software_update import CheckoutUpdates, SoftwareUpdateController
 from controllers.weather.radar_replay_controller import RadarReplayController
 from controllers.weather.weather_overlay_controller import WeatherOverlayController
 from frontends.tk.games import GamesScreen
@@ -70,6 +79,8 @@ class OrcUiComposition:
     host_location_permission: HostLocationPermission | None = None
     location_sharing: LocationSharingController | None = None
     startup_progress: Callable[[str, str], None] | None = None
+    software_update: SoftwareUpdateController | None = None
+    audio_settings: LinuxAudioSettings | None = None
     waze: WazeComposition | None = None
     android_app_view: AndroidAppView | None = None
     waze_app_view: AndroidAppView | None = None
@@ -92,6 +103,8 @@ class OrcUiComposition:
                 self.performance_status.start()
             self.app.schedule_ui_callback(1500, self.runtime.start_background_apps)
             self.core.start()
+            if self.software_update is not None:
+                self.software_update.start()
             self._poll_route_start()
             _report(self.startup_progress, "ready", "OpenRoadCode UI ready")
             self.app.run()
@@ -117,10 +130,12 @@ class OrcUiComposition:
             return
         self._closed = True
         close_resources(
+            *([self.software_update.close] if self.software_update is not None else []),
             self.app.shutdown,
             *(
                 resource.close
                 for resource in (
+                    self.audio_settings,
                     self.appointment_monitor,
                     self.waze_gestures,
                     self.android_app_view,
@@ -165,3 +180,56 @@ def initial_terrain_view() -> CesiumViewerState:
         label="3D map",
         destination_marker_visible=False,
     )
+
+
+def create_audio_settings(app: OrcUiApp) -> LinuxAudioSettings | None:
+    """Keep Linux audio configuration out of Android/Termux sessions."""
+    if sys.platform == "linux" and not (
+        os.environ.get("TERMUX_VERSION") or "/com.termux/" in os.environ.get("PREFIX", "")
+    ):
+        return LinuxAudioSettings(app)
+    return None
+
+
+def create_software_update(core: CoreComposition, app: OrcUiApp) -> SoftwareUpdateController:
+    """Bind updates to the current online mode and lifecycle restart request."""
+    online_mode = app.online_mode
+
+    def restart_after_update() -> None:
+        core.lifecycle.request_restart_ui()
+        app.shutdown()
+
+    return SoftwareUpdateController(
+        CheckoutUpdates(Path(__file__).resolve().parents[3]),
+        app,
+        online=lambda: online_mode is not None and online_mode.online,
+        offer=app.offer_software_update,
+        report_error=lambda message: app.show_error("ORC update failed", message),
+        restart=restart_after_update,
+    )
+
+
+def create_navigation_maps(
+    core: CoreComposition, cleanup: ResourceCleanup
+) -> tuple[CesiumMapRuntime, MapPlatformRequests]:
+    """Own the map runtime and bind the retained position, route, and POI overlays."""
+    navigation_maps = CesiumMapRuntime(
+        core.map_runtime,
+        CesiumEmbeddedViewer(),
+        initial_view=initial_terrain_view,
+    )
+    cleanup.callback(navigation_maps.close)
+    navigation_map_requests = MapPlatformRequests(
+        core.map_camera.request_handler,
+        lambda _name, _args, _kwargs: None,
+        navigation_maps.update_poi_overlay,
+    )
+    core.map_camera.observe_position(navigation_maps.update_position)
+    route_overlay = RouteOverlayController(navigation_maps.update_route_overlay)
+    core.route_request_handler.observe_route(route_overlay.update_route)
+    core.presentation.observe_route_guidance(route_overlay.update_guidance)
+    if core.route_request_handler.active_route is not None:
+        route_overlay.update_route(core.route_request_handler.active_route)
+    if core.presentation.route_guidance is not None:
+        route_overlay.update_guidance(core.presentation.route_guidance)
+    return navigation_maps, navigation_map_requests

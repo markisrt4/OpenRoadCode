@@ -4,7 +4,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING
+
+from ui.theme import ThemeBundle, ThemeMode
 
 from .shell_view import OrcUiShellView
 
@@ -39,3 +42,27 @@ def format_volume(percent: float | None, muted: bool | None) -> str:
     """Format the shell's retained volume readout."""
     icon = "🔇" if muted else "🔊"
     return f"{icon} --" if percent is None else f"{icon} {round(percent)}%"
+
+
+def toggle_shell_theme(
+    app: OrcUiApp,
+    mode_toggle: Callable[[ThemeMode], ThemeMode],
+    bundle: Callable[[ThemeMode], ThemeBundle],
+) -> None:
+    app._theme_mode = mode_toggle(app._theme_mode)
+    app._theme = bundle(app._theme_mode)
+    active_screen = app._active_screen
+    set_theme_mode = getattr(active_screen, "set_theme_mode", None)
+    if active_screen is not None and not callable(set_theme_mode):
+        # Stop embedded renderers before their native host widgets are destroyed.
+        app._deactivate_active_screen()
+    theme_change_handler = app._theme_change_handler
+    if theme_change_handler is not None:
+        theme_change_handler(app._theme_mode)
+    if app._power_dialog is not None:
+        app._power_dialog.close()
+    app._rebuild_shell_theme()
+    if callable(set_theme_mode):
+        set_theme_mode(app._theme_mode)
+    elif active_screen is not None:
+        app.navigate_to(app._active_nav)

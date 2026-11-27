@@ -67,7 +67,7 @@ from ui.theme import ThemeMode
 from .media_resources import MediaComposition
 from .media_spotify_theme import SPOTIFY_GREEN as SPOTIFY_GREEN
 from .media_spotify_theme import spotify_theme as spotify_theme
-from .media_spotify_views import bind_spotify_views
+from .media_spotify_views import bind_spotify_views, verify_spotify_local_player
 
 MUSIC_VIDEO_PORT = 8770
 MUSIC_VIDEO_WINDOW_CLASS = "OpenRoadCodeMusicVideo"
@@ -266,6 +266,12 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         app.screen_parent,
         session=dialog_account,
         theme_bundle=lambda: theme_bundle(app.theme_mode),
+        test_local_player=lambda: verify_spotify_local_player(
+            app,
+            media.spotify_local_player.state,
+            media.spotify_local_player.request_player,
+            network_allowed,
+        ),
     )
 
     def close_accounts() -> None:
@@ -428,7 +434,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         open_spotify=show_spotify,
         home_playback_changed=home_playback_changed,
         spotify_colors=lambda: spotify_theme(app),
-        report_status=app.set_screen_status,
+        show_error=app.show_error,
         dispatch_ui=app.dispatch_ui,
         request_song=media.spotify.request_play_song,
         player_state=media.spotify_local_player.state,

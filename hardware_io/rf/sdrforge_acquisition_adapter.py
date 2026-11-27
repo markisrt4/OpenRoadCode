@@ -51,8 +51,16 @@ class SdrforgeAcquisitionAdapter:
         if self._ensure_ready is not None:
             self._ensure_ready()
         status = self._request("/v1/receiver")
+        if status.get("running") is True or status.get("starting") is True:
+            raise RuntimeError("SDRForge already has an active or starting receiver.")
+        if "hardware_released" not in status:
+            raise RuntimeError(
+                "The running SDRForge service does not report hardware release. "
+                "Install the pinned SDRForge build in the service's Python environment."
+            )
         if not self._released(status):
-            return False
+            detail = status.get("release_error") or "hardware release is unconfirmed"
+            raise RuntimeError(f"SDRForge cannot confirm receiver release: {detail}")
         self._request("/v1/rf/config", {"device_serial": device.serial})
         # Record the attempt before sending it: a lost reply can still mean
         # the service started acquisition.
@@ -65,9 +73,14 @@ class SdrforgeAcquisitionAdapter:
                 raise RuntimeError(f"SDRForge startup failed: {status['startup_error']}")
             if status.get("running") is True and status.get("starting") is False:
                 config = self._request("/v1/rf/config")
-                return config.get("device_serial") == device.serial
+                actual = config.get("device_serial")
+                if actual != device.serial:
+                    raise RuntimeError(
+                        f"SDRForge reported receiver {actual!r}, expected {device.serial!r}."
+                    )
+                return True
             time.sleep(0.1)
-        return False
+        raise RuntimeError(f"SDRForge timed out starting receiver {device.serial}.")
 
     def active(self, device: ReceiverDevice) -> bool:
         """Check whether the configured receiver is still running."""

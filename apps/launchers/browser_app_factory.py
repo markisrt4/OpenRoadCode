@@ -49,6 +49,9 @@ class BrowserApplicationFactory:
             window_class=self._window_class(app.key),
             exclusive_group=app.exclusive_group,
             window_manager=self._window_manager,
+            extra_arguments=(
+                ("--autoplay-policy=no-user-gesture-required",) if app.key == "youtube" else ()
+            ),
         )
 
     def _profile_path(self, profile: str) -> Path:

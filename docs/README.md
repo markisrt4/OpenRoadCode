@@ -113,6 +113,7 @@ Generated from the canonical documentation files. Every component README and sta
 - [Libmusicforge Integration](libmusicforge-integration.md)
 - [Message Bus Idd (`docs/messaging`)](messaging/message_bus_idd.md)
 - [Music Visualizer](music_visualizer.md)
+- [Musicforge Airplay](musicforge_airplay.md)
 - [Navigation Deployment](navigation_deployment.md)
 - [Navigation Runtime](navigation_runtime.md)
 - [Online Offline Mode](online_offline_mode.md)

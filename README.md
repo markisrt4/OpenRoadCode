@@ -285,6 +285,12 @@ autostart** in the installer TUI or pass `--with-orc-autostart` to host setup.
 On a Raspberry Pi configured for desktop auto-login, this launches ORC after
 boot. Use `--no-orc-autostart` to remove the launcher.
 
+While online, ORC periodically checks a clean Git checkout on `master` for
+updates from `origin/master`. Choose **Update and restart** to fast-forward
+to the offered revision and restart the UI. This updates the checkout. Use
+the host installer for any new system packages, Python dependencies, or service
+configuration required by an update.
+
 Features can be selected explicitly. Use `--all-features` to install all compatible software capabilities, `--show-plan` to inspect the resolved plan without modifying the machine, and `--with-vnc` or `--with-gpsd-service` only when those services should be configured.
 
 The `desktop-ui` and `navigation` features use the native Tk/X11 and MapLibre

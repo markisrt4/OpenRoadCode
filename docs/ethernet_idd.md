@@ -23,7 +23,7 @@ Interface names and roles describe the capability exposed on the network. Applic
 | 5902 | `*:5902` for default display `:2` | VNC server launched by `scripts/runtime/start_vnc_server.sh` | Remote graphical desktop | TCP | RFB / VNC | No direct unit test located | Optional development/runtime utility. Port is `5900 + DISPLAY_NUM`; the script defaults to display `2` and explicitly permits non-localhost connections. |
 | 8000 | `http://127.0.0.1:8000` | Configured MusicForge Airplay API, if present | Default Trending client endpoint | TCP | HTTP JSON | — | Client fallback only. ORC does not bind this port. Override with `MUSICFORGE_AIRPLAY_URL`. |
 | 8002 | `http://127.0.0.1:8002` | Valhalla service | Offline route-planning API | TCP | HTTP / Valhalla JSON API | No direct unit test located | Current navigation route-planning default in `config/runtime.toml`. |
-| 8003 | `http://127.0.0.1:8003` on ORC host and Airplay VPS | OpenSSH client on ORC host; MusicForge Airplay API on VPS | Private read-only airplay charts | TCP | HTTP JSON over SSH forwarding | — | Optional Raspberry Pi/Linux deployment. Set `MUSICFORGE_AIRPLAY_URL=http://127.0.0.1:8003`. Both listeners bind loopback. |
+| 8003 | `http://127.0.0.1:8003` on ORC host and Airplay VPS | OpenSSH client on ORC host; MusicForge Airplay API on VPS | Private read-only airplay charts | TCP | HTTP JSON over SSH forwarding | — | Optional Raspberry Pi/Linux deployment. The installer saves the loopback URL for ORC. Both listeners bind loopback. |
 | 8081 | `127.0.0.1:8081` | tar1090 presentation server | ADS-B aircraft web presentation | TCP | HTTP | No direct unit test located | Termux/runit default. `TAR1090_PORT` can override it. |
 | 8501 | `127.0.0.1:8501` client URL | Weather dashboard / Streamlit | Weather dashboard web application | TCP | Streamlit HTTP/WebSocket | No direct unit test located | Default in `WeatherDashLauncher` / `StreamlitLauncher`. Streamlit owns the server process. |
 | 8765 | `127.0.0.1:8765` | Browser position development source | Browser-provided geographic position ingress for development and component testing | TCP | HTTP + JSON | [browser position source](../controllers/navigation/unit_test/test_browser_position_source.py); [position source factory](../apps/carUi/unit_test/test_position_source_factory.py) | Navigation service composition uses `OPENROADCODE_BROWSER_POSITION_HOST` / `OPENROADCODE_BROWSER_POSITION_PORT`; legacy CarUi composition also supports `CARUI_BROWSER_POSITION_HOST` / `CARUI_BROWSER_POSITION_PORT`. Enable one owner per endpoint. |
@@ -50,7 +50,7 @@ the Airplay database locally. ORC consumes only the read-only HTTP interface.
 The Pi/Linux deployment uses
 [`install_musicforge_airplay_tunnel.sh`](../scripts/systemd/install_musicforge_airplay_tunnel.sh).
 The OpenSSH client binds ORC host `127.0.0.1:8003` and forwards it to VPS
-`127.0.0.1:8003` over TCP port `54321`, the SSH port for that deployment.
+the configured VPS loopback API port over the configured SSH port.
 The tunnel key restricts local forwarding to the Airplay endpoint. The VPS
 HTTP listener remains private, and Valhalla retains port `8002`.
 

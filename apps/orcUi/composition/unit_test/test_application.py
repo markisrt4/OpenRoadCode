@@ -4,12 +4,46 @@
 """Tests for top-level ORC UI composition ownership."""
 
 import unittest
-from unittest.mock import Mock, call, patch
+from unittest.mock import ANY, Mock, call, patch
 
 from apps.orcUi.composition.application import OrcUiComposition, create_orc_ui_composition
 
 
 class OrcUiCompositionTest(unittest.TestCase):
+    def test_shutdown_combines_updater_audio_and_android_resources_once(self) -> None:
+        resources = {
+            name: Mock()
+            for name in (
+                "core",
+                "runtime",
+                "radio",
+                "media",
+                "games",
+                "weather",
+                "software_update",
+                "audio_settings",
+                "waze",
+                "android_app_view",
+                "waze_app_view",
+                "waze_gestures",
+                "location_sharing",
+            )
+        }
+        events = Mock()
+        events.attach_mock(resources["software_update"].close, "stop_updates")
+        events.attach_mock(resources["core"].app.shutdown, "shutdown_ui")
+        composition = OrcUiComposition(**resources)
+
+        composition.close()
+        composition.close()
+
+        self.assertEqual(events.mock_calls, [call.stop_updates(), call.shutdown_ui()])
+        for name, resource in resources.items():
+            if name == "games":
+                resource.shutdown.assert_called_once_with()
+            else:
+                resource.close.assert_called_once_with()
+
     def test_shutdown_preserves_weather_and_performance_cleanup_after_failure(self) -> None:
         for failed in ("performance_status", "radar_replay"):
             with self.subTest(failed=failed):
@@ -262,7 +296,7 @@ class OrcUiCompositionTest(unittest.TestCase):
         app.set_theme_change_handler.assert_called_once_with(core.map_runtime.set_theme)
         core.map_runtime.set_theme.assert_called_once_with(app.theme_mode)
         core.presentation.observe_weather_alert.assert_called_once_with(app.present_weather_alert)
-        configure_radio.assert_called_once_with(app, runtime)
+        configure_radio.assert_called_once_with(app, runtime, ANY)
         configure_games.assert_called_once_with(app)
         configure_vision.assert_called_once_with(app)
         configure_media.assert_called_once_with(app, runtime)

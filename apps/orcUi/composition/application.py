@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from adapters.radio.json_radio_visualization_settings import JsonRadioVisualizationSettings
 from adapters.radio.sdrforge_rf_hardware_config import SdrForgeRfHardwareConfig
-from apps.launchers.cesium_embedded_viewer import CesiumEmbeddedViewer
 from apps.launchers.host_location_permission import HostLocationPermission
 from apps.launchers.host_location_session import HostLocationSession
 from apps.launchers.scrcpy_waze_launcher import ScrcpyWazeLauncher
@@ -16,12 +16,13 @@ from apps.launchers.waydroid_location_provider import WaydroidLocationProvider
 from apps.orcUi.adapters.scrcpy_waze_gestures import ScrcpyWazeGestures
 from apps.orcUi.adapters.scrcpy_waze_player import ScrcpyWazePlayer
 from apps.orcUi.application_runtime import create_orc_ui_application_runtime
-from apps.orcUi.cesium_map_runtime import CesiumMapRuntime
 from apps.orcUi.composition.android_app_view import AndroidAppView
 from apps.orcUi.composition.application_resources import (
     OrcUiComposition,
     _report,
-    initial_terrain_view,
+    create_audio_settings,
+    create_navigation_maps,
+    create_software_update,
 )
 from apps.orcUi.composition.business_apps import (
     _android_panel_backends,
@@ -48,7 +49,6 @@ from apps.orcUi.frontend.tk.navigation_screen import NavigationScreen
 from apps.orcUi.frontend.tk.offroad_screen import OffRoadScreen
 from apps.orcUi.frontend.tk.settings_screen import SettingsScreen
 from apps.orcUi.frontend.tk.vehicle_screen import VehicleScreen
-from apps.orcUi.map_platform_requests import MapPlatformRequests
 from apps.orcUi.performance_status import PerformanceStatusPresenter
 from apps.orcUi.theme_runtime import theme_bundle
 from common.app_settings import AppSettingsStore
@@ -59,7 +59,6 @@ from controllers.navigation.map_controls_drawer_controller import MapControlsDra
 from controllers.navigation.map_favorites import MapFavorites
 from controllers.navigation.navigation_experience_controller import NavigationExperienceController
 from controllers.navigation.navigation_view_controller import NavigationViewController
-from controllers.navigation.route_overlay_controller import RouteOverlayController
 from controllers.navigation.waze_gesture_controller import WazeGestureController
 from controllers.weather.radar_palette import RadarPalette
 from controllers.weather.radar_replay_controller import RadarReplayController
@@ -97,7 +96,8 @@ def create_orc_ui_composition(
             "LIGHTING",
         ):
             app.register_navigation_destination(destination)
-        radio = configure_radio(app, runtime)
+        rf_visualization_settings = JsonRadioVisualizationSettings()
+        radio = configure_radio(app, runtime, rf_visualization_settings)
         cleanup.callback(radio.close)
         _report(progress, "radio", "Radio subsystem loaded")
         games = configure_games(app)
@@ -181,25 +181,7 @@ def create_orc_ui_composition(
             core.presentation,
         )
         cleanup.callback(overlays.close)
-        navigation_maps = CesiumMapRuntime(
-            core.map_runtime,
-            CesiumEmbeddedViewer(),
-            initial_view=initial_terrain_view,
-        )
-        cleanup.callback(navigation_maps.close)
-        navigation_map_requests = MapPlatformRequests(
-            core.map_camera.request_handler,
-            lambda _name, _args, _kwargs: None,
-            navigation_maps.update_poi_overlay,
-        )
-        core.map_camera.observe_position(navigation_maps.update_position)
-        route_overlay = RouteOverlayController(navigation_maps.update_route_overlay)
-        core.route_request_handler.observe_route(route_overlay.update_route)
-        core.presentation.observe_route_guidance(route_overlay.update_guidance)
-        if core.route_request_handler.active_route is not None:
-            route_overlay.update_route(core.route_request_handler.active_route)
-        if core.presentation.route_guidance is not None:
-            route_overlay.update_guidance(core.presentation.route_guidance)
+        navigation_maps, navigation_map_requests = create_navigation_maps(core, cleanup)
         host_location = None
         waydroid_enabled, scrcpy_enabled = _android_panel_backends()
 
@@ -389,6 +371,9 @@ def create_orc_ui_composition(
             presentation=core.presentation,
             on_back=lambda: app.navigate_to("HOME"),
         )
+        audio_settings = create_audio_settings(app)
+        if audio_settings is not None:
+            cleanup.callback(audio_settings.close)
         settings = SettingsScreen(
             app,
             theme_bundle=lambda: theme_bundle(app.theme_mode),
@@ -398,8 +383,10 @@ def create_orc_ui_composition(
             unit_system=unit_system,
             on_unit_system_changed=set_unit_system,
             on_back=lambda: app.navigate_to("HOME"),
-            rf_hardware_config=SdrForgeRfHardwareConfig(),
+            rf_hardware_config=SdrForgeRfHardwareConfig(app),
+            rf_visualization_settings=rf_visualization_settings,
             receiver_settings=radio.receiver_settings,
+            audio_settings=audio_settings,
             performance_overlay_enabled=app.performance_overlay_enabled,
             on_performance_overlay_changed=app.set_performance_overlay_enabled,
             configure_spotify=media.configure_spotify,
@@ -465,6 +452,8 @@ def create_orc_ui_composition(
         app.set_initial_destination("HOME")
         app.set_settings_action(lambda: app.navigate_to("SETTINGS"))
         _report(progress, "screens", "Application screens loaded")
+        software_update = create_software_update(core, app)
+        cleanup.callback(software_update.close)
         composition = OrcUiComposition(
             core=core,
             runtime=runtime,
@@ -494,6 +483,8 @@ def create_orc_ui_composition(
             android_app_view=android_app_view,
             waze_app_view=waze_app_view,
             waze_gestures=waze_gestures,
+            software_update=software_update,
+            audio_settings=audio_settings,
         )
         cleanup.release()
         return composition

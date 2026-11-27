@@ -31,9 +31,10 @@ from .error_dialog import ErrorDialog
 from .performance_overlay import PerformanceOverlay
 from .power_dialog import PowerDialog
 from .screen_builders import build_placeholder
-from .shell_construction import build_shell, format_volume
+from .shell_construction import build_shell, format_volume, toggle_shell_theme
 from .shell_metrics import TARGET_GEOMETRY, TARGET_HEIGHT, TARGET_WIDTH
 from .shell_view import OrcUiShellView
+from .software_update_dialog import SoftwareUpdateDialog
 from .ui_callback_mixin import UiCallbackMixin
 
 
@@ -61,6 +62,7 @@ class OrcUiApp(UiCallbackMixin, VolumeUiIf, UiWidget):
         self._root = tk.Tk()
         self._performance_overlay = PerformanceOverlay(self._root)
         self._error_dialog = ErrorDialog(self._root, lambda: self._theme)
+        self._software_update_dialog = SoftwareUpdateDialog(self._root, lambda: self._theme)
         self.notification_sink = NotificationDispatcher(
             self.dispatch_ui,
             self._present_notification,
@@ -311,6 +313,10 @@ class OrcUiApp(UiCallbackMixin, VolumeUiIf, UiWidget):
         """Present a shell-level error without painting over native content."""
         self._error_dialog.show(title, message)
 
+    def offer_software_update(self, revision: str, on_accept: Callable[[], None]) -> None:
+        """Present an available ORC checkout update for user approval."""
+        self._software_update_dialog.show(revision, on_accept)
+
     def set_screen_status(self, message: str) -> None:
         if self._shell is not None:
             self._shell.set_status(message)
@@ -451,23 +457,7 @@ class OrcUiApp(UiCallbackMixin, VolumeUiIf, UiWidget):
         self._shutdown()
 
     def _toggle_theme(self) -> None:
-        self._theme_mode = toggle(self._theme_mode)
-        self._theme = theme_bundle(self._theme_mode)
-        active_screen = self._active_screen
-        set_theme_mode = getattr(active_screen, "set_theme_mode", None)
-        if active_screen is not None and not callable(set_theme_mode):
-            # Stop embedded renderers before their native host widgets are destroyed.
-            self._deactivate_active_screen()
-        theme_change_handler = self._theme_change_handler
-        if theme_change_handler is not None:
-            theme_change_handler(self._theme_mode)
-        if self._power_dialog is not None:
-            self._power_dialog.close()
-        self._rebuild_shell_theme()
-        if callable(set_theme_mode):
-            set_theme_mode(self._theme_mode)
-        elif active_screen is not None:
-            self.navigate_to(self._active_nav)
+        toggle_shell_theme(self, toggle, theme_bundle)
 
     def _deactivate_active_screen(self) -> None:
         active_screen = self._active_screen

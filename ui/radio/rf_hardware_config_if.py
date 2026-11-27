@@ -17,7 +17,7 @@ class RfHardwareConfig(TypedDict):
 
 
 class RfHardwareConfigIf(Protocol):
-    """Complete asynchronous RF requests without blocking the UI thread."""
+    """Run RF requests asynchronously and deliver completions on the UI thread."""
 
     def load(
         self, on_success: Callable[[RfHardwareConfig], None], on_error: Callable[[str], None]

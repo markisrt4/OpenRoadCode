@@ -9,24 +9,38 @@ Compact FM puts tuning controls around the frequency display and groups presets,
 scan, and mute below station information and the FM band dial. The receiver
 power control has its own row beneath the signal meter.
 Trending artist selections show airplay counts and, when a matching article is
-available, a Wikipedia biography and credited Wikimedia portrait. ORC uses its
-persistent cache for seven days so repeat selections can reuse profile data.
+available, a Wikipedia biography and credited Wikimedia portrait. The shared
+`PersistentCache` stores biographies, portrait bytes, and attribution under the
+OpenRoadCode user cache directory (`artist-profiles`). Profiles with a portrait
+are reused for seven days. Missing profiles or portraits are retried after an
+hour on the next selection. Airplay counts come from the charts API.
 Song selections show their observed play count and the same sourced artist
 context when available.
 
 Trending's embedded video pane requests playback through a per-pane session. Radio
 composition creates the session, which owns search work and browser cleanup.
-The pane retires the session when it closes. Set `MUSICFORGE_AIRPLAY_URL` if the
-charts service runs somewhere other than `http://127.0.0.1:8000`.
+The pane retires the session when it closes. The Linux installer's optional
+**Trending music** step can save a direct API URL or set up a private SSH tunnel.
+See [MusicForge Airplay self-hosting](musicforge_airplay.md) for server
+requirements and Raspberry Pi setup.
 
-For the Raspberry Pi 5 deployment that forwards local port 8003 to the private
-VPS API on port 8003, run `scripts/systemd/install_musicforge_airplay_tunnel.sh`
-with Bash as the ORC user. It uses your interactive VPS login once to register a
-dedicated tunnel key. The systemd user service starts at login and reconnects
-automatically. Set `MUSICFORGE_AIRPLAY_URL=http://127.0.0.1:8003` when launching
-ORC. To start the service before login, enable systemd lingering for the ORC user.
-See the [Ethernet IDD](ethernet_idd.md#musicforge-airplay) for port ownership and
-the HTTP interface.
+The Trending details pane displays a loading message while artist information
+is fetched. Use the up and down buttons to page through the biography. The
+YouTube action on a song opens the first video and requests autoplay when the
+configured YouTube Data API key or optional `yt-dlp` can resolve a result.
+Otherwise it opens the search results. You can sign in from the YouTube
+browser window while parked. ORC uses the same persistent YouTube browser
+profile for subsequent sessions, while the API key handles search separately.
+
+If Spotify's local browser player cannot start, Trending tries an available
+Spotify Connect device. If playback still fails, ORC displays the failure in
+its error popup.
+
+Each chart row shows the reported play count. Tap the green and red trend arrows to compare today's,
+seven-day, and thirty-day counts for the selected station filter. Tap **ⓘ**
+for station-by-station counts in the selected period. Both views use the
+existing ranked charts API, so an entry outside a chart has an unknown
+count. Selecting the row itself returns to the song or artist biography.
 
 ## Overview
 

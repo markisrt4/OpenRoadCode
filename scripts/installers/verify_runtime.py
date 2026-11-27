@@ -178,7 +178,7 @@ def routing_ready(root: Path, region: str) -> tuple[bool, str]:
         return False, f"{context}; {type(exc).__name__}: {exc}"
 
 
-def radio_service_ready() -> tuple[bool, str]:
+def radio_service_ready(*, managed: bool = False) -> tuple[bool, str]:
     """Check the user service, its listeners, and its REST health."""
     try:
         state = subprocess.check_output(
@@ -205,6 +205,16 @@ def radio_service_ready() -> tuple[bool, str]:
             health = json.load(response)
             if not isinstance(health, dict) or health.get("status") != "ok":
                 return False, "REST health is not ok"
+        if managed:
+            with urllib.request.urlopen("http://127.0.0.1:5570/v1/receiver", timeout=2) as response:
+                status = json.load(response)
+            if not isinstance(status, dict) or not isinstance(
+                status.get("hardware_released"), bool
+            ):
+                return False, (
+                    "The running service does not report hardware release. "
+                    "Install the pinned libSDRForge revision in the service environment."
+                )
         return True, f"systemd PID {pid} owns REST, ZMQ and rigctl"
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
         return False, str(exc)
@@ -339,7 +349,7 @@ def main() -> int:
     failures += verify_boot_services(args, feature_set)
 
     if args.radio_service:
-        ok, detail = radio_service_ready()
+        ok, detail = radio_service_ready(managed=args.managed_rf)
         report("PASS" if ok else "FAIL", "libsdrforge.service radio transport", detail)
         failures += not ok
 
