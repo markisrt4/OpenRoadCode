@@ -40,7 +40,6 @@ from apps.orcUi.composition.media import configure_media
 from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
 from apps.orcUi.composition.radio import configure_radio
 from apps.orcUi.composition.tooltips import TooltipFactory
-from apps.orcUi.composition.vision import configure_vision
 from apps.orcUi.composition.waze import configure_waze
 from apps.orcUi.composition.weather import configure_weather
 from apps.orcUi.composition.weather_overlays import configure_weather_overlays
@@ -109,6 +108,8 @@ def create_orc_ui_composition(
         if os.environ.get("ORC_NO_CAMERA") == "1":
             _report(progress, "vision", "Vision subsystem intentionally disabled")
         else:
+            from apps.orcUi.composition.vision import configure_vision
+
             vision = configure_vision(app)
             cleanup.callback(vision.close)
             _report(progress, "vision", "Vision subsystem loaded")
