@@ -8,14 +8,22 @@ case "${1:-}" in
     start)
         geometry="${2:-1280x720}"
         case "$geometry" in 1280x720|800x480) ;; *) exit 2 ;; esac
-        ssh -T "$host" bash -s -- "$geometry" <<'REMOTE'
+        if (($# >= 2)); then shift 2; else shift; fi
+        for argument in "$@"; do
+            case "$argument" in
+                --simulation|--camera|--no-camera|--audio|--no-audio|--native-map|--no-native-map|--spotify|--no-spotify|--opengl|--no-opengl) ;;
+                *) echo "Unsupported runtime argument: $argument" >&2; exit 2 ;;
+            esac
+        done
+        ssh -T "$host" bash -s -- "$geometry" "$@" <<'REMOTE'
 set -euo pipefail
 geometry="$1"
+shift
 name=orc-rpi5-vnc
 if podman container exists "$name"; then
     if [[ "$(podman inspect --format '{{.State.Running}}' "$name")" == true ]]; then
         actual="$(podman exec "$name" xdpyinfo -display :99 2>/dev/null | awk '/dimensions:/ {print $2; exit}' || true)"
-        if [[ "$actual" == "$geometry" ]]; then
+        if [[ "$actual" == "$geometry" && $# -eq 0 ]]; then
             exit 0
         fi
         if [[ -z "$actual" ]]; then
@@ -29,7 +37,7 @@ if podman container exists "$name"; then
     fi
 fi
 mkdir -p ~/.local/state/openroadcode
-nohup bash ~/src/OpenRoadCode/development/simulation/rpi5/run-vnc.sh "$geometry" > ~/.local/state/openroadcode/vnc.log 2>&1 < /dev/null &
+nohup bash ~/src/OpenRoadCode/development/simulation/rpi5/run-vnc.sh "$geometry" "$@" > ~/.local/state/openroadcode/vnc.log 2>&1 < /dev/null &
 REMOTE
         for ((i=0; i<60; i++)); do
             if ssh -T "$host" 'podman exec orc-rpi5-vnc python3 -c "import socket; socket.create_connection((\"127.0.0.1\",5900),2).close()"' >/dev/null 2>&1; then
@@ -74,5 +82,5 @@ REMOTE
     logs)
         ssh -T "$host" 'tail -60 ~/.local/state/openroadcode/vnc.log'
         ;;
-    *) echo "Usage: orc-vnc {start [1280x720|800x480]|connect|stop|status|logs}" >&2; exit 2 ;;
+    *) echo "Usage: orc-vnc {start [1280x720|800x480] [runtime flags]|connect|stop|status|logs}" >&2; exit 2 ;;
 esac
