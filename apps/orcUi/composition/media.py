@@ -350,6 +350,8 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
     retire_views.append(spotify_screen.hide)
 
     renderer = os.getenv("OPENROAD_MUSIC_VISUALIZER_RENDERER", "opengl").lower()
+    if os.environ.get("ORC_NO_OPENGL") == "1":
+        renderer = "tk"
     if renderer in {"tk", "opengl"}:
         panel_options = {}
         if renderer == "opengl":
