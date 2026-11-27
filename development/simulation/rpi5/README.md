@@ -44,8 +44,8 @@ The VNC relay uses SSH and loopback sockets, not a public VNC port.
 ## Runtime feature switches
 
 The application accepts positive and negative switches for camera, audio,
-native-map, spotify and opengl (for example, `--no-camera` or `--camera`).
-The `--simulation` profile disables all five by default. Explicit switches
+native-map, spotify, opengl and adsb (for example, `--no-camera` or `--camera`).
+The `--simulation` profile disables all six by default. Explicit switches
 override the profile, which overrides existing ORC_NO_* environment flags.
 Without a profile or overrides, features default to enabled.
 
@@ -54,5 +54,6 @@ radio or external application audio. OpenGL disabling selects Tk/Canvas
 fallbacks and blocks native map and Cesium activation; it is not a
 process-wide prohibition on graphics APIs in external applications.
 Spotify disabling blocks background startup and guarded operations while
-retaining presentation objects. Simulation does not emulate physical RF,
+retaining presentation objects. ADS-B disabling blocks receiver tracking,
+status polling and dashboard launches. Simulation does not emulate physical RF,
 GPS, camera, GPU or Android hardware.
