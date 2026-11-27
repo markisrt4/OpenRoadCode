@@ -34,7 +34,9 @@ def git(root: Path, *arguments: str) -> str:
 
 def snapshot(root: Path) -> dict[str, str]:
     result = run(
-        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"], root, capture=True,
+        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+        root,
+        capture=True,
     )
     if result.returncode:
         raise RuntimeError("Could not enumerate repository files")
@@ -78,7 +80,9 @@ def main(argv: list[str] | None = None, *, root: Path = ROOT) -> int:
     parser.add_argument("--format-only", action="store_true")
     parser.add_argument("--fix", action="store_true", help="Apply safe Ruff fixes and formatting")
     parser.add_argument(
-        "--publish", action="store_true", help="Fix, check, commit, and push Ruff edits",
+        "--publish",
+        action="store_true",
+        help="Fix, check, commit, and push Ruff edits",
     )
     parser.add_argument("--message", default="Apply automated Ruff fixes")
     parser.add_argument("paths", nargs="*", default=[])

@@ -7,7 +7,9 @@ def setup_gate(monkeypatch):
     commands = []
     monkeypatch.setattr(quality_gate, "_run_ruff", lambda: True)
     monkeypatch.setattr(quality_gate, "_run_ui_types", lambda: True)
-    monkeypatch.setattr(quality_gate, "_run", lambda label, command: commands.append(command) or True)
+    monkeypatch.setattr(
+        quality_gate, "_run", lambda label, command: commands.append(command) or True
+    )
     return commands
 
 
