@@ -231,6 +231,13 @@ def configure_radio(
             )
             if visualization_settings is not None:
                 visualization = visualization_settings.load(visualization)
+            if os.environ.get("ORC_NO_OPENGL") == "1":
+                visualization = RadioVisualizationConfig(
+                    renderer=RadioRenderer.TK,
+                    waterfall_rows=visualization.waterfall_rows,
+                    max_fps=visualization.max_fps,
+                    palette=visualization.palette,
+                )
             source = SdrForgeTelemetrySubscriber(
                 os.environ.get("SDRFORGE_ZMQ_ENDPOINT", "tcp://127.0.0.1:5571")
             )
