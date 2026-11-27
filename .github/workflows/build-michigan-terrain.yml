@@ -132,7 +132,7 @@ jobs:
             build-output/state-map-catalog.json
           key: map-artifact-imagery-${{ inputs.coverage }}-${{ steps.identity.outputs.value }}
       - name: Upload checked imagery package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: imagery-${{ inputs.coverage }}
           path: |
@@ -186,7 +186,7 @@ jobs:
           exit 1
       - name: Upload validated terrain row
         if: ${{ steps.terrain-row.outcome == 'success' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: terrain-row-${{ inputs.coverage }}-${{ matrix.row }}
           path: build-output/${{ inputs.coverage }}-terrain.download/r${{ matrix.row }}-c*
@@ -251,7 +251,7 @@ jobs:
             --title "Michigan offline map data · ${COVERAGE}" \
             --notes "Offline rectangular USGS imagery and 3DEP terrain shard. Inspect coverage, size, and rendering before publishing."
       - name: Upload assembled map-data package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: map-data-${{ inputs.coverage }}
           path: |

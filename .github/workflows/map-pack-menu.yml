@@ -70,7 +70,7 @@ jobs:
           printf 'b\n' | CONTAINER_ENGINE=missing-engine bash tools/map_builder/scripts/run-builder.sh packs
       - name: Generate offline globe reference asset
         run: python -m development.maps.build_reference_globe --output world_reference.png
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: world-reference-image
           path: world_reference.png
