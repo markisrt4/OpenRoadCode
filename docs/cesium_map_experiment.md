@@ -454,9 +454,12 @@ The Cesium presentation keeps rectangular imagery envelopes for useful
 cross-border context. Natural Earth 5.1.2 supplies compact worldwide country and
 disputed-boundary lines. Bundled Census geometry supplies internal boundaries
 shared by two U.S. states, while the country layer exclusively owns the national
-perimeter; this avoids competing independently simplified outlines. Michigan
-retains a cyan dashed outline for local emphasis. D.C. and territories are
-intentionally excluded from the state layer. Coordinates
+perimeter; this avoids competing independently simplified outlines. Canada's
+provincial and territorial lines use the Canada-only internal features from
+Natural Earth's public-domain
+[1:50m Admin-1 boundary lines, version 5.1.2](https://github.com/nvkelso/natural-earth-vector/blob/v5.1.2/geojson/ne_50m_admin_1_states_provinces_lines.geojson).
+Michigan retains a cyan dashed outline for local emphasis. D.C. and U.S.
+territories are intentionally excluded from the state layer. Coordinates
 cross the toolkit-independent UI boundary in radians and the frontend clamps the
 lines to installed terrain. These are statistical boundaries, not survey-grade
 or navigation-authoritative borders. Shared state edges are deduplicated before
@@ -1189,6 +1192,8 @@ from zoom0 with a thin zoom-scaled line. The existing theme palette, local file
 sources, runtime style installer and road/route layer order remain unchanged.
 Restart ORC after updating the code to regenerate the installed style. This is a
 style-only deployment; rebuilding map tiles or downloading terrain is unnecessary.
+Canada's provinces and territories use the same zoom-scaled line style on Road
+map, with an offline Natural Earth source installed alongside the U.S. layers.
 
 ### Paged terrain seams and contour water masking
 

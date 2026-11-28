@@ -26,6 +26,11 @@
       "type": "geojson",
       "data": "file://__OPENROADCODE_DATA_ROOT__/maps/boundaries/us_state_boundaries.geojson"
     },
+    "canadian-boundaries": {
+      "type": "geojson",
+      "data": "file://__OPENROADCODE_DATA_ROOT__/maps/boundaries/ca_province_territory_boundaries.geojson",
+      "attribution": "Natural Earth 5.1.2"
+    },
     "michigan-boundary": {
       "type": "geojson",
       "data": "file://__OPENROADCODE_DATA_ROOT__/maps/boundaries/us_state_boundaries.geojson"
@@ -236,6 +241,37 @@
       "id": "state-boundaries",
       "type": "line",
       "source": "state-boundaries",
+      "minzoom": 0,
+      "paint": {
+        "line-color": "#54b948",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          0,
+          0.6,
+          3,
+          1.0,
+          8,
+          1.6,
+          12,
+          2.2
+        ],
+        "line-opacity": 0.78,
+        "line-dasharray": [
+          1,
+          2
+        ]
+      }
+    },
+    {
+      "id": "canadian-boundaries",
+      "type": "line",
+      "source": "canadian-boundaries",
       "minzoom": 0,
       "paint": {
         "line-color": "#54b948",

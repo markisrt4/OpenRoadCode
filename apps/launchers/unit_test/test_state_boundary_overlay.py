@@ -10,7 +10,13 @@ from ui.navigation.boundary_overlay_state import BoundaryOverlayState, BoundaryR
 
 def test_census_boundaries_are_normalized_to_immutable_radians():
     state = load_state_boundary_overlay()
-    assert [region.kind for region in state.regions] == ["country", "disputed", "state", "state"]
+    assert [region.kind for region in state.regions] == [
+        "country",
+        "disputed",
+        "state",
+        "state",
+        "state",
+    ]
     assert [region.name for region in state.regions if region.emphasized] == ["Michigan"]
     assert state.attribution.startswith("Natural Earth")
     assert (
@@ -28,6 +34,13 @@ def test_census_boundaries_are_normalized_to_immutable_radians():
         for start, end in zip(path, path[1:], strict=False)
     ]
     assert len(edges) == len(set(edges))
+
+    canada = state.regions[4]
+    assert canada.name == "Canadian province and territory boundaries"
+    assert len(canada.paths_rad) == 17
+    latitudes = [math.degrees(lat) for path in canada.paths_rad for _, lat in path]
+    assert min(latitudes) < 50
+    assert max(latitudes) > 65
 
 
 def test_boundary_contract_rejects_mutable_short_and_unbounded_state():

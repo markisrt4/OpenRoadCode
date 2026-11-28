@@ -1,4 +1,4 @@
-"""Load bundled Census geometry into the renderer-independent boundary contract."""
+"""Load bundled political boundaries into the renderer-independent contract."""
 
 import json
 import math
@@ -8,6 +8,9 @@ from ui.navigation.boundary_overlay_state import BoundaryOverlayState, BoundaryR
 
 _SOURCE = Path(__file__).resolve().parents[2] / "resources/maps/us_state_boundaries.geojson"
 _COUNTRIES = Path(__file__).resolve().parents[2] / "resources/maps/world_country_boundaries.geojson"
+_CANADA = (
+    Path(__file__).resolve().parents[2] / "resources/maps/ca_province_territory_boundaries.geojson"
+)
 
 _STATE_FIPS = frozenset(
     {
@@ -129,12 +132,10 @@ def _paths(segments):
     return tuple(paths)
 
 
-def _country_paths(source):
-    document = json.loads(Path(source).read_text())
+def _line_features(source):
+    document = json.loads(Path(source).read_text(encoding="utf-8"))
     if document.get("type") != "FeatureCollection" or not document.get("features"):
-        raise ValueError("Country boundary asset must be a non-empty GeoJSON collection")
-    regular = []
-    disputed = []
+        raise ValueError("Boundary asset must be a non-empty GeoJSON collection")
     for feature in document["features"]:
         geometry = feature.get("geometry", {})
         coordinates = geometry.get("coordinates", ())
@@ -143,20 +144,27 @@ def _country_paths(source):
         elif geometry.get("type") == "MultiLineString":
             paths = coordinates
         else:
-            raise ValueError("Country boundary asset contains unsupported geometry")
-        target = (
-            disputed
-            if feature.get("properties", {}).get("FEATURECLA") != "International boundary (verify)"
-            else regular
-        )
-        target.extend(
+            raise ValueError("Boundary asset contains unsupported geometry")
+        yield feature.get("properties", {}), tuple(
             tuple((math.radians(float(lon)), math.radians(float(lat))) for lon, lat, *_rest in path)
             for path in paths
         )
+
+
+def _country_paths(source):
+    regular = []
+    disputed = []
+    for properties, paths in _line_features(source):
+        target = (
+            disputed
+            if properties.get("FEATURECLA") != "International boundary (verify)"
+            else regular
+        )
+        target.extend(paths)
     return tuple(regular), tuple(disputed)
 
 
-def load_state_boundary_overlay(source=_SOURCE, countries=_COUNTRIES):
+def load_state_boundary_overlay(source=_SOURCE, countries=_COUNTRIES, canada=_CANADA):
     document = json.loads(Path(source).read_text())
     features = document.get("features", ())
     fips = {feature.get("properties", {}).get("GEOID") for feature in features}
@@ -169,6 +177,12 @@ def load_state_boundary_overlay(source=_SOURCE, countries=_COUNTRIES):
         BoundaryRegionState("Disputed or indefinite boundaries", False, disputed_paths, "disputed"),
         BoundaryRegionState("United States state boundaries", False, _paths(national), "state"),
         BoundaryRegionState("Michigan", True, _paths(michigan), "state"),
+        BoundaryRegionState(
+            "Canadian province and territory boundaries",
+            False,
+            tuple(path for _, paths in _line_features(canada) for path in paths),
+            "state",
+        ),
     )
     return BoundaryOverlayState(
         regions,

@@ -61,7 +61,8 @@ document["layers"] = layers
 path.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
 PY
 fi
-for boundary in us_state_boundaries.geojson us_state_internal_boundaries.geojson world_country_boundaries.geojson world_land.geojson world_lakes.geojson; do
+for boundary in us_state_boundaries.geojson us_state_internal_boundaries.geojson \
+  ca_province_territory_boundaries.geojson world_country_boundaries.geojson world_land.geojson world_lakes.geojson; do
   sudo install -o "$RUNTIME_USER" -g "$RUNTIME_GROUP" -m 0644 \
     "$BOUNDARY_SOURCE/$boundary" "$BOUNDARY_DESTINATION/$boundary"
 done

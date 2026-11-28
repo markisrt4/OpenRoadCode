@@ -20,6 +20,7 @@ class ValidationError(RuntimeError):
 REFERENCE_MAP_FILES = (
     "us_state_boundaries.geojson",
     "us_state_internal_boundaries.geojson",
+    "ca_province_territory_boundaries.geojson",
     "world_country_boundaries.geojson",
     "world_land.geojson",
     "world_lakes.geojson",

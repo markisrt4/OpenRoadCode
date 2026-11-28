@@ -160,6 +160,7 @@ def _install_reference_maps(root: Path) -> None:
         "world_country_boundaries.geojson",
         "us_state_boundaries.geojson",
         "us_state_internal_boundaries.geojson",
+        "ca_province_territory_boundaries.geojson",
     ):
         payload = (source / name).read_bytes()
         target = destination / name
@@ -232,6 +233,7 @@ def _apply_map_palette(document: dict[str, Any], colors: dict[str, str]) -> None
         ("country-boundaries", "line-color", "country_boundary"),
         ("disputed-boundaries", "line-color", "disputed_boundary"),
         ("state-boundaries", "line-color", "state_boundary"),
+        ("canadian-boundaries", "line-color", "state_boundary"),
         ("michigan-boundary", "line-color", "michigan_boundary"),
         ("railways", "line-color", "rail"),
         ("paths", "line-color", "path"),

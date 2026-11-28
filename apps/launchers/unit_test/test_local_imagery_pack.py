@@ -121,6 +121,7 @@ def test_server_exposes_boundary_contract_without_asset_paths(server):
         "Disputed or indefinite boundaries",
         "United States state boundaries",
         "Michigan",
+        "Canadian province and territory boundaries",
     ]
     assert overlay["regions"][3]["emphasized"] is True
     assert "source" not in json.dumps(overlay).lower()

@@ -69,6 +69,9 @@ class MapThemeRuntimeTest(unittest.TestCase):
             document = json.loads(destination.read_text(encoding="utf-8"))
             layers = {layer["id"]: layer for layer in document["layers"]}
             self.assertEqual(layers["state-boundaries"]["paint"]["line-color"], "#54c96b")
+            self.assertEqual(
+                layers["canadian-boundaries"]["paint"], layers["state-boundaries"]["paint"]
+            )
             self.assertEqual(layers["reference-land"]["paint"]["fill-color"], "#18372b")
             self.assertEqual(layers["reference-lakes"]["paint"]["fill-color"], "#103f56")
             self.assertEqual(layers["national-motorways"]["source"], "national-freeways")
@@ -78,6 +81,9 @@ class MapThemeRuntimeTest(unittest.TestCase):
                 "us_state_boundaries.geojson", document["sources"]["state-boundaries"]["data"]
             )
             self.assertEqual(layers["state-boundaries"]["paint"]["line-dasharray"], [1, 2])
+            canada_asset = root / "maps" / "boundaries" / "ca_province_territory_boundaries.geojson"
+            self.assertIn(canada_asset.name, document["sources"]["canadian-boundaries"]["data"])
+            self.assertTrue(canada_asset.is_file())
             self.assertEqual(layers["country-boundaries"]["paint"]["line-color"], "#dce8ef")
             self.assertEqual(layers["michigan-boundary"]["paint"]["line-color"], "#59d8ff")
             self.assertEqual(layers["buildings"]["type"], "fill-extrusion")
