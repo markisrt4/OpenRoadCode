@@ -150,14 +150,25 @@ class HostSetupPlanTests(unittest.TestCase):
                     VENV_DIR=str(root / "venv"),
                     XDG_CONFIG_HOME=str(root / "config"),
                 )
-                result = self.run_installer("--target", "linux-dev", "--verify-only")
+                result = self.run_installer(
+                    "--target", "linux-dev", "--with-service-manager", "--verify-only"
+                )
             finally:
                 os.environ.clear()
                 os.environ.update(environment)
             self.assertEqual(result.returncode, 7, result.stderr)
             self.assertIn("verify_installation.py", result.stdout)
             self.assertIn("verify_runtime.py", result.stdout)
+            self.assertIn("--service-manager\n", result.stdout)
             self.assertFalse((root / "config").exists())
+
+    def test_android_pairing_requires_explicit_opt_in(self) -> None:
+        args = ("--target", "linux-dev", "--show-plan")
+        for flags, enabled in (((), 0), (("--all-features",), 0), (("--with-service-manager",), 1)):
+            with self.subTest(flags=flags):
+                result = self.run_installer(*args, *flags)
+                self.assertEqual(0, result.returncode, result.stderr)
+                self.assertIn(f"Android pairing setup: {enabled}", result.stdout)
 
     def test_target_is_required(self) -> None:
         result = self.run_installer("--show-plan")

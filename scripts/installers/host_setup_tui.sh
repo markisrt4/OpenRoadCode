@@ -31,16 +31,17 @@ WITH_VNC=0
 WITH_ORC_AUTOSTART=0
 WITH_GPSD=0
 WITH_TELEMETRY=0
+WITH_SERVICE_MANAGER=0
 WITH_RADIO=1
 SETTINGS_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/openroadcode/installer-selection.conf"
-settings_keys=(NAVIGATION_MODE NAVIGATION_REGION WITH_NAVIGATION SELECTED_TARGET SELECTED_GENERAL SELECTED_STREAMING SELECTED_AUDIO SELECTED_NAVIGATION SELECTED_RADIO SELECTED_VIDEO SELECTED_AUTOMOTIVE SELECTED_BLUETOOTH SELECTED_ENVIRONMENTAL INSTALL_ALL_FEATURES WITH_VNC WITH_ORC_AUTOSTART WITH_GPSD WITH_TELEMETRY WITH_RADIO)
+settings_keys=(NAVIGATION_MODE NAVIGATION_REGION WITH_NAVIGATION SELECTED_TARGET SELECTED_GENERAL SELECTED_STREAMING SELECTED_AUDIO SELECTED_NAVIGATION SELECTED_RADIO SELECTED_VIDEO SELECTED_AUTOMOTIVE SELECTED_BLUETOOTH SELECTED_ENVIRONMENTAL INSTALL_ALL_FEATURES WITH_VNC WITH_ORC_AUTOSTART WITH_GPSD WITH_TELEMETRY WITH_SERVICE_MANAGER WITH_RADIO)
 if [[ -f "$SETTINGS_FILE" ]]; then
   while IFS='=' read -r key value; do
     case "$key" in
       NAVIGATION_REGION) [[ "$value" =~ ^[a-z0-9/-]+$ ]] && NAVIGATION_REGION="$value" ;;
       NAVIGATION_MODE) case "$value" in auto|binary|source) NAVIGATION_MODE="$value" ;; esac ;;
       SELECTED_TARGET) case "$value" in rpi4|rpi5|linux-dev) SELECTED_TARGET="$value" ;; esac ;;
-      INSTALL_ALL_FEATURES|WITH_NAVIGATION|WITH_VNC|WITH_ORC_AUTOSTART|WITH_GPSD|WITH_TELEMETRY|WITH_RADIO)
+      INSTALL_ALL_FEATURES|WITH_NAVIGATION|WITH_VNC|WITH_ORC_AUTOSTART|WITH_GPSD|WITH_TELEMETRY|WITH_SERVICE_MANAGER|WITH_RADIO)
         [[ "$value" == 0 || "$value" == 1 ]] && printf -v "$key" '%s' "$value" ;;
       SELECTED_GENERAL|SELECTED_STREAMING|SELECTED_AUDIO|SELECTED_NAVIGATION|SELECTED_RADIO|SELECTED_VIDEO|SELECTED_AUTOMOTIVE|SELECTED_BLUETOOTH|SELECTED_ENVIRONMENTAL)
         [[ "$value" =~ ^[a-z0-9[:space:]-]*$ ]] && printf -v "$key" '%s' "$value" ;;
@@ -179,6 +180,7 @@ verify_current_installation() {
     ARGS+=(--with-vnc)
   fi
   if (( WITH_TELEMETRY )); then ARGS+=(--with-telemetry-services); fi
+  if (( WITH_SERVICE_MANAGER )); then ARGS+=(--with-service-manager); fi
   report="$(mktemp -t openroadcode-verify.XXXXXX)"
   OPENROAD_RUNTIME_REPORT= bash "$PROJECT_DIR/scripts/installers/host_setup.sh" "${ARGS[@]}" --verify-only >"$report" 2>&1 || status=$?
   printf '\nVerification exit status: %s\n' "$status" >> "$report"
@@ -335,9 +337,12 @@ if (( NAVIGATION_SELECTED )); then
   if (( WITH_NAVIGATION )); then ARGS+=(--with-navigation-service); else ARGS+=(--no-navigation-service); fi
 fi
 ask_service WITH_TELEMETRY "OpenRoadCode telemetry" "Configure and enable the ZeroMQ broker, navigation producer, and automotive producer services?"
+ask_service WITH_SERVICE_MANAGER "Android app pairing (ORC service manager)" \
+  "Enable Android app pairing and ORC service controls on port 8769? Enable this only on a trusted local network."
 if (( WITH_VNC )); then ARGS+=(--with-vnc); fi
 if (( WITH_GPSD )); then ARGS+=(--with-gpsd-service); else ARGS+=(--no-gpsd-service); fi
 if (( WITH_TELEMETRY )); then ARGS+=(--with-telemetry-services); fi
+if (( WITH_SERVICE_MANAGER )); then ARGS+=(--with-service-manager); fi
 
 ask_service WITH_ORC_AUTOSTART "ORC desktop autostart" \
   "Launch OpenRoadCode when this user signs into the desktop? On a Pi with desktop auto-login, ORC will launch after boot."

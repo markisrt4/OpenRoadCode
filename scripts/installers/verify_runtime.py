@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 import os
 import re
@@ -29,6 +30,8 @@ TELEMETRY_SERVICES = (
     "openroadcode-navigation.service",
     "openroadcode-automotive.service",
 )
+SERVICE_MANAGER_UNIT = "openroadcode-service-manager.service"
+SERVICE_MANAGER_PORT = 8769
 
 
 FAILURE_DETAILS: list[tuple[str, str]] = []
@@ -83,6 +86,8 @@ def verify_boot_services(args: argparse.Namespace, features: set[str]) -> int:
         units.append("valhalla.service")
     if args.gpsd_service:
         units.extend(("gpsd.socket", "gpsd.service"))
+    if args.service_manager:
+        units.append(SERVICE_MANAGER_UNIT)
     if "adsb" in features:
         units.append("lighttpd.service")
 
@@ -244,6 +249,36 @@ def http_endpoint(url: str, timeout_s: float = 1.0) -> tuple[bool, str]:
         return False, str(exc)
 
 
+def service_manager_ready() -> tuple[bool, str]:
+    """Verify the service responds without reading or sending its bootstrap token."""
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    url = f"http://127.0.0.1:{SERVICE_MANAGER_PORT}/services"
+    for attempt in range(3):
+        try:
+            with opener.open(url, timeout=1) as response:
+                return False, f"Expected HTTP 401 without credentials, got {response.status}"
+        except urllib.error.HTTPError as error:
+            with error:
+                return error.code == 401, f"{url}: HTTP {error.code}"
+        except OSError as error:
+            detail = str(error)
+        if attempt < 2:
+            time.sleep(0.25)
+    return False, detail
+
+
+def service_manager_pairing_urls() -> list[str]:
+    urls = []
+    for item in command_output("hostname", "-I").split():
+        try:
+            address = ipaddress.IPv4Address(item)
+        except ValueError:
+            continue
+        if not address.is_loopback and not address.is_unspecified:
+            urls.append(f"http://{address}:{SERVICE_MANAGER_PORT}")
+    return urls
+
+
 def device_accessible(path_text: str) -> tuple[bool, str]:
     path = Path(path_text)
     if not path.exists():
@@ -303,6 +338,11 @@ def main() -> int:
     parser.add_argument("--navigation-service", action="store_true")
     parser.add_argument("--valhalla-service", action="store_true")
     parser.add_argument("--vnc-service", action="store_true")
+    parser.add_argument(
+        "--service-manager",
+        action="store_true",
+        help="Require the Linux service manager for Android pairing",
+    )
     parser.add_argument("--managed-rf", action="store_true")
     parser.add_argument("--navigation-data-root", type=Path)
     parser.add_argument("--navigation-region")
@@ -347,6 +387,25 @@ def main() -> int:
         failures += not ok
 
     failures += verify_boot_services(args, feature_set)
+
+    if args.service_manager:
+        ok, detail = service_manager_ready()
+        report("PASS" if ok else "FAIL", "Android pairing HTTP service", detail)
+        failures += not ok
+        if ok:
+            urls = service_manager_pairing_urls()
+            if urls:
+                report(
+                    "INFO",
+                    "Android pairing URLs (choose the Pi's address on your LAN)",
+                    ", ".join(urls),
+                )
+            else:
+                report(
+                    "WARN",
+                    "Android pairing URL",
+                    "No IPv4 address yet. Connect the host to your LAN.",
+                )
 
     if args.radio_service:
         ok, detail = radio_service_ready(managed=args.managed_rf)

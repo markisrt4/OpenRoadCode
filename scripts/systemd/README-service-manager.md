@@ -10,7 +10,15 @@ The default listener is `0.0.0.0:8769`. This is intended for a trusted, isolated
 
 ## Install on Debian/systemd
 
-From the repository root on `service-manager-linux`:
+For Linux host setup, select **Android app pairing (ORC service manager)**
+in the host setup TUI, or pass `--with-service-manager` to
+`scripts/installers/host_setup.sh`. The option defaults off, including with
+`--all-features`. Host setup installs the restricted service in
+`/opt/openroadcode/service-manager-runtime` and reports candidate LAN pairing
+URLs after checking the local HTTP endpoint. Use the address on the same
+trusted LAN as the Android phone.
+
+For a standalone installation, run from the repository root:
 
 ```bash
 python3 -m unittest discover -s services/linux/unit_test -p 'test_*.py' -v
@@ -19,9 +27,9 @@ sudo systemctl status openroadcode-service-manager --no-pager
 sudo journalctl -u openroadcode-service-manager -n 50 --no-pager
 ```
 
-The installer creates the service account, token file, sudoers policy, and systemd unit. It does not install the managed ORC services themselves. The unit's working directory is the checkout from which the installer was run.
+The installer creates the service account, token file, sudoers policy, and systemd unit. Install the managed ORC services separately. The unit runs from the root-owned runtime installed under `/opt/openroadcode` by default.
 
-### Checkout permissions
+### Checkout permissions on older installations
 
 A checkout under a private home directory may fail with `status=200/CHDIR` and `Changing to the requested working directory failed: Permission denied`. This means the service account cannot traverse the checkout path. Do not run the HTTP service as root to work around it.
 

@@ -37,6 +37,7 @@ RUN_VNC=""
 ORC_AUTOSTART=""
 RUN_GPSD_SERVICE=""
 RUN_TELEMETRY_SERVICES=""
+RUN_SERVICE_MANAGER=0
 RUN_RADIO=""
 RUN_NAVIGATION=""
 NAVIGATION_REGION=""
@@ -83,6 +84,7 @@ Options:
   --no-gpsd-service       Disable GPSD service setup
   --with-telemetry-services Enable broker/navigation/automotive services
   --no-telemetry-services Disable OpenRoadCode telemetry service setup
+  --with-service-manager  Enable Android app pairing and service controls on a trusted Linux LAN
   --bluetooth-spp-address MAC Pair/bind a Bluetooth SPP device after package setup
   --bluetooth-spp-channel N   Override Bluetooth SPP RFCOMM channel discovery
   --bluetooth-rfcomm-id N     RFCOMM device number (default: 0)
@@ -213,6 +215,7 @@ while (( $# > 0 )); do
     --no-gpsd-service) RUN_GPSD_SERVICE=0 ;;
     --with-telemetry-services) RUN_TELEMETRY_SERVICES=1 ;;
     --no-telemetry-services) RUN_TELEMETRY_SERVICES=0 ;;
+    --with-service-manager) RUN_SERVICE_MANAGER=1 ;;
     --bluetooth-spp-address) shift; (( $# > 0 )) || { echo "[!] --bluetooth-spp-address requires a value" >&2; exit 1; }; BLUETOOTH_SPP_ADDRESS="$1" ;;
     --bluetooth-spp-channel) shift; (( $# > 0 )) || { echo "[!] --bluetooth-spp-channel requires a value" >&2; exit 1; }; BLUETOOTH_SPP_CHANNEL="$1" ;;
     --bluetooth-rfcomm-id) shift; (( $# > 0 )) || { echo "[!] --bluetooth-rfcomm-id requires a value" >&2; exit 1; }; BLUETOOTH_RFCOMM_ID="$1" ;;
@@ -287,6 +290,10 @@ esac
 : "${RUN_VNC:=0}"
 
 : "${RUN_TELEMETRY_SERVICES:=0}"
+if (( RUN_SERVICE_MANAGER )) && [[ "$TARGET" == termux ]]; then
+  echo "[!] --with-service-manager is available for Linux host installations." >&2
+  exit 2
+fi
 
 for feature in "${REQUESTED_FEATURES[@]}"; do
   is_known_feature "$feature" || { echo "[!] Unknown feature: $feature" >&2; get_feature_help >&2; exit 1; }
@@ -373,6 +380,7 @@ echo "[*] GPSD service setup:    $RUN_GPSD_SERVICE"
 echo "[*] Radio service setup:   $RUN_RADIO"
 echo "[*] Managed RF:            $MANAGED_RF"
 echo "[*] Telemetry services:    $RUN_TELEMETRY_SERVICES"
+echo "[*] Android pairing setup: $RUN_SERVICE_MANAGER"
 if [[ -n "$SHUTDOWN_BUTTON_BCM" ]]; then
   echo "[*] Shutdown button:       physical pin $SHUTDOWN_BUTTON_PIN (BCM GPIO$SHUTDOWN_BUTTON_BCM) in $BOOT_CONFIG"
 fi
@@ -406,6 +414,7 @@ verify_runtime_health() {
   (( RUN_VNC )) && runtime_args+=(--vnc-service)
   (( MANAGED_RF )) && runtime_args+=(--managed-rf)
   (( RUN_TELEMETRY_SERVICES )) && runtime_args+=(--telemetry-services)
+  (( RUN_SERVICE_MANAGER )) && runtime_args+=(--service-manager)
   (( RUN_GPSD_SERVICE )) && runtime_args+=(--gpsd-service)
   if [[ -n "${OPENROAD_RUNTIME_REPORT:-}" ]]; then
     "$VERIFY_PYTHON" "$SCRIPT_DIR/verify_runtime.py" "${runtime_args[@]}" 2>&1 |
@@ -496,7 +505,7 @@ if (( RUN_VALHALLA )); then
   sudo bash "$PROJECT_ROOT/scripts/systemd/install_valhalla_systemd.sh" "${DATA_ROOT:-/srv/openroadcode}/valhalla/valhalla.json"
 fi
 
-if (( RUN_VNC )) || (( RUN_GPSD_SERVICE )) || (( RUN_TELEMETRY_SERVICES )) || (( RUN_RADIO )) || (( RUN_NAVIGATION )); then
+if (( RUN_VNC || RUN_GPSD_SERVICE || RUN_TELEMETRY_SERVICES || RUN_RADIO || RUN_NAVIGATION || RUN_SERVICE_MANAGER )); then
   service_args=()
   (( RUN_NAVIGATION )) && service_args+=(--navigation)
   (( RUN_RADIO )) && service_args+=(--radio)
@@ -504,6 +513,7 @@ if (( RUN_VNC )) || (( RUN_GPSD_SERVICE )) || (( RUN_TELEMETRY_SERVICES )) || ((
   (( RUN_VNC )) && service_args+=(--vnc)
   (( RUN_GPSD_SERVICE )) && service_args+=(--gpsd --gps-device "$GPS_DEVICE")
   (( RUN_TELEMETRY_SERVICES )) && service_args+=(--telemetry)
+  (( RUN_SERVICE_MANAGER )) && service_args+=(--service-manager)
   bash "$PROJECT_DIR/scripts/installers/install_services.sh" "${service_args[@]}"
 fi
 

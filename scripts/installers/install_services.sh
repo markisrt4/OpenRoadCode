@@ -13,6 +13,7 @@ RUN_NAVIGATION=0
 RUN_VNC=0
 RUN_GPSD_SERVICE=0
 RUN_TELEMETRY_SERVICES=0
+RUN_SERVICE_MANAGER=0
 GPS_DEVICE="${GPS_DEVICE:-/dev/ttyACM0}"
 
 usage() {
@@ -26,6 +27,7 @@ Options:
   --vnc                Configure the VNC user service
   --gpsd               Configure the GPSD system service
   --telemetry          Configure OpenRoadCode broker/navigation/automotive services
+  --service-manager    Configure Android browser pairing and restricted service controls
   --gps-device DEVICE  GPS serial device (default: $GPS_DEVICE)
   -h, --help           Show this help
 EOF
@@ -39,6 +41,7 @@ while (( $# > 0 )); do
     --vnc) RUN_VNC=1 ;;
     --gpsd) RUN_GPSD_SERVICE=1 ;;
     --telemetry) RUN_TELEMETRY_SERVICES=1 ;;
+    --service-manager) RUN_SERVICE_MANAGER=1 ;;
     --gps-device)
       shift
       if (( $# == 0 )); then
@@ -60,9 +63,15 @@ while (( $# > 0 )); do
   shift
 done
 
-if (( ! RUN_VNC && ! RUN_GPSD_SERVICE && ! RUN_TELEMETRY_SERVICES && ! RUN_RADIO && ! RUN_NAVIGATION )); then
+if (( ! RUN_VNC && ! RUN_GPSD_SERVICE && ! RUN_TELEMETRY_SERVICES && ! RUN_RADIO && ! RUN_NAVIGATION && ! RUN_SERVICE_MANAGER )); then
   echo "[*] No services selected."
   exit 0
+fi
+
+if (( RUN_SERVICE_MANAGER )); then
+  echo "[*] Installing OpenRoadCode service manager for Android pairing..."
+  sudo env OPENROADCODE_SERVICE_MANAGER_INSTALL_ROOT=/opt/openroadcode/service-manager-runtime \
+    bash "$PROJECT_ROOT/scripts/systemd/install_service_manager_systemd.sh"
 fi
 
 if (( RUN_VNC )); then
