@@ -165,6 +165,58 @@ class HostSetupPlanTests(unittest.TestCase):
         self.assertNotEqual(0, result.returncode)
         self.assertIn("--target is required", result.stderr)
 
+    def test_shutdown_button_plan_resolves_physical_pin_to_bcm(self) -> None:
+        result = self.run_installer(
+            "--target",
+            "rpi5",
+            "--shutdown-button-pin",
+            "11",
+            "--show-plan",
+            model="Raspberry Pi 5 Model B",
+            architecture="arm64",
+        )
+
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn("physical pin 11 (BCM GPIO17)", result.stdout)
+
+    def test_shutdown_button_rejects_i2c_clock_pin(self) -> None:
+        result = self.run_installer(
+            "--target",
+            "rpi5",
+            "--shutdown-button-pin",
+            "5",
+            "--show-plan",
+            model="Raspberry Pi 5 Model B",
+            architecture="arm64",
+        )
+
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("reserved for I2C", result.stderr)
+
+    def test_shutdown_button_overlay_is_global_and_idempotent(self) -> None:
+        with TemporaryDirectory() as directory:
+            config = Path(directory) / "config.txt"
+            config.write_text(
+                "[all]\ndtparam=i2c_arm=on\ndtoverlay=gpio-shutdown\n"
+                "[pi4]\ndtoverlay=gpio-shutdown,gpio_pin=27\nfoo=1\n",
+                encoding="utf-8",
+            )
+            command = [
+                "python3",
+                str(INSTALLER.with_name("configure_shutdown_button.py")),
+                "11",
+                "--config",
+                str(config),
+            ]
+            subprocess.run(command, check=True)
+            expected = (
+                "[all]\ndtparam=i2c_arm=on\n[pi4]\nfoo=1\n\n"
+                "[all]\ndtoverlay=gpio-shutdown,gpio_pin=17,active_low=1,gpio_pull=up\n"
+            )
+            self.assertEqual(expected, config.read_text(encoding="utf-8"))
+            subprocess.run(command, check=True)
+            self.assertEqual(expected, config.read_text(encoding="utf-8"))
+
     def test_termux_all_features_plan_is_supported_and_scoped(self) -> None:
         with TemporaryDirectory() as temp_dir:
             environment = os.environ.copy()

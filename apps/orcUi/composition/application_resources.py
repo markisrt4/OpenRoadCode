@@ -196,6 +196,22 @@ def create_audio_settings(app: OrcUiApp) -> LinuxAudioSettings | None:
     return None
 
 
+def bind_settings_navigation(
+    app: OrcUiApp, settings: SettingsScreen, audio: LinuxAudioSettings | None
+) -> None:
+    def open_settings() -> None:
+        app.navigate_to("SETTINGS")
+
+    app.set_settings_action(open_settings)
+    if audio is not None:
+
+        def open_bluetooth() -> None:
+            open_settings()
+            settings.show_bluetooth()
+
+        audio.monitor_bluetooth(app.bind_bluetooth_settings(open_bluetooth))
+
+
 def create_software_update(core: CoreComposition, app: OrcUiApp) -> SoftwareUpdateController:
     """Bind updates to the current online mode and lifecycle restart request."""
     online_mode = app.online_mode

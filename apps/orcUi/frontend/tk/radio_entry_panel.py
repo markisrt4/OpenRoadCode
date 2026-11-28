@@ -14,6 +14,7 @@ from frontends.tk.offline_card import OfflineCardAppearance
 from frontends.tk.radio.persistent_streaming_radio_panel import PersistentStreamingRadioPanel
 from ui.system.online_mode_if import OnlineModeIf
 from ui.theme import ThemeBundle
+from ui.ui_action import UiAction
 from ui.ui_widget import UiWidget
 
 from .radio_source_icon import draw_source_icon, draw_source_scene
@@ -87,6 +88,12 @@ class RadioEntryPanel(tk.Frame, UiWidget):
                 self._streaming_page = None
                 self._show_chooser()
             self._status.configure(text="Offline mode: RF radio remains available")
+
+    def handle_ui_action(self, action: UiAction) -> bool:
+        panel = self._radio_panel
+        if panel is None or action not in (UiAction.NAVIGATE_UP, UiAction.NAVIGATE_DOWN):
+            return False
+        return panel.rotate_tuning(1 if action is UiAction.NAVIGATE_DOWN else -1)
 
     def deactivate(self) -> None:
         """Retire browser callbacks as the containing radio screen is hidden."""

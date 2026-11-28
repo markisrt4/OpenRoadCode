@@ -24,6 +24,7 @@ from ui.system import SystemLifecycleRequestHandlerIf, VolumeRequestHandlerIf, V
 from ui.system.online_mode_if import OnlineModeIf
 from ui.system_diagnostics import SystemDiagnosticsSnapshot
 from ui.theme import ThemeMode
+from ui.ui_action import UiAction
 from ui.ui_widget import UiWidget
 from ui.weather import WeatherAlertUiEvent
 
@@ -155,6 +156,12 @@ class OrcUiApp(UiCallbackMixin, VolumeUiIf, UiWidget):
     def set_settings_action(self, action: Callable[[], None]) -> None:
         """Connect the shell settings control to composition-owned navigation."""
         self._settings_action = action
+
+    def bind_bluetooth_settings(self, action: Callable[[], None]) -> Callable[[bool], None]:
+        if self._shell is None:
+            raise RuntimeError("Shell must be built before binding Bluetooth settings")
+        self._shell.bind_bluetooth_settings(action)
+        return self._shell.set_bluetooth_connected
 
     def set_volume_request_handler(
         self,
@@ -292,19 +299,10 @@ class OrcUiApp(UiCallbackMixin, VolumeUiIf, UiWidget):
         self._root.title(base if not title else f"{base} | {title}")
         if self._shell is not None:
             leaf = title.upper()
-            if not leaf or leaf == self._active_nav:
-                self._shell.set_breadcrumb(
-                    getattr(self, "_screen_navigation_labels", {}).get(
-                        self._active_nav, self._active_nav
-                    )
-                )
-            else:
-                self._shell.set_breadcrumb(
-                    getattr(self, "_screen_navigation_labels", {}).get(
-                        self._active_nav, self._active_nav
-                    ),
-                    leaf,
-                )
+            labels = getattr(self, "_screen_navigation_labels", {})
+            current = labels.get(self._active_nav, self._active_nav)
+            parts = (current, leaf) if leaf and leaf != self._active_nav else (current,)
+            self._shell.set_breadcrumb(*parts)
 
     def set_screen_back_action(self, action: Callable[[], None]) -> None:
         """Show the active screen's semantic back action in persistent chrome."""
@@ -385,6 +383,10 @@ class OrcUiApp(UiCallbackMixin, VolumeUiIf, UiWidget):
         except tk.TclError:
             pass
 
+    def handle_screen_action(self, action: UiAction) -> None:
+        if not self._closing and self._active_screen is not None:
+            self._active_screen.handle_ui_action(action)
+
     def _build_shell(self) -> None:
         build_shell(self, OrcUiShellView)
 
@@ -458,6 +460,11 @@ class OrcUiApp(UiCallbackMixin, VolumeUiIf, UiWidget):
         self._lifecycle_handler.request_restart_ui()
         self._shutdown()
 
+    def show_power_dialog(self) -> None:
+        """Open the shell's power dialog from a semantic UI request."""
+        if not self._closing and self._power_dialog is not None:
+            self._power_dialog.show()
+
     def _shutdown_system(self) -> None:
         self._lifecycle_handler.request_poweroff()
         self._shutdown()
@@ -477,11 +484,8 @@ class OrcUiApp(UiCallbackMixin, VolumeUiIf, UiWidget):
 
     def _paint_nav(self) -> None:
         if self._shell is not None:
-            self._shell.set_active_navigation(
-                getattr(self, "_screen_navigation_labels", {}).get(
-                    self._active_nav, self._active_nav
-                )
-            )
+            labels = getattr(self, "_screen_navigation_labels", {})
+            self._shell.set_active_navigation(labels.get(self._active_nav, self._active_nav))
 
     def _clear_content(self) -> None:
         for child in self._content.winfo_children():

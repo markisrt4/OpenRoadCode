@@ -16,11 +16,13 @@ from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.presentation_state import OrcUiPresentationState
 from apps.orcUi.vehicle_configuration_state import VehicleConfigurationState
 from common.resource_cleanup import ResourceCleanup, close_resources
+from common.xdg_paths import openroadcode_state_dir
 from config.service_runtime_config import ServiceRuntimeConfigParser
 from controllers.audio import PipewireAudioController, SystemVolumeHandler
 from controllers.automotive import AutomotiveTelemetryProfile, TripTracker
 from controllers.automotive.fuel_model import FuelModel
 from controllers.automotive.vehicle_settings_store import VehicleSettingsStore
+from controllers.cache import PersistentCache
 from controllers.connectivity.online_mode import OnlineModeController
 from controllers.connectivity.shell_connectivity_controller import ShellConnectivityController
 from controllers.map_renderer.map_camera_runtime import MapCameraRuntime
@@ -28,6 +30,7 @@ from controllers.navigation.navigation_route_request_handler import (
     NavigationRouteRequestHandler,
 )
 from controllers.system import SystemLifecycleController
+from hardware_io.buttons.push_button_if import PushButtonIf
 from messaging.contracts.automotive import AutomotiveTelemetryProfileRequestPublisher
 from messaging.zeromq import ZeroMqPublisher, ZeroMqSubscriber
 from messaging.zeromq.endpoints import LOCAL_PUBLISHER_ENDPOINT, LOCAL_SUBSCRIBER_ENDPOINT
@@ -35,6 +38,9 @@ from services.automotive.automotive_service_cli import DEFAULT_RUNTIME_CONFIG
 from services.navigation.navigation_command_client import NavigationCommandClient
 from services.trip import TripRuntime
 from ui.theme import ThemeMode
+
+from .power_button import create_power_button
+from .rotary_input import RotaryInput, create_rotary_input
 
 
 @dataclass(slots=True)
@@ -55,6 +61,8 @@ class CoreComposition:
     lifecycle: SystemLifecycleController
     volume: SystemVolumeHandler | None
     connectivity: ShellConnectivityController | None = None
+    power_button: PushButtonIf | None = None
+    rotary_input: RotaryInput | None = None
 
     _closed: bool = field(default=False, init=False)
 
@@ -62,16 +70,22 @@ class CoreComposition:
         if self.connectivity is not None:
             self.connectivity.start()
         if self.volume is not None:
-            self.volume.refresh()
+            self.volume.refresh(restore_cached=True)
         self.map_camera.start()
         self.state_ingress.start()
         self.trip_runtime.start()
+        if self.power_button is not None:
+            self.power_button.start()
+        if self.rotary_input is not None:
+            self.rotary_input.start()
 
     def close(self) -> None:
         if self._closed:
             return
         self._closed = True
         close_resources(
+            *([self.rotary_input.close] if self.rotary_input is not None else []),
+            *([self.power_button.stop] if self.power_button is not None else []),
             self.app.shutdown,
             *([self.connectivity.close] if self.connectivity is not None else []),
             self.trip_runtime.close,
@@ -119,6 +133,13 @@ def create_core_composition() -> CoreComposition:
             application_name=application_name(),
         )
         cleanup.callback(app.shutdown)
+        power_button = create_power_button(
+            os.environ.get("ORC_POWER_BUTTON_PIN"),
+            app.dispatch_ui,
+            app.show_power_dialog,
+        )
+        if power_button is not None:
+            cleanup.callback(power_button.stop)
         connectivity = ShellConnectivityController(
             app.online_mode, app, app.set_online_status, app.set_screen_status
         )
@@ -129,6 +150,7 @@ def create_core_composition() -> CoreComposition:
             volume = SystemVolumeHandler(
                 audio_controller=PipewireAudioController(),
                 volume_ui=app,
+                cache=PersistentCache(openroadcode_state_dir("audio")),
                 set_status=app.set_screen_status,
             )
             app.set_volume_request_handler(volume)
@@ -180,6 +202,13 @@ def create_core_composition() -> CoreComposition:
             lifecycle=lifecycle,
             volume=volume,
             connectivity=connectivity,
+            power_button=power_button,
+            rotary_input=create_rotary_input(
+                os.environ.get("ORC_ROTARY_ENCODERS"),
+                app.dispatch_ui,
+                app.handle_screen_action,
+                volume,
+            ),
         )
         cleanup.release()
         return composition

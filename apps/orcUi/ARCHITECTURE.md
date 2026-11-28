@@ -182,6 +182,8 @@ flowchart TD
 
 `apps/orcUi/frontend/tk/orc_ui_app.py` owns the concrete integrated Tk shell. It creates the Tk root, arranges shell chrome, hosts registered screens, manages generic navigation, and runs the Tk event loop. It does not own the feature catalog or choose feature destinations. Composition registers screens and navigation destinations, selects the initial destination, and supplies actions for shell controls such as Settings.
 
+The top-bar Bluetooth control opens the existing Audio / Bluetooth settings page. The Linux audio settings controller observes BlueZ connection status off the UI thread and supplies the shell with a connected state for the button icon and label.
+
 Desktop development may select an exact client size with `ORCUI_GEOMETRY`,
 force or disable fullscreen with `ORCUI_FULLSCREEN`, and request an undecorated
 window with `ORCUI_BORDERLESS=1`. Fullscreen takes precedence over borderless.

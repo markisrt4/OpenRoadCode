@@ -2,21 +2,18 @@
 
 """Prove the configured type gate rejects contract drift and invalid callers."""
 
-import importlib.util
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
-from ci.check_ui_types import is_quality_environment, is_termux, main, mypy_platform_args
+from ci.check_ui_types import main, mypy_platform_args
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 def check_source(tmp_path, source):
-    if is_termux() and not is_quality_environment() and importlib.util.find_spec("mypy") is None:
-        pytest.skip("mypy unavailable on Termux; strict type tests run in Linux/CI")
     path = tmp_path / "contract_example.py"
     path.write_text(source)
     return subprocess.run(
@@ -266,39 +263,22 @@ def tune(session: RfRadioSession) -> None:
     assert "[arg-type]" in result.stdout
 
 
-def test_missing_mypy_is_explicitly_skipped_on_termux(monkeypatch, capsys):
-    monkeypatch.setattr("ci.check_ui_types.is_quality_environment", lambda: False)
+def test_missing_mypy_fails_on_termux(monkeypatch, capsys):
     monkeypatch.setenv("PREFIX", "/data/data/com.termux/files/usr")
-    monkeypatch.setattr("ci.check_ui_types.importlib.util.find_spec", lambda _: None)
-    assert main() == 0
-    assert "[SKIP]" in capsys.readouterr().out
-
-
-def test_termux_quality_gate_reports_skip_without_running_type_checker(monkeypatch, capsys):
-    from unittest.mock import Mock
-
-    from ci import quality_gate
-
-    monkeypatch.setenv("PREFIX", "/data/data/com.termux/files/usr")
-    monkeypatch.setattr(quality_gate.importlib.util, "find_spec", lambda _: None)
-    run = Mock()
-    monkeypatch.setattr(quality_gate, "_run", run)
-    assert quality_gate._run_ui_types()
-    run.assert_not_called()
-    assert "[SKIP]" in capsys.readouterr().out
-
-
-def test_missing_mypy_fails_in_termux_quality_environment(monkeypatch, capsys):
-    monkeypatch.setenv("PREFIX", "/data/data/com.termux/files/usr")
-    monkeypatch.setattr("ci.check_ui_types.is_quality_environment", lambda: True)
     monkeypatch.setattr("ci.check_ui_types.importlib.util.find_spec", lambda _: None)
     assert main() == 1
     assert "mypy is required" in capsys.readouterr().err
 
 
-def test_mypy_platform_args(monkeypatch):
-    monkeypatch.setattr("ci.check_ui_types.is_quality_environment", lambda: True)
-    monkeypatch.setattr("ci.check_ui_types.is_termux", lambda: True)
-    assert mypy_platform_args() == ["--no-native-parser", "--no-incremental"]
-    monkeypatch.setattr("ci.check_ui_types.is_termux", lambda: False)
-    assert mypy_platform_args() == []
+@pytest.mark.parametrize(
+    "platform,termux,expected",
+    [
+        ("linux", True, ["--no-native-parser", "--no-incremental"]),
+        ("android", False, ["--no-native-parser", "--no-incremental"]),
+        ("linux", False, []),
+    ],
+)
+def test_mypy_platform_args(monkeypatch, platform, termux, expected):
+    monkeypatch.setattr("ci.check_ui_types.sys.platform", platform)
+    monkeypatch.setattr("ci.check_ui_types.is_termux", lambda: termux)
+    assert mypy_platform_args() == expected

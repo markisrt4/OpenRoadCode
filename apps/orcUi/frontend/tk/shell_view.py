@@ -18,6 +18,7 @@ from ui.theme import ThemeBundle, ThemeMode
 from ui.ui_widget import UiWidget
 from ui.weather import WeatherAlertUiEvent
 
+from .bluetooth_button import BluetoothButton
 from .bottom_bar import OrcUiBottomBar
 from .shell_chrome import build_footer, build_top_bar
 from .shell_metrics import SHELL_PAD_X, SHELL_PAD_Y
@@ -69,7 +70,9 @@ class OrcUiShellView(UiWidget):
         self._clock_label: tk.Label | None = None
         self._weather_status_label: tk.Label | None = None
         self._position_status_label: tk.Label | None = None
-        self._bluetooth_status_label: tk.Label | None = None
+        self._bluetooth_button: BluetoothButton | None = None
+        self._bluetooth_action: Callable[[], None] | None = None
+        self._bluetooth_connected = False
         self._position_state = PositionPresentationState()
         self._weather_status_text = "☁  --°"
         self._back_action: Callable[[], None] | None = None
@@ -346,13 +349,24 @@ class OrcUiShellView(UiWidget):
             self._clock_label.configure(text=text)
         self._clock_after_id = self._root.after(1000, self._update_clock)
 
+    def bind_bluetooth_settings(self, action: Callable[[], None] | None) -> None:
+        self._bluetooth_action = action
+        if self._bluetooth_button is not None:
+            self._bluetooth_button.set_action(action)
+
+    def set_bluetooth_connected(self, connected: bool) -> None:
+        self._bluetooth_connected = connected
+        if self._bluetooth_button is not None:
+            blue = "#60a5fa" if self._theme_mode is ThemeMode.DARK else "#1d4ed8"
+            self._bluetooth_button.set_color(blue if connected else self._theme.ui.text_muted)
+
     def _build_chrome(self) -> None:
         self._weather_alert_banner = None
         (
             self._clock_label,
             self._weather_status_label,
             self._position_status_label,
-            self._bluetooth_status_label,
+            self._bluetooth_button,
             self._online_button,
         ) = build_top_bar(
             self._root,
@@ -362,6 +376,8 @@ class OrcUiShellView(UiWidget):
         )
         self.set_online_status(self._online, self._internet_reachable)
         self.set_position_state(self._position_state)
+        self.bind_bluetooth_settings(self._bluetooth_action)
+        self.set_bluetooth_connected(self._bluetooth_connected)
         self._weather_status_label.configure(text=self._weather_status_text)
         self._side_nav = OrcUiSideNav(
             self._root,
