@@ -24,6 +24,7 @@ from ui.system import SystemLifecycleRequestHandlerIf, VolumeRequestHandlerIf, V
 from ui.system.online_mode_if import OnlineModeIf
 from ui.system_diagnostics import SystemDiagnosticsSnapshot
 from ui.theme import ThemeMode
+from ui.ui_action import UiAction
 from ui.ui_widget import UiWidget
 from ui.weather import WeatherAlertUiEvent
 
@@ -385,27 +386,26 @@ class OrcUiApp(UiCallbackMixin, VolumeUiIf, UiWidget):
         except tk.TclError:
             pass
 
+    def handle_screen_action(self, action: UiAction) -> None:
+        if not self._closing and self._active_screen is not None:
+            self._active_screen.handle_ui_action(action)
+
     def _build_shell(self) -> None:
         build_shell(self, OrcUiShellView)
-
     def set_weather_status(self, text: str) -> None:
         """Display current Weather summary in persistent shell chrome."""
         if self._shell is not None:
             self._shell.set_weather_status(text)
-
     def present_weather_alert(self, alert: WeatherAlertUiEvent | None) -> None:
         """Forward shell-level Weather alert state to persistent chrome."""
         if self._shell is not None:
             self._shell.show_weather_alert(alert)
-
     def set_breadcrumb(self, *parts: str) -> None:
         if self._shell is not None:
             self._shell.set_breadcrumb(*parts)
-
     def _rebuild_side_nav(self) -> None:
         if self._shell is not None:
             self._shell.rebuild_navigation()
-
     def set_aircraft_request_handler(self, handler: AircraftMenuRequestHandlerIf | None) -> None:
         self._aircraft_handler = handler
         if self._shell is not None:

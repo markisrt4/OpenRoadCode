@@ -62,6 +62,10 @@ class NavigationCameraControls:
         )
         self._schedule_active_poi_refresh()
 
+    def change_zoom(self, delta: float) -> None:
+        """Apply a relative zoom request using the current map platform."""
+        self._change_zoom(delta)
+
     def _change_zoom(self, delta: float) -> None:
         if self._terrain_camera("zoom-in" if delta > 0 else "zoom-out"):
             return

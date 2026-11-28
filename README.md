@@ -315,6 +315,12 @@ header pin. Pressing the switch opens the dialog, where **Shut Down System**
 requests OS poweroff after ORC closes. A failed poweroff command is reported
 in the launcher output.
 
+On a Pi with two Seesaw STEMMA QT encoders, launch ORC with
+`ORC_ROTARY_ENCODERS=0x36,0x37 ./runOrcUi`. List the volume encoder first and
+the screen encoder second. The second knob tunes an active RF receiver or
+zooms the Navigation map. Encoder clicks are unused. The MPU-6050 is read
+by the navigation service, which publishes its readings for ORC.
+
 The `desktop-ui` and `navigation` features use the native Tk/X11 and MapLibre
 interfaces and do not install a web browser. Select `--feature browser`
 explicitly for browser-backed applications.

@@ -28,6 +28,7 @@ from ui.screen_ui_if import ScreenId
 from ui.system.online_mode_if import OnlineModeIf
 from ui.theme import ThemeBundle
 from ui.tooltip_if import TooltipFactoryIf
+from ui.ui_action import UiAction
 from ui.weather.radar_controls_if import RadarControlsIf
 from ui.weather.radar_request_handler_if import RadarRequestHandlerIf
 from ui.weather.radar_ui_if import RadarUiState
@@ -213,6 +214,13 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         if self._radar_handler is not None and self._radar_state.enabled:
             for delay_ms in (300, 700, 1200, 2500, 5000, 10000):
                 self._host.schedule_ui_callback(delay_ms, self._refresh_map_radar)
+
+    def handle_ui_action(self, action: UiAction) -> bool:
+        panel = self._panel
+        if panel is None or action not in (UiAction.NAVIGATE_UP, UiAction.NAVIGATE_DOWN):
+            return False
+        panel.change_zoom(1 if action is UiAction.NAVIGATE_DOWN else -1)
+        return True
 
     def hide(self) -> None:
         """Stop transient navigation resources when navigating away."""

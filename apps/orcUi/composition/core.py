@@ -37,6 +37,7 @@ from services.navigation.navigation_command_client import NavigationCommandClien
 from services.trip import TripRuntime
 from ui.theme import ThemeMode
 from .power_button import create_power_button
+from .rotary_input import RotaryInput, create_rotary_input
 
 
 @dataclass(slots=True)
@@ -58,6 +59,7 @@ class CoreComposition:
     volume: SystemVolumeHandler | None
     connectivity: ShellConnectivityController | None = None
     power_button: PushButtonIf | None = None
+    rotary_input: RotaryInput | None = None
 
     _closed: bool = field(default=False, init=False)
 
@@ -71,12 +73,15 @@ class CoreComposition:
         self.trip_runtime.start()
         if self.power_button is not None:
             self.power_button.start()
+        if self.rotary_input is not None:
+            self.rotary_input.start()
 
     def close(self) -> None:
         if self._closed:
             return
         self._closed = True
         close_resources(
+            *([self.rotary_input.close] if self.rotary_input is not None else []),
             *([self.power_button.stop] if self.power_button is not None else []),
             self.app.shutdown,
             *([self.connectivity.close] if self.connectivity is not None else []),
@@ -192,6 +197,10 @@ def create_core_composition() -> CoreComposition:
             volume=volume,
             connectivity=connectivity,
             power_button=power_button,
+            rotary_input=create_rotary_input(
+                os.environ.get("ORC_ROTARY_ENCODERS"), app.dispatch_ui,
+                app.handle_screen_action, volume,
+            ),
         )
         cleanup.release()
         return composition
