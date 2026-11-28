@@ -320,6 +320,8 @@ On a Pi with two Seesaw STEMMA QT encoders, launch ORC with
 the screen encoder second. The second knob tunes an active RF receiver or
 zooms the Navigation map. Encoder clicks are unused. The MPU-6050 is read
 by the navigation service, which publishes its readings for ORC.
+ORC saves the last volume set by its controls and restores it at startup.
+The system mute state is preserved.
 
 The `desktop-ui` and `navigation` features use the native Tk/X11 and MapLibre
 interfaces and do not install a web browser. Select `--feature browser`

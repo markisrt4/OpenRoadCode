@@ -16,11 +16,13 @@ from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.presentation_state import OrcUiPresentationState
 from apps.orcUi.vehicle_configuration_state import VehicleConfigurationState
 from common.resource_cleanup import ResourceCleanup, close_resources
+from common.xdg_paths import openroadcode_state_dir
 from config.service_runtime_config import ServiceRuntimeConfigParser
 from controllers.audio import PipewireAudioController, SystemVolumeHandler
 from controllers.automotive import AutomotiveTelemetryProfile, TripTracker
 from controllers.automotive.fuel_model import FuelModel
 from controllers.automotive.vehicle_settings_store import VehicleSettingsStore
+from controllers.cache import PersistentCache
 from controllers.connectivity.online_mode import OnlineModeController
 from controllers.connectivity.shell_connectivity_controller import ShellConnectivityController
 from controllers.map_renderer.map_camera_runtime import MapCameraRuntime
@@ -67,7 +69,7 @@ class CoreComposition:
         if self.connectivity is not None:
             self.connectivity.start()
         if self.volume is not None:
-            self.volume.refresh()
+            self.volume.refresh(restore_cached=True)
         self.map_camera.start()
         self.state_ingress.start()
         self.trip_runtime.start()
@@ -145,6 +147,7 @@ def create_core_composition() -> CoreComposition:
             volume = SystemVolumeHandler(
                 audio_controller=PipewireAudioController(),
                 volume_ui=app,
+                cache=PersistentCache(openroadcode_state_dir("audio")),
                 set_status=app.set_screen_status,
             )
             app.set_volume_request_handler(volume)
