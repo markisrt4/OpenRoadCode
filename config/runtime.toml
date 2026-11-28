@@ -116,6 +116,8 @@ address = 0x77
 
 [input.rotary_encoders]
 volume_index = 0
+# Uncomment to enable the ORC volume and screen encoders on equipped systems.
+# screen_index = 1
 
 [input.keyboard]
 enabled = false

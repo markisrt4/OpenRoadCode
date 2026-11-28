@@ -17,6 +17,7 @@ from apps.orcUi.frontend.tk.presentation_state import OrcUiPresentationState
 from apps.orcUi.vehicle_configuration_state import VehicleConfigurationState
 from common.resource_cleanup import ResourceCleanup, close_resources
 from common.xdg_paths import openroadcode_state_dir
+from config.runtime_config import RuntimeConfigParser
 from config.service_runtime_config import ServiceRuntimeConfigParser
 from controllers.audio import PipewireAudioController, SystemVolumeHandler
 from controllers.automotive import AutomotiveTelemetryProfile, TripTracker
@@ -114,6 +115,16 @@ def create_core_composition() -> CoreComposition:
         lifecycle = SystemLifecycleController()
         presentation = OrcUiPresentationState()
         runtime_config = ServiceRuntimeConfigParser(DEFAULT_RUNTIME_CONFIG).load()
+        rotary_override = os.environ.get("ORC_ROTARY_ENCODERS")
+        rotary_config = (
+            None
+            if rotary_override
+            else RuntimeConfigParser(
+                os.environ.get("OPENROADCODE_RUNTIME_CONFIG") or DEFAULT_RUNTIME_CONFIG
+            )
+            .load_input()
+            .rotary_encoders
+        )
         vehicle_settings = VehicleSettingsStore(default=runtime_config.vehicle)
         vehicle_configuration = VehicleConfigurationState(
             vehicle_settings.load(),
@@ -204,10 +215,11 @@ def create_core_composition() -> CoreComposition:
             connectivity=connectivity,
             power_button=power_button,
             rotary_input=create_rotary_input(
-                os.environ.get("ORC_ROTARY_ENCODERS"),
+                rotary_override,
                 app.dispatch_ui,
                 app.handle_screen_action,
                 volume,
+                config=rotary_config,
             ),
         )
         cleanup.release()

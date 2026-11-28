@@ -315,11 +315,14 @@ header pin. Pressing the switch opens the dialog, where **Shut Down System**
 requests OS poweroff after ORC closes. A failed poweroff command is reported
 in the launcher output.
 
-On a Pi with two Seesaw STEMMA QT encoders, launch ORC with
-`ORC_ROTARY_ENCODERS=0x36,0x37 ./runOrcUi`. List the volume encoder first and
-the screen encoder second. The second knob tunes an active RF receiver or
-zooms the Navigation map. Encoder clicks are unused. The MPU-6050 is read
-by the navigation service, which publishes its readings for ORC.
+On a Pi with Seesaw STEMMA QT encoders, set `screen_index = 1` under
+`[input.rotary_encoders]` in `config/runtime.toml` to enable ORC's rotary
+controls, then launch with `./runOrcUi`. The stock device list assigns
+`0x36` to volume and `0x37` to screen controls with that setting. The screen
+knob tunes an active RF receiver or zooms the Navigation map. Use
+`ORC_ROTARY_ENCODERS=0x36,0x37` for a temporary address override, with volume
+first. Encoder clicks are unused. The navigation service reads the MPU-6050
+separately and publishes its readings for ORC.
 ORC saves the last volume set by its controls and restores it at startup.
 The system mute state is preserved.
 

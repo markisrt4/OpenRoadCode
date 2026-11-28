@@ -7,6 +7,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from apps.orcUi.composition.rotary_input import RotaryInput, create_rotary_input
+from config.runtime_config_models import RotaryEncoderConfig, SeesawEncoderConfig
 from ui.ui_action import UiAction
 
 
@@ -46,8 +47,24 @@ def test_rotary_events_reuse_semantic_actions_and_drop_delivery_after_close():
     second.stop.assert_called_once_with()
 
 
-def test_configured_encoders_share_i2c_and_keep_address_order():
+@pytest.mark.parametrize(
+    ("override", "expected"),
+    [
+        (None, [(0x38, True), (0x36, False)]),
+        ("0x36,0x37", [(0x36, False), (0x37, False)]),
+    ],
+)
+def test_configured_encoders_share_i2c_and_keep_role_order(override, expected):
     board, driver = Mock(), Mock()
+    config = RotaryEncoderConfig(
+        devices=(
+            SeesawEncoderConfig(0x36),
+            SeesawEncoderConfig(0x37),
+            SeesawEncoderConfig(0x38, reverse_direction=True),
+        ),
+        volume_index=2,
+        screen_index=0,
+    )
     with patch.dict(
         sys.modules,
         {
@@ -55,16 +72,16 @@ def test_configured_encoders_share_i2c_and_keep_address_order():
             "hardware_io.rotary_encoder.seesaw_rotary_encoder": driver,
         },
     ):
-        assert create_rotary_input("0x36,0x37", Mock(), Mock(), None) is not None
+        assert create_rotary_input(override, Mock(), Mock(), None, config=config) is not None
 
     board.I2C.assert_called_once_with()
     assert [call.kwargs for call in driver.SeesawRotaryEncoder.call_args_list] == [
-        {"address": 0x36, "i2c": board.I2C.return_value},
-        {"address": 0x37, "i2c": board.I2C.return_value},
+        {"address": address, "i2c": board.I2C.return_value, "reverse_direction": reverse}
+        for address, reverse in expected
     ]
 
 
 def test_rotary_input_is_opt_in_and_rejects_duplicate_addresses():
-    assert create_rotary_input(None, Mock(), Mock(), None) is None
+    assert create_rotary_input(None, Mock(), Mock(), None, config=RotaryEncoderConfig()) is None
     with pytest.raises(ValueError, match="two distinct I²C addresses"):
         create_rotary_input("0x36,0x36", Mock(), Mock(), None)

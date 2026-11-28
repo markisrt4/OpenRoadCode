@@ -74,7 +74,7 @@ EncoderDeviceConfig = SeesawEncoderConfig | GpioEncoderConfig
 
 @dataclass(frozen=True, slots=True)
 class RotaryEncoderConfig:
-    """Configure the ordered encoder devices and designated volume encoder."""
+    """Configure ordered encoder devices and their assigned roles."""
 
     devices: tuple[EncoderDeviceConfig, ...] = (
         SeesawEncoderConfig(address=0x36),
@@ -82,6 +82,7 @@ class RotaryEncoderConfig:
         SeesawEncoderConfig(address=0x38),
     )
     volume_index: int = 0
+    screen_index: int | None = None
 
 
 @dataclass(frozen=True, slots=True)

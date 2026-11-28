@@ -140,6 +140,23 @@ class RuntimeConfigTestAppTest(unittest.TestCase):
             tuple(device.address for device in config.input.rotary_encoders.devices),
         )
         self.assertEqual(0, config.input.rotary_encoders.volume_index)
+        self.assertIsNone(config.input.rotary_encoders.screen_index)
+
+    def test_load_input_parses_and_validates_screen_encoder_index(self) -> None:
+        parser = RuntimeConfigParser(self.config_path, project_root=self.project_root)
+        for value in ("2", "0", "3", "true"):
+            with self.subTest(screen_index=value):
+                self.config_path.write_text(
+                    VALID_TOML.replace(
+                        "volume_index = 0", f"volume_index = 0\nscreen_index = {value}"
+                    ),
+                    encoding="utf-8",
+                )
+                if value == "2":
+                    self.assertEqual(2, parser.load_input().rotary_encoders.screen_index)
+                else:
+                    with self.assertRaisesRegex(ValueError, "screen_index"):
+                        parser.load_input()
 
     def test_barometric_sensor_config_is_parsed(self) -> None:
         from config.component_test.runtime_config_test_app import validate_config

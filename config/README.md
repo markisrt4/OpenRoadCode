@@ -94,6 +94,7 @@ address = 0x77
 
 [input.rotary_encoders]
 volume_index = 0
+screen_index = 1
 
 [input.keyboard]
 enabled = false
@@ -126,6 +127,13 @@ backend = "rigctl"
 launcher = "sdrforge"
 enabled = true
 ```
+
+ORC enables Seesaw controls when `screen_index` is present. Both role indices
+are zero-based and must identify different Seesaw devices in the list. Their
+`reverse_direction` settings apply to ORC. Omit `screen_index` to leave ORC's
+rotary controls disabled. ORC reads `config/runtime.toml` by default and accepts
+`OPENROADCODE_RUNTIME_CONFIG` as an alternate path for these input settings.
+`ORC_ROTARY_ENCODERS` overrides the TOML selection for that launch.
 
 Relative radio configuration paths are resolved from:
 

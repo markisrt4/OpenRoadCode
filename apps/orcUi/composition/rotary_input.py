@@ -7,6 +7,7 @@ import logging
 from collections.abc import Callable
 
 from common.resource_cleanup import close_resources
+from config.runtime_config_models import RotaryEncoderConfig, SeesawEncoderConfig
 from controllers.input.input_mapper import InputMapper
 from controllers.input.rotary_encoder_input_adapter import RotaryEncoderInputAdapter
 from hardware_io.rotary_encoder.rotary_encoder_if import RotaryEncoderIf
@@ -84,25 +85,46 @@ def create_rotary_input(
     dispatch_ui: Callable[[Callable[[], None]], None],
     screen_action: Callable[[UiAction], None],
     volume: VolumeRequestHandlerIf | None,
+    *,
+    config: RotaryEncoderConfig | None = None,
 ) -> RotaryInput | None:
-    if not addresses:
-        return None
-    try:
-        volume_address, screen_address = (int(value.strip(), 0) for value in addresses.split(","))
-        if volume_address == screen_address or not all(
-            0x08 <= address <= 0x77 for address in (volume_address, screen_address)
+    if addresses:
+        try:
+            volume_address, screen_address = (
+                int(value.strip(), 0) for value in addresses.split(",")
+            )
+            if volume_address == screen_address or not all(
+                0x08 <= address <= 0x77 for address in (volume_address, screen_address)
+            ):
+                raise ValueError
+        except ValueError as exc:
+            raise ValueError("ORC_ROTARY_ENCODERS requires two distinct I²C addresses") from exc
+        volume_encoder = SeesawEncoderConfig(volume_address)
+        screen_encoder = SeesawEncoderConfig(screen_address)
+    else:
+        if config is None or config.screen_index is None:
+            return None
+        volume_device = config.devices[config.volume_index]
+        screen_device = config.devices[config.screen_index]
+        if not isinstance(volume_device, SeesawEncoderConfig) or not isinstance(
+            screen_device, SeesawEncoderConfig
         ):
-            raise ValueError
-    except ValueError as exc:
-        raise ValueError("ORC_ROTARY_ENCODERS requires two distinct I²C addresses") from exc
+            raise ValueError("ORC rotary volume_index and screen_index must select Seesaw encoders")
+        volume_encoder, screen_encoder = volume_device, screen_device
 
-    import board
+    try:
+        import board
 
-    from hardware_io.rotary_encoder.seesaw_rotary_encoder import SeesawRotaryEncoder
+        from hardware_io.rotary_encoder.seesaw_rotary_encoder import SeesawRotaryEncoder
 
-    bus = board.I2C()
-    encoders = (
-        SeesawRotaryEncoder(address=volume_address, i2c=bus),
-        SeesawRotaryEncoder(address=screen_address, i2c=bus),
+        bus = board.I2C()
+    except (ImportError, OSError, RuntimeError):
+        LOGGER.exception("Could not open I²C for configured ORC rotary encoders")
+        return None
+    volume_knob, screen_knob = (
+        SeesawRotaryEncoder(
+            address=device.address, i2c=bus, reverse_direction=device.reverse_direction
+        )
+        for device in (volume_encoder, screen_encoder)
     )
-    return RotaryInput(encoders, dispatch_ui, screen_action, volume)
+    return RotaryInput((volume_knob, screen_knob), dispatch_ui, screen_action, volume)

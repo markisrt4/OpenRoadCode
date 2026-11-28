@@ -86,16 +86,22 @@ class RuntimeConfigParser:
         self.radio_config_dir = self.project_root / DEFAULT_RADIO_CONFIG_DIR
         self.require_radio_files = require_radio_files
 
-    def load(self) -> RuntimeConfig:
-        """Load and validate the configured TOML file."""
+    def _read_document(self) -> dict[str, Any]:
         try:
             with self.config_path.open("rb") as file:
-                data = tomllib.load(file)
+                return tomllib.load(file)
         except FileNotFoundError as exc:
             raise RuntimeConfigError(f"Runtime config file not found: {self.config_path}") from exc
         except tomllib.TOMLDecodeError as exc:
             raise RuntimeConfigError(f"Invalid TOML in {self.config_path}: {exc}") from exc
 
+    def load_input(self) -> InputConfig:
+        """Load input settings without validating unrelated application settings."""
+        return self._parse_input(self._read_document().get("input", {}))
+
+    def load(self) -> RuntimeConfig:
+        """Load and validate the configured TOML file."""
+        data = self._read_document()
         return RuntimeConfig(
             runtime=self._parse_runtime(data.get("runtime", {})),
             rigctl=self._parse_rigctl(data.get("rigctl", {})),
@@ -210,6 +216,17 @@ class RuntimeConfigParser:
             raise RuntimeConfigError(
                 "input.rotary_encoders.volume_index must identify a configured encoder"
             )
+        screen_index = encoder_data.get("screen_index")
+        if screen_index is not None and (
+            not isinstance(screen_index, int)
+            or isinstance(screen_index, bool)
+            or not 0 <= screen_index < len(devices)
+            or screen_index == volume_index
+        ):
+            raise RuntimeConfigError(
+                "input.rotary_encoders.screen_index must identify a configured encoder "
+                "distinct from volume_index"
+            )
 
         keyboard_data = self._expect_table(section.get("keyboard", {}), "input.keyboard")
         keyboard = KeyboardConfig(
@@ -267,7 +284,9 @@ class RuntimeConfigParser:
                 )
             )
         return InputConfig(
-            rotary_encoders=RotaryEncoderConfig(devices=devices, volume_index=volume_index),
+            rotary_encoders=RotaryEncoderConfig(
+                devices=devices, volume_index=volume_index, screen_index=screen_index
+            ),
             keyboard=keyboard,
             push_buttons=tuple(push_buttons),
         )
