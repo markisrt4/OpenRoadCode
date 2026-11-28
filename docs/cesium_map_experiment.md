@@ -1190,6 +1190,9 @@ Canadian province and territory lines from the bundled Natural Earth asset.
 Both layers use the same high-contrast, zoom-scaled dashed style from the
 overview zoom. The reference layers supply coastlines and international
 borders, and Michigan retains its emphasized outline.
+Between zoom 3 and 8, Road map labels the U.S. states and Canadian provinces
+and territories using Natural Earth 5.1.2 Admin-1 label points. Nearby names
+can be hidden to avoid overlapping at overview zooms.
 Restart ORC after updating the code to regenerate the installed style. This is a
 style-only deployment; rebuilding map tiles or downloading terrain is unnecessary.
 

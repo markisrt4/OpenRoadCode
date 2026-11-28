@@ -35,6 +35,11 @@
       "type": "geojson",
       "data": "file://__OPENROADCODE_DATA_ROOT__/maps/boundaries/us_state_boundaries.geojson"
     },
+    "subdivision-labels": {
+      "type": "geojson",
+      "data": "file://__OPENROADCODE_DATA_ROOT__/maps/boundaries/us_ca_subdivision_labels.geojson",
+      "attribution": "Natural Earth 5.1.2"
+    },
     "route": {
       "type": "geojson",
       "data": {
@@ -944,6 +949,35 @@
         "text-color": "#373431",
         "text-halo-color": "#fff",
         "text-halo-width": 2
+      }
+    },
+    {
+      "id": "subdivision-labels",
+      "type": "symbol",
+      "source": "subdivision-labels",
+      "minzoom": 3,
+      "maxzoom": 8,
+      "layout": {
+        "text-field": "{name}",
+        "text-font": [
+          "KlokanTech Noto Sans CJK Regular"
+        ],
+        "text-size": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          3,
+          11,
+          7,
+          15
+        ],
+        "text-max-width": 12,
+        "text-padding": 3
+      },
+      "paint": {
+        "text-color": "#9cd6ac",
+        "text-halo-color": "#17342a",
+        "text-halo-width": 1.5
       }
     },
     {

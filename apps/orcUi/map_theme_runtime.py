@@ -161,6 +161,7 @@ def _install_reference_maps(root: Path) -> None:
         "us_state_boundaries.geojson",
         "us_state_internal_boundaries.geojson",
         "ca_province_territory_boundaries.geojson",
+        "us_ca_subdivision_labels.geojson",
     ):
         payload = (source / name).read_bytes()
         target = destination / name
@@ -289,6 +290,7 @@ def _apply_map_palette(document: dict[str, Any], colors: dict[str, str]) -> None
         ("freeway-labels-national", "label"),
         ("freeway-labels-regional", "label"),
         ("road-labels", "label"),
+        ("subdivision-labels", "state_boundary"),
         ("place-labels", "label_major"),
         ("aerodrome-labels", "label_minor"),
         ("mountain-peaks", "label_minor"),

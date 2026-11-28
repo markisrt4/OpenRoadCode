@@ -59,6 +59,20 @@ class StyleTests(unittest.TestCase):
         self.assertTrue((TEMPLATE.parents[3] / "resources/maps/world_land.geojson").is_file())
         self.assertTrue((TEMPLATE.parents[3] / "resources/maps/world_lakes.geojson").is_file())
 
+    def test_subdivision_labels_cover_both_countries_at_overview_zooms(self):
+        document = json.loads(TEMPLATE.read_text(encoding="utf-8"))
+        source = document["sources"]["subdivision-labels"]
+        layer = next(layer for layer in document["layers"] if layer["id"] == "subdivision-labels")
+        self.assertEqual((layer["minzoom"], layer["maxzoom"]), (3, 8))
+        self.assertNotIn("text-allow-overlap", layer["layout"])
+        asset = TEMPLATE.parents[3] / "resources/maps" / source["data"].rsplit("/", 1)[-1]
+        features = json.loads(asset.read_text(encoding="utf-8"))["features"]
+        codes = {feature["properties"]["code"] for feature in features}
+        self.assertEqual(len(features), len(codes))
+        self.assertEqual(sum(code.startswith("US-") for code in codes), 50)
+        self.assertEqual(sum(code.startswith("CA-") for code in codes), 13)
+        self.assertTrue(all(feature["geometry"]["type"] == "Point" for feature in features))
+
     def test_buildings_use_height_aware_3d_extrusions(self):
         document = json.loads(TEMPLATE.read_text(encoding="utf-8"))
         buildings = next(layer for layer in document["layers"] if layer["id"] == "buildings")
