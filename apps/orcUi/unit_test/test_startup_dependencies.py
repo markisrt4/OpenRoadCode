@@ -84,6 +84,35 @@ def test_help_remains_available_without_musicforge(monkeypatch, capsys):
     check.assert_not_called()
 
 
+def test_opt_in_splash_starts_before_dependencies_and_closes_when_ready(monkeypatch):
+    monkeypatch.setenv("DISPLAY", ":1")
+    monkeypatch.setattr(entry.sys, "argv", ["runOrcUi", "--splash"])
+    splash = Mock()
+    start = Mock(return_value=splash)
+    monkeypatch.setattr(entry.StartupSplashProcess, "start", start)
+    monkeypatch.setattr(entry, "_require_musicforge", lambda: start.assert_called_once_with())
+
+    def run(*, startup_started_at, on_ui_ready):
+        on_ui_ready()
+        splash.finish.assert_called_once_with()
+
+    monkeypatch.setattr("apps.orcUi.main.main", run)
+    entry._main()
+
+
+def test_opt_in_splash_receives_startup_failure(monkeypatch):
+    monkeypatch.setenv("DISPLAY", ":1")
+    monkeypatch.setattr(entry.sys, "argv", ["runOrcUi", "--splash"])
+    splash = Mock()
+    monkeypatch.setattr(entry.StartupSplashProcess, "start", Mock(return_value=splash))
+    monkeypatch.setattr(entry, "_require_musicforge", Mock(side_effect=RuntimeError("Startup failed")))
+
+    with pytest.raises(RuntimeError, match="Startup failed"):
+        entry._main()
+
+    splash.finish.assert_any_call("Startup failed")
+
+
 def test_musicforge_installer_uses_explicit_python_without_running_real_pip(tmp_path):
     import os
     import subprocess

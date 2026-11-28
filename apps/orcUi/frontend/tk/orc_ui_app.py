@@ -325,7 +325,7 @@ class OrcUiApp(UiCallbackMixin, VolumeUiIf, UiWidget):
         if self._shell is not None:
             self._shell.set_status(message)
 
-    def run(self) -> None:
+    def run(self, *, on_ui_ready: Callable[[], None] | None = None) -> None:
         old_signal_handler = signal.getsignal(signal.SIGINT)
 
         def restore_signal_handler() -> None:
@@ -337,10 +337,11 @@ class OrcUiApp(UiCallbackMixin, VolumeUiIf, UiWidget):
             try:
                 self._root.protocol("WM_DELETE_WINDOW", self._on_close)
                 signal.signal(signal.SIGINT, self._on_sigint)
-                initial_destination = self._initial_destination
-                if initial_destination is None:
+                if self._initial_destination is None:
                     raise RuntimeError("Initial navigation destination is not configured")
-                self.navigate_to(initial_destination)
+                self.navigate_to(self._initial_destination)
+                if on_ui_ready is not None:
+                    self._root.after_idle(on_ui_ready)
                 self._root.mainloop()
             except KeyboardInterrupt:
                 pass

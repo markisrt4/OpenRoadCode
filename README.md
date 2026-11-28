@@ -366,8 +366,12 @@ The current navigation profile consumes geographic position from the localhost A
 From the repository root:
 
 ```bash
-python -m apps.orcUi
+./runOrcUi
 ```
+
+On a Pi or Linux X11 desktop, use `./runOrcUi --splash` to show the ORC
+logo and an animated startup bar until the dashboard opens. A startup failure
+shows a **Show details** button, and the terminal still reports the error.
 
 The foreground command reports flushed, dmesg-style cumulative startup times
 and individual stage durations while Python modules, runtime infrastructure,

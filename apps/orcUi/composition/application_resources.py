@@ -95,7 +95,7 @@ class OrcUiComposition:
     def app(self) -> OrcUiApp:
         return self.core.app
 
-    def run(self) -> None:
+    def run(self, *, on_ui_ready: Callable[[], None] | None = None) -> None:
         """Run Tk, close every owned resource, then honor host lifecycle intent."""
         with ResourceCleanup() as cleanup:
             cleanup.callback(self.close)
@@ -110,7 +110,7 @@ class OrcUiComposition:
                 self.software_update.start()
             self._poll_route_start()
             _report(self.startup_progress, "ready", "OpenRoadCode UI ready")
-            self.app.run()
+            self.app.run(on_ui_ready=on_ui_ready)
 
         self.core.lifecycle.execute_requested_action()
 

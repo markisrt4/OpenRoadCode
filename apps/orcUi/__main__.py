@@ -11,6 +11,8 @@ import sys
 import time
 from importlib import import_module
 
+from apps.orcUi.startup_splash import StartupSplashProcess
+
 
 def _require_display() -> None:
     """Exit with a useful message when no graphical X11 display is configured."""
@@ -57,17 +59,38 @@ def _require_musicforge() -> None:
 
 def _main() -> None:
     _require_display()
-    if not any(option in sys.argv[1:] for option in ("-h", "--help", "--check-ecu-gl")):
-        _require_musicforge()
+    check_only = any(option in sys.argv[1:] for option in ("-h", "--help", "--check-ecu-gl"))
+    splash = None
     startup_started_at = time.monotonic()
+    if "--splash" in sys.argv[1:] and not check_only:
+        splash = StartupSplashProcess.start()
     print(
         "[    0.000] Startup initiated",
         file=sys.stderr,
         flush=True,
     )
-    from apps.orcUi.main import main
+    try:
+        if not check_only:
+            _require_musicforge()
+        from apps.orcUi.main import main
 
-    main(startup_started_at=startup_started_at)
+        main(
+            startup_started_at=startup_started_at,
+            on_ui_ready=splash.finish if splash is not None else None,
+        )
+    except SystemExit as error:
+        if splash is not None and error.code not in (None, 0):
+            splash.finish(
+                "OpenRoadCode could not finish startup. See the launcher output for details."
+            )
+        raise
+    except Exception as error:
+        if splash is not None:
+            splash.finish(str(error) or type(error).__name__)
+        raise
+    finally:
+        if splash is not None:
+            splash.finish()
 
 
 if __name__ == "__main__":

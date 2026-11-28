@@ -60,11 +60,16 @@ class StartupReporter:
         )
 
 
-def main(*, startup_started_at: float | None = None) -> None:
+def main(
+    *,
+    startup_started_at: float | None = None,
+    on_ui_ready: Callable[[], None] | None = None,
+) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--follow-logs", action="store_true")
     parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])
     parser.add_argument("--log-component", help="Live viewer component prefix")
+    parser.add_argument("--splash", action="store_true", help="Show the graphical startup splash")
     parser.add_argument(
         "--check-ecu-gl", action="store_true", help="Check the ECU OpenGL renderer and exit"
     )
@@ -110,7 +115,7 @@ def main(*, startup_started_at: float | None = None) -> None:
         from apps.orcUi.composition.application import create_orc_ui_composition
 
         report_startup("composition_import", "Subsystem composition loaded")
-        create_orc_ui_composition(progress=report_startup).run()
+        create_orc_ui_composition(progress=report_startup).run(on_ui_ready=on_ui_ready)
     except Exception:
         logger.exception("ORC UI failed", extra={"event": "app.failed"})
         raise
