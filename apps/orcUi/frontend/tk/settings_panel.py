@@ -111,7 +111,7 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
             pages.append(("receivers", "RF RECEIVERS"))
         pages.extend((("rf", "RF DISPLAY"), ("media", "MEDIA")))
         if audio_settings is not None:
-            pages.append(("audio", "AUDIO"))
+            pages.append(("audio", "AUDIO / BLUETOOTH"))
         for row, (page, title) in enumerate(pages):
             button = tk.Button(
                 page_nav,
@@ -357,6 +357,10 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
             self._audio_settings_panel.grid(row=1, column=0, sticky="ew", pady=4)
             self._settings_pages["audio"] = (self._audio_settings_panel,)
         self._show_settings_page("display")
+
+    def show_bluetooth(self) -> None:
+        if "audio" in self._settings_pages:
+            self._show_settings_page("audio")
 
     def _show_settings_page(self, page: str) -> None:
         for frames in self._settings_pages.values():

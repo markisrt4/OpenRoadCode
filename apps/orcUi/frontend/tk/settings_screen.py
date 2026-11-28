@@ -87,6 +87,11 @@ class SettingsScreen(TkScreen):
         """Rebuild active Settings content using the host's current theme."""
         self.show()
 
+    def show_bluetooth(self) -> None:
+        """Select the existing audio and Bluetooth settings page."""
+        if self._panel is not None:
+            self._panel.show_bluetooth()
+
     def show(self) -> None:
         """Build SETTINGS content from the current shared configuration."""
         self._host.activate_screen(self)

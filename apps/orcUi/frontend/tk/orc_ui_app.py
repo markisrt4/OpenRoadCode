@@ -122,15 +122,12 @@ class OrcUiApp(UiCallbackMixin, VolumeUiIf, UiWidget):
             self._build_shell()
             self.schedule_ui_callback(16, self._drain_ui_callbacks)
             cleanup.release()
-
     def set_connectivity_handler(self, handler: Callable[[], None]) -> None:
         """Bind semantic toggle. @param handler Request callback."""
         self._connectivity_toggle = handler
-
     def _toggle_online_mode(self) -> None:
         if self._connectivity_toggle is not None:
             self._connectivity_toggle()
-
     def set_online_status(self, online: bool, reachable: bool | None) -> None:
         """Present mode. @param online Effective mode. @param reachable Internet observation."""
         self._internet_status = reachable
@@ -152,11 +149,15 @@ class OrcUiApp(UiCallbackMixin, VolumeUiIf, UiWidget):
     ) -> None:
         """Connect semantic theme changes to composition-owned consumers."""
         self._theme_change_handler = handler
-
     def set_settings_action(self, action: Callable[[], None]) -> None:
         """Connect the shell settings control to composition-owned navigation."""
         self._settings_action = action
 
+    def bind_bluetooth_settings(self, action: Callable[[], None]) -> Callable[[bool], None]:
+        if self._shell is None:
+            raise RuntimeError("Shell must be built before binding Bluetooth settings")
+        self._shell.bind_bluetooth_settings(action)
+        return self._shell.set_bluetooth_connected
     def set_volume_request_handler(
         self,
         handler: VolumeRequestHandlerIf | None,

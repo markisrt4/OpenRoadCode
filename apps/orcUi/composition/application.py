@@ -21,6 +21,7 @@ from apps.orcUi.composition.android_app_view import AndroidAppView
 from apps.orcUi.composition.application_resources import (
     OrcUiComposition,
     _report,
+    bind_settings_navigation,
     create_audio_settings,
     create_navigation_maps,
     create_software_update,
@@ -457,7 +458,7 @@ def create_orc_ui_composition(
         )
         home.set_calendar_factory(calendar_factory, calendar_factory.monitor)
         app.set_initial_destination("HOME")
-        app.set_settings_action(lambda: app.navigate_to("SETTINGS"))
+        bind_settings_navigation(app, settings, audio_settings)
         _report(progress, "screens", "Application screens loaded")
         software_update = create_software_update(core, app)
         cleanup.callback(software_update.close)
