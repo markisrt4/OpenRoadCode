@@ -300,6 +300,9 @@ Alternatively, open
 shows reported accuracy and must remain open. It does not request location until
 you click Share. Stop sharing or closing the page stops further browser updates;
 it does not erase the map's last known position.
+If the high-accuracy request fails, the page retries using approximate browser
+location. If the browser still cannot supply a fix, try the same local page in
+another browser such as Firefox.
 
 The service prefers valid, uncached bridge/GPS fixes received within the last
 ten seconds. When those stop, fresh browser reports can take over. A new bridge

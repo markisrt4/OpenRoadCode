@@ -40,12 +40,12 @@ function stopSharing(message='Not sharing.') {
   generation++; clearTimeout(timer); pending?.abort(); pending=null;
   start.disabled=false; stop.disabled=true; status.textContent=message;
 }
-function retry(current,message) {
+function retry(current,message,highAccuracy) {
   if(current!==generation) return;
   status.textContent=message;
-  timer=setTimeout(()=>locate(current),2000);
+  timer=setTimeout(()=>locate(current,highAccuracy),2000);
 }
-function locate(current) {
+function locate(current,highAccuracy=true) {
   if(current!==generation) return;
   navigator.geolocation.getCurrentPosition(async p=>{
     if(current!==generation) return;
@@ -59,15 +59,21 @@ function locate(current) {
       if(current!==generation) return;
       if(!r.ok) throw new Error(await r.text());
       status.textContent=`Sharing live host location.\nAccuracy: ${c.accuracy.toFixed(0)} m.`;
-      timer=setTimeout(()=>locate(current),5000);
-    } catch(e) { retry(current,'Waiting for ORC to reconnect. Retrying...'); }
+      timer=setTimeout(()=>locate(current,highAccuracy),5000);
+    } catch(e) { retry(current,'Waiting for ORC to reconnect. Retrying...',highAccuracy); }
     finally { clearTimeout(timeout); if(pending===request) pending=null; }
   },e=>{
     if(current!==generation) return;
-    if(e.code===1) stopSharing(e.message);
-    else retry(current,'Waiting for a fresh host location. Retrying...');
+    if(e.code===1) {
+      stopSharing(e.message);
+    } else {
+      const reason=e.code===3 ? 'Browser location timed out.' : 'Browser location is unavailable.';
+      retry(current,reason+(highAccuracy
+        ? ' Trying approximate location...'
+        : ' Retrying. You can also try a different browser or GPS.'),false);
+    }
   },
-    {enableHighAccuracy:true,maximumAge:1000,timeout:15000});
+    {enableHighAccuracy:highAccuracy,maximumAge:1000,timeout:15000});
 }
 start.onclick=()=>{
   if(!navigator.geolocation) { status.textContent='Browser location is unavailable.'; return; }

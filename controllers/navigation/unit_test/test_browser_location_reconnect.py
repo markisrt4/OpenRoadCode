@@ -19,7 +19,7 @@ const assert=require('node:assert/strict'), vm=require('node:vm'), fs=require('n
 const elements={status:{},start:{disabled:false},stop:{disabled:true},close:{}}, timers=new Map(), fixes=[];
 let timerId=0, online=false, posts=0, hides=0;
 const context={document:{querySelector:s=>elements[s.slice(1)]},
- navigator:{geolocation:{getCurrentPosition:(ok,fail)=>fixes.push({ok,fail})}},
+ navigator:{geolocation:{getCurrentPosition:(ok,fail,options)=>fixes.push({ok,fail,options})}},
  window:{addEventListener:()=>{},location:{hash:'#window=8767'}}, AbortController, URLSearchParams,
  setTimeout:(fn,delay)=>{timers.set(++timerId,{fn,delay});return timerId;},
  clearTimeout:id=>timers.delete(id),
@@ -42,6 +42,13 @@ const fix={coords:{latitude:42,longitude:-83,accuracy:20,altitude:0}};
  assert.equal(fixes.length,count); assert.equal(elements.start.disabled,false);
  elements.start.onclick(); fixes.at(-1).fail({code:1,message:'Permission denied'});
  assert.equal(elements.start.disabled,false); assert.match(elements.status.textContent,/denied/);
+ elements.start.onclick(); assert.equal(fixes.at(-1).options.enableHighAccuracy,true);
+ fixes.at(-1).fail({code:3,message:'Location timeout'});
+ assert.match(elements.status.textContent,/timed out.*approximate/);
+ [...timers.values()].find(t=>t.delay===2000).fn();
+ assert.equal(fixes.at(-1).options.enableHighAccuracy,false);
+ fixes.at(-1).ok(fix); await tick();
+ assert.equal(posts,4); assert.match(elements.status.textContent,/Sharing live/);
 })().catch(error=>{console.error(error);process.exitCode=1;});
 """
     result = subprocess.run(
