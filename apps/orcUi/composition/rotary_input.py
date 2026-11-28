@@ -97,6 +97,7 @@ def create_rotary_input(
         raise ValueError("ORC_ROTARY_ENCODERS requires two distinct I²C addresses") from exc
 
     import board
+
     from hardware_io.rotary_encoder.seesaw_rotary_encoder import SeesawRotaryEncoder
 
     bus = board.I2C()
