@@ -13,7 +13,13 @@ import sys
 import time
 from pathlib import Path
 
-from .build import OUTPUT_ROOT, _write_manifest, build_regions
+from .build import (
+    CENSUS_PRIMARY_ROADS_URL,
+    CENSUS_PRIMARY_ROADS_VINTAGE,
+    OUTPUT_ROOT,
+    _write_manifest,
+    build_regions,
+)
 from .geofabrik import fetch_index, resolve_region_ids
 from .map_3d import PRESETS
 from .selection import load_region_ids, save_region_ids
@@ -70,6 +76,7 @@ def print_validation_summary(result: dict, root: Path) -> None:
     valhalla = result["valhalla"]
     output_size = directory_size(root)
     mbtiles_path = root / "maps/vector/openroadcode.mbtiles"
+    freeways_path = root / "maps/vector/us-freeways.mbtiles"
     style_path = root / "maps/styles/openroadcode.json"
     extract_path = root / "valhalla/tiles.tar"
 
@@ -79,8 +86,10 @@ def print_validation_summary(result: dict, root: Path) -> None:
     print(f"  Deployable size:       {format_size(output_size)} ({output_size:,} bytes)")
     print(f"  Source PBF files:      {result['source_pbfs']}")
     print(f"  MBTiles size:          {format_size(mbtiles_path.stat().st_size)}")
+    print(f"  US freeways size:      {format_size(freeways_path.stat().st_size)}")
     print(f"  Vector tiles:          {mbtiles['tiles']:,}")
     print(f"  Vector layers:         {len(mbtiles['layers'])}")
+    print(f"  US freeway tiles:      {result['national_freeways']['tiles']:,}")
     print(f"  Glyph files:           {result['glyph_files']:,}")
     print(f"  Style:                 {style_path.name}")
     print(f"  Valhalla tile files:   {valhalla['tile_files']:,}")
@@ -110,6 +119,12 @@ def reusable_build_for_regions(selected, *, root: Path, service_smoke: bool) -> 
     )
     requested_ids = sorted(region.id for region in selected)
     if existing_ids != requested_ids:
+        return None
+    freeway = manifest.get("national_freeways") or {}
+    if (
+        freeway.get("url") != CENSUS_PRIMARY_ROADS_URL
+        or freeway.get("vintage") != CENSUS_PRIMARY_ROADS_VINTAGE
+    ):
         return None
 
     try:
@@ -231,8 +246,9 @@ def main() -> int:
                 print(
                     "Layer: buildings. Uses existing OSM sources; no download. Output size is known after extraction."
                 )
+                tiles = 1024 if coverage == "metro-detroit" else 8
                 print(
-                    "Limit: 8 tiles, 10 MiB geometry each plus metadata; complex polygons are omitted."
+                    f"Limit: {tiles} tiles, 10 MiB geometry each plus metadata; complex polygons are omitted."
                 )
             if (
                 not args.yes
@@ -319,7 +335,15 @@ def main() -> int:
                         search_counts = (previous.get("search_index") or {}).get("counts") or {}
                     except (OSError, json.JSONDecodeError, TypeError):
                         pass
-                _write_manifest(selected, result, search_counts)
+                previous_freeways = None
+                if existing_manifest.is_file():
+                    try:
+                        previous_freeways = json.loads(
+                            existing_manifest.read_text(encoding="utf-8")
+                        ).get("national_freeways")
+                    except (OSError, json.JSONDecodeError, TypeError):
+                        pass
+                _write_manifest(selected, result, search_counts, previous_freeways)
                 print(f"Wrote validated manifest: {OUTPUT_ROOT / 'build-manifest.json'}")
             if args.json:
                 print(json.dumps(result, indent=2))

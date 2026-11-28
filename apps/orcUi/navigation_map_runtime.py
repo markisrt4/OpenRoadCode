@@ -19,6 +19,9 @@ _LOG = logging.getLogger("navigation.earth")
 class NavigationMapRuntime:
     """Serialize Earth startup, camera work, detachment, and native fallback."""
 
+    def request_retry(self):
+        self.request_platform(self.state.requested)
+
     def __init__(
         self,
         native,

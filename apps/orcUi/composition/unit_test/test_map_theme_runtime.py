@@ -47,7 +47,7 @@ class MapThemeRuntimeTest(unittest.TestCase):
 
             self.assertEqual(destination, data_root / "maps" / "styles" / "openroadcode.json")
             style = destination.read_text(encoding="utf-8")
-            self.assertIn('"background-color":"#0b151b"', style)
+            self.assertIn('"background-color":"#103f56"', style)
             self.assertIn('"farmland","#2d3f35"', style)
             self.assertIn('"fill-color":"#103f56"', style)
             self.assertIn('"line-color":"#4c8297"', style)
@@ -63,14 +63,41 @@ class MapThemeRuntimeTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             (root / "maps" / "styles").mkdir(parents=True)
+            (root / "maps" / "vector").mkdir(parents=True)
+            (root / "maps" / "vector" / "us-freeways.mbtiles").touch()
             destination = install_map_style(ThemeMode.DARK, root)
             document = json.loads(destination.read_text(encoding="utf-8"))
             layers = {layer["id"]: layer for layer in document["layers"]}
             self.assertEqual(layers["state-boundaries"]["paint"]["line-color"], "#54c96b")
+            self.assertEqual(layers["reference-land"]["paint"]["fill-color"], "#18372b")
+            self.assertEqual(layers["reference-lakes"]["paint"]["fill-color"], "#103f56")
+            self.assertEqual(layers["national-motorways"]["source"], "national-freeways")
+            self.assertEqual(layers["motorways"]["source"], "openroad")
+            self.assertEqual(layers["state-boundaries"]["minzoom"], 0)
+            self.assertIn(
+                "us_state_boundaries.geojson", document["sources"]["state-boundaries"]["data"]
+            )
+            self.assertEqual(layers["state-boundaries"]["paint"]["line-dasharray"], [1, 2])
+            self.assertEqual(layers["country-boundaries"]["paint"]["line-color"], "#dce8ef")
+            self.assertEqual(layers["michigan-boundary"]["paint"]["line-color"], "#59d8ff")
             self.assertEqual(layers["buildings"]["type"], "fill-extrusion")
             self.assertIn("fill-extrusion-color", layers["buildings"]["paint"])
             self.assertIn("poi-results", document["sources"])
             self.assertIn("poi-results-icon", layers)
+
+    def test_missing_national_freeways_preserves_regional_motorways(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "maps" / "styles").mkdir(parents=True)
+            document = json.loads(install_map_style(ThemeMode.DARK, root).read_text())
+            layers = {layer["id"]: layer for layer in document["layers"]}
+            self.assertNotIn("national-freeways", document["sources"])
+            self.assertNotIn("freeway-labels-national", layers)
+            self.assertNotIn("national-motorways", layers)
+            self.assertEqual(layers["motorways"]["source"], "openroad")
+            self.assertEqual(layers["road-refs-major"]["source"], "openroad")
+            self.assertEqual(layers["road-refs-major"]["filter"], ["has", "ref"])
+            self.assertNotIn("filter", layers["road-labels"])
 
     def test_radar_locator_rings_follow_vehicle_above_radar_and_below_marker(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -100,7 +127,18 @@ class MapThemeRuntimeTest(unittest.TestCase):
             style = destination.read_text(encoding="utf-8")
             self.assertIn('"school","#c9e4e2"', style)
             self.assertIn('"fill-color":"#a9dcb7"', style)
+            self.assertIn('"background-color":"#75bee3"', style)
 
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_theme_upgrade_installs_missing_global_reference_sources(tmp_path):
+    (tmp_path / "maps/styles").mkdir(parents=True)
+    document = json.loads(install_map_style(ThemeMode.DARK, tmp_path).read_text())
+    for name in ("reference-land", "reference-lakes", "country-boundaries", "state-boundaries"):
+        filename = Path(document["sources"][name]["data"]).name
+        data = json.loads((tmp_path / "maps/boundaries" / filename).read_text())
+        assert data["type"] == "FeatureCollection"
+        assert data["features"]

@@ -17,6 +17,10 @@ def choose_coverage(layer="buildings"):
     keys = list(PRESETS)
     for index, key in enumerate(keys, 1):
         title, bounds = PRESETS[key]
+        if layer == "terrain":
+            from development.maps.terrain_regions import MICHIGAN_COVERAGES
+
+            title, bounds = MICHIGAN_COVERAGES.get(key, (title, bounds))
         print(f"  {index}. {title} · bounds {bounds}")
     while True:
         choice = input(

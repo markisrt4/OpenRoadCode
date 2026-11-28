@@ -4,10 +4,12 @@ import gzip
 import hashlib
 import json
 import math
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
 
+from apps.launchers import local_terrain_pack
 from apps.launchers.local_terrain_pack import load_terrain
 from development.maps import download_detroit_terrain as downloader
 from tools.map_builder.builder import terrain
@@ -163,3 +165,82 @@ def test_lod_mosaic_uses_overview_reference_and_exposes_detail_metadata(tmp_path
     assert document["maximum_zoom"] == 16
     assert {tile["detail_level"] for tile in document["tiles"]} == {0, 2}
     assert {tile["reference_height_m"] for tile in document["tiles"]} == {100}
+
+
+def test_preferred_terrain_composes_local_detail_over_statewide_fallback(tmp_path, monkeypatch):
+    metro = tmp_path / "metro"
+    overview = tmp_path / "overview"
+    _terrain_tile(metro, [-84, 42, -82, 43], [200, 210, 220, 230], 200)
+    _terrain_tile(overview, [-90.5, 41.7, -82.1, 48.3], [100, 110, 120, 130], 100)
+    monkeypatch.setattr(local_terrain_pack, "metro_detroit_terrain_directory", lambda: metro)
+    monkeypatch.setattr(
+        local_terrain_pack, "regional_terrain_directory", lambda _coverage: overview
+    )
+    monkeypatch.setattr(
+        local_terrain_pack, "preferred_terrain_directory", lambda _destination: metro
+    )
+
+    state = local_terrain_pack.load_preferred_terrain()
+
+    assert isinstance(state, LocalTerrainMosaicState)
+    assert [tile.coverage.title for tile in state.tiles] == ["metro", "overview"]
+
+
+def test_streaming_catalog_includes_installer_owned_local_terrain(tmp_path, monkeypatch):
+    from apps.launchers import local_terrain_pack as module
+
+    root = tmp_path / "packs"
+    root.mkdir()
+    _terrain_tile(
+        root / "rochester-terrain-v1", [-83.175, 42.65, -83.11, 42.705], [210, 220, 270, 280], 220
+    )
+    _terrain_tile(
+        root / "metro-detroit-terrain-active", [-84, 42, -82, 43], [200, 210, 220, 230], 210
+    )
+    monkeypatch.setattr(module, "openroadcode_data_dir", lambda *parts: root)
+    catalog = module.load_installed_terrain_catalog()
+    local = next(tile for tile in catalog.state.tiles if tile.tile_id.startswith("rochester"))
+    regional = next(tile for tile in catalog.state.tiles if tile.tile_id.startswith("metro"))
+    assert local.detail_level > regional.detail_level
+    assert local.minimum_zoom == 12
+    assert (
+        catalog.payloads[catalog.state.tiles.index(local)]
+        == root / "rochester-terrain-v1/terrain.json"
+    )
+
+
+@pytest.mark.parametrize("activation_fails", [False, True])
+def test_archive_update_retains_legacy_directory_and_restores_it_on_failure(
+    tmp_path, monkeypatch, activation_fails
+):
+    import zipfile
+
+    from development.maps.install_terrain import _install_archive
+
+    active = tmp_path / "rochester-terrain-v1"
+    _terrain_tile(active, [-83.175, 42.65, -83.11, 42.705], [210, 220, 270, 280], 220)
+    source = tmp_path / "new"
+    _terrain_tile(source, [-83.175, 42.65, -83.11, 42.705], [211, 221, 271, 281], 221)
+    archive = tmp_path / "terrain.zip"
+    with zipfile.ZipFile(archive, "w") as bundle:
+        for path in source.iterdir():
+            bundle.write(path, path.name)
+    if activation_fails:
+        original = Path.replace
+
+        def fail_pending(path, target):
+            if path.name.startswith(".active-terrain-"):
+                raise OSError("activation failed")
+            return original(path, target)
+
+        monkeypatch.setattr(Path, "replace", fail_pending)
+        with pytest.raises(OSError, match="activation failed"):
+            _install_archive(archive, active)
+        assert not active.is_symlink()
+        assert load_terrain(active).heights_m == (210, 220, 270, 280)
+    else:
+        _install_archive(archive, active)
+        assert active.is_symlink()
+        assert load_terrain(active).heights_m == (211, 221, 271, 281)
+        previous = next(tmp_path.glob(".previous-terrain-*"))
+        assert load_terrain(previous).heights_m == (210, 220, 270, 280)

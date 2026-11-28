@@ -9,6 +9,7 @@ from apps.orcUi.cesium_map_runtime import CesiumMapRuntime
 from ui.navigation import GeoPoint, MapMarker, MapMarkerKind
 from ui.navigation.cesium_viewer_state import CesiumViewerState
 from ui.navigation.map_platform_if import MapPlatform
+from ui.navigation.map_runtime_if import MapRuntimeState
 from ui.navigation.poi_overlay_state import PoiOverlayState
 from ui.navigation.route_overlay_state import RouteOverlayState
 
@@ -26,6 +27,30 @@ def mounted():
 
 def flush(runtime):
     runtime._worker.submit(lambda: None).result(timeout=3)
+
+
+def test_native_renderer_failure_stays_visible_until_successful_retry(mounted):
+    runtime, native, _ = mounted
+    native.state = MapRuntimeState(error="Required map library is incompatible")
+    runtime._worker.submit(runtime._tick, runtime._generation).result(timeout=3)
+    assert runtime.state.error == "Required map library is incompatible"
+    assert "Map unavailable" in runtime.state.status
+    runtime._worker.submit(runtime._tick, runtime._generation).result(timeout=3)
+    assert runtime.state.error
+    runtime.request_retry()
+    flush(runtime)
+    native.state = MapRuntimeState(running=True)
+    runtime._worker.submit(runtime._tick, runtime._generation).result(timeout=3)
+    assert not runtime.state.error
+    native.launch.assert_called_with(100)
+
+
+def test_native_start_exception_becomes_visible_error_instead_of_blank_map(mounted):
+    runtime, native, _ = mounted
+    native.launch.side_effect = OSError("renderer missing")
+    runtime.request_retry()
+    flush(runtime)
+    assert runtime.state.error == "renderer missing"
 
 
 def explore(runtime):
@@ -287,3 +312,88 @@ def test_repeated_browser_poll_timeouts_restore_map_with_reason(mounted, caplog)
     assert runtime.state.active is MapPlatform.MAPLIBRE
     assert "browser timed out" in runtime.state.status
     assert "3D map returned to Map" in caplog.text
+
+
+def test_layer_state_and_requests_are_scoped_to_current_terrain_generation(mounted):
+    from ui.navigation.map_layer_controls import MapLayerAction, MapLayerControl, MapLayerControls
+
+    runtime, native, viewer = mounted
+    runtime._stop_tick.set()
+    runtime._ticker.join(timeout=2)
+    runtime.request_layer(MapLayerAction.BUILDINGS)
+    flush(runtime)
+    viewer.request_layer.assert_not_called()
+    explore(runtime)
+    viewer.layer_controls = MapLayerControls(
+        (MapLayerControl(MapLayerAction.BUILDINGS, "Buildings", True, False),)
+    )
+    runtime._worker.submit(runtime._tick, runtime._generation).result(timeout=3)
+    assert runtime.state.layer_controls == viewer.layer_controls
+    runtime.request_layer(MapLayerAction.BUILDINGS)
+    flush(runtime)
+    viewer.request_layer.assert_called_once_with(MapLayerAction.BUILDINGS)
+    stale = runtime._generation
+    runtime.request_platform(MapPlatform.MAPLIBRE)
+    flush(runtime)
+    assert not runtime.state.layer_controls.controls
+    viewer.request_layer.reset_mock()
+    runtime._layer(MapLayerAction.BUILDINGS, stale)
+    viewer.request_layer.assert_not_called()
+
+
+def test_road_terrain_round_trip_reuses_browser_and_replays_latest_overlays(mounted):
+    runtime, native, viewer = mounted
+    explore(runtime)
+    viewer.close.reset_mock()
+    runtime.request_platform(MapPlatform.MAPLIBRE)
+    flush(runtime)
+    viewer.suspend.assert_called_once_with()
+    viewer.close.assert_not_called()
+    runtime.resize(560, 280, 999)
+    runtime.request_platform(MapPlatform.CESIUM)
+    flush(runtime)
+    viewer.resume.assert_called_once_with((560, 280))
+    assert viewer.open.call_count == 1
+    assert runtime.state.active is MapPlatform.CESIUM
+    assert viewer.update_poi_overlay.call_count == 2
+    assert viewer.update_route_overlay.call_count == 2
+
+
+def test_failed_retained_browser_restarts_once(mounted):
+    runtime, _, viewer = mounted
+    explore(runtime)
+    runtime.request_platform(MapPlatform.MAPLIBRE)
+    flush(runtime)
+    viewer.resume.side_effect = RuntimeError("Chromium exited")
+    runtime.request_platform(MapPlatform.CESIUM)
+    flush(runtime)
+    assert viewer.open.call_count == 2
+    assert runtime.state.active is MapPlatform.CESIUM
+    assert not runtime.state.error
+
+
+def test_new_destination_does_not_resume_stale_exploration(mounted):
+    runtime, _, viewer = mounted
+    explore(runtime)
+    runtime.request_platform(MapPlatform.MAPLIBRE)
+    flush(runtime)
+    runtime.request_explore(CesiumViewerState(GeoPoint(0.8, -1.3), label="Another place"))
+    flush(runtime)
+    viewer.resume.assert_not_called()
+    assert viewer.open.call_count == 2
+    assert viewer.open.call_args.args[0].label == "Another place"
+
+
+def test_leaving_navigation_closes_hidden_retained_browser(mounted):
+    runtime, _, viewer = mounted
+    explore(runtime)
+    runtime.request_platform(MapPlatform.MAPLIBRE)
+    flush(runtime)
+    viewer.close.reset_mock()
+    runtime.stop()
+    viewer.close.assert_called_once_with()
+    runtime.launch(200)
+    runtime.request_platform(MapPlatform.CESIUM)
+    flush(runtime)
+    viewer.resume.assert_not_called()
+    assert viewer.open.call_count == 2

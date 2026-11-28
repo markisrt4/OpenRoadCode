@@ -86,8 +86,10 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
 def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaComposition:
     media = runtime.media
     network_allowed = lambda: app.online_mode.online
-    media.spotify.set_network_allowed(network_allowed)
-    media.spotify_local_player.set_network_allowed(network_allowed)
+    spotify_enabled = os.environ.get("ORC_NO_SPOTIFY") != "1"
+    spotify_allowed = lambda: spotify_enabled and network_allowed()
+    media.spotify.set_network_allowed(spotify_allowed)
+    media.spotify_local_player.set_network_allowed(spotify_allowed)
 
     def online_action(action):
         def invoke():
@@ -111,7 +113,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
             image.close()
 
     preview = MediaPreviewController(
-        media.spotify.latest_state, preview_artwork, online_allowed=network_allowed
+        media.spotify.latest_state, preview_artwork, online_allowed=spotify_allowed
     )
     cleanup.callback(preview.close)
     lyrics = LrclibLyricsClient()
@@ -192,7 +194,10 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
     )
 
     def show_spotify() -> None:
-        if not network_allowed():
+        if not spotify_enabled:
+            app.set_screen_status("Spotify intentionally disabled")
+            return
+        if not spotify_allowed():
             return
         spotify_screen.show()
         if not spotify_client_id():
@@ -208,20 +213,22 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
 
     def open_trending_spotify(query: str) -> None:
         """Keep MusicForge handoff inside ORC's native Spotify screen."""
+        if not spotify_allowed():
+            return
         show_spotify()
         app.set_screen_status(
             f"Spotify opened for {query}. Automatic track lookup is not available yet."
         )
 
     def show_spotify_remote() -> None:
-        if not network_allowed():
+        if not spotify_allowed():
             return
         media.spotify_local_player.request_remote()
         media.spotify.request_refresh()
         show_spotify()
 
     def show_spotify_local() -> None:
-        if not network_allowed():
+        if not spotify_allowed():
             return
         if not spotify_client_id():
             show_spotify()
@@ -253,7 +260,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         ),
         connect=connect_spotify,
         disconnect=spotify_tokens.clear,
-        online=network_allowed,
+        online=spotify_allowed,
         run_work=lambda callback: account_workers.submit(callback),
         dispatcher=app,
         refresh_playback=media.spotify.request_refresh,
@@ -270,7 +277,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
             app,
             media.spotify_local_player.state,
             media.spotify_local_player.request_player,
-            network_allowed,
+            spotify_allowed,
         ),
     )
 
@@ -304,7 +311,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
             music_video_controller,
             app,
             presentation_workers,
-            online=network_allowed,
+            online=spotify_allowed,
             rich=rich,
             process_id=lambda: music_video.browser_process_id,
         )
@@ -330,7 +337,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         run_work=lambda callback: presentation_workers.submit(callback),
         dispatcher=app,
         load_artwork=cached_artwork_loader(image_cache, max_size=56),
-        online=network_allowed,
+        online=spotify_allowed,
         show_now_playing=show_spotify,
     )
     browsers.append(browser_session)
@@ -350,6 +357,8 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
     retire_views.append(spotify_screen.hide)
 
     renderer = os.getenv("OPENROAD_MUSIC_VISUALIZER_RENDERER", "opengl").lower()
+    if os.environ.get("ORC_NO_OPENGL") == "1" or os.environ.get("ORC_NO_AUDIO") == "1":
+        renderer = "tk"
     if renderer in {"tk", "opengl"}:
         panel_options = {}
         if renderer == "opengl":
@@ -429,7 +438,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
     home_now_playing_factory, trending_spotify_factory = bind_spotify_views(
         create_presentation=lambda: create_presentation(rich=True),
         presentations=presentations,
-        network_allowed=network_allowed,
+        network_allowed=spotify_allowed,
         home_theme=lambda: theme_bundle(app.theme_mode),
         open_spotify=show_spotify,
         home_playback_changed=home_playback_changed,
@@ -486,6 +495,6 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         unsubscribe_online=unsubscribe_online,
         close_spotify_presentations=close_presentations,
         close_spotify_accounts=close_accounts,
-        configure_spotify=account_dialog.show,
+        configure_spotify=account_dialog.show if spotify_enabled else lambda: None,
         close_spotify_configuration=account_dialog.close,
     )

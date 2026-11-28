@@ -1,0 +1,5 @@
+[Unit]
+Description=OpenRoadCode desktop session
+Wants=openroadcode-waydroid.service
+After=graphical-session-pre.target
+PartOf=graphical-session.target

@@ -38,7 +38,7 @@ The [project README](../README.md) remains the repository landing page. [Doxygen
 
 ## Complete documentation catalog
 
-Generated from the canonical documentation files. Every component README and standalone guide is listed here. Run `python scripts/docs_inventory.py --write` after adding or moving documentation.
+Generated from the canonical documentation files. Every component README and standalone guide is listed here. Run `python ci/docs_inventory.py --write` after adding or moving documentation.
 
 ### Apps
 
@@ -88,6 +88,7 @@ Generated from the canonical documentation files. Every component README and sta
 - [Calendar (`development/calendar`)](../development/calendar/README.md)
 - [Maplibre (`development/containers/maplibre`)](../development/containers/maplibre/README.md)
 - [Scripts (`development/containers/maplibre/scripts`)](../development/containers/maplibre/scripts/README.md)
+- [Rpi5 (`development/simulation/rpi5`)](../development/simulation/rpi5/README.md)
 - [Termux (`development/termux`)](../development/termux/README.md)
 
 ### Docs
@@ -97,6 +98,7 @@ Generated from the canonical documentation files. Every component README and sta
 - [Architecture](architecture.md)
 - [Libsdrforge Extraction Plan (`docs/architecture`)](architecture/libsdrforge-extraction-plan.md)
 - [Automotive Architecture](automotive_architecture.md)
+- [Business Registry](business_registry.md)
 - [Cesium Map Experiment](cesium_map_experiment.md)
 - [Detroit Map Data Review](detroit_map_data_review.md)
 - [Branch Lifecycle (`docs/development`)](development/branch-lifecycle.md)
@@ -111,11 +113,13 @@ Generated from the canonical documentation files. Every component README and sta
 - [Navigation Position State (`docs/idd`)](idd/navigation_position_state.md)
 - [Route Guidance State (`docs/idd`)](idd/route_guidance_state.md)
 - [Libmusicforge Integration](libmusicforge-integration.md)
+- [Map Expansion Plan](map_expansion_plan.md)
 - [Message Bus Idd (`docs/messaging`)](messaging/message_bus_idd.md)
 - [Music Visualizer](music_visualizer.md)
 - [Musicforge Airplay](musicforge_airplay.md)
 - [Navigation Deployment](navigation_deployment.md)
 - [Navigation Runtime](navigation_runtime.md)
+- [Navigation Views](navigation_views.md)
 - [Online Offline Mode](online_offline_mode.md)
 - [Orc Ui Architecture Audit](orc_ui_architecture_audit.md)
 - [Poi Ordering](poi_ordering.md)
@@ -124,9 +128,16 @@ Generated from the canonical documentation files. Every component README and sta
 - [Saved Destinations](saved_destinations.md)
 - [Sdrforge Termux Service](sdrforge_termux_service.md)
 - [Spotify Ui](spotify_ui.md)
+- [State Map Build Pipeline](state_map_build_pipeline.md)
 - [Streaming Radio](streaming_radio.md)
 - [System Performance](system_performance.md)
 - [Termux Poi Download](termux_poi_download.md)
+- [Text Input](text_input.md)
+- [Waydroid Services](waydroid_services.md)
+- [Waydroid Vm](waydroid_vm.md)
+- [Waze Android Investigation](waze_android_investigation.md)
+- [Waze Gestures](waze_gestures.md)
+- [Waze Live Map](waze_live_map.md)
 - [Xdg Paths](xdg_paths.md)
 
 ### Frontends
@@ -197,4 +208,4 @@ Generated from the canonical documentation files. Every component README and sta
 
 ## Documentation conventions
 
-Keep implementation-specific instructions in the owning component's README. Put cross-cutting architecture, interface, deployment, and user guides under `docs/`. Link to canonical files instead of duplicating them. After adding, moving, or removing documentation, run `python scripts/docs_inventory.py --write` and commit the updated index. CI checks that the catalog is current. The website uses the same discovery inventory, while retaining ownership of its layout, navigation, and deployment.
+Keep implementation-specific instructions in the owning component's README. Put cross-cutting architecture, interface, deployment, and user guides under `docs/`. Link to canonical files instead of duplicating them. After adding, moving, or removing documentation, run `python ci/docs_inventory.py --write` and commit the updated index. CI checks that the catalog is current. The website uses the same discovery inventory, while retaining ownership of its layout, navigation, and deployment.

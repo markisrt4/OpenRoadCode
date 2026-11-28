@@ -4,7 +4,7 @@ PROJECT_BRIEF          = "Public API reference for OpenRoadCode"
 OUTPUT_DIRECTORY       = build/doxygen
 INPUT                  = README.md CONTRIBUTING.md SECURITY.md docs apps controllers services messaging \
                          hardware_io protocols config common ui frontends \
-                         input_events networking security development scripts tools
+                         input_events networking security development scripts ci tools
 FILE_PATTERNS          = *.py *.hpp *.cpp *.md
 RECURSIVE              = YES
 

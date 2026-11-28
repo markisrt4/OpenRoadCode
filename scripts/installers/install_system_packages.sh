@@ -91,6 +91,10 @@ if (( ${#missing_packages[@]} > 0 )); then
   done
 
   if (( ${#available_packages[@]} > 0 )); then
+    if [[ " ${available_packages[*]} " == *" scrcpy "* ]]; then
+      # The scrcpy postinst needs a downloader before configuration starts.
+      sudo apt install -y --no-install-recommends curl ca-certificates
+    fi
     echo "[*] Installing: ${available_packages[*]}"
     sudo apt install -y --no-install-recommends "${available_packages[@]}"
   fi

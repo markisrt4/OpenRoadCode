@@ -1,7 +1,2 @@
-# Android integrations for canonical OpenRoadCode businesses.
-
-[integration.panera]
-package = "com.panera.bread"
-
-[integration.mcdonalds]
-package = "com.mcdonalds.app"
+# Android package mappings and their provenance now live in ../android_apps.json.
+# Web ordering integrations remain in web.toml.

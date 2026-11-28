@@ -136,6 +136,6 @@ class SpotifyVideoOverlay(UiWidget):
             except tk.TclError:
                 pass
 
-    def _on_resize(self, event: tk.Event) -> None:
+    def _on_resize(self, event: tk.Event[tk.Misc]) -> None:
         if self._embedder.window_id is not None:
             self._embedder.resize(max(1, event.width), max(1, event.height))

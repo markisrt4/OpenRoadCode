@@ -93,7 +93,7 @@ ECU cards use restrained semantic accents to distinguish domains without turning
 
 ### Quality gate
 
-`scripts/quality_gate.py` is the branch-level UI quality entry point. The ORC UI also enforces a Python module-size limit through `scripts/check_python_module_size.py`; large shell or feature modules should be decomposed rather than extending the limit. Run the quality gate and ORC UI tests before merging substantial shell changes.
+`ci/quality_gate.py` is the branch-level UI quality entry point. The ORC UI also enforces a Python module-size limit through `ci/check_python_module_size.py`; large shell or feature modules should be decomposed rather than extending the limit. Run the quality gate and ORC UI tests before merging substantial shell changes.
 
 ## Navigation tooltips
 

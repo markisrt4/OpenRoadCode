@@ -16,9 +16,11 @@ from apps.launchers.local_imagery_pack import (
     load_imagery_stack,
     preferred_imagery_directory,
 )
+from apps.launchers.local_imagery_pyramid import installed_imagery_pyramids
 from apps.launchers.local_map_tiles_pack import load_viewer_tiles, preferred_tiles_directory
 from apps.launchers.local_road_overlay import LocalRoadOverlay
-from apps.launchers.local_terrain_pack import load_terrain, preferred_terrain_directory
+from apps.launchers.local_terrain_pack import load_installed_terrain_catalog
+from apps.launchers.state_boundary_overlay import load_state_boundary_overlay
 from common.logging.logging_paths import logging_file_path
 from controllers.poi.poi_action_executor_if import PoiActionExecutorIf
 from ui.navigation.cesium_viewer_state import CesiumViewerState
@@ -53,11 +55,10 @@ class CesiumPoiActions(PoiActionExecutorIf):
             if self._session is not None:
                 raise RuntimeError("Close the current 3D viewer before opening another place")
             imagery_layers = load_imagery_stack()
-            imagery_dir, terrain_dir, building_dir = (
+            imagery_dir, building_dir = (
                 detroit_pack_directory()
                 if imagery_layers
                 else preferred_imagery_directory(state.destination),
-                preferred_terrain_directory(state.destination),
                 detroit_building_directory(),
             )
             tile_dir = preferred_tiles_directory(state.destination)
@@ -73,7 +74,7 @@ class CesiumPoiActions(PoiActionExecutorIf):
                 and imagery_dir.exists()
                 else None
             )
-            terrain = load_terrain(terrain_dir) if terrain_dir.exists() else None
+            terrain = load_installed_terrain_catalog()
             buildings = (
                 load_buildings(building_dir) if tiles is None and building_dir.exists() else None
             )
@@ -85,10 +86,12 @@ class CesiumPoiActions(PoiActionExecutorIf):
                     state,
                     imagery=imagery,
                     imagery_layers=imagery_layers,
+                    imagery_pyramids=installed_imagery_pyramids(),
                     terrain=terrain,
                     buildings=buildings,
                     tiles=tiles,
                     roads=LocalRoadOverlay.installed(),
+                    boundaries=load_state_boundary_overlay(),
                 )
                 resources.callback(server.close)
                 profile = resources.enter_context(TemporaryDirectory(prefix="orc-cesium-poi-"))

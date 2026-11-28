@@ -144,12 +144,22 @@ def _wait(event: threading.Event) -> None:
 
 def test_hide_invalidates_queued_active_state_and_releases_camera() -> None:
     """Deliver only inactive state when hide overtakes queued startup state."""
-    camera = _Camera()
+    frame = CameraFrame(np.zeros((1, 1, 3), dtype=np.uint8), 0.0, 0)
+
+    class StreamingCamera(_Camera):
+        def read(self):
+            self.read_once.set()
+            self.closed.wait(0.01)
+            return frame
+
+    camera = StreamingCamera()
     controller, dispatcher, ui, controls = _controller(camera)
     controller.request_activate()
-    _wait(camera.opened)
-
-    controller.request_deactivate()
+    try:
+        # A read starts only after the capture thread has queued RUNNING.
+        _wait(camera.read_once)
+    finally:
+        controller.request_deactivate()
     dispatcher.run_all()
 
     assert ui.states[-1].lifecycle is VisionLifecycle.INACTIVE

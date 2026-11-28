@@ -3,13 +3,34 @@
 
 """Native map host lifecycle contract independent of process implementation."""
 
+from dataclasses import dataclass
 from typing import Protocol
 
 from ui.theme import ThemeMode
 
 
+@dataclass(frozen=True)
+class MapRuntimeState:
+    running: bool = False
+    error: str = ""
+
+
+class MapPresentationRequestHandlerIf(Protocol):
+    def request_replay_map_presentation(self) -> None:
+        """Restore the retained camera, markers and vehicle after renderer startup."""
+        ...
+
+
 class MapRuntimeIf(Protocol):
     """Control a native map presentation without importing backend infrastructure."""
+
+    @property
+    def state(self) -> MapRuntimeState:
+        """Return renderer process health without waiting for startup or exit.
+
+        @return Current immutable state.
+        """
+        ...
 
     def set_theme(self, mode: ThemeMode) -> None:
         """Select map appearance.

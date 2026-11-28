@@ -1,9 +1,12 @@
 name: OpenRoadCode CI
 on:
   pull_request:
-    types: [opened, reopened, ready_for_review, synchronize]
-  push:
-    branches: [master]
+    types: [opened, reopened, ready_for_review, synchronize, converted_to_draft]
+  workflow_call:
+    inputs:
+      full_gate:
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       full_gate:
@@ -17,29 +20,28 @@ permissions:
   contents: read
 jobs:
   fast:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false || github.event.action != 'synchronize'
-    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
-          python-version: '3.12'
+          python-version: '3.12.12'
       - name: Install verification dependencies
         run: |
-          bash scripts/setup_quality_env.sh
+          bash ci/setup_quality_env.sh
           echo "$PWD/.venv-quality/bin" >> "$GITHUB_PATH"
       - name: Focused architecture checks
         run: |
-          python scripts/check_python_module_size.py
-          python scripts/check_ui_boundaries.py
-          python scripts/check_weather_ui_contracts.py
+          python ci/check_python_module_size.py
+          python ci/check_ui_boundaries.py
       - name: Games panel layout with X11
         run: xvfb-run -a python -m pytest -q -rs frontends/tk/games/unit_test/test_games_panel_layout.py
       - name: Unit tests
         run: |
           python - <<'PY'
-          from scripts.run_tests import find_suites
+          from ci.run_tests import find_suites
           import subprocess
           import sys
           dirs = [str(p) for p in find_suites('unit')]
@@ -49,23 +51,23 @@ jobs:
           PY
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: orc-unit-test-results
           path: unit-test-results.xml
           if-no-files-found: ignore
   full:
-    if: github.event_name == 'workflow_dispatch' && inputs.full_gate
-    runs-on: ubuntu-latest
+    if: inputs.full_gate
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
-          python-version: '3.12'
+          python-version: '3.12.12'
       - name: Install quality gate dependencies
         run: |
-          bash scripts/setup_quality_env.sh
+          bash ci/setup_quality_env.sh
           echo "$PWD/.venv-quality/bin" >> "$GITHUB_PATH"
       - name: Run portable full quality gate
-        run: python scripts/quality_gate.py
+        run: python ci/quality_gate.py

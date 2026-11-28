@@ -39,12 +39,12 @@ window.ORCRoadOverlay = function(viewer,C,heightAt=()=>0,onError=()=>{},maxZoom=
       if(disposed || entries.get(entry.key)!==entry)return;
       const roads=new C.CustomDataSource('roads-'+entry.key);
       entry.labels=[];entry.state=state;
-      function label(text,point,freeway=false) {
+      function label(text,point,farDistance) {
         const entity=roads.entities.add({position:C.Cartesian3.fromRadians(point[0],point[1],heightAt(...point)+15),
           label:{text,font:'11px sans-serif',fillColor:C.Color.WHITE,
             outlineColor:C.Color.BLACK,outlineWidth:3,style:C.LabelStyle.FILL_AND_OUTLINE,
             disableDepthTestDistance:Infinity,
-            distanceDisplayCondition:freeway?undefined:new C.DistanceDisplayCondition(0,1000),
+            distanceDisplayCondition:new C.DistanceDisplayCondition(0,farDistance),
             showBackground:true,backgroundColor:C.Color.BLACK.withAlpha(.65)}});
         entry.labels.push({entity,point});
       }
@@ -52,10 +52,14 @@ window.ORCRoadOverlay = function(viewer,C,heightAt=()=>0,onError=()=>{},maxZoom=
       for(const road of state.roads) {
         const coordinates=road.points.flatMap(point=>[point[0],point[1]]);
         const freeway=road.kind==='motorway'||road.kind==='trunk';
+        const lineDistance=road.kind==='motorway'?250000:road.kind==='trunk'?180000:
+          road.kind==='primary'?100000:50000;
+        const labelDistance=freeway?90000:road.kind==='primary'?45000:20000;
         if(road.geometry_visible!==false && !['minor','residential','unclassified','service'].includes(road.kind))roads.entities.add({polyline:{positions:C.Cartesian3.fromRadiansArray(coordinates),clampToGround:true,
-          width:freeway?3:1.5,material:C.Color.fromCssColorString(freeway?'#ffd166':'#e7eff6').withAlpha(.8)}});
+          width:freeway?3:1.5,material:C.Color.fromCssColorString(freeway?'#ffd166':'#e7eff6').withAlpha(.8),
+          distanceDisplayCondition:new C.DistanceDisplayCondition(0,lineDistance)}});
         if(road.label && !labeled.has(road.label) && names<8) {
-          labeled.add(road.label);names++;label(road.label,road.points[Math.floor(road.points.length/2)],freeway);
+          labeled.add(road.label);names++;label(road.label,road.points[Math.floor(road.points.length/2)],labelDistance);
         }
       }
       roads.show=roadsVisible;

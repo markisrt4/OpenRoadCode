@@ -19,10 +19,19 @@ _MAX_REQUEST_BYTES = 16_384
 _LOCATION_PAGE = b"""<!doctype html>
 <meta name=viewport content='width=device-width,initial-scale=1'>
 <title>OpenRoadCode Host Location</title>
+<style>
+:root{color-scheme:dark;font:14px system-ui,sans-serif;background:#0b141b;color:#e5edf3}
+body{box-sizing:border-box;max-width:480px;margin:0 auto;padding:18px}
+h1{font-size:19px;margin:0 0 12px;color:#00b8ed}p{line-height:1.45;color:#aebfcb}
+button{font:inherit;font-weight:600;padding:9px 12px;margin:0 5px 6px 0;border:1px solid #365160;
+border-radius:4px;background:#132733;color:#e5edf3;cursor:pointer}button:disabled{opacity:.45;cursor:default}
+pre{font:inherit;white-space:pre-wrap;line-height:1.45;margin:10px 0}
+</style>
 <body><h1>OpenRoadCode Host Location</h1>
-<p>Share this computer's location with ORC when bridge/GPS location is unavailable.
-Accuracy depends on your browser and host. Keep this page open while sharing.</p>
+<p>Share this computer's location with ORC.<br>
+Close hides this popup and keeps sharing. Stop sharing ends location updates.</p>
 <button id=start>Share host location</button><button id=stop disabled>Stop sharing</button>
+<button id=close hidden title='Hide this window and keep location sharing'>Close</button>
 <pre id=status>Not sharing.</pre><script>
 const status=document.querySelector('#status'), start=document.querySelector('#start'),
       stop=document.querySelector('#stop');
@@ -31,23 +40,33 @@ function stopSharing(message='Not sharing.') {
   generation++; clearTimeout(timer); pending?.abort(); pending=null;
   start.disabled=false; stop.disabled=true; status.textContent=message;
 }
+function retry(current,message) {
+  if(current!==generation) return;
+  status.textContent=message;
+  timer=setTimeout(()=>locate(current),2000);
+}
 function locate(current) {
   if(current!==generation) return;
   navigator.geolocation.getCurrentPosition(async p=>{
     if(current!==generation) return;
-    const c=p.coords; pending=new AbortController();
+    const c=p.coords, request=new AbortController(); pending=request;
+    const timeout=setTimeout(()=>request.abort(),4000);
     try {
-      const r=await fetch('/position',{method:'POST',signal:pending.signal,
+      const r=await fetch('/position',{method:'POST',signal:request.signal,
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({latitude:c.latitude,longitude:c.longitude,
           altitude:c.altitude,accuracy:c.accuracy})});
       if(current!==generation) return;
       if(!r.ok) throw new Error(await r.text());
-      status.textContent=`Sharing ${c.latitude.toFixed(6)}, ${c.longitude.toFixed(6)}
-Accuracy: ${c.accuracy.toFixed(0)} m. Bridge/GPS takes priority when available.`;
+      status.textContent=`Sharing live host location.\nAccuracy: ${c.accuracy.toFixed(0)} m.`;
       timer=setTimeout(()=>locate(current),5000);
-    } catch(e) { if(current===generation) stopSharing(e.message); }
-  },e=>{ if(current===generation) stopSharing(e.message); },
+    } catch(e) { retry(current,'Waiting for ORC to reconnect. Retrying...'); }
+    finally { clearTimeout(timeout); if(pending===request) pending=null; }
+  },e=>{
+    if(current!==generation) return;
+    if(e.code===1) stopSharing(e.message);
+    else retry(current,'Waiting for a fresh host location. Retrying...');
+  },
     {enableHighAccuracy:true,maximumAge:1000,timeout:15000});
 }
 start.onclick=()=>{
@@ -56,6 +75,17 @@ start.onclick=()=>{
   locate(++generation);
 };
 stop.onclick=()=>stopSharing();
+const close=document.querySelector('#close');
+const controlPort=Number(new URLSearchParams(window.location.hash.slice(1)).get('window'));
+if(Number.isInteger(controlPort) && controlPort>0 && controlPort<=65535) {
+  close.hidden=false;
+  close.onclick=async()=>{
+    try {
+      const response=await fetch(`http://127.0.0.1:${controlPort}/hide`,{method:'POST'});
+      if(!response.ok) throw new Error('Window could not be hidden.');
+    } catch(e) { status.textContent='Use the window minimize control to keep sharing.'; }
+  };
+}
 window.addEventListener('pagehide',()=>stopSharing());
 </script></body>"""
 

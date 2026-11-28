@@ -43,6 +43,9 @@ NAVIGATION_REGION=""
 BLUETOOTH_SPP_ADDRESS=""
 BLUETOOTH_SPP_CHANNEL=""
 BLUETOOTH_RFCOMM_ID="0"
+SHUTDOWN_BUTTON_PIN=""
+SHUTDOWN_BUTTON_BCM=""
+BOOT_CONFIG="/boot/firmware/config.txt"
 REQUESTED_FEATURES=()
 USE_DEFAULT_FEATURES=1
 INSTALL_ALL_FEATURES=0
@@ -83,6 +86,7 @@ Options:
   --bluetooth-spp-address MAC Pair/bind a Bluetooth SPP device after package setup
   --bluetooth-spp-channel N   Override Bluetooth SPP RFCOMM channel discovery
   --bluetooth-rfcomm-id N     RFCOMM device number (default: 0)
+  --shutdown-button-pin N    Configure a Pi shutdown button on physical header pin N
   --feature NAME          Add a feature bundle to the target profile
   --all-features          Install every feature compatible with the target
   --no-default-features   Start with no optional target-profile features
@@ -212,6 +216,7 @@ while (( $# > 0 )); do
     --bluetooth-spp-address) shift; (( $# > 0 )) || { echo "[!] --bluetooth-spp-address requires a value" >&2; exit 1; }; BLUETOOTH_SPP_ADDRESS="$1" ;;
     --bluetooth-spp-channel) shift; (( $# > 0 )) || { echo "[!] --bluetooth-spp-channel requires a value" >&2; exit 1; }; BLUETOOTH_SPP_CHANNEL="$1" ;;
     --bluetooth-rfcomm-id) shift; (( $# > 0 )) || { echo "[!] --bluetooth-rfcomm-id requires a value" >&2; exit 1; }; BLUETOOTH_RFCOMM_ID="$1" ;;
+    --shutdown-button-pin) shift; [[ "${1:-}" =~ ^[0-9]{1,2}$ ]] || { echo "[!] --shutdown-button-pin requires a physical header pin number" >&2; exit 1; }; SHUTDOWN_BUTTON_PIN="$1" ;;
     --no-default-features) USE_DEFAULT_FEATURES=0 ;;
     --all-features) INSTALL_ALL_FEATURES=1 ;;
     --feature) option="$1"; shift; (( $# > 0 )) || { echo "[!] $option requires a value" >&2; exit 1; }; REQUESTED_FEATURES+=("$1") ;;
@@ -260,6 +265,18 @@ fi
 
 export OPENROAD_INSTALL_TARGET="$TARGET"
 
+if [[ -n "$SHUTDOWN_BUTTON_PIN" ]]; then
+  [[ "$TARGET" == rpi4 || "$TARGET" == rpi5 ]] || {
+    echo "[!] --shutdown-button-pin requires a Raspberry Pi target." >&2
+    exit 1
+  }
+  SHUTDOWN_BUTTON_BCM="$(python3 "$SCRIPT_DIR/configure_shutdown_button.py" "$SHUTDOWN_BUTTON_PIN")"
+  if (( ! SHOW_PLAN )) && [[ "$DETECTED_TARGET" != "$TARGET" || ! -f "$BOOT_CONFIG" ]]; then
+    echo "[!] Shutdown button setup requires a matching Pi and $BOOT_CONFIG." >&2
+    exit 1
+  fi
+fi
+
 FEATURES=()
 if (( INSTALL_ALL_FEATURES )); then mapfile -t FEATURES < <(get_all_features_for_target "$TARGET"); elif (( USE_DEFAULT_FEATURES )); then FEATURES=(base); fi
 case "$TARGET" in
@@ -273,6 +290,10 @@ esac
 
 for feature in "${REQUESTED_FEATURES[@]}"; do
   is_known_feature "$feature" || { echo "[!] Unknown feature: $feature" >&2; get_feature_help >&2; exit 1; }
+  if [[ "$feature" == waydroid && "$TARGET" != rpi5 && "$TARGET" != linux-dev ]]; then
+    echo "[!] Waydroid requires a Pi 5 or Linux desktop target." >&2
+    exit 2
+  fi
   append_feature "$feature"
 done
 if [[ -n "$ORC_AUTOSTART" && "$TARGET" == termux ]]; then
@@ -352,6 +373,9 @@ echo "[*] GPSD service setup:    $RUN_GPSD_SERVICE"
 echo "[*] Radio service setup:   $RUN_RADIO"
 echo "[*] Managed RF:            $MANAGED_RF"
 echo "[*] Telemetry services:    $RUN_TELEMETRY_SERVICES"
+if [[ -n "$SHUTDOWN_BUTTON_BCM" ]]; then
+  echo "[*] Shutdown button:       physical pin $SHUTDOWN_BUTTON_PIN (BCM GPIO$SHUTDOWN_BUTTON_BCM) in $BOOT_CONFIG"
+fi
 if [[ -n "$BLUETOOTH_SPP_ADDRESS" ]]; then
   echo "[*] Bluetooth SPP:         $BLUETOOTH_SPP_ADDRESS (rfcomm$BLUETOOTH_RFCOMM_ID)"
 fi
@@ -408,6 +432,10 @@ if (( VERIFY_ONLY )); then
   exit "$verification_status"
 fi
 
+if [[ -n "$SHUTDOWN_BUTTON_BCM" ]]; then
+  sudo python3 "$SCRIPT_DIR/configure_shutdown_button.py" "$SHUTDOWN_BUTTON_PIN" --config "$BOOT_CONFIG"
+fi
+
 persist_host_target "$TARGET"
 
 if [[ "$TARGET" == "termux" ]]; then
@@ -429,6 +457,10 @@ if (( SKIP_INSTALLS )); then echo "[*] Skipping package, Python, and user-group 
 if (( RUN_SYSTEM_PACKAGES )) && (( ! SKIP_INSTALLS )); then bash "$PROJECT_DIR/scripts/installers/install_system_packages.sh" "${FEATURES[@]}"; fi
 if (( RUN_PYTHON_ENV )) && (( ! SKIP_INSTALLS )); then bash "$PROJECT_DIR/scripts/installers/install_python_env.sh" "${FEATURES[@]}"; fi
 if (( ! SKIP_INSTALLS )); then bash "$PROJECT_DIR/scripts/installers/configure_user_permissions.sh" "${FEATURES[@]}"; fi
+
+if (( ! SKIP_INSTALLS )) && [[ " ${FEATURES[*]} " == *" waydroid "* ]]; then
+  PROJECT_DIR="$PROJECT_DIR" VENV_DIR="$VENV_DIR" bash "$SCRIPT_DIR/install_waydroid.sh"
+fi
 
 if (( ! SKIP_INSTALLS )) && [[ "$TARGET" == "rpi4" || "$TARGET" == "rpi5" ]]; then
   if [[ " ${FEATURES[*]} " == *" raspberry-pi "* || " ${FEATURES[*]} " == *" imu "* || " ${FEATURES[*]} " == *" environmental "* ]]; then

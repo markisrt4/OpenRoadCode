@@ -153,8 +153,11 @@ class ArtistProfiles:
             for candidate in dict.fromkeys((file.get("thumburl"), thumbnail, file.get("url"))):
                 if not candidate:
                     continue
-                url = urlsplit(candidate)
-                if url.scheme != "https" or url.hostname != "upload.wikimedia.org":
+                parsed_candidate = urlsplit(candidate)
+                if (
+                    parsed_candidate.scheme != "https"
+                    or parsed_candidate.hostname != "upload.wikimedia.org"
+                ):
                     continue
                 try:
                     image = self._fetch(candidate, 512_000)

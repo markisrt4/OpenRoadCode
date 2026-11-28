@@ -17,6 +17,18 @@ class MapPlatformRequests(MapRequestHandlerIf):
     def camera_initialized(self):
         return bool(getattr(self._native, "camera_initialized", False))
 
+    @property
+    def zoom_level(self):
+        return getattr(self._native, "zoom_level", 16.5)
+
+    @property
+    def pitch_rad(self):
+        return getattr(self._native, "pitch_rad", 0.0)
+
+    @property
+    def follow_enabled(self):
+        return getattr(self._native, "follow_enabled", True)
+
     def _request(self, name, *args, **kwargs):
         getattr(self._native, name)(*args, **kwargs)
         self._send_earth(name, args, kwargs)
@@ -58,6 +70,12 @@ class MapPlatformRequests(MapRequestHandlerIf):
             tuple(markers), category, self._poi_state.focused_category
         )
         self._send_pois(self._poi_state)
+
+    def refresh_renderer_state(self):
+        """Preserve native presentation replay across the platform wrapper."""
+        refresh = getattr(self._native, "refresh_renderer_state", None)
+        if refresh is not None:
+            refresh()
 
     def request_style(self, style_id):
         self._native.request_style(style_id)

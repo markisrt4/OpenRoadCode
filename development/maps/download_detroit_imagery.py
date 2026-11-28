@@ -10,9 +10,12 @@ import urllib.request
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from http.client import IncompleteRead
+from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from urllib.error import HTTPError, URLError
+
+from PIL import Image
 
 from apps.launchers.local_imagery_pack import (
     LocalImageryPack,
@@ -21,7 +24,7 @@ from apps.launchers.local_imagery_pack import (
 )
 from tools.map_builder.builder.map_3d import PRESETS
 
-SERVICE = "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer"
+SERVICE = "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer"
 BOUNDS = (-83.065, 42.315, -83.025, 42.345)
 MAX_BYTES = 20 * 1024 * 1024
 CATALOG_FIELDS = "OBJECTID,Name,Year,raster_name,agency,vendor,download_url,acquisition_date,resolution_value,resolution_units"
@@ -265,6 +268,16 @@ def download_image_bytes(href, max_bytes):
     return retry_request(read, stage="exported JPEG download")
 
 
+def validate_export_image(payload, expected_size):
+    """Reject malformed or empty service exports before they enter a resume cache."""
+    with Image.open(BytesIO(payload)) as image:
+        if image.format != "JPEG" or image.size != expected_size:
+            raise RuntimeError("USGS export JPEG dimensions differ from the requested image size")
+        extrema = image.convert("RGB").getextrema()
+    if all(maximum <= 4 for _, maximum in extrema):
+        raise RuntimeError("USGS export contains only black no-data pixels")
+
+
 def download(
     destination, *, bounds=BOUNDS, title="Detroit", image_size=(2048, 1536), max_bytes=MAX_BYTES
 ):
@@ -302,9 +315,10 @@ def download(
             "No identifiable dated NAIP/USDA source found for selected coverage; source review required"
         )
     year = max(record["Year"] for record in candidates)
-    # Acquisition years vary within large regions. Lock every approved dated
-    # NAIP raster, newest first, so MT_FIRST can use older flights only where
-    # the newest year has no coverage instead of exporting black holes.
+    # Acquisition years vary within large regions. Retain the approved records
+    # for provenance, but let the NAIP-only service's advertised default mosaic
+    # choose the newest available image at each location. LockRaster is capped
+    # at 50 source images and produces sparse statewide exports.
     selected = sorted(
         candidates,
         key=lambda record: (
@@ -314,11 +328,6 @@ def download(
         ),
         reverse=True,
     )
-    mosaic = {
-        "mosaicMethod": "esriMosaicLockRaster",
-        "lockRasterIds": [r["OBJECTID"] for r in selected],
-        "mosaicOperation": "MT_FIRST",
-    }
     export = get_json(
         "/exportImage",
         bbox=",".join(map(str, bounds)),
@@ -327,7 +336,6 @@ def download(
         size=",".join(map(str, image_size)),
         format="jpg",
         adjustAspectRatio="false",
-        mosaicRule=json.dumps(mosaic),
         renderingRule=json.dumps({"rasterFunction": "NaturalColor"}),
     )
     requested_bounds = bounds
@@ -358,6 +366,7 @@ def download(
             ) from error
         if len(image) > MAX_BYTES or not image.startswith(b"\xff\xd8"):
             raise RuntimeError("USGS export is oversized or not a JPEG image")
+        validate_export_image(image, image_size)
         (root / "imagery.jpg").write_bytes(image)
         manifest = {
             "schema": 1,

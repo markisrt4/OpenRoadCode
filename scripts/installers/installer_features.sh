@@ -38,13 +38,16 @@ video-v4l2
 video-perception
 navigation
 raspberry-pi
+cesium
+android-integration
+waydroid
 EOF
 }
 
 get_all_features_for_target() {
   local target="$1"
   case "$target" in
-    rpi4|rpi5) get_known_features ;;
+    rpi4|rpi5) get_known_features | grep -vx waydroid ;;
     linux-dev)
       cat <<'EOF'
 base
@@ -104,6 +107,9 @@ get_feature_dependencies() {
   local feature="$1"
   local target="${OPENROAD_INSTALL_TARGET:-linux-dev}"
   case "$feature" in
+    cesium) echo "browser desktop-ui" ;;
+    android-integration) echo "desktop-ui" ;;
+    waydroid) echo "android-integration" ;;
     video) echo "desktop-ui" ;;
     video-v4l2) echo "video" ;;
     video-perception) echo "video" ;;
@@ -186,6 +192,8 @@ get_feature_packages() {
     spotify)
       echo ""
       ;;
+    android-integration) echo "adb scrcpy" ;;
+    waydroid) echo "weston" ;;
     video) echo "python3-opencv" ;;
     video-v4l2) echo "v4l-utils" ;;
     sdrforge) echo "libportaudio2" ;;
@@ -285,6 +293,9 @@ Available features:
   video         Common camera capture and preview support
   video-v4l2    Linux USB camera support (includes video)
   video-perception YOLO detection and tracking (includes video)
+  cesium        Browser-based 3D terrain viewer dependencies
+  android-integration Android device integration dependencies
+  waydroid      Optional Linux Android container prerequisites
   raspberry-pi  Raspberry Pi GPIO, I2C, Blinka, and Seesaw support
 EOF
 }

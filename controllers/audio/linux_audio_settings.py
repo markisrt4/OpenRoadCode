@@ -21,6 +21,7 @@ class LinuxAudioSettings:
         self._dispatcher = dispatcher
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="orc-audio-settings")
         self._closed = False
+        self._bluetooth_timer: object | None = None
 
     @staticmethod
     def _run(*command: str, timeout: int = 5) -> str:
@@ -141,7 +142,40 @@ class LinuxAudioSettings:
 
         self._executor.submit(self._perform, action, identifier).add_done_callback(complete)
 
+    def monitor_bluetooth(self, on_status: Callable[[bool], None]) -> None:
+        """Observe BlueZ connection state while the settings controller is open."""
+
+        def probe() -> bool:
+            output = self._run("bluetoothctl", "devices", "Connected")
+            return any(
+                len(parts) >= 2 and parts[0] == "Device" and _ADDRESS.fullmatch(parts[1])
+                for parts in (line.split(maxsplit=2) for line in output.splitlines())
+            )
+
+        def poll() -> None:
+            self._bluetooth_timer = None
+            if not self._closed:
+                self._executor.submit(probe).add_done_callback(complete)
+
+        def complete(result: Future[bool]) -> None:
+            def deliver() -> None:
+                if self._closed:
+                    return
+                try:
+                    connected = result.result()
+                except (OSError, RuntimeError):
+                    connected = False
+                on_status(connected)
+                self._bluetooth_timer = self._dispatcher.schedule_ui_callback(5000, poll)
+
+            self._dispatcher.dispatch_ui(deliver)
+
+        poll()
+
     def close(self) -> None:
         """Discard queued requests and late results during shutdown."""
         self._closed = True
+        if self._bluetooth_timer is not None:
+            self._dispatcher.cancel_ui_callback(self._bluetooth_timer)
+            self._bluetooth_timer = None
         self._executor.shutdown(wait=False, cancel_futures=True)

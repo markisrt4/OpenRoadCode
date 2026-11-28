@@ -1,5 +1,11 @@
 # orcUi Architecture
 
+The composition resolves the checkout branch once at startup and injects the
+application name into the shell. Non-`master` branches appear as
+`OpenRoadCode [branch] | SCREEN`; master, detached HEAD and installed builds
+outside a checkout retain the normal name. Git is not queried by widgets or
+on screen changes. Restart ORC after switching branches to refresh the label.
+
 ## Saved destinations
 
 Home and Work use the existing places request contract and POI popup. A shortcut
@@ -175,6 +181,8 @@ flowchart TD
 ## Tk shell ownership
 
 `apps/orcUi/frontend/tk/orc_ui_app.py` owns the concrete integrated Tk shell. It creates the Tk root, arranges shell chrome, hosts registered screens, manages generic navigation, and runs the Tk event loop. It does not own the feature catalog or choose feature destinations. Composition registers screens and navigation destinations, selects the initial destination, and supplies actions for shell controls such as Settings.
+
+The top-bar Bluetooth control opens the existing Audio / Bluetooth settings page. The Linux audio settings controller observes BlueZ connection status off the UI thread and supplies the shell with a connected state for the button icon and label.
 
 Desktop development may select an exact client size with `ORCUI_GEOMETRY`,
 force or disable fullscreen with `ORCUI_FULLSCREEN`, and request an undecorated
@@ -447,7 +455,7 @@ Before merging a substantial architecture change, review the complete branch dif
 
 ### Strict contract type checking
 
-`scripts/check_ui_types.py` runs pinned mypy in strict mode using the scope in
+`ci/check_ui_types.py` runs pinned mypy in strict mode using the scope in
 `pyproject.toml`. The scope covers the widget marker, dispatcher and
 routing contracts, the route stub and service adapter, the callback queue,
 the ORC shell, and Games contracts, controller, launcher, session, Tk presentation,
@@ -455,7 +463,7 @@ and composition, plus the migrated streaming-radio contracts, orchestration,
 Tk presentation, and composition. Route request interface files are selected by a
 glob so additional route capabilities enter the check automatically.
 
-`scripts/ui_type_witnesses.py` statically checks the shell against `UiDispatcherIf`
+`ci/ui_type_witnesses.py` statically checks the shell against `UiDispatcherIf`
 and `TkScreenHostIf`, and Games session, runtime surface, and X11 adapter against
 their narrow contracts, as well as radio browser, playback source, and storage
 bindings, without constructing frontend or backend resources. Tests
@@ -693,3 +701,18 @@ Tk owns encoded artwork decoding and native host rendering. See
 The media hub retains its compact account row through `SpotifyAccountSession`,
 and its shared now-playing preview is closed alongside the presentation sessions.
 Preview cleanup errors do not prevent other owned resources from closing.
+
+
+The top-level composition resource owner is implemented in
+`composition/application_resources.py` and re-exported from
+`composition/application.py`. It owns startup, appointment polling, and shutdown
+for both the current master features and retained Waze/Waydroid/location resources.
+`application.py` continues to construct and inject those dependencies.
+
+
+Quality-gate module boundaries keep Android platform discovery with
+`composition/business_apps.py`, initial Terrain state with the existing
+application resource helpers, POI card construction in
+`frontend/tk/navigation_poi_card_layout.py`, and shell widget construction in
+`frontend/tk/shell_construction.py`. The original frontend entry points delegate
+to these helpers, retaining their lifecycle and request contracts.

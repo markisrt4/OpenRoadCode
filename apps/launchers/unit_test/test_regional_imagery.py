@@ -171,3 +171,10 @@ def test_sparse_black_exports_are_not_publishable_imagery(tmp_path, monkeypatch)
             title="Sparse",
             cache_directory=tmp_path / "cache",
         )
+
+
+def test_nodata_mask_removes_neutral_jpeg_halo_but_keeps_dark_color():
+    with Image.new("RGB", (3, 1)) as image:
+        image.putdata([(24, 24, 24), (8, 8, 30), (25, 25, 25)])
+        alpha = regional_imagery._nodata_alpha(image)
+        assert [alpha.getpixel((x, 0)) for x in range(3)] == [0, 255, 255]

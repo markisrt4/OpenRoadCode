@@ -8,11 +8,14 @@
 <script src="/local_terrain.js" defer></script>
 <script src="/terrain_cues.js" defer></script>
 <script src="/terrain_hillshade.js" defer></script>
-<script src="/reference_grid.js" defer></script>
 <script src="/local_buildings.js" defer></script>
 <script src="/local_map_tiles.js" defer></script>
+<script src="/reference_globe_layer.js" defer></script>
 <script src="/local_imagery_layers.js" defer></script>
+<script src="/local_imagery_pyramids.js" defer></script>
+<script src="/boundary_overlay.js" defer></script>
 <script src="/camera_controls.js" defer></script>
+<script src="/map_layer_controls.js" defer></script>
 <script src="/vehicle_follow.js" defer></script>
 <script src="/road_overlay.js" defer></script>
 <script src="/poi_overlay.js" defer></script>
@@ -34,10 +37,9 @@
 <button id="roads" aria-pressed="true">Roads</button>
 <button id="places" aria-pressed="false">Places</button>
 <button id="terrain" aria-pressed="true">Ground: Relief</button>
-<button id="terrain-scale" aria-label="Cycle terrain height: 1, 2, or 3 times">Height 1×</button>
-<button id="terrain-cues" aria-pressed="false">Terrain cues</button>
+<button id="terrain-scale" aria-label="Cycle terrain height: 1, 2, 3, or 4 times">Height 1×</button>
+<button id="terrain-cues" aria-pressed="false" title="Optional 10-metre contour lines and contrast shading">Contours / shade</button>
 <button id="buildings" aria-pressed="true">Buildings</button>
-<button id="references" aria-pressed="false">Grid</button>
 <button id="pitch-up" aria-label="More tilt: view the destination from a lower angle">More tilt</button>
 <button id="pitch-down" aria-label="Less tilt: view the destination from above">Less tilt</button>
 <button id="north">North</button><button id="tilt">2D / 3D</button><button id="reset">Reset view</button>

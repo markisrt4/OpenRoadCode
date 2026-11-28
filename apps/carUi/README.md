@@ -165,8 +165,8 @@ is explicitly last-known data rather than live motion telemetry.
 ## Test
 
 ```bash
-venv/bin/python scripts/run_tests.py unit
-venv/bin/python scripts/run_tests.py integration
+venv/bin/python ci/run_tests.py unit
+venv/bin/python ci/run_tests.py integration
 ```
 
 Hardware-related suites may require optional platform packages such as `evdev`.

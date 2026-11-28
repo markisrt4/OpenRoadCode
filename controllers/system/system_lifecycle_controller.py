@@ -37,13 +37,13 @@ class SystemLifecycleController(SystemLifecycleRequestHandlerIf):
         executable: str | None = None,
         execv: Callable[[str, list[str]], object] = os.execv,
         which: Callable[[str], str | None] = shutil.which,
-        popen: Callable[[list[str]], object] = subprocess.Popen,
+        run: Callable[..., object] = subprocess.run,
     ) -> None:
         self._action = SystemLifecycleAction.NONE
         self._executable = executable or sys.executable
         self._execv = execv
         self._which = which
-        self._popen = popen
+        self._run = run
         self._operation_id: str | None = None
 
     @property
@@ -148,7 +148,7 @@ class SystemLifecycleController(SystemLifecycleRequestHandlerIf):
         command = self._poweroff_command()
         if command is None:
             return False
-        self._popen(command)
+        self._run(command, check=True, timeout=15)
         return True
 
     def _poweroff_command(self) -> list[str] | None:

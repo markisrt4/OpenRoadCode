@@ -63,6 +63,10 @@ pkg install -y \
   xorg-xprop \
   chromium
 
+if [[ " ${FEATURES[*]} " == *" android-integration "* ]]; then
+  pkg install -y android-tools
+fi
+
 echo "[*] Creating Termux Python virtual environment: $VENV_DIR"
 python -m venv --system-site-packages "$VENV_DIR"
 # shellcheck disable=SC1091

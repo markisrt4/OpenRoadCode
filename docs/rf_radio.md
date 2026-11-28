@@ -36,7 +36,7 @@ is also checked strictly, without adding behavior to the shared `UiWidget` marke
 queued and in-flight launch retirement, stale UI delivery, native cancellation,
 telemetry measurements, preset/tuning requests, ADS-B ownership, and cleanup failure.
 
-Run `python scripts/quality_gate.py` and the focused receiver/X11 suites. Live SDRForge,
+Run `python ci/quality_gate.py` and the focused receiver/X11 suites. Live SDRForge,
 rigctl, telemetry sockets, ADS-B, X11 embedding, theme switching, and hardware audio
 still require a device acceptance pass. Headless tests cannot verify those behaviors.
 

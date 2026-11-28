@@ -1,0 +1,49 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
+"""Toolkit-independent lifecycle requests for a browser-hosted surface."""
+
+from typing import Protocol
+
+
+class BrowserMediaPlayerIf(Protocol):
+    """Launch and stop a browser-hosted surface."""
+
+    def play(
+        self,
+        target: str,
+        *,
+        display: str,
+        window_position: tuple[int, int] | None = None,
+        window_size: tuple[int, int] | None = None,
+    ) -> bool:
+        """! @brief Open a media target on the requested display.
+
+        @param target Media URL or target understood by the browser-backed player.
+        @param display X11 display on which the browser should be launched.
+        @param window_position Optional x/y position for the browser window.
+        @param window_size Optional width/height for the browser window.
+        @return True when the media target was opened successfully, otherwise False.
+        """
+        ...
+
+    def stop(self) -> None:
+        """Stop the browser instance owned by this player."""
+        ...
+
+
+class HostedSurfaceGeometryIf(Protocol):
+    def vertical_crop(self) -> tuple[int, int]:
+        """Return top/bottom host chrome insets after preparing the surface.
+
+        @return Current geometry or result; None when unavailable.
+        """
+        ...
+
+
+class BrowserThemeRequestHandlerIf(Protocol):
+    """Refresh a hosted page's theme without restarting its input/navigation session."""
+
+    def request_theme_refresh(self) -> None:
+        """Apply the latest supplied color preference in place."""
+        ...

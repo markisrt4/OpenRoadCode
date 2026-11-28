@@ -1,6 +1,10 @@
 # Input Controller Layer
 
-This package translates physical input into semantic UI actions.
+This package translates physical input into semantic UI actions and owns
+platform-independent text-entry sessions.
+
+See [Text input foundation](../../docs/text_input.md) for `TextInputController`,
+its UI request/state contracts, and the injected system-keyboard boundary.
 
 ## Layer boundaries
 

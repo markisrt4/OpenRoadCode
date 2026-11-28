@@ -12,6 +12,7 @@ from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from ui.screen_ui_if import ScreenId
 from ui.theme import ThemeBundle, ThemeMode
+from ui.ui_action import UiAction
 
 RadioPanelFactory = Callable[[tk.Misc, ThemeBundle], tk.Widget]
 ThemeBundleProvider = Callable[[], ThemeBundle]
@@ -83,6 +84,10 @@ class RadioScreen(TkScreen):
         """Open Radio and immediately enter the streaming browser."""
         self.show()
         self.open_streaming()
+
+    def handle_ui_action(self, action: UiAction) -> bool:
+        handler = getattr(self._panel, "handle_ui_action", None)
+        return bool(handler(action)) if callable(handler) else False
 
     def hide(self) -> None:
         """Detach any embedded SDR window before the host destroys content."""

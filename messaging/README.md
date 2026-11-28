@@ -328,7 +328,7 @@ The bus carries domain data, not implementation details or presentation choices.
 Useful checks from the repository root include:
 
 ```bash
-python3 scripts/check_doxygen_contracts.py
+python3 ci/check_doxygen_contracts.py
 
 python3 -m pytest \
   messaging/contracts \

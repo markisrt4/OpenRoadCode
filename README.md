@@ -48,6 +48,7 @@ Current and partially integrated capabilities include:
 * Touchscreen automotive user interface, including the evolving `orcUi` shell
 * Native Weather dashboard with current conditions, hourly and daily forecasts, GPS-backed location, persistent Imperial/Metric display units, NOAA Weather Radio access, and NWS alert presentation
 * Native Linux games browser with category filters, package discovery/installation, launch/stop lifecycle, and X11 kiosk embedding
+* Experimental standalone [Waze Live Map browser panel](docs/waze_live_map.md) for online traffic viewing
 * Offline Valhalla route planning and native MapLibre map presentation
 * Route overlays, camera follow/recenter, manual map panning, and live vehicle position
 * Observed radar replay, experimental CONUS HRRR forecast radar, and independent temperature/wind overlays
@@ -180,6 +181,8 @@ OpenRoadCode/
 ├── frontends/ and ui/    presentation implementations and contracts
 ├── input_events/         cross-layer physical input contracts
 ├── config/               runtime and application policy
+├── ci/                   contributor checks and test tooling
+├── development/          local development and diagnostics tools
 └── scripts/              installation and service integration
 ```
 
@@ -292,6 +295,34 @@ configuration required by an update.
 
 Features can be selected explicitly. Use `--all-features` to install all compatible software capabilities, `--show-plan` to inspect the resolved plan without modifying the machine, and `--with-vnc` or `--with-gpsd-service` only when those services should be configured.
 
+On Raspberry Pi OS, `--shutdown-button-pin 11` configures an active-low
+shutdown switch on physical header pin 11 (BCM GPIO17). Connect the other
+switch contact to ground (for example, physical pin 9). The option adds or
+replaces the global `gpio-shutdown` overlay in `/boot/firmware/config.txt`.
+Reboot to activate it. Leave that pin out of Car UI's pushbutton config
+while the overlay is active.
+
+To check the wiring before enabling shutdown, run
+`python -m hardware_io.buttons.component_test.gpio_push_button_cli --pin 11`
+in the Pi runtime environment with `gpiozero` installed. The check prints
+press and release events until you press Ctrl-C.
+
+To open ORC's Power dialog from the same switch, remove the active
+`gpio-shutdown` line for that switch from `/boot/firmware/config.txt` and
+reboot to release the GPIO. Launch ORC with `ORC_POWER_BUTTON_PIN=11 ./runOrcUi`
+using an environment with `gpiozero` installed. The setting takes a physical
+header pin. Pressing the switch opens the dialog, where **Shut Down System**
+requests OS poweroff after ORC closes. A failed poweroff command is reported
+in the launcher output.
+
+On a Pi with two Seesaw STEMMA QT encoders, launch ORC with
+`ORC_ROTARY_ENCODERS=0x36,0x37 ./runOrcUi`. List the volume encoder first and
+the screen encoder second. The second knob tunes an active RF receiver or
+zooms the Navigation map. Encoder clicks are unused. The MPU-6050 is read
+by the navigation service, which publishes its readings for ORC.
+ORC saves the last volume set by its controls and restores it at startup.
+The system mute state is preserved.
+
 The `desktop-ui` and `navigation` features use the native Tk/X11 and MapLibre
 interfaces and do not install a web browser. Select `--feature browser`
 explicitly for browser-backed applications.
@@ -360,12 +391,55 @@ Component-test CLIs provide direct subsystem verification for navigation inputs,
 
 ## Automated Checks and Doxygen
 
+Use the dedicated quality environment and a single developer-check entry point:
+
+```bash
+git switch feature/waze-live-map
+bash ci/setup_quality_env.sh
+bash ci/dev_check.sh --all
+```
+
+`--all` runs static checks; `--full` adds unit and integration tests. Both use the
+same check list in `ci/quality_gate.py`, and the launcher prints the revision
+and interpreter being checked. Focused `--lint`, `--format`, `--types`, `--test`,
+and `--docs` modes remain available. The project-wide UI boundary task includes
+Weather's additional provider/renderer access rules; it is not a separate task.
+
+For routine edits, run `--all` for static checks and `--test` with the affected
+test directory, file, or pytest node ID. Pytest flags such as `-k` are forwarded.
+Calling `--test` without a target retains the complete unit-suite behavior;
+`--full` is intended for merge readiness and includes unit and integration suites.
+Focused runs fail when their selection matches no tests.
+
+```bash
+git switch feature/waze-live-map
+bash ci/dev_check.sh --test frontends/tk/media/unit_test/test_media_screen.py
+```
+
+To apply safe Ruff fixes and formatting before the full checks, add `--fix`. Add
+`--publish` to stage only those fixes, commit them, and push the configured
+upstream after checks pass:
+
+```bash
+git switch feature/waze-live-map
+bash ci/dev_check.sh --full --fix --publish --message "Apply Ruff cleanup"
+```
+
+Publishing requires a clean checkout and a named branch with a remote upstream.
+Without `--publish`, fixes remain available for manual review. `--format` also
+records its changed files without publishing. The last run's file list and
+validation/commit/push status are stored at the Git metadata path
+`dev-check-last-run.json` (normally `.git/dev-check-last-run.json`). Failed checks
+never trigger a commit; rejected pushes retain the new commit and the failure
+record. With no Ruff changes, no commit or push is performed.
+
+
 Public methods declared in `*_if.py` modules must document every argument with `@param` and every non-`None` return value with `@return` or `@retval`.
 
 Run the interface-contract checker and generate documentation with:
 
 ```bash
-python scripts/check_doxygen_contracts.py
+python ci/check_doxygen_contracts.py
 doxygen Doxyfile
 ```
 

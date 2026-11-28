@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import os
 import tkinter as tk
 from collections.abc import Callable
 
@@ -12,6 +13,8 @@ from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from ui.navigation import MapRequestHandlerIf
 from ui.theme import ThemeBundle, ThemeMode
 from ui.ui_widget import UiWidget
+
+from .map_disabled_placeholder import MapDisabledPlaceholder
 
 
 class HomeMapPanel(tk.Frame, UiWidget):
@@ -38,6 +41,7 @@ class HomeMapPanel(tk.Frame, UiWidget):
         self._request_handler = map_request_handler
         self._radar_enabled = radar_enabled
         self._on_radar_toggle = on_radar_toggle
+        self._map_disabled_label: MapDisabledPlaceholder | None = None
         self._map_host: tk.Frame
         self._build()
         self._schedule_renderer_refresh()
@@ -53,6 +57,8 @@ class HomeMapPanel(tk.Frame, UiWidget):
         ui = theme.ui
         self.configure(bg=ui.surface, highlightcolor=ui.border, highlightbackground=ui.border)
         self._map_host.configure(bg=ui.background)
+        if self._map_disabled_label is not None:
+            self._map_disabled_label.set_theme_bundle(theme)
         self._radar_button.configure(bg=ui.control_background)
         self._render_radar_state()
 
@@ -79,6 +85,8 @@ class HomeMapPanel(tk.Frame, UiWidget):
         # neutral and let MapLibre own the actual map palette.
         self._map_host = tk.Frame(self, bg=self._theme.ui.background)
         self._map_host.grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
+        if os.environ.get("ORC_NO_NATIVE_MAP") == "1" or os.environ.get("ORC_NO_OPENGL") == "1":
+            self._map_disabled_label = MapDisabledPlaceholder(self._map_host, self._theme)
         self._radar_button.lift()
 
     def _toggle_radar(self) -> None:
