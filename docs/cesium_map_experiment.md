@@ -1185,15 +1185,13 @@ are not established as fixed by the reference imagery change.
 
 ### Political outlines in 2D Map mode
 
-MapLibre's existing state-boundary layer now uses the bundled full 50-state
-Census polygons, including exterior coastlines and island outlines, rather than
-only shared internal edges. State outlines and Michigan emphasis are visible
-from zoom0 with a thin zoom-scaled line. The existing theme palette, local file
-sources, runtime style installer and road/route layer order remain unchanged.
+MapLibre draws shared U.S. state lines from the bundled Census line asset and
+Canadian province and territory lines from the bundled Natural Earth asset.
+Both layers use the same high-contrast, zoom-scaled dashed style from the
+overview zoom. The reference layers supply coastlines and international
+borders, and Michigan retains its emphasized outline.
 Restart ORC after updating the code to regenerate the installed style. This is a
 style-only deployment; rebuilding map tiles or downloading terrain is unnecessary.
-Canada's provinces and territories use the same zoom-scaled line style on Road
-map, with an offline Natural Earth source installed alongside the U.S. layers.
 
 ### Paged terrain seams and contour water masking
 

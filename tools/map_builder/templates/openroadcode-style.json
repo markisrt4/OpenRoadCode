@@ -24,7 +24,7 @@
     },
     "state-boundaries": {
       "type": "geojson",
-      "data": "file://__OPENROADCODE_DATA_ROOT__/maps/boundaries/us_state_boundaries.geojson"
+      "data": "file://__OPENROADCODE_DATA_ROOT__/maps/boundaries/us_state_internal_boundaries.geojson"
     },
     "canadian-boundaries": {
       "type": "geojson",
@@ -243,7 +243,7 @@
       "source": "state-boundaries",
       "minzoom": 0,
       "paint": {
-        "line-color": "#54b948",
+        "line-color": "#9cd6ac",
         "line-width": [
           "interpolate",
           [
@@ -253,18 +253,18 @@
             "zoom"
           ],
           0,
-          0.6,
+          1.4,
           3,
-          1.0,
+          1.8,
           8,
-          1.6,
+          2.3,
           12,
-          2.2
+          2.8
         ],
-        "line-opacity": 0.78,
+        "line-opacity": 0.96,
         "line-dasharray": [
-          1,
-          2
+          3,
+          1.5
         ]
       }
     },
@@ -274,7 +274,7 @@
       "source": "canadian-boundaries",
       "minzoom": 0,
       "paint": {
-        "line-color": "#54b948",
+        "line-color": "#9cd6ac",
         "line-width": [
           "interpolate",
           [
@@ -284,18 +284,18 @@
             "zoom"
           ],
           0,
-          0.6,
+          1.4,
           3,
-          1.0,
+          1.8,
           8,
-          1.6,
+          2.3,
           12,
-          2.2
+          2.8
         ],
-        "line-opacity": 0.78,
+        "line-opacity": 0.96,
         "line-dasharray": [
-          1,
-          2
+          3,
+          1.5
         ]
       }
     },

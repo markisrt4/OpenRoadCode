@@ -68,7 +68,7 @@ class MapThemeRuntimeTest(unittest.TestCase):
             destination = install_map_style(ThemeMode.DARK, root)
             document = json.loads(destination.read_text(encoding="utf-8"))
             layers = {layer["id"]: layer for layer in document["layers"]}
-            self.assertEqual(layers["state-boundaries"]["paint"]["line-color"], "#54c96b")
+            self.assertEqual(layers["state-boundaries"]["paint"]["line-color"], "#9cd6ac")
             self.assertEqual(
                 layers["canadian-boundaries"]["paint"], layers["state-boundaries"]["paint"]
             )
@@ -78,9 +78,10 @@ class MapThemeRuntimeTest(unittest.TestCase):
             self.assertEqual(layers["motorways"]["source"], "openroad")
             self.assertEqual(layers["state-boundaries"]["minzoom"], 0)
             self.assertIn(
-                "us_state_boundaries.geojson", document["sources"]["state-boundaries"]["data"]
+                "us_state_internal_boundaries.geojson",
+                document["sources"]["state-boundaries"]["data"],
             )
-            self.assertEqual(layers["state-boundaries"]["paint"]["line-dasharray"], [1, 2])
+            self.assertEqual(layers["state-boundaries"]["paint"]["line-dasharray"], [3, 1.5])
             canada_asset = root / "maps" / "boundaries" / "ca_province_territory_boundaries.geojson"
             self.assertIn(canada_asset.name, document["sources"]["canadian-boundaries"]["data"])
             self.assertTrue(canada_asset.is_file())

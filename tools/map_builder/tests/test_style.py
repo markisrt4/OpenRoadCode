@@ -24,10 +24,13 @@ class StyleTests(unittest.TestCase):
         layers = {layer["id"]: layer for layer in document["layers"]}
         self.assertEqual(document["sources"]["state-boundaries"]["type"], "geojson")
         self.assertIn(
-            "us_state_boundaries.geojson", document["sources"]["state-boundaries"]["data"]
+            "us_state_internal_boundaries.geojson",
+            document["sources"]["state-boundaries"]["data"],
         )
         self.assertEqual(document["sources"]["country-boundaries"]["type"], "geojson")
-        self.assertEqual(layers["state-boundaries"]["paint"]["line-dasharray"], [1, 2])
+        self.assertEqual(layers["state-boundaries"]["paint"]["line-dasharray"], [3, 1.5])
+        self.assertGreaterEqual(layers["state-boundaries"]["paint"]["line-width"][4], 1.4)
+        self.assertEqual(layers["canadian-boundaries"]["paint"], layers["state-boundaries"]["paint"])
         self.assertEqual(layers["michigan-boundary"]["filter"][-1], "26")
         self.assertEqual(layers["state-boundaries"]["minzoom"], 0)
         self.assertEqual(layers["michigan-boundary"]["minzoom"], 0)
