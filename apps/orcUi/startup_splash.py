@@ -5,7 +5,20 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from collections.abc import Mapping, Sequence
 from threading import Thread
+
+
+def splash_requested(arguments: Sequence[str], environment: Mapping[str, str]) -> bool:
+    """Resolve an explicit splash flag or the desktop default before importing Tk."""
+    for argument in reversed(arguments):
+        if argument in {"--splash", "--no-splash"}:
+            return argument == "--splash"
+    return (
+        sys.platform == "linux"
+        and not environment.get("TERMUX_VERSION")
+        and not environment.get("PREFIX", "").startswith("/data/data/com.termux/")
+    )
 
 
 class StartupSplashProcess:

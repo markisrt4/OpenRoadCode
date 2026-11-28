@@ -7,6 +7,7 @@ from unittest.mock import Mock
 import pytest
 
 from apps.orcUi import __main__ as entry
+from apps.orcUi.startup_splash import splash_requested
 
 
 @pytest.mark.parametrize(
@@ -23,6 +24,7 @@ def test_dependency_failure_exits_with_recovery_before_application_import(
     monkeypatch.setenv("DISPLAY", ":1")
     monkeypatch.setattr(entry.sys, "argv", ["runOrcUi"])
     monkeypatch.setattr(entry.sys, "executable", "/tmp/ORC environment/bin/python")
+    monkeypatch.setattr(entry.StartupSplashProcess, "start", Mock(return_value=None))
     monkeypatch.setattr(entry, "import_module", Mock(side_effect=error))
     original_import = builtins.__import__
 
@@ -98,6 +100,15 @@ def test_opt_in_splash_starts_before_dependencies_and_closes_when_ready(monkeypa
 
     monkeypatch.setattr("apps.orcUi.main.main", run)
     entry._main()
+
+
+def test_splash_defaults_on_linux_but_preserves_termux_and_cli_overrides(monkeypatch):
+    monkeypatch.setattr(entry.sys, "platform", "linux")
+    assert splash_requested([], {})
+    assert not splash_requested(["--no-splash"], {})
+    assert not splash_requested([], {"TERMUX_VERSION": "0.118"})
+    assert splash_requested(["--splash"], {"TERMUX_VERSION": "0.118"})
+    assert not splash_requested(["--splash", "--no-splash"], {})
 
 
 def test_opt_in_splash_receives_startup_failure(monkeypatch):

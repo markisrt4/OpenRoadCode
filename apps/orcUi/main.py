@@ -69,7 +69,11 @@ def main(
     parser.add_argument("--follow-logs", action="store_true")
     parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])
     parser.add_argument("--log-component", help="Live viewer component prefix")
-    parser.add_argument("--splash", action="store_true", help="Show the graphical startup splash")
+    parser.add_argument(
+        "--splash",
+        action=argparse.BooleanOptionalAction,
+        help="Show the startup splash (default on desktop Linux and Raspberry Pi)",
+    )
     parser.add_argument(
         "--check-ecu-gl", action="store_true", help="Check the ECU OpenGL renderer and exit"
     )

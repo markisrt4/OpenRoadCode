@@ -11,7 +11,7 @@ import sys
 import time
 from importlib import import_module
 
-from apps.orcUi.startup_splash import StartupSplashProcess
+from apps.orcUi.startup_splash import StartupSplashProcess, splash_requested
 
 
 def _require_display() -> None:
@@ -62,7 +62,7 @@ def _main() -> None:
     check_only = any(option in sys.argv[1:] for option in ("-h", "--help", "--check-ecu-gl"))
     splash = None
     startup_started_at = time.monotonic()
-    if "--splash" in sys.argv[1:] and not check_only:
+    if not check_only and splash_requested(sys.argv[1:], os.environ):
         splash = StartupSplashProcess.start()
     print(
         "[    0.000] Startup initiated",

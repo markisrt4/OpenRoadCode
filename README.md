@@ -369,9 +369,11 @@ From the repository root:
 ./runOrcUi
 ```
 
-On a Pi or Linux X11 desktop, use `./runOrcUi --splash` to show the ORC
-logo and an animated startup bar until the dashboard opens. A startup failure
-shows a **Show details** button, and the terminal still reports the error.
+On a Pi or Linux X11 desktop, ORC shows the logo and an animated startup bar
+until the dashboard opens. Use `./runOrcUi --no-splash` to skip it. Termux
+launches without the splash by default and supports `--splash` as an opt-in.
+A startup failure shows a **Show details** button, and the terminal still
+reports the error.
 
 The foreground command reports flushed, dmesg-style cumulative startup times
 and individual stage durations while Python modules, runtime infrastructure,
