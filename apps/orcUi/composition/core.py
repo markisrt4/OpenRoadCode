@@ -12,11 +12,13 @@ from dataclasses import dataclass, field
 
 from apps.orcUi.composition.window_title import application_name
 from apps.orcUi.core_runtime import MapRuntime, StateIngressRuntime
+from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.presentation_state import OrcUiPresentationState
 from apps.orcUi.vehicle_configuration_state import VehicleConfigurationState
 from common.resource_cleanup import ResourceCleanup, close_resources
 from common.xdg_paths import openroadcode_state_dir
 from config.service_runtime_config import ServiceRuntimeConfigParser
+from controllers.audio import PipewireAudioController, SystemVolumeHandler
 from controllers.automotive import AutomotiveTelemetryProfile, TripTracker
 from controllers.automotive.fuel_model import FuelModel
 from controllers.automotive.vehicle_settings_store import VehicleSettingsStore
@@ -36,9 +38,6 @@ from services.automotive.automotive_service_cli import DEFAULT_RUNTIME_CONFIG
 from services.navigation.navigation_command_client import NavigationCommandClient
 from services.trip import TripRuntime
 from ui.theme import ThemeMode
-
-from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
-from controllers.audio import PipewireAudioController, SystemVolumeHandler
 
 from .power_button import create_power_button
 from .rotary_input import RotaryInput, create_rotary_input

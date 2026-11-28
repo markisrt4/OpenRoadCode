@@ -5,9 +5,9 @@ import sys
 from unittest.mock import Mock, patch
 
 import pytest
-from ui.ui_action import UiAction
 
 from apps.orcUi.composition.rotary_input import RotaryInput, create_rotary_input
+from ui.ui_action import UiAction
 
 
 def test_rotary_events_reuse_semantic_actions_and_drop_delivery_after_close():

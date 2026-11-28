@@ -19,6 +19,7 @@ from apps.launchers.host_location_session import HostLocationSession
 from apps.orcUi.application_runtime import OrcUiApplicationRuntime
 from apps.orcUi.cesium_map_runtime import CesiumMapRuntime
 from apps.orcUi.composition.android_app_view import AndroidAppView
+from apps.orcUi.composition.core import CoreComposition
 from apps.orcUi.composition.media import MediaComposition
 from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
 from apps.orcUi.composition.radio import RadioComposition
@@ -27,11 +28,13 @@ from apps.orcUi.composition.weather import WeatherComposition
 from apps.orcUi.frontend.tk.home_screen import HomeScreen
 from apps.orcUi.frontend.tk.navigation_screen import NavigationScreen
 from apps.orcUi.frontend.tk.offroad_screen import OffRoadScreen
+from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.settings_screen import SettingsScreen
 from apps.orcUi.frontend.tk.vehicle_screen import VehicleScreen
 from apps.orcUi.map_platform_requests import MapPlatformRequests
 from apps.orcUi.performance_status import PerformanceStatusPresenter
 from common.resource_cleanup import ResourceCleanup, close_resources
+from controllers.audio.linux_audio_settings import LinuxAudioSettings
 from controllers.navigation.current_position import get_current_position
 from controllers.navigation.host_location_settings_controller import HostLocationSettingsController
 from controllers.navigation.location_sharing_controller import LocationSharingController
@@ -46,10 +49,6 @@ from services.common.system_performance_monitor import SystemPerformanceMonitor
 from ui.calendar.calendar_presentation_if import AppointmentMonitorIf
 from ui.navigation import GeoPoint
 from ui.navigation.cesium_viewer_state import CesiumViewerState
-
-from apps.orcUi.composition.core import CoreComposition
-from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
-from controllers.audio.linux_audio_settings import LinuxAudioSettings
 
 if TYPE_CHECKING:
     from apps.orcUi.composition.vision import VisionComposition

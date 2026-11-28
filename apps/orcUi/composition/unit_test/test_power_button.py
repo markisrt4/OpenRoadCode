@@ -5,8 +5,8 @@ import sys
 from unittest.mock import Mock, patch
 
 import pytest
-from apps.orcUi.composition.power_button import create_power_button
 
+from apps.orcUi.composition.power_button import create_power_button
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 
 
