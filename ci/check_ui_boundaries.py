@@ -10,16 +10,16 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-# Support both `python scripts/check_ui_boundaries.py` and package imports in tests.
+# Support both `python ci/check_ui_boundaries.py` and package imports in tests.
 if __package__:
-    from scripts.check_weather_ui_contracts import check as check_weather_rules
-    from scripts.widget_policy_discovery import discover_widgets
+    from ci.check_weather_ui_contracts import check as check_weather_rules
+    from ci.widget_policy_discovery import discover_widgets
 else:
     from check_weather_ui_contracts import check as check_weather_rules
     from widget_policy_discovery import discover_widgets
 
 ROOT = Path(__file__).resolve().parents[1]
-BASELINE = ROOT / "scripts/ui_boundary_exceptions.json"
+BASELINE = ROOT / "ci/ui_boundary_exceptions.json"
 UI_BACKENDS = (
     "controllers",
     "services",

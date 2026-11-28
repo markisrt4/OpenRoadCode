@@ -89,7 +89,7 @@ or server. Try a second run without internet. Inspect smoothness while rotating
 and zooming; a blank local globe is only the rendering baseline, not a benchmark
 for an imagery/terrain/building scene.
 
-The user runs the full quality gate: `python scripts/quality_gate.py`. Focused
+The user runs the full quality gate: `python ci/quality_gate.py`. Focused
 state/HTTP/lifecycle tests cover invalid destinations, asset isolation, authorized
 close requests, and cleanup on browser startup failure. A cloud Chromium software-rendering probe initialized Cesium and its controls,
 exercised reset, and confirmed the Return to ORC request reached the launcher.
@@ -147,7 +147,7 @@ The cloud network policy blocked the catalog and image-download endpoints. This
 change therefore does not claim a downloaded/visually verified Detroit image,
 confirmed acquisition year, exact file size, or measured device performance.
 Device download and visual inspection remain pending. Run the full quality gate
-locally after updating: `python scripts/quality_gate.py`.
+locally after updating: `python ci/quality_gate.py`.
 
 ## Coarse Detroit terrain / relative relief
 
@@ -185,7 +185,7 @@ relief may look subtle. No exaggerated vertical scaling is applied.
 After updating, download while online, inspect the printed source elevation range,
 then compare a tilted view with and without terrain. Check reset, zoom, reference
 graphics, imagery draping, and Return to ORC. Run the full gate locally:
-`python scripts/quality_gate.py`. Live USGS sampling and Termux rendering remain
+`python ci/quality_gate.py`. Live USGS sampling and Termux rendering remain
 pending device validation; mocked tests do not verify real service coverage. A
 cloud software-rendering probe loaded synthetic terrain and imagery together,
 exercised zoom/tilt/reset, and confirmed close-request delivery. The optional
@@ -664,7 +664,7 @@ gate remains user-run:
 
 ```bash
 git switch navigation-cesium
-python scripts/quality_gate.py
+python ci/quality_gate.py
 ```
 
 Embedded Chromium launches with `--no-first-run` and `--no-default-browser-check`
@@ -941,7 +941,7 @@ Route guidance and radar still use the regular map.
 ```bash
 git switch navigation-cesium
 git pull --ff-only
-python scripts/quality_gate.py
+python ci/quality_gate.py
 ./runOrcUi
 ```
 
@@ -1086,7 +1086,7 @@ shutdown when a GPU/OS operation is stalled.
 ```bash
 git switch navigation-cesium
 git pull --ff-only
-python scripts/quality_gate.py
+python ci/quality_gate.py
 ./runOrcUi
 ```
 

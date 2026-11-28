@@ -7,19 +7,12 @@
 from __future__ import annotations
 
 import argparse
-import importlib.util
-import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-
-
-def _is_termux() -> bool:
-    prefix = os.environ.get("PREFIX", "")
-    return bool(os.environ.get("TERMUX_VERSION")) or prefix.startswith("/data/data/com.termux/")
 
 
 def _run(label: str, command: list[str]) -> bool:
@@ -49,13 +42,7 @@ def _run_ruff() -> bool:
 
 
 def _run_ui_types() -> bool:
-    if _is_termux() and importlib.util.find_spec("mypy") is None:
-        print(
-            "\n[SKIP] Strict UI contract types: mypy unavailable on Termux; required in Linux/CI",
-            flush=True,
-        )
-        return True
-    return _run("Strict UI contract types", [sys.executable, "scripts/check_ui_types.py"])
+    return _run("Strict UI contract types", [sys.executable, "ci/check_ui_types.py"])
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -69,24 +56,22 @@ def main(argv: list[str] | None = None) -> int:
         _run_ui_types(),
         _run(
             "orcUi module-size architecture check",
-            [sys.executable, "scripts/check_python_module_size.py"],
+            [sys.executable, "ci/check_python_module_size.py"],
         ),
-        _run("Project-wide UI boundaries", [sys.executable, "scripts/check_ui_boundaries.py"]),
-        _run("Documentation index", [sys.executable, "scripts/docs_inventory.py", "--check"]),
-        _run("Markdown links", [sys.executable, "scripts/check_markdown_links.py"]),
+        _run("Project-wide UI boundaries", [sys.executable, "ci/check_ui_boundaries.py"]),
+        _run("Documentation index", [sys.executable, "ci/docs_inventory.py", "--check"]),
+        _run("Markdown links", [sys.executable, "ci/check_markdown_links.py"]),
         _run(
             "Doxygen interface contracts",
-            [sys.executable, "scripts/check_doxygen_contracts.py"],
+            [sys.executable, "ci/check_doxygen_contracts.py"],
         ),
         _run(
             "Mermaid diagram legends",
-            [sys.executable, "scripts/check_mermaid_legends.py"],
+            [sys.executable, "ci/check_mermaid_legends.py"],
         ),
     ]
     if not args.checks_only:
-        checks.append(
-            _run("Unit + integration tests", [sys.executable, "scripts/run_tests.py", "all"])
-        )
+        checks.append(_run("Unit + integration tests", [sys.executable, "ci/run_tests.py", "all"]))
     return 0 if all(checks) else 1
 
 

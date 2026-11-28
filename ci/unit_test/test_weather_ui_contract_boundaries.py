@@ -3,7 +3,7 @@
 
 """The gate must reject real weather boundary violations and accept UI-only views."""
 
-from scripts.check_weather_ui_contracts import check_frontend
+from ci.check_weather_ui_contracts import check_frontend
 
 
 def test_provider_import_and_transport_alias_cannot_bypass_the_gate():

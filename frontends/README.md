@@ -73,7 +73,7 @@ and application screen factory. It can reuse the contracts and menu models in
 ## Documentation and tests
 
 ```bash
-venv/bin/python scripts/check_doxygen_contracts.py
+venv/bin/python ci/check_doxygen_contracts.py
 venv/bin/python -m unittest discover \
   -s frontends/common/input/unit_test -p 'test_*.py'
 doxygen Doxyfile
@@ -91,7 +91,7 @@ connects and owns the controllers.
 
 ## Automatic architecture enforcement
 
-`python scripts/check_ui_boundaries.py` recursively discovers production Python
+`python ci/check_ui_boundaries.py` recursively discovers production Python
 modules in `frontends/`, app `frontend/` and `screens/` directories, `controllers/`,
 and `ui/`. Views cannot add controller, service, transport, network, worker, or
 process imports; controllers cannot add frontend/framework imports, and UI
@@ -99,7 +99,7 @@ contracts cannot add either. Relative imports and aliased imports are checked.
 Composition roots remain outside frontend directories.
 
 Existing dependencies are listed individually in
-`scripts/ui_boundary_exceptions.json`, with a reason and occurrence count. The
+`ci/ui_boundary_exceptions.json`, with a reason and occurrence count. The
 check rejects new dependencies, increased counts, and stale exceptions. Remove
 entries as coupling is fixed; do not regenerate the baseline to accept new code.
 The weather gate additionally rejects backend private-state access. These checks

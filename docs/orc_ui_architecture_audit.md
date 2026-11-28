@@ -169,7 +169,7 @@ on its thread and test hide/cancel during launch.
 The project gate correctly validates **588 modules with 53 exact legacy import
 exceptions across 22 modules**, including count and stale-entry enforcement.
 
-But `scripts/check_ui_boundaries.py:14` prohibits specific application runtime/
+But `ci/check_ui_boundaries.py:14` prohibits specific application runtime/
 composition prefixes for frontends rather than apps generally. Its API accepts
 both `from apps.orcUi.adapters.adsb_control import OrcUiAdsbControl` and
 `from apps.common.uiTheme import VehicleGaugeTheme` in a reusable frontend. Both

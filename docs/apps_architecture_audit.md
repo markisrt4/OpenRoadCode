@@ -55,7 +55,7 @@ Telemetry answers "what is the system state?" Commands answer "please change sys
 Run:
 
 ```bash
-venv/bin/python scripts/audit_app_hardware_imports.py
+venv/bin/python ci/audit_app_hardware_imports.py
 ```
 
 The script reports every direct `hardware_io` import under `apps/`. Each result must be justified as composition/producer/diagnostic code or removed from a telemetry consumer. This makes the audit repeatable instead of relying on somebody remembering which grep incantation was used six months ago.

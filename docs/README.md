@@ -38,7 +38,7 @@ The [project README](../README.md) remains the repository landing page. [Doxygen
 
 ## Complete documentation catalog
 
-Generated from the canonical documentation files. Every component README and standalone guide is listed here. Run `python scripts/docs_inventory.py --write` after adding or moving documentation.
+Generated from the canonical documentation files. Every component README and standalone guide is listed here. Run `python ci/docs_inventory.py --write` after adding or moving documentation.
 
 ### Apps
 
@@ -208,4 +208,4 @@ Generated from the canonical documentation files. Every component README and sta
 
 ## Documentation conventions
 
-Keep implementation-specific instructions in the owning component's README. Put cross-cutting architecture, interface, deployment, and user guides under `docs/`. Link to canonical files instead of duplicating them. After adding, moving, or removing documentation, run `python scripts/docs_inventory.py --write` and commit the updated index. CI checks that the catalog is current. The website uses the same discovery inventory, while retaining ownership of its layout, navigation, and deployment.
+Keep implementation-specific instructions in the owning component's README. Put cross-cutting architecture, interface, deployment, and user guides under `docs/`. Link to canonical files instead of duplicating them. After adding, moving, or removing documentation, run `python ci/docs_inventory.py --write` and commit the updated index. CI checks that the catalog is current. The website uses the same discovery inventory, while retaining ownership of its layout, navigation, and deployment.

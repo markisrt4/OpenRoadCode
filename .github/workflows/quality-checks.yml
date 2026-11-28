@@ -2,10 +2,7 @@ name: Quality checks
 
 on:
   pull_request:
-    types: [opened, reopened, ready_for_review, synchronize]
-  push:
-    branches:
-      - master
+    types: [opened, reopened, ready_for_review, synchronize, converted_to_draft]
   workflow_dispatch:
 
 permissions:
@@ -19,43 +16,43 @@ jobs:
   documentation:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     name: Documentation checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
-          python-version: "3.12"
+          python-version: "3.12.12"
 
       - name: Test documentation inventory
-        run: python -m unittest discover -s scripts/unit_test -p 'test_docs_inventory.py'
+        run: python -m unittest discover -s ci/unit_test -p 'test_docs_inventory.py'
 
       - name: Validate generated documentation index
-        run: python scripts/docs_inventory.py --check
+        run: python ci/docs_inventory.py --check
 
       - name: Validate Markdown links
-        run: python scripts/check_markdown_links.py
+        run: python ci/check_markdown_links.py
 
       - name: Validate Mermaid legends
-        run: python scripts/check_mermaid_legends.py
+        run: python ci/check_mermaid_legends.py
 
       - name: Validate Doxygen contracts
-        run: python scripts/check_doxygen_contracts.py
+        run: python ci/check_doxygen_contracts.py
 
       - name: Cache pinned Doxygen
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: .venv-quality/tools
-          key: doxygen-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/install_quality_doxygen.sh') }}
+          key: doxygen-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('ci/install_quality_doxygen.sh') }}
 
       - name: Install Doxygen
         run: |
           python -m venv .venv-quality
-          bash scripts/install_quality_doxygen.sh
+          bash ci/install_quality_doxygen.sh
 
       - name: Generate Doxygen documentation
         shell: bash
@@ -82,17 +79,17 @@ jobs:
   logging:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     name: Logging quality gate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
-          python-version: "3.12"
+          python-version: "3.12.12"
 
       - name: Install logging test dependencies
         run: |
@@ -116,31 +113,31 @@ jobs:
   validate:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     name: Quality checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
-          python-version: "3.12"
+          python-version: "3.12.12"
 
       - name: Install isolated quality environment
-        run: bash scripts/setup_quality_env.sh
+        run: bash ci/setup_quality_env.sh
 
       - name: Run static quality gates
-        run: bash scripts/dev_check.sh --all
+        run: bash ci/dev_check.sh --all
 
       - name: Run integration tests
-        run: .venv-quality/bin/python scripts/run_tests.py integration
+        run: .venv-quality/bin/python ci/run_tests.py integration
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: "20"
+          node-version: "20.20.2"
 
       - name: Test browser audio lifecycle
         run: node --test frontends/web/audio_analysis/unit_test/*.js
@@ -154,7 +151,7 @@ jobs:
           bash -n scripts/systemd/install_service_manager_systemd.sh
           bash -n development/debian/install_streaming_radio.sh
           bash -n development/termux/install_streaming_radio.sh
-          bash -n scripts/docs-preview.sh
+          bash -n development/docs/docs-preview.sh
 
       - name: Check source-tree runtime state
         shell: bash

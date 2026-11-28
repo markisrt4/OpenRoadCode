@@ -6,6 +6,41 @@ target the same initialized Ubuntu 24.04 X11 installation as the
 production image can use this lifecycle, but hardware graphics/input and real GPS
 delivery still need validation on the target.
 
+## Pi 5 installer option
+
+In `scripts/installers/host_setup_tui.sh`, select **rpi5**, then **Navigation →
+Waydroid for native Waze/apps**. This is opt-in; selecting every capability on
+Pi does not enable Waydroid. The same option is available for `linux-dev`.
+The command-line equivalent is:
+
+```bash
+git switch feature/waze-live-map
+bash scripts/installers/host_setup.sh --target rpi5 --feature waydroid
+```
+
+Use a 64-bit Linux desktop with a running user systemd session. The installer
+checks Binder support and attempts to load `binder_linux`; it does not replace
+your kernel. Configure the official Waydroid repository for your distribution
+before installing if its package is unavailable. The installer preserves existing
+Android data, initializes a default Android image when absent, and installs the
+existing user services and scoped privileged helper. It does not install Waze
+or launch ORC. Pi 5 graphics, input and GPS still require hardware acceptance.
+
+From the X11 desktop, start the runtime explicitly after installation:
+
+```bash
+git switch feature/waze-live-map
+bash development/debian/start_waydroid_services.sh
+./runOrcUi
+```
+
+At runtime the existing service prepares the bridge/network rules, authorizes
+this user's ADB key, applies kiosk settings, and configures Android location
+sharing. Install Waze inside Android through a trusted app source and complete
+its first-run prompts. ORC needs a fresh GPS/host position to deliver real
+location; configuring Android alone does not supply a GPS fix. No manual ADB
+pairing should be needed for this local container.
+
 ## Install or upgrade
 
 Close ORC and stop the old manually managed session/display first. The installer

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 set -euo pipefail
-cd "$(dirname "${BASH_SOURCE[0]}")/.."
+cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 
 if [ -n "${TERMUX_VERSION:-}" ] || [ "${PREFIX:-}" = /data/data/com.termux/files/usr ]; then
     echo "Termux: using native Python environment"
@@ -36,4 +36,4 @@ if ! command -v ruff >/dev/null 2>&1 || ! ruff check --show-settings controllers
 fi
 ruff --version
 python -m pytest --version
-echo "Development prerequisites ready. Run bash scripts/dev_check.sh."
+echo "Development prerequisites ready. Run bash development/calendar/dev_calendar_check.sh."

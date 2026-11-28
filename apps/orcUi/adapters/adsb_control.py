@@ -47,6 +47,7 @@ class OrcUiAdsbControl:
         set_managed_tracking: Callable[[bool], bool] | None = None,
         managed_tracking: Callable[[], bool] | None = None,
     ) -> None:
+        self._enabled = os.environ.get("ORC_NO_ADSB") != "1"
         self._set_managed_tracking = set_managed_tracking
         self._managed_tracking = managed_tracking
         self._simulation_tracking = False
@@ -81,7 +82,7 @@ class OrcUiAdsbControl:
 
     @property
     def running(self) -> bool:
-        return self._launcher.is_running()
+        return self._enabled and self._launcher.is_running()
 
     @property
     def simulation(self) -> bool:
@@ -90,6 +91,8 @@ class OrcUiAdsbControl:
     @property
     def tracking(self) -> bool:
         """Return whether the ADS-B receiver service is actively tracking."""
+        if not self._enabled:
+            return False
         if self._launcher.data_source != "rtlsdr":
             return self._simulation_tracking
         if self._managed_tracking is not None:
@@ -106,6 +109,8 @@ class OrcUiAdsbControl:
     @property
     def aircraft_count(self) -> int:
         """Read the current aircraft count from readsb's authoritative output."""
+        if not self._enabled:
+            return 0
         path = Path("/run/readsb/aircraft.json")
         try:
             document = json.loads(path.read_text(encoding="utf-8"))
@@ -116,6 +121,8 @@ class OrcUiAdsbControl:
 
     def set_tracking(self, enabled: bool) -> bool:
         """Start or stop receiver tracking without opening the dashboard."""
+        if not self._enabled:
+            return False
         if self._launcher.data_source != "rtlsdr":
             self._simulation_tracking = bool(enabled)
             return self._simulation_tracking
@@ -149,6 +156,8 @@ class OrcUiAdsbControl:
 
     def assert_available(self) -> None:
         """Raise when RF currently has priority over the ADS-B receiver."""
+        if not self._enabled:
+            raise RuntimeError("ADS-B intentionally disabled")
         self._launcher.assert_available()
 
     def set_preferred_color_scheme(self, scheme: str) -> None:
@@ -164,6 +173,8 @@ class OrcUiAdsbControl:
         self._launcher.configure_browser_window(position=position, size=size)
 
     def launch(self, display: str) -> None:
+        if not self._enabled:
+            raise RuntimeError("ADS-B intentionally disabled")
         if self._stop_thread is not None and self._stop_thread.is_alive():
             raise RuntimeError("ADS-B dashboard is still closing; try again shortly")
         if self._set_managed_tracking is not None and not self.simulation:
@@ -175,6 +186,8 @@ class OrcUiAdsbControl:
 
     def stop(self, display: str) -> None:
         """Close browser/service resources without waiting on the Tk thread."""
+        if not self._enabled:
+            return
         if self._stop_thread is not None and self._stop_thread.is_alive():
             return
         self._simulation_tracking = False

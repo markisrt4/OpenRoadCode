@@ -2,7 +2,7 @@
 
 import subprocess
 
-from scripts import check_termux_quality_packages as checker
+from ci import check_termux_quality_packages as checker
 
 
 def test_only_native_platform_notices_can_clear_pip_failure(monkeypatch, capsys):

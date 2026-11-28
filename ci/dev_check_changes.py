@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 if __package__:
-    from scripts import quality_gate
+    from ci import quality_gate
 else:
     import quality_gate
 
@@ -89,7 +89,7 @@ def main(argv: list[str] | None = None, *, root: Path = ROOT) -> int:
     args = parser.parse_args(argv)
     if args.publish and args.format_only:
         parser.error("--publish requires validation; use --all or --full")
-    gate = [sys.executable, "scripts/quality_gate.py"]
+    gate = [sys.executable, "ci/quality_gate.py"]
     if args.checks_only:
         gate.append("--checks-only")
     if not (args.fix or args.publish or args.format_only):
@@ -118,7 +118,7 @@ def main(argv: list[str] | None = None, *, root: Path = ROOT) -> int:
         before = snapshot(root)
         ruff = quality_gate.ruff_executable()
         if ruff is None:
-            raise RuntimeError("Ruff is missing; run bash scripts/setup_quality_env.sh")
+            raise RuntimeError("Ruff is missing; run bash ci/setup_quality_env.sh")
         paths = args.paths or ["."]
         lint = run([ruff, "check", "--fix", "--", *paths], root).returncode
         formatting = run([ruff, "format", "--", *paths], root).returncode

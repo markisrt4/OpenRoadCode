@@ -196,7 +196,7 @@ During branch development run focused tests. Before merge, the user runs:
 
 ```bash
 git switch navigation-cesium
-python scripts/quality_gate.py
+python ci/quality_gate.py
 ```
 
 ## Experimental Rochester staged-file trial

@@ -78,7 +78,7 @@ Focused portable validation:
 ```bash
 git switch feature/waze-live-map
 python -m pytest apps/orcUi/composition/unit_test/test_waze.py apps/orcUi/frontend/tk/unit_test/test_waze_toolbar.py controllers/navigation/unit_test/test_waze_location_player.py protocols/chromium/unit_test/test_chromium_devtools_session.py -q
-python scripts/check_ui_boundaries.py
+python ci/check_ui_boundaries.py
 ```
 
 Full validation remains pending the user-run quality gate before merge.

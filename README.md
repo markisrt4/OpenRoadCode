@@ -181,6 +181,8 @@ OpenRoadCode/
 ├── frontends/ and ui/    presentation implementations and contracts
 ├── input_events/         cross-layer physical input contracts
 ├── config/               runtime and application policy
+├── ci/                   contributor checks and test tooling
+├── development/          local development and diagnostics tools
 └── scripts/              installation and service integration
 ```
 
@@ -385,12 +387,12 @@ Use the dedicated quality environment and a single developer-check entry point:
 
 ```bash
 git switch feature/waze-live-map
-bash scripts/setup_quality_env.sh
-bash scripts/dev_check.sh --all
+bash ci/setup_quality_env.sh
+bash ci/dev_check.sh --all
 ```
 
 `--all` runs static checks; `--full` adds unit and integration tests. Both use the
-same check list in `scripts/quality_gate.py`, and the launcher prints the revision
+same check list in `ci/quality_gate.py`, and the launcher prints the revision
 and interpreter being checked. Focused `--lint`, `--format`, `--types`, `--test`,
 and `--docs` modes remain available. The project-wide UI boundary task includes
 Weather's additional provider/renderer access rules; it is not a separate task.
@@ -403,7 +405,7 @@ Focused runs fail when their selection matches no tests.
 
 ```bash
 git switch feature/waze-live-map
-bash scripts/dev_check.sh --test frontends/tk/media/unit_test/test_media_screen.py
+bash ci/dev_check.sh --test frontends/tk/media/unit_test/test_media_screen.py
 ```
 
 To apply safe Ruff fixes and formatting before the full checks, add `--fix`. Add
@@ -412,7 +414,7 @@ upstream after checks pass:
 
 ```bash
 git switch feature/waze-live-map
-bash scripts/dev_check.sh --full --fix --publish --message "Apply Ruff cleanup"
+bash ci/dev_check.sh --full --fix --publish --message "Apply Ruff cleanup"
 ```
 
 Publishing requires a clean checkout and a named branch with a remote upstream.
@@ -429,7 +431,7 @@ Public methods declared in `*_if.py` modules must document every argument with `
 Run the interface-contract checker and generate documentation with:
 
 ```bash
-python scripts/check_doxygen_contracts.py
+python ci/check_doxygen_contracts.py
 doxygen Doxyfile
 ```
 

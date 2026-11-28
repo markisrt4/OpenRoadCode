@@ -74,7 +74,13 @@ class OrcUiApp(UiCallbackMixin, VolumeUiIf, UiWidget):
             target = installed_target()
             fullscreen = orcui_fullscreen_default()
             self._borderless = orcui_borderless_default() and not fullscreen
+            screen_width = self._root.winfo_screenwidth()
+            screen_height = self._root.winfo_screenheight()
             default_geometry = "1024x600" if target == "termux" else TARGET_GEOMETRY
+            if target != "termux":
+                default_geometry = (
+                    f"{min(TARGET_WIDTH, screen_width)}x{min(TARGET_HEIGHT, screen_height)}"
+                )
             geometry = os.environ.get("ORCUI_GEOMETRY", default_geometry)
             if fullscreen:
                 self._root.attributes("-fullscreen", True)
@@ -82,7 +88,7 @@ class OrcUiApp(UiCallbackMixin, VolumeUiIf, UiWidget):
                 self._root.geometry(geometry)
                 self._root.resizable(True, True)
                 if target != "termux":
-                    self._root.minsize(TARGET_WIDTH, TARGET_HEIGHT)
+                    self._root.minsize(min(800, screen_width), min(480, screen_height))
                 if self._borderless:
                     self._root.overrideredirect(True)
                     self._root.bind("<Escape>", self._restore_window_decorations)
