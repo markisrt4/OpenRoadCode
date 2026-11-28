@@ -8,6 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+from tools.map_builder.builder.build import CENSUS_PRIMARY_ROADS_URL, CENSUS_PRIMARY_ROADS_VINTAGE
 from tools.map_builder.builder.cli import (
     directory_size,
     format_duration,
@@ -36,6 +37,21 @@ class BuildSummaryFormattingTests(unittest.TestCase):
 
             self.assertEqual(directory_size(root), 16)
 
+    def test_container_launchers_mount_shared_repository_packages_read_only(self):
+        scripts = Path(__file__).parents[1] / "scripts"
+        for name in ("run-builder.sh", "validate-host.sh"):
+            with self.subTest(script=name):
+                script = (scripts / name).read_text(encoding="utf-8")
+                self.assertIn("dst=/opt/openroadcode-source,readonly", script)
+                self.assertIn(
+                    "PYTHONPATH=/opt/openroadcode-source:/opt/openroadcode-map-builder",
+                    script,
+                )
+
+    def test_builder_image_includes_census_reprojection_tool(self):
+        dockerfile = (Path(__file__).parents[1] / "Dockerfile").read_text(encoding="utf-8")
+        self.assertIn("gdal-bin", dockerfile)
+
 
 class ReusableBuildTests(unittest.TestCase):
     def test_reuses_matching_validated_regions_regardless_of_order(self):
@@ -57,6 +73,12 @@ class ReusableBuildTests(unittest.TestCase):
                 SimpleNamespace(id="north-america/us/michigan"),
                 SimpleNamespace(id="north-america/us/ohio"),
             ]
+            manifest = json.loads((root / "build-manifest.json").read_text())
+            manifest["national_freeways"] = {
+                "url": CENSUS_PRIMARY_ROADS_URL,
+                "vintage": CENSUS_PRIMARY_ROADS_VINTAGE,
+            }
+            (root / "build-manifest.json").write_text(json.dumps(manifest))
             validation = {"mbtiles": {"tiles": 1}}
             with patch(
                 "tools.map_builder.builder.cli.validate_output",
@@ -107,6 +129,12 @@ class ReusableBuildTests(unittest.TestCase):
                 encoding="utf-8",
             )
             selected = [SimpleNamespace(id="north-america/us/michigan")]
+            manifest = json.loads((root / "build-manifest.json").read_text())
+            manifest["national_freeways"] = {
+                "url": CENSUS_PRIMARY_ROADS_URL,
+                "vintage": CENSUS_PRIMARY_ROADS_VINTAGE,
+            }
+            (root / "build-manifest.json").write_text(json.dumps(manifest))
             with patch(
                 "tools.map_builder.builder.cli.validate_output",
                 side_effect=RuntimeError("bad output"),
@@ -177,4 +205,4 @@ class Optional3DRecoveryTests(unittest.TestCase):
                     resolve.call_args.args[1],
                     ["north-america/us/michigan", "north-america/us/ohio"],
                 )
-                write.assert_called_once()
+                write.assert_called_once_with(resolve.return_value, {"source_pbfs": 2}, {}, None)

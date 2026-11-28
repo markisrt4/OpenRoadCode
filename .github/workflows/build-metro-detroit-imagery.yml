@@ -10,6 +10,7 @@ on:
         default: metro-detroit
         options:
           - metro-detroit
+          - rochester-static-trial
           - michigan-overview
           - mi-lower-southwest
           - mi-lower-southeast
@@ -19,109 +20,329 @@ on:
           - mi-lower-northeast
           - mi-upper-west
           - mi-upper-east
+          - michigan-all
+          - michigan-staged
+          - metro-detroit-buildings
+          - michigan-buildings
+          - imagery-detail-pilot
+          - michigan-detail-pilot
+          - selected-detail
+          - us-coarse-terrain
+          - michigan-statewide-detail
+          - generic-state
+          - validation-states
+      detail_coverage:
+        description: Selected local area (used by the interactive installer)
+        type: choice
+        options: [detroit-midtown, auburn-hills, rochester]
+      detail_layers:
+        description: Selected detail layers
+        type: choice
+        default: both
+        options: [imagery, terrain, both]
+      national_scope:
+        description: US terrain rollout scope (all reruns source probes before state builds)
+        type: choice
+        default: pilot
+        options: [pilot, all]
+      detail_resume_run:
+        description: Optional previous statewide detail run for resuming completed cells
+        required: false
+        type: string
+      state:
+        description: State name, postal abbreviation, or FIPS code (generic-state only)
+        required: false
+        type: string
+      scope:
+        description: Coverage tier for generic-state
+        required: false
+        type: choice
+        default: all
+        options: [overview, detail, all]
+      staged_coverage:
+        description: Staged Michigan region to retry (all builds the complete set)
+        required: false
+        type: choice
+        default: all
+        options: [all, mi-lower-southwest, mi-lower-southeast, mi-lower-central-west,
+          mi-lower-central-east, mi-lower-northwest, mi-lower-northeast, mi-upper-west, mi-upper-east]
+      trial_coverage:
+        description: Local staged-file trial coverage
+        required: false
+        type: choice
+        default: rochester
+        options: [rochester, southfield]
+      trial_imagery_source:
+        description: Local trial imagery delivery (same USDA NAIP dataset)
+        required: false
+        type: choice
+        default: usgs
+        options: [usgs, planetary-computer]
       release_tag:
         description: Optional release tag (defaults to metro-detroit-imagery-YYYYMMDD-runN)
         required: false
         type: string
+      force_rebuild:
+        description: Ignore matching release assets and artifact caches
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
 
 concurrency:
-  group: regional-map-data-${{ inputs.build_target }}
+  group: regional-map-data-${{ inputs.build_target }}-${{ inputs.detail_coverage }}-${{ inputs.detail_layers }}
   cancel-in-progress: false
 
 jobs:
-  build:
-    name: Build draft map-data release
+  prepare-metro:
+    name: Prepare Metro Detroit build
     if: ${{ inputs.build_target == 'metro-detroit' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    outputs:
+      existing: ${{ steps.release.outputs.existing }}
+      tag: ${{ steps.release.outputs.tag }}
+      imagery: ${{ steps.identity.outputs.imagery }}
+      terrain: ${{ steps.identity.outputs.terrain }}
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-
-      - name: Install map-data dependencies
-        run: python -m pip install Pillow
-
+      - uses: actions/checkout@v6
       - name: Choose versioned release tag
         id: release
         env:
           GH_TOKEN: ${{ github.token }}
           REQUESTED_TAG: ${{ inputs.release_tag }}
-        shell: bash
+          FORCE_REBUILD: ${{ inputs.force_rebuild }}
         run: |
-          if [[ -n "$REQUESTED_TAG" ]]; then
-            tag="$REQUESTED_TAG"
-          else
+          if [[ -n "$REQUESTED_TAG" ]]; then tag="$REQUESTED_TAG"; else
             tag="metro-detroit-imagery-$(date -u +%Y%m%d)-run${GITHUB_RUN_NUMBER}"
           fi
           if [[ ! "$tag" =~ ^metro-detroit-imagery-[A-Za-z0-9._-]+$ ]]; then
-            echo "::error::Release tag must start with metro-detroit-imagery- and contain only letters, digits, dots, underscores, or hyphens"
-            exit 1
+            echo "::error::Release tag has an invalid format"; exit 1
           fi
           if gh release view "$tag" >/dev/null 2>&1; then
-            echo "::error::Release $tag already exists; choose a new versioned tag"
-            exit 1
+            if [[ "$FORCE_REBUILD" == "true" ]]; then
+              echo "::error::Force rebuild requires a new release tag; $tag already exists"; exit 1
+            fi
+            echo "existing=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "existing=false" >> "$GITHUB_OUTPUT"
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
-
-      - name: Download and validate Metro Detroit imagery
+      - name: Calculate artifact identities
+        id: identity
         run: |
-          python -m development.maps.install_region \
-            --coverage metro-detroit \
-            --build-only build-output/metro-detroit-imagery \
-            --detail \
-            --yes
-
-      - name: Download and validate tiled Metro Detroit terrain
-        run: |
-          python -m development.maps.install_terrain \
-            --coverage metro-detroit \
-            --build-only build-output/metro-detroit-terrain \
-            --yes
-
-      - name: Package checked map data
-        run: |
-          python -m tools.map_builder.builder.imagery_artifact \
-            --coverage metro-detroit \
-            --pack build-output/metro-detroit-imagery \
-            --output build-output/artifacts/metro-detroit-imagery.zip
-
-          python -m tools.map_builder.builder.terrain_artifact \
-            --coverage metro-detroit \
-            --pack build-output/metro-detroit-terrain \
-            --output build-output/artifacts/metro-detroit-terrain.zip
-
-      - name: Create draft release
+          echo "imagery=$(python -m development.maps.artifact_identity imagery metro-detroit)" >> "$GITHUB_OUTPUT"
+          echo "terrain=$(python -m development.maps.artifact_identity terrain metro-detroit)" >> "$GITHUB_OUTPUT"
+      - name: Validate reusable release
+        if: ${{ steps.release.outputs.existing == 'true' }}
         env:
-          GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
-        shell: bash
         run: |
-          gh release create "$RELEASE_TAG" \
-            build-output/artifacts/metro-detroit-imagery.zip \
-            build-output/artifacts/metro-detroit-imagery.zip.json \
-            build-output/artifacts/metro-detroit-terrain.zip \
-            build-output/artifacts/metro-detroit-terrain.zip.json \
-            --draft \
-            --target "$GITHUB_SHA" \
-            --title "Metro Detroit offline map data ${RELEASE_TAG#metro-detroit-imagery-}" \
-            --notes "Offline Metro Detroit detail imagery and tiled USGS 3DEP terrain. Inspect both packages before publishing this draft release. Source provenance and checksums are included."
+          mkdir -p build-output/artifacts
+          gh release download "$RELEASE_TAG" --dir build-output/artifacts \
+            --pattern 'metro-detroit-imagery.zip.json' \
+            --pattern 'metro-detroit-terrain.zip.json'
+          assets="$(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name')"
+          for name in metro-detroit-imagery.zip metro-detroit-terrain.zip; do
+            grep -Fxq "$name" <<<"$assets" || { echo "::error::Existing release is missing $name"; exit 1; }
+          done
+          python -m development.maps.artifact_identity imagery metro-detroit \
+            --descriptor build-output/artifacts/metro-detroit-imagery.zip.json
+          python -m development.maps.artifact_identity terrain metro-detroit \
+            --descriptor build-output/artifacts/metro-detroit-terrain.zip.json
 
+  build-metro-imagery:
+    name: Build Metro Detroit imagery
+    needs: prepare-metro
+    if: ${{ needs.prepare-metro.outputs.existing != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python -m pip install Pillow
+      - name: Restore reusable imagery package
+        if: ${{ !inputs.force_rebuild }}
+        id: package
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            build-output/artifacts/metro-detroit-imagery.zip
+            build-output/artifacts/metro-detroit-imagery.zip.json
+          key: map-artifact-imagery-metro-detroit-${{ needs.prepare-metro.outputs.imagery }}
+      - name: Validate restored imagery package
+        if: ${{ steps.package.outputs.cache-hit == 'true' }}
+        run: python -m development.maps.artifact_identity imagery metro-detroit --descriptor build-output/artifacts/metro-detroit-imagery.zip.json
+      - name: Build checked imagery
+        if: ${{ inputs.force_rebuild || steps.package.outputs.cache-hit != 'true' }}
+        run: |
+          python -m development.maps.install_region --coverage metro-detroit \
+            --build-only build-output/metro-detroit-imagery --detail --yes
+          python -m tools.map_builder.builder.imagery_artifact --coverage metro-detroit \
+            --pack build-output/metro-detroit-imagery \
+            --output build-output/artifacts/metro-detroit-imagery.zip
+      - name: Preserve reusable imagery package
+        if: ${{ !inputs.force_rebuild && steps.package.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            build-output/artifacts/metro-detroit-imagery.zip
+            build-output/artifacts/metro-detroit-imagery.zip.json
+          key: map-artifact-imagery-metro-detroit-${{ needs.prepare-metro.outputs.imagery }}
+      - name: Upload checked imagery package
+        uses: actions/upload-artifact@v4
+        with:
+          name: metro-detroit-imagery-package
+          path: build-output/artifacts/metro-detroit-imagery.zip*
+          if-no-files-found: error
+          retention-days: 7
+
+  check-metro-terrain:
+    name: Check reusable Metro Detroit terrain
+    needs: prepare-metro
+    if: ${{ needs.prepare-metro.outputs.existing != 'true' }}
+    runs-on: ubuntu-latest
+    outputs:
+      cache-hit: ${{ steps.package.outputs.cache-hit }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Restore reusable terrain package
+        if: ${{ !inputs.force_rebuild }}
+        id: package
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            build-output/artifacts/metro-detroit-terrain.zip
+            build-output/artifacts/metro-detroit-terrain.zip.json
+          key: map-artifact-terrain-metro-detroit-${{ needs.prepare-metro.outputs.terrain }}
+      - name: Validate restored terrain package
+        if: ${{ steps.package.outputs.cache-hit == 'true' }}
+        run: python -m development.maps.artifact_identity terrain metro-detroit --descriptor build-output/artifacts/metro-detroit-terrain.zip.json
+      - name: Upload reusable terrain package
+        if: ${{ steps.package.outputs.cache-hit == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: metro-detroit-terrain-package
+          path: build-output/artifacts/metro-detroit-terrain.zip*
+          if-no-files-found: error
+          retention-days: 7
+
+  build-metro-terrain-tile:
+    name: Build Metro terrain tile ${{ matrix.tile }}
+    needs: [prepare-metro, check-metro-terrain]
+    if: ${{ needs.prepare-metro.outputs.existing != 'true' && needs.check-metro-terrain.outputs.cache-hit != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        tile: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python -m pip install Pillow
+      - name: Restore validated terrain tile
+        if: ${{ !inputs.force_rebuild }}
+        uses: actions/cache/restore@v4
+        with:
+          path: build-output/metro-detroit-terrain.download
+          key: terrain-tile-metro-detroit-${{ needs.prepare-metro.outputs.terrain }}-${{ matrix.tile }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            terrain-tile-metro-detroit-${{ needs.prepare-metro.outputs.terrain }}-${{ matrix.tile }}-
+      - name: Build resumable terrain tile
+        id: terrain-tile
+        continue-on-error: true
+        run: |
+          python -m development.maps.build_metro_terrain_tile --tile "${{ matrix.tile }}" \
+            --cache build-output/metro-detroit-terrain.download
+      - name: Preserve validated terrain tile
+        if: ${{ always() && !inputs.force_rebuild }}
+        uses: actions/cache/save@v4
+        with:
+          path: build-output/metro-detroit-terrain.download
+          key: terrain-tile-metro-detroit-${{ needs.prepare-metro.outputs.terrain }}-${{ matrix.tile }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Report incomplete terrain tile
+        if: ${{ steps.terrain-tile.outcome == 'failure' }}
+        run: |
+          echo "::error::Terrain tile ${{ matrix.tile }} did not validate. Rerun to restore completed tiles."
+          exit 1
+      - name: Upload validated terrain tile
+        if: ${{ steps.terrain-tile.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: metro-terrain-tile-${{ matrix.tile }}
+          path: build-output/metro-detroit-terrain.download/*
+          if-no-files-found: error
+          retention-days: 7
+
+  assemble-metro:
+    name: Assemble draft Metro Detroit release
+    needs: [prepare-metro, build-metro-imagery, check-metro-terrain, build-metro-terrain-tile]
+    if: ${{ always() && needs.prepare-metro.outputs.existing != 'true' && needs.build-metro-imagery.result == 'success' && needs.check-metro-terrain.result == 'success' && (needs.check-metro-terrain.outputs.cache-hit == 'true' || needs.build-metro-terrain-tile.result == 'success') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python -m pip install Pillow
+      - name: Download checked imagery package
+        uses: actions/download-artifact@v4
+        with:
+          name: metro-detroit-imagery-package
+          path: build-output/artifacts
+      - name: Download reusable terrain package
+        if: ${{ needs.check-metro-terrain.outputs.cache-hit == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: metro-detroit-terrain-package
+          path: build-output/artifacts
+      - name: Download validated terrain tiles
+        if: ${{ needs.check-metro-terrain.outputs.cache-hit != 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          pattern: metro-terrain-tile-*
+          path: build-output/metro-detroit-terrain.download
+          merge-multiple: true
+      - name: Assemble and package checked terrain
+        if: ${{ needs.check-metro-terrain.outputs.cache-hit != 'true' }}
+        run: |
+          python -m development.maps.assemble_regional_terrain --coverage metro-detroit \
+            --cache build-output/metro-detroit-terrain.download \
+            --output build-output/metro-detroit-terrain
+          python -m tools.map_builder.builder.terrain_artifact --coverage metro-detroit \
+            --pack build-output/metro-detroit-terrain \
+            --output build-output/artifacts/metro-detroit-terrain.zip
+      - name: Preserve reusable terrain package
+        if: ${{ !inputs.force_rebuild && needs.check-metro-terrain.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            build-output/artifacts/metro-detroit-terrain.zip
+            build-output/artifacts/metro-detroit-terrain.zip.json
+          key: map-artifact-terrain-metro-detroit-${{ needs.prepare-metro.outputs.terrain }}
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.prepare-metro.outputs.tag }}
+        run: |
+          gh release create "$RELEASE_TAG" build-output/artifacts/metro-detroit-*.zip* \
+            --draft --target "$GITHUB_SHA" \
+            --title "Metro Detroit offline map data ${RELEASE_TAG#metro-detroit-imagery-}" \
+            --notes "Offline Metro Detroit detail imagery and tiled USGS 3DEP terrain. Inspect both packages before publishing this draft release."
           descriptor_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/metro-detroit-imagery.zip.json"
           {
             echo "## Draft map-data release"
             echo
-            echo "Inspect the imagery and terrain assets on the draft release, then publish it if they are acceptable."
-            echo
-            echo "After publication, install it with:"
+            echo "Inspect both assets, then publish the draft if acceptable."
             echo '```bash'
             echo 'git switch navigation-cesium'
             echo "python -m development.maps.install_region --coverage metro-detroit --pack-manifest ${descriptor_url}"
@@ -131,8 +352,540 @@ jobs:
 
   michigan:
     name: Build Michigan terrain package
-    if: ${{ inputs.build_target != 'metro-detroit' }}
+    if: ${{ inputs.build_target != 'metro-detroit' && inputs.build_target != 'michigan-all' && inputs.build_target != 'michigan-staged' && inputs.build_target != 'metro-detroit-buildings' && inputs.build_target != 'michigan-buildings' && inputs.build_target != 'us-coarse-terrain' && inputs.build_target != 'selected-detail' && inputs.build_target != 'imagery-detail-pilot' && inputs.build_target != 'michigan-detail-pilot' && inputs.build_target != 'michigan-statewide-detail' && inputs.build_target != 'generic-state' && inputs.build_target != 'validation-states' && inputs.build_target != 'rochester-static-trial' }}
     uses: ./.github/workflows/build-michigan-terrain.yml
     with:
       coverage: ${{ inputs.build_target }}
+      force_rebuild: ${{ inputs.force_rebuild }}
     secrets: inherit
+
+  michigan-all:
+    name: Build Michigan detail ${{ matrix.coverage }}
+    if: ${{ inputs.build_target == 'michigan-all' }}
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        coverage:
+          - mi-lower-southwest
+          - mi-lower-southeast
+          - mi-lower-central-west
+          - mi-lower-central-east
+          - mi-lower-northwest
+          - mi-lower-northeast
+          - mi-upper-west
+          - mi-upper-east
+    uses: ./.github/workflows/build-michigan-terrain.yml
+    with:
+      coverage: ${{ matrix.coverage }}
+      force_rebuild: ${{ inputs.force_rebuild }}
+      publish_release: false
+    secrets: inherit
+
+  assemble-michigan-all:
+    name: Assemble draft Michigan detail release
+    needs: michigan-all
+    if: ${{ needs.michigan-all.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+      - name: Download checked state packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: map-data-mi-*
+          path: build-output/michigan-all
+          merge-multiple: true
+      - name: Create combined draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="michigan-map-data-detail-$(date -u +%Y%m%d)-run${GITHUB_RUN_NUMBER}"
+          gh release create "$tag" build-output/michigan-all/* \
+            --draft --target "$GITHUB_SHA" \
+            --title "Michigan offline map data · statewide detail" \
+            --notes "Eight independently resumable Michigan imagery and terrain shards. Install the statewide overview plus any or all detail assets."
+          echo "Draft release: $tag" >> "$GITHUB_STEP_SUMMARY"
+
+  prepare-generic-state:
+    name: Plan generic state build
+    if: ${{ inputs.build_target == 'generic-state' }}
+    runs-on: ubuntu-latest
+    outputs:
+      state: ${{ steps.plan.outputs.state }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v6
+      - id: plan
+        name: Validate state and create coverage matrix
+        env:
+          REQUESTED_STATE: ${{ inputs.state }}
+          REQUESTED_SCOPE: ${{ inputs.scope }}
+        run: |
+          if [[ -z "$REQUESTED_STATE" ]]; then
+            echo "::error::The state input is required for generic-state"
+            exit 1
+          fi
+          plan="$(python -m development.maps.state_map_catalog \
+            --state "$REQUESTED_STATE" --scope "$REQUESTED_SCOPE" --matrix)"
+          echo "state=$(jq -r .state <<<"$plan")" >> "$GITHUB_OUTPUT"
+          echo "matrix=$(jq -c .coverage <<<"$plan")" >> "$GITHUB_OUTPUT"
+
+  generic-state:
+    name: Build state coverage ${{ matrix.coverage }}
+    needs: prepare-generic-state
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        coverage: ${{ fromJSON(needs.prepare-generic-state.outputs.matrix) }}
+    uses: ./.github/workflows/build-michigan-terrain.yml
+    with:
+      coverage: ${{ matrix.coverage }}
+      force_rebuild: ${{ inputs.force_rebuild }}
+      publish_release: false
+    secrets: inherit
+
+  assemble-generic-state:
+    name: Assemble generic state draft release
+    needs: [prepare-generic-state, generic-state]
+    if: ${{ needs.generic-state.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+      - name: Download checked state packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: map-data-us-${{ needs.prepare-generic-state.outputs.state }}-*
+          path: build-output/state
+          merge-multiple: true
+      - name: Create checked state draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STATE: ${{ needs.prepare-generic-state.outputs.state }}
+          SCOPE: ${{ inputs.scope }}
+        run: |
+          tag="${STATE}-map-data-${SCOPE}-$(date -u +%Y%m%d)-run${GITHUB_RUN_NUMBER}"
+          gh release create "$tag" build-output/state/* \
+            --draft --target "$GITHUB_SHA" \
+            --title "${STATE^^} offline map data · ${SCOPE}" \
+            --notes "State-driven USGS NAIP imagery and 3DEP terrain. Inspect all coverage assets before publishing this draft release."
+          echo "Draft release: $tag" >> "$GITHUB_STEP_SUMMARY"
+
+  validation-states:
+    name: Validate state pipeline · ${{ matrix.state }}
+    if: ${{ inputs.build_target == 'validation-states' }}
+    strategy:
+      fail-fast: true
+      max-parallel: 1
+      matrix:
+        state: [OH, HI, CA, AK]
+    uses: ./.github/workflows/build-state-map-data.yml
+    with:
+      state: ${{ matrix.state }}
+      scope: all
+      force_rebuild: ${{ inputs.force_rebuild }}
+    secrets: inherit
+
+
+  rochester-static-trial:
+    name: Local staged-file trial (no export services)
+    if: ${{ inputs.build_target == 'rochester-static-trial' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    env:
+      GDAL_CACHEMAX: '128'
+      GDAL_NUM_THREADS: '1'
+      GDAL_DISABLE_READDIR_ON_OPEN: EMPTY_DIR
+      GDAL_HTTP_MAX_RETRY: '2'
+      GDAL_HTTP_RETRY_DELAY: '2'
+      GDAL_HTTP_TIMEOUT: '60'
+      TRIAL_COVERAGE: ${{ inputs.trial_coverage || 'rochester' }}
+      TRIAL_IMAGERY_SOURCE: ${{ inputs.trial_imagery_source || 'usgs' }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install build-host raster tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y gdal-bin python3-pil python3-pytest
+      - name: Check staged-source pack contracts
+        run: /usr/bin/python3 -m pytest apps/launchers/unit_test/test_static_tile_trial.py -q
+      - name: Restore completed staged files
+        if: ${{ !inputs.force_rebuild }}
+        uses: actions/cache/restore@v4
+        with:
+          path: build-output/rochester-static-cache
+          key: rochester-static-sources-v2-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: rochester-static-sources-v2-
+      - name: Discover, download and process existing source tiles
+        run: |
+          /usr/bin/python3 -m development.maps.static_tile_trial \
+            --coverage "$TRIAL_COVERAGE" \
+            --output build-output/rochester-static-trial \
+            --cache build-output/rochester-static-cache \
+            --imagery-source "$TRIAL_IMAGERY_SOURCE"
+      - name: Preserve completed source files
+        if: ${{ always() }}
+        uses: actions/cache/save@v4
+        with:
+          path: build-output/rochester-static-cache
+          key: rochester-static-sources-v2-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Upload trial packs and evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.trial_coverage || 'rochester' }}-static-trial-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            build-output/rochester-static-trial/*.zip
+            build-output/rochester-static-trial/*.zip.json
+            build-output/rochester-static-trial/source-plan.json
+            build-output/rochester-static-trial/trial-report.json
+
+
+  michigan-staged:
+    name: Staged Michigan ${{ matrix.coverage }}
+    if: ${{ inputs.build_target == 'michigan-staged' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        coverage: ${{ fromJSON(inputs.staged_coverage != '' && inputs.staged_coverage != 'all' && format('["{0}"]', inputs.staged_coverage) || '["mi-lower-southwest","mi-lower-southeast","mi-lower-central-west","mi-lower-central-east","mi-lower-northwest","mi-lower-northeast","mi-upper-west","mi-upper-east"]') }}
+    permissions:
+      contents: read
+    env:
+      GDAL_CACHEMAX: '128'
+      GDAL_NUM_THREADS: '1'
+      GDAL_DISABLE_READDIR_ON_OPEN: EMPTY_DIR
+      GDAL_HTTP_MAX_RETRY: '2'
+      GDAL_HTTP_RETRY_DELAY: '2'
+      GDAL_HTTP_TIMEOUT: '60'
+      COVERAGE: ${{ matrix.coverage }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install build-host raster tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y gdal-bin python3-pil python3-pytest
+      - name: Regional source and pack regressions
+        run: /usr/bin/python3 -m pytest apps/launchers/unit_test/test_static_region_build.py -q
+      - uses: actions/cache/restore@v4
+        if: ${{ !inputs.force_rebuild }}
+        with:
+          path: build-output/staged-cache/${{ matrix.coverage }}
+          key: michigan-staged-v1-${{ matrix.coverage }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: michigan-staged-v1-${{ matrix.coverage }}-
+      - name: Build existing-source imagery and relief
+        run: |
+          /usr/bin/python3 -m development.maps.static_region_build \
+            --coverage "$COVERAGE" \
+            --output "build-output/staged/$COVERAGE" \
+            --cache "build-output/staged-cache/$COVERAGE"
+      - uses: actions/cache/save@v4
+        if: ${{ always() }}
+        with:
+          path: build-output/staged-cache/${{ matrix.coverage }}
+          key: michigan-staged-v1-${{ matrix.coverage }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Upload region packs and coverage report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: michigan-staged-${{ matrix.coverage }}-${{ github.run_id }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            build-output/staged/${{ matrix.coverage }}/*.zip
+            build-output/staged/${{ matrix.coverage }}/*.zip.json
+            build-output/staged/${{ matrix.coverage }}/source-plan.json
+            build-output/staged/${{ matrix.coverage }}/build-report.json
+
+
+  metro-buildings:
+    name: Build Metro Detroit OSM buildings
+    if: ${{ inputs.build_target == 'metro-detroit-buildings' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install existing OSM extraction tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y osmium-tool python3-pytest
+      - name: Building pack and installer regressions
+        run: >-
+          /usr/bin/python3 -m pytest apps/launchers/unit_test/test_regional_buildings.py
+          apps/launchers/unit_test/test_building_relations.py apps/launchers/unit_test/test_building_parts.py
+          tools/map_builder/tests/test_map_3d.py tools/map_builder/tests/test_build.py -q
+      - uses: actions/cache/restore@v4
+        if: ${{ !inputs.force_rebuild }}
+        with:
+          path: build-output/building-source-cache
+          key: metro-osm-buildings-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: metro-osm-buildings-v1-
+      - name: Extract buildings from Michigan PBF and package
+        run: |
+          /usr/bin/python3 -m development.maps.build_regional_buildings \
+            --output build-output/metro-buildings \
+            --cache build-output/building-source-cache
+      - uses: actions/cache/save@v4
+        if: ${{ always() }}
+        with:
+          path: build-output/building-source-cache
+          key: metro-osm-buildings-v1-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Upload checked buildings and source report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: metro-detroit-buildings-${{ github.run_id }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            build-output/metro-buildings/*.zip
+            build-output/metro-buildings/*.zip.json
+            build-output/metro-buildings/buildings-report.json
+
+  michigan-buildings:
+    name: Buildings ${{ matrix.coverage }}
+    if: ${{ inputs.build_target == 'michigan-buildings' || (inputs.build_target == 'michigan-staged' && (inputs.staged_coverage == '' || inputs.staged_coverage == 'all')) }}
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        coverage: ${{ fromJSON(inputs.staged_coverage != '' && inputs.staged_coverage != 'all' && format('["{0}"]', inputs.staged_coverage) || '["mi-lower-southwest","mi-lower-southeast","mi-lower-central-west","mi-lower-central-east","mi-lower-northwest","mi-lower-northeast","mi-upper-west","mi-upper-east"]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install existing OSM extraction tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y osmium-tool python3-pytest
+      - name: Building pack and installer regressions
+        run: >-
+          /usr/bin/python3 -m pytest apps/launchers/unit_test/test_regional_buildings.py
+          apps/launchers/unit_test/test_michigan_buildings.py apps/launchers/unit_test/test_building_relations.py apps/launchers/unit_test/test_building_parts.py
+          tools/map_builder/tests/test_map_3d.py tools/map_builder/tests/test_build.py -q
+      - uses: actions/cache/restore@v4
+        if: ${{ !inputs.force_rebuild }}
+        with:
+          path: build-output/building-source-cache
+          key: metro-osm-buildings-v1-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.coverage }}
+          restore-keys: metro-osm-buildings-v1-
+      - name: Extract buildings from Michigan PBF and package
+        run: |
+          /usr/bin/python3 -m development.maps.build_regional_buildings \
+            --coverage ${{ matrix.coverage }} \
+            --output build-output/metro-buildings \
+            --cache build-output/building-source-cache
+      - uses: actions/cache/save@v4
+        if: ${{ always() }}
+        with:
+          path: build-output/building-source-cache
+          key: metro-osm-buildings-v1-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.coverage }}
+      - name: Upload checked buildings and source report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.coverage }}-buildings-${{ github.run_id }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            build-output/metro-buildings/*.zip
+            build-output/metro-buildings/*.zip.json
+            build-output/metro-buildings/buildings-report.json
+
+
+  plan-detail:
+    if: ${{ contains(fromJSON('["imagery-detail-pilot","michigan-detail-pilot","selected-detail"]'), inputs.build_target) }}
+    runs-on: ubuntu-latest
+    outputs:
+      coverage: ${{ steps.plan.outputs.coverage }}
+      layers: ${{ steps.plan.outputs.layers }}
+      zoom: ${{ steps.plan.outputs.zoom }}
+    steps:
+      - uses: actions/checkout@v6
+      - id: plan
+        env:
+          TARGET: ${{ inputs.build_target }}
+          COVERAGE: ${{ inputs.detail_coverage }}
+          LAYERS: ${{ inputs.detail_layers }}
+        run: |
+          python - <<'PYPLAN'
+          import json, os
+          from tools.map_builder.builder.map_pack_builds import detail_matrix
+          coverage, layers, zoom = detail_matrix(os.environ['TARGET'], os.environ['COVERAGE'], os.environ['LAYERS'])
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('coverage=' + json.dumps(coverage) + '\n')
+              output.write('layers=' + layers + '\n')
+              output.write('zoom=' + str(zoom) + '\n')
+          PYPLAN
+
+  imagery-detail:
+    name: Detail imagery ${{ matrix.coverage }}
+    needs: plan-detail
+    if: ${{ needs.plan-detail.outputs.layers == 'imagery' || needs.plan-detail.outputs.layers == 'both' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        coverage: ${{ fromJSON(needs.plan-detail.outputs.coverage) }}
+    env:
+      GDAL_CACHEMAX: '128'
+      GDAL_NUM_THREADS: '1'
+      GDAL_DISABLE_READDIR_ON_OPEN: EMPTY_DIR
+      GDAL_HTTP_MAX_RETRY: '2'
+      GDAL_HTTP_RETRY_DELAY: '2'
+      GDAL_HTTP_TIMEOUT: '60'
+      COVERAGE: ${{ matrix.coverage }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install build-host raster tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y gdal-bin python3-pil python3-pytest
+      - name: Offline pyramid and source-audit regressions
+        run: /usr/bin/python3 -m pytest apps/launchers/unit_test/test_imagery_pyramid.py -q
+      - uses: actions/cache/restore@v4
+        if: ${{ !inputs.force_rebuild }}
+        with:
+          path: build-output/detail-cache/${{ matrix.coverage }}
+          key: naip-detail-v2-${{ matrix.coverage }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            naip-detail-v2-${{ matrix.coverage }}-
+            naip-detail-v1-${{ matrix.coverage }}-
+      - name: Build offline native zoom tiles
+        run: |
+          /usr/bin/python3 -m development.maps.build_imagery_detail \
+            --coverage "$COVERAGE" \
+            --maximum-zoom ${{ needs.plan-detail.outputs.zoom }} \
+            --output "build-output/detail/$COVERAGE" \
+            --cache "build-output/detail-cache/$COVERAGE"
+      - uses: actions/cache/save@v4
+        if: ${{ always() }}
+        with:
+          path: build-output/detail-cache/${{ matrix.coverage }}
+          key: naip-detail-v2-${{ matrix.coverage }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: imagery-detail-${{ matrix.coverage }}-${{ github.run_id }}
+          retention-days: 14
+          path: |
+            build-output/detail/${{ matrix.coverage }}/*.zip
+            build-output/detail/${{ matrix.coverage }}/*.zip.json
+            build-output/detail/${{ matrix.coverage }}/detail-report.json
+
+  terrain-detail:
+    name: Detail terrain ${{ matrix.coverage }}
+    needs: plan-detail
+    if: ${{ needs.plan-detail.outputs.layers == 'terrain' || needs.plan-detail.outputs.layers == 'both' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        coverage: ${{ fromJSON(needs.plan-detail.outputs.coverage) }}
+    env:
+      GDAL_CACHEMAX: '128'
+      GDAL_NUM_THREADS: '1'
+      GDAL_DISABLE_READDIR_ON_OPEN: EMPTY_DIR
+      GDAL_HTTP_MAX_RETRY: '2'
+      GDAL_HTTP_RETRY_DELAY: '2'
+      GDAL_HTTP_TIMEOUT: '60'
+      COVERAGE: ${{ matrix.coverage }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install build-host raster tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y gdal-bin python3-pil python3-pytest
+      - name: Offline pyramid and source-audit regressions
+        run: /usr/bin/python3 -m pytest apps/launchers/unit_test/test_terrain_detail.py apps/launchers/unit_test/test_static_region_build.py -q
+      - uses: actions/cache/restore@v4
+        if: ${{ !inputs.force_rebuild }}
+        with:
+          path: build-output/terrain-detail-cache/${{ matrix.coverage }}
+          key: terrain-detail-v1-${{ matrix.coverage }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            terrain-detail-v1-${{ matrix.coverage }}-
+      - name: Build offline native zoom tiles
+        run: |
+          /usr/bin/python3 -m development.maps.build_terrain_detail \
+            --coverage "$COVERAGE-detail-10m" \
+            --output "build-output/terrain-detail/$COVERAGE" \
+            --cache "build-output/terrain-detail-cache/$COVERAGE"
+      - uses: actions/cache/save@v4
+        if: ${{ always() }}
+        with:
+          path: build-output/terrain-detail-cache/${{ matrix.coverage }}
+          key: terrain-detail-v1-${{ matrix.coverage }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: terrain-detail-${{ matrix.coverage }}-${{ github.run_id }}
+          retention-days: 14
+          path: |
+            build-output/terrain-detail/${{ matrix.coverage }}/*.zip
+            build-output/terrain-detail/${{ matrix.coverage }}/*.zip.json
+            build-output/terrain-detail/${{ matrix.coverage }}/terrain-detail-report.json
+
+  building-site-audit:
+    name: Inspect Chrysler campus OSM geometry
+    if: ${{ inputs.build_target == 'imagery-detail-pilot' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - run: sudo apt-get update -qq && sudo apt-get install -y osmium-tool
+      - uses: actions/cache/restore@v4
+        with:
+          path: build-output/building-source-cache
+          key: metro-osm-buildings-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: metro-osm-buildings-v1-
+      - name: Inspect source geometry without changing building presentation
+        run: |
+          /usr/bin/python3 -m development.maps.audit_building_site \
+            --output build-output/building-site-audit \
+            --cache build-output/building-source-cache
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: building-site-audit-${{ github.run_id }}
+          retention-days: 14
+          path: build-output/building-site-audit/*.json
+
+
+  statewide-detail:
+    name: Michigan statewide detail delivery
+    if: ${{ inputs.build_target == 'michigan-statewide-detail' }}
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/michigan-statewide-detail.yml
+    with:
+      resume_run: ${{ inputs.detail_resume_run || '' }}
+
+  us-coarse-terrain:
+    if: ${{ inputs.build_target == 'us-coarse-terrain' }}
+    uses: ./.github/workflows/us-coarse-terrain.yml
+    with:
+      scope: ${{ inputs.national_scope || 'pilot' }}

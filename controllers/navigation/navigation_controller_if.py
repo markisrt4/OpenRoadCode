@@ -83,6 +83,21 @@ class NavigationControllerIf(ABC):
         @param gps_state Latest normalized GPS state.
         """
 
+    def update_host_position_state(self, position: GpsState) -> None:
+        """Accept explicitly shared host location when supported.
+
+        @param position Normalized host position report.
+        """
+        raise NotImplementedError("Host location is not supported")
+
+    def set_host_location_suspended(self, suspended: bool) -> None:
+        """Suspend host precedence during an explicit route simulation.
+
+        Controllers without host-location support intentionally do nothing.
+        @param suspended Whether host precedence should be suspended.
+        """
+        return None
+
     @abstractmethod
     def read_state(self) -> NavigationState:
         """Read and return the current navigation state.

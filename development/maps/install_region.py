@@ -17,8 +17,18 @@ from development.maps.prebuilt_imagery import (
     verify_archive,
 )
 from development.maps.regional_imagery import download as download_overview
+from development.maps.state_map_catalog import catalog_document
 from development.maps.terrain_regions import MICHIGAN_COVERAGES
 from tools.map_builder.builder.map_3d import PRESETS
+
+STATE_COVERAGES = {
+    region["coverage"]: (
+        region.get("title", state["name"] + " overview"),
+        tuple(region["bounds_deg"]),
+    )
+    for state in catalog_document()["states"]
+    for region in (*state["overview_regions"], *state["detail_shards"])
+}
 
 # Rectangular planning envelopes, not county boundaries. No Canadian imagery promised.
 COVERAGES = {
@@ -30,11 +40,12 @@ COVERAGES = {
         coverage: (title.replace("terrain overview", "imagery overview"), bounds)
         for coverage, (title, bounds) in MICHIGAN_COVERAGES.items()
     },
+    **STATE_COVERAGES,
 }
 
 
 def build_image_size(coverage, detail=False):
-    if coverage in MICHIGAN_COVERAGES:
+    if coverage in STATE_COVERAGES:
         return (8192, 8192)
     return (4096, 4096) if detail or coverage != "metro-detroit" else (2048, 1536)
 

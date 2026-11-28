@@ -58,3 +58,11 @@ profile = "google-earth"
 startup = "lazy"
 target = "auxiliary"
 exclusive_group = "auxiliary"
+
+# Native Waze integration. Legacy URL/profile fields are not browser launch targets.
+[apps.waze]
+type = "browser"
+enabled = true
+url = "https://www.waze.com/live-map"
+profile = "waze"
+startup = "lazy"

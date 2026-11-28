@@ -10,6 +10,7 @@ portable Spotify behavior lives below the application package.
 from __future__ import annotations
 
 import logging
+import os
 
 from apps.orcUi.adapters.spotify_local_player_factory import create_spotify_local_player
 from common.logging.structured import event
@@ -45,6 +46,9 @@ class MediaApplicationService:
     def start(self) -> None:
         """Start background media services once."""
         if self._started:
+            return
+        if os.environ.get("ORC_NO_SPOTIFY") == "1":
+            LOGGER.info("Spotify background services intentionally disabled")
             return
         try:
             self._spotify.start()

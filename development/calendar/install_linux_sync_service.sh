@@ -14,7 +14,7 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 REPO_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/../.." && pwd)
 PYTHON_BIN="${OPENROADCODE_PYTHON:-$REPO_DIR/.venv/bin/python}"
 if [ ! -x "$PYTHON_BIN" ]; then
-    echo "Python environment missing. Run bash scripts/dev_setup.sh first." >&2
+    echo "Python environment missing. Run bash development/calendar/dev_setup.sh first." >&2
     exit 1
 fi
 "$PYTHON_BIN" -c 'import dateutil' || {

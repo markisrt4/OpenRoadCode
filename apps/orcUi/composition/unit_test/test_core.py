@@ -5,7 +5,7 @@
 
 import math
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 
 from apps.orcUi.composition.core import CoreComposition, create_core_composition
 from apps.orcUi.frontend.tk.presentation_state import OrcUiPresentationState
@@ -47,7 +47,7 @@ class CoreCompositionTest(unittest.TestCase):
         core.start()
         core.close()
 
-        volume.refresh.assert_called_once_with()
+        volume.refresh.assert_called_once_with(restore_cached=True)
         map_camera.start.assert_called_once_with()
         ingress.start.assert_called_once_with()
         trip_runtime.start.assert_called_once_with()
@@ -115,6 +115,7 @@ class CoreCompositionTest(unittest.TestCase):
             audio_controller=audio,
             volume_ui=app,
             set_status=app.set_screen_status,
+            cache=ANY,
         )
         app.set_volume_request_handler.assert_called_once_with(volume)
         ingress_type.assert_called_once()

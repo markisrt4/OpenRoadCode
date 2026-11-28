@@ -1,5 +1,6 @@
 """Loopback transport adapter for local viewer assets and semantic close requests."""
 
+import base64
 import json
 import mimetypes
 import secrets
@@ -11,11 +12,16 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 from apps.launchers.cesium_sdk import require_sdk
-from tools.map_builder.builder.validate import ValidationError
+from apps.launchers.local_statewide_detail import PagedTerrainCatalog
+from apps.launchers.local_terrain_pack import LocalTerrainCatalog
+from ui.navigation.boundary_overlay_state import BoundaryOverlayState
 from ui.navigation.cesium_viewer_state import CesiumViewerState
 from ui.navigation.local_imagery_state import LocalImageryStackState
 
 _WEB = Path(__file__).resolve().parents[2] / "frontends/web/cesium"
+_WORLD_LAND = Path(__file__).resolve().parents[2] / "resources/maps/world_land.geojson"
+_WORLD_REFERENCE = Path(__file__).resolve().parents[2] / "resources/maps/world_reference.png"
+_WORLD_LAKES = Path(__file__).resolve().parents[2] / "resources/maps/world_lakes.geojson"
 
 
 class CesiumViewerServer:
@@ -32,18 +38,28 @@ class CesiumViewerServer:
         buildings=None,
         tiles=None,
         roads=None,
+        boundaries=None,
+        imagery_pyramids=(),
     ):
         self._sdk = require_sdk(sdk)
         self._state = state
+        self._imagery_pyramids = tuple(imagery_pyramids)
+        if len(self._imagery_pyramids) > 8:
+            raise ValueError("At most eight offline imagery pyramids may be mounted")
         self._imagery = imagery
         self._imagery_layers = tuple(imagery_layers)
         self._imagery_stack = LocalImageryStackState(
             tuple(pack.state for pack in self._imagery_layers)
         )
         self._terrain = terrain
+        self._mesh_lock = threading.RLock()
+        self._mesh_owner = self._mesh_sampler = None
         self._buildings = buildings
         self._tiles = tiles
         self._roads = roads
+        if boundaries is not None and not isinstance(boundaries, BoundaryOverlayState):
+            raise TypeError("Viewer boundaries must use the presentation contract")
+        self._boundaries = boundaries
         self._token = secrets.token_urlsafe(32)
         self.close_requested = threading.Event()
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), partial(_Handler, owner=self))
@@ -90,6 +106,26 @@ class _Handler(BaseHTTPRequestHandler):
             self.send_error(403)
             return
         path = unquote(urlsplit(self.path).path)
+        if path.startswith("/data/terrain-mesh/") and isinstance(
+            self.owner._terrain, LocalTerrainCatalog
+        ):
+            try:
+                parts = path.removeprefix("/data/terrain-mesh/").split("/")
+                if len(parts) != 3 or any(
+                    not value.isascii() or not value.isdigit() or len(value) > 6 for value in parts
+                ):
+                    raise ValueError("Invalid terrain mesh address")
+                from apps.launchers.terrain_mesh_sampler import TerrainMeshSampler
+
+                with self.owner._mesh_lock:
+                    if self.owner._mesh_owner is not self.owner._terrain:
+                        self.owner._mesh_sampler = TerrainMeshSampler(self.owner._terrain)
+                        self.owner._mesh_owner = self.owner._terrain
+                    sampler = self.owner._mesh_sampler
+                self._send(json.dumps(sampler.mesh(*map(int, parts))).encode(), "application/json")
+            except (ValueError, OSError, KeyError):
+                self.send_error(404, "Offline terrain mesh unavailable")
+            return
         if path == "/config.json":
             document = self.owner._state.document()
             document["close_token"] = self.owner._token
@@ -97,6 +133,13 @@ class _Handler(BaseHTTPRequestHandler):
             document["roads_max_zoom"] = (
                 self.owner._roads.max_zoom if self.owner._roads is not None else 14
             )
+            if self.owner._boundaries is not None:
+                document["boundary_overlay"] = self.owner._boundaries.document()
+            document["imagery_pyramids"] = [
+                pack.state.document() for pack in self.owner._imagery_pyramids
+            ]
+            for index, layer in enumerate(document["imagery_pyramids"]):
+                layer["url"] = f"/data/imagery-detail/{index}/{{z}}/{{x}}/{{y}}"
             if self.owner._imagery_layers:
                 document["imagery_layers"] = self.owner._imagery_stack.document()
                 for index, layer in enumerate(document["imagery_layers"]):
@@ -105,12 +148,66 @@ class _Handler(BaseHTTPRequestHandler):
                 document["imagery"] = self.owner._imagery.state.document()
                 document["imagery"]["url"] = "/data/imagery.jpg"
             if self.owner._terrain is not None:
-                document["terrain"] = self.owner._terrain.document()
+                if isinstance(self.owner._terrain, LocalTerrainCatalog):
+                    document["terrain"] = self.owner._terrain.state.document()
+                    document["terrain"]["mesh_url"] = "/data/terrain-mesh/{z}/{x}/{y}"
+                    for index, tile in enumerate(document["terrain"]["tiles"]):
+                        tile["url"] = f"/data/terrain/{index}"
+                else:
+                    document["terrain"] = self.owner._terrain.document()
             if self.owner._buildings is not None:
                 document["buildings"] = self.owner._buildings.document()
             if self.owner._tiles is not None:
                 document["map_tiles"] = self.owner._tiles.state.document()
             self._send(json.dumps(document).encode(), "application/json")
+            return
+        if path == "/data/world-reference.png":
+            self._send(_WORLD_REFERENCE.read_bytes(), "image/png")
+            return
+        if path == "/data/world-land.geojson":
+            self._send(_WORLD_LAND.read_bytes(), "application/geo+json")
+            return
+        if path == "/data/world-lakes.geojson":
+            self._send(_WORLD_LAKES.read_bytes(), "application/geo+json")
+            return
+        if path.startswith("/data/terrain-page/") and isinstance(
+            self.owner._terrain, PagedTerrainCatalog
+        ):
+            try:
+                parts = path.removeprefix("/data/terrain-page/").split("/")
+                if len(parts) != 3 or any(
+                    not p.isascii() or not p.isdigit() or len(p) > 6 for p in parts
+                ):
+                    raise ValueError("Invalid terrain page address")
+                document = self.owner._terrain.page(*(int(p) for p in parts))
+                self._send(json.dumps(document).encode(), "application/json")
+            except (ValueError, OSError, KeyError):
+                self.send_error(404)
+            return
+        if path.startswith("/data/terrain-chunk/") and isinstance(
+            self.owner._terrain, PagedTerrainCatalog
+        ):
+            try:
+                self._send(
+                    self.owner._terrain.chunk(path.removeprefix("/data/terrain-chunk/")),
+                    "application/json",
+                )
+            except (ValueError, OSError, KeyError):
+                self.send_error(404)
+            return
+        if path.startswith("/data/terrain/") and isinstance(
+            self.owner._terrain, LocalTerrainCatalog
+        ):
+            index = path.removeprefix("/data/terrain/")
+            if (
+                not index.isascii()
+                or not index.isdigit()
+                or len(index) > 4
+                or int(index) >= len(self.owner._terrain.payloads)
+            ):
+                self.send_error(404)
+                return
+            self._send(self.owner._terrain.payloads[int(index)].read_bytes(), "application/json")
             return
         if path.startswith("/data/roads/") and self.owner._roads is not None:
             try:
@@ -121,15 +218,44 @@ class _Handler(BaseHTTPRequestHandler):
                     raise ValueError("Invalid road tile URL")
                 state = self.owner._roads.tile(*(int(part) for part in parts))
                 self._send(json.dumps(state.document()).encode(), "application/json")
-            except (ValueError, ValidationError, sqlite3.Error, OSError):
+            except (ValueError, sqlite3.Error, OSError):
                 self.send_error(404, "Offline road tile unavailable")
+            return
+        if path.startswith("/data/imagery-detail/"):
+            try:
+                parts = path.removeprefix("/data/imagery-detail/").split("/")
+                if len(parts) != 4 or any(
+                    not p.isascii() or not p.isdigit() or len(p) > 6 for p in parts
+                ):
+                    raise ValueError("Invalid imagery tile URL")
+                index, zoom, x, y = map(int, parts)
+                if index >= len(self.owner._imagery_pyramids):
+                    raise ValueError("Unknown imagery pyramid")
+                pack = self.owner._imagery_pyramids[index]
+                content = pack.tile(zoom, x, y)
+                if content is None:
+                    # Valid address with no source coverage: show the underlying
+                    # overview instead of repeated tile errors or fabricated data.
+                    content = base64.b64decode(
+                        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNgYAAAAAMAASsJTYQAAAAASUVORK5CYII="
+                    )
+                    self._send(content, "image/png")
+                else:
+                    self._send(
+                        content,
+                        "image/jpeg"
+                        if pack.state.image_format in ("jpg", "jpeg")
+                        else "image/" + pack.state.image_format,
+                    )
+            except (ValueError, OSError, sqlite3.Error):
+                self.send_error(404, "Offline imagery tile unavailable")
             return
         if path.startswith("/data/imagery/"):
             index = path.removeprefix("/data/imagery/")
             if (
                 not index.isascii()
                 or not index.isdigit()
-                or len(index) > 1
+                or len(index) > 2
                 or int(index) >= len(self.owner._imagery_layers)
             ):
                 self.send_error(404)

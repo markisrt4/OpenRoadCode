@@ -75,19 +75,27 @@ class EarthPoiControlTest(unittest.TestCase):
 
     def test_action_row_has_icons_above_labels_and_close_returns_to_map(self):
         earth = self.show()
-        buttons = [child for child in earth.master.winfo_children() if isinstance(child, tk.Button)]
-        self.assertEqual(
-            [button.cget("text") for button in buttons], ["Navigate", "Earth", "Close"]
-        )
-        self.assertEqual(len({button.winfo_y() for button in buttons}), 1)
-        for button in buttons:
+
+        def descendants(widget):
+            for child in widget.winfo_children():
+                yield child
+                yield from descendants(child)
+
+        buttons = {
+            child.cget("text"): child
+            for child in descendants(self.panel._poi_card)
+            if isinstance(child, tk.Button)
+        }
+        self.assertEqual(set(buttons), {"ORC Map", "Earth", "CLOSE"})
+        for button in (buttons["ORC Map"], buttons["Earth"]):
             self.assertEqual(str(button.cget("compound")), "top")
             self.assertTrue(button.cget("image"))
             self.assertLessEqual(
                 button.winfo_rooty() + button.winfo_height(),
                 self.panel._poi_card.winfo_rooty() + self.panel._poi_card.winfo_height(),
             )
-        buttons[-1].invoke()
+        self.assertGreater(buttons["CLOSE"].winfo_rooty(), earth.winfo_rooty())
+        buttons["CLOSE"].invoke()
         self.assertFalse(earth.winfo_exists())
         self.assertTrue(self.panel._map_host.winfo_viewable())
         self.places.request_action.assert_not_called()
@@ -161,6 +169,34 @@ class EarthPoiControlTest(unittest.TestCase):
         button.invoke()
         self.places.request_action.assert_called_once_with(selected, action)
         self.assertEqual(str(button.cget("state")), "disabled")
+
+    def test_unified_drawer_pages_fit_without_scrolling_or_resizing_map(self):
+        from ui.navigation import MapControlsDrawerState
+
+        self.root.geometry("580x260")
+        self.root.update()
+        host_id = self.panel.map_host_window_id
+        original_size = self.panel.map_host_size
+        self.panel.set_map_controls_drawer_state(MapControlsDrawerState(expanded=True))
+        self.root.update()
+        for name in ("camera", "layers", "terrain", "camera"):
+            self.panel._show_map_controls_page(name)
+            self.root.update()
+            self.assertEqual(self.panel.map_host_window_id, host_id)
+            self.assertEqual(self.panel.map_host_size, original_size)
+            page = self.panel._map_control_pages[name]
+            self.assertTrue(page.winfo_ismapped())
+            self.assertEqual(page.winfo_height(), self.panel._map_controls_rail.winfo_height())
+
+            def inspect(widget):
+                self.assertNotIsInstance(widget, (tk.Scrollbar, tk.Canvas))
+                for child in widget.winfo_children():
+                    inspect(child)
+
+            inspect(self.panel._map_controls)
+        self.panel.set_map_controls_drawer_state(MapControlsDrawerState(expanded=False))
+        self.root.update()
+        self.assertEqual(self.panel.map_host_size, original_size)
 
 
 class Local3DOfflineRequestTest(unittest.TestCase):

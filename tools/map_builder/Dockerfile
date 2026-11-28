@@ -15,6 +15,7 @@ RUN apt-get update \
         cmake \
         curl \
         git \
+        gdal-bin \
         jq \
         make \
         ninja-build \

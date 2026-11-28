@@ -53,6 +53,30 @@ def test_bounded_local_terrain_hillshade():
     assert result.returncode == 0, result.stdout + result.stderr
 
 
+def test_state_boundary_overlay_lifecycle_and_emphasis():
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("Node is optional; boundary overlay check requires node")
+    test = (
+        Path(__file__).resolve().parents[3]
+        / "frontends/web/cesium/unit_test/test_boundary_overlay.js"
+    )
+    result = subprocess.run([node, "--test", str(test)], capture_output=True, text=True, timeout=20)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_reference_globe_base_stale_load_cleanup():
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("Node is optional; reference globe check requires node")
+    test = (
+        Path(__file__).resolve().parents[3]
+        / "frontends/web/cesium/unit_test/test_reference_globe_layer.js"
+    )
+    result = subprocess.run([node, "--test", str(test)], capture_output=True, text=True, timeout=20)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
 def test_building_relief_alignment():
     node = shutil.which("node")
     if not node:
@@ -117,6 +141,18 @@ def test_dynamic_route_overlay_replaces_route():
         pytest.skip("Node is optional; route overlay check requires node")
     test = (
         Path(__file__).resolve().parents[3] / "frontends/web/cesium/unit_test/test_route_overlay.js"
+    )
+    result = subprocess.run([node, "--test", str(test)], capture_output=True, text=True, timeout=20)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_unified_map_layer_controls_lifecycle():
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("Node is optional; map layer check requires node")
+    test = (
+        Path(__file__).resolve().parents[3]
+        / "frontends/web/cesium/unit_test/test_map_layer_controls.js"
     )
     result = subprocess.run([node, "--test", str(test)], capture_output=True, text=True, timeout=20)
     assert result.returncode == 0, result.stdout + result.stderr

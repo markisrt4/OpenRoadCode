@@ -119,7 +119,7 @@ The existing runtime installer remains unchanged. For the isolated quality
 tooling baseline on Linux, run:
 
 ```bash
-bash scripts/setup_quality_env.sh
+bash ci/setup_quality_env.sh
 ```
 
 This creates `.venv-quality` without inheriting system packages and installs
@@ -138,8 +138,8 @@ python -m pip install -r requirements-dev.txt
 
 The development manifest includes pinned mypy for the strict UI contract check.
 Runtime and device installers do not consume this manifest. Run that check alone
-with `python scripts/check_ui_types.py`, or run it with the other required checks
-using `python scripts/quality_gate.py`. Missing mypy fails the gate with an install
+with `python ci/check_ui_types.py`, or run it with the other required checks
+using `python ci/quality_gate.py`. Missing mypy fails the gate with an install
 instruction; it is not silently skipped. CI uses the same manifest and type gate.
 The rollout currently includes routing, dispatch, the ORC shell, and Games
 contracts, presentation, orchestration, and composition, plus the migrated
@@ -275,7 +275,7 @@ independently installable UI distribution.
 Run the complete repository gate before declaring a feature complete:
 
 ```bash
-python scripts/quality_gate.py
+python ci/quality_gate.py
 ```
 
 It runs Ruff lint and format checks, module size, project-wide and weather UI boundary checks, Doxygen
@@ -284,7 +284,7 @@ checks documentation, browser audio, shell syntax, runtime state, whitespace,
 and logging. Record unavailable hardware/service validation separately from
 automated results; a portable subset is not a full-suite pass.
 
-`scripts/ui_boundary_exceptions.json` lists exact legacy dependencies, not
+`ci/ui_boundary_exceptions.json` lists exact legacy dependencies, not
 permission for new violations. Do not expand or regenerate it to pass a check.
 Remove entries when their dependencies are removed; stale entries fail the gate.
 See [UI contracts and migration inventory](ui/README.md) and the repository's
@@ -331,15 +331,27 @@ failure to serve as the setup guide.
 Run the same commands used by continuous integration:
 
 ```bash
-python scripts/run_tests.py unit
-python scripts/run_tests.py integration
+python ci/run_tests.py unit
+python ci/run_tests.py integration
 ```
 
 Run both categories, in that order, with:
 
 ```bash
-python scripts/run_tests.py all
+python ci/run_tests.py all
 ```
+
+During development, pass the affected test paths to the runner. Include the
+callers or contract tests that exercise the changed behavior. Use
+`--durations=10` to identify expensive tests in that selection.
+
+```bash
+python ci/run_tests.py unit -- controllers/weather/unit_test apps/orcUi/composition/unit_test/test_weather_composition.py --durations=10
+```
+
+Keep pull requests in draft while iterating locally. GitHub runs the shared
+verification workflows when a PR is ready for review and after subsequent
+updates to a ready PR. The workflows can also be dispatched manually.
 
 Component tests are run individually because their requirements vary. In a
 pull request, document the command, connected hardware or service, expected
@@ -355,7 +367,7 @@ Public methods declared in `*_if.py` modules must document:
 Run the contract check with:
 
 ```bash
-python scripts/check_doxygen_contracts.py
+python ci/check_doxygen_contracts.py
 ```
 
 Docstrings and comments should explain intent, constraints, or surprising
@@ -442,9 +454,9 @@ decision in the pull request.
 Before opening a pull request:
 
 - Keep the change focused and reviewable.
-- Run `python scripts/run_tests.py unit`.
-- Run `python scripts/run_tests.py integration` when the environment permits.
-- Run `python scripts/check_doxygen_contracts.py` after changing interfaces.
+- Run `python ci/run_tests.py unit`.
+- Run `python ci/run_tests.py integration` when the environment permits.
+- Run `python ci/check_doxygen_contracts.py` after changing interfaces.
 - Exercise relevant component CLIs when changing hardware or service integrations.
 - Update configuration examples and documentation when behavior changes.
 - Update the applicable IDD, messaging documentation, service README, and Ethernet IDD when adding or changing a public cross-process or fixed-port network interface.
@@ -472,15 +484,29 @@ OpenRoadCode is an ambitious experiment assembled from many disciplines. No
 one arrives knowing all of them. Share what you know, ask when you do not, and
 help make the next contributor's first drive a little smoother.
 
-The Linux quality environment uses `constraints-quality-linux.txt`, captured from a
-validated Ubuntu Python 3.12 installation. Forge dependencies remain pinned to Git
-commits in `scripts/setup_quality_env.sh`. Runtime installation is independent.
+The shared GitHub verification workflows use Ubuntu 24.04, Python 3.12.12, and
+Node.js 20.20.2 for the browser audio tests. External Actions are pinned to
+commit SHAs. Linux Python packages use `constraints-quality-linux.txt`, and
+Forge dependencies are pinned to Git commits in `ci/setup_quality_env.sh`.
+To match GitHub locally, set `QUALITY_PYTHON` to the pinned interpreter when
+creating a fresh quality environment. GitHub can still update the runner
+image within Ubuntu 24.04. When a failure only occurs in GitHub, compare the
+runner image version in the job setup log before updating the pins.
 
-Run `bash scripts/dev_check.sh --docs` for documentation validation and API
+Use the [Pi 5 simulation](development/simulation/rpi5/README.md) on an ARM64
+QEMU host for installer and application smoke tests when a change affects
+Pi startup, packaging, or display geometry. Validate USB camera and SDR
+behavior on physical hardware.
+
+The default `--all` and `--full` gates include the generated documentation index,
+Markdown links, Mermaid legends, and interface docstring contracts. These checks
+are portable to Raspberry Pi and Termux. They do not generate the API reference.
+
+Run `bash ci/dev_check.sh --docs` for documentation validation and API
 reference generation. The documentation command installs checksum-verified
 Doxygen 1.15.0 into `.venv-quality` on Linux x86-64. Other platforms can use
 Ubuntu CI for this gate. No system Doxygen installation is modified.
 
 ### Termux quality environment
 
-Use native Termux Python, NumPy, SciPy, Pillow, PyZMQ and Ruff. Run `bash scripts/setup_quality_env.sh` to link the native packages into the isolated quality environment after checking Python ABI compatibility. Termux uses mypy 2.4.1 with the pure Python parser; Linux pins remain unchanged. If pip reports unsupported wheel tags for ABI-verified, linked Termux packages that import successfully, setup accepts those notices and still rejects dependency errors. Run `bash scripts/dev_check.sh --all` and `bash scripts/dev_check.sh --test`. Failed checks are copied to the Termux clipboard when available. Pinned Doxygen generation remains a Linux CI check.
+Use native Termux Python, NumPy, SciPy, Pillow, PyZMQ and Ruff. Run `bash ci/setup_quality_env.sh` to link the native packages into the isolated quality environment after checking Python ABI compatibility. Termux uses mypy 2.4.1 with the pure Python parser; Linux pins remain unchanged. If pip reports unsupported wheel tags for ABI-verified, linked Termux packages that import successfully, setup accepts those notices and still rejects dependency errors. Run `bash ci/dev_check.sh --all` and `bash ci/dev_check.sh --test`. Failed checks are copied to the Termux clipboard when available. Pinned Doxygen generation remains a Linux CI check.

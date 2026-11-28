@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from threading import Event, Thread
 
 from controllers.navigation.navigation_state import PositionState
@@ -47,6 +48,9 @@ class AndroidPositionSource(PositionSourceIf):
                 if sample.timestamp_ms != last_timestamp_ms:
                     callback(
                         PositionState(
+                            received_at=datetime.fromtimestamp(
+                                sample.timestamp_ms / 1000, timezone.utc
+                            ),
                             latitude_deg=sample.latitude_deg,
                             longitude_deg=sample.longitude_deg,
                             altitude_m=sample.altitude_m,

@@ -11,7 +11,6 @@ import tkinter as tk
 from collections.abc import Callable
 
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
-from common.logging.structured import event
 from frontends.tk.tooltip import TkTooltip
 from ui.navigation import (
     MapControlsDrawerRequestHandlerIf,
@@ -22,9 +21,12 @@ from ui.navigation import (
     RouteRequestHandlerStub,
     RouteSimulationRequestHandlerIf,
 )
+from ui.navigation.map_layer_controls import MapLayerAction
 from ui.navigation.map_platform_if import MapPlatform, MapPlatformControlIf, MapPlatformState
+from ui.navigation.navigation_experience_if import NavigationExperienceRequestHandlerIf
 from ui.navigation.navigation_places_request_handler_if import NavigationPlacesRequestHandlerIf
 from ui.navigation.poi_models import PoiCategory, TransitMode
+from ui.navigation.waze_request_handler_if import WazeRequestHandlerIf
 from ui.system.online_mode_if import OnlineModeIf
 from ui.theme import ThemeBundle, ThemeMode
 from ui.tooltip_if import TooltipFactoryIf
@@ -32,7 +34,7 @@ from ui.ui_widget import UiWidget
 from ui.weather.radar_ui_if import RadarPalette
 
 from .navigation_panel_camera import NavigationCameraControls
-from .navigation_panel_layout import build_navigation_panel
+from .navigation_panel_layout import build_navigation_panel, log_map_allocation
 from .navigation_places_controls import NavigationPlacesControls
 from .navigation_radar_controls import NavigationRadarControls
 
@@ -63,6 +65,8 @@ class NavigationPanel(
         online_mode: OnlineModeIf | None = None,
         tooltip_factory: TooltipFactoryIf | None = None,
         map_platform: MapPlatformControlIf | None = None,
+        waze_handler: WazeRequestHandlerIf | None = None,
+        experience_handler: NavigationExperienceRequestHandlerIf | None = None,
         radar_enabled: bool = False,
         radar_frame_time: int | None = None,
         radar_palette: RadarPalette = RadarPalette.UNIVERSAL,
@@ -82,6 +86,11 @@ class NavigationPanel(
         super().__init__(parent, bg=self._theme_bundle.ui.background)
         del on_back
         self._request_handler = map_request_handler
+        self._experience_handler = experience_handler
+        self._experience_controls = None
+        self._navigation_drawer_visible = False
+        self._waze_handler = waze_handler
+        self._waze_button = None
         self._map_platform = map_platform
         self._terrain_active = False
         self._map_follow_enabled = True
@@ -162,11 +171,23 @@ class NavigationPanel(
             self.set_follow_enabled(self._map_follow_enabled)
         self._terrain_active = terrain
         self._follow_button.configure(state="disabled" if state.busy else "normal")
+        self._apply_layer_controls(state.layer_controls, terrain and not state.busy)
         if state.busy:
+            self._map_retry_button.place_forget()
             self._loading_cover.configure(text="Loading Terrain…" if terrain else "Loading map…")
             self._loading_cover.grid()
             self._loading_cover.lift()
+        elif state.error:
+            self._loading_cover.configure(
+                text=f"Map unavailable\n\n{state.error}",
+                wraplength=max(180, self._map_host.winfo_width() - 48),
+            )
+            self._loading_cover.grid()
+            self._loading_cover.lift()
+            self._map_retry_button.place(relx=0.5, rely=0.75, anchor="center")
+            self._map_retry_button.lift()
         else:
+            self._map_retry_button.place_forget()
             self._loading_cover.grid_remove()
         if terrain:
             self.set_follow_enabled(state.follow_enabled)
@@ -175,6 +196,23 @@ class NavigationPanel(
         else:
             self._zoom_text.set(f"{self._zoom_level:.1f}")
             self._dimension_text.set("2D" if self._pitch_rad > 0 else "3D")
+
+    def _show_map_controls_page(self, name: str) -> None:
+        """Replace drawer contents without changing the native viewport."""
+        if name not in self._map_control_pages:
+            raise ValueError("Unknown map controls page")
+        for page in self._map_control_pages.values():
+            page.grid_remove()
+        self._map_control_pages[name].grid(row=0, column=0, sticky="nsew")
+        self._map_controls_page = name
+
+    def _request_layer(self, action: MapLayerAction) -> None:
+        if self._map_platform is not None:
+            self._map_platform.request_layer(action)
+
+    def _reset_map_view(self) -> None:
+        if not self._terrain_camera("reset"):
+            self._recenter()
 
     @property
     def map_host_window_id(self) -> int:
@@ -214,50 +252,49 @@ class NavigationPanel(
         if not hasattr(self, "_map_controls"):
             return
         if state.expanded:
-            self._map_controls.place(
-                relx=1.0,
-                rely=0.0,
-                anchor="ne",
-                width=140,
-                relheight=1.0,
-            )
-            self._map_controls.lift()
-            self._map_controls_handle.place_forget()
+            self._map_controls.place(relx=1.0, anchor="ne", width=224, relheight=1.0)
             self._map_controls_rail.pack(fill=tk.BOTH, expand=True, padx=5, pady=(2, 5))
+            self._map_controls.lift()
         else:
             self._map_controls_rail.pack_forget()
             self._map_controls.place_forget()
-            self._map_controls_handle.place(
-                relx=1.0,
-                rely=0.5,
-                anchor="e",
-                width=48,
-                height=72,
-            )
+        self._map_controls_handle.configure(
+            text="HIDE CONTROLS ‹" if state.expanded else "CONTROLS ›"
+        )
+        self._map_controls_handle.place(
+            in_=self._map_host,
+            relx=1.0,
+            rely=0.0,
+            y=4,
+            anchor="ne",
+            width=140,
+            height=44,
+        )
+        if self.__dict__.get("_navigation_drawer_visible", False):
+            self._map_controls_handle.place_forget()
+        else:
             self._map_controls_handle.lift()
         self.after_idle(self._refresh_renderer_state)
         self.after_idle(self._log_map_allocation)
 
-    def _log_map_allocation(self, _event=None) -> None:
-        """Trace settled Tk geometry separately from the native viewport."""
-        logger = logging.getLogger("navigation.map.layout")
-        if not logger.isEnabledFor(logging.DEBUG):
-            return
-        host = self._map_host
-        body = host.master
-        event(
-            logger,
-            logging.DEBUG,
-            "map.host_allocation",
-            f"expanded={self._drawer_state.expanded} "
-            f"body={body.winfo_width()}x{body.winfo_height()} "
-            f"host={host.winfo_width()}x{host.winfo_height()} "
-            f"host_id={host.winfo_id()} "
-            f"controls_manager={self._map_controls.winfo_manager() or 'hidden'}",
-        )
+    def _log_map_allocation(self, event=None) -> None:
+        log_map_allocation(self, event)
 
     def _toggle_map_controls_drawer(self) -> None:
+        controls = self.__dict__.get("_experience_controls")
+        if controls is not None:
+            controls.close_drawer()
         self._drawer_handler.request_map_controls_expanded(not self._drawer_state.expanded)
+
+    def set_navigation_drawer_visible(self, visible: bool) -> None:
+        """Keep the camera handle out of an open experience/places drawer."""
+        self._navigation_drawer_visible = visible
+        if visible:
+            self._drawer_handler.request_map_controls_expanded(False)
+            self._map_controls_handle.place_forget()
+        else:
+            self.close_radar_menu()
+            self.set_map_controls_drawer_state(self._drawer_state)
 
     def close_places(self) -> None:
         """Cancel pending view callbacks and close its places session once."""
@@ -267,6 +304,10 @@ class NavigationPanel(
         if self._places_closed:
             return
         self._places_closed = True
+        controls = self.__dict__.get("_experience_controls")
+        if controls is not None:
+            controls.destroy()
+            self._experience_controls = None
         self._unsubscribe_online_mode()
         for name in ("_poi_poll_after_id", "_poi_search_after_id"):
             callback_id = getattr(self, name)
@@ -287,7 +328,27 @@ class NavigationPanel(
             self.close_radar_menu()
             self.close_places()
         finally:
-            super().destroy()
+            try:
+                super().destroy()
+            finally:
+                # Retired panels can survive in callbacks/cycles until a worker
+                # triggers GC. Their Tcl resources must be released now, on the
+                # UI thread, after the widgets using them have been destroyed.
+                for name in (
+                    "_zoom_text",
+                    "_dimension_text",
+                    "_shortcut_status",
+                    "_guidance_instruction",
+                    "_guidance_detail",
+                    "_classic_radar_var",
+                    "_earth_icon",
+                    "_earth_offline_icon",
+                    "_earth_button",
+                    "_poi_card",
+                ):
+                    if name in self.__dict__:
+                        setattr(self, name, None)
+                self._poi_action_buttons.clear()
 
     def _build(self) -> None:
         build_navigation_panel(self)

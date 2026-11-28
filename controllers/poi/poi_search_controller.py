@@ -22,6 +22,7 @@ from controllers.navigation.position_snapshot_cache import (
 from controllers.poi.poi_enricher import enrich_poi
 from controllers.poi.poi_search_controller_if import PoiSearchControllerIf
 from controllers.poi.poi_search_source_if import PoiSearchBounds, PoiSearchQuery, PoiSearchSourceIf
+from controllers.poi.poi_selection_cache import PoiSelectionCache
 from controllers.poi.sqlite_poi_search_source import SqlitePoiSearchSource
 from protocols.map_renderer.map_poi_source import MapPoiSource, RawMapPoi
 from ui.navigation import GeoPoint
@@ -45,6 +46,7 @@ class PoiSearchController(PoiSearchControllerIf):
         *,
         search_source: PoiSearchSourceIf | None = None,
         position_provider: Callable[[], GeoPoint | None] | None = None,
+        selection_cache: PoiSelectionCache | None = None,
         viewport_search_enabled: Callable[[], bool] = lambda: True,
         marker_selection_source=None,
     ) -> None:
@@ -59,7 +61,17 @@ class PoiSearchController(PoiSearchControllerIf):
         self._active_category: PoiCategory | None = None
         self._pending_viewport_search: tuple[PoiCategory, TransitMode] | None = None
         self._pending_search_result: PoiSearchResult | None = None
-        self._visible_pois: tuple[PointOfInterest, ...] = ()
+        self._selection_cache = (
+            selection_cache if selection_cache is not None else PoiSelectionCache()
+        )
+
+    @property
+    def _visible_pois(self) -> tuple[PointOfInterest, ...]:
+        return self._selection_cache.pois
+
+    @_visible_pois.setter
+    def _visible_pois(self, pois: tuple[PointOfInterest, ...]) -> None:
+        self._selection_cache.pois = pois
 
     @diagnostic_action("search")
     def search(self, category: PoiCategory, transit_mode: TransitMode = TransitMode.ALL) -> None:
@@ -235,7 +247,7 @@ class PoiSearchController(PoiSearchControllerIf):
         try:
             result = self._offline_source().search(query)
             self._diagnostics.succeeded("database", self._search_operation_id)
-            return result
+            return tuple(enrich_poi(poi) for poi in result)
         except (sqlite3.Error, OSError) as error:
             self._diagnostics.failed("database", error, self._search_operation_id)
             self._visible_pois = ()

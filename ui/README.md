@@ -10,6 +10,18 @@ shared by applications, controllers, and concrete frontends. Code in this
 package must not import Tkinter, Qt, application composition, controllers, or
 hardware implementations.
 
+`ui.navigation.waze_request_handler_if.WazeRequestHandlerIf` supplies the semantic
+request for Navigation’s Waze toolbar action.
+
+`ui.media.browser_player_if.BrowserMediaPlayerIf` supplies toolkit-independent
+launch/stop requests for hosted browser surfaces, including the experimental
+[Waze Live Map](../docs/waze_live_map.md). Existing Tk import paths remain available.
+
+Text-entry state and requests live under `ui/input`; see the
+[text input foundation](../docs/text_input.md). Native/browser field adapters
+retain text ownership; UI requests carry session tokens rather than widget or
+process details.
+
 ## Dependency boundary
 
 <div class="orc-diagram-legend" aria-label="Architecture diagram legend">
@@ -99,7 +111,7 @@ Public methods in `*_if.py` modules document each parameter and non-`None`
 return value with Doxygen commands. From the repository root, run:
 
 ```bash
-venv/bin/python scripts/check_doxygen_contracts.py
+venv/bin/python ci/check_doxygen_contracts.py
 venv/bin/python -m unittest discover -s ui/unit_test -p 'test_*.py'
 doxygen Doxyfile
 ```
@@ -117,9 +129,14 @@ consumer, `WeatherOverlayControlsIf` adds request binding, and
 visibility/replay. `RadarUiState`, `RadarControlsIf` and
 `RadarRequestHandlerIf` provide the corresponding radar replay boundary.
 
+Navigation boundary outlines use immutable `BoundaryOverlayState` and
+`BoundaryRegionState` boundary-path snapshots. Coordinates are normalized radians and semantic
+emphasis is frontend-neutral; composition loads attributed geometry while the
+Cesium adapter owns line color, width, terrain clamping and cleanup.
+
 Weather controller tests exercise asynchronous lifecycle and cache behavior
 without Tk. Frontend contract tests exercise state consumption and request
-forwarding. CI runs `scripts/check_weather_ui_contracts.py` to reject weather
+forwarding. CI runs `ci/check_weather_ui_contracts.py` to reject weather
 provider/transport/thread imports in Tk weather views, backend-cache inspection,
 and GUI imports in weather controllers. Interface documentation checks remain a
 separate check; they do not substitute for this boundary enforcement.
@@ -152,7 +169,7 @@ user before implementation.
 Moving shared automotive, POI, radio, media, map, and launcher contract types
 removed 64 of the original 122 import exceptions. Navigation/POI construction
 cleanup removed another four. The platform launcher injection during master integration removed one more exception. The remaining 53 imports are
-listed exactly in `scripts/ui_boundary_exceptions.json`. Existing frontend portability is still incomplete. Their migration order is:
+listed exactly in `ci/ui_boundary_exceptions.json`. Existing frontend portability is still incomplete. Their migration order is:
 
 1. Spotify/media, streaming radio, and games: replace view-owned service calls,
    workers, polling, installation, and process lifecycle with state/request

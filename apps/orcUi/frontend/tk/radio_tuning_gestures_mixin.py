@@ -37,6 +37,13 @@ class RadioTuningGesturesMixin:
         if target != frequency:
             self._session.request(RadioRequest(RadioAction.TUNE_FREQUENCY, frequency_hz=target))
 
+    def rotate_tuning(self, direction: int) -> bool:
+        """Apply one hardware tuning step to the active RF receiver."""
+        if not self._state.receiver_running or self._state.view == "adsb":
+            return False
+        self._manual_tune(direction)
+        return True
+
     def _manual_tune(self, direction: int) -> None:
         """Use broadcast channel spacing for FM and profile steps otherwise."""
         state = self._state

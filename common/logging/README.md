@@ -257,7 +257,7 @@ ctest --test-dir build/logging --output-on-failure
 ```
 
 Native checks require CMake, pkg-config, spdlog, RapidJSON, libzmq, and cppzmq headers.
-Python tests also run through the existing `scripts/run_tests.py all` gate.
+Python tests also run through the existing `ci/run_tests.py all` gate.
 Repository administrators must add **Logging quality gate** to required branch
 checks if merge blocking is desired; editing a workflow does not change branch
 protection settings.

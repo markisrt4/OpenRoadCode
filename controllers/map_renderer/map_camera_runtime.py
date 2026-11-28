@@ -5,10 +5,12 @@
 
 from __future__ import annotations
 
+import logging
 import math
 from datetime import datetime
 from pathlib import Path
 
+from common.logging.structured import event
 from controllers.cache import PersistentCache
 from controllers.map_renderer.map_request_handler import MapRequestHandler
 from controllers.navigation.current_position import set_current_position
@@ -29,6 +31,7 @@ from messaging.zeromq import ZeroMqSubscriber
 from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
 from protocols.map_renderer.map_renderer_client import MapRendererClient
 from ui.navigation import GeoPoint, MapRequestHandlerIf
+from ui.navigation.location_sharing_if import LocationSnapshot
 
 _MIN_COURSE_UP_SPEED_M_S = 1.5
 _MIN_COURSE_POSITION_DELTA_M = 4.0
@@ -53,6 +56,9 @@ class MapCameraRuntime:
         initial_position = self._load_cached_center(DEFAULT_POSITION_CACHE_DIRECTORY)
         self._current_position = initial_position
         self._position_observers = []
+        self._location_observers = []
+        self._last_dispatch_error = None
+        self._logged_live_fix = False
         set_current_position(initial_position)
         self._handler = MapRequestHandler(
             self._renderer_client,
@@ -62,7 +68,10 @@ class MapCameraRuntime:
             follow_enabled=follow_enabled,
             camera_initialized=initial_position is not None,
         )
-        self._dispatcher = MessageDispatcher(ZeroMqSubscriber(LOCAL_SUBSCRIBER_ENDPOINT))
+        self._dispatcher = MessageDispatcher(
+            ZeroMqSubscriber(LOCAL_SUBSCRIBER_ENDPOINT),
+            error_handler=self._on_dispatch_error,
+        )
         self._dispatcher.register(
             POSITION_STATE_TOPIC,
             decode_position_state,
@@ -109,6 +118,11 @@ class MapCameraRuntime:
                 longitude=math.degrees(position.longitude_rad),
             )
 
+    def request_replay_map_presentation(self) -> None:
+        """Replay the last observed Navigation camera without changing its zoom."""
+        self._handler.refresh_renderer_state()
+        self.refresh_renderer_position()
+
     def start(self) -> None:
         """Start receiving navigation position and motion updates."""
         self._dispatcher.start()
@@ -120,6 +134,7 @@ class MapCameraRuntime:
         self._closed = True
         self._dispatcher.close()
         self._position_observers.clear()
+        self._location_observers.clear()
         self._renderer_client.close()
 
     @staticmethod
@@ -157,8 +172,24 @@ class MapCameraRuntime:
             and data.longitude_rad is not None
         ):
             live_point = GeoPoint(data.latitude_rad, data.longitude_rad, data.altitude_m)
+        if getattr(self, "_location_observers", ()):
+            snapshot = LocationSnapshot(
+                live_point,
+                message.timestamp.seconds + message.timestamp.nanoseconds / 1_000_000_000,
+                data.accuracy_m,
+                message.source,
+                data.is_cached,
+            )
+            for observer in tuple(self._location_observers):
+                try:
+                    observer(snapshot)
+                except Exception as error:
+                    self._on_dispatch_error("location.observer", error)
         for observer in tuple(self._position_observers):
-            observer(live_point)
+            try:
+                observer(live_point)
+            except Exception as error:
+                self._on_dispatch_error("position.observer", error)
         if data.latitude_rad is None or data.longitude_rad is None:
             return
 
@@ -193,6 +224,31 @@ class MapCameraRuntime:
             latitude=math.degrees(data.latitude_rad),
             longitude=math.degrees(data.longitude_rad),
         )
+        if live_point is not None and not getattr(self, "_logged_live_fix", False):
+            self._logged_live_fix = True
+            event(
+                logging.getLogger("map_renderer.position"),
+                logging.INFO,
+                "position.received",
+                "Map accepted its first live position",
+                fix_mode=data.fix_mode,
+                following=self._handler.follow_enabled,
+            )
+
+    def _on_dispatch_error(self, topic, error):
+        key = (topic, type(error).__name__, str(error))
+        if key == self._last_dispatch_error:
+            return
+        self._last_dispatch_error = key
+        event(
+            logging.getLogger("map_renderer.position"),
+            logging.WARNING,
+            "position.dispatch_failed",
+            "Map position dispatch failed",
+            topic=topic,
+            exception_type=type(error).__name__,
+            reason=str(error),
+        )
 
     def observe_position(self, observer):
         """Subscribe to live SI positions; None indicates unavailable/cached data.
@@ -200,6 +256,12 @@ class MapCameraRuntime:
         Consumers receive future fixes only, not a cached startup position.
         """
         self._position_observers.append(observer)
+
+    def observe_location(self, observer):
+        """Supply timestamped location metadata for freshness and sharing policy."""
+        self._location_observers.append(observer)
+        if self._current_position is not None:
+            observer(LocationSnapshot(self._current_position, source="cache", is_cached=True))
 
     def _on_manual_camera_interaction(self, _payload) -> None:
         """Suspend follow when the user directly manipulates the native map."""

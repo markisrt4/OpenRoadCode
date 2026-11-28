@@ -91,7 +91,7 @@ class RadioPanel(
             ui=ui, native_sdrforge=native_sdrforge, theme=theme, visualization=visualization
         )
 
-    def _resize_receiver_sidebar(self, event: tk.Event) -> None:
+    def _resize_receiver_sidebar(self, event: tk.Event[tk.Misc]) -> None:
         """Keep the waterfall dominant as the radio panel is resized."""
         if event.widget is not self or self._receiver_controls is None or not self._plots_visible:
             return
@@ -465,7 +465,7 @@ class RadioPanel(
         self._session.request(RadioRequest(RadioAction.REFRESH))
         self._telemetry_after_id = self.after(500, self._schedule_telemetry_refresh)
 
-    def _on_host_resize(self, event: tk.Event) -> None:
+    def _on_host_resize(self, event: tk.Event[tk.Misc]) -> None:
         if self._sdrforge_view is not None:
             return
         self._session.request(

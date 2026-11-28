@@ -57,6 +57,53 @@ class HostSetupPlanTests(unittest.TestCase):
                 check=False,
             )
 
+    def test_pi5_waydroid_plan_resolves_desktop_and_android_dependencies(self) -> None:
+        result = self.run_installer(
+            "--target",
+            "rpi5",
+            "--no-default-features",
+            "--feature",
+            "waydroid",
+            "--show-plan",
+            architecture="arm64",
+            model="Raspberry Pi 5 Model B",
+            distribution="debian",
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        for dependency in ("waydroid", "android-integration", "desktop-ui"):
+            self.assertIn(dependency, result.stdout)
+        self.assertIn("Plan only; no system changes were made.", result.stdout)
+
+    def test_waydroid_system_packages(self) -> None:
+        result = subprocess.run(
+            [
+                "bash",
+                "-c",
+                'source "$1"; get_feature_packages waydroid; get_feature_packages android-integration',
+                "feature-test",
+                str(FEATURES),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual({"weston", "adb", "scrcpy"}, set(result.stdout.split()))
+
+    def test_pi4_rejects_explicit_waydroid_selection(self) -> None:
+        result = self.run_installer(
+            "--target",
+            "rpi4",
+            "--feature",
+            "waydroid",
+            "--show-plan",
+            architecture="arm64",
+            model="Raspberry Pi 4 Model B",
+            distribution="debian",
+        )
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("Waydroid requires a Pi 5 or Linux desktop target", result.stderr)
+
     def test_desktop_plan_leaves_native_radio_optional(self) -> None:
         result = self.run_installer(
             "--target", "linux-dev", "--feature", "desktop-ui", "--show-plan"
@@ -117,6 +164,58 @@ class HostSetupPlanTests(unittest.TestCase):
 
         self.assertNotEqual(0, result.returncode)
         self.assertIn("--target is required", result.stderr)
+
+    def test_shutdown_button_plan_resolves_physical_pin_to_bcm(self) -> None:
+        result = self.run_installer(
+            "--target",
+            "rpi5",
+            "--shutdown-button-pin",
+            "11",
+            "--show-plan",
+            model="Raspberry Pi 5 Model B",
+            architecture="arm64",
+        )
+
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn("physical pin 11 (BCM GPIO17)", result.stdout)
+
+    def test_shutdown_button_rejects_i2c_clock_pin(self) -> None:
+        result = self.run_installer(
+            "--target",
+            "rpi5",
+            "--shutdown-button-pin",
+            "5",
+            "--show-plan",
+            model="Raspberry Pi 5 Model B",
+            architecture="arm64",
+        )
+
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("reserved for I2C", result.stderr)
+
+    def test_shutdown_button_overlay_is_global_and_idempotent(self) -> None:
+        with TemporaryDirectory() as directory:
+            config = Path(directory) / "config.txt"
+            config.write_text(
+                "[all]\ndtparam=i2c_arm=on\ndtoverlay=gpio-shutdown\n"
+                "[pi4]\ndtoverlay=gpio-shutdown,gpio_pin=27\nfoo=1\n",
+                encoding="utf-8",
+            )
+            command = [
+                "python3",
+                str(INSTALLER.with_name("configure_shutdown_button.py")),
+                "11",
+                "--config",
+                str(config),
+            ]
+            subprocess.run(command, check=True)
+            expected = (
+                "[all]\ndtparam=i2c_arm=on\n[pi4]\nfoo=1\n\n"
+                "[all]\ndtoverlay=gpio-shutdown,gpio_pin=17,active_low=1,gpio_pull=up\n"
+            )
+            self.assertEqual(expected, config.read_text(encoding="utf-8"))
+            subprocess.run(command, check=True)
+            self.assertEqual(expected, config.read_text(encoding="utf-8"))
 
     def test_termux_all_features_plan_is_supported_and_scoped(self) -> None:
         with TemporaryDirectory() as temp_dir:

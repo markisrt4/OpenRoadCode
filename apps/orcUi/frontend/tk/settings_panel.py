@@ -111,7 +111,7 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
             pages.append(("receivers", "RF RECEIVERS"))
         pages.extend((("rf", "RF DISPLAY"), ("media", "MEDIA")))
         if audio_settings is not None:
-            pages.append(("audio", "AUDIO"))
+            pages.append(("audio", "AUDIO / BLUETOOTH"))
         for row, (page, title) in enumerate(pages):
             button = tk.Button(
                 page_nav,
@@ -358,6 +358,10 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
             self._settings_pages["audio"] = (self._audio_settings_panel,)
         self._show_settings_page("display")
 
+    def show_bluetooth(self) -> None:
+        if "audio" in self._settings_pages:
+            self._show_settings_page("audio")
+
     def _show_settings_page(self, page: str) -> None:
         for frames in self._settings_pages.values():
             for frame in frames:
@@ -390,7 +394,9 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
 
     def set_host_location_state(self, state: HostLocationState) -> None:
         self._host_location_state = state
-        self._location_status.set(state.status)
+        self._location_status.set(
+            "\n".join(filter(None, (state.location_status, state.android_status, state.status)))
+        )
         self._location_button.configure(
             text="RESTART LOCATION SERVICE" if state.can_restart else "SHARE HOST LOCATION",
             state=tk.DISABLED
@@ -399,6 +405,10 @@ class SettingsPanel(RfSettingsMixin, tk.Frame, UiWidget):
             or self._location_handler is None
             else tk.NORMAL,
         )
+        if state.sharing and not state.can_restart:
+            self._location_button.grid_remove()
+        else:
+            self._location_button.grid()
 
     @property
     def vehicle_configuration(self) -> VehicleConfiguration:

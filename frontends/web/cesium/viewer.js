@@ -10,7 +10,10 @@
   let snapshot;
   let tiledMap;
   let imageryStack;
+  let imageryPyramids;
+  let boundaryOverlay;
   let roadOverlay;
+  let mapLayers;
   let poiOverlay;
   let routeOverlay;
   let terrainHillshade;
@@ -63,12 +66,25 @@
       contextOptions:{webgl:{powerPreference:'high-performance'}}
     });
     window.ORCViewerStage = 'local-layers';
-    const terrain = snapshot.terrain ? window.ORCLocalTerrain(snapshot.terrain,C) : null;
+    window.ORCViewerStage = 'reference-globe';
+    await window.ORCReferenceGlobeLayer(viewer,C);
+    if (closing || viewer.isDestroyed()) return;
+    const terrain = snapshot.terrain ? window.ORCLocalTerrain(snapshot.terrain,C,
+      [snapshot.longitude_rad,snapshot.latitude_rad]) : null;
+    window.ORCViewerStage = 'terrain-data';
+    // Start the globe and controls while the nearby elevation mesh loads.
+    // A detailed mesh is not a prerequisite for the first interactive frame.
+    const terrainReady = terrain ? terrain.ready.then(() => true, error => {
+      status.hidden = false;
+      status.textContent = 'Terrain detail unavailable: '+error.message;
+      return false;
+    }) : Promise.resolve(false);
     if (terrain) {
       terrain.setScale(viewer, snapshot.terrain_scale);
       terrain.setVisible(viewer, snapshot.terrain_visible);
     }
     viewer.scene.globe.baseColor = C.Color.fromCssColorString('#174963');
+    boundaryOverlay=window.ORCBoundaryOverlay(viewer,snapshot.boundary_overlay,C);
     const groundHeight = terrain ? terrain.heightAt(snapshot.longitude_rad,snapshot.latitude_rad) : 0;
     let target = C.Cartesian3.fromRadians(snapshot.longitude_rad, snapshot.latitude_rad,groundHeight+3);
     document.getElementById('destination').textContent = snapshot.label;
@@ -80,25 +96,6 @@
       label:{text:snapshot.label,font:'bold 16px sans-serif',pixelOffset:new C.Cartesian2(0,-26),
         fillColor:C.Color.WHITE,showBackground:true,backgroundColor:C.Color.BLACK.withAlpha(.8),
         backgroundPadding:new C.Cartesian2(7,5),disableDepthTestDistance:Number.POSITIVE_INFINITY}});
-    const references = new C.CustomDataSource('references');
-    references.show = snapshot.references_visible;
-    viewer.dataSources.add(references);
-    function rebuildReferences() {
-      references.entities.removeAll();
-      // Procedural geographic grid: no imagery, terrain service, or building data.
-      for (let lat = -60; lat <= 60; lat += 30) {
-        const points = [];
-        for (let lon = -180; lon <= 180; lon += 3) points.push(C.Cartesian3.fromDegrees(lon,lat));
-        references.entities.add({polyline:{positions:points,width:1,material:C.Color.WHITE.withAlpha(.18)}});
-      }
-      for (let lon = -180; lon < 180; lon += 30) {
-        const points = [];
-        for (let lat = -90; lat <= 90; lat += 3) points.push(C.Cartesian3.fromDegrees(lon,lat));
-        references.entities.add({polyline:{positions:points,width:1,material:C.Color.WHITE.withAlpha(.18)}});
-      }
-      window.ORCCesiumReferences(viewer, snapshot, C, terrain?.heightAt, references.entities);
-    }
-    rebuildReferences();
     const buildings = snapshot.buildings
       ? window.ORCLocalBuildings(viewer, snapshot.buildings, C, terrain?.heightAt)
       : null;
@@ -176,7 +173,7 @@
       viewer.scene.requestRender();
     };
     window.ORCExplorationCamera = action => {
-      if (action === 'recenter') { reset(); return true; }
+      if (action === 'recenter' || action === 'reset') { reset(); return true; }
       if (action === 'dimension') {
         const tilt = viewer.camera.pitch+Math.PI/2;
         tilted = tilt < .001;
@@ -220,7 +217,7 @@
     const terrainCues = terrain ? window.ORCTerrainCues(viewer,C) : null;
     terrainHillshade = terrain ? window.ORCTerrainHillshade(viewer,snapshot.terrain,C,error=>{
       status.hidden=false;status.textContent='Terrain hillshade unavailable: '+error.message;
-    }) : null;
+    },terrain.loadTile) : null;
     let cuesVisible = Boolean(snapshot.terrain_shading_visible);
     cuesButton.disabled = !terrain || !terrainVisible;
     function updateTerrain() {
@@ -233,7 +230,6 @@
       target = C.Cartesian3.fromRadians(snapshot.longitude_rad, snapshot.latitude_rad,
         terrain.heightAt(snapshot.longitude_rad,snapshot.latitude_rad)+3);
       destinationMarker.position = target;
-      rebuildReferences();
       buildings?.refreshGround();
       tiledMap?.refreshGround();
       roadOverlay?.refreshGround();
@@ -255,12 +251,14 @@
     }
     if (terrain) {
       terrainButton.onclick = () => { terrainVisible = !terrainVisible; updateTerrain(); };
-      scaleButton.onclick = () => {terrainScale=terrainScale%3+1; updateTerrain();};
+      scaleButton.onclick = () => {terrainScale=terrainScale%4+1; updateTerrain();};
       cuesButton.onclick = () => {cuesVisible=!cuesVisible;updateTerrain();};
       updateTerrain();
+      terrainReady.then(ready => {
+        if (ready && !closing && !viewer.isDestroyed()) updateTerrain();
+      });
     }
     bindVisibility('buildings', tiledMap || buildings?.source);
-    bindVisibility('references', references);
     reset();
     const imageCoverage = snapshot.imagery_layers?.[0] || snapshot.imagery || (snapshot.map_tiles?.tiles.some(t=>t.imagery_url) ? snapshot.map_tiles.coverage : null);
     const insideImagery = imageCoverage && snapshot.longitude_rad >= imageCoverage.west_rad
@@ -273,46 +271,63 @@
     const coverageLabel = outsideTiles ? 'Selected place outside installed 3D coverage · '
       : imageCoverage && !insideImagery ? 'Selected place outside installed imagery coverage · ' : '';
     const terrainTiles = snapshot.terrain?.tiles || (snapshot.terrain ? [snapshot.terrain] : []);
-    const terrainLabel = terrain ? `relative relief (${terrainTiles.length} grid${terrainTiles.length===1?'':'s'})` : 'terrain not installed';
+    const terrainLabel = terrain ? snapshot.terrain?.page_url ? 'relative relief (nearby grids loaded on demand)' : `relative relief (${terrainTiles.length} grid${terrainTiles.length===1?'':'s'})` : 'terrain not installed';
     status.textContent = `Offline reference globe · imagery not installed · ${terrainLabel} · ${buildingLabel}`;
     if (tiledMap) {
       status.textContent = `Offline · ${coverageLabel}${snapshot.map_tiles.coverage.title} · ${terrainLabel} · ${buildingLabel}`;
       tiledMap.update();
     }
-    if (snapshot.imagery_layers?.length) {
-      imageryStack = await window.ORCLocalImageryLayers(viewer,snapshot.imagery_layers,C,(error,layer)=>{
-        status.hidden=false;
-        status.textContent='Imagery layer unavailable: '+layer.title+' · '+error.message;
-      });
-      if (!/unavailable/i.test(status.textContent)) status.textContent = `Offline · ${snapshot.imagery_layers[0].title} + ${snapshot.imagery_layers.length-1} detail packs · ${terrainLabel} · ${buildingLabel}`;
-    } else if (snapshot.imagery) {
-      const layer = snapshot.imagery;
-      try {
-        const provider = await C.SingleTileImageryProvider.fromUrl(layer.url, {
-          rectangle:C.Rectangle.fromRadians(layer.west_rad,layer.south_rad,layer.east_rad,layer.north_rad),
-          credit:layer.attribution
+    imageryPyramids = window.ORCImageryPyramids(viewer,snapshot.imagery_pyramids || [],C);
+    if(snapshot.imagery_pyramids?.length) status.textContent = `Offline · Detail imagery installed · ${terrainLabel} · ${buildingLabel}`;
+
+    // Optional imagery must not hold the first interactive globe frame hostage.
+    async function loadImagery() {
+      if (snapshot.imagery_layers?.length) {
+        imageryStack = await window.ORCLocalImageryLayers(viewer,snapshot.imagery_layers,C,(error,layer)=>{
+          status.hidden=false;
+          status.textContent='Imagery layer unavailable: '+layer.title+' · '+error.message;
         });
         if (closing || viewer.isDestroyed()) return;
-        // A transparent global base prevents Cesium stretching the first
-        // bounded image layer across uncovered parts of the globe.
-        viewer.imageryLayers.addImageryProvider(new C.GridImageryProvider({
-          color:C.Color.TRANSPARENT, glowColor:C.Color.TRANSPARENT,
-          backgroundColor:C.Color.TRANSPARENT, cells:1
-        }));
-        viewer.imageryLayers.addImageryProvider(provider);
-        viewer.scene.requestRender();
-        status.textContent = `Offline · ${coverageLabel}${layer.title} · ${terrainLabel} · ${buildingLabel}`;
-      } catch (error) {
-        if (!closing) status.textContent = 'Imagery unavailable: '+error.message+' · reference globe remains usable';
+        if (!/unavailable/i.test(status.textContent)) status.textContent = `Offline · ${snapshot.imagery_layers[0].title} + ${snapshot.imagery_layers.length-1} detail packs · ${terrainLabel} · ${buildingLabel}`;
+      } else if (snapshot.imagery) {
+        const layer = snapshot.imagery;
+        try {
+          const provider = await C.SingleTileImageryProvider.fromUrl(layer.url, {
+            rectangle:C.Rectangle.fromRadians(layer.west_rad,layer.south_rad,layer.east_rad,layer.north_rad),
+            credit:layer.attribution
+          });
+          if (closing || viewer.isDestroyed()) return;
+          // A real opaque image layer prevents bounded-image stretching and gives
+          // transparent no-data pixels a reliable blue surface to composite onto.
+          await window.ORCReferenceGlobeLayer(viewer,C);
+          if (closing || viewer.isDestroyed()) return;
+          viewer.imageryLayers.addImageryProvider(provider);
+          viewer.scene.requestRender();
+          status.textContent = `Offline · ${coverageLabel}${layer.title} · ${terrainLabel} · ${buildingLabel}`;
+        } catch (error) {
+          if (!closing) status.textContent = 'Imagery unavailable: '+error.message+' · reference globe remains usable';
+        }
       }
     }
+    loadImagery().catch(error => {
+      if (!closing && !viewer.isDestroyed()) {
+        status.hidden = false;
+        status.textContent = 'Imagery unavailable: '+error.message+' · reference globe remains usable';
+      }
+    });
+    window.ORCViewerStage = 'map-controls';
+    mapLayers=window.ORCMapLayers(viewer,snapshot,document);
+    window.ORCMapLayerState=()=>mapLayers.state();
+    window.ORCMapLayerAction=action=>mapLayers.request(action);
   } catch (error) {
     window.ORCViewerError = error.message;
     status.textContent = 'Unable to render: '+error.message+' — use Return to ORC or the window close button';
   }
   if (viewer && !window.ORCViewerError) {
+    window.ORCViewerStage = 'waiting-first-frame';
+    // A rendered frame makes the view usable while terrain/imagery stream in.
+    // globe.tilesLoaded waits for every visible tile and is not a startup gate.
     const remove = viewer.scene.postRender.addEventListener(() => {
-      if (!viewer.scene.globe.tilesLoaded) return;
       remove();
       setTimeout(() => {
         if (!viewer.isDestroyed() && !window.ORCViewerError) {
@@ -330,5 +345,5 @@
     if (!/unavailable|Unable|stopped/i.test(statusText.textContent)) statusText.hidden = true;
     document.getElementById('tiles-status').hidden = true;
   }
-  window.addEventListener('pagehide', () => { roadOverlay?.destroy(); terrainHillshade?.destroy(); imageryStack?.destroy(); tiledMap?.destroy(); if (viewer && !viewer.isDestroyed()) viewer.destroy(); });
+  window.addEventListener('pagehide', () => { mapLayers?.destroy(); roadOverlay?.destroy(); terrainHillshade?.destroy(); boundaryOverlay?.destroy(); imageryPyramids?.destroy(); imageryStack?.destroy(); tiledMap?.destroy(); if (viewer && !viewer.isDestroyed()) viewer.destroy(); });
 })();

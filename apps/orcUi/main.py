@@ -7,12 +7,14 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 import threading
 import time
 from collections.abc import Callable
 from typing import TextIO
 
+from apps.orcUi.runtime_features import RuntimeFeatures, add_runtime_arguments
 from common.logging.structured import configure_logging, event
 from common.logging.viewer import follow
 
@@ -66,14 +68,17 @@ def main(*, startup_started_at: float | None = None) -> None:
     parser.add_argument(
         "--check-ecu-gl", action="store_true", help="Check the ECU OpenGL renderer and exit"
     )
+    add_runtime_arguments(parser)
     args = parser.parse_args()
+    features = RuntimeFeatures.resolve(args, os.environ)
+    features.apply(os.environ)
+    if args.check_ecu_gl and os.environ.get("ORC_NO_OPENGL") == "1":
+        parser.error("--check-ecu-gl requires OpenGL")
     if args.check_ecu_gl:
         from apps.orcUi.frontend.tk.ecu_gl_diagnostics import main as check_ecu_gl
 
         raise SystemExit(check_ecu_gl())
     if args.log_level:
-        import os
-
         os.environ["ORC_LOG_LEVEL"] = args.log_level
     store = configure_logging(level=args.log_level, stderr=False)
     logger = logging.getLogger("orc.lifecycle")

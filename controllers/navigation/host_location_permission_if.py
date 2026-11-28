@@ -23,3 +23,10 @@ class HostLocationPermissionIf(Protocol):
         @param cancelled Callback reporting obsolete lifecycle work.
         """
         ...
+
+    def restore_if_running(self, cancelled: Callable[[], bool]) -> None:
+        """Reconnect an existing permission page without opening another window.
+
+        @param cancelled Callback reporting obsolete lifecycle work.
+        """
+        ...

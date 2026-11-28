@@ -4,9 +4,11 @@
 """Tests for toolkit-independent system volume request handling."""
 
 import unittest
+from tempfile import TemporaryDirectory
 from unittest.mock import Mock
 
-from controllers.audio.system_volume_handler import SystemVolumeHandler
+from controllers.audio.system_volume_handler import VOLUME_CACHE_KEY, SystemVolumeHandler
+from controllers.cache import PersistentCache
 
 
 class SystemVolumeHandlerTest(unittest.TestCase):
@@ -83,6 +85,53 @@ class SystemVolumeHandlerTest(unittest.TestCase):
 
         self.audio.toggle_mute.assert_not_called()
         self.ui.set_muted.assert_called_once_with(True)
+
+    def test_rotation_persists_level_and_new_handler_restores_it_at_startup(self) -> None:
+        with TemporaryDirectory() as directory:
+            self.audio.volume_down.return_value = 7
+            first = SystemVolumeHandler(
+                audio_controller=self.audio, volume_ui=self.ui, cache=PersistentCache(directory)
+            )
+            first.request_volume_down()
+
+            self.audio.maximum_level = 100
+            self.audio.set_volume_level.return_value = 35
+            self.audio.is_muted.return_value = True
+            restored_ui = Mock()
+            second = SystemVolumeHandler(
+                audio_controller=self.audio, volume_ui=restored_ui, cache=PersistentCache(directory)
+            )
+            second.refresh(restore_cached=True)
+
+        self.audio.set_volume_level.assert_called_once_with(35)
+        self.audio.toggle_mute.assert_not_called()
+        restored_ui.set_volume.assert_called_once_with(35.0)
+        restored_ui.set_muted.assert_called_once_with(True)
+
+    def test_failed_restore_reads_the_current_level_and_keeps_saved_value(self) -> None:
+        cache = Mock()
+        cache.get.return_value = b"0"
+        self.audio.set_volume_level.side_effect = OSError("offline")
+        self.audio.get_volume_level.return_value = 8
+        handler = SystemVolumeHandler(audio_controller=self.audio, volume_ui=self.ui, cache=cache)
+
+        handler.refresh(restore_cached=True)
+
+        self.audio.set_volume_level.assert_called_once_with(0)
+        self.ui.set_volume.assert_called_once_with(40.0)
+        cache.put.assert_not_called()
+
+    def test_invalid_saved_volume_leaves_the_current_level_in_place(self) -> None:
+        cache = Mock()
+        cache.get.return_value = b"nan"
+        self.audio.get_volume_level.return_value = 8
+        handler = SystemVolumeHandler(audio_controller=self.audio, volume_ui=self.ui, cache=cache)
+
+        handler.refresh(restore_cached=True)
+
+        cache.get.assert_called_once_with(VOLUME_CACHE_KEY)
+        self.audio.set_volume_level.assert_not_called()
+        self.ui.set_volume.assert_called_once_with(40.0)
 
 
 if __name__ == "__main__":

@@ -44,6 +44,8 @@ def selected_music_visualizer_source() -> MusicVisualizerSource:
     The simulated source remains the safe default so Android/Termux does not
     accidentally try to start a PipeWire backend that is unavailable there.
     """
+    if os.environ.get("ORC_NO_AUDIO") == "1":
+        return MusicVisualizerSource.SIMULATED
     raw = os.getenv("OPENROAD_MUSIC_VISUALIZER_SOURCE", MusicVisualizerSource.SIMULATED.value)
     try:
         return MusicVisualizerSource(raw.strip().lower())
@@ -56,6 +58,8 @@ def selected_music_visualizer_source() -> MusicVisualizerSource:
 
 def selected_native_visualizer_source() -> MusicVisualizerSource:
     """Prefer consented phone playback on Termux unless explicitly overridden."""
+    if os.environ.get("ORC_NO_AUDIO") == "1":
+        return MusicVisualizerSource.SIMULATED
     android = (
         os.getenv("TERMUX_VERSION")
         or os.getenv("ANDROID_ROOT")
@@ -87,7 +91,7 @@ def create_music_visualizer_session(
 ) -> MusicVisualizerSession | None:
     """Create the selected real-audio session, or None for simulation."""
     selected = source or selected_music_visualizer_source()
-    if selected is MusicVisualizerSource.SIMULATED:
+    if os.environ.get("ORC_NO_AUDIO") == "1" or selected is MusicVisualizerSource.SIMULATED:
         return None
 
     target = os.getenv("OPENROAD_MUSIC_VISUALIZER_PIPEWIRE_TARGET") or None

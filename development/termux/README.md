@@ -380,3 +380,28 @@ executable is replaced. No map-data download is needed.
 ### Native SDRForge radio
 
 Install with the `sdrforge` feature. Android grants USB permission and hands off the device to the native Termux RF service. ORC consumes REST on port 5570, ZeroMQ on 5571 and Rigctl on 4532. No Debian proot RF build is required.
+
+### Legacy SDR++ build compatibility
+
+The launcher forwards `PULSE_SERVER` into Debian, defaulting to
+`tcp:127.0.0.1:4713`. The Termux PulseAudio bridge must be running and listening
+on that endpoint before RF playback. ORC does not start or install that service
+automatically. An audio connection refusal must be resolved before treating a
+native audio-sink crash as a RigCTL or embedding failure.
+
+New SDR++ installations use Debian's
+`/root/.local/state/openroadcode/build/SDRPlusPlus`. The ORC launcher, its theme
+configuration writer, and `development/termux/run_sdrpp.sh` also support older
+builds at `/root/SDRPlusPlus`: when the default managed executable is absent and
+an executable legacy build exists, they use the legacy build and its `root_dev`
+configuration. The check runs inside Debian rather than against Termux's filesystem.
+An explicitly configured non-default directory is preserved. No checkout is moved
+or rebuilt; the setup script continues creating managed installations and refuses
+to modify unmanaged source trees. A compatibility symlink remains supported.
+
+### Browser executable names
+
+The browser environment check accepts `chromium-browser`, `chromium`, or
+`google-chrome`, in the same order as the browser launcher. A package named
+`chromium` may install an executable named `chromium-browser`; no alias or
+reinstallation is required when one of these commands exists.

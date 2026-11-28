@@ -401,10 +401,12 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
             self._video_button.grid(row=0, column=1, padx=6)
         self._video_button.configure(state=tk.DISABLED, font=("Sans", 13, "bold"))
         self._youtube_icon = tk.PhotoImage(master=self, width=18, height=12)
-        self._youtube_icon.put("#ff0033", to=(0, 0, 18, 12))
+        red_row = "{" + " ".join(["#ff0033"] * 18) + "}"
+        self._youtube_icon.put(" ".join([red_row] * 12), to=(0, 0))
         for row in range(3, 10):
             reach = max(1, 5 - abs(row - 6))
-            self._youtube_icon.put("#ffffff", to=(6, row, 6 + reach, row + 1))
+            white_row = "{" + " ".join(["#ffffff"] * reach) + "}"
+            self._youtube_icon.put(white_row, to=(6, row))
         self._video_button.configure(image=self._youtube_icon, compound=tk.LEFT)
 
         self._label(
@@ -537,7 +539,7 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
             highlightthickness=0,
         )
 
-    def _on_content_configure(self, event: tk.Event) -> None:
+    def _on_content_configure(self, event: tk.Event[tk.Misc]) -> None:
         self._fit_track_title(max(1, event.width))
 
     def _fit_track_title(self, available_width: int | None = None) -> None:
@@ -661,7 +663,7 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
         self._lyrics_current_var.set(current)
         self._lyrics_next_var.set(following)
 
-    def _on_card_configure(self, event: tk.Event) -> None:
+    def _on_card_configure(self, event: tk.Event[tk.Misc]) -> None:
         width, height = max(1, event.width), max(1, event.height)
         previous_width, previous_height = self._album_art_size
         if abs(width - previous_width) < 64 and abs(height - previous_height) < 64:
@@ -694,7 +696,7 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
         self._track_label.configure(fg=album_art_accent(source))
         self._album_art_label.lower()
 
-    def _on_progress_click(self, event: tk.Event) -> None:
+    def _on_progress_click(self, event: tk.Event[tk.Misc]) -> None:
         state = self._state
         if state is None or state.duration_s is None or state.duration_s <= 0:
             return

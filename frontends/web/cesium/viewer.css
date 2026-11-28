@@ -32,3 +32,6 @@ body.embedded footer {bottom:18px;left:4px;right:auto;max-width:calc(100% - 16px
 body.embedded #zoom-in, body.embedded #zoom-out,
 body.embedded .pan-controls, body.embedded #pitch-up, body.embedded #pitch-down,
 body.embedded #north, body.embedded #tilt { display: none; }
+
+/* Embedded mode is controlled exclusively by the ORC-owned drawer. */
+body.embedded #controls-toggle, body.embedded nav { display:none !important; }
