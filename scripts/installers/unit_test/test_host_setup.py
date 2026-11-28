@@ -288,7 +288,7 @@ class HostSetupPlanTests(unittest.TestCase):
         self.assertIn("VNC service setup:     0", result.stdout)
         self.assertIn("GPSD service setup:    0", result.stdout)
 
-    def test_raspberry_pi_5_plan_selects_lgpio_backend(self) -> None:
+    def test_raspberry_pi_5_plan_selects_lgpio_and_imu_support(self) -> None:
         result = self.run_installer(
             "--target",
             "rpi5",
@@ -300,6 +300,7 @@ class HostSetupPlanTests(unittest.TestCase):
 
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertIn("GPIO backend:          rpi-lgpio", result.stdout)
+        self.assertRegex(result.stdout, r"Features:[^\n]*\bimu\b")
 
     def test_noninteractive_target_mismatch_is_rejected(self) -> None:
         result = self.run_installer(

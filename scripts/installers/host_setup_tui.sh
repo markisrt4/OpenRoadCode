@@ -226,12 +226,17 @@ while true; do
       navigation_options=(
         "navigation|Native MapLibre and Valhalla navigation stack"
         "gps|GPS daemon and Python support"
-        "imu|MPU-6050 inertial sensor support"
       )
+      navigation_prompt="Select navigation software and positioning hardware:"
+      if [[ "$SELECTED_TARGET" == rpi5 ]]; then
+        navigation_prompt="Select navigation options. The MPU-6050 driver is included with Pi 5 setup."
+      else
+        navigation_options+=("imu|MPU-6050 inertial sensor support")
+      fi
       if [[ "$SELECTED_TARGET" == rpi5 || "$SELECTED_TARGET" == linux-dev ]]; then
         navigation_options+=("waydroid|Waydroid for native Waze/apps (kernel/repository required; app installed separately)")
       fi
-      choose_features "Navigation" "Select navigation software and positioning hardware:" "$SELECTED_NAVIGATION" \
+      choose_features "Navigation" "$navigation_prompt" "$SELECTED_NAVIGATION" \
         "${navigation_options[@]}" && SELECTED_NAVIGATION="$SELECTED_RESULT"
       ;;
     environmental) choose_features "Environmental" "Select environmental capabilities:" "$SELECTED_ENVIRONMENTAL" \

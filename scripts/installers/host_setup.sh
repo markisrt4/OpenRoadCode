@@ -284,7 +284,7 @@ FEATURES=()
 if (( INSTALL_ALL_FEATURES )); then mapfile -t FEATURES < <(get_all_features_for_target "$TARGET"); elif (( USE_DEFAULT_FEATURES )); then FEATURES=(base); fi
 case "$TARGET" in
   rpi4) GPIO_BACKEND="RPi.GPIO"; append_feature raspberry-pi ;;
-  rpi5) GPIO_BACKEND="rpi-lgpio"; append_feature raspberry-pi ;;
+  rpi5) GPIO_BACKEND="rpi-lgpio"; append_feature raspberry-pi; append_feature imu ;;
   linux-dev|termux) GPIO_BACKEND="" ;;
 esac
 : "${RUN_VNC:=0}"

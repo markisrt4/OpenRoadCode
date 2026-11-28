@@ -321,8 +321,9 @@ controls, then launch with `./runOrcUi`. The stock device list assigns
 `0x36` to volume and `0x37` to screen controls with that setting. The screen
 knob tunes an active RF receiver or zooms the Navigation map. Use
 `ORC_ROTARY_ENCODERS=0x36,0x37` for a temporary address override, with volume
-first. Encoder clicks are unused. The navigation service reads the MPU-6050
-separately and publishes its readings for ORC.
+first. Encoder clicks are unused. Pi 5 host setup includes the MPU-6050
+driver. Select Navigation's **Device Hardware** profile to read the sensor
+and publish its readings for ORC. That profile also selects gpsd for GPS.
 ORC saves the last volume set by its controls and restores it at startup.
 The system mute state is preserved.
 
