@@ -5,9 +5,9 @@
 """Configure the Raspberry Pi firmware shutdown-button overlay."""
 
 import argparse
-from pathlib import Path
 import re
 import sys
+from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 # The host installer runs this script before the project environment exists.
@@ -19,9 +19,7 @@ from hardware_io.gpio import RpiGpioHeader  # noqa: E402
 def shutdown_gpio(physical_pin: int) -> int:
     bcm = RpiGpioHeader.bcm_from_physical_pin(physical_pin)
     if bcm in {0, 1, 2, 3}:
-        raise ValueError(
-            f"Physical pin {physical_pin} is reserved for I2C or HAT identification"
-        )
+        raise ValueError(f"Physical pin {physical_pin} is reserved for I2C or HAT identification")
     return bcm
 
 
@@ -30,7 +28,8 @@ def update_config(path: Path, bcm: int) -> None:
     original = path.read_text(encoding="utf-8")
     overlay = f"dtoverlay=gpio-shutdown,gpio_pin={bcm},active_low=1,gpio_pull=up"
     lines = [
-        line for line in original.splitlines()
+        line
+        for line in original.splitlines()
         if not re.match(r"\s*dtoverlay\s*=\s*gpio-shutdown\s*(?:,|#|$)", line)
     ]
     sections = [line.strip() for line in lines if re.match(r"\s*\[", line)]
@@ -41,9 +40,7 @@ def update_config(path: Path, bcm: int) -> None:
     if updated == original:
         return
 
-    with NamedTemporaryFile(
-        mode="w", encoding="utf-8", dir=path.parent, delete=False
-    ) as temporary:
+    with NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent, delete=False) as temporary:
         temporary_path = Path(temporary.name)
         try:
             temporary.write(updated)

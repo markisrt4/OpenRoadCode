@@ -5,8 +5,8 @@ import sys
 from unittest.mock import Mock, patch
 
 import pytest
-
 from apps.orcUi.composition.power_button import create_power_button
+
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 
 
@@ -16,9 +16,12 @@ def test_gpio_press_queues_existing_dialog_and_release_does_nothing():
     app._closing = False
     app._power_dialog = Mock()
     pending = []
-    with patch.dict(sys.modules, {
-        "hardware_io.buttons.rpi_gpio_push_button": gpio_driver,
-    }):
+    with patch.dict(
+        sys.modules,
+        {
+            "hardware_io.buttons.rpi_gpio_push_button": gpio_driver,
+        },
+    ):
         button = create_power_button("11", pending.append, app.show_power_dialog)
 
     assert button is gpio_driver.RpiGpioPushButton.return_value

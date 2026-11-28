@@ -5,9 +5,9 @@ import sys
 from unittest.mock import Mock, patch
 
 import pytest
+from ui.ui_action import UiAction
 
 from apps.orcUi.composition.rotary_input import RotaryInput, create_rotary_input
-from ui.ui_action import UiAction
 
 
 def test_rotary_events_reuse_semantic_actions_and_drop_delivery_after_close():
@@ -33,7 +33,9 @@ def test_rotary_events_reuse_semantic_actions_and_drop_delivery_after_close():
     assert volume.request_volume_up.call_count == 2
     volume.request_volume_down.assert_called_once_with()
     assert [call.args[0] for call in screen.call_args_list] == [
-        UiAction.NAVIGATE_UP, UiAction.NAVIGATE_UP, UiAction.NAVIGATE_DOWN,
+        UiAction.NAVIGATE_UP,
+        UiAction.NAVIGATE_UP,
+        UiAction.NAVIGATE_DOWN,
     ]
 
     screen_callbacks["rotated"](1)
@@ -46,10 +48,13 @@ def test_rotary_events_reuse_semantic_actions_and_drop_delivery_after_close():
 
 def test_configured_encoders_share_i2c_and_keep_address_order():
     board, driver = Mock(), Mock()
-    with patch.dict(sys.modules, {
-        "board": board,
-        "hardware_io.rotary_encoder.seesaw_rotary_encoder": driver,
-    }):
+    with patch.dict(
+        sys.modules,
+        {
+            "board": board,
+            "hardware_io.rotary_encoder.seesaw_rotary_encoder": driver,
+        },
+    ):
         assert create_rotary_input("0x36,0x37", Mock(), Mock(), None) is not None
 
     board.I2C.assert_called_once_with()

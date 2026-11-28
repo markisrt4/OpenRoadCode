@@ -144,6 +144,7 @@ class LinuxAudioSettings:
 
     def monitor_bluetooth(self, on_status: Callable[[bool], None]) -> None:
         """Observe BlueZ connection state while the settings controller is open."""
+
         def probe() -> bool:
             output = self._run("bluetoothctl", "devices", "Connected")
             return any(

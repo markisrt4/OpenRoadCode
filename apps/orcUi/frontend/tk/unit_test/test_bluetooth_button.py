@@ -7,7 +7,9 @@ from apps.orcUi.frontend.tk.bluetooth_button import BluetoothButton
 
 def test_bluetooth_shortcut_sets_command_and_uses_same_color_for_icon_and_label(monkeypatch):
     image = Mock()
-    monkeypatch.setattr("apps.orcUi.frontend.tk.bluetooth_button.tk.PhotoImage", Mock(return_value=image))
+    monkeypatch.setattr(
+        "apps.orcUi.frontend.tk.bluetooth_button.tk.PhotoImage", Mock(return_value=image)
+    )
     button = BluetoothButton.__new__(BluetoothButton)
     button._color = ""
     button.configure = Mock()

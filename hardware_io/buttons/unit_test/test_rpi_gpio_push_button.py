@@ -14,7 +14,7 @@ from hardware_io.gpio import RpiGpioHeader
 def test_physical_pin_11_reports_button_transitions_and_releases_gpio() -> None:
     gpiozero = ModuleType("gpiozero")
     gpio_button = Mock()
-    setattr(gpiozero, "Button", gpio_button)
+    gpiozero.Button = gpio_button
     with patch.dict(sys.modules, {"gpiozero": gpiozero}):
         driver = importlib.import_module("hardware_io.buttons.rpi_gpio_push_button")
     callback = Mock(spec=PushButtonCallbackIf)

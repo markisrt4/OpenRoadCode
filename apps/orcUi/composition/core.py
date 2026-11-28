@@ -12,13 +12,11 @@ from dataclasses import dataclass, field
 
 from apps.orcUi.composition.window_title import application_name
 from apps.orcUi.core_runtime import MapRuntime, StateIngressRuntime
-from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.presentation_state import OrcUiPresentationState
 from apps.orcUi.vehicle_configuration_state import VehicleConfigurationState
 from common.resource_cleanup import ResourceCleanup, close_resources
 from common.xdg_paths import openroadcode_state_dir
 from config.service_runtime_config import ServiceRuntimeConfigParser
-from controllers.audio import PipewireAudioController, SystemVolumeHandler
 from controllers.automotive import AutomotiveTelemetryProfile, TripTracker
 from controllers.automotive.fuel_model import FuelModel
 from controllers.automotive.vehicle_settings_store import VehicleSettingsStore
@@ -38,6 +36,10 @@ from services.automotive.automotive_service_cli import DEFAULT_RUNTIME_CONFIG
 from services.navigation.navigation_command_client import NavigationCommandClient
 from services.trip import TripRuntime
 from ui.theme import ThemeMode
+
+from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
+from controllers.audio import PipewireAudioController, SystemVolumeHandler
+
 from .power_button import create_power_button
 from .rotary_input import RotaryInput, create_rotary_input
 
@@ -133,7 +135,9 @@ def create_core_composition() -> CoreComposition:
         )
         cleanup.callback(app.shutdown)
         power_button = create_power_button(
-            os.environ.get("ORC_POWER_BUTTON_PIN"), app.dispatch_ui, app.show_power_dialog,
+            os.environ.get("ORC_POWER_BUTTON_PIN"),
+            app.dispatch_ui,
+            app.show_power_dialog,
         )
         if power_button is not None:
             cleanup.callback(power_button.stop)
@@ -201,8 +205,10 @@ def create_core_composition() -> CoreComposition:
             connectivity=connectivity,
             power_button=power_button,
             rotary_input=create_rotary_input(
-                os.environ.get("ORC_ROTARY_ENCODERS"), app.dispatch_ui,
-                app.handle_screen_action, volume,
+                os.environ.get("ORC_ROTARY_ENCODERS"),
+                app.dispatch_ui,
+                app.handle_screen_action,
+                volume,
             ),
         )
         cleanup.release()

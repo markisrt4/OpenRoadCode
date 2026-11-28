@@ -167,8 +167,13 @@ class HostSetupPlanTests(unittest.TestCase):
 
     def test_shutdown_button_plan_resolves_physical_pin_to_bcm(self) -> None:
         result = self.run_installer(
-            "--target", "rpi5", "--shutdown-button-pin", "11", "--show-plan",
-            model="Raspberry Pi 5 Model B", architecture="arm64",
+            "--target",
+            "rpi5",
+            "--shutdown-button-pin",
+            "11",
+            "--show-plan",
+            model="Raspberry Pi 5 Model B",
+            architecture="arm64",
         )
 
         self.assertEqual(0, result.returncode, result.stderr)
@@ -176,8 +181,13 @@ class HostSetupPlanTests(unittest.TestCase):
 
     def test_shutdown_button_rejects_i2c_clock_pin(self) -> None:
         result = self.run_installer(
-            "--target", "rpi5", "--shutdown-button-pin", "5", "--show-plan",
-            model="Raspberry Pi 5 Model B", architecture="arm64",
+            "--target",
+            "rpi5",
+            "--shutdown-button-pin",
+            "5",
+            "--show-plan",
+            model="Raspberry Pi 5 Model B",
+            architecture="arm64",
         )
 
         self.assertNotEqual(0, result.returncode)
@@ -192,8 +202,11 @@ class HostSetupPlanTests(unittest.TestCase):
                 encoding="utf-8",
             )
             command = [
-                "python3", str(INSTALLER.with_name("configure_shutdown_button.py")),
-                "11", "--config", str(config),
+                "python3",
+                str(INSTALLER.with_name("configure_shutdown_button.py")),
+                "11",
+                "--config",
+                str(config),
             ]
             subprocess.run(command, check=True)
             expected = (
