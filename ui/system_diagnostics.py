@@ -154,6 +154,7 @@ class SystemDiagnosticsSnapshot:
     service_monitor_status: str = "not_started"
     network_usb: dict = field(default_factory=dict)
     calendar_health: dict = field(default_factory=dict)
+    sdr_rest_health: str | None = None
 
 
 class SystemDiagnosticsProviderIf(Protocol):

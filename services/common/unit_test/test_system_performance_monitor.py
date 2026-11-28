@@ -5,10 +5,13 @@
 
 import threading
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from services.common.service_manager_pairing import ServiceManagerPairing
-from services.common.system_performance_monitor import SystemPerformanceMonitor
+from services.common.system_performance_monitor import (
+    SystemPerformanceMonitor,
+    sample_sdr_rest_health,
+)
 from services.linux.systemd_service_manager_http import SystemdServiceManagerHandler
 from services.termux.service_manager_http import ServiceManagerHandler
 from ui.system_diagnostics import (
@@ -33,6 +36,7 @@ class SystemPerformanceMonitorTest(unittest.TestCase):
             disk_free_gb=2,
             sampled_at_unix_s=123,
             temperature_c=55,
+            sdr_rest_health="healthy",
             battery=BatterySnapshot(
                 state="available", temperature_c=30.1, charge_percent=77, health="GOOD"
             ),
@@ -46,6 +50,7 @@ class SystemPerformanceMonitorTest(unittest.TestCase):
         self.assertIsNone(payload["snapshot"]["swap_total_bytes"])
         self.assertEqual(payload["snapshot"]["battery"]["temperature_c"], 30.1)
         self.assertEqual(payload["snapshot"]["battery"]["charge_percent"], 77)
+        self.assertEqual(payload["snapshot"]["sdr_rest_health"], "healthy")
         self.assertNotIn("memory_total_mb", payload["snapshot"])
         self.assertEqual(
             set(payload["history"][0]),
@@ -59,6 +64,21 @@ class SystemPerformanceMonitorTest(unittest.TestCase):
                 "temperature_c",
             },
         )
+
+    @patch("services.common.system_performance_monitor.http.client.HTTPConnection")
+    def test_sdr_health_probe_uses_only_the_local_read_endpoint(self, connection_type):
+        connection = connection_type.return_value
+        response = connection.getresponse.return_value.__enter__.return_value
+        response.status = 200
+        response.read.return_value = b'{"status":"ok"}'
+        self.assertEqual(sample_sdr_rest_health(), "healthy")
+        connection_type.assert_called_once_with("127.0.0.1", 5570, timeout=0.25)
+        connection.request.assert_called_once_with("GET", "/v1/health")
+        connection.close.assert_called_once()
+        response.read.return_value = b'{"status":"starting"}'
+        self.assertEqual(sample_sdr_rest_health(), "unhealthy")
+        connection.request.side_effect = ConnectionRefusedError
+        self.assertEqual(sample_sdr_rest_health(), "unreachable")
 
     def test_worker_recovers_from_error_and_stops_without_leaking(self):
         recovered = threading.Event()

@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import http.client
+import json
 import logging
 import threading
 import time
@@ -22,6 +24,29 @@ from services.common.termux_battery_monitor import TermuxBatteryMonitor
 from ui.system_diagnostics import OrcWorkloadSnapshot, SystemDiagnosticsSnapshot
 
 LOGGER = logging.getLogger("runtime.performance")
+
+
+def sample_sdr_rest_health() -> str:
+    """Read the local SDRForge health endpoint without changing receiver state."""
+    connection = http.client.HTTPConnection("127.0.0.1", 5570, timeout=0.25)
+    try:
+        connection.request("GET", "/v1/health")
+        with connection.getresponse() as response:
+            if response.status != 200:
+                return "unhealthy"
+            body = response.read(4097)
+            if len(body) > 4096:
+                return "unhealthy"
+            payload = json.loads(body)
+            if isinstance(payload, dict) and payload.get("status") == "ok":
+                return "healthy"
+            return "unhealthy"
+    except (OSError, http.client.HTTPException):
+        return "unreachable"
+    except ValueError:
+        return "unhealthy"
+    finally:
+        connection.close()
 
 
 class SystemPerformanceMonitor:
@@ -56,6 +81,8 @@ class SystemPerformanceMonitor:
         self._operation_id: str | None = None
         self._inventory: dict = {}
         self._inventory_last = 0.0
+        self._sdr_rest_health: str | None = None
+        self._sdr_rest_sample_at = float("-inf")
 
     def start(self) -> None:
         """Start sampling in a worker; never perform firmware calls on the UI thread."""
@@ -176,10 +203,14 @@ class SystemPerformanceMonitor:
                             "usb_sysfs": {"status": "unavailable", "devices": []},
                         }
                     self._inventory_last = started
+                if started - self._sdr_rest_sample_at >= 5:
+                    self._sdr_rest_health = sample_sdr_rest_health()
+                    self._sdr_rest_sample_at = started
                 sample = replace(
                     sample,
                     network_usb=self._inventory,
                     calendar_health=sample_calendar_health(),
+                    sdr_rest_health=self._sdr_rest_health,
                     workload=workload,
                     sensors=self._sensor_monitor.snapshots(),
                     sensor_monitor_status=self._sensor_monitor.status,

@@ -212,6 +212,11 @@ visible per-process rows, aggregate workload totals, and visibility detail.
 `snapshot.sensor_monitor_status` describes receiver availability. No command
 lines or process environments are exported.
 
+`snapshot.sdr_rest_health` reports `healthy`, `unhealthy`, or `unreachable`
+from a bounded, read-only `GET /v1/health` against the host's loopback
+SDRForge API on port 5570. The background sampler checks at most once every
+five seconds. This reports API health separately from receiver and USB status.
+
 Version 1 returns `version`, `sample_interval_seconds`, `sample_age_seconds`,
 `error`, `snapshot`, and `history`. Before the first sample, `snapshot` and
 `sample_age_seconds` are null and `history` is empty. A sampler failure retains
